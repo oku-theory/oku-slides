@@ -341,7 +341,9 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) ->
         session.open(path)?;
     }
     let server = Server::http(("127.0.0.1", port)).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let stt = slider_stt::Stt::new(slider_stt::default_models_dir());
     println!("Écho (dev) sur http://127.0.0.1:{port}");
+    println!("modèles de dictée : {}", stt.models_dir().display());
     let json = Header::from_bytes("Content-Type", "application/json").unwrap();
     for mut req in server.incoming_requests() {
         let url = req.url().split('?').next().unwrap_or("/").to_owned();
@@ -353,6 +355,16 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) ->
                     Ok(v) => (200, v),
                     Err(e) => (400, serde_json::json!({ "error": e.to_string() })),
                 },
+                Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") })),
+            };
+            req.respond(Response::from_string(out.to_string()).with_status_code(status).with_header(json.clone())).ok();
+            continue;
+        }
+        if req.method() == &Method::Post && url == "/api/stt" {
+            let mut body = String::new();
+            req.as_reader().read_to_string(&mut body).ok();
+            let (status, out) = match serde_json::from_str::<slider_stt::SttRequest>(&body) {
+                Ok(r) => (200, serde_json::to_value(stt.handle(r)).unwrap_or_default()),
                 Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") })),
             };
             req.respond(Response::from_string(out.to_string()).with_status_code(status).with_header(json.clone())).ok();

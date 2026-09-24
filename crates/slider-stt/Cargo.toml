@@ -1,0 +1,23 @@
+[package]
+name = "slider-stt"
+description = "Dictée d'Écho : capture du micro, modèles Whisper téléchargés à la demande, transcription locale."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+
+[features]
+default = []
+# Accélération GPU sur macOS.
+metal = ["whisper-rs/metal"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+whisper-rs = "0.16"
+cpal = "0.18"
+ureq = "3"
+
+[dev-dependencies]
+hound = "3"

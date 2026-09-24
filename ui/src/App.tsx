@@ -3,12 +3,13 @@ import type { Op, SlideView, Snapshot } from "./api";
 import type { TemplateView } from "./api";
 import { api, applyAppearance, findElement, inTauri, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
 import TemplatePicker from "./TemplatePicker";
-import Stage from "./Stage";
+import Stage, { FIELD_LABELS, textOps } from "./Stage";
+import Dictation from "./Dictation";
+import { textToParagraphs } from "./api";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
   redo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></svg>,
-  mic: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>,
 };
 
 /** SVG des slides, en URL d'objet, mis en cache par empreinte de rendu. */
@@ -222,6 +223,47 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // --- Dictée : où va le texte ----------------------------------------------
+  const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
+  const target = view && selected ? view.targets.find((t) => t.id === selected) : undefined;
+  const writable = target && target.text !== null ? target : undefined;
+  const destination = editing
+    ? "au curseur"
+    : writable
+      ? writable.target === "field"
+        ? `remplace ${(FIELD_LABELS[writable.kind] ?? writable.kind).toLowerCase()}`
+        : "à la suite du bloc sélectionné"
+      : view?.slide.kind === "content"
+        ? "nouveau bloc de texte"
+        : "sélectionnez une zone";
+  const whisperPrompt = snap
+    ? [snap.title, ...snap.slides.map((s) => s.title)].filter(Boolean).join(". ").slice(0, 600)
+    : "";
+
+  const onDictated = (text: string) => {
+    if (editing) {
+      setDictated((d) => ({ seq: (d?.seq ?? 0) + 1, text }));
+      return;
+    }
+    if (!view) return;
+    if (writable) {
+      const previous = writable.text ?? "";
+      const keep = writable.target === "element" && previous.trim() !== "" && previous !== "Nouveau texte";
+      apply("Dictée", textOps(view, writable, keep ? `${previous}\n${text}` : text));
+      return;
+    }
+    if (view.slide.kind === "content") {
+      const id = newId("t");
+      const free = (view.slide.elements?.length ?? 0) > 0;
+      const element = free
+        ? { id, kind: "text", frame: { x: 40, y: 40, w: 640, h: 120 }, text: textToParagraphs(text) }
+        : { id, kind: "text", text: textToParagraphs(text) };
+      apply("Dictée", [{ op: "add_element", slide: view.slide.id, zone: free ? "elements" : "blocks", element }]).then(() => setSelected(id));
+      return;
+    }
+    say(`Sélectionnez une zone pour y placer : « ${text} »`, true);
+  };
+
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>Chargement…</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
@@ -285,6 +327,7 @@ export default function App() {
             onSelect={setSelected}
             onEdit={setEditing}
             onApply={apply}
+            dictated={dictated}
           />
         ) : (
           <div className="stage-wrap empty">Rendu…</div>
@@ -303,16 +346,12 @@ export default function App() {
         </button>
         <div className="postit note" role="note">
           <span className="postit-title">Astuce</span>
-          <span className="postit-hint">Double-clic pour modifier un texte, glisser pour déplacer un élément libre.</span>
+          <span className="postit-hint">⌘D pour dicter, dans la zone sélectionnée ou au curseur. Double-clic pour modifier un texte.</span>
         </div>
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}
-      <div className="device object" aria-label="Dictée">
-        <button className="mic" disabled aria-label="Dicter (bientôt)">{Icon.mic}</button>
-        <div className="spacer caption">La dictée arrive bientôt · slide {index + 1} sur {snap.slides.length}{cur ? ` · ${cur.kind}` : ""}</div>
-        <span className="caption"><span className="key">⌘Z</span> annuler</span>
-      </div>
+      <Dictation destination={destination} prompt={whisperPrompt} onText={onDictated} onError={(m) => say(m, true)} />
 
       {picking && <TemplatePicker themeKey={appearanceKey} onPick={insertTemplate} onClose={() => setPicking(false)} />}
 

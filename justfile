@@ -74,12 +74,17 @@ icons:
 doctor:
     #!/usr/bin/env bash
     ok=1
-    for tool in cargo bun; do
+    for tool in cargo bun cmake; do
       if command -v "$tool" >/dev/null; then echo "✓ $tool"; else echo "✗ $tool manquant"; ok=0; fi
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
+    command -v cmake >/dev/null || echo "  cmake sert à compiler Whisper (dictée) : brew install cmake"
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     [ "$ok" = 1 ]
+
+# Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
+transcribe wav model="turbo" lang="":
+    cargo run -q --release -p slider-stt --example transcribe -- {{wav}} {{model}} {{lang}}
 
 # Supprime les builds (Rust et interface)
 clean:

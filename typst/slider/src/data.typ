@@ -21,7 +21,7 @@
 // Chaque élément porte un "id" ; il est étiqueté <e-ID> pour l'introspection.
 
 #import "tokens.typ": *
-#import "core.typ": config, interp
+#import "core.typ": config, interp, text-probe
 #import "slides.typ": slide, title-slide, chapter, toc, end-slide, blank-slide, deck, card
 
 // Taille de la zone de corps d'une slide de contenu avec titre.
@@ -121,8 +121,14 @@
     let real-h = if fixed { sz.height } else { measure(block(width: sz.width, el)).height }
     context {
       let p = here().position()
+      let over = if kind == "text" {
+        let o = _text-args(t, style)
+        if "leading" in style { o.insert("leading", leading-of(t, style.leading)) }
+        o.insert("align", (left: left, center: center, right: right).at(style.at("align", default: "left"), default: left))
+        o
+      } else { (:) }
       [#metadata((id: str(e.id), page: p.page, x: p.x / 1pt, y: p.y / 1pt,
-        w: sz.width / 1pt, h: real-h / 1pt))<slider-box>]
+        w: sz.width / 1pt, h: real-h / 1pt, ax: p.x / 1pt, aw: sz.width / 1pt, style: text-probe(over)))<slider-box>]
     }
     el
   }))

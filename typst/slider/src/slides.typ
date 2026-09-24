@@ -84,7 +84,8 @@
 #let _slide-title(t, title, kicker-body) = {
   let c = t.component.title
   let items = ()
-  if kicker-body != none { items.push(tracked("@kicker", styled(t, t.component.kicker, kicker-body))) }
+  if kicker-body != none { items.push(tracked("@kicker", styled(t, t.component.kicker, kicker-body),
+    style: text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none)))) }
   let r = c.at("rule", default: none)
   if r != none {
     items.push(rect(width: r.width * 1pt, height: r.height * 1pt, fill: color-of(t, r.color)))
@@ -92,7 +93,7 @@
   items.push(tracked("@title", {
     set par(leading: leading-of(t, c.at("leading", default: "tight")))
     _heading(2, title, ..text-style(t, c))
-  }))
+  }, style: text-style(t, c) + (leading: leading-of(t, c.at("leading", default: "tight")))))
   stack(spacing: space-of(t, "sm"), ..items)
 }
 
@@ -161,9 +162,12 @@
     text(size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
       tracking: k.title-tracking * 1pt, title)
-  })
+  }, style: (size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
+      font: font-of(t, "display"), weight: weight-of(t, "display"),
+      tracking: k.title-tracking * 1pt, leading: leading-of(t, "tight")))
   let sub = if subtitle != none {
-    tracked("@subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle))
+    tracked("@subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle),
+      style: (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")))
   }
   let meta-line = if meta.len() > 0 {
     text(size: size-of(t, k.meta-size), fill: col("meta-color", "band-meta-color"), meta.join[ · ])
@@ -242,8 +246,9 @@
         set par(leading: leading-of(t, "tight"))
         _heading(1, title, size: size-of(t, k.title-size), font: font-of(t, "display"),
           weight: weight-of(t, "display"), fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt)
-      }),
-      ..if subtitle != none { (tracked("@subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars))),) },
+      }, style: (size: size-of(t, k.title-size), font: font-of(t, "display"), weight: weight-of(t, "display"),
+        fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt, leading: leading-of(t, "tight"))),
+      ..if subtitle != none { (tracked("@subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)), style: (size: size-of(t, k.subtitle-size))),) },
     ))
   })
 }
@@ -282,7 +287,8 @@
     align(center + horizon, tracked("@text", text(
       size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
       weight: weight-of(t, "display"), body,
-    )))
+    ), style: (size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
+      weight: weight-of(t, "display"))))
   })
 }
 

@@ -81,6 +81,19 @@ export interface Slide {
   notes?: string;
 }
 
+/** Typographie du rendu Typst (pt), pour caler l'éditeur sur le texte. */
+export interface TextStyle {
+  size: number;
+  leading: number;
+  tracking: number;
+  font: string[];
+  weight: number | string;
+  fill: string | null;
+  align: "left" | "center" | "right" | null;
+  case: "upper" | "lower" | null;
+  bg: string | null;
+}
+
 export interface Target {
   id: string;
   target: "element" | "field";
@@ -91,6 +104,10 @@ export interface Target {
   y: number;
   w: number;
   h: number;
+  /** Zone disponible pour le texte : début et largeur (contient la boîte). */
+  ax: number;
+  aw: number;
+  style: TextStyle | null;
 }
 
 export interface SlideView {
@@ -109,6 +126,56 @@ export interface TemplateView {
   slide: Slide;
   svg: string;
 }
+
+// --- Dictée ---------------------------------------------------------------
+
+export type SttModel = "turbo" | "large" | "base";
+export type SttState = "idle" | "downloading" | "recording" | "transcribing";
+
+export interface SttStatus {
+  state: SttState;
+  config: { model: SttModel; language: string | null };
+  models: { id: SttModel; label: string; size: number; installed: boolean }[];
+  download: { model: SttModel; received: number; total: number } | null;
+  level: number;
+  partial: string;
+  text: string | null;
+  seq: number;
+  seconds: number;
+  error: string | null;
+}
+
+type SttRequest =
+  | { cmd: "status" }
+  | { cmd: "configure"; model: SttModel; language: string | null }
+  | { cmd: "start"; prompt: string | null }
+  | { cmd: "stop" }
+  | { cmd: "cancel" }
+  | { cmd: "download"; model: SttModel };
+
+async function sttCall(req: SttRequest): Promise<SttStatus> {
+  if (inTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<SttStatus>("stt", { req });
+  }
+  const res = await fetch("/api/stt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body as SttStatus;
+}
+
+export const stt = {
+  status: () => sttCall({ cmd: "status" }),
+  configure: (model: SttModel, language: string | null) => sttCall({ cmd: "configure", model, language }),
+  start: (prompt: string | null) => sttCall({ cmd: "start", prompt }),
+  stop: () => sttCall({ cmd: "stop" }),
+  cancel: () => sttCall({ cmd: "cancel" }),
+  download: (model: SttModel) => sttCall({ cmd: "download", model }),
+};
 
 export type Op = { op: string } & Record<string, unknown>;
 

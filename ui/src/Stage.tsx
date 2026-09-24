@@ -24,9 +24,11 @@ interface Props {
   onSelect: (id: string | null) => void;
   onEdit: (id: string | null) => void;
   onApply: (label: string, ops: Op[]) => void;
+  /** Texte dicté à insérer au curseur de l'éditeur ouvert. */
+  dictated?: { seq: number; text: string } | null;
 }
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   title: "Titre",
   subtitle: "Sous-titre",
   kicker: "Surtitre",
@@ -90,8 +92,96 @@ export function textOps(view: SlideView, t: Target, value: string): Op[] {
   return [{ op: "set_slide_field", slide: slide.id, field, value: v }];
 }
 
-export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply }: Props) {
+const WEIGHTS: Record<string, number> = {
+  thin: 100, extralight: 200, light: 300, regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900,
+};
+
+/** Pile CSS pour des familles Typst (la version variable embarquée d'abord). */
+const cssFonts = (families: string[]) =>
+  [...families.flatMap((f) => {
+    const name = f.replace(/\b\w/g, (c) => c.toUpperCase());
+    return [`"${name} Variable"`, `"${name}"`];
+  }), "serif"].join(", ");
+
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+/** Largeur (px) de la plus longue ligne, dans la police donnée. */
+function textWidth(text: string, font: string, tracking: number): number {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return 0;
+  measureCtx.font = font;
+  return Math.max(0, ...text.split("\n").map((l) => measureCtx!.measureText(l).width + tracking * l.length));
+}
+
+/**
+ * Éditeur posé exactement sur le texte rendu : même police, taille, graisse,
+ * couleur, interlignage et alignement, première ligne sur la même ligne de base.
+ * Un champ (titre…) épouse son texte et s'élargit en tapant, jusqu'à sa zone ;
+ * un bloc garde la largeur de sa boîte, où le texte revient à la ligne.
+ */
+function editorGeometry(t: Target, draft: string, scale: number) {
+  const st = t.style;
+  const pad = 5; // marge intérieure (px écran) : le cadre ne colle pas aux lettres
+  if (!st) {
+    const left = t.x * scale - pad;
+    return {
+      left,
+      style: { left, top: t.y * scale - pad, width: Math.max(t.w * scale, 240) + 2 * pad, minHeight: t.h * scale + 2 * pad, padding: pad } as React.CSSProperties,
+    };
+  }
+  const size = st.size * scale;
+  // Typst : interligne = hauteur de capitale + espacement ; en CSS, hauteur de ligne.
+  const line = Math.max(st.size * 0.7 + st.leading, st.size * 1.05) * scale;
+  // Ligne de base de la première ligne : Typst la place à y + hauteur de capitale ;
+  // CSS à mi-interligne + (ascendante − descendante) / 2.
+  const top = t.y * scale + size * 0.7 - line / 2 - size * 0.325;
+  const weight = typeof st.weight === "number" ? st.weight : WEIGHTS[String(st.weight).replace(/[^a-z]/g, "")] ?? 400;
+  const family = cssFonts(st.font);
+  const tracking = st.tracking * scale;
+  const align = st.align ?? "left";
+
+  let width: number;
+  if (t.target === "element") {
+    width = t.w * scale;
+  } else {
+    const shown = st.case === "upper" ? draft.toUpperCase() : st.case === "lower" ? draft.toLowerCase() : draft;
+    const natural = textWidth(shown, `${weight} ${size}px ${family}`, tracking) + size * 0.35; // place du curseur
+    width = Math.min(Math.max(natural, size * 3), t.aw * scale);
+  }
+  const zoneLeft = t.ax * scale;
+  const zoneWidth = t.aw * scale;
+  const x = t.target === "element"
+    ? t.x * scale
+    : align === "center"
+      ? zoneLeft + (zoneWidth - width) / 2
+      : align === "right"
+        ? zoneLeft + zoneWidth - width
+        : t.x * scale;
+  const left = x - pad;
+  return {
+    left,
+    style: {
+      left,
+      top: top - pad,
+      width: width + 2 * pad,
+      minHeight: line + 2 * pad,
+      padding: pad,
+      fontFamily: family,
+      fontSize: size,
+      fontWeight: weight,
+      lineHeight: `${line}px`,
+      letterSpacing: tracking || undefined,
+      color: st.fill ?? undefined,
+      background: st.bg ?? undefined,
+      textAlign: align,
+      textTransform: st.case === "upper" ? "uppercase" : st.case === "lower" ? "lowercase" : undefined,
+    } as React.CSSProperties,
+  };
+}
+
+export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
   const [scale, setScale] = useState(0.5);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [draft, setDraft] = useState("");
@@ -113,6 +203,33 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   useEffect(() => {
     setDraft(editTarget?.text ?? "");
   }, [editing, editTarget?.text]);
+
+  // L'éditeur grandit avec le texte, comme la boîte rendue ; l'aide se pose dessous.
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft, editing, scale]);
+
+  // La dictée s'insère au curseur, avec les espaces qu'il faut.
+  useEffect(() => {
+    const el = area.current;
+    if (!dictated || !el) return;
+    const { selectionStart: a, selectionEnd: b, value } = el;
+    const before = value.slice(0, a);
+    const after = value.slice(b);
+    const lead = before && !/[\s(«"']$/.test(before) ? " " : "";
+    const trail = after && !/^[\s.,;:!?)»]/.test(after) ? " " : "";
+    const next = before + lead + dictated.text + trail + after;
+    setDraft(next);
+    const caret = (before + lead + dictated.text).length;
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictated?.seq]);
 
   const startDrag = (e: React.PointerEvent, t: Target, mode: Mode) => {
     e.stopPropagation();
@@ -187,7 +304,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 onPointerDown={(e) => startDrag(e, t, "move")}
                 onDoubleClick={() => t.text !== null && onEdit(t.id)}
               >
-                {sel && <span className="tag">{label}</span>}
+                {sel && !editing && <span className="tag">{label}</span>}
                 {sel && t.free &&
                   (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                     <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, t, m)} />
@@ -196,41 +313,44 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
             );
           })}
         </div>
-        {editTarget && (
-          <>
-            <textarea
-              className="editor"
-              autoFocus
-              aria-label="Modifier le texte"
-              style={{
-                left: editTarget.x * scale,
-                top: editTarget.y * scale,
-                width: Math.max(editTarget.w * scale + 24, 320),
-                height: Math.max(editTarget.h * scale + 24, 64),
-              }}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  onEdit(null);
-                } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey || editTarget.target === "field")) {
-                  e.preventDefault();
-                  commit();
-                }
-                e.stopPropagation();
-              }}
-              onBlur={commit}
-            />
-            <span
-              className="editor-hint"
-              style={{ left: editTarget.x * scale, top: editTarget.y * scale - 26 }}
-            >
-              {editTarget.target === "field" ? "Entrée pour valider · Échap pour annuler" : "⌘ Entrée pour valider · une ligne par paragraphe, « - » pour une puce"}
-            </span>
-          </>
-        )}
+        {editTarget && (() => {
+          const g = editorGeometry(editTarget, draft, scale);
+          return (
+            <>
+              {/* Cache le texte rendu dessous : seul le brouillon se voit. */}
+              <span
+                className="editor-mask"
+                style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editTarget.style?.bg ?? undefined }}
+              />
+              <textarea
+                ref={area}
+                className="editor"
+                autoFocus
+                aria-label="Modifier le texte"
+                spellCheck
+                rows={1}
+                style={g.style}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onEdit(null);
+                  } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey || editTarget.target === "field")) {
+                    e.preventDefault();
+                    commit();
+                  }
+                  e.stopPropagation();
+                }}
+                onBlur={commit}
+              />
+              <span className="editor-hint">
+                {editTarget.target === "field" ? "Entrée pour valider · Échap pour annuler" : "⌘ Entrée pour valider · une ligne par paragraphe, « - » pour une puce"}
+              </span>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

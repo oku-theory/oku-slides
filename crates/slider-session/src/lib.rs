@@ -166,6 +166,11 @@ pub struct Target {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// Zone disponible pour le texte : début et largeur (contient la boîte).
+    pub ax: f64,
+    pub aw: f64,
+    /// Typographie du rendu, pour un éditeur calé sur le texte.
+    pub style: Option<slider_render::TextStyle>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -611,6 +616,9 @@ impl Session {
                     y: b.y,
                     w: b.w,
                     h: b.h,
+                    ax: b.ax.unwrap_or(b.x).min(b.x),
+                    aw: b.aw.unwrap_or(b.w).max(b.w),
+                    style: b.style.clone(),
                 });
             } else if let Some((e, free)) = find_element(&slide, &b.id) {
                 let (kind, text) = match &e.body {
@@ -630,6 +638,9 @@ impl Session {
                     y: b.y,
                     w: b.w,
                     h: b.h,
+                    ax: b.ax.unwrap_or(b.x).min(b.x),
+                    aw: b.aw.unwrap_or(b.w).max(b.w),
+                    style: b.style.clone(),
                 });
             }
         }

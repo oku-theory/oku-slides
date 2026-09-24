@@ -21,11 +21,43 @@
 
 // Émet la boîte réelle d'un contenu (page, position, taille) sous l'étiquette
 // <slider-box>. Les champs de slide utilisent un id « @champ ».
-#let tracked(id, body) = layout(sz => {
+// Typographie effective d'une boîte (contexte + surcharges), pour que l'éditeur
+// de l'app reprenne exactement la taille, la police et l'interlignage du rendu.
+// À appeler dans un `context`.
+#let text-probe(over) = {
+  let size = over.at("size", default: text.size).to-absolute()
+  let lead = over.at("leading", default: par.leading)
+  let lead = if type(lead) == length { lead.em * size + lead.abs } else { lead }
+  let track = over.at("tracking", default: text.tracking)
+  let track = if type(track) == length { track.em * size + track.abs } else { 0pt }
+  let fill = over.at("fill", default: text.fill)
+  let font = over.at("font", default: text.font)
+  let font = if type(font) == array { font.map(f => if type(f) == str { f } else { f.name }) } else if type(font) == str { (font,) } else { (font.name,) }
+  let weight = over.at("weight", default: text.weight)
+  let a = repr(over.at("align", default: align.alignment))
+  (
+    size: size / 1pt,
+    leading: lead / 1pt,
+    tracking: track / 1pt,
+    font: font,
+    weight: if type(weight) == int { weight } else { repr(weight).trim("\"") },
+    fill: if type(fill) == color { fill.to-hex() } else { none },
+    align: if a.contains("center") { "center" } else if a.contains("right") or a.contains("end") { "right" } else { "left" },
+    case: over.at("case", default: none),
+    bg: if type(page.fill) == color { page.fill.to-hex() } else { none },
+  )
+}
+
+#let tracked(id, body, style: (:)) = layout(sz => {
   let m = measure(body, width: sz.width)
   context {
     let p = here().position()
-    [#metadata((id: id, page: p.page, x: p.x / 1pt, y: p.y / 1pt, w: m.width / 1pt, h: m.height / 1pt))<slider-box>]
+    let st = text-probe(style)
+    // Le texte est aligné dans la zone : la boîte suit le texte, pas la zone.
+    let free = sz.width - m.width
+    let dx = if st.align == "center" { free / 2 } else if st.align == "right" { free } else { 0pt }
+    [#metadata((id: id, page: p.page, x: (p.x + dx) / 1pt, y: p.y / 1pt, w: m.width / 1pt, h: m.height / 1pt,
+      ax: p.x / 1pt, aw: sz.width / 1pt, style: st))<slider-box>]
   }
   body
 })

@@ -15,6 +15,7 @@ slider-core.workspace = true
 slider-render.workspace = true
 slider-pdf.workspace = true
 slider-session.workspace = true
+slider-stt.workspace = true
 tiny_http = "0.12"
 anyhow.workspace = true
 clap.workspace = true

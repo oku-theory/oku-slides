@@ -47,6 +47,38 @@ pub struct ElementBox {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// Largeur disponible (la boîte peut s'étendre jusque-là en tapant).
+    #[serde(default)]
+    pub aw: Option<f64>,
+    /// Début de la zone disponible (le texte peut y être centré ou à droite).
+    #[serde(default)]
+    pub ax: Option<f64>,
+    /// Typographie effective : l'éditeur de l'app la reprend telle quelle.
+    #[serde(default)]
+    pub style: Option<TextStyle>,
+}
+
+/// Typographie mesurée par Typst (tailles en pt).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TextStyle {
+    pub size: f64,
+    pub leading: f64,
+    #[serde(default)]
+    pub tracking: f64,
+    #[serde(default)]
+    pub font: Vec<String>,
+    /// 400, 700… ou un nom (« bold »).
+    #[serde(default)]
+    pub weight: serde_json::Value,
+    #[serde(default)]
+    pub fill: Option<String>,
+    #[serde(default)]
+    pub align: Option<String>,
+    #[serde(default)]
+    pub case: Option<String>,
+    /// Fond de la page sous le texte.
+    #[serde(default)]
+    pub bg: Option<String>,
 }
 
 /// Correspondance slide → page.

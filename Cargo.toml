@@ -13,6 +13,7 @@ slider-core = { path = "crates/slider-core" }
 slider-render = { path = "crates/slider-render" }
 slider-pdf = { path = "crates/slider-pdf" }
 slider-session = { path = "crates/slider-session" }
+slider-stt = { path = "crates/slider-stt" }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"

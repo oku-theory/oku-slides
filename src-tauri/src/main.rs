@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 use serde_json::Value;
 use slider_session::{Request, Session};
+use slider_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
 
 struct AppState(Mutex<Session>);
@@ -16,6 +17,12 @@ struct AppState(Mutex<Session>);
 fn request(state: tauri::State<'_, AppState>, req: Request) -> Result<Value, String> {
     let mut session = state.0.lock().map_err(|_| "session indisponible".to_owned())?;
     session.handle(req).map_err(|e| e.to_string())
+}
+
+/// Dictée : jamais bloquant (téléchargement, micro et Whisper tournent dans leurs fils).
+#[tauri::command]
+fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
+    engine.handle(req)
 }
 
 /// Polices livrées avec l'app (ressource `fonts/`), plus `SLIDER_FONTS` si défini.
@@ -57,9 +64,14 @@ fn main() {
                 session.open(&path).ok();
             }
             app.manage(AppState(Mutex::new(session)));
+            let models = match std::env::var_os("ECHO_MODELS") {
+                Some(dir) => PathBuf::from(dir),
+                None => app.path().app_data_dir().map(|d| d.join("models")).unwrap_or_else(|_| slider_stt::default_models_dir()),
+            };
+            app.manage(Stt::new(models));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![request])
+        .invoke_handler(tauri::generate_handler![request, stt])
         .run(tauri::generate_context!())
         .expect("échec du lancement d'Écho");
 }

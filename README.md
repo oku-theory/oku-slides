@@ -19,6 +19,7 @@ Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/c
 | `crates/slider-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
 | `crates/slider-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
 | `crates/slider-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
+| `crates/slider-stt` | Dictée : micro, modèles Whisper téléchargés à la demande, transcription locale |
 | `crates/slider-cli` | Outil `slider` : rendu, enregistrement, relecture, mesures, serveur de dev |
 | `src-tauri` | Application de bureau Tauri 2 |
 | `ui` | Interface React + TypeScript (design system Papier) |
@@ -44,7 +45,7 @@ ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono
 ## Lancer l'application
 
 Tout se lance depuis la racine du dépôt avec [just](https://just.systems).
-Prérequis : Rust, [Bun](https://bun.sh), just, et la CLI Tauri
+Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour Whisper), et la CLI Tauri
 (`cargo install tauri-cli --version "^2"`). `just doctor` vérifie tout.
 
 ```sh
@@ -69,3 +70,30 @@ just          # toutes les commandes
 | ⌘Z, ⇧⌘Z | Annuler, rétablir (un geste = une annulation) |
 | ⌘S, ⇧⌘S, ⌘O | Enregistrer, enregistrer sous, ouvrir |
 
+
+### Dictée
+
+Tout se passe sur la machine : Whisper (whisper.cpp, accéléré par Metal sur Mac).
+Au premier appui sur le micro, le modèle choisi est téléchargé une fois, puis
+l'écoute démarre toute seule.
+
+| Modèle | Taille | Usage |
+| --- | --- | --- |
+| Large v3 Turbo (par défaut) | 574 Mo | Rapide et précis, multilingue |
+| Large v3 | 3,1 Go | Le plus précis, multilingue, plus lent |
+| Base | 148 Mo | Léger, pour les petites machines |
+
+Langue : détection automatique ou langue imposée (réglages de l'appareil de dictée).
+Les modèles vont dans le dossier de données de l'app
+(`~/Library/Application Support/me.dartiguenave.echo/models` sur Mac) ;
+`ECHO_MODELS` le remplace.
+
+| Geste | Effet |
+| --- | --- |
+| ⌘D ou le micro | Commencer, puis terminer la dictée |
+| Échap | Abandonner l'écoute ou le téléchargement |
+
+Le texte va au curseur si un texte est en cours d'édition, sinon dans la zone
+sélectionnée (un champ est remplacé, un bloc est complété), sinon dans un
+nouveau bloc. Chaque dictée s'annule avec ⌘Z. `just transcribe fichier.wav`
+transcrit un fichier ; `ECHO_FAKE_MIC=fichier.wav just serve` simule le micro.
