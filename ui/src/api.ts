@@ -29,6 +29,7 @@ export interface Snapshot {
   theme: string | null;
   themes: string[];
   title: string | null;
+  title_source: string | null;
   slides: SlideSummary[];
   can_undo: boolean;
   undo_label: string | null;

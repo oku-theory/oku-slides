@@ -131,6 +131,8 @@ pub struct Snapshot {
     pub theme: Option<String>,
     pub themes: Vec<String>,
     pub title: Option<String>,
+    /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
+    pub title_source: Option<String>,
     pub slides: Vec<SlideSummary>,
     pub can_undo: bool,
     pub undo_label: Option<String>,
@@ -486,6 +488,7 @@ impl Session {
             theme: self.deck.theme.clone(),
             themes: slider_render::THEMES.iter().map(|t| t.to_string()).collect(),
             title: self.deck.params.title.as_deref().map(|t| interp(t, &self.deck.vars)),
+            title_source: self.deck.params.title.clone(),
             slides,
             can_undo: self.history.can_undo(),
             undo_label: self.history.undo_label().map(str::to_owned),
