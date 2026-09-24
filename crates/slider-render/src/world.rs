@@ -1,4 +1,4 @@
-//! Le monde Typst de Slider : un système de fichiers virtuel (bibliothèque
+//! Le monde Typst d'Écho : un système de fichiers virtuel (bibliothèque
 //! embarquée, deck, assets) et un jeu de polices fixe, sans polices système.
 
 use std::collections::{BTreeMap, HashMap};

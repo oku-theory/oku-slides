@@ -1,6 +1,6 @@
 [package]
 name = "slider-cli"
-description = "Outil en ligne de commande Slider : rendu, enregistrement, relecture, mesures."
+description = "Outil en ligne de commande Écho : rendu, enregistrement, relecture, mesures."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

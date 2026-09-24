@@ -1,4 +1,4 @@
-// Rendu d'un deck décrit en JSON (le modèle de données de l'app Slider).
+// Rendu d'un deck décrit en JSON (le modèle de données de l'app Écho).
 //
 // {
 //   "params": { "title": "…", "author": "…", "date": "…" },

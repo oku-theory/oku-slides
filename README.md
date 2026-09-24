@@ -1,8 +1,13 @@
-# Slider
+# Écho
 
-Slides créées et modifiées à la voix. Le document est un PDF (`.slider.pdf`)
-qui contient ses propres sources : n'importe quel lecteur l'affiche, Slider le
-rouvre pour continuer l'édition.
+`echo "une idée" > deck` : ce que vous dites devient des slides. Écho crée et
+modifie des présentations à la voix ; le document est un PDF (`.echo.pdf`) qui
+contient ses propres sources : n'importe quel lecteur l'affiche, Écho le rouvre
+pour continuer l'édition. Les fichiers `.slider.pdf` enregistrés sous l'ancien
+nom s'ouvrent toujours.
+
+Le code garde son nom de travail : crates `slider-*`, outil `slider`,
+bibliothèque Typst `slider`.
 
 Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
 
@@ -26,9 +31,9 @@ Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/c
 ```sh
 just slider check fixtures/roadmap.json                       # valider un deck
 just slider render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
-just save fixtures/roadmap.json deck.slider.pdf                # enregistrer en .slider.pdf
-just slider open deck.slider.pdf --out extrait/                # deck.json + assets
-just slider strip deck.slider.pdf copie.pdf                    # copie sans sources
+just save fixtures/roadmap.json deck.echo.pdf                # enregistrer en .echo.pdf
+just slider open deck.echo.pdf --out extrait/                # deck.json + assets
+just slider strip deck.echo.pdf copie.pdf                    # copie sans sources
 just bench                                                     # latences
 just slider schema                                             # schéma JSON des opérations
 ```

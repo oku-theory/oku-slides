@@ -1,4 +1,4 @@
-//! Cœur de Slider : modèle du deck, opérations réversibles, historique,
+//! Cœur d'Écho : modèle du deck, opérations réversibles, historique,
 //! validation et zip des sources. Aucune dépendance à Typst ni à Tauri.
 
 pub mod history;

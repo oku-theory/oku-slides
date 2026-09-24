@@ -45,7 +45,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     std::fs::create_dir_all(&dir).unwrap();
     let snap = s.save(Some(&dir.join("essai.pdf"))).unwrap();
     let path = snap.path.unwrap();
-    assert!(path.to_string_lossy().ends_with("essai.slider.pdf"));
+    assert!(path.to_string_lossy().ends_with("essai.echo.pdf"));
     assert!(!snap.dirty);
 
     let deck: Deck = s.deck().clone();

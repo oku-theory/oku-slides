@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Op, SlideView, Snapshot } from "./api";
 import type { TemplateView } from "./api";
-import { api, applyAppearance, findElement, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
+import { api, applyAppearance, findElement, inTauri, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
 import TemplatePicker from "./TemplatePicker";
 import Stage from "./Stage";
 
@@ -70,6 +70,9 @@ function TitleField({ value, display, onCommit }: { value: string; display: stri
     />
   );
 }
+
+/** Dans l'app macOS, la barre de titre est intégrée : les feux se posent sur la table. */
+const titlebarOverlay = inTauri && /Mac/i.test(navigator.userAgent);
 
 export default function App() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -226,17 +229,19 @@ export default function App() {
   const status = snap.dirty ? "modifications non enregistrées" : snap.path ? "enregistré" : "pas encore enregistré";
 
   return (
-    <div className="table">
+    <div className={`table${titlebarOverlay ? " overlay-titlebar" : ""}`}>
+      {/* Bord supérieur : on y saisit la fenêtre pour la déplacer (barre de titre intégrée). */}
+      {titlebarOverlay && <div className="drag-strip" data-tauri-drag-region />}
       {/* Étiquette du document, posée sur la table. */}
       <header className="label object">
-        <span className="brand">Slider</span>
+        <span className="brand">Écho</span>
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}
           onCommit={(v) => apply("Renommer la présentation", [{ op: "set_param", key: "title", value: v.trim() || null }])}
         />
         <span className="caption" role="status">
-          {snap.path ? `${snap.name}.slider.pdf · ` : ""}{snap.slides.length} slides · {status}
+          {snap.path ? `${snap.name}.echo.pdf · ` : ""}{snap.slides.length} slides · {status}
         </span>
       </header>
 

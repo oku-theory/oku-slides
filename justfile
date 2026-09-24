@@ -1,4 +1,4 @@
-# Slider — toutes les commandes se lancent depuis la racine du dépôt.
+# Écho — toutes les commandes se lancent depuis la racine du dépôt.
 # `just` sans argument affiche la liste.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
@@ -58,8 +58,8 @@ slider *args:
 bench file=deck:
     cargo run -q --release -p slider-cli -- --fonts {{fonts}} bench "{{file}}"
 
-# Enregistre un deck JSON en .slider.pdf
-save file=deck out="deck.slider.pdf":
+# Enregistre un deck JSON en .echo.pdf
+save file=deck out="deck.echo.pdf":
     cargo run -q -p slider-cli -- --fonts {{fonts}} save "{{file}}" "{{out}}"
 
 # Compile un exemple de la bibliothèque Typst : just typst pro

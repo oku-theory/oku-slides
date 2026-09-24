@@ -1,4 +1,4 @@
-//! Le zip des sources (`slider-sources.zip`) : deck, assets d'origine,
+//! Le zip des sources (format `echo-sources`) : deck, assets d'origine,
 //! polices et historique. C'est ce blob qui est stocké dans le PDF.
 
 use std::collections::BTreeMap;
@@ -10,7 +10,9 @@ use zip::write::SimpleFileOptions;
 
 use crate::model::Deck;
 
-pub const SOURCES_FORMAT: &str = "slider-sources";
+pub const SOURCES_FORMAT: &str = "echo-sources";
+/// Format des fichiers enregistrés sous l'ancien nom de l'app, toujours lisible.
+pub const LEGACY_SOURCES_FORMAT: &str = "slider-sources";
 pub const SOURCES_VERSION: u32 = 1;
 
 #[derive(Debug, Error)]
@@ -21,7 +23,7 @@ pub enum SourcesError {
     Io(#[from] std::io::Error),
     #[error("JSON invalide dans {file} : {source}")]
     Json { file: String, source: serde_json::Error },
-    #[error("ce n'est pas un zip de sources Slider")]
+    #[error("ce n'est pas un zip de sources Écho")]
     NotSlider,
     #[error("version de format non prise en charge : {0}")]
     UnsupportedVersion(u32),
@@ -145,7 +147,7 @@ impl SourceBundle {
             }
         }
         let manifest = manifest.ok_or(SourcesError::NotSlider)?;
-        if manifest.format != SOURCES_FORMAT {
+        if manifest.format != SOURCES_FORMAT && manifest.format != LEGACY_SOURCES_FORMAT {
             return Err(SourcesError::NotSlider);
         }
         if manifest.version > SOURCES_VERSION {

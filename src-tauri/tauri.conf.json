@@ -1,22 +1,30 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Slider",
+  "productName": "Écho",
   "version": "0.1.0",
-  "identifier": "me.dartiguenave.slider",
+  "identifier": "me.dartiguenave.echo",
   "build": {
     "frontendDist": "../ui/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": { "script": "bun install && bun run dev", "cwd": "../ui" },
-    "beforeBuildCommand": { "script": "bun run build", "cwd": "../ui" }
+    "beforeDevCommand": {
+      "script": "bun install && bun run dev",
+      "cwd": "../ui"
+    },
+    "beforeBuildCommand": {
+      "script": "bun run build",
+      "cwd": "../ui"
+    }
   },
   "app": {
     "windows": [
       {
-        "title": "Slider",
+        "title": "Écho",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,
-        "minHeight": 640
+        "minHeight": 640,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
@@ -27,10 +35,25 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
-    "resources": { "../assets/fonts/": "fonts/" },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../assets/fonts/": "fonts/"
+    },
     "fileAssociations": [
-      { "ext": ["pdf"], "name": "Présentation Slider", "role": "Editor", "mimeType": "application/pdf" }
+      {
+        "ext": [
+          "pdf"
+        ],
+        "name": "Présentation Écho",
+        "role": "Editor",
+        "mimeType": "application/pdf"
+      }
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"

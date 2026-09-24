@@ -16,7 +16,9 @@ use slider_render::{Compiled, ElementBox, Renderer};
 pub mod templates;
 pub use templates::{Template, templates};
 
-pub const EXTENSION: &str = ".slider.pdf";
+pub const EXTENSION: &str = ".echo.pdf";
+/// Extension des fichiers enregistrés sous l'ancien nom de l'app.
+pub const LEGACY_EXTENSION: &str = ".slider.pdf";
 
 #[derive(Debug, Error)]
 pub enum SessionError {
@@ -30,7 +32,7 @@ pub enum SessionError {
     Render(#[from] slider_render::RenderError),
     #[error("opération {index} refusée : {message}")]
     Op { index: usize, message: String },
-    #[error("ce PDF n'a pas été créé par Slider, il ne peut pas être modifié")]
+    #[error("ce PDF n'a pas été créé par Écho, il ne peut pas être modifié")]
     NotSlider,
     #[error("aucun fichier : choisissez où enregistrer")]
     NoPath,
@@ -391,7 +393,7 @@ impl Session {
         self.rerender()
     }
 
-    /// Ouvre un `.slider.pdf` (ou un deck JSON, pour le développement).
+    /// Ouvre un `.echo.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<Snapshot> {
         let bytes = std::fs::read(path)?;
         let is_pdf = bytes.starts_with(b"%PDF");
@@ -399,7 +401,7 @@ impl Session {
             let sources = slider_pdf::extract_sources(&bytes)?.ok_or(SessionError::NotSlider)?;
             let notice = sources
                 .modified_elsewhere()
-                .then(|| "Ce PDF a été modifié par un autre outil après Slider : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
+                .then(|| "Ce PDF a été modifié par un autre outil après Écho : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
             (SourceBundle::from_zip(&sources.zip)?, notice, true)
         } else {
             let deck = Deck::from_json(&String::from_utf8_lossy(&bytes))
@@ -411,7 +413,7 @@ impl Session {
         Ok(self.snapshot())
     }
 
-    /// Enregistre en `.slider.pdf` : PDF + blob des sources, écriture atomique.
+    /// Enregistre en `.echo.pdf` : PDF + blob des sources, écriture atomique.
     pub fn save(&mut self, path: Option<&Path>) -> Result<Snapshot> {
         let mut path = match path {
             Some(p) => p.to_owned(),
@@ -419,7 +421,8 @@ impl Session {
         };
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if !name.ends_with(EXTENSION) {
-            let stem = name.strip_suffix(".pdf").unwrap_or(&name).to_owned();
+            let stem =
+                name.strip_suffix(LEGACY_EXTENSION).or_else(|| name.strip_suffix(".pdf")).unwrap_or(&name).to_owned();
             path.set_file_name(format!("{stem}{EXTENSION}"));
         }
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
@@ -510,7 +513,7 @@ impl Session {
             .path
             .as_ref()
             .and_then(|p| p.file_name())
-            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
+            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).trim_end_matches(LEGACY_EXTENSION).to_owned())
             .or_else(|| self.deck.params.title.as_deref().map(|t| interp(t, &self.deck.vars)))
             .unwrap_or_else(|| "Sans titre".into());
         Snapshot {

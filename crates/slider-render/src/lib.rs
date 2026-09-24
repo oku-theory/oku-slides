@@ -1,4 +1,4 @@
-//! Rendu des decks Slider avec Typst embarqué.
+//! Rendu des decks Écho avec Typst embarqué.
 //!
 //! Le deck est exposé à Typst en JSON (`/deck.json`) et rendu par la
 //! bibliothèque `slider` (`typst/slider`), embarquée dans le binaire. Aucun

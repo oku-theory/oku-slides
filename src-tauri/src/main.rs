@@ -1,4 +1,4 @@
-//! Slider : application de bureau. Toute la logique est dans `slider-session` ;
+//! Écho : application de bureau. Toute la logique est dans `slider-session` ;
 //! l'interface appelle une seule commande, `request`, avec une requête JSON.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -61,5 +61,5 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![request])
         .run(tauri::generate_context!())
-        .expect("échec du lancement de Slider");
+        .expect("échec du lancement d'Écho");
 }

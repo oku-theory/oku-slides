@@ -50,3 +50,19 @@ fn une_modification_externe_est_signalee() {
     doc.save_to(&mut edited).unwrap();
     assert!(slider_pdf::extract_sources(&edited).unwrap().unwrap().modified_elsewhere());
 }
+
+#[test]
+fn un_fichier_de_l_ancien_nom_s_ouvre_toujours() {
+    // Blob écrit sous la clé /Slider (avant le changement de nom).
+    let out = slider_pdf::embed_sources(&minimal_pdf(), b"zip").unwrap();
+    let mut doc = Document::load_mem(&out).unwrap();
+    let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    let catalog = doc.get_object_mut(root).unwrap().as_dict_mut().unwrap();
+    let mut pieces = catalog.get(b"PieceInfo").unwrap().as_dict().unwrap().clone();
+    let piece = pieces.remove(b"Echo").unwrap();
+    pieces.set("Slider", piece);
+    catalog.set("PieceInfo", Object::Dictionary(pieces));
+    let mut legacy = Vec::new();
+    doc.save_to(&mut legacy).unwrap();
+    assert_eq!(slider_pdf::extract_sources(&legacy).unwrap().unwrap().zip, b"zip");
+}

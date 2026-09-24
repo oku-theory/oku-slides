@@ -1,6 +1,6 @@
 [package]
 name = "slider-render"
-description = "Rendu des decks Slider avec Typst embarqué : SVG par slide et PDF."
+description = "Rendu des decks Écho avec Typst embarqué : SVG par slide et PDF."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

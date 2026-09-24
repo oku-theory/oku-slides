@@ -158,18 +158,18 @@ export const api = {
 export async function pickOpenPath(): Promise<string | null> {
   if (inTauri) {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({ multiple: false, filters: [{ name: "Slider", extensions: ["pdf", "json"] }] });
+    const p = await open({ multiple: false, filters: [{ name: "Écho", extensions: ["pdf", "json"] }] });
     return typeof p === "string" ? p : null;
   }
-  return window.prompt("Chemin du fichier à ouvrir (.slider.pdf ou .json)");
+  return window.prompt("Chemin du fichier à ouvrir (.echo.pdf ou .json)");
 }
 
 export async function pickSavePath(defaultName: string): Promise<string | null> {
   if (inTauri) {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    return save({ defaultPath: `${defaultName}.slider.pdf`, filters: [{ name: "Slider", extensions: ["pdf"] }] });
+    return save({ defaultPath: `${defaultName}.echo.pdf`, filters: [{ name: "Écho", extensions: ["pdf"] }] });
   }
-  return window.prompt("Enregistrer sous (chemin complet)", `/tmp/${defaultName}.slider.pdf`);
+  return window.prompt("Enregistrer sous (chemin complet)", `/tmp/${defaultName}.echo.pdf`);
 }
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */

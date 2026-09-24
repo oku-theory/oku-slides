@@ -1,5 +1,5 @@
 //! `slider` : outil en ligne de commande pour rendre, enregistrer et rouvrir
-//! des decks Slider sans l'app. Sert aussi aux tests et aux mesures.
+//! des decks Écho sans l'app. Sert aussi aux tests et aux mesures.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
 use slider_render::Renderer;
 
 #[derive(Parser)]
-#[command(name = "slider", version, about = "Rendu et stockage des decks Slider")]
+#[command(name = "slider", version, about = "Rendu et stockage des decks Écho")]
 struct Cli {
     /// Dossier de polices supplémentaires (TTF/OTF).
     #[arg(long, global = true)]
@@ -27,7 +27,7 @@ enum Cmd {
     Check { deck: PathBuf },
     /// Rend chaque slide en SVG, avec les boîtes des éléments.
     Render {
-        /// deck.json ou fichier .slider.pdf
+        /// deck.json ou fichier .echo.pdf
         input: PathBuf,
         #[arg(long, default_value = "out")]
         out: PathBuf,
@@ -35,7 +35,7 @@ enum Cmd {
         #[arg(long)]
         theme: Option<String>,
     },
-    /// Enregistre un deck en .slider.pdf (PDF + blob des sources).
+    /// Enregistre un deck en .echo.pdf (PDF + blob des sources).
     Save {
         deck: PathBuf,
         output: PathBuf,
@@ -48,14 +48,14 @@ enum Cmd {
         #[arg(long)]
         theme: Option<String>,
     },
-    /// Rouvre un .slider.pdf : extrait le deck et les assets.
+    /// Rouvre un .echo.pdf : extrait le deck et les assets.
     Open {
         input: PathBuf,
         /// Dossier où écrire deck.json, assets/ et fonts/.
         #[arg(long)]
         out: Option<PathBuf>,
     },
-    /// Copie d'un .slider.pdf, sans le blob des sources.
+    /// Copie d'un .echo.pdf, sans le blob des sources.
     Strip { input: PathBuf, output: PathBuf },
     /// Mesure les temps de compilation et d'export.
     Bench {
@@ -67,7 +67,7 @@ enum Cmd {
     Schema,
     /// Serveur de développement : l'interface dans un navigateur, sans Tauri.
     Serve {
-        /// Deck à ouvrir (.slider.pdf ou .json).
+        /// Deck à ouvrir (.echo.pdf ou .json).
         input: Option<PathBuf>,
         #[arg(long, default_value_t = 4870)]
         port: u16,
@@ -96,14 +96,14 @@ fn read_deck(path: &Path) -> Result<Deck> {
     Deck::from_json(&text).with_context(|| format!("deck invalide : {}", path.display()))
 }
 
-/// Charge un deck depuis un JSON ou un .slider.pdf.
+/// Charge un deck depuis un JSON ou un .echo.pdf.
 fn load_bundle(path: &Path) -> Result<SourceBundle> {
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
         let pdf = std::fs::read(path)?;
         let sources = slider_pdf::extract_sources(&pdf)?
-            .context("ce PDF n'a pas été créé par Slider, il ne peut pas être modifié")?;
+            .context("ce PDF n'a pas été créé par Écho, il ne peut pas être modifié")?;
         if sources.modified_elsewhere() {
-            eprintln!("attention : le PDF a été modifié par un autre outil après Slider");
+            eprintln!("attention : le PDF a été modifié par un autre outil après Écho");
         }
         Ok(SourceBundle::from_zip(&sources.zip)?)
     } else {
@@ -341,7 +341,7 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) ->
         session.open(path)?;
     }
     let server = Server::http(("127.0.0.1", port)).map_err(|e| anyhow::anyhow!("{e}"))?;
-    println!("Slider (dev) sur http://127.0.0.1:{port}");
+    println!("Écho (dev) sur http://127.0.0.1:{port}");
     let json = Header::from_bytes("Content-Type", "application/json").unwrap();
     for mut req in server.incoming_requests() {
         let url = req.url().split('?').next().unwrap_or("/").to_owned();

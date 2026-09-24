@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Slider utilise le micro pour la dictée. L'audio est transcrit sur votre Mac et n'est pas conservé.</string>
+  <string>Écho utilise le micro pour la dictée. L'audio est transcrit sur votre Mac et n'est pas conservé.</string>
 </dict>
 </plist>

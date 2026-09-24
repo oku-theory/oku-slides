@@ -1,6 +1,6 @@
 [package]
 name = "slider-core"
-description = "Modèle de deck Slider : slides, éléments, opérations, historique, sources."
+description = "Modèle de deck Écho : slides, éléments, opérations, historique, sources."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
