@@ -42,8 +42,8 @@
   // Interface : chrome navy du système, la slide blanche au centre.
   app: (
     scheme: "dark",
-    desk: "surface-dark", sheet: "#0b2461", piece: "#132d6e",
-    ink: "white", ink-muted: "on-dark-muted", rule: "#23397a", edge: "#5b6f9e",
+    desk: "#000a24", sheet: "#071a4a", piece: "#132d6e",
+    ink: "white", ink-muted: "#9fb3d6", rule: "#23397a", edge: "#5b6f9e",
     accent: "accent", accent-text: "accent-on-dark", on-accent: "on-accent", accent-soft: "#123a73",
     danger: "#ff9b85", shadow: "#000814",
     radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.6,

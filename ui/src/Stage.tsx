@@ -167,7 +167,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     <div className="stage-wrap" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
       <div
         className="stage"
-        style={{ width: view.width * scale, height: view.height * scale }}
+        style={{ width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) }}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={() => setDrag(null)}

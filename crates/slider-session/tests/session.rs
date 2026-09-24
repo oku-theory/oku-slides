@@ -117,7 +117,7 @@ fn l_apparence_suit_le_theme() {
 
     let pro = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap().appearance;
     assert_eq!(pro.scheme, "dark");
-    assert_eq!(pro.app["desk"], "#00154e");
+    assert_eq!(pro.app["desk"], "#000a24");
     assert_eq!(pro.app["ink"], "#ffffff");
     assert_eq!(pro.app["accent-text"], "#00bef4");
     assert_eq!(pro.font_body, vec!["Inter".to_owned()]);

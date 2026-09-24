@@ -56,6 +56,8 @@
     calc(2px * var(--elev)) calc(18px * var(--elev)) calc(22px * var(--elev)) calc(-10px * var(--elev)) var(--shade);
   /* Arête éclairée des objets : les distingue aussi sur une table sombre. */
   --edge-light: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  /* Liseré de la feuille : reste visible quand la slide est aussi sombre que la table. */
+  --sheet-ring: 0 0 0 1px color-mix(in oklab, var(--ink) 16%, transparent);
   --postit: var(--app-postit, color-mix(in oklab, var(--accent-fill) 20%, var(--paper-200)));
   --lift: translateY(calc(-3px * var(--elev)));
 
@@ -106,7 +108,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .object:hover:not(:disabled) { transform: var(--lift); box-shadow: var(--edge-light), var(--shadow-floating); }
 .object:active:not(:disabled) { transform: none; box-shadow: var(--shadow-rest); }
-.object:disabled { cursor: default; opacity: 0.55; box-shadow: var(--shadow-rest); }
+.object:disabled { cursor: default; opacity: 0.72; box-shadow: var(--edge-light), var(--shadow-rest); }
+.object:disabled svg { opacity: 0.6; }
 
 /* ---- Étiquette du document ---- */
 .label {
@@ -144,16 +147,16 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
 .thumb-img {
   width: 150px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
-  box-shadow: var(--shadow-rest); transition: var(--theme-fade), transform 180ms ease-out;
+  box-shadow: var(--sheet-ring), var(--shadow-rest); transition: var(--theme-fade), transform 180ms ease-out;
 }
-.thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--shadow-object); }
+.thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--sheet-ring), var(--shadow-object); }
 .thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: var(--shadow-floating); outline: 2px solid var(--accent); outline-offset: 3px; }
 .add-slide { margin-left: 26px; width: 150px; height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
 /* ---- La feuille ---- */
 .sheet-area { grid-area: sheet; min-width: 0; min-height: 0; padding: var(--space-4) var(--space-6); display: flex; }
 .stage-wrap { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
-.stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet); overflow: hidden; }
+.stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet); overflow: hidden; }
 .stage > img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .overlay { position: absolute; inset: 0; }
 
@@ -194,9 +197,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .postit:nth-child(2) { --tilt: 1.6deg; }
 .postit:nth-child(3) { --tilt: -1deg; }
 .postit:hover:not(:disabled) { transform: rotate(0deg) var(--lift); box-shadow: var(--shadow-floating); }
-.postit:disabled { opacity: 0.5; cursor: default; }
+.postit:disabled { opacity: 0.72; cursor: default; }
+.postit:disabled .postit-title { opacity: 0.75; }
 .postit-title { font: 600 15px/20px var(--sans); }
-.postit-hint { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.postit-hint { font-size: 12px; line-height: 16px; color: color-mix(in oklab, var(--ink) 78%, var(--postit)); }
 .postit.note { cursor: default; background: var(--paper-200); }
 .postit.note:hover { transform: rotate(var(--tilt)); box-shadow: var(--shadow-note); }
 
@@ -208,7 +212,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .device:hover { transform: none; box-shadow: var(--shadow-object); }
 .mic { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent-fill); color: var(--on-accent); display: grid; place-items: center; box-shadow: var(--shadow-rest); transition: var(--theme-fade); }
-.mic:disabled { opacity: 0.5; }
+.mic:disabled { opacity: 0.75; }
 .key { padding: 2px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); color: var(--ink); font-size: 12px; }
 .spacer { flex: 1; }
 
