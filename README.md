@@ -97,3 +97,16 @@ Le texte va au curseur si un texte est en cours d'édition, sinon dans la zone
 sélectionnée (un champ est remplacé, un bloc est complété), sinon dans un
 nouveau bloc. Chaque dictée s'annule avec ⌘Z. `just transcribe fichier.wav`
 transcrit un fichier ; `ECHO_FAKE_MIC=fichier.wav just serve` simule le micro.
+
+Le moteur est derrière le trait `slider_stt::engine::Engine`. Deux moteurs :
+whisper.cpp (celui de l'app, Metal sur Mac) et, avec l'option `ct2`,
+CTranslate2 (le moteur de faster-whisper, sur le processeur). Pour les comparer
+sur votre machine :
+
+```sh
+just bench-stt voix.wav turbo fr   # WAV, modèle (turbo, large, base), langue, essais
+```
+
+Le banc télécharge les deux formats du modèle (ggml et CTranslate2), fait un
+tour à blanc puis garde la médiane des essais. Il affiche le temps de
+chargement, le temps de transcription, le facteur temps réel et le texte obtenu.

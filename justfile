@@ -82,9 +82,16 @@ doctor:
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     [ "$ok" = 1 ]
 
+# Accélération de la dictée selon la machine (GPU Metal sur Mac)
+stt_features := if os() == "macos" { "metal" } else { "" }
+
 # Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
 transcribe wav model="turbo" lang="":
-    cargo run -q --release -p slider-stt --example transcribe -- {{wav}} {{model}} {{lang}}
+    cargo run -q --release -p slider-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+
+# Compare whisper.cpp et CTranslate2 (faster-whisper) sur un WAV : just bench-stt voix.wav turbo fr
+bench-stt wav model="turbo" lang="auto" runs="3":
+    cargo run -q --release -p slider-stt --features "{{stt_features}} {{ if os() == "macos" { "ct2-accelerate" } else { "ct2" } }}" --example bench -- {{wav}} {{model}} {{lang}} {{runs}}
 
 # Supprime les builds (Rust et interface)
 clean:

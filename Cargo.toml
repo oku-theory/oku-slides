@@ -32,3 +32,5 @@ clap = { version = "4", features = ["derive"] }
 
 [profile.dev.package."*"]
 opt-level = 2
+# Pas d'infos de débogage pour les dépendances : builds plus légers et plus rapides.
+debug = false

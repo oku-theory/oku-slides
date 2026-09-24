@@ -75,7 +75,11 @@ pub enum DownloadError {
 
 /// Télécharge un modèle dans `dir` (fichier `.part` puis renommage).
 /// `progress(reçu, total)` est appelé régulièrement ; s'il renvoie `false`, on annule.
-pub fn download(model: Model, dir: &Path, mut progress: impl FnMut(u64, u64) -> bool) -> Result<PathBuf, DownloadError> {
+pub fn download(
+    model: Model,
+    dir: &Path,
+    mut progress: impl FnMut(u64, u64) -> bool,
+) -> Result<PathBuf, DownloadError> {
     std::fs::create_dir_all(dir)?;
     let dest = model.path(dir);
     let part = dir.join(format!("{}.part", model.file_name()));
@@ -112,5 +116,94 @@ pub fn download(model: Model, dir: &Path, mut progress: impl FnMut(u64, u64) -> 
         return Err(DownloadError::Incomplete { got, expected: model.size() });
     }
     std::fs::rename(&part, &dest)?;
+    Ok(dest)
+}
+
+// ---- Modèles CTranslate2 (faster-whisper), pour la comparaison ------------------
+
+const HF: &str = "https://huggingface.co";
+
+impl Model {
+    /// Dépôt Hugging Face du même modèle au format CTranslate2.
+    pub fn ct2_repo(self) -> &'static str {
+        match self {
+            Model::Turbo => "deepdml/faster-whisper-large-v3-turbo-ct2",
+            Model::Large => "Systran/faster-whisper-large-v3",
+            Model::Base => "Systran/faster-whisper-base",
+        }
+    }
+
+    /// Fichiers à récupérer : (dépôt, fichier). Le dépôt `base` n'a pas de
+    /// `preprocessor_config.json` : on prend celui d'OpenAI.
+    fn ct2_files(self) -> Vec<(&'static str, &'static str)> {
+        let repo = self.ct2_repo();
+        // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
+        let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
+        let mut files = vec![(repo, "config.json"), (repo, "tokenizer.json"), (repo, vocabulary), (repo, "model.bin")];
+        files.push(match self {
+            Model::Base => ("openai/whisper-base", "preprocessor_config.json"),
+            _ => (repo, "preprocessor_config.json"),
+        });
+        files
+    }
+
+    pub fn ct2_dir(self, dir: &Path) -> PathBuf {
+        dir.join("ct2").join(self.ct2_repo().replace('/', "--"))
+    }
+}
+
+/// Télécharge (si besoin) le modèle CTranslate2 et renvoie son dossier.
+pub fn download_ct2(
+    model: Model,
+    dir: &Path,
+    mut progress: impl FnMut(&str, u64, u64),
+) -> Result<PathBuf, DownloadError> {
+    let dest = model.ct2_dir(dir);
+    std::fs::create_dir_all(&dest)?;
+    let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
+    for (repo, file) in model.ct2_files() {
+        let path = dest.join(file);
+        if path.exists() {
+            continue;
+        }
+        let url = format!("{HF}/{repo}/resolve/main/{file}");
+        // Hugging Face limite parfois le débit (429) : on réessaie en patientant.
+        let mut attempt = 0;
+        let mut resp = loop {
+            match agent.get(&url).call() {
+                Ok(r) => break r,
+                Err(ureq::Error::StatusCode(429 | 502 | 503)) if attempt < 5 => {
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_secs(5 * attempt));
+                }
+                Err(e) => return Err(DownloadError::Http(format!("{url} : {e}"))),
+            }
+        };
+        let total = resp
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let part = dest.join(format!("{file}.part"));
+        let mut reader = resp.body_mut().with_config().limit(u64::MAX).reader();
+        let mut out = std::fs::File::create(&part)?;
+        let mut buf = vec![0u8; 1 << 20];
+        let mut got = 0u64;
+        loop {
+            let n = reader.read(&mut buf).map_err(|e| DownloadError::Http(e.to_string()))?;
+            if n == 0 {
+                break;
+            }
+            out.write_all(&buf[..n])?;
+            got += n as u64;
+            progress(file, got, total);
+        }
+        if total > 0 && got != total {
+            std::fs::remove_file(&part).ok();
+            return Err(DownloadError::Incomplete { got, expected: total });
+        }
+        std::fs::rename(&part, &path)?;
+    }
     Ok(dest)
 }

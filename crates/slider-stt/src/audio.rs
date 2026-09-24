@@ -133,7 +133,11 @@ fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, String> {
         cpal::SampleFormat::I16 => device.build_input_stream(
             stream_config,
             move |data: &[i16], _: &_| {
-                push(&mut data.chunks(channels).map(|f| f.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / f.len() as f32))
+                push(
+                    &mut data
+                        .chunks(channels)
+                        .map(|f| f.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / f.len() as f32),
+                )
             },
             err,
             None,
@@ -141,9 +145,11 @@ fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, String> {
         cpal::SampleFormat::U16 => device.build_input_stream(
             stream_config,
             move |data: &[u16], _: &_| {
-                push(&mut data.chunks(channels).map(|f| {
-                    f.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).sum::<f32>() / f.len() as f32
-                }))
+                push(
+                    &mut data
+                        .chunks(channels)
+                        .map(|f| f.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).sum::<f32>() / f.len() as f32),
+                )
             },
             err,
             None,
@@ -185,7 +191,8 @@ fn read_wav(path: &std::path::Path) -> Result<(u32, Vec<f32>), String> {
             if bits != 16 {
                 return Err("WAV 16 bits attendu".into());
             }
-            let samples: Vec<f32> = body.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0).collect();
+            let samples: Vec<f32> =
+                body.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0).collect();
             let mono = samples.chunks(channels).map(|f| f.iter().sum::<f32>() / f.len() as f32).collect();
             return Ok((rate, mono));
         }

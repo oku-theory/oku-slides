@@ -6,6 +6,7 @@
 //! puis l'enregistrement commence tout seul.
 
 mod audio;
+pub mod engine;
 pub mod models;
 
 use std::path::{Path, PathBuf};
@@ -13,8 +14,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use engine::{Engine, WhisperCpp};
 use serde::{Deserialize, Serialize};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 pub use audio::{SAMPLE_RATE, resample};
 pub use models::Model;
@@ -81,12 +82,20 @@ pub struct Status {
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum SttRequest {
     Status,
-    Configure { model: Model, language: Option<String> },
+    Configure {
+        model: Model,
+        language: Option<String>,
+    },
     /// Démarre la dictée ; `prompt` aide Whisper (titres du deck, noms propres).
-    Start { #[serde(default)] prompt: Option<String> },
+    Start {
+        #[serde(default)]
+        prompt: Option<String>,
+    },
     Stop,
     Cancel,
-    Download { model: Model },
+    Download {
+        model: Model,
+    },
 }
 
 struct Inner {
@@ -101,7 +110,7 @@ struct Inner {
     prompt: Option<String>,
     start_after_download: bool,
     recorder: Option<audio::Recorder>,
-    context: Option<(Model, Arc<WhisperContext>)>,
+    context: Option<(Model, Arc<dyn Engine>)>,
     /// Incrémenté à chaque session d'enregistrement : les fils d'une session
     /// terminée s'arrêtent d'eux-mêmes.
     session: u64,
@@ -123,7 +132,8 @@ pub fn default_models_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("ECHO_MODELS") {
         return dir.into();
     }
-    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
+    let home =
+        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
     let base = if cfg!(target_os = "macos") {
         home.join("Library/Application Support")
     } else if cfg!(windows) {
@@ -142,10 +152,8 @@ impl Stt {
     /// `dir` : dossier des modèles et des réglages de la dictée.
     pub fn new(dir: impl Into<PathBuf>) -> Self {
         let dir = dir.into();
-        let config = std::fs::read(config_path(&dir))
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default();
+        let config =
+            std::fs::read(config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 state: State::Idle,
@@ -308,7 +316,7 @@ impl Stt {
     }
 
     /// Contexte Whisper du modèle choisi, chargé une fois.
-    fn context(&self) -> Result<Arc<WhisperContext>, String> {
+    fn context(&self) -> Result<Arc<dyn Engine>, String> {
         let model = {
             let g = self.inner.lock().unwrap();
             if let Some((m, ctx)) = &g.context
@@ -325,10 +333,7 @@ impl Stt {
         {
             return Ok(ctx.clone());
         }
-        let path = model.path(&self.dir);
-        let ctx = WhisperContext::new_with_params(&path, WhisperContextParameters::default())
-            .map_err(|e| format!("modèle illisible ({}) : {e}", model.file_name()))?;
-        let ctx = Arc::new(ctx);
+        let ctx: Arc<dyn Engine> = Arc::new(WhisperCpp::load(&model.path(&self.dir))?);
         self.inner.lock().unwrap().context = Some((model, ctx.clone()));
         Ok(ctx)
     }
@@ -357,7 +362,7 @@ impl Stt {
             }
             let Ok(ctx) = self.context() else { return };
             let t = Instant::now();
-            if let Ok(text) = transcribe_with(&ctx, &audio, language.as_deref(), prompt.as_deref(), true) {
+            if let Ok(text) = transcribe(ctx.as_ref(), &audio, language.as_deref(), prompt.as_deref(), true) {
                 let mut g = self.inner.lock().unwrap();
                 if g.session == session && g.state == State::Recording {
                     g.partial = text;
@@ -389,7 +394,8 @@ impl Stt {
             let result = if audio.len() < SAMPLE_RATE as usize / 3 {
                 Ok(String::new())
             } else {
-                me.context().and_then(|ctx| transcribe(&ctx, &audio, language.as_deref(), prompt.as_deref()))
+                me.context()
+                    .and_then(|ctx| transcribe(ctx.as_ref(), &audio, language.as_deref(), prompt.as_deref(), false))
             };
             let mut g = me.inner.lock().unwrap();
             g.state = State::Idle;
@@ -424,47 +430,23 @@ impl Stt {
             (g.config.language.clone(), g.prompt.clone())
         };
         let ctx = self.context()?;
-        transcribe(&ctx, audio, language.as_deref(), prompt.as_deref())
+        transcribe(ctx.as_ref(), audio, language.as_deref(), prompt.as_deref(), false)
     }
 }
 
-/// Transcription Whisper d'un audio mono 16 kHz.
-pub fn transcribe(ctx: &WhisperContext, audio: &[f32], language: Option<&str>, prompt: Option<&str>) -> Result<String, String> {
-    transcribe_with(ctx, audio, language, prompt, false)
-}
-
-/// `quick` : pour l'aperçu, pas de nouvelles tentatives à température plus
-/// haute quand le décodage hésite (elles peuvent coûter plusieurs passes).
-fn transcribe_with(ctx: &WhisperContext, audio: &[f32], language: Option<&str>, prompt: Option<&str>, quick: bool) -> Result<String, String> {
-    let mut state = ctx.create_state().map_err(|e| e.to_string())?;
-    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    params.set_language(Some(language.unwrap_or("auto")));
-    params.set_translate(false);
-    params.set_no_timestamps(true);
-    params.set_print_special(false);
-    params.set_print_progress(false);
-    params.set_print_realtime(false);
-    params.set_print_timestamps(false);
-    params.set_suppress_blank(true);
-    if quick {
-        params.set_temperature_inc(0.0);
-    }
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8);
-    params.set_n_threads(threads as i32);
-    if let Some(p) = prompt.filter(|p| !p.is_empty()) {
-        params.set_initial_prompt(p);
-    }
-    state.full(params, audio).map_err(|e| e.to_string())?;
-    let text = state
-        .as_iter()
-        .filter_map(|s| s.to_str_lossy().ok().map(|t| t.into_owned()))
-        .collect::<Vec<_>>()
-        .join("");
-    Ok(clean(&text))
+/// Transcription d'un audio mono 16 kHz, nettoyée.
+pub fn transcribe(
+    engine: &dyn Engine,
+    audio: &[f32],
+    language: Option<&str>,
+    prompt: Option<&str>,
+    quick: bool,
+) -> Result<String, String> {
+    engine.transcribe(audio, language, prompt, quick).map(|t| clean(&t))
 }
 
 /// Retire les artefacts de Whisper (espaces, marqueurs de silence).
-fn clean(text: &str) -> String {
+pub fn clean(text: &str) -> String {
     let t = text.trim();
     let noise = ["[BLANK_AUDIO]", "[Musique]", "[Music]", "(musique)", "[silence]"];
     if noise.iter().any(|n| t.eq_ignore_ascii_case(n)) {

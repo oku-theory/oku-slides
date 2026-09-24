@@ -10,6 +10,10 @@ authors.workspace = true
 default = []
 # Accélération GPU sur macOS.
 metal = ["whisper-rs/metal"]
+# Second moteur : CTranslate2 (celui de faster-whisper), pour comparer.
+ct2 = ["dep:ct2rs"]
+# CTranslate2 sur macOS : Accelerate (le framework de calcul d'Apple).
+ct2-accelerate = ["ct2", "ct2rs/accelerate"]
 
 [dependencies]
 serde.workspace = true
@@ -18,6 +22,7 @@ thiserror.workspace = true
 whisper-rs = "0.16"
 cpal = "0.18"
 ureq = "3"
+ct2rs = { version = "0.10", optional = true, default-features = false, features = ["whisper", "ruy"] }
 
 [dev-dependencies]
 hound = "3"
