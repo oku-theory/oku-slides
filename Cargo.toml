@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Matthieu"]
+
+[workspace.dependencies]
+slider-core = { path = "crates/slider-core" }
+slider-render = { path = "crates/slider-render" }
+slider-pdf = { path = "crates/slider-pdf" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+schemars = "1"
+thiserror = "2"
+anyhow = "1"
+zip = { version = "8", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+hex = "0.4"
+lopdf = "0.45"
+typst = "0.15.1"
+typst-pdf = "0.15.1"
+typst-svg = "0.15.1"
+typst-assets = { version = "0.15.1", features = ["fonts"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4", features = ["derive"] }
+
+[profile.dev.package."*"]
+opt-level = 2

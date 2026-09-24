@@ -1,0 +1,11 @@
+[package]
+name = "slider-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "slider"
+path = "src/main.rs"
+
+[dependencies]

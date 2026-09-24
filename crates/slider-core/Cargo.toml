@@ -1,0 +1,16 @@
+[package]
+name = "slider-core"
+description = "Modèle de deck Slider : slides, éléments, opérations, historique, sources."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+zip.workspace = true
+sha2.workspace = true
+hex.workspace = true

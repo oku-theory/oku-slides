@@ -1,0 +1,5 @@
+/target
+*.png
+/out
+.DS_Store
+Claude outputs/
