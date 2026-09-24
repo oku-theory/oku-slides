@@ -58,6 +58,71 @@ pub struct SlideSummary {
     pub hash: String,
 }
 
+/// Apparence de l'interface, tirée des jetons du thème des slides.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct Appearance {
+    /// Fond des slides.
+    pub bg: String,
+    pub surface: String,
+    pub ink: String,
+    pub ink_muted: String,
+    /// Couleur d'accent (aplats, traits).
+    pub accent: String,
+    /// Accent lisible en texte sur le fond (`accent-text` si le thème en a un).
+    pub accent_text: String,
+    pub on_accent: String,
+    pub rule: String,
+    /// Familles de police : titres et texte courant.
+    pub font_display: Vec<String>,
+    pub font_body: Vec<String>,
+}
+
+/// Couleur d'un jeton, en suivant les références par nom (« chapter-bg » → « accent »).
+fn token_color(colors: &serde_json::Map<String, Value>, name: &str) -> Option<String> {
+    let mut v = colors.get(name)?.as_str()?;
+    for _ in 0..8 {
+        if v.starts_with('#') {
+            return Some(v.to_owned());
+        }
+        v = colors.get(v)?.as_str()?;
+    }
+    None
+}
+
+fn token_fonts(fonts: &serde_json::Map<String, Value>, name: &str) -> Vec<String> {
+    let mut v = fonts.get(name);
+    for _ in 0..8 {
+        match v {
+            Some(Value::String(s)) if fonts.contains_key(s) => v = fonts.get(s),
+            Some(Value::String(s)) => return vec![s.clone()],
+            Some(Value::Array(a)) => return a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect(),
+            _ => break,
+        }
+    }
+    Vec::new()
+}
+
+/// Apparence à partir des jetons résolus par Typst.
+pub fn appearance(tokens: &Value) -> Appearance {
+    let empty = serde_json::Map::new();
+    let colors = tokens.get("color").and_then(Value::as_object).unwrap_or(&empty);
+    let fonts = tokens.get("font").and_then(Value::as_object).unwrap_or(&empty);
+    let c = |name: &str, fallback: &str| token_color(colors, name).unwrap_or_else(|| fallback.to_owned());
+    let accent = c("accent", "#3f6b5e");
+    Appearance {
+        bg: c("bg", "#ffffff"),
+        surface: c("surface", "#f4f3f0"),
+        ink: c("ink", "#1d1c1a"),
+        ink_muted: c("ink-muted", "#5f5b55"),
+        accent_text: token_color(colors, "accent-text").unwrap_or_else(|| accent.clone()),
+        accent,
+        on_accent: c("on-accent", "#ffffff"),
+        rule: c("rule", "#d9d6d0"),
+        font_display: token_fonts(fonts, "display"),
+        font_body: token_fonts(fonts, "body"),
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Snapshot {
     pub path: Option<PathBuf>,
@@ -74,6 +139,8 @@ pub struct Snapshot {
     pub warnings: Vec<String>,
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
     pub notice: Option<String>,
+    /// L'interface prend les couleurs et les polices du thème des slides.
+    pub appearance: Appearance,
 }
 
 /// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
@@ -426,6 +493,7 @@ impl Session {
             redo_label: self.history.redo_label().map(str::to_owned),
             warnings: compiled.map(|c| c.warnings.clone()).unwrap_or_default(),
             notice: self.notice.clone(),
+            appearance: compiled.and_then(|c| c.tokens()).map(|t| appearance(&t)).unwrap_or_default(),
         }
     }
 

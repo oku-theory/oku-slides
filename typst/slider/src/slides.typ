@@ -60,6 +60,8 @@
 
   // L'état est posé dans le premier élément de page pour ne pas créer de page vide.
   _cfg.update((tokens: t, params: p, vars: vars))
+  // Jetons résolus, lus par l'app pour accorder son interface au thème.
+  [#metadata(t)<slider-tokens>]
   body
 }
 

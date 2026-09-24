@@ -148,6 +148,11 @@ impl Compiled {
             .collect()
     }
 
+    /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
+    pub fn tokens(&self) -> Option<Json> {
+        self.metadata("slider-tokens").into_iter().next()
+    }
+
     /// Boîtes réelles des éléments, pour la couche de sélection.
     pub fn element_boxes(&self) -> Vec<ElementBox> {
         self.metadata("slider-box").into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()

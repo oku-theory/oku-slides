@@ -10,6 +10,19 @@ export interface SlideSummary {
   hash: string;
 }
 
+export interface Appearance {
+  bg: string;
+  surface: string;
+  ink: string;
+  ink_muted: string;
+  accent: string;
+  accent_text: string;
+  on_accent: string;
+  rule: string;
+  font_display: string[];
+  font_body: string[];
+}
+
 export interface Snapshot {
   path: string | null;
   name: string;
@@ -24,6 +37,7 @@ export interface Snapshot {
   redo_label: string | null;
   warnings: string[];
   notice: string | null;
+  appearance: Appearance;
 }
 
 export interface Frame {
@@ -185,4 +199,27 @@ export function textToParagraphs(text: string, previous: Paragraph[] = []): Para
     if (same) return same;
     return list ? { runs: [{ t: body }], list } : { runs: [{ t: body }] };
   });
+}
+
+/** Pile CSS pour des familles Typst : la version variable embarquée d'abord. */
+function fontStack(families: string[], fallback: string): string {
+  const names = families.flatMap((f) => [`"${f} Variable"`, `"${f}"`]);
+  return [...names, fallback].join(", ");
+}
+
+/** Accorde l'interface au thème des slides (couleurs et polices). */
+export function applyAppearance(a: Appearance) {
+  if (!a.bg) return;
+  const root = document.documentElement.style;
+  const set = (name: string, value: string) => root.setProperty(`--t-${name}`, value);
+  set("bg", a.bg);
+  set("surface", a.surface);
+  set("ink", a.ink);
+  set("ink-muted", a.ink_muted);
+  set("accent", a.accent);
+  set("accent-text", a.accent_text);
+  set("on-accent", a.on_accent);
+  set("rule", a.rule);
+  if (a.font_display.length) set("font-display", fontStack(a.font_display, "Georgia, serif"));
+  if (a.font_body.length) set("font-body", fontStack(a.font_body, "system-ui, sans-serif"));
 }

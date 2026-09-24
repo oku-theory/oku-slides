@@ -103,3 +103,25 @@ fn texte_et_paragraphes() {
     assert_eq!(back[1], paras[1]);
     assert_eq!(back[2].list, Some(slider_core::ListKind::Number));
 }
+
+#[test]
+fn l_apparence_suit_le_theme() {
+    let mut s = Session::new(Vec::new());
+    s.open(&fixture_path()).unwrap();
+    let papier = s.snapshot().appearance;
+    assert_eq!(papier.accent, "#3f6b5e");
+    assert_eq!(papier.bg, "#fffdf9");
+    assert_eq!(papier.font_display.first().map(String::as_str), Some("Newsreader"));
+
+    let snap = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    let pro = snap.appearance;
+    assert_eq!(pro.accent, "#00bef4");
+    assert_eq!(pro.accent_text, "#0072b0", "pro a une couleur d'accent pour le texte");
+    assert_eq!(pro.font_body, vec!["Inter".to_owned()]);
+
+    // Une surcharge du deck l'emporte sur le thème.
+    let snap = s
+        .apply("Accent", vec![Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") }])
+        .unwrap();
+    assert_eq!(snap.appearance.accent, "#123456");
+}

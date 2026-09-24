@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Op, SlideView, Snapshot } from "./api";
-import { api, findElement, newId, pickOpenPath, pickSavePath } from "./api";
+import { api, applyAppearance, findElement, newId, pickOpenPath, pickSavePath } from "./api";
 import Stage from "./Stage";
 
 const Icon = {
@@ -60,6 +60,13 @@ export default function App() {
   useEffect(() => {
     run(api.snapshot());
   }, [run]);
+
+  // L'interface suit le thème des slides, à chaque changement.
+  const appearanceKey = snap ? JSON.stringify(snap.appearance) : "";
+  useEffect(() => {
+    if (snap) applyAppearance(snap.appearance);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appearanceKey]);
 
   // Slide courante : la première si l'actuelle a disparu.
   useEffect(() => {

@@ -1,24 +1,41 @@
-/* Design system Papier : jetons (thème Jour, et Soir via prefers-color-scheme). */
+/* Design system Papier, coloré par le thème des slides : l'interface suit le deck ouvert. */
 @import "@fontsource-variable/newsreader/opsz.css";
 @import "@fontsource-variable/instrument-sans/index.css";
+@import "@fontsource-variable/inter/index.css";
 
 :root {
-  --paper-000: #ece8e0;
-  --paper-100: #f7f5f0;
-  --paper-200: #fffdf9;
-  --ink: #2e2b26;
-  --ink-muted: #686258;
-  --rule: #ddd7cc;
-  --edge: #8a8378;
-  --accent: #3f6b5e;
-  --on-accent: #fffdf9;
-  --accent-soft: #dde7e1;
+  /* Jetons du thème des slides, posés par l'app (voir applyAppearance). Défauts : Papier. */
+  --t-bg: #fffdf9;
+  --t-surface: #f7f5f0;
+  --t-ink: #2e2b26;
+  --t-ink-muted: #686258;
+  --t-accent: #3f6b5e;
+  --t-accent-text: #3f6b5e;
+  --t-on-accent: #fffdf9;
+  --t-rule: #ddd7cc;
+  --t-font-display: "Newsreader Variable", "Newsreader", Georgia, serif;
+  --t-font-body: "Instrument Sans Variable", "Instrument Sans", system-ui, sans-serif;
+
+  /* Interface Papier dérivée du thème : trois papiers, une encre, un accent. */
+  --paper-200: var(--t-bg);
+  --paper-100: color-mix(in oklab, var(--t-bg) 95%, var(--t-ink));
+  --paper-000: color-mix(in oklab, var(--t-bg) 89%, var(--t-ink));
+  --ink: var(--t-ink);
+  --ink-muted: var(--t-ink-muted);
+  --rule: var(--t-rule);
+  --edge: color-mix(in oklab, var(--t-ink-muted) 80%, var(--t-bg));
+  --accent: var(--t-accent-text);
+  --accent-fill: var(--t-accent);
+  --on-accent: var(--t-on-accent);
+  --accent-soft: color-mix(in oklab, var(--t-accent) 16%, var(--t-bg));
   --danger: #a3452e;
-  --shadow-rest: 0 1px 1px rgba(46, 43, 38, 0.05), 0 1px 3px rgba(46, 43, 38, 0.06);
-  --shadow-lifted: 0 2px 4px rgba(46, 43, 38, 0.06), 0 6px 16px rgba(46, 43, 38, 0.07);
-  --shadow-floating: 0 2px 6px rgba(46, 43, 38, 0.05), 0 12px 32px rgba(46, 43, 38, 0.1);
-  --serif: "Newsreader Variable", Georgia, serif;
-  --sans: "Instrument Sans Variable", system-ui, sans-serif;
+  --shade: color-mix(in oklab, var(--t-ink) 7%, transparent);
+  --shade-strong: color-mix(in oklab, var(--t-ink) 11%, transparent);
+  --shadow-rest: 0 1px 1px var(--shade), 0 1px 3px var(--shade);
+  --shadow-lifted: 0 2px 4px var(--shade), 0 6px 16px var(--shade);
+  --shadow-floating: 0 2px 6px var(--shade), 0 12px 32px var(--shade-strong);
+  --serif: var(--t-font-display);
+  --sans: var(--t-font-body);
   --space-1: 4px;
   --space-2: 8px;
   --space-4: 16px;
@@ -27,27 +44,8 @@
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 10px;
+  --theme-fade: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out;
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper-000: #1a1917;
-    --paper-100: #22211e;
-    --paper-200: #2b2926;
-    --ink: #ebe6dd;
-    --ink-muted: #a59f94;
-    --rule: #36332f;
-    --edge: #807a70;
-    --accent: #8fbfae;
-    --on-accent: #1a1917;
-    --accent-soft: #2e3b35;
-    --danger: #e2937e;
-    --shadow-rest: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
-    --shadow-lifted: 0 2px 4px rgba(0, 0, 0, 0.35), 0 6px 16px rgba(0, 0, 0, 0.3);
-    --shadow-floating: 0 2px 6px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
-    color-scheme: dark;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -58,7 +56,9 @@ body {
   font: 400 14px/20px var(--sans);
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  transition: var(--theme-fade);
 }
+.sheet, .btn, .thumb-img, .dictation, .select, .toast, .editor { transition: var(--theme-fade); }
 button, select, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -82,8 +82,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn:disabled { color: var(--ink-muted); cursor: default; opacity: 0.6; }
 .btn.piece { background: var(--paper-200); box-shadow: var(--shadow-rest); }
 .btn.piece:hover:not(:disabled) { box-shadow: var(--shadow-lifted); background: var(--paper-200); }
-.btn.primary { background: var(--accent); color: var(--on-accent); }
-.btn.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.btn.primary { background: var(--accent-fill); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-fill); filter: brightness(1.08); }
 .btn.icon { width: 40px; padding: 0; justify-content: center; color: var(--ink-muted); }
 .btn svg { width: 16px; height: 16px; flex: none; }
 .select {
@@ -143,7 +143,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   justify-self: center; width: min(680px, 100%); height: 64px; display: flex; align-items: center; gap: var(--space-4);
   padding: 0 var(--space-4) 0 10px; background: var(--paper-200); border-radius: var(--radius-md); box-shadow: var(--shadow-rest);
 }
-.mic { width: 44px; height: 44px; border-radius: var(--radius-sm); border: 0; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+.mic { width: 44px; height: 44px; border-radius: var(--radius-sm); border: 0; background: var(--accent-fill); color: var(--on-accent); display: grid; place-items: center; }
 .mic:disabled { opacity: 0.5; }
 .key { padding: 2px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); color: var(--ink); font-size: 12px; }
 
