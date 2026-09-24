@@ -3,3 +3,8 @@
 /out
 .DS_Store
 Claude outputs/
+/ui/node_modules
+/ui/dist
+/src-tauri/gen
+/src-tauri/target
+*.tsbuildinfo

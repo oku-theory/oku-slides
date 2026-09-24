@@ -17,6 +17,19 @@
   c
 }
 
+// ---- Boîtes pour l'app --------------------------------------------------------
+
+// Émet la boîte réelle d'un contenu (page, position, taille) sous l'étiquette
+// <slider-box>. Les champs de slide utilisent un id « @champ ».
+#let tracked(id, body) = layout(sz => {
+  let m = measure(body, width: sz.width)
+  context {
+    let p = here().position()
+    [#metadata((id: id, page: p.page, x: p.x / 1pt, y: p.y / 1pt, w: m.width / 1pt, h: m.height / 1pt))<slider-box>]
+  }
+  body
+})
+
 // ---- Variables ---------------------------------------------------------------
 
 // Valeur d'une variable du deck.  #var("client")

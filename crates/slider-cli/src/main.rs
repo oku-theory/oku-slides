@@ -65,6 +65,16 @@ enum Cmd {
     },
     /// Affiche le schéma JSON des opérations.
     Schema,
+    /// Serveur de développement : l'interface dans un navigateur, sans Tauri.
+    Serve {
+        /// Deck à ouvrir (.slider.pdf ou .json).
+        input: Option<PathBuf>,
+        #[arg(long, default_value_t = 4870)]
+        port: u16,
+        /// Dossier de l'interface compilée (ui/dist).
+        #[arg(long, default_value = "ui/dist")]
+        ui: PathBuf,
+    },
 }
 
 fn load_fonts(dir: Option<&Path>) -> Result<BTreeMap<String, Vec<u8>>> {
@@ -219,6 +229,7 @@ fn main() -> Result<()> {
         }
         Cmd::Bench { deck, iterations } => bench(read_deck(&deck)?, font_data(), iterations)?,
         Cmd::Schema => println!("{}", serde_json::to_string_pretty(&slider_core::ops_schema())?),
+        Cmd::Serve { input, port, ui } => serve(input, port, ui, font_data())?,
     }
     Ok(())
 }
@@ -306,5 +317,60 @@ fn bench(mut deck: Deck, fonts: Vec<Vec<u8>>, n: usize) -> Result<()> {
         bail!("le deck relu diffère du deck enregistré");
     }
     println!("aller-retour du deck              identique");
+    Ok(())
+}
+
+fn content_type(path: &Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript",
+        "css" => "text/css",
+        "svg" => "image/svg+xml",
+        "json" => "application/json",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Sert l'interface et l'API `/api` (une requête JSON par appel, comme `invoke` dans Tauri).
+fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) -> Result<()> {
+    use tiny_http::{Header, Method, Response, Server};
+    let mut session = slider_session::Session::new(fonts);
+    if let Some(path) = &input {
+        session.open(path)?;
+    }
+    let server = Server::http(("127.0.0.1", port)).map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("Slider (dev) sur http://127.0.0.1:{port}");
+    let json = Header::from_bytes("Content-Type", "application/json").unwrap();
+    for mut req in server.incoming_requests() {
+        let url = req.url().split('?').next().unwrap_or("/").to_owned();
+        if req.method() == &Method::Post && url == "/api" {
+            let mut body = String::new();
+            req.as_reader().read_to_string(&mut body).ok();
+            let (status, out) = match serde_json::from_str::<slider_session::Request>(&body) {
+                Ok(r) => match session.handle(r) {
+                    Ok(v) => (200, v),
+                    Err(e) => (400, serde_json::json!({ "error": e.to_string() })),
+                },
+                Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") })),
+            };
+            req.respond(Response::from_string(out.to_string()).with_status_code(status).with_header(json.clone())).ok();
+            continue;
+        }
+        let rel = url.trim_start_matches('/');
+        let rel = if rel.is_empty() { "index.html" } else { rel };
+        let path = ui.join(rel);
+        let safe = !rel.split('/').any(|seg| seg == "..");
+        match (safe, std::fs::read(&path)) {
+            (true, Ok(bytes)) => {
+                let ct = Header::from_bytes("Content-Type", content_type(&path)).unwrap();
+                req.respond(Response::from_data(bytes).with_header(ct)).ok();
+            }
+            _ => {
+                req.respond(Response::from_string("introuvable").with_status_code(404)).ok();
+            }
+        }
+    }
     Ok(())
 }

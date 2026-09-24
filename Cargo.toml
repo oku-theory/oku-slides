@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ authors = ["Matthieu"]
 slider-core = { path = "crates/slider-core" }
 slider-render = { path = "crates/slider-render" }
 slider-pdf = { path = "crates/slider-pdf" }
+slider-session = { path = "crates/slider-session" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"

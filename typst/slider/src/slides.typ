@@ -2,7 +2,7 @@
 // contenu, slide de fin. Chaque slide est une page.
 
 #import "tokens.typ": *
-#import "core.typ": _cfg, config, chrome, format-date, interp, chapter-number, chapter-counter, fill-template, template-fields
+#import "core.typ": _cfg, config, chrome, format-date, interp, chapter-number, chapter-counter, fill-template, template-fields, tracked
 
 // ---- Deck --------------------------------------------------------------------
 
@@ -82,15 +82,15 @@
 #let _slide-title(t, title, kicker-body) = {
   let c = t.component.title
   let items = ()
-  if kicker-body != none { items.push(styled(t, t.component.kicker, kicker-body)) }
+  if kicker-body != none { items.push(tracked("@kicker", styled(t, t.component.kicker, kicker-body))) }
   let r = c.at("rule", default: none)
   if r != none {
     items.push(rect(width: r.width * 1pt, height: r.height * 1pt, fill: color-of(t, r.color)))
   }
-  items.push({
+  items.push(tracked("@title", {
     set par(leading: leading-of(t, c.at("leading", default: "tight")))
     _heading(2, title, ..text-style(t, c))
-  })
+  }))
   stack(spacing: space-of(t, "sm"), ..items)
 }
 
@@ -154,14 +154,14 @@
   let bar = if k.bar {
     rect(width: k.bar-width * 1pt, height: k.bar-height * 1pt, fill: color-of(t, k.bar-color))
   }
-  let title-block = {
+  let title-block = tracked("@title", {
     set par(leading: leading-of(t, "tight"))
     text(size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
       tracking: k.title-tracking * 1pt, title)
-  }
+  })
   let sub = if subtitle != none {
-    text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle)
+    tracked("@subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle))
   }
   let meta-line = if meta.len() > 0 {
     text(size: size-of(t, k.meta-size), fill: col("meta-color", "band-meta-color"), meta.join[ · ])
@@ -236,12 +236,12 @@
           weight: weight-of(t, "display"),
           fill: color-of(t, k.at("number-color", default: k.ink)).transparentize(100% - k.number-opacity * 100%), numbering(pattern, chapter-counter.get().first() + 1)),)
       },
-      {
+      tracked("@title", {
         set par(leading: leading-of(t, "tight"))
         _heading(1, title, size: size-of(t, k.title-size), font: font-of(t, "display"),
           weight: weight-of(t, "display"), fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt)
-      },
-      ..if subtitle != none { (text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)),) },
+      }),
+      ..if subtitle != none { (tracked("@subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars))),) },
     ))
   })
 }
@@ -277,10 +277,10 @@
   let k = t.component.end-slide
   page(fill: color-of(t, k.bg), foreground: none, {
     _mark(id)
-    align(center + horizon, text(
+    align(center + horizon, tracked("@text", text(
       size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
       weight: weight-of(t, "display"), body,
-    ))
+    )))
   })
 }
 
