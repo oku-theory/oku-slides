@@ -41,10 +41,10 @@ ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono
 
 ## Lancer l'application
 
-Prérequis : Rust, Node 20+, et la CLI Tauri (`cargo install tauri-cli --version "^2"`).
+Prérequis : Rust, [Bun](https://bun.sh), et la CLI Tauri (`cargo install tauri-cli --version "^2"`).
 
 ```sh
-cd ui && npm install && cd ..
+cd ui && bun install && cd ..
 cargo tauri icon src-tauri/icons/icon.png   # une fois : génère icon.icns pour macOS
 cargo tauri dev                             # lance Vite et l'app
 cargo tauri build                           # paquet .app / .dmg
@@ -53,9 +53,9 @@ cargo tauri build                           # paquet .app / .dmg
 Sans Tauri, dans un navigateur :
 
 ```sh
-cd ui && npm run build && cd ..
+cd ui && bun run build && cd ..
 cargo run -p slider-cli -- --fonts assets/fonts serve fixtures/roadmap.json
-# puis http://127.0.0.1:4870 (ou `npm run dev` dans ui/ pour le rechargement à chaud, port 5173)
+# puis http://127.0.0.1:4870 (ou `bun run dev` dans ui/ pour le rechargement à chaud, port 5173)
 ```
 
 ### Édition à la main

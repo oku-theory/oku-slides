@@ -1,5 +1,5 @@
 // Test de fumée de l'édition à la main, contre `slider serve fixtures/roadmap.json` (port 4870).
-// Lancer : node ui/e2e/smoke.cjs (Playwright installé).
+// Lancer : bun ui/e2e/smoke.cjs (Playwright installé).
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch();
