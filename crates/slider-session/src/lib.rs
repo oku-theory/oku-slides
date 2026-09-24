@@ -13,6 +13,9 @@ use thiserror::Error;
 use slider_core::{Deck, Element, ElementBody, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
 use slider_render::{Compiled, ElementBox, Renderer};
 
+pub mod templates;
+pub use templates::{Template, templates};
+
 pub const EXTENSION: &str = ".slider.pdf";
 
 #[derive(Debug, Error)]
@@ -181,14 +184,27 @@ pub struct SlideView {
 pub enum Request {
     Snapshot,
     New,
-    Open { path: PathBuf },
-    Save { path: Option<PathBuf> },
-    Slide { id: String },
-    Svg { id: String },
-    Apply { label: String, ops: Vec<Op> },
+    Open {
+        path: PathBuf,
+    },
+    Save {
+        path: Option<PathBuf>,
+    },
+    Slide {
+        id: String,
+    },
+    Svg {
+        id: String,
+    },
+    Apply {
+        label: String,
+        ops: Vec<Op>,
+    },
     Undo,
     Redo,
     Schema,
+    /// Modèles de slides, rendus avec le thème du deck.
+    Templates,
 }
 
 // ---- Conversion texte ↔ paragraphes ------------------------------------------------
@@ -241,7 +257,18 @@ pub fn text_to_paragraphs(text: &str, previous: &[Paragraph]) -> Vec<Paragraph> 
 
 // ---- Session ----------------------------------------------------------------------
 
+/// Un modèle avec son aperçu (SVG) dans le thème courant.
+#[derive(Debug, Clone, Serialize)]
+pub struct TemplateView {
+    #[serde(flatten)]
+    pub template: Template,
+    pub svg: Arc<str>,
+}
+
 pub struct Session {
+    /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
+    template_renderer: Option<Renderer>,
+    template_cache: Option<(String, Vec<TemplateView>)>,
     deck: Deck,
     assets: BTreeMap<String, Vec<u8>>,
     fonts: BTreeMap<String, Vec<u8>>,
@@ -302,6 +329,8 @@ impl Session {
             fonts: BTreeMap::new(),
             history: History::default(),
             renderer: Renderer::new(app_fonts.clone()),
+            template_renderer: None,
+            template_cache: None,
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
@@ -331,6 +360,7 @@ impl Session {
             Request::Undo => v(&self.undo()?),
             Request::Redo => v(&self.redo()?),
             Request::Schema => slider_core::ops_schema(),
+            Request::Templates => v(&self.template_views()?),
         })
     }
 
@@ -349,6 +379,8 @@ impl Session {
             let mut all = self.app_fonts.clone();
             all.extend(fonts.values().cloned());
             self.renderer = Renderer::new(all);
+            self.template_renderer = None;
+            self.template_cache = None;
             self.svg_cache.clear();
         }
         self.fonts = fonts;
@@ -498,6 +530,37 @@ impl Session {
             notice: self.notice.clone(),
             appearance: compiled.and_then(|c| c.tokens()).map(|t| appearance(&t)).unwrap_or_default(),
         }
+    }
+
+    /// Aperçus des modèles, rendus avec le thème, les jetons, les paramètres et
+    /// les variables du deck. Mis en cache tant que ceux-ci ne changent pas.
+    pub fn template_views(&mut self) -> Result<Vec<TemplateView>> {
+        let key = serde_json::to_string(&(&self.deck.theme, &self.deck.tokens, &self.deck.params, &self.deck.vars))
+            .unwrap_or_default();
+        if let Some((k, views)) = &self.template_cache
+            && *k == key
+        {
+            return Ok(views.clone());
+        }
+        let list = templates();
+        let mut preview = self.deck.clone();
+        preview.slides = list.iter().map(|t| t.slide.clone()).collect();
+        let renderer = self.template_renderer.get_or_insert_with(|| {
+            let mut all = self.app_fonts.clone();
+            all.extend(self.fonts.values().cloned());
+            Renderer::new(all)
+        });
+        renderer.set_deck(&preview, &self.assets);
+        let compiled = renderer.compile()?;
+        let pages = compiled.slide_pages();
+        let mut views = Vec::with_capacity(list.len());
+        for t in list {
+            let page = pages.iter().find(|p| p.slide == t.slide.id).map(|p| p.page).unwrap_or(1);
+            let svg: Arc<str> = compiled.svg(page - 1)?.into();
+            views.push(TemplateView { template: t, svg });
+        }
+        self.template_cache = Some((key, views.clone()));
+        Ok(views)
     }
 
     /// SVG d'une slide, mis en cache par empreinte de page.

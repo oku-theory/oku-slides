@@ -144,3 +144,24 @@ fn l_apparence_suit_le_theme() {
     assert_eq!(snap.appearance.app["accent"], "#123456");
     assert_eq!(snap.appearance.app["desk"], "#222222");
 }
+
+#[test]
+fn les_modeles_se_rendent_dans_le_theme_du_deck() {
+    let mut s = Session::new(Vec::new());
+    s.open(&fixture_path()).unwrap();
+    let papier = s.template_views().unwrap();
+    assert!(papier.len() >= 8);
+    assert!(papier.iter().all(|t| t.svg.starts_with("<svg")));
+    assert!(papier.iter().any(|t| t.template.id == "cartes"));
+
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    let pro = s.template_views().unwrap();
+    assert_ne!(papier[0].svg, pro[0].svg, "l'aperçu suit le thème");
+
+    // Chaque modèle s'insère dans le deck.
+    for (i, t) in pro.iter().enumerate() {
+        let mut slide = t.template.slide.clone();
+        slide.id = format!("nouvelle-{i}");
+        s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, slide }]).unwrap();
+    }
+}

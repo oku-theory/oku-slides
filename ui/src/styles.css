@@ -247,3 +247,39 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .toast.error { color: var(--danger); }
 .empty { color: var(--ink-muted); }
+
+/* ---- Carrousel des modèles ---- */
+.picker-scrim {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--paper-000) 55%, transparent); backdrop-filter: blur(6px);
+  animation: fade-in 160ms ease-out;
+}
+.picker {
+  width: min(1180px, calc(100vw - 80px)); padding: var(--space-6) var(--space-6) 28px; display: flex; flex-direction: column; gap: var(--space-4);
+  background: var(--paper-100); border-radius: var(--radius-lg); box-shadow: var(--edge-light), var(--shadow-floating);
+  animation: rise 200ms ease-out;
+}
+.picker-head { display: flex; align-items: center; gap: var(--space-4); }
+.picker-head h2 { margin: 0; font: 500 24px/30px var(--serif); }
+.picker-head .caption { flex: 1; }
+.picker-row { display: flex; align-items: center; gap: var(--space-4); }
+.picker-nav { flex: none; }
+.picker-strip {
+  flex: 1; display: flex; gap: 28px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 18px 12px 26px;
+  scrollbar-width: none;
+}
+.picker-strip::-webkit-scrollbar { display: none; }
+.template {
+  flex: none; width: 272px; scroll-snap-align: center; display: flex; flex-direction: column; gap: 6px; padding: 0;
+  background: none; border: 0; text-align: left; cursor: pointer; color: var(--ink);
+}
+.template img, .template-empty {
+  width: 272px; aspect-ratio: 16 / 9; display: block; border-radius: var(--radius-sm); background: var(--t-bg);
+  box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+.template.focused img { transform: var(--lift) scale(1.04); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
+.template-name { margin-top: 10px; font-weight: 600; }
+.template:focus-visible { outline: none; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .picker-scrim, .picker { animation: none; } }

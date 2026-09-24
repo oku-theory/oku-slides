@@ -102,6 +102,14 @@ export interface SlideView {
   targets: Target[];
 }
 
+export interface TemplateView {
+  id: string;
+  name: string;
+  description: string;
+  slide: Slide;
+  svg: string;
+}
+
 export type Op = { op: string } & Record<string, unknown>;
 
 type Request =
@@ -113,7 +121,8 @@ type Request =
   | { cmd: "svg"; id: string }
   | { cmd: "apply"; label: string; ops: Op[] }
   | { cmd: "undo" }
-  | { cmd: "redo" };
+  | { cmd: "redo" }
+  | { cmd: "templates" };
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -142,6 +151,7 @@ export const api = {
   apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
   undo: () => call<Snapshot>({ cmd: "undo" }),
   redo: () => call<Snapshot>({ cmd: "redo" }),
+  templates: () => call<TemplateView[]>({ cmd: "templates" }),
 };
 
 /** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */
@@ -246,4 +256,19 @@ export async function applyAppearance(a: Appearance) {
       }
     }
   }
+}
+
+/** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments). */
+export function instantiate(template: Slide): Slide {
+  const copy: Slide = JSON.parse(JSON.stringify(template));
+  copy.id = newId("s");
+  const renew = (list?: Element[]) => {
+    for (const e of list ?? []) {
+      e.id = newId("e");
+      renew(e.children);
+    }
+  };
+  renew(copy.blocks);
+  renew(copy.elements);
+  return copy;
 }

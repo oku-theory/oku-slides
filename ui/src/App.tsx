@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Op, SlideView, Snapshot } from "./api";
-import { api, applyAppearance, findElement, newId, pickOpenPath, pickSavePath } from "./api";
+import type { TemplateView } from "./api";
+import { api, applyAppearance, findElement, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
+import TemplatePicker from "./TemplatePicker";
 import Stage from "./Stage";
 
 const Icon = {
@@ -154,12 +156,17 @@ export default function App() {
     });
   };
 
-  const addSlide = () => {
+  const [picking, setPicking] = useState(false);
+  const addSlide = () => setPicking(true);
+  const insertTemplate = (t: TemplateView) => {
     if (!snap) return;
+    setPicking(false);
     const index = snap.slides.findIndex((s) => s.id === current) + 1;
-    const id = newId("s");
-    const slide = { id, kind: "content", title: "Nouvelle slide", blocks: [{ id: newId("b"), kind: "text", text: [{ runs: [{ t: "…" }] }] }] };
-    apply("Nouvelle slide", [{ op: "add_slide", index, slide }]).then(() => setCurrent(id));
+    const slide = instantiate(t.slide);
+    apply(`Nouvelle slide : ${t.name}`, [{ op: "add_slide", index, slide }]).then(() => {
+      setCurrent(slide.id);
+      setSelected(null);
+    });
   };
 
   const removeSlide = () => {
@@ -170,7 +177,7 @@ export default function App() {
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (editing || (e.target as HTMLElement).closest("input, textarea, select")) return;
+      if (editing || picking || (e.target as HTMLElement).closest("input, textarea, select")) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -301,6 +308,8 @@ export default function App() {
         <div className="spacer caption">La dictée arrive bientôt · slide {index + 1} sur {snap.slides.length}{cur ? ` · ${cur.kind}` : ""}</div>
         <span className="caption"><span className="key">⌘Z</span> annuler</span>
       </div>
+
+      {picking && <TemplatePicker themeKey={appearanceKey} onPick={insertTemplate} onClose={() => setPicking(false)} />}
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
     </div>
