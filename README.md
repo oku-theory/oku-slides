@@ -21,19 +21,16 @@ Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/c
 | `typst/slider` | Bibliothèque Typst de slides (structure, jetons, thèmes `papier` et `pro`) |
 | `fixtures/` | Decks d'exemple |
 
-## Utilisation
+## Outil en ligne de commande
 
 ```sh
-cargo build --release
-B=target/release/slider
-
-$B check fixtures/roadmap.json                       # valider un deck
-$B render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
-$B save fixtures/roadmap.json deck.slider.pdf --assets ./images
-$B open deck.slider.pdf --out extrait/                # deck.json + assets
-$B strip deck.slider.pdf copie.pdf                    # copie sans sources
-$B bench fixtures/roadmap.json                        # latences
-$B schema                                             # schéma JSON des opérations
+just slider check fixtures/roadmap.json                       # valider un deck
+just slider render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
+just save fixtures/roadmap.json deck.slider.pdf                # enregistrer en .slider.pdf
+just slider open deck.slider.pdf --out extrait/                # deck.json + assets
+just slider strip deck.slider.pdf copie.pdf                    # copie sans sources
+just bench                                                     # latences
+just slider schema                                             # schéma JSON des opérations
 ```
 
 `--fonts <dossier>` ajoute des polices (TTF/OTF) ; sans elles, Typst utilise
@@ -41,21 +38,18 @@ ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono
 
 ## Lancer l'application
 
-Prérequis : Rust, [Bun](https://bun.sh), et la CLI Tauri (`cargo install tauri-cli --version "^2"`).
+Tout se lance depuis la racine du dépôt avec [just](https://just.systems).
+Prérequis : Rust, [Bun](https://bun.sh), just, et la CLI Tauri
+(`cargo install tauri-cli --version "^2"`). `just doctor` vérifie tout.
 
 ```sh
-cd ui && bun install && cd ..
-cargo tauri icon src-tauri/icons/icon.png   # une fois : génère icon.icns pour macOS
-cargo tauri dev                             # lance Vite et l'app
-cargo tauri build                           # paquet .app / .dmg
-```
-
-Sans Tauri, dans un navigateur :
-
-```sh
-cd ui && bun run build && cd ..
-cargo run -p slider-cli -- --fonts assets/fonts serve fixtures/roadmap.json
-# puis http://127.0.0.1:4870 (ou `bun run dev` dans ui/ pour le rechargement à chaud, port 5173)
+just dev      # app de bureau en développement (installe les dépendances de l'interface)
+just build    # paquet .app / .dmg
+just web      # interface dans le navigateur avec rechargement à chaud (localhost:5173)
+just serve    # interface compilée dans le navigateur (127.0.0.1:4870)
+just test     # tests Rust
+just check    # format, clippy, types TypeScript
+just          # toutes les commandes
 ```
 
 ### Édition à la main
@@ -70,8 +64,3 @@ cargo run -p slider-cli -- --fonts assets/fonts serve fixtures/roadmap.json
 | ⌘Z, ⇧⌘Z | Annuler, rétablir (un geste = une annulation) |
 | ⌘S, ⇧⌘S, ⌘O | Enregistrer, enregistrer sous, ouvrir |
 
-## Tests
-
-```sh
-cargo test --workspace
-```
