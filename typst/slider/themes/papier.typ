@@ -15,6 +15,14 @@
     body: ("Instrument Sans", "Libertinus Serif"),
   ),
   weight: (display: 500, title: 500, label: 500, strong: 600),
+  // Interface : les jetons du design system Papier (jour).
+  app: (
+    scheme: "light",
+    desk: "#ece8e0", sheet: "#f7f5f0", piece: "#fffdf9",
+    ink: "ink", ink-muted: "ink-muted", rule: "rule", edge: "#8a8378",
+    accent: "accent", accent-text: "accent", on-accent: "on-accent", accent-soft: "accent-soft",
+    danger: "#a3452e", shadow: "#2e2b26",
+  ),
   component: (
     chapter: (bg: "surface", ink: "ink", number-color: "accent", number-opacity: 1),
     title-slide: (bg: "bg", bar-color: "accent"),

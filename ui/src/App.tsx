@@ -174,76 +174,88 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (!snap) return <div className="app"><p className="empty" style={{ padding: 40 }}>Chargement…</p></div>;
+  if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>Chargement…</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
   const index = snap.slides.findIndex((s) => s.id === current);
+  const status = snap.dirty ? "modifications non enregistrées" : snap.path ? "enregistré" : "pas encore enregistré";
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">Slider</div>
-        <div className="doc">
-          <div className="doc-name">{snap.name}</div>
-          <div className="caption" role="status">
-            {snap.slides.length} slides · {snap.dirty ? "modifications non enregistrées" : snap.path ? "enregistré" : "pas encore enregistré"}
-          </div>
-        </div>
-        <div className="spacer" />
-        <div className="actions">
-          <button className="btn icon" aria-label={snap.undo_label ? `Annuler : ${snap.undo_label}` : "Annuler"} title={snap.undo_label ?? undefined} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
-          <button className="btn icon" aria-label={snap.redo_label ? `Rétablir : ${snap.redo_label}` : "Rétablir"} title={snap.redo_label ?? undefined} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+    <div className="table">
+      {/* Étiquette du document, posée sur la table. */}
+      <header className="label object">
+        <span className="brand">Slider</span>
+        <span className="doc-name">{snap.name}</span>
+        <span className="caption" role="status">{snap.slides.length} slides · {status}</span>
+      </header>
+
+      {/* Outils posés en haut de la table. */}
+      <div className="tray">
+        <button className="object token" aria-label={snap.undo_label ? `Annuler : ${snap.undo_label}` : "Annuler"} title={snap.undo_label ?? "Annuler"} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
+        <button className="object token" aria-label={snap.redo_label ? `Rétablir : ${snap.redo_label}` : "Rétablir"} title={snap.redo_label ?? "Rétablir"} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+        <div className="object theme-card">
           <label className="caption" htmlFor="theme">Thème</label>
           <select id="theme" className="select" value={snap.theme ?? ""} onChange={(e) => apply("Changer de thème", [{ op: "set_theme", theme: e.target.value || null }])}>
             <option value="">Par défaut</option>
             {snap.themes.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button className="btn piece" onClick={open}>Ouvrir</button>
-          <button className="btn piece" onClick={() => save(false)} disabled={!snap.dirty && !!snap.path}>Enregistrer</button>
         </div>
-      </header>
+        <button className="object btn" onClick={open}>Ouvrir</button>
+        <button className="object btn primary" onClick={() => save(false)} disabled={!snap.dirty && !!snap.path}>Enregistrer</button>
+      </div>
 
-      <div className="body">
-        <nav className="thumbs" aria-label="Slides">
-          {snap.slides.map((s, i) => {
-            const url = svg(s.id, s.hash);
-            return (
-              <button key={s.id} className="thumb" aria-current={s.id === current} onClick={() => { setCurrent(s.id); setSelected(null); setEditing(null); }}>
-                <span className="thumb-n">{i + 1}</span>
-                {url ? <img className="thumb-img" src={url} alt={s.title ?? `Slide ${i + 1}`} /> : <span className="thumb-img" />}
-              </button>
-            );
-          })}
-          <button className="btn add-slide" onClick={addSlide}>+ Nouvelle slide</button>
-        </nav>
+      {/* Pile de slides, à gauche. */}
+      <nav className="pile" aria-label="Slides">
+        {snap.slides.map((s, i) => {
+          const url = svg(s.id, s.hash);
+          return (
+            <button key={s.id} className="thumb" aria-current={s.id === current} onClick={() => { setCurrent(s.id); setSelected(null); setEditing(null); }}>
+              <span className="thumb-n">{i + 1}</span>
+              {url ? <img className="thumb-img" src={url} alt={s.title ?? `Slide ${i + 1}`} /> : <span className="thumb-img" />}
+            </button>
+          );
+        })}
+        <button className="object btn add-slide" onClick={addSlide}>+ Nouvelle slide</button>
+      </nav>
 
-        <main className="sheet">
-          <div className="sheet-head">
-            <span className="caption">Slide {index + 1} sur {snap.slides.length}{cur ? ` · ${cur.kind}` : ""}</span>
-            <div className="tools">
-              <button className="btn" onClick={addText} disabled={!view || view.slide.kind !== "content"}>+ Texte</button>
-              <button className="btn" onClick={removeSlide} disabled={snap.slides.length < 2}>Supprimer la slide</button>
-            </div>
-          </div>
-          {view && view.slide.id === current ? (
-            <Stage
-              view={view}
-              svgUrl={cur ? svg(cur.id, cur.hash) : null}
-              selected={selected}
-              editing={editing}
-              onSelect={setSelected}
-              onEdit={setEditing}
-              onApply={apply}
-            />
-          ) : (
-            <div className="stage-wrap empty">Rendu…</div>
-          )}
-          <div className="dictation" aria-label="Dictée">
-            <button className="mic" disabled aria-label="Dicter (bientôt)">{Icon.mic}</button>
-            <div className="spacer caption">Double-cliquez sur un texte pour le modifier · glissez un élément libre pour le déplacer</div>
-            <span className="caption"><span className="key">⌘Z</span> annuler</span>
-          </div>
-        </main>
+      {/* La feuille, posée au centre. */}
+      <main className="sheet-area">
+        {view && view.slide.id === current ? (
+          <Stage
+            view={view}
+            svgUrl={cur ? svg(cur.id, cur.hash) : null}
+            selected={selected}
+            editing={editing}
+            onSelect={setSelected}
+            onEdit={setEditing}
+            onApply={apply}
+          />
+        ) : (
+          <div className="stage-wrap empty">Rendu…</div>
+        )}
+      </main>
+
+      {/* Post-it à droite de la feuille. */}
+      <aside className="notes" aria-label="Outils de la slide">
+        <button className="postit" onClick={addText} disabled={!view || view.slide.kind !== "content"}>
+          <span className="postit-title">+ Texte</span>
+          <span className="postit-hint">Ajoute un bloc sur cette slide</span>
+        </button>
+        <button className="postit" onClick={removeSlide} disabled={snap.slides.length < 2}>
+          <span className="postit-title">Supprimer la slide</span>
+          <span className="postit-hint">Slide {index + 1} · annulable avec ⌘Z</span>
+        </button>
+        <div className="postit note" role="note">
+          <span className="postit-title">Astuce</span>
+          <span className="postit-hint">Double-clic pour modifier un texte, glisser pour déplacer un élément libre.</span>
+        </div>
+      </aside>
+
+      {/* Appareil de dictée, posé devant la feuille. */}
+      <div className="device object" aria-label="Dictée">
+        <button className="mic" disabled aria-label="Dicter (bientôt)">{Icon.mic}</button>
+        <div className="spacer caption">La dictée arrive bientôt · slide {index + 1} sur {snap.slides.length}{cur ? ` · ${cur.kind}` : ""}</div>
+        <span className="caption"><span className="key">⌘Z</span> annuler</span>
       </div>
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}

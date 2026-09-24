@@ -61,28 +61,26 @@ pub struct SlideSummary {
 /// Apparence de l'interface, tirée des jetons du thème des slides.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct Appearance {
-    /// Fond des slides.
-    pub bg: String,
-    pub surface: String,
-    pub ink: String,
-    pub ink_muted: String,
-    /// Couleur d'accent (aplats, traits).
-    pub accent: String,
-    /// Accent lisible en texte sur le fond (`accent-text` si le thème en a un).
-    pub accent_text: String,
-    pub on_accent: String,
-    pub rule: String,
+    /// `light` ou `dark` : contrôles natifs, barres de défilement.
+    pub scheme: String,
+    /// Couleurs des slides (fond, encre, accent…), résolues en hex.
+    pub slide: BTreeMap<String, String>,
+    /// Couleurs de l'interface (`desk`, `sheet`, `piece`, `ink`…). Une couleur
+    /// absente est dérivée par l'interface à partir des couleurs des slides.
+    pub app: BTreeMap<String, String>,
+    /// Formes de l'interface : `radius-sm`, `radius-md`, `radius-lg` (px), `elevation`.
+    pub metrics: BTreeMap<String, f64>,
     /// Familles de police : titres et texte courant.
     pub font_display: Vec<String>,
     pub font_body: Vec<String>,
 }
 
-/// Couleur d'un jeton, en suivant les références par nom (« chapter-bg » → « accent »).
-fn token_color(colors: &serde_json::Map<String, Value>, name: &str) -> Option<String> {
-    let mut v = colors.get(name)?.as_str()?;
+/// Couleur : hex, ou nom d'une couleur du thème (références suivies).
+fn resolve_color(colors: &serde_json::Map<String, Value>, v: &Value) -> Option<String> {
+    let mut v = v.as_str()?;
     for _ in 0..8 {
         if v.starts_with('#') {
-            return Some(v.to_owned());
+            return Some(v.to_ascii_lowercase());
         }
         v = colors.get(v)?.as_str()?;
     }
@@ -107,17 +105,19 @@ pub fn appearance(tokens: &Value) -> Appearance {
     let empty = serde_json::Map::new();
     let colors = tokens.get("color").and_then(Value::as_object).unwrap_or(&empty);
     let fonts = tokens.get("font").and_then(Value::as_object).unwrap_or(&empty);
-    let c = |name: &str, fallback: &str| token_color(colors, name).unwrap_or_else(|| fallback.to_owned());
-    let accent = c("accent", "#3f6b5e");
+    let app = tokens.get("app").and_then(Value::as_object).unwrap_or(&empty);
+    let slide = colors.iter().filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?))).collect();
+    let app_colors = app
+        .iter()
+        .filter(|(k, _)| *k != "scheme")
+        .filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?)))
+        .collect();
+    let metrics = app.iter().filter_map(|(k, v)| Some((k.clone(), v.as_f64()?))).collect();
     Appearance {
-        bg: c("bg", "#ffffff"),
-        surface: c("surface", "#f4f3f0"),
-        ink: c("ink", "#1d1c1a"),
-        ink_muted: c("ink-muted", "#5f5b55"),
-        accent_text: token_color(colors, "accent-text").unwrap_or_else(|| accent.clone()),
-        accent,
-        on_accent: c("on-accent", "#ffffff"),
-        rule: c("rule", "#d9d6d0"),
+        metrics,
+        scheme: app.get("scheme").and_then(Value::as_str).unwrap_or("light").to_owned(),
+        slide,
+        app: app_colors,
         font_display: token_fonts(fonts, "display"),
         font_body: token_fonts(fonts, "body"),
     }

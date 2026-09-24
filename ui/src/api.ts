@@ -11,14 +11,13 @@ export interface SlideSummary {
 }
 
 export interface Appearance {
-  bg: string;
-  surface: string;
-  ink: string;
-  ink_muted: string;
-  accent: string;
-  accent_text: string;
-  on_accent: string;
-  rule: string;
+  scheme: "light" | "dark" | string;
+  /** Couleurs des slides (bg, ink, accent…), en hex. */
+  slide: Record<string, string>;
+  /** Couleurs de l'interface (desk, sheet, piece, ink…) ; absentes = dérivées. */
+  app: Record<string, string>;
+  /** radius-sm, radius-md, radius-lg (px), elevation. */
+  metrics: Record<string, number>;
   font_display: string[];
   font_body: string[];
 }
@@ -207,19 +206,43 @@ function fontStack(families: string[], fallback: string): string {
   return [...names, fallback].join(", ");
 }
 
-/** Accorde l'interface au thème des slides (couleurs et polices). */
-export function applyAppearance(a: Appearance) {
-  if (!a.bg) return;
-  const root = document.documentElement.style;
-  const set = (name: string, value: string) => root.setProperty(`--t-${name}`, value);
-  set("bg", a.bg);
-  set("surface", a.surface);
-  set("ink", a.ink);
-  set("ink-muted", a.ink_muted);
-  set("accent", a.accent);
-  set("accent-text", a.accent_text);
-  set("on-accent", a.on_accent);
-  set("rule", a.rule);
-  if (a.font_display.length) set("font-display", fontStack(a.font_display, "Georgia, serif"));
-  if (a.font_body.length) set("font-body", fontStack(a.font_body, "system-ui, sans-serif"));
+const APP_COLORS = [
+  "desk", "sheet", "piece", "ink", "ink-muted", "rule", "edge",
+  "accent", "accent-text", "on-accent", "accent-soft", "danger", "shadow",
+];
+
+/** Accorde toute l'interface au thème des slides : couleurs, fonds, polices, formes. */
+export async function applyAppearance(a: Appearance) {
+  const root = document.documentElement;
+  const style = root.style;
+  const slide = (name: string) => a.slide[name];
+  for (const name of ["bg", "ink", "ink-muted", "accent", "on-accent", "rule"]) {
+    if (slide(name)) style.setProperty(`--t-${name}`, slide(name));
+  }
+  for (const name of APP_COLORS) {
+    if (a.app[name]) style.setProperty(`--app-${name}`, a.app[name]);
+    else style.removeProperty(`--app-${name}`);
+  }
+  for (const [name, value] of Object.entries(a.metrics)) {
+    style.setProperty(`--app-${name}`, name === "elevation" ? String(value) : `${value}px`);
+  }
+  style.setProperty("--app-scheme", a.scheme);
+  root.style.colorScheme = a.scheme;
+  if (a.font_display.length) style.setProperty("--t-font-display", fontStack(a.font_display, "Georgia, serif"));
+  if (a.font_body.length) style.setProperty("--t-font-body", fontStack(a.font_body, "system-ui, sans-serif"));
+
+  // Le fond natif de la fenêtre suit aussi (visible au redimensionnement).
+  if (inTauri) {
+    const desk = getComputedStyle(root).getPropertyValue("--paper-000").trim();
+    const hex = a.app.desk ?? (/^#[0-9a-f]{6}$/i.test(desk) ? desk : null);
+    if (hex) {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const n = parseInt(hex.slice(1), 16);
+        await getCurrentWindow().setBackgroundColor([(n >> 16) & 255, (n >> 8) & 255, n & 255, 255]);
+      } catch {
+        /* fond natif : facultatif */
+      }
+    }
+  }
 }

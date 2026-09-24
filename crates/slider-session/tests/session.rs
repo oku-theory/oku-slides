@@ -109,19 +109,38 @@ fn l_apparence_suit_le_theme() {
     let mut s = Session::new(Vec::new());
     s.open(&fixture_path()).unwrap();
     let papier = s.snapshot().appearance;
-    assert_eq!(papier.accent, "#3f6b5e");
-    assert_eq!(papier.bg, "#fffdf9");
+    assert_eq!(papier.scheme, "light");
+    assert_eq!(papier.slide["accent"], "#3f6b5e");
+    assert_eq!(papier.app["desk"], "#ece8e0");
+    assert_eq!(papier.app["ink"], "#2e2b26", "les références par nom sont résolues");
     assert_eq!(papier.font_display.first().map(String::as_str), Some("Newsreader"));
 
-    let snap = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
-    let pro = snap.appearance;
-    assert_eq!(pro.accent, "#00bef4");
-    assert_eq!(pro.accent_text, "#0072b0", "pro a une couleur d'accent pour le texte");
+    let pro = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap().appearance;
+    assert_eq!(pro.scheme, "dark");
+    assert_eq!(pro.app["desk"], "#00154e");
+    assert_eq!(pro.app["ink"], "#ffffff");
+    assert_eq!(pro.app["accent-text"], "#00bef4");
     assert_eq!(pro.font_body, vec!["Inter".to_owned()]);
+    assert_eq!(pro.metrics["radius-lg"], 16.0);
+    assert_eq!(pro.metrics["elevation"], 1.6);
 
-    // Une surcharge du deck l'emporte sur le thème.
+    // Sans thème, l'interface dérive ses couleurs : aucune couleur d'app imposée.
+    let plain = s.apply("Sans thème", vec![Op::SetTheme { theme: None }]).unwrap().appearance;
+    assert!(plain.app.is_empty());
+    assert_eq!(plain.metrics["radius-md"], 12.0, "les formes par défaut restent définies");
+
+    // Une surcharge du deck l'emporte sur le thème, pour les slides comme pour l'app.
     let snap = s
-        .apply("Accent", vec![Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") }])
+        .apply(
+            "Accent",
+            vec![
+                Op::SetTheme { theme: Some("pro".into()) },
+                Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
+                Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
+            ],
+        )
         .unwrap();
-    assert_eq!(snap.appearance.accent, "#123456");
+    assert_eq!(snap.appearance.slide["accent"], "#123456");
+    assert_eq!(snap.appearance.app["accent"], "#123456");
+    assert_eq!(snap.appearance.app["desk"], "#222222");
 }

@@ -4,36 +4,61 @@
 @import "@fontsource-variable/inter/index.css";
 
 :root {
-  /* Jetons du thème des slides, posés par l'app (voir applyAppearance). Défauts : Papier. */
+  /* Couleurs des slides, posées par l'app (voir applyAppearance). Défauts : Papier. */
   --t-bg: #fffdf9;
-  --t-surface: #f7f5f0;
   --t-ink: #2e2b26;
   --t-ink-muted: #686258;
   --t-accent: #3f6b5e;
-  --t-accent-text: #3f6b5e;
   --t-on-accent: #fffdf9;
   --t-rule: #ddd7cc;
   --t-font-display: "Newsreader Variable", "Newsreader", Georgia, serif;
   --t-font-body: "Instrument Sans Variable", "Instrument Sans", system-ui, sans-serif;
 
-  /* Interface Papier dérivée du thème : trois papiers, une encre, un accent. */
-  --paper-200: var(--t-bg);
-  --paper-100: color-mix(in oklab, var(--t-bg) 95%, var(--t-ink));
-  --paper-000: color-mix(in oklab, var(--t-bg) 89%, var(--t-ink));
-  --ink: var(--t-ink);
-  --ink-muted: var(--t-ink-muted);
-  --rule: var(--t-rule);
-  --edge: color-mix(in oklab, var(--t-ink-muted) 80%, var(--t-bg));
-  --accent: var(--t-accent-text);
-  --accent-fill: var(--t-accent);
-  --on-accent: var(--t-on-accent);
-  --accent-soft: color-mix(in oklab, var(--t-accent) 16%, var(--t-bg));
-  --danger: #a3452e;
-  --shade: color-mix(in oklab, var(--t-ink) 7%, transparent);
-  --shade-strong: color-mix(in oklab, var(--t-ink) 11%, transparent);
-  --shadow-rest: 0 1px 1px var(--shade), 0 1px 3px var(--shade);
-  --shadow-lifted: 0 2px 4px var(--shade), 0 6px 16px var(--shade);
-  --shadow-floating: 0 2px 6px var(--shade), 0 12px 32px var(--shade-strong);
+  /* Interface : chaque couleur vient du thème (--app-*), sinon elle est dérivée des slides. */
+  --paper-000: var(--app-desk, color-mix(in oklab, var(--t-bg) 89%, var(--t-ink)));
+  --paper-100: var(--app-sheet, color-mix(in oklab, var(--t-bg) 95%, var(--t-ink)));
+  --paper-200: var(--app-piece, var(--t-bg));
+  --ink: var(--app-ink, var(--t-ink));
+  --ink-muted: var(--app-ink-muted, var(--t-ink-muted));
+  --rule: var(--app-rule, var(--t-rule));
+  --edge: var(--app-edge, color-mix(in oklab, var(--ink-muted) 80%, var(--paper-200)));
+  --accent: var(--app-accent-text, var(--t-accent));
+  --accent-fill: var(--app-accent, var(--t-accent));
+  --on-accent: var(--app-on-accent, var(--t-on-accent));
+  --accent-soft: var(--app-accent-soft, color-mix(in oklab, var(--accent-fill) 16%, var(--paper-200)));
+  --danger: var(--app-danger, color-mix(in oklab, #b3402a 85%, var(--ink)));
+
+  /* Formes et hauteur : rayons et élévation viennent aussi du thème. */
+  --radius-sm: var(--app-radius-sm, 8px);
+  --radius-md: var(--app-radius-md, 12px);
+  --radius-lg: var(--app-radius-lg, 18px);
+  --elev: var(--app-elevation, 1.4);
+  --shade: color-mix(in oklab, var(--app-shadow, var(--t-ink)) 9%, transparent);
+  --shade-strong: color-mix(in oklab, var(--app-shadow, var(--t-ink)) 16%, transparent);
+  --shadow-rest: 0 calc(1px * var(--elev)) calc(2px * var(--elev)) var(--shade),
+    0 calc(4px * var(--elev)) calc(12px * var(--elev)) var(--shade);
+  --shadow-lifted: 0 calc(4px * var(--elev)) calc(8px * var(--elev)) var(--shade),
+    0 calc(12px * var(--elev)) calc(28px * var(--elev)) var(--shade);
+  --shadow-floating: 0 calc(8px * var(--elev)) calc(16px * var(--elev)) var(--shade),
+    0 calc(24px * var(--elev)) calc(56px * var(--elev)) var(--shade-strong);
+
+  /* Métaphore de la table : la feuille repose à plat, les objets sont posés autour. */
+  --shade-soft: color-mix(in oklab, var(--app-shadow, var(--t-ink)) 5%, transparent);
+  --shadow-sheet: 0 calc(1px * var(--elev)) calc(1px * var(--elev)) var(--shade),
+    0 calc(3px * var(--elev)) calc(6px * var(--elev)) var(--shade),
+    0 calc(12px * var(--elev)) calc(24px * var(--elev)) var(--shade),
+    0 calc(32px * var(--elev)) calc(64px * var(--elev)) var(--shade-soft);
+  --shadow-object: 0 calc(1px * var(--elev)) calc(1px * var(--elev)) var(--shade),
+    0 calc(6px * var(--elev)) calc(10px * var(--elev)) calc(-2px * var(--elev)) var(--shade-strong),
+    0 calc(14px * var(--elev)) calc(28px * var(--elev)) calc(-6px * var(--elev)) var(--shade);
+  --shadow-note: 0 1px 1px var(--shade),
+    0 calc(10px * var(--elev)) calc(14px * var(--elev)) calc(-5px * var(--elev)) var(--shade-strong),
+    calc(2px * var(--elev)) calc(18px * var(--elev)) calc(22px * var(--elev)) calc(-10px * var(--elev)) var(--shade);
+  /* Arête éclairée des objets : les distingue aussi sur une table sombre. */
+  --edge-light: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  --postit: var(--app-postit, color-mix(in oklab, var(--accent-fill) 20%, var(--paper-200)));
+  --lift: translateY(calc(-3px * var(--elev)));
+
   --serif: var(--t-font-display);
   --sans: var(--t-font-body);
   --space-1: 4px;
@@ -41,115 +66,155 @@
   --space-4: 16px;
   --space-6: 24px;
   --space-10: 40px;
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --theme-fade: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out;
-  color-scheme: light;
+  --theme-fade: background-color 250ms ease-out, color 250ms ease-out, box-shadow 250ms ease-out,
+    border-color 250ms ease-out, border-radius 250ms ease-out;
+  color-scheme: var(--app-scheme, light);
+  background: var(--paper-000);
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  background: var(--paper-000);
   color: var(--ink);
   font: 400 14px/20px var(--sans);
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  overflow: hidden;
+}
+button, select, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ---- La table ---- */
+.table {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr) 184px;
+  grid-template-rows: 104px minmax(0, 1fr) 104px;
+  grid-template-areas: "label tray tray" "pile sheet notes" "pile device notes";
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 45%, color-mix(in oklab, var(--paper-000) 92%, white) 0%, transparent 70%),
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, color-mix(in oklab, var(--paper-000) 88%, black) 100%),
+    var(--paper-000);
   transition: var(--theme-fade);
 }
-.sheet, .btn, .thumb-img, .dictation, .select, .toast, .editor { transition: var(--theme-fade); }
-button, select, input, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.app { height: 100%; display: grid; grid-template-rows: 64px minmax(0, 1fr); }
+/* Objets posés sur la table : ils se soulèvent au survol. */
+.object {
+  background: var(--paper-200); color: var(--ink); border: 0; border-radius: var(--radius-md);
+  box-shadow: var(--edge-light), var(--shadow-object); cursor: pointer;
+  transition: var(--theme-fade), transform 180ms ease-out;
+}
+.object:hover:not(:disabled) { transform: var(--lift); box-shadow: var(--edge-light), var(--shadow-floating); }
+.object:active:not(:disabled) { transform: none; box-shadow: var(--shadow-rest); }
+.object:disabled { cursor: default; opacity: 0.55; box-shadow: var(--shadow-rest); }
 
-/* ---- Barre supérieure ---- */
-.topbar { display: flex; align-items: center; gap: var(--space-6); padding: 0 var(--space-6); }
-.brand { font: 500 22px/30px var(--serif); }
-.doc { display: flex; flex-direction: column; min-width: 0; }
-.doc-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---- Étiquette du document ---- */
+.label {
+  grid-area: label; align-self: center; margin-left: var(--space-6); padding: 10px 18px 12px;
+  display: flex; flex-direction: column; gap: 1px; min-width: 0; width: fit-content; max-width: min(420px, 40vw);
+  transform: rotate(-0.8deg); cursor: default;
+}
+.label:hover { transform: rotate(-0.8deg); box-shadow: var(--shadow-object); }
+.brand { font: 500 13px/16px var(--serif); color: var(--accent); letter-spacing: 0.02em; }
+.doc-name { font: 500 18px/24px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .caption { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
-.spacer { flex: 1; }
-.actions { display: flex; align-items: center; gap: var(--space-2); }
+.label .caption { white-space: nowrap; }
 
+/* ---- Outils en haut à droite ---- */
+.tray { grid-area: tray; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding-right: var(--space-6); }
 .btn {
-  height: 40px; padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2);
-  border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer;
-  font-size: 13px; font-weight: 500; line-height: 18px; color: var(--ink);
+  height: 44px; padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2);
+  font-size: 13px; font-weight: 500; line-height: 18px;
 }
-.btn:hover:not(:disabled) { background: var(--accent-soft); }
-.btn:disabled { color: var(--ink-muted); cursor: default; opacity: 0.6; }
-.btn.piece { background: var(--paper-200); box-shadow: var(--shadow-rest); }
-.btn.piece:hover:not(:disabled) { box-shadow: var(--shadow-lifted); background: var(--paper-200); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.token { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; color: var(--ink); }
+.token svg { width: 18px; height: 18px; }
 .btn.primary { background: var(--accent-fill); color: var(--on-accent); }
-.btn.primary:hover:not(:disabled) { background: var(--accent-fill); filter: brightness(1.08); }
-.btn.icon { width: 40px; padding: 0; justify-content: center; color: var(--ink-muted); }
-.btn svg { width: 16px; height: 16px; flex: none; }
+.theme-card { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-4); height: 44px; cursor: default; }
+.theme-card:hover { transform: none; box-shadow: var(--shadow-object); }
 .select {
-  height: 40px; padding: 0 var(--space-2); border: 1px solid var(--edge); border-radius: var(--radius-sm);
-  background: var(--paper-200);
+  height: 32px; padding: 0 var(--space-2); border: 1px solid var(--edge); border-radius: var(--radius-sm);
+  background: var(--paper-200); color: var(--ink);
 }
 
-/* ---- Corps ---- */
-.body { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 0; padding: 0 var(--space-6) var(--space-6) 0; }
-
-.thumbs { padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-4); }
+/* ---- Pile de slides ---- */
+.pile { grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
 .thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
-.thumb-n { width: 16px; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.thumb-n { width: 18px; font-size: 12px; line-height: 16px; color: var(--ink-muted); padding-top: 2px; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
-.thumb-img { width: 136px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--paper-200); box-shadow: var(--shadow-rest); display: block; }
-.thumb[aria-current="true"] .thumb-img { outline: 2px solid var(--accent); outline-offset: 2px; }
-.add-slide { margin-left: 24px; width: 136px; height: 44px; justify-content: center; color: var(--accent); }
-
-.sheet {
-  background: var(--paper-100); border-radius: var(--radius-lg); box-shadow: var(--shadow-rest);
-  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--space-4); padding: var(--space-6) var(--space-10); min-width: 0;
+.thumb-img {
+  width: 150px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
+  box-shadow: var(--shadow-rest); transition: var(--theme-fade), transform 180ms ease-out;
 }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.tools { display: flex; gap: var(--space-2); }
+.thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--shadow-object); }
+.thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: var(--shadow-floating); outline: 2px solid var(--accent); outline-offset: 3px; }
+.add-slide { margin-left: 26px; width: 150px; height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
-.stage-wrap { position: relative; min-height: 0; display: flex; align-items: center; justify-content: center; }
-.stage { position: relative; background: var(--paper-200); border-radius: var(--radius-md); box-shadow: var(--shadow-rest); overflow: hidden; }
+/* ---- La feuille ---- */
+.sheet-area { grid-area: sheet; min-width: 0; min-height: 0; padding: var(--space-4) var(--space-6); display: flex; }
+.stage-wrap { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet); overflow: hidden; }
 .stage > img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .overlay { position: absolute; inset: 0; }
 
-.target { position: absolute; border-radius: 2px; cursor: default; }
+.target { position: absolute; border-radius: var(--radius-sm); cursor: default; }
 .target:hover { outline: 1px dashed var(--accent); outline-offset: 3px; }
 .target.free { cursor: move; }
 .target.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
 .handle {
-  position: absolute; width: 12px; height: 12px; border-radius: 2px; background: var(--paper-200);
-  border: 2px solid var(--accent); transform: translate(-50%, -50%);
+  position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--paper-200);
+  border: 2px solid var(--accent); transform: translate(-50%, -50%); box-shadow: var(--shadow-rest);
 }
 .handle.nw { left: -3px; top: -3px; cursor: nwse-resize; }
 .handle.ne { left: calc(100% + 3px); top: -3px; cursor: nesw-resize; }
 .handle.sw { left: -3px; top: calc(100% + 3px); cursor: nesw-resize; }
 .handle.se { left: calc(100% + 3px); top: calc(100% + 3px); cursor: nwse-resize; }
 .tag {
-  position: absolute; left: -3px; top: -26px; height: 20px; padding: 0 var(--space-2); display: flex; align-items: center;
-  background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; white-space: nowrap;
+  position: absolute; right: -3px; top: -30px; height: 22px; padding: 0 var(--space-2); display: flex; align-items: center;
+  background: var(--accent-fill); color: var(--on-accent); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; white-space: nowrap;
+  box-shadow: var(--shadow-object);
 }
 
 .editor {
-  position: absolute; z-index: 5; min-width: 320px; min-height: 64px; padding: var(--space-2);
-  background: var(--paper-200); border: 1px solid var(--edge); border-radius: var(--radius-sm); box-shadow: var(--shadow-floating);
+  position: absolute; z-index: 5; min-width: 320px; min-height: 64px; padding: var(--space-2) 10px;
+  background: var(--paper-200); color: var(--ink); border: 1px solid var(--edge); border-radius: var(--radius-md); box-shadow: var(--shadow-floating);
   font: 400 17px/27px var(--serif); resize: both; user-select: text;
 }
 .editor:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-.editor-hint { position: absolute; z-index: 5; font-size: 12px; color: var(--ink-muted); background: var(--paper-200); padding: 2px 6px; border-radius: var(--radius-sm); }
+.editor-hint { position: absolute; z-index: 5; font-size: 12px; color: var(--ink-muted); background: var(--paper-200); padding: 2px 8px; border-radius: var(--radius-sm); box-shadow: var(--shadow-rest); }
 
-.dictation {
-  justify-self: center; width: min(680px, 100%); height: 64px; display: flex; align-items: center; gap: var(--space-4);
-  padding: 0 var(--space-4) 0 10px; background: var(--paper-200); border-radius: var(--radius-md); box-shadow: var(--shadow-rest);
+/* ---- Post-it autour de la feuille ---- */
+.notes { grid-area: notes; display: flex; flex-direction: column; gap: 22px; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
+.postit {
+  width: 132px; min-height: 96px; padding: 14px 14px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-2);
+  background: var(--postit); color: var(--ink); border: 0; border-radius: 3px 3px var(--radius-md) 3px; text-align: left; cursor: pointer;
+  box-shadow: var(--edge-light), var(--shadow-note); transform: rotate(var(--tilt, -2deg));
+  transition: var(--theme-fade), transform 200ms ease-out;
 }
-.mic { width: 44px; height: 44px; border-radius: var(--radius-sm); border: 0; background: var(--accent-fill); color: var(--on-accent); display: grid; place-items: center; }
+.postit:nth-child(2) { --tilt: 1.6deg; }
+.postit:nth-child(3) { --tilt: -1deg; }
+.postit:hover:not(:disabled) { transform: rotate(0deg) var(--lift); box-shadow: var(--shadow-floating); }
+.postit:disabled { opacity: 0.5; cursor: default; }
+.postit-title { font: 600 15px/20px var(--sans); }
+.postit-hint { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.postit.note { cursor: default; background: var(--paper-200); }
+.postit.note:hover { transform: rotate(var(--tilt)); box-shadow: var(--shadow-note); }
+
+/* ---- Appareil de dictée ---- */
+.device {
+  grid-area: device; justify-self: center; align-self: center; width: min(680px, 100%); height: 68px;
+  display: flex; align-items: center; gap: var(--space-4); padding: 0 var(--space-6) 0 12px;
+  border-radius: calc(var(--radius-lg) + 8px); cursor: default;
+}
+.device:hover { transform: none; box-shadow: var(--shadow-object); }
+.mic { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent-fill); color: var(--on-accent); display: grid; place-items: center; box-shadow: var(--shadow-rest); transition: var(--theme-fade); }
 .mic:disabled { opacity: 0.5; }
 .key { padding: 2px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); color: var(--ink); font-size: 12px; }
+.spacer { flex: 1; }
 
 .toast {
-  position: fixed; left: 50%; bottom: var(--space-6); transform: translateX(-50%); z-index: 10; max-width: 640px;
-  padding: var(--space-2) var(--space-4); background: var(--paper-200); box-shadow: var(--shadow-floating); border-radius: var(--radius-md);
+  position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 10; max-width: 640px;
+  padding: 12px var(--space-6); background: var(--paper-200); color: var(--ink); box-shadow: var(--shadow-floating); border-radius: var(--radius-md);
 }
 .toast.error { color: var(--danger); }
 .empty { color: var(--ink-muted); }

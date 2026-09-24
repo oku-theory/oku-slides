@@ -56,6 +56,18 @@
   stroke: (hairline: 1, rule: 2, accent: 6),
 
   // Jetons de composants : ils référencent les jetons ci-dessus par nom.
+  // Couleurs de l'interface de l'app (pas des slides). Chaque valeur : hex, nom
+  // d'une couleur ci-dessus, ou none pour la dériver du fond et de l'encre.
+  app: (
+    scheme: "light",
+    desk: none, sheet: none, piece: none,
+    ink: none, ink-muted: none, rule: none, edge: none,
+    accent: none, accent-text: none, on-accent: none, accent-soft: none,
+    danger: none, shadow: none,
+    // Formes : rayons (px) et élévation des ombres (multiplicateur).
+    radius-sm: 8, radius-md: 12, radius-lg: 18, elevation: 1.4,
+  ),
+
   component: (
     // Emplacements d'en-tête et de pied : gabarits avec {champs}. Les segments
     // séparés par " · " dont un champ est vide disparaissent. Champs : title,
