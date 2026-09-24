@@ -19,7 +19,11 @@ fn sample_ops() -> Vec<Op> {
             element: "e-texte".into(),
             style: Style { color: Some("accent".into()), size: Some(TokenValue::Number(48.0)), ..Default::default() },
         },
-        Op::SetFrame { slide: "s-libre".into(), element: "e-image".into(), frame: Some(Frame { x: 900.0, y: 20.0, w: 700.0, h: 400.0 }) },
+        Op::SetFrame {
+            slide: "s-libre".into(),
+            element: "e-image".into(),
+            frame: Some(Frame { x: 900.0, y: 20.0, w: 700.0, h: 400.0 }),
+        },
         Op::AddElement {
             slide: "s-constat".into(),
             zone: Zone::Blocks,

@@ -312,12 +312,7 @@ pub enum ElementBody {
 
 impl Element {
     pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
-        Self {
-            id: id.into(),
-            frame: None,
-            style: Style::default(),
-            body: ElementBody::Text { text: paragraphs },
-        }
+        Self { id: id.into(), frame: None, style: Style::default(), body: ElementBody::Text { text: paragraphs } }
     }
 
     pub fn children(&self) -> &[Element] {

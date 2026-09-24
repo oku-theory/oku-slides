@@ -35,10 +35,10 @@ fn check_elements(slide: &str, list: &[Element], assets: Option<&HashSet<String>
         }
         match &e.body {
             ElementBody::Image { asset, .. } => {
-                if let Some(assets) = assets {
-                    if !assets.contains(asset) {
-                        out.push(issue(format!("asset manquant : {asset}")));
-                    }
+                if let Some(assets) = assets
+                    && !assets.contains(asset)
+                {
+                    out.push(issue(format!("asset manquant : {asset}")));
                 }
             }
             ElementBody::Group { children, layout } => {
@@ -72,7 +72,11 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
         let mut seen = HashSet::new();
         for id in &ids {
             if !seen.insert(id) {
-                out.push(Issue { slide: Some(s.id.clone()), element: Some(id.clone()), message: "identifiant d'élément en double".into() });
+                out.push(Issue {
+                    slide: Some(s.id.clone()),
+                    element: Some(id.clone()),
+                    message: "identifiant d'élément en double".into(),
+                });
             }
         }
         check_elements(&s.id, &s.blocks, assets, &mut out, false);

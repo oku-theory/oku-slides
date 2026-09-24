@@ -1,7 +1,14 @@
 [package]
 name = "slider-pdf"
+description = "Blob des sources Slider dans un PDF (/PieceInfo) : écriture et lecture."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 
 [dependencies]
+lopdf.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+chrono.workspace = true

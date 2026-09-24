@@ -65,6 +65,9 @@
 
 // ---- Briques communes ----------------------------------------------------------
 
+// Marqueur de slide pour l'app : relie la page à l'identifiant de la slide.
+#let _mark(id) = if id != none [#metadata((slide: id))<slider-slide>]
+
 #let _heading(level, body, ..style) = {
   show heading: set text(..style)
   heading(level: level, outlined: true, bookmarked: true, body)
@@ -118,11 +121,12 @@
 
 /// Slide de contenu, avec en-tête, pied, titre et corps.
 /// layout : "default" | "columns" | "split" | "center" | "quote".
-#let slide(title: none, kicker: none, layout: "default", ratio: none, ..bodies) = context {
+#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, ..bodies) = context {
   let c = config()
   let t = c.tokens
   let title = interp(title, c.vars)
   page({
+    _mark(id)
     grid(
       rows: if title != none { (auto, 1fr) } else { (1fr,) },
       row-gutter: space-of(t, t.component.title.gap),
@@ -134,7 +138,7 @@
 
 /// Slide de titre du deck. Les valeurs par défaut viennent des paramètres du deck.
 /// Deux mises en page, choisies par le jeton component.title-slide.layout.
-#let title-slide(title: auto, subtitle: auto, author: auto, date: auto, kicker: auto, body: none) = context {
+#let title-slide(title: auto, subtitle: auto, author: auto, date: auto, kicker: auto, body: none, id: none) = context {
   let c = config()
   let t = c.tokens
   let p = c.params
@@ -165,6 +169,7 @@
 
   if not band {
     page(fill: color-of(t, k.bg), foreground: none, {
+      _mark(id)
       grid(
         rows: (1fr, auto),
         row-gutter: space-of(t, "xl"),
@@ -187,6 +192,7 @@
     }
     let top-h = pg.height * (1 - k.band-ratio) * 1pt
     page(fill: color-of(t, k.bg), foreground: none, margin: 0pt, {
+      _mark(id)
       // Bandeau haut.
       block(width: 100%, height: top-h, inset: (x: mx), {
         align(horizon, grid(
@@ -211,7 +217,7 @@
 }
 
 /// Slide de chapitre : ouvre une section, alimente le sommaire et l'en-tête.
-#let chapter(title, subtitle: none) = context {
+#let chapter(title, subtitle: none, id: none) = context {
   let c = config()
   let t = c.tokens
   let k = t.component.chapter
@@ -220,6 +226,7 @@
   let title = interp(title, c.vars)
 
   page(fill: color-of(t, k.bg), foreground: none, {
+    _mark(id)
     set text(fill: ink)
     align(left + horizon, stack(
       spacing: space-of(t, "lg"),
@@ -240,7 +247,7 @@
 }
 
 /// Sommaire : la liste des chapitres, avec leur numéro et leur page.
-#let toc(title: auto, pages: true) = context {
+#let toc(title: auto, pages: true, id: none) = context {
   let c = config()
   let t = c.tokens
   let k = t.component.toc
@@ -253,7 +260,7 @@
       if pages { text(fill: color-of(t, k.page-color), str(counter(page).at(loc).first())) },
     )
   })
-  slide(title: if title == auto { c.params.toc-title } else { title }, {
+  slide(title: if title == auto { c.params.toc-title } else { title }, id: id, {
     set text(size: size-of(t, k.size))
     grid(
       columns: (auto, 1fr, auto),
@@ -265,18 +272,21 @@
 }
 
 /// Slide de fin, sans chrome.
-#let end-slide(body) = context {
+#let end-slide(body, id: none) = context {
   let t = config().tokens
   let k = t.component.end-slide
-  page(fill: color-of(t, k.bg), foreground: none, align(center + horizon, text(
-    size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
-    weight: weight-of(t, "display"), body,
-  )))
+  page(fill: color-of(t, k.bg), foreground: none, {
+    _mark(id)
+    align(center + horizon, text(
+      size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
+      weight: weight-of(t, "display"), body,
+    ))
+  })
 }
 
 /// Slide nue : pas de titre ni de chrome, tout l'espace est libre.
-#let blank-slide(body, chrome: false) = context {
-  if chrome { page(body) } else { page(foreground: none, body) }
+#let blank-slide(body, chrome: false, id: none) = context {
+  if chrome { page({ _mark(id); body }) } else { page(foreground: none, { _mark(id); body }) }
 }
 
 /// Carte : surtitre, titre et corps, avec filet d'accent en haut.

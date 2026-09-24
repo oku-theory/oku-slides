@@ -113,10 +113,20 @@
   } else {
     text(fill: red)[slider : élément inconnu « #kind »]
   }
-  let sized = if "frame" in e {
-    block(width: e.frame.w * 1pt, height: e.frame.h * 1pt, el)
-  } else { block(width: 100%, el) }
-  if "id" in e { [#sized#label("e-" + str(e.id))] } else { sized }
+  let fixed = "frame" in e
+  let (w, h) = if fixed { (e.frame.w * 1pt, e.frame.h * 1pt) } else { (100%, auto) }
+  if "id" not in e { return block(width: w, height: h, el) }
+  // Boîte de l'élément pour l'app : page, position et taille réelles.
+  let sized = block(width: w, height: h, layout(sz => {
+    let real-h = if fixed { sz.height } else { measure(block(width: sz.width, el)).height }
+    context {
+      let p = here().position()
+      [#metadata((id: str(e.id), page: p.page, x: p.x / 1pt, y: p.y / 1pt,
+        w: sz.width / 1pt, h: real-h / 1pt))<slider-box>]
+    }
+    el
+  }))
+  [#sized#label("e-" + str(e.id))]
 }
 
 #let _free(t, elements, vars, image-loader) = block(width: 100%, height: 100%, {
@@ -132,16 +142,17 @@
   let vars = c.vars
   let kind = s.at("kind", default: "content")
   let opt(key) = s.at(key, default: auto)
+  let id = s.at("id", default: none)
   if kind == "title" {
-    title-slide(title: opt("title"), subtitle: opt("subtitle"), author: opt("author"), date: opt("date"))
+    title-slide(title: opt("title"), subtitle: opt("subtitle"), author: opt("author"), date: opt("date"), id: id)
   } else if kind == "chapter" {
-    chapter(s.title, subtitle: s.at("subtitle", default: none))
+    chapter(s.title, subtitle: s.at("subtitle", default: none), id: id)
   } else if kind == "toc" {
-    toc(title: opt("title"))
+    toc(title: opt("title"), id: id)
   } else if kind == "end" {
-    end-slide(interp(s.at("text", default: ""), vars))
+    end-slide(interp(s.at("text", default: ""), vars), id: id)
   } else if kind == "blank" {
-    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader))
+    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader), id: id)
   } else {
     let bodies = if "elements" in s {
       (_free(t, s.elements, vars, image-loader),)
@@ -152,6 +163,7 @@
       title: s.at("title", default: none),
       kicker: s.at("kicker", default: none),
       layout: s.at("layout", default: "default"),
+      id: id,
       ..bodies,
     )
   }

@@ -1,11 +1,19 @@
 [package]
 name = "slider-cli"
+description = "Outil en ligne de commande Slider : rendu, enregistrement, relecture, mesures."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 
 [[bin]]
 name = "slider"
 path = "src/main.rs"
 
 [dependencies]
+slider-core.workspace = true
+slider-render.workspace = true
+slider-pdf.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true

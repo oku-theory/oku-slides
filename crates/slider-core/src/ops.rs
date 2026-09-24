@@ -54,15 +54,34 @@ pub enum SlideField {
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Op {
     /// Remplace le texte d'un élément texte ou d'une carte.
-    SetText { slide: String, element: String, text: Vec<Paragraph> },
+    SetText {
+        slide: String,
+        element: String,
+        text: Vec<Paragraph>,
+    },
     /// Fusionne des propriétés de style (les champs absents ne changent pas).
-    SetStyle { slide: String, element: String, style: Style },
+    SetStyle {
+        slide: String,
+        element: String,
+        style: Style,
+    },
     /// Remplace tout le style d'un élément.
-    ReplaceStyle { slide: String, element: String, style: Style },
+    ReplaceStyle {
+        slide: String,
+        element: String,
+        style: Style,
+    },
     /// Déplace ou redimensionne ; `null` rend l'élément au layout.
-    SetFrame { slide: String, element: String, frame: Option<Frame> },
+    SetFrame {
+        slide: String,
+        element: String,
+        frame: Option<Frame>,
+    },
     /// Remplace un élément entier (même `id`).
-    ReplaceElement { slide: String, element: Element },
+    ReplaceElement {
+        slide: String,
+        element: Element,
+    },
     /// Ajoute un élément dans une zone de la slide ou dans un groupe.
     AddElement {
         slide: String,
@@ -76,25 +95,51 @@ pub enum Op {
         index: Option<usize>,
         element: Element,
     },
-    RemoveElement { slide: String, element: String },
+    RemoveElement {
+        slide: String,
+        element: String,
+    },
     /// Modifie un champ de la slide ; `null` l'efface.
-    SetSlideField { slide: String, field: SlideField, value: Value },
+    SetSlideField {
+        slide: String,
+        field: SlideField,
+        value: Value,
+    },
     AddSlide {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
         slide: Slide,
     },
-    RemoveSlide { slide: String },
-    MoveSlide { slide: String, index: usize },
-    SetNotes { slide: String, notes: String },
+    RemoveSlide {
+        slide: String,
+    },
+    MoveSlide {
+        slide: String,
+        index: usize,
+    },
+    SetNotes {
+        slide: String,
+        notes: String,
+    },
     /// Thème de la bibliothèque (`papier`, `pro`) ou `null`.
-    SetTheme { theme: Option<String> },
+    SetTheme {
+        theme: Option<String>,
+    },
     /// Jeton de design au chemin donné (`["color", "accent"]`) ; `null` le retire.
-    SetToken { path: Vec<String>, value: Value },
+    SetToken {
+        path: Vec<String>,
+        value: Value,
+    },
     /// Paramètre du deck (`title`, `author`, `numbering`…) ; `null` le retire.
-    SetParam { key: String, value: Value },
+    SetParam {
+        key: String,
+        value: Value,
+    },
     /// Variable du deck ; `null` la retire.
-    SetVar { key: String, value: Value },
+    SetVar {
+        key: String,
+        value: Value,
+    },
 }
 
 // ---- Localisation des éléments ------------------------------------------------
@@ -127,10 +172,10 @@ fn find_mut<'a>(list: &'a mut [Element], id: &str) -> Option<&'a mut Element> {
         if e.id == id {
             return Some(e);
         }
-        if let Some(children) = e.children_mut() {
-            if let Some(found) = find_mut(children, id) {
-                return Some(found);
-            }
+        if let Some(children) = e.children_mut()
+            && let Some(found) = find_mut(children, id)
+        {
+            return Some(found);
         }
     }
     None
@@ -143,11 +188,7 @@ fn element_mut<'a>(slide: &'a mut Slide, id: &str) -> Option<&'a mut Element> {
     find_mut(&mut slide.elements, id)
 }
 
-fn container_mut<'a>(
-    slide: &'a mut Slide,
-    zone: Zone,
-    parent: Option<&str>,
-) -> Result<&'a mut Vec<Element>, OpError> {
+fn container_mut<'a>(slide: &'a mut Slide, zone: Zone, parent: Option<&str>) -> Result<&'a mut Vec<Element>, OpError> {
     let slide_id = slide.id.clone();
     match parent {
         None => Ok(match zone {
@@ -277,10 +318,13 @@ impl Op {
                 Ok(Op::ReplaceStyle { slide: slide.clone(), element: element.clone(), style: old })
             }
             Op::SetFrame { slide, element, frame } => {
-                if let Some(f) = frame {
-                    if !(f.w > 0.0 && f.h > 0.0) {
-                        return Err(OpError::InvalidValue { field: "frame".into(), reason: "w et h doivent être > 0".into() });
-                    }
+                if let Some(f) = frame
+                    && !(f.w > 0.0 && f.h > 0.0)
+                {
+                    return Err(OpError::InvalidValue {
+                        field: "frame".into(),
+                        reason: "w et h doivent être > 0".into(),
+                    });
                 }
                 let s = slide_mut(deck, slide)?;
                 let e = element_mut(s, element).ok_or_else(|| not_found(slide, element))?;
@@ -335,15 +379,13 @@ impl Op {
                 let s = slide_mut(deck, slide)?;
                 let old = match field {
                     SlideField::Kind => {
-                        let kind: SlideKind = serde_json::from_value(value.clone()).map_err(|e| {
-                            OpError::InvalidValue { field: "kind".into(), reason: e.to_string() }
-                        })?;
+                        let kind: SlideKind = serde_json::from_value(value.clone())
+                            .map_err(|e| OpError::InvalidValue { field: "kind".into(), reason: e.to_string() })?;
                         to_value(&std::mem::replace(&mut s.kind, kind))
                     }
                     SlideField::Layout => {
-                        let layout: Option<SlideLayout> = serde_json::from_value(value.clone()).map_err(|e| {
-                            OpError::InvalidValue { field: "layout".into(), reason: e.to_string() }
-                        })?;
+                        let layout: Option<SlideLayout> = serde_json::from_value(value.clone())
+                            .map_err(|e| OpError::InvalidValue { field: "layout".into(), reason: e.to_string() })?;
                         to_value(&std::mem::replace(&mut s.layout, layout))
                     }
                     SlideField::Title => to_value(&std::mem::replace(&mut s.title, opt_string("title", value)?)),

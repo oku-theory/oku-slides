@@ -94,10 +94,6 @@ impl History {
 
     /// Journal des transactions, une par ligne (JSON Lines), pour `history.jsonl`.
     pub fn to_jsonl(&self) -> String {
-        self.undo
-            .iter()
-            .map(|t| serde_json::to_string(t).expect("sérialisable"))
-            .collect::<Vec<_>>()
-            .join("\n")
+        self.undo.iter().map(|t| serde_json::to_string(t).expect("sérialisable")).collect::<Vec<_>>().join("\n")
     }
 }

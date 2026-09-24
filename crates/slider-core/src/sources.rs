@@ -125,10 +125,12 @@ impl SourceBundle {
             let (name, data) = read(&mut za, i)?;
             match name.as_str() {
                 "manifest.json" => {
-                    manifest = Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
+                    manifest =
+                        Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
                 }
                 "deck.json" => {
-                    out.deck = Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
+                    out.deck =
+                        Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
                 }
                 "history.jsonl" => out.history = Some(String::from_utf8_lossy(&data).into_owned()),
                 n if n.starts_with("assets/") => {
