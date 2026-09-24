@@ -224,7 +224,7 @@ export async function applyAppearance(a: Appearance) {
     else style.removeProperty(`--app-${name}`);
   }
   for (const [name, value] of Object.entries(a.metrics)) {
-    style.setProperty(`--app-${name}`, name === "elevation" ? String(value) : `${value}px`);
+    style.setProperty(`--app-${name}`, name.endsWith("elevation") ? String(value) : `${value}px`);
   }
   style.setProperty("--app-scheme", a.scheme);
   root.style.colorScheme = a.scheme;

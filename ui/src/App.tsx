@@ -195,7 +195,7 @@ export default function App() {
         <button className="object token" aria-label={snap.redo_label ? `Rétablir : ${snap.redo_label}` : "Rétablir"} title={snap.redo_label ?? "Rétablir"} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
         <div className="object theme-card">
           <label className="caption" htmlFor="theme">Thème</label>
-          <select id="theme" className="select" value={snap.theme ?? ""} onChange={(e) => apply("Changer de thème", [{ op: "set_theme", theme: e.target.value || null }])}>
+          <select id="theme" className="select" value={snap.theme ?? ""} onChange={(e) => { e.currentTarget.blur(); apply("Changer de thème", [{ op: "set_theme", theme: e.target.value || null }]); }}>
             <option value="">Par défaut</option>
             {snap.themes.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>

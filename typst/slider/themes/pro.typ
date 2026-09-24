@@ -46,7 +46,7 @@
     ink: "brand-ink", ink-muted: "ink-muted", rule: "rule", edge: "#8792a2",
     accent: "accent", accent-text: "accent-text", on-accent: "on-accent", accent-soft: "#d6f1fb",
     danger: "#b3261e", shadow: "brand-ink",
-    radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.5,
+    radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.5, sheet-elevation: 2.6,
   ),
   component: (
     header: (left: none, right: none),

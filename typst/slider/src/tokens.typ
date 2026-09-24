@@ -65,7 +65,7 @@
     accent: none, accent-text: none, on-accent: none, accent-soft: none,
     danger: none, shadow: none,
     // Formes : rayons (px) et élévation des ombres (multiplicateur).
-    radius-sm: 8, radius-md: 12, radius-lg: 18, elevation: 1.4,
+    radius-sm: 8, radius-md: 12, radius-lg: 18, elevation: 1.4, sheet-elevation: 2.4,
   ),
 
   component: (
