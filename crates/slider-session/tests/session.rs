@@ -116,13 +116,13 @@ fn l_apparence_suit_le_theme() {
     assert_eq!(papier.font_display.first().map(String::as_str), Some("Newsreader"));
 
     let pro = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap().appearance;
-    assert_eq!(pro.scheme, "dark");
-    assert_eq!(pro.app["desk"], "#000a24");
-    assert_eq!(pro.app["ink"], "#ffffff");
-    assert_eq!(pro.app["accent-text"], "#00bef4");
+    assert_eq!(pro.scheme, "light");
+    assert_eq!(pro.app["desk"], "#e1e5ea");
+    assert_eq!(pro.app["ink"], "#00154e");
+    assert_eq!(pro.app["accent-text"], "#0072b0");
     assert_eq!(pro.font_body, vec!["Inter".to_owned()]);
     assert_eq!(pro.metrics["radius-lg"], 16.0);
-    assert_eq!(pro.metrics["elevation"], 1.6);
+    assert_eq!(pro.metrics["elevation"], 1.5);
 
     // Sans thème, l'interface dérive ses couleurs : aucune couleur d'app imposée.
     let plain = s.apply("Sans thème", vec![Op::SetTheme { theme: None }]).unwrap().appearance;

@@ -39,14 +39,14 @@
   page: (margin-x: 128, margin-top: 112, margin-bottom: 160, header-y: 56, footer-y: 64),
   radius: (sm: 4, md: 8, lg: 8),
   stroke: (hairline: 1, rule: 2, accent: 6),
-  // Interface : chrome navy du système, la slide blanche au centre.
+  // Interface : table claire (teinte « border » du système), encre navy, accent cyan.
   app: (
-    scheme: "dark",
-    desk: "#000a24", sheet: "#071a4a", piece: "#132d6e",
-    ink: "white", ink-muted: "#9fb3d6", rule: "#23397a", edge: "#5b6f9e",
-    accent: "accent", accent-text: "accent-on-dark", on-accent: "on-accent", accent-soft: "#123a73",
-    danger: "#ff9b85", shadow: "#000814",
-    radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.6,
+    scheme: "light",
+    desk: "rule", sheet: "#eef1f5", piece: "white",
+    ink: "brand-ink", ink-muted: "ink-muted", rule: "rule", edge: "#8792a2",
+    accent: "accent", accent-text: "accent-text", on-accent: "on-accent", accent-soft: "#d6f1fb",
+    danger: "#b3261e", shadow: "brand-ink",
+    radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.5,
   ),
   component: (
     header: (left: none, right: none),
