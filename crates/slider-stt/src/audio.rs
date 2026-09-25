@@ -218,7 +218,7 @@ fn read_wav(path: &std::path::Path) -> Result<(u32, Vec<f32>), String> {
                 return Err("WAV 16 bits attendu".into());
             }
             let samples: Vec<f32> =
-                body.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0).collect();
+                body.as_chunks::<2>().0.iter().map(|&b| i16::from_le_bytes(b) as f32 / 32768.0).collect();
             let mono = samples.chunks(channels).map(|f| f.iter().sum::<f32>() / f.len() as f32).collect();
             return Ok((rate, mono));
         }

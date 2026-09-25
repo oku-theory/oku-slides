@@ -143,6 +143,9 @@ struct Inner {
     prompt: Option<String>,
     start_after_download: bool,
     engine: Option<(Model, Arc<Transcriber>)>,
+    /// Modèles présents sur le disque (dans l'ordre de `Model::ALL`) : lus au
+    /// démarrage et après un téléchargement, pas à chaque sondage.
+    installed: [bool; Model::ALL.len()],
     /// Incrémenté à chaque dictée : les fils d'une dictée abandonnée
     /// s'arrêtent d'eux-mêmes.
     session: u64,
@@ -200,6 +203,7 @@ impl Stt {
                 start_after_download: false,
                 engine: None,
                 session: 0,
+                installed: Model::ALL.map(|m| m.is_installed(&dir)),
             })),
             dir,
             cancel_download: Arc::new(AtomicBool::new(false)),
@@ -230,7 +234,8 @@ impl Stt {
             config: g.config.clone(),
             models: Model::ALL
                 .iter()
-                .map(|&m| ModelInfo { id: m, label: m.label(), size: m.size(), installed: m.is_installed(&self.dir) })
+                .zip(g.installed)
+                .map(|(&m, installed)| ModelInfo { id: m, label: m.label(), size: m.size(), installed })
                 .collect(),
             download: g.download.clone(),
             level: g.level,
@@ -305,6 +310,7 @@ impl Stt {
                 let mut g = me.inner.lock().unwrap();
                 g.download = None;
                 g.state = State::Idle;
+                g.installed = Model::ALL.map(|m| m.is_installed(&dir));
                 match result {
                     Ok(_) => std::mem::take(&mut g.start_after_download),
                     Err(models::DownloadError::Cancelled) => false,
@@ -394,8 +400,8 @@ impl Stt {
         };
         loop {
             std::thread::sleep(TICK);
-            let (state, config) = match self.inner.lock() {
-                Ok(g) if g.session == session => (g.state, g.config.clone()),
+            let (state, auto_stop, silence_limit) = match self.inner.lock() {
+                Ok(g) if g.session == session => (g.state, g.config.auto_stop, g.config.silence),
                 _ => return, // dictée abandonnée
             };
             pull(&mut seg, &recorder);
@@ -424,10 +430,10 @@ impl Stt {
 
             // Arrêt automatique après un silence (ou si rien n'est dit).
             let silence = seg.silence();
-            let limit = if seg.heard { config.silence } else { NOTHING_HEARD };
-            let stop_in = (config.auto_stop && current.is_none() && seg.heard && silence > 0.3)
-                .then(|| (limit - silence).max(0.0));
-            let stop = config.auto_stop && silence >= limit;
+            let limit = if seg.heard { silence_limit } else { NOTHING_HEARD };
+            let stop_in =
+                (auto_stop && current.is_none() && seg.heard && silence > 0.3).then(|| (limit - silence).max(0.0));
+            let stop = auto_stop && silence >= limit;
             if let Ok(mut g) = self.inner.lock() {
                 g.level = recorder.level();
                 g.speaking = seg.speaking;

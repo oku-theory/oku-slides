@@ -60,12 +60,16 @@ impl Phrase {
     }
 }
 
+/// Découpe l'audio en phrases, au fil de l'eau. Les positions sont comptées
+/// depuis le début de la session ; seul l'audio encore utile est gardé.
 pub struct Segmenter {
     config: VadConfig,
     detector: Box<Detector>,
-    /// Tout l'audio de la session (16 kHz).
-    pub audio: Vec<f32>,
-    /// Échantillons déjà passés au détecteur.
+    /// Audio encore utile (16 kHz) : la phrase en cours, ou l'amorce d'une
+    /// prochaine. `audio[0]` est l'échantillon `base` de la session.
+    audio: Vec<f32>,
+    base: usize,
+    /// Échantillons déjà passés au détecteur (position dans la session).
     scanned: usize,
     voiced_run: usize,
     /// Début de la phrase en cours (échantillon), s'il y en a une.
@@ -84,6 +88,7 @@ impl Segmenter {
             config,
             detector: Detector::default_boxed(),
             audio: Vec::new(),
+            base: 0,
             scanned: 0,
             voiced_run: 0,
             open: None,
@@ -97,13 +102,34 @@ impl Segmenter {
         (s * SAMPLE_RATE as f32) as usize
     }
 
-    /// Ajoute de l'audio ; renvoie les phrases terminées.
+    /// Fin de l'audio reçu (position dans la session).
+    fn end(&self) -> usize {
+        self.base + self.audio.len()
+    }
+
+    /// Oublie l'audio qui ne peut plus servir : avant la phrase en cours ou,
+    /// sans phrase, avant l'amorce d'une prochaine. Par paquets d'une seconde
+    /// au moins, pour ne pas décaler le tampon à chaque morceau.
+    fn forget(&mut self) {
+        let margin = self.config.onset_frames * FRAME + self.secs(self.config.pre_roll);
+        let keep_from = self.open.unwrap_or(self.scanned.saturating_sub(margin));
+        let drop = keep_from.saturating_sub(self.base);
+        if drop >= SAMPLE_RATE as usize {
+            self.audio.drain(..drop);
+            self.base += drop;
+        }
+    }
+
+    /// Ajoute de l'audio ; renvoie les phrases terminées. Elles se lisent
+    /// (`slice`) avant l'appel suivant : c'est là que l'audio passé est oublié.
     pub fn push(&mut self, samples: &[f32]) -> Vec<Phrase> {
+        self.forget();
         self.audio.extend_from_slice(samples);
         let mut done = Vec::new();
-        while self.scanned + FRAME <= self.audio.len() {
+        while self.scanned + FRAME <= self.end() {
             let at = self.scanned;
-            let score = self.detector.predict_f32(&self.audio[at..at + FRAME]);
+            let local = at - self.base;
+            let score = self.detector.predict_f32(&self.audio[local..local + FRAME]);
             self.scanned += FRAME;
             let voiced = score >= self.config.threshold;
             self.speaking = voiced;
@@ -144,13 +170,13 @@ impl Segmenter {
 
     /// Phrase en cours (pas encore close).
     pub fn current(&self) -> Option<Phrase> {
-        self.open.map(|start| Phrase { start, end: self.audio.len() })
+        self.open.map(|start| Phrase { start, end: self.end() })
     }
 
     /// Clôt la phrase en cours (fin de l'écoute).
     pub fn close(&mut self) -> Option<Phrase> {
         let start = self.open.take()?;
-        let end = (self.last_voice + self.secs(self.config.post_roll)).min(self.audio.len()).max(start);
+        let end = (self.last_voice + self.secs(self.config.post_roll)).min(self.end()).max(start);
         Some(Phrase { start, end })
     }
 
@@ -159,8 +185,10 @@ impl Segmenter {
         (self.scanned - self.last_voice) as f32 / SAMPLE_RATE as f32
     }
 
+    /// Audio d'une phrase (vide pour ce qui a déjà été oublié).
     pub fn slice(&self, p: Phrase) -> &[f32] {
-        &self.audio[p.start.min(self.audio.len())..p.end.min(self.audio.len())]
+        let local = |i: usize| i.saturating_sub(self.base).min(self.audio.len());
+        &self.audio[local(p.start)..local(p.end)]
     }
 }
 
@@ -180,6 +208,35 @@ mod tests {
     fn le_silence_ne_donne_aucune_phrase() {
         let silence = vec![0.0f32; SAMPLE_RATE as usize * 3];
         assert!(split(&silence, VadConfig::default()).is_empty());
+    }
+
+    #[test]
+    fn une_longue_ecoute_silencieuse_ne_garde_que_l_amorce() {
+        let mut seg = Segmenter::new(VadConfig::default());
+        let chunk = vec![0.0f32; 800]; // 50 ms, comme la boucle d'écoute
+        for _ in 0..(60 * 20) {
+            assert!(seg.push(&chunk).is_empty());
+        }
+        assert!(seg.audio.len() < 2 * SAMPLE_RATE as usize, "{} échantillons gardés", seg.audio.len());
+        assert_eq!(seg.end(), 60 * SAMPLE_RATE as usize, "les positions restent celles de la session");
+        assert!((seg.silence() - 60.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn une_phrase_rendue_se_lit_avant_l_appel_suivant() {
+        let mut seg = Segmenter::new(VadConfig { max_phrase: 1.0, ..Default::default() });
+        // Trois secondes de silence, oubliées en partie, puis une phrase coupée
+        // pour sa longueur (1 s).
+        seg.push(&vec![0.0; SAMPLE_RATE as usize * 3]);
+        let open_at = seg.scanned;
+        seg.open = Some(open_at);
+        seg.last_voice = open_at;
+        seg.config.pause = 100.0;
+        let out = seg.push(&vec![0.25; SAMPLE_RATE as usize * 2]);
+        let first = out[0];
+        assert_eq!(first.start, open_at);
+        assert_eq!(seg.slice(first).len(), first.end - first.start, "l'audio de la phrase est encore là, entier");
+        assert!(seg.base > 0, "le silence d'avant a été oublié");
     }
 
     #[test]
