@@ -20,6 +20,8 @@ fn workdir() -> PathBuf {
 fn session(dir: &std::path::Path) -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.join("data"));
+    // Les messages attendus sont en français, quelle que soit la langue du système.
+    settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {}", e.one_line()))
 }

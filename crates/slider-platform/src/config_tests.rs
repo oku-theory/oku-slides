@@ -18,7 +18,8 @@ fn defaults_embedded_file_gives_documented_values() {
     assert_that!(s.stt.tick_ms).is_equal_to(50);
     assert_that!(s.stt.vad.onset_frames).is_equal_to(3);
     assert_that!(s.paths).is_equal_to(PathSettings::default());
-    assert_that!(s.i18n.locale.as_deref()).is_equal_to(Some("fr"));
+    // Sans réglage, la langue du système.
+    assert_that!(s.i18n.locale).is_none();
 }
 
 #[test]

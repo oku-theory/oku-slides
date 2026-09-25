@@ -8,6 +8,8 @@ fn session() -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     let data = std::env::temp_dir().join(format!("echo-session-{}-{}", std::process::id(), unique()));
     settings.paths.data = Some(data);
+    // Les messages attendus sont en français, quelle que soit la langue du système.
+    settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
     Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
 }
