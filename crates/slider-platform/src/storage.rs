@@ -10,12 +10,13 @@
 //! courant.
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use opendal::{ErrorKind, blocking, services};
-use snafu::{Backtrace, OptionExt, ResultExt, Snafu};
+use snafu::{Backtrace, OptionExt, ResultExt, Snafu, ensure};
 
 /// Accès aux fichiers impossible.
 #[derive(Debug, Snafu)]
@@ -74,11 +75,39 @@ fn normalize(path: &Path) -> PathBuf {
 const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "ttc", "otc"];
 
 /// Les fichiers locaux, par OpenDAL. Se clone sans rien recréer.
+///
+/// Un opérateur par racine de chemin (`/` sous Unix, `C:\` ou `\\serveur\partage\`
+/// sous Windows), créé à la première utilisation ; les clés OpenDAL sont
+/// les composants du chemin sous cette racine, séparés par `/`.
 #[derive(Clone)]
 pub struct Storage {
-    op: blocking::Operator,
-    /// Fait tourner les tâches de l'opérateur ; gardé en vie avec lui.
-    _runtime: Arc<tokio::runtime::Runtime>,
+    roots: Arc<Mutex<HashMap<PathBuf, blocking::Operator>>>,
+    /// Fait tourner les tâches des opérateurs ; gardé en vie avec eux.
+    runtime: Arc<tokio::runtime::Runtime>,
+}
+
+/// Un chemin, vu d'OpenDAL : sa racine et sa clé sous cette racine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Located {
+    root: PathBuf,
+    key: String,
+}
+
+/// Racine et clé d'un chemin : absolu, `.` et `..` résolus sans toucher au
+/// disque (les liens ne sont pas suivis).
+fn locate(path: &Path) -> Option<Located> {
+    let absolute = normalize(&std::path::absolute(path).ok()?);
+    let mut root = PathBuf::new();
+    let mut parts = Vec::new();
+    for component in absolute.components() {
+        match component {
+            Component::Prefix(_) | Component::RootDir => root.push(component),
+            Component::Normal(part) => parts.push(part.to_str()?),
+            Component::CurDir | Component::ParentDir => {}
+        }
+    }
+    let key = parts.join("/");
+    (!key.is_empty() && !root.as_os_str().is_empty()).then_some(Located { root, key })
 }
 
 impl std::fmt::Debug for Storage {
@@ -96,38 +125,43 @@ impl Storage {
             .enable_all()
             .build()
             .context(RuntimeSnafu)?;
-        let op = opendal::Operator::new(services::Fs::default().root("/")).context(SetupSnafu)?;
+        Ok(Self { roots: Arc::new(Mutex::new(HashMap::new())), runtime: Arc::new(runtime) })
+    }
+
+    /// L'opérateur de la racine de `path`, et la clé du chemin sous elle.
+    fn at(&self, path: &Path) -> Result<(blocking::Operator, String), StorageError> {
+        let Located { root, key } = locate(path).context(InvalidPathSnafu { path })?;
+        let mut roots = self.roots.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(op) = roots.get(&root) {
+            return Ok((op.clone(), key));
+        }
+        let root_str = root.to_str().context(InvalidPathSnafu { path })?;
+        let op = opendal::Operator::new(services::Fs::default().root(root_str)).context(SetupSnafu)?;
         let op = {
-            let _entered = runtime.enter();
+            let _entered = self.runtime.enter();
             blocking::Operator::new(op).context(SetupSnafu)?
         };
-        Ok(Self { op, _runtime: Arc::new(runtime) })
+        roots.insert(root, op.clone());
+        Ok((op, key))
     }
 
-    /// Clé OpenDAL d'un chemin : absolu, `.` et `..` résolus (sans suivre
-    /// les liens), sans la barre de tête.
-    fn key(path: &Path) -> Result<String, StorageError> {
-        let absolute = std::path::absolute(path).ok().map(|p| normalize(&p));
-        let key = absolute.as_deref().and_then(Path::to_str).map(|p| p.trim_start_matches('/').to_owned());
-        Ok(key.filter(|k| !k.is_empty()).context(InvalidPathSnafu { path })?)
-    }
-
-    fn dir_key(path: &Path) -> Result<String, StorageError> {
-        let mut key = Self::key(path)?;
-        if !key.ends_with('/') {
-            key.push('/');
-        }
-        Ok(key)
+    /// Comme [`at`](Self::at), pour un dossier (clé terminée par `/`).
+    fn dir_at(&self, path: &Path) -> Result<(blocking::Operator, String), StorageError> {
+        let (op, mut key) = self.at(path)?;
+        key.push('/');
+        Ok((op, key))
     }
 
     pub fn read(&self, path: &Path) -> Result<Vec<u8>, StorageError> {
-        let buffer = self.op.read(&Self::key(path)?).context(AccessSnafu { action: "read", path })?;
+        let (op, key) = self.at(path)?;
+        let buffer = op.read(&key).context(AccessSnafu { action: "read", path })?;
         Ok(buffer.to_vec())
     }
 
     /// Écrit le fichier (et crée ses dossiers).
     pub fn write(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
-        self.op.write(&Self::key(path)?, bytes.into()).context(AccessSnafu { action: "write", path })?;
+        let (op, key) = self.at(path)?;
+        op.write(&key, bytes.into()).context(AccessSnafu { action: "write", path })?;
         Ok(())
     }
 
@@ -141,21 +175,28 @@ impl Storage {
     }
 
     pub fn rename(&self, from: &Path, to: &Path) -> Result<(), StorageError> {
-        Ok(self.op.rename(&Self::key(from)?, &Self::key(to)?).context(AccessSnafu { action: "rename", path: from })?)
+        let (op, from_key) = self.at(from)?;
+        let (to_op, to_key) = self.at(to)?;
+        // Un renommage ne change pas de volume : deux racines, deux volumes.
+        ensure!(op.info().root() == to_op.info().root(), InvalidPathSnafu { path: to });
+        Ok(op.rename(&from_key, &to_key).context(AccessSnafu { action: "rename", path: from })?)
     }
 
     /// Supprime un fichier ; un fichier absent n'est pas une erreur.
     pub fn delete(&self, path: &Path) -> Result<(), StorageError> {
-        Ok(self.op.delete(&Self::key(path)?).context(AccessSnafu { action: "delete", path })?)
+        let (op, key) = self.at(path)?;
+        Ok(op.delete(&key).context(AccessSnafu { action: "delete", path })?)
     }
 
     pub fn exists(&self, path: &Path) -> Result<bool, StorageError> {
-        Ok(self.op.exists(&Self::key(path)?).context(AccessSnafu { action: "stat", path })?)
+        let (op, key) = self.at(path)?;
+        Ok(op.exists(&key).context(AccessSnafu { action: "stat", path })?)
     }
 
     /// Taille du fichier, s'il existe.
     pub fn len(&self, path: &Path) -> Result<Option<u64>, StorageError> {
-        match self.op.stat(&Self::key(path)?) {
+        let (op, key) = self.at(path)?;
+        match op.stat(&key) {
             Ok(meta) => Ok(Some(meta.content_length())),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e).context(AccessSnafu { action: "stat", path })?,
@@ -163,12 +204,14 @@ impl Storage {
     }
 
     pub fn create_dir_all(&self, dir: &Path) -> Result<(), StorageError> {
-        Ok(self.op.create_dir(&Self::dir_key(dir)?).context(AccessSnafu { action: "create", path: dir })?)
+        let (op, key) = self.dir_at(dir)?;
+        Ok(op.create_dir(&key).context(AccessSnafu { action: "create", path: dir })?)
     }
 
     /// Fichiers d'un dossier (sans les sous-dossiers) ; un dossier absent est vide.
     pub fn list_files(&self, dir: &Path) -> Result<Vec<PathBuf>, StorageError> {
-        let entries = match self.op.list(&Self::dir_key(dir)?) {
+        let (op, key) = self.dir_at(dir)?;
+        let entries = match op.list(&key) {
             Ok(entries) => entries,
             Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(e).context(AccessSnafu { action: "list", path: dir })?,
@@ -197,7 +240,8 @@ impl Storage {
 
     /// Écriture en flux (gros fichiers) ; [`StreamWriter::close`] la termine.
     pub fn writer(&self, path: &Path) -> Result<StreamWriter, StorageError> {
-        let writer = self.op.writer(&Self::key(path)?).context(AccessSnafu { action: "write", path })?;
+        let (op, key) = self.at(path)?;
+        let writer = op.writer(&key).context(AccessSnafu { action: "write", path })?;
         Ok(StreamWriter { inner: writer.into_std_write(), path: path.to_path_buf() })
     }
 }

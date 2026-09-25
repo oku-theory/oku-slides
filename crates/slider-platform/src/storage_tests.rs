@@ -88,3 +88,26 @@ fn read_path_with_parent_components_resolves_them() {
     assert_that!(s.read(&dir.join("x/../x/./file")).unwrap()).is_equal_to(b"ok".to_vec());
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn locate_relative_path_resolves_against_current_dir() {
+    let located = locate(Path::new("a/./b/../c.txt")).unwrap();
+    let cwd = std::env::current_dir().unwrap();
+    assert_that!(located.key.ends_with("a/c.txt")).is_true();
+    assert_that!(located.key.contains('\\')).is_false();
+    assert_that!(cwd.starts_with(&located.root)).is_true();
+}
+
+#[test]
+fn locate_root_alone_has_no_key() {
+    assert_that!(locate(Path::new("/"))).is_none();
+    assert_that!(locate(Path::new("/.."))).is_none();
+}
+
+#[test]
+fn at_same_root_reuses_one_operator() {
+    let s = Storage::local().unwrap();
+    s.exists(Path::new("/tmp/a")).unwrap();
+    s.exists(Path::new("/usr/b")).unwrap();
+    assert_that!(s.roots.lock().unwrap().len()).is_equal_to(1);
+}
