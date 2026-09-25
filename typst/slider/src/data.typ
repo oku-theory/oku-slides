@@ -155,6 +155,9 @@
 // Zone des éléments libres. Avec une grille, les éléments qui ont une
 // « cell » y sont accrochés ; les autres gardent leur « frame ».
 // La zone est signalée à l'app (<slider-zone>) : position, taille, grille.
+// Grille de toute slide qui n'en précise pas (même valeur que Grid::DEFAULT).
+#let default-grid = (columns: 12, rows: 6)
+
 #let _free(t, elements, vars, image-loader, grid: none) = block(width: 100%, height: 100%, layout(sz => {
   let zw = sz.width / 1pt
   let zh = sz.height / 1pt
@@ -187,10 +190,11 @@
   } else if kind == "end" {
     end-slide(interp(s.at("text", default: ""), vars), id: id)
   } else if kind == "blank" {
-    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: none)), id: id)
+    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: default-grid)), id: id)
   } else {
-    let bodies = if "elements" in s or "grid" in s {
-      (_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: none)),)
+    // Sans blocs mis en page, la zone de corps est libre, sur sa grille.
+    let bodies = if "elements" in s or "grid" in s or s.at("blocks", default: ()).len() == 0 {
+      (_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: default-grid)),)
     } else {
       s.at("blocks", default: ()).map(b => render-element(t, b, vars, image-loader: image-loader))
     }

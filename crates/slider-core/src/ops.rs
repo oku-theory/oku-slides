@@ -352,10 +352,7 @@ impl Op {
             Op::SetCell { slide, element, cell } => {
                 let s = slide_mut(deck, slide)?;
                 if let Some(c) = cell {
-                    let grid = s.grid.as_ref().ok_or_else(|| OpError::InvalidValue {
-                        field: "cell".into(),
-                        reason: "la slide n'a pas de grille".into(),
-                    })?;
+                    let grid = &s.effective_grid();
                     if !c.fits(grid) {
                         return Err(OpError::InvalidValue {
                             field: "cell".into(),

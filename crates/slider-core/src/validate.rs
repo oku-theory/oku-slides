@@ -35,10 +35,10 @@ fn check_elements(
         if e.id.is_empty() {
             out.push(issue("identifiant vide".into()));
         }
-        match (e.cell, grid) {
-            (Some(c), Some(g)) if !c.fits(g) => out.push(issue("cellule hors de la grille".into())),
-            (Some(_), None) => out.push(issue("cellule sans grille sur la slide".into())),
-            _ => {}
+        if let (Some(c), Some(g)) = (e.cell, grid)
+            && !c.fits(g)
+        {
+            out.push(issue("cellule hors de la grille".into()));
         }
         match e.frame {
             Some(f) if !(f.w > 0.0 && f.h > 0.0) => out.push(issue("cadre de taille nulle".into())),
@@ -92,7 +92,7 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
             }
         }
         check_elements(&s.id, &s.blocks, assets, &mut out, false, None);
-        check_elements(&s.id, &s.elements, assets, &mut out, true, s.grid.as_ref());
+        check_elements(&s.id, &s.elements, assets, &mut out, true, Some(&s.effective_grid()));
     }
     out
 }

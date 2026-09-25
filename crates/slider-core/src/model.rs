@@ -183,6 +183,19 @@ fn one() -> u32 {
     1
 }
 
+impl Grid {
+    /// Grille de toute slide qui n'en précise pas : 12 colonnes × 6 lignes.
+    pub const DEFAULT: Grid = Grid { columns: 12, rows: 6, gap: None };
+}
+
+impl Slide {
+    /// La grille de la slide : la sienne, sinon celle par défaut. Toute slide
+    /// en a une ; les éléments libres s'y accrochent.
+    pub fn effective_grid(&self) -> Grid {
+        self.grid.clone().unwrap_or(Grid::DEFAULT)
+    }
+}
+
 impl Cell {
     /// La cellule tient-elle dans la grille ?
     pub fn fits(&self, grid: &Grid) -> bool {

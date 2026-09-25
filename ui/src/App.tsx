@@ -7,8 +7,7 @@ import SlidePile from "./SlidePile";
 import Stage, { FIELD_LABELS, textOps } from "./Stage";
 import Dictation from "./Dictation";
 import { textToParagraphs } from "./api";
-import type { Cell } from "./grid";
-import { cellRect, rescaleCell, snapRect } from "./grid";
+import { moveCell, rescaleCell, snapRect, trackSize } from "./grid";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
@@ -209,52 +208,21 @@ export default function App() {
       /* préférence facultative */
     }
   }, [gridAlways]);
-  const slideGrid = view?.slide.grid;
-  const gridCapable = !!view && (view.slide.kind === "content" || view.slide.kind === "blank");
+  // Toute slide à zone libre a une grille (12 × 6 par défaut) ; l'accrochage est automatique.
+  const DEFAULT_GRID = { columns: 12, rows: 6 };
+  const slideGrid = view?.zone?.grid ? (view.slide.grid ?? DEFAULT_GRID) : undefined;
 
   const setGrid = (columns: number, rows: number) => {
     if (!view) return;
     const slide = view.slide;
+    const from = slide.grid ?? DEFAULT_GRID;
     const next = { ...(slide.grid ?? {}), columns, rows };
     const ops: Op[] = [{ op: "set_grid", slide: slide.id, grid: next }];
-    // Les éléments accrochés gardent leurs proportions sur la nouvelle grille.
-    if (slide.grid) {
-      for (const e of slide.elements ?? []) {
-        if (e.cell) ops.push({ op: "set_cell", slide: slide.id, element: e.id, cell: rescaleCell(e.cell, slide.grid, next) });
-      }
+    // Les éléments gardent leurs proportions sur la nouvelle grille.
+    for (const e of slide.elements ?? []) {
+      if (e.cell) ops.push({ op: "set_cell", slide: slide.id, element: e.id, cell: rescaleCell(e.cell, from, next) });
     }
-    apply(slide.grid ? `Grille ${columns} × ${rows}` : "Ajouter une grille", ops);
-  };
-
-  const removeGrid = () => {
-    if (!view?.slide.grid || !view.zone?.grid) return;
-    const { zone } = view;
-    const g = zone.grid!;
-    // Les éléments accrochés restent à leur place, en cadres libres.
-    const ops: Op[] = (view.slide.elements ?? [])
-      .filter((e) => e.cell)
-      .flatMap((e) => [
-        { op: "set_frame", slide: view.slide.id, element: e.id, frame: cellRect(zone, g, e.cell as Cell) },
-        { op: "set_cell", slide: view.slide.id, element: e.id, cell: null },
-      ]);
-    ops.push({ op: "set_grid", slide: view.slide.id, grid: null });
-    apply("Retirer la grille", ops);
-  };
-
-  const selectedFree = view && selected ? (view.slide.elements ?? []).find((e) => e.id === selected) : undefined;
-  const toggleAnchor = () => {
-    if (!view?.zone?.grid || !selectedFree) return;
-    const { zone } = view;
-    const g = zone.grid!;
-    const slide = view.slide.id;
-    if (selectedFree.cell) {
-      apply("Détacher de la grille", [
-        { op: "set_frame", slide, element: selectedFree.id, frame: cellRect(zone, g, selectedFree.cell) },
-        { op: "set_cell", slide, element: selectedFree.id, cell: null },
-      ]);
-    } else if (selectedFree.frame) {
-      apply("Accrocher à la grille", [{ op: "set_cell", slide, element: selectedFree.id, cell: snapRect(zone, g, selectedFree.frame) }]);
-    }
+    apply(`Grille ${columns} × ${rows}`, ops);
   };
 
   // --- Édition des modèles ------------------------------------------------
@@ -335,6 +303,21 @@ export default function App() {
         setSelected(null);
       } else if (e.key.startsWith("Arrow")) {
         const el = findElement(view.slide, selected);
+        const zone = view.zone;
+        const g = zone?.grid;
+        // Sur la grille : une case à la fois (l'élément s'y accroche s'il ne l'était pas).
+        if (el && zone && g && (el.cell || el.frame) && (view.slide.elements ?? []).some((x) => x.id === el.id)) {
+          e.preventDefault();
+          const cell = el.cell ?? snapRect(zone, g, el.frame!);
+          const { cw, rh } = trackSize(zone, g);
+          const dx = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+          const dy = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+          const next = moveCell(zone, g, cell, dx * (cw + g.gap), dy * (rh + g.gap));
+          const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: el.id, cell: next }];
+          if (el.frame) ops.push({ op: "set_frame", slide: view.slide.id, element: el.id, frame: null });
+          apply("Déplacer sur la grille", ops);
+          return;
+        }
         if (!el?.frame) return;
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
@@ -504,34 +487,22 @@ export default function App() {
             ))}
           </div>
         </div>
-        {gridCapable && (slideGrid ? (
+        {slideGrid && (
           <div className="postit grid-note" role="group" aria-label="Grille de la slide">
             <span className="postit-title">Grille</span>
             <Stepper label="Colonnes" value={slideGrid.columns} onChange={(v) => setGrid(v, slideGrid.rows)} />
             <Stepper label="Lignes" value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
-            <button className={`toggle${gridAlways ? " on" : ""}`} role="switch" aria-checked={gridAlways} onClick={() => setGridAlways((v) => !v)} title="⌘'">
+            <button className={`toggle${gridAlways ? " on" : ""}`} role="switch" aria-checked={gridAlways} onClick={() => setGridAlways((v) => !v)} title="Afficher ou masquer la grille (⌘')">
               <span className="toggle-track"><span className="toggle-thumb" /></span>
               <span className="postit-hint">{gridAlways ? "Affichée" : "Masquée"}</span>
             </button>
-            <button className="linkish" onClick={removeGrid}>Retirer la grille</button>
           </div>
-        ) : (
-          <button className="postit" onClick={() => setGrid(12, 6)}>
-            <span className="postit-title">+ Grille</span>
-            <span className="postit-hint">12 × 6 cases pour accrocher les éléments</span>
-          </button>
-        ))}
-        {slideGrid && selectedFree && (
-          <button className="postit" onClick={toggleAnchor}>
-            <span className="postit-title">{selectedFree.cell ? "Détacher" : "Accrocher"}</span>
-            <span className="postit-hint">{selectedFree.cell ? "Placer librement, au point près" : "Caler sur les cases de la grille"}</span>
-          </button>
         )}
         <button className="postit" onClick={removeSlide} disabled={snap.slides.length < 2}>
           <span className="postit-title">{snap.editing ? "Supprimer le modèle" : "Supprimer la slide"}</span>
           <span className="postit-hint">Slide {index + 1} · annulable avec ⌘Z</span>
         </button>
-        {!slideGrid && !snap.editing && <div className="postit note" role="note">
+        {!snap.editing && !slideGrid && <div className="postit note" role="note">
           <span className="postit-title">Astuce</span>
           <span className="postit-hint">⌘D pour dicter, dans la zone sélectionnée ou au curseur. Double-clic pour modifier un texte.</span>
         </div>}

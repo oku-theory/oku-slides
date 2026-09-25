@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
 import { findElement, textToParagraphs } from "./api";
 import type { Cell, GridSpec, ZoneView } from "./grid";
-import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
+import { cellLabel, cellRect, moveCell, resizeCell, sameCell, snapRect, tracks } from "./grid";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -19,6 +19,8 @@ interface Drag {
   /** Élément accroché : sa cellule au départ, et la grille. */
   cell?: Cell;
   grid?: { zone: ZoneView; g: GridSpec };
+  /** Élément encore en cadre libre : il passe sur la grille en bougeant. */
+  wasFree?: boolean;
 }
 
 /** Cellule visée par un glisser sur la grille. */
@@ -221,21 +223,18 @@ function editorGeometry(t: Target, draft: string, scale: number) {
   };
 }
 
-/** La grille, en pointillés sur la feuille, et la place visée pendant un glisser. */
+/** La grille : un petit point sur chaque nœud (coins des cases), et la place visée. */
 function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSpec; scale: number; target: Cell | null }) {
   const t = tracks(zone, grid);
   const px = (v: number) => v * scale;
   const hot = target ? cellRect(zone, grid, target) : null;
-  const w = px(zone.w);
-  const h = px(zone.h);
-  // Bords de chaque colonne et de chaque ligne : c'est là que les éléments s'accrochent.
+  // Nœuds : là où les bords des colonnes croisent ceux des lignes ; c'est là que tout s'accroche.
   const xs = t.cols.flatMap((c) => [c.start, c.end]).map(px);
   const ys = t.rows.flatMap((r) => [r.start, r.end]).map(px);
   return (
-    <svg className="grid-layer" aria-hidden width={w} height={h} style={{ left: px(zone.x), top: px(zone.y) }}>
+    <svg className="grid-layer" aria-hidden width={px(zone.w)} height={px(zone.h)} style={{ left: px(zone.x), top: px(zone.y) }}>
       {hot && <rect className="grid-hot" x={px(hot.x)} y={px(hot.y)} width={px(hot.w)} height={px(hot.h)} rx={4} />}
-      {xs.map((x, i) => <line key={`x${i}`} x1={x} x2={x} y1={0} y2={h} />)}
-      {ys.map((y, i) => <line key={`y${i}`} x1={0} x2={w} y1={y} y2={y} />)}
+      {ys.map((y, i) => xs.map((x, j) => <circle key={`${i}-${j}`} className="grid-node" cx={x} cy={y} r={1.6} />))}
     </svg>
   );
 }
@@ -299,10 +298,13 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     const el = findElement(view.slide, t.id);
     const zone = view.zone;
     const g = zone?.grid;
-    if (el?.cell && zone && g) {
+    // Accrochage automatique : sur une slide à grille, tout élément libre s'y cale.
+    const inZone = (view.slide.elements ?? []).some((x) => x.id === t.id);
+    if (el && zone && g && inZone && (el.cell || el.frame)) {
       (e.target as Element).setPointerCapture(e.pointerId);
-      const frame = cellRect(zone, g, el.cell);
-      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell: el.cell, grid: { zone, g } });
+      const cell = el.cell ?? snapRect(zone, g, el.frame!);
+      const frame = el.cell ? cellRect(zone, g, el.cell) : el.frame!;
+      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell, grid: { zone, g }, wasFree: !el.cell });
       return;
     }
     if (!el?.frame) return;
@@ -320,9 +322,12 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     const cell = draggedCell(drag);
     if (cell && drag.cell) {
       setDrag(null);
-      if (!sameCell(cell, drag.cell)) {
+      const moved = Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2;
+      if (!sameCell(cell, drag.cell) || (drag.wasFree && moved)) {
         const label = drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
-        onApply(label, [{ op: "set_cell", slide: view.slide.id, element: drag.id, cell }]);
+        const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: drag.id, cell }];
+        if (drag.wasFree) ops.push({ op: "set_frame", slide: view.slide.id, element: drag.id, frame: null });
+        onApply(label, ops);
       }
       return;
     }

@@ -78,8 +78,15 @@ fn accroche_a_la_grille_et_retour() {
     ];
     assert!(apply_all(&mut deck, &bad).is_err());
     assert_eq!(deck, before);
-    let no_grid = Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) };
-    assert!(no_grid.apply(&mut deck).is_err());
+    // Sans grille explicite, la slide a la grille par défaut (12 × 6).
+    let default_grid = Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) };
+    assert!(default_grid.apply(&mut deck).is_ok());
+    let outside = Op::SetCell {
+        slide: "s-libre".into(),
+        element: "e-texte".into(),
+        cell: Some(Cell { col: 10, row: 0, cols: 4, rows: 1 }),
+    };
+    assert!(outside.apply(&mut deck).is_err());
 }
 
 #[test]
