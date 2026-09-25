@@ -52,8 +52,8 @@ fn une_modification_externe_est_signalee() {
 }
 
 #[test]
-fn un_fichier_de_l_ancien_nom_s_ouvre_toujours() {
-    // Blob écrit sous la clé /Slider (avant le changement de nom).
+fn un_blob_sous_une_autre_cle_est_ignore() {
+    // Seule la clé /Echo est lue : un blob sous /Slider n'est pas des sources Écho.
     let out = slider_pdf::embed_sources(&minimal_pdf(), b"zip").unwrap();
     let mut doc = Document::load_mem(&out).unwrap();
     let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
@@ -64,5 +64,5 @@ fn un_fichier_de_l_ancien_nom_s_ouvre_toujours() {
     catalog.set("PieceInfo", Object::Dictionary(pieces));
     let mut legacy = Vec::new();
     doc.save_to(&mut legacy).unwrap();
-    assert_eq!(slider_pdf::extract_sources(&legacy).unwrap().unwrap().zip, b"zip");
+    assert!(slider_pdf::extract_sources(&legacy).unwrap().is_none());
 }

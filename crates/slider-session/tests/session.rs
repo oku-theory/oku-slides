@@ -11,7 +11,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     let mut s = Session::new(Vec::new());
     let snap = s.open(&fixture_path()).unwrap();
     assert_eq!(snap.slides.len(), 8);
-    assert!(snap.path.is_none(), "un JSON n'est pas un fichier Slider : pas de chemin");
+    assert!(snap.path.is_none(), "un JSON n'est pas un fichier Écho : pas de chemin");
 
     let view = s.slide("s-libre").unwrap();
     let texte = view.targets.iter().find(|t| t.id == "e-texte").unwrap();

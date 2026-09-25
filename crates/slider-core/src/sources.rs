@@ -11,8 +11,6 @@ use zip::write::SimpleFileOptions;
 use crate::model::Deck;
 
 pub const SOURCES_FORMAT: &str = "echo-sources";
-/// Format des fichiers enregistrés sous l'ancien nom de l'app, toujours lisible.
-pub const LEGACY_SOURCES_FORMAT: &str = "slider-sources";
 pub const SOURCES_VERSION: u32 = 1;
 
 #[derive(Debug, Error)]
@@ -147,7 +145,7 @@ impl SourceBundle {
             }
         }
         let manifest = manifest.ok_or(SourcesError::NotSlider)?;
-        if manifest.format != SOURCES_FORMAT && manifest.format != LEGACY_SOURCES_FORMAT {
+        if manifest.format != SOURCES_FORMAT {
             return Err(SourcesError::NotSlider);
         }
         if manifest.version > SOURCES_VERSION {

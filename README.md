@@ -3,8 +3,7 @@
 `echo "une idée" > deck` : ce que vous dites devient des slides. Écho crée et
 modifie des présentations à la voix ; le document est un PDF (`.echo.pdf`) qui
 contient ses propres sources : n'importe quel lecteur l'affiche, Écho le rouvre
-pour continuer l'édition. Les fichiers `.slider.pdf` enregistrés sous l'ancien
-nom s'ouvrent toujours.
+pour continuer l'édition.
 
 Le code garde son nom de travail : crates `slider-*`, outil `slider`,
 bibliothèque Typst `slider`.

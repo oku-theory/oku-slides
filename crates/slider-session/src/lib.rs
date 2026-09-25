@@ -37,8 +37,6 @@ pub fn default_data_dir() -> PathBuf {
 }
 
 pub const EXTENSION: &str = ".echo.pdf";
-/// Extension des fichiers enregistrés sous l'ancien nom de l'app.
-pub const LEGACY_EXTENSION: &str = ".slider.pdf";
 
 #[derive(Debug, Error)]
 pub enum SessionError {
@@ -610,8 +608,7 @@ impl Session {
         };
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if !name.ends_with(EXTENSION) {
-            let stem =
-                name.strip_suffix(LEGACY_EXTENSION).or_else(|| name.strip_suffix(".pdf")).unwrap_or(&name).to_owned();
+            let stem = name.strip_suffix(".pdf").unwrap_or(&name).to_owned();
             path.set_file_name(format!("{stem}{EXTENSION}"));
         }
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
@@ -702,7 +699,7 @@ impl Session {
             .path
             .as_ref()
             .and_then(|p| p.file_name())
-            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).trim_end_matches(LEGACY_EXTENSION).to_owned())
+            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
             .or_else(|| self.deck.params.title.as_deref().map(|t| interp(t, &self.deck.vars)))
             .unwrap_or_else(|| "Sans titre".into());
         Snapshot {

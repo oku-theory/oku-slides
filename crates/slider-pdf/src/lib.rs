@@ -22,8 +22,6 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 pub const PIECE_KEY: &[u8] = b"Echo";
-/// Clé des fichiers enregistrés avant le changement de nom (Slider), lue à l'ouverture.
-pub const LEGACY_PIECE_KEY: &[u8] = b"Slider";
 pub const FORMAT: &str = "echo-sources";
 pub const VERSION: i64 = 1;
 
@@ -111,7 +109,6 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
         Ok(Object::Dictionary(d)) => d.clone(),
         _ => Dictionary::new(),
     };
-    piece_info.remove(LEGACY_PIECE_KEY);
     piece_info.set(PIECE_KEY, Object::Dictionary(piece));
     catalog.set("PieceInfo", Object::Dictionary(piece_info));
 
@@ -127,7 +124,6 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     if let Ok(info) = doc.get_object_mut(info_id).and_then(Object::as_dict_mut) {
         info.set("ModDate", text(&now));
         info.set("EchoFormat", text(&format!("{FORMAT}/{VERSION}")));
-        info.remove(b"SliderFormat");
     }
 
     // Supprime l'ancien flux s'il y en avait un (réenregistrement).
@@ -145,7 +141,7 @@ pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
 
     let Ok(piece_info) = catalog.get(b"PieceInfo") else { return Ok(None) };
     let Ok(piece_info) = resolve(&doc, piece_info)?.as_dict() else { return Ok(None) };
-    let Ok(piece) = piece_info.get(PIECE_KEY).or_else(|_| piece_info.get(LEGACY_PIECE_KEY)) else { return Ok(None) };
+    let Ok(piece) = piece_info.get(PIECE_KEY) else { return Ok(None) };
     let piece = resolve(&doc, piece)?.as_dict().map_err(|_| PdfError::Structure("/Echo invalide"))?;
     let private = resolve(&doc, piece.get(b"Private").map_err(|_| PdfError::Structure("/Private absent"))?)?
         .as_dict()
@@ -192,7 +188,6 @@ pub fn strip_sources(pdf: &[u8]) -> Result<Vec<u8>, PdfError> {
         let empty = match catalog.get_mut(b"PieceInfo") {
             Ok(Object::Dictionary(d)) => {
                 d.remove(PIECE_KEY);
-                d.remove(LEGACY_PIECE_KEY);
                 d.is_empty()
             }
             _ => false,
