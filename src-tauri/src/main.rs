@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use serde_json::Value;
-use slider_session::{Request, Session};
+use slider_session::{Fonts, Request, Session, read_font_dir};
 use slider_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
 
@@ -25,22 +25,10 @@ fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
     engine.handle(req)
 }
 
-/// Polices livrées avec l'app (ressource `fonts/`), plus `SLIDER_FONTS` si défini.
-fn app_fonts(dirs: &[PathBuf]) -> Vec<Vec<u8>> {
-    let mut out = Vec::new();
-    for dir in dirs {
-        let Ok(entries) = std::fs::read_dir(dir) else { continue };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-            if matches!(ext.as_str(), "ttf" | "otf" | "ttc")
-                && let Ok(bytes) = std::fs::read(&path)
-            {
-                out.push(bytes);
-            }
-        }
-    }
-    out
+/// Polices livrées avec l'app (ressource `fonts/`), plus `SLIDER_FONTS` si
+/// défini ; un dossier absent est ignoré.
+fn app_fonts(dirs: &[PathBuf]) -> Fonts {
+    Fonts::new(dirs.iter().flat_map(|dir| read_font_dir(dir).unwrap_or_default().into_values()))
 }
 
 fn main() {

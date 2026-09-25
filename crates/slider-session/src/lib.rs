@@ -2,7 +2,7 @@
 //! fichier. L'app Tauri et le serveur de développement exposent la même API
 //! (voir [`Request`] et [`Session::handle`]).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -11,7 +11,8 @@ use serde_json::Value;
 use thiserror::Error;
 
 use slider_core::{Deck, Element, ElementBody, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
-use slider_render::{Compiled, ElementBox, Renderer};
+use slider_render::{Compiled, Renderer};
+pub use slider_render::{Fonts, read_font_dir};
 
 pub mod templates;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
@@ -329,10 +330,15 @@ pub struct Session {
     template_cache: Option<(String, Vec<TemplateView>)>,
     deck: Deck,
     assets: BTreeMap<String, Vec<u8>>,
+    /// Polices jointes au deck (enregistrées avec lui).
     fonts: BTreeMap<String, Vec<u8>>,
     history: History,
     renderer: Renderer,
-    app_fonts: Vec<Vec<u8>>,
+    /// Polices livrées avec l'app, et celles du rendu (app + deck).
+    app_fonts: Fonts,
+    render_fonts: Fonts,
+    /// Apparence tirée du dernier rendu.
+    appearance: Appearance,
     compiled: Option<Compiled>,
     svg_cache: HashMap<u128, Arc<str>>,
     path: Option<PathBuf>,
@@ -381,7 +387,7 @@ fn hex(h: u128) -> String {
 
 impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles.
-    pub fn new(app_fonts: Vec<Vec<u8>>) -> Self {
+    pub fn new(app_fonts: Fonts) -> Self {
         let mut s = Self {
             library: Library::default(),
             stash: None,
@@ -391,6 +397,8 @@ impl Session {
             fonts: BTreeMap::new(),
             history: History::default(),
             renderer: Renderer::new(app_fonts.clone()),
+            render_fonts: app_fonts.clone(),
+            appearance: Appearance::default(),
             template_renderer: None,
             template_cache: None,
             app_fonts,
@@ -564,10 +572,10 @@ impl Session {
         self.deck = deck.ok_or(SessionError::NotSlider)?;
         self.assets = assets;
         if fonts != self.fonts {
-            // Nouvelles polices : nouveau monde Typst.
-            let mut all = self.app_fonts.clone();
-            all.extend(fonts.values().cloned());
-            self.renderer = Renderer::new(all);
+            // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
+            // dans le bundle (ils sont enregistrés avec le deck), d'où la copie.
+            self.render_fonts = self.app_fonts.with(fonts.values().cloned());
+            self.renderer = Renderer::new(self.render_fonts.clone());
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
@@ -626,8 +634,9 @@ impl Session {
         self.renderer.set_deck(&self.deck, &self.assets);
         let compiled = self.renderer.compile()?;
         // Le cache ne garde que les pages encore présentes.
-        let live: Vec<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
+        let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
         self.svg_cache.retain(|h, _| live.contains(h));
+        self.appearance = compiled.layout().tokens.as_ref().map(appearance).unwrap_or_default();
         self.compiled = Some(compiled);
         Ok(())
     }
@@ -673,19 +682,24 @@ impl Session {
     }
 
     fn page_of(&self, id: &str) -> Option<usize> {
-        let c = self.compiled.as_ref()?;
-        c.slide_pages().into_iter().find(|p| p.slide == id).map(|p| p.page)
+        self.compiled.as_ref()?.layout().page_of(id)
     }
 
     pub fn snapshot(&self) -> Snapshot {
         let compiled = self.compiled.as_ref();
-        let pages = compiled.map(|c| c.slide_pages()).unwrap_or_default();
+        let pages = compiled.map(|c| c.layout().slides.as_slice()).unwrap_or_default();
         let slides = self
             .deck
             .slides
             .iter()
-            .map(|s| {
-                let page = pages.iter().find(|p| p.slide == s.id).map(|p| p.page).unwrap_or(0);
+            .enumerate()
+            .map(|(i, s)| {
+                // Une slide par page, dans l'ordre du deck : la i-ième page d'abord.
+                let page = pages
+                    .get(i)
+                    .filter(|p| p.slide == s.id)
+                    .or_else(|| pages.iter().find(|p| p.slide == s.id))
+                    .map_or(0, |p| p.page);
                 let hash = compiled.and_then(|c| c.page_hash(page.saturating_sub(1))).map(hex).unwrap_or_default();
                 let title = s.title.as_deref().map(|t| interp(t, &self.deck.vars));
                 SlideSummary { id: s.id.clone(), kind: s.kind, title, name: s.name.clone(), page, hash }
@@ -713,7 +727,7 @@ impl Session {
             redo_label: self.history.redo_label().map(str::to_owned),
             warnings: compiled.map(|c| c.warnings.clone()).unwrap_or_default(),
             notice: self.notice.clone(),
-            appearance: compiled.and_then(|c| c.tokens()).map(|t| appearance(&t)).unwrap_or_default(),
+            appearance: self.appearance.clone(),
             templates: self.deck_set(),
             editing: self.editing.clone(),
         }
@@ -733,17 +747,13 @@ impl Session {
             _ => {
                 let mut preview = base;
                 preview.slides = set.templates.iter().map(|t| t.slide.clone()).collect();
-                let renderer = self.template_renderer.get_or_insert_with(|| {
-                    let mut all = self.app_fonts.clone();
-                    all.extend(self.fonts.values().cloned());
-                    Renderer::new(all)
-                });
+                let renderer = self.template_renderer.get_or_insert_with(|| Renderer::new(self.render_fonts.clone()));
                 renderer.set_deck(&preview, &self.assets);
                 let compiled = renderer.compile()?;
-                let pages = compiled.slide_pages();
+                let layout = compiled.layout();
                 let mut views = Vec::with_capacity(set.templates.len());
                 for t in &set.templates {
-                    let page = pages.iter().find(|p| p.slide == t.slide.id).map(|p| p.page).unwrap_or(1);
+                    let page = layout.page_of(&t.slide.id).unwrap_or(1);
                     let svg: Arc<str> = compiled.svg(page - 1)?.into();
                     views.push(TemplateView { template: t.clone(), svg });
                 }
@@ -772,10 +782,10 @@ impl Session {
         let slide = self.deck.slide(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?.clone();
         let page = self.page_of(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
-        let boxes: Vec<ElementBox> = compiled.element_boxes().into_iter().filter(|b| b.page == page).collect();
+        let layout = compiled.layout();
 
         let mut targets = Vec::new();
-        for b in boxes {
+        for b in layout.boxes_on(page) {
             if let Some(field) = b.id.strip_prefix('@') {
                 let text = match field {
                     "title" => slide
@@ -829,7 +839,7 @@ impl Session {
             }
         }
         let hash = compiled.page_hash(page - 1).map(hex).unwrap_or_default();
-        let zone = compiled.zones().into_iter().find(|z| z.page == page);
+        let zone = layout.zone_on(page).cloned();
         Ok(SlideView { slide, page, hash, width: 1920.0, height: 1080.0, targets, zone })
     }
 }

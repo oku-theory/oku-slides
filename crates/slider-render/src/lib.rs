@@ -7,8 +7,10 @@
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
 
+mod fonts;
 mod world;
 
+use std::cell::OnceCell;
 use std::collections::BTreeMap;
 
 use serde_json::Value as Json;
@@ -22,6 +24,7 @@ use typst_layout::PagedDocument;
 
 use slider_core::Deck;
 
+pub use fonts::{Fonts, read_font_dir};
 use world::SliderWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
@@ -115,8 +118,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// `fonts` : fichiers de police (TTF/OTF) en plus des polices de Typst.
-    pub fn new(fonts: impl IntoIterator<Item = Vec<u8>>) -> Self {
+    pub fn new(fonts: Fonts) -> Self {
         Self { world: SliderWorld::new(fonts) }
     }
 
@@ -129,7 +131,7 @@ impl Renderer {
         let result = typst::compile::<PagedDocument>(&self.world);
         let warnings = result.warnings.iter().map(|d| self.format(d)).collect();
         match result.output {
-            Ok(doc) => Ok(Compiled { doc, warnings }),
+            Ok(doc) => Ok(Compiled { doc, warnings, layout: OnceCell::new() }),
             Err(errors) => Err(RenderError::Compile(errors.iter().map(|d| self.format(d)).collect())),
         }
     }
@@ -157,10 +159,52 @@ impl Renderer {
     }
 }
 
+/// Ce que le rendu dit du document : page de chaque slide, boîtes des
+/// éléments, zones libres et jetons effectifs. Boîtes et zones sont rangées
+/// par page.
+#[derive(Debug, Default, serde::Serialize)]
+pub struct Layout {
+    /// Page de chaque slide, dans l'ordre du document.
+    pub slides: Vec<SlidePage>,
+    /// Boîtes réelles des éléments, pour la couche de sélection.
+    pub boxes: Vec<ElementBox>,
+    /// Zones des éléments libres (une par slide qui en a), avec leur grille.
+    pub zones: Vec<ZoneBox>,
+    /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
+    #[serde(skip)]
+    pub tokens: Option<Json>,
+}
+
+impl Layout {
+    /// Page (à partir de 1) d'une slide.
+    pub fn page_of(&self, slide: &str) -> Option<usize> {
+        self.slides.iter().find(|p| p.slide == slide).map(|p| p.page)
+    }
+
+    /// Boîtes des éléments d'une page.
+    pub fn boxes_on(&self, page: usize) -> &[ElementBox] {
+        let start = self.boxes.partition_point(|b| b.page < page);
+        let end = self.boxes.partition_point(|b| b.page <= page);
+        &self.boxes[start..end]
+    }
+
+    /// Zone des éléments libres d'une page.
+    pub fn zone_on(&self, page: usize) -> Option<&ZoneBox> {
+        self.zones.iter().find(|z| z.page == page)
+    }
+}
+
+/// Les métadonnées qui se lisent comme `T` ; les autres sont ignorées.
+fn parsed<T: serde::de::DeserializeOwned>(values: Vec<Json>) -> Vec<T> {
+    values.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()
+}
+
 /// Un document compilé.
 pub struct Compiled {
     doc: PagedDocument,
     pub warnings: Vec<String>,
+    /// Lu dans le document une fois, au premier besoin.
+    layout: OnceCell<Layout>,
 }
 
 impl Compiled {
@@ -185,46 +229,36 @@ impl Compiled {
             .map_err(|errs| RenderError::Pdf(errs.iter().map(|d| d.message.to_string()).collect()))
     }
 
-    fn metadata(&self, label: &str) -> Vec<Json> {
-        let label = Label::new(PicoStr::intern(label)).expect("étiquette valide");
-        self.doc
-            .introspector()
-            .query(&Selector::Label(label))
-            .iter()
-            .filter_map(|c| c.get_by_name("value").ok())
-            .filter_map(|v| serde_json::to_value(&v).ok())
-            .collect()
-    }
-
-    /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
-    pub fn tokens(&self) -> Option<Json> {
-        self.metadata("slider-tokens").into_iter().next()
-    }
-
-    /// Zones des éléments libres (une par slide qui en a), avec leur grille.
-    pub fn zones(&self) -> Vec<ZoneBox> {
-        self.metadata("slider-zone").into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()
-    }
-
-    /// Boîtes réelles des éléments, pour la couche de sélection.
-    pub fn element_boxes(&self) -> Vec<ElementBox> {
-        self.metadata("slider-box").into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()
-    }
-
-    /// Page de chaque slide.
-    pub fn slide_pages(&self) -> Vec<SlidePage> {
-        // Le marqueur ne porte que l'id ; la page vient de sa position.
-        let label = Label::new(PicoStr::intern("slider-slide")).expect("étiquette valide");
-        let intro = self.doc.introspector();
-        intro
-            .query(&Selector::Label(label))
-            .iter()
-            .filter_map(|c| {
-                let v = serde_json::to_value(c.get_by_name("value").ok()?).ok()?;
-                let slide = v.get("slide")?.as_str()?.to_owned();
-                let page = intro.page(c.location()?)?.get();
-                Some(SlidePage { slide, page })
-            })
-            .collect()
+    /// Pages, boîtes, zones et jetons du document.
+    pub fn layout(&self) -> &Layout {
+        self.layout.get_or_init(|| {
+            let intro = self.doc.introspector();
+            let query = |label: &str| {
+                let label = Label::new(PicoStr::intern(label)).expect("étiquette valide");
+                intro.query(&Selector::Label(label))
+            };
+            let values = |label: &str| -> Vec<Json> {
+                query(label)
+                    .iter()
+                    .filter_map(|c| c.get_by_name("value").ok())
+                    .filter_map(|v| serde_json::to_value(&v).ok())
+                    .collect()
+            };
+            // Le marqueur de slide ne porte que l'id ; la page vient de sa position.
+            let slides = query("slider-slide")
+                .iter()
+                .filter_map(|c| {
+                    let v = serde_json::to_value(c.get_by_name("value").ok()?).ok()?;
+                    let slide = v.get("slide")?.as_str()?.to_owned();
+                    let page = intro.page(c.location()?)?.get();
+                    Some(SlidePage { slide, page })
+                })
+                .collect();
+            let mut boxes: Vec<ElementBox> = parsed(values("slider-box"));
+            boxes.sort_by_key(|b| b.page);
+            let zones = parsed(values("slider-zone"));
+            let tokens = values("slider-tokens").into_iter().next();
+            Layout { slides, boxes, zones, tokens }
+        })
     }
 }

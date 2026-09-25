@@ -9,7 +9,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
-use slider_render::Renderer;
+use slider_render::{Fonts, Renderer, read_font_dir};
 
 #[derive(Parser)]
 #[command(name = "slider", version, about = "Rendu et stockage des decks Écho")]
@@ -77,20 +77,6 @@ enum Cmd {
     },
 }
 
-fn load_fonts(dir: Option<&Path>) -> Result<BTreeMap<String, Vec<u8>>> {
-    let mut out = BTreeMap::new();
-    let Some(dir) = dir else { return Ok(out) };
-    for entry in std::fs::read_dir(dir).with_context(|| format!("lecture de {}", dir.display()))? {
-        let path = entry?.path();
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-        if ["ttf", "otf", "ttc", "otc"].contains(&ext.as_str()) {
-            let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            out.insert(name, std::fs::read(&path)?);
-        }
-    }
-    Ok(out)
-}
-
 fn read_deck(path: &Path) -> Result<Deck> {
     let text = std::fs::read_to_string(path).with_context(|| format!("lecture de {}", path.display()))?;
     Deck::from_json(&text).with_context(|| format!("deck invalide : {}", path.display()))
@@ -126,8 +112,11 @@ fn report_issues(deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> bool {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let fonts = load_fonts(cli.fonts.as_deref())?;
-    let font_data = || fonts.values().cloned().collect::<Vec<_>>();
+    let fonts = match &cli.fonts {
+        Some(dir) => read_font_dir(dir).with_context(|| format!("lecture de {}", dir.display()))?,
+        None => BTreeMap::new(),
+    };
+    let app_fonts = Fonts::new(fonts.values().cloned());
 
     match cli.cmd {
         Cmd::Check { deck } => {
@@ -142,9 +131,7 @@ fn main() -> Result<()> {
             if theme.is_some() {
                 deck.theme = theme;
             }
-            let mut all_fonts = font_data();
-            all_fonts.extend(bundle.fonts.values().cloned());
-            let mut r = Renderer::new(all_fonts);
+            let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()));
             r.set_deck(deck, &bundle.assets);
             let t = Instant::now();
             let doc = r.compile()?;
@@ -158,8 +145,7 @@ fn main() -> Result<()> {
                 std::fs::write(out.join(format!("page-{:02}.svg", i + 1)), doc.svg(i)?)?;
             }
             let svg = t.elapsed();
-            let layout = serde_json::json!({ "slides": doc.slide_pages(), "boxes": doc.element_boxes() });
-            std::fs::write(out.join("layout.json"), serde_json::to_string_pretty(&layout)?)?;
+            std::fs::write(out.join("layout.json"), serde_json::to_string_pretty(doc.layout())?)?;
             println!("{} pages → {} (compilation {}, SVG {})", doc.page_count(), out.display(), ms(compile), ms(svg));
         }
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
@@ -181,7 +167,7 @@ fn main() -> Result<()> {
                 bundle.fonts = fonts.clone();
             }
             report_issues(&deck, &bundle.assets);
-            let mut r = Renderer::new(font_data());
+            let mut r = Renderer::new(app_fonts);
             r.set_deck(&deck, &bundle.assets);
             let doc = r.compile()?;
             let pdf = doc.pdf()?;
@@ -226,9 +212,9 @@ fn main() -> Result<()> {
             write_atomic(&output, &slider_pdf::strip_sources(&pdf)?)?;
             println!("{} : copie sans sources", output.display());
         }
-        Cmd::Bench { deck, iterations } => bench(read_deck(&deck)?, font_data(), iterations)?,
+        Cmd::Bench { deck, iterations } => bench(read_deck(&deck)?, app_fonts, iterations)?,
         Cmd::Schema => println!("{}", serde_json::to_string_pretty(&slider_core::ops_schema())?),
-        Cmd::Serve { input, port, ui } => serve(input, port, ui, font_data())?,
+        Cmd::Serve { input, port, ui } => serve(input, port, ui, app_fonts)?,
     }
     Ok(())
 }
@@ -247,7 +233,7 @@ fn median(mut v: Vec<Duration>) -> Duration {
     v[v.len() / 2]
 }
 
-fn bench(mut deck: Deck, fonts: Vec<Vec<u8>>, n: usize) -> Result<()> {
+fn bench(mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
     if n == 0 {
         bail!("--iterations doit être > 0");
     }
@@ -333,7 +319,7 @@ fn content_type(path: &Path) -> &'static str {
 }
 
 /// Sert l'interface et l'API `/api` (une requête JSON par appel, comme `invoke` dans Tauri).
-fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) -> Result<()> {
+fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result<()> {
     use tiny_http::{Header, Method, Response, Server};
     let mut session = slider_session::Session::new(fonts);
     session.set_templates_dir(slider_session::default_data_dir().join("templates"));

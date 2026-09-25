@@ -1,6 +1,6 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Request, Session, paragraphs_to_text};
+use slider_session::{Fonts, Request, Session, paragraphs_to_text};
 
 fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
@@ -8,7 +8,7 @@ fn fixture_path() -> std::path::PathBuf {
 
 #[test]
 fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
-    let mut s = Session::new(Vec::new());
+    let mut s = Session::new(Fonts::default());
     let snap = s.open(&fixture_path()).unwrap();
     assert_eq!(snap.slides.len(), 8);
     assert!(snap.path.is_none(), "un JSON n'est pas un fichier Écho : pas de chemin");
@@ -49,7 +49,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     assert!(!snap.dirty);
 
     let deck: Deck = s.deck().clone();
-    let mut s2 = Session::new(Vec::new());
+    let mut s2 = Session::new(Fonts::default());
     s2.open(&path).unwrap();
     assert_eq!(s2.deck(), &deck);
     std::fs::remove_dir_all(dir).ok();
@@ -57,7 +57,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
 
 #[test]
 fn une_transaction_invalide_ne_change_rien() {
-    let mut s = Session::new(Vec::new());
+    let mut s = Session::new(Fonts::default());
     s.open(&fixture_path()).unwrap();
     let before = s.deck().clone();
     let err = s
@@ -75,7 +75,7 @@ fn une_transaction_invalide_ne_change_rien() {
 
 #[test]
 fn api_json() {
-    let mut s = Session::new(Vec::new());
+    let mut s = Session::new(Fonts::default());
     let req: Request = serde_json::from_value(json!({"cmd": "snapshot"})).unwrap();
     let v = s.handle(req).unwrap();
     assert_eq!(v["slides"].as_array().unwrap().len(), 2);
@@ -101,7 +101,7 @@ fn texte_et_paragraphes() {
 
 #[test]
 fn l_apparence_suit_le_theme() {
-    let mut s = Session::new(Vec::new());
+    let mut s = Session::new(Fonts::default());
     s.open(&fixture_path()).unwrap();
     let papier = s.snapshot().appearance;
     assert_eq!(papier.scheme, "light");
@@ -142,7 +142,7 @@ fn l_apparence_suit_le_theme() {
 
 #[test]
 fn les_modeles_se_rendent_dans_le_theme_du_deck() {
-    let mut s = Session::new(Vec::new());
+    let mut s = Session::new(Fonts::default());
     s.open(&fixture_path()).unwrap();
     let papier = s.templates_view(None).unwrap().templates;
     assert!(papier.len() >= 8);
@@ -165,7 +165,7 @@ fn les_modeles_se_rendent_dans_le_theme_du_deck() {
 fn edition_des_modeles_puis_retour_au_deck() {
     use serde_json::json;
     let dir = std::env::temp_dir().join(format!("echo-session-tpl-{}", std::process::id()));
-    let mut s = slider_session::Session::new(Vec::new());
+    let mut s = slider_session::Session::new(Fonts::default());
     s.set_templates_dir(&dir);
     let before = s.deck().clone();
 

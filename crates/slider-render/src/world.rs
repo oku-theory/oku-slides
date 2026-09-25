@@ -2,7 +2,7 @@
 //! embarquée, deck, assets) et un jeu de polices fixe, sans polices système.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Mutex;
+use std::sync::LazyLock;
 
 use chrono::Datelike;
 use typst::diag::{FileError, FileResult};
@@ -15,6 +15,7 @@ use typst::{Library, LibraryExt, World};
 use slider_core::Deck;
 
 use crate::THEMES;
+use crate::fonts::Fonts;
 
 macro_rules! lib_files {
     ($($path:literal),* $(,)?) => {
@@ -33,22 +34,29 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "themes/pro.typ",
 );
 
+/// Le deck, en JSON, tel que le lit `main.typ`.
+static DECK: LazyLock<FileId> = LazyLock::new(|| file_id("/deck.json"));
+
 fn file_id(path: &str) -> FileId {
     let vpath = VirtualPath::new(path).expect("chemin virtuel valide");
     FileId::new(RootedPath::new(VirtualRoot::Project, vpath))
 }
 
 /// Source principale : importe la bibliothèque et rend `/deck.json`.
-fn main_source(theme: Option<&str>, assets: &[String]) -> String {
+/// `assets` : empreintes (hex) des assets disponibles.
+fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>) -> String {
     let theme = match theme {
         Some(t) if THEMES.contains(&t) => t,
         _ => "none",
     };
-    let available = if assets.is_empty() {
-        "()".to_owned()
-    } else {
-        format!("({},)", assets.iter().map(|h| format!("\"{h}\"")).collect::<Vec<_>>().join(", "))
-    };
+    // Un tableau Typst à un élément s'écrit `("x",)` : chaque entrée finit par une virgule.
+    let mut available = String::from("(");
+    for hex in assets {
+        available.push('"');
+        available.push_str(hex);
+        available.push_str("\",");
+    }
+    available.push(')');
     format!(
         r#"#import "/slider/lib.typ": *
 #let available = {available}
@@ -66,60 +74,54 @@ fn main_source(theme: Option<&str>, assets: &[String]) -> String {
     )
 }
 
+/// Empreinte (hex) d'un identifiant d'asset `sha256:…`.
+fn asset_hex(id: &str) -> &str {
+    id.strip_prefix("sha256:").unwrap_or(id)
+}
+
 pub(crate) struct SliderWorld {
     library: LazyHash<Library>,
-    book: LazyHash<FontBook>,
-    fonts: Vec<Font>,
+    fonts: Fonts,
     main: FileId,
     sources: HashMap<FileId, Source>,
-    files: HashMap<FileId, Bytes>,
-    /// Sources recréées à chaque changement ; protégées pour `source()` (&self).
-    cache: Mutex<()>,
+    deck: Bytes,
+    /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
+    /// de leur contenu : un asset déjà là n'est jamais recopié.
+    assets: HashMap<FileId, Bytes>,
 }
 
 impl SliderWorld {
-    pub fn new(extra_fonts: impl IntoIterator<Item = Vec<u8>>) -> Self {
-        let mut fonts: Vec<Font> = typst_assets::fonts().flat_map(|data| Font::iter(Bytes::new(data))).collect();
-        for data in extra_fonts {
-            fonts.extend(Font::iter(Bytes::new(data)));
-        }
-        let book = FontBook::from_fonts(&fonts);
-
+    pub fn new(fonts: Fonts) -> Self {
         let mut sources = HashMap::new();
         for (path, text) in LIBRARY {
             let id = file_id(&format!("/slider/{path}"));
             sources.insert(id, Source::new(id, (*text).to_owned()));
         }
         let main = file_id("/main.typ");
-        sources.insert(main, Source::new(main, main_source(None, &[])));
-
-        let mut files = HashMap::new();
-        files.insert(file_id("/deck.json"), Bytes::from_string(r#"{"slides":[]}"#.to_owned()));
+        sources.insert(main, Source::new(main, main_source(None, std::iter::empty())));
 
         Self {
             library: LazyHash::new(Library::default()),
-            book: LazyHash::new(book),
             fonts,
             main,
             sources,
-            files,
-            cache: Mutex::new(()),
+            deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
+            assets: HashMap::new(),
         }
     }
 
-    /// Remplace le deck et les assets. La bibliothèque reste en cache.
+    /// Remplace le deck et les assets. La bibliothèque et les assets déjà
+    /// chargés restent en place.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) {
-        let _guard = self.cache.lock().expect("verrou");
-        self.files.retain(|id, _| !id.vpath().get_with_slash().starts_with("/assets/"));
-        let mut hexes = Vec::new();
-        for (asset, bytes) in assets {
-            let hex = asset.strip_prefix("sha256:").unwrap_or(asset).to_owned();
-            self.files.insert(file_id(&format!("/assets/{hex}")), Bytes::new(bytes.clone()));
-            hexes.push(hex);
+        let wanted: HashMap<FileId, &Vec<u8>> =
+            assets.iter().map(|(id, bytes)| (file_id(&format!("/assets/{}", asset_hex(id))), bytes)).collect();
+        self.assets.retain(|id, _| wanted.contains_key(id));
+        for (id, bytes) in wanted {
+            self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
-        self.files.insert(file_id("/deck.json"), Bytes::from_string(deck.to_json()));
+        self.deck = Bytes::new(serde_json::to_vec(deck).expect("un deck se sérialise toujours"));
 
-        let text = main_source(deck.theme.as_deref(), &hexes);
+        let text = main_source(deck.theme.as_deref(), assets.keys().map(|k| asset_hex(k)));
         let main = self.sources.get_mut(&self.main).expect("source principale");
         if main.text() != text {
             main.replace(&text);
@@ -137,7 +139,7 @@ impl World for SliderWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
+        self.fonts.book()
     }
 
     fn main(&self) -> FileId {
@@ -149,7 +151,10 @@ impl World for SliderWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        if let Some(b) = self.files.get(&id) {
+        if id == *DECK {
+            return Ok(self.deck.clone());
+        }
+        if let Some(b) = self.assets.get(&id) {
             return Ok(b.clone());
         }
         if let Some(s) = self.sources.get(&id) {
@@ -159,7 +164,7 @@ impl World for SliderWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        self.fonts.get(index).cloned()
+        self.fonts.get(index)
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
