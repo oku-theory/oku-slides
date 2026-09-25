@@ -61,8 +61,10 @@ impl Sources {
     }
 }
 
+/// Date PDF (`D:AAAAMMJJhhmmssZ`) de l'instant présent, en UTC.
 fn pdf_date() -> String {
-    chrono::Utc::now().format("D:%Y%m%d%H%M%SZ").to_string()
+    let format = time::macros::format_description!("D:[year][month][day][hour][minute][second]Z");
+    time::OffsetDateTime::now_utc().format(format).unwrap_or_default()
 }
 
 fn text(s: &str) -> Object {
@@ -200,4 +202,17 @@ pub fn strip_sources(pdf: &[u8]) -> Result<Vec<u8>, PdfError> {
     let mut out = Vec::new();
     doc.save_to(&mut out)?;
     Ok(out)
+}
+
+#[cfg(test)]
+mod lib_tests {
+    use super::pdf_date;
+
+    #[test]
+    fn pdf_date_now_follows_pdf_date_syntax() {
+        let d = pdf_date();
+        assert_eq!(d.len(), "D:20260925120000Z".len(), "{d}");
+        assert!(d.starts_with("D:20") && d.ends_with('Z'), "{d}");
+        assert!(d[2..16].bytes().all(|b| b.is_ascii_digit()), "{d}");
+    }
 }

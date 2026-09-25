@@ -8,6 +8,7 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
+tracing.workspace = true
 slider-core.workspace = true
 slider-render.workspace = true
 slider-pdf.workspace = true

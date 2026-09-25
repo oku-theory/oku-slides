@@ -17,7 +17,7 @@ typst-svg.workspace = true
 typst-layout.workspace = true
 serde.workspace = true
 typst-assets.workspace = true
-chrono.workspace = true
+time.workspace = true
 
 [dev-dependencies]
 slider-pdf.workspace = true

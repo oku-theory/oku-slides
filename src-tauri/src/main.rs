@@ -32,7 +32,9 @@ fn app_fonts(dirs: &[PathBuf]) -> Fonts {
     Fonts::new(dirs.iter().flat_map(|dir| read_font_dir(dir).unwrap_or_default().into_values()))
 }
 
-fn main() {
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+    slider_platform::telemetry::init();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -49,8 +51,9 @@ fn main() {
             // Un fichier passé en argument (ouvrir avec…) est ouvert au démarrage.
             if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from)
                 && path.exists()
+                && let Err(e) = session.open(&path)
             {
-                session.open(&path).ok();
+                tracing::warn!(path = %path.display(), error = %e, "ouverture au démarrage");
             }
             // Même dossier que app_data_dir de Tauri (identifiant APP_ID).
             session.set_templates_dir(slider_session::templates_dir());
@@ -59,6 +62,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![request, stt])
-        .run(tauri::generate_context!())
-        .expect("échec du lancement d'Écho");
+        .run(tauri::generate_context!())?;
+    Ok(())
 }

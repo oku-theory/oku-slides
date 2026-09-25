@@ -13,6 +13,7 @@ default = []
 accelerate = ["ct2rs/accelerate"]
 
 [dependencies]
+tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

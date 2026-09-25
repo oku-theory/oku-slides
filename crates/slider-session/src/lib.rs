@@ -427,6 +427,7 @@ impl Session {
         let Opened { sources, pdf, modified_elsewhere } = read_document(path)?;
         // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
+        tracing::info!(path = %path.display(), pdf, modified_elsewhere, "document ouvert");
         self.doc.notice = modified_elsewhere.then(|| "Ce PDF a été modifié par un autre outil après Écho : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
         Ok(())
     }
@@ -446,6 +447,7 @@ impl Session {
         let pdf = compiled.pdf()?;
         let out = slider_pdf::embed_sources(&pdf, &self.doc.sources.to_zip()?)?;
         write_atomic(&path, &out)?;
+        tracing::info!(path = %path.display(), bytes = out.len(), "document enregistré");
         self.doc.path = Some(path);
         self.doc.dirty = false;
         Ok(())
@@ -453,7 +455,9 @@ impl Session {
 
     fn rerender(&mut self) -> Result<()> {
         self.renderer.set_deck(&self.doc.sources.deck, &self.doc.sources.assets);
+        let started = std::time::Instant::now();
         let compiled = self.renderer.compile()?;
+        tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
         // Le cache ne garde que les pages encore présentes.
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
         self.svg_cache.retain(|h, _| live.contains(h));

@@ -149,7 +149,7 @@ fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, String> {
     captured.lock().unwrap().rate = rate;
 
     let push = move |mono: &mut dyn Iterator<Item = f32>| push_samples(&captured, mono);
-    let err = |e| eprintln!("micro : {e}");
+    let err = |e| tracing::warn!(error = %e, "flux du micro");
     let stream_config: cpal::StreamConfig = config.into();
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_input_stream(

@@ -4,7 +4,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::LazyLock;
 
-use chrono::Datelike;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
@@ -168,11 +167,12 @@ impl World for SliderWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        let now = chrono::Local::now();
+        let utc = time::OffsetDateTime::now_utc();
         let date = match offset {
-            None => now.date_naive(),
-            Some(o) => (now.naive_utc() + chrono::Duration::hours(o.hours() as i64)).date(),
+            // Heure locale si le système la donne, sinon UTC.
+            None => time::OffsetDateTime::now_local().unwrap_or(utc).date(),
+            Some(o) => (utc + time::Duration::seconds_f64(o.hours() * 3600.0)).date(),
         };
-        Datetime::from_ymd(date.year(), date.month() as u8, date.day() as u8)
+        Datetime::from_ymd(date.year(), u8::from(date.month()), date.day())
     }
 }

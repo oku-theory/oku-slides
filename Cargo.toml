@@ -17,11 +17,11 @@ slider-pdf = { path = "crates/slider-pdf" }
 slider-session = { path = "crates/slider-session" }
 slider-stt = { path = "crates/slider-stt" }
 slider-chart = { path = "crates/slider-chart" }
+slider-platform = { path = "crates/slider-platform" }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"
 thiserror = "2"
-anyhow = "1"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
 hex = "0.4"
@@ -30,7 +30,10 @@ typst = "0.15.1"
 typst-pdf = "0.15.1"
 typst-svg = "0.15.1"
 typst-assets = { version = "0.15.1", features = ["fonts"] }
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+color-eyre = "0.6"
 clap = { version = "4", features = ["derive"] }
 charts-rs = "1.1"
 json-patch = "4"

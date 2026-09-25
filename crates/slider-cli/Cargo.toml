@@ -18,7 +18,9 @@ slider-pdf.workspace = true
 slider-session.workspace = true
 slider-stt.workspace = true
 tiny_http.workspace = true
-anyhow.workspace = true
+color-eyre.workspace = true
+tracing.workspace = true
+slider-platform.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 

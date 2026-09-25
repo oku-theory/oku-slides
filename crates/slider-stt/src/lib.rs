@@ -318,9 +318,13 @@ impl Stt {
                 g.state = State::Idle;
                 g.installed = Model::ALL.map(|m| m.is_installed(&dir));
                 match result {
-                    Ok(_) => std::mem::take(&mut g.start_after_download),
+                    Ok(_) => {
+                        tracing::info!(?model, "modèle de dictée téléchargé");
+                        std::mem::take(&mut g.start_after_download)
+                    }
                     Err(models::DownloadError::Cancelled) => false,
                     Err(e) => {
+                        tracing::warn!(?model, error = %e, "téléchargement du modèle");
                         g.error = Some(e.to_string());
                         false
                     }
@@ -336,6 +340,7 @@ impl Stt {
         let recorder = match audio::Recorder::start() {
             Ok(r) => r,
             Err(e) => {
+                tracing::warn!(error = %e, "micro indisponible");
                 self.inner.lock().unwrap().error = Some(e);
                 return;
             }
@@ -378,7 +383,9 @@ impl Stt {
         {
             return Ok(e.clone());
         }
+        let started = Instant::now();
         let engine = Arc::new(Transcriber::load(&model.path(&self.dir))?);
+        tracing::debug!(?model, ms = started.elapsed().as_millis(), "modèle de dictée chargé");
         self.inner.lock().unwrap().engine = Some((model, engine.clone()));
         Ok(engine)
     }

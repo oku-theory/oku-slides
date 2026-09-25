@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, eyre};
 
 use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
 use slider_render::{Fonts, Renderer, read_font_dir};
@@ -79,15 +79,15 @@ enum Cmd {
 }
 
 fn read_deck(path: &Path) -> Result<Deck> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("lecture de {}", path.display()))?;
-    Deck::from_json(&text).with_context(|| format!("deck invalide : {}", path.display()))
+    let text = std::fs::read_to_string(path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
+    Deck::from_json(&text).wrap_err_with(|| format!("deck invalide : {}", path.display()))
 }
 
 /// Charge un deck depuis un JSON ou un .echo.pdf.
 fn load_bundle(path: &Path) -> Result<SourceBundle> {
-    let opened = read_document(path).with_context(|| format!("lecture de {}", path.display()))?;
+    let opened = read_document(path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
     if opened.modified_elsewhere {
-        eprintln!("attention : le PDF a été modifié par un autre outil après Écho");
+        tracing::warn!(path = %path.display(), "le PDF a été modifié par un autre outil après Écho");
     }
     Ok(opened.sources)
 }
@@ -100,15 +100,17 @@ fn report_issues(deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> bool {
     let ids = assets.keys().cloned().collect();
     let issues = validate(deck, Some(&ids));
     for i in &issues {
-        eprintln!("problème : {i}");
+        tracing::warn!(problème = %i, "deck");
     }
     issues.is_empty()
 }
 
 fn main() -> Result<()> {
+    color_eyre::install()?;
+    slider_platform::telemetry::init();
     let cli = Cli::parse();
     let fonts = match &cli.fonts {
-        Some(dir) => read_font_dir(dir).with_context(|| format!("lecture de {}", dir.display()))?,
+        Some(dir) => read_font_dir(dir).wrap_err_with(|| format!("lecture de {}", dir.display()))?,
         None => BTreeMap::new(),
     };
     let app_fonts = Fonts::new(fonts.values().cloned());
@@ -131,7 +133,7 @@ fn main() -> Result<()> {
             let doc = r.compile()?;
             let compile = t.elapsed();
             for w in &doc.warnings {
-                eprintln!("{w}");
+                tracing::warn!(avertissement = %w, "compilation Typst");
             }
             std::fs::create_dir_all(&out)?;
             let t = Instant::now();
@@ -311,7 +313,7 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result
     if let Some(path) = &input {
         session.open(path)?;
     }
-    let server = Server::http(("127.0.0.1", port)).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let server = Server::http(("127.0.0.1", port)).map_err(|e| eyre!("{e}"))?;
     let stt = slider_stt::Stt::new(slider_session::models_dir());
     println!("Écho (dev) sur http://127.0.0.1:{port}");
     println!("modèles de dictée : {}", stt.models_dir().display());
