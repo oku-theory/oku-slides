@@ -423,3 +423,5 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .toggle.on .toggle-thumb { transform: translateX(12px); }
 .toggle:focus-visible { outline: none; }
 .toggle:focus-visible .toggle-track { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
+.grid-toggle.on { background: var(--accent-fill); color: var(--on-accent); }
+.grid-toggle svg { width: 18px; height: 18px; }

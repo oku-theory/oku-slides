@@ -73,15 +73,16 @@ just          # toutes les commandes
 
 ### Grille, modèles, ordre des slides
 
-- **Grille** : chaque slide a une grille (12 × 6 par défaut) ; on règle
-  seulement le nombre de colonnes et de lignes (post-it « Grille »), les
-  éléments gardent leurs proportions. L'accrochage est automatique et ne se
-  désactive pas : un élément occupe un bloc de cases, se déplace de case en
-  case (souris ou flèches), et chaque coin s'accroche aux nœuds. La grille
-  s'affiche ou se masque (interrupteur, ⌘') : un petit point sur chaque nœud ;
-  pendant un glisser, elle s'affiche de toute façon. La géométrie est calculée
-  à l'identique par `ui/src/grid.ts` (édition) et `grid-frame` dans `data.typ`
-  (rendu).
+- **Grille** : chaque slide a une grille (12 × 6 par défaut). Son nombre de
+  colonnes et de lignes se règle dans le modèle (post-it « Grille » en mode
+  Modèles) ; les slides créées depuis ce modèle la reprennent. L'accrochage
+  est automatique et ne se désactive pas : un élément occupe un bloc de
+  cases, se déplace de case en case (souris ou flèches), et chaque coin
+  s'accroche aux nœuds. Le bouton à points de la barre du haut (ou ⌘')
+  affiche ou masque la grille, dans les slides comme dans les modèles : un
+  petit point sur chaque nœud ; pendant un glisser, elle s'affiche de toute
+  façon. La géométrie est calculée à l'identique par `ui/src/grid.ts`
+  (édition) et `grid-frame` dans `data.typ` (rendu).
 - **Ensembles de modèles** : les modèles de « Nouvelle slide » sont groupés en
   ensembles (`templates/*.json` intégrés : Essentiel, Grilles ; ceux de
   l'utilisateur dans le dossier de données de l'app). Un ensemble ne dépend

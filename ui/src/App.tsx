@@ -12,6 +12,11 @@ import { moveCell, rescaleCell, snapRect, trackSize } from "./grid";
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
   redo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></svg>,
+  grid: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      {[5, 9.7, 14.3, 19].flatMap((y) => [5, 9.7, 14.3, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.3} />))}
+    </svg>
+  ),
 };
 
 /** SVG des slides, en URL d'objet, mis en cache par empreinte de rendu. */
@@ -404,6 +409,15 @@ export default function App() {
       <div className="tray">
         <button className="object token" aria-label={snap.undo_label ? `Annuler : ${snap.undo_label}` : "Annuler"} title={snap.undo_label ?? "Annuler"} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
         <button className="object token" aria-label={snap.redo_label ? `Rétablir : ${snap.redo_label}` : "Rétablir"} title={snap.redo_label ?? "Rétablir"} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+        <button
+          className={`object token grid-toggle${gridAlways ? " on" : ""}`}
+          aria-pressed={gridAlways}
+          aria-label={gridAlways ? "Masquer la grille" : "Afficher la grille"}
+          title={`${gridAlways ? "Masquer" : "Afficher"} la grille (⌘')`}
+          onClick={() => setGridAlways((v) => !v)}
+        >
+          {Icon.grid}
+        </button>
         <div className="object theme-card">
           <label className="caption" htmlFor="theme">Thème</label>
           <select id="theme" className="select" value={snap.theme ?? ""} onChange={(e) => { e.currentTarget.blur(); apply("Changer de thème", [{ op: "set_theme", theme: e.target.value || null }]); }}>
@@ -487,24 +501,21 @@ export default function App() {
             ))}
           </div>
         </div>
-        {slideGrid && (
-          <div className="postit grid-note" role="group" aria-label="Grille de la slide">
+        {/* La grille se règle dans le modèle ; dans les slides, elle vient du modèle. */}
+        {snap.editing && slideGrid && (
+          <div className="postit grid-note" role="group" aria-label="Grille du modèle">
             <span className="postit-title">Grille</span>
             <Stepper label="Colonnes" value={slideGrid.columns} onChange={(v) => setGrid(v, slideGrid.rows)} />
             <Stepper label="Lignes" value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
-            <button className={`toggle${gridAlways ? " on" : ""}`} role="switch" aria-checked={gridAlways} onClick={() => setGridAlways((v) => !v)} title="Afficher ou masquer la grille (⌘')">
-              <span className="toggle-track"><span className="toggle-thumb" /></span>
-              <span className="postit-hint">{gridAlways ? "Affichée" : "Masquée"}</span>
-            </button>
           </div>
         )}
         <button className="postit" onClick={removeSlide} disabled={snap.slides.length < 2}>
           <span className="postit-title">{snap.editing ? "Supprimer le modèle" : "Supprimer la slide"}</span>
           <span className="postit-hint">Slide {index + 1} · annulable avec ⌘Z</span>
         </button>
-        {!snap.editing && !slideGrid && <div className="postit note" role="note">
+        {!snap.editing && <div className="postit note" role="note">
           <span className="postit-title">Astuce</span>
-          <span className="postit-hint">⌘D pour dicter, dans la zone sélectionnée ou au curseur. Double-clic pour modifier un texte.</span>
+          <span className="postit-hint">⌘D pour dicter. ⌘' pour afficher la grille. Double-clic pour modifier un texte.</span>
         </div>}
       </aside>
 
