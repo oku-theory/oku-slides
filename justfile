@@ -37,9 +37,10 @@ web file=deck: install
     trap "kill $! 2>/dev/null" EXIT
     cd ui && bun run dev
 
-# Tests Rust (hors app Tauri)
+# Tests Rust (hors app Tauri) et tests de l'interface
 test:
     cargo test --workspace --exclude slider-app
+    cd ui && bun test
 
 # Vérifications : format, clippy, types TypeScript
 check: install

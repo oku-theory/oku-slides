@@ -2,9 +2,11 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
-import { findElement, textToParagraphs } from "./api";
+import { fontStack } from "./appearance";
+import type { GridPlacement } from "./deck";
+import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./deck";
 import type { Cell, GridSpec, ZoneView } from "./grid";
-import { cellLabel, cellRect, moveCell, resizeCell, sameCell, snapRect, tracks } from "./grid";
+import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -16,44 +18,15 @@ interface Drag {
   frame: Frame;
   dx: number;
   dy: number;
-  /** Élément accroché : sa cellule au départ, et la grille. */
-  cell?: Cell;
-  grid?: { zone: ZoneView; g: GridSpec };
-  /** Élément encore en cadre libre : il passe sur la grille en bougeant. */
-  wasFree?: boolean;
-  /** Bloc mis en page : la slide entière passe sur la grille au dépôt. */
-  fromBlocks?: boolean;
+  /** Sur la grille : la place au départ ; l'élément saute de case en case. */
+  place?: GridPlacement;
 }
-
-/**
- * Fait passer une slide à blocs sur sa grille : chaque bloc devient un élément
- * accroché aux cases qu'il occupait à l'écran (`cells` impose certaines places).
- * Une seule transaction, annulable d'un coup.
- */
-export function blocksToGridOps(view: SlideView, cells: Record<string, Cell> = {}): Op[] {
-  const zone = view.zone;
-  const g = zone?.grid;
-  const blocks = view.slide.blocks ?? [];
-  if (!zone || !g || blocks.length === 0) return [];
-  const ops: Op[] = blocks.map((b) => ({ op: "remove_element", slide: view.slide.id, element: b.id }));
-  for (const b of blocks) {
-    const t = view.targets.find((x) => x.id === b.id);
-    const cell =
-      cells[b.id] ??
-      (t ? snapRect(zone, g, { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h }) : { col: 0, row: 0, cols: g.columns, rows: 1 });
-    ops.push({ op: "add_element", slide: view.slide.id, zone: "elements", element: { ...b, frame: undefined, cell } });
-  }
-  return ops;
-}
-
-/** Bloc mis en page par le layout (au premier niveau de la slide) ? */
-export const isBlock = (view: SlideView, id: string) => (view.slide.blocks ?? []).some((b) => b.id === id);
 
 /** Cellule visée par un glisser sur la grille. */
 function draggedCell(d: Drag): Cell | null {
-  if (!d.cell || !d.grid) return null;
-  const { zone, g } = d.grid;
-  return d.mode === "move" ? moveCell(zone, g, d.cell, d.dx, d.dy) : resizeCell(zone, g, d.cell, d.mode, d.dx, d.dy);
+  if (!d.place) return null;
+  const { zone, grid, cell } = d.place;
+  return d.mode === "move" ? moveCell(zone, grid, cell, d.dx, d.dy) : resizeCell(zone, grid, cell, d.mode, d.dx, d.dy);
 }
 
 interface Props {
@@ -88,7 +61,7 @@ const KIND_LABELS: Record<string, string> = {
 /** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
 function dragged(d: Drag): Frame {
   const cell = draggedCell(d);
-  if (cell && d.grid) return cellRect(d.grid.zone, d.grid.g, cell);
+  if (cell && d.place) return cellRect(d.place.zone, d.place.grid, cell);
   const f = { ...d.frame };
   const min = 20;
   switch (d.mode) {
@@ -120,32 +93,9 @@ function dragged(d: Drag): Frame {
   return { x: Math.round(f.x), y: Math.round(f.y), w: Math.round(f.w), h: Math.round(f.h) };
 }
 
-/** Ops pour remplacer le texte d'une cible. */
-export function textOps(view: SlideView, t: Target, value: string): Op[] {
-  const slide = view.slide;
-  if (t.target === "element") {
-    const e = findElement(slide, t.id);
-    return [{ op: "set_text", slide: slide.id, element: t.id, text: textToParagraphs(value, e?.text ?? []) }];
-  }
-  const field = t.kind;
-  const v = value.trim() === "" ? null : value;
-  // Sur la couverture, titre et sous-titre viennent des paramètres du deck.
-  if (slide.kind === "title" && (field === "title" || field === "subtitle") && slide[field] === undefined) {
-    return [{ op: "set_param", key: field, value: v }];
-  }
-  return [{ op: "set_slide_field", slide: slide.id, field, value: v }];
-}
-
 const WEIGHTS: Record<string, number> = {
   thin: 100, extralight: 200, light: 300, regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900,
 };
-
-/** Pile CSS pour des familles Typst (la version variable embarquée d'abord). */
-const cssFonts = (families: string[]) =>
-  [...families.flatMap((f) => {
-    const name = f.replace(/\b\w/g, (c) => c.toUpperCase());
-    return [`"${name} Variable"`, `"${name}"`];
-  }), "serif"].join(", ");
 
 /** Luminance relative d'une couleur #rrggbb (WCAG). */
 function luminance(hex: string): number | null {
@@ -206,7 +156,7 @@ function editorGeometry(t: Target, draft: string, scale: number) {
   // CSS à mi-interligne + (ascendante − descendante) / 2.
   const top = t.y * scale + size * 0.7 - line / 2 - size * 0.325;
   const weight = typeof st.weight === "number" ? st.weight : WEIGHTS[String(st.weight).replace(/[^a-z]/g, "")] ?? 400;
-  const family = cssFonts(st.font);
+  const family = fontStack(st.font, "serif");
   const tracking = st.tracking * scale;
   const align = st.align ?? "left";
 
@@ -321,30 +271,13 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     e.stopPropagation();
     onSelect(t.id);
     if (editing) return;
-    const el = findElement(view.slide, t.id);
-    const zone = view.zone;
-    const g = zone?.grid;
-    // Un bloc mis en page se déplace aussi : il part de sa place à l'écran, sur la grille.
-    if (zone && g && isBlock(view, t.id)) {
-      (e.target as Element).setPointerCapture(e.pointerId);
-      const frame = { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h };
-      const cell = snapRect(zone, g, frame);
-      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell, grid: { zone, g }, fromBlocks: true });
-      return;
-    }
-    if (!t.free) return;
-    // Accrochage automatique : sur une slide à grille, tout élément libre s'y cale.
-    const inZone = (view.slide.elements ?? []).some((x) => x.id === t.id);
-    if (el && zone && g && inZone && (el.cell || el.frame)) {
-      (e.target as Element).setPointerCapture(e.pointerId);
-      const cell = el.cell ?? snapRect(zone, g, el.frame!);
-      const frame = el.cell ? cellRect(zone, g, el.cell) : el.frame!;
-      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell, grid: { zone, g }, wasFree: !el.cell });
-      return;
-    }
-    if (!el?.frame) return;
+    // Sur une slide à grille, un bloc (depuis sa place à l'écran) ou un
+    // élément libre se déplace de case en case : l'accrochage est automatique.
+    const place = gridPlacement(view, t.id);
+    const frame = place?.frame ?? (t.free ? findElement(view.slide, t.id)?.frame : undefined);
+    if (!frame) return;
     (e.target as Element).setPointerCapture(e.pointerId);
-    setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame: el.frame, dx: 0, dy: 0 });
+    setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, place: place ?? undefined });
   };
 
   const moveDrag = (e: React.PointerEvent) => {
@@ -355,18 +288,16 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const endDrag = () => {
     if (!drag) return;
     const cell = draggedCell(drag);
-    if (cell && drag.cell) {
+    const place = drag.place;
+    if (cell && place) {
       setDrag(null);
       const moved = Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2;
-      if (drag.fromBlocks) {
-        if (moved) onApply(drag.mode === "move" ? "Placer sur la grille" : "Redimensionner sur la grille", blocksToGridOps(view, { [drag.id]: cell }));
-        return;
-      }
-      if (!sameCell(cell, drag.cell) || (drag.wasFree && moved)) {
-        const label = drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
-        const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: drag.id, cell }];
-        if (drag.wasFree) ops.push({ op: "set_frame", slide: view.slide.id, element: drag.id, frame: null });
-        onApply(label, ops);
+      // Un élément qui n'est pas encore sur une case s'y accroche dès qu'il bouge.
+      if (!sameCell(cell, place.cell) || (moved && !place.onCell)) {
+        const label = place.block
+          ? drag.mode === "move" ? "Placer sur la grille" : "Redimensionner sur la grille"
+          : drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
+        onApply(label, placeOnGridOps(view, drag.id, cell));
       }
       return;
     }

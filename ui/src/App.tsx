@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Op, Paragraph, SlideView, Snapshot } from "./api";
-import type { SetInfo, TemplateView } from "./api";
-import { api, applyAppearance, findElement, inTauri, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
+import type { Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
+import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
+import { applyAppearance } from "./appearance";
+import { findElement, gridPlacement, instantiate, newId, placeOnGridOps, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
-import Stage, { FIELD_LABELS, blocksToGridOps, isBlock, textOps } from "./Stage";
+import Stage, { FIELD_LABELS } from "./Stage";
 import Dictation from "./Dictation";
-import { textToParagraphs } from "./api";
 import type { Cell } from "./grid";
-import { moveCell, rescaleCell, snapRect, trackSize } from "./grid";
+import { moveCell, rescaleCell, trackSize } from "./grid";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
@@ -221,14 +221,14 @@ export default function App() {
       /* préférence facultative */
     }
   }, [gridAlways]);
-  // Toute slide à zone libre a une grille (12 × 6 par défaut) ; l'accrochage est automatique.
-  const DEFAULT_GRID = { columns: 12, rows: 6 };
-  const slideGrid = view?.zone?.grid ? (view.slide.grid ?? DEFAULT_GRID) : undefined;
+  // Toute slide à zone libre a une grille, résolue par le rendu (celle par
+  // défaut si la slide n'en précise pas) ; l'accrochage est automatique.
+  const slideGrid = view?.zone?.grid ?? undefined;
 
   const setGrid = (columns: number, rows: number) => {
-    if (!view) return;
+    if (!view || !slideGrid) return;
     const slide = view.slide;
-    const from = slide.grid ?? DEFAULT_GRID;
+    const from = slideGrid;
     const next = { ...(slide.grid ?? {}), columns, rows };
     const ops: Op[] = [{ op: "set_grid", slide: slide.id, grid: next }];
     // Les éléments gardent leurs proportions sur la nouvelle grille.
@@ -260,7 +260,7 @@ export default function App() {
   };
   const adoptSet = (set: SetInfo) => {
     if (!snap || snap.editing || set.id === snap.templates) return;
-    apply(`Modèles : ${set.name}`, [{ op: "set_templates", templates: set.id === "essentiel" ? null : set.id }]);
+    apply(`Modèles : ${set.name}`, [{ op: "set_templates", templates: set.default ? null : set.id }]);
   };
 
   // --- Réarranger les slides par glisser-déposer -----------------------------
@@ -315,35 +315,20 @@ export default function App() {
         apply("Supprimer", [{ op: "remove_element", slide: view.slide.id, element: selected }]);
         setSelected(null);
       } else if (e.key.startsWith("Arrow")) {
+        const dx = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+        const dy = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+        // Sur la grille : une case à la fois. Un bloc fait passer la slide sur
+        // la grille ; un élément libre s'y accroche s'il ne l'était pas.
+        const place = gridPlacement(view, selected);
+        if (place) {
+          e.preventDefault();
+          const { zone, grid } = place;
+          const { cw, rh } = trackSize(zone, grid);
+          const cell = moveCell(zone, grid, place.cell, dx * (cw + grid.gap), dy * (rh + grid.gap));
+          apply(place.block ? "Placer sur la grille" : "Déplacer sur la grille", placeOnGridOps(view, selected, cell));
+          return;
+        }
         const el = findElement(view.slide, selected);
-        const zone = view.zone;
-        const g = zone?.grid;
-        const dxk = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-        const dyk = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
-        // Bloc mis en page : la slide passe sur la grille, le bloc bouge d'une case.
-        if (el && zone && g && isBlock(view, el.id)) {
-          e.preventDefault();
-          const t = view.targets.find((x) => x.id === el.id);
-          if (!t) return;
-          const { cw, rh } = trackSize(zone, g);
-          const from = snapRect(zone, g, { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h });
-          const cell = moveCell(zone, g, from, dxk * (cw + g.gap), dyk * (rh + g.gap));
-          apply("Placer sur la grille", blocksToGridOps(view, { [el.id]: cell }));
-          return;
-        }
-        // Sur la grille : une case à la fois (l'élément s'y accroche s'il ne l'était pas).
-        if (el && zone && g && (el.cell || el.frame) && (view.slide.elements ?? []).some((x) => x.id === el.id)) {
-          e.preventDefault();
-          const cell = el.cell ?? snapRect(zone, g, el.frame!);
-          const { cw, rh } = trackSize(zone, g);
-          const dx = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-          const dy = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
-          const next = moveCell(zone, g, cell, dx * (cw + g.gap), dy * (rh + g.gap));
-          const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: el.id, cell: next }];
-          if (el.frame) ops.push({ op: "set_frame", slide: view.slide.id, element: el.id, frame: null });
-          apply("Déplacer sur la grille", ops);
-          return;
-        }
         if (!el?.frame) return;
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;

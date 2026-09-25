@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "bun test"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.2.0",

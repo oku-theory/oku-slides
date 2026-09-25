@@ -1,6 +1,8 @@
-import type { Cell, ZoneView } from "./grid";
+// Accès à l'hôte Rust : la session et la dictée (`invoke` dans Tauri, `POST`
+// en développement), et les dialogues de fichier. Les types décrivent le JSON
+// échangé.
 
-// Accès à la session Rust : `invoke` dans Tauri, `POST /api` en développement.
+import type { Cell, ZoneView } from "./grid";
 
 export type SlideKind = "title" | "toc" | "chapter" | "content" | "end" | "blank";
 
@@ -60,6 +62,8 @@ export interface SetInfo {
   name: string;
   description: string;
   builtin: boolean;
+  /** L'ensemble d'un deck qui n'en choisit pas. */
+  default: boolean;
   count: number;
 }
 
@@ -206,20 +210,7 @@ type SttRequest =
   | { cmd: "cancel" }
   | { cmd: "download"; model: SttModel };
 
-async function sttCall(req: SttRequest): Promise<SttStatus> {
-  if (inTauri) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<SttStatus>("stt", { req });
-  }
-  const res = await fetch("/api/stt", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? res.statusText);
-  return body as SttStatus;
-}
+const sttCall = (req: SttRequest) => host<SttStatus>("stt", "/api/stt", req);
 
 export const stt = {
   status: () => sttCall({ cmd: "status" }),
@@ -251,12 +242,13 @@ type Request =
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-async function call<T>(req: Request): Promise<T> {
+/** Une requête à l'hôte : la commande Tauri `command`, ou `POST endpoint` en développement. */
+async function host<T>(command: string, endpoint: string, req: object): Promise<T> {
   if (inTauri) {
     const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<T>("request", { req });
+    return invoke<T>(command, { req });
   }
-  const res = await fetch("/api", {
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -265,6 +257,8 @@ async function call<T>(req: Request): Promise<T> {
   if (!res.ok) throw new Error(body.error ?? res.statusText);
   return body as T;
 }
+
+const call = <T>(req: Request) => host<T>("request", "/api", req);
 
 export const api = {
   snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
@@ -300,105 +294,4 @@ export async function pickSavePath(defaultName: string): Promise<string | null> 
     return save({ defaultPath: `${defaultName}.echo.pdf`, filters: [{ name: "Écho", extensions: ["pdf"] }] });
   }
   return window.prompt("Enregistrer sous (chemin complet)", `/tmp/${defaultName}.echo.pdf`);
-}
-
-/** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
-export function newId(prefix: string): string {
-  const r = crypto.getRandomValues(new Uint32Array(2));
-  return `${prefix}-${r[0].toString(36)}${r[1].toString(36).slice(0, 3)}`;
-}
-
-/** Élément par id, dans les blocs, les éléments libres et les groupes. */
-export function findElement(slide: Slide, id: string): Element | undefined {
-  const walk = (list: Element[] | undefined): Element | undefined => {
-    for (const e of list ?? []) {
-      if (e.id === id) return e;
-      const found = walk(e.children);
-      if (found) return found;
-    }
-    return undefined;
-  };
-  return walk(slide.blocks) ?? walk(slide.elements);
-}
-
-/** Texte éditable → paragraphes (même règle que côté Rust). */
-export function textToParagraphs(text: string, previous: Paragraph[] = []): Paragraph[] {
-  const plain = (p: Paragraph) => p.runs.map((r) => r.t).join("");
-  return text.split("\n").map((line) => {
-    let list: Paragraph["list"];
-    let body = line;
-    const num = /^(\d+)\. (.*)$/.exec(line);
-    if (line.startsWith("- ")) {
-      list = "bullet";
-      body = line.slice(2);
-    } else if (num) {
-      list = "number";
-      body = num[2];
-    }
-    const same = previous.find((p) => p.list === list && plain(p) === body);
-    if (same) return same;
-    return list ? { runs: [{ t: body }], list } : { runs: [{ t: body }] };
-  });
-}
-
-/** Pile CSS pour des familles Typst : la version variable embarquée d'abord. */
-function fontStack(families: string[], fallback: string): string {
-  const names = families.flatMap((f) => [`"${f} Variable"`, `"${f}"`]);
-  return [...names, fallback].join(", ");
-}
-
-const APP_COLORS = [
-  "desk", "sheet", "piece", "ink", "ink-muted", "rule", "edge",
-  "accent", "accent-text", "on-accent", "accent-soft", "danger", "shadow",
-];
-
-/** Accorde toute l'interface au thème des slides : couleurs, fonds, polices, formes. */
-export async function applyAppearance(a: Appearance) {
-  const root = document.documentElement;
-  const style = root.style;
-  const slide = (name: string) => a.slide[name];
-  for (const name of ["bg", "ink", "ink-muted", "accent", "on-accent", "rule"]) {
-    if (slide(name)) style.setProperty(`--t-${name}`, slide(name));
-  }
-  for (const name of APP_COLORS) {
-    if (a.app[name]) style.setProperty(`--app-${name}`, a.app[name]);
-    else style.removeProperty(`--app-${name}`);
-  }
-  for (const [name, value] of Object.entries(a.metrics)) {
-    style.setProperty(`--app-${name}`, name.endsWith("elevation") ? String(value) : `${value}px`);
-  }
-  style.setProperty("--app-scheme", a.scheme);
-  root.style.colorScheme = a.scheme;
-  if (a.font_display.length) style.setProperty("--t-font-display", fontStack(a.font_display, "Georgia, serif"));
-  if (a.font_body.length) style.setProperty("--t-font-body", fontStack(a.font_body, "system-ui, sans-serif"));
-
-  // Le fond natif de la fenêtre suit aussi (visible au redimensionnement).
-  if (inTauri) {
-    const desk = getComputedStyle(root).getPropertyValue("--paper-000").trim();
-    const hex = a.app.desk ?? (/^#[0-9a-f]{6}$/i.test(desk) ? desk : null);
-    if (hex) {
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const n = parseInt(hex.slice(1), 16);
-        await getCurrentWindow().setBackgroundColor([(n >> 16) & 255, (n >> 8) & 255, n & 255, 255]);
-      } catch {
-        /* fond natif : facultatif */
-      }
-    }
-  }
-}
-
-/** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments). */
-export function instantiate(template: Slide): Slide {
-  const copy: Slide = JSON.parse(JSON.stringify(template));
-  copy.id = newId("s");
-  const renew = (list?: Element[]) => {
-    for (const e of list ?? []) {
-      e.id = newId("e");
-      renew(e.children);
-    }
-  };
-  renew(copy.blocks);
-  renew(copy.elements);
-  return copy;
 }

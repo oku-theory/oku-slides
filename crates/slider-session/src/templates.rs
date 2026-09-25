@@ -53,6 +53,8 @@ pub struct SetInfo {
     pub name: String,
     pub description: String,
     pub builtin: bool,
+    /// L'ensemble d'un deck qui n'en choisit pas ([`DEFAULT_SET`]).
+    pub default: bool,
     pub count: usize,
 }
 
@@ -63,6 +65,7 @@ impl TemplateSet {
             name: self.name.clone(),
             description: self.description.clone(),
             builtin,
+            default: self.id == DEFAULT_SET,
             count: self.templates.len(),
         }
     }
@@ -208,7 +211,8 @@ mod tests {
         set.id = lib.free_id("Mon ensemble");
         set.name = "Mon ensemble".into();
         lib.save(&set).unwrap();
-        assert!(lib.list().iter().any(|s| s.id == "mon-ensemble" && !s.builtin));
+        assert!(lib.list().iter().any(|s| s.id == "mon-ensemble" && !s.builtin && !s.default));
+        assert!(lib.list().iter().any(|s| s.id == DEFAULT_SET && s.default));
         assert_eq!(lib.get("mon-ensemble").unwrap().0.templates.len(), set.templates.len());
         assert_eq!(lib.free_id("Mon ensemble"), "mon-ensemble-2");
         lib.delete("mon-ensemble").unwrap();
