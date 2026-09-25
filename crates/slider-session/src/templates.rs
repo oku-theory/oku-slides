@@ -14,6 +14,10 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
+use snafu::{OptionExt, ResultExt};
+
+use crate::Result;
+use crate::error::{NoTemplatesDirSnafu, TemplateJsonSnafu, WriteSnafu};
 
 use slider_core::Slide;
 
@@ -24,7 +28,14 @@ pub const DEFAULT_SET: &str = "essentiel";
 static BUILTIN: LazyLock<Vec<TemplateSet>> = LazyLock::new(|| {
     [include_str!("../../../templates/essentiel.json"), include_str!("../../../templates/grilles.json")]
         .iter()
-        .map(|s| serde_json::from_str(s).expect("ensemble de modèles intégré valide"))
+        .filter_map(|s| match serde_json::from_str(s) {
+            Ok(set) => Some(set),
+            // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
+            Err(e) => {
+                tracing::error!(error = %e, "ensemble de modèles intégré illisible");
+                None
+            }
+        })
         .collect()
 });
 
@@ -150,22 +161,32 @@ impl Library {
         if !taken.contains(&base) {
             return base;
         }
-        (2..).map(|n| format!("{base}-{n}")).find(|id| !taken.contains(id)).expect("un identifiant libre")
+        let mut n = 2;
+        loop {
+            let id = format!("{base}-{n}");
+            if !taken.contains(&id) {
+                return id;
+            }
+            n += 1;
+        }
     }
 
     /// Enregistre un ensemble de l'utilisateur (écriture atomique).
-    pub fn save(&self, set: &TemplateSet) -> std::io::Result<PathBuf> {
-        let dir = self.dir.as_ref().ok_or_else(|| std::io::Error::other("pas de dossier pour les modèles"))?;
-        std::fs::create_dir_all(dir)?;
+    pub fn save(&self, set: &TemplateSet) -> Result<PathBuf> {
+        let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
+        std::fs::create_dir_all(dir).context(WriteSnafu { path: dir })?;
         let path = dir.join(format!("{}.json", set.id));
-        crate::write_atomic(&path, &serde_json::to_vec_pretty(set).map_err(std::io::Error::other)?)?;
+        let json = serde_json::to_vec_pretty(set).context(TemplateJsonSnafu { path: &path })?;
+        crate::write_atomic(&path, &json).context(WriteSnafu { path: &path })?;
         Ok(path)
     }
 
     /// Supprime un ensemble de l'utilisateur.
-    pub fn delete(&self, id: &str) -> std::io::Result<()> {
-        let dir = self.dir.as_ref().ok_or_else(|| std::io::Error::other("pas de dossier pour les modèles"))?;
-        std::fs::remove_file(dir.join(format!("{id}.json")))
+    pub fn delete(&self, id: &str) -> Result<()> {
+        let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
+        let path = dir.join(format!("{id}.json"));
+        std::fs::remove_file(&path).context(WriteSnafu { path })?;
+        Ok(())
     }
 }
 

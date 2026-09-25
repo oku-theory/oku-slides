@@ -7,7 +7,9 @@ use charts_rs::{
     Series, SeriesCategory, YAxisConfig,
 };
 
-use crate::error::{ChartError, Result};
+use snafu::ResultExt;
+
+use crate::error::{RenderSnafu, Result};
 use crate::model::*;
 use crate::option::{ChartOption, HAlign};
 use crate::theme::{ChartTheme, color, transparent};
@@ -128,7 +130,7 @@ impl ChartsRsRenderer {
                 chart.svg()
             }
         };
-        svg.map_err(|e| ChartError::Render(e.to_string()))
+        Ok(svg.context(RenderSnafu)?)
     }
 
     /// Taille, titre, légende et thème, communs à tous les graphiques.
@@ -215,5 +217,5 @@ fn align(a: HAlign) -> Align {
 /// Enregistre des polices (TTF/OTF) auprès de charts-rs. À appeler au
 /// démarrage avec les mêmes fichiers que ceux chargés par le World Typst.
 pub fn register_fonts(fonts: &[&[u8]]) -> Result<()> {
-    charts_rs::add_fonts(fonts).map_err(|e| ChartError::Render(e.to_string()))
+    Ok(charts_rs::add_fonts(fonts).context(RenderSnafu)?)
 }

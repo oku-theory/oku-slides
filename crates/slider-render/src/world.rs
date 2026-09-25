@@ -2,7 +2,6 @@
 //! embarquée, deck, assets) et un jeu de polices fixe, sans polices système.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::LazyLock;
 
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration};
@@ -13,7 +12,10 @@ use typst::{Library, LibraryExt, World};
 
 use slider_core::Deck;
 
+use snafu::ResultExt;
+
 use crate::THEMES;
+use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
 
 macro_rules! lib_files {
@@ -33,12 +35,9 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "themes/pro.typ",
 );
 
-/// Le deck, en JSON, tel que le lit `main.typ`.
-static DECK: LazyLock<FileId> = LazyLock::new(|| file_id("/deck.json"));
-
-fn file_id(path: &str) -> FileId {
-    let vpath = VirtualPath::new(path).expect("chemin virtuel valide");
-    FileId::new(RootedPath::new(VirtualRoot::Project, vpath))
+fn file_id(path: &str) -> Result<FileId, RenderError> {
+    let vpath = VirtualPath::new(path).context(PathSnafu { path })?;
+    Ok(FileId::new(RootedPath::new(VirtualRoot::Project, vpath)))
 }
 
 /// Source principale : importe la bibliothèque et rend `/deck.json`.
@@ -73,16 +72,21 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>) -
     )
 }
 
-/// Empreinte (hex) d'un identifiant d'asset `sha256:…`.
-fn asset_hex(id: &str) -> &str {
-    id.strip_prefix("sha256:").unwrap_or(id)
+/// Empreinte (hex) d'un identifiant d'asset `sha256:<hex>`. Tout autre
+/// identifiant est refusé : il deviendrait un chemin et un littéral Typst.
+fn asset_hex(id: &str) -> Option<&str> {
+    let hex = id.strip_prefix("sha256:").unwrap_or(id);
+    (!hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit())).then_some(hex)
 }
 
 pub(crate) struct SliderWorld {
     library: LazyHash<Library>,
     fonts: Fonts,
-    main: FileId,
+    /// Source principale, recréée quand le thème ou les assets changent.
+    main: Source,
+    /// Bibliothèque `slider`, embarquée.
     sources: HashMap<FileId, Source>,
+    deck_id: FileId,
     deck: Bytes,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
@@ -90,45 +94,52 @@ pub(crate) struct SliderWorld {
 }
 
 impl SliderWorld {
-    pub fn new(fonts: Fonts) -> Self {
+    pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
         let mut sources = HashMap::new();
         for (path, text) in LIBRARY {
-            let id = file_id(&format!("/slider/{path}"));
+            let id = file_id(&format!("/slider/{path}"))?;
             sources.insert(id, Source::new(id, (*text).to_owned()));
         }
-        let main = file_id("/main.typ");
-        sources.insert(main, Source::new(main, main_source(None, std::iter::empty())));
-
-        Self {
+        let main_id = file_id("/main.typ")?;
+        Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main,
+            main: Source::new(main_id, main_source(None, std::iter::empty())),
             sources,
+            deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
             assets: HashMap::new(),
-        }
+        })
     }
 
     /// Remplace le deck et les assets. La bibliothèque et les assets déjà
-    /// chargés restent en place.
-    pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) {
-        let wanted: HashMap<FileId, &Vec<u8>> =
-            assets.iter().map(|(id, bytes)| (file_id(&format!("/assets/{}", asset_hex(id))), bytes)).collect();
+    /// chargés restent en place ; un identifiant d'asset invalide est ignoré.
+    pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
+        let mut hexes = Vec::with_capacity(assets.len());
+        let mut wanted: HashMap<FileId, &Vec<u8>> = HashMap::with_capacity(assets.len());
+        for (id, bytes) in assets {
+            let Some(hex) = asset_hex(id) else {
+                tracing::warn!(asset = %id, "identifiant d'asset refusé");
+                continue;
+            };
+            wanted.insert(file_id(&format!("/assets/{hex}"))?, bytes);
+            hexes.push(hex);
+        }
         self.assets.retain(|id, _| wanted.contains_key(id));
         for (id, bytes) in wanted {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
-        self.deck = Bytes::new(serde_json::to_vec(deck).expect("un deck se sérialise toujours"));
+        self.deck = Bytes::new(serde_json::to_vec(deck).context(DeckJsonSnafu)?);
 
-        let text = main_source(deck.theme.as_deref(), assets.keys().map(|k| asset_hex(k)));
-        let main = self.sources.get_mut(&self.main).expect("source principale");
-        if main.text() != text {
-            main.replace(&text);
+        let text = main_source(deck.theme.as_deref(), hexes.into_iter());
+        if self.main.text() != text {
+            self.main.replace(&text);
         }
+        Ok(())
     }
 
     pub(crate) fn source_of(&self, id: FileId) -> Option<&Source> {
-        self.sources.get(&id)
+        if id == self.main.id() { Some(&self.main) } else { self.sources.get(&id) }
     }
 }
 
@@ -142,21 +153,21 @@ impl World for SliderWorld {
     }
 
     fn main(&self) -> FileId {
-        self.main
+        self.main.id()
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        self.sources.get(&id).cloned().ok_or_else(|| FileError::NotFound(id.vpath().get_with_slash().into()))
+        self.source_of(id).cloned().ok_or_else(|| FileError::NotFound(id.vpath().get_with_slash().into()))
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        if id == *DECK {
+        if id == self.deck_id {
             return Ok(self.deck.clone());
         }
         if let Some(b) = self.assets.get(&id) {
             return Ok(b.clone());
         }
-        if let Some(s) = self.sources.get(&id) {
+        if let Some(s) = self.source_of(id) {
             return Ok(Bytes::from_string(s.text().to_owned()));
         }
         Err(FileError::NotFound(id.vpath().get_with_slash().into()))

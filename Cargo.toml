@@ -21,7 +21,7 @@ slider-platform = { path = "crates/slider-platform" }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"
-thiserror = "2"
+snafu = "0.9"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
 hex = "0.4"
@@ -34,6 +34,7 @@ time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 color-eyre = "0.6"
+config = { version = "0.15", default-features = false, features = ["toml"] }
 clap = { version = "4", features = ["derive"] }
 charts-rs = "1.1"
 json-patch = "4"
@@ -53,6 +54,10 @@ tauri-plugin-dialog = "2"
 # Tests
 hound = "3"
 pretty_assertions = "1"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
 
 [workspace.lints.rust]
 missing_debug_implementations = "warn"

@@ -5,7 +5,7 @@ const SIZE: Size = Size { width: 640.0, height: 400.0 };
 
 fn render(v: serde_json::Value) -> String {
     let option = parse_option(&v).unwrap_or_else(|e| panic!("{e}\n{v}"));
-    ChartsRsRenderer::default().render(&option, SIZE).unwrap()
+    ChartsRsRenderer::default().render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
 }
 
 #[test]
@@ -108,11 +108,10 @@ fn inconsistent_options_explain_the_fix() {
         "series": [{ "type": "bar", "encode": { "y": "CA" } }]
     }))
     .unwrap_err()
-    .to_string();
+    .reason();
     assert!(err.contains("CA") && err.contains("Ventes"), "{err}");
 
-    let err = parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] }))
-        .unwrap_err()
-        .to_string();
+    let err =
+        parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] })).unwrap_err().reason();
     assert!(err.contains("itemStyle"), "{err}");
 }

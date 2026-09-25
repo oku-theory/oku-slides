@@ -8,7 +8,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{ChartError, Result};
+use crate::error::{ChartError, DataOpSnafu, Result};
 use crate::option::{Cell, Dataset};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -39,8 +39,8 @@ pub enum ChartDataOp {
     },
 }
 
-fn err(msg: impl Into<String>) -> ChartError {
-    ChartError::DataOp(msg.into())
+fn err(reason: impl Into<String>) -> ChartError {
+    DataOpSnafu { reason }.build().into()
 }
 
 impl ChartDataOp {

@@ -118,7 +118,7 @@ modèle choisi est téléchargé une fois, puis l'écoute démarre toute seule.
 
 Les modèles vont dans le dossier de données de l'app
 (`~/Library/Application Support/me.dartiguenave.echo/models` sur Mac) ;
-`ECHO_MODELS` le remplace. Les anciens fichiers `ggml-*.bin` (whisper.cpp)
+`ECHO_PATHS__MODELS` le remplace (voir [Réglages](#réglages)). Les anciens fichiers `ggml-*.bin` (whisper.cpp)
 peuvent y être supprimés.
 
 | Geste | Effet |
@@ -132,5 +132,26 @@ nouveau bloc. Chaque dictée s'annule avec ⌘Z.
 
 ```sh
 just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
-ECHO_FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
+ECHO_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
 ```
+
+## Réglages
+
+Les réglages ont trois couches, la dernière l'emporte :
+
+1. les défauts, embarqués ([`config.default.toml`](crates/slider-platform/src/config.default.toml),
+   commentés) ;
+2. `config.toml` dans le dossier de données de l'app, facultatif ;
+3. les variables d'environnement `ECHO_<SECTION>__<CLÉ>`, avec un double
+   soulignement pour descendre d'un niveau.
+
+| Variable | Effet |
+| --- | --- |
+| `ECHO_PATHS__DATA` | Dossier de données de l'app |
+| `ECHO_PATHS__MODELS` | Dossier des modèles de dictée |
+| `ECHO_PATHS__FONTS` | Polices supplémentaires (TTF/OTF) |
+| `ECHO_STT__FAKE_MIC` | Fichier WAV rejoué à la place du micro |
+| `ECHO_STT__VAD__PAUSE` | Pause qui clôt une phrase (s), comme toute clé de `[stt.vad]` |
+| `ECHO_SERVE__PORT` | Port du serveur de développement |
+| `ECHO_I18N__LOCALE` | Langue de l'interface (`fr`, `en`) |
+

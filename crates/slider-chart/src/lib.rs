@@ -21,7 +21,7 @@ mod theme;
 
 pub use canonical::{canonicalize, sync_series_with_columns};
 pub use data_ops::ChartDataOp;
-pub use error::{ChartError, Result};
+pub use error::{ChartError, ChartErrorKind, Result};
 pub use model::{ChartKind, ChartModel, normalize, parse_option};
 pub use option::*;
 pub use patch::{apply_option_patch, reverse_merge_patch};

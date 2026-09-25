@@ -4,8 +4,9 @@
 //! de ce modèle. C'est ici que se résolvent `dataset` + `encode`, les données
 //! en ligne et les valeurs par défaut d'ECharts.
 
-use crate::error::{ChartError, Result};
+use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::option::*;
+use snafu::ResultExt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartModel {
@@ -97,7 +98,7 @@ pub struct RadarSeries {
 
 /// Parse et valide des options brutes (JSON produit par le LLM).
 pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
-    let option: ChartOption = serde_json::from_value(json.clone())?;
+    let option: ChartOption = serde_json::from_value(json.clone()).context(InvalidOptionSnafu)?;
     normalize(&option)?;
     Ok(option)
 }
@@ -127,8 +128,8 @@ pub fn normalize(option: &ChartOption) -> Result<ChartModel> {
     })
 }
 
-fn inconsistent(msg: impl Into<String>) -> ChartError {
-    ChartError::Inconsistent(msg.into())
+fn inconsistent(reason: impl Into<String>) -> ChartError {
+    InconsistentSnafu { reason }.build().into()
 }
 
 /// Vue sur `dataset.source` : en-têtes + lignes de données.

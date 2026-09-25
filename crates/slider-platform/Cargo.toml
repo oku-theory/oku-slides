@@ -8,6 +8,9 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
+config.workspace = true
+serde.workspace = true
+snafu.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

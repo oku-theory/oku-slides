@@ -4,15 +4,16 @@ use slider_core::{Deck, Op, Paragraph, SourceBundle};
 use slider_render::{Fonts, Renderer};
 
 fn fixture() -> Deck {
-    let s = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")).unwrap();
-    Deck::from_json(&s).unwrap()
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
+    let json = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("fixture {path} illisible : {e}"));
+    Deck::from_json(&json).unwrap_or_else(|e| panic!("fixture {path} invalide : {e}"))
 }
 
 #[test]
 fn rend_chaque_slide_et_ses_boites() {
     let deck = fixture();
-    let mut r = Renderer::new(Fonts::default());
-    r.set_deck(&deck, &BTreeMap::new());
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let doc = r.compile().expect("compilation");
     assert_eq!(doc.page_count(), deck.slides.len());
 
@@ -46,8 +47,8 @@ fn rend_chaque_slide_et_ses_boites() {
 #[test]
 fn les_themes_et_une_modification_changent_le_rendu() {
     let mut deck = fixture();
-    let mut r = Renderer::new(Fonts::default());
-    r.set_deck(&deck, &BTreeMap::new());
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let before = r.compile().unwrap();
     let h4 = before.page_hash(3).unwrap();
     let h1 = before.page_hash(0).unwrap();
@@ -55,13 +56,13 @@ fn les_themes_et_une_modification_changent_le_rendu() {
     Op::SetText { slide: "s-constat".into(), element: "b-points".into(), text: vec![Paragraph::plain("Autre")] }
         .apply(&mut deck)
         .unwrap();
-    r.set_deck(&deck, &BTreeMap::new());
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let after = r.compile().unwrap();
     assert_ne!(after.page_hash(3).unwrap(), h4, "la slide modifiée doit changer");
     assert_eq!(after.page_hash(0).unwrap(), h1, "la couverture ne doit pas changer");
 
     deck.theme = Some("pro".into());
-    r.set_deck(&deck, &BTreeMap::new());
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     assert_ne!(r.compile().unwrap().page_hash(0).unwrap(), h1);
 }
 
@@ -75,8 +76,8 @@ fn un_texte_dicte_ne_peut_pas_injecter_du_typst() {
     }
     .apply(&mut deck)
     .unwrap();
-    let mut r = Renderer::new(Fonts::default());
-    r.set_deck(&deck, &BTreeMap::new());
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     r.compile().expect("le texte est rendu tel quel");
 }
 
@@ -85,8 +86,8 @@ fn enregistrer_puis_rouvrir_redonne_le_meme_deck() {
     let deck = fixture();
     let mut bundle = SourceBundle::new(deck.clone());
     bundle.add_asset(vec![0u8; 64]);
-    let mut r = Renderer::new(Fonts::default());
-    r.set_deck(&deck, &bundle.assets);
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &bundle.assets).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
 
     let saved = slider_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap()).unwrap();
@@ -116,22 +117,22 @@ const PNG: &[u8] = &[
 fn un_asset_ajoute_puis_retire_suit_le_deck() {
     let deck = fixture();
     let page = deck.slide_index("s-libre").unwrap();
-    let mut r = Renderer::new(Fonts::default());
-    r.set_deck(&deck, &BTreeMap::new());
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let first = r.compile().unwrap();
     let missing = first.page_hash(page).unwrap();
     let missing_svg = first.svg(page).unwrap();
 
     let assets = BTreeMap::from([("sha256:0000".to_owned(), PNG.to_vec())]);
-    r.set_deck(&deck, &assets);
+    r.set_deck(&deck, &assets).unwrap();
     let shown = r.compile().unwrap().page_hash(page).unwrap();
     assert_ne!(shown, missing, "l'image remplace le cadre « image manquante »");
     // Déjà chargé : rien ne change.
-    r.set_deck(&deck, &assets);
+    r.set_deck(&deck, &assets).unwrap();
     assert_eq!(r.compile().unwrap().page_hash(page).unwrap(), shown);
     // Retiré du deck : de nouveau manquant. (L'empreinte peut différer : le
     // texte « image manquante » vient de main.typ, réanalysé entre-temps.)
-    r.set_deck(&deck, &BTreeMap::new());
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let again = r.compile().unwrap();
     assert_eq!(again.svg(page).unwrap(), missing_svg);
 }

@@ -1,6 +1,20 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Fonts, Request, Session, TargetKind, paragraphs_to_text};
+use slider_session::{Fonts, Request, Session, Settings, TargetKind, paragraphs_to_text};
+
+/// Une session isolée : son propre dossier de données, vide.
+fn session() -> Session {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
+    let data = std::env::temp_dir().join(format!("echo-session-{}-{}", std::process::id(), unique()));
+    settings.paths.data = Some(data);
+    Session::new(Fonts::default(), &settings).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
+}
+
+fn unique() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
 
 fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
@@ -8,7 +22,7 @@ fn fixture_path() -> std::path::PathBuf {
 
 #[test]
 fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     s.open(&fixture_path()).unwrap();
     let snap = s.snapshot();
     assert_eq!(snap.slides.len(), 8);
@@ -52,7 +66,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     assert!(!snap.dirty);
 
     let deck: Deck = s.deck().clone();
-    let mut s2 = Session::new(Fonts::default());
+    let mut s2 = session();
     s2.open(&path).unwrap();
     assert_eq!(s2.deck(), &deck);
     std::fs::remove_dir_all(dir).ok();
@@ -60,7 +74,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
 
 #[test]
 fn une_transaction_invalide_ne_change_rien() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     s.open(&fixture_path()).unwrap();
     let before = s.deck().clone();
     let err = s
@@ -72,13 +86,13 @@ fn une_transaction_invalide_ne_change_rien() {
             ],
         )
         .unwrap_err();
-    assert!(err.to_string().contains("opération 1"));
+    assert_eq!(err.transaction().map(slider_core::TransactionError::index), Some(1));
     assert_eq!(s.deck(), &before);
 }
 
 #[test]
 fn api_json() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     let req: Request = serde_json::from_value(json!({"cmd": "snapshot"})).unwrap();
     let v: serde_json::Value = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
     assert_eq!(v["slides"].as_array().unwrap().len(), 2);
@@ -112,7 +126,7 @@ fn texte_et_paragraphes() {
 
 #[test]
 fn l_apparence_suit_le_theme() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     s.open(&fixture_path()).unwrap();
     let papier = s.snapshot().appearance;
     assert_eq!(papier.scheme, "light");
@@ -155,7 +169,7 @@ fn l_apparence_suit_le_theme() {
 
 #[test]
 fn les_modeles_se_rendent_dans_le_theme_du_deck() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     s.open(&fixture_path()).unwrap();
     let papier = s.templates_view(None).unwrap().templates;
     assert!(papier.len() >= 8);
@@ -180,7 +194,7 @@ fn les_modeles_se_rendent_dans_le_theme_du_deck() {
 fn edition_des_modeles_puis_retour_au_deck() {
     use serde_json::json;
     let dir = std::env::temp_dir().join(format!("echo-session-tpl-{}", std::process::id()));
-    let mut s = slider_session::Session::new(Fonts::default());
+    let mut s = session();
     s.set_templates_dir(&dir);
     let before = s.deck().clone();
 
@@ -215,7 +229,7 @@ fn edition_des_modeles_puis_retour_au_deck() {
 
 #[test]
 fn changer_d_ensemble_en_cours_d_edition_garde_le_deck_de_cote() {
-    let mut s = Session::new(Fonts::default());
+    let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }]).unwrap();
     let before = s.deck().clone();

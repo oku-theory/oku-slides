@@ -2,7 +2,6 @@
 //! variables du deck remplacées.
 
 use std::collections::BTreeMap;
-use std::fmt::Write;
 
 use serde_json::Value;
 use slider_core::{ListKind, Paragraph};
@@ -19,7 +18,8 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
             Some(ListKind::Bullet) => out.push_str("- "),
             Some(ListKind::Number) => {
                 n += 1;
-                write!(out, "{n}. ").expect("écrire dans une String n'échoue pas");
+                out.push_str(&n.to_string());
+                out.push_str(". ");
             }
             None => {}
         }

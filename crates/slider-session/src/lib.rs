@@ -9,57 +9,33 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use thiserror::Error;
+use snafu::{OptionExt, ResultExt, ensure};
 
 use slider_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
+pub use slider_platform::config::Settings;
 use slider_render::{Compiled, Renderer};
 pub use slider_render::{Fonts, read_font_dir};
 
 mod appearance;
+mod error;
 mod files;
 pub mod templates;
 mod text;
 mod views;
 
 pub use appearance::{Appearance, appearance};
-pub use files::{APP_ID, EXTENSION, Opened, data_dir, models_dir, read_document, templates_dir, write_atomic};
+use error::{
+    BuiltinTemplateSetSnafu, EditingTemplatesSnafu, NoPathSnafu, NoSlideSnafu, NoTemplateSetSnafu,
+    NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu,
+    WriteSnafu,
+};
+pub use error::{Result, SessionError, SessionErrorKind};
+pub use files::{EXTENSION, Opened, read_document, write_atomic};
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
     PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView,
 };
-
-#[derive(Debug, Error)]
-pub enum SessionError {
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
-    Sources(#[from] slider_core::SourcesError),
-    #[error("{0}")]
-    Pdf(#[from] slider_pdf::PdfError),
-    #[error("{0}")]
-    Render(#[from] slider_render::RenderError),
-    #[error("opération {index} refusée : {message}")]
-    Op { index: usize, message: String },
-    #[error("ce PDF n'a pas été créé par Écho, il ne peut pas être modifié")]
-    NotSlider,
-    #[error("aucun fichier : choisissez où enregistrer")]
-    NoPath,
-    #[error("slide introuvable : {0}")]
-    NoSlide(String),
-    #[error("requête invalide : {0}")]
-    BadRequest(String),
-    #[error("réponse impossible à écrire en JSON : {0}")]
-    Json(#[from] serde_json::Error),
-}
-
-impl Serialize for SessionError {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
-        s.serialize_str(&self.to_string())
-    }
-}
-
-pub type Result<T> = std::result::Result<T, SessionError>;
 
 /// Un document ouvert : ses sources (deck, assets, polices), son historique
 /// et son fichier.
@@ -73,8 +49,8 @@ struct Document {
 }
 
 impl Document {
-    fn new(sources: SourceBundle, path: Option<PathBuf>) -> Self {
-        Self { sources, history: History::default(), path, dirty: false, notice: None }
+    fn new(sources: SourceBundle, path: Option<PathBuf>, history_limit: usize) -> Self {
+        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None }
     }
 }
 
@@ -146,6 +122,8 @@ pub struct Session {
     doc: Document,
     mode: Mode,
     library: Library,
+    /// Transactions gardées pour annuler, dans chaque document.
+    history_limit: usize,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<Previews>,
@@ -202,10 +180,6 @@ pub fn blank_deck() -> Deck {
     }
 }
 
-fn op_error((index, e): (usize, slider_core::OpError)) -> SessionError {
-    SessionError::Op { index, message: e.to_string() }
-}
-
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
@@ -218,13 +192,15 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    /// `app_fonts` : polices livrées avec l'app, toujours disponibles.
-    pub fn new(app_fonts: Fonts) -> Self {
+    /// `app_fonts` : polices livrées avec l'app, toujours disponibles ;
+    /// `settings` : limite de l'historique, dossier des modèles.
+    pub fn new(app_fonts: Fonts, settings: &Settings) -> Result<Self> {
         let mut s = Self {
-            doc: Document::new(SourceBundle::new(blank_deck()), None),
+            doc: Document::new(SourceBundle::new(blank_deck()), None, settings.history.limit),
             mode: Mode::Deck,
-            library: Library::default(),
-            renderer: Renderer::new(app_fonts.clone()),
+            library: Library::new(Some(settings.paths.templates())),
+            history_limit: settings.history.limit,
+            renderer: Renderer::new(app_fonts.clone()).context(RenderSnafu)?,
             render_fonts: app_fonts.clone(),
             appearance: Appearance::default(),
             template_renderer: None,
@@ -233,8 +209,8 @@ impl Session {
             compiled: None,
             svg_cache: HashMap::new(),
         };
-        s.rerender().ok();
-        s
+        s.rerender()?;
+        Ok(s)
     }
 
     pub fn deck(&self) -> &Deck {
@@ -268,7 +244,7 @@ impl Session {
     }
 
     fn get_set(&self, id: &str) -> Result<(Cow<'static, TemplateSet>, bool)> {
-        self.library.get(id).ok_or_else(|| SessionError::BadRequest(format!("ensemble de modèles introuvable : {id}")))
+        Ok(self.library.get(id).context(NoTemplateSetSnafu { id })?)
     }
 
     /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
@@ -291,7 +267,7 @@ impl Session {
         let mut deck = styled_like(self.user_deck(), slides);
         deck.params.title = Some(set.name.clone());
         deck.templates = Some(set.id.clone());
-        let templates = Document::new(SourceBundle::new(deck), None);
+        let templates = Document::new(SourceBundle::new(deck), None, self.history_limit);
         let edit = TemplateMode { set: set.id, name: set.name, builtin };
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
             // Déjà en édition : on change d'ensemble, le deck reste de côté.
@@ -331,7 +307,7 @@ impl Session {
     /// Enregistre l'ensemble édité dans la bibliothèque de l'utilisateur.
     pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
         let Mode::Templates { edit: mode, .. } = &self.mode else {
-            return Err(SessionError::BadRequest("pas de modèles en cours d'édition".into()));
+            return NotEditingTemplatesSnafu.fail()?;
         };
         let copy = as_new || mode.builtin;
         let deck = &mut self.doc.sources.deck;
@@ -366,12 +342,12 @@ impl Session {
     /// Traite une requête de l'interface et renvoie la réponse, en JSON.
     pub fn handle(&mut self, req: Request) -> Result<String> {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
-            Ok(serde_json::to_string(v)?)
+            Ok(serde_json::to_string(v).context(ResponseSnafu)?)
         }
         if matches!(self.mode, Mode::Templates { .. })
             && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. })
         {
-            return Err(SessionError::BadRequest("terminez d'abord l'édition des modèles".into()));
+            return EditingTemplatesSnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
@@ -379,13 +355,11 @@ impl Session {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Svg { id } => return json(&*self.svg(&id)?),
-            Request::Schema => return json(&slider_core::ops_schema()),
+            Request::Schema => return json(&slider_core::ops_schema().context(ResponseSnafu)?),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
-                if Library::is_builtin(&set) {
-                    return Err(SessionError::BadRequest("un ensemble intégré ne se supprime pas".into()));
-                }
+                ensure!(!Library::is_builtin(&set), BuiltinTemplateSetSnafu { id: &set });
                 self.library.delete(&set)?;
                 self.template_cache = None;
                 return json(&self.library.list());
@@ -413,12 +387,12 @@ impl Session {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
             self.render_fonts = self.app_fonts.with(sources.fonts.values().cloned());
-            self.renderer = Renderer::new(self.render_fonts.clone());
+            self.renderer = Renderer::new(self.render_fonts.clone()).context(RenderSnafu)?;
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
         }
-        self.doc = Document::new(sources, path);
+        self.doc = Document::new(sources, path, self.history_limit);
         self.rerender()
     }
 
@@ -436,17 +410,18 @@ impl Session {
     pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
         let mut path = match path {
             Some(p) => p.to_owned(),
-            None => self.doc.path.clone().ok_or(SessionError::NoPath)?,
+            None => self.doc.path.clone().context(NoPathSnafu)?,
         };
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if !name.ends_with(EXTENSION) {
             let stem = name.strip_suffix(".pdf").unwrap_or(&name).to_owned();
             path.set_file_name(format!("{stem}{EXTENSION}"));
         }
-        let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
-        let pdf = compiled.pdf()?;
-        let out = slider_pdf::embed_sources(&pdf, &self.doc.sources.to_zip()?)?;
-        write_atomic(&path, &out)?;
+        let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
+        let pdf = compiled.pdf().context(RenderSnafu)?;
+        let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
+        let out = slider_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
+        write_atomic(&path, &out).context(WriteSnafu { path: &path })?;
         tracing::info!(path = %path.display(), bytes = out.len(), "document enregistré");
         self.doc.path = Some(path);
         self.doc.dirty = false;
@@ -454,9 +429,9 @@ impl Session {
     }
 
     fn rerender(&mut self) -> Result<()> {
-        self.renderer.set_deck(&self.doc.sources.deck, &self.doc.sources.assets);
+        self.renderer.set_deck(&self.doc.sources.deck, &self.doc.sources.assets).context(RenderSnafu)?;
         let started = std::time::Instant::now();
-        let compiled = self.renderer.compile()?;
+        let compiled = self.renderer.compile().context(RenderSnafu)?;
         tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
         // Le cache ne garde que les pages encore présentes.
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
@@ -469,7 +444,7 @@ impl Session {
     /// Applique une transaction ; si le rendu échoue ensuite, elle est annulée.
     pub fn apply(&mut self, label: &str, ops: Vec<Op>) -> Result<()> {
         let doc = &mut self.doc;
-        doc.history.commit(&mut doc.sources.deck, label, ops).map_err(op_error)?;
+        doc.history.commit(&mut doc.sources.deck, label, ops).context(OpSnafu)?;
         if let Err(e) = self.rerender() {
             let doc = &mut self.doc;
             doc.history.undo(&mut doc.sources.deck).ok();
@@ -482,7 +457,7 @@ impl Session {
 
     pub fn undo(&mut self) -> Result<()> {
         let doc = &mut self.doc;
-        if doc.history.undo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
+        if doc.history.undo(&mut doc.sources.deck).context(OpSnafu)?.is_some() {
             self.doc.dirty = true;
             self.rerender()?;
         }
@@ -491,7 +466,7 @@ impl Session {
 
     pub fn redo(&mut self) -> Result<()> {
         let doc = &mut self.doc;
-        if doc.history.redo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
+        if doc.history.redo(&mut doc.sources.deck).context(OpSnafu)?.is_some() {
             self.doc.dirty = true;
             self.rerender()?;
         }
@@ -566,16 +541,22 @@ impl Session {
             Some(p) if p.set == *set && same_style(&p.deck, base) => p.views.clone(),
             _ => {
                 let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
-                let renderer = self.template_renderer.get_or_insert_with(|| Renderer::new(self.render_fonts.clone()));
-                renderer.set_deck(&deck, &self.doc.sources.assets);
-                let compiled = renderer.compile()?;
+                let renderer = match &mut self.template_renderer {
+                    Some(r) => r,
+                    None => {
+                        self.template_renderer.insert(Renderer::new(self.render_fonts.clone()).context(RenderSnafu)?)
+                    }
+                };
+                renderer.set_deck(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
+                let compiled = renderer.compile().context(RenderSnafu)?;
                 let layout = compiled.layout();
                 let views = set
                     .templates
                     .iter()
                     .map(|t| {
                         let page = layout.page_of(&t.slide.id).unwrap_or(1);
-                        Ok(TemplateView { template: t.clone(), svg: compiled.svg(page - 1)?.into() })
+                        let svg = compiled.svg(page - 1).context(RenderSnafu)?;
+                        Ok(TemplateView { template: t.clone(), svg: svg.into() })
                     })
                     .collect::<Result<Arc<[TemplateView]>>>()?;
                 self.template_cache = Some(Previews { set: set.clone().into_owned(), deck, views: views.clone() });
@@ -587,20 +568,20 @@ impl Session {
 
     /// SVG d'une slide, mis en cache par empreinte de page.
     pub fn svg(&mut self, id: &str) -> Result<Arc<str>> {
-        let page = self.page_of(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
-        let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
+        let page = self.page_of(id).context(NoSlideSnafu { id })?;
+        let compiled = self.compiled.as_ref().context(NoSlideSnafu { id })?;
         let hash = compiled.page_hash(page - 1).unwrap_or_default();
         if let Some(svg) = self.svg_cache.get(&hash) {
             return Ok(svg.clone());
         }
-        let svg: Arc<str> = compiled.svg(page - 1)?.into();
+        let svg: Arc<str> = compiled.svg(page - 1).context(RenderSnafu)?.into();
         self.svg_cache.insert(hash, svg.clone());
         Ok(svg)
     }
 
     /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
-        let no_slide = || SessionError::NoSlide(id.to_owned());
+        let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = &self.doc.sources.deck;
         let slide = deck.slide(id).ok_or_else(no_slide)?;
         let compiled = self.compiled.as_ref().ok_or_else(no_slide)?;

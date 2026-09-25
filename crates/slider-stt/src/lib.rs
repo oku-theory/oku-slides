@@ -13,6 +13,7 @@
 //! puis l'écoute commence toute seule.
 
 mod audio;
+mod error;
 mod models;
 mod vad;
 mod whisper;
@@ -20,14 +21,16 @@ mod whisper;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
 pub use audio::{SAMPLE_RATE, resample};
-pub use models::{DownloadError, Model, download};
-use vad::{Phrase, Segmenter, VadConfig};
+pub use error::{SttError, SttErrorKind};
+pub use models::{Model, download};
+use slider_platform::config::SttSettings;
+use vad::{Phrase, Segmenter};
 pub use whisper::{Transcriber, Transcript};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
@@ -118,13 +121,6 @@ pub enum SttRequest {
     },
 }
 
-/// Sans aucune parole pendant ce temps, l'écoute s'arrête (s).
-const NOTHING_HEARD: f32 = 10.0;
-/// Rythme de la boucle d'écoute.
-const TICK: Duration = Duration::from_millis(50);
-/// Nouvel aperçu quand la phrase en cours a grandi d'au moins (s).
-const PREVIEW_STEP: f32 = 0.5;
-
 struct Inner {
     state: State,
     config: Config,
@@ -161,6 +157,8 @@ impl Inner {
 pub struct Stt {
     inner: Arc<Mutex<Inner>>,
     dir: PathBuf,
+    /// Rythmes et seuils (réglages de l'app).
+    settings: Arc<SttSettings>,
     cancel_download: Arc<AtomicBool>,
 }
 
@@ -178,6 +176,11 @@ enum Job {
     Done,
 }
 
+/// Message d'une erreur pour l'interface : l'erreur et ses causes, sur une ligne.
+fn message(e: &SttError) -> String {
+    slider_platform::errors::one_line(e)
+}
+
 impl std::fmt::Debug for Stt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stt").field("dir", &self.dir).finish_non_exhaustive()
@@ -186,7 +189,9 @@ impl std::fmt::Debug for Stt {
 
 impl Stt {
     /// `dir` : dossier des modèles et des réglages de la dictée.
-    pub fn new(dir: impl Into<PathBuf>) -> Self {
+    /// `dir` : dossier des modèles et des réglages de la dictée ; `settings` :
+    /// rythmes et seuils de l'écoute.
+    pub fn new(dir: impl Into<PathBuf>, settings: SttSettings) -> Self {
         let dir = dir.into();
         let config =
             std::fs::read(config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
@@ -212,8 +217,15 @@ impl Stt {
                 installed: Model::ALL.map(|m| m.is_installed(&dir)),
             })),
             dir,
+            settings: Arc::new(settings),
             cancel_download: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// L'état partagé, même si un fil a paniqué en le tenant : l'interface
+    /// doit toujours pouvoir le lire, et une dictée neuve le remet d'aplomb.
+    fn state(&self) -> MutexGuard<'_, Inner> {
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub fn models_dir(&self) -> &Path {
@@ -234,7 +246,7 @@ impl Stt {
     }
 
     pub fn status(&self) -> Status {
-        let g = self.inner.lock().unwrap();
+        let g = self.state();
         Status {
             state: g.state,
             config: g.config.clone(),
@@ -259,7 +271,7 @@ impl Stt {
 
     pub fn configure(&self, mut config: Config) {
         config.silence = config.silence.clamp(0.5, 10.0);
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.state();
         if g.state != State::Idle {
             return;
         }
@@ -274,7 +286,7 @@ impl Stt {
     /// Démarre la dictée (téléchargement du modèle d'abord s'il manque).
     pub fn start(&self, prompt: Option<String>) {
         let model = {
-            let mut g = self.inner.lock().unwrap();
+            let mut g = self.state();
             if g.state != State::Idle {
                 return;
             }
@@ -291,7 +303,7 @@ impl Stt {
 
     pub fn download(&self, model: Model, then_start: bool) {
         {
-            let mut g = self.inner.lock().unwrap();
+            let mut g = self.state();
             if g.state != State::Idle || model.is_installed(&self.dir) {
                 return;
             }
@@ -303,17 +315,15 @@ impl Stt {
         let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
         std::thread::spawn(move || {
             let mut last = Instant::now();
-            let result = models::download(model, &dir, |received, total| {
+            let result = models::download(model, &dir, &me.settings, |received, total| {
                 if last.elapsed() > Duration::from_millis(100) {
                     last = Instant::now();
-                    if let Ok(mut g) = me.inner.lock() {
-                        g.download = Some(Download { model, received, total });
-                    }
+                    me.state().download = Some(Download { model, received, total });
                 }
                 !cancel.load(Ordering::Relaxed)
             });
             let start = {
-                let mut g = me.inner.lock().unwrap();
+                let mut g = me.state();
                 g.download = None;
                 g.state = State::Idle;
                 g.installed = Model::ALL.map(|m| m.is_installed(&dir));
@@ -322,10 +332,10 @@ impl Stt {
                         tracing::info!(?model, "modèle de dictée téléchargé");
                         std::mem::take(&mut g.start_after_download)
                     }
-                    Err(models::DownloadError::Cancelled) => false,
+                    Err(e) if e.kind() == SttErrorKind::Cancelled => false,
                     Err(e) => {
-                        tracing::warn!(?model, error = %e, "téléchargement du modèle");
-                        g.error = Some(e.to_string());
+                        tracing::warn!(?model, error = %snafu::Report::from_error(&e), "téléchargement du modèle");
+                        g.error = Some(message(&e));
                         false
                     }
                 }
@@ -337,16 +347,16 @@ impl Stt {
     }
 
     fn begin_recording(&self) {
-        let recorder = match audio::Recorder::start() {
+        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref()) {
             Ok(r) => r,
             Err(e) => {
-                tracing::warn!(error = %e, "micro indisponible");
-                self.inner.lock().unwrap().error = Some(e);
+                tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
+                self.state().error = Some(message(&e));
                 return;
             }
         };
         let session = {
-            let mut g = self.inner.lock().unwrap();
+            let mut g = self.state();
             g.session += 1;
             g.state = State::Recording;
             g.phrases.clear();
@@ -366,9 +376,9 @@ impl Stt {
     }
 
     /// Modèle chargé une fois (et gardé tant qu'on ne change pas de modèle).
-    fn engine(&self) -> Result<Arc<Transcriber>, String> {
+    fn engine(&self) -> Result<Arc<Transcriber>, SttError> {
         let model = {
-            let g = self.inner.lock().unwrap();
+            let g = self.state();
             if let Some((m, e)) = &g.engine
                 && *m == g.config.model
             {
@@ -377,8 +387,8 @@ impl Stt {
             g.config.model
         };
         static LOADING: Mutex<()> = Mutex::new(());
-        let _loading = LOADING.lock().unwrap();
-        if let Some((m, e)) = &self.inner.lock().unwrap().engine
+        let _loading = LOADING.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some((m, e)) = &self.state().engine
             && *m == model
         {
             return Ok(e.clone());
@@ -386,17 +396,18 @@ impl Stt {
         let started = Instant::now();
         let engine = Arc::new(Transcriber::load(&model.path(&self.dir))?);
         tracing::debug!(?model, ms = started.elapsed().as_millis(), "modèle de dictée chargé");
-        self.inner.lock().unwrap().engine = Some((model, engine.clone()));
+        self.state().engine = Some((model, engine.clone()));
         Ok(engine)
     }
 
     fn alive(&self, session: u64) -> bool {
-        self.inner.lock().map(|g| g.session == session).unwrap_or(false)
+        self.state().session == session
     }
 
     /// Écoute : micro → 16 kHz → détection de la voix → phrases.
     fn listen_loop(&self, session: u64, mut recorder: audio::Recorder, jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>) {
-        let mut seg = Segmenter::new(VadConfig::default());
+        let s = &self.settings;
+        let mut seg = Segmenter::new(s.vad);
         let mut resampler: Option<audio::Resampler> = None;
         let mut fresh = Vec::new();
         let mut previewed = 0usize;
@@ -412,10 +423,13 @@ impl Stt {
             }
         };
         loop {
-            std::thread::sleep(TICK);
-            let (state, auto_stop, silence_limit) = match self.inner.lock() {
-                Ok(g) if g.session == session => (g.state, g.config.auto_stop, g.config.silence),
-                _ => return, // dictée abandonnée
+            std::thread::sleep(Duration::from_millis(s.tick_ms));
+            let (state, auto_stop, silence_limit) = {
+                let g = self.state();
+                if g.session != session {
+                    return; // dictée abandonnée
+                }
+                (g.state, g.config.auto_stop, g.config.silence)
             };
             pull(&mut seg, &recorder);
 
@@ -434,7 +448,7 @@ impl Stt {
             let current = seg.current();
             if let Some(p) = current
                 && !busy.load(Ordering::Relaxed)
-                && p.end.saturating_sub(previewed.max(p.start)) as f32 >= PREVIEW_STEP * SAMPLE_RATE as f32
+                && p.end.saturating_sub(previewed.max(p.start)) as f32 >= s.preview_step_secs * SAMPLE_RATE as f32
             {
                 previewed = p.end;
                 busy.store(true, Ordering::Relaxed);
@@ -443,11 +457,12 @@ impl Stt {
 
             // Arrêt automatique après un silence (ou si rien n'est dit).
             let silence = seg.silence();
-            let limit = if seg.heard { silence_limit } else { NOTHING_HEARD };
-            let stop_in =
-                (auto_stop && current.is_none() && seg.heard && silence > 0.3).then(|| (limit - silence).max(0.0));
+            let limit = if seg.heard { silence_limit } else { s.nothing_heard_secs };
+            let stop_in = (auto_stop && current.is_none() && seg.heard && silence > s.countdown_after_secs)
+                .then(|| (limit - silence).max(0.0));
             let stop = auto_stop && silence >= limit;
-            if let Ok(mut g) = self.inner.lock() {
+            {
+                let mut g = self.state();
                 g.level = recorder.level();
                 g.speaking = seg.speaking;
                 g.stop_in = stop_in;
@@ -464,11 +479,11 @@ impl Stt {
 
     fn send_final(&self, seg: &Segmenter, phrase: Phrase, jobs: &mpsc::Sender<Job>) {
         // Un simple claquement ne fait pas une phrase.
-        if phrase.seconds() < 0.3 {
+        if phrase.seconds() < self.settings.min_phrase_secs {
             return;
         }
         let index = {
-            let mut g = self.inner.lock().unwrap();
+            let mut g = self.state();
             g.phrases.push(None);
             g.phrases.len() - 1
         };
@@ -481,9 +496,9 @@ impl Stt {
         let engine = match self.engine() {
             Ok(e) => e,
             Err(e) => {
-                let mut g = self.inner.lock().unwrap();
+                let mut g = self.state();
                 if g.session == session {
-                    g.error = Some(e);
+                    g.error = Some(message(&e));
                     g.state = State::Idle;
                     g.session += 1;
                 }
@@ -516,14 +531,14 @@ impl Stt {
                 return;
             }
             let (language, context) = {
-                let g = self.inner.lock().unwrap();
+                let g = self.state();
                 let lang = g.config.language.clone().or_else(|| g.detected.clone());
                 (lang, context_of(g.prompt.as_deref(), &g.committed()))
             };
             match job {
                 Job::Final { index, audio } => {
                     let result = engine.transcribe(&audio, language.as_deref(), Some(&context), false);
-                    let mut g = self.inner.lock().unwrap();
+                    let mut g = self.state();
                     if g.session != session {
                         return;
                     }
@@ -536,13 +551,13 @@ impl Stt {
                             g.phrases[index] = Some(keep(&t));
                             g.partial.clear();
                         }
-                        Err(e) => g.error = Some(e),
+                        Err(e) => g.error = Some(message(&e)),
                     }
                 }
                 Job::Preview { audio } => {
                     let result = engine.transcribe(&audio, language.as_deref(), Some(&context), true);
                     busy.store(false, Ordering::Relaxed);
-                    let mut g = self.inner.lock().unwrap();
+                    let mut g = self.state();
                     if g.session != session {
                         return;
                     }
@@ -558,7 +573,7 @@ impl Stt {
                         pending.push(Job::Done);
                         continue;
                     }
-                    let mut g = self.inner.lock().unwrap();
+                    let mut g = self.state();
                     if g.session != session {
                         return;
                     }
@@ -579,7 +594,7 @@ impl Stt {
 
     /// Termine l'écoute ; la dernière phrase est transcrite puis le texte assemblé.
     pub fn stop(&self) {
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.state();
         if g.state == State::Recording {
             g.state = State::Transcribing;
             g.started = None;
@@ -589,7 +604,7 @@ impl Stt {
 
     pub fn cancel(&self) {
         self.cancel_download.store(true, Ordering::Relaxed);
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.state();
         if matches!(g.state, State::Recording | State::Transcribing) {
             g.state = State::Idle;
             g.started = None;
@@ -606,15 +621,15 @@ impl Stt {
     /// Transcrit un audio complet (mono 16 kHz) comme une dictée : découpage
     /// par la détection de voix, phrase par phrase, avec le contexte.
     /// Renvoie le texte et les phrases (début, fin en secondes, texte).
-    pub fn transcribe_samples(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), String> {
+    pub fn transcribe_samples(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
         let (mut language, prompt) = {
-            let g = self.inner.lock().unwrap();
+            let g = self.state();
             (g.config.language.clone(), g.prompt.clone())
         };
         let engine = self.engine()?;
         let mut texts: Vec<String> = Vec::new();
         let mut phrases = Vec::new();
-        for phrase in vad::split(audio, VadConfig::default()) {
+        for phrase in vad::split(audio, self.settings.vad) {
             let slice = &audio[phrase.start..phrase.end.min(audio.len())];
             let context = context_of(prompt.as_deref(), &join(texts.iter()));
             let t = engine.transcribe(slice, language.as_deref(), Some(&context), false)?;
@@ -662,6 +677,10 @@ fn clean(text: &str) -> String {
 mod tests {
     use super::*;
 
+    fn settings() -> SttSettings {
+        slider_platform::config::Settings::defaults().unwrap().stt
+    }
+
     #[test]
     fn nettoie_les_marqueurs_de_silence() {
         assert_eq!(clean("  [BLANK_AUDIO] "), "");
@@ -692,14 +711,14 @@ mod tests {
     #[test]
     fn reglages_par_defaut_turbo_detection_auto_arret_seul() {
         let dir = std::env::temp_dir().join(format!("echo-stt-{}", std::process::id()));
-        let stt = Stt::new(&dir);
+        let stt = Stt::new(&dir, settings());
         let s = stt.status();
         assert_eq!(s.config.model, Model::Turbo);
         assert_eq!(s.config.language, None);
         assert!(s.config.auto_stop);
         assert_eq!(s.models.len(), 3);
         stt.configure(Config { model: Model::Large, language: Some("fr".into()), auto_stop: false, silence: 2.0 });
-        let back = Stt::new(&dir).status().config;
+        let back = Stt::new(&dir, settings()).status().config;
         assert_eq!(back.model, Model::Large);
         assert!(!back.auto_stop);
         std::fs::remove_dir_all(&dir).ok();

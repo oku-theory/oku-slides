@@ -7,6 +7,7 @@
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
 
+mod error;
 mod fonts;
 mod world;
 
@@ -14,7 +15,7 @@ use std::cell::OnceCell;
 use std::collections::BTreeMap;
 
 use serde_json::Value as Json;
-use thiserror::Error;
+use snafu::OptionExt;
 use typst::WorldExt;
 use typst::diag::{Severity, SourceDiagnostic};
 use typst::foundations::{Label, Selector};
@@ -24,21 +25,13 @@ use typst_layout::PagedDocument;
 
 use slider_core::Deck;
 
+use error::{CompileSnafu, NoPageSnafu, PdfSnafu};
+pub use error::{RenderError, RenderErrorKind};
 pub use fonts::{Fonts, read_font_dir};
 use world::SliderWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
 pub const THEMES: &[&str] = &["papier", "pro"];
-
-#[derive(Debug, Error)]
-pub enum RenderError {
-    #[error("la compilation Typst a échoué :\n{}", .0.join("\n"))]
-    Compile(Vec<String>),
-    #[error("l'export PDF a échoué :\n{}", .0.join("\n"))]
-    Pdf(Vec<String>),
-    #[error("page inexistante : {0}")]
-    NoPage(usize),
-}
 
 /// Boîte réelle d'un élément, en pt, mesurée par Typst.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -124,13 +117,13 @@ impl std::fmt::Debug for Renderer {
 }
 
 impl Renderer {
-    pub fn new(fonts: Fonts) -> Self {
-        Self { world: SliderWorld::new(fonts) }
+    pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
+        Ok(Self { world: SliderWorld::new(fonts)? })
     }
 
     /// Remplace le deck et les assets à rendre.
-    pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) {
-        self.world.set_deck(deck, assets);
+    pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
+        self.world.set_deck(deck, assets)
     }
 
     pub fn compile(&self) -> Result<Compiled, RenderError> {
@@ -138,7 +131,9 @@ impl Renderer {
         let warnings = result.warnings.iter().map(|d| self.format(d)).collect();
         match result.output {
             Ok(doc) => Ok(Compiled { doc, warnings, layout: OnceCell::new() }),
-            Err(errors) => Err(RenderError::Compile(errors.iter().map(|d| self.format(d)).collect())),
+            Err(errors) => Err(CompileSnafu { diagnostics: errors.iter().map(|d| self.format(d)).collect::<Vec<_>>() }
+                .build()
+                .into()),
         }
     }
 
@@ -229,7 +224,7 @@ impl Compiled {
 
     /// SVG d'une page (à partir de 0).
     pub fn svg(&self, index: usize) -> Result<String, RenderError> {
-        let page = self.doc.pages().get(index).ok_or(RenderError::NoPage(index))?;
+        let page = self.doc.pages().get(index).context(NoPageSnafu { index })?;
         Ok(typst_svg::svg(page, &typst_svg::SvgOptions::default()))
     }
 
@@ -240,8 +235,9 @@ impl Compiled {
 
     pub fn pdf(&self) -> Result<Vec<u8>, RenderError> {
         let options = typst_pdf::PdfOptions::default();
-        typst_pdf::pdf(&self.doc, &options)
-            .map_err(|errs| RenderError::Pdf(errs.iter().map(|d| d.message.to_string()).collect()))
+        typst_pdf::pdf(&self.doc, &options).map_err(|errs| {
+            PdfSnafu { diagnostics: errs.iter().map(|d| d.message.to_string()).collect::<Vec<_>>() }.build().into()
+        })
     }
 
     /// Pages, boîtes, zones et jetons du document.
@@ -249,8 +245,8 @@ impl Compiled {
         self.layout.get_or_init(|| {
             let intro = self.doc.introspector();
             let query = |label: &str| {
-                let label = Label::new(PicoStr::intern(label)).expect("étiquette valide");
-                intro.query(&Selector::Label(label))
+                // Les étiquettes sont des constantes non vides : `None` n'arrive pas.
+                Label::new(PicoStr::intern(label)).map(|label| intro.query(&Selector::Label(label))).unwrap_or_default()
             };
             let values = |label: &str| -> Vec<Json> {
                 query(label)

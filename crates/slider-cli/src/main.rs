@@ -10,12 +10,13 @@ use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, eyre};
 
 use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
 use slider_render::{Fonts, Renderer, read_font_dir};
-use slider_session::{read_document, write_atomic};
+use slider_session::{Settings, read_document, write_atomic};
 
 #[derive(Parser)]
 #[command(name = "slider", version, about = "Rendu et stockage des decks Écho")]
 struct Cli {
-    /// Dossier de polices supplémentaires (TTF/OTF).
+    /// Dossier de polices supplémentaires (TTF/OTF) ; défaut : paths.fonts
+    /// des réglages.
     #[arg(long, global = true)]
     fonts: Option<PathBuf>,
     #[command(subcommand)]
@@ -70,8 +71,9 @@ enum Cmd {
     Serve {
         /// Deck à ouvrir (.echo.pdf ou .json).
         input: Option<PathBuf>,
-        #[arg(long, default_value_t = 4870)]
-        port: u16,
+        /// Port d'écoute ; défaut : serve.port des réglages.
+        #[arg(long)]
+        port: Option<u16>,
         /// Dossier de l'interface compilée (ui/dist).
         #[arg(long, default_value = "ui/dist")]
         ui: PathBuf,
@@ -109,7 +111,8 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     slider_platform::telemetry::init();
     let cli = Cli::parse();
-    let fonts = match &cli.fonts {
+    let settings = Settings::load()?;
+    let fonts = match cli.fonts.as_ref().or(settings.paths.fonts.as_ref()) {
         Some(dir) => read_font_dir(dir).wrap_err_with(|| format!("lecture de {}", dir.display()))?,
         None => BTreeMap::new(),
     };
@@ -127,8 +130,8 @@ fn main() -> Result<()> {
             if theme.is_some() {
                 bundle.deck.theme = theme;
             }
-            let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()));
-            r.set_deck(&bundle.deck, &bundle.assets);
+            let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()))?;
+            r.set_deck(&bundle.deck, &bundle.assets)?;
             let t = Instant::now();
             let doc = r.compile()?;
             let compile = t.elapsed();
@@ -163,8 +166,8 @@ fn main() -> Result<()> {
                 bundle.fonts = fonts;
             }
             report_issues(&bundle.deck, &bundle.assets);
-            let mut r = Renderer::new(app_fonts);
-            r.set_deck(&bundle.deck, &bundle.assets);
+            let mut r = Renderer::new(app_fonts)?;
+            r.set_deck(&bundle.deck, &bundle.assets)?;
             let doc = r.compile()?;
             let pdf = doc.pdf()?;
             let zip = bundle.to_zip()?;
@@ -190,7 +193,7 @@ fn main() -> Result<()> {
             );
             if let Some(dir) = out {
                 std::fs::create_dir_all(dir.join("assets"))?;
-                std::fs::write(dir.join("deck.json"), deck.to_json())?;
+                std::fs::write(dir.join("deck.json"), deck.to_json()?)?;
                 for (id, bytes) in &bundle.assets {
                     std::fs::write(dir.join("assets").join(id.trim_start_matches("sha256:")), bytes)?;
                 }
@@ -209,8 +212,8 @@ fn main() -> Result<()> {
             println!("{} : copie sans sources", output.display());
         }
         Cmd::Bench { deck, iterations } => bench(read_deck(&deck)?, app_fonts, iterations)?,
-        Cmd::Schema => println!("{}", serde_json::to_string_pretty(&slider_core::ops_schema())?),
-        Cmd::Serve { input, port, ui } => serve(input, port, ui, app_fonts)?,
+        Cmd::Schema => println!("{}", serde_json::to_string_pretty(&slider_core::ops_schema()?)?),
+        Cmd::Serve { input, port, ui } => serve(input, port, ui, app_fonts, &settings)?,
     }
     Ok(())
 }
@@ -226,17 +229,17 @@ fn bench(mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
     }
     let assets = BTreeMap::new();
     let t = Instant::now();
-    let mut r = Renderer::new(fonts);
+    let mut r = Renderer::new(fonts)?;
     println!("création du monde (polices)       {}", ms(t.elapsed()));
 
-    r.set_deck(&deck, &assets);
+    r.set_deck(&deck, &assets)?;
     let t = Instant::now();
     let doc = r.compile()?;
     println!("première compilation              {}  ({} pages)", ms(t.elapsed()), doc.page_count());
 
     let mut same = Vec::new();
     for _ in 0..n {
-        r.set_deck(&deck, &assets);
+        r.set_deck(&deck, &assets)?;
         let t = Instant::now();
         r.compile()?;
         same.push(t.elapsed());
@@ -258,14 +261,14 @@ fn bench(mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
             text: vec![Paragraph::plain(format!("Texte modifié {i}"))],
         };
         op.apply(&mut deck).ok();
-        r.set_deck(&deck, &assets);
+        r.set_deck(&deck, &assets)?;
         let t = Instant::now();
         last = Some(r.compile()?);
         edits.push(t.elapsed());
     }
     println!("recompilation après set_text      {}", ms(median(edits)));
 
-    let doc = last.unwrap();
+    let doc = last.context("--iterations doit être > 0")?;
     let t = Instant::now();
     for i in 0..doc.page_count() {
         doc.svg(i)?;
@@ -306,18 +309,20 @@ fn content_type(path: &Path) -> &'static str {
 }
 
 /// Sert l'interface et l'API `/api` (une requête JSON par appel, comme `invoke` dans Tauri).
-fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result<()> {
+fn serve(input: Option<PathBuf>, port: Option<u16>, ui: PathBuf, fonts: Fonts, settings: &Settings) -> Result<()> {
     use tiny_http::{Header, Method, Response, Server};
-    let mut session = slider_session::Session::new(fonts);
-    session.set_templates_dir(slider_session::templates_dir());
+    let mut session = slider_session::Session::new(fonts, settings)?;
     if let Some(path) = &input {
         session.open(path)?;
     }
-    let server = Server::http(("127.0.0.1", port)).map_err(|e| eyre!("{e}"))?;
-    let stt = slider_stt::Stt::new(slider_session::models_dir());
-    println!("Écho (dev) sur http://127.0.0.1:{port}");
+    let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
+    let server = Server::http((host, port)).map_err(|e| eyre!("{e}"))?;
+    let stt = slider_stt::Stt::new(settings.paths.models(), settings.stt.clone());
+    println!("Écho (dev) sur http://{host}:{port}");
     println!("modèles de dictée : {}", stt.models_dir().display());
-    let json = Header::from_bytes("Content-Type", "application/json").unwrap();
+    let header =
+        |value: &str| Header::from_bytes("Content-Type", value).map_err(|()| eyre!("en-tête HTTP invalide : {value}"));
+    let json = header("application/json")?;
     for mut req in server.incoming_requests() {
         let url = req.url().split('?').next().unwrap_or("/").to_owned();
         if req.method() == &Method::Post && url == "/api" {
@@ -326,7 +331,7 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result
             let (status, out) = match serde_json::from_str::<slider_session::Request>(&body) {
                 Ok(r) => match session.handle(r) {
                     Ok(json) => (200, json),
-                    Err(e) => (400, serde_json::json!({ "error": e.to_string() }).to_string()),
+                    Err(e) => (400, serde_json::json!({ "error": e.one_line() }).to_string()),
                 },
                 Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") }).to_string()),
             };
@@ -349,7 +354,7 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result
         let safe = !rel.split('/').any(|seg| seg == "..");
         match (safe, std::fs::read(&path)) {
             (true, Ok(bytes)) => {
-                let ct = Header::from_bytes("Content-Type", content_type(&path)).unwrap();
+                let ct = header(content_type(&path))?;
                 req.respond(Response::from_data(bytes).with_header(ct)).ok();
             }
             _ => {

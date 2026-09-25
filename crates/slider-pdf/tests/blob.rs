@@ -11,7 +11,7 @@ fn minimal_pdf() -> Vec<u8> {
     let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
     doc.trailer.set("Root", catalog);
     let mut out = Vec::new();
-    doc.save_to(&mut out).unwrap();
+    doc.save_to(&mut out).unwrap_or_else(|e| panic!("PDF minimal impossible à écrire : {e}"));
     out
 }
 
@@ -33,7 +33,7 @@ fn un_blob_altere_est_detecte() {
     let pos = out.windows(20).position(|w| w == b"AAAAAAAAAAAAAAAAAAAA").unwrap();
     let mut bad = out.clone();
     bad[pos] = b'B';
-    assert!(matches!(slider_pdf::extract_sources(&bad), Err(slider_pdf::PdfError::Corrupted)));
+    assert_eq!(slider_pdf::extract_sources(&bad).unwrap_err().kind(), slider_pdf::PdfErrorKind::Corrupted);
 }
 
 #[test]

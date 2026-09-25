@@ -107,12 +107,9 @@ doctor:
 # Accélération de la dictée selon la machine (Accelerate sur Mac)
 stt_features := if os() == "macos" { "accelerate" } else { "" }
 
-# Dossier des modèles de dictée : celui de l'app (voir slider_session::models_dir)
-models := env("ECHO_MODELS", data_directory() / "me.dartiguenave.echo" / "models")
-
 # Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
 transcribe wav model="turbo" lang="":
-    ECHO_MODELS="{{models}}" cargo run -q --release -p slider-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+    cargo run -q --release -p slider-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
 
 # Supprime les builds (Rust et interface)
 clean:

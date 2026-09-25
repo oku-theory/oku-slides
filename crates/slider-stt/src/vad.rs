@@ -6,46 +6,12 @@
 //! silences ne coûtent rien et n'inventent rien.
 
 use earshot::Detector;
+use slider_platform::config::VadSettings;
 
 use crate::SAMPLE_RATE;
 
 /// Trame d'earshot : 256 échantillons (16 ms).
 pub const FRAME: usize = 256;
-
-/// Réglages du découpage.
-#[derive(Debug, Clone, Copy)]
-pub struct VadConfig {
-    /// Score à partir duquel une trame est parlée.
-    pub threshold: f32,
-    /// Trames parlées d'affilée pour ouvrir une phrase.
-    pub onset_frames: usize,
-    /// Pause qui clôt une phrase (s)…
-    pub pause: f32,
-    /// …si elle dure déjà au moins ceci (s) ; plus courte, elle attend la suite,
-    pub min_phrase: f32,
-    /// sauf après une pause plus longue que celle-ci (s).
-    pub long_pause: f32,
-    /// Audio gardé avant le début et après la fin de la parole (s).
-    pub pre_roll: f32,
-    pub post_roll: f32,
-    /// Longueur maximale d'une phrase (s) : Whisper lit 30 s à la fois.
-    pub max_phrase: f32,
-}
-
-impl Default for VadConfig {
-    fn default() -> Self {
-        Self {
-            threshold: 0.5,
-            onset_frames: 3,
-            pause: 0.7,
-            min_phrase: 2.5,
-            long_pause: 1.2,
-            pre_roll: 0.3,
-            post_roll: 0.25,
-            max_phrase: 25.0,
-        }
-    }
-}
 
 /// Une phrase : intervalle d'échantillons dans l'audio de la session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,7 +29,7 @@ impl Phrase {
 /// Découpe l'audio en phrases, au fil de l'eau. Les positions sont comptées
 /// depuis le début de la session ; seul l'audio encore utile est gardé.
 pub struct Segmenter {
-    config: VadConfig,
+    config: VadSettings,
     detector: Box<Detector>,
     /// Audio encore utile (16 kHz) : la phrase en cours, ou l'amorce d'une
     /// prochaine. `audio[0]` est l'échantillon `base` de la session.
@@ -94,7 +60,7 @@ impl std::fmt::Debug for Segmenter {
 }
 
 impl Segmenter {
-    pub fn new(config: VadConfig) -> Self {
+    pub fn new(config: VadSettings) -> Self {
         Self {
             config,
             detector: Detector::default_boxed(),
@@ -204,7 +170,7 @@ impl Segmenter {
 }
 
 /// Découpe un audio complet en phrases (transcription d'un fichier).
-pub fn split(audio: &[f32], config: VadConfig) -> Vec<Phrase> {
+pub fn split(audio: &[f32], config: VadSettings) -> Vec<Phrase> {
     let mut seg = Segmenter::new(config);
     let mut phrases = seg.push(audio);
     phrases.extend(seg.close());
@@ -215,15 +181,25 @@ pub fn split(audio: &[f32], config: VadConfig) -> Vec<Phrase> {
 mod tests {
     use super::*;
 
+    fn vad() -> VadSettings {
+        slider_platform::config::Settings::defaults().unwrap().stt.vad
+    }
+
+    fn vad_max_phrase(max_phrase: f32) -> VadSettings {
+        let mut v = vad();
+        v.max_phrase = max_phrase;
+        v
+    }
+
     #[test]
     fn le_silence_ne_donne_aucune_phrase() {
         let silence = vec![0.0f32; SAMPLE_RATE as usize * 3];
-        assert!(split(&silence, VadConfig::default()).is_empty());
+        assert!(split(&silence, vad()).is_empty());
     }
 
     #[test]
     fn une_longue_ecoute_silencieuse_ne_garde_que_l_amorce() {
-        let mut seg = Segmenter::new(VadConfig::default());
+        let mut seg = Segmenter::new(vad());
         let chunk = vec![0.0f32; 800]; // 50 ms, comme la boucle d'écoute
         for _ in 0..(60 * 20) {
             assert!(seg.push(&chunk).is_empty());
@@ -235,7 +211,7 @@ mod tests {
 
     #[test]
     fn une_phrase_rendue_se_lit_avant_l_appel_suivant() {
-        let mut seg = Segmenter::new(VadConfig { max_phrase: 1.0, ..Default::default() });
+        let mut seg = Segmenter::new(vad_max_phrase(1.0));
         // Trois secondes de silence, oubliées en partie, puis une phrase coupée
         // pour sa longueur (1 s).
         seg.push(&vec![0.0; SAMPLE_RATE as usize * 3]);
@@ -252,7 +228,7 @@ mod tests {
 
     #[test]
     fn une_phrase_trop_longue_est_coupee() {
-        let mut seg = Segmenter::new(VadConfig { max_phrase: 1.0, ..Default::default() });
+        let mut seg = Segmenter::new(vad_max_phrase(1.0));
         seg.open = Some(0);
         seg.last_voice = 0;
         // Pas de voix réelle ici : on vérifie seulement la coupe par la longueur.

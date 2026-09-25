@@ -2,8 +2,9 @@ use serde_json::json;
 use slider_core::*;
 
 fn fixture() -> Deck {
-    let s = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")).unwrap();
-    Deck::from_json(&s).unwrap()
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
+    let json = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("fixture {path} illisible : {e}"));
+    Deck::from_json(&json).unwrap_or_else(|e| panic!("fixture {path} invalide : {e}"))
 }
 
 fn para(t: &str) -> Vec<Paragraph> {
@@ -105,7 +106,7 @@ fn chaque_op_suivie_de_son_inverse_redonne_le_deck() {
 fn transaction_atomique_et_annulation() {
     let mut deck = fixture();
     let before = deck.clone();
-    let mut h = History::default();
+    let mut h = History::new(500);
     h.commit(&mut deck, "Tout", sample_ops()).unwrap();
     assert_ne!(deck, before);
     let after = deck.clone();
@@ -126,10 +127,10 @@ fn une_erreur_annule_toute_la_transaction() {
     let before = deck.clone();
     let mut ops = sample_ops();
     ops.push(Op::SetText { slide: "s-constat".into(), element: "inexistant".into(), text: vec![] });
-    let mut h = History::default();
-    let (i, err) = h.commit(&mut deck, "Échec", ops).unwrap_err();
-    assert_eq!(i, sample_ops().len());
-    assert!(matches!(err, OpError::ElementNotFound { .. }));
+    let mut h = History::new(500);
+    let err = h.commit(&mut deck, "Échec", ops).unwrap_err();
+    assert_eq!(err.index(), sample_ops().len());
+    assert_eq!(err.op_error().kind(), OpErrorKind::ElementNotFound);
     assert_eq!(deck, before);
     assert!(!h.can_undo());
 }
@@ -146,13 +147,14 @@ fn identifiants_en_double_refuses() {
     }
     .apply(&mut deck)
     .unwrap_err();
-    assert_eq!(err, OpError::DuplicateId("c1".into()));
+    assert_eq!(err.kind(), OpErrorKind::DuplicateId);
+    assert_eq!(err.subject(), Some("c1"));
 }
 
 #[test]
 fn le_json_fait_l_aller_retour() {
     let deck = fixture();
-    let again = Deck::from_json(&deck.to_json()).unwrap();
+    let again = Deck::from_json(&deck.to_json().unwrap()).unwrap();
     assert_eq!(deck, again);
     assert!(validate(&deck, None).is_empty(), "{:?}", validate(&deck, None));
 }
@@ -170,7 +172,7 @@ fn zip_des_sources_aller_retour() {
 
 #[test]
 fn le_schema_des_ops_se_genere() {
-    let schema = ops_schema();
+    let schema = ops_schema().unwrap();
     let s = schema.to_string();
     assert!(s.contains("set_text") && s.contains("set_token"));
 }

@@ -5,31 +5,17 @@ use std::collections::BTreeMap;
 use std::io::{Cursor, Read, Write};
 
 use sha2::{Digest, Sha256};
-use thiserror::Error;
+use snafu::{OptionExt, ResultExt, ensure};
 use zip::write::SimpleFileOptions;
 
+use crate::error::{
+    BadNameSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, SourcesError, SourcesInner,
+    UnsupportedVersionSnafu, ZipSnafu,
+};
 use crate::model::Deck;
 
 pub const SOURCES_FORMAT: &str = "echo-sources";
 pub const SOURCES_VERSION: u32 = 1;
-
-#[derive(Debug, Error)]
-pub enum SourcesError {
-    #[error("zip illisible : {0}")]
-    Zip(#[from] zip::result::ZipError),
-    #[error("entrée/sortie : {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON invalide dans {file} : {source}")]
-    Json { file: String, source: serde_json::Error },
-    #[error("ce n'est pas un zip de sources Écho")]
-    NotSlider,
-    #[error("version de format non prise en charge : {0}")]
-    UnsupportedVersion(u32),
-    #[error("nom de fichier refusé : {0}")]
-    BadName(String),
-    #[error("deck.json absent")]
-    MissingDeck,
-}
 
 /// Identifiant d'un asset : `sha256:<hex>` de son contenu.
 pub fn asset_id(bytes: &[u8]) -> String {
@@ -51,14 +37,22 @@ struct Manifest {
     version: u32,
 }
 
-fn safe_name(name: &str) -> Result<&str, SourcesError> {
+fn safe_name(name: &str) -> Result<&str, SourcesInner> {
     let ok = !name.is_empty()
         && !name.contains('/')
         && !name.contains('\\')
         && name != "."
         && name != ".."
         && !name.starts_with('.');
-    if ok { Ok(name) } else { Err(SourcesError::BadName(name.to_owned())) }
+    ensure!(ok, BadNameSnafu { name });
+    Ok(name)
+}
+
+/// Nom de fichier d'un asset : l'empreinte hex de `sha256:<hex>`, rien d'autre.
+fn asset_name(id: &str) -> Result<&str, SourcesInner> {
+    let hex = id.strip_prefix("sha256:").unwrap_or(id);
+    ensure!(!hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit()), BadNameSnafu { name: id });
+    Ok(hex)
 }
 
 impl SourceBundle {
@@ -74,6 +68,10 @@ impl SourceBundle {
     }
 
     pub fn to_zip(&self) -> Result<Vec<u8>, SourcesError> {
+        Ok(self.write_zip()?)
+    }
+
+    fn write_zip(&self) -> Result<Vec<u8>, SourcesInner> {
         let mut buf = Cursor::new(Vec::new());
         {
             let mut zw = zip::ZipWriter::new(&mut buf);
@@ -81,34 +79,38 @@ impl SourceBundle {
             // Images et polices sont déjà compressées : on les stocke tels quels.
             let stored = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-            zw.start_file("manifest.json", deflate)?;
+            zw.start_file("manifest.json", deflate).context(ZipSnafu)?;
             let manifest = Manifest { format: SOURCES_FORMAT.into(), version: SOURCES_VERSION };
-            zw.write_all(serde_json::to_string(&manifest).expect("sérialisable").as_bytes())?;
+            let manifest = serde_json::to_vec(&manifest).context(JsonSnafu { file: "manifest.json" })?;
+            zw.write_all(&manifest).context(IoSnafu)?;
 
-            zw.start_file("deck.json", deflate)?;
-            zw.write_all(self.deck.to_json().as_bytes())?;
+            zw.start_file("deck.json", deflate).context(ZipSnafu)?;
+            zw.write_all(self.deck.to_json().context(JsonSnafu { file: "deck.json" })?.as_bytes()).context(IoSnafu)?;
 
             for (id, bytes) in &self.assets {
-                let hex = id.strip_prefix("sha256:").unwrap_or(id);
-                zw.start_file(format!("assets/{}", safe_name(hex)?), stored)?;
-                zw.write_all(bytes)?;
+                zw.start_file(format!("assets/{}", asset_name(id)?), stored).context(ZipSnafu)?;
+                zw.write_all(bytes).context(IoSnafu)?;
             }
             for (name, bytes) in &self.fonts {
-                zw.start_file(format!("fonts/{}", safe_name(name)?), stored)?;
-                zw.write_all(bytes)?;
+                zw.start_file(format!("fonts/{}", safe_name(name)?), stored).context(ZipSnafu)?;
+                zw.write_all(bytes).context(IoSnafu)?;
             }
-            zw.finish()?;
+            zw.finish().context(ZipSnafu)?;
         }
         Ok(buf.into_inner())
     }
 
     pub fn from_zip(bytes: &[u8]) -> Result<Self, SourcesError> {
-        let mut za = zip::ZipArchive::new(Cursor::new(bytes))?;
-        let read = |za: &mut zip::ZipArchive<Cursor<&[u8]>>, i: usize| -> Result<(String, Vec<u8>), SourcesError> {
-            let mut f = za.by_index(i)?;
+        Ok(Self::read_zip(bytes)?)
+    }
+
+    fn read_zip(bytes: &[u8]) -> Result<Self, SourcesInner> {
+        let mut za = zip::ZipArchive::new(Cursor::new(bytes)).context(ZipSnafu)?;
+        let read = |za: &mut zip::ZipArchive<Cursor<&[u8]>>, i: usize| -> Result<(String, Vec<u8>), SourcesInner> {
+            let mut f = za.by_index(i).context(ZipSnafu)?;
             let name = f.name().to_owned();
-            let mut data = Vec::with_capacity(f.size() as usize);
-            f.read_to_end(&mut data)?;
+            let mut data = Vec::with_capacity(usize::try_from(f.size()).unwrap_or_default());
+            f.read_to_end(&mut data).context(IoSnafu)?;
             Ok((name, data))
         };
 
@@ -119,15 +121,11 @@ impl SourceBundle {
             let (name, data) = read(&mut za, i)?;
             match name.as_str() {
                 "manifest.json" => {
-                    manifest =
-                        Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
+                    manifest = Some(serde_json::from_slice(&data).context(JsonSnafu { file: "manifest.json" })?)
                 }
-                "deck.json" => {
-                    deck =
-                        Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
-                }
+                "deck.json" => deck = Some(serde_json::from_slice(&data).context(JsonSnafu { file: "deck.json" })?),
                 n if n.starts_with("assets/") => {
-                    let hex = safe_name(&n["assets/".len()..])?;
+                    let hex = asset_name(&n["assets/".len()..])?;
                     assets.insert(format!("sha256:{hex}"), data);
                 }
                 n if n.starts_with("fonts/") => {
@@ -137,14 +135,10 @@ impl SourceBundle {
                 _ => {} // Entrées inconnues : ignorées (compatibilité ascendante).
             }
         }
-        let manifest = manifest.ok_or(SourcesError::NotSlider)?;
-        if manifest.format != SOURCES_FORMAT {
-            return Err(SourcesError::NotSlider);
-        }
-        if manifest.version > SOURCES_VERSION {
-            return Err(SourcesError::UnsupportedVersion(manifest.version));
-        }
-        let deck = deck.ok_or(SourcesError::MissingDeck)?;
+        let manifest = manifest.context(NotSourcesSnafu)?;
+        ensure!(manifest.format == SOURCES_FORMAT, NotSourcesSnafu);
+        ensure!(manifest.version <= SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
+        let deck = deck.context(MissingDeckSnafu)?;
         Ok(SourceBundle { deck, assets, fonts })
     }
 }

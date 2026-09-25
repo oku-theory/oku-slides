@@ -14,6 +14,12 @@ use mel_spec::mel::{log_mel_spectrogram, mel, norm_mel};
 use mel_spec::stft::Spectrogram;
 use ndarray::{Array2, Array3, Axis, s, stack};
 use serde::Deserialize;
+use snafu::{OptionExt, ResultExt};
+
+use crate::error::{
+    FeaturesSnafu, MelFiltersSnafu, ModelFileSnafu, ModelLoadSnafu, ModelSettingsSnafu, NoLanguageSnafu,
+    NotContiguousSnafu, SttError, TranscribeSnafu, boxed,
+};
 
 /// Résultat d'une transcription.
 #[derive(Debug, Clone, Default)]
@@ -54,18 +60,17 @@ impl std::fmt::Debug for Transcriber {
 impl Transcriber {
     /// `dir` : dossier d'un modèle CTranslate2. Les poids sont quantifiés en int8
     /// au chargement (rapide sur processeur, peu de mémoire).
-    pub fn load(dir: &Path) -> Result<Self, String> {
-        let err = |e: &dyn std::fmt::Display| format!("modèle de dictée illisible ({}) : {e}", dir.display());
+    pub fn load(dir: &Path) -> Result<Self, SttError> {
         let config = sys::Config {
             compute_type: sys::ComputeType::INT8,
             num_threads_per_replica: threads(),
             ..Default::default()
         };
-        let whisper = sys::Whisper::new(dir, config).map_err(|e| err(&e))?;
-        let mut tokenizer = hf::Tokenizer::new(dir).map_err(|e| err(&e))?;
+        let whisper = sys::Whisper::new(dir, config).map_err(boxed).context(ModelLoadSnafu { dir })?;
+        let mut tokenizer = hf::Tokenizer::new(dir).map_err(boxed).context(ModelLoadSnafu { dir })?;
         // Le contexte est encodé sans jetons spéciaux automatiques.
         tokenizer.disable_spacial_token();
-        let pre = Preprocessor::read(&dir.join("preprocessor_config.json")).map_err(|e| err(&e))?;
+        let pre = Preprocessor::read(&dir.join("preprocessor_config.json"))?;
         Ok(Self { whisper, tokenizer, pre })
     }
 
@@ -77,28 +82,35 @@ impl Transcriber {
         language: Option<&str>,
         context: Option<&str>,
         quick: bool,
-    ) -> Result<Transcript, String> {
-        let (mut features, chunks) = self.mel(audio);
+    ) -> Result<Transcript, SttError> {
+        let (mut features, chunks) = self.mel(audio)?;
         if chunks == 0 {
             return Ok(Transcript::default());
         }
         let shape = features.shape().to_vec();
-        let view = sys::StorageView::new(&shape, features.as_slice_mut().expect("contigu"), Default::default())
-            .map_err(|e| e.to_string())?;
+        // `mel` rend un tableau en disposition standard : il est contigu.
+        let data = features.as_slice_mut().context(NotContiguousSnafu)?;
+        let view = sys::StorageView::new(&shape, data, Default::default())
+            .map_err(boxed)
+            .context(TranscribeSnafu { step: "features" })?;
 
         let lang = match language {
             Some(l) => l.to_owned(),
             None => {
-                let detected = self.whisper.detect_language(&view).map_err(|e| e.to_string())?;
-                let best =
-                    detected.into_iter().next().and_then(|v| v.into_iter().next()).ok_or("langue introuvable")?;
+                let detected =
+                    self.whisper.detect_language(&view).map_err(boxed).context(TranscribeSnafu { step: "language" })?;
+                let best = detected.into_iter().next().and_then(|v| v.into_iter().next()).context(NoLanguageSnafu)?;
                 best.language.trim_start_matches("<|").trim_end_matches("|>").to_owned()
             }
         };
 
         let mut prompt: Vec<String> = Vec::new();
         if let Some(ctx) = context.map(str::trim).filter(|c| !c.is_empty()) {
-            let tokens = self.tokenizer.encode(&format!(" {ctx}")).map_err(|e| e.to_string())?;
+            let tokens = self
+                .tokenizer
+                .encode(&format!(" {ctx}"))
+                .map_err(boxed)
+                .context(TranscribeSnafu { step: "context" })?;
             let keep = tokens.len().saturating_sub(MAX_PROMPT_TOKENS);
             prompt.push("<|startofprev|>".into());
             prompt.extend(tokens.into_iter().skip(keep));
@@ -140,22 +152,25 @@ impl Transcriber {
         prompt: &[String],
         chunks: usize,
         options: &sys::WhisperOptions,
-    ) -> Result<(String, f32), String> {
-        let results =
-            self.whisper.generate(view, &vec![prompt.to_vec(); chunks], options).map_err(|e| e.to_string())?;
+    ) -> Result<(String, f32), SttError> {
+        let results = self
+            .whisper
+            .generate(view, &vec![prompt.to_vec(); chunks], options)
+            .map_err(boxed)
+            .context(TranscribeSnafu { step: "decoding" })?;
         let mut text = String::new();
         let mut no_speech = 0f32;
         for r in results {
             no_speech = no_speech.max(r.no_speech_prob);
             let Some(seq) = r.sequences.into_iter().next() else { continue };
             let seq: Vec<String> = seq.into_iter().filter(|t| !(t.starts_with("<|") && t.ends_with("|>"))).collect();
-            text.push_str(&self.tokenizer.decode(seq).map_err(|e| e.to_string())?);
+            text.push_str(&self.tokenizer.decode(seq).map_err(boxed).context(TranscribeSnafu { step: "tokens" })?);
         }
         Ok((text, no_speech))
     }
 
     /// Spectrogramme log-mel par tranches de 30 s.
-    fn mel(&self, samples: &[f32]) -> (Array3<f32>, usize) {
+    fn mel(&self, samples: &[f32]) -> Result<(Array3<f32>, usize), SttError> {
         let p = &self.pre;
         let mut stft = Spectrogram::new(p.n_fft, p.hop_length);
         let mut chunks = Vec::new();
@@ -171,16 +186,16 @@ impl Transcriber {
         }
         let n = chunks.len();
         if n == 0 {
-            return (Array3::zeros((0, 0, 0)), 0);
+            return Ok((Array3::zeros((0, 0, 0)), 0));
         }
         let views: Vec<_> = chunks.iter().map(|a| a.view()).collect();
-        let stacked = stack(Axis(0), &views).expect("tranches de même forme");
-        (stacked.as_standard_layout().into_owned(), n)
+        let stacked = stack(Axis(0), &views).context(FeaturesSnafu { step: "mel" })?;
+        Ok((stacked.as_standard_layout().into_owned(), n))
     }
 }
 
 impl Preprocessor {
-    fn read(path: &Path) -> Result<Self, String> {
+    fn read(path: &Path) -> Result<Self, SttError> {
         #[derive(Deserialize)]
         struct Raw {
             feature_size: usize,
@@ -191,12 +206,12 @@ impl Preprocessor {
             sampling_rate: usize,
             mel_filters: Option<Vec<Vec<f64>>>,
         }
-        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-        let raw: Raw = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        let bytes = std::fs::read(path).context(ModelFileSnafu { path })?;
+        let raw: Raw = serde_json::from_slice(&bytes).context(ModelSettingsSnafu)?;
         let mel_filters = match raw.mel_filters {
             Some(rows) => {
                 let (r, c) = (rows.len(), rows.first().map_or(0, Vec::len));
-                Array2::from_shape_vec((r, c), rows.into_iter().flatten().collect()).map_err(|e| e.to_string())?
+                Array2::from_shape_vec((r, c), rows.into_iter().flatten().collect()).context(MelFiltersSnafu)?
             }
             None => mel(raw.sampling_rate as f64, raw.n_fft, raw.feature_size, None, None, false, true),
         };

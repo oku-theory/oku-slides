@@ -7,8 +7,9 @@
 
 use std::collections::VecDeque;
 
+use crate::error::TransactionError;
 use crate::model::Deck;
-use crate::ops::{Op, OpError, apply_all};
+use crate::ops::{Op, apply_all};
 
 #[derive(Debug, Clone, PartialEq)]
 struct Transaction {
@@ -25,12 +26,6 @@ pub struct History {
     limit: usize,
 }
 
-impl Default for History {
-    fn default() -> Self {
-        Self::new(500)
-    }
-}
-
 /// Applique la dernière transaction de `from` et range son inverse dans `to`.
 /// En cas d'erreur (historique incohérent avec le deck), la transaction est
 /// abandonnée et le deck reste intact.
@@ -38,7 +33,7 @@ fn step<'a>(
     from: &mut VecDeque<Transaction>,
     to: &'a mut VecDeque<Transaction>,
     deck: &mut Deck,
-) -> Result<Option<&'a str>, (usize, OpError)> {
+) -> Result<Option<&'a str>, TransactionError> {
     let Some(Transaction { label, ops }) = from.pop_back() else { return Ok(None) };
     let ops = apply_all(deck, ops)?;
     to.push_back(Transaction { label, ops });
@@ -51,7 +46,7 @@ impl History {
     }
 
     /// Applique `ops` en une transaction. Atomique : en cas d'erreur, rien n'a changé.
-    pub fn commit(&mut self, deck: &mut Deck, label: impl Into<String>, ops: Vec<Op>) -> Result<(), (usize, OpError)> {
+    pub fn commit(&mut self, deck: &mut Deck, label: impl Into<String>, ops: Vec<Op>) -> Result<(), TransactionError> {
         let inverse = apply_all(deck, ops)?;
         self.undo.push_back(Transaction { label: label.into(), ops: inverse });
         if self.undo.len() > self.limit {
@@ -62,12 +57,12 @@ impl History {
     }
 
     /// Défait la dernière transaction ; renvoie son libellé.
-    pub fn undo(&mut self, deck: &mut Deck) -> Result<Option<&str>, (usize, OpError)> {
+    pub fn undo(&mut self, deck: &mut Deck) -> Result<Option<&str>, TransactionError> {
         step(&mut self.undo, &mut self.redo, deck)
     }
 
     /// Rejoue la dernière transaction défaite ; renvoie son libellé.
-    pub fn redo(&mut self, deck: &mut Deck) -> Result<Option<&str>, (usize, OpError)> {
+    pub fn redo(&mut self, deck: &mut Deck) -> Result<Option<&str>, TransactionError> {
         step(&mut self.redo, &mut self.undo, deck)
     }
 

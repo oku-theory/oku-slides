@@ -448,7 +448,8 @@ impl Deck {
         serde_json::from_str(s)
     }
 
-    pub fn to_json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("un deck se sérialise toujours")
+    /// JSON lisible (indenté), tel qu'il est enregistré dans les sources.
+    pub fn to_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
     }
 }

@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use slider_platform::config::SttSettings;
+use snafu::ResultExt;
 
-const HF: &str = "https://huggingface.co";
+use crate::error::{CancelledSnafu, HttpReadSnafu, HttpSnafu, IncompleteSnafu, ModelWriteSnafu, SttError};
 
 /// Marqueur écrit quand tous les fichiers d'un modèle sont là.
 const COMPLETE: &str = ".complete";
@@ -77,28 +79,17 @@ impl Model {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum DownloadError {
-    #[error("téléchargement impossible : {0}")]
-    Http(String),
-    #[error("écriture du modèle : {0}")]
-    Io(#[from] std::io::Error),
-    #[error("fichier incomplet : {got} octets sur {expected}")]
-    Incomplete { got: u64, expected: u64 },
-    #[error("téléchargement annulé")]
-    Cancelled,
-}
-
 /// Télécharge un modèle dans `dir` (chaque fichier en `.part` puis renommé ;
 /// les fichiers déjà là sont gardés, un téléchargement interrompu reprend).
 /// `progress(reçu, total)` est appelé régulièrement ; s'il renvoie `false`, on annule.
 pub fn download(
     model: Model,
     dir: &Path,
+    settings: &SttSettings,
     mut progress: impl FnMut(u64, u64) -> bool,
-) -> Result<PathBuf, DownloadError> {
+) -> Result<PathBuf, SttError> {
     let dest = model.path(dir);
-    std::fs::create_dir_all(&dest)?;
+    std::fs::create_dir_all(&dest).context(ModelWriteSnafu { path: &dest })?;
     let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
     let total = model.size();
     let mut done = 0u64;
@@ -108,50 +99,50 @@ pub fn download(
             done += meta.len();
             continue;
         }
-        let url = format!("{HF}/{repo}/resolve/main/{file}");
+        let url = format!("{}/{repo}/resolve/main/{file}", settings.hub_url.trim_end_matches('/'));
         // Hugging Face limite parfois le débit (429) : on réessaie en patientant.
         let mut attempt = 0;
         let mut resp = loop {
             match agent.get(&url).call() {
                 Ok(r) => break r,
-                Err(ureq::Error::StatusCode(429 | 500 | 502 | 503)) if attempt < 5 => {
+                Err(ureq::Error::StatusCode(429 | 500 | 502 | 503)) if attempt < settings.download_retries => {
                     attempt += 1;
-                    std::thread::sleep(Duration::from_secs(4 * attempt));
+                    std::thread::sleep(Duration::from_secs(settings.download_backoff_secs * u64::from(attempt)));
                 }
-                Err(e) => return Err(DownloadError::Http(format!("{file} : {e}"))),
+                Err(e) => return Err(Box::new(e)).context(HttpSnafu { file })?,
             }
         };
         let expected: Option<u64> =
             resp.headers().get("content-length").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
         let part = dest.join(format!("{file}.part"));
         let mut reader = resp.body_mut().with_config().limit(u64::MAX).reader();
-        let mut out = std::fs::File::create(&part)?;
+        let mut out = std::fs::File::create(&part).context(ModelWriteSnafu { path: &part })?;
         let mut buf = vec![0u8; 1 << 20];
         let mut got = 0u64;
         loop {
-            let n = reader.read(&mut buf).map_err(|e| DownloadError::Http(e.to_string()))?;
+            let n = reader.read(&mut buf).context(HttpReadSnafu { file })?;
             if n == 0 {
                 break;
             }
-            out.write_all(&buf[..n])?;
+            out.write_all(&buf[..n]).context(ModelWriteSnafu { path: &part })?;
             got += n as u64;
             if !progress((done + got).min(total), total) {
                 drop(out);
                 std::fs::remove_file(&part).ok();
-                return Err(DownloadError::Cancelled);
+                return CancelledSnafu.fail()?;
             }
         }
-        out.sync_all()?;
+        out.sync_all().context(ModelWriteSnafu { path: &part })?;
         if let Some(expected) = expected
             && got != expected
         {
             std::fs::remove_file(&part).ok();
-            return Err(DownloadError::Incomplete { got, expected });
+            return IncompleteSnafu { got, expected }.fail()?;
         }
-        std::fs::rename(&part, &path)?;
+        std::fs::rename(&part, &path).context(ModelWriteSnafu { path: &path })?;
         done += got;
     }
-    std::fs::write(dest.join(COMPLETE), b"")?;
+    std::fs::write(dest.join(COMPLETE), b"").context(ModelWriteSnafu { path: dest.join(COMPLETE) })?;
     progress(total, total);
     Ok(dest)
 }

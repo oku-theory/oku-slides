@@ -7,30 +7,16 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use thiserror::Error;
+use snafu::{IntoError, OptionExt, ResultExt};
 
+use crate::error::{
+    DuplicateIdSnafu, ElementNotFoundSnafu, InconsistentSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, NoTextSnafu,
+    NotAGroupSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu,
+};
 use crate::locate::Walk;
 use crate::model::{
     Cell, Deck, Element, ElementBody, Frame, Grid, Paragraph, Slide, SlideKind, SlideLayout, Style, Zone,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum OpError {
-    #[error("slide introuvable : {0}")]
-    SlideNotFound(String),
-    #[error("élément introuvable : {element} (slide {slide})")]
-    ElementNotFound { slide: String, element: String },
-    #[error("identifiant déjà utilisé : {0}")]
-    DuplicateId(String),
-    #[error("index hors limites : {index} (taille {len})")]
-    IndexOutOfRange { index: usize, len: usize },
-    #[error("l'élément {0} n'est pas un groupe")]
-    NotAGroup(String),
-    #[error("l'élément {0} ne contient pas de texte")]
-    NoText(String),
-    #[error("valeur invalide pour {field} : {reason}")]
-    InvalidValue { field: String, reason: String },
-}
 
 /// Champ simple d'une slide, modifiable par `set_slide_field`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -193,7 +179,7 @@ fn container_mut<'a>(
         }),
         Some(pid) => {
             let parent = element_mut(slide, pid).ok_or_else(|| not_found(slide_id, pid))?;
-            parent.children_mut().ok_or_else(|| OpError::NotAGroup(pid.to_owned()))
+            Ok(parent.children_mut().context(NotAGroupSnafu { element: pid })?)
         }
     }
 }
@@ -205,17 +191,12 @@ fn set_path(root: &mut Value, path: &[String], value: Value) -> Option<Value> {
     if !root.is_object() {
         *root = Value::Object(Map::new());
     }
-    let (last, init) = path.split_last().expect("chemin non vide");
-    let mut cur = root;
-    for k in init {
-        let map = cur.as_object_mut().expect("objet");
-        let next = map.entry(k.as_str()).or_insert_with(|| Value::Object(Map::new()));
-        if !next.is_object() {
-            *next = Value::Object(Map::new());
-        }
-        cur = next;
+    let Value::Object(map) = root else { return None };
+    match path {
+        [] => None,
+        [key] => map.insert(key.clone(), value),
+        [key, rest @ ..] => set_path(map.entry(key.as_str()).or_insert(Value::Null), rest, value),
     }
-    cur.as_object_mut().expect("objet").insert(last.clone(), value)
 }
 
 /// Retire la valeur au chemin, élague les objets devenus vides et la renvoie.
@@ -244,27 +225,27 @@ fn set_or_remove_map(map: &mut BTreeMap<String, Value>, key: &str, value: Value)
 // ---- Application ----------------------------------------------------------------
 
 fn slide_mut<'a>(deck: &'a mut Deck, id: &str) -> Result<&'a mut Slide, OpError> {
-    deck.slide_mut(id).ok_or_else(|| OpError::SlideNotFound(id.to_owned()))
+    Ok(deck.slide_mut(id).context(SlideNotFoundSnafu { slide: id })?)
 }
 
 fn not_found(slide: &str, element: &str) -> OpError {
-    OpError::ElementNotFound { slide: slide.to_owned(), element: element.to_owned() }
+    ElementNotFoundSnafu { slide, element }.build().into()
 }
 
 fn opt_string(field: &str, v: Value) -> Result<Option<String>, OpError> {
     match v {
         Value::Null => Ok(None),
         Value::String(s) => Ok(Some(s)),
-        _ => Err(OpError::InvalidValue { field: field.to_owned(), reason: "chaîne ou null attendue".into() }),
+        _ => Err(InvalidValueSnafu { field, reason: "expected a string or null" }.build().into()),
     }
 }
 
 fn typed<T: DeserializeOwned>(field: &str, v: Value) -> Result<T, OpError> {
-    serde_json::from_value(v).map_err(|e| OpError::InvalidValue { field: field.to_owned(), reason: e.to_string() })
+    Ok(serde_json::from_value(v).context(ParseValueSnafu { field })?)
 }
 
-fn to_value<T: Serialize>(v: &T) -> Value {
-    serde_json::to_value(v).expect("sérialisable")
+fn to_value<T: Serialize>(field: &str, v: &T) -> Result<Value, OpError> {
+    Ok(serde_json::to_value(v).context(ParseValueSnafu { field })?)
 }
 
 impl Op {
@@ -278,7 +259,7 @@ impl Op {
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
                 let target = match &mut e.body {
                     ElementBody::Text { text } | ElementBody::Card { text, .. } => text,
-                    _ => return Err(OpError::NoText(element)),
+                    _ => return Err(NoTextSnafu { element }.build().into()),
                 };
                 let old = std::mem::replace(target, text);
                 Ok(Op::SetText { slide, element, text: old })
@@ -301,10 +282,7 @@ impl Op {
                 if let Some(f) = frame
                     && !(f.w > 0.0 && f.h > 0.0)
                 {
-                    return Err(OpError::InvalidValue {
-                        field: "frame".into(),
-                        reason: "w et h doivent être > 0".into(),
-                    });
+                    return Err(InvalidValueSnafu { field: "frame", reason: "w and h must be > 0" }.build().into());
                 }
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
@@ -316,10 +294,7 @@ impl Op {
                 if let Some(c) = cell {
                     let grid = s.effective_grid();
                     if !c.fits(grid) {
-                        return Err(OpError::InvalidValue {
-                            field: "cell".into(),
-                            reason: format!("hors de la grille {} × {}", grid.columns, grid.rows),
-                        });
+                        return Err(InvalidValueSnafu { field: "cell", reason: "outside the grid" }.build().into());
                     }
                 }
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
@@ -330,10 +305,7 @@ impl Op {
                 if let Some(g) = &grid
                     && (!(1..=24).contains(&g.columns) || !(1..=24).contains(&g.rows))
                 {
-                    return Err(OpError::InvalidValue {
-                        field: "grid".into(),
-                        reason: "1 à 24 colonnes et lignes".into(),
-                    });
+                    return Err(InvalidValueSnafu { field: "grid", reason: "1 to 24 columns and rows" }.build().into());
                 }
                 let s = slide_mut(deck, &slide)?;
                 let old = std::mem::replace(&mut s.grid, grid);
@@ -350,7 +322,7 @@ impl Op {
                     .map(|l| l.element.id.as_str())
                     .find(|id| existing.contains(id) && !old_ids.contains(id))
                 {
-                    return Err(OpError::DuplicateId(dup.to_owned()));
+                    return Err(DuplicateIdSnafu { id: dup }.build().into());
                 }
                 let e = element_mut(s, &element.id).ok_or_else(|| not_found(&slide, &element.id))?;
                 let old = std::mem::replace(e, element);
@@ -362,12 +334,12 @@ impl Op {
                 if let Some(dup) =
                     Walk::over(std::slice::from_ref(&element), zone).find(|l| existing.contains(l.element.id.as_str()))
                 {
-                    return Err(OpError::DuplicateId(dup.element.id.clone()));
+                    return Err(DuplicateIdSnafu { id: &dup.element.id }.build().into());
                 }
                 let list = container_mut(s, zone, parent.as_deref(), &slide)?;
                 let at = index.unwrap_or(list.len());
                 if at > list.len() {
-                    return Err(OpError::IndexOutOfRange { index: at, len: list.len() });
+                    return Err(IndexOutOfRangeSnafu { index: at, len: list.len() }.build().into());
                 }
                 // L'élément entre dans le deck ; l'inverse n'en garde que l'identifiant.
                 let id = element.id.clone();
@@ -387,30 +359,38 @@ impl Op {
             Op::SetSlideField { slide, field, value } => {
                 let s = slide_mut(deck, &slide)?;
                 let old = match field {
-                    SlideField::Kind => to_value(&std::mem::replace(&mut s.kind, typed::<SlideKind>("kind", value)?)),
-                    SlideField::Layout => {
-                        to_value(&std::mem::replace(&mut s.layout, typed::<Option<SlideLayout>>("layout", value)?))
+                    SlideField::Kind => {
+                        to_value("kind", &std::mem::replace(&mut s.kind, typed::<SlideKind>("kind", value)?))?
                     }
-                    SlideField::Title => to_value(&std::mem::replace(&mut s.title, opt_string("title", value)?)),
+                    SlideField::Layout => to_value(
+                        "layout",
+                        &std::mem::replace(&mut s.layout, typed::<Option<SlideLayout>>("layout", value)?),
+                    )?,
+                    SlideField::Title => {
+                        to_value("title", &std::mem::replace(&mut s.title, opt_string("title", value)?))?
+                    }
                     SlideField::Subtitle => {
-                        to_value(&std::mem::replace(&mut s.subtitle, opt_string("subtitle", value)?))
+                        to_value("subtitle", &std::mem::replace(&mut s.subtitle, opt_string("subtitle", value)?))?
                     }
-                    SlideField::Kicker => to_value(&std::mem::replace(&mut s.kicker, opt_string("kicker", value)?)),
-                    SlideField::Text => to_value(&std::mem::replace(&mut s.text, opt_string("text", value)?)),
-                    SlideField::Name => to_value(&std::mem::replace(&mut s.name, opt_string("name", value)?)),
-                    SlideField::Description => {
-                        to_value(&std::mem::replace(&mut s.description, opt_string("description", value)?))
+                    SlideField::Kicker => {
+                        to_value("kicker", &std::mem::replace(&mut s.kicker, opt_string("kicker", value)?))?
                     }
+                    SlideField::Text => to_value("text", &std::mem::replace(&mut s.text, opt_string("text", value)?))?,
+                    SlideField::Name => to_value("name", &std::mem::replace(&mut s.name, opt_string("name", value)?))?,
+                    SlideField::Description => to_value(
+                        "description",
+                        &std::mem::replace(&mut s.description, opt_string("description", value)?),
+                    )?,
                 };
                 Ok(Op::SetSlideField { slide, field, value: old })
             }
             Op::AddSlide { index, slide } => {
                 if deck.slide(&slide.id).is_some() {
-                    return Err(OpError::DuplicateId(slide.id));
+                    return Err(DuplicateIdSnafu { id: slide.id }.build().into());
                 }
                 let at = index.unwrap_or(deck.slides.len());
                 if at > deck.slides.len() {
-                    return Err(OpError::IndexOutOfRange { index: at, len: deck.slides.len() });
+                    return Err(IndexOutOfRangeSnafu { index: at, len: deck.slides.len() }.build().into());
                 }
                 // La slide entre dans le deck ; l'inverse n'en garde que l'identifiant.
                 let id = slide.id.clone();
@@ -418,15 +398,17 @@ impl Op {
                 Ok(Op::RemoveSlide { slide: id })
             }
             Op::RemoveSlide { slide } => {
-                let i = deck.slide_index(&slide).ok_or(OpError::SlideNotFound(slide))?;
+                let Some(i) = deck.slide_index(&slide) else {
+                    return Err(SlideNotFoundSnafu { slide }.build().into());
+                };
                 let removed = deck.slides.remove(i);
                 Ok(Op::AddSlide { index: Some(i), slide: removed })
             }
             Op::MoveSlide { slide, index } => {
                 let len = deck.slides.len();
-                let i = deck.slide_index(&slide).ok_or(OpError::SlideNotFound(slide.clone()))?;
+                let i = deck.slide_index(&slide).context(SlideNotFoundSnafu { slide: &slide })?;
                 if index >= len {
-                    return Err(OpError::IndexOutOfRange { index, len });
+                    return Err(IndexOutOfRangeSnafu { index, len }.build().into());
                 }
                 let s = deck.slides.remove(i);
                 deck.slides.insert(index, s);
@@ -443,7 +425,7 @@ impl Op {
             }
             Op::SetToken { path, value } => {
                 if path.is_empty() {
-                    return Err(OpError::InvalidValue { field: "path".into(), reason: "chemin vide".into() });
+                    return Err(InvalidValueSnafu { field: "path", reason: "empty path" }.build().into());
                 }
                 let old = if value.is_null() {
                     let removed = remove_path(&mut deck.tokens, &path);
@@ -459,12 +441,14 @@ impl Op {
             Op::SetParam { key, value } => {
                 let p = &mut deck.params;
                 let old = match key.as_str() {
-                    "title" => to_value(&std::mem::replace(&mut p.title, opt_string(&key, value)?)),
-                    "subtitle" => to_value(&std::mem::replace(&mut p.subtitle, opt_string(&key, value)?)),
-                    "author" => to_value(&std::mem::replace(&mut p.author, opt_string(&key, value)?)),
-                    "date" => to_value(&std::mem::replace(&mut p.date, opt_string(&key, value)?)),
-                    "organization" => to_value(&std::mem::replace(&mut p.organization, opt_string(&key, value)?)),
-                    "lang" => to_value(&std::mem::replace(&mut p.lang, opt_string(&key, value)?)),
+                    "title" => to_value(&key, &std::mem::replace(&mut p.title, opt_string(&key, value)?))?,
+                    "subtitle" => to_value(&key, &std::mem::replace(&mut p.subtitle, opt_string(&key, value)?))?,
+                    "author" => to_value(&key, &std::mem::replace(&mut p.author, opt_string(&key, value)?))?,
+                    "date" => to_value(&key, &std::mem::replace(&mut p.date, opt_string(&key, value)?))?,
+                    "organization" => {
+                        to_value(&key, &std::mem::replace(&mut p.organization, opt_string(&key, value)?))?
+                    }
+                    "lang" => to_value(&key, &std::mem::replace(&mut p.lang, opt_string(&key, value)?))?,
                     _ => set_or_remove_map(&mut p.extra, &key, value),
                 };
                 Ok(Op::SetParam { key, value: old })
@@ -480,16 +464,21 @@ impl Op {
 /// Applique une suite d'ops de façon atomique : en cas d'erreur, les ops
 /// déjà appliquées sont annulées. Renvoie les inverses, dans l'ordre où il
 /// faut les appliquer pour tout défaire.
-pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<Vec<Op>, (usize, OpError)> {
+pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<Vec<Op>, TransactionError> {
     let mut inverses: Vec<Op> = Vec::with_capacity(ops.len());
-    for (i, op) in ops.into_iter().enumerate() {
+    for (index, op) in ops.into_iter().enumerate() {
         match op.apply(deck) {
             Ok(inv) => inverses.push(inv),
-            Err(e) => {
+            Err(source) => {
                 for inv in inverses.into_iter().rev() {
-                    inv.apply(deck).expect("l'inverse d'une op appliquée s'applique toujours");
+                    // L'inverse d'une op appliquée s'applique toujours ; sinon le
+                    // deck a changé hors de l'historique.
+                    if let Err(e) = inv.apply(deck) {
+                        let inconsistent: OpError = InconsistentSnafu.into_error(Box::new(e)).into();
+                        return Err(TransactionSnafu { index }.into_error(inconsistent));
+                    }
                 }
-                return Err((i, e));
+                return Err(TransactionSnafu { index }.into_error(source));
             }
         }
     }
@@ -498,6 +487,6 @@ pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<Vec<Op>, (usize, OpErr
 }
 
 /// Schéma JSON d'une liste d'ops, pour la sortie structurée des LLM.
-pub fn ops_schema() -> Value {
-    serde_json::to_value(schemars::schema_for!(Vec<Op>)).expect("schéma sérialisable")
+pub fn ops_schema() -> serde_json::Result<Value> {
+    serde_json::to_value(schemars::schema_for!(Vec<Op>))
 }

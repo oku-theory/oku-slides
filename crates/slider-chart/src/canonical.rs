@@ -124,8 +124,10 @@ pub fn sync_series_with_columns(option: &mut ChartOption) {
         return;
     }
     let wanted = width.saturating_sub(1).max(1);
-    let template = option.series.last().cloned().expect("au moins une série");
-    option.series.resize(wanted, template);
+    // `series` n'est pas vide (vérifié plus haut).
+    if let Some(template) = option.series.last().cloned() {
+        option.series.resize(wanted, template);
+    }
 }
 
 #[cfg(test)]
