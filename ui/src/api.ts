@@ -3,6 +3,7 @@
 // échangé.
 
 import type { Cell, ZoneView } from "./grid";
+import { t } from "./i18n";
 
 export type SlideKind = "title" | "toc" | "chapter" | "content" | "end" | "blank";
 
@@ -290,16 +291,16 @@ export const api = {
 export async function pickOpenPath(): Promise<string | null> {
   if (inTauri) {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({ multiple: false, filters: [{ name: "Écho", extensions: ["pdf", "json"] }] });
+    const p = await open({ multiple: false, filters: [{ name: t("ui-brand"), extensions: ["pdf", "json"] }] });
     return typeof p === "string" ? p : null;
   }
-  return window.prompt("Chemin du fichier à ouvrir (.echo.pdf ou .json)");
+  return window.prompt(t("ui-file-open-prompt"));
 }
 
 export async function pickSavePath(defaultName: string): Promise<string | null> {
   if (inTauri) {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    return save({ defaultPath: `${defaultName}.echo.pdf`, filters: [{ name: "Écho", extensions: ["pdf"] }] });
+    return save({ defaultPath: `${defaultName}.echo.pdf`, filters: [{ name: t("ui-brand"), extensions: ["pdf"] }] });
   }
-  return window.prompt("Enregistrer sous (chemin complet)", `/tmp/${defaultName}.echo.pdf`);
+  return window.prompt(t("ui-file-save-prompt"), `/tmp/${defaultName}.echo.pdf`);
 }

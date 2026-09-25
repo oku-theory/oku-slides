@@ -9,6 +9,7 @@
 
 import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
+import { locale, t } from "../i18n";
 import type { Cell, ChartDataOp } from "./chartTypes";
 import "./ChartDataGrid.css";
 
@@ -44,13 +45,13 @@ export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: Chart
                 <CellInput
                   value={h}
                   label
-                  ariaLabel={`Nom de la colonne ${col + 1}`}
+                  ariaLabel={t("ui-chart-column-name", { col: col + 1 })}
                   onCommit={(value) => onOp({ op: "set_cell", row: 0, col, value })}
                 />
                 {width > 1 && (
                   <button
                     className="cdg-remove"
-                    title="Supprimer la colonne"
+                    title={t("ui-chart-remove-column")}
                     onClick={() => onOp({ op: "remove_column", at: col })}
                   >
                     ×
@@ -62,7 +63,7 @@ export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: Chart
               <CellInput
                 value={ctx.getValue()}
                 label={firstColumnIsLabel && col === 0}
-                ariaLabel={`Ligne ${ctx.row.original.index}, colonne ${col + 1}`}
+                ariaLabel={t("ui-chart-cell", { row: ctx.row.original.index, col: col + 1 })}
                 onCommit={(value) =>
                   onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
                 }
@@ -116,7 +117,7 @@ export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: Chart
                 <td className="cdg-gutter">
                   <button
                     className="cdg-remove"
-                    title="Supprimer la ligne"
+                    title={t("ui-chart-remove-row")}
                     onClick={() => onOp({ op: "remove_row", at: row.original.index })}
                   >
                     ×
@@ -129,10 +130,10 @@ export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: Chart
       </div>
       <div className="cdg-actions">
         <button onClick={() => onOp({ op: "insert_row", at: source.length, cells: [] })}>
-          + Ligne
+          {t("ui-chart-add-row")}
         </button>
-        <button onClick={() => onOp({ op: "insert_column", at: width, cells: [`Série ${width}`] })}>
-          + Colonne
+        <button onClick={() => onOp({ op: "insert_column", at: width, cells: [t("ui-chart-series", { n: width })] })}>
+          {t("ui-chart-add-column")}
         </button>
       </div>
     </div>
@@ -184,7 +185,7 @@ function CellInput({ value, label, ariaLabel, onCommit, onPasteGrid }: CellInput
 function display(c: Cell): string {
   if (c === null) return "";
   if (typeof c === "number")
-    return c.toLocaleString("fr-FR", { maximumFractionDigits: 10, useGrouping: false });
+    return c.toLocaleString(locale(), { maximumFractionDigits: 10, useGrouping: false });
   return c;
 }
 
@@ -223,6 +224,6 @@ export function pasteInto(
     });
   });
   for (const r of out) while (r.length < width) r.push(null);
-  for (let c = 0; c < width; c++) if (out[0][c] === null) out[0][c] = `Série ${c}`;
+  for (let c = 0; c < width; c++) if (out[0][c] === null) out[0][c] = t("ui-chart-series", { n: c });
   return out;
 }

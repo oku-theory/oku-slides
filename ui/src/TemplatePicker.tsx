@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SetInfo, TemplateView } from "./api";
 import { api } from "./api";
+import { t } from "./i18n";
 
 interface Props {
   /** Change quand le thème ou les jetons changent : les aperçus sont rechargés. */
@@ -16,7 +17,7 @@ interface Props {
   onClose: () => void;
 }
 
-export default function TemplatePicker({ themeKey, initialSet, title = "Nouvelle slide", onPick, onSetChange, onClose }: Props) {
+export default function TemplatePicker({ themeKey, initialSet, title, onPick, onSetChange, onClose }: Props) {
   const [items, setItems] = useState<TemplateView[] | null>(null);
   const [sets, setSets] = useState<SetInfo[]>([]);
   const [set, setSet] = useState(initialSet);
@@ -48,7 +49,7 @@ export default function TemplatePicker({ themeKey, initialSet, title = "Nouvelle
   };
 
   const urls = useMemo(() => {
-    const list = (items ?? []).map((t) => URL.createObjectURL(new Blob([t.svg], { type: "image/svg+xml" })));
+    const list = (items ?? []).map((tpl) => URL.createObjectURL(new Blob([tpl.svg], { type: "image/svg+xml" })));
     return list;
   }, [items]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
@@ -77,44 +78,44 @@ export default function TemplatePicker({ themeKey, initialSet, title = "Nouvelle
     <div className="picker-scrim" onPointerDown={onClose}>
       <div className="picker" role="dialog" aria-modal="true" aria-labelledby="picker-title" onPointerDown={(e) => e.stopPropagation()}>
         <div className="picker-head">
-          <h2 id="picker-title">{title}</h2>
+          <h2 id="picker-title">{title ?? t("ui-picker-new-slide")}</h2>
           <label className="picker-set">
-            <span className="caption">Modèles</span>
+            <span className="caption">{t("ui-picker-set")}</span>
             <select className="select" value={set} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
               {sets.map((x) => (
-                <option key={x.id} value={x.id}>{x.name}{x.builtin ? "" : " · à moi"}</option>
+                <option key={x.id} value={x.id}>{x.builtin ? x.name : t("ui-picker-set-mine", { name: x.name })}</option>
               ))}
             </select>
           </label>
-          <span className="caption">← → pour parcourir · Entrée pour ajouter · Échap pour fermer</span>
-          <button className="object token" aria-label="Fermer" onClick={onClose}>
+          <span className="caption">{t("ui-picker-keys")}</span>
+          <button className="object token" aria-label={t("ui-picker-close")} onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
         {error && <p className="caption">{error}</p>}
         <div className="picker-row">
-          <button className="object token picker-nav" aria-label="Modèle précédent" disabled={focus === 0} onClick={() => setFocus((f) => Math.max(0, f - 1))}>
+          <button className="object token picker-nav" aria-label={t("ui-picker-previous")} disabled={focus === 0} onClick={() => setFocus((f) => Math.max(0, f - 1))}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
           </button>
-          <div className="picker-strip" ref={strip} role="listbox" aria-label="Modèles de slides">
-            {(items ?? Array.from({ length: 6 }, () => null)).map((t, i) => (
+          <div className="picker-strip" ref={strip} role="listbox" aria-label={t("ui-picker-list")}>
+            {(items ?? Array.from({ length: 6 }, () => null)).map((tpl, i) => (
               <button
-                key={t?.id ?? i}
+                key={tpl?.id ?? i}
                 role="option"
                 aria-selected={i === focus}
                 className={`template${i === focus ? " focused" : ""}`}
-                disabled={!t}
+                disabled={!tpl}
                 onMouseEnter={() => setFocus(i)}
                 onFocus={() => setFocus(i)}
-                onClick={() => t && onPick(t)}
+                onClick={() => tpl && onPick(tpl)}
               >
-                {t ? <img src={urls[i]} alt="" draggable={false} /> : <span className="template-empty" />}
-                <span className="template-name">{t?.name ?? "…"}</span>
-                <span className="caption">{t?.description ?? ""}</span>
+                {tpl ? <img src={urls[i]} alt="" draggable={false} /> : <span className="template-empty" />}
+                <span className="template-name">{tpl?.name ?? "…"}</span>
+                <span className="caption">{tpl?.description ?? ""}</span>
               </button>
             ))}
           </div>
-          <button className="object token picker-nav" aria-label="Modèle suivant" disabled={!items || focus >= items.length - 1} onClick={() => setFocus((f) => Math.min((items?.length ?? 1) - 1, f + 1))}>
+          <button className="object token picker-nav" aria-label={t("ui-picker-next")} disabled={!items || focus >= items.length - 1} onClick={() => setFocus((f) => Math.min((items?.length ?? 1) - 1, f + 1))}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
           </button>
         </div>

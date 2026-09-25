@@ -2,10 +2,11 @@
 // Chaque modification part en op vers le cœur, qui redessine le graphique.
 
 import type { Element, Op } from "../api";
+import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
 import { CHART_KINDS, type ChartKind, chartKind, chartSource, kindPatch } from "./chartDeck";
 
-const KIND_LABELS: Record<ChartKind, string> = { bar: "Barres", line: "Lignes", pie: "Secteurs" };
+const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
 export function ChartPanel({ slide, element, onApply }: {
   slide: string;
@@ -16,24 +17,24 @@ export function ChartPanel({ slide, element, onApply }: {
   const current = chartKind(element);
   const setKind = (kind: ChartKind) => {
     const patch = kindPatch(element, kind);
-    if (patch) onApply("Changer le type du graphique", [{ op: "set_chart_option", slide, element: element.id, patch }]);
+    if (patch) onApply(t("ui-undo-chart-kind"), [{ op: "set_chart_option", slide, element: element.id, patch }]);
   };
   return (
-    <section className="chart-panel" aria-label="Graphique">
-      <div className="chart-kinds" role="group" aria-label="Type de graphique">
+    <section className="chart-panel" aria-label={t("ui-chart-panel")}>
+      <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
         {CHART_KINDS.map((k) => (
           <button key={k} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
-            {KIND_LABELS[k]}
+            {kindLabel(k)}
           </button>
         ))}
       </div>
       {source ? (
         <ChartDataGrid
           source={source}
-          onOp={(change) => onApply("Modifier les données", [{ op: "set_chart_data", slide, element: element.id, change }])}
+          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", slide, element: element.id, change }])}
         />
       ) : (
-        <p className="postit-hint">Ce graphique n'a pas de tableau de données.</p>
+        <p className="postit-hint">{t("ui-chart-no-data")}</p>
       )}
     </section>
   );

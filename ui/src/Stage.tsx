@@ -7,6 +7,7 @@ import type { GridPlacement } from "./deck";
 import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./deck";
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
+import { t } from "./i18n";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -43,20 +44,11 @@ interface Props {
   showGridAlways?: boolean;
 }
 
-export const FIELD_LABELS: Record<string, string> = {
-  title: "Titre",
-  subtitle: "Sous-titre",
-  kicker: "Surtitre",
-  text: "Texte",
-};
+/** Nom d'un champ de slide (titre, sous-titre…) ; un champ inconnu garde son identifiant. */
+export const fieldLabel = (kind: string) => t("ui-field", { kind });
 
-const KIND_LABELS: Record<string, string> = {
-  text: "Texte",
-  card: "Carte",
-  image: "Image",
-  shape: "Forme",
-  group: "Groupe",
-};
+/** Nom d'une sorte d'élément (texte, carte…) ; une sorte inconnue garde son identifiant. */
+const kindLabel = (kind: string) => t("ui-element-kind", { kind });
 
 /** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
 function dragged(d: Drag): Frame {
@@ -294,9 +286,9 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
       const moved = Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2;
       // Un élément qui n'est pas encore sur une case s'y accroche dès qu'il bouge.
       if (!sameCell(cell, place.cell) || (moved && !place.onCell)) {
-        const label = place.block
-          ? drag.mode === "move" ? "Placer sur la grille" : "Redimensionner sur la grille"
-          : drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
+        const label = t(place.block
+          ? drag.mode === "move" ? "ui-undo-place-on-grid" : "ui-undo-resize-on-grid"
+          : drag.mode === "move" ? "ui-undo-move-on-grid" : "ui-undo-change-anchor");
         onApply(label, placeOnGridOps(view, drag.id, cell));
       }
       return;
@@ -305,7 +297,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     const o = drag.frame;
     setDrag(null);
     if (f.x !== o.x || f.y !== o.y || f.w !== o.w || f.h !== o.h) {
-      const label = drag.mode === "move" ? "Déplacer" : "Redimensionner";
+      const label = t(drag.mode === "move" ? "ui-undo-move" : "ui-undo-resize");
       onApply(label, [{ op: "set_frame", slide: view.slide.id, element: drag.id, frame: f }]);
     }
   };
@@ -313,7 +305,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const commit = () => {
     if (!editTarget) return;
     if (draft !== (editTarget.text ?? "")) {
-      onApply("Modifier le texte", textOps(view, editTarget, draft));
+      onApply(t("ui-undo-edit-text"), textOps(view, editTarget, draft));
     }
     onEdit(null);
   };
@@ -355,26 +347,26 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
         onPointerUp={endDrag}
         onPointerCancel={() => setDrag(null)}
       >
-        {svgUrl && <img src={svgUrl} alt={`Slide ${view.page}`} draggable={false} />}
+        {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
         {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
-        <div className="overlay" role="group" aria-label="Éléments de la slide">
-          {ordered.map((t) => {
-            const sel = t.id === selected;
-            const label = t.target === "field" ? FIELD_LABELS[t.kind] ?? t.kind : KIND_LABELS[t.kind] ?? t.kind;
+        <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
+          {ordered.map((tg) => {
+            const sel = tg.id === selected;
+            const label = tg.target === "field" ? fieldLabel(tg.kind) : kindLabel(tg.kind);
             return (
               <div
-                key={t.id}
-                className={`target${t.free || (!!grid && isBlock(view, t.id)) ? " free" : ""}${sel ? " selected" : ""}`}
-                style={box(t)}
+                key={tg.id}
+                className={`target${tg.free || (!!grid && isBlock(view, tg.id)) ? " free" : ""}${sel ? " selected" : ""}`}
+                style={box(tg)}
                 aria-label={label}
                 aria-selected={sel}
-                onPointerDown={(e) => startDrag(e, t, "move")}
-                onDoubleClick={() => t.text !== null && onEdit(t.id)}
+                onPointerDown={(e) => startDrag(e, tg, "move")}
+                onDoubleClick={() => tg.text !== null && onEdit(tg.id)}
               >
-                {sel && !editing && <span className="tag">{tagFor(t, label)}</span>}
-                {sel && (t.free || (!!grid && isBlock(view, t.id))) &&
+                {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
+                {sel && (tg.free || (!!grid && isBlock(view, tg.id))) &&
                   (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
-                    <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, t, m)} />
+                    <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
                   ))}
               </div>
             );
@@ -393,7 +385,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 ref={area}
                 className="editor"
                 autoFocus
-                aria-label="Modifier le texte"
+                aria-label={t("ui-stage-edit-text")}
                 spellCheck
                 rows={1}
                 style={g.style}
@@ -413,7 +405,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 onBlur={commit}
               />
               <span className="editor-hint">
-                {editTarget.target === "field" ? "Entrée pour valider · Échap pour annuler" : "⌘ Entrée pour valider · une ligne par paragraphe, « - » pour une puce"}
+                {t(editTarget.target === "field" ? "ui-stage-hint-field" : "ui-stage-hint-block")}
               </span>
             </>
           );

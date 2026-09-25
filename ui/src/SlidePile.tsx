@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SlideSummary } from "./api";
+import { t } from "./i18n";
 
 interface Props {
   slides: SlideSummary[];
@@ -134,7 +135,7 @@ export default function SlidePile({ slides, current, svg, names, label, addLabel
             <button
               className={`thumb${lifted ? " lifted" : ""}`}
               aria-current={s.id === current}
-              title="Glisser pour déplacer · ⌥↑ ⌥↓"
+              title={t("ui-pile-drag-hint")}
               onPointerDown={(e) => down(e, s.id)}
               onPointerMove={move}
               onPointerUp={up}
@@ -148,7 +149,7 @@ export default function SlidePile({ slides, current, svg, names, label, addLabel
             >
               <span className="thumb-n">{i + 1}</span>
               <span className="thumb-body">
-                {url ? <img className="thumb-img" src={url} alt={s.title ?? `Slide ${i + 1}`} draggable={false} /> : <span className="thumb-img" />}
+                {url ? <img className="thumb-img" src={url} alt={s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />}
                 {name && <span className="thumb-name">{name}</span>}
               </span>
             </button>

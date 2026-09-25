@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SttConfig, SttModel, SttStatus } from "./api";
 import { stt } from "./api";
+import { t } from "./i18n";
 
 const SILENCES = [1, 1.5, 2, 3, 5];
 
-const secs = (s: number) => `${s.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s`;
+const secs = (s: number) => t("ui-seconds", { value: s });
 
-const LANGUAGES: [string | null, string][] = [
-  [null, "Détection automatique"],
+/** Langues de la dictée, chacune dans sa langue ; la détection automatique dans celle de l'interface. */
+const languages = (): [string | null, string][] => [
+  [null, t("ui-dictation-language-auto")],
   ["fr", "Français"],
   ["en", "English"],
   ["de", "Deutsch"],
@@ -18,10 +20,10 @@ const LANGUAGES: [string | null, string][] = [
 ];
 
 const mo = (bytes: number) =>
-  bytes >= 1e9 ? `${(bytes / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Go` : `${Math.round(bytes / 1e6)} Mo`;
+  bytes >= 1e9 ? t("ui-size-gb", { value: bytes / 1e9 }) : t("ui-size-mb", { value: Math.round(bytes / 1e6) });
 
 /** Fin du texte : c'est là qu'on parle. */
-const tail = (t: string, n = 150) => (t.length > n ? `…${t.slice(t.length - n).replace(/^\S*\s/, "")}` : t);
+const tail = (s: string, n = 150) => (s.length > n ? `…${s.slice(s.length - n).replace(/^\S*\s/, "")}` : s);
 
 /** Texte définitif puis aperçu de la phrase en cours, coupés par la fin. */
 function transcript(committed: string, partial: string, n = 160): [string, string] {
@@ -67,7 +69,7 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
     else if (s.seq !== lastSeq.current) {
       lastSeq.current = s.seq;
       if (s.text) handlers.current.onText(s.text);
-      else handlers.current.onError("Rien entendu : parlez un peu plus près du micro");
+      else handlers.current.onError(t("ui-dictation-heard-nothing"));
     }
     if (s.error && s.error !== lastError.current) handlers.current.onError(s.error);
     lastError.current = s.error;
@@ -87,8 +89,8 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
   const busy = status && status.state !== "idle";
   useEffect(() => {
     if (!busy) return;
-    const t = window.setInterval(() => send(stt.status()), status?.state === "downloading" ? 400 : 90);
-    return () => window.clearInterval(t);
+    const timer = window.setInterval(() => send(stt.status()), status?.state === "downloading" ? 400 : 90);
+    return () => window.clearInterval(timer);
   }, [busy, status?.state, send]);
 
   useEffect(() => {
@@ -126,15 +128,16 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
 
   if (!status) {
     return (
-      <div className="device object" aria-label="Dictée">
-        <button className="mic" disabled aria-label="Dicter">{MicIcon}</button>
-        <div className="spacer caption">Préparation de la dictée…</div>
+      <div className="device object" aria-label={t("ui-dictation")}>
+        <button className="mic" disabled aria-label={t("ui-dictation-start")}>{MicIcon}</button>
+        <div className="spacer caption">{t("ui-dictation-preparing")}</div>
       </div>
     );
   }
 
   const model = status.models.find((m) => m.id === status.config.model);
-  const language = LANGUAGES.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
+  const langs = languages();
+  const language = langs.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
   const { state } = status;
 
   let body: React.ReactNode;
@@ -145,8 +148,8 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
     body = (
       <div className="dictation-body">
         <div className="dictation-line">
-          <span className="dictation-state">Téléchargement du modèle {name}</span>
-          <span className="caption">{pct} % · {mo(d.received)} sur {mo(d.total)} · une seule fois</span>
+          <span className="dictation-state">{t("ui-dictation-downloading", { name: name ?? "" })}</span>
+          <span className="caption">{t("ui-dictation-download-progress", { percent: pct, received: mo(d.received), total: mo(d.total) })}</span>
         </div>
         <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ width: `${pct}%` }} />
@@ -155,9 +158,9 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
     );
   } else if (state === "recording" || state === "transcribing") {
     const [done, current] = transcript(status.committed, status.partial);
-    const detected = status.detected && !status.config.language ? LANGUAGES.find(([c]) => c === status.detected)?.[1] ?? status.detected : null;
-    let listening: React.ReactNode = <><span className={`rec-dot${status.speaking ? " voice" : ""}`} />J'écoute · {clock(status.seconds)}</>;
-    if (state === "transcribing") listening = "Transcription de la dernière phrase…";
+    const detected = status.detected && !status.config.language ? langs.find(([c]) => c === status.detected)?.[1] ?? status.detected : null;
+    let listening: React.ReactNode = <><span className={`rec-dot${status.speaking ? " voice" : ""}`} />{t("ui-dictation-listening", { time: clock(status.seconds) })}</>;
+    if (state === "transcribing") listening = t("ui-dictation-transcribing");
     body = (
       <div className="dictation-body">
         <div className="dictation-line">
@@ -165,7 +168,7 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
           {state === "recording" && (
             <span className="dictation-meta">
               {status.stop_in !== null ? (
-                <span className="caption stop-in">Arrêt dans {secs(Math.ceil(status.stop_in * 2) / 2)}</span>
+                <span className="caption stop-in">{t("ui-dictation-stop-in", { duration: secs(Math.ceil(status.stop_in * 2) / 2) })}</span>
               ) : detected ? (
                 <span className="caption">{detected}</span>
               ) : null}
@@ -182,7 +185,7 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
               {done && current ? " " : ""}
               {current && <span className="tentative">{current}</span>}
             </>
-          ) : state === "recording" ? "Parlez, le texte apparaît ici…" : ""}
+          ) : state === "recording" ? t("ui-dictation-speak") : ""}
         </div>
       </div>
     );
@@ -190,11 +193,11 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
     body = (
       <div className="dictation-body">
         <div className="dictation-line">
-          <span className="dictation-state">Dicter <span className="caption">→ {destination}</span></span>
+          <span className="dictation-state">{t("ui-dictation-start")} <span className="caption">→ {destination}</span></span>
           <span className="caption">
             {model?.label.split(" (")[0]} · {language}
-            {status.config.auto_stop ? ` · arrêt après ${secs(status.config.silence)} de silence` : ""}
-            {model && !model.installed ? ` · ${mo(model.size)} à télécharger` : ""}
+            {status.config.auto_stop ? ` · ${t("ui-dictation-auto-stop", { duration: secs(status.config.silence) })}` : ""}
+            {model && !model.installed ? ` · ${t("ui-dictation-to-download", { size: mo(model.size) })}` : ""}
           </span>
         </div>
       </div>
@@ -202,11 +205,11 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
   }
 
   return (
-    <div className={`device object dictation ${state}`} aria-label="Dictée">
+    <div className={`device object dictation ${state}`} aria-label={t("ui-dictation")}>
       <button
         className={`mic${state === "recording" ? " live" : ""}`}
-        aria-label={state === "recording" ? "Terminer la dictée" : "Dicter"}
-        title={state === "recording" ? "Terminer (⌘D)" : "Dicter (⌘D)"}
+        aria-label={t(state === "recording" ? "ui-dictation-finish" : "ui-dictation-start")}
+        title={t(state === "recording" ? "ui-dictation-finish-title" : "ui-dictation-start-title")}
         disabled={state === "downloading" || state === "transcribing"}
         // Ne pas voler le focus : un texte en cours d'édition reste ouvert.
         onMouseDown={(e) => e.preventDefault()}
@@ -217,11 +220,11 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
       </button>
       {body}
       {state === "recording" || state === "downloading" ? (
-        <button className="btn ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>Annuler</button>
+        <button className="btn ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{t("ui-dictation-cancel")}</button>
       ) : (
         <button
           className="token ghost"
-          aria-label="Réglages de la dictée"
+          aria-label={t("ui-dictation-settings")}
           aria-expanded={settings}
           disabled={state !== "idle"}
           onClick={() => setSettings((v) => !v)}
@@ -231,9 +234,9 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
       )}
 
       {settings && state === "idle" && (
-        <div className="dictation-settings object" role="dialog" aria-label="Réglages de la dictée">
-          <div className="settings-title">Modèle de reconnaissance</div>
-          <p className="caption">Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.</p>
+        <div className="dictation-settings object" role="dialog" aria-label={t("ui-dictation-settings")}>
+          <div className="settings-title">{t("ui-dictation-model-title")}</div>
+          <p className="caption">{t("ui-dictation-model-intro")}</p>
           <div className="model-list" role="radiogroup">
             {status.models.map((m) => {
               const [name, detail] = m.label.replace(")", "").split(" (");
@@ -246,30 +249,30 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
                     onChange={() => configure({ model: m.id as SttModel })}
                   />
                   <span className="model-name">{name}</span>
-                  <span className="caption">{MODEL_NOTES[m.id]} · {detail?.replace("multilingue, ", "")}</span>
-                  <span className={`badge${m.installed ? " ok" : ""}`}>{m.installed ? "installé" : "à télécharger"}</span>
+                  <span className="caption">{modelNote(m.id)} · {detail?.replace(/^[^,]*, /, "")}</span>
+                  <span className={`badge${m.installed ? " ok" : ""}`}>{t(m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}</span>
                 </label>
               );
             })}
           </div>
           <label className="settings-row">
-            <span className="caption">Langue parlée</span>
+            <span className="caption">{t("ui-dictation-language")}</span>
             <select
               className="select"
               value={status.config.language ?? ""}
               onChange={(e) => configure({ language: e.target.value || null })}
             >
-              {LANGUAGES.map(([code, name]) => <option key={code ?? "auto"} value={code ?? ""}>{name}</option>)}
+              {langs.map(([code, name]) => <option key={code ?? "auto"} value={code ?? ""}>{name}</option>)}
             </select>
           </label>
           <div className="settings-row">
             <label className="check">
               <input type="checkbox" checked={status.config.auto_stop} onChange={(e) => configure({ auto_stop: e.target.checked })} />
-              <span className="caption">Arrêter seul après un silence de</span>
+              <span className="caption">{t("ui-dictation-auto-stop-label")}</span>
             </label>
             <select
               className="select"
-              aria-label="Durée du silence"
+              aria-label={t("ui-dictation-silence")}
               disabled={!status.config.auto_stop}
               value={String(status.config.silence)}
               onChange={(e) => configure({ silence: Number(e.target.value) })}
@@ -279,9 +282,9 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
               ))}
             </select>
           </div>
-          <p className="caption">Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.</p>
+          <p className="caption">{t("ui-dictation-phrases-note")}</p>
           {model && !model.installed && (
-            <button className="btn" onClick={() => send(stt.download(model.id))}>Télécharger maintenant ({mo(model.size)})</button>
+            <button className="btn" onClick={() => send(stt.download(model.id))}>{t("ui-dictation-download-now", { size: mo(model.size) })}</button>
           )}
         </div>
       )}
@@ -289,8 +292,16 @@ export default function Dictation({ destination, prompt, onText, onError }: Prop
   );
 }
 
-const MODEL_NOTES: Record<string, string> = {
-  turbo: "Recommandé, rapide et précis",
-  large: "Le plus précis, plus lent",
-  base: "Léger, pour les petites machines",
-};
+/** Note d'un modèle de dictée ; aucune pour un modèle inconnu. */
+function modelNote(id: string): string | undefined {
+  switch (id) {
+    case "turbo":
+      return t("ui-dictation-note-turbo");
+    case "large":
+      return t("ui-dictation-note-large");
+    case "base":
+      return t("ui-dictation-note-base");
+    default:
+      return undefined;
+  }
+}

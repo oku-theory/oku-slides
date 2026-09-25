@@ -7,6 +7,8 @@
 // Même calcul que `grid-frame` dans typst/slider/src/data.typ : le rendu et
 // l'édition doivent rester alignés au point près.
 
+import { t } from "./i18n";
+
 /** Grille résolue par le rendu : gouttière en pt. */
 export interface GridSpec {
   columns: number;
@@ -145,5 +147,5 @@ export function rescaleCell(cell: Cell, from: { columns: number; rows: number },
 export function cellLabel(cell: Cell): string {
   const { cols, rows } = span(cell);
   const range = (a: number, n: number) => (n === 1 ? `${a + 1}` : `${a + 1}–${a + n}`);
-  return `col. ${range(cell.col, cols)} · lig. ${range(cell.row, rows)}`;
+  return t("ui-grid-cell", { cols: range(cell.col, cols), rows: range(cell.row, rows) });
 }
