@@ -1,0 +1,15 @@
+/* Jetons Papier attendus ; les valeurs après la virgule sont des replis. */
+.cdg { display: flex; flex-direction: column; gap: 8px; font: inherit; color: var(--papier-text, #1f1d1a); }
+.cdg-scroll { overflow: auto; max-height: 60vh; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); }
+.cdg table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.cdg th, .cdg td { border-bottom: 1px solid var(--papier-border, #e7e2d8); padding: 0; }
+.cdg th { position: sticky; top: 0; background: var(--papier-surface-raised, #f5f2ec); font-weight: 600; z-index: 1; }
+.cdg-head { display: flex; align-items: center; }
+.cdg-input { width: 100%; min-width: 6ch; box-sizing: border-box; border: 0; background: transparent; padding: 6px 8px; font: inherit; color: inherit; }
+.cdg-number { text-align: right; }
+.cdg-input:focus { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: -2px; background: var(--papier-surface, #fff); }
+.cdg-gutter { width: 1%; }
+.cdg-remove { border: 0; background: transparent; color: var(--papier-text-muted, #6b665e); cursor: pointer; padding: 4px 8px; opacity: 0; }
+tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { opacity: 1; }
+.cdg-actions { display: flex; gap: 8px; }
+.cdg-actions button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: var(--papier-surface, #fff); border-radius: var(--papier-radius, 6px); padding: 4px 10px; cursor: pointer; }

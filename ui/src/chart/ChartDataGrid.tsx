@@ -1,0 +1,228 @@
+// Grille d'édition des données d'un graphique (dataset.source).
+//
+// Composant contrôlé : il affiche `source` et émet des ChartDataOp ; c'est le
+// cœur Rust qui applique l'opération, régénère le SVG et renvoie la nouvelle
+// source. Aucune donnée n'est modifiée localement, donc l'annulation et la
+// dictée restent cohérentes avec la grille.
+//
+// TanStack Table v9 (`useTable` + `tableFeatures`), sans feature optionnelle.
+
+import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
+import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
+import type { Cell, ChartDataOp } from "./chartTypes";
+import "./ChartDataGrid.css";
+
+type Row = { index: number; cells: Cell[] };
+
+const features = tableFeatures({});
+const helper = createColumnHelper<typeof features, Row>();
+
+export type ChartDataGridProps = {
+  /** dataset.source : ligne 0 = en-têtes. */
+  source: Cell[][];
+  onOp: (op: ChartDataOp) => void;
+  /** Colonne 0 en texte (catégories) ; les autres attendent des nombres. */
+  firstColumnIsLabel?: boolean;
+};
+
+export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: ChartDataGridProps) {
+  const header = source[0] ?? [];
+  const width = header.length;
+  const data = useMemo<Row[]>(
+    () => source.slice(1).map((cells, i) => ({ index: i + 1, cells })),
+    [source],
+  );
+
+  const columns = useMemo(
+    () =>
+      helper.columns(
+        header.map((h, col) =>
+          helper.accessor((row) => row.cells[col] ?? null, {
+            id: `c${col}`,
+            header: () => (
+              <div className="cdg-head">
+                <CellInput
+                  value={h}
+                  label
+                  ariaLabel={`Nom de la colonne ${col + 1}`}
+                  onCommit={(value) => onOp({ op: "set_cell", row: 0, col, value })}
+                />
+                {width > 1 && (
+                  <button
+                    className="cdg-remove"
+                    title="Supprimer la colonne"
+                    onClick={() => onOp({ op: "remove_column", at: col })}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ),
+            cell: (ctx) => (
+              <CellInput
+                value={ctx.getValue()}
+                label={firstColumnIsLabel && col === 0}
+                ariaLabel={`Ligne ${ctx.row.original.index}, colonne ${col + 1}`}
+                onCommit={(value) =>
+                  onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
+                }
+                onPasteGrid={(grid) =>
+                  onOp({
+                    op: "replace",
+                    source: pasteInto(
+                      source,
+                      grid,
+                      ctx.row.original.index,
+                      col,
+                      firstColumnIsLabel,
+                    ),
+                  })
+                }
+              />
+            ),
+          }),
+        ),
+      ),
+    // `source` est nécessaire au collage ; les colonnes changent peu.
+    [source, header, width, onOp, firstColumnIsLabel],
+  );
+
+  const table = useTable({ features, columns, data });
+
+  return (
+    <div className="cdg">
+      <div className="cdg-scroll">
+        <table>
+          <thead>
+            {table.getHeaderGroups().map((group) => (
+              <tr key={group.id}>
+                {group.headers.map((h) => (
+                  <th key={h.id}>
+                    <table.FlexRender header={h} />
+                  </th>
+                ))}
+                <th className="cdg-gutter" />
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map((row) => (
+              <tr key={row.id}>
+                {row.getAllCells().map((cell) => (
+                  <td key={cell.id}>
+                    <table.FlexRender cell={cell} />
+                  </td>
+                ))}
+                <td className="cdg-gutter">
+                  <button
+                    className="cdg-remove"
+                    title="Supprimer la ligne"
+                    onClick={() => onOp({ op: "remove_row", at: row.original.index })}
+                  >
+                    ×
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="cdg-actions">
+        <button onClick={() => onOp({ op: "insert_row", at: source.length, cells: [] })}>
+          + Ligne
+        </button>
+        <button onClick={() => onOp({ op: "insert_column", at: width, cells: [`Série ${width}`] })}>
+          + Colonne
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type CellInputProps = {
+  value: Cell;
+  label?: boolean;
+  ariaLabel: string;
+  onCommit: (value: Cell) => void;
+  onPasteGrid?: (grid: string[][]) => void;
+};
+
+function CellInput({ value, label, ariaLabel, onCommit, onPasteGrid }: CellInputProps) {
+  const shown = display(value);
+  const commit = (raw: string) => {
+    const next = label ? raw : parseCell(raw);
+    if (display(next) !== shown) onCommit(next);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") e.currentTarget.blur();
+    if (e.key === "Escape") {
+      e.currentTarget.value = shown;
+      e.currentTarget.blur();
+    }
+  };
+  const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (!onPasteGrid || !/[\t\n]/.test(text.trim())) return;
+    e.preventDefault();
+    onPasteGrid(parseTsv(text));
+  };
+  return (
+    <input
+      // La clé réinitialise le brouillon quand la valeur change côté Rust.
+      key={shown}
+      defaultValue={shown}
+      aria-label={ariaLabel}
+      className={label ? "cdg-input" : "cdg-input cdg-number"}
+      inputMode={label ? "text" : "decimal"}
+      onBlur={(e) => commit(e.currentTarget.value)}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
+    />
+  );
+}
+
+function display(c: Cell): string {
+  if (c === null) return "";
+  if (typeof c === "number")
+    return c.toLocaleString("fr-FR", { maximumFractionDigits: 10, useGrouping: false });
+  return c;
+}
+
+/** "1 234,5" → 1234.5 ; vide → null ; sinon texte. */
+export function parseCell(raw: string): Cell {
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = Number(t.replace(/[\s\u00a0\u202f]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : t;
+}
+
+export function parseTsv(text: string): string[][] {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n$/, "")
+    .split("\n")
+    .map((line) => line.split("\t"));
+}
+
+/** Colle un bloc à partir de (row, col), en agrandissant le tableau si besoin. */
+export function pasteInto(
+  source: Cell[][],
+  grid: string[][],
+  row: number,
+  col: number,
+  firstColumnIsLabel: boolean,
+): Cell[][] {
+  const out = source.map((r) => [...r]);
+  const width = Math.max(out[0]?.length ?? 0, col + Math.max(...grid.map((r) => r.length)));
+  grid.forEach((cells, dr) => {
+    const r = row + dr;
+    while (out.length <= r) out.push([]);
+    cells.forEach((raw, dc) => {
+      const c = col + dc;
+      out[r][c] = firstColumnIsLabel && c === 0 ? raw : parseCell(raw);
+    });
+  });
+  for (const r of out) while (r.length < width) r.push(null);
+  for (let c = 0; c < width; c++) if (out[0][c] === null) out[0][c] = `Série ${c}`;
+  return out;
+}

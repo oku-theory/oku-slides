@@ -1,0 +1,18 @@
+[package]
+name = "slider-chart"
+description = "Graphiques : sous-ensemble des options ECharts, rendu SVG par charts-rs, opérations sur les données."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+charts-rs.workspace = true
+json-patch.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1"
