@@ -251,3 +251,34 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
     let (status, _) = http(port, "GET", "/../secret.txt", "");
     assert_that!(status).is_equal_to(404);
 }
+
+#[cfg(unix)]
+#[test]
+fn serve_stops_cleanly_on_sigterm() {
+    let dir = workdir("sigterm");
+    let port = free_port();
+    let mut server = slider(&dir, "en")
+        .env("ECHO_PATHS__MODELS", dir.join("models"))
+        .args(["serve", "--port", &port.to_string()])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let (status, _) = http(port, "POST", "/api", r#"{"cmd":"snapshot"}"#);
+    assert_that!(status).is_equal_to(200);
+
+    let killed = Command::new("kill").args(["-TERM", &server.id().to_string()]).status().unwrap();
+    assert_that!(killed.success()).is_true();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let exit = loop {
+        if let Some(exit) = server.try_wait().unwrap() {
+            break exit;
+        }
+        assert_that!(Instant::now() < deadline).is_true();
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let mut printed = String::new();
+    server.stdout.take().unwrap().read_to_string(&mut printed).unwrap();
+    assert_that!(exit.success()).is_true();
+    assert_that!(printed).ends_with("server stopped\n");
+}

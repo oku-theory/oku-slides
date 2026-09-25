@@ -38,6 +38,7 @@ color-eyre = "0.6"
 config = { version = "0.15", default-features = false, features = ["toml"] }
 opendal = { version = "0.59", default-features = false, features = ["services-fs", "blocking"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
+ctrlc = { version = "3.5", features = ["termination"] }
 fluent-bundle = "0.16"
 unic-langid = "0.9"
 sys-locale = "0.3"

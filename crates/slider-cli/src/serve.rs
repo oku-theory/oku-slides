@@ -1,6 +1,7 @@
 //! `slider serve` : l'interface et l'API dans un navigateur, sans Tauri.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use color_eyre::eyre::{Result, eyre};
 use slider_platform::Platform;
@@ -24,6 +25,9 @@ fn content_type(path: &Path) -> &'static str {
 }
 
 /// Sert l'interface et l'API `/api` (une requête JSON par appel, comme `invoke` dans Tauri).
+///
+/// Ctrl-C, SIGTERM ou SIGHUP arrêtent le serveur proprement : la requête en
+/// cours reçoit sa réponse, puis `serve` rend la main (code de sortie 0).
 pub fn serve(
     out: &mut Out<'_>,
     input: Option<PathBuf>,
@@ -39,7 +43,9 @@ pub fn serve(
     }
     let settings = &platform.settings;
     let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
-    let server = Server::http((host, port)).map_err(|e| eyre!("{e}"))?;
+    let server = Arc::new(Server::http((host, port)).map_err(|e| eyre!("{e}"))?);
+    let stopper = Arc::clone(&server);
+    ctrlc::set_handler(move || stopper.unblock())?;
     let stt = slider_stt::Stt::new(platform);
     out.line("cli-serving", &[("host", host.into()), ("port", port.into())])?;
     out.line("cli-models-dir", &[("dir", stt.models_dir().display().to_string().into())])?;
@@ -94,5 +100,6 @@ pub fn serve(
             tracing::debug!(error = %e, "réponse non envoyée");
         }
     }
+    out.line("cli-stopped", &[])?;
     Ok(())
 }

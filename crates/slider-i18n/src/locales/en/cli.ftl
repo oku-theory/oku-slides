@@ -25,6 +25,7 @@ cli-bench-extract = reading the blob back           { $time }
 cli-bench-roundtrip = deck round trip                 identical
 cli-serving = Écho (dev) at http://{ $host }:{ $port }
 cli-models-dir = dictation models: { $dir }
+cli-stopped = server stopped
 cli-not-found = not found
 cli-bad-header = invalid HTTP header: { $value }
 cli-bad-request = invalid request: { $reason }

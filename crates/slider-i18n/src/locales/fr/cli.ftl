@@ -25,6 +25,7 @@ cli-bench-extract = relecture du blob                 { $time }
 cli-bench-roundtrip = aller-retour du deck              identique
 cli-serving = Écho (dev) sur http://{ $host }:{ $port }
 cli-models-dir = modèles de dictée : { $dir }
+cli-stopped = serveur arrêté
 cli-not-found = introuvable
 cli-bad-header = en-tête HTTP invalide : { $value }
 cli-bad-request = requête invalide : { $reason }
