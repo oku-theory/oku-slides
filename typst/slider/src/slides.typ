@@ -153,6 +153,8 @@
   let kick = if kicker == auto { p.organization } else { kicker }
   let band = k.at("layout", default: "plain") == "band"
   let col(key, band-key) = color-of(t, if band { k.at(band-key) } else { k.at(key) })
+  // Fond réel sous le titre (le bandeau n'est pas le fond de page) : pour l'éditeur.
+  let under = if band { (bg: color-of(t, k.band-bg)) } else { (:) }
 
   let bar = if k.bar {
     rect(width: k.bar-width * 1pt, height: k.bar-height * 1pt, fill: color-of(t, k.bar-color))
@@ -164,10 +166,10 @@
       tracking: k.title-tracking * 1pt, title)
   }, style: (size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
-      tracking: k.title-tracking * 1pt, leading: leading-of(t, "tight")))
+      tracking: k.title-tracking * 1pt, leading: leading-of(t, "tight")) + under)
   let sub = if subtitle != none {
     tracked("@subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle),
-      style: (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")))
+      style: (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")) + under)
   }
   let meta-line = if meta.len() > 0 {
     text(size: size-of(t, k.meta-size), fill: col("meta-color", "band-meta-color"), meta.join[ · ])

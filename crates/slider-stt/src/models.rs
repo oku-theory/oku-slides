@@ -1,17 +1,22 @@
-//! Modèles Whisper (format ggml de whisper.cpp), téléchargés à la demande.
+//! Modèles Whisper au format CTranslate2 (celui de faster-whisper),
+//! téléchargés à la demande depuis Hugging Face.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-const BASE_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
+const HF: &str = "https://huggingface.co";
+
+/// Marqueur écrit quand tous les fichiers d'un modèle sont là.
+const COMPLETE: &str = ".complete";
 
 /// Modèles proposés. Tous sont multilingues.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Model {
-    /// large-v3-turbo quantifié : très bon compromis qualité / vitesse.
+    /// large-v3-turbo quantifié int8 : très bon compromis qualité / vitesse.
     #[default]
     Turbo,
     /// large-v3 complet : la meilleure qualité, lourd.
@@ -23,41 +28,52 @@ pub enum Model {
 impl Model {
     pub const ALL: [Model; 3] = [Model::Turbo, Model::Large, Model::Base];
 
-    pub fn file_name(self) -> &'static str {
+    /// Dépôt Hugging Face du modèle.
+    pub fn repo(self) -> &'static str {
         match self {
-            Model::Turbo => "ggml-large-v3-turbo-q5_0.bin",
-            Model::Large => "ggml-large-v3.bin",
-            Model::Base => "ggml-base.bin",
+            Model::Turbo => "Zoont/faster-whisper-large-v3-turbo-int8-ct2",
+            Model::Large => "Systran/faster-whisper-large-v3",
+            Model::Base => "Systran/faster-whisper-base",
         }
     }
 
-    pub fn url(self) -> String {
-        format!("{BASE_URL}/{}", self.file_name())
+    /// Fichiers à récupérer : (dépôt, fichier). Le dépôt `base` n'a pas de
+    /// `preprocessor_config.json` : on prend celui d'OpenAI.
+    fn files(self) -> Vec<(&'static str, &'static str)> {
+        let repo = self.repo();
+        // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
+        let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
+        let preprocessor = match self {
+            Model::Base => ("openai/whisper-base", "preprocessor_config.json"),
+            _ => (repo, "preprocessor_config.json"),
+        };
+        vec![(repo, "config.json"), (repo, "tokenizer.json"), (repo, vocabulary), preprocessor, (repo, "model.bin")]
     }
 
-    /// Taille attendue du fichier, pour vérifier le téléchargement.
+    /// Taille totale attendue (octets), pour la progression.
     pub fn size(self) -> u64 {
         match self {
-            Model::Turbo => 574_041_195,
-            Model::Large => 3_095_033_483,
-            Model::Base => 147_951_465,
+            Model::Turbo => 817_887_676,
+            Model::Large => 3_090_835_702,
+            Model::Base => 148_067_931,
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
-            Model::Turbo => "Large v3 Turbo (multilingue, 574 Mo)",
+            Model::Turbo => "Large v3 Turbo (multilingue, 818 Mo)",
             Model::Large => "Large v3 (multilingue, 3,1 Go)",
             Model::Base => "Base (multilingue, 148 Mo)",
         }
     }
 
+    /// Dossier du modèle.
     pub fn path(self, dir: &Path) -> PathBuf {
-        dir.join(self.file_name())
+        dir.join(self.repo().replace('/', "--"))
     }
 
     pub fn is_installed(self, dir: &Path) -> bool {
-        std::fs::metadata(self.path(dir)).is_ok_and(|m| m.len() == self.size())
+        self.path(dir).join(COMPLETE).exists()
     }
 }
 
@@ -73,97 +89,23 @@ pub enum DownloadError {
     Cancelled,
 }
 
-/// Télécharge un modèle dans `dir` (fichier `.part` puis renommage).
+/// Télécharge un modèle dans `dir` (chaque fichier en `.part` puis renommé ;
+/// les fichiers déjà là sont gardés, un téléchargement interrompu reprend).
 /// `progress(reçu, total)` est appelé régulièrement ; s'il renvoie `false`, on annule.
 pub fn download(
     model: Model,
     dir: &Path,
     mut progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<PathBuf, DownloadError> {
-    std::fs::create_dir_all(dir)?;
     let dest = model.path(dir);
-    let part = dir.join(format!("{}.part", model.file_name()));
-
-    let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
-    let mut resp = agent.get(&model.url()).call().map_err(|e| DownloadError::Http(e.to_string()))?;
-    let total = resp
-        .headers()
-        .get("content-length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(model.size());
-
-    let mut reader = resp.body_mut().with_config().limit(u64::MAX).reader();
-    let mut file = std::fs::File::create(&part)?;
-    let mut buf = vec![0u8; 1 << 20];
-    let mut got = 0u64;
-    loop {
-        let n = reader.read(&mut buf).map_err(|e| DownloadError::Http(e.to_string()))?;
-        if n == 0 {
-            break;
-        }
-        file.write_all(&buf[..n])?;
-        got += n as u64;
-        if !progress(got, total) {
-            drop(file);
-            std::fs::remove_file(&part).ok();
-            return Err(DownloadError::Cancelled);
-        }
-    }
-    file.sync_all()?;
-    if got != model.size() {
-        std::fs::remove_file(&part).ok();
-        return Err(DownloadError::Incomplete { got, expected: model.size() });
-    }
-    std::fs::rename(&part, &dest)?;
-    Ok(dest)
-}
-
-// ---- Modèles CTranslate2 (faster-whisper), pour la comparaison ------------------
-
-const HF: &str = "https://huggingface.co";
-
-impl Model {
-    /// Dépôt Hugging Face du même modèle au format CTranslate2.
-    pub fn ct2_repo(self) -> &'static str {
-        match self {
-            Model::Turbo => "deepdml/faster-whisper-large-v3-turbo-ct2",
-            Model::Large => "Systran/faster-whisper-large-v3",
-            Model::Base => "Systran/faster-whisper-base",
-        }
-    }
-
-    /// Fichiers à récupérer : (dépôt, fichier). Le dépôt `base` n'a pas de
-    /// `preprocessor_config.json` : on prend celui d'OpenAI.
-    fn ct2_files(self) -> Vec<(&'static str, &'static str)> {
-        let repo = self.ct2_repo();
-        // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
-        let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
-        let mut files = vec![(repo, "config.json"), (repo, "tokenizer.json"), (repo, vocabulary), (repo, "model.bin")];
-        files.push(match self {
-            Model::Base => ("openai/whisper-base", "preprocessor_config.json"),
-            _ => (repo, "preprocessor_config.json"),
-        });
-        files
-    }
-
-    pub fn ct2_dir(self, dir: &Path) -> PathBuf {
-        dir.join("ct2").join(self.ct2_repo().replace('/', "--"))
-    }
-}
-
-/// Télécharge (si besoin) le modèle CTranslate2 et renvoie son dossier.
-pub fn download_ct2(
-    model: Model,
-    dir: &Path,
-    mut progress: impl FnMut(&str, u64, u64),
-) -> Result<PathBuf, DownloadError> {
-    let dest = model.ct2_dir(dir);
     std::fs::create_dir_all(&dest)?;
     let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
-    for (repo, file) in model.ct2_files() {
+    let total = model.size();
+    let mut done = 0u64;
+    for (repo, file) in model.files() {
         let path = dest.join(file);
-        if path.exists() {
+        if let Ok(meta) = std::fs::metadata(&path) {
+            done += meta.len();
             continue;
         }
         let url = format!("{HF}/{repo}/resolve/main/{file}");
@@ -172,19 +114,15 @@ pub fn download_ct2(
         let mut resp = loop {
             match agent.get(&url).call() {
                 Ok(r) => break r,
-                Err(ureq::Error::StatusCode(429 | 502 | 503)) if attempt < 5 => {
+                Err(ureq::Error::StatusCode(429 | 500 | 502 | 503)) if attempt < 5 => {
                     attempt += 1;
-                    std::thread::sleep(std::time::Duration::from_secs(5 * attempt));
+                    std::thread::sleep(Duration::from_secs(4 * attempt));
                 }
-                Err(e) => return Err(DownloadError::Http(format!("{url} : {e}"))),
+                Err(e) => return Err(DownloadError::Http(format!("{file} : {e}"))),
             }
         };
-        let total = resp
-            .headers()
-            .get("content-length")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
+        let expected: Option<u64> =
+            resp.headers().get("content-length").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
         let part = dest.join(format!("{file}.part"));
         let mut reader = resp.body_mut().with_config().limit(u64::MAX).reader();
         let mut out = std::fs::File::create(&part)?;
@@ -197,13 +135,23 @@ pub fn download_ct2(
             }
             out.write_all(&buf[..n])?;
             got += n as u64;
-            progress(file, got, total);
+            if !progress((done + got).min(total), total) {
+                drop(out);
+                std::fs::remove_file(&part).ok();
+                return Err(DownloadError::Cancelled);
+            }
         }
-        if total > 0 && got != total {
+        out.sync_all()?;
+        if let Some(expected) = expected
+            && got != expected
+        {
             std::fs::remove_file(&part).ok();
-            return Err(DownloadError::Incomplete { got, expected: total });
+            return Err(DownloadError::Incomplete { got, expected });
         }
         std::fs::rename(&part, &path)?;
+        done += got;
     }
+    std::fs::write(dest.join(COMPLETE), b"")?;
+    progress(total, total);
     Ok(dest)
 }

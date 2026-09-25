@@ -44,7 +44,10 @@
     fill: if type(fill) == color { fill.to-hex() } else { none },
     align: if a.contains("center") { "center" } else if a.contains("right") or a.contains("end") { "right" } else { "left" },
     case: over.at("case", default: none),
-    bg: if type(page.fill) == color { page.fill.to-hex() } else { none },
+    bg: {
+      let b = over.at("bg", default: page.fill)
+      if type(b) == color { b.to-hex() } else { none }
+    },
   )
 }
 

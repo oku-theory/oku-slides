@@ -16,6 +16,6 @@ serde_json.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 
-# Whisper sur le GPU (Metal) pour les Mac.
+# Dictée sur Mac : calcul par Accelerate (le framework d'Apple).
 [target.'cfg(target_os = "macos")'.dependencies]
-slider-stt = { workspace = true, features = ["metal"] }
+slider-stt = { workspace = true, features = ["accelerate"] }

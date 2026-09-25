@@ -19,7 +19,7 @@ Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/c
 | `crates/slider-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
 | `crates/slider-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
 | `crates/slider-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
-| `crates/slider-stt` | Dictée : micro, modèles Whisper téléchargés à la demande, transcription locale |
+| `crates/slider-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
 | `crates/slider-cli` | Outil `slider` : rendu, enregistrement, relecture, mesures, serveur de dev |
 | `src-tauri` | Application de bureau Tauri 2 |
 | `ui` | Interface React + TypeScript (design system Papier) |
@@ -45,7 +45,7 @@ ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono
 ## Lancer l'application
 
 Tout se lance depuis la racine du dépôt avec [just](https://just.systems).
-Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour Whisper), et la CLI Tauri
+Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour CTranslate2), et la CLI Tauri
 (`cargo install tauri-cli --version "^2"`). `just doctor` vérifie tout.
 
 ```sh
@@ -73,20 +73,31 @@ just          # toutes les commandes
 
 ### Dictée
 
-Tout se passe sur la machine : Whisper (whisper.cpp, accéléré par Metal sur Mac).
-Au premier appui sur le micro, le modèle choisi est téléchargé une fois, puis
-l'écoute démarre toute seule.
+Tout se passe sur la machine : Whisper sur CTranslate2 (le moteur de
+faster-whisper, via [ct2rs](https://crates.io/crates/ct2rs)), poids quantifiés
+en int8, calcul par Accelerate sur Mac. Au premier appui sur le micro, le
+modèle choisi est téléchargé une fois, puis l'écoute démarre toute seule.
 
 | Modèle | Taille | Usage |
 | --- | --- | --- |
-| Large v3 Turbo (par défaut) | 574 Mo | Rapide et précis, multilingue |
+| Large v3 Turbo (par défaut) | 818 Mo | Rapide et précis, multilingue |
 | Large v3 | 3,1 Go | Le plus précis, multilingue, plus lent |
 | Base | 148 Mo | Léger, pour les petites machines |
 
-Langue : détection automatique ou langue imposée (réglages de l'appareil de dictée).
+- **Détection de la voix** ([earshot](https://crates.io/crates/earshot)) :
+  seuls les passages parlés sont transcrits ; l'écoute s'arrête seule après un
+  silence (1,5 s par défaut, réglable, désactivable), ou au bout de 10 s si
+  rien n'est dit.
+- **Phrase par phrase** : à chaque pause, la phrase qui vient de finir est
+  transcrite en qualité finale, avec le texte déjà dicté et le vocabulaire du
+  deck en contexte. L'aperçu ne retranscrit que la phrase en cours. À l'arrêt,
+  il ne reste que la dernière phrase à traiter.
+- **Langue** : imposée, ou détectée sur la première phrase puis gardée.
+
 Les modèles vont dans le dossier de données de l'app
 (`~/Library/Application Support/me.dartiguenave.echo/models` sur Mac) ;
-`ECHO_MODELS` le remplace.
+`ECHO_MODELS` le remplace. Les anciens fichiers `ggml-*.bin` (whisper.cpp)
+peuvent y être supprimés.
 
 | Geste | Effet |
 | --- | --- |
@@ -95,18 +106,9 @@ Les modèles vont dans le dossier de données de l'app
 
 Le texte va au curseur si un texte est en cours d'édition, sinon dans la zone
 sélectionnée (un champ est remplacé, un bloc est complété), sinon dans un
-nouveau bloc. Chaque dictée s'annule avec ⌘Z. `just transcribe fichier.wav`
-transcrit un fichier ; `ECHO_FAKE_MIC=fichier.wav just serve` simule le micro.
-
-Le moteur est derrière le trait `slider_stt::engine::Engine`. Deux moteurs :
-whisper.cpp (celui de l'app, Metal sur Mac) et, avec l'option `ct2`,
-CTranslate2 (le moteur de faster-whisper, sur le processeur). Pour les comparer
-sur votre machine :
+nouveau bloc. Chaque dictée s'annule avec ⌘Z.
 
 ```sh
-just bench-stt voix.wav turbo fr   # WAV, modèle (turbo, large, base), langue, essais
+just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
+ECHO_FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
 ```
-
-Le banc télécharge les deux formats du modèle (ggml et CTranslate2), fait un
-tour à blanc puis garde la médiane des essais. Il affiche le temps de
-chargement, le temps de transcription, le facteur temps réel et le texte obtenu.

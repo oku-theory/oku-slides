@@ -1,5 +1,6 @@
-//! `cargo run -p slider-stt --example transcribe -- <fichier.wav> [base|turbo|large] [langue]`
-//! Télécharge le modèle s'il manque (dossier partagé avec l'app), puis transcrit.
+//! `cargo run --release -p slider-stt --example transcribe -- <fichier.wav> [base|turbo|large] [langue]`
+//! Télécharge le modèle s'il manque (dossier partagé avec l'app), découpe
+//! l'audio en phrases (détection de la voix) et les transcrit comme une dictée.
 
 use std::time::Instant;
 
@@ -41,9 +42,26 @@ fn main() {
     let audio = resample(&mono, spec.sample_rate, slider_stt::SAMPLE_RATE);
 
     let stt = Stt::new(&dir);
-    stt.configure(slider_stt::Config { model, language });
+    // Les réglages de l'app sont remis en place à la fin.
+    let before = stt.status().config;
+    stt.configure(slider_stt::Config { model, language, ..before.clone() });
     let t = Instant::now();
-    let text = stt.transcribe_samples(&audio).expect("transcription");
-    eprintln!("{:.1} s d'audio transcrites en {:.2} s", audio.len() as f32 / 16000.0, t.elapsed().as_secs_f32());
+    let load = stt.transcribe_samples(&[]).map(|_| t.elapsed().as_secs_f32());
+    let t = Instant::now();
+    let result = stt.transcribe_samples(&audio);
+    let took = t.elapsed().as_secs_f32();
+    stt.configure(before);
+    let (text, phrases) = result.expect("transcription");
+    let secs = audio.len() as f32 / 16000.0;
+    let spoken: f32 = phrases.iter().map(|(a, b, _)| b - a).sum();
+    eprintln!(
+        "chargement {:.2} s · {secs:.1} s d'audio dont {spoken:.1} s de parole ({} phrases) · transcrit en {took:.2} s ({:.1}× temps réel)",
+        load.unwrap_or(0.0),
+        phrases.len(),
+        secs / took.max(0.001),
+    );
+    for (a, b, t) in &phrases {
+        eprintln!("  [{a:5.1} → {b:5.1}] {t}");
+    }
     println!("{text}");
 }

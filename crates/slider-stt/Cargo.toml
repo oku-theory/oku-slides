@@ -1,6 +1,6 @@
 [package]
 name = "slider-stt"
-description = "Dictée d'Écho : capture du micro, modèles Whisper téléchargés à la demande, transcription locale."
+description = "Dictée d'Écho : micro, détection de la voix, Whisper sur CTranslate2 en local."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,21 +8,21 @@ authors.workspace = true
 
 [features]
 default = []
-# Accélération GPU sur macOS.
-metal = ["whisper-rs/metal"]
-# Second moteur : CTranslate2 (celui de faster-whisper), pour comparer.
-ct2 = ["dep:ct2rs"]
-# CTranslate2 sur macOS : Accelerate (le framework de calcul d'Apple).
-ct2-accelerate = ["ct2", "ct2rs/accelerate"]
+# macOS : calcul matriciel par Accelerate, le framework d'Apple.
+accelerate = ["ct2rs/accelerate"]
 
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-whisper-rs = "0.16"
+# CTranslate2, le moteur de faster-whisper.
+ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
+mel_spec = "0.3"
+ndarray = "0.16"
+# Détection de la voix, en Rust pur.
+earshot = "1.2"
 cpal = "0.18"
 ureq = "3"
-ct2rs = { version = "0.10", optional = true, default-features = false, features = ["whisper", "ruy"] }
 
 [dev-dependencies]
 hound = "3"

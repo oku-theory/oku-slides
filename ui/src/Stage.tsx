@@ -103,6 +103,32 @@ const cssFonts = (families: string[]) =>
     return [`"${name} Variable"`, `"${name}"`];
   }), "serif"].join(", ");
 
+/** Luminance relative d'une couleur #rrggbb (WCAG). */
+function luminance(hex: string): number | null {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => lin(v / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Fond de l'éditeur : celui de la slide sous le texte ; s'il ne contraste pas
+ * assez avec le texte (texte clair sur un bandeau que Typst ne voit pas), un
+ * fond sombre ou clair selon le texte, pour qu'il reste lisible.
+ */
+export function editorBackground(fill: string | null, bg: string | null): string | undefined {
+  const lf = fill ? luminance(fill) : null;
+  const lb = bg ? luminance(bg) : null;
+  if (lf === null) return bg ?? undefined;
+  if (lb !== null) {
+    const ratio = (Math.max(lf, lb) + 0.05) / (Math.min(lf, lb) + 0.05);
+    if (ratio >= 3) return bg!;
+  }
+  return lf > 0.4 ? "#1d2230" : "#ffffff";
+}
+
 let measureCtx: CanvasRenderingContext2D | null = null;
 
 /** Largeur (px) de la plus longue ligne, dans la police donnée. */
@@ -172,7 +198,7 @@ function editorGeometry(t: Target, draft: string, scale: number) {
       lineHeight: `${line}px`,
       letterSpacing: tracking || undefined,
       color: st.fill ?? undefined,
-      background: st.bg ?? undefined,
+      background: editorBackground(st.fill, st.bg),
       textAlign: align,
       textTransform: st.case === "upper" ? "uppercase" : st.case === "lower" ? "lowercase" : undefined,
     } as React.CSSProperties,
@@ -320,7 +346,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
               {/* Cache le texte rendu dessous : seul le brouillon se voit. */}
               <span
                 className="editor-mask"
-                style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editTarget.style?.bg ?? undefined }}
+                style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editorBackground(editTarget.style?.fill ?? null, editTarget.style?.bg ?? null) }}
               />
               <textarea
                 ref={area}

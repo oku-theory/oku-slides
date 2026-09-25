@@ -78,20 +78,16 @@ doctor:
       if command -v "$tool" >/dev/null; then echo "✓ $tool"; else echo "✗ $tool manquant"; ok=0; fi
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
-    command -v cmake >/dev/null || echo "  cmake sert à compiler Whisper (dictée) : brew install cmake"
+    command -v cmake >/dev/null || echo "  cmake sert à compiler CTranslate2 (dictée) : brew install cmake"
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     [ "$ok" = 1 ]
 
-# Accélération de la dictée selon la machine (GPU Metal sur Mac)
-stt_features := if os() == "macos" { "metal" } else { "" }
+# Accélération de la dictée selon la machine (Accelerate sur Mac)
+stt_features := if os() == "macos" { "accelerate" } else { "" }
 
 # Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
 transcribe wav model="turbo" lang="":
     cargo run -q --release -p slider-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
-
-# Compare whisper.cpp et CTranslate2 (faster-whisper) sur un WAV : just bench-stt voix.wav turbo fr
-bench-stt wav model="turbo" lang="auto" runs="3":
-    cargo run -q --release -p slider-stt --features "{{stt_features}} {{ if os() == "macos" { "ct2-accelerate" } else { "ct2" } }}" --example bench -- {{wav}} {{model}} {{lang}} {{runs}}
 
 # Supprime les builds (Rust et interface)
 clean:

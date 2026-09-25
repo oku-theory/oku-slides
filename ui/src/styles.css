@@ -274,6 +274,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .wave span { width: 3px; height: 100%; border-radius: 2px; background: var(--accent); transform-origin: center; transition: transform 90ms linear; }
 .partial { font: 400 15px/21px var(--serif); color: var(--ink); max-height: 42px; overflow: hidden; }
 .partial.empty { color: var(--ink-muted); font-style: italic; }
+.partial .tentative { color: var(--ink-muted); }
+.dictation-meta { display: inline-flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.stop-in { color: var(--accent-text, var(--accent)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec-dot.voice { animation: none; opacity: 1; box-shadow: 0 0 0 4px color-mix(in oklab, var(--app-danger, #b3261e) 25%, transparent); }
+.wave:not(.voice) span { background: color-mix(in oklab, var(--accent) 45%, var(--rule)); }
+.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { accent-color: var(--accent); margin: 0; }
+.check input:focus-visible { outline: none; }
 .progress { height: 6px; border-radius: 3px; background: color-mix(in oklab, var(--paper-200) 85%, var(--ink)); overflow: hidden; }
 .progress span { display: block; height: 100%; border-radius: 3px; background: var(--accent-fill); transition: width 300ms ease-out; }
 .ghost { border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; border-radius: var(--radius-md); transition: var(--theme-fade); }

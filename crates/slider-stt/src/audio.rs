@@ -83,13 +83,20 @@ impl Recorder {
         }
     }
 
-    /// Arrête et renvoie l'audio en mono 16 kHz.
-    pub fn finish(mut self) -> Vec<f32> {
+    /// Arrête la capture (les derniers échantillons restent à prendre).
+    pub fn finish(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(t) = self.thread.take() {
             t.join().ok();
         }
-        snapshot(&self.captured)
+    }
+
+    /// Échantillons arrivés depuis le dernier appel, et leur débit.
+    pub fn take(&self) -> (Vec<f32>, u32) {
+        match self.captured.lock() {
+            Ok(mut c) => (std::mem::take(&mut c.samples), c.rate),
+            Err(_) => (Vec::new(), SAMPLE_RATE),
+        }
     }
 
     pub fn level(&self) -> f32 {
@@ -103,13 +110,32 @@ impl Drop for Recorder {
     }
 }
 
-/// Copie de l'audio enregistré jusqu'ici, en mono 16 kHz.
-pub fn snapshot(captured: &Arc<Mutex<Captured>>) -> Vec<f32> {
-    let (samples, rate) = match captured.lock() {
-        Ok(c) => (c.samples.clone(), c.rate),
-        Err(_) => return Vec::new(),
-    };
-    resample(&samples, rate, SAMPLE_RATE)
+/// Rééchantillonnage linéaire vers 16 kHz, morceau par morceau (sans
+/// discontinuité entre deux morceaux).
+pub struct Resampler {
+    ratio: f64,
+    pos: f64,
+    buf: Vec<f32>,
+}
+
+impl Resampler {
+    pub fn new(from: u32) -> Self {
+        Self { ratio: from.max(1) as f64 / SAMPLE_RATE as f64, pos: 0.0, buf: Vec::new() }
+    }
+
+    pub fn push(&mut self, input: &[f32], out: &mut Vec<f32>) {
+        self.buf.extend_from_slice(input);
+        while self.pos + 1.0 < self.buf.len() as f64 {
+            let j = self.pos as usize;
+            let frac = (self.pos - j as f64) as f32;
+            let (a, b) = (self.buf[j], self.buf[j + 1]);
+            out.push(a + (b - a) * frac);
+            self.pos += self.ratio;
+        }
+        let consumed = (self.pos as usize).min(self.buf.len());
+        self.buf.drain(..consumed);
+        self.pos -= consumed as f64;
+    }
 }
 
 fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, String> {
