@@ -62,3 +62,21 @@ fn apply_option_patch_inline_data_next_to_dataset_is_refused() {
         assert_that!(err.kind()).is_equal_to(crate::ChartErrorKind::InvalidOption);
     }
 }
+
+/// Les patches de changement de type envoyés par l'interface (chartDeck.ts).
+#[test]
+fn apply_option_patch_kind_switches_from_the_ui_are_accepted() {
+    let two = |o: ChartOption| {
+        let mut o = o;
+        o.dataset = Some(serde_json::from_value(json!({ "source": [["M", "A", "B"], ["Jan", 1, 2]] })).unwrap());
+        o.series.push(o.series[0].clone());
+        o
+    };
+    let bars = two(option());
+    let (pie, _) =
+        apply_option_patch(&bars, &json!({ "xAxis": null, "yAxis": null, "series": [{ "type": "pie" }] })).unwrap();
+    let back = json!({ "xAxis": { "type": "category" }, "yAxis": { "type": "value" },
+        "series": [{ "type": "line" }, { "type": "line" }] });
+    let (lines, _) = apply_option_patch(&pie, &back).unwrap();
+    assert_that!(lines.series.len()).is_equal_to(2);
+}

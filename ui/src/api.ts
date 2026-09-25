@@ -94,7 +94,7 @@ export interface Paragraph {
 
 export interface Element {
   id: string;
-  kind: "text" | "image" | "shape" | "card" | "group";
+  kind: "text" | "image" | "shape" | "card" | "group" | "chart";
   frame?: Frame;
   /** Accroche à la grille de la slide (prioritaire sur `frame`). */
   cell?: Cell;

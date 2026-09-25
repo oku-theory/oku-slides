@@ -98,7 +98,9 @@
 }
 
 // Mise en page du corps : "default", "columns", "split", "center", "quote".
-#let _layout(t, layout, bodies, ratio: none) = {
+// grow : un booléen par corps ; ceux à vrai (graphiques) prennent la hauteur
+// qui reste, dans la mise en page par défaut.
+#let _layout(t, layout, bodies, ratio: none, grow: ()) = {
   let gap = space-of(t, t.component.columns.gap)
   if layout == "columns" {
     grid(columns: (1fr,) * calc.max(bodies.len(), 1), column-gutter: gap, ..bodies)
@@ -115,6 +117,9 @@
       text(size: size-of(t, q.size), fill: color-of(t, q.color), font: font-of(t, "display"),
         stack(spacing: space-of(t, "md"), ..bodies)),
     ))
+  } else if grow.any(g => g) {
+    grid(columns: (1fr,), rows: grow.map(g => if g { 1fr } else { auto }),
+      row-gutter: space-of(t, "md"), ..bodies)
   } else {
     stack(spacing: space-of(t, "md"), ..bodies)
   }
@@ -125,7 +130,8 @@
 /// Slide de contenu, avec en-tête, pied, titre et corps.
 /// layout : "default" | "columns" | "split" | "center" | "quote".
 /// zone : contenu posé en haut à gauche de la zone de corps (repère pour l'app).
-#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, zone: none, ..bodies) = context {
+/// grow : corps qui prennent la hauteur restante (voir `_layout`).
+#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, zone: none, grow: (), ..bodies) = context {
   let c = config()
   let t = c.tokens
   let title = interp(title, c.vars)
@@ -137,7 +143,7 @@
       ..if title != none { (_slide-title(t, title, kicker),) },
       block(width: 100%, height: 100%, {
         if zone != none { place(top + left, zone) }
-        _layout(t, layout, bodies.pos(), ratio: ratio)
+        _layout(t, layout, bodies.pos(), ratio: ratio, grow: grow)
       }),
     )
   })

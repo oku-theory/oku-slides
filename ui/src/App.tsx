@@ -7,6 +7,8 @@ import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { FIELD_LABELS } from "./Stage";
 import Dictation from "./Dictation";
+import { ChartPanel } from "./chart/ChartPanel";
+import { starterChart } from "./chart/chartDeck";
 import type { Cell } from "./grid";
 import { moveCell, rescaleCell, trackSize } from "./grid";
 
@@ -155,8 +157,8 @@ export default function App() {
   };
 
 
-  /** Ajoute un texte, une carte ou une forme ; sur une grille, accroché aux nœuds. */
-  const addElement = (kind: "text" | "card" | "shape", text?: Paragraph[], label?: string) => {
+  /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
+  const addElement = (kind: "text" | "card" | "shape" | "chart", text?: Paragraph[], label?: string) => {
     if (!view) return;
     const slide = view.slide;
     const id = newId(kind[0]);
@@ -167,8 +169,10 @@ export default function App() {
         ? { kind, title: "Titre de la carte", text: [{ runs: [{ t: "Détail" }] }] }
         : kind === "shape"
           ? { kind, style: { fill: "surface", radius: "md" } }
-          : { kind, text: text ?? [{ runs: [{ t: "Nouveau texte" }] }] };
-    label ??= { text: "Ajouter un texte", card: "Ajouter une carte", shape: "Ajouter une forme" }[kind];
+          : kind === "chart"
+            ? starterChart()
+            : { kind, text: text ?? [{ runs: [{ t: "Nouveau texte" }] }] };
+    label ??= { text: "Ajouter un texte", card: "Ajouter une carte", shape: "Ajouter une forme", chart: "Ajouter un graphique" }[kind];
     let ops: Op[];
     const hasBlocks = (slide.blocks?.length ?? 0) > 0;
     if (zone && g && !hasBlocks) {
@@ -347,6 +351,7 @@ export default function App() {
   // --- Dictée : où va le texte ----------------------------------------------
   const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
   const target = view && selected ? view.targets.find((t) => t.id === selected) : undefined;
+  const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
   const writable = target && target.text !== null ? target : undefined;
   const destination = editing
     ? "au curseur"
@@ -473,6 +478,9 @@ export default function App() {
         ) : (
           <div className="stage-wrap empty">Rendu…</div>
         )}
+        {view && selectedElement?.kind === "chart" && (
+          <ChartPanel slide={view.slide.id} element={selectedElement} onApply={apply} />
+        )}
       </main>
 
       {/* Post-it à droite de la feuille. */}
@@ -495,9 +503,9 @@ export default function App() {
         <div className="postit add-note" role="group" aria-label="Ajouter sur la slide">
           <span className="postit-title">Ajouter</span>
           <div className="add-row">
-            {(["text", "card", "shape"] as const).map((k) => (
+            {(["text", "card", "shape", "chart"] as const).map((k) => (
               <button key={k} className="linkish" disabled={!view || !(view.slide.kind === "content" || (k !== "text" && view.slide.kind === "blank"))} onClick={() => addElement(k)}>
-                {{ text: "Texte", card: "Carte", shape: "Forme" }[k]}
+                {{ text: "Texte", card: "Carte", shape: "Forme", chart: "Graphique" }[k]}
               </button>
             ))}
           </div>
