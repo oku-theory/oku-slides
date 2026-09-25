@@ -155,9 +155,7 @@ impl Library {
         let dir = self.dir.as_ref().ok_or_else(|| std::io::Error::other("pas de dossier pour les modèles"))?;
         std::fs::create_dir_all(dir)?;
         let path = dir.join(format!("{}.json", set.id));
-        let tmp = dir.join(format!(".{}.json.tmp", set.id));
-        std::fs::write(&tmp, serde_json::to_vec_pretty(set).map_err(std::io::Error::other)?)?;
-        std::fs::rename(&tmp, &path)?;
+        crate::write_atomic(&path, &serde_json::to_vec_pretty(set).map_err(std::io::Error::other)?)?;
         Ok(path)
     }
 

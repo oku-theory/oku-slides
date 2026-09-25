@@ -1,6 +1,7 @@
-//! `cargo run --release -p slider-stt --example transcribe -- <fichier.wav> [base|turbo|large] [langue]`
-//! Télécharge le modèle s'il manque (dossier partagé avec l'app), découpe
-//! l'audio en phrases (détection de la voix) et les transcrit comme une dictée.
+//! `ECHO_MODELS=<dossier> cargo run --release -p slider-stt --example transcribe -- <fichier.wav> [base|turbo|large] [langue]`
+//! Télécharge le modèle s'il manque (`just transcribe` donne le dossier de
+//! l'app), découpe l'audio en phrases (détection de la voix) et les transcrit
+//! comme une dictée.
 
 use std::time::Instant;
 
@@ -15,7 +16,7 @@ fn main() {
         _ => Model::Turbo,
     };
     let language = args.next();
-    let dir = slider_stt::default_models_dir();
+    let dir = std::path::PathBuf::from(std::env::var_os("ECHO_MODELS").expect("ECHO_MODELS : dossier des modèles"));
 
     if !model.is_installed(&dir) {
         eprintln!("téléchargement de {} …", model.label());

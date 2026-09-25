@@ -16,38 +16,18 @@ use slider_render::{Compiled, Renderer};
 pub use slider_render::{Fonts, read_font_dir};
 
 mod appearance;
+mod files;
 pub mod templates;
 mod text;
 mod views;
 
 pub use appearance::{Appearance, appearance};
+pub use files::{APP_ID, EXTENSION, Opened, data_dir, models_dir, read_document, templates_dir, write_atomic};
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
     PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView,
 };
-
-/// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
-pub const APP_ID: &str = "me.dartiguenave.echo";
-
-/// Dossier de données de l'app (`ECHO_DATA` le remplace) : modèles, réglages.
-pub fn default_data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("ECHO_DATA") {
-        return dir.into();
-    }
-    let home =
-        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
-    let base = if cfg!(target_os = "macos") {
-        home.join("Library/Application Support")
-    } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| home.join("AppData/Roaming"))
-    } else {
-        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".local/share"))
-    };
-    base.join(APP_ID)
-}
-
-pub const EXTENSION: &str = ".echo.pdf";
 
 #[derive(Debug, Error)]
 pub enum SessionError {
@@ -433,21 +413,10 @@ impl Session {
 
     /// Ouvre un `.echo.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let bytes = std::fs::read(path)?;
-        let is_pdf = bytes.starts_with(b"%PDF");
-        let (bundle, notice, keep_path) = if is_pdf {
-            let sources = slider_pdf::extract_sources(&bytes)?.ok_or(SessionError::NotSlider)?;
-            let notice = sources
-                .modified_elsewhere()
-                .then(|| "Ce PDF a été modifié par un autre outil après Écho : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
-            (SourceBundle::from_zip(&sources.zip)?, notice, true)
-        } else {
-            let deck = Deck::from_json(&String::from_utf8_lossy(&bytes))
-                .map_err(|e| SessionError::BadRequest(format!("deck JSON invalide : {e}")))?;
-            (SourceBundle::new(deck), None, false)
-        };
-        self.load(bundle, keep_path.then(|| path.to_owned()))?;
-        self.doc.notice = notice;
+        let Opened { sources, pdf, modified_elsewhere } = read_document(path)?;
+        // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
+        self.load(sources, pdf.then(|| path.to_owned()))?;
+        self.doc.notice = modified_elsewhere.then(|| "Ce PDF a été modifié par un autre outil après Écho : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
         Ok(())
     }
 
@@ -657,12 +626,4 @@ impl Session {
             zone: layout.zone_on(page),
         })
     }
-}
-
-/// Écrit dans un fichier temporaire à côté, puis renomme.
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let dir = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    let tmp = dir.join(format!(".{}.tmp", path.file_name().unwrap_or_default().to_string_lossy()));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
 }

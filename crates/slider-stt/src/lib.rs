@@ -161,27 +161,6 @@ pub struct Stt {
     cancel_download: Arc<AtomicBool>,
 }
 
-/// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
-pub const APP_ID: &str = "me.dartiguenave.echo";
-
-/// Dossier des modèles partagé par l'app et le serveur de développement
-/// (`ECHO_MODELS` le remplace) : un modèle n'est téléchargé qu'une fois.
-pub fn default_models_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("ECHO_MODELS") {
-        return dir.into();
-    }
-    let home =
-        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
-    let base = if cfg!(target_os = "macos") {
-        home.join("Library/Application Support")
-    } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| home.join("AppData/Roaming"))
-    } else {
-        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".local/share"))
-    };
-    base.join(APP_ID).join("models")
-}
-
 fn config_path(dir: &Path) -> PathBuf {
     dir.join("config.json")
 }

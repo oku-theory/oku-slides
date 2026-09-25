@@ -52,18 +52,10 @@ fn main() {
             {
                 session.open(&path).ok();
             }
-            let data = app.path().app_data_dir().unwrap_or_else(|_| slider_session::default_data_dir());
-            session.set_templates_dir(data.join("templates"));
+            // Même dossier que app_data_dir de Tauri (identifiant APP_ID).
+            session.set_templates_dir(slider_session::templates_dir());
             app.manage(AppState(Mutex::new(session)));
-            let models = match std::env::var_os("ECHO_MODELS") {
-                Some(dir) => PathBuf::from(dir),
-                None => app
-                    .path()
-                    .app_data_dir()
-                    .map(|d| d.join("models"))
-                    .unwrap_or_else(|_| slider_stt::default_models_dir()),
-            };
-            app.manage(Stt::new(models));
+            app.manage(Stt::new(slider_session::models_dir()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![request, stt])

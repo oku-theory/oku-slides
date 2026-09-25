@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 
 use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
 use slider_render::{Fonts, Renderer, read_font_dir};
+use slider_session::{read_document, write_atomic};
 
 #[derive(Parser)]
 #[command(name = "slider", version, about = "Rendu et stockage des decks Écho")]
@@ -84,17 +85,11 @@ fn read_deck(path: &Path) -> Result<Deck> {
 
 /// Charge un deck depuis un JSON ou un .echo.pdf.
 fn load_bundle(path: &Path) -> Result<SourceBundle> {
-    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-        let pdf = std::fs::read(path)?;
-        let sources = slider_pdf::extract_sources(&pdf)?
-            .context("ce PDF n'a pas été créé par Écho, il ne peut pas être modifié")?;
-        if sources.modified_elsewhere() {
-            eprintln!("attention : le PDF a été modifié par un autre outil après Écho");
-        }
-        Ok(SourceBundle::from_zip(&sources.zip)?)
-    } else {
-        Ok(SourceBundle::new(read_deck(path)?))
+    let opened = read_document(path).with_context(|| format!("lecture de {}", path.display()))?;
+    if opened.modified_elsewhere {
+        eprintln!("attention : le PDF a été modifié par un autre outil après Écho");
     }
+    Ok(opened.sources)
 }
 
 fn ms(d: Duration) -> String {
@@ -218,15 +213,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Écrit dans un fichier temporaire à côté, puis renomme.
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    let dir = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    let tmp = dir.join(format!(".{}.tmp", path.file_name().unwrap().to_string_lossy()));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
-}
-
 fn median(mut v: Vec<Duration>) -> Duration {
     v.sort();
     v[v.len() / 2]
@@ -321,12 +307,12 @@ fn content_type(path: &Path) -> &'static str {
 fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result<()> {
     use tiny_http::{Header, Method, Response, Server};
     let mut session = slider_session::Session::new(fonts);
-    session.set_templates_dir(slider_session::default_data_dir().join("templates"));
+    session.set_templates_dir(slider_session::templates_dir());
     if let Some(path) = &input {
         session.open(path)?;
     }
     let server = Server::http(("127.0.0.1", port)).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let stt = slider_stt::Stt::new(slider_stt::default_models_dir());
+    let stt = slider_stt::Stt::new(slider_session::models_dir());
     println!("Écho (dev) sur http://127.0.0.1:{port}");
     println!("modèles de dictée : {}", stt.models_dir().display());
     let json = Header::from_bytes("Content-Type", "application/json").unwrap();
