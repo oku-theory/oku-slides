@@ -56,6 +56,10 @@ fmt:
 lint-fix:
     cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
 
+# Couverture des tests (lignes), crate par crate
+coverage:
+    cargo llvm-cov nextest --workspace --exclude slider-app --summary-only
+
 # Dépendances : licences, avis de sécurité, sources
 audit:
     cargo deny check

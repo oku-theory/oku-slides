@@ -18,5 +18,9 @@ serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
 
+[dev-dependencies]
+slider-pdf.workspace = true
+speculoos.workspace = true
+
 [lints]
 workspace = true

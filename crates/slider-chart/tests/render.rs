@@ -1,6 +1,7 @@
 use serde_json::json;
 use slider_chart::*;
 use slider_i18n::Localize;
+use speculoos::prelude::*;
 
 const SIZE: Size = Size { width: 640.0, height: 400.0 };
 
@@ -10,7 +11,7 @@ fn render(v: serde_json::Value) -> String {
 }
 
 #[test]
-fn each_v1_type_renders_to_svg() {
+fn render_each_v1_type_produces_svg() {
     let cases = [
         (
             "barres",
@@ -62,58 +63,62 @@ fn each_v1_type_renders_to_svg() {
     ];
     for (name, option) in cases {
         let svg = render(option);
-        assert!(svg.starts_with("<svg"), "{name} : pas un SVG");
-        assert!(svg.contains("width=\"640\""), "{name} : taille non appliquée");
+        asserting(&format!("{name} : pas un SVG")).that(&svg.as_str()).starts_with("<svg");
+        asserting(&format!("{name} : taille non appliquée")).that(&svg.as_str()).contains("width=\"640\"");
         std::fs::create_dir_all("target/slider-chart-svg").unwrap();
         std::fs::write(format!("target/slider-chart-svg/{name}.svg"), svg).unwrap();
     }
 }
 
 #[test]
-fn title_and_labels_are_text_not_paths() {
+fn render_title_and_labels_emits_text_not_paths() {
     let svg = render(json!({
         "title": { "text": "Chiffre d'affaires" },
         "xAxis": { "data": ["Janvier", "Février"] },
         "series": [{ "type": "bar", "name": "CA", "data": [1, 2] }]
     }));
-    assert!(svg.contains("Janvier"));
-    assert!(svg.contains("<text"));
+    assert_that!(svg.as_str()).contains("Janvier");
+    assert_that!(svg.as_str()).contains("<text");
 }
 
 #[test]
-fn pie_is_plain_by_default_unlike_charts_rs() {
+fn normalize_pie_by_default_is_plain_unlike_charts_rs() {
     let option = parse_option(&json!({
         "dataset": { "source": [["n", "v"], ["A", 1], ["B", 3]] },
         "series": [{ "type": "pie" }]
     }))
     .unwrap();
     let ChartKind::Pie(p) = normalize(&option).unwrap().kind else { panic!() };
-    assert!(!p.rose && p.inner.is_none());
+    assert_that!(p.rose).is_false();
+    assert_that!(p.inner).is_none();
 }
 
 #[test]
-fn theme_palette_reaches_the_svg() {
+fn render_theme_palette_reaches_the_svg() {
     let theme = ChartTheme { palette: vec!["#123456".into()], ..Default::default() };
     let option = parse_option(&json!({
         "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }]
     }))
     .unwrap();
     let svg = ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap();
-    assert!(svg.to_lowercase().contains("#123456") || svg.contains("rgb(18,52,86"), "couleur absente");
+    asserting("couleur absente")
+        .that(&(svg.to_lowercase().contains("#123456") || svg.contains("rgb(18,52,86")))
+        .is_true();
 }
 
 #[test]
-fn inconsistent_options_explain_the_fix() {
+fn parse_option_inconsistent_options_explain_the_fix() {
     let err = parse_option(&json!({
         "dataset": { "source": [["Mois", "Ventes"], ["Jan", 1]] },
         "series": [{ "type": "bar", "encode": { "y": "CA" } }]
     }))
     .unwrap_err()
     .localize(slider_i18n::english());
-    assert!(err.contains("CA") && err.contains("Ventes"), "{err}");
+    asserting(&err).that(&err.as_str()).contains("CA");
+    asserting(&err).that(&err.as_str()).contains("Ventes");
 
     let err = parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] }))
         .unwrap_err()
         .localize(slider_i18n::english());
-    assert!(err.contains("itemStyle"), "{err}");
+    asserting(&err).that(&err.as_str()).contains("itemStyle");
 }

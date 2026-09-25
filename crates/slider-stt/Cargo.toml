@@ -29,6 +29,8 @@ cpal.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]
+tiny_http.workspace = true
+speculoos.workspace = true
 hound.workspace = true
 
 [lints]

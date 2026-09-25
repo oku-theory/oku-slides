@@ -1,5 +1,6 @@
 use serde_json::json;
 use slider_core::*;
+use speculoos::prelude::*;
 
 fn fixture() -> Deck {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
@@ -54,19 +55,23 @@ fn sample_ops() -> Vec<Op> {
 }
 
 #[test]
-fn accroche_a_la_grille_et_retour() {
+fn apply_all_set_grid_and_set_cell_then_inverses_restore_deck() {
     let mut deck = fixture();
     let before = deck.clone();
     let grid = Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 12, rows: 6, gap: None }) };
     let cell = Cell { col: 0, row: 0, cols: 8, rows: 4 };
     let ops = vec![grid, Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) }];
     let inverses = apply_all(&mut deck, ops).unwrap();
-    assert_eq!(deck.slide("s-libre").unwrap().elements.iter().find(|e| e.id == "e-texte").unwrap().cell, Some(cell));
-    assert!(validate(&deck, None).is_empty(), "{:?}", validate(&deck, None));
+    let placed = deck.slide("s-libre").unwrap().elements.iter().find(|e| e.id == "e-texte").unwrap().cell;
+    assert_that!(placed).is_equal_to(Some(cell));
+    assert_that!(validate(&deck, None)).is_empty();
     apply_all(&mut deck, inverses).unwrap();
-    assert_eq!(deck, before);
+    assert_that!(deck).is_equal_to(before);
+}
 
-    // Hors de la grille, ou sans grille : refusé, deck intact.
+#[test]
+fn apply_all_cell_outside_new_grid_returns_error_and_keeps_deck() {
+    // Hors de la grille : refusé, deck intact.
     let mut deck = fixture();
     let before = deck.clone();
     let bad = vec![
@@ -77,66 +82,72 @@ fn accroche_a_la_grille_et_retour() {
             cell: Some(Cell { col: 3, row: 0, cols: 2, rows: 1 }),
         },
     ];
-    assert!(apply_all(&mut deck, bad).is_err());
-    assert_eq!(deck, before);
+    assert_that!(apply_all(&mut deck, bad)).is_err();
+    assert_that!(deck).is_equal_to(before);
+}
+
+#[test]
+fn set_cell_without_explicit_grid_uses_default_grid() {
     // Sans grille explicite, la slide a la grille par défaut (12 × 6).
+    let mut deck = fixture();
+    let cell = Cell { col: 0, row: 0, cols: 8, rows: 4 };
     let default_grid = Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) };
-    assert!(default_grid.apply(&mut deck).is_ok());
+    assert_that!(default_grid.apply(&mut deck)).is_ok();
     let outside = Op::SetCell {
         slide: "s-libre".into(),
         element: "e-texte".into(),
         cell: Some(Cell { col: 10, row: 0, cols: 4, rows: 1 }),
     };
-    assert!(outside.apply(&mut deck).is_err());
+    assert_that!(outside.apply(&mut deck)).is_err();
 }
 
 #[test]
-fn chaque_op_suivie_de_son_inverse_redonne_le_deck() {
+fn apply_each_op_then_inverse_restores_deck() {
     for op in sample_ops() {
         let mut deck = fixture();
         let before = deck.clone();
         let inv = op.clone().apply(&mut deck).unwrap_or_else(|e| panic!("{op:?} : {e}"));
-        assert_ne!(deck, before, "l'op {op:?} n'a rien changé");
+        asserting(&format!("l'op {op:?} n'a rien changé")).that(&deck).is_not_equal_to(&before);
         inv.apply(&mut deck).unwrap();
-        assert_eq!(deck, before, "inverse incorrect pour {op:?}");
+        asserting(&format!("inverse incorrect pour {op:?}")).that(&deck).is_equal_to(&before);
     }
 }
 
 #[test]
-fn transaction_atomique_et_annulation() {
+fn history_commit_then_undo_redo_restores_each_state() {
     let mut deck = fixture();
     let before = deck.clone();
     let mut h = History::new(500);
     h.commit(&mut deck, "Tout", sample_ops()).unwrap();
-    assert_ne!(deck, before);
+    assert_that!(deck).is_not_equal_to(&before);
     let after = deck.clone();
-    assert_eq!(h.undo(&mut deck).unwrap(), Some("Tout"));
-    assert_eq!(deck, before);
-    assert_eq!(h.redo(&mut deck).unwrap(), Some("Tout"));
-    assert_eq!(deck, after);
+    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
+    assert_that!(deck).is_equal_to(&before);
+    assert_that!(h.redo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
+    assert_that!(deck).is_equal_to(&after);
     // Les deux sens restent symétriques après un aller-retour.
-    assert_eq!(h.undo(&mut deck).unwrap(), Some("Tout"));
-    assert_eq!(deck, before);
-    assert_eq!(h.undo(&mut deck).unwrap(), None);
-    assert_eq!(h.redo_label(), Some("Tout"));
+    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
+    assert_that!(deck).is_equal_to(&before);
+    assert_that!(h.undo(&mut deck).unwrap()).is_none();
+    assert_that!(h.redo_label()).is_equal_to(Some("Tout"));
 }
 
 #[test]
-fn une_erreur_annule_toute_la_transaction() {
+fn history_commit_with_failing_op_rolls_back_whole_transaction() {
     let mut deck = fixture();
     let before = deck.clone();
     let mut ops = sample_ops();
     ops.push(Op::SetText { slide: "s-constat".into(), element: "inexistant".into(), text: vec![] });
     let mut h = History::new(500);
     let err = h.commit(&mut deck, "Échec", ops).unwrap_err();
-    assert_eq!(err.index(), sample_ops().len());
-    assert_eq!(err.op_error().kind(), OpErrorKind::ElementNotFound);
-    assert_eq!(deck, before);
-    assert!(!h.can_undo());
+    assert_that!(err.index()).is_equal_to(sample_ops().len());
+    assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::ElementNotFound);
+    assert_that!(deck).is_equal_to(before);
+    assert_that!(h.can_undo()).is_false();
 }
 
 #[test]
-fn identifiants_en_double_refuses() {
+fn add_element_with_duplicate_id_returns_duplicate_id() {
     let mut deck = fixture();
     let err = Op::AddElement {
         slide: "s-priorites".into(),
@@ -147,32 +158,94 @@ fn identifiants_en_double_refuses() {
     }
     .apply(&mut deck)
     .unwrap_err();
-    assert_eq!(err.kind(), OpErrorKind::DuplicateId);
-    assert_eq!(err.subject(), Some("c1"));
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::DuplicateId);
+    assert_that!(err.subject()).is_equal_to(Some("c1"));
 }
 
 #[test]
-fn le_json_fait_l_aller_retour() {
+fn deck_to_json_then_from_json_returns_equal_valid_deck() {
     let deck = fixture();
     let again = Deck::from_json(&deck.to_json().unwrap()).unwrap();
-    assert_eq!(deck, again);
-    assert!(validate(&deck, None).is_empty(), "{:?}", validate(&deck, None));
+    assert_that!(deck).is_equal_to(&again);
+    assert_that!(validate(&deck, None)).is_empty();
 }
 
 #[test]
-fn zip_des_sources_aller_retour() {
+fn source_bundle_to_zip_then_from_zip_returns_equal_bundle() {
     let mut b = SourceBundle::new(fixture());
     let id = b.add_asset(vec![1, 2, 3, 4]);
-    assert!(id.starts_with("sha256:"));
+    assert_that!(id.as_str()).starts_with("sha256:");
     b.fonts.insert("Inter.ttf".into(), vec![9; 16]);
     let zip = b.to_zip().unwrap();
     let back = SourceBundle::from_zip(&zip).unwrap();
-    assert_eq!(b, back);
+    assert_that!(b).is_equal_to(back);
 }
 
 #[test]
-fn le_schema_des_ops_se_genere() {
+fn ops_schema_generates_schema_naming_ops() {
     let schema = ops_schema().unwrap();
     let s = schema.to_string();
-    assert!(s.contains("set_text") && s.contains("set_token"));
+    assert_that!(s.as_str()).contains("set_text");
+    assert_that!(s.as_str()).contains("set_token");
+}
+
+#[test]
+fn op_errors_localize_with_their_subject() {
+    use slider_i18n::{Localize, Localizer};
+    let fr = Localizer::new(Some("fr"));
+    let cases: Vec<(Op, &str)> = vec![
+        (Op::SetNotes { slide: "absente".into(), notes: String::new() }, "Slide introuvable : absente"),
+        (Op::SetText { slide: "s-constat".into(), element: "x".into(), text: vec![] }, "Élément introuvable : x"),
+        (Op::MoveSlide { slide: "s-fin".into(), index: 99 }, "Position hors limites"),
+        (
+            Op::SetSlideField { slide: "s-fin".into(), field: SlideField::Title, value: json!(3) },
+            "Valeur invalide pour title",
+        ),
+        (
+            Op::SetSlideField { slide: "s-fin".into(), field: SlideField::Kind, value: json!("inconnu") },
+            "Valeur invalide pour kind",
+        ),
+        (Op::SetToken { path: vec![], value: json!(1) }, "Valeur invalide pour path"),
+        (
+            Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 0, rows: 6, gap: None }) },
+            "Valeur invalide pour grid",
+        ),
+        (
+            Op::SetFrame {
+                slide: "s-libre".into(),
+                element: "e-texte".into(),
+                frame: Some(Frame { x: 0.0, y: 0.0, w: 0.0, h: 1.0 }),
+            },
+            "Valeur invalide pour frame",
+        ),
+        (
+            Op::AddElement {
+                slide: "s-libre".into(),
+                zone: Zone::Elements,
+                parent: Some("e-texte".into()),
+                index: None,
+                element: Element::text("nouveau", vec![]),
+            },
+            "e-texte n'est pas un groupe",
+        ),
+        (
+            Op::AddSlide { index: None, slide: Slide::new("s-fin", SlideKind::Content) },
+            "Identifiant déjà utilisé : s-fin",
+        ),
+    ];
+    for (op, expected) in cases {
+        let mut deck = fixture();
+        let err = op.apply(&mut deck).unwrap_err();
+        asserting(expected).that(&err.localize(&fr)).is_equal_to(expected.to_owned());
+    }
+}
+
+#[test]
+fn set_text_on_image_returns_no_text() {
+    use slider_i18n::{Localize, Localizer};
+    let mut deck = fixture();
+    let err =
+        Op::SetText { slide: "s-libre".into(), element: "e-image".into(), text: vec![] }.apply(&mut deck).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::NoText);
+    assert_that!(err.localize(&Localizer::new(Some("en")))).is_equal_to("e-image has no text".to_owned());
 }

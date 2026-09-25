@@ -271,3 +271,7 @@ pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "audio_tests.rs"]
+mod audio_tests;

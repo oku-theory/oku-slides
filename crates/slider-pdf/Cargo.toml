@@ -15,5 +15,8 @@ hex.workspace = true
 snafu.workspace = true
 time.workspace = true
 
+[dev-dependencies]
+speculoos.workspace = true
+
 [lints]
 workspace = true

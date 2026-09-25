@@ -116,47 +116,5 @@ impl ChartDataOp {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-
-    fn ds() -> Dataset {
-        serde_json::from_value(serde_json::json!({
-            "source": [["Mois", "Ventes"], ["Jan", 10], ["Fév", 12]]
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn every_op_is_undone_by_its_inverse() {
-        let ops = vec![
-            ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) },
-            ChartDataOp::SetCell { row: 0, col: 1, value: Cell::Text("CA".into()) },
-            ChartDataOp::InsertRow { at: 3, cells: vec![Cell::Text("Mar".into())] },
-            ChartDataOp::RemoveRow { at: 1 },
-            ChartDataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Marge".into()), Cell::Number(3.0)] },
-            ChartDataOp::RemoveColumn { at: 0 },
-            ChartDataOp::Replace { source: vec![vec![Cell::Text("x".into())]] },
-        ];
-        for op in ops {
-            let original = ds();
-            let mut d = original.clone();
-            let inverse = op.apply(&mut d).unwrap();
-            assert_ne!(d, original, "{op:?} n'a rien changé");
-            inverse.apply(&mut d).unwrap();
-            assert_eq!(d, original, "l'inverse de {op:?} ne restaure pas");
-        }
-    }
-
-    #[test]
-    fn header_row_cannot_be_removed() {
-        assert!(ChartDataOp::RemoveRow { at: 0 }.apply(&mut ds()).is_err());
-        assert!(ChartDataOp::InsertRow { at: 0, cells: vec![] }.apply(&mut ds()).is_err());
-    }
-
-    #[test]
-    fn ops_deserialize_from_tagged_json() {
-        let op: ChartDataOp = serde_json::from_str(r#"{"op":"set_cell","row":2,"col":1,"value":120}"#).unwrap();
-        assert_eq!(op, ChartDataOp::SetCell { row: 2, col: 1, value: Cell::Number(120.0) });
-    }
-}
+#[path = "data_ops_tests.rs"]
+mod data_ops_tests;

@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use speculoos::prelude::*;
+
 use super::*;
 
 fn keys(locale: &str) -> BTreeSet<String> {
@@ -16,7 +18,9 @@ fn keys(locale: &str) -> BTreeSet<String> {
 fn every_locale_parses_without_error() {
     for (locale, sources) in LOCALES {
         for source in *sources {
-            assert!(FluentResource::try_new((*source).to_owned()).is_ok(), "{locale} : ressource invalide");
+            asserting(&format!("{locale} : ressource invalide"))
+                .that(&FluentResource::try_new((*source).to_owned()))
+                .is_ok();
         }
     }
 }
@@ -24,26 +28,28 @@ fn every_locale_parses_without_error() {
 #[test]
 fn every_locale_has_exactly_the_reference_keys() {
     let reference = keys(REFERENCE);
-    assert!(reference.len() > 50);
+    assert_that!(reference.len()).is_greater_than(50);
     for (locale, _) in LOCALES {
-        assert_eq!(keys(locale), reference, "{locale} : clés différentes de {REFERENCE}");
+        asserting(&format!("{locale} : clés différentes de {REFERENCE}")).that(&keys(locale)).is_equal_to(&reference);
     }
 }
 
 #[test]
 fn new_region_tag_selects_its_language() {
-    assert_eq!(Localizer::new(Some("fr-CA")).locale(), "fr");
-    assert_eq!(Localizer::new(Some("en_GB")).locale(), "en");
+    assert_that!(Localizer::new(Some("fr-CA")).locale()).is_equal_to("fr");
+    assert_that!(Localizer::new(Some("en_GB")).locale()).is_equal_to("en");
 }
 
 #[test]
 fn tr_with_args_formats_without_isolation_marks() {
     let fr = Localizer::new(Some("fr"));
-    assert_eq!(fr.tr_with("cli-deck-valid", &[("slides", 8.into())]), "deck valide : 8 slides");
-    assert_eq!(english().tr_with("session-read", &[("path", "/a/b".into())]), "Cannot read /a/b");
+    assert_that!(fr.tr_with("cli-deck-valid", &[("slides", 8.into())]))
+        .is_equal_to("deck valide : 8 slides".to_owned());
+    assert_that!(english().tr_with("session-read", &[("path", "/a/b".into())]))
+        .is_equal_to("Cannot read /a/b".to_owned());
 }
 
 #[test]
 fn tr_unknown_id_returns_the_id() {
-    assert_eq!(Localizer::new(Some("fr")).tr("does-not-exist"), "does-not-exist");
+    assert_that!(Localizer::new(Some("fr")).tr("does-not-exist")).is_equal_to("does-not-exist".to_owned());
 }

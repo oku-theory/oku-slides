@@ -17,8 +17,8 @@ charts-rs.workspace = true
 json-patch.workspace = true
 
 [dev-dependencies]
+speculoos.workspace = true
 slider-platform.workspace = true
-pretty_assertions.workspace = true
 
 [lints]
 workspace = true

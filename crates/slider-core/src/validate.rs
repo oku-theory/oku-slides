@@ -85,3 +85,7 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "validate_tests.rs"]
+mod validate_tests;

@@ -59,7 +59,7 @@ tauri-build = "2"
 tauri-plugin-dialog = "2"
 # Tests
 hound = "3"
-pretty_assertions = "1"
+speculoos = "0.13"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

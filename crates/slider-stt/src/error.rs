@@ -124,3 +124,7 @@ impl Localize for SttError {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod error_tests;

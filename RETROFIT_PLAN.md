@@ -7,8 +7,39 @@ livrés avec le plugin : l'audit suit les règles chargées dans la session).
 
 ## Avancement
 
-| Étape | Statut | Erreurs | Avertissements |
+Audit : `180ee21`. Corrections : étape par étape, chaque commit vérifié
+(`cargo test --workspace`, nextest, clippy `-D warnings`, `cargo deny`).
+
+| Étape | Audit | Après correction | Commit |
 |---|---|---|---|
+| 1. Structure & outillage | ! PARTIEL | ✓ `deny.toml`, `clippy.toml`, lints du workspace, `just ci/audit/watch/setup/coverage` | `27f05b1` |
+| 2. Erreurs (Snafu) | ✗ ÉCHEC | ✓ Snafu opaque partout, backtraces, `unwrap_used`/`expect_used` = deny | `20b886b` |
+| 3. Clippy / rustfmt | ! PARTIEL | ✓ `Debug` partout (lint `missing_debug_implementations`) | `27f05b1` |
+| 4. Dépendances | ✗ ÉCHEC | ✓ plus de thiserror, `time` au lieu de `chrono`, versions dans le workspace, `cargo deny` ok | `27f05b1`, `09f12c2` |
+| 5. Async (Tokio) | — N/A | — (Tokio seulement sous OpenDAL, runtime privé) | — |
+| 6. Tests | ✗ ÉCHEC | ✓ speculoos, noms `<unité>_<cas>_<résultat>`, fichiers `_tests.rs`, `tests/regressions/`, couverture 80,3 % | ce commit |
+| 7. Sécurité | ! PARTIEL | ✓ 2 failles corrigées (asset → panique / injection Typst), `serve` ne lit plus `..` ; avis quick-xml documentés dans `deny.toml` | `20b886b`, `2ba7bc0` |
+| 8. i18n (Fluent) | ✗ ÉCHEC | ✓ `slider-i18n`, `en` de référence + `fr` ; erreurs, CLI (aide comprise), textes créés | `3255bbf` |
+| 9. Stockage (OpenDAL) | ✗ ÉCHEC | ✓ `slider_platform::storage`, plus de `std::fs` en production | `2ba7bc0` |
+| 10. Configuration | ! PARTIEL | ✓ `config` : défauts embarqués, `config.toml`, `ECHO_<SECTION>__<CLÉ>` | `20b886b` |
+| 11. Observabilité | ✗ ÉCHEC | ✓ `tracing` (INFO fixe en production), `color-eyre` ; la CLI écrit ses résultats sans `println!` | `09f12c2`, `3255bbf` |
+
+## Restes (hors de portée de ce retrofit, à planifier)
+
+- **Tâches Oku** : le plan n'est rattaché à aucune tâche parente (outils de
+  tâches absents de la session) ; les sous-tâches restent à créer.
+- **Langues** : 18 langues cibles sur 20 restent à traduire (une tâche par
+  langue) ; l'interface React n'est pas traduite (d'où `locale = "fr"` par
+  défaut) ; les libellés par défaut des graphiques (« Série 1 »,
+  « Catégorie »…) dépendent de l'intégration de `slider-chart`, en cours.
+- **Couverture** : `slider-stt/src/whisper.rs` (~20 %) demande un vrai
+  modèle Whisper ; `slider-cli/src/serve.rs` est testé mais le processus
+  tué n'écrit pas son profil de couverture.
+- **Stockage** : CTranslate2 lit les poids du modèle par chemin (code
+  natif, hors OpenDAL) ; `Storage::local` suppose des chemins Unix (racine
+  `/`), à revoir pour Windows.
+
+---|---|---|---|
 | 1. Structure & outillage | ! PARTIEL | 1 | 2 |
 | 2. Erreurs (Snafu) | ✗ ÉCHEC | 3 | 1 |
 | 3. Clippy / rustfmt | ! PARTIEL | 1 | 1 |

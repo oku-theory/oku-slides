@@ -420,14 +420,5 @@ fn nice_ceiling(v: f64) -> f64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn nice_ceiling_rounds_up() {
-        assert_eq!(nice_ceiling(87.0), 100.0);
-        assert_eq!(nice_ceiling(12.0), 20.0);
-        assert_eq!(nice_ceiling(2.3), 2.5);
-        assert_eq!(nice_ceiling(0.0), 1.0);
-    }
-}
+#[path = "model_tests.rs"]
+mod model_tests;

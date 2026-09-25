@@ -17,15 +17,5 @@ pub fn data_op_schema() -> serde_json::Result<Value> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn schema_closes_objects_and_lists_series_types() {
-        let s = option_schema().unwrap().to_string();
-        assert!(s.contains("\"additionalProperties\":false"));
-        for t in ["bar", "line", "pie", "scatter", "radar"] {
-            assert!(s.contains(&format!("\"{t}\"")), "type {t} absent du schéma");
-        }
-    }
-}
+#[path = "schema_tests.rs"]
+mod schema_tests;

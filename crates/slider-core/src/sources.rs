@@ -142,3 +142,7 @@ impl SourceBundle {
         Ok(SourceBundle { deck, assets, fonts })
     }
 }
+
+#[cfg(test)]
+#[path = "sources_tests.rs"]
+mod sources_tests;

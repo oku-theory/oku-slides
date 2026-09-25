@@ -1464,12 +1464,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "diff"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4775,16 +4769,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
-name = "pretty_assertions"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
-dependencies = [
- "diff",
- "yansi",
-]
-
-[[package]]
 name = "primal-check"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5907,13 +5891,13 @@ version = "0.1.0"
 dependencies = [
  "charts-rs",
  "json-patch 4.2.0",
- "pretty_assertions",
  "schemars 1.2.2",
  "serde",
  "serde_json",
  "slider-i18n",
  "slider-platform",
  "snafu",
+ "speculoos",
 ]
 
 [[package]]
@@ -5930,6 +5914,7 @@ dependencies = [
  "slider-render",
  "slider-session",
  "slider-stt",
+ "speculoos",
  "tiny_http",
  "tracing",
 ]
@@ -5945,6 +5930,7 @@ dependencies = [
  "sha2 0.10.9",
  "slider-i18n",
  "snafu",
+ "speculoos",
  "zip 8.6.0",
 ]
 
@@ -5953,6 +5939,7 @@ name = "slider-i18n"
 version = "0.1.0"
 dependencies = [
  "fluent-bundle",
+ "speculoos",
  "sys-locale",
  "unic-langid",
 ]
@@ -5966,6 +5953,7 @@ dependencies = [
  "sha2 0.10.9",
  "slider-i18n",
  "snafu",
+ "speculoos",
  "time",
 ]
 
@@ -5978,6 +5966,7 @@ dependencies = [
  "serde",
  "slider-i18n",
  "snafu",
+ "speculoos",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -5993,6 +5982,7 @@ dependencies = [
  "slider-i18n",
  "slider-pdf",
  "snafu",
+ "speculoos",
  "time",
  "tracing",
  "typst",
@@ -6014,6 +6004,7 @@ dependencies = [
  "slider-platform",
  "slider-render",
  "snafu",
+ "speculoos",
  "tracing",
 ]
 
@@ -6032,6 +6023,8 @@ dependencies = [
  "slider-i18n",
  "slider-platform",
  "snafu",
+ "speculoos",
+ "tiny_http",
  "tracing",
  "ureq",
 ]
@@ -6128,6 +6121,16 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "speculoos"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00c84ba5fa63b0de837c0d3cef5373ac1c3c6342053b7f446a210a1dde79a034"
+dependencies = [
+ "num",
+ "serde_json",
 ]
 
 [[package]]
@@ -8922,12 +8925,6 @@ checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
 ]
-
-[[package]]
-name = "yansi"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yoke"

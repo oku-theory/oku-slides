@@ -205,53 +205,5 @@ impl Library {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ensembles_integres_valides_et_ids_uniques() {
-        let sets = builtin_sets();
-        assert!(sets.len() >= 2);
-        for s in sets {
-            let mut ids: Vec<&str> = s.templates.iter().map(|t| t.id.as_str()).collect();
-            ids.sort();
-            ids.dedup();
-            assert_eq!(ids.len(), s.templates.len(), "identifiants en double dans {}", s.id);
-            for t in &s.templates {
-                let deck = slider_core::Deck {
-                    version: 1,
-                    theme: None,
-                    params: Default::default(),
-                    vars: Default::default(),
-                    tokens: serde_json::Value::Null,
-                    templates: None,
-                    slides: vec![t.slide.clone()],
-                };
-                assert!(slider_core::validate(&deck, None).is_empty(), "{} / {}", s.id, t.id);
-            }
-        }
-    }
-
-    #[test]
-    fn noms_de_fichiers() {
-        assert_eq!(slug("Mes modèles à moi !"), "mes-modeles-a-moi");
-        assert_eq!(slug("  "), "modeles");
-    }
-
-    #[test]
-    fn enregistrer_relire_supprimer() {
-        let dir = std::env::temp_dir().join(format!("echo-templates-{}", std::process::id()));
-        let lib = Library::new(Some(dir.clone()), Storage::local().unwrap());
-        let mut set = builtin_sets()[0].clone();
-        set.id = lib.free_id("Mon ensemble");
-        set.name = "Mon ensemble".into();
-        lib.save(&set).unwrap();
-        assert!(lib.list().iter().any(|s| s.id == "mon-ensemble" && !s.builtin && !s.default));
-        assert!(lib.list().iter().any(|s| s.id == DEFAULT_SET && s.default));
-        assert_eq!(lib.get("mon-ensemble").unwrap().0.templates.len(), set.templates.len());
-        assert_eq!(lib.free_id("Mon ensemble"), "mon-ensemble-2");
-        lib.delete("mon-ensemble").unwrap();
-        assert!(lib.get("mon-ensemble").is_none());
-        std::fs::remove_dir_all(&dir).ok();
-    }
-}
+#[path = "templates_tests.rs"]
+mod templates_tests;

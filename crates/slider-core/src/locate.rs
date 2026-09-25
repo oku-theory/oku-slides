@@ -92,52 +92,5 @@ impl Slide {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::{Frame, GroupLayout, SlideKind, Style};
-
-    fn group(id: &str, kind: GroupLayoutKind, children: Vec<Element>) -> Element {
-        Element {
-            id: id.into(),
-            frame: None,
-            cell: None,
-            style: Style::default(),
-            body: ElementBody::Group { layout: GroupLayout { kind, ..Default::default() }, children },
-        }
-    }
-
-    fn framed(id: &str) -> Element {
-        Element { frame: Some(Frame { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }), ..Element::text(id, vec![]) }
-    }
-
-    fn slide() -> Slide {
-        let mut s = Slide::new("s", SlideKind::Content);
-        s.blocks = vec![
-            Element::text("b1", vec![]),
-            group("g", GroupLayoutKind::Free, vec![framed("g1"), Element::text("g2", vec![])]),
-        ];
-        s.elements = vec![framed("e1")];
-        s
-    }
-
-    #[test]
-    fn parcours_parents_avant_enfants_blocs_avant_elements() {
-        let s = slide();
-        let ids: Vec<&str> = s.element_ids().collect();
-        assert_eq!(ids, ["b1", "g", "g1", "g2", "e1"]);
-    }
-
-    #[test]
-    fn localise_un_enfant_de_groupe_avec_sa_place() {
-        let s = slide();
-        let g2 = s.locate("g2").unwrap();
-        assert_eq!((g2.zone, g2.parent, g2.index), (Zone::Blocks, Some("g"), 1));
-        assert!(g2.in_free_layout && !g2.is_free(), "groupe libre, mais ni cadre ni cellule");
-        assert!(s.locate("g1").unwrap().is_free());
-        assert!(!s.locate("b1").unwrap().in_free_layout);
-        let e1 = s.locate("e1").unwrap();
-        assert_eq!((e1.zone, e1.parent), (Zone::Elements, None));
-        assert!(e1.is_free());
-        assert!(s.locate("absent").is_none());
-    }
-}
+#[path = "locate_tests.rs"]
+mod locate_tests;

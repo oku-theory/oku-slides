@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use slider_core::Deck;
 use slider_render::{Fonts, Renderer};
+use speculoos::prelude::*;
 
 fn fixture() -> Deck {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
@@ -21,16 +22,16 @@ fn render_with_asset(id: &str) -> Result<usize, String> {
 }
 
 #[test]
-fn render_asset_id_escaping_root_is_ignored() {
-    assert_eq!(render_with_asset("sha256:../../outside"), Ok(8));
+fn render_asset_id_escaping_root_is_ignored_and_all_pages_render() {
+    assert_that!(render_with_asset("sha256:../../outside")).is_equal_to(Ok(8));
 }
 
 #[test]
-fn render_asset_id_with_backslash_is_ignored() {
-    assert_eq!(render_with_asset("sha256:a\\b"), Ok(8));
+fn render_asset_id_with_backslash_is_ignored_and_all_pages_render() {
+    assert_that!(render_with_asset("sha256:a\\b")).is_equal_to(Ok(8));
 }
 
 #[test]
-fn render_asset_id_with_quote_cannot_inject_typst() {
-    assert_eq!(render_with_asset(r#"sha256:ab",panic("injected"),""#), Ok(8));
+fn render_asset_id_with_quote_does_not_inject_typst() {
+    assert_that!(render_with_asset(r#"sha256:ab",panic("injected"),""#)).is_equal_to(Ok(8));
 }

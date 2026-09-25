@@ -44,47 +44,5 @@ pub fn reverse_merge_patch(before: &Value, patch: &Value) -> Value {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    use serde_json::json;
-
-    fn option() -> ChartOption {
-        serde_json::from_value(json!({
-            "title": { "text": "Ventes" },
-            "dataset": { "source": [["Mois", "Ventes"], ["Jan", 10]] },
-            "xAxis": { "type": "category" },
-            "series": [{ "type": "bar" }]
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn patch_then_inverse_restores() {
-        let original = option();
-        let patch = json!({
-            "title": { "text": "Chiffre d'affaires", "subtext": "2026" },
-            "legend": { "left": "right" },
-            "xAxis": null,
-            "series": [{ "type": "line", "smooth": true }]
-        });
-        let (next, inverse) = apply_option_patch(&original, &patch).unwrap();
-        assert_eq!(next.title.as_ref().unwrap().subtext.as_deref(), Some("2026"));
-        assert!(next.x_axis.is_none());
-        let (restored, _) = apply_option_patch(&next, &inverse).unwrap();
-        assert_eq!(restored, original);
-    }
-
-    #[test]
-    fn dataset_is_off_limits() {
-        let r = apply_option_patch(&option(), &json!({ "dataset": null }));
-        assert_eq!(r.unwrap_err().kind(), crate::ChartErrorKind::PatchTouchesDataset);
-    }
-
-    #[test]
-    fn unknown_fields_are_rejected_with_their_name() {
-        let r = apply_option_patch(&option(), &json!({ "tooltip": { "show": true } }));
-        let msg = slider_i18n::Localize::localize(&r.unwrap_err(), slider_i18n::english());
-        assert!(msg.contains("tooltip"), "{msg}");
-    }
-}
+#[path = "patch_tests.rs"]
+mod patch_tests;

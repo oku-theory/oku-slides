@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use speculoos::prelude::*;
+
 use super::*;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -12,8 +14,8 @@ fn write_then_read_returns_the_bytes_and_creates_parents() {
     let dir = temp_dir("rw");
     let file = dir.join("a/b/c.bin");
     s.write(&file, vec![1, 2, 3]).unwrap();
-    assert_eq!(s.read(&file).unwrap(), [1, 2, 3]);
-    assert_eq!(s.len(&file).unwrap(), Some(3));
+    assert_that!(s.read(&file).unwrap()).is_equal_to(vec![1, 2, 3]);
+    assert_that!(s.len(&file).unwrap()).is_equal_to(Some(3));
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -21,8 +23,8 @@ fn write_then_read_returns_the_bytes_and_creates_parents() {
 fn read_missing_file_returns_not_found() {
     let s = Storage::local().unwrap();
     let err = s.read(&temp_dir("absent").join("x")).unwrap_err();
-    assert_eq!(err.kind(), StorageErrorKind::NotFound);
-    assert_eq!(s.len(&temp_dir("absent").join("x")).unwrap(), None);
+    assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
+    assert_that!(s.len(&temp_dir("absent").join("x")).unwrap()).is_none();
 }
 
 #[test]
@@ -32,8 +34,8 @@ fn write_atomic_replaces_content_and_leaves_no_temp_file() {
     let file = dir.join("deck.echo.pdf");
     s.write_atomic(&file, b"v1".to_vec()).unwrap();
     s.write_atomic(&file, b"v2".to_vec()).unwrap();
-    assert_eq!(s.read(&file).unwrap(), b"v2");
-    assert_eq!(s.list_files(&dir).unwrap(), std::slice::from_ref(&file));
+    assert_that!(s.read(&file).unwrap()).is_equal_to(b"v2".to_vec());
+    assert_that!(s.list_files(&dir).unwrap()).is_equal_to(vec![file.clone()]);
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -41,10 +43,10 @@ fn write_atomic_replaces_content_and_leaves_no_temp_file() {
 fn list_files_missing_dir_returns_empty_and_skips_subdirs() {
     let s = Storage::local().unwrap();
     let dir = temp_dir("list");
-    assert!(s.list_files(&dir).unwrap().is_empty());
+    assert_that!(s.list_files(&dir).unwrap()).is_empty();
     s.write(&dir.join("x.json"), b"{}".to_vec()).unwrap();
     s.create_dir_all(&dir.join("sub")).unwrap();
-    assert_eq!(s.list_files(&dir).unwrap(), [dir.join("x.json")]);
+    assert_that!(s.list_files(&dir).unwrap()).is_equal_to(vec![dir.join("x.json")]);
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -55,7 +57,7 @@ fn read_fonts_keeps_only_font_files() {
     s.write(&dir.join("Inter.TTF"), vec![0; 4]).unwrap();
     s.write(&dir.join("notes.txt"), vec![0; 4]).unwrap();
     let fonts = s.read_fonts(&dir).unwrap();
-    assert_eq!(fonts.keys().collect::<Vec<_>>(), ["Inter.TTF"]);
+    assert_that!(fonts.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["Inter.TTF"]);
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -70,10 +72,10 @@ fn writer_streams_chunks_then_rename_and_delete_work() {
     w.close().unwrap();
     let done = dir.join("model.bin");
     s.rename(&part, &done).unwrap();
-    assert_eq!(s.read(&done).unwrap(), b"abcd");
-    assert!(!s.exists(&part).unwrap());
+    assert_that!(s.read(&done).unwrap()).is_equal_to(b"abcd".to_vec());
+    assert_that!(s.exists(&part).unwrap()).is_false();
     s.delete(&done).unwrap();
-    assert!(!s.exists(&done).unwrap());
+    assert_that!(s.exists(&done).unwrap()).is_false();
     s.delete(&done).unwrap();
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -83,6 +85,6 @@ fn read_path_with_parent_components_resolves_them() {
     let s = Storage::local().unwrap();
     let dir = temp_dir("dotdot");
     s.write(&dir.join("x/file"), b"ok".to_vec()).unwrap();
-    assert_eq!(s.read(&dir.join("x/../x/./file")).unwrap(), b"ok");
+    assert_that!(s.read(&dir.join("x/../x/./file")).unwrap()).is_equal_to(b"ok".to_vec());
     std::fs::remove_dir_all(&dir).ok();
 }

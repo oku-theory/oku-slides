@@ -75,13 +75,5 @@ impl std::fmt::Display for Message {
 }
 
 #[cfg(test)]
-mod message_tests {
-    use super::*;
-
-    #[test]
-    fn message_with_args_localizes_and_displays_in_english() {
-        let m = Message::new("chart-series-empty").arg("index", 2usize);
-        assert_eq!(m.localize(&Localizer::new(Some("fr"))), "série 2 sans données");
-        assert_eq!(m.to_string(), "series 2 has no data");
-    }
-}
+#[path = "message_tests.rs"]
+mod message_tests;

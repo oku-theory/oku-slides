@@ -249,14 +249,5 @@ pub fn strip_sources(pdf: &[u8]) -> Result<Vec<u8>, PdfError> {
 }
 
 #[cfg(test)]
-mod lib_tests {
-    use super::pdf_date;
-
-    #[test]
-    fn pdf_date_now_follows_pdf_date_syntax() {
-        let d = pdf_date();
-        assert_eq!(d.len(), "D:20260925120000Z".len(), "{d}");
-        assert!(d.starts_with("D:20") && d.ends_with('Z'), "{d}");
-        assert!(d[2..16].bytes().all(|b| b.is_ascii_digit()), "{d}");
-    }
-}
+#[path = "lib_tests.rs"]
+mod lib_tests;

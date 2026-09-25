@@ -22,6 +22,7 @@ typst-assets.workspace = true
 time.workspace = true
 
 [dev-dependencies]
+speculoos.workspace = true
 slider-pdf.workspace = true
 
 [lints]

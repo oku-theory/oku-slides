@@ -25,5 +25,9 @@ slider-i18n.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+speculoos.workspace = true
+serde_json.workspace = true
+
 [lints]
 workspace = true

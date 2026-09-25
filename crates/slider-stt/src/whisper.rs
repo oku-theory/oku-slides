@@ -260,15 +260,5 @@ pub(crate) fn threads() -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::repetitive;
-
-    #[test]
-    fn repere_les_boucles() {
-        assert!(repetitive("Arudun, slid, sud, affaidaudududududududududududududududududududududududududududududud"));
-        assert!(!repetitive("Ajoute une slide sur la feuille de route du deuxième trimestre, avec trois colonnes."));
-        assert!(!repetitive("Ask what you can do for your country, ask what your country can do for you."));
-        assert!(repetitive("Houdun slidzu la feuille de route d'un mjmjmjmjjjjjjjjjjjj"));
-        assert!(!repetitive("Il a dit : « non, non, non » et c'est tout. Rendez-vous le 11/11/2026."));
-    }
-}
+#[path = "whisper_tests.rs"]
+mod whisper_tests;

@@ -12,5 +12,8 @@ fluent-bundle.workspace = true
 unic-langid.workspace = true
 sys-locale.workspace = true
 
+[dev-dependencies]
+speculoos.workspace = true
+
 [lints]
 workspace = true
