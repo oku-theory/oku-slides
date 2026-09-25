@@ -33,7 +33,7 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     .unwrap();
     let snap = s.snapshot();
     assert!(snap.dirty && snap.can_undo);
-    assert_eq!(snap.undo_label.as_deref(), Some("Déplacer"));
+    assert_eq!(snap.undo_label, Some("Déplacer"));
     let moved = s.slide("s-libre").unwrap();
     assert_ne!(moved.hash, before_hash);
     let t2 = moved.targets.iter().find(|t| t.id == "e-texte").unwrap();
@@ -159,6 +159,8 @@ fn les_modeles_se_rendent_dans_le_theme_du_deck() {
     s.open(&fixture_path()).unwrap();
     let papier = s.templates_view(None).unwrap().templates;
     assert!(papier.len() >= 8);
+    let again = s.templates_view(None).unwrap().templates;
+    assert!(std::sync::Arc::ptr_eq(&papier, &again), "rien n'a changé : les aperçus viennent du cache");
     assert!(papier.iter().all(|t| t.svg.starts_with("<svg")));
     assert!(papier.iter().any(|t| t.template.id == "cartes"));
 

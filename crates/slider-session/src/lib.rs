@@ -168,7 +168,7 @@ pub struct Session {
     library: Library,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
-    template_cache: Option<(String, Vec<TemplateView>)>,
+    template_cache: Option<Previews>,
     renderer: Renderer,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
@@ -177,6 +177,33 @@ pub struct Session {
     appearance: Appearance,
     compiled: Option<Compiled>,
     svg_cache: HashMap<u128, Arc<str>>,
+}
+
+/// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
+/// le style du deck (le deck d'aperçu les porte).
+struct Previews {
+    set: TemplateSet,
+    deck: Deck,
+    views: Arc<[TemplateView]>,
+}
+
+/// Un deck qui a le style de `base` (thème, jetons, paramètres, variables,
+/// ensemble de modèles) et ces slides.
+fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
+    Deck {
+        version: base.version,
+        theme: base.theme.clone(),
+        params: base.params.clone(),
+        vars: base.vars.clone(),
+        tokens: base.tokens.clone(),
+        templates: base.templates.clone(),
+        slides,
+    }
+}
+
+/// Même style : même thème, mêmes jetons, paramètres et variables.
+fn same_style(a: &Deck, b: &Deck) -> bool {
+    a.theme == b.theme && a.tokens == b.tokens && a.params == b.params && a.vars == b.vars
 }
 
 /// Deck vide : une couverture et une slide de contenu.
@@ -249,7 +276,7 @@ impl Session {
         self.user_deck().templates.as_deref().unwrap_or(DEFAULT_SET)
     }
 
-    fn get_set(&self, id: &str) -> Result<(TemplateSet, bool)> {
+    fn get_set(&self, id: &str) -> Result<(Cow<'static, TemplateSet>, bool)> {
         self.library.get(id).ok_or_else(|| SessionError::BadRequest(format!("ensemble de modèles introuvable : {id}")))
     }
 
@@ -258,26 +285,21 @@ impl Session {
     /// portent pas d'assets (un ensemble n'en enregistre pas).
     pub fn edit_templates(&mut self, id: &str) -> Result<()> {
         let (set, builtin) = self.get_set(id)?;
-        let base = self.user_deck();
-        let deck = Deck {
-            version: base.version,
-            theme: base.theme.clone(),
-            params: Params { title: Some(set.name.clone()), ..base.params.clone() },
-            vars: base.vars.clone(),
-            tokens: base.tokens.clone(),
-            templates: Some(set.id.clone()),
-            slides: set
-                .templates
-                .into_iter()
-                .map(|t| {
-                    let mut s = t.slide;
-                    s.id = t.id;
-                    s.name = Some(t.name);
-                    s.description = (!t.description.is_empty()).then_some(t.description);
-                    s
-                })
-                .collect(),
-        };
+        let set = set.into_owned();
+        let slides = set
+            .templates
+            .into_iter()
+            .map(|t| {
+                let mut s = t.slide;
+                s.id = t.id;
+                s.name = Some(t.name);
+                s.description = (!t.description.is_empty()).then_some(t.description);
+                s
+            })
+            .collect();
+        let mut deck = styled_like(self.user_deck(), slides);
+        deck.params.title = Some(set.name.clone());
+        deck.templates = Some(set.id.clone());
         let templates = Document::new(SourceBundle::new(deck), None);
         let edit = TemplateMode { set: set.id, name: set.name, builtin };
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
@@ -296,8 +318,11 @@ impl Session {
     fn edited_set(&self, id: String) -> TemplateSet {
         let deck = &self.doc.sources.deck;
         let name = deck.params.title.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Mes modèles".into());
-        let description =
-            self.editing().and_then(|m| self.library.get(&m.set)).map(|(s, _)| s.description).unwrap_or_default();
+        let description = self
+            .editing()
+            .and_then(|m| self.library.get(&m.set))
+            .map(|(s, _)| s.into_owned().description)
+            .unwrap_or_default();
         let templates = deck
             .slides
             .iter()
@@ -552,25 +577,24 @@ impl Session {
         let id = set.unwrap_or_else(|| self.deck_set().to_owned());
         // Un ensemble disparu (supprimé, ou d'une autre machine) : celui par défaut.
         let (set, builtin) = self.get_set(&id).or_else(|_| self.get_set(DEFAULT_SET))?;
-        let base = self.user_deck().clone();
-        let key =
-            serde_json::to_string(&(&base.theme, &base.tokens, &base.params, &base.vars, &set)).unwrap_or_default();
+        let base = self.user_deck();
         let views = match &self.template_cache {
-            Some((k, views)) if *k == key => views.clone(),
+            Some(p) if p.set == *set && same_style(&p.deck, base) => p.views.clone(),
             _ => {
-                let mut preview = base;
-                preview.slides = set.templates.iter().map(|t| t.slide.clone()).collect();
+                let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
                 let renderer = self.template_renderer.get_or_insert_with(|| Renderer::new(self.render_fonts.clone()));
-                renderer.set_deck(&preview, &self.doc.sources.assets);
+                renderer.set_deck(&deck, &self.doc.sources.assets);
                 let compiled = renderer.compile()?;
                 let layout = compiled.layout();
-                let mut views = Vec::with_capacity(set.templates.len());
-                for t in &set.templates {
-                    let page = layout.page_of(&t.slide.id).unwrap_or(1);
-                    let svg: Arc<str> = compiled.svg(page - 1)?.into();
-                    views.push(TemplateView { template: t.clone(), svg });
-                }
-                self.template_cache = Some((key, views.clone()));
+                let views = set
+                    .templates
+                    .iter()
+                    .map(|t| {
+                        let page = layout.page_of(&t.slide.id).unwrap_or(1);
+                        Ok(TemplateView { template: t.clone(), svg: compiled.svg(page - 1)?.into() })
+                    })
+                    .collect::<Result<Arc<[TemplateView]>>>()?;
+                self.template_cache = Some(Previews { set: set.clone().into_owned(), deck, views: views.clone() });
                 views
             }
         };

@@ -88,7 +88,7 @@ pub struct TemplateView {
 pub struct TemplatesView {
     pub set: SetInfo,
     pub sets: Vec<SetInfo>,
-    pub templates: Vec<TemplateView>,
+    pub templates: Arc<[TemplateView]>,
 }
 
 /// Ce que désigne une boîte : un élément (et son type) ou un champ de slide.

@@ -9,7 +9,9 @@
 //! - Ensembles de l'utilisateur : fichiers JSON dans le dossier de données de
 //!   l'app (`templates/`), créés et modifiés par le mode d'édition des modèles.
 
+use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
@@ -18,8 +20,13 @@ use slider_core::Slide;
 /// Ensemble proposé par défaut.
 pub const DEFAULT_SET: &str = "essentiel";
 
-const BUILTIN: &[&str] =
-    &[include_str!("../../../templates/essentiel.json"), include_str!("../../../templates/grilles.json")];
+/// Ensembles intégrés, lus une fois par processus.
+static BUILTIN: LazyLock<Vec<TemplateSet>> = LazyLock::new(|| {
+    [include_str!("../../../templates/essentiel.json"), include_str!("../../../templates/grilles.json")]
+        .iter()
+        .map(|s| serde_json::from_str(s).expect("ensemble de modèles intégré valide"))
+        .collect()
+});
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Template {
@@ -62,8 +69,8 @@ impl TemplateSet {
 }
 
 /// Ensembles intégrés, dans l'ordre.
-pub fn builtin_sets() -> Vec<TemplateSet> {
-    BUILTIN.iter().map(|s| serde_json::from_str(s).expect("ensemble de modèles intégré valide")).collect()
+pub fn builtin_sets() -> &'static [TemplateSet] {
+    &BUILTIN
 }
 
 /// Identifiant de fichier à partir d'un nom : minuscules, tirets.
@@ -114,23 +121,23 @@ impl Library {
     }
 
     pub fn is_builtin(id: &str) -> bool {
-        builtin_sets().iter().any(|s| s.id == id)
+        BUILTIN.iter().any(|s| s.id == id)
     }
 
     /// Tous les ensembles : intégrés d'abord.
     pub fn list(&self) -> Vec<SetInfo> {
-        let mut out: Vec<SetInfo> = builtin_sets().iter().map(|s| s.info(true)).collect();
+        let mut out: Vec<SetInfo> = BUILTIN.iter().map(|s| s.info(true)).collect();
         out.extend(self.user_sets().iter().map(|s| s.info(false)));
         out
     }
 
     /// Un ensemble par son identifiant (celui de l'utilisateur d'abord : il
-    /// peut remplacer un intégré du même nom).
-    pub fn get(&self, id: &str) -> Option<(TemplateSet, bool)> {
+    /// peut remplacer un intégré du même nom). Un intégré est prêté, pas copié.
+    pub fn get(&self, id: &str) -> Option<(Cow<'static, TemplateSet>, bool)> {
         if let Some(s) = self.user_sets().into_iter().find(|s| s.id == id) {
-            return Some((s, false));
+            return Some((Cow::Owned(s), false));
         }
-        builtin_sets().into_iter().find(|s| s.id == id).map(|s| (s, true))
+        BUILTIN.iter().find(|s| s.id == id).map(|s| (Cow::Borrowed(s), true))
     }
 
     /// Identifiant libre, dérivé du nom.
@@ -169,7 +176,7 @@ mod tests {
     fn ensembles_integres_valides_et_ids_uniques() {
         let sets = builtin_sets();
         assert!(sets.len() >= 2);
-        for s in &sets {
+        for s in sets {
             let mut ids: Vec<&str> = s.templates.iter().map(|t| t.id.as_str()).collect();
             ids.sort();
             ids.dedup();
@@ -199,7 +206,7 @@ mod tests {
     fn enregistrer_relire_supprimer() {
         let dir = std::env::temp_dir().join(format!("echo-templates-{}", std::process::id()));
         let lib = Library::new(Some(dir.clone()));
-        let mut set = builtin_sets().remove(0);
+        let mut set = builtin_sets()[0].clone();
         set.id = lib.free_id("Mon ensemble");
         set.name = "Mon ensemble".into();
         lib.save(&set).unwrap();
