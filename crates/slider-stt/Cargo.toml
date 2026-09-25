@@ -13,6 +13,7 @@ default = []
 accelerate = ["ct2rs/accelerate"]
 
 [dependencies]
+slider-i18n.workspace = true
 slider-platform.workspace = true
 tracing.workspace = true
 serde.workspace = true

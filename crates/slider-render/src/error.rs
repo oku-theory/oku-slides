@@ -1,6 +1,13 @@
 //! Erreurs du rendu : compilation Typst, export PDF, page absente.
 
+use slider_i18n::{Localize, Localizer};
 use snafu::{Backtrace, Snafu};
+
+use crate::diagnostic::Diagnostic;
+
+fn lines(diagnostics: &[Diagnostic]) -> String {
+    diagnostics.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
+}
 
 /// Un rendu impossible.
 #[derive(Debug, Snafu)]
@@ -22,10 +29,10 @@ pub enum RenderErrorKind {
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum RenderInner {
-    #[snafu(display("Typst compilation failed:\n{}", diagnostics.join("\n")))]
-    Compile { diagnostics: Vec<String>, backtrace: Backtrace },
-    #[snafu(display("PDF export failed:\n{}", diagnostics.join("\n")))]
-    Pdf { diagnostics: Vec<String>, backtrace: Backtrace },
+    #[snafu(display("Typst compilation failed:\n{}", lines(diagnostics)))]
+    Compile { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
+    #[snafu(display("PDF export failed:\n{}", lines(diagnostics)))]
+    Pdf { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
     #[snafu(display("no such page: {index}"))]
     NoPage { index: usize, backtrace: Backtrace },
     #[snafu(display("invalid virtual path {path}"))]
@@ -45,10 +52,27 @@ impl RenderError {
     }
 
     /// Messages de Typst (compilation ou export), un par problème.
-    pub fn diagnostics(&self) -> &[String] {
+    pub fn diagnostics(&self) -> &[Diagnostic] {
         match &self.0 {
             RenderInner::Compile { diagnostics, .. } | RenderInner::Pdf { diagnostics, .. } => diagnostics,
             _ => &[],
         }
+    }
+}
+
+impl Localize for RenderError {
+    /// Le message, puis ceux de Typst, un par ligne.
+    fn localize(&self, l: &Localizer) -> String {
+        let mut out = l.tr(match self.kind() {
+            RenderErrorKind::Compile => "render-compile",
+            RenderErrorKind::Pdf => "render-pdf",
+            RenderErrorKind::NoPage => "render-no-page",
+            RenderErrorKind::Setup => "render-setup",
+        });
+        for d in self.diagnostics() {
+            out.push('\n');
+            out.push_str(&d.localize(l));
+        }
+        out
     }
 }

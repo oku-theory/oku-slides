@@ -42,7 +42,8 @@ fn file_id(path: &str) -> Result<FileId, RenderError> {
 
 /// Source principale : importe la bibliothèque et rend `/deck.json`.
 /// `assets` : empreintes (hex) des assets disponibles.
-fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>) -> String {
+/// `missing` : texte du cadre d'une image absente (échappé ici, pas du code).
+fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, missing: &str) -> String {
     let theme = match theme {
         Some(t) if THEMES.contains(&t) => t,
         _ => "none",
@@ -55,6 +56,7 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>) -
         available.push_str("\",");
     }
     available.push(')');
+    let missing = typst_string(missing);
     format!(
         r#"#import "/slider/lib.typ": *
 #let available = {available}
@@ -64,12 +66,28 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>) -
     image("/assets/" + hex, width: 100%, height: 100%, fit: e.at("fit", default: "cover"))
   }} else {{
     rect(width: 100%, height: 100%, fill: luma(230),
-      align(center + horizon, text(size: 20pt, fill: luma(90))[image manquante]))
+      align(center + horizon, text(size: 20pt, fill: luma(90), {missing})))
   }}
 }}
 #render-deck(json("/deck.json"), theme: {theme}, image-loader: load-image)
 "#
     )
+}
+
+/// Littéral de chaîne Typst : guillemets et barres obliques échappés.
+fn typst_string(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push('"');
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 /// Empreinte (hex) d'un identifiant d'asset `sha256:<hex>`. Tout autre
@@ -88,6 +106,10 @@ pub(crate) struct SliderWorld {
     sources: HashMap<FileId, Source>,
     deck_id: FileId,
     deck: Bytes,
+    /// Dernier deck reçu : thème et assets, pour refaire la source principale.
+    theme: Option<String>,
+    hexes: Vec<String>,
+    missing_image: String,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
     assets: HashMap<FileId, Bytes>,
@@ -104,10 +126,13 @@ impl SliderWorld {
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main: Source::new(main_id, main_source(None, std::iter::empty())),
+            main: Source::new(main_id, main_source(None, std::iter::empty(), "missing image")),
             sources,
             deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
+            theme: None,
+            hexes: Vec::new(),
+            missing_image: "missing image".to_owned(),
             assets: HashMap::new(),
         })
     }
@@ -131,11 +156,23 @@ impl SliderWorld {
         }
         self.deck = Bytes::new(serde_json::to_vec(deck).context(DeckJsonSnafu)?);
 
-        let text = main_source(deck.theme.as_deref(), hexes.into_iter());
+        self.theme.clone_from(&deck.theme);
+        self.hexes = hexes.into_iter().map(str::to_owned).collect();
+        self.refresh_main();
+        Ok(())
+    }
+
+    pub fn set_missing_image_label(&mut self, label: &str) {
+        label.clone_into(&mut self.missing_image);
+        self.refresh_main();
+    }
+
+    /// Refait la source principale si elle a changé (Typst garde son cache sinon).
+    fn refresh_main(&mut self) {
+        let text = main_source(self.theme.as_deref(), self.hexes.iter().map(String::as_str), &self.missing_image);
         if self.main.text() != text {
             self.main.replace(&text);
         }
-        Ok(())
     }
 
     pub(crate) fn source_of(&self, id: FileId) -> Option<&Source> {

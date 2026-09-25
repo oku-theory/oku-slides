@@ -29,8 +29,10 @@ use serde::{Deserialize, Serialize};
 pub use audio::{SAMPLE_RATE, resample};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
+use slider_i18n::{Localize, Localizer};
+use slider_platform::Platform;
 use slider_platform::config::SttSettings;
-pub use slider_platform::storage::Storage;
+use slider_platform::storage::Storage;
 use vad::{Phrase, Segmenter};
 pub use whisper::{Transcriber, Transcript};
 
@@ -65,7 +67,7 @@ impl Default for Config {
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelInfo {
     pub id: Model,
-    pub label: &'static str,
+    pub label: String,
     pub size: u64,
     pub installed: bool,
 }
@@ -161,6 +163,7 @@ pub struct Stt {
     /// Rythmes et seuils (réglages de l'app).
     settings: Arc<SttSettings>,
     storage: Storage,
+    localizer: Arc<Localizer>,
     cancel_download: Arc<AtomicBool>,
 }
 
@@ -178,11 +181,6 @@ enum Job {
     Done,
 }
 
-/// Message d'une erreur pour l'interface : l'erreur et ses causes, sur une ligne.
-fn message(e: &SttError) -> String {
-    slider_platform::errors::one_line(e)
-}
-
 impl std::fmt::Debug for Stt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stt").field("dir", &self.dir).finish_non_exhaustive()
@@ -190,10 +188,11 @@ impl std::fmt::Debug for Stt {
 }
 
 impl Stt {
-    /// `dir` : dossier des modèles et des réglages de la dictée ; `settings` :
-    /// rythmes et seuils de l'écoute ; `storage` : accès aux fichiers.
-    pub fn new(dir: impl Into<PathBuf>, settings: SttSettings, storage: Storage) -> Self {
-        let dir = dir.into();
+    /// La dictée de la plateforme : dossier des modèles et rythmes de
+    /// l'écoute (réglages), fichiers, langue des messages.
+    pub fn new(platform: &Platform) -> Self {
+        let dir = platform.settings.paths.models();
+        let storage = platform.storage.clone();
         // Réglages absents ou illisibles : ceux par défaut.
         let config =
             storage.read(&config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
@@ -219,8 +218,9 @@ impl Stt {
                 installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
             })),
             dir,
-            settings: Arc::new(settings),
+            settings: Arc::new(platform.settings.stt.clone()),
             storage,
+            localizer: platform.localizer.clone(),
             cancel_download: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -256,7 +256,7 @@ impl Stt {
             models: Model::ALL
                 .iter()
                 .zip(g.installed)
-                .map(|(&m, installed)| ModelInfo { id: m, label: m.label(), size: m.size(), installed })
+                .map(|(&m, installed)| ModelInfo { id: m, label: m.label(&self.localizer), size: m.size(), installed })
                 .collect(),
             download: g.download.clone(),
             level: g.level,
@@ -337,13 +337,13 @@ impl Stt {
                 g.installed = Model::ALL.map(|m| m.is_installed(&me.storage, &dir));
                 match result {
                     Ok(_) => {
-                        tracing::info!(?model, "modèle de dictée téléchargé");
+                        tracing::info!(?model, "{}", me.localizer.tr("log-model-downloaded"));
                         std::mem::take(&mut g.start_after_download)
                     }
                     Err(e) if e.kind() == SttErrorKind::Cancelled => false,
                     Err(e) => {
                         tracing::warn!(?model, error = %snafu::Report::from_error(&e), "téléchargement du modèle");
-                        g.error = Some(message(&e));
+                        g.error = Some(e.localize(&me.localizer));
                         false
                     }
                 }
@@ -359,7 +359,7 @@ impl Stt {
             Ok(r) => r,
             Err(e) => {
                 tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
-                self.state().error = Some(message(&e));
+                self.state().error = Some(e.localize(&self.localizer));
                 return;
             }
         };
@@ -506,7 +506,7 @@ impl Stt {
             Err(e) => {
                 let mut g = self.state();
                 if g.session == session {
-                    g.error = Some(message(&e));
+                    g.error = Some(e.localize(&self.localizer));
                     g.state = State::Idle;
                     g.session += 1;
                 }
@@ -559,7 +559,10 @@ impl Stt {
                             g.phrases[index] = Some(keep(&t));
                             g.partial.clear();
                         }
-                        Err(e) => g.error = Some(message(&e)),
+                        Err(e) => {
+                            tracing::warn!(error = %slider_platform::errors::one_line(&e), "transcription");
+                            g.error = Some(e.localize(&self.localizer));
+                        }
                     }
                 }
                 Job::Preview { audio } => {
@@ -685,8 +688,11 @@ fn clean(text: &str) -> String {
 mod tests {
     use super::*;
 
-    fn settings() -> SttSettings {
-        slider_platform::config::Settings::defaults().unwrap().stt
+    /// Une plateforme isolée : ses modèles dans `dir`.
+    fn platform(dir: &Path) -> Platform {
+        let mut settings = slider_platform::config::Settings::defaults().unwrap();
+        settings.paths.models = Some(dir.to_path_buf());
+        Platform::with_settings(settings).unwrap()
     }
 
     #[test]
@@ -719,14 +725,14 @@ mod tests {
     #[test]
     fn reglages_par_defaut_turbo_detection_auto_arret_seul() {
         let dir = std::env::temp_dir().join(format!("echo-stt-{}", std::process::id()));
-        let stt = Stt::new(&dir, settings(), Storage::local().unwrap());
+        let stt = Stt::new(&platform(&dir));
         let s = stt.status();
         assert_eq!(s.config.model, Model::Turbo);
         assert_eq!(s.config.language, None);
         assert!(s.config.auto_stop);
         assert_eq!(s.models.len(), 3);
         stt.configure(Config { model: Model::Large, language: Some("fr".into()), auto_stop: false, silence: 2.0 });
-        let back = Stt::new(&dir, settings(), Storage::local().unwrap()).status().config;
+        let back = Stt::new(&platform(&dir)).status().config;
         assert_eq!(back.model, Model::Large);
         assert!(!back.auto_stop);
         std::fs::remove_dir_all(&dir).ok();

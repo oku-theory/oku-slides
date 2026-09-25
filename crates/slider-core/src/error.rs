@@ -3,6 +3,7 @@
 //! Chaque erreur publique est opaque ; [`OpError::kind`] et
 //! [`SourcesError::kind`] disent de quoi il s'agit sans exposer les détails.
 
+use slider_i18n::{Localize, Localizer};
 use snafu::{Backtrace, Snafu};
 
 /// Une opération refusée. Le deck n'a pas changé.
@@ -144,5 +145,39 @@ impl SourcesError {
             SourcesInner::BadName { .. } => SourcesErrorKind::BadName,
             SourcesInner::MissingDeck { .. } => SourcesErrorKind::MissingDeck,
         }
+    }
+}
+
+impl Localize for OpError {
+    fn localize(&self, l: &Localizer) -> String {
+        let id = match self.kind() {
+            OpErrorKind::SlideNotFound => "op-slide-not-found",
+            OpErrorKind::ElementNotFound => "op-element-not-found",
+            OpErrorKind::DuplicateId => "op-duplicate-id",
+            OpErrorKind::IndexOutOfRange => "op-index-out-of-range",
+            OpErrorKind::NotAGroup => "op-not-a-group",
+            OpErrorKind::NoText => "op-no-text",
+            OpErrorKind::InvalidValue => "op-invalid-value",
+            OpErrorKind::Inconsistent => "op-inconsistent",
+        };
+        l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
+    }
+}
+
+impl Localize for TransactionError {
+    fn localize(&self, l: &Localizer) -> String {
+        l.tr_with("transaction-refused", &[("index", self.index.into()), ("reason", self.source.localize(l).into())])
+    }
+}
+
+impl Localize for SourcesError {
+    fn localize(&self, l: &Localizer) -> String {
+        l.tr(match self.kind() {
+            SourcesErrorKind::Unreadable => "sources-unreadable",
+            SourcesErrorKind::NotSources => "sources-not-sources",
+            SourcesErrorKind::UnsupportedVersion => "sources-unsupported-version",
+            SourcesErrorKind::BadName => "sources-bad-name",
+            SourcesErrorKind::MissingDeck => "sources-missing-deck",
+        })
     }
 }

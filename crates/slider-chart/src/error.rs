@@ -3,6 +3,7 @@
 //! Les raisons sont destinées à l'utilisateur et au LLM : elles disent quoi
 //! corriger, pas seulement ce qui a échoué.
 
+use slider_i18n::{Localize, Localizer, Message};
 use snafu::{Backtrace, Snafu};
 
 /// Un graphique refusé ou impossible à rendre.
@@ -31,11 +32,11 @@ pub(crate) enum ChartInner {
     #[snafu(display("invalid options"))]
     InvalidOption { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid options: {reason}"))]
-    InvalidPatch { reason: &'static str, backtrace: Backtrace },
+    InvalidPatch { reason: Message, backtrace: Backtrace },
     #[snafu(display("inconsistent chart: {reason}"))]
-    Inconsistent { reason: String, backtrace: Backtrace },
+    Inconsistent { reason: Message, backtrace: Backtrace },
     #[snafu(display("impossible data operation: {reason}"))]
-    DataOp { reason: String, backtrace: Backtrace },
+    DataOp { reason: Message, backtrace: Backtrace },
     #[snafu(display("an option patch cannot change `dataset`: use set_chart_data"))]
     PatchTouchesDataset { backtrace: Backtrace },
     #[snafu(display("chart rendering failed"))]
@@ -52,16 +53,22 @@ impl ChartError {
             ChartInner::Render { .. } => ChartErrorKind::Render,
         }
     }
+}
 
+impl Localize for ChartError {
     /// Ce qu'il faut corriger, pour l'utilisateur ou le LLM (champ fautif,
     /// raison de l'incohérence…).
-    pub fn reason(&self) -> String {
+    fn localize(&self, l: &Localizer) -> String {
         match &self.0 {
-            ChartInner::InvalidOption { source, .. } => source.to_string(),
-            ChartInner::InvalidPatch { reason, .. } => (*reason).to_owned(),
-            ChartInner::Inconsistent { reason, .. } | ChartInner::DataOp { reason, .. } => reason.clone(),
-            ChartInner::PatchTouchesDataset { .. } => self.to_string(),
-            ChartInner::Render { source, .. } => source.to_string(),
+            // serde nomme le champ fautif : son message est gardé tel quel.
+            ChartInner::InvalidOption { source, .. } => {
+                l.tr_with("chart-invalid-option", &[("reason", source.to_string().into())])
+            }
+            ChartInner::InvalidPatch { reason, .. }
+            | ChartInner::Inconsistent { reason, .. }
+            | ChartInner::DataOp { reason, .. } => reason.localize(l),
+            ChartInner::PatchTouchesDataset { .. } => l.tr("chart-patch-dataset"),
+            ChartInner::Render { .. } => l.tr("chart-render"),
         }
     }
 }

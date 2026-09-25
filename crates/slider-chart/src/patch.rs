@@ -6,6 +6,7 @@
 
 use serde_json::{Map, Value};
 
+use slider_i18n::Message;
 use snafu::{ResultExt, ensure};
 
 use crate::error::{InvalidOptionSnafu, InvalidPatchSnafu, PatchTouchesDatasetSnafu, Result};
@@ -15,7 +16,7 @@ use crate::option::ChartOption;
 /// Applique `patch` et renvoie les nouvelles options et le patch inverse.
 pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartOption, Value)> {
     ensure!(patch.get("dataset").is_none(), PatchTouchesDatasetSnafu);
-    ensure!(patch.is_object(), InvalidPatchSnafu { reason: "the patch must be a JSON object" });
+    ensure!(patch.is_object(), InvalidPatchSnafu { reason: Message::new("chart-patch-object") });
     let before = serde_json::to_value(option).context(InvalidOptionSnafu)?;
     let inverse = reverse_merge_patch(&before, patch);
     let mut after = before;
@@ -83,7 +84,7 @@ mod tests {
     #[test]
     fn unknown_fields_are_rejected_with_their_name() {
         let r = apply_option_patch(&option(), &json!({ "tooltip": { "show": true } }));
-        let msg = r.unwrap_err().reason();
+        let msg = slider_i18n::Localize::localize(&r.unwrap_err(), slider_i18n::english());
         assert!(msg.contains("tooltip"), "{msg}");
     }
 }

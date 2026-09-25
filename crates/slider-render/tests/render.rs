@@ -136,3 +136,14 @@ fn un_asset_ajoute_puis_retire_suit_le_deck() {
     let again = r.compile().unwrap();
     assert_eq!(again.svg(page).unwrap(), missing_svg);
 }
+
+#[test]
+fn set_missing_image_label_with_quotes_still_compiles() {
+    let deck = fixture();
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
+    let english = r.compile().unwrap().svg(deck.slide_index("s-libre").unwrap()).unwrap();
+    r.set_missing_image_label(r#"image "manquante" \ ici"#);
+    let french = r.compile().unwrap().svg(deck.slide_index("s-libre").unwrap()).unwrap();
+    assert_ne!(english, french, "le libellé change le cadre de l'image absente");
+}

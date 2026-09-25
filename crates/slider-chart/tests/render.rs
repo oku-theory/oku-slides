@@ -1,5 +1,6 @@
 use serde_json::json;
 use slider_chart::*;
+use slider_i18n::Localize;
 
 const SIZE: Size = Size { width: 640.0, height: 400.0 };
 
@@ -108,10 +109,11 @@ fn inconsistent_options_explain_the_fix() {
         "series": [{ "type": "bar", "encode": { "y": "CA" } }]
     }))
     .unwrap_err()
-    .reason();
+    .localize(slider_i18n::english());
     assert!(err.contains("CA") && err.contains("Ventes"), "{err}");
 
-    let err =
-        parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] })).unwrap_err().reason();
+    let err = parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] }))
+        .unwrap_err()
+        .localize(slider_i18n::english());
     assert!(err.contains("itemStyle"), "{err}");
 }

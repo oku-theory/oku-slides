@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use slider_i18n::Localizer;
 use slider_platform::config::SttSettings;
 use slider_platform::storage::Storage;
 use snafu::ResultExt;
@@ -62,12 +63,13 @@ impl Model {
         }
     }
 
-    pub fn label(self) -> &'static str {
-        match self {
-            Model::Turbo => "Large v3 Turbo (multilingue, 818 Mo)",
-            Model::Large => "Large v3 (multilingue, 3,1 Go)",
-            Model::Base => "Base (multilingue, 148 Mo)",
-        }
+    /// Nom affiché, dans la langue de l'utilisateur.
+    pub fn label(self, l: &Localizer) -> String {
+        l.tr(match self {
+            Model::Turbo => "stt-model-turbo",
+            Model::Large => "stt-model-large",
+            Model::Base => "stt-model-base",
+        })
     }
 
     /// Dossier du modèle.

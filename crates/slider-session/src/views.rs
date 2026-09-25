@@ -55,7 +55,8 @@ pub struct Snapshot<'a> {
     pub undo_label: Option<&'a str>,
     pub can_redo: bool,
     pub redo_label: Option<&'a str>,
-    pub warnings: &'a [String],
+    /// Avertissements du rendu, dans la langue de l'utilisateur.
+    pub warnings: Vec<String>,
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
     pub notice: Option<&'a str>,
     /// L'interface prend les couleurs et les polices du thème des slides.

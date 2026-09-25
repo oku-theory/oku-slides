@@ -1,23 +1,33 @@
 //! Écho : application de bureau. Toute la logique est dans `slider-session` ;
 //! l'interface appelle une seule commande, `request`, avec une requête JSON.
+//!
+//! Démarrage : journaux → plateforme (réglages, fichiers, langue) → session
+//! et dictée.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use slider_session::{Fonts, Request, Session, Settings, Storage};
+use slider_session::{Fonts, Localize, Localizer, Platform, Request, Session, Storage};
 use slider_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
 use tauri::ipc::Response;
 
-struct AppState(Mutex<Session>);
+struct AppState {
+    session: Mutex<Session>,
+    localizer: Arc<Localizer>,
+}
 
-/// La réponse est déjà du JSON : elle passe telle quelle à l'interface.
+/// La réponse est déjà du JSON : elle passe telle quelle à l'interface ; une
+/// erreur y arrive dans la langue de l'utilisateur.
 #[tauri::command]
 fn request(state: tauri::State<'_, AppState>, req: Request) -> Result<Response, String> {
-    let mut session = state.0.lock().map_err(|_| "session indisponible".to_owned())?;
-    session.handle(req).map(Response::new).map_err(|e| e.one_line())
+    let mut session = state.session.lock().map_err(|_| state.localizer.tr("session-busy"))?;
+    session.handle(req).map(Response::new).map_err(|e| {
+        tracing::warn!(error = %e.one_line(), "requête refusée");
+        e.localize(&state.localizer)
+    })
 }
 
 /// Dictée : jamais bloquant (téléchargement, micro et Whisper tournent dans leurs fils).
@@ -27,7 +37,7 @@ fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
 }
 
 /// Polices livrées avec l'app (ressource `fonts/`), plus `paths.fonts` des
-/// réglages ; un dossier absent est ignoré.
+/// réglages ; un dossier illisible est signalé et ignoré.
 fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
     Fonts::new(
         dirs.iter()
@@ -44,7 +54,7 @@ fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     slider_platform::telemetry::init();
-    let settings = Settings::load()?;
+    let platform = Platform::load()?;
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
@@ -52,20 +62,19 @@ fn main() -> color_eyre::Result<()> {
             if let Ok(res) = app.path().resource_dir() {
                 dirs.push(res.join("fonts"));
             }
-            dirs.extend(settings.paths.fonts.clone());
+            dirs.extend(platform.settings.paths.fonts.clone());
             // En développement, les polices du dépôt.
             dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
-            let storage = Storage::local()?;
-            let mut session = Session::new(app_fonts(&storage, &dirs), &settings, storage.clone())?;
+            let mut session = Session::new(app_fonts(&platform.storage, &dirs), &platform)?;
             // Un fichier passé en argument (ouvrir avec…) est ouvert au démarrage.
             if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from)
                 && path.exists()
                 && let Err(e) = session.open(&path)
             {
-                tracing::warn!(path = %path.display(), error = %e, "ouverture au démarrage");
+                tracing::warn!(path = %path.display(), error = %e.one_line(), "ouverture au démarrage");
             }
-            app.manage(AppState(Mutex::new(session)));
-            app.manage(Stt::new(settings.paths.models(), settings.stt.clone(), storage));
+            app.manage(AppState { session: Mutex::new(session), localizer: platform.localizer.clone() });
+            app.manage(Stt::new(&platform));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![request, stt])

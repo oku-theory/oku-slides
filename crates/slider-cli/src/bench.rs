@@ -1,0 +1,90 @@
+//! `slider bench` : temps de rendu, d'export et d'enregistrement.
+
+use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
+
+use color_eyre::eyre::{ContextCompat, Result, bail};
+use slider_core::{Deck, Op, Paragraph, SourceBundle};
+use slider_render::{Fonts, Renderer};
+
+use crate::out::Out;
+
+pub fn ms(d: Duration) -> String {
+    format!("{:.1} ms", d.as_secs_f64() * 1000.0)
+}
+
+fn median(mut v: Vec<Duration>) -> Duration {
+    v.sort();
+    v.get(v.len() / 2).copied().unwrap_or_default()
+}
+
+pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
+    let l = out.localizer();
+    if n == 0 {
+        bail!(l.tr("cli-iterations"));
+    }
+    let assets = BTreeMap::new();
+    let t = Instant::now();
+    let mut r = Renderer::new(fonts)?;
+    out.line("cli-bench-world", &[("time", ms(t.elapsed()).into())])?;
+
+    r.set_deck(&deck, &assets)?;
+    let t = Instant::now();
+    let doc = r.compile()?;
+    out.line("cli-bench-first", &[("time", ms(t.elapsed()).into()), ("pages", doc.page_count().into())])?;
+
+    let mut same = Vec::new();
+    for _ in 0..n {
+        r.set_deck(&deck, &assets)?;
+        let t = Instant::now();
+        r.compile()?;
+        same.push(t.elapsed());
+    }
+    out.line("cli-bench-same", &[("time", ms(median(same)).into())])?;
+
+    // Une modification de texte sur une slide de contenu, comme une dictée.
+    let (slide, element) = deck
+        .slides
+        .iter()
+        .find_map(|s| s.blocks.first().map(|b| (s.id.clone(), b.id.clone())))
+        .with_context(|| l.tr("cli-no-block"))?;
+    let mut edits = Vec::new();
+    let mut last = None;
+    for i in 0..n {
+        let text = l.tr_with("cli-bench-edited-text", &[("n", i.into())]);
+        let op = Op::SetText { slide: slide.clone(), element: element.clone(), text: vec![Paragraph::plain(text)] };
+        op.apply(&mut deck)?;
+        r.set_deck(&deck, &assets)?;
+        let t = Instant::now();
+        last = Some(r.compile()?);
+        edits.push(t.elapsed());
+    }
+    out.line("cli-bench-edit", &[("time", ms(median(edits)).into())])?;
+
+    let doc = last.with_context(|| l.tr("cli-iterations"))?;
+    let t = Instant::now();
+    for i in 0..doc.page_count() {
+        doc.svg(i)?;
+    }
+    let all = t.elapsed();
+    let pages = u32::try_from(doc.page_count().max(1)).unwrap_or(u32::MAX);
+    out.line("cli-bench-svg", &[("time", ms(all).into()), ("each", ms(all / pages).into())])?;
+
+    let t = Instant::now();
+    let pdf = doc.pdf()?;
+    out.line("cli-bench-pdf", &[("time", ms(t.elapsed()).into()), ("size", (pdf.len() / 1024).into())])?;
+
+    let zip = SourceBundle::new(deck.clone()).to_zip()?;
+    let t = Instant::now();
+    let embedded = slider_pdf::embed_sources(&pdf, &zip)?;
+    out.line("cli-bench-embed", &[("time", ms(t.elapsed()).into())])?;
+    let t = Instant::now();
+    let back = slider_pdf::extract_sources(&embedded)?.with_context(|| l.tr("cli-blob-missing"))?;
+    let bundle = SourceBundle::from_zip(&back.zip)?;
+    out.line("cli-bench-extract", &[("time", ms(t.elapsed()).into())])?;
+    if bundle.deck != deck {
+        bail!(l.tr("cli-roundtrip-mismatch"));
+    }
+    out.line("cli-bench-roundtrip", &[])?;
+    Ok(())
+}

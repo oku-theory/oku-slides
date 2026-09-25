@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use slider_i18n::{Localize, Localizer};
 use slider_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
@@ -119,3 +120,32 @@ impl SessionError {
 }
 
 pub type Result<T, E = SessionError> = std::result::Result<T, E>;
+
+impl Localize for SessionError {
+    /// Le message, ou celui de l'erreur d'en dessous quand elle dit quelque
+    /// chose à l'utilisateur (opération refusée, rendu, PDF).
+    fn localize(&self, l: &Localizer) -> String {
+        use SessionInner::*;
+        let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
+        match &*self.0 {
+            Read { path, .. } => l.tr_with("session-read", &path_arg(path)),
+            Write { path, .. } => l.tr_with("session-write", &path_arg(path)),
+            NotEcho { .. } => l.tr("session-not-echo"),
+            Pdf { source, .. } => source.localize(l),
+            Sources { source, .. } => source.localize(l),
+            DeckJson { .. } => l.tr("session-invalid-deck"),
+            TemplateJson { path, .. } => l.tr_with("session-invalid-template-set", &path_arg(path)),
+            Op { source, .. } => source.localize(l),
+            Render { source, .. } => source.localize(l),
+            NotRendered { .. } => l.tr("session-not-rendered"),
+            NoPath { .. } => l.tr("session-no-path"),
+            NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
+            NoTemplateSet { id, .. } => l.tr_with("session-no-template-set", &[("id", id.as_str().into())]),
+            BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
+            NoTemplatesDir { .. } => l.tr("session-no-templates-dir"),
+            EditingTemplates { .. } => l.tr("session-editing-templates"),
+            NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
+            Response { .. } => l.tr("session-response"),
+        }
+    }
+}

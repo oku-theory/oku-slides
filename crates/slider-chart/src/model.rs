@@ -6,6 +6,7 @@
 
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::option::*;
+use slider_i18n::Message;
 use snafu::ResultExt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,7 +106,7 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
 
 /// Résout les options en modèle. Échoue si les options sont incohérentes.
 pub fn normalize(option: &ChartOption) -> Result<ChartModel> {
-    let first = option.series.first().ok_or_else(|| inconsistent("au moins une série est requise"))?;
+    let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
     let table = option.dataset.as_ref().map(Table::new).transpose()?;
 
     let kind = match first.kind {
@@ -128,7 +129,7 @@ pub fn normalize(option: &ChartOption) -> Result<ChartModel> {
     })
 }
 
-fn inconsistent(reason: impl Into<String>) -> ChartError {
+fn inconsistent(reason: Message) -> ChartError {
     InconsistentSnafu { reason }.build().into()
 }
 
@@ -140,10 +141,8 @@ pub(crate) struct Table<'a> {
 
 impl<'a> Table<'a> {
     pub fn new(dataset: &'a Dataset) -> Result<Self> {
-        let (header, rows) = dataset
-            .source
-            .split_first()
-            .ok_or_else(|| inconsistent("dataset.source doit contenir au moins la ligne d'en-têtes"))?;
+        let (header, rows) =
+            dataset.source.split_first().ok_or_else(|| inconsistent(Message::new("chart-dataset-header")))?;
         Ok(Table { headers: header.iter().map(Cell::as_label).collect(), rows })
     }
 
@@ -151,11 +150,17 @@ impl<'a> Table<'a> {
         let index = match r {
             ColumnRef::Index(i) => *i,
             ColumnRef::Name(n) => self.headers.iter().position(|h| h == n).ok_or_else(|| {
-                inconsistent(format!("colonne « {n} » absente du dataset (colonnes : {})", self.headers.join(", ")))
+                inconsistent(
+                    Message::new("chart-unknown-column")
+                        .arg("name", n.as_str())
+                        .arg("columns", self.headers.join(", ")),
+                )
             })?,
         };
         if index >= self.headers.len() {
-            return Err(inconsistent(format!("colonne {index} hors du dataset ({} colonnes)", self.headers.len())));
+            return Err(inconsistent(
+                Message::new("chart-column-out-of-range").arg("index", index).arg("count", self.headers.len()),
+            ));
         }
         Ok(index)
     }
@@ -164,7 +169,7 @@ impl<'a> Table<'a> {
         match r {
             Some(r) => self.column(r),
             None if default < self.headers.len() => Ok(default),
-            None => Err(inconsistent(format!("pas de colonne {default} dans le dataset : préciser `encode`"))),
+            None => Err(inconsistent(Message::new("chart-no-default-column").arg("index", default))),
         }
     }
 
@@ -203,7 +208,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
         None => {
             let cats = cat_axis
                 .and_then(|a| a.data.clone())
-                .ok_or_else(|| inconsistent("sans dataset, l'axe des catégories doit avoir `data`"))?;
+                .ok_or_else(|| inconsistent(Message::new("chart-category-data")))?;
             (String::new(), cats)
         }
     };
@@ -213,13 +218,11 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
             SeriesType::Bar => CartesianMark::Bar,
             SeriesType::Line => CartesianMark::Line,
             other => {
-                return Err(inconsistent(format!(
-                    "une série {other:?} ne peut pas être combinée avec des barres ou des lignes"
-                )));
+                return Err(inconsistent(Message::new("chart-mixed-series").arg("kind", format!("{other:?}"))));
             }
         };
         if horizontal && mark == CartesianMark::Line {
-            return Err(inconsistent("les lignes ne sont pas supportées en horizontal"));
+            return Err(inconsistent(Message::new("chart-horizontal-lines")));
         }
         let (name, values) = match (table, &s.data) {
             (_, Some(data)) => {
@@ -229,7 +232,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
                         DataItem::Value(v) => Ok(Some(*v)),
                         DataItem::Null => Ok(None),
                         DataItem::Named(NamedItem { value: ItemValue::Number(v), .. }) => Ok(Some(*v)),
-                        _ => Err(inconsistent(format!("série {i} : les données doivent être des nombres"))),
+                        _ => Err(inconsistent(Message::new("chart-series-numbers").arg("index", i))),
                     })
                     .collect::<Result<Vec<_>>>()?;
                 (s.name.clone().unwrap_or_else(|| format!("Série {}", i + 1)), values)
@@ -239,7 +242,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
                 let col = t.resolve(val_ref, i + 1)?;
                 (s.name.clone().unwrap_or_else(|| t.headers[col].clone()), t.numbers(col))
             }
-            (None, None) => return Err(inconsistent(format!("série {i} sans données"))),
+            (None, None) => return Err(inconsistent(Message::new("chart-series-empty").arg("index", i))),
         };
         series.push(CartesianSeries {
             name,
@@ -264,7 +267,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
 fn single<'a>(option: &'a ChartOption, what: &str) -> Result<&'a Series> {
     match option.series.as_slice() {
         [s] => Ok(s),
-        _ => Err(inconsistent(format!("un graphique {what} a exactement une série"))),
+        _ => Err(inconsistent(Message::new("chart-single-series").arg("kind", what))),
     }
 }
 
@@ -276,7 +279,7 @@ fn pie(option: &ChartOption, table: Option<&Table>) -> Result<Pie> {
                 .iter()
                 .map(|d| match d {
                     DataItem::Named(NamedItem { name, value: ItemValue::Number(v) }) => Ok((name.clone(), Some(*v))),
-                    _ => Err(inconsistent("camembert : chaque élément de data doit être { name, value }")),
+                    _ => Err(inconsistent(Message::new("chart-pie-item"))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             (String::new(), slices, String::new())
@@ -288,7 +291,7 @@ fn pie(option: &ChartOption, table: Option<&Table>) -> Result<Pie> {
             let slices = t.labels(name_col).into_iter().zip(t.numbers(value_col)).collect();
             (t.headers[name_col].clone(), slices, t.headers[value_col].clone())
         }
-        (None, None) => return Err(inconsistent("camembert sans données")),
+        (None, None) => return Err(inconsistent(Message::new("chart-pie-empty"))),
     };
     let (inner, outer) = match &s.radius {
         None => (None, None),
@@ -310,7 +313,7 @@ fn scatter(option: &ChartOption, table: Option<&Table>) -> Result<Scatter> {
     let mut series = Vec::new();
     for (i, s) in option.series.iter().enumerate() {
         if s.kind != SeriesType::Scatter {
-            return Err(inconsistent("un nuage de points ne se combine pas avec d'autres types"));
+            return Err(inconsistent(Message::new("chart-scatter-mixed")));
         }
         let (name, points) = match (table, &s.data) {
             (_, Some(data)) => {
@@ -319,7 +322,7 @@ fn scatter(option: &ChartOption, table: Option<&Table>) -> Result<Scatter> {
                     .filter_map(|d| match d {
                         DataItem::Point(p) if p.len() == 2 => Some(Ok((p[0], p[1]))),
                         DataItem::Null => None,
-                        _ => Some(Err(inconsistent(format!("série {i} : chaque point doit être [x, y]")))),
+                        _ => Some(Err(inconsistent(Message::new("chart-scatter-point").arg("index", i)))),
                     })
                     .collect::<Result<Vec<_>>>()?;
                 (s.name.clone().unwrap_or_else(|| format!("Série {}", i + 1)), points)
@@ -331,7 +334,7 @@ fn scatter(option: &ChartOption, table: Option<&Table>) -> Result<Scatter> {
                 let points = t.numbers(xc).into_iter().zip(t.numbers(yc)).filter_map(|(x, y)| Some((x?, y?))).collect();
                 (s.name.clone().unwrap_or_else(|| t.headers[yc].clone()), points)
             }
-            (None, None) => return Err(inconsistent(format!("série {i} sans données"))),
+            (None, None) => return Err(inconsistent(Message::new("chart-series-empty").arg("index", i))),
         };
         series.push(ScatterSeries { name, points });
     }
@@ -353,7 +356,7 @@ fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
     let (indicator_label, names, series) = match (table, &s.data) {
         (_, Some(data)) => {
             if declared.is_empty() {
-                return Err(inconsistent("radar sans dataset : `radar.indicator` est requis"));
+                return Err(inconsistent(Message::new("chart-radar-indicators")));
             }
             let series = data
                 .iter()
@@ -361,7 +364,7 @@ fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
                     DataItem::Named(NamedItem { name, value: ItemValue::Values(v) }) => {
                         Ok(RadarSeries { name: name.clone(), values: v.iter().copied().map(Some).collect() })
                     }
-                    _ => Err(inconsistent("radar : chaque élément de data doit être { name, value: [..] }")),
+                    _ => Err(inconsistent(Message::new("chart-radar-item"))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             let names = declared.iter().map(|d| d.name.clone()).collect();
@@ -374,17 +377,17 @@ fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
                 .collect();
             (t.headers[0].clone(), t.labels(0), series)
         }
-        (None, None) => return Err(inconsistent("radar sans données")),
+        (None, None) => return Err(inconsistent(Message::new("chart-radar-empty"))),
     };
 
     for rs in &series {
         if rs.values.len() != names.len() {
-            return Err(inconsistent(format!(
-                "radar : « {} » a {} valeurs pour {} axes",
-                rs.name,
-                rs.values.len(),
-                names.len()
-            )));
+            return Err(inconsistent(
+                Message::new("chart-radar-values")
+                    .arg("name", rs.name.as_str())
+                    .arg("values", rs.values.len())
+                    .arg("axes", names.len()),
+            ));
         }
     }
 

@@ -7,6 +7,7 @@
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
 
+mod diagnostic;
 mod error;
 mod fonts;
 mod world;
@@ -17,7 +18,7 @@ use std::collections::BTreeMap;
 use serde_json::Value as Json;
 use snafu::OptionExt;
 use typst::WorldExt;
-use typst::diag::{Severity, SourceDiagnostic};
+use typst::diag::SourceDiagnostic;
 use typst::foundations::{Label, Selector};
 use typst::introspection::Introspector;
 use typst::utils::PicoStr;
@@ -25,6 +26,7 @@ use typst_layout::PagedDocument;
 
 use slider_core::Deck;
 
+pub use diagnostic::{Diagnostic, Severity};
 use error::{CompileSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RenderError, RenderErrorKind};
 pub use fonts::Fonts;
@@ -128,35 +130,38 @@ impl Renderer {
 
     pub fn compile(&self) -> Result<Compiled, RenderError> {
         let result = typst::compile::<PagedDocument>(&self.world);
-        let warnings = result.warnings.iter().map(|d| self.format(d)).collect();
+        let warnings = result.warnings.iter().map(|d| self.diagnostic(d)).collect();
         match result.output {
             Ok(doc) => Ok(Compiled { doc, warnings, layout: OnceCell::new() }),
-            Err(errors) => Err(CompileSnafu { diagnostics: errors.iter().map(|d| self.format(d)).collect::<Vec<_>>() }
-                .build()
-                .into()),
+            Err(errors) => {
+                Err(CompileSnafu { diagnostics: errors.iter().map(|d| self.diagnostic(d)).collect::<Vec<_>>() }
+                    .build()
+                    .into())
+            }
         }
     }
 
-    fn format(&self, d: &SourceDiagnostic) -> String {
-        let level = match d.severity {
-            Severity::Error => "erreur",
-            Severity::Warning => "avertissement",
-        };
-        let place = d
-            .span
-            .id()
-            .and_then(|id| {
-                let range = self.world.range(d.span)?;
-                let source = self.world.source_of(id)?;
-                let line = source.lines().byte_to_line(range.start)? + 1;
-                Some(format!(" ({}:{line})", id.vpath().get_without_slash()))
-            })
-            .unwrap_or_default();
-        let mut s = format!("{level}{place} : {}", d.message);
-        for h in &d.hints {
-            s.push_str(&format!("\n  indice : {}", h.v));
+    /// Libellé du cadre d'une image absente, dans la langue de l'utilisateur.
+    pub fn set_missing_image_label(&mut self, label: &str) {
+        self.world.set_missing_image_label(label);
+    }
+
+    fn diagnostic(&self, d: &SourceDiagnostic) -> Diagnostic {
+        let place = d.span.id().and_then(|id| {
+            let range = self.world.range(d.span)?;
+            let source = self.world.source_of(id)?;
+            let line = source.lines().byte_to_line(range.start)? + 1;
+            Some(format!("{}:{line}", id.vpath().get_without_slash()))
+        });
+        Diagnostic {
+            severity: match d.severity {
+                typst::diag::Severity::Error => Severity::Error,
+                typst::diag::Severity::Warning => Severity::Warning,
+            },
+            place,
+            message: d.message.to_string(),
+            hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
         }
-        s
     }
 }
 
@@ -203,7 +208,7 @@ fn parsed<T: serde::de::DeserializeOwned>(values: Vec<Json>) -> Vec<T> {
 /// Un document compilé.
 pub struct Compiled {
     doc: PagedDocument,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Diagnostic>,
     /// Lu dans le document une fois, au premier besoin.
     layout: OnceCell<Layout>,
 }
@@ -236,7 +241,16 @@ impl Compiled {
     pub fn pdf(&self) -> Result<Vec<u8>, RenderError> {
         let options = typst_pdf::PdfOptions::default();
         typst_pdf::pdf(&self.doc, &options).map_err(|errs| {
-            PdfSnafu { diagnostics: errs.iter().map(|d| d.message.to_string()).collect::<Vec<_>>() }.build().into()
+            let diagnostics = errs
+                .iter()
+                .map(|d| Diagnostic {
+                    severity: Severity::Error,
+                    place: None,
+                    message: d.message.to_string(),
+                    hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
+                })
+                .collect::<Vec<_>>();
+            PdfSnafu { diagnostics }.build().into()
         })
     }
 

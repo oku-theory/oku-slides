@@ -16,7 +16,7 @@ fn defaults_embedded_file_gives_documented_values() {
     assert_eq!(s.stt.tick_ms, 50);
     assert_eq!(s.stt.vad.onset_frames, 3);
     assert_eq!(s.paths, PathSettings::default());
-    assert_eq!(s.i18n.locale, None);
+    assert_eq!(s.i18n.locale.as_deref(), Some("fr"));
 }
 
 #[test]

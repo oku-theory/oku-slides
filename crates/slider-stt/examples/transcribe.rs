@@ -16,14 +16,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => Model::Turbo,
     };
     let language = args.next();
-    let settings = slider_platform::config::Settings::load()?;
+    let platform = slider_platform::Platform::load()?;
+    let (settings, storage) = (&platform.settings, &platform.storage);
     let dir = settings.paths.models();
-    let storage = slider_stt::Storage::local()?;
 
-    if !model.is_installed(&storage, &dir) {
-        eprintln!("téléchargement de {} …", model.label());
+    if !model.is_installed(storage, &dir) {
+        eprintln!("↓ {} …", model.label(&platform.localizer));
         let mut last = 0;
-        slider_stt::download(model, &dir, &settings.stt, &storage, |got, total| {
+        slider_stt::download(model, &dir, &settings.stt, storage, |got, total| {
             let pct = got * 100 / total.max(1);
             if pct >= last + 10 {
                 last = pct;
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mono: Vec<f32> = samples.chunks(ch).map(|f| f.iter().sum::<f32>() / ch as f32).collect();
     let audio = resample(&mono, spec.sample_rate, slider_stt::SAMPLE_RATE);
 
-    let stt = Stt::new(&dir, settings.stt.clone(), storage);
+    let stt = Stt::new(&platform);
     // Les réglages de l'app sont remis en place à la fin.
     let before = stt.status().config;
     stt.configure(slider_stt::Config { model, language, ..before.clone() });

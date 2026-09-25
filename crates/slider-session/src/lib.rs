@@ -12,6 +12,8 @@ use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use slider_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
+pub use slider_i18n::{Localize, Localizer};
+pub use slider_platform::Platform;
 pub use slider_platform::config::Settings;
 pub use slider_platform::storage::Storage;
 pub use slider_render::Fonts;
@@ -124,6 +126,7 @@ pub struct Session {
     mode: Mode,
     library: Library,
     storage: Storage,
+    localizer: Arc<Localizer>,
     /// Transactions gardées pour annuler, dans chaque document.
     history_limit: usize,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
@@ -166,15 +169,23 @@ fn same_style(a: &Deck, b: &Deck) -> bool {
     a.theme == b.theme && a.tokens == b.tokens && a.params == b.params && a.vars == b.vars
 }
 
-/// Deck vide : une couverture et une slide de contenu.
-pub fn blank_deck() -> Deck {
+/// Un rendu dont l'image absente se dit dans la langue de l'utilisateur.
+fn new_renderer(fonts: Fonts, l: &Localizer) -> Result<Renderer> {
+    let mut renderer = Renderer::new(fonts).context(RenderSnafu)?;
+    renderer.set_missing_image_label(&l.tr("render-missing-image"));
+    Ok(renderer)
+}
+
+/// Deck vide : une couverture et une slide de contenu, dans la langue de
+/// l'utilisateur.
+pub fn blank_deck(l: &Localizer) -> Deck {
     let mut content = Slide::new("s-1", SlideKind::Content);
-    content.title = Some("Titre de la slide".into());
-    content.blocks.push(Element::text("b-1", vec![Paragraph::plain("Dites ce que vous voulez montrer.")]));
+    content.title = Some(l.tr("deck-new-slide-title"));
+    content.blocks.push(Element::text("b-1", vec![Paragraph::plain(l.tr("deck-new-slide-text"))]));
     Deck {
         version: slider_core::DECK_VERSION,
         theme: Some("papier".into()),
-        params: Params { title: Some("Nouvelle présentation".into()), ..Default::default() },
+        params: Params { title: Some(l.tr("deck-new-title")), ..Default::default() },
         vars: BTreeMap::new(),
         tokens: Value::Null,
         templates: None,
@@ -195,16 +206,18 @@ impl std::fmt::Debug for Session {
 
 impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles ;
-    /// `settings` : limite de l'historique, dossier des modèles ; `storage` :
-    /// accès aux fichiers.
-    pub fn new(app_fonts: Fonts, settings: &Settings, storage: Storage) -> Result<Self> {
+    /// `platform` : réglages (historique, dossier des modèles), fichiers et
+    /// langue.
+    pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
+        let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let mut s = Self {
-            doc: Document::new(SourceBundle::new(blank_deck()), None, settings.history.limit),
+            doc: Document::new(SourceBundle::new(blank_deck(l)), None, settings.history.limit),
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
             storage,
             history_limit: settings.history.limit,
-            renderer: Renderer::new(app_fonts.clone()).context(RenderSnafu)?,
+            renderer: new_renderer(app_fonts.clone(), l)?,
+            localizer: l.clone(),
             render_fonts: app_fonts.clone(),
             appearance: Appearance::default(),
             template_renderer: None,
@@ -288,7 +301,12 @@ impl Session {
     /// L'ensemble tel qu'il est en cours d'édition.
     fn edited_set(&self, id: String) -> TemplateSet {
         let deck = &self.doc.sources.deck;
-        let name = deck.params.title.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Mes modèles".into());
+        let name = deck
+            .params
+            .title
+            .clone()
+            .filter(|n| !n.trim().is_empty())
+            .unwrap_or_else(|| self.localizer.tr("templates-default-name"));
         let description = self
             .editing()
             .and_then(|m| self.library.get(&m.set))
@@ -299,7 +317,11 @@ impl Session {
             .iter()
             .map(|s| {
                 let mut slide = s.clone();
-                let name = slide.name.take().or_else(|| slide.title.clone()).unwrap_or_else(|| "Modèle".into());
+                let name = slide
+                    .name
+                    .take()
+                    .or_else(|| slide.title.clone())
+                    .unwrap_or_else(|| self.localizer.tr("template-default-name"));
                 let description = slide.description.take().unwrap_or_default();
                 slide.id = format!("tpl-{}", s.id);
                 Template { id: s.id.clone(), name, description, slide }
@@ -317,7 +339,7 @@ impl Session {
         let deck = &mut self.doc.sources.deck;
         let mut name = deck.params.title.clone().unwrap_or_default();
         if copy && name == mode.name {
-            name = format!("{name} (copie)");
+            name = self.localizer.tr_with("templates-copy-name", &[("name", name.as_str().into())]);
             deck.params.title = Some(name.clone());
         }
         let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
@@ -382,7 +404,7 @@ impl Session {
     }
 
     pub fn new_deck(&mut self) -> Result<()> {
-        self.load(SourceBundle::new(blank_deck()), None)
+        self.load(SourceBundle::new(blank_deck(&self.localizer)), None)
     }
 
     /// Charge un deck (déjà lu) dans la session.
@@ -391,7 +413,7 @@ impl Session {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
             self.render_fonts = self.app_fonts.with(sources.fonts.values().cloned());
-            self.renderer = Renderer::new(self.render_fonts.clone()).context(RenderSnafu)?;
+            self.renderer = new_renderer(self.render_fonts.clone(), &self.localizer)?;
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
@@ -405,8 +427,8 @@ impl Session {
         let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
         // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
-        tracing::info!(path = %path.display(), pdf, modified_elsewhere, "document ouvert");
-        self.doc.notice = modified_elsewhere.then(|| "Ce PDF a été modifié par un autre outil après Écho : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.".to_owned());
+        tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
+        self.doc.notice = modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
         Ok(())
     }
 
@@ -427,7 +449,7 @@ impl Session {
         let out = slider_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
         self.storage.write_atomic(&path, out).context(WriteSnafu { path: &path })?;
-        tracing::info!(path = %path.display(), bytes, "document enregistré");
+        tracing::info!(path = %path.display(), bytes, "{}", self.localizer.tr("log-document-saved"));
         self.doc.path = Some(path);
         self.doc.dirty = false;
         Ok(())
@@ -513,7 +535,7 @@ impl Session {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
             .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
-            .unwrap_or_else(|| "Sans titre".into());
+            .unwrap_or_else(|| self.localizer.tr("deck-untitled"));
         Snapshot {
             path: doc.path.as_deref(),
             name,
@@ -527,7 +549,9 @@ impl Session {
             undo_label: doc.history.undo_label(),
             can_redo: doc.history.can_redo(),
             redo_label: doc.history.redo_label(),
-            warnings: compiled.map(|c| c.warnings.as_slice()).unwrap_or_default(),
+            warnings: compiled
+                .map(|c| c.warnings.iter().map(|w| w.localize(&self.localizer)).collect())
+                .unwrap_or_default(),
             notice: doc.notice.as_deref(),
             appearance: &self.appearance,
             templates: self.deck_set(),
@@ -548,9 +572,7 @@ impl Session {
                 let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
                 let renderer = match &mut self.template_renderer {
                     Some(r) => r,
-                    None => {
-                        self.template_renderer.insert(Renderer::new(self.render_fonts.clone()).context(RenderSnafu)?)
-                    }
+                    None => self.template_renderer.insert(new_renderer(self.render_fonts.clone(), &self.localizer)?),
                 };
                 renderer.set_deck(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
                 let compiled = renderer.compile().context(RenderSnafu)?;

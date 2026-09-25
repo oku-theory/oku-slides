@@ -1,15 +1,14 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Fonts, Request, Session, Settings, Storage, TargetKind, paragraphs_to_text};
+use slider_session::{Fonts, Platform, Request, Session, Settings, TargetKind, paragraphs_to_text};
 
 /// Une session isolée : son propre dossier de données, vide.
 fn session() -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     let data = std::env::temp_dir().join(format!("echo-session-{}-{}", std::process::id(), unique()));
     settings.paths.data = Some(data);
-    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage indisponible : {e}"));
-    Session::new(Fonts::default(), &settings, storage)
-        .unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
+    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
+    Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
 }
 
 fn unique() -> u64 {
@@ -246,4 +245,17 @@ fn changer_d_ensemble_en_cours_d_edition_garde_le_deck_de_cote() {
     assert_eq!(s.deck(), &before);
     let snap = s.snapshot();
     assert!(snap.dirty && snap.can_undo, "le deck retrouve son état et son historique");
+}
+
+#[test]
+fn errors_localize_in_the_configured_language() {
+    use slider_session::{Localize, Localizer};
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let fr = Localizer::new(Some("fr"));
+    assert_eq!(s.slide("absente").unwrap_err().localize(&fr), "Slide introuvable : absente");
+    let refused = s.apply("Mauvais", vec![Op::RemoveElement { slide: "s-fin".into(), element: "absent".into() }]);
+    assert_eq!(refused.unwrap_err().localize(&fr), "Opération 0 refusée : Élément introuvable : absent");
+    let en = Localizer::new(Some("en"));
+    assert_eq!(s.slide("absente").unwrap_err().localize(&en), "Slide not found: absente");
 }

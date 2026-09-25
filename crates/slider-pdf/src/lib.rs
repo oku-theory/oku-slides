@@ -19,6 +19,7 @@
 
 use lopdf::{Dictionary, Document, Object, Stream, StringFormat};
 use sha2::{Digest, Sha256};
+use slider_i18n::{Localize, Localizer};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 pub const PIECE_KEY: &[u8] = b"Echo";
@@ -51,6 +52,17 @@ impl PdfError {
             PdfInner::Corrupted { .. } => PdfErrorKind::Corrupted,
             PdfInner::Write { .. } => PdfErrorKind::Write,
         }
+    }
+}
+
+impl Localize for PdfError {
+    fn localize(&self, l: &Localizer) -> String {
+        l.tr(match self.kind() {
+            PdfErrorKind::Unreadable => "pdf-unreadable",
+            PdfErrorKind::UnsupportedVersion => "pdf-unsupported-version",
+            PdfErrorKind::Corrupted => "pdf-corrupted",
+            PdfErrorKind::Write => "pdf-write",
+        })
     }
 }
 

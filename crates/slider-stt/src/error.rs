@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use slider_i18n::{Localize, Localizer};
 use slider_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
@@ -16,7 +17,7 @@ pub(crate) fn boxed(e: impl Into<BoxError>) -> BoxError {
 
 /// Une dictée impossible.
 #[derive(Debug, Snafu)]
-pub struct SttError(pub(crate) SttInner);
+pub struct SttError(Box<SttInner>);
 
 /// Nature d'une [`SttError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,7 +85,7 @@ pub(crate) enum SttInner {
 impl SttError {
     pub fn kind(&self) -> SttErrorKind {
         use SttInner::*;
-        match self.0 {
+        match *self.0 {
             NoMicrophone { .. }
             | MicrophoneConfig { .. }
             | MicrophoneStream { .. }
@@ -98,6 +99,28 @@ impl SttError {
             }
             Http { .. } | HttpRead { .. } | ModelWrite { .. } | Incomplete { .. } => SttErrorKind::Download,
             Cancelled { .. } => SttErrorKind::Cancelled,
+        }
+    }
+}
+
+impl Localize for SttError {
+    fn localize(&self, l: &Localizer) -> String {
+        use SttInner::*;
+        match &*self.0 {
+            NoMicrophone { .. } => l.tr("stt-microphone-missing"),
+            MicrophoneConfig { .. } | MicrophoneStream { .. } | MicrophonePlay { .. } => {
+                l.tr("stt-microphone-unusable")
+            }
+            MicrophoneTimeout { .. } => l.tr("stt-microphone-silent"),
+            UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
+            AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
+            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | MelFilters { .. } => l.tr("stt-model"),
+            Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => l.tr("stt-transcription"),
+            Incomplete { got, expected, .. } => {
+                l.tr_with("stt-download-incomplete", &[("got", (*got).into()), ("expected", (*expected).into())])
+            }
+            Http { .. } | HttpRead { .. } | ModelWrite { .. } => l.tr("stt-download"),
+            Cancelled { .. } => l.tr("stt-cancelled"),
         }
     }
 }
