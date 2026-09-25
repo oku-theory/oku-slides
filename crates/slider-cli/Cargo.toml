@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 [[bin]]
 name = "slider"
@@ -16,7 +17,10 @@ slider-render.workspace = true
 slider-pdf.workspace = true
 slider-session.workspace = true
 slider-stt.workspace = true
-tiny_http = "0.12"
+tiny_http.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+
+[lints]
+workspace = true

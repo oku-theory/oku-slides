@@ -27,10 +27,12 @@ impl Located<'_> {
 }
 
 /// Parcours en profondeur, parents avant enfants, blocs avant éléments libres.
+#[derive(Debug)]
 pub struct Walk<'a> {
     stack: Vec<Level<'a>>,
 }
 
+#[derive(Debug)]
 struct Level<'a> {
     list: std::iter::Enumerate<std::slice::Iter<'a, Element>>,
     zone: Zone,

@@ -206,6 +206,17 @@ fn op_error((index, e): (usize, slider_core::OpError)) -> SessionError {
     SessionError::Op { index, message: e.to_string() }
 }
 
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Session")
+            .field("path", &self.doc.path)
+            .field("slides", &self.doc.sources.deck.slides.len())
+            .field("dirty", &self.doc.dirty)
+            .field("editing", &self.editing())
+            .finish_non_exhaustive()
+    }
+}
+
 impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles.
     pub fn new(app_fonts: Fonts) -> Self {

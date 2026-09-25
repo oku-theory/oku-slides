@@ -1,0 +1,6 @@
+# Clippy : seuils du projet (le reste est dans [workspace.lints] de Cargo.toml).
+too-many-arguments-threshold = 6
+cognitive-complexity-threshold = 30
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

@@ -1,3 +1,5 @@
+//! Erreurs des graphiques : validation, normalisation, données et rendu.
+
 use thiserror::Error;
 
 /// Erreurs de validation, de normalisation et de rendu.

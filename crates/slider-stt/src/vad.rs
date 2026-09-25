@@ -82,6 +82,17 @@ pub struct Segmenter {
     pub speaking: bool,
 }
 
+impl std::fmt::Debug for Segmenter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Segmenter")
+            .field("base", &self.base)
+            .field("scanned", &self.scanned)
+            .field("open", &self.open)
+            .field("heard", &self.heard)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Segmenter {
     pub fn new(config: VadConfig) -> Self {
         Self {

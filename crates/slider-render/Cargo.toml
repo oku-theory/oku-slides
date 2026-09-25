@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 [dependencies]
 slider-core.workspace = true
@@ -13,10 +14,13 @@ thiserror.workspace = true
 typst.workspace = true
 typst-pdf.workspace = true
 typst-svg.workspace = true
-typst-layout = "0.15.1"
-serde = { workspace = true }
+typst-layout.workspace = true
+serde.workspace = true
 typst-assets.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
 slider-pdf.workspace = true
+
+[lints]
+workspace = true

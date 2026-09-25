@@ -12,7 +12,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 pub const SAMPLE_RATE: u32 = 16_000;
 
 /// Échantillons enregistrés : mono, au débit de l'appareil.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Captured {
     pub samples: Vec<f32>,
     pub rate: u32,
@@ -20,6 +20,7 @@ pub struct Captured {
     pub level: f32,
 }
 
+#[derive(Debug)]
 pub struct Recorder {
     pub captured: Arc<Mutex<Captured>>,
     stop: Arc<AtomicBool>,
@@ -112,6 +113,7 @@ impl Drop for Recorder {
 
 /// Rééchantillonnage linéaire vers 16 kHz, morceau par morceau (sans
 /// discontinuité entre deux morceaux).
+#[derive(Debug)]
 pub struct Resampler {
     ratio: f64,
     pos: f64,

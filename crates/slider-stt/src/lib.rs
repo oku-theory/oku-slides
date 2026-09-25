@@ -178,6 +178,12 @@ enum Job {
     Done,
 }
 
+impl std::fmt::Debug for Stt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Stt").field("dir", &self.dir).finish_non_exhaustive()
+    }
+}
+
 impl Stt {
     /// `dir` : dossier des modèles et des réglages de la dictée.
     pub fn new(dir: impl Into<PathBuf>) -> Self {

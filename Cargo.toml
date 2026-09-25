@@ -7,6 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Matthieu"]
+# Crates internes à l'app : jamais publiées (cargo-deny ignore leur licence).
+publish = false
 
 [workspace.dependencies]
 slider-core = { path = "crates/slider-core" }
@@ -32,6 +34,26 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 clap = { version = "4", features = ["derive"] }
 charts-rs = "1.1"
 json-patch = "4"
+typst-layout = "0.15.1"
+tiny_http = "0.12"
+# Dictée
+ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
+mel_spec = "0.3"
+ndarray = "0.16"
+earshot = "1.2"
+cpal = "0.18"
+ureq = "3"
+# App de bureau
+tauri = "2"
+tauri-build = "2"
+tauri-plugin-dialog = "2"
+# Tests
+hound = "3"
+pretty_assertions = "1"
+
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+unsafe_code = "deny"
 
 [profile.dev.package."*"]
 opt-level = 2

@@ -39,7 +39,7 @@ web file=deck: install
 
 # Tests Rust (hors app Tauri) et tests de l'interface
 test:
-    cargo test --workspace --exclude slider-app
+    cargo nextest run --workspace --exclude slider-app
     cd ui && bun test
 
 # Vérifications : format, clippy, types TypeScript
@@ -51,6 +51,26 @@ check: install
 # Formate le code Rust
 fmt:
     cargo fmt --all
+
+# Corrige automatiquement ce que clippy sait corriger
+lint-fix:
+    cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
+
+# Dépendances : licences, avis de sécurité, sources
+audit:
+    cargo deny check
+    cargo audit
+
+# Relance une commande à chaque modification : just watch test
+watch cmd="test":
+    cargo watch -s "just {{cmd}}"
+
+# Tout ce que vérifie l'intégration continue, en local
+ci: check test audit
+
+# Installe les outils de développement
+setup:
+    cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-llvm-cov cargo-watch tauri-cli
 
 # Outil en ligne de commande : just slider render fixtures/roadmap.json --out out
 slider *args:

@@ -117,6 +117,12 @@ pub struct Renderer {
     world: SliderWorld,
 }
 
+impl std::fmt::Debug for Renderer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Renderer").finish_non_exhaustive()
+    }
+}
+
 impl Renderer {
     pub fn new(fonts: Fonts) -> Self {
         Self { world: SliderWorld::new(fonts) }
@@ -205,6 +211,15 @@ pub struct Compiled {
     pub warnings: Vec<String>,
     /// Lu dans le document une fois, au premier besoin.
     layout: OnceCell<Layout>,
+}
+
+impl std::fmt::Debug for Compiled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Compiled")
+            .field("pages", &self.page_count())
+            .field("warnings", &self.warnings)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Compiled {

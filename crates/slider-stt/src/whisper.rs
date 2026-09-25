@@ -45,6 +45,12 @@ struct Preprocessor {
 /// Nombre maximal de jetons de contexte (Whisper en accepte 224).
 const MAX_PROMPT_TOKENS: usize = 200;
 
+impl std::fmt::Debug for Transcriber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Transcriber").field("sampling_rate", &self.pre.sampling_rate).finish_non_exhaustive()
+    }
+}
+
 impl Transcriber {
     /// `dir` : dossier d'un modèle CTranslate2. Les poids sont quantifiés en int8
     /// au chargement (rapide sur processeur, peu de mémoire).
