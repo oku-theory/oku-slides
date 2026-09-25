@@ -3,6 +3,7 @@ import type { Op, SlideView, Snapshot } from "./api";
 import type { SetInfo, TemplateView } from "./api";
 import { api, applyAppearance, findElement, inTauri, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
 import TemplatePicker from "./TemplatePicker";
+import SlidePile from "./SlidePile";
 import Stage, { FIELD_LABELS, textOps } from "./Stage";
 import Dictation from "./Dictation";
 import { textToParagraphs } from "./api";
@@ -194,7 +195,20 @@ export default function App() {
   };
 
   // --- Grille de la slide -------------------------------------------------
-  const [gridAlways, setGridAlways] = useState(false);
+  const [gridAlways, setGridAlways] = useState(() => {
+    try {
+      return localStorage.getItem("echo.grid") !== "off";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("echo.grid", gridAlways ? "on" : "off");
+    } catch {
+      /* préférence facultative */
+    }
+  }, [gridAlways]);
   const slideGrid = view?.slide.grid;
   const gridCapable = !!view && (view.slide.kind === "content" || view.slide.kind === "blank");
 
@@ -269,8 +283,6 @@ export default function App() {
   };
 
   // --- Réarranger les slides par glisser-déposer -----------------------------
-  const [dragSlide, setDragSlide] = useState<string | null>(null);
-  const [dropAt, setDropAt] = useState<number | null>(null);
   const moveSlide = (id: string, slot: number) => {
     if (!snap) return;
     const from = snap.slides.findIndex((s) => s.id === id);
@@ -299,6 +311,9 @@ export default function App() {
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         open();
+      } else if (mod && e.key === "'") {
+        e.preventDefault();
+        setGridAlways((v) => !v);
       } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current) {
         e.preventDefault();
         const i = snap.slides.findIndex((s) => s.id === current);
@@ -431,61 +446,17 @@ export default function App() {
       </div>
 
       {/* Pile de slides, à gauche. */}
-      <nav
-        className={`pile${dragSlide ? " dragging" : ""}`}
-        aria-label={snap.editing ? "Modèles" : "Slides"}
-        onDragOver={(e) => {
-          if (!dragSlide) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          // Place entre deux vignettes : selon la moitié survolée.
-          const thumbs = [...e.currentTarget.querySelectorAll<HTMLElement>(".thumb")];
-          let slot = thumbs.length;
-          for (let i = 0; i < thumbs.length; i++) {
-            const r = thumbs[i].getBoundingClientRect();
-            if (e.clientY < r.top + r.height / 2) { slot = i; break; }
-          }
-          setDropAt(slot);
-        }}
-        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropAt(null); }}
-        onDrop={(e) => {
-          e.preventDefault();
-          if (dragSlide && dropAt !== null) moveSlide(dragSlide, dropAt);
-          setDragSlide(null);
-          setDropAt(null);
-        }}
-      >
-        {snap.slides.map((s, i) => {
-          const url = svg(s.id, s.hash);
-          const name = snap.editing ? templateNames[s.id] : undefined;
-          return (
-            <div key={s.id} className="thumb-slot">
-              {dropAt === i && <span className="drop-line" aria-hidden />}
-              <button
-                className={`thumb${dragSlide === s.id ? " lifted" : ""}`}
-                aria-current={s.id === current}
-                draggable
-                title="Glisser pour déplacer · ⌥↑ ⌥↓"
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", s.id);
-                  setDragSlide(s.id);
-                }}
-                onDragEnd={() => { setDragSlide(null); setDropAt(null); }}
-                onClick={() => { setCurrent(s.id); setSelected(null); setEditing(null); }}
-              >
-                <span className="thumb-n">{i + 1}</span>
-                <span className="thumb-body">
-                  {url ? <img className="thumb-img" src={url} alt={s.title ?? `Slide ${i + 1}`} draggable={false} /> : <span className="thumb-img" />}
-                  {name && <span className="thumb-name">{name}</span>}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-        {dropAt === snap.slides.length && <span className="drop-line" aria-hidden />}
-        <button className="object btn add-slide" onClick={addSlide}>{snap.editing ? "+ Nouveau modèle" : "+ Nouvelle slide"}</button>
-      </nav>
+      <SlidePile
+        slides={snap.slides}
+        current={current}
+        svg={svg}
+        names={snap.editing ? templateNames : undefined}
+        label={snap.editing ? "Modèles" : "Slides"}
+        addLabel={snap.editing ? "+ Nouveau modèle" : "+ Nouvelle slide"}
+        onSelect={(id) => { setCurrent(id); setSelected(null); setEditing(null); }}
+        onMove={moveSlide}
+        onAdd={addSlide}
+      />
 
       {/* La feuille, posée au centre. */}
       <main className="sheet-area">
@@ -538,10 +509,10 @@ export default function App() {
             <span className="postit-title">Grille</span>
             <Stepper label="Colonnes" value={slideGrid.columns} onChange={(v) => setGrid(v, slideGrid.rows)} />
             <Stepper label="Lignes" value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
-            <label className="check postit-hint">
-              <input type="checkbox" checked={gridAlways} onChange={(e) => setGridAlways(e.target.checked)} />
-              Toujours visible
-            </label>
+            <button className={`toggle${gridAlways ? " on" : ""}`} role="switch" aria-checked={gridAlways} onClick={() => setGridAlways((v) => !v)} title="⌘'">
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              <span className="postit-hint">{gridAlways ? "Affichée" : "Masquée"}</span>
+            </button>
             <button className="linkish" onClick={removeGrid}>Retirer la grille</button>
           </div>
         ) : (

@@ -38,7 +38,7 @@ interface Props {
   onApply: (label: string, ops: Op[]) => void;
   /** Texte dicté à insérer au curseur de l'éditeur ouvert. */
   dictated?: { seq: number; text: string } | null;
-  /** Montrer la grille en permanence (sinon : quand on s'en sert). */
+  /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
 }
 
@@ -221,23 +221,22 @@ function editorGeometry(t: Target, draft: string, scale: number) {
   };
 }
 
-/** La grille, dessinée sur la feuille : cases, nœuds, et la place visée. */
+/** La grille, en pointillés sur la feuille, et la place visée pendant un glisser. */
 function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSpec; scale: number; target: Cell | null }) {
   const t = tracks(zone, grid);
   const px = (v: number) => v * scale;
   const hot = target ? cellRect(zone, grid, target) : null;
-  const xs = t.cols.flatMap((c) => [c.start, c.end]);
-  const ys = t.rows.flatMap((r) => [r.start, r.end]);
+  const w = px(zone.w);
+  const h = px(zone.h);
+  // Bords de chaque colonne et de chaque ligne : c'est là que les éléments s'accrochent.
+  const xs = t.cols.flatMap((c) => [c.start, c.end]).map(px);
+  const ys = t.rows.flatMap((r) => [r.start, r.end]).map(px);
   return (
-    <div className="grid-layer" aria-hidden style={{ left: px(zone.x), top: px(zone.y), width: px(zone.w), height: px(zone.h) }}>
-      {t.rows.map((r, i) =>
-        t.cols.map((c, j) => (
-          <span key={`${i}-${j}`} className="grid-cell" style={{ left: px(c.start), top: px(r.start), width: px(c.end - c.start), height: px(r.end - r.start) }} />
-        )),
-      )}
-      {hot && <span className="grid-hot" style={{ left: px(hot.x), top: px(hot.y), width: px(hot.w), height: px(hot.h) }} />}
-      {ys.map((y, i) => xs.map((x, j) => <span key={`n${i}-${j}`} className="grid-node" style={{ left: px(x), top: px(y) }} />))}
-    </div>
+    <svg className="grid-layer" aria-hidden width={w} height={h} style={{ left: px(zone.x), top: px(zone.y) }}>
+      {hot && <rect className="grid-hot" x={px(hot.x)} y={px(hot.y)} width={px(hot.w)} height={px(hot.h)} rx={4} />}
+      {xs.map((x, i) => <line key={`x${i}`} x1={x} x2={x} y1={0} y2={h} />)}
+      {ys.map((y, i) => <line key={`y${i}`} x1={0} x2={w} y1={y} y2={y} />)}
+    </svg>
   );
 }
 
@@ -364,7 +363,8 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const grid = zone?.grid ?? null;
   const selectedEl = selected ? findElement(view.slide, selected) : undefined;
   const liveCell = drag ? draggedCell(drag) : null;
-  const showGrid = !!grid && (showGridAlways || !!liveCell || !!selectedEl?.cell);
+  // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
+  const showGrid = !!grid && (showGridAlways || !!liveCell);
   const tagFor = (t: Target, label: string) => {
     const el = t.target === "element" ? findElement(view.slide, t.id) : undefined;
     const cell = drag?.id === t.id && liveCell ? liveCell : el?.cell;

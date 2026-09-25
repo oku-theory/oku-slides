@@ -89,7 +89,10 @@ just          # toutes les commandes
   slide qu'on modifie comme une autre (grille, éléments, textes), avec son nom
   et sa description. Un ensemble intégré s'enregistre comme copie ; le deck
   est mis de côté et retrouvé avec « Terminer ».
-- **Ordre des slides** : glisser-déposer dans la pile, ou ⌥↑ / ⌥↓.
+- **Grille affichée ou masquée** : interrupteur du post-it « Grille » ou ⌘' ;
+  dessinée en pointillés, elle réapparaît de toute façon pendant un glisser.
+- **Ordre des slides** : glisser une miniature dans la pile (une ligne montre
+  où elle se posera), ou ⌥↑ / ⌥↓.
 
 ### Dictée
 
