@@ -36,9 +36,9 @@ pub fn asset_id(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SourceBundle {
-    pub deck: Option<Deck>,
+    pub deck: Deck,
     /// Assets par identifiant (`sha256:…`).
     pub assets: BTreeMap<String, Vec<u8>>,
     /// Polices par nom de fichier.
@@ -63,7 +63,7 @@ fn safe_name(name: &str) -> Result<&str, SourcesError> {
 
 impl SourceBundle {
     pub fn new(deck: Deck) -> Self {
-        Self { deck: Some(deck), ..Default::default() }
+        Self { deck, assets: BTreeMap::new(), fonts: BTreeMap::new() }
     }
 
     /// Ajoute un asset et renvoie son identifiant.
@@ -74,7 +74,6 @@ impl SourceBundle {
     }
 
     pub fn to_zip(&self) -> Result<Vec<u8>, SourcesError> {
-        let deck = self.deck.as_ref().ok_or(SourcesError::MissingDeck)?;
         let mut buf = Cursor::new(Vec::new());
         {
             let mut zw = zip::ZipWriter::new(&mut buf);
@@ -87,7 +86,7 @@ impl SourceBundle {
             zw.write_all(serde_json::to_string(&manifest).expect("sérialisable").as_bytes())?;
 
             zw.start_file("deck.json", deflate)?;
-            zw.write_all(deck.to_json().as_bytes())?;
+            zw.write_all(self.deck.to_json().as_bytes())?;
 
             for (id, bytes) in &self.assets {
                 let hex = id.strip_prefix("sha256:").unwrap_or(id);
@@ -114,7 +113,8 @@ impl SourceBundle {
         };
 
         let mut manifest: Option<Manifest> = None;
-        let mut out = SourceBundle::default();
+        let mut deck: Option<Deck> = None;
+        let (mut assets, mut fonts) = (BTreeMap::new(), BTreeMap::new());
         for i in 0..za.len() {
             let (name, data) = read(&mut za, i)?;
             match name.as_str() {
@@ -123,16 +123,16 @@ impl SourceBundle {
                         Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
                 }
                 "deck.json" => {
-                    out.deck =
+                    deck =
                         Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
                 }
                 n if n.starts_with("assets/") => {
                     let hex = safe_name(&n["assets/".len()..])?;
-                    out.assets.insert(format!("sha256:{hex}"), data);
+                    assets.insert(format!("sha256:{hex}"), data);
                 }
                 n if n.starts_with("fonts/") => {
                     let file = safe_name(&n["fonts/".len()..])?.to_owned();
-                    out.fonts.insert(file, data);
+                    fonts.insert(file, data);
                 }
                 _ => {} // Entrées inconnues : ignorées (compatibilité ascendante).
             }
@@ -144,9 +144,7 @@ impl SourceBundle {
         if manifest.version > SOURCES_VERSION {
             return Err(SourcesError::UnsupportedVersion(manifest.version));
         }
-        if out.deck.is_none() {
-            return Err(SourcesError::MissingDeck);
-        }
-        Ok(out)
+        let deck = deck.ok_or(SourcesError::MissingDeck)?;
+        Ok(SourceBundle { deck, assets, fonts })
     }
 }

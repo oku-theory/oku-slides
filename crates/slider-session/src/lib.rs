@@ -193,14 +193,32 @@ pub struct TemplatesView {
     pub templates: Vec<TemplateView>,
 }
 
-/// Le deck mis de côté pendant l'édition des modèles.
-struct Stash {
-    deck: Deck,
-    assets: BTreeMap<String, Vec<u8>>,
+/// Un document ouvert : ses sources (deck, assets, polices), son historique
+/// et son fichier.
+struct Document {
+    sources: SourceBundle,
     history: History,
     path: Option<PathBuf>,
     dirty: bool,
+    /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
     notice: Option<String>,
+}
+
+impl Document {
+    fn new(sources: SourceBundle, path: Option<PathBuf>) -> Self {
+        Self { sources, history: History::default(), path, dirty: false, notice: None }
+    }
+}
+
+/// Ce que la session édite : le deck, ou un ensemble de modèles pendant que
+/// le deck attend de côté.
+enum Mode {
+    Deck,
+    Templates {
+        /// Le deck mis de côté, retrouvé tel quel à la fin.
+        stash: Box<Document>,
+        edit: TemplateMode,
+    },
 }
 
 /// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
@@ -322,17 +340,12 @@ pub struct TemplateView {
 }
 
 pub struct Session {
+    doc: Document,
+    mode: Mode,
     library: Library,
-    stash: Option<Stash>,
-    editing: Option<TemplateMode>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<(String, Vec<TemplateView>)>,
-    deck: Deck,
-    assets: BTreeMap<String, Vec<u8>>,
-    /// Polices jointes au deck (enregistrées avec lui).
-    fonts: BTreeMap<String, Vec<u8>>,
-    history: History,
     renderer: Renderer,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
@@ -341,9 +354,6 @@ pub struct Session {
     appearance: Appearance,
     compiled: Option<Compiled>,
     svg_cache: HashMap<u128, Arc<str>>,
-    path: Option<PathBuf>,
-    dirty: bool,
-    notice: Option<String>,
 }
 
 /// Deck vide : une couverture et une slide de contenu.
@@ -381,6 +391,10 @@ pub fn interp(s: &str, vars: &BTreeMap<String, Value>) -> String {
     out
 }
 
+fn op_error((index, e): (usize, slider_core::OpError)) -> SessionError {
+    SessionError::Op { index, message: e.to_string() }
+}
+
 fn hex(h: u128) -> String {
     format!("{h:032x}")
 }
@@ -389,13 +403,9 @@ impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles.
     pub fn new(app_fonts: Fonts) -> Self {
         let mut s = Self {
+            doc: Document::new(SourceBundle::new(blank_deck()), None),
+            mode: Mode::Deck,
             library: Library::default(),
-            stash: None,
-            editing: None,
-            deck: blank_deck(),
-            assets: BTreeMap::new(),
-            fonts: BTreeMap::new(),
-            history: History::default(),
             renderer: Renderer::new(app_fonts.clone()),
             render_fonts: app_fonts.clone(),
             appearance: Appearance::default(),
@@ -404,16 +414,28 @@ impl Session {
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
-            path: None,
-            dirty: false,
-            notice: None,
         };
         s.rerender().ok();
         s
     }
 
     pub fn deck(&self) -> &Deck {
-        &self.deck
+        &self.doc.sources.deck
+    }
+
+    /// Le deck de l'utilisateur, même pendant l'édition des modèles.
+    fn user_deck(&self) -> &Deck {
+        match &self.mode {
+            Mode::Deck => &self.doc.sources.deck,
+            Mode::Templates { stash, .. } => &stash.sources.deck,
+        }
+    }
+
+    fn editing(&self) -> Option<&TemplateMode> {
+        match &self.mode {
+            Mode::Deck => None,
+            Mode::Templates { edit, .. } => Some(edit),
+        }
     }
 
     /// Dossier des ensembles de modèles de l'utilisateur.
@@ -423,9 +445,8 @@ impl Session {
     }
 
     /// Ensemble de modèles du deck (celui par défaut s'il n'en choisit pas).
-    fn deck_set(&self) -> String {
-        let base = self.stash.as_ref().map(|s| &s.deck).unwrap_or(&self.deck);
-        base.templates.clone().unwrap_or_else(|| DEFAULT_SET.to_owned())
+    fn deck_set(&self) -> &str {
+        self.user_deck().templates.as_deref().unwrap_or(DEFAULT_SET)
     }
 
     fn get_set(&self, id: &str) -> Result<(TemplateSet, bool)> {
@@ -433,51 +454,51 @@ impl Session {
     }
 
     /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
+    /// Le deck garde son thème, ses jetons et ses variables ; les modèles ne
+    /// portent pas d'assets (un ensemble n'en enregistre pas).
     pub fn edit_templates(&mut self, id: &str) -> Result<Snapshot> {
         let (set, builtin) = self.get_set(id)?;
-        if self.stash.is_none() {
-            self.stash = Some(Stash {
-                deck: self.deck.clone(),
-                assets: self.assets.clone(),
-                history: std::mem::take(&mut self.history),
-                path: self.path.take(),
-                dirty: self.dirty,
-                notice: self.notice.take(),
-            });
-        }
-        let base = &self.stash.as_ref().expect("deck mis de côté").deck;
-        let mut deck = base.clone();
-        deck.params.title = Some(set.name.clone());
-        deck.templates = Some(set.id.clone());
-        deck.slides = set
-            .templates
-            .iter()
-            .map(|t| {
-                let mut s = t.slide.clone();
-                s.id = t.id.clone();
-                s.name = Some(t.name.clone());
-                s.description = (!t.description.is_empty()).then(|| t.description.clone());
-                s
-            })
-            .collect();
-        self.deck = deck;
-        self.history = History::default();
-        self.dirty = false;
-        self.editing = Some(TemplateMode { set: set.id, name: set.name, builtin });
+        let base = self.user_deck();
+        let deck = Deck {
+            version: base.version,
+            theme: base.theme.clone(),
+            params: Params { title: Some(set.name.clone()), ..base.params.clone() },
+            vars: base.vars.clone(),
+            tokens: base.tokens.clone(),
+            templates: Some(set.id.clone()),
+            slides: set
+                .templates
+                .into_iter()
+                .map(|t| {
+                    let mut s = t.slide;
+                    s.id = t.id;
+                    s.name = Some(t.name);
+                    s.description = (!t.description.is_empty()).then_some(t.description);
+                    s
+                })
+                .collect(),
+        };
+        let templates = Document::new(SourceBundle::new(deck), None);
+        let edit = TemplateMode { set: set.id, name: set.name, builtin };
+        self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
+            // Déjà en édition : on change d'ensemble, le deck reste de côté.
+            Mode::Templates { stash, .. } => {
+                self.doc = templates;
+                Mode::Templates { stash, edit }
+            }
+            Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
+        };
         self.rerender()?;
         Ok(self.snapshot())
     }
 
     /// L'ensemble tel qu'il est en cours d'édition.
     fn edited_set(&self, id: String) -> TemplateSet {
-        let name =
-            self.deck.params.title.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Mes modèles".into());
-        let description = self
-            .get_set(&self.editing.as_ref().map(|m| m.set.clone()).unwrap_or_default())
-            .map(|(s, _)| s.description)
-            .unwrap_or_default();
-        let templates = self
-            .deck
+        let deck = &self.doc.sources.deck;
+        let name = deck.params.title.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Mes modèles".into());
+        let description =
+            self.editing().and_then(|m| self.library.get(&m.set)).map(|(s, _)| s.description).unwrap_or_default();
+        let templates = deck
             .slides
             .iter()
             .map(|s| {
@@ -493,20 +514,24 @@ impl Session {
 
     /// Enregistre l'ensemble édité dans la bibliothèque de l'utilisateur.
     pub fn save_templates(&mut self, as_new: bool) -> Result<Snapshot> {
-        let mode =
-            self.editing.clone().ok_or_else(|| SessionError::BadRequest("pas de modèles en cours d'édition".into()))?;
-        let mut name = self.deck.params.title.clone().unwrap_or_default();
+        let Mode::Templates { edit: mode, .. } = &self.mode else {
+            return Err(SessionError::BadRequest("pas de modèles en cours d'édition".into()));
+        };
         let copy = as_new || mode.builtin;
+        let deck = &mut self.doc.sources.deck;
+        let mut name = deck.params.title.clone().unwrap_or_default();
         if copy && name == mode.name {
             name = format!("{name} (copie)");
-            self.deck.params.title = Some(name.clone());
+            deck.params.title = Some(name.clone());
         }
         let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
         let set = self.edited_set(id.clone());
         self.library.save(&set)?;
-        self.editing = Some(TemplateMode { set: id.clone(), name: set.name.clone(), builtin: false });
-        self.deck.templates = Some(id);
-        self.dirty = false;
+        self.doc.sources.deck.templates = Some(id);
+        self.doc.dirty = false;
+        if let Mode::Templates { edit, .. } = &mut self.mode {
+            *edit = TemplateMode { set: set.id, name: set.name, builtin: false };
+        }
         self.template_cache = None;
         self.rerender()?;
         Ok(self.snapshot())
@@ -514,15 +539,9 @@ impl Session {
 
     /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
     pub fn close_templates(&mut self) -> Result<Snapshot> {
-        if let Some(st) = self.stash.take() {
-            self.deck = st.deck;
-            self.assets = st.assets;
-            self.history = st.history;
-            self.path = st.path;
-            self.dirty = st.dirty;
-            self.notice = st.notice;
+        if let Mode::Templates { stash, .. } = std::mem::replace(&mut self.mode, Mode::Deck) {
+            self.doc = *stash;
         }
-        self.editing = None;
         self.template_cache = None;
         self.rerender()?;
         Ok(self.snapshot())
@@ -531,7 +550,9 @@ impl Session {
     /// Traite une requête de l'interface et renvoie la réponse en JSON.
     pub fn handle(&mut self, req: Request) -> Result<Value> {
         let v = |x: &dyn erased::Ser| x.to_value();
-        if self.editing.is_some() && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. }) {
+        if matches!(self.mode, Mode::Templates { .. })
+            && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. })
+        {
             return Err(SessionError::BadRequest("terminez d'abord l'édition des modèles".into()));
         }
         Ok(match req {
@@ -567,24 +588,17 @@ impl Session {
     }
 
     /// Charge un deck (déjà lu) dans la session.
-    pub fn load(&mut self, bundle: SourceBundle, path: Option<PathBuf>) -> Result<()> {
-        let SourceBundle { deck, assets, fonts, .. } = bundle;
-        self.deck = deck.ok_or(SessionError::NotSlider)?;
-        self.assets = assets;
-        if fonts != self.fonts {
+    pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+        if sources.fonts != self.doc.sources.fonts {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
-            // dans le bundle (ils sont enregistrés avec le deck), d'où la copie.
-            self.render_fonts = self.app_fonts.with(fonts.values().cloned());
+            // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
+            self.render_fonts = self.app_fonts.with(sources.fonts.values().cloned());
             self.renderer = Renderer::new(self.render_fonts.clone());
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
         }
-        self.fonts = fonts;
-        self.history = History::default();
-        self.path = path;
-        self.dirty = false;
-        self.notice = None;
+        self.doc = Document::new(sources, path);
         self.rerender()
     }
 
@@ -604,7 +618,7 @@ impl Session {
             (SourceBundle::new(deck), None, false)
         };
         self.load(bundle, keep_path.then(|| path.to_owned()))?;
-        self.notice = notice;
+        self.doc.notice = notice;
         Ok(self.snapshot())
     }
 
@@ -612,7 +626,7 @@ impl Session {
     pub fn save(&mut self, path: Option<&Path>) -> Result<Snapshot> {
         let mut path = match path {
             Some(p) => p.to_owned(),
-            None => self.path.clone().ok_or(SessionError::NoPath)?,
+            None => self.doc.path.clone().ok_or(SessionError::NoPath)?,
         };
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if !name.ends_with(EXTENSION) {
@@ -621,17 +635,15 @@ impl Session {
         }
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
         let pdf = compiled.pdf()?;
-        let bundle =
-            SourceBundle { deck: Some(self.deck.clone()), assets: self.assets.clone(), fonts: self.fonts.clone() };
-        let out = slider_pdf::embed_sources(&pdf, &bundle.to_zip()?)?;
+        let out = slider_pdf::embed_sources(&pdf, &self.doc.sources.to_zip()?)?;
         write_atomic(&path, &out)?;
-        self.path = Some(path);
-        self.dirty = false;
+        self.doc.path = Some(path);
+        self.doc.dirty = false;
         Ok(self.snapshot())
     }
 
     fn rerender(&mut self) -> Result<()> {
-        self.renderer.set_deck(&self.deck, &self.assets);
+        self.renderer.set_deck(&self.doc.sources.deck, &self.doc.sources.assets);
         let compiled = self.renderer.compile()?;
         // Le cache ne garde que les pages encore présentes.
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
@@ -643,39 +655,31 @@ impl Session {
 
     /// Applique une transaction ; si le rendu échoue ensuite, elle est annulée.
     pub fn apply(&mut self, label: &str, ops: Vec<Op>) -> Result<Snapshot> {
-        self.history
-            .commit(&mut self.deck, label, ops)
-            .map_err(|(index, e)| SessionError::Op { index, message: e.to_string() })?;
+        let doc = &mut self.doc;
+        doc.history.commit(&mut doc.sources.deck, label, ops).map_err(op_error)?;
         if let Err(e) = self.rerender() {
-            self.history.undo(&mut self.deck).ok();
+            let doc = &mut self.doc;
+            doc.history.undo(&mut doc.sources.deck).ok();
             self.rerender().ok();
             return Err(e);
         }
-        self.dirty = true;
+        self.doc.dirty = true;
         Ok(self.snapshot())
     }
 
     pub fn undo(&mut self) -> Result<Snapshot> {
-        if self
-            .history
-            .undo(&mut self.deck)
-            .map_err(|(index, e)| SessionError::Op { index, message: e.to_string() })?
-            .is_some()
-        {
-            self.dirty = true;
+        let doc = &mut self.doc;
+        if doc.history.undo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
+            self.doc.dirty = true;
             self.rerender()?;
         }
         Ok(self.snapshot())
     }
 
     pub fn redo(&mut self) -> Result<Snapshot> {
-        if self
-            .history
-            .redo(&mut self.deck)
-            .map_err(|(index, e)| SessionError::Op { index, message: e.to_string() })?
-            .is_some()
-        {
-            self.dirty = true;
+        let doc = &mut self.doc;
+        if doc.history.redo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
+            self.doc.dirty = true;
             self.rerender()?;
         }
         Ok(self.snapshot())
@@ -687,9 +691,9 @@ impl Session {
 
     pub fn snapshot(&self) -> Snapshot {
         let compiled = self.compiled.as_ref();
+        let (deck, doc) = (&self.doc.sources.deck, &self.doc);
         let pages = compiled.map(|c| c.layout().slides.as_slice()).unwrap_or_default();
-        let slides = self
-            .deck
+        let slides = deck
             .slides
             .iter()
             .enumerate()
@@ -701,45 +705,45 @@ impl Session {
                     .or_else(|| pages.iter().find(|p| p.slide == s.id))
                     .map_or(0, |p| p.page);
                 let hash = compiled.and_then(|c| c.page_hash(page.saturating_sub(1))).map(hex).unwrap_or_default();
-                let title = s.title.as_deref().map(|t| interp(t, &self.deck.vars));
+                let title = s.title.as_deref().map(|t| interp(t, &deck.vars));
                 SlideSummary { id: s.id.clone(), kind: s.kind, title, name: s.name.clone(), page, hash }
             })
             .collect();
-        let name = self
+        let name = doc
             .path
             .as_ref()
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
-            .or_else(|| self.deck.params.title.as_deref().map(|t| interp(t, &self.deck.vars)))
+            .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
             .unwrap_or_else(|| "Sans titre".into());
         Snapshot {
-            path: self.path.clone(),
+            path: doc.path.clone(),
             name,
-            dirty: self.dirty,
-            theme: self.deck.theme.clone(),
+            dirty: doc.dirty,
+            theme: deck.theme.clone(),
             themes: slider_render::THEMES.iter().map(|t| t.to_string()).collect(),
-            title: self.deck.params.title.as_deref().map(|t| interp(t, &self.deck.vars)),
-            title_source: self.deck.params.title.clone(),
+            title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
+            title_source: deck.params.title.clone(),
             slides,
-            can_undo: self.history.can_undo(),
-            undo_label: self.history.undo_label().map(str::to_owned),
-            can_redo: self.history.can_redo(),
-            redo_label: self.history.redo_label().map(str::to_owned),
+            can_undo: doc.history.can_undo(),
+            undo_label: doc.history.undo_label().map(str::to_owned),
+            can_redo: doc.history.can_redo(),
+            redo_label: doc.history.redo_label().map(str::to_owned),
             warnings: compiled.map(|c| c.warnings.clone()).unwrap_or_default(),
-            notice: self.notice.clone(),
+            notice: doc.notice.clone(),
             appearance: self.appearance.clone(),
-            templates: self.deck_set(),
-            editing: self.editing.clone(),
+            templates: self.deck_set().to_owned(),
+            editing: self.editing().cloned(),
         }
     }
 
     /// Aperçus d'un ensemble de modèles, rendus avec le thème, les jetons, les
     /// paramètres et les variables du deck. En cache tant que rien ne change.
     pub fn templates_view(&mut self, set: Option<String>) -> Result<TemplatesView> {
-        let id = set.unwrap_or_else(|| self.deck_set());
+        let id = set.unwrap_or_else(|| self.deck_set().to_owned());
         // Un ensemble disparu (supprimé, ou d'une autre machine) : celui par défaut.
         let (set, builtin) = self.get_set(&id).or_else(|_| self.get_set(DEFAULT_SET))?;
-        let base = self.stash.as_ref().map(|s| &s.deck).unwrap_or(&self.deck).clone();
+        let base = self.user_deck().clone();
         let key =
             serde_json::to_string(&(&base.theme, &base.tokens, &base.params, &base.vars, &set)).unwrap_or_default();
         let views = match &self.template_cache {
@@ -748,7 +752,7 @@ impl Session {
                 let mut preview = base;
                 preview.slides = set.templates.iter().map(|t| t.slide.clone()).collect();
                 let renderer = self.template_renderer.get_or_insert_with(|| Renderer::new(self.render_fonts.clone()));
-                renderer.set_deck(&preview, &self.assets);
+                renderer.set_deck(&preview, &self.doc.sources.assets);
                 let compiled = renderer.compile()?;
                 let layout = compiled.layout();
                 let mut views = Vec::with_capacity(set.templates.len());
@@ -779,7 +783,8 @@ impl Session {
 
     /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
     pub fn slide(&self, id: &str) -> Result<SlideView> {
-        let slide = self.deck.slide(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?.clone();
+        let deck = &self.doc.sources.deck;
+        let slide = deck.slide(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?.clone();
         let page = self.page_of(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
         let layout = compiled.layout();
@@ -791,10 +796,11 @@ impl Session {
                     "title" => slide
                         .title
                         .clone()
-                        .or_else(|| (slide.kind == SlideKind::Title).then(|| self.deck.params.title.clone()).flatten()),
-                    "subtitle" => slide.subtitle.clone().or_else(|| {
-                        (slide.kind == SlideKind::Title).then(|| self.deck.params.subtitle.clone()).flatten()
-                    }),
+                        .or_else(|| (slide.kind == SlideKind::Title).then(|| deck.params.title.clone()).flatten()),
+                    "subtitle" => slide
+                        .subtitle
+                        .clone()
+                        .or_else(|| (slide.kind == SlideKind::Title).then(|| deck.params.subtitle.clone()).flatten()),
                     "kicker" => slide.kicker.clone(),
                     "text" => slide.text.clone(),
                     _ => None,

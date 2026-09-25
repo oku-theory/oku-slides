@@ -127,12 +127,11 @@ fn main() -> Result<()> {
         }
         Cmd::Render { input, out, theme } => {
             let mut bundle = load_bundle(&input)?;
-            let deck = bundle.deck.as_mut().unwrap();
             if theme.is_some() {
-                deck.theme = theme;
+                bundle.deck.theme = theme;
             }
             let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()));
-            r.set_deck(deck, &bundle.assets);
+            r.set_deck(&bundle.deck, &bundle.assets);
             let t = Instant::now();
             let doc = r.compile()?;
             let compile = t.elapsed();
@@ -153,7 +152,7 @@ fn main() -> Result<()> {
             if theme.is_some() {
                 deck.theme = theme;
             }
-            let mut bundle = SourceBundle::new(deck.clone());
+            let mut bundle = SourceBundle::new(deck);
             if let Some(dir) = assets {
                 for entry in std::fs::read_dir(&dir)? {
                     let path = entry?.path();
@@ -164,11 +163,11 @@ fn main() -> Result<()> {
                 }
             }
             if embed_fonts {
-                bundle.fonts = fonts.clone();
+                bundle.fonts = fonts;
             }
-            report_issues(&deck, &bundle.assets);
+            report_issues(&bundle.deck, &bundle.assets);
             let mut r = Renderer::new(app_fonts);
-            r.set_deck(&deck, &bundle.assets);
+            r.set_deck(&bundle.deck, &bundle.assets);
             let doc = r.compile()?;
             let pdf = doc.pdf()?;
             let zip = bundle.to_zip()?;
@@ -184,7 +183,7 @@ fn main() -> Result<()> {
         }
         Cmd::Open { input, out } => {
             let bundle = load_bundle(&input)?;
-            let deck = bundle.deck.as_ref().unwrap();
+            let deck = &bundle.deck;
             println!(
                 "{} : {} slides, {} assets, {} polices",
                 input.display(),
@@ -298,7 +297,7 @@ fn bench(mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
     let back = slider_pdf::extract_sources(&out)?.context("blob introuvable")?;
     let bundle = SourceBundle::from_zip(&back.zip)?;
     println!("relecture du blob                 {}", ms(t.elapsed()));
-    if bundle.deck.as_ref() != Some(&deck) {
+    if bundle.deck != deck {
         bail!("le deck relu diffère du deck enregistré");
     }
     println!("aller-retour du deck              identique");

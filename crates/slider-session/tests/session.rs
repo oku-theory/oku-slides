@@ -196,3 +196,20 @@ fn edition_des_modeles_puis_retour_au_deck() {
     assert!(view.sets.iter().any(|x| x.id == "grilles-copie" && !x.builtin));
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn changer_d_ensemble_en_cours_d_edition_garde_le_deck_de_cote() {
+    let mut s = Session::new(Fonts::default());
+    s.open(&fixture_path()).unwrap();
+    s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }]).unwrap();
+    let before = s.deck().clone();
+
+    s.edit_templates("grilles").unwrap();
+    let snap = s.edit_templates("essentiel").unwrap();
+    assert_eq!(snap.editing.as_ref().unwrap().set, "essentiel");
+    assert!(!snap.can_undo, "l'édition des modèles a son propre historique");
+
+    let snap = s.close_templates().unwrap();
+    assert_eq!(s.deck(), &before);
+    assert!(snap.dirty && snap.can_undo, "le deck retrouve son état et son historique");
+}
