@@ -8,7 +8,7 @@ pub mod ops;
 pub mod sources;
 pub mod validate;
 
-pub use history::{History, Transaction};
+pub use history::History;
 pub use locate::{Located, Walk};
 pub use model::*;
 pub use ops::{Op, OpError, SlideField, apply_all, ops_schema};

@@ -1,22 +1,27 @@
 //! Historique annuler / rétablir, par transactions : une dictée appliquée ou
 //! un glisser-déposer comptent pour une seule annulation.
+//!
+//! Chaque op appliquée renvoie son inverse : une transaction ne garde donc
+//! que les ops qui font passer le deck de l'autre côté. Annuler et rétablir
+//! sont le même geste, dans les deux sens.
+
+use std::collections::VecDeque;
 
 use crate::model::Deck;
 use crate::ops::{Op, OpError, apply_all};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Transaction {
+struct Transaction {
     /// Libellé affiché (« Dictée : passer l'accent en bleu », « Déplacer »…).
-    pub label: String,
-    pub ops: Vec<Op>,
-    /// Inverses, dans l'ordre d'application pour défaire.
-    pub inverse: Vec<Op>,
+    label: String,
+    /// Ops à appliquer pour passer la transaction dans l'autre pile.
+    ops: Vec<Op>,
 }
 
 #[derive(Debug, Clone)]
 pub struct History {
-    undo: Vec<Transaction>,
-    redo: Vec<Transaction>,
+    undo: VecDeque<Transaction>,
+    redo: VecDeque<Transaction>,
     limit: usize,
 }
 
@@ -26,52 +31,44 @@ impl Default for History {
     }
 }
 
+/// Applique la dernière transaction de `from` et range son inverse dans `to`.
+/// En cas d'erreur (historique incohérent avec le deck), la transaction est
+/// abandonnée et le deck reste intact.
+fn step<'a>(
+    from: &mut VecDeque<Transaction>,
+    to: &'a mut VecDeque<Transaction>,
+    deck: &mut Deck,
+) -> Result<Option<&'a str>, (usize, OpError)> {
+    let Some(Transaction { label, ops }) = from.pop_back() else { return Ok(None) };
+    let ops = apply_all(deck, ops)?;
+    to.push_back(Transaction { label, ops });
+    Ok(to.back().map(|t| t.label.as_str()))
+}
+
 impl History {
     pub fn new(limit: usize) -> Self {
-        Self { undo: Vec::new(), redo: Vec::new(), limit: limit.max(1) }
+        Self { undo: VecDeque::new(), redo: VecDeque::new(), limit: limit.max(1) }
     }
 
     /// Applique `ops` en une transaction. Atomique : en cas d'erreur, rien n'a changé.
     pub fn commit(&mut self, deck: &mut Deck, label: impl Into<String>, ops: Vec<Op>) -> Result<(), (usize, OpError)> {
-        let inverse = apply_all(deck, &ops)?;
-        self.undo.push(Transaction { label: label.into(), ops, inverse });
+        let inverse = apply_all(deck, ops)?;
+        self.undo.push_back(Transaction { label: label.into(), ops: inverse });
         if self.undo.len() > self.limit {
-            self.undo.remove(0);
+            self.undo.pop_front();
         }
         self.redo.clear();
         Ok(())
     }
 
     /// Défait la dernière transaction ; renvoie son libellé.
-    pub fn undo(&mut self, deck: &mut Deck) -> Result<Option<String>, (usize, OpError)> {
-        let Some(tx) = self.undo.pop() else { return Ok(None) };
-        match apply_all(deck, &tx.inverse) {
-            Ok(_) => {
-                let label = tx.label.clone();
-                self.redo.push(tx);
-                Ok(Some(label))
-            }
-            Err(e) => {
-                self.undo.push(tx);
-                Err(e)
-            }
-        }
+    pub fn undo(&mut self, deck: &mut Deck) -> Result<Option<&str>, (usize, OpError)> {
+        step(&mut self.undo, &mut self.redo, deck)
     }
 
     /// Rejoue la dernière transaction défaite ; renvoie son libellé.
-    pub fn redo(&mut self, deck: &mut Deck) -> Result<Option<String>, (usize, OpError)> {
-        let Some(tx) = self.redo.pop() else { return Ok(None) };
-        match apply_all(deck, &tx.ops) {
-            Ok(inverse) => {
-                let label = tx.label.clone();
-                self.undo.push(Transaction { inverse, ..tx });
-                Ok(Some(label))
-            }
-            Err(e) => {
-                self.redo.push(tx);
-                Err(e)
-            }
-        }
+    pub fn redo(&mut self, deck: &mut Deck) -> Result<Option<&str>, (usize, OpError)> {
+        step(&mut self.redo, &mut self.undo, deck)
     }
 
     pub fn can_undo(&self) -> bool {
@@ -83,10 +80,10 @@ impl History {
     }
 
     pub fn undo_label(&self) -> Option<&str> {
-        self.undo.last().map(|t| t.label.as_str())
+        self.undo.back().map(|t| t.label.as_str())
     }
 
     pub fn redo_label(&self) -> Option<&str> {
-        self.redo.last().map(|t| t.label.as_str())
+        self.redo.back().map(|t| t.label.as_str())
     }
 }

@@ -241,9 +241,9 @@ pub struct Style {
 
 impl Style {
     /// Applique les champs définis de `patch` sur `self`.
-    pub fn merge(&mut self, patch: &Style) {
+    pub fn merge(&mut self, patch: Style) {
         macro_rules! take {
-            ($($f:ident),*) => { $( if patch.$f.is_some() { self.$f = patch.$f.clone(); } )* };
+            ($($f:ident),*) => { $( if patch.$f.is_some() { self.$f = patch.$f; } )* };
         }
         take!(size, color, weight, font, italic, align, leading, fill, stroke, stroke_width, radius);
     }

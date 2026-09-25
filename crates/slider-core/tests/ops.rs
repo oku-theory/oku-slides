@@ -59,10 +59,10 @@ fn accroche_a_la_grille_et_retour() {
     let grid = Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 12, rows: 6, gap: None }) };
     let cell = Cell { col: 0, row: 0, cols: 8, rows: 4 };
     let ops = vec![grid, Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) }];
-    let inverses = apply_all(&mut deck, &ops).unwrap();
+    let inverses = apply_all(&mut deck, ops).unwrap();
     assert_eq!(deck.slide("s-libre").unwrap().elements.iter().find(|e| e.id == "e-texte").unwrap().cell, Some(cell));
     assert!(validate(&deck, None).is_empty(), "{:?}", validate(&deck, None));
-    apply_all(&mut deck, &inverses).unwrap();
+    apply_all(&mut deck, inverses).unwrap();
     assert_eq!(deck, before);
 
     // Hors de la grille, ou sans grille : refusé, deck intact.
@@ -76,7 +76,7 @@ fn accroche_a_la_grille_et_retour() {
             cell: Some(Cell { col: 3, row: 0, cols: 2, rows: 1 }),
         },
     ];
-    assert!(apply_all(&mut deck, &bad).is_err());
+    assert!(apply_all(&mut deck, bad).is_err());
     assert_eq!(deck, before);
     // Sans grille explicite, la slide a la grille par défaut (12 × 6).
     let default_grid = Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) };
@@ -94,7 +94,7 @@ fn chaque_op_suivie_de_son_inverse_redonne_le_deck() {
     for op in sample_ops() {
         let mut deck = fixture();
         let before = deck.clone();
-        let inv = op.apply(&mut deck).unwrap_or_else(|e| panic!("{op:?} : {e}"));
+        let inv = op.clone().apply(&mut deck).unwrap_or_else(|e| panic!("{op:?} : {e}"));
         assert_ne!(deck, before, "l'op {op:?} n'a rien changé");
         inv.apply(&mut deck).unwrap();
         assert_eq!(deck, before, "inverse incorrect pour {op:?}");
@@ -109,10 +109,15 @@ fn transaction_atomique_et_annulation() {
     h.commit(&mut deck, "Tout", sample_ops()).unwrap();
     assert_ne!(deck, before);
     let after = deck.clone();
-    assert_eq!(h.undo(&mut deck).unwrap().as_deref(), Some("Tout"));
+    assert_eq!(h.undo(&mut deck).unwrap(), Some("Tout"));
     assert_eq!(deck, before);
-    assert_eq!(h.redo(&mut deck).unwrap().as_deref(), Some("Tout"));
+    assert_eq!(h.redo(&mut deck).unwrap(), Some("Tout"));
     assert_eq!(deck, after);
+    // Les deux sens restent symétriques après un aller-retour.
+    assert_eq!(h.undo(&mut deck).unwrap(), Some("Tout"));
+    assert_eq!(deck, before);
+    assert_eq!(h.undo(&mut deck).unwrap(), None);
+    assert_eq!(h.redo_label(), Some("Tout"));
 }
 
 #[test]
