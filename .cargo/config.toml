@@ -1,0 +1,6 @@
+# `cargo tauri` exporte MACOSX_DEPLOYMENT_TARGET depuis `bundle.macOS.minimumSystemVersion`
+# (src-tauri/tauri.conf.json). Les scripts de build C (psm, ring…) en dépendent : sans la même
+# valeur ici, chaque alternance `just dev` / `just test` / rust-analyzer recompile typst et
+# tout ce qui en dépend. Garder les deux valeurs synchronisées.
+[env]
+MACOSX_DEPLOYMENT_TARGET = "11.0"

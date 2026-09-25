@@ -1,29 +1,51 @@
 // Carrousel des modèles de slides, posé sur la table au-dessus de la feuille.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { TemplateView } from "./api";
+import type { SetInfo, TemplateView } from "./api";
 import { api } from "./api";
 
 interface Props {
   /** Change quand le thème ou les jetons changent : les aperçus sont rechargés. */
   themeKey: string;
+  /** Ensemble montré à l'ouverture. */
+  initialSet: string;
+  title?: string;
   onPick: (t: TemplateView) => void;
+  /** Autre ensemble choisi dans la liste (le deck l'adopte). */
+  onSetChange?: (set: SetInfo) => void;
   onClose: () => void;
 }
 
-export default function TemplatePicker({ themeKey, onPick, onClose }: Props) {
+export default function TemplatePicker({ themeKey, initialSet, title = "Nouvelle slide", onPick, onSetChange, onClose }: Props) {
   const [items, setItems] = useState<TemplateView[] | null>(null);
+  const [sets, setSets] = useState<SetInfo[]>([]);
+  const [set, setSet] = useState(initialSet);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
-    api.templates().then((t) => alive && setItems(t)).catch((e) => alive && setError(String(e)));
+    setItems(null);
+    api
+      .templates(set)
+      .then((v) => {
+        if (!alive) return;
+        setItems(v.templates);
+        setSets(v.sets);
+        setFocus(0);
+      })
+      .catch((e) => alive && setError(String(e)));
     return () => {
       alive = false;
     };
-  }, [themeKey]);
+  }, [themeKey, set]);
+
+  const chooseSet = (id: string) => {
+    setSet(id);
+    const info = sets.find((x) => x.id === id);
+    if (info) onSetChange?.(info);
+  };
 
   const urls = useMemo(() => {
     const list = (items ?? []).map((t) => URL.createObjectURL(new Blob([t.svg], { type: "image/svg+xml" })));
@@ -55,7 +77,15 @@ export default function TemplatePicker({ themeKey, onPick, onClose }: Props) {
     <div className="picker-scrim" onPointerDown={onClose}>
       <div className="picker" role="dialog" aria-modal="true" aria-labelledby="picker-title" onPointerDown={(e) => e.stopPropagation()}>
         <div className="picker-head">
-          <h2 id="picker-title">Nouvelle slide</h2>
+          <h2 id="picker-title">{title}</h2>
+          <label className="picker-set">
+            <span className="caption">Modèles</span>
+            <select className="select" value={set} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
+              {sets.map((x) => (
+                <option key={x.id} value={x.id}>{x.name}{x.builtin ? "" : " · à moi"}</option>
+              ))}
+            </select>
+          </label>
           <span className="caption">← → pour parcourir · Entrée pour ajouter · Échap pour fermer</span>
           <button className="object token" aria-label="Fermer" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>

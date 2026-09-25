@@ -301,14 +301,15 @@
 
 /// Carte : surtitre, titre et corps, avec filet d'accent en haut.
 /// highlight: true passe la carte sur le fond sombre du thème.
-#let card(title: none, kicker: none, highlight: false, body) = context {
+/// fill : `auto` suit le jeton card.height ; `true` remplit la hauteur (case de grille, cadre).
+#let card(title: none, kicker: none, highlight: false, fill: auto, body) = context {
   let t = config().tokens
   let k = t.component.card
   let bg = color-of(t, if highlight { k.highlight-bg } else { k.bg })
   let ink = if highlight { color-of(t, k.highlight-ink) } else { none }
   let border = if highlight { none } else { stroke-of(t, k.border-width) + color-of(t, k.border-color) }
   block(
-    width: 100%, height: if k.height == "fill" { 100% } else { auto },
+    width: 100%, height: if fill == true or (fill == auto and k.height == "fill") { 100% } else { auto },
     fill: bg, radius: radius-of(t, k.radius), clip: true,
     stroke: border,
     {

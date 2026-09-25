@@ -337,6 +337,7 @@ fn content_type(path: &Path) -> &'static str {
 fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Vec<Vec<u8>>) -> Result<()> {
     use tiny_http::{Header, Method, Response, Server};
     let mut session = slider_session::Session::new(fonts);
+    session.set_templates_dir(slider_session::default_data_dir().join("templates"));
     if let Some(path) = &input {
         session.open(path)?;
     }

@@ -58,6 +58,26 @@ pub struct ElementBox {
     pub style: Option<TextStyle>,
 }
 
+/// Zone des éléments libres d'une page (pt), et sa grille éventuelle.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ZoneBox {
+    pub page: usize,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    #[serde(default)]
+    pub grid: Option<GridBox>,
+}
+
+/// Grille résolue : colonnes, lignes et gouttière en pt.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GridBox {
+    pub columns: u32,
+    pub rows: u32,
+    pub gap: f64,
+}
+
 /// Typographie mesurée par Typst (tailles en pt).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TextStyle {
@@ -183,6 +203,11 @@ impl Compiled {
     /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
     pub fn tokens(&self) -> Option<Json> {
         self.metadata("slider-tokens").into_iter().next()
+    }
+
+    /// Zones des éléments libres (une par slide qui en a), avec leur grille.
+    pub fn zones(&self) -> Vec<ZoneBox> {
+        self.metadata("slider-zone").into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()
     }
 
     /// Boîtes réelles des éléments, pour la couche de sélection.

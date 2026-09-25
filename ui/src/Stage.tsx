@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
 import { findElement, textToParagraphs } from "./api";
+import type { Cell, GridSpec, ZoneView } from "./grid";
+import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -14,6 +16,16 @@ interface Drag {
   frame: Frame;
   dx: number;
   dy: number;
+  /** Élément accroché : sa cellule au départ, et la grille. */
+  cell?: Cell;
+  grid?: { zone: ZoneView; g: GridSpec };
+}
+
+/** Cellule visée par un glisser sur la grille. */
+function draggedCell(d: Drag): Cell | null {
+  if (!d.cell || !d.grid) return null;
+  const { zone, g } = d.grid;
+  return d.mode === "move" ? moveCell(zone, g, d.cell, d.dx, d.dy) : resizeCell(zone, g, d.cell, d.mode, d.dx, d.dy);
 }
 
 interface Props {
@@ -26,6 +38,8 @@ interface Props {
   onApply: (label: string, ops: Op[]) => void;
   /** Texte dicté à insérer au curseur de l'éditeur ouvert. */
   dictated?: { seq: number; text: string } | null;
+  /** Montrer la grille en permanence (sinon : quand on s'en sert). */
+  showGridAlways?: boolean;
 }
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -43,8 +57,10 @@ const KIND_LABELS: Record<string, string> = {
   group: "Groupe",
 };
 
-/** Cadre de l'élément après un glisser (en pt). */
+/** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
 function dragged(d: Drag): Frame {
+  const cell = draggedCell(d);
+  if (cell && d.grid) return cellRect(d.grid.zone, d.grid.g, cell);
   const f = { ...d.frame };
   const min = 20;
   switch (d.mode) {
@@ -205,7 +221,27 @@ function editorGeometry(t: Target, draft: string, scale: number) {
   };
 }
 
-export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated }: Props) {
+/** La grille, dessinée sur la feuille : cases, nœuds, et la place visée. */
+function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSpec; scale: number; target: Cell | null }) {
+  const t = tracks(zone, grid);
+  const px = (v: number) => v * scale;
+  const hot = target ? cellRect(zone, grid, target) : null;
+  const xs = t.cols.flatMap((c) => [c.start, c.end]);
+  const ys = t.rows.flatMap((r) => [r.start, r.end]);
+  return (
+    <div className="grid-layer" aria-hidden style={{ left: px(zone.x), top: px(zone.y), width: px(zone.w), height: px(zone.h) }}>
+      {t.rows.map((r, i) =>
+        t.cols.map((c, j) => (
+          <span key={`${i}-${j}`} className="grid-cell" style={{ left: px(c.start), top: px(r.start), width: px(c.end - c.start), height: px(r.end - r.start) }} />
+        )),
+      )}
+      {hot && <span className="grid-hot" style={{ left: px(hot.x), top: px(hot.y), width: px(hot.w), height: px(hot.h) }} />}
+      {ys.map((y, i) => xs.map((x, j) => <span key={`n${i}-${j}`} className="grid-node" style={{ left: px(x), top: px(y) }} />))}
+    </div>
+  );
+}
+
+export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const [scale, setScale] = useState(0.5);
@@ -262,6 +298,14 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     onSelect(t.id);
     if (!t.free || editing) return;
     const el = findElement(view.slide, t.id);
+    const zone = view.zone;
+    const g = zone?.grid;
+    if (el?.cell && zone && g) {
+      (e.target as Element).setPointerCapture(e.pointerId);
+      const frame = cellRect(zone, g, el.cell);
+      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell: el.cell, grid: { zone, g } });
+      return;
+    }
     if (!el?.frame) return;
     (e.target as Element).setPointerCapture(e.pointerId);
     setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame: el.frame, dx: 0, dy: 0 });
@@ -274,6 +318,15 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
 
   const endDrag = () => {
     if (!drag) return;
+    const cell = draggedCell(drag);
+    if (cell && drag.cell) {
+      setDrag(null);
+      if (!sameCell(cell, drag.cell)) {
+        const label = drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
+        onApply(label, [{ op: "set_cell", slide: view.slide.id, element: drag.id, cell }]);
+      }
+      return;
+    }
     const f = dragged(drag);
     const o = drag.frame;
     setDrag(null);
@@ -306,6 +359,18 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   // Les petites boîtes au-dessus des grandes, pour pouvoir les atteindre.
   const ordered = [...view.targets].sort((a, b) => b.w * b.h - a.w * a.h);
 
+  // La grille se montre quand on travaille avec : élément accroché choisi, ou glisser en cours.
+  const zone = view.zone;
+  const grid = zone?.grid ?? null;
+  const selectedEl = selected ? findElement(view.slide, selected) : undefined;
+  const liveCell = drag ? draggedCell(drag) : null;
+  const showGrid = !!grid && (showGridAlways || !!liveCell || !!selectedEl?.cell);
+  const tagFor = (t: Target, label: string) => {
+    const el = t.target === "element" ? findElement(view.slide, t.id) : undefined;
+    const cell = drag?.id === t.id && liveCell ? liveCell : el?.cell;
+    return cell && grid ? `${label} · ${cellLabel(cell)}` : label;
+  };
+
   return (
     <div className="stage-wrap" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
       <div
@@ -316,6 +381,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
         onPointerCancel={() => setDrag(null)}
       >
         {svgUrl && <img src={svgUrl} alt={`Slide ${view.page}`} draggable={false} />}
+        {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
         <div className="overlay" role="group" aria-label="Éléments de la slide">
           {ordered.map((t) => {
             const sel = t.id === selected;
@@ -330,7 +396,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 onPointerDown={(e) => startDrag(e, t, "move")}
                 onDoubleClick={() => t.text !== null && onEdit(t.id)}
               >
-                {sel && !editing && <span className="tag">{label}</span>}
+                {sel && !editing && <span className="tag">{tagFor(t, label)}</span>}
                 {sel && t.free &&
                   (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                     <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, t, m)} />

@@ -46,7 +46,40 @@ fn sample_ops() -> Vec<Op> {
         Op::SetParam { key: "numbering".into(), value: json!("{n}") },
         Op::SetVar { key: "client".into(), value: json!("Globex") },
         Op::SetVar { key: "confidential".into(), value: json!(null) },
+        Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 12, rows: 6, gap: None }) },
+        Op::SetTemplates { templates: Some("grilles".into()) },
+        Op::SetSlideField { slide: "s-constat".into(), field: SlideField::Name, value: json!("Constat") },
     ]
+}
+
+#[test]
+fn accroche_a_la_grille_et_retour() {
+    let mut deck = fixture();
+    let before = deck.clone();
+    let grid = Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 12, rows: 6, gap: None }) };
+    let cell = Cell { col: 0, row: 0, cols: 8, rows: 4 };
+    let ops = vec![grid, Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) }];
+    let inverses = apply_all(&mut deck, &ops).unwrap();
+    assert_eq!(deck.slide("s-libre").unwrap().elements.iter().find(|e| e.id == "e-texte").unwrap().cell, Some(cell));
+    assert!(validate(&deck, None).is_empty(), "{:?}", validate(&deck, None));
+    apply_all(&mut deck, &inverses).unwrap();
+    assert_eq!(deck, before);
+
+    // Hors de la grille, ou sans grille : refusé, deck intact.
+    let mut deck = fixture();
+    let before = deck.clone();
+    let bad = vec![
+        Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 4, rows: 3, gap: None }) },
+        Op::SetCell {
+            slide: "s-libre".into(),
+            element: "e-texte".into(),
+            cell: Some(Cell { col: 3, row: 0, cols: 2, rows: 1 }),
+        },
+    ];
+    assert!(apply_all(&mut deck, &bad).is_err());
+    assert_eq!(deck, before);
+    let no_grid = Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) };
+    assert!(no_grid.apply(&mut deck).is_err());
 }
 
 #[test]

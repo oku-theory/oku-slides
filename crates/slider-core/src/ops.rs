@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
-use crate::model::{Deck, Element, ElementBody, Frame, Paragraph, Slide, SlideKind, SlideLayout, Style};
+use crate::model::{Cell, Deck, Element, ElementBody, Frame, Grid, Paragraph, Slide, SlideKind, SlideLayout, Style};
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum OpError {
@@ -47,6 +47,9 @@ pub enum SlideField {
     Kicker,
     Layout,
     Text,
+    /// Nom et description d'une slide modèle.
+    Name,
+    Description,
 }
 
 /// Une opération sur le deck.
@@ -76,6 +79,17 @@ pub enum Op {
         slide: String,
         element: String,
         frame: Option<Frame>,
+    },
+    /// Accroche un élément à la grille de la slide ; `null` le décroche.
+    SetCell {
+        slide: String,
+        element: String,
+        cell: Option<Cell>,
+    },
+    /// Grille de la slide ; `null` la retire.
+    SetGrid {
+        slide: String,
+        grid: Option<Grid>,
     },
     /// Remplace un élément entier (même `id`).
     ReplaceElement {
@@ -124,6 +138,10 @@ pub enum Op {
     /// Thème de la bibliothèque (`papier`, `pro`) ou `null`.
     SetTheme {
         theme: Option<String>,
+    },
+    /// Ensemble de modèles de slides du deck ; `null` : l'ensemble par défaut.
+    SetTemplates {
+        templates: Option<String>,
     },
     /// Jeton de design au chemin donné (`["color", "accent"]`) ; `null` le retire.
     SetToken {
@@ -331,6 +349,37 @@ impl Op {
                 let old = std::mem::replace(&mut e.frame, *frame);
                 Ok(Op::SetFrame { slide: slide.clone(), element: element.clone(), frame: old })
             }
+            Op::SetCell { slide, element, cell } => {
+                let s = slide_mut(deck, slide)?;
+                if let Some(c) = cell {
+                    let grid = s.grid.as_ref().ok_or_else(|| OpError::InvalidValue {
+                        field: "cell".into(),
+                        reason: "la slide n'a pas de grille".into(),
+                    })?;
+                    if !c.fits(grid) {
+                        return Err(OpError::InvalidValue {
+                            field: "cell".into(),
+                            reason: format!("hors de la grille {} × {}", grid.columns, grid.rows),
+                        });
+                    }
+                }
+                let e = element_mut(s, element).ok_or_else(|| not_found(slide, element))?;
+                let old = std::mem::replace(&mut e.cell, *cell);
+                Ok(Op::SetCell { slide: slide.clone(), element: element.clone(), cell: old })
+            }
+            Op::SetGrid { slide, grid } => {
+                if let Some(g) = grid
+                    && (!(1..=24).contains(&g.columns) || !(1..=24).contains(&g.rows))
+                {
+                    return Err(OpError::InvalidValue {
+                        field: "grid".into(),
+                        reason: "1 à 24 colonnes et lignes".into(),
+                    });
+                }
+                let s = slide_mut(deck, slide)?;
+                let old = std::mem::replace(&mut s.grid, grid.clone());
+                Ok(Op::SetGrid { slide: slide.clone(), grid: old })
+            }
             Op::ReplaceElement { slide, element } => {
                 let s = slide_mut(deck, slide)?;
                 // Les enfants d'un groupe remplacé ne doivent pas entrer en collision.
@@ -394,6 +443,10 @@ impl Op {
                     }
                     SlideField::Kicker => to_value(&std::mem::replace(&mut s.kicker, opt_string("kicker", value)?)),
                     SlideField::Text => to_value(&std::mem::replace(&mut s.text, opt_string("text", value)?)),
+                    SlideField::Name => to_value(&std::mem::replace(&mut s.name, opt_string("name", value)?)),
+                    SlideField::Description => {
+                        to_value(&std::mem::replace(&mut s.description, opt_string("description", value)?))
+                    }
                 };
                 Ok(Op::SetSlideField { slide: slide.clone(), field: *field, value: old })
             }
@@ -430,6 +483,10 @@ impl Op {
             Op::SetTheme { theme } => {
                 let old = std::mem::replace(&mut deck.theme, theme.clone());
                 Ok(Op::SetTheme { theme: old })
+            }
+            Op::SetTemplates { templates } => {
+                let old = std::mem::replace(&mut deck.templates, templates.clone());
+                Ok(Op::SetTemplates { templates: old })
             }
             Op::SetToken { path, value } => {
                 if path.is_empty() {

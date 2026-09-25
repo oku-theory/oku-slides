@@ -29,6 +29,9 @@ pub struct Deck {
     /// Surcharges de jetons de design (fusion profonde côté Typst).
     #[serde(default, skip_serializing_if = "is_empty_object")]
     pub tokens: Value,
+    /// Ensemble de modèles de slides utilisé (indépendant du thème).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub templates: Option<String>,
     pub slides: Vec<Slide>,
 }
 
@@ -94,6 +97,11 @@ pub struct Slide {
     pub id: String,
     #[serde(default)]
     pub kind: SlideKind,
+    /// Nom et description, pour une slide qui sert de modèle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -108,9 +116,13 @@ pub struct Slide {
     /// Blocs mis en page par le layout de la slide.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blocks: Vec<Element>,
-    /// Éléments placés librement (cadres relatifs à la zone de corps).
+    /// Éléments placés librement (cadres relatifs à la zone de corps), ou
+    /// accrochés à la grille de la slide.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub elements: Vec<Element>,
+    /// Grille de mise en page de la zone de corps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grid: Option<Grid>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
 }
@@ -120,6 +132,8 @@ impl Slide {
         Self {
             id: id.into(),
             kind,
+            name: None,
+            description: None,
             title: None,
             subtitle: None,
             kicker: None,
@@ -127,6 +141,7 @@ impl Slide {
             text: None,
             blocks: Vec::new(),
             elements: Vec::new(),
+            grid: None,
             notes: String::new(),
         }
     }
@@ -139,6 +154,40 @@ pub struct Frame {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+}
+
+/// Grille de mise en page : la zone de corps découpée en colonnes et lignes
+/// égales, séparées par une gouttière.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct Grid {
+    pub columns: u32,
+    pub rows: u32,
+    /// Gouttière : jeton d'espacement (`"lg"`) ou pt ; défaut `"lg"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gap: Option<TokenValue>,
+}
+
+/// Place d'un élément sur la grille : première colonne et première ligne
+/// (à partir de 0), puis nombre de colonnes et de lignes couvertes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Cell {
+    pub col: u32,
+    pub row: u32,
+    #[serde(default = "one")]
+    pub cols: u32,
+    #[serde(default = "one")]
+    pub rows: u32,
+}
+
+fn one() -> u32 {
+    1
+}
+
+impl Cell {
+    /// La cellule tient-elle dans la grille ?
+    pub fn fits(&self, grid: &Grid) -> bool {
+        self.cols >= 1 && self.rows >= 1 && self.col + self.cols <= grid.columns && self.row + self.rows <= grid.rows
+    }
 }
 
 /// Une valeur de jeton : un nom (`"accent"`, `"body"`) ou un nombre (pt).
@@ -265,6 +314,9 @@ pub struct Element {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame: Option<Frame>,
+    /// Accroche à la grille de la slide ; prioritaire sur `frame`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cell: Option<Cell>,
     #[serde(default, skip_serializing_if = "is_default_style")]
     pub style: Style,
     #[serde(flatten)]
@@ -312,7 +364,13 @@ pub enum ElementBody {
 
 impl Element {
     pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
-        Self { id: id.into(), frame: None, style: Style::default(), body: ElementBody::Text { text: paragraphs } }
+        Self {
+            id: id.into(),
+            frame: None,
+            cell: None,
+            style: Style::default(),
+            body: ElementBody::Text { text: paragraphs },
+        }
     }
 
     pub fn children(&self) -> &[Element] {

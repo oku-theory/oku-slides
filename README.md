@@ -71,6 +71,26 @@ just          # toutes les commandes
 | ⌘S, ⇧⌘S, ⌘O | Enregistrer, enregistrer sous, ouvrir |
 
 
+### Grille, modèles, ordre des slides
+
+- **Grille** : une slide de contenu peut porter une grille (colonnes × lignes,
+  gouttière du thème). Un élément accroché occupe un bloc de cases : une
+  colonne, une ligne ou plusieurs cases. On le déplace de case en case, et
+  chaque coin s'accroche aux nœuds de la grille pour changer son étendue.
+  Le post-it « Grille » règle colonnes et lignes (les éléments gardent leurs
+  proportions) ; « Accrocher / Détacher » fait passer un élément de la grille
+  au placement libre, et inversement. La géométrie est calculée à l'identique
+  par `ui/src/grid.ts` (édition) et `grid-frame` dans `data.typ` (rendu).
+- **Ensembles de modèles** : les modèles de « Nouvelle slide » sont groupés en
+  ensembles (`templates/*.json` intégrés : Essentiel, Grilles ; ceux de
+  l'utilisateur dans le dossier de données de l'app). Un ensemble ne dépend
+  pas du thème : le deck choisit son ensemble et son thème séparément.
+- **Édition des modèles** (bouton « Modèles ») : chaque modèle devient une
+  slide qu'on modifie comme une autre (grille, éléments, textes), avec son nom
+  et sa description. Un ensemble intégré s'enregistre comme copie ; le deck
+  est mis de côté et retrouvé avec « Terminer ».
+- **Ordre des slides** : glisser-déposer dans la pile, ou ⌥↑ / ⌥↓.
+
 ### Dictée
 
 Tout se passe sur la machine : Whisper sur CTranslate2 (le moteur de

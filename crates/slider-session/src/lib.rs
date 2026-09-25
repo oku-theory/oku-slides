@@ -14,7 +14,27 @@ use slider_core::{Deck, Element, ElementBody, History, Op, Paragraph, Params, Sl
 use slider_render::{Compiled, ElementBox, Renderer};
 
 pub mod templates;
-pub use templates::{Template, templates};
+pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet, templates};
+
+/// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
+pub const APP_ID: &str = "me.dartiguenave.echo";
+
+/// Dossier de données de l'app (`ECHO_DATA` le remplace) : modèles, réglages.
+pub fn default_data_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("ECHO_DATA") {
+        return dir.into();
+    }
+    let home =
+        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
+    let base = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support")
+    } else if cfg!(windows) {
+        std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| home.join("AppData/Roaming"))
+    } else {
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".local/share"))
+    };
+    base.join(APP_ID)
+}
 
 pub const EXTENSION: &str = ".echo.pdf";
 /// Extension des fichiers enregistrés sous l'ancien nom de l'app.
@@ -57,6 +77,9 @@ pub struct SlideSummary {
     pub id: String,
     pub kind: SlideKind,
     pub title: Option<String>,
+    /// Nom de la slide quand elle sert de modèle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Page dans le document, à partir de 1.
     pub page: usize,
     /// Empreinte du rendu : clé de cache du SVG.
@@ -148,6 +171,37 @@ pub struct Snapshot {
     pub notice: Option<String>,
     /// L'interface prend les couleurs et les polices du thème des slides.
     pub appearance: Appearance,
+    /// Ensemble de modèles du deck.
+    pub templates: String,
+    /// Mode d'édition des modèles : l'ensemble en cours de modification.
+    pub editing: Option<TemplateMode>,
+}
+
+/// Édition d'un ensemble de modèles : chaque slide est un modèle.
+#[derive(Debug, Clone, Serialize)]
+pub struct TemplateMode {
+    pub set: String,
+    pub name: String,
+    /// Ensemble intégré : l'enregistrer en crée une copie.
+    pub builtin: bool,
+}
+
+/// Aperçus d'un ensemble de modèles, et la liste des ensembles.
+#[derive(Debug, Clone, Serialize)]
+pub struct TemplatesView {
+    pub set: SetInfo,
+    pub sets: Vec<SetInfo>,
+    pub templates: Vec<TemplateView>,
+}
+
+/// Le deck mis de côté pendant l'édition des modèles.
+struct Stash {
+    deck: Deck,
+    assets: BTreeMap<String, Vec<u8>>,
+    history: History,
+    path: Option<PathBuf>,
+    dirty: bool,
+    notice: Option<String>,
 }
 
 /// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
@@ -181,6 +235,8 @@ pub struct SlideView {
     pub width: f64,
     pub height: f64,
     pub targets: Vec<Target>,
+    /// Zone des éléments libres (pt, page), avec la grille résolue.
+    pub zone: Option<slider_render::ZoneBox>,
 }
 
 // ---- Requêtes ----------------------------------------------------------------------
@@ -210,8 +266,28 @@ pub enum Request {
     Undo,
     Redo,
     Schema,
-    /// Modèles de slides, rendus avec le thème du deck.
-    Templates,
+    /// Modèles d'un ensemble (celui du deck par défaut), rendus avec le thème du deck.
+    Templates {
+        #[serde(default)]
+        set: Option<String>,
+    },
+    /// Liste des ensembles de modèles.
+    TemplateSets,
+    /// Passe en édition d'un ensemble de modèles (le deck est mis de côté).
+    EditTemplates {
+        set: String,
+    },
+    /// Enregistre l'ensemble édité ; `as_new` (ou un ensemble intégré) : une copie.
+    SaveTemplates {
+        #[serde(default)]
+        as_new: bool,
+    },
+    /// Quitte l'édition des modèles et retrouve le deck.
+    CloseTemplates,
+    /// Supprime un ensemble de l'utilisateur.
+    DeleteTemplateSet {
+        set: String,
+    },
 }
 
 // ---- Conversion texte ↔ paragraphes ------------------------------------------------
@@ -273,6 +349,9 @@ pub struct TemplateView {
 }
 
 pub struct Session {
+    library: Library,
+    stash: Option<Stash>,
+    editing: Option<TemplateMode>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<(String, Vec<TemplateView>)>,
@@ -300,6 +379,7 @@ pub fn blank_deck() -> Deck {
         params: Params { title: Some("Nouvelle présentation".into()), ..Default::default() },
         vars: BTreeMap::new(),
         tokens: Value::Null,
+        templates: None,
         slides: vec![Slide::new("s-titre", SlideKind::Title), content],
     }
 }
@@ -331,6 +411,9 @@ impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles.
     pub fn new(app_fonts: Vec<Vec<u8>>) -> Self {
         let mut s = Self {
+            library: Library::default(),
+            stash: None,
+            editing: None,
             deck: blank_deck(),
             assets: BTreeMap::new(),
             fonts: BTreeMap::new(),
@@ -353,9 +436,124 @@ impl Session {
         &self.deck
     }
 
+    /// Dossier des ensembles de modèles de l'utilisateur.
+    pub fn set_templates_dir(&mut self, dir: impl Into<PathBuf>) {
+        self.library = Library::new(Some(dir.into()));
+        self.template_cache = None;
+    }
+
+    /// Ensemble de modèles du deck (celui par défaut s'il n'en choisit pas).
+    fn deck_set(&self) -> String {
+        let base = self.stash.as_ref().map(|s| &s.deck).unwrap_or(&self.deck);
+        base.templates.clone().unwrap_or_else(|| DEFAULT_SET.to_owned())
+    }
+
+    fn get_set(&self, id: &str) -> Result<(TemplateSet, bool)> {
+        self.library.get(id).ok_or_else(|| SessionError::BadRequest(format!("ensemble de modèles introuvable : {id}")))
+    }
+
+    /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
+    pub fn edit_templates(&mut self, id: &str) -> Result<Snapshot> {
+        let (set, builtin) = self.get_set(id)?;
+        if self.stash.is_none() {
+            self.stash = Some(Stash {
+                deck: self.deck.clone(),
+                assets: self.assets.clone(),
+                history: std::mem::take(&mut self.history),
+                path: self.path.take(),
+                dirty: self.dirty,
+                notice: self.notice.take(),
+            });
+        }
+        let base = &self.stash.as_ref().expect("deck mis de côté").deck;
+        let mut deck = base.clone();
+        deck.params.title = Some(set.name.clone());
+        deck.templates = Some(set.id.clone());
+        deck.slides = set
+            .templates
+            .iter()
+            .map(|t| {
+                let mut s = t.slide.clone();
+                s.id = t.id.clone();
+                s.name = Some(t.name.clone());
+                s.description = (!t.description.is_empty()).then(|| t.description.clone());
+                s
+            })
+            .collect();
+        self.deck = deck;
+        self.history = History::default();
+        self.dirty = false;
+        self.editing = Some(TemplateMode { set: set.id, name: set.name, builtin });
+        self.rerender()?;
+        Ok(self.snapshot())
+    }
+
+    /// L'ensemble tel qu'il est en cours d'édition.
+    fn edited_set(&self, id: String) -> TemplateSet {
+        let name =
+            self.deck.params.title.clone().filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Mes modèles".into());
+        let description = self
+            .get_set(&self.editing.as_ref().map(|m| m.set.clone()).unwrap_or_default())
+            .map(|(s, _)| s.description)
+            .unwrap_or_default();
+        let templates = self
+            .deck
+            .slides
+            .iter()
+            .map(|s| {
+                let mut slide = s.clone();
+                let name = slide.name.take().or_else(|| slide.title.clone()).unwrap_or_else(|| "Modèle".into());
+                let description = slide.description.take().unwrap_or_default();
+                slide.id = format!("tpl-{}", s.id);
+                Template { id: s.id.clone(), name, description, slide }
+            })
+            .collect();
+        TemplateSet { id, name, description, templates }
+    }
+
+    /// Enregistre l'ensemble édité dans la bibliothèque de l'utilisateur.
+    pub fn save_templates(&mut self, as_new: bool) -> Result<Snapshot> {
+        let mode =
+            self.editing.clone().ok_or_else(|| SessionError::BadRequest("pas de modèles en cours d'édition".into()))?;
+        let mut name = self.deck.params.title.clone().unwrap_or_default();
+        let copy = as_new || mode.builtin;
+        if copy && name == mode.name {
+            name = format!("{name} (copie)");
+            self.deck.params.title = Some(name.clone());
+        }
+        let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
+        let set = self.edited_set(id.clone());
+        self.library.save(&set)?;
+        self.editing = Some(TemplateMode { set: id.clone(), name: set.name.clone(), builtin: false });
+        self.deck.templates = Some(id);
+        self.dirty = false;
+        self.template_cache = None;
+        self.rerender()?;
+        Ok(self.snapshot())
+    }
+
+    /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
+    pub fn close_templates(&mut self) -> Result<Snapshot> {
+        if let Some(st) = self.stash.take() {
+            self.deck = st.deck;
+            self.assets = st.assets;
+            self.history = st.history;
+            self.path = st.path;
+            self.dirty = st.dirty;
+            self.notice = st.notice;
+        }
+        self.editing = None;
+        self.template_cache = None;
+        self.rerender()?;
+        Ok(self.snapshot())
+    }
+
     /// Traite une requête de l'interface et renvoie la réponse en JSON.
     pub fn handle(&mut self, req: Request) -> Result<Value> {
         let v = |x: &dyn erased::Ser| x.to_value();
+        if self.editing.is_some() && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. }) {
+            return Err(SessionError::BadRequest("terminez d'abord l'édition des modèles".into()));
+        }
         Ok(match req {
             Request::Snapshot => v(&self.snapshot()),
             Request::New => v(&self.new_deck()?),
@@ -367,7 +565,19 @@ impl Session {
             Request::Undo => v(&self.undo()?),
             Request::Redo => v(&self.redo()?),
             Request::Schema => slider_core::ops_schema(),
-            Request::Templates => v(&self.template_views()?),
+            Request::Templates { set } => v(&self.templates_view(set)?),
+            Request::TemplateSets => v(&self.library.list()),
+            Request::EditTemplates { set } => v(&self.edit_templates(&set)?),
+            Request::SaveTemplates { as_new } => v(&self.save_templates(as_new)?),
+            Request::CloseTemplates => v(&self.close_templates()?),
+            Request::DeleteTemplateSet { set } => {
+                if Library::is_builtin(&set) {
+                    return Err(SessionError::BadRequest("un ensemble intégré ne se supprime pas".into()));
+                }
+                self.library.delete(&set)?;
+                self.template_cache = None;
+                v(&self.library.list())
+            }
         })
     }
 
@@ -511,7 +721,7 @@ impl Session {
                 let page = pages.iter().find(|p| p.slide == s.id).map(|p| p.page).unwrap_or(0);
                 let hash = compiled.and_then(|c| c.page_hash(page.saturating_sub(1))).map(hex).unwrap_or_default();
                 let title = s.title.as_deref().map(|t| interp(t, &self.deck.vars));
-                SlideSummary { id: s.id.clone(), kind: s.kind, title, page, hash }
+                SlideSummary { id: s.id.clone(), kind: s.kind, title, name: s.name.clone(), page, hash }
             })
             .collect();
         let name = self
@@ -537,38 +747,49 @@ impl Session {
             warnings: compiled.map(|c| c.warnings.clone()).unwrap_or_default(),
             notice: self.notice.clone(),
             appearance: compiled.and_then(|c| c.tokens()).map(|t| appearance(&t)).unwrap_or_default(),
+            templates: self.deck_set(),
+            editing: self.editing.clone(),
         }
     }
 
-    /// Aperçus des modèles, rendus avec le thème, les jetons, les paramètres et
-    /// les variables du deck. Mis en cache tant que ceux-ci ne changent pas.
+    /// Aperçus des modèles de l'ensemble du deck (compatibilité).
     pub fn template_views(&mut self) -> Result<Vec<TemplateView>> {
-        let key = serde_json::to_string(&(&self.deck.theme, &self.deck.tokens, &self.deck.params, &self.deck.vars))
-            .unwrap_or_default();
-        if let Some((k, views)) = &self.template_cache
-            && *k == key
-        {
-            return Ok(views.clone());
-        }
-        let list = templates();
-        let mut preview = self.deck.clone();
-        preview.slides = list.iter().map(|t| t.slide.clone()).collect();
-        let renderer = self.template_renderer.get_or_insert_with(|| {
-            let mut all = self.app_fonts.clone();
-            all.extend(self.fonts.values().cloned());
-            Renderer::new(all)
-        });
-        renderer.set_deck(&preview, &self.assets);
-        let compiled = renderer.compile()?;
-        let pages = compiled.slide_pages();
-        let mut views = Vec::with_capacity(list.len());
-        for t in list {
-            let page = pages.iter().find(|p| p.slide == t.slide.id).map(|p| p.page).unwrap_or(1);
-            let svg: Arc<str> = compiled.svg(page - 1)?.into();
-            views.push(TemplateView { template: t, svg });
-        }
-        self.template_cache = Some((key, views.clone()));
-        Ok(views)
+        Ok(self.templates_view(None)?.templates)
+    }
+
+    /// Aperçus d'un ensemble de modèles, rendus avec le thème, les jetons, les
+    /// paramètres et les variables du deck. En cache tant que rien ne change.
+    pub fn templates_view(&mut self, set: Option<String>) -> Result<TemplatesView> {
+        let id = set.unwrap_or_else(|| self.deck_set());
+        // Un ensemble disparu (supprimé, ou d'une autre machine) : celui par défaut.
+        let (set, builtin) = self.get_set(&id).or_else(|_| self.get_set(DEFAULT_SET))?;
+        let base = self.stash.as_ref().map(|s| &s.deck).unwrap_or(&self.deck).clone();
+        let key =
+            serde_json::to_string(&(&base.theme, &base.tokens, &base.params, &base.vars, &set)).unwrap_or_default();
+        let views = match &self.template_cache {
+            Some((k, views)) if *k == key => views.clone(),
+            _ => {
+                let mut preview = base;
+                preview.slides = set.templates.iter().map(|t| t.slide.clone()).collect();
+                let renderer = self.template_renderer.get_or_insert_with(|| {
+                    let mut all = self.app_fonts.clone();
+                    all.extend(self.fonts.values().cloned());
+                    Renderer::new(all)
+                });
+                renderer.set_deck(&preview, &self.assets);
+                let compiled = renderer.compile()?;
+                let pages = compiled.slide_pages();
+                let mut views = Vec::with_capacity(set.templates.len());
+                for t in &set.templates {
+                    let page = pages.iter().find(|p| p.slide == t.slide.id).map(|p| p.page).unwrap_or(1);
+                    let svg: Arc<str> = compiled.svg(page - 1)?.into();
+                    views.push(TemplateView { template: t.clone(), svg });
+                }
+                self.template_cache = Some((key, views.clone()));
+                views
+            }
+        };
+        Ok(TemplatesView { set: set.info(builtin), sets: self.library.list(), templates: views })
     }
 
     /// SVG d'une slide, mis en cache par empreinte de page.
@@ -645,7 +866,8 @@ impl Session {
             }
         }
         let hash = compiled.page_hash(page - 1).map(hex).unwrap_or_default();
-        Ok(SlideView { slide, page, hash, width: 1920.0, height: 1080.0, targets })
+        let zone = compiled.zones().into_iter().find(|z| z.page == page);
+        Ok(SlideView { slide, page, hash, width: 1920.0, height: 1080.0, targets, zone })
     }
 }
 
@@ -654,7 +876,7 @@ fn find_element<'a>(slide: &'a Slide, id: &str) -> Option<(&'a Element, bool)> {
     fn rec<'a>(list: &'a [Element], id: &str, free: bool) -> Option<(&'a Element, bool)> {
         for e in list {
             if e.id == id {
-                return Some((e, free && e.frame.is_some()));
+                return Some((e, free && (e.frame.is_some() || e.cell.is_some())));
             }
             if let ElementBody::Group { layout, children } = &e.body {
                 let child_free = layout.kind == slider_core::GroupLayoutKind::Free;

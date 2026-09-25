@@ -91,6 +91,8 @@
       title: interp(e.at("title", default: none), vars),
       kicker: interp(e.at("kicker", default: none), vars),
       highlight: e.at("highlight", default: false),
+      // Dans un cadre (placement libre ou case de grille), la carte remplit sa place.
+      fill: if "frame" in e { true } else { auto },
       if "text" in e { _paragraphs(t, e.text, vars) } else { [] },
     )
   } else if kind == "group" {
@@ -135,12 +137,39 @@
   [#sized#label("e-" + str(e.id))]
 }
 
-#let _free(t, elements, vars, image-loader) = block(width: 100%, height: 100%, {
+// Géométrie d'une grille : cadre (pt, relatif à la zone) d'une cellule.
+// Même calcul que ui/src/grid.ts : les deux doivent rester alignés.
+#let grid-frame(zone-w, zone-h, g, gap, cell) = {
+  let cw = (zone-w - (g.columns - 1) * gap) / g.columns
+  let rh = (zone-h - (g.rows - 1) * gap) / g.rows
+  let cols = cell.at("cols", default: 1)
+  let rows = cell.at("rows", default: 1)
+  (
+    x: cell.col * (cw + gap),
+    y: cell.row * (rh + gap),
+    w: cols * cw + (cols - 1) * gap,
+    h: rows * rh + (rows - 1) * gap,
+  )
+}
+
+// Zone des éléments libres. Avec une grille, les éléments qui ont une
+// « cell » y sont accrochés ; les autres gardent leur « frame ».
+// La zone est signalée à l'app (<slider-zone>) : position, taille, grille.
+#let _free(t, elements, vars, image-loader, grid: none) = block(width: 100%, height: 100%, layout(sz => {
+  let zw = sz.width / 1pt
+  let zh = sz.height / 1pt
+  let gap = if grid != none { space-of(t, grid.at("gap", default: "lg")) / 1pt } else { 0 }
+  context {
+    let p = here().position()
+    [#metadata((page: p.page, x: p.x / 1pt, y: p.y / 1pt, w: zw, h: zh,
+      grid: if grid != none { (columns: grid.columns, rows: grid.rows, gap: gap) } else { none }))<slider-zone>]
+  }
   for e in elements {
-    let f = e.frame
+    let f = if grid != none and "cell" in e { grid-frame(zw, zh, grid, gap, e.cell) } else { e.frame }
+    let e = e + (frame: f)
     place(top + left, dx: f.x * 1pt, dy: f.y * 1pt, render-element(t, e, vars, image-loader: image-loader))
   }
-})
+}))
 
 #let render-slide(s, image-loader: none) = context {
   let c = config()
@@ -158,10 +187,10 @@
   } else if kind == "end" {
     end-slide(interp(s.at("text", default: ""), vars), id: id)
   } else if kind == "blank" {
-    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader), id: id)
+    blank-slide(_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: none)), id: id)
   } else {
-    let bodies = if "elements" in s {
-      (_free(t, s.elements, vars, image-loader),)
+    let bodies = if "elements" in s or "grid" in s {
+      (_free(t, s.at("elements", default: ()), vars, image-loader, grid: s.at("grid", default: none)),)
     } else {
       s.at("blocks", default: ()).map(b => render-element(t, b, vars, image-loader: image-loader))
     }

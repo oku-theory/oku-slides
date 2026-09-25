@@ -22,15 +22,27 @@ impl std::fmt::Display for Issue {
     }
 }
 
-fn check_elements(slide: &str, list: &[Element], assets: Option<&HashSet<String>>, out: &mut Vec<Issue>, free: bool) {
+fn check_elements(
+    slide: &str,
+    list: &[Element],
+    assets: Option<&HashSet<String>>,
+    out: &mut Vec<Issue>,
+    free: bool,
+    grid: Option<&crate::model::Grid>,
+) {
     for e in list {
         let issue = |m: String| Issue { slide: Some(slide.to_owned()), element: Some(e.id.clone()), message: m };
         if e.id.is_empty() {
             out.push(issue("identifiant vide".into()));
         }
+        match (e.cell, grid) {
+            (Some(c), Some(g)) if !c.fits(g) => out.push(issue("cellule hors de la grille".into())),
+            (Some(_), None) => out.push(issue("cellule sans grille sur la slide".into())),
+            _ => {}
+        }
         match e.frame {
             Some(f) if !(f.w > 0.0 && f.h > 0.0) => out.push(issue("cadre de taille nulle".into())),
-            None if free => out.push(issue("élément libre sans cadre".into())),
+            None if free && e.cell.is_none() => out.push(issue("élément libre sans cadre".into())),
             _ => {}
         }
         match &e.body {
@@ -43,7 +55,7 @@ fn check_elements(slide: &str, list: &[Element], assets: Option<&HashSet<String>
             }
             ElementBody::Group { children, layout } => {
                 let free_children = layout.kind == crate::model::GroupLayoutKind::Free;
-                check_elements(slide, children, assets, out, free_children);
+                check_elements(slide, children, assets, out, free_children, None);
             }
             _ => {}
         }
@@ -79,8 +91,8 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
                 });
             }
         }
-        check_elements(&s.id, &s.blocks, assets, &mut out, false);
-        check_elements(&s.id, &s.elements, assets, &mut out, true);
+        check_elements(&s.id, &s.blocks, assets, &mut out, false, None);
+        check_elements(&s.id, &s.elements, assets, &mut out, true, s.grid.as_ref());
     }
     out
 }

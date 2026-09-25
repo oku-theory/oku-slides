@@ -165,3 +165,39 @@ fn les_modeles_se_rendent_dans_le_theme_du_deck() {
         s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, slide }]).unwrap();
     }
 }
+
+#[test]
+fn edition_des_modeles_puis_retour_au_deck() {
+    use serde_json::json;
+    let dir = std::env::temp_dir().join(format!("echo-session-tpl-{}", std::process::id()));
+    let mut s = slider_session::Session::new(Vec::new());
+    s.set_templates_dir(&dir);
+    let before = s.deck().clone();
+
+    let snap = s.edit_templates("grilles").unwrap();
+    assert_eq!(snap.editing.as_ref().unwrap().set, "grilles");
+    assert!(snap.editing.as_ref().unwrap().builtin);
+    let first = snap.slides[0].id.clone();
+    s.apply(
+        "Renommer",
+        serde_json::from_value(json!([
+            { "op": "set_slide_field", "slide": first, "field": "name", "value": "Ma grille" }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+    // Intégré : l'enregistrement crée une copie.
+    let snap = s.save_templates(false).unwrap();
+    let mode = snap.editing.clone().unwrap();
+    assert!(!mode.builtin);
+    assert_eq!(mode.set, "grilles-copie");
+    assert!(dir.join("grilles-copie.json").exists());
+
+    let snap = s.close_templates().unwrap();
+    assert!(snap.editing.is_none());
+    assert_eq!(s.deck(), &before);
+    let view = s.templates_view(Some("grilles-copie".into())).unwrap();
+    assert_eq!(view.templates[0].template.name, "Ma grille");
+    assert!(view.sets.iter().any(|x| x.id == "grilles-copie" && !x.builtin));
+    std::fs::remove_dir_all(&dir).ok();
+}

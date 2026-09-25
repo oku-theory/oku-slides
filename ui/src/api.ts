@@ -1,3 +1,5 @@
+import type { Cell, ZoneView } from "./grid";
+
 // Accès à la session Rust : `invoke` dans Tauri, `POST /api` en développement.
 
 export type SlideKind = "title" | "toc" | "chapter" | "content" | "end" | "blank";
@@ -6,6 +8,8 @@ export interface SlideSummary {
   id: string;
   kind: SlideKind;
   title: string | null;
+  /** Nom de la slide quand elle sert de modèle. */
+  name?: string | null;
   page: number;
   hash: string;
 }
@@ -38,6 +42,31 @@ export interface Snapshot {
   warnings: string[];
   notice: string | null;
   appearance: Appearance;
+  /** Ensemble de modèles du deck. */
+  templates: string;
+  /** Édition d'un ensemble de modèles en cours. */
+  editing: TemplateMode | null;
+}
+
+export interface TemplateMode {
+  set: string;
+  name: string;
+  /** Ensemble intégré : l'enregistrer en crée une copie. */
+  builtin: boolean;
+}
+
+export interface SetInfo {
+  id: string;
+  name: string;
+  description: string;
+  builtin: boolean;
+  count: number;
+}
+
+export interface TemplatesView {
+  set: SetInfo;
+  sets: SetInfo[];
+  templates: TemplateView[];
 }
 
 export interface Frame {
@@ -63,6 +92,8 @@ export interface Element {
   id: string;
   kind: "text" | "image" | "shape" | "card" | "group";
   frame?: Frame;
+  /** Accroche à la grille de la slide (prioritaire sur `frame`). */
+  cell?: Cell;
   text?: Paragraph[];
   children?: Element[];
   [key: string]: unknown;
@@ -71,6 +102,9 @@ export interface Element {
 export interface Slide {
   id: string;
   kind: SlideKind;
+  /** Nom et description d'une slide modèle. */
+  name?: string;
+  description?: string;
   title?: string;
   subtitle?: string;
   kicker?: string;
@@ -78,6 +112,8 @@ export interface Slide {
   text?: string;
   blocks?: Element[];
   elements?: Element[];
+  /** Grille de la zone de corps ; gouttière : jeton ou pt. */
+  grid?: { columns: number; rows: number; gap?: string | number };
   notes?: string;
 }
 
@@ -117,6 +153,8 @@ export interface SlideView {
   width: number;
   height: number;
   targets: Target[];
+  /** Zone des éléments libres (pt, page) et sa grille résolue. */
+  zone: ZoneView | null;
 }
 
 export interface TemplateView {
@@ -204,7 +242,12 @@ type Request =
   | { cmd: "apply"; label: string; ops: Op[] }
   | { cmd: "undo" }
   | { cmd: "redo" }
-  | { cmd: "templates" };
+  | { cmd: "templates"; set?: string | null }
+  | { cmd: "template_sets" }
+  | { cmd: "edit_templates"; set: string }
+  | { cmd: "save_templates"; as_new: boolean }
+  | { cmd: "close_templates" }
+  | { cmd: "delete_template_set"; set: string };
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -233,7 +276,12 @@ export const api = {
   apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
   undo: () => call<Snapshot>({ cmd: "undo" }),
   redo: () => call<Snapshot>({ cmd: "redo" }),
-  templates: () => call<TemplateView[]>({ cmd: "templates" }),
+  templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
+  templateSets: () => call<SetInfo[]>({ cmd: "template_sets" }),
+  editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
+  saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
+  closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
+  deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
 };
 
 /** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */
