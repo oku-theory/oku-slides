@@ -158,7 +158,6 @@ fn zip_des_sources_aller_retour() {
     let id = b.add_asset(vec![1, 2, 3, 4]);
     assert!(id.starts_with("sha256:"));
     b.fonts.insert("Inter.ttf".into(), vec![9; 16]);
-    b.history = Some("{}".into());
     let zip = b.to_zip().unwrap();
     let back = SourceBundle::from_zip(&zip).unwrap();
     assert_eq!(b, back);

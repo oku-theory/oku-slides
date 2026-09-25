@@ -613,12 +613,7 @@ impl Session {
         }
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
         let pdf = compiled.pdf()?;
-        let bundle = SourceBundle {
-            deck: Some(self.deck.clone()),
-            assets: self.assets.clone(),
-            fonts: self.fonts.clone(),
-            history: None,
-        };
+        let bundle = SourceBundle { deck: Some(self.deck.clone()), assets: self.assets.clone(), fonts: self.fonts.clone() };
         let out = slider_pdf::embed_sources(&pdf, &bundle.to_zip()?)?;
         write_atomic(&path, &out)?;
         self.path = Some(path);

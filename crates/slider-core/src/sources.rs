@@ -1,5 +1,5 @@
-//! Le zip des sources (format `echo-sources`) : deck, assets d'origine,
-//! polices et historique. C'est ce blob qui est stocké dans le PDF.
+//! Le zip des sources (format `echo-sources`) : deck, assets d'origine et
+//! polices. C'est ce blob qui est stocké dans le PDF.
 
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read, Write};
@@ -43,8 +43,6 @@ pub struct SourceBundle {
     pub assets: BTreeMap<String, Vec<u8>>,
     /// Polices par nom de fichier.
     pub fonts: BTreeMap<String, Vec<u8>>,
-    /// Journal des transactions (JSON Lines), optionnel.
-    pub history: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -100,10 +98,6 @@ impl SourceBundle {
                 zw.start_file(format!("fonts/{}", safe_name(name)?), stored)?;
                 zw.write_all(bytes)?;
             }
-            if let Some(h) = &self.history {
-                zw.start_file("history.jsonl", deflate)?;
-                zw.write_all(h.as_bytes())?;
-            }
             zw.finish()?;
         }
         Ok(buf.into_inner())
@@ -132,7 +126,6 @@ impl SourceBundle {
                     out.deck =
                         Some(serde_json::from_slice(&data).map_err(|e| SourcesError::Json { file: name, source: e })?)
                 }
-                "history.jsonl" => out.history = Some(String::from_utf8_lossy(&data).into_owned()),
                 n if n.starts_with("assets/") => {
                     let hex = safe_name(&n["assets/".len()..])?;
                     out.assets.insert(format!("sha256:{hex}"), data);

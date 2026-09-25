@@ -1,12 +1,10 @@
 //! Historique annuler / rétablir, par transactions : une dictée appliquée ou
 //! un glisser-déposer comptent pour une seule annulation.
 
-use serde::{Deserialize, Serialize};
-
 use crate::model::Deck;
 use crate::ops::{Op, OpError, apply_all};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Transaction {
     /// Libellé affiché (« Dictée : passer l'accent en bleu », « Déplacer »…).
     pub label: String,
@@ -90,10 +88,5 @@ impl History {
 
     pub fn redo_label(&self) -> Option<&str> {
         self.redo.last().map(|t| t.label.as_str())
-    }
-
-    /// Journal des transactions, une par ligne (JSON Lines), pour `history.jsonl`.
-    pub fn to_jsonl(&self) -> String {
-        self.undo.iter().map(|t| serde_json::to_string(t).expect("sérialisable")).collect::<Vec<_>>().join("\n")
     }
 }

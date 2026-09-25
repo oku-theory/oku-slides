@@ -200,12 +200,11 @@ fn main() -> Result<()> {
             let bundle = load_bundle(&input)?;
             let deck = bundle.deck.as_ref().unwrap();
             println!(
-                "{} : {} slides, {} assets, {} polices, historique : {}",
+                "{} : {} slides, {} assets, {} polices",
                 input.display(),
                 deck.slides.len(),
                 bundle.assets.len(),
-                bundle.fonts.len(),
-                if bundle.history.is_some() { "oui" } else { "non" }
+                bundle.fonts.len()
             );
             if let Some(dir) = out {
                 std::fs::create_dir_all(dir.join("assets"))?;
