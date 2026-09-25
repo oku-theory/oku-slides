@@ -12,6 +12,7 @@
 mod canonical;
 mod data_ops;
 mod error;
+mod labels;
 mod model;
 mod option;
 mod patch;
@@ -22,6 +23,7 @@ mod theme;
 pub use canonical::{canonicalize, sync_series_with_columns};
 pub use data_ops::ChartDataOp;
 pub use error::{ChartError, ChartErrorKind, Result};
+pub use labels::ChartLabels;
 pub use model::{ChartKind, ChartModel, normalize, parse_option};
 pub use option::*;
 pub use patch::{apply_option_patch, reverse_merge_patch};

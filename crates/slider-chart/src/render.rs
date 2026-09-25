@@ -10,6 +10,7 @@ use charts_rs::{
 use snafu::ResultExt;
 
 use crate::error::{RenderSnafu, Result};
+use crate::labels::ChartLabels;
 use crate::model::*;
 use crate::option::{ChartOption, HAlign};
 use crate::theme::{ChartTheme, color, transparent};
@@ -30,11 +31,13 @@ pub trait ChartRenderer: Send + Sync {
 #[derive(Debug, Clone, Default)]
 pub struct ChartsRsRenderer {
     pub theme: ChartTheme,
+    /// Noms des séries qui n'en ont pas.
+    pub labels: ChartLabels,
 }
 
 impl ChartsRsRenderer {
     pub fn new(theme: ChartTheme) -> Self {
-        Self { theme }
+        Self { theme, labels: ChartLabels::default() }
     }
 
     pub fn render_model(&self, model: &ChartModel, size: Size) -> Result<String> {
@@ -186,7 +189,7 @@ impl ChartsRsRenderer {
 
 impl ChartRenderer for ChartsRsRenderer {
     fn render(&self, option: &ChartOption, size: Size) -> Result<String> {
-        self.render_model(&normalize(option)?, size)
+        self.render_model(&normalize(option, &self.labels)?, size)
     }
 }
 

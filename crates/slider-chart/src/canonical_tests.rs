@@ -18,10 +18,10 @@ fn canonicalize_inline_cartesian_moves_to_dataset_with_same_model() {
             { "type": "line", "name": "Objectif", "data": [11, 11, 11] }
         ]
     }));
-    let canon = canonicalize(&inline).unwrap();
+    let canon = canonicalize(&inline, ChartLabels::english()).unwrap();
     assert_that!(canon.series.iter().all(|s| s.data.is_none())).is_true();
-    let before = normalize(&inline).unwrap();
-    let after = normalize(&canon).unwrap();
+    let before = normalize(&inline, ChartLabels::english()).unwrap();
+    let after = normalize(&canon, ChartLabels::english()).unwrap();
     let (ChartKind::Cartesian(b), ChartKind::Cartesian(a)) = (&before.kind, &after.kind) else {
         panic!("cartésien attendu")
     };
@@ -58,21 +58,25 @@ fn canonicalize_inline_pie_scatter_radar_keeps_their_values() {
             "series": [{ "type": "radar", "data": [{ "name": "Offre A", "value": [7, 4] }] }] }),
     ] {
         let o = opt(v);
-        let canon = canonicalize(&o).unwrap();
+        let canon = canonicalize(&o, ChartLabels::english()).unwrap();
         assert_that!(canon.dataset).is_some();
-        assert_that!(values(&normalize(&canon).unwrap().kind)).is_equal_to(values(&normalize(&o).unwrap().kind));
+        assert_that!(values(&normalize(&canon, ChartLabels::english()).unwrap().kind))
+            .is_equal_to(values(&normalize(&o, ChartLabels::english()).unwrap().kind));
     }
 }
 
 #[test]
 fn normalize_renamed_column_renames_the_series() {
-    let mut o = canonicalize(&opt(json!({
-        "xAxis": { "data": ["Jan"] },
-        "series": [{ "type": "bar", "name": "Ventes", "data": [10] }]
-    })))
+    let mut o = canonicalize(
+        &opt(json!({
+            "xAxis": { "data": ["Jan"] },
+            "series": [{ "type": "bar", "name": "Ventes", "data": [10] }]
+        })),
+        ChartLabels::english(),
+    )
     .unwrap();
     ChartDataOp::SetCell { row: 0, col: 1, value: Cell::Text("CA".into()) }.apply(o.dataset.as_mut().unwrap()).unwrap();
-    let ChartKind::Cartesian(c) = normalize(&o).unwrap().kind else { panic!() };
+    let ChartKind::Cartesian(c) = normalize(&o, ChartLabels::english()).unwrap().kind else { panic!() };
     assert_that!(c.series[0].name.as_str()).is_equal_to("CA");
 }
 
@@ -88,5 +92,21 @@ fn sync_series_with_columns_added_column_adds_a_series() {
         .unwrap();
     sync_series_with_columns(&mut o);
     assert_that!(o.series).has_length(2);
-    assert_that!(normalize(&o)).is_ok();
+    assert_that!(normalize(&o, ChartLabels::english())).is_ok();
+}
+
+#[test]
+fn canonicalize_unnamed_data_takes_headers_in_the_user_language() {
+    let fr = ChartLabels::new(&slider_i18n::Localizer::new(Some("fr")));
+    let bars = opt(json!({
+        "xAxis": { "type": "category", "data": ["A", "B"] },
+        "series": [{ "type": "bar", "data": [1, 2] }]
+    }));
+    let header = |o: &ChartOption| o.dataset.as_ref().map(|d| d.source[0].clone()).unwrap_or_default();
+    let canon = canonicalize(&bars, &fr).unwrap();
+    assert_that!(header(&canon)).is_equal_to(vec![Cell::Text("Catégorie".into()), Cell::Text("Série 1".into())]);
+
+    let pie = opt(json!({ "series": [{ "type": "pie", "data": [{ "name": "a", "value": 1 }] }] }));
+    let canon = canonicalize(&pie, ChartLabels::english()).unwrap();
+    assert_that!(header(&canon)).is_equal_to(vec![Cell::Text("Name".into()), Cell::Text("Value".into())]);
 }

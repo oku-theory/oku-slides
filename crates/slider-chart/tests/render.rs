@@ -88,7 +88,7 @@ fn normalize_pie_by_default_is_plain_unlike_charts_rs() {
         "series": [{ "type": "pie" }]
     }))
     .unwrap();
-    let ChartKind::Pie(p) = normalize(&option).unwrap().kind else { panic!() };
+    let ChartKind::Pie(p) = normalize(&option, ChartLabels::english()).unwrap().kind else { panic!() };
     assert_that!(p.rose).is_false();
     assert_that!(p.inner).is_none();
 }

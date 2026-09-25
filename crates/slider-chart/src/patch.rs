@@ -10,6 +10,7 @@ use slider_i18n::Message;
 use snafu::{ResultExt, ensure};
 
 use crate::error::{InvalidOptionSnafu, InvalidPatchSnafu, PatchTouchesDatasetSnafu, Result};
+use crate::labels::ChartLabels;
 use crate::model::normalize;
 use crate::option::ChartOption;
 
@@ -22,7 +23,7 @@ pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartO
     let mut after = before;
     json_patch::merge(&mut after, patch);
     let next: ChartOption = serde_json::from_value(after).context(InvalidOptionSnafu)?;
-    normalize(&next)?;
+    normalize(&next, ChartLabels::english())?;
     Ok((next, inverse))
 }
 

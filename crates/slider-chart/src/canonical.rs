@@ -8,13 +8,14 @@
 //! l'en-tête, donc renommer une colonne dans la grille renomme la série.
 
 use crate::error::Result;
+use crate::labels::ChartLabels;
 use crate::model::*;
 use crate::option::*;
 
 /// Déplace les données en ligne dans `dataset`. Sans effet si les options
-/// utilisent déjà `dataset`.
-pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
-    let model = normalize(option)?;
+/// utilisent déjà `dataset`. Les en-têtes manquants viennent de `labels`.
+pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartOption> {
+    let model = normalize(option, labels)?;
     let inline = option.series.iter().any(|s| s.data.is_some());
     if option.dataset.is_some() && !inline {
         return Ok(option.clone());
@@ -28,7 +29,7 @@ pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
 
     let source: Vec<Vec<Cell>> = match &model.kind {
         ChartKind::Cartesian(c) => {
-            let mut header = vec![text(&or(&c.category_label, "Catégorie"))];
+            let mut header = vec![text(&or(&c.category_label, labels.category()))];
             header.extend(c.series.iter().map(|s| text(&s.name)));
             let rows = c.categories.iter().enumerate().map(|(i, cat)| {
                 let mut row = vec![text(cat)];
@@ -54,8 +55,8 @@ pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
             let s = &mut out.series[0];
             s.data = None;
             s.encode = None;
-            let value_header = s.name.take().unwrap_or_else(|| or(&p.name, "Valeur"));
-            let header = vec![text(&or(&p.name_label, "Nom")), text(&value_header)];
+            let value_header = s.name.take().unwrap_or_else(|| or(&p.name, labels.value()));
+            let header = vec![text(&or(&p.name_label, labels.name())), text(&value_header)];
             let rows = p.slices.iter().map(|(n, v)| vec![text(n), num(*v)]);
             std::iter::once(header).chain(rows).collect()
         }
@@ -64,7 +65,7 @@ pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
             let height = sc.series.iter().map(|s| s.points.len()).max().unwrap_or(0);
             let mut header = Vec::new();
             for s in &sc.series {
-                header.push(text(&format!("{} (x)", s.name)));
+                header.push(text(&labels.x_of(&s.name)));
                 header.push(text(&s.name));
             }
             let rows = (0..height).map(|i| {
@@ -89,7 +90,7 @@ pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
             std::iter::once(header).chain(rows).collect()
         }
         ChartKind::Radar(r) => {
-            let mut header = vec![text(&or(&r.indicator_label, "Axe"))];
+            let mut header = vec![text(&or(&r.indicator_label, labels.axis()))];
             header.extend(r.series.iter().map(|s| text(&s.name)));
             let rows = r.indicators.iter().enumerate().map(|(i, (name, _))| {
                 let mut row = vec![text(name)];
@@ -101,7 +102,7 @@ pub fn canonicalize(option: &ChartOption) -> Result<ChartOption> {
         }
     };
     out.dataset = Some(Dataset { source });
-    normalize(&out)?;
+    normalize(&out, labels)?;
     Ok(out)
 }
 

@@ -5,6 +5,7 @@
 //! en ligne et les valeurs par défaut d'ECharts.
 
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
+use crate::labels::ChartLabels;
 use crate::option::*;
 use slider_i18n::Message;
 use snafu::ResultExt;
@@ -100,19 +101,20 @@ pub struct RadarSeries {
 /// Parse et valide des options brutes (JSON produit par le LLM).
 pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
     let option: ChartOption = serde_json::from_value(json.clone()).context(InvalidOptionSnafu)?;
-    normalize(&option)?;
+    normalize(&option, ChartLabels::english())?;
     Ok(option)
 }
 
 /// Résout les options en modèle. Échoue si les options sont incohérentes.
-pub fn normalize(option: &ChartOption) -> Result<ChartModel> {
+/// `labels` nomme les séries qui n'ont pas de nom.
+pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
     let table = option.dataset.as_ref().map(Table::new).transpose()?;
 
     let kind = match first.kind {
-        SeriesType::Bar | SeriesType::Line => ChartKind::Cartesian(cartesian(option, table.as_ref())?),
+        SeriesType::Bar | SeriesType::Line => ChartKind::Cartesian(cartesian(option, table.as_ref(), labels)?),
         SeriesType::Pie => ChartKind::Pie(pie(option, table.as_ref())?),
-        SeriesType::Scatter => ChartKind::Scatter(scatter(option, table.as_ref())?),
+        SeriesType::Scatter => ChartKind::Scatter(scatter(option, table.as_ref(), labels)?),
         SeriesType::Radar => ChartKind::Radar(radar(option, table.as_ref())?),
     };
 
@@ -188,7 +190,7 @@ fn is_horizontal(option: &ChartOption) -> bool {
     y_cat && x_val
 }
 
-fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
+fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Cartesian> {
     let horizontal = is_horizontal(option);
     let (cat_axis, val_axis) = if horizontal {
         (option.y_axis.as_ref(), option.x_axis.as_ref())
@@ -235,7 +237,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>) -> Result<Cartesian> {
                         _ => Err(inconsistent(Message::new("chart-series-numbers").arg("index", i))),
                     })
                     .collect::<Result<Vec<_>>>()?;
-                (s.name.clone().unwrap_or_else(|| format!("Série {}", i + 1)), values)
+                (s.name.clone().unwrap_or_else(|| labels.series(i)), values)
             }
             (Some(t), None) => {
                 let val_ref = s.encode.as_ref().and_then(|e| if horizontal { e.x.as_ref() } else { e.y.as_ref() });
@@ -309,7 +311,7 @@ fn pie(option: &ChartOption, table: Option<&Table>) -> Result<Pie> {
     })
 }
 
-fn scatter(option: &ChartOption, table: Option<&Table>) -> Result<Scatter> {
+fn scatter(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Scatter> {
     let mut series = Vec::new();
     for (i, s) in option.series.iter().enumerate() {
         if s.kind != SeriesType::Scatter {
@@ -325,7 +327,7 @@ fn scatter(option: &ChartOption, table: Option<&Table>) -> Result<Scatter> {
                         _ => Some(Err(inconsistent(Message::new("chart-scatter-point").arg("index", i)))),
                     })
                     .collect::<Result<Vec<_>>>()?;
-                (s.name.clone().unwrap_or_else(|| format!("Série {}", i + 1)), points)
+                (s.name.clone().unwrap_or_else(|| labels.series(i)), points)
             }
             (Some(t), None) => {
                 let enc = s.encode.as_ref();
