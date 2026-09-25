@@ -6,17 +6,18 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use serde_json::Value;
 use slider_session::{Fonts, Request, Session, read_font_dir};
 use slider_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
+use tauri::ipc::Response;
 
 struct AppState(Mutex<Session>);
 
+/// La réponse est déjà du JSON : elle passe telle quelle à l'interface.
 #[tauri::command]
-fn request(state: tauri::State<'_, AppState>, req: Request) -> Result<Value, String> {
+fn request(state: tauri::State<'_, AppState>, req: Request) -> Result<Response, String> {
     let mut session = state.0.lock().map_err(|_| "session indisponible".to_owned())?;
-    session.handle(req).map_err(|e| e.to_string())
+    session.handle(req).map(Response::new).map_err(|e| e.to_string())
 }
 
 /// Dictée : jamais bloquant (téléchargement, micro et Whisper tournent dans leurs fils).

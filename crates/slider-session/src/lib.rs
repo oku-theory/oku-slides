@@ -2,6 +2,7 @@
 //! fichier. L'app Tauri et le serveur de développement exposent la même API
 //! (voir [`Request`] et [`Session::handle`]).
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -10,12 +11,21 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
-use slider_core::{Deck, Element, ElementBody, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
+use slider_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
 use slider_render::{Compiled, Renderer};
 pub use slider_render::{Fonts, read_font_dir};
 
+mod appearance;
 pub mod templates;
+mod text;
+mod views;
+
+pub use appearance::{Appearance, appearance};
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
+pub use text::{interp, paragraphs_to_text};
+pub use views::{
+    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView,
+};
 
 /// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
 pub const APP_ID: &str = "me.dartiguenave.echo";
@@ -59,6 +69,8 @@ pub enum SessionError {
     NoSlide(String),
     #[error("requête invalide : {0}")]
     BadRequest(String),
+    #[error("réponse impossible à écrire en JSON : {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 impl Serialize for SessionError {
@@ -68,130 +80,6 @@ impl Serialize for SessionError {
 }
 
 pub type Result<T> = std::result::Result<T, SessionError>;
-
-// ---- Vues envoyées à l'interface ------------------------------------------------
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SlideSummary {
-    pub id: String,
-    pub kind: SlideKind,
-    pub title: Option<String>,
-    /// Nom de la slide quand elle sert de modèle.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// Page dans le document, à partir de 1.
-    pub page: usize,
-    /// Empreinte du rendu : clé de cache du SVG.
-    pub hash: String,
-}
-
-/// Apparence de l'interface, tirée des jetons du thème des slides.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
-pub struct Appearance {
-    /// `light` ou `dark` : contrôles natifs, barres de défilement.
-    pub scheme: String,
-    /// Couleurs des slides (fond, encre, accent…), résolues en hex.
-    pub slide: BTreeMap<String, String>,
-    /// Couleurs de l'interface (`desk`, `sheet`, `piece`, `ink`…). Une couleur
-    /// absente est dérivée par l'interface à partir des couleurs des slides.
-    pub app: BTreeMap<String, String>,
-    /// Formes de l'interface : `radius-sm`, `radius-md`, `radius-lg` (px), `elevation`.
-    pub metrics: BTreeMap<String, f64>,
-    /// Familles de police : titres et texte courant.
-    pub font_display: Vec<String>,
-    pub font_body: Vec<String>,
-}
-
-/// Couleur : hex, ou nom d'une couleur du thème (références suivies).
-fn resolve_color(colors: &serde_json::Map<String, Value>, v: &Value) -> Option<String> {
-    let mut v = v.as_str()?;
-    for _ in 0..8 {
-        if v.starts_with('#') {
-            return Some(v.to_ascii_lowercase());
-        }
-        v = colors.get(v)?.as_str()?;
-    }
-    None
-}
-
-fn token_fonts(fonts: &serde_json::Map<String, Value>, name: &str) -> Vec<String> {
-    let mut v = fonts.get(name);
-    for _ in 0..8 {
-        match v {
-            Some(Value::String(s)) if fonts.contains_key(s) => v = fonts.get(s),
-            Some(Value::String(s)) => return vec![s.clone()],
-            Some(Value::Array(a)) => return a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect(),
-            _ => break,
-        }
-    }
-    Vec::new()
-}
-
-/// Apparence à partir des jetons résolus par Typst.
-pub fn appearance(tokens: &Value) -> Appearance {
-    let empty = serde_json::Map::new();
-    let colors = tokens.get("color").and_then(Value::as_object).unwrap_or(&empty);
-    let fonts = tokens.get("font").and_then(Value::as_object).unwrap_or(&empty);
-    let app = tokens.get("app").and_then(Value::as_object).unwrap_or(&empty);
-    let slide = colors.iter().filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?))).collect();
-    let app_colors = app
-        .iter()
-        .filter(|(k, _)| *k != "scheme")
-        .filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?)))
-        .collect();
-    let metrics = app.iter().filter_map(|(k, v)| Some((k.clone(), v.as_f64()?))).collect();
-    Appearance {
-        metrics,
-        scheme: app.get("scheme").and_then(Value::as_str).unwrap_or("light").to_owned(),
-        slide,
-        app: app_colors,
-        font_display: token_fonts(fonts, "display"),
-        font_body: token_fonts(fonts, "body"),
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Snapshot {
-    pub path: Option<PathBuf>,
-    pub name: String,
-    pub dirty: bool,
-    pub theme: Option<String>,
-    pub themes: Vec<String>,
-    pub title: Option<String>,
-    /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
-    pub title_source: Option<String>,
-    pub slides: Vec<SlideSummary>,
-    pub can_undo: bool,
-    pub undo_label: Option<String>,
-    pub can_redo: bool,
-    pub redo_label: Option<String>,
-    pub warnings: Vec<String>,
-    /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
-    pub notice: Option<String>,
-    /// L'interface prend les couleurs et les polices du thème des slides.
-    pub appearance: Appearance,
-    /// Ensemble de modèles du deck.
-    pub templates: String,
-    /// Mode d'édition des modèles : l'ensemble en cours de modification.
-    pub editing: Option<TemplateMode>,
-}
-
-/// Édition d'un ensemble de modèles : chaque slide est un modèle.
-#[derive(Debug, Clone, Serialize)]
-pub struct TemplateMode {
-    pub set: String,
-    pub name: String,
-    /// Ensemble intégré : l'enregistrer en crée une copie.
-    pub builtin: bool,
-}
-
-/// Aperçus d'un ensemble de modèles, et la liste des ensembles.
-#[derive(Debug, Clone, Serialize)]
-pub struct TemplatesView {
-    pub set: SetInfo,
-    pub sets: Vec<SetInfo>,
-    pub templates: Vec<TemplateView>,
-}
 
 /// Un document ouvert : ses sources (deck, assets, polices), son historique
 /// et son fichier.
@@ -219,41 +107,6 @@ enum Mode {
         stash: Box<Document>,
         edit: TemplateMode,
     },
-}
-
-/// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
-#[derive(Debug, Clone, Serialize)]
-pub struct Target {
-    pub id: String,
-    /// `element` ou `field`.
-    pub target: &'static str,
-    /// Type d'élément (`text`, `card`, `image`…) ou nom du champ.
-    pub kind: String,
-    /// Placé librement (déplaçable, redimensionnable).
-    pub free: bool,
-    /// Texte éditable, un paragraphe par ligne (`- ` en tête pour une puce).
-    pub text: Option<String>,
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-    /// Zone disponible pour le texte : début et largeur (contient la boîte).
-    pub ax: f64,
-    pub aw: f64,
-    /// Typographie du rendu, pour un éditeur calé sur le texte.
-    pub style: Option<slider_render::TextStyle>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SlideView {
-    pub slide: Slide,
-    pub page: usize,
-    pub hash: String,
-    pub width: f64,
-    pub height: f64,
-    pub targets: Vec<Target>,
-    /// Zone des éléments libres (pt, page), avec la grille résolue.
-    pub zone: Option<slider_render::ZoneBox>,
 }
 
 // ---- Requêtes ----------------------------------------------------------------------
@@ -307,37 +160,7 @@ pub enum Request {
     },
 }
 
-// ---- Conversion texte ↔ paragraphes ------------------------------------------------
-
-/// Texte éditable : un paragraphe par ligne, `- ` pour une puce, `1. ` pour une liste numérotée.
-pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
-    let mut n = 0;
-    paras
-        .iter()
-        .map(|p| {
-            let t: String = p.runs.iter().map(|r| r.t.as_str()).collect();
-            match p.list {
-                Some(slider_core::ListKind::Bullet) => format!("- {t}"),
-                Some(slider_core::ListKind::Number) => {
-                    n += 1;
-                    format!("{n}. {t}")
-                }
-                None => t,
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 // ---- Session ----------------------------------------------------------------------
-
-/// Un modèle avec son aperçu (SVG) dans le thème courant.
-#[derive(Debug, Clone, Serialize)]
-pub struct TemplateView {
-    #[serde(flatten)]
-    pub template: Template,
-    pub svg: Arc<str>,
-}
 
 pub struct Session {
     doc: Document,
@@ -372,31 +195,8 @@ pub fn blank_deck() -> Deck {
     }
 }
 
-/// Remplace `{{nom}}` par la variable du deck (affichage dans l'interface).
-pub fn interp(s: &str, vars: &BTreeMap<String, Value>) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut rest = s;
-    while let Some(start) = rest.find("{{") {
-        let Some(len) = rest[start + 2..].find("}}") else { break };
-        let key = rest[start + 2..start + 2 + len].trim();
-        out.push_str(&rest[..start]);
-        match vars.get(key) {
-            Some(Value::String(v)) => out.push_str(v),
-            Some(v) => out.push_str(&v.to_string()),
-            None => out.push_str(&rest[start..start + len + 4]),
-        }
-        rest = &rest[start + len + 4..];
-    }
-    out.push_str(rest);
-    out
-}
-
 fn op_error((index, e): (usize, slider_core::OpError)) -> SessionError {
     SessionError::Op { index, message: e.to_string() }
-}
-
-fn hex(h: u128) -> String {
-    format!("{h:032x}")
 }
 
 impl Session {
@@ -456,7 +256,7 @@ impl Session {
     /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
     /// Le deck garde son thème, ses jetons et ses variables ; les modèles ne
     /// portent pas d'assets (un ensemble n'en enregistre pas).
-    pub fn edit_templates(&mut self, id: &str) -> Result<Snapshot> {
+    pub fn edit_templates(&mut self, id: &str) -> Result<()> {
         let (set, builtin) = self.get_set(id)?;
         let base = self.user_deck();
         let deck = Deck {
@@ -489,7 +289,7 @@ impl Session {
             Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
         };
         self.rerender()?;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     /// L'ensemble tel qu'il est en cours d'édition.
@@ -513,7 +313,7 @@ impl Session {
     }
 
     /// Enregistre l'ensemble édité dans la bibliothèque de l'utilisateur.
-    pub fn save_templates(&mut self, as_new: bool) -> Result<Snapshot> {
+    pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
         let Mode::Templates { edit: mode, .. } = &self.mode else {
             return Err(SessionError::BadRequest("pas de modèles en cours d'édition".into()));
         };
@@ -534,57 +334,61 @@ impl Session {
         }
         self.template_cache = None;
         self.rerender()?;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
-    pub fn close_templates(&mut self) -> Result<Snapshot> {
+    pub fn close_templates(&mut self) -> Result<()> {
         if let Mode::Templates { stash, .. } = std::mem::replace(&mut self.mode, Mode::Deck) {
             self.doc = *stash;
         }
         self.template_cache = None;
         self.rerender()?;
-        Ok(self.snapshot())
+        Ok(())
     }
 
-    /// Traite une requête de l'interface et renvoie la réponse en JSON.
-    pub fn handle(&mut self, req: Request) -> Result<Value> {
-        let v = |x: &dyn erased::Ser| x.to_value();
+    /// Traite une requête de l'interface et renvoie la réponse, en JSON.
+    pub fn handle(&mut self, req: Request) -> Result<String> {
+        fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
+            Ok(serde_json::to_string(v)?)
+        }
         if matches!(self.mode, Mode::Templates { .. })
             && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. })
         {
             return Err(SessionError::BadRequest("terminez d'abord l'édition des modèles".into()));
         }
-        Ok(match req {
-            Request::Snapshot => v(&self.snapshot()),
-            Request::New => v(&self.new_deck()?),
-            Request::Open { path } => v(&self.open(&path)?),
-            Request::Save { path } => v(&self.save(path.as_deref())?),
-            Request::Slide { id } => v(&self.slide(&id)?),
-            Request::Svg { id } => Value::String(self.svg(&id)?.to_string()),
-            Request::Apply { label, ops } => v(&self.apply(&label, ops)?),
-            Request::Undo => v(&self.undo()?),
-            Request::Redo => v(&self.redo()?),
-            Request::Schema => slider_core::ops_schema(),
-            Request::Templates { set } => v(&self.templates_view(set)?),
-            Request::TemplateSets => v(&self.library.list()),
-            Request::EditTemplates { set } => v(&self.edit_templates(&set)?),
-            Request::SaveTemplates { as_new } => v(&self.save_templates(as_new)?),
-            Request::CloseTemplates => v(&self.close_templates()?),
+        // Les commandes modifient la session et renvoient le nouvel état ; les
+        // requêtes renvoient ce qu'elles lisent.
+        match req {
+            Request::Snapshot => {}
+            Request::Slide { id } => return json(&self.slide(&id)?),
+            Request::Svg { id } => return json(&*self.svg(&id)?),
+            Request::Schema => return json(&slider_core::ops_schema()),
+            Request::Templates { set } => return json(&self.templates_view(set)?),
+            Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
                 if Library::is_builtin(&set) {
                     return Err(SessionError::BadRequest("un ensemble intégré ne se supprime pas".into()));
                 }
                 self.library.delete(&set)?;
                 self.template_cache = None;
-                v(&self.library.list())
+                return json(&self.library.list());
             }
-        })
+            Request::New => self.new_deck()?,
+            Request::Open { path } => self.open(&path)?,
+            Request::Save { path } => self.save(path.as_deref())?,
+            Request::Apply { label, ops } => self.apply(&label, ops)?,
+            Request::Undo => self.undo()?,
+            Request::Redo => self.redo()?,
+            Request::EditTemplates { set } => self.edit_templates(&set)?,
+            Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
+            Request::CloseTemplates => self.close_templates()?,
+        }
+        json(&self.snapshot())
     }
 
-    pub fn new_deck(&mut self) -> Result<Snapshot> {
-        self.load(SourceBundle::new(blank_deck()), None)?;
-        Ok(self.snapshot())
+    pub fn new_deck(&mut self) -> Result<()> {
+        self.load(SourceBundle::new(blank_deck()), None)
     }
 
     /// Charge un deck (déjà lu) dans la session.
@@ -603,7 +407,7 @@ impl Session {
     }
 
     /// Ouvre un `.echo.pdf` (ou un deck JSON, pour le développement).
-    pub fn open(&mut self, path: &Path) -> Result<Snapshot> {
+    pub fn open(&mut self, path: &Path) -> Result<()> {
         let bytes = std::fs::read(path)?;
         let is_pdf = bytes.starts_with(b"%PDF");
         let (bundle, notice, keep_path) = if is_pdf {
@@ -619,11 +423,11 @@ impl Session {
         };
         self.load(bundle, keep_path.then(|| path.to_owned()))?;
         self.doc.notice = notice;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     /// Enregistre en `.echo.pdf` : PDF + blob des sources, écriture atomique.
-    pub fn save(&mut self, path: Option<&Path>) -> Result<Snapshot> {
+    pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
         let mut path = match path {
             Some(p) => p.to_owned(),
             None => self.doc.path.clone().ok_or(SessionError::NoPath)?,
@@ -639,7 +443,7 @@ impl Session {
         write_atomic(&path, &out)?;
         self.doc.path = Some(path);
         self.doc.dirty = false;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     fn rerender(&mut self) -> Result<()> {
@@ -654,7 +458,7 @@ impl Session {
     }
 
     /// Applique une transaction ; si le rendu échoue ensuite, elle est annulée.
-    pub fn apply(&mut self, label: &str, ops: Vec<Op>) -> Result<Snapshot> {
+    pub fn apply(&mut self, label: &str, ops: Vec<Op>) -> Result<()> {
         let doc = &mut self.doc;
         doc.history.commit(&mut doc.sources.deck, label, ops).map_err(op_error)?;
         if let Err(e) = self.rerender() {
@@ -664,32 +468,32 @@ impl Session {
             return Err(e);
         }
         self.doc.dirty = true;
-        Ok(self.snapshot())
+        Ok(())
     }
 
-    pub fn undo(&mut self) -> Result<Snapshot> {
+    pub fn undo(&mut self) -> Result<()> {
         let doc = &mut self.doc;
         if doc.history.undo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
             self.doc.dirty = true;
             self.rerender()?;
         }
-        Ok(self.snapshot())
+        Ok(())
     }
 
-    pub fn redo(&mut self) -> Result<Snapshot> {
+    pub fn redo(&mut self) -> Result<()> {
         let doc = &mut self.doc;
         if doc.history.redo(&mut doc.sources.deck).map_err(op_error)?.is_some() {
             self.doc.dirty = true;
             self.rerender()?;
         }
-        Ok(self.snapshot())
+        Ok(())
     }
 
     fn page_of(&self, id: &str) -> Option<usize> {
         self.compiled.as_ref()?.layout().page_of(id)
     }
 
-    pub fn snapshot(&self) -> Snapshot {
+    pub fn snapshot(&self) -> Snapshot<'_> {
         let compiled = self.compiled.as_ref();
         let (deck, doc) = (&self.doc.sources.deck, &self.doc);
         let pages = compiled.map(|c| c.layout().slides.as_slice()).unwrap_or_default();
@@ -704,9 +508,14 @@ impl Session {
                     .filter(|p| p.slide == s.id)
                     .or_else(|| pages.iter().find(|p| p.slide == s.id))
                     .map_or(0, |p| p.page);
-                let hash = compiled.and_then(|c| c.page_hash(page.saturating_sub(1))).map(hex).unwrap_or_default();
-                let title = s.title.as_deref().map(|t| interp(t, &deck.vars));
-                SlideSummary { id: s.id.clone(), kind: s.kind, title, name: s.name.clone(), page, hash }
+                SlideSummary {
+                    id: &s.id,
+                    kind: s.kind,
+                    title: s.title.as_deref().map(|t| interp(t, &deck.vars)),
+                    name: s.name.as_deref(),
+                    page,
+                    hash: PageHash(compiled.and_then(|c| c.page_hash(page.checked_sub(1)?))),
+                }
             })
             .collect();
         let name = doc
@@ -717,23 +526,23 @@ impl Session {
             .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
             .unwrap_or_else(|| "Sans titre".into());
         Snapshot {
-            path: doc.path.clone(),
+            path: doc.path.as_deref(),
             name,
             dirty: doc.dirty,
-            theme: deck.theme.clone(),
-            themes: slider_render::THEMES.iter().map(|t| t.to_string()).collect(),
+            theme: deck.theme.as_deref(),
+            themes: slider_render::THEMES,
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
-            title_source: deck.params.title.clone(),
+            title_source: deck.params.title.as_deref(),
             slides,
             can_undo: doc.history.can_undo(),
-            undo_label: doc.history.undo_label().map(str::to_owned),
+            undo_label: doc.history.undo_label(),
             can_redo: doc.history.can_redo(),
-            redo_label: doc.history.redo_label().map(str::to_owned),
-            warnings: compiled.map(|c| c.warnings.clone()).unwrap_or_default(),
-            notice: doc.notice.clone(),
-            appearance: self.appearance.clone(),
-            templates: self.deck_set().to_owned(),
-            editing: self.editing().cloned(),
+            redo_label: doc.history.redo_label(),
+            warnings: compiled.map(|c| c.warnings.as_slice()).unwrap_or_default(),
+            notice: doc.notice.as_deref(),
+            appearance: &self.appearance,
+            templates: self.deck_set(),
+            editing: self.editing(),
         }
     }
 
@@ -782,71 +591,47 @@ impl Session {
     }
 
     /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
-    pub fn slide(&self, id: &str) -> Result<SlideView> {
+    pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
+        let no_slide = || SessionError::NoSlide(id.to_owned());
         let deck = &self.doc.sources.deck;
-        let slide = deck.slide(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?.clone();
-        let page = self.page_of(id).ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
-        let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::NoSlide(id.to_owned()))?;
+        let slide = deck.slide(id).ok_or_else(no_slide)?;
+        let compiled = self.compiled.as_ref().ok_or_else(no_slide)?;
         let layout = compiled.layout();
-
-        let mut targets = Vec::new();
-        for b in layout.boxes_on(page) {
-            if let Some(field) = b.id.strip_prefix('@') {
-                let text = match field {
-                    "title" => slide
-                        .title
-                        .clone()
-                        .or_else(|| (slide.kind == SlideKind::Title).then(|| deck.params.title.clone()).flatten()),
-                    "subtitle" => slide
-                        .subtitle
-                        .clone()
-                        .or_else(|| (slide.kind == SlideKind::Title).then(|| deck.params.subtitle.clone()).flatten()),
-                    "kicker" => slide.kicker.clone(),
-                    "text" => slide.text.clone(),
-                    _ => None,
-                };
-                targets.push(Target {
-                    id: b.id.clone(),
-                    target: "field",
-                    kind: field.to_owned(),
-                    free: false,
-                    text: Some(text.unwrap_or_default()),
-                    x: b.x,
-                    y: b.y,
-                    w: b.w,
-                    h: b.h,
-                    ax: b.ax.unwrap_or(b.x).min(b.x),
-                    aw: b.aw.unwrap_or(b.w).max(b.w),
-                    style: b.style.clone(),
-                });
-            } else if let Some(l) = slide.locate(&b.id) {
-                let free = l.is_free();
-                let (kind, text) = match &l.element.body {
-                    ElementBody::Text { text } => ("text", Some(paragraphs_to_text(text))),
-                    ElementBody::Card { text, .. } => ("card", Some(paragraphs_to_text(text))),
-                    ElementBody::Image { .. } => ("image", None),
-                    ElementBody::Shape { .. } => ("shape", None),
-                    ElementBody::Group { .. } => ("group", None),
-                };
-                targets.push(Target {
-                    id: b.id.clone(),
-                    target: "element",
-                    kind: kind.to_owned(),
-                    free,
-                    text,
-                    x: b.x,
-                    y: b.y,
-                    w: b.w,
-                    h: b.h,
-                    ax: b.ax.unwrap_or(b.x).min(b.x),
-                    aw: b.aw.unwrap_or(b.w).max(b.w),
-                    style: b.style.clone(),
-                });
-            }
-        }
-        let hash = compiled.page_hash(page - 1).map(hex).unwrap_or_default();
-        let zone = layout.zone_on(page).cloned();
-        Ok(SlideView { slide, page, hash, width: 1920.0, height: 1080.0, targets, zone })
+        let page = layout.page_of(id).ok_or_else(no_slide)?;
+        // Sur la couverture, titre et sous-titre viennent des paramètres du deck.
+        let cover = slide.kind == SlideKind::Title;
+        let targets = layout
+            .boxes_on(page)
+            .iter()
+            .filter_map(|b| {
+                if let Some(field) = b.id.strip_prefix('@') {
+                    let text = match field {
+                        "title" => slide.title.as_deref().or(cover.then_some(deck.params.title.as_deref()).flatten()),
+                        "subtitle" => {
+                            slide.subtitle.as_deref().or(cover.then_some(deck.params.subtitle.as_deref()).flatten())
+                        }
+                        "kicker" => slide.kicker.as_deref(),
+                        "text" => slide.text.as_deref(),
+                        _ => None,
+                    };
+                    let text = Cow::Borrowed(text.unwrap_or_default());
+                    Some(Target::at(b, TargetKind::Field(field), false, Some(text)))
+                } else {
+                    let l = slide.locate(&b.id)?;
+                    let text = l.element.body.text().map(|t| Cow::Owned(paragraphs_to_text(t)));
+                    Some(Target::at(b, TargetKind::Element(l.element.body.kind_name()), l.is_free(), text))
+                }
+            })
+            .collect();
+        Ok(SlideView {
+            slide,
+            page,
+            hash: PageHash(compiled.page_hash(page - 1)),
+            width: 1920.0,
+            height: 1080.0,
+            targets,
+            zone: layout.zone_on(page),
+        })
     }
 }
 
@@ -856,16 +641,4 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = dir.join(format!(".{}.tmp", path.file_name().unwrap_or_default().to_string_lossy()));
     std::fs::write(&tmp, bytes)?;
     std::fs::rename(&tmp, path)
-}
-
-/// Sérialisation sans générique, pour `handle`.
-mod erased {
-    pub trait Ser {
-        fn to_value(&self) -> serde_json::Value;
-    }
-    impl<T: serde::Serialize> Ser for T {
-        fn to_value(&self) -> serde_json::Value {
-            serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
-        }
-    }
 }

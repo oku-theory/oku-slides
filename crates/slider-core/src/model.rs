@@ -384,6 +384,27 @@ pub enum ElementBody {
     },
 }
 
+impl ElementBody {
+    /// Nom du type, tel qu'il s'écrit dans le JSON (`text`, `card`…).
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            ElementBody::Text { .. } => "text",
+            ElementBody::Image { .. } => "image",
+            ElementBody::Shape { .. } => "shape",
+            ElementBody::Card { .. } => "card",
+            ElementBody::Group { .. } => "group",
+        }
+    }
+
+    /// Paragraphes d'un texte ou d'une carte.
+    pub fn text(&self) -> Option<&[Paragraph]> {
+        match self {
+            ElementBody::Text { text } | ElementBody::Card { text, .. } => Some(text),
+            _ => None,
+        }
+    }
+}
+
 impl Element {
     pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
         Self {

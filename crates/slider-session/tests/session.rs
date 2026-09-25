@@ -1,6 +1,6 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Fonts, Request, Session, paragraphs_to_text};
+use slider_session::{Fonts, Request, Session, TargetKind, paragraphs_to_text};
 
 fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
@@ -9,7 +9,8 @@ fn fixture_path() -> std::path::PathBuf {
 #[test]
 fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     let mut s = Session::new(Fonts::default());
-    let snap = s.open(&fixture_path()).unwrap();
+    s.open(&fixture_path()).unwrap();
+    let snap = s.snapshot();
     assert_eq!(snap.slides.len(), 8);
     assert!(snap.path.is_none(), "un JSON n'est pas un fichier Écho : pas de chemin");
 
@@ -17,25 +18,26 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
     let texte = view.targets.iter().find(|t| t.id == "e-texte").unwrap();
     assert!(texte.free);
     assert_eq!(texte.text.as_deref(), Some("Un bloc posé à 40 pt du coin"));
-    assert!(view.targets.iter().any(|t| t.id == "@title" && t.target == "field"));
-    let before_hash = view.hash.clone();
+    assert!(view.targets.iter().any(|t| t.id == "@title" && t.kind == TargetKind::Field("title")));
+    assert_eq!(texte.kind, TargetKind::Element("text"));
+    let (before_hash, texte_x) = (view.hash, texte.x);
 
-    let snap = s
-        .apply(
-            "Déplacer",
-            vec![Op::SetFrame {
-                slide: "s-libre".into(),
-                element: "e-texte".into(),
-                frame: Some(Frame { x: 100.0, y: 60.0, w: 720.0, h: 200.0 }),
-            }],
-        )
-        .unwrap();
+    s.apply(
+        "Déplacer",
+        vec![Op::SetFrame {
+            slide: "s-libre".into(),
+            element: "e-texte".into(),
+            frame: Some(Frame { x: 100.0, y: 60.0, w: 720.0, h: 200.0 }),
+        }],
+    )
+    .unwrap();
+    let snap = s.snapshot();
     assert!(snap.dirty && snap.can_undo);
     assert_eq!(snap.undo_label.as_deref(), Some("Déplacer"));
     let moved = s.slide("s-libre").unwrap();
     assert_ne!(moved.hash, before_hash);
     let t2 = moved.targets.iter().find(|t| t.id == "e-texte").unwrap();
-    assert!((t2.x - texte.x - 60.0).abs() < 0.01);
+    assert!((t2.x - texte_x - 60.0).abs() < 0.01);
 
     s.undo().unwrap();
     assert_eq!(s.slide("s-libre").unwrap().hash, before_hash);
@@ -43,8 +45,9 @@ fn ouvrir_modifier_annuler_enregistrer_rouvrir() {
 
     let dir = std::env::temp_dir().join(format!("slider-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let snap = s.save(Some(&dir.join("essai.pdf"))).unwrap();
-    let path = snap.path.unwrap();
+    s.save(Some(&dir.join("essai.pdf"))).unwrap();
+    let snap = s.snapshot();
+    let path = snap.path.unwrap().to_owned();
     assert!(path.to_string_lossy().ends_with("essai.echo.pdf"));
     assert!(!snap.dirty);
 
@@ -77,17 +80,25 @@ fn une_transaction_invalide_ne_change_rien() {
 fn api_json() {
     let mut s = Session::new(Fonts::default());
     let req: Request = serde_json::from_value(json!({"cmd": "snapshot"})).unwrap();
-    let v = s.handle(req).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
     assert_eq!(v["slides"].as_array().unwrap().len(), 2);
     let req: Request = serde_json::from_value(json!({
         "cmd": "apply", "label": "Titre",
         "ops": [{"op": "set_slide_field", "slide": "s-1", "field": "title", "value": "Nouveau"}]
     }))
     .unwrap();
-    let v = s.handle(req).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
     assert_eq!(v["slides"][1]["title"], "Nouveau");
+    assert_eq!(v["slides"][1]["hash"].as_str().map(str::len), Some(32), "empreinte en hex");
     let svg = s.handle(serde_json::from_value(json!({"cmd": "svg", "id": "s-1"})).unwrap()).unwrap();
-    assert!(svg.as_str().unwrap().starts_with("<svg"));
+    let svg: String = serde_json::from_str(&svg).unwrap();
+    assert!(svg.starts_with("<svg"));
+    // Une cible garde sa forme JSON : { "target": "field", "kind": "title", … }.
+    let view: serde_json::Value =
+        serde_json::from_str(&s.handle(serde_json::from_value(json!({"cmd": "slide", "id": "s-1"})).unwrap()).unwrap())
+            .unwrap();
+    let title = view["targets"].as_array().unwrap().iter().find(|t| t["id"] == "@title").unwrap();
+    assert_eq!((&title["target"], &title["kind"]), (&json!("field"), &json!("title")));
 }
 
 #[test]
@@ -110,7 +121,8 @@ fn l_apparence_suit_le_theme() {
     assert_eq!(papier.app["ink"], "#2e2b26", "les références par nom sont résolues");
     assert_eq!(papier.font_display.first().map(String::as_str), Some("Newsreader"));
 
-    let pro = s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap().appearance;
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    let pro = s.snapshot().appearance;
     assert_eq!(pro.scheme, "light");
     assert_eq!(pro.app["desk"], "#e1e5ea");
     assert_eq!(pro.app["ink"], "#00154e");
@@ -120,21 +132,22 @@ fn l_apparence_suit_le_theme() {
     assert_eq!(pro.metrics["elevation"], 1.5);
 
     // Sans thème, l'interface dérive ses couleurs : aucune couleur d'app imposée.
-    let plain = s.apply("Sans thème", vec![Op::SetTheme { theme: None }]).unwrap().appearance;
+    s.apply("Sans thème", vec![Op::SetTheme { theme: None }]).unwrap();
+    let plain = s.snapshot().appearance;
     assert!(plain.app.is_empty());
     assert_eq!(plain.metrics["radius-md"], 12.0, "les formes par défaut restent définies");
 
     // Une surcharge du deck l'emporte sur le thème, pour les slides comme pour l'app.
-    let snap = s
-        .apply(
-            "Accent",
-            vec![
-                Op::SetTheme { theme: Some("pro".into()) },
-                Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
-                Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
-            ],
-        )
-        .unwrap();
+    s.apply(
+        "Accent",
+        vec![
+            Op::SetTheme { theme: Some("pro".into()) },
+            Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
+            Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
+        ],
+    )
+    .unwrap();
+    let snap = s.snapshot();
     assert_eq!(snap.appearance.slide["accent"], "#123456");
     assert_eq!(snap.appearance.app["accent"], "#123456");
     assert_eq!(snap.appearance.app["desk"], "#222222");
@@ -169,10 +182,11 @@ fn edition_des_modeles_puis_retour_au_deck() {
     s.set_templates_dir(&dir);
     let before = s.deck().clone();
 
-    let snap = s.edit_templates("grilles").unwrap();
-    assert_eq!(snap.editing.as_ref().unwrap().set, "grilles");
-    assert!(snap.editing.as_ref().unwrap().builtin);
-    let first = snap.slides[0].id.clone();
+    s.edit_templates("grilles").unwrap();
+    let snap = s.snapshot();
+    assert_eq!(snap.editing.unwrap().set, "grilles");
+    assert!(snap.editing.unwrap().builtin);
+    let first = snap.slides[0].id.to_owned();
     s.apply(
         "Renommer",
         serde_json::from_value(json!([
@@ -182,14 +196,14 @@ fn edition_des_modeles_puis_retour_au_deck() {
     )
     .unwrap();
     // Intégré : l'enregistrement crée une copie.
-    let snap = s.save_templates(false).unwrap();
-    let mode = snap.editing.clone().unwrap();
+    s.save_templates(false).unwrap();
+    let mode = s.snapshot().editing.unwrap();
     assert!(!mode.builtin);
     assert_eq!(mode.set, "grilles-copie");
     assert!(dir.join("grilles-copie.json").exists());
 
-    let snap = s.close_templates().unwrap();
-    assert!(snap.editing.is_none());
+    s.close_templates().unwrap();
+    assert!(s.snapshot().editing.is_none());
     assert_eq!(s.deck(), &before);
     let view = s.templates_view(Some("grilles-copie".into())).unwrap();
     assert_eq!(view.templates[0].template.name, "Ma grille");
@@ -205,11 +219,13 @@ fn changer_d_ensemble_en_cours_d_edition_garde_le_deck_de_cote() {
     let before = s.deck().clone();
 
     s.edit_templates("grilles").unwrap();
-    let snap = s.edit_templates("essentiel").unwrap();
-    assert_eq!(snap.editing.as_ref().unwrap().set, "essentiel");
+    s.edit_templates("essentiel").unwrap();
+    let snap = s.snapshot();
+    assert_eq!(snap.editing.unwrap().set, "essentiel");
     assert!(!snap.can_undo, "l'édition des modèles a son propre historique");
 
-    let snap = s.close_templates().unwrap();
+    s.close_templates().unwrap();
     assert_eq!(s.deck(), &before);
+    let snap = s.snapshot();
     assert!(snap.dirty && snap.can_undo, "le deck retrouve son état et son historique");
 }

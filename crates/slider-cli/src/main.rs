@@ -337,12 +337,12 @@ fn serve(input: Option<PathBuf>, port: u16, ui: PathBuf, fonts: Fonts) -> Result
             req.as_reader().read_to_string(&mut body).ok();
             let (status, out) = match serde_json::from_str::<slider_session::Request>(&body) {
                 Ok(r) => match session.handle(r) {
-                    Ok(v) => (200, v),
-                    Err(e) => (400, serde_json::json!({ "error": e.to_string() })),
+                    Ok(json) => (200, json),
+                    Err(e) => (400, serde_json::json!({ "error": e.to_string() }).to_string()),
                 },
-                Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") })),
+                Err(e) => (400, serde_json::json!({ "error": format!("requête invalide : {e}") }).to_string()),
             };
-            req.respond(Response::from_string(out.to_string()).with_status_code(status).with_header(json.clone())).ok();
+            req.respond(Response::from_string(out).with_status_code(status).with_header(json.clone())).ok();
             continue;
         }
         if req.method() == &Method::Post && url == "/api/stt" {
