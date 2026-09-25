@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Op, SlideView, Snapshot } from "./api";
+import type { Op, Paragraph, SlideView, Snapshot } from "./api";
 import type { SetInfo, TemplateView } from "./api";
 import { api, applyAppearance, findElement, inTauri, instantiate, newId, pickOpenPath, pickSavePath } from "./api";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
-import Stage, { FIELD_LABELS, textOps } from "./Stage";
+import Stage, { FIELD_LABELS, blocksToGridOps, isBlock, textOps } from "./Stage";
 import Dictation from "./Dictation";
 import { textToParagraphs } from "./api";
+import type { Cell } from "./grid";
 import { moveCell, rescaleCell, snapRect, trackSize } from "./grid";
 
 const Icon = {
@@ -155,28 +156,35 @@ export default function App() {
 
 
   /** Ajoute un texte, une carte ou une forme ; sur une grille, accroché aux nœuds. */
-  const addElement = (kind: "text" | "card" | "shape") => {
+  const addElement = (kind: "text" | "card" | "shape", text?: Paragraph[], label?: string) => {
     if (!view) return;
     const slide = view.slide;
     const id = newId(kind[0]);
-    const free = (slide.elements?.length ?? 0) > 0 || !!slide.grid;
-    const zoneGrid = view.zone?.grid;
-    const frame = { x: 40, y: 40, w: 640, h: 120 };
+    const zone = view.zone;
+    const g = zone?.grid;
     const body: Record<string, unknown> =
       kind === "card"
         ? { kind, title: "Titre de la carte", text: [{ runs: [{ t: "Détail" }] }] }
         : kind === "shape"
           ? { kind, style: { fill: "surface", radius: "md" } }
-          : { kind, text: [{ runs: [{ t: "Nouveau texte" }] }] };
-    const element = view.zone && zoneGrid
-      ? { id, ...body, cell: snapRect(view.zone, zoneGrid, frame) }
-      : free
-        ? { id, ...body, frame }
-        : { id, ...body };
-    const label = { text: "Ajouter un texte", card: "Ajouter une carte", shape: "Ajouter une forme" }[kind];
-    apply(label, [{ op: "add_element", slide: slide.id, zone: free ? "elements" : "blocks", element }]).then(() => {
+          : { kind, text: text ?? [{ runs: [{ t: "Nouveau texte" }] }] };
+    label ??= { text: "Ajouter un texte", card: "Ajouter une carte", shape: "Ajouter une forme" }[kind];
+    let ops: Op[];
+    const hasBlocks = (slide.blocks?.length ?? 0) > 0;
+    if (zone && g && !hasBlocks) {
+      // Sur la grille : le nouvel élément prend la moitié gauche de la première
+      // ligne libre sous les autres. (Une slide à blocs reçoit un bloc de plus.)
+      const placed: Cell[] = (slide.elements ?? []).flatMap((e) => (e.cell ? [e.cell] : []));
+      const below = placed.reduce((m, c) => Math.max(m, c.row + (c.rows ?? 1)), 0);
+      const row = below < g.rows ? below : 0;
+      const cell = { col: 0, row, cols: Math.max(1, Math.round(g.columns / 2)), rows: 1 };
+      ops = [{ op: "add_element", slide: slide.id, zone: "elements", element: { id, ...body, cell } }];
+    } else {
+      ops = [{ op: "add_element", slide: slide.id, zone: "blocks", element: { id, ...body } }];
+    }
+    apply(label, ops).then(() => {
       setSelected(id);
-      if (kind === "text") setEditing(id);
+      if (kind === "text" && !text) setEditing(id);
     });
   };
 
@@ -310,6 +318,19 @@ export default function App() {
         const el = findElement(view.slide, selected);
         const zone = view.zone;
         const g = zone?.grid;
+        const dxk = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+        const dyk = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+        // Bloc mis en page : la slide passe sur la grille, le bloc bouge d'une case.
+        if (el && zone && g && isBlock(view, el.id)) {
+          e.preventDefault();
+          const t = view.targets.find((x) => x.id === el.id);
+          if (!t) return;
+          const { cw, rh } = trackSize(zone, g);
+          const from = snapRect(zone, g, { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h });
+          const cell = moveCell(zone, g, from, dxk * (cw + g.gap), dyk * (rh + g.gap));
+          apply("Placer sur la grille", blocksToGridOps(view, { [el.id]: cell }));
+          return;
+        }
         // Sur la grille : une case à la fois (l'élément s'y accroche s'il ne l'était pas).
         if (el && zone && g && (el.cell || el.frame) && (view.slide.elements ?? []).some((x) => x.id === el.id)) {
           e.preventDefault();
@@ -368,12 +389,7 @@ export default function App() {
       return;
     }
     if (view.slide.kind === "content") {
-      const id = newId("t");
-      const free = (view.slide.elements?.length ?? 0) > 0;
-      const element = free
-        ? { id, kind: "text", frame: { x: 40, y: 40, w: 640, h: 120 }, text: textToParagraphs(text) }
-        : { id, kind: "text", text: textToParagraphs(text) };
-      apply("Dictée", [{ op: "add_element", slide: view.slide.id, zone: free ? "elements" : "blocks", element }]).then(() => setSelected(id));
+      addElement("text", textToParagraphs(text), "Dictée");
       return;
     }
     say(`Sélectionnez une zone pour y placer : « ${text} »`, true);

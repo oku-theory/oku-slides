@@ -158,15 +158,19 @@
 // Grille de toute slide qui n'en précise pas (même valeur que Grid::DEFAULT).
 #let default-grid = (columns: 12, rows: 6)
 
+// Signale la zone de corps à l'app : position, taille et grille résolue.
+#let zone-marker(t, grid) = layout(sz => context {
+  let p = here().position()
+  let gap = space-of(t, grid.at("gap", default: "lg")) / 1pt
+  [#metadata((page: p.page, x: p.x / 1pt, y: p.y / 1pt, w: sz.width / 1pt, h: sz.height / 1pt,
+    grid: (columns: grid.columns, rows: grid.rows, gap: gap)))<slider-zone>]
+})
+
 #let _free(t, elements, vars, image-loader, grid: none) = block(width: 100%, height: 100%, layout(sz => {
   let zw = sz.width / 1pt
   let zh = sz.height / 1pt
   let gap = if grid != none { space-of(t, grid.at("gap", default: "lg")) / 1pt } else { 0 }
-  context {
-    let p = here().position()
-    [#metadata((page: p.page, x: p.x / 1pt, y: p.y / 1pt, w: zw, h: zh,
-      grid: if grid != none { (columns: grid.columns, rows: grid.rows, gap: gap) } else { none }))<slider-zone>]
-  }
+  if grid != none { place(top + left, zone-marker(t, grid)) }
   for e in elements {
     let f = if grid != none and "cell" in e { grid-frame(zw, zh, grid, gap, e.cell) } else { e.frame }
     let e = e + (frame: f)
@@ -198,7 +202,13 @@
     } else {
       s.at("blocks", default: ()).map(b => render-element(t, b, vars, image-loader: image-loader))
     }
+    // Slide à blocs mis en page : la grille existe aussi (l'app y accroche un
+    // bloc dès qu'on le déplace, et la slide passe alors sur la grille).
+    let zone = if "elements" in s or "grid" in s or s.at("blocks", default: ()).len() == 0 { none } else {
+      zone-marker(t, s.at("grid", default: default-grid))
+    }
     slide(
+      zone: zone,
       title: s.at("title", default: none),
       kicker: s.at("kicker", default: none),
       layout: s.at("layout", default: "default"),

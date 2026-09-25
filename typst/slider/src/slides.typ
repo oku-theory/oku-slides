@@ -124,7 +124,8 @@
 
 /// Slide de contenu, avec en-tête, pied, titre et corps.
 /// layout : "default" | "columns" | "split" | "center" | "quote".
-#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, ..bodies) = context {
+/// zone : contenu posé en haut à gauche de la zone de corps (repère pour l'app).
+#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, zone: none, ..bodies) = context {
   let c = config()
   let t = c.tokens
   let title = interp(title, c.vars)
@@ -134,7 +135,10 @@
       rows: if title != none { (auto, 1fr) } else { (1fr,) },
       row-gutter: space-of(t, t.component.title.gap),
       ..if title != none { (_slide-title(t, title, kicker),) },
-      block(width: 100%, height: 100%, _layout(t, layout, bodies.pos(), ratio: ratio)),
+      block(width: 100%, height: 100%, {
+        if zone != none { place(top + left, zone) }
+        _layout(t, layout, bodies.pos(), ratio: ratio)
+      }),
     )
   })
 }

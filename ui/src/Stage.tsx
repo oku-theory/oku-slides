@@ -21,7 +21,33 @@ interface Drag {
   grid?: { zone: ZoneView; g: GridSpec };
   /** Élément encore en cadre libre : il passe sur la grille en bougeant. */
   wasFree?: boolean;
+  /** Bloc mis en page : la slide entière passe sur la grille au dépôt. */
+  fromBlocks?: boolean;
 }
+
+/**
+ * Fait passer une slide à blocs sur sa grille : chaque bloc devient un élément
+ * accroché aux cases qu'il occupait à l'écran (`cells` impose certaines places).
+ * Une seule transaction, annulable d'un coup.
+ */
+export function blocksToGridOps(view: SlideView, cells: Record<string, Cell> = {}): Op[] {
+  const zone = view.zone;
+  const g = zone?.grid;
+  const blocks = view.slide.blocks ?? [];
+  if (!zone || !g || blocks.length === 0) return [];
+  const ops: Op[] = blocks.map((b) => ({ op: "remove_element", slide: view.slide.id, element: b.id }));
+  for (const b of blocks) {
+    const t = view.targets.find((x) => x.id === b.id);
+    const cell =
+      cells[b.id] ??
+      (t ? snapRect(zone, g, { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h }) : { col: 0, row: 0, cols: g.columns, rows: 1 });
+    ops.push({ op: "add_element", slide: view.slide.id, zone: "elements", element: { ...b, frame: undefined, cell } });
+  }
+  return ops;
+}
+
+/** Bloc mis en page par le layout (au premier niveau de la slide) ? */
+export const isBlock = (view: SlideView, id: string) => (view.slide.blocks ?? []).some((b) => b.id === id);
 
 /** Cellule visée par un glisser sur la grille. */
 function draggedCell(d: Drag): Cell | null {
@@ -294,10 +320,19 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const startDrag = (e: React.PointerEvent, t: Target, mode: Mode) => {
     e.stopPropagation();
     onSelect(t.id);
-    if (!t.free || editing) return;
+    if (editing) return;
     const el = findElement(view.slide, t.id);
     const zone = view.zone;
     const g = zone?.grid;
+    // Un bloc mis en page se déplace aussi : il part de sa place à l'écran, sur la grille.
+    if (zone && g && isBlock(view, t.id)) {
+      (e.target as Element).setPointerCapture(e.pointerId);
+      const frame = { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h };
+      const cell = snapRect(zone, g, frame);
+      setDrag({ id: t.id, mode, startX: e.clientX, startY: e.clientY, frame, dx: 0, dy: 0, cell, grid: { zone, g }, fromBlocks: true });
+      return;
+    }
+    if (!t.free) return;
     // Accrochage automatique : sur une slide à grille, tout élément libre s'y cale.
     const inZone = (view.slide.elements ?? []).some((x) => x.id === t.id);
     if (el && zone && g && inZone && (el.cell || el.frame)) {
@@ -323,6 +358,10 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     if (cell && drag.cell) {
       setDrag(null);
       const moved = Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2;
+      if (drag.fromBlocks) {
+        if (moved) onApply(drag.mode === "move" ? "Placer sur la grille" : "Redimensionner sur la grille", blocksToGridOps(view, { [drag.id]: cell }));
+        return;
+      }
       if (!sameCell(cell, drag.cell) || (drag.wasFree && moved)) {
         const label = drag.mode === "move" ? "Déplacer sur la grille" : "Changer l'accroche";
         const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: drag.id, cell }];
@@ -394,7 +433,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
             return (
               <div
                 key={t.id}
-                className={`target${t.free ? " free" : ""}${sel ? " selected" : ""}`}
+                className={`target${t.free || (!!grid && isBlock(view, t.id)) ? " free" : ""}${sel ? " selected" : ""}`}
                 style={box(t)}
                 aria-label={label}
                 aria-selected={sel}
@@ -402,7 +441,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 onDoubleClick={() => t.text !== null && onEdit(t.id)}
               >
                 {sel && !editing && <span className="tag">{tagFor(t, label)}</span>}
-                {sel && t.free &&
+                {sel && (t.free || (!!grid && isBlock(view, t.id))) &&
                   (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                     <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, t, m)} />
                   ))}
