@@ -66,7 +66,7 @@ fn main_source(theme: Option<&str>, assets: &[String]) -> String {
     )
 }
 
-pub struct SliderWorld {
+pub(crate) struct SliderWorld {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
@@ -124,10 +124,6 @@ impl SliderWorld {
         if main.text() != text {
             main.replace(&text);
         }
-    }
-
-    pub fn font_count(&self) -> usize {
-        self.fonts.len()
     }
 
     pub(crate) fn source_of(&self, id: FileId) -> Option<&Source> {

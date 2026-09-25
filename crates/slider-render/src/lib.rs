@@ -22,7 +22,7 @@ use typst_layout::PagedDocument;
 
 use slider_core::Deck;
 
-pub use world::SliderWorld;
+use world::SliderWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
 pub const THEMES: &[&str] = &["papier", "pro"];
@@ -123,10 +123,6 @@ impl Renderer {
     /// Remplace le deck et les assets à rendre.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) {
         self.world.set_deck(deck, assets);
-    }
-
-    pub fn world(&self) -> &SliderWorld {
-        &self.world
     }
 
     pub fn compile(&self) -> Result<Compiled, RenderError> {
@@ -231,11 +227,4 @@ impl Compiled {
             })
             .collect()
     }
-}
-
-/// Raccourci : rend un deck en une fois.
-pub fn render(deck: &Deck, assets: &BTreeMap<String, Vec<u8>>, fonts: Vec<Vec<u8>>) -> Result<Compiled, RenderError> {
-    let mut r = Renderer::new(fonts);
-    r.set_deck(deck, assets);
-    r.compile()
 }

@@ -11,7 +11,6 @@ use crate::SAMPLE_RATE;
 
 /// Trame d'earshot : 256 échantillons (16 ms).
 pub const FRAME: usize = 256;
-const FRAME_SECS: f32 = FRAME as f32 / SAMPLE_RATE as f32;
 
 /// Réglages du découpage.
 #[derive(Debug, Clone, Copy)]
@@ -162,10 +161,6 @@ impl Segmenter {
 
     pub fn slice(&self, p: Phrase) -> &[f32] {
         &self.audio[p.start.min(self.audio.len())..p.end.min(self.audio.len())]
-    }
-
-    pub fn frame_secs() -> f32 {
-        FRAME_SECS
     }
 }
 

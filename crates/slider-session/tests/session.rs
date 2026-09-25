@@ -1,6 +1,6 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Request, Session, paragraphs_to_text, text_to_paragraphs};
+use slider_session::{Request, Session, paragraphs_to_text};
 
 fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
@@ -96,12 +96,7 @@ fn texte_et_paragraphes() {
         Paragraph { runs: vec![slider_core::Run { t: "Gras".into(), bold: true, ..Default::default() }], list: None },
         Paragraph { runs: vec![slider_core::Run::plain("Point")], list: Some(slider_core::ListKind::Bullet) },
     ];
-    let text = paragraphs_to_text(&paras);
-    assert_eq!(text, "Gras\n- Point");
-    let back = text_to_paragraphs("Gras\n- Point\n1. Un", &paras);
-    assert_eq!(back[0], paras[0], "un paragraphe inchangé garde sa mise en forme");
-    assert_eq!(back[1], paras[1]);
-    assert_eq!(back[2].list, Some(slider_core::ListKind::Number));
+    assert_eq!(paragraphs_to_text(&paras), "Gras\n- Point");
 }
 
 #[test]
@@ -149,13 +144,13 @@ fn l_apparence_suit_le_theme() {
 fn les_modeles_se_rendent_dans_le_theme_du_deck() {
     let mut s = Session::new(Vec::new());
     s.open(&fixture_path()).unwrap();
-    let papier = s.template_views().unwrap();
+    let papier = s.templates_view(None).unwrap().templates;
     assert!(papier.len() >= 8);
     assert!(papier.iter().all(|t| t.svg.starts_with("<svg")));
     assert!(papier.iter().any(|t| t.template.id == "cartes"));
 
     s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
-    let pro = s.template_views().unwrap();
+    let pro = s.templates_view(None).unwrap().templates;
     assert_ne!(papier[0].svg, pro[0].svg, "l'aperçu suit le thème");
 
     // Chaque modèle s'insère dans le deck.

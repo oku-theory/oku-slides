@@ -20,7 +20,7 @@ fn main() {
     if !model.is_installed(&dir) {
         eprintln!("téléchargement de {} …", model.label());
         let mut last = 0;
-        slider_stt::models::download(model, &dir, |got, total| {
+        slider_stt::download(model, &dir, |got, total| {
             let pct = got * 100 / total.max(1);
             if pct >= last + 10 {
                 last = pct;

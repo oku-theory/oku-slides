@@ -9,7 +9,7 @@
 //! - Ensembles de l'utilisateur : fichiers JSON dans le dossier de données de
 //!   l'app (`templates/`), créés et modifiés par le mode d'édition des modèles.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -66,11 +66,6 @@ pub fn builtin_sets() -> Vec<TemplateSet> {
     BUILTIN.iter().map(|s| serde_json::from_str(s).expect("ensemble de modèles intégré valide")).collect()
 }
 
-/// Les modèles de l'ensemble par défaut (compatibilité).
-pub fn templates() -> Vec<Template> {
-    builtin_sets().into_iter().next().map(|s| s.templates).unwrap_or_default()
-}
-
 /// Identifiant de fichier à partir d'un nom : minuscules, tirets.
 pub fn slug(name: &str) -> String {
     let mut out = String::new();
@@ -104,10 +99,6 @@ impl Library {
     /// `dir` : dossier des ensembles de l'utilisateur (créé à la première écriture).
     pub fn new(dir: Option<PathBuf>) -> Self {
         Self { dir }
-    }
-
-    pub fn dir(&self) -> Option<&Path> {
-        self.dir.as_deref()
     }
 
     fn user_sets(&self) -> Vec<TemplateSet> {

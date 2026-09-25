@@ -14,7 +14,7 @@ use slider_core::{Deck, Element, ElementBody, History, Op, Paragraph, Params, Sl
 use slider_render::{Compiled, ElementBox, Renderer};
 
 pub mod templates;
-pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet, templates};
+pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 
 /// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
 pub const APP_ID: &str = "me.dartiguenave.echo";
@@ -310,32 +310,6 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// Inverse de [`paragraphs_to_text`]. Les paragraphes inchangés gardent leur mise en forme.
-pub fn text_to_paragraphs(text: &str, previous: &[Paragraph]) -> Vec<Paragraph> {
-    let numbered = |l: &str| {
-        let digits = l.chars().take_while(char::is_ascii_digit).count();
-        (digits > 0 && l[digits..].starts_with(". ")).then(|| l[digits + 2..].to_owned())
-    };
-    text.lines()
-        .map(|line| {
-            let (list, body) = if let Some(rest) = line.strip_prefix("- ") {
-                (Some(slider_core::ListKind::Bullet), rest.to_owned())
-            } else if let Some(rest) = numbered(line) {
-                (Some(slider_core::ListKind::Number), rest)
-            } else {
-                (None, line.to_owned())
-            };
-            let same = previous
-                .iter()
-                .find(|p| p.list == list && p.runs.iter().map(|r| r.t.as_str()).collect::<String>() == body);
-            match same {
-                Some(p) => p.clone(),
-                None => Paragraph { runs: vec![slider_core::Run::plain(body)], list },
-            }
-        })
-        .collect()
 }
 
 // ---- Session ----------------------------------------------------------------------
@@ -750,11 +724,6 @@ impl Session {
             templates: self.deck_set(),
             editing: self.editing.clone(),
         }
-    }
-
-    /// Aperçus des modèles de l'ensemble du deck (compatibilité).
-    pub fn template_views(&mut self) -> Result<Vec<TemplateView>> {
-        Ok(self.templates_view(None)?.templates)
     }
 
     /// Aperçus d'un ensemble de modèles, rendus avec le thème, les jetons, les

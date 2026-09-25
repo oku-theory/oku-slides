@@ -13,9 +13,9 @@
 //! puis l'écoute commence toute seule.
 
 mod audio;
-pub mod models;
-pub mod vad;
-pub mod whisper;
+mod models;
+mod vad;
+mod whisper;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 pub use audio::{SAMPLE_RATE, resample};
-pub use models::Model;
+pub use models::{DownloadError, Model, download};
 use vad::{Phrase, Segmenter, VadConfig};
 pub use whisper::{Transcriber, Transcript};
 
@@ -651,7 +651,7 @@ fn join<'a>(parts: impl Iterator<Item = &'a String>) -> String {
 }
 
 /// Retire les artefacts de Whisper (espaces, marqueurs de silence).
-pub fn clean(text: &str) -> String {
+fn clean(text: &str) -> String {
     let t = text.trim();
     let noise = ["[BLANK_AUDIO]", "[Musique]", "[Music]", "(musique)", "[silence]"];
     if noise.iter().any(|n| t.eq_ignore_ascii_case(n)) {
