@@ -8,6 +8,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use slider_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::error::{
@@ -43,15 +44,16 @@ impl Recorder {
     /// Démarre l'enregistrement sur le micro par défaut.
     /// Démarre l'enregistrement sur le micro par défaut, ou rejoue
     /// `fake_mic` (fichier WAV) à la place (tests, démos).
-    pub fn start(fake_mic: Option<&std::path::Path>) -> Result<Self, SttError> {
+    pub fn start(fake_mic: Option<&std::path::Path>, storage: &Storage) -> Result<Self, SttError> {
         let fake_mic = fake_mic.map(std::path::Path::to_path_buf);
+        let storage = storage.clone();
         let captured = Arc::new(Mutex::new(Captured::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), SttError>>();
         let (cap, stp) = (captured.clone(), stop.clone());
         let thread = std::thread::spawn(move || {
             if let Some(wav) = fake_mic {
-                match read_wav(&wav) {
+                match read_wav(&storage, &wav) {
                     Ok((rate, samples)) => {
                         ready_tx.send(Ok(())).ok();
                         lock(&cap).rate = rate;
@@ -213,8 +215,8 @@ fn push_samples(captured: &Arc<Mutex<Captured>>, mono: &mut dyn Iterator<Item = 
 }
 
 /// Lecture minimale d'un WAV PCM 16 bits (mono ou stéréo).
-fn read_wav(path: &std::path::Path) -> Result<(u32, Vec<f32>), SttError> {
-    let bytes = std::fs::read(path).context(AudioFileSnafu { path })?;
+fn read_wav(storage: &Storage, path: &std::path::Path) -> Result<(u32, Vec<f32>), SttError> {
+    let bytes = storage.read(path).context(AudioFileSnafu { path })?;
     parse_wav(&bytes)
 }
 

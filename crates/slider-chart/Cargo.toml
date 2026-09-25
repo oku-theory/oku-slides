@@ -16,6 +16,7 @@ charts-rs.workspace = true
 json-patch.workspace = true
 
 [dev-dependencies]
+slider-platform.workspace = true
 pretty_assertions.workspace = true
 
 [lints]

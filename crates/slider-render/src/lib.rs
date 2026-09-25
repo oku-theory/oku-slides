@@ -27,7 +27,7 @@ use slider_core::Deck;
 
 use error::{CompileSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RenderError, RenderErrorKind};
-pub use fonts::{Fonts, read_font_dir};
+pub use fonts::Fonts;
 use world::SliderWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.

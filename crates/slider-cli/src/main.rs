@@ -9,8 +9,8 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::{ContextCompat, Result, WrapErr, bail, eyre};
 
 use slider_core::{Deck, Op, Paragraph, SourceBundle, validate};
-use slider_render::{Fonts, Renderer, read_font_dir};
-use slider_session::{Settings, read_document, write_atomic};
+use slider_render::{Fonts, Renderer};
+use slider_session::{Settings, Storage, read_document};
 
 #[derive(Parser)]
 #[command(name = "slider", version, about = "Rendu et stockage des decks Écho")]
@@ -80,14 +80,14 @@ enum Cmd {
     },
 }
 
-fn read_deck(path: &Path) -> Result<Deck> {
-    let text = std::fs::read_to_string(path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
-    Deck::from_json(&text).wrap_err_with(|| format!("deck invalide : {}", path.display()))
+fn read_deck(storage: &Storage, path: &Path) -> Result<Deck> {
+    let bytes = storage.read(path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
+    serde_json::from_slice(&bytes).wrap_err_with(|| format!("deck invalide : {}", path.display()))
 }
 
 /// Charge un deck depuis un JSON ou un .echo.pdf.
-fn load_bundle(path: &Path) -> Result<SourceBundle> {
-    let opened = read_document(path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
+fn load_bundle(storage: &Storage, path: &Path) -> Result<SourceBundle> {
+    let opened = read_document(storage, path).wrap_err_with(|| format!("lecture de {}", path.display()))?;
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "le PDF a été modifié par un autre outil après Écho");
     }
@@ -112,21 +112,22 @@ fn main() -> Result<()> {
     slider_platform::telemetry::init();
     let cli = Cli::parse();
     let settings = Settings::load()?;
+    let storage = Storage::local()?;
     let fonts = match cli.fonts.as_ref().or(settings.paths.fonts.as_ref()) {
-        Some(dir) => read_font_dir(dir).wrap_err_with(|| format!("lecture de {}", dir.display()))?,
+        Some(dir) => storage.read_fonts(dir).wrap_err_with(|| format!("lecture de {}", dir.display()))?,
         None => BTreeMap::new(),
     };
     let app_fonts = Fonts::new(fonts.values().cloned());
 
     match cli.cmd {
         Cmd::Check { deck } => {
-            let deck = read_deck(&deck)?;
+            let deck = read_deck(&storage, &deck)?;
             if report_issues(&deck, &BTreeMap::new()) {
                 println!("deck valide : {} slides", deck.slides.len());
             }
         }
         Cmd::Render { input, out, theme } => {
-            let mut bundle = load_bundle(&input)?;
+            let mut bundle = load_bundle(&storage, &input)?;
             if theme.is_some() {
                 bundle.deck.theme = theme;
             }
@@ -138,28 +139,24 @@ fn main() -> Result<()> {
             for w in &doc.warnings {
                 tracing::warn!(avertissement = %w, "compilation Typst");
             }
-            std::fs::create_dir_all(&out)?;
             let t = Instant::now();
             for i in 0..doc.page_count() {
-                std::fs::write(out.join(format!("page-{:02}.svg", i + 1)), doc.svg(i)?)?;
+                storage.write(&out.join(format!("page-{:02}.svg", i + 1)), doc.svg(i)?)?;
             }
             let svg = t.elapsed();
-            std::fs::write(out.join("layout.json"), serde_json::to_string_pretty(doc.layout())?)?;
+            storage.write(&out.join("layout.json"), serde_json::to_string_pretty(doc.layout())?)?;
             println!("{} pages → {} (compilation {}, SVG {})", doc.page_count(), out.display(), ms(compile), ms(svg));
         }
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
-            let mut deck = read_deck(&deck)?;
+            let mut deck = read_deck(&storage, &deck)?;
             if theme.is_some() {
                 deck.theme = theme;
             }
             let mut bundle = SourceBundle::new(deck);
             if let Some(dir) = assets {
-                for entry in std::fs::read_dir(&dir)? {
-                    let path = entry?.path();
-                    if path.is_file() {
-                        let id = bundle.add_asset(std::fs::read(&path)?);
-                        println!("asset {} → {id}", path.display());
-                    }
+                for path in storage.list_files(&dir)? {
+                    let id = bundle.add_asset(storage.read(&path)?);
+                    println!("asset {} → {id}", path.display());
                 }
             }
             if embed_fonts {
@@ -172,17 +169,18 @@ fn main() -> Result<()> {
             let pdf = doc.pdf()?;
             let zip = bundle.to_zip()?;
             let out = slider_pdf::embed_sources(&pdf, &zip)?;
-            write_atomic(&output, &out)?;
+            let written = out.len();
+            storage.write_atomic(&output, out)?;
             println!(
                 "{} : {} pages, PDF {} Ko, sources {} Ko",
                 output.display(),
                 doc.page_count(),
-                out.len() / 1024,
+                written / 1024,
                 zip.len() / 1024
             );
         }
         Cmd::Open { input, out } => {
-            let bundle = load_bundle(&input)?;
+            let bundle = load_bundle(&storage, &input)?;
             let deck = &bundle.deck;
             println!(
                 "{} : {} slides, {} assets, {} polices",
@@ -192,28 +190,24 @@ fn main() -> Result<()> {
                 bundle.fonts.len()
             );
             if let Some(dir) = out {
-                std::fs::create_dir_all(dir.join("assets"))?;
-                std::fs::write(dir.join("deck.json"), deck.to_json()?)?;
+                storage.write(&dir.join("deck.json"), deck.to_json()?)?;
                 for (id, bytes) in &bundle.assets {
-                    std::fs::write(dir.join("assets").join(id.trim_start_matches("sha256:")), bytes)?;
+                    storage.write(&dir.join("assets").join(id.trim_start_matches("sha256:")), bytes.as_slice())?;
                 }
-                if !bundle.fonts.is_empty() {
-                    std::fs::create_dir_all(dir.join("fonts"))?;
-                    for (name, bytes) in &bundle.fonts {
-                        std::fs::write(dir.join("fonts").join(name), bytes)?;
-                    }
+                for (name, bytes) in &bundle.fonts {
+                    storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
                 }
                 println!("extrait dans {}", dir.display());
             }
         }
         Cmd::Strip { input, output } => {
-            let pdf = std::fs::read(&input)?;
-            write_atomic(&output, &slider_pdf::strip_sources(&pdf)?)?;
+            let pdf = storage.read(&input)?;
+            storage.write_atomic(&output, slider_pdf::strip_sources(&pdf)?)?;
             println!("{} : copie sans sources", output.display());
         }
-        Cmd::Bench { deck, iterations } => bench(read_deck(&deck)?, app_fonts, iterations)?,
+        Cmd::Bench { deck, iterations } => bench(read_deck(&storage, &deck)?, app_fonts, iterations)?,
         Cmd::Schema => println!("{}", serde_json::to_string_pretty(&slider_core::ops_schema()?)?),
-        Cmd::Serve { input, port, ui } => serve(input, port, ui, app_fonts, &settings)?,
+        Cmd::Serve { input, port, ui } => serve(input, port, ui, app_fonts, &settings, storage)?,
     }
     Ok(())
 }
@@ -309,15 +303,22 @@ fn content_type(path: &Path) -> &'static str {
 }
 
 /// Sert l'interface et l'API `/api` (une requête JSON par appel, comme `invoke` dans Tauri).
-fn serve(input: Option<PathBuf>, port: Option<u16>, ui: PathBuf, fonts: Fonts, settings: &Settings) -> Result<()> {
+fn serve(
+    input: Option<PathBuf>,
+    port: Option<u16>,
+    ui: PathBuf,
+    fonts: Fonts,
+    settings: &Settings,
+    storage: Storage,
+) -> Result<()> {
     use tiny_http::{Header, Method, Response, Server};
-    let mut session = slider_session::Session::new(fonts, settings)?;
+    let mut session = slider_session::Session::new(fonts, settings, storage.clone())?;
     if let Some(path) = &input {
         session.open(path)?;
     }
     let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
     let server = Server::http((host, port)).map_err(|e| eyre!("{e}"))?;
-    let stt = slider_stt::Stt::new(settings.paths.models(), settings.stt.clone());
+    let stt = slider_stt::Stt::new(settings.paths.models(), settings.stt.clone(), storage.clone());
     println!("Écho (dev) sur http://{host}:{port}");
     println!("modèles de dictée : {}", stt.models_dir().display());
     let header =
@@ -352,8 +353,9 @@ fn serve(input: Option<PathBuf>, port: Option<u16>, ui: PathBuf, fonts: Fonts, s
         let rel = if rel.is_empty() { "index.html" } else { rel };
         let path = ui.join(rel);
         let safe = !rel.split('/').any(|seg| seg == "..");
-        match (safe, std::fs::read(&path)) {
-            (true, Ok(bytes)) => {
+        // Un chemin qui remonte (`..`) n'est même pas lu.
+        match safe.then(|| storage.read(&path).ok()).flatten() {
+            Some(bytes) => {
                 let ct = header(content_type(&path))?;
                 req.respond(Response::from_data(bytes).with_header(ct)).ok();
             }

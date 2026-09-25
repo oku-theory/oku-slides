@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use slider_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
 /// Une requête de l'interface qui n'a pas abouti. La session est intacte.
@@ -46,9 +47,9 @@ pub enum SessionErrorKind {
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum SessionInner {
     #[snafu(display("cannot read {}", path.display()))]
-    Read { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    Read { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
-    Write { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    Write { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("this PDF was not created by Écho: it cannot be edited"))]
     NotEcho { backtrace: Backtrace },
     #[snafu(display("unreadable PDF"))]

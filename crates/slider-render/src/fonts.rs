@@ -1,8 +1,6 @@
 //! Polices du rendu : celles intégrées à Typst, plus celles fournies (app,
 //! deck). Chargées une fois, partagées entre les rendus sans copie.
 
-use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
 use typst::foundations::Bytes;
@@ -62,20 +60,4 @@ impl std::fmt::Debug for Fonts {
 
 fn parse(data: impl IntoIterator<Item = Vec<u8>>) -> impl Iterator<Item = Font> {
     data.into_iter().flat_map(|bytes| Font::iter(Bytes::new(bytes)))
-}
-
-/// Fichiers de police d'un dossier (TTF, OTF, TTC, OTC), par nom de fichier.
-pub fn read_font_dir(dir: &Path) -> std::io::Result<BTreeMap<String, Vec<u8>>> {
-    let mut out = BTreeMap::new();
-    for entry in std::fs::read_dir(dir)? {
-        let path = entry?.path();
-        let is_font = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| ["ttf", "otf", "ttc", "otc"].iter().any(|x| e.eq_ignore_ascii_case(x)));
-        if let (true, Some(name)) = (is_font, path.file_name()) {
-            out.insert(name.to_string_lossy().into_owned(), std::fs::read(&path)?);
-        }
-    }
-    Ok(out)
 }

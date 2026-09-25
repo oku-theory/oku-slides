@@ -14,6 +14,7 @@ use mel_spec::mel::{log_mel_spectrogram, mel, norm_mel};
 use mel_spec::stft::Spectrogram;
 use ndarray::{Array2, Array3, Axis, s, stack};
 use serde::Deserialize;
+use slider_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt};
 
 use crate::error::{
@@ -60,7 +61,7 @@ impl std::fmt::Debug for Transcriber {
 impl Transcriber {
     /// `dir` : dossier d'un modèle CTranslate2. Les poids sont quantifiés en int8
     /// au chargement (rapide sur processeur, peu de mémoire).
-    pub fn load(dir: &Path) -> Result<Self, SttError> {
+    pub fn load(dir: &Path, storage: &Storage) -> Result<Self, SttError> {
         let config = sys::Config {
             compute_type: sys::ComputeType::INT8,
             num_threads_per_replica: threads(),
@@ -70,7 +71,7 @@ impl Transcriber {
         let mut tokenizer = hf::Tokenizer::new(dir).map_err(boxed).context(ModelLoadSnafu { dir })?;
         // Le contexte est encodé sans jetons spéciaux automatiques.
         tokenizer.disable_spacial_token();
-        let pre = Preprocessor::read(&dir.join("preprocessor_config.json"))?;
+        let pre = Preprocessor::read(storage, &dir.join("preprocessor_config.json"))?;
         Ok(Self { whisper, tokenizer, pre })
     }
 
@@ -195,7 +196,7 @@ impl Transcriber {
 }
 
 impl Preprocessor {
-    fn read(path: &Path) -> Result<Self, SttError> {
+    fn read(storage: &Storage, path: &Path) -> Result<Self, SttError> {
         #[derive(Deserialize)]
         struct Raw {
             feature_size: usize,
@@ -206,7 +207,7 @@ impl Preprocessor {
             sampling_rate: usize,
             mel_filters: Option<Vec<Vec<f64>>>,
         }
-        let bytes = std::fs::read(path).context(ModelFileSnafu { path })?;
+        let bytes = storage.read(path).context(ModelFileSnafu { path })?;
         let raw: Raw = serde_json::from_slice(&bytes).context(ModelSettingsSnafu)?;
         let mel_filters = match raw.mel_filters {
             Some(rows) => {

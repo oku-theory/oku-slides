@@ -30,6 +30,7 @@ pub use audio::{SAMPLE_RATE, resample};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
 use slider_platform::config::SttSettings;
+pub use slider_platform::storage::Storage;
 use vad::{Phrase, Segmenter};
 pub use whisper::{Transcriber, Transcript};
 
@@ -159,6 +160,7 @@ pub struct Stt {
     dir: PathBuf,
     /// Rythmes et seuils (réglages de l'app).
     settings: Arc<SttSettings>,
+    storage: Storage,
     cancel_download: Arc<AtomicBool>,
 }
 
@@ -188,13 +190,13 @@ impl std::fmt::Debug for Stt {
 }
 
 impl Stt {
-    /// `dir` : dossier des modèles et des réglages de la dictée.
     /// `dir` : dossier des modèles et des réglages de la dictée ; `settings` :
-    /// rythmes et seuils de l'écoute.
-    pub fn new(dir: impl Into<PathBuf>, settings: SttSettings) -> Self {
+    /// rythmes et seuils de l'écoute ; `storage` : accès aux fichiers.
+    pub fn new(dir: impl Into<PathBuf>, settings: SttSettings, storage: Storage) -> Self {
         let dir = dir.into();
+        // Réglages absents ou illisibles : ceux par défaut.
         let config =
-            std::fs::read(config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+            storage.read(&config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 state: State::Idle,
@@ -214,10 +216,11 @@ impl Stt {
                 start_after_download: false,
                 engine: None,
                 session: 0,
-                installed: Model::ALL.map(|m| m.is_installed(&dir)),
+                installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
             })),
             dir,
             settings: Arc::new(settings),
+            storage,
             cancel_download: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -278,8 +281,13 @@ impl Stt {
         if g.engine.as_ref().is_some_and(|(m, _)| *m != config.model) {
             g.engine = None; // libère la mémoire de l'ancien modèle
         }
-        std::fs::create_dir_all(&self.dir).ok();
-        std::fs::write(config_path(&self.dir), serde_json::to_vec_pretty(&config).unwrap_or_default()).ok();
+        let saved = serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
+            self.storage.write(&config_path(&self.dir), json).map_err(|e| slider_platform::errors::one_line(&e))
+        });
+        if let Err(e) = saved {
+            // Les réglages restent en vigueur pour cette session.
+            tracing::warn!(error = %e, "réglages de la dictée non enregistrés");
+        }
         g.config = config;
     }
 
@@ -294,7 +302,7 @@ impl Stt {
             g.prompt = prompt;
             g.config.model
         };
-        if model.is_installed(&self.dir) {
+        if model.is_installed(&self.storage, &self.dir) {
             self.begin_recording();
         } else {
             self.download(model, true);
@@ -304,7 +312,7 @@ impl Stt {
     pub fn download(&self, model: Model, then_start: bool) {
         {
             let mut g = self.state();
-            if g.state != State::Idle || model.is_installed(&self.dir) {
+            if g.state != State::Idle || model.is_installed(&self.storage, &self.dir) {
                 return;
             }
             g.state = State::Downloading;
@@ -315,7 +323,7 @@ impl Stt {
         let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
         std::thread::spawn(move || {
             let mut last = Instant::now();
-            let result = models::download(model, &dir, &me.settings, |received, total| {
+            let result = models::download(model, &dir, &me.settings, &me.storage, |received, total| {
                 if last.elapsed() > Duration::from_millis(100) {
                     last = Instant::now();
                     me.state().download = Some(Download { model, received, total });
@@ -326,7 +334,7 @@ impl Stt {
                 let mut g = me.state();
                 g.download = None;
                 g.state = State::Idle;
-                g.installed = Model::ALL.map(|m| m.is_installed(&dir));
+                g.installed = Model::ALL.map(|m| m.is_installed(&me.storage, &dir));
                 match result {
                     Ok(_) => {
                         tracing::info!(?model, "modèle de dictée téléchargé");
@@ -347,7 +355,7 @@ impl Stt {
     }
 
     fn begin_recording(&self) {
-        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref()) {
+        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref(), &self.storage) {
             Ok(r) => r,
             Err(e) => {
                 tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
@@ -394,7 +402,7 @@ impl Stt {
             return Ok(e.clone());
         }
         let started = Instant::now();
-        let engine = Arc::new(Transcriber::load(&model.path(&self.dir))?);
+        let engine = Arc::new(Transcriber::load(&model.path(&self.dir), &self.storage)?);
         tracing::debug!(?model, ms = started.elapsed().as_millis(), "modèle de dictée chargé");
         self.state().engine = Some((model, engine.clone()));
         Ok(engine)
@@ -711,14 +719,14 @@ mod tests {
     #[test]
     fn reglages_par_defaut_turbo_detection_auto_arret_seul() {
         let dir = std::env::temp_dir().join(format!("echo-stt-{}", std::process::id()));
-        let stt = Stt::new(&dir, settings());
+        let stt = Stt::new(&dir, settings(), Storage::local().unwrap());
         let s = stt.status();
         assert_eq!(s.config.model, Model::Turbo);
         assert_eq!(s.config.language, None);
         assert!(s.config.auto_stop);
         assert_eq!(s.models.len(), 3);
         stt.configure(Config { model: Model::Large, language: Some("fr".into()), auto_stop: false, silence: 2.0 });
-        let back = Stt::new(&dir, settings()).status().config;
+        let back = Stt::new(&dir, settings(), Storage::local().unwrap()).status().config;
         assert_eq!(back.model, Model::Large);
         assert!(!back.auto_stop);
         std::fs::remove_dir_all(&dir).ok();

@@ -16,6 +16,8 @@ use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
+use slider_platform::storage::Storage;
+
 use crate::Result;
 use crate::error::{NoTemplatesDirSnafu, TemplateJsonSnafu, WriteSnafu};
 
@@ -111,24 +113,37 @@ pub fn slug(name: &str) -> String {
 }
 
 /// Bibliothèque : ensembles intégrés + ensembles de l'utilisateur.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Library {
     dir: Option<PathBuf>,
+    storage: Storage,
 }
 
 impl Library {
     /// `dir` : dossier des ensembles de l'utilisateur (créé à la première écriture).
-    pub fn new(dir: Option<PathBuf>) -> Self {
-        Self { dir }
+    pub fn new(dir: Option<PathBuf>, storage: Storage) -> Self {
+        Self { dir, storage }
     }
 
+    /// Ensembles de l'utilisateur, par nom. Un fichier illisible est signalé
+    /// dans les journaux et ignoré : il ne doit pas cacher les autres.
     fn user_sets(&self) -> Vec<TemplateSet> {
         let Some(dir) = &self.dir else { return Vec::new() };
-        let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
-        let mut sets: Vec<TemplateSet> = entries
-            .flatten()
-            .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
-            .filter_map(|e| serde_json::from_slice(&std::fs::read(e.path()).ok()?).ok())
+        let files = self.storage.list_files(dir).unwrap_or_else(|e| {
+            tracing::warn!(dir = %dir.display(), error = %slider_platform::errors::one_line(&e), "modèles");
+            Vec::new()
+        });
+        let mut sets: Vec<TemplateSet> = files
+            .iter()
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
+            .filter_map(|p| {
+                let parsed = self
+                    .storage
+                    .read(p)
+                    .map_err(|e| slider_platform::errors::one_line(&e))
+                    .and_then(|b| serde_json::from_slice(&b).map_err(|e| e.to_string()));
+                parsed.inspect_err(|e| tracing::warn!(path = %p.display(), error = %e, "ensemble illisible")).ok()
+            })
             .collect();
         sets.sort_by_key(|s| s.name.to_lowercase());
         sets
@@ -174,10 +189,9 @@ impl Library {
     /// Enregistre un ensemble de l'utilisateur (écriture atomique).
     pub fn save(&self, set: &TemplateSet) -> Result<PathBuf> {
         let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
-        std::fs::create_dir_all(dir).context(WriteSnafu { path: dir })?;
         let path = dir.join(format!("{}.json", set.id));
         let json = serde_json::to_vec_pretty(set).context(TemplateJsonSnafu { path: &path })?;
-        crate::write_atomic(&path, &json).context(WriteSnafu { path: &path })?;
+        self.storage.write_atomic(&path, json).context(WriteSnafu { path: &path })?;
         Ok(path)
     }
 
@@ -185,7 +199,7 @@ impl Library {
     pub fn delete(&self, id: &str) -> Result<()> {
         let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
         let path = dir.join(format!("{id}.json"));
-        std::fs::remove_file(&path).context(WriteSnafu { path })?;
+        self.storage.delete(&path).context(WriteSnafu { path })?;
         Ok(())
     }
 }
@@ -227,7 +241,7 @@ mod tests {
     #[test]
     fn enregistrer_relire_supprimer() {
         let dir = std::env::temp_dir().join(format!("echo-templates-{}", std::process::id()));
-        let lib = Library::new(Some(dir.clone()));
+        let lib = Library::new(Some(dir.clone()), Storage::local().unwrap());
         let mut set = builtin_sets()[0].clone();
         set.id = lib.free_id("Mon ensemble");
         set.name = "Mon ensemble".into();

@@ -1,12 +1,13 @@
 //! Modèles Whisper au format CTranslate2 (celui de faster-whisper),
 //! téléchargés à la demande depuis Hugging Face.
 
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use slider_platform::config::SttSettings;
+use slider_platform::storage::Storage;
 use snafu::ResultExt;
 
 use crate::error::{CancelledSnafu, HttpReadSnafu, HttpSnafu, IncompleteSnafu, ModelWriteSnafu, SttError};
@@ -74,8 +75,8 @@ impl Model {
         dir.join(self.repo().replace('/', "--"))
     }
 
-    pub fn is_installed(self, dir: &Path) -> bool {
-        self.path(dir).join(COMPLETE).exists()
+    pub fn is_installed(self, storage: &Storage, dir: &Path) -> bool {
+        storage.exists(&self.path(dir).join(COMPLETE)).unwrap_or(false)
     }
 }
 
@@ -86,17 +87,17 @@ pub fn download(
     model: Model,
     dir: &Path,
     settings: &SttSettings,
+    storage: &Storage,
     mut progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<PathBuf, SttError> {
     let dest = model.path(dir);
-    std::fs::create_dir_all(&dest).context(ModelWriteSnafu { path: &dest })?;
     let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
     let total = model.size();
     let mut done = 0u64;
     for (repo, file) in model.files() {
         let path = dest.join(file);
-        if let Ok(meta) = std::fs::metadata(&path) {
-            done += meta.len();
+        if let Ok(Some(len)) = storage.len(&path) {
+            done += len;
             continue;
         }
         let url = format!("{}/{repo}/resolve/main/{file}", settings.hub_url.trim_end_matches('/'));
@@ -116,7 +117,7 @@ pub fn download(
             resp.headers().get("content-length").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
         let part = dest.join(format!("{file}.part"));
         let mut reader = resp.body_mut().with_config().limit(u64::MAX).reader();
-        let mut out = std::fs::File::create(&part).context(ModelWriteSnafu { path: &part })?;
+        let mut out = storage.writer(&part).context(ModelWriteSnafu { path: &part })?;
         let mut buf = vec![0u8; 1 << 20];
         let mut got = 0u64;
         loop {
@@ -128,21 +129,30 @@ pub fn download(
             got += n as u64;
             if !progress((done + got).min(total), total) {
                 drop(out);
-                std::fs::remove_file(&part).ok();
+                discard(storage, &part);
                 return CancelledSnafu.fail()?;
             }
         }
-        out.sync_all().context(ModelWriteSnafu { path: &part })?;
+        out.close().context(ModelWriteSnafu { path: &part })?;
         if let Some(expected) = expected
             && got != expected
         {
-            std::fs::remove_file(&part).ok();
+            discard(storage, &part);
             return IncompleteSnafu { got, expected }.fail()?;
         }
-        std::fs::rename(&part, &path).context(ModelWriteSnafu { path: &path })?;
+        storage.rename(&part, &path).context(ModelWriteSnafu { path: &path })?;
         done += got;
     }
-    std::fs::write(dest.join(COMPLETE), b"").context(ModelWriteSnafu { path: dest.join(COMPLETE) })?;
+    let marker = dest.join(COMPLETE);
+    storage.write(&marker, Vec::new()).context(ModelWriteSnafu { path: &marker })?;
     progress(total, total);
     Ok(dest)
+}
+
+/// Retire un fichier partiel ; un échec ne change rien pour l'utilisateur
+/// (le prochain téléchargement le réécrit), il est seulement signalé.
+fn discard(storage: &Storage, part: &Path) {
+    if let Err(e) = storage.delete(part) {
+        tracing::warn!(path = %part.display(), error = %slider_platform::errors::one_line(&e), "fichier partiel");
+    }
 }

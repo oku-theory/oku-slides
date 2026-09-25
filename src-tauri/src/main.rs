@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use slider_session::{Fonts, Request, Session, Settings, read_font_dir};
+use slider_session::{Fonts, Request, Session, Settings, Storage};
 use slider_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
 use tauri::ipc::Response;
@@ -28,8 +28,17 @@ fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
 
 /// Polices livrées avec l'app (ressource `fonts/`), plus `paths.fonts` des
 /// réglages ; un dossier absent est ignoré.
-fn app_fonts(dirs: &[PathBuf]) -> Fonts {
-    Fonts::new(dirs.iter().flat_map(|dir| read_font_dir(dir).unwrap_or_default().into_values()))
+fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
+    Fonts::new(
+        dirs.iter()
+            .flat_map(|dir| {
+                storage.read_fonts(dir).unwrap_or_else(|e| {
+                    tracing::warn!(dir = %dir.display(), error = %slider_platform::errors::one_line(&e), "polices");
+                    Default::default()
+                })
+            })
+            .map(|(_, bytes)| bytes),
+    )
 }
 
 fn main() -> color_eyre::Result<()> {
@@ -46,7 +55,8 @@ fn main() -> color_eyre::Result<()> {
             dirs.extend(settings.paths.fonts.clone());
             // En développement, les polices du dépôt.
             dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
-            let mut session = Session::new(app_fonts(&dirs), &settings)?;
+            let storage = Storage::local()?;
+            let mut session = Session::new(app_fonts(&storage, &dirs), &settings, storage.clone())?;
             // Un fichier passé en argument (ouvrir avec…) est ouvert au démarrage.
             if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from)
                 && path.exists()
@@ -55,7 +65,7 @@ fn main() -> color_eyre::Result<()> {
                 tracing::warn!(path = %path.display(), error = %e, "ouverture au démarrage");
             }
             app.manage(AppState(Mutex::new(session)));
-            app.manage(Stt::new(settings.paths.models(), settings.stt.clone()));
+            app.manage(Stt::new(settings.paths.models(), settings.stt.clone(), storage));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![request, stt])

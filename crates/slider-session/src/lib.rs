@@ -13,8 +13,9 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use slider_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
 pub use slider_platform::config::Settings;
+pub use slider_platform::storage::Storage;
+pub use slider_render::Fonts;
 use slider_render::{Compiled, Renderer};
-pub use slider_render::{Fonts, read_font_dir};
 
 mod appearance;
 mod error;
@@ -30,7 +31,7 @@ use error::{
     WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
-pub use files::{EXTENSION, Opened, read_document, write_atomic};
+pub use files::{EXTENSION, Opened, read_document};
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
@@ -122,6 +123,7 @@ pub struct Session {
     doc: Document,
     mode: Mode,
     library: Library,
+    storage: Storage,
     /// Transactions gardées pour annuler, dans chaque document.
     history_limit: usize,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
@@ -193,12 +195,14 @@ impl std::fmt::Debug for Session {
 
 impl Session {
     /// `app_fonts` : polices livrées avec l'app, toujours disponibles ;
-    /// `settings` : limite de l'historique, dossier des modèles.
-    pub fn new(app_fonts: Fonts, settings: &Settings) -> Result<Self> {
+    /// `settings` : limite de l'historique, dossier des modèles ; `storage` :
+    /// accès aux fichiers.
+    pub fn new(app_fonts: Fonts, settings: &Settings, storage: Storage) -> Result<Self> {
         let mut s = Self {
             doc: Document::new(SourceBundle::new(blank_deck()), None, settings.history.limit),
             mode: Mode::Deck,
-            library: Library::new(Some(settings.paths.templates())),
+            library: Library::new(Some(settings.paths.templates()), storage.clone()),
+            storage,
             history_limit: settings.history.limit,
             renderer: Renderer::new(app_fonts.clone()).context(RenderSnafu)?,
             render_fonts: app_fonts.clone(),
@@ -234,7 +238,7 @@ impl Session {
 
     /// Dossier des ensembles de modèles de l'utilisateur.
     pub fn set_templates_dir(&mut self, dir: impl Into<PathBuf>) {
-        self.library = Library::new(Some(dir.into()));
+        self.library = Library::new(Some(dir.into()), self.storage.clone());
         self.template_cache = None;
     }
 
@@ -398,7 +402,7 @@ impl Session {
 
     /// Ouvre un `.echo.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let Opened { sources, pdf, modified_elsewhere } = read_document(path)?;
+        let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
         // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "document ouvert");
@@ -421,8 +425,9 @@ impl Session {
         let pdf = compiled.pdf().context(RenderSnafu)?;
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
         let out = slider_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
-        write_atomic(&path, &out).context(WriteSnafu { path: &path })?;
-        tracing::info!(path = %path.display(), bytes = out.len(), "document enregistré");
+        let bytes = out.len();
+        self.storage.write_atomic(&path, out).context(WriteSnafu { path: &path })?;
+        tracing::info!(path = %path.display(), bytes, "document enregistré");
         self.doc.path = Some(path);
         self.doc.dirty = false;
         Ok(())

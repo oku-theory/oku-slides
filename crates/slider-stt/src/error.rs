@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use slider_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
 /// Erreur d'une bibliothèque qui n'expose pas de type précis (CTranslate2,
@@ -49,13 +50,13 @@ pub(crate) enum SttInner {
     #[snafu(display("the microphone does not respond"))]
     MicrophoneTimeout { backtrace: Backtrace },
     #[snafu(display("unreadable audio file {}", path.display()))]
-    AudioFile { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    AudioFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("invalid WAV file: {reason}"))]
     Wav { reason: &'static str, backtrace: Backtrace },
     #[snafu(display("unreadable dictation model ({})", dir.display()))]
     ModelLoad { dir: PathBuf, source: BoxError, backtrace: Backtrace },
     #[snafu(display("unreadable model file {}", path.display()))]
-    ModelFile { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    ModelFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("invalid model settings"))]
     ModelSettings { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid mel filters"))]
@@ -73,7 +74,7 @@ pub(crate) enum SttInner {
     #[snafu(display("download interrupted: {file}"))]
     HttpRead { file: String, source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("writing the model failed ({})", path.display()))]
-    ModelWrite { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    ModelWrite { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("incomplete file: {got} bytes out of {expected}"))]
     Incomplete { got: u64, expected: u64, backtrace: Backtrace },
     #[snafu(display("download cancelled"))]

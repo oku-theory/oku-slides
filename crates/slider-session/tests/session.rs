@@ -1,13 +1,15 @@
 use serde_json::json;
 use slider_core::{Deck, Frame, Op, Paragraph};
-use slider_session::{Fonts, Request, Session, Settings, TargetKind, paragraphs_to_text};
+use slider_session::{Fonts, Request, Session, Settings, Storage, TargetKind, paragraphs_to_text};
 
 /// Une session isolée : son propre dossier de données, vide.
 fn session() -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     let data = std::env::temp_dir().join(format!("echo-session-{}-{}", std::process::id(), unique()));
     settings.paths.data = Some(data);
-    Session::new(Fonts::default(), &settings).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
+    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage indisponible : {e}"));
+    Session::new(Fonts::default(), &settings, storage)
+        .unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
 }
 
 fn unique() -> u64 {

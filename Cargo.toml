@@ -35,6 +35,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 color-eyre = "0.6"
 config = { version = "0.15", default-features = false, features = ["toml"] }
+opendal = { version = "0.59", default-features = false, features = ["services-fs", "blocking"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
 clap = { version = "4", features = ["derive"] }
 charts-rs = "1.1"
 json-patch = "4"
