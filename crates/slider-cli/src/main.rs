@@ -191,7 +191,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 bundle.deck.theme = theme;
             }
             let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()))?;
-            r.set_missing_image_label(&l.tr("render-missing-image"));
+            r.set_language(l)?;
             r.set_deck(&bundle.deck, &bundle.assets)?;
             let t = Instant::now();
             let doc = r.compile()?;
@@ -232,7 +232,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             }
             report_issues(l, &bundle.deck, &bundle.assets);
             let mut r = Renderer::new(app_fonts)?;
-            r.set_missing_image_label(&l.tr("render-missing-image"));
+            r.set_language(l)?;
             r.set_deck(&bundle.deck, &bundle.assets)?;
             let doc = r.compile()?;
             let pdf = doc.pdf()?;

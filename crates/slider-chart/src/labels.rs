@@ -10,7 +10,7 @@ use slider_i18n::{Localizer, english};
 const SLOT: &str = "\u{1}";
 
 /// Libellés par défaut, résolus une fois depuis Fluent (`chart-default-*`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChartLabels {
     series: String,
     category: String,

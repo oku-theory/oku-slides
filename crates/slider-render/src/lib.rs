@@ -7,6 +7,7 @@
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
 
+mod charts;
 mod diagnostic;
 mod error;
 mod fonts;
@@ -141,9 +142,11 @@ impl Renderer {
         }
     }
 
-    /// Libellé du cadre d'une image absente, dans la langue de l'utilisateur.
-    pub fn set_missing_image_label(&mut self, label: &str) {
-        self.world.set_missing_image_label(label);
+    /// Langue des cadres de repli (image absente, graphique non dessiné) et
+    /// des libellés par défaut des graphiques ; les graphiques du deck
+    /// courant sont redessinés.
+    pub fn set_language(&mut self, l: &slider_i18n::Localizer) -> Result<(), RenderError> {
+        self.world.set_language(l)
     }
 
     fn diagnostic(&self, d: &SourceDiagnostic) -> Diagnostic {

@@ -14,7 +14,11 @@ use slider_core::Deck;
 
 use snafu::ResultExt;
 
+use slider_chart::ChartLabels;
+use slider_i18n::Localizer;
+
 use crate::THEMES;
+use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
 
@@ -35,15 +39,15 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "themes/pro.typ",
 );
 
-fn file_id(path: &str) -> Result<FileId, RenderError> {
+pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
     let vpath = VirtualPath::new(path).context(PathSnafu { path })?;
     Ok(FileId::new(RootedPath::new(VirtualRoot::Project, vpath)))
 }
 
 /// Source principale : importe la bibliothèque et rend `/deck.json`.
 /// `assets` : empreintes (hex) des assets disponibles.
-/// `missing` : texte du cadre d'une image absente (échappé ici, pas du code).
-fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, missing: &str) -> String {
+/// `labels` : textes des cadres de repli (échappés ici, pas du code).
+fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, labels: &Labels) -> String {
     let theme = match theme {
         Some(t) if THEMES.contains(&t) => t,
         _ => "none",
@@ -56,22 +60,52 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, m
         available.push_str("\",");
     }
     available.push(')');
-    let missing = typst_string(missing);
+    let missing = typst_string(&labels.missing_image);
+    let chart_failed = typst_string(&labels.chart_failed);
     format!(
         r#"#import "/slider/lib.typ": *
 #let available = {available}
+#let fallback(label) = rect(width: 100%, height: 100%, fill: luma(230),
+  align(center + horizon, text(size: 20pt, fill: luma(90), label)))
 #let load-image(e) = {{
-  let hex = e.asset.trim("sha256:", at: start)
-  if hex in available {{
-    image("/assets/" + hex, width: 100%, height: 100%, fit: e.at("fit", default: "cover"))
+  if e.kind == "chart" {{
+    if "{svg_field}" not in e {{ fallback({chart_failed}) }}
+    else if "frame" in e {{
+      image("/charts/" + e.at("{svg_field}") + ".svg", width: 100%, height: 100%, fit: "contain")
+    }} else {{
+      // Dans le flux : toute la largeur, sans dépasser la hauteur disponible.
+      layout(size => {{
+        let h = size.width * {aspect}
+        if size.height < h {{ h = size.height }}
+        image("/charts/" + e.at("{svg_field}") + ".svg", width: 100%, height: h, fit: "contain")
+      }})
+    }}
   }} else {{
-    rect(width: 100%, height: 100%, fill: luma(230),
-      align(center + horizon, text(size: 20pt, fill: luma(90), {missing})))
+    let hex = e.asset.trim("sha256:", at: start)
+    if hex in available {{
+      image("/assets/" + hex, width: 100%, height: 100%, fit: e.at("fit", default: "cover"))
+    }} else {{ fallback({missing}) }}
   }}
 }}
 #render-deck(json("/deck.json"), theme: {theme}, image-loader: load-image)
-"#
+"#,
+        svg_field = SVG_FIELD,
+        aspect = DEFAULT_SIZE.height / DEFAULT_SIZE.width,
     )
+}
+
+/// Textes des cadres de repli, dans la langue de l'utilisateur.
+#[derive(Debug)]
+struct Labels {
+    missing_image: String,
+    chart_failed: String,
+}
+
+impl Default for Labels {
+    fn default() -> Self {
+        let l = slider_i18n::english();
+        Self { missing_image: l.tr("render-missing-image"), chart_failed: l.tr("render-chart-failed") }
+    }
 }
 
 /// Littéral de chaîne Typst : guillemets et barres obliques échappés.
@@ -109,7 +143,8 @@ pub(crate) struct SliderWorld {
     /// Dernier deck reçu : thème et assets, pour refaire la source principale.
     theme: Option<String>,
     hexes: Vec<String>,
-    missing_image: String,
+    labels: Labels,
+    charts: Charts,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
     assets: HashMap<FileId, Bytes>,
@@ -126,13 +161,14 @@ impl SliderWorld {
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main: Source::new(main_id, main_source(None, std::iter::empty(), "missing image")),
+            main: Source::new(main_id, main_source(None, std::iter::empty(), &Labels::default())),
             sources,
             deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
             theme: None,
             hexes: Vec::new(),
-            missing_image: "missing image".to_owned(),
+            labels: Labels::default(),
+            charts: Charts::default(),
             assets: HashMap::new(),
         })
     }
@@ -154,7 +190,9 @@ impl SliderWorld {
         for (id, bytes) in wanted {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
-        self.deck = Bytes::new(serde_json::to_vec(deck).context(DeckJsonSnafu)?);
+        let mut json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
+        self.charts.attach(&mut json, deck.theme.as_deref(), &self.fonts)?;
+        self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
 
         self.theme.clone_from(&deck.theme);
         self.hexes = hexes.into_iter().map(str::to_owned).collect();
@@ -162,14 +200,21 @@ impl SliderWorld {
         Ok(())
     }
 
-    pub fn set_missing_image_label(&mut self, label: &str) {
-        label.clone_into(&mut self.missing_image);
+    /// Textes des cadres de repli et libellés des graphiques ; les
+    /// graphiques du deck courant sont redessinés.
+    pub fn set_language(&mut self, l: &Localizer) -> Result<(), RenderError> {
+        self.labels = Labels { missing_image: l.tr("render-missing-image"), chart_failed: l.tr("render-chart-failed") };
+        self.charts.set_labels(ChartLabels::new(l));
+        let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
+        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts)?;
+        self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
         self.refresh_main();
+        Ok(())
     }
 
     /// Refait la source principale si elle a changé (Typst garde son cache sinon).
     fn refresh_main(&mut self) {
-        let text = main_source(self.theme.as_deref(), self.hexes.iter().map(String::as_str), &self.missing_image);
+        let text = main_source(self.theme.as_deref(), self.hexes.iter().map(String::as_str), &self.labels);
         if self.main.text() != text {
             self.main.replace(&text);
         }
@@ -201,7 +246,7 @@ impl World for SliderWorld {
         if id == self.deck_id {
             return Ok(self.deck.clone());
         }
-        if let Some(b) = self.assets.get(&id) {
+        if let Some(b) = self.assets.get(&id).or_else(|| self.charts.file(id)) {
             return Ok(b.clone());
         }
         if let Some(s) = self.source_of(id) {
@@ -224,3 +269,7 @@ impl World for SliderWorld {
         Datetime::from_ymd(date.year(), u8::from(date.month()), date.day())
     }
 }
+
+#[cfg(test)]
+#[path = "world_tests.rs"]
+mod world_tests;

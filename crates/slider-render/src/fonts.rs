@@ -4,7 +4,7 @@
 use std::sync::{Arc, LazyLock};
 
 use typst::foundations::Bytes;
-use typst::text::{Font, FontBook};
+use typst::text::{Font, FontBook, FontStyle, FontWeight};
 use typst::utils::LazyHash;
 
 /// Polices intégrées à Typst, lues une fois par processus.
@@ -38,6 +38,18 @@ impl Fonts {
 
     pub(crate) fn get(&self, index: usize) -> Option<Font> {
         self.0.fonts.get(index).cloned()
+    }
+
+    /// Nom et fichier de la face normale (400, droite) de `family`, ou de sa
+    /// première face.
+    pub(crate) fn regular_face(&self, family: &str) -> Option<(String, Bytes)> {
+        let faces = || self.0.fonts.iter().filter(|f| f.info().family.eq_ignore_ascii_case(family));
+        let regular = |f: &&Font| {
+            let v = f.info().variant;
+            v.weight == FontWeight::REGULAR && v.style == FontStyle::Normal
+        };
+        let face = faces().find(regular).or_else(|| faces().next())?;
+        Some((face.info().family.clone(), face.data().clone()))
     }
 
     pub(crate) fn book(&self) -> &LazyHash<FontBook> {

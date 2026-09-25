@@ -68,6 +68,11 @@
     "image : " + e.at("asset", default: "?"))),
 )
 
+#let _chart-placeholder(t) = rect(
+  width: 100%, height: 100%, fill: color-of(t, "surface"), radius: radius-of(t, "sm"),
+  align(center + horizon, text(size: size-of(t, "caption"), fill: color-of(t, "ink-muted"), "chart")),
+)
+
 #let render-element(t, e, vars, image-loader: none) = {
   let kind = e.at("kind", default: "text")
   let style = e.at("style", default: (:))
@@ -79,6 +84,9 @@
     align((left: left, center: center, right: right).at(al, default: left), body)
   } else if kind == "image" {
     if image-loader != none { image-loader(e) } else { _image-placeholder(t, e) }
+  } else if kind == "chart" {
+    // Rendu en SVG par l'hôte, chargé comme une image.
+    if image-loader != none { image-loader(e) } else { _chart-placeholder(t) }
   } else if kind == "shape" {
     let shape = e.at("shape", default: "rect")
     let fill = color-of(t, style.at("fill", default: none))
@@ -219,7 +227,7 @@
 }
 
 /// Rend un deck JSON complet : `#render-deck(json("deck.json"))`.
-/// image-loader : fonction (élément) => contenu, pour charger les assets.
+/// image-loader : fonction (élément) => contenu, pour les images et les graphiques.
 #let render-deck(data, theme: none, image-loader: none) = {
   let params = data.at("params", default: (:))
   show: deck.with(

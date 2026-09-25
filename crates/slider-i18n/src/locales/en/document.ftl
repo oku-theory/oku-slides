@@ -13,3 +13,4 @@ diagnostic-warning = warning
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = hint: { $hint }
+render-chart-failed = chart could not be drawn

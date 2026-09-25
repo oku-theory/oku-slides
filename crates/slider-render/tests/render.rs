@@ -142,14 +142,47 @@ fn set_deck_asset_added_then_removed_follows_the_deck() {
 }
 
 #[test]
-fn set_missing_image_label_with_quotes_still_compiles() {
+fn set_language_translates_the_missing_image_frame() {
+    use slider_i18n::Localizer;
     let deck = fixture();
+    let page = deck.slide_index("s-libre").unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
-    let english = r.compile().unwrap().svg(deck.slide_index("s-libre").unwrap()).unwrap();
-    r.set_missing_image_label(r#"image "manquante" \ ici"#);
-    let french = r.compile().unwrap().svg(deck.slide_index("s-libre").unwrap()).unwrap();
-    asserting("le libellé change le cadre de l'image absente").that(&english).is_not_equal_to(french);
+    let english = r.compile().unwrap().svg(page).unwrap();
+    r.set_language(&Localizer::new(Some("fr"))).unwrap();
+    let french = r.compile().unwrap().svg(page).unwrap();
+    asserting("la langue change le cadre de l'image absente").that(&english).is_not_equal_to(french);
+}
+
+fn chart_deck() -> Deck {
+    let option = serde_json::json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 3], ["Fév", 5]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    });
+    serde_json::from_value(serde_json::json!({ "slides": [
+        { "id": "flux", "kind": "content", "title": "Ventes",
+          "blocks": [{ "id": "g1", "kind": "chart", "option": option }] },
+        { "id": "libre", "kind": "blank",
+          "elements": [{ "id": "g2", "kind": "chart", "option": option,
+                         "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] }
+    ] }))
+    .unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn compile_deck_with_charts_places_them_and_exports_pdf() {
+    let deck = chart_deck();
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
+    let doc = r.compile().unwrap();
+    assert_that!(doc.page_count()).is_equal_to(2);
+    let framed = doc.layout().boxes_on(2).iter().find(|b| b.id == "g2").cloned().unwrap();
+    assert_that!(framed.w).is_greater_than(0.0);
+    assert_that!(doc.layout().boxes_on(1).iter().any(|b| b.id == "g1" && b.h > 0.0)).is_true();
+    // Le SVG du graphique est embarqué comme image dans la page.
+    assert_that!(doc.svg(1).unwrap()).contains("<image");
+    assert_that!(doc.pdf().unwrap().starts_with(b"%PDF")).is_true();
 }
 
 #[test]
@@ -196,4 +229,14 @@ fn diagnostic_localize_formats_place_and_hints() {
         .is_equal_to("avertissement (slider/src/data.typ:12) : unknown font\n  indice : check the family".to_owned());
     let unplaced = Diagnostic { place: None, hints: vec![], ..d };
     assert_that!(unplaced.to_string()).is_equal_to("warning: unknown font".to_owned());
+}
+
+#[test]
+fn set_language_after_set_deck_with_charts_still_compiles() {
+    let deck = chart_deck();
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
+    r.set_language(&slider_i18n::Localizer::new(Some("fr"))).unwrap();
+    let doc = r.compile().unwrap();
+    assert_that!(doc.svg(1).unwrap()).contains("<image");
 }

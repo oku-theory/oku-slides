@@ -172,7 +172,7 @@ fn same_style(a: &Deck, b: &Deck) -> bool {
 /// Un rendu dont l'image absente se dit dans la langue de l'utilisateur.
 fn new_renderer(fonts: Fonts, l: &Localizer) -> Result<Renderer> {
     let mut renderer = Renderer::new(fonts).context(RenderSnafu)?;
-    renderer.set_missing_image_label(&l.tr("render-missing-image"));
+    renderer.set_language(l).context(RenderSnafu)?;
     Ok(renderer)
 }
 

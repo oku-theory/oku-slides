@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 slider-i18n.workspace = true
 slider-core.workspace = true
+slider-chart.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
 tracing.workspace = true
