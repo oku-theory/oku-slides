@@ -6,7 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
-use crate::model::{Cell, Deck, Element, ElementBody, Frame, Grid, Paragraph, Slide, SlideKind, SlideLayout, Style};
+use std::collections::HashSet;
+
+use crate::locate::Walk;
+use crate::model::{
+    Cell, Deck, Element, ElementBody, Frame, Grid, Paragraph, Slide, SlideKind, SlideLayout, Style, Zone,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum OpError {
@@ -24,17 +29,6 @@ pub enum OpError {
     NoText(String),
     #[error("valeur invalide pour {field} : {reason}")]
     InvalidValue { field: String, reason: String },
-}
-
-/// Zone d'une slide de contenu qui contient des éléments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum Zone {
-    /// Blocs mis en page par le layout de la slide.
-    #[default]
-    Blocks,
-    /// Éléments placés librement avec un cadre.
-    Elements,
 }
 
 /// Champ simple d'une slide, modifiable par `set_slide_field`.
@@ -162,29 +156,6 @@ pub enum Op {
 
 // ---- Localisation des éléments ------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Location {
-    zone: Zone,
-    parent: Option<String>,
-    index: usize,
-}
-
-fn find_in(list: &[Element], id: &str, zone: Zone, parent: Option<&str>) -> Option<Location> {
-    for (i, e) in list.iter().enumerate() {
-        if e.id == id {
-            return Some(Location { zone, parent: parent.map(str::to_owned), index: i });
-        }
-        if let Some(loc) = find_in(e.children(), id, zone, Some(&e.id)) {
-            return Some(loc);
-        }
-    }
-    None
-}
-
-fn locate(slide: &Slide, id: &str) -> Option<Location> {
-    find_in(&slide.blocks, id, Zone::Blocks, None).or_else(|| find_in(&slide.elements, id, Zone::Elements, None))
-}
-
 fn find_mut<'a>(list: &'a mut [Element], id: &str) -> Option<&'a mut Element> {
     for e in list.iter_mut() {
         if e.id == id {
@@ -206,34 +177,24 @@ fn element_mut<'a>(slide: &'a mut Slide, id: &str) -> Option<&'a mut Element> {
     find_mut(&mut slide.elements, id)
 }
 
-fn container_mut<'a>(slide: &'a mut Slide, zone: Zone, parent: Option<&str>) -> Result<&'a mut Vec<Element>, OpError> {
-    let slide_id = slide.id.clone();
+/// Liste qui reçoit un élément : une zone de la slide, ou un groupe.
+/// `slide_id` ne sert qu'au message d'erreur.
+fn container_mut<'a>(
+    slide: &'a mut Slide,
+    zone: Zone,
+    parent: Option<&str>,
+    slide_id: &str,
+) -> Result<&'a mut Vec<Element>, OpError> {
     match parent {
         None => Ok(match zone {
             Zone::Blocks => &mut slide.blocks,
             Zone::Elements => &mut slide.elements,
         }),
         Some(pid) => {
-            let parent = element_mut(slide, pid)
-                .ok_or_else(|| OpError::ElementNotFound { slide: slide_id, element: pid.to_owned() })?;
+            let parent = element_mut(slide, pid).ok_or_else(|| not_found(slide_id, pid))?;
             parent.children_mut().ok_or_else(|| OpError::NotAGroup(pid.to_owned()))
         }
     }
-}
-
-fn collect_ids(list: &[Element], out: &mut Vec<String>) {
-    for e in list {
-        out.push(e.id.clone());
-        collect_ids(e.children(), out);
-    }
-}
-
-/// Tous les identifiants d'éléments d'une slide.
-pub fn element_ids(slide: &Slide) -> Vec<String> {
-    let mut ids = Vec::new();
-    collect_ids(&slide.blocks, &mut ids);
-    collect_ids(&slide.elements, &mut ids);
-    ids
 }
 
 // ---- Chemins JSON (jetons) ------------------------------------------------------
@@ -352,7 +313,7 @@ impl Op {
             Op::SetCell { slide, element, cell } => {
                 let s = slide_mut(deck, slide)?;
                 if let Some(c) = cell {
-                    let grid = &s.effective_grid();
+                    let grid = s.effective_grid();
                     if !c.fits(grid) {
                         return Err(OpError::InvalidValue {
                             field: "cell".into(),
@@ -380,27 +341,29 @@ impl Op {
             Op::ReplaceElement { slide, element } => {
                 let s = slide_mut(deck, slide)?;
                 // Les enfants d'un groupe remplacé ne doivent pas entrer en collision.
-                let mut new_ids = Vec::new();
-                collect_ids(element.children(), &mut new_ids);
-                let existing = element_ids(s);
-                let e = element_mut(s, &element.id).ok_or_else(|| not_found(slide, &element.id))?;
-                let mut old_ids = Vec::new();
-                collect_ids(e.children(), &mut old_ids);
-                if let Some(dup) = new_ids.iter().find(|id| existing.contains(id) && !old_ids.contains(id)) {
-                    return Err(OpError::DuplicateId(dup.clone()));
+                let old = s.locate(&element.id).ok_or_else(|| not_found(slide, &element.id))?.element;
+                let old_ids: HashSet<&str> =
+                    Walk::over(old.children(), Zone::Blocks).map(|l| l.element.id.as_str()).collect();
+                let existing: HashSet<&str> = s.element_ids().collect();
+                if let Some(dup) = Walk::over(element.children(), Zone::Blocks)
+                    .map(|l| l.element.id.as_str())
+                    .find(|id| existing.contains(id) && !old_ids.contains(id))
+                {
+                    return Err(OpError::DuplicateId(dup.to_owned()));
                 }
+                let e = element_mut(s, &element.id).ok_or_else(|| not_found(slide, &element.id))?;
                 let old = std::mem::replace(e, element.clone());
                 Ok(Op::ReplaceElement { slide: slide.clone(), element: old })
             }
             Op::AddElement { slide, zone, parent, index, element } => {
                 let s = slide_mut(deck, slide)?;
-                let mut ids = Vec::new();
-                collect_ids(std::slice::from_ref(element), &mut ids);
-                let existing = element_ids(s);
-                if let Some(dup) = ids.iter().find(|id| existing.contains(id)) {
-                    return Err(OpError::DuplicateId(dup.clone()));
+                let existing: HashSet<&str> = s.element_ids().collect();
+                if let Some(dup) =
+                    Walk::over(std::slice::from_ref(element), *zone).find(|l| existing.contains(l.element.id.as_str()))
+                {
+                    return Err(OpError::DuplicateId(dup.element.id.clone()));
                 }
-                let list = container_mut(s, *zone, parent.as_deref())?;
+                let list = container_mut(s, *zone, parent.as_deref(), slide)?;
                 let at = index.unwrap_or(list.len());
                 if at > list.len() {
                     return Err(OpError::IndexOutOfRange { index: at, len: list.len() });
@@ -410,16 +373,13 @@ impl Op {
             }
             Op::RemoveElement { slide, element } => {
                 let s = slide_mut(deck, slide)?;
-                let loc = locate(s, element).ok_or_else(|| not_found(slide, element))?;
-                let list = container_mut(s, loc.zone, loc.parent.as_deref())?;
-                let removed = list.remove(loc.index);
-                Ok(Op::AddElement {
-                    slide: slide.clone(),
-                    zone: loc.zone,
-                    parent: loc.parent,
-                    index: Some(loc.index),
-                    element: removed,
-                })
+                let (zone, parent, index) = s
+                    .locate(element)
+                    .map(|l| (l.zone, l.parent.map(str::to_owned), l.index))
+                    .ok_or_else(|| not_found(slide, element))?;
+                let list = container_mut(s, zone, parent.as_deref(), slide)?;
+                let removed = list.remove(index);
+                Ok(Op::AddElement { slide: slide.clone(), zone, parent, index: Some(index), element: removed })
             }
             Op::SetSlideField { slide, field, value } => {
                 let s = slide_mut(deck, slide)?;

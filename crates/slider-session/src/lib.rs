@@ -613,7 +613,8 @@ impl Session {
         }
         let compiled = self.compiled.as_ref().ok_or_else(|| SessionError::BadRequest("rendu indisponible".into()))?;
         let pdf = compiled.pdf()?;
-        let bundle = SourceBundle { deck: Some(self.deck.clone()), assets: self.assets.clone(), fonts: self.fonts.clone() };
+        let bundle =
+            SourceBundle { deck: Some(self.deck.clone()), assets: self.assets.clone(), fonts: self.fonts.clone() };
         let out = slider_pdf::embed_sources(&pdf, &bundle.to_zip()?)?;
         write_atomic(&path, &out)?;
         self.path = Some(path);
@@ -802,8 +803,9 @@ impl Session {
                     aw: b.aw.unwrap_or(b.w).max(b.w),
                     style: b.style.clone(),
                 });
-            } else if let Some((e, free)) = find_element(&slide, &b.id) {
-                let (kind, text) = match &e.body {
+            } else if let Some(l) = slide.locate(&b.id) {
+                let free = l.is_free();
+                let (kind, text) = match &l.element.body {
                     ElementBody::Text { text } => ("text", Some(paragraphs_to_text(text))),
                     ElementBody::Card { text, .. } => ("card", Some(paragraphs_to_text(text))),
                     ElementBody::Image { .. } => ("image", None),
@@ -830,25 +832,6 @@ impl Session {
         let zone = compiled.zones().into_iter().find(|z| z.page == page);
         Ok(SlideView { slide, page, hash, width: 1920.0, height: 1080.0, targets, zone })
     }
-}
-
-/// Élément par id, avec « placé librement » (dans `elements` ou un groupe libre).
-fn find_element<'a>(slide: &'a Slide, id: &str) -> Option<(&'a Element, bool)> {
-    fn rec<'a>(list: &'a [Element], id: &str, free: bool) -> Option<(&'a Element, bool)> {
-        for e in list {
-            if e.id == id {
-                return Some((e, free && (e.frame.is_some() || e.cell.is_some())));
-            }
-            if let ElementBody::Group { layout, children } = &e.body {
-                let child_free = layout.kind == slider_core::GroupLayoutKind::Free;
-                if let Some(found) = rec(children, id, child_free) {
-                    return Some(found);
-                }
-            }
-        }
-        None
-    }
-    rec(&slide.blocks, id, false).or_else(|| rec(&slide.elements, id, true))
 }
 
 /// Écrit dans un fichier temporaire à côté, puis renomme.

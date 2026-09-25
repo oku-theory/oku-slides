@@ -2,8 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::model::{Deck, Element, ElementBody, SlideKind};
-use crate::ops::element_ids;
+use crate::model::{Deck, ElementBody, SlideKind, Zone};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Issue {
@@ -18,46 +17,6 @@ impl std::fmt::Display for Issue {
             (Some(s), Some(e)) => write!(f, "[{s}/{e}] {}", self.message),
             (Some(s), None) => write!(f, "[{s}] {}", self.message),
             _ => write!(f, "{}", self.message),
-        }
-    }
-}
-
-fn check_elements(
-    slide: &str,
-    list: &[Element],
-    assets: Option<&HashSet<String>>,
-    out: &mut Vec<Issue>,
-    free: bool,
-    grid: Option<&crate::model::Grid>,
-) {
-    for e in list {
-        let issue = |m: String| Issue { slide: Some(slide.to_owned()), element: Some(e.id.clone()), message: m };
-        if e.id.is_empty() {
-            out.push(issue("identifiant vide".into()));
-        }
-        if let (Some(c), Some(g)) = (e.cell, grid)
-            && !c.fits(g)
-        {
-            out.push(issue("cellule hors de la grille".into()));
-        }
-        match e.frame {
-            Some(f) if !(f.w > 0.0 && f.h > 0.0) => out.push(issue("cadre de taille nulle".into())),
-            None if free && e.cell.is_none() => out.push(issue("élément libre sans cadre".into())),
-            _ => {}
-        }
-        match &e.body {
-            ElementBody::Image { asset, .. } => {
-                if let Some(assets) = assets
-                    && !assets.contains(asset)
-                {
-                    out.push(issue(format!("asset manquant : {asset}")));
-                }
-            }
-            ElementBody::Group { children, layout } => {
-                let free_children = layout.kind == crate::model::GroupLayoutKind::Free;
-                check_elements(slide, children, assets, out, free_children, None);
-            }
-            _ => {}
         }
     }
 }
@@ -80,19 +39,37 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
         if !s.blocks.is_empty() && !s.elements.is_empty() {
             out.push(issue("une slide a soit des blocs, soit des éléments libres, pas les deux"));
         }
-        let ids = element_ids(s);
+        let grid = s.effective_grid();
         let mut seen = HashSet::new();
-        for id in &ids {
-            if !seen.insert(id) {
-                out.push(Issue {
-                    slide: Some(s.id.clone()),
-                    element: Some(id.clone()),
-                    message: "identifiant d'élément en double".into(),
-                });
+        for l in s.walk() {
+            let e = l.element;
+            let issue = |m: String| Issue { slide: Some(s.id.clone()), element: Some(e.id.clone()), message: m };
+            if !seen.insert(e.id.as_str()) {
+                out.push(issue("identifiant d'élément en double".into()));
+            }
+            if e.id.is_empty() {
+                out.push(issue("identifiant vide".into()));
+            }
+            // Seuls les éléments libres de premier niveau s'accrochent à la grille.
+            if let Some(c) = e.cell
+                && l.zone == Zone::Elements
+                && l.parent.is_none()
+                && !c.fits(grid)
+            {
+                out.push(issue("cellule hors de la grille".into()));
+            }
+            match e.frame {
+                Some(f) if !(f.w > 0.0 && f.h > 0.0) => out.push(issue("cadre de taille nulle".into())),
+                None if l.in_free_layout && e.cell.is_none() => out.push(issue("élément libre sans cadre".into())),
+                _ => {}
+            }
+            if let ElementBody::Image { asset, .. } = &e.body
+                && let Some(assets) = assets
+                && !assets.contains(asset)
+            {
+                out.push(issue(format!("asset manquant : {asset}")));
             }
         }
-        check_elements(&s.id, &s.blocks, assets, &mut out, false, None);
-        check_elements(&s.id, &s.elements, assets, &mut out, true, Some(&s.effective_grid()));
     }
     out
 }

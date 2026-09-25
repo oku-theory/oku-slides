@@ -183,16 +183,14 @@ fn one() -> u32 {
     1
 }
 
-impl Grid {
-    /// Grille de toute slide qui n'en précise pas : 12 colonnes × 6 lignes.
-    pub const DEFAULT: Grid = Grid { columns: 12, rows: 6, gap: None };
-}
+/// Grille de toute slide qui n'en précise pas : 12 colonnes × 6 lignes.
+static DEFAULT_GRID: Grid = Grid { columns: 12, rows: 6, gap: None };
 
 impl Slide {
     /// La grille de la slide : la sienne, sinon celle par défaut. Toute slide
     /// en a une ; les éléments libres s'y accrochent.
-    pub fn effective_grid(&self) -> Grid {
-        self.grid.clone().unwrap_or(Grid::DEFAULT)
+    pub fn effective_grid(&self) -> &Grid {
+        self.grid.as_ref().unwrap_or(&DEFAULT_GRID)
     }
 }
 
@@ -319,6 +317,17 @@ pub enum ShapeKind {
     Rect,
     Ellipse,
     Line,
+}
+
+/// Zone d'une slide de contenu qui contient des éléments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Zone {
+    /// Blocs mis en page par le layout de la slide.
+    #[default]
+    Blocks,
+    /// Éléments placés librement avec un cadre.
+    Elements,
 }
 
 /// Un élément de slide, identifié par un `id` stable.
