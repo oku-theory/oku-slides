@@ -8,7 +8,7 @@ use snafu::{Backtrace, Snafu};
 
 /// Une opération refusée. Le deck n'a pas changé.
 #[derive(Debug, Snafu)]
-pub struct OpError(OpInner);
+pub struct OpError(Box<OpInner>);
 
 /// Nature d'une [`OpError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +21,9 @@ pub enum OpErrorKind {
     NotAGroup,
     NoText,
     InvalidValue,
+    NotAChart,
+    /// Options ou données de graphique refusées par `slider-chart`.
+    InvalidChart,
     /// Un annuler n'a pas pu défaire une op : l'historique ne correspond plus au deck.
     Inconsistent,
 }
@@ -44,13 +47,17 @@ pub(crate) enum OpInner {
     InvalidValue { field: String, reason: &'static str, backtrace: Backtrace },
     #[snafu(display("invalid value for {field}"))]
     ParseValue { field: String, source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("element {element} is not a chart"))]
+    NotAChart { element: String, backtrace: Backtrace },
+    #[snafu(display("chart {element} refused the change"))]
+    Chart { element: String, source: slider_chart::ChartError, backtrace: Backtrace },
     #[snafu(display("history does not match the deck"))]
     Inconsistent { source: Box<OpError>, backtrace: Backtrace },
 }
 
 impl OpError {
     pub fn kind(&self) -> OpErrorKind {
-        match self.0 {
+        match *self.0 {
             OpInner::SlideNotFound { .. } => OpErrorKind::SlideNotFound,
             OpInner::ElementNotFound { .. } => OpErrorKind::ElementNotFound,
             OpInner::DuplicateId { .. } => OpErrorKind::DuplicateId,
@@ -58,17 +65,21 @@ impl OpError {
             OpInner::NotAGroup { .. } => OpErrorKind::NotAGroup,
             OpInner::NoText { .. } => OpErrorKind::NoText,
             OpInner::InvalidValue { .. } | OpInner::ParseValue { .. } => OpErrorKind::InvalidValue,
+            OpInner::NotAChart { .. } => OpErrorKind::NotAChart,
+            OpInner::Chart { .. } => OpErrorKind::InvalidChart,
             OpInner::Inconsistent { .. } => OpErrorKind::Inconsistent,
         }
     }
 
     /// Ce que l'erreur désigne (slide, élément, identifiant ou champ), s'il y en a un.
     pub fn subject(&self) -> Option<&str> {
-        match &self.0 {
+        match &*self.0 {
             OpInner::SlideNotFound { slide, .. } => Some(slide),
             OpInner::ElementNotFound { element, .. }
             | OpInner::NotAGroup { element, .. }
-            | OpInner::NoText { element, .. } => Some(element),
+            | OpInner::NoText { element, .. }
+            | OpInner::NotAChart { element, .. }
+            | OpInner::Chart { element, .. } => Some(element),
             OpInner::DuplicateId { id, .. } => Some(id),
             OpInner::InvalidValue { field, .. } | OpInner::ParseValue { field, .. } => Some(field),
             OpInner::IndexOutOfRange { .. } | OpInner::Inconsistent { .. } => None,
@@ -150,6 +161,12 @@ impl SourcesError {
 
 impl Localize for OpError {
     fn localize(&self, l: &Localizer) -> String {
+        if let OpInner::Chart { element, source, .. } = &*self.0 {
+            return l.tr_with(
+                "op-invalid-chart",
+                &[("subject", element.as_str().into()), ("reason", source.localize(l).into())],
+            );
+        }
         let id = match self.kind() {
             OpErrorKind::SlideNotFound => "op-slide-not-found",
             OpErrorKind::ElementNotFound => "op-element-not-found",
@@ -158,6 +175,8 @@ impl Localize for OpError {
             OpErrorKind::NotAGroup => "op-not-a-group",
             OpErrorKind::NoText => "op-no-text",
             OpErrorKind::InvalidValue => "op-invalid-value",
+            OpErrorKind::NotAChart => "op-not-a-chart",
+            OpErrorKind::InvalidChart => "op-invalid-chart",
             OpErrorKind::Inconsistent => "op-inconsistent",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])

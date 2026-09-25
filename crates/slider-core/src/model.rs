@@ -382,6 +382,21 @@ pub enum ElementBody {
         #[serde(default)]
         children: Vec<Element>,
     },
+    /// Graphique : options ECharts (sous-ensemble de `slider-chart`), données
+    /// dans `dataset` une fois canonicalisées.
+    Chart {
+        /// Des options incohérentes ne se désérialisent pas : un deck ne
+        /// contient que des graphiques qui se dessinent.
+        #[serde(deserialize_with = "consistent_chart")]
+        option: slider_chart::ChartOption,
+    },
+}
+
+fn consistent_chart<'de, D: serde::Deserializer<'de>>(d: D) -> Result<slider_chart::ChartOption, D::Error> {
+    let option = slider_chart::ChartOption::deserialize(d)?;
+    slider_chart::normalize(&option, slider_chart::ChartLabels::english())
+        .map_err(|e| serde::de::Error::custom(slider_i18n::Localize::localize(&e, slider_i18n::english())))?;
+    Ok(option)
 }
 
 impl ElementBody {
@@ -393,6 +408,7 @@ impl ElementBody {
             ElementBody::Shape { .. } => "shape",
             ElementBody::Card { .. } => "card",
             ElementBody::Group { .. } => "group",
+            ElementBody::Chart { .. } => "chart",
         }
     }
 

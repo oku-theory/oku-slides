@@ -24,3 +24,5 @@ issue-cell-outside-grid = cell outside the grid
 issue-empty-frame = zero-size frame
 issue-free-without-frame = free element without a frame
 issue-missing-asset = missing asset: { $asset }
+op-not-a-chart = { $subject } is not a chart
+op-invalid-chart = Chart { $subject }: { $reason }

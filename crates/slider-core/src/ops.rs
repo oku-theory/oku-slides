@@ -9,9 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{IntoError, OptionExt, ResultExt};
 
+use slider_chart::{ChartDataOp, ChartLabels, apply_option_patch, normalize, sync_series_with_columns};
+
 use crate::error::{
-    DuplicateIdSnafu, ElementNotFoundSnafu, InconsistentSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, NoTextSnafu,
-    NotAGroupSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu,
+    ChartSnafu, DuplicateIdSnafu, ElementNotFoundSnafu, InconsistentSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu,
+    NoTextSnafu, NotAChartSnafu, NotAGroupSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu, TransactionError,
+    TransactionSnafu,
 };
 use crate::locate::Walk;
 use crate::model::{
@@ -76,6 +79,20 @@ pub enum Op {
     ReplaceElement {
         slide: String,
         element: Element,
+    },
+    /// Modifie les options d'un graphique : JSON Merge Patch (RFC 7396) sur
+    /// tout sauf `dataset` (`null` retire un champ, un tableau remplace le
+    /// tableau entier).
+    SetChartOption {
+        slide: String,
+        element: String,
+        patch: Value,
+    },
+    /// Modifie les données d'un graphique (`dataset.source`, ligne 0 = en-têtes).
+    SetChartData {
+        slide: String,
+        element: String,
+        change: ChartDataOp,
     },
     /// Ajoute un élément dans une zone de la slide ou dans un groupe.
     AddElement {
@@ -224,6 +241,47 @@ fn set_or_remove_map(map: &mut BTreeMap<String, Value>, key: &str, value: Value)
 
 // ---- Application ----------------------------------------------------------------
 
+/// Refuse un élément (ou un de ses enfants) dont le graphique est incohérent.
+fn check_charts(element: &Element) -> Result<(), OpError> {
+    for l in Walk::over(std::slice::from_ref(element), Zone::Blocks) {
+        if let ElementBody::Chart { option } = &l.element.body {
+            normalize(option, ChartLabels::english()).context(ChartSnafu { element: &l.element.id })?;
+        }
+    }
+    Ok(())
+}
+
+/// `set_chart_data` sur l'élément `e`. Si les séries suivent un changement
+/// de colonnes, l'inverse rend l'élément entier : annuler restaure alors les
+/// séries retirées telles quelles.
+fn set_chart_data(e: &mut Element, slide: String, change: ChartDataOp) -> Result<Op, OpError> {
+    let element = e.id.clone();
+    let before = e.clone();
+    let ElementBody::Chart { option } = &mut e.body else {
+        return Err(NotAChartSnafu { element }.build().into());
+    };
+    let applied = (|| -> Result<ChartDataOp, OpError> {
+        let dataset = option
+            .dataset
+            .as_mut()
+            .context(InvalidValueSnafu { field: "dataset", reason: "the chart has no dataset" })?;
+        let inverse = change.apply(dataset).context(ChartSnafu { element: &element })?;
+        sync_series_with_columns(option);
+        normalize(option, ChartLabels::english()).context(ChartSnafu { element: &element })?;
+        Ok(inverse)
+    })();
+    let series_changed = matches!(&before.body, ElementBody::Chart { option: old } if old.series != option.series);
+    match applied {
+        Err(err) => {
+            // Le deck reste intact.
+            *e = before;
+            Err(err)
+        }
+        Ok(_) if series_changed => Ok(Op::ReplaceElement { slide, element: before }),
+        Ok(inverse) => Ok(Op::SetChartData { slide, element, change: inverse }),
+    }
+}
+
 fn slide_mut<'a>(deck: &'a mut Deck, id: &str) -> Result<&'a mut Slide, OpError> {
     Ok(deck.slide_mut(id).context(SlideNotFoundSnafu { slide: id })?)
 }
@@ -263,6 +321,21 @@ impl Op {
                 };
                 let old = std::mem::replace(target, text);
                 Ok(Op::SetText { slide, element, text: old })
+            }
+            Op::SetChartOption { slide, element, patch } => {
+                let s = slide_mut(deck, &slide)?;
+                let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
+                let ElementBody::Chart { option } = &mut e.body else {
+                    return Err(NotAChartSnafu { element }.build().into());
+                };
+                let (next, inverse) = apply_option_patch(option, &patch).context(ChartSnafu { element: &element })?;
+                *option = next;
+                Ok(Op::SetChartOption { slide, element, patch: inverse })
+            }
+            Op::SetChartData { slide, element, change } => {
+                let s = slide_mut(deck, &slide)?;
+                let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
+                set_chart_data(e, slide, change)
             }
             Op::SetStyle { slide, element, style } => {
                 let s = slide_mut(deck, &slide)?;
@@ -312,6 +385,7 @@ impl Op {
                 Ok(Op::SetGrid { slide, grid: old })
             }
             Op::ReplaceElement { slide, element } => {
+                check_charts(&element)?;
                 let s = slide_mut(deck, &slide)?;
                 // Les enfants d'un groupe remplacé ne doivent pas entrer en collision.
                 let old = s.locate(&element.id).ok_or_else(|| not_found(&slide, &element.id))?.element;
@@ -329,6 +403,7 @@ impl Op {
                 Ok(Op::ReplaceElement { slide, element: old })
             }
             Op::AddElement { slide, zone, parent, index, element } => {
+                check_charts(&element)?;
                 let s = slide_mut(deck, &slide)?;
                 let existing: HashSet<&str> = s.element_ids().collect();
                 if let Some(dup) =
