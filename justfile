@@ -14,9 +14,10 @@ default:
 install:
     cd ui && bun install
 
-# Lance l'app de bureau en développement (Vite + Tauri)
+# Lance l'app de bureau en développement (Vite + Tauri), relancée à chaque modification :
+# interface (HMR), crates Rust et bibliothèque Typst embarquée
 dev: install
-    cargo tauri dev
+    cargo tauri dev --additional-watch-folders "{{justfile_directory()}}/typst/slider"
 
 # Construit l'app (.app / .dmg sur macOS)
 build: install
