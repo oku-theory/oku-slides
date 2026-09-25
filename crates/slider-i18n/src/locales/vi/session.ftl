@@ -1,0 +1,28 @@
+session-read = Không thể đọc { $path }
+session-write = Không thể ghi { $path }
+session-not-echo = PDF này không được tạo bằng Écho: không thể chỉnh sửa
+session-invalid-deck = JSON bản trình bày không hợp lệ
+session-invalid-template-set = Bộ mẫu không hợp lệ: { $path }
+session-not-rendered = Bản trình bày chưa được kết xuất
+session-no-path = Chưa có tệp: hãy chọn nơi lưu
+session-no-slide = Không tìm thấy trang chiếu: { $id }
+session-no-template-set = Không tìm thấy bộ mẫu: { $id }
+session-builtin-template-set = Không thể xóa bộ mẫu có sẵn
+session-no-templates-dir = Không có thư mục cho mẫu của bạn
+session-editing-templates = Hãy hoàn tất chỉnh sửa mẫu trước
+session-not-editing-templates = Không có bộ mẫu nào đang được chỉnh sửa
+session-response = Không thể ghi phản hồi
+session-busy = Phiên làm việc không khả dụng
+session-bad-request = Yêu cầu không hợp lệ: { $reason }
+
+deck-untitled = Không có tiêu đề
+deck-new-title = Bản trình bày mới
+deck-new-slide-title = Tiêu đề trang chiếu
+deck-new-slide-text = Hãy nói điều bạn muốn trình bày.
+templates-default-name = Mẫu của tôi
+templates-copy-name = { $name } (bản sao)
+template-default-name = Mẫu
+notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau Écho: nguồn có thể không còn khớp với nội dung trình đọc PDF hiển thị.
+
+log-document-opened = Đã mở tài liệu
+log-document-saved = Đã lưu tài liệu

@@ -1,0 +1,28 @@
+op-slide-not-found = Nie znaleziono slajdu: { $subject }
+op-element-not-found = Nie znaleziono elementu: { $subject }
+op-duplicate-id = Identyfikator jest już używany: { $subject }
+op-index-out-of-range = Pozycja poza zakresem
+op-not-a-group = { $subject } nie jest grupą
+op-no-text = { $subject } nie zawiera tekstu
+op-invalid-value = Nieprawidłowa wartość dla { $subject }
+op-inconsistent = Historia nie odpowiada już prezentacji
+transaction-refused = Operacja { $index } odrzucona: { $reason }
+
+sources-unreadable = Nieczytelne źródła
+sources-not-sources = To nie jest archiwum źródeł Écho
+sources-unsupported-version = Te źródła zostały zapisane nowszą wersją Écho
+sources-bad-name = Odrzucona nazwa pliku w źródłach
+sources-missing-deck = W źródłach brakuje prezentacji
+
+issue-empty-slide-id = pusty identyfikator slajdu
+issue-duplicate-slide-id = zduplikowany identyfikator slajdu
+issue-chapter-needs-title = rozdział wymaga tytułu
+issue-blocks-and-elements = slajd ma albo bloki, albo swobodne elementy, nie oba naraz
+issue-duplicate-element-id = zduplikowany identyfikator elementu
+issue-empty-element-id = pusty identyfikator
+issue-cell-outside-grid = komórka poza siatką
+issue-empty-frame = ramka o zerowym rozmiarze
+issue-free-without-frame = swobodny element bez ramki
+issue-missing-asset = brakujący zasób: { $asset }
+op-not-a-chart = { $subject } nie jest wykresem
+op-invalid-chart = Wykres { $subject }: { $reason }

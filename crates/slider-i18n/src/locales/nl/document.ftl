@@ -1,0 +1,16 @@
+pdf-unreadable = Onleesbare pdf
+pdf-unsupported-version = Deze pdf is gemaakt met een nieuwere versie van Écho
+pdf-corrupted = De bronnen in deze pdf zijn beschadigd
+pdf-write = De pdf kon niet worden geschreven
+
+render-compile = De presentatie kon niet worden weergegeven
+render-pdf = De pdf-export is mislukt
+render-no-page = Deze pagina bestaat niet
+render-setup = De renderer kon niet starten
+render-missing-image = ontbrekende afbeelding
+diagnostic-error = fout
+diagnostic-warning = waarschuwing
+diagnostic = { $level } ({ $place }): { $message }
+diagnostic-unplaced = { $level }: { $message }
+diagnostic-hint = tip: { $hint }
+render-chart-failed = grafiek kon niet worden getekend

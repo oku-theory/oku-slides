@@ -1,0 +1,28 @@
+op-slide-not-found = Diapositiva non trovata: { $subject }
+op-element-not-found = Elemento non trovato: { $subject }
+op-duplicate-id = Identificatore già in uso: { $subject }
+op-index-out-of-range = Posizione fuori intervallo
+op-not-a-group = { $subject } non è un gruppo
+op-no-text = { $subject } non ha testo
+op-invalid-value = Valore non valido per { $subject }
+op-inconsistent = La cronologia non corrisponde più alla presentazione
+transaction-refused = Operazione { $index } rifiutata: { $reason }
+
+sources-unreadable = Sorgenti illeggibili
+sources-not-sources = Questo non è un archivio di sorgenti di Écho
+sources-unsupported-version = Queste sorgenti sono state scritte da una versione più recente di Écho
+sources-bad-name = Nome di file rifiutato nelle sorgenti
+sources-missing-deck = Nelle sorgenti manca la presentazione
+
+issue-empty-slide-id = identificatore di diapositiva vuoto
+issue-duplicate-slide-id = identificatore di diapositiva duplicato
+issue-chapter-needs-title = un capitolo richiede un titolo
+issue-blocks-and-elements = una diapositiva ha blocchi o elementi liberi, non entrambi
+issue-duplicate-element-id = identificatore di elemento duplicato
+issue-empty-element-id = identificatore vuoto
+issue-cell-outside-grid = cella fuori dalla griglia
+issue-empty-frame = riquadro di dimensione zero
+issue-free-without-frame = elemento libero senza riquadro
+issue-missing-asset = risorsa mancante: { $asset }
+op-not-a-chart = { $subject } non è un grafico
+op-invalid-chart = Grafico { $subject }: { $reason }

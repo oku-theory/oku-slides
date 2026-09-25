@@ -1,0 +1,28 @@
+session-read = { $path } を読み込めません
+session-write = { $path } に書き込めません
+session-not-echo = この PDF は Écho で作成されたものではないため、編集できません
+session-invalid-deck = プレゼンテーションの JSON が無効です
+session-invalid-template-set = テンプレートセットが無効です：{ $path }
+session-not-rendered = プレゼンテーションはまだレンダリングされていません
+session-no-path = まだファイルがありません：保存先を選択してください
+session-no-slide = スライドが見つかりません：{ $id }
+session-no-template-set = テンプレートセットが見つかりません：{ $id }
+session-builtin-template-set = 組み込みのテンプレートセットは削除できません
+session-no-templates-dir = テンプレート用のフォルダがありません
+session-editing-templates = 先にテンプレートの編集を終了してください
+session-not-editing-templates = 編集中のテンプレートセットはありません
+session-response = 応答を書き込めませんでした
+session-busy = セッションを利用できません
+session-bad-request = 無効なリクエスト：{ $reason }
+
+deck-untitled = 無題
+deck-new-title = 新規プレゼンテーション
+deck-new-slide-title = スライドのタイトル
+deck-new-slide-text = 伝えたいことを書きましょう。
+templates-default-name = マイテンプレート
+templates-copy-name = { $name }（コピー）
+template-default-name = テンプレート
+notice-modified-elsewhere = この PDF は Écho の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
+
+log-document-opened = ドキュメントを開きました
+log-document-saved = ドキュメントを保存しました

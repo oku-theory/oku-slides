@@ -39,7 +39,28 @@ macro_rules! locale {
 }
 
 /// Langues livrées, la référence d'abord.
-const LOCALES: &[(&str, &[&str])] = &[locale!("en"), locale!("fr")];
+const LOCALES: &[(&str, &[&str])] = &[
+    locale!("en"),
+    locale!("fr"),
+    locale!("zh-Hans"),
+    locale!("zh-Hant"),
+    locale!("es"),
+    locale!("ar"),
+    locale!("hi"),
+    locale!("bn"),
+    locale!("pt"),
+    locale!("ru"),
+    locale!("ja"),
+    locale!("de"),
+    locale!("ko"),
+    locale!("it"),
+    locale!("tr"),
+    locale!("vi"),
+    locale!("pl"),
+    locale!("uk"),
+    locale!("nl"),
+    locale!("th"),
+];
 
 /// Langue de référence : chaque message y existe.
 pub const REFERENCE: &str = "en";
@@ -148,10 +169,23 @@ impl Localizer {
     }
 }
 
-/// La langue livrée qui correspond à `tag` (`fr-FR` → `fr`).
+/// La langue livrée qui correspond à `tag` (`fr-FR` → `fr`, `zh-TW` → `zh-Hant`).
 fn supported(tag: &str) -> Option<&'static str> {
-    let language = tag.split(['-', '_']).next()?.to_ascii_lowercase();
-    LOCALES.iter().map(|(l, _)| *l).find(|l| *l == language)
+    let wanted = candidate(tag);
+    LOCALES.iter().map(|(l, _)| *l).find(|l| *l == wanted)
+}
+
+/// Code de langue cherché pour `tag` : la langue seule, sauf le chinois,
+/// livré en écriture simplifiée et traditionnelle (Taïwan, Hong Kong, Macao).
+fn candidate(tag: &str) -> String {
+    let lower = tag.replace('_', "-").to_ascii_lowercase();
+    let mut parts = lower.split('-');
+    let language = parts.next().unwrap_or_default();
+    if language != "zh" {
+        return language.to_owned();
+    }
+    let traditional = parts.any(|p| matches!(p, "hant" | "tw" | "hk" | "mo"));
+    if traditional { "zh-Hant" } else { "zh-Hans" }.to_owned()
 }
 
 #[cfg(test)]

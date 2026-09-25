@@ -1,0 +1,28 @@
+op-slide-not-found = لم يُعثر على الشريحة: { $subject }
+op-element-not-found = لم يُعثر على العنصر: { $subject }
+op-duplicate-id = المعرّف مستخدم بالفعل: { $subject }
+op-index-out-of-range = الموضع خارج النطاق
+op-not-a-group = { $subject } ليس مجموعة
+op-no-text = { $subject } لا يحتوي على نص
+op-invalid-value = قيمة غير صالحة لـ { $subject }
+op-inconsistent = لم يعد السجل مطابقًا للعرض التقديمي
+transaction-refused = رُفضت العملية { $index }: { $reason }
+
+sources-unreadable = تعذّرت قراءة المصادر
+sources-not-sources = هذا ليس أرشيف مصادر Écho
+sources-unsupported-version = كُتبت هذه المصادر بإصدار أحدث من Écho
+sources-bad-name = اسم ملف مرفوض في المصادر
+sources-missing-deck = العرض التقديمي غير موجود في المصادر
+
+issue-empty-slide-id = معرّف شريحة فارغ
+issue-duplicate-slide-id = معرّف شريحة مكرر
+issue-chapter-needs-title = يحتاج الفصل إلى عنوان
+issue-blocks-and-elements = تحتوي الشريحة إما على كتل أو على عناصر حرة، وليس كليهما
+issue-duplicate-element-id = معرّف عنصر مكرر
+issue-empty-element-id = معرّف فارغ
+issue-cell-outside-grid = خلية خارج الشبكة
+issue-empty-frame = إطار بحجم صفري
+issue-free-without-frame = عنصر حر بلا إطار
+issue-missing-asset = مورد مفقود: { $asset }
+op-not-a-chart = { $subject } ليس مخططًا
+op-invalid-chart = المخطط { $subject }: { $reason }

@@ -1,0 +1,28 @@
+session-read = { $path } पढ़ा नहीं जा सकता
+session-write = { $path } लिखा नहीं जा सकता
+session-not-echo = यह PDF Écho से नहीं बनाया गया था: इसे संपादित नहीं किया जा सकता
+session-invalid-deck = प्रेज़ेंटेशन का JSON अमान्य है
+session-invalid-template-set = अमान्य टेम्पलेट सेट: { $path }
+session-not-rendered = प्रेज़ेंटेशन अभी रेंडर नहीं हुआ है
+session-no-path = अभी कोई फ़ाइल नहीं: सहेजने की जगह चुनें
+session-no-slide = स्लाइड नहीं मिली: { $id }
+session-no-template-set = टेम्पलेट सेट नहीं मिला: { $id }
+session-builtin-template-set = बिल्ट-इन टेम्पलेट सेट हटाया नहीं जा सकता
+session-no-templates-dir = आपके टेम्पलेट के लिए कोई फ़ोल्डर नहीं
+session-editing-templates = पहले टेम्पलेट का संपादन पूरा करें
+session-not-editing-templates = कोई टेम्पलेट सेट संपादित नहीं हो रहा है
+session-response = उत्तर लिखा नहीं जा सका
+session-busy = सत्र उपलब्ध नहीं है
+session-bad-request = अमान्य अनुरोध: { $reason }
+
+deck-untitled = बिना शीर्षक
+deck-new-title = नया प्रेज़ेंटेशन
+deck-new-slide-title = स्लाइड का शीर्षक
+deck-new-slide-text = बताइए कि आप क्या दिखाना चाहते हैं।
+templates-default-name = मेरे टेम्पलेट
+templates-copy-name = { $name } (कॉपी)
+template-default-name = टेम्पलेट
+notice-modified-elsewhere = Écho के बाद इस PDF को किसी अन्य टूल ने बदला है: हो सकता है इसके स्रोत PDF रीडर में दिखने वाली सामग्री से मेल न खाएँ।
+
+log-document-opened = दस्तावेज़ खोला गया
+log-document-saved = दस्तावेज़ सहेजा गया

@@ -1,0 +1,28 @@
+op-slide-not-found = Слайд не найден: { $subject }
+op-element-not-found = Элемент не найден: { $subject }
+op-duplicate-id = Идентификатор уже используется: { $subject }
+op-index-out-of-range = Позиция вне допустимого диапазона
+op-not-a-group = { $subject } не является группой
+op-no-text = У { $subject } нет текста
+op-invalid-value = Недопустимое значение для { $subject }
+op-inconsistent = История больше не соответствует презентации
+transaction-refused = Операция { $index } отклонена: { $reason }
+
+sources-unreadable = Исходники не читаются
+sources-not-sources = Это не архив исходников Écho
+sources-unsupported-version = Эти исходники созданы более новой версией Écho
+sources-bad-name = Недопустимое имя файла в исходниках
+sources-missing-deck = В исходниках нет презентации
+
+issue-empty-slide-id = пустой идентификатор слайда
+issue-duplicate-slide-id = повторяющийся идентификатор слайда
+issue-chapter-needs-title = у главы должен быть заголовок
+issue-blocks-and-elements = на слайде либо блоки, либо свободные элементы, но не то и другое
+issue-duplicate-element-id = повторяющийся идентификатор элемента
+issue-empty-element-id = пустой идентификатор
+issue-cell-outside-grid = ячейка вне сетки
+issue-empty-frame = рамка нулевого размера
+issue-free-without-frame = свободный элемент без рамки
+issue-missing-asset = отсутствует ресурс: { $asset }
+op-not-a-chart = { $subject } не является диаграммой
+op-invalid-chart = Диаграмма { $subject }: { $reason }

@@ -72,3 +72,54 @@ fn every_locale_ends_with_its_ui_messages() {
             .is_true();
     }
 }
+
+#[test]
+fn candidate_maps_chinese_regions_and_scripts() {
+    for (tag, expected) in [
+        ("zh-CN", "zh-Hans"),
+        ("zh_SG", "zh-Hans"),
+        ("zh", "zh-Hans"),
+        ("zh-Hans-CN", "zh-Hans"),
+        ("zh-TW", "zh-Hant"),
+        ("zh-HK", "zh-Hant"),
+        ("zh_MO", "zh-Hant"),
+        ("zh-Hant", "zh-Hant"),
+        ("pt-BR", "pt"),
+        ("FR-ca", "fr"),
+    ] {
+        asserting(tag).that(&candidate(tag)).is_equal_to(expected.to_owned());
+    }
+}
+
+#[test]
+fn twenty_languages_are_shipped_and_selectable() {
+    assert_that!(LOCALES.len()).is_equal_to(20);
+    for (locale, _) in LOCALES {
+        asserting(locale).that(&Localizer::new(Some(locale)).locale()).is_equal_to(*locale);
+    }
+    assert_that!(Localizer::new(Some("zh-TW")).tr("deck-new-title")).is_not_equal_to(english().tr("deck-new-title"));
+}
+
+#[test]
+fn every_locale_formats_every_message_without_errors() {
+    for (locale, _) in LOCALES {
+        let l = Localizer::new(Some(locale));
+        for id in keys(REFERENCE) {
+            let mut errors = Vec::new();
+            if let Some(pattern) = l.bundle.get_message(&id).and_then(|m| m.value()) {
+                // Sans paramètres : seuls comptent les erreurs de structure (références, sélecteurs).
+                l.bundle.format_pattern(pattern, None, &mut errors);
+            }
+            let structural: Vec<_> = errors
+                .iter()
+                .filter(|e| {
+                    !matches!(
+                        e,
+                        fluent_bundle::FluentError::ResolverError(fluent_bundle::resolver::ResolverError::Reference(_))
+                    )
+                })
+                .collect();
+            asserting(&format!("{locale} : {id}")).that(&structural.is_empty()).is_true();
+        }
+    }
+}

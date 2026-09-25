@@ -1,0 +1,16 @@
+stt-microphone-missing = Nessun microfono trovato
+stt-microphone-unusable = Impossibile usare il microfono
+stt-microphone-silent = Il microfono non risponde
+stt-audio-format = Formato audio non supportato: { $format }
+stt-audio-file = File audio illeggibile
+stt-model = Impossibile leggere il modello di dettatura
+stt-transcription = Trascrizione non riuscita
+stt-download = Impossibile scaricare il modello
+stt-download-incomplete = Download incompleto: { $got } byte su { $expected }
+stt-cancelled = Download annullato
+
+stt-model-turbo = Large v3 Turbo (multilingue, 818 MB)
+stt-model-large = Large v3 (multilingue, 3,1 GB)
+stt-model-base = Base (multilingue, 148 MB)
+
+log-model-downloaded = Modello di dettatura scaricato

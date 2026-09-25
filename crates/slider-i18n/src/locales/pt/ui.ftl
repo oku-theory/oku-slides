@@ -1,0 +1,222 @@
+# Interface do app (React). Carregada por ui/src/i18n.ts pela solicitação “messages”.
+ui-loading = Carregando…
+
+## Documento
+
+ui-brand = Écho
+ui-brand-templates = Écho · modelos
+ui-title-rename = Renomear a apresentação
+ui-title-field = Título da apresentação
+ui-status-unsaved = alterações não salvas
+ui-status-saved = salvo
+ui-status-never-saved = ainda não salvo
+ui-status-builtin = integrado: salvar cria uma cópia
+ui-caption-templates = { $count ->
+    [one] { $count } modelo
+   *[other] { $count } modelos
+} · { $status }
+ui-caption-slides = { $count ->
+    [one] { $count } slide
+   *[other] { $count } slides
+} · { $status }
+ui-template-default-name = Modelo
+ui-template-variant-name = { $name } (variante)
+ui-confirm-quit-templates = Sair sem salvar os modelos alterados?
+
+## Notificações
+
+ui-toast-saved = Sua apresentação foi salva
+ui-toast-templates-saved = Modelos salvos: { $name }
+ui-toast-select-zone = Selecione uma área para posicionar: “{ $text }”
+
+## Barra de ferramentas
+
+ui-toolbar-undo = Desfazer
+ui-toolbar-undo-label = Desfazer: { $label }
+ui-toolbar-redo = Refazer
+ui-toolbar-redo-label = Refazer: { $label }
+ui-toolbar-grid-hide = Ocultar a grade
+ui-toolbar-grid-show = Mostrar a grade
+ui-toolbar-grid-hide-title = Ocultar a grade (⌘')
+ui-toolbar-grid-show-title = Mostrar a grade (⌘')
+ui-toolbar-theme = Tema
+ui-toolbar-theme-default = Padrão
+ui-toolbar-save-copy = Salvar uma cópia
+ui-toolbar-save = Salvar
+ui-toolbar-finish = Concluir
+ui-toolbar-templates = Modelos
+ui-toolbar-templates-title = Criar e editar modelos de slide
+ui-toolbar-open = Abrir
+
+## Rótulos de desfazer
+
+ui-undo-add = { $kind ->
+    [card] Adicionar um cartão
+    [shape] Adicionar uma forma
+    [chart] Adicionar um gráfico
+   *[text] Adicionar um texto
+}
+ui-undo-new-template = Novo modelo: { $name }
+ui-undo-new-slide = Novo slide: { $name }
+ui-undo-grid = Grade { $columns } × { $rows }
+ui-undo-templates = Modelos: { $name }
+ui-undo-move-template = Mover o modelo
+ui-undo-move-slide = Mover o slide
+ui-undo-remove-slide = Excluir o slide
+ui-undo-remove = Excluir
+ui-undo-place-on-grid = Posicionar na grade
+ui-undo-move-on-grid = Mover na grade
+ui-undo-resize-on-grid = Redimensionar na grade
+ui-undo-change-anchor = Alterar a ancoragem
+ui-undo-move = Mover
+ui-undo-resize = Redimensionar
+ui-undo-edit-text = Editar o texto
+ui-undo-dictation = Ditado
+ui-undo-rename-set = Renomear o conjunto
+ui-undo-rename-deck = Renomear a apresentação
+ui-undo-theme = Alterar o tema
+ui-undo-rename-template = Renomear o modelo
+ui-undo-describe-template = Descrever o modelo
+ui-undo-chart-kind = Alterar o tipo de gráfico
+ui-undo-chart-data = Editar os dados
+
+## Novos elementos
+
+ui-new-text = Novo texto
+ui-new-card-title = Título do cartão
+ui-new-card-detail = Detalhe
+
+## Pilha de slides
+
+ui-pile-slides = Slides
+ui-pile-templates = Modelos
+ui-pile-add-slide = + Novo slide
+ui-pile-add-template = + Novo modelo
+ui-pile-drag-hint = Arraste para mover · ⌥↑ ⌥↓
+ui-slide-alt = Slide { $n }
+
+## Palco
+
+ui-stage-rendering = Renderizando…
+ui-stage-elements = Elementos do slide
+ui-stage-edit-text = Editar o texto
+ui-stage-hint-field = Enter para confirmar · Esc para cancelar
+ui-stage-hint-block = ⌘ Enter para confirmar · uma linha por parágrafo, “- ” para um marcador
+ui-field = { $kind ->
+    [title] Título
+    [subtitle] Subtítulo
+    [kicker] Chamada
+    [text] Texto
+   *[other] { $kind }
+}
+ui-element-kind = { $kind ->
+    [text] Texto
+    [card] Cartão
+    [image] Imagem
+    [shape] Forma
+    [group] Grupo
+   *[other] { $kind }
+}
+ui-grid-cell = col. { $cols } · linha { $rows }
+
+## Notas do slide
+
+ui-notes = Ferramentas do slide
+ui-note-template = Este modelo
+ui-note-template-name = Nome
+ui-note-template-description = Descrição
+ui-note-add-label = Adicionar ao slide
+ui-note-add = Adicionar
+ui-add-kind = { $kind ->
+    [card] Cartão
+    [shape] Forma
+    [chart] Gráfico
+   *[text] Texto
+}
+ui-note-grid-label = Grade do modelo
+ui-note-grid = Grade
+ui-note-grid-columns = Colunas
+ui-note-grid-rows = Linhas
+ui-stepper-less = { $label }: um a menos
+ui-stepper-more = { $label }: um a mais
+ui-note-remove-template = Excluir o modelo
+ui-note-remove-slide = Excluir o slide
+ui-note-remove-hint = Slide { $n } · desfaça com ⌘Z
+ui-note-tip = Dica
+ui-note-tip-text = ⌘D para ditar. ⌘' para mostrar a grade. Clique duas vezes para editar um texto.
+
+## Ditado
+
+ui-dictation = Ditado
+ui-dictation-start = Ditar
+ui-dictation-start-title = Ditar (⌘D)
+ui-dictation-finish = Concluir o ditado
+ui-dictation-finish-title = Concluir (⌘D)
+ui-dictation-cancel = Cancelar
+ui-dictation-preparing = Preparando o ditado…
+ui-dictation-heard-nothing = Nada foi ouvido: fale um pouco mais perto do microfone
+ui-dictation-to-cursor = no cursor
+ui-dictation-to-field = substituir o { $field }
+ui-dictation-to-block = depois do bloco selecionado
+ui-dictation-new-block = novo bloco de texto
+ui-dictation-select-zone = selecione uma área
+ui-dictation-downloading = Baixando o modelo { $name }
+ui-dictation-download-progress = { $percent }% · { $received } de { $total } · só uma vez
+ui-dictation-listening = Ouvindo · { $time }
+ui-dictation-transcribing = Transcrevendo a última frase…
+ui-dictation-stop-in = Parando em { $duration }
+ui-dictation-speak = Fale, o texto aparece aqui…
+ui-dictation-auto-stop = para após { $duration } de silêncio
+ui-dictation-to-download = { $size } para baixar
+ui-dictation-settings = Configurações do ditado
+ui-dictation-model-title = Modelo de reconhecimento
+ui-dictation-model-intro = Whisper, neste computador (CTranslate2). Todos os modelos entendem vários idiomas.
+ui-dictation-note-turbo = Recomendado, rápido e preciso
+ui-dictation-note-large = O mais preciso, mais lento
+ui-dictation-note-base = Leve, para máquinas modestas
+ui-dictation-installed = instalado
+ui-dictation-not-installed = para baixar
+ui-dictation-language = Idioma falado
+ui-dictation-language-auto = Detecção automática
+ui-dictation-auto-stop-label = Parar sozinho após um silêncio de
+ui-dictation-silence = Duração do silêncio
+ui-dictation-phrases-note = Apenas os trechos falados são transcritos, frase por frase, enquanto você fala.
+ui-dictation-download-now = Baixar agora ({ $size })
+ui-seconds = { NUMBER($value, maximumFractionDigits: 1) } s
+ui-size-gb = { NUMBER($value, maximumFractionDigits: 1) } GB
+ui-size-mb = { $value } MB
+
+## Seletor de modelos
+
+ui-picker-new-slide = Novo slide
+ui-picker-new-template = Novo modelo, baseado em…
+ui-picker-set = Modelos
+ui-picker-set-mine = { $name } · meus
+ui-picker-keys = ← → para navegar · Enter para adicionar · Esc para fechar
+ui-picker-close = Fechar
+ui-picker-previous = Modelo anterior
+ui-picker-next = Próximo modelo
+ui-picker-list = Modelos de slide
+
+## Gráfico
+
+ui-chart-panel = Gráfico
+ui-chart-kinds = Tipo de gráfico
+ui-chart-kind = { $kind ->
+    [line] Linhas
+    [pie] Pizza
+   *[bar] Barras
+}
+ui-chart-no-data = Este gráfico não tem tabela de dados.
+ui-chart-column-name = Nome da coluna { $col }
+ui-chart-remove-column = Excluir a coluna
+ui-chart-cell = Linha { $row }, coluna { $col }
+ui-chart-remove-row = Excluir a linha
+ui-chart-add-row = + Linha
+ui-chart-add-column = + Coluna
+ui-chart-series = Série { $n }
+
+## Arquivos
+
+ui-file-open-prompt = Caminho do arquivo a abrir (.echo.pdf ou .json)
+ui-file-save-prompt = Salvar como (caminho completo)
