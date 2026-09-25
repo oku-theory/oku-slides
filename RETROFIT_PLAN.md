@@ -24,33 +24,29 @@ Audit : `180ee21`. Corrections : étape par étape, chaque commit vérifié
 | 10. Configuration | ! PARTIEL | ✓ `config` : défauts embarqués, `config.toml`, `ECHO_<SECTION>__<CLÉ>` | `20b886b` |
 | 11. Observabilité | ✗ ÉCHEC | ✓ `tracing` (INFO fixe en production), `color-eyre` ; la CLI écrit ses résultats sans `println!` | `09f12c2`, `3255bbf` |
 
-## Restes (hors de portée de ce retrofit, à planifier)
+## Restes traités (projet Oku `slider`, parent t-1)
 
-- **Tâches Oku** : le plan n'est rattaché à aucune tâche parente (outils de
-  tâches absents de la session) ; les sous-tâches restent à créer.
-- **Langues** : 18 langues cibles sur 20 restent à traduire (une tâche par
-  langue) ; l'interface React n'est pas traduite (d'où `locale = "fr"` par
-  défaut) ; les libellés par défaut des graphiques (« Série 1 »,
-  « Catégorie »…) dépendent de l'intégration de `slider-chart`, en cours.
-- **Couverture** : `slider-stt/src/whisper.rs` (~20 %) demande un vrai
-  modèle Whisper ; `slider-cli/src/serve.rs` est testé mais le processus
-  tué n'écrit pas son profil de couverture.
-- **Stockage** : CTranslate2 lit les poids du modèle par chemin (code
-  natif, hors OpenDAL) ; `Storage::local` suppose des chemins Unix (racine
-  `/`), à revoir pour Windows.
+Tous les restes du retrofit sont faits, chacun avec sa tâche et ses tests :
 
----|---|---|---|
-| 1. Structure & outillage | ! PARTIEL | 1 | 2 |
-| 2. Erreurs (Snafu) | ✗ ÉCHEC | 3 | 1 |
-| 3. Clippy / rustfmt | ! PARTIEL | 1 | 1 |
-| 4. Dépendances | ✗ ÉCHEC | 3 | 1 |
-| 5. Async (Tokio) | — N/A | 0 | 1 |
-| 6. Tests | ✗ ÉCHEC | 3 | 1 |
-| 7. Sécurité | ! PARTIEL | 1 | 1 |
-| 8. i18n (Fluent) | ✗ ÉCHEC | 1 | 0 |
-| 9. Stockage (OpenDAL) | ✗ ÉCHEC | 1 | 0 |
-| 10. Configuration | ! PARTIEL | 0 | 2 |
-| 11. Observabilité | ✗ ÉCHEC | 1 | 0 |
+- **t-13 Stockage multi-racine** : un opérateur OpenDAL par racine de
+  chemin (`/`, `C:\\`, partages UNC), clés séparées par `/`.
+- **t-14 Arrêt propre de `slider serve`** : SIGINT/SIGTERM/SIGHUP, code 0.
+- **t-15 Whisper sans modèle** : logique extraite en fonctions pures,
+  testées ; deux paniques sur `preprocessor_config.json` corrigées ; un
+  test opt-in (`ECHO_TEST_WHISPER_MODEL`) couvre le vrai modèle.
+- **t-17 Graphiques dans l'app** (t-37 à t-41) : libellés localisés,
+  élément `chart` et ops inversibles, rendu Typst (SVG par charts-rs, repli
+  sûr : régression `issue_0002`), forme canonique en session, bouton et
+  grille dans l'UI.
+- **t-16 Interface traduite** (t-42 à t-45) : `ui.ftl`, moteur Fluent côté
+  React, 152 messages, langue du système par défaut.
+- **t-18 Langues** (t-19 à t-36) : 20 langues livrées ; parité des clés,
+  syntaxe et formatage vérifiés par test pour chacune.
+
+Limites connues :
+- CTranslate2 lit les poids du modèle par chemin (code natif, hors OpenDAL).
+- L'arabe est traduit mais l'interface reste disposée de gauche à droite.
+- Les traductions ont été produites sans relecture native.
 
 ---
 
