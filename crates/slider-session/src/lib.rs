@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
+use slider_chart::ChartLabels;
 use slider_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
 pub use slider_i18n::{Localize, Localizer};
 pub use slider_platform::Platform;
@@ -20,6 +21,7 @@ pub use slider_render::Fonts;
 use slider_render::{Compiled, Renderer};
 
 mod appearance;
+mod charts;
 mod error;
 mod files;
 pub mod templates;
@@ -127,6 +129,8 @@ pub struct Session {
     library: Library,
     storage: Storage,
     localizer: Arc<Localizer>,
+    /// En-têtes des graphiques reçus, dans la langue de l'utilisateur.
+    chart_labels: ChartLabels,
     /// Transactions gardées pour annuler, dans chaque document.
     history_limit: usize,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
@@ -218,6 +222,7 @@ impl Session {
             history_limit: settings.history.limit,
             renderer: new_renderer(app_fonts.clone(), l)?,
             localizer: l.clone(),
+            chart_labels: ChartLabels::new(l),
             render_fonts: app_fonts.clone(),
             appearance: Appearance::default(),
             template_renderer: None,
@@ -408,7 +413,10 @@ impl Session {
     }
 
     /// Charge un deck (déjà lu) dans la session.
-    pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+    /// Charge un document ; ses graphiques sont mis sous forme canonique,
+    /// pour que la grille puisse éditer leurs données.
+    pub fn load(&mut self, mut sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+        charts::canonicalize_deck(&mut sources.deck, &self.chart_labels);
         if sources.fonts != self.doc.sources.fonts {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
@@ -469,7 +477,10 @@ impl Session {
     }
 
     /// Applique une transaction ; si le rendu échoue ensuite, elle est annulée.
-    pub fn apply(&mut self, label: &str, ops: Vec<Op>) -> Result<()> {
+    /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
+    /// dans `dataset`, en-têtes traduits).
+    pub fn apply(&mut self, label: &str, mut ops: Vec<Op>) -> Result<()> {
+        charts::canonicalize_charts(&mut ops, &self.chart_labels);
         let doc = &mut self.doc;
         doc.history.commit(&mut doc.sources.deck, label, ops).context(OpSnafu)?;
         if let Err(e) = self.rerender() {

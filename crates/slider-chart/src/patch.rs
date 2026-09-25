@@ -23,6 +23,11 @@ pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartO
     let mut after = before;
     json_patch::merge(&mut after, patch);
     let next: ChartOption = serde_json::from_value(after).context(InvalidOptionSnafu)?;
+    // Avec un `dataset`, les données en ligne le contrediraient : la grille
+    // éditerait l'un, le graphique montrerait l'autre.
+    let inline = next.series.iter().any(|s| s.data.is_some())
+        || [&next.x_axis, &next.y_axis].into_iter().flatten().any(|a| a.data.is_some());
+    ensure!(next.dataset.is_none() || !inline, InvalidPatchSnafu { reason: Message::new("chart-patch-inline-data") });
     normalize(&next, ChartLabels::english())?;
     Ok((next, inverse))
 }

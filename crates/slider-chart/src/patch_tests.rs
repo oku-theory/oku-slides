@@ -54,3 +54,11 @@ fn chart_errors_localize_in_the_user_language() {
     let unknown = apply_option_patch(&option(), &json!({ "tooltip": {} })).unwrap_err();
     assert_that!(unknown.localize(&fr)).starts_with("options invalides : ");
 }
+
+#[test]
+fn apply_option_patch_inline_data_next_to_dataset_is_refused() {
+    for patch in [json!({ "series": [{ "type": "bar", "data": [1] }] }), json!({ "xAxis": { "data": ["a"] } })] {
+        let err = apply_option_patch(&option(), &patch).unwrap_err();
+        assert_that!(err.kind()).is_equal_to(crate::ChartErrorKind::InvalidOption);
+    }
+}

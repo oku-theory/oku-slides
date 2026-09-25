@@ -155,3 +155,46 @@ fn new_deck_is_written_in_the_user_language() {
     assert_that!(snap.title.as_deref()).is_equal_to(Some("Nouvelle présentation"));
     assert_that!(snap.slides[1].title.as_deref()).is_equal_to(Some("Titre de la slide"));
 }
+
+#[test]
+fn apply_inline_chart_stores_it_with_a_localized_dataset() {
+    let dir = workdir();
+    let mut s = session(&dir);
+    s.new_deck().unwrap();
+    let slide = s.snapshot().slides[1].id.to_string();
+    let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
+        "op": "add_element", "slide": slide, "zone": "blocks",
+        "element": { "id": "g", "kind": "chart", "option": {
+            "xAxis": { "type": "category", "data": ["1", "2"] },
+            "series": [{ "type": "bar", "data": [3, 5] }] } } }] });
+    request(&mut s, add).unwrap();
+    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    assert_that!(json).contains(r#"["Catégorie","Série 1"]"#);
+    // Annuler retire le graphique.
+    request(&mut s, serde_json::json!({ "cmd": "undo" })).unwrap();
+    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    assert_that!(json).does_not_contain("\"chart\"");
+    // Rétablir le rend sous sa forme canonique.
+    request(&mut s, serde_json::json!({ "cmd": "redo" })).unwrap();
+    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    assert_that!(json).contains(r#"["Catégorie","Série 1"]"#);
+}
+
+#[test]
+fn open_deck_with_inline_chart_makes_its_data_editable() {
+    let dir = workdir();
+    let file = dir.join("deck.json");
+    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "blocks": [{
+        "id": "g", "kind": "chart", "option": {
+            "xAxis": { "type": "category", "data": ["a", "b"] },
+            "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } }] }] });
+    std::fs::write(&file, deck.to_string()).unwrap();
+    let mut s = session(&dir);
+    s.open(&file).unwrap();
+    let edit = serde_json::json!({ "cmd": "apply", "label": "cellule", "ops": [{
+        "op": "set_chart_data", "slide": "s", "element": "g",
+        "change": { "op": "set_cell", "row": 1, "col": 1, "value": 7 } }] });
+    request(&mut s, edit).unwrap();
+    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": "s" })).unwrap();
+    assert_that!(json).contains(r#"["a",7.0]"#);
+}

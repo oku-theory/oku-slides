@@ -35,3 +35,4 @@ chart-default-value = Value
 chart-default-name = Name
 chart-default-axis = Axis
 chart-default-x = { $name } (x)
+chart-patch-inline-data = with a dataset, data must stay in the dataset: edit it with set_chart_data
