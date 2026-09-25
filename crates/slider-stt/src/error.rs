@@ -60,6 +60,8 @@ pub(crate) enum SttInner {
     ModelFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("invalid model settings"))]
     ModelSettings { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("invalid model settings: {field} must be positive"))]
+    ZeroSetting { field: &'static str, backtrace: Backtrace },
     #[snafu(display("invalid mel filters"))]
     MelFilters { source: ndarray::ShapeError, backtrace: Backtrace },
     #[snafu(display("transcription failed ({step})"))]
@@ -93,7 +95,9 @@ impl SttError {
             | UnsupportedFormat { .. }
             | MicrophoneTimeout { .. } => SttErrorKind::Microphone,
             AudioFile { .. } | Wav { .. } => SttErrorKind::AudioFile,
-            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | MelFilters { .. } => SttErrorKind::Model,
+            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | ZeroSetting { .. } | MelFilters { .. } => {
+                SttErrorKind::Model
+            }
             Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => {
                 SttErrorKind::Transcription
             }
@@ -114,7 +118,9 @@ impl Localize for SttError {
             MicrophoneTimeout { .. } => l.tr("stt-microphone-silent"),
             UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
             AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
-            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | MelFilters { .. } => l.tr("stt-model"),
+            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | ZeroSetting { .. } | MelFilters { .. } => {
+                l.tr("stt-model")
+            }
             Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => l.tr("stt-transcription"),
             Incomplete { got, expected, .. } => {
                 l.tr_with("stt-download-incomplete", &[("got", (*got).into()), ("expected", (*expected).into())])

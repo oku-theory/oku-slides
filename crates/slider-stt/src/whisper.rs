@@ -15,11 +15,11 @@ use mel_spec::stft::Spectrogram;
 use ndarray::{Array2, Array3, Axis, s, stack};
 use serde::Deserialize;
 use slider_platform::storage::Storage;
-use snafu::{OptionExt, ResultExt};
+use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::error::{
     FeaturesSnafu, MelFiltersSnafu, ModelFileSnafu, ModelLoadSnafu, ModelSettingsSnafu, NoLanguageSnafu,
-    NotContiguousSnafu, SttError, TranscribeSnafu, boxed,
+    NotContiguousSnafu, SttError, TranscribeSnafu, ZeroSettingSnafu, boxed,
 };
 
 /// Résultat d'une transcription.
@@ -39,6 +39,7 @@ pub struct Transcriber {
 }
 
 /// Réglages du spectrogramme (preprocessor_config.json).
+#[derive(Debug)]
 struct Preprocessor {
     feature_size: usize,
     hop_length: usize,
@@ -84,7 +85,7 @@ impl Transcriber {
         context: Option<&str>,
         quick: bool,
     ) -> Result<Transcript, SttError> {
-        let (mut features, chunks) = self.mel(audio)?;
+        let (mut features, chunks) = self.pre.mel(audio)?;
         if chunks == 0 {
             return Ok(Transcript::default());
         }
@@ -101,44 +102,24 @@ impl Transcriber {
                 let detected =
                     self.whisper.detect_language(&view).map_err(boxed).context(TranscribeSnafu { step: "language" })?;
                 let best = detected.into_iter().next().and_then(|v| v.into_iter().next()).context(NoLanguageSnafu)?;
-                best.language.trim_start_matches("<|").trim_end_matches("|>").to_owned()
+                language_code(&best.language).to_owned()
             }
         };
 
-        let mut prompt: Vec<String> = Vec::new();
-        if let Some(ctx) = context.map(str::trim).filter(|c| !c.is_empty()) {
-            let tokens = self
-                .tokenizer
-                .encode(&format!(" {ctx}"))
-                .map_err(boxed)
-                .context(TranscribeSnafu { step: "context" })?;
-            let keep = tokens.len().saturating_sub(MAX_PROMPT_TOKENS);
-            prompt.push("<|startofprev|>".into());
-            prompt.extend(tokens.into_iter().skip(keep));
-        }
-        prompt.extend([
-            "<|startoftranscript|>".into(),
-            format!("<|{lang}|>"),
-            "<|transcribe|>".into(),
-            "<|notimestamps|>".into(),
-        ]);
-
-        // Au plus ~12 jetons par seconde de parole : une boucle d'hallucination
-        // (« dududu… ») ne peut pas s'emballer.
-        let seconds = audio.len() as f32 / self.pre.sampling_rate as f32;
-        let budget = (16.0 + 12.0 * seconds) as usize;
-        let mut options = sys::WhisperOptions {
-            beam_size: if quick { 1 } else { 5 },
-            return_no_speech_prob: true,
-            max_length: (prompt.len() + budget).min(448),
-            ..Default::default()
+        let context = match context.map(str::trim).filter(|c| !c.is_empty()) {
+            Some(ctx) => Some(
+                self.tokenizer
+                    .encode(&format!(" {ctx}"))
+                    .map_err(boxed)
+                    .context(TranscribeSnafu { step: "context" })?,
+            ),
+            None => None,
         };
+        let prompt = build_prompt(context, &lang);
+        let mut options = decoding_options(prompt.len(), audio.len(), self.pre.sampling_rate, quick);
         let (mut text, mut no_speech) = self.run(&view, &prompt, chunks, &options)?;
         if repetitive(&text) {
-            // Nouvelle tentative qui interdit les répétitions.
-            options.repetition_penalty = 1.3;
-            options.no_repeat_ngram_size = 3;
-            options.beam_size = 1;
+            forbid_repetitions(&mut options);
             (text, no_speech) = self.run(&view, &prompt, chunks, &options)?;
             if repetitive(&text) {
                 text.clear();
@@ -164,39 +145,21 @@ impl Transcriber {
         for r in results {
             no_speech = no_speech.max(r.no_speech_prob);
             let Some(seq) = r.sequences.into_iter().next() else { continue };
-            let seq: Vec<String> = seq.into_iter().filter(|t| !(t.starts_with("<|") && t.ends_with("|>"))).collect();
-            text.push_str(&self.tokenizer.decode(seq).map_err(boxed).context(TranscribeSnafu { step: "tokens" })?);
+            text.push_str(
+                &self.tokenizer.decode(spoken(seq)).map_err(boxed).context(TranscribeSnafu { step: "tokens" })?,
+            );
         }
         Ok((text, no_speech))
-    }
-
-    /// Spectrogramme log-mel par tranches de 30 s.
-    fn mel(&self, samples: &[f32]) -> Result<(Array3<f32>, usize), SttError> {
-        let p = &self.pre;
-        let mut stft = Spectrogram::new(p.n_fft, p.hop_length);
-        let mut chunks = Vec::new();
-        for chunk in samples.chunks(p.n_samples) {
-            let mut m = Array2::zeros((p.feature_size, p.nb_max_frames));
-            for (i, frame) in chunk.chunks(p.hop_length).enumerate() {
-                if let Some(fft) = stft.add(frame) {
-                    let mel = norm_mel(&log_mel_spectrogram(&fft, &p.mel_filters)).mapv(|v| v as f32);
-                    m.slice_mut(s![.., i]).assign(&mel.slice(s![.., 0]));
-                }
-            }
-            chunks.push(m);
-        }
-        let n = chunks.len();
-        if n == 0 {
-            return Ok((Array3::zeros((0, 0, 0)), 0));
-        }
-        let views: Vec<_> = chunks.iter().map(|a| a.view()).collect();
-        let stacked = stack(Axis(0), &views).context(FeaturesSnafu { step: "mel" })?;
-        Ok((stacked.as_standard_layout().into_owned(), n))
     }
 }
 
 impl Preprocessor {
     fn read(storage: &Storage, path: &Path) -> Result<Self, SttError> {
+        Self::parse(&storage.read(path).context(ModelFileSnafu { path })?)
+    }
+
+    /// Lit `preprocessor_config.json` ; sans filtres mel fournis, ils sont calculés.
+    fn parse(bytes: &[u8]) -> Result<Self, SttError> {
         #[derive(Deserialize)]
         struct Raw {
             feature_size: usize,
@@ -207,8 +170,18 @@ impl Preprocessor {
             sampling_rate: usize,
             mel_filters: Option<Vec<Vec<f64>>>,
         }
-        let bytes = storage.read(path).context(ModelFileSnafu { path })?;
-        let raw: Raw = serde_json::from_slice(&bytes).context(ModelSettingsSnafu)?;
+        let raw: Raw = serde_json::from_slice(bytes).context(ModelSettingsSnafu)?;
+        // Des tailles nulles feraient boucler ou paniquer le découpage en tranches.
+        for (field, value) in [
+            ("feature_size", raw.feature_size),
+            ("hop_length", raw.hop_length),
+            ("n_fft", raw.n_fft),
+            ("n_samples", raw.n_samples),
+            ("nb_max_frames", raw.nb_max_frames),
+            ("sampling_rate", raw.sampling_rate),
+        ] {
+            ensure!(value > 0, ZeroSettingSnafu { field });
+        }
         let mel_filters = match raw.mel_filters {
             Some(rows) => {
                 let (r, c) = (rows.len(), rows.first().map_or(0, Vec::len));
@@ -226,6 +199,78 @@ impl Preprocessor {
             mel_filters,
         })
     }
+
+    /// Spectrogramme log-mel par tranches de 30 s.
+    fn mel(&self, samples: &[f32]) -> Result<(Array3<f32>, usize), SttError> {
+        let mut stft = Spectrogram::new(self.n_fft, self.hop_length);
+        let mut chunks = Vec::new();
+        for chunk in samples.chunks(self.n_samples) {
+            let mut m = Array2::zeros((self.feature_size, self.nb_max_frames));
+            // Au plus `nb_max_frames` trames, même si les réglages en promettent plus.
+            for (i, frame) in chunk.chunks(self.hop_length).take(self.nb_max_frames).enumerate() {
+                if let Some(fft) = stft.add(frame) {
+                    let mel = norm_mel(&log_mel_spectrogram(&fft, &self.mel_filters)).mapv(|v| v as f32);
+                    m.slice_mut(s![.., i]).assign(&mel.slice(s![.., 0]));
+                }
+            }
+            chunks.push(m);
+        }
+        let n = chunks.len();
+        if n == 0 {
+            return Ok((Array3::zeros((0, 0, 0)), 0));
+        }
+        let views: Vec<_> = chunks.iter().map(|a| a.view()).collect();
+        let stacked = stack(Axis(0), &views).context(FeaturesSnafu { step: "mel" })?;
+        Ok((stacked.as_standard_layout().into_owned(), n))
+    }
+}
+
+/// `<|fr|>` → `fr`.
+fn language_code(token: &str) -> &str {
+    token.trim_start_matches("<|").trim_end_matches("|>")
+}
+
+/// Jetons d'amorce : le contexte (ses 200 derniers jetons) puis la consigne
+/// « transcrire en `lang`, sans horodatage ».
+fn build_prompt(context: Option<Vec<String>>, lang: &str) -> Vec<String> {
+    let mut prompt = Vec::new();
+    if let Some(tokens) = context {
+        let skip = tokens.len().saturating_sub(MAX_PROMPT_TOKENS);
+        prompt.push("<|startofprev|>".into());
+        prompt.extend(tokens.into_iter().skip(skip));
+    }
+    prompt.extend([
+        "<|startoftranscript|>".into(),
+        format!("<|{lang}|>"),
+        "<|transcribe|>".into(),
+        "<|notimestamps|>".into(),
+    ]);
+    prompt
+}
+
+/// Options de décodage. Au plus ~12 jetons par seconde de parole : une boucle
+/// d'hallucination (« dududu… ») ne peut pas s'emballer.
+fn decoding_options(prompt_len: usize, samples: usize, sampling_rate: usize, quick: bool) -> sys::WhisperOptions {
+    let seconds = samples as f32 / sampling_rate.max(1) as f32;
+    let budget = (16.0 + 12.0 * seconds) as usize;
+    sys::WhisperOptions {
+        beam_size: if quick { 1 } else { 5 },
+        return_no_speech_prob: true,
+        max_length: (prompt_len + budget).min(448),
+        ..Default::default()
+    }
+}
+
+/// Pour la nouvelle tentative après une boucle : répétitions interdites.
+fn forbid_repetitions(options: &mut sys::WhisperOptions) {
+    options.repetition_penalty = 1.3;
+    options.no_repeat_ngram_size = 3;
+    options.beam_size = 1;
+}
+
+/// Les jetons de texte d'une séquence, sans les jetons spéciaux `<|…|>`.
+fn spoken(seq: Vec<String>) -> Vec<String> {
+    seq.into_iter().filter(|t| !(t.starts_with("<|") && t.ends_with("|>"))).collect()
 }
 
 /// Texte qui tourne en boucle (le critère de « taux de compression » de
