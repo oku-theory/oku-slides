@@ -31,6 +31,8 @@ macro_rules! locale {
                 include_str!(concat!("locales/", $lang, "/stt.ftl")),
                 include_str!(concat!("locales/", $lang, "/cli.ftl")),
                 include_str!(concat!("locales/", $lang, "/chart.ftl")),
+                // Toujours en dernier : voir `ui_messages`.
+                include_str!(concat!("locales/", $lang, "/ui.ftl")),
             ] as &[&str],
         )
     };
@@ -48,6 +50,8 @@ type Bundle = FluentBundle<FluentResource>;
 pub struct Localizer {
     locale: &'static str,
     bundle: Bundle,
+    /// `ui.ftl` de cette langue, pour l'interface.
+    ui: &'static str,
     /// Anglais, pour un message absent de la langue choisie.
     fallback: Option<Box<Localizer>>,
 }
@@ -92,13 +96,24 @@ impl Localizer {
         // les chemins et nombres s'impriment tels quels dans un terminal.
         bundle.set_use_isolating(false);
         let sources = LOCALES.iter().find(|(l, _)| *l == locale).map_or(&[] as &[&str], |(_, s)| s);
+        // `locale` vient de LOCALES, dont chaque entrée finit par ui.ftl.
+        let ui = sources.last().copied().unwrap_or_default();
         for source in sources {
             // Une ressource mal formée garde ses messages valides (les tests
             // vérifient qu'il n'y en a pas).
             let resource = FluentResource::try_new((*source).to_owned()).unwrap_or_else(|(partial, _)| partial);
             let _ = bundle.add_resource(resource);
         }
-        Self { locale, bundle, fallback }
+        Self { locale, bundle, ui, fallback }
+    }
+
+    /// Messages de l'interface (`ui.ftl`), pour son propre moteur Fluent :
+    /// l'anglais de référence d'abord, puis la langue choisie.
+    pub fn ui_messages(&self) -> Vec<&'static str> {
+        match &self.fallback {
+            Some(english) => vec![english.ui, self.ui],
+            None => vec![self.ui],
+        }
     }
 
     /// Code de la langue (`en`, `fr`).

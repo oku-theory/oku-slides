@@ -97,6 +97,8 @@ pub enum Request {
     Undo,
     Redo,
     Schema,
+    /// Langue de l'utilisateur et messages Fluent de l'interface.
+    Messages,
     /// Modèles d'un ensemble (celui du deck par défaut), rendus avec le thème du deck.
     Templates {
         #[serde(default)]
@@ -387,6 +389,12 @@ impl Session {
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::Schema => return json(&slider_core::ops_schema().context(ResponseSnafu)?),
+            Request::Messages => {
+                return json(&serde_json::json!({
+                    "locale": self.localizer.locale(),
+                    "resources": self.localizer.ui_messages(),
+                }));
+            }
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {

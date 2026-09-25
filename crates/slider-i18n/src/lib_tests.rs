@@ -53,3 +53,22 @@ fn tr_with_args_formats_without_isolation_marks() {
 fn tr_unknown_id_returns_the_id() {
     assert_that!(Localizer::new(Some("fr")).tr("does-not-exist")).is_equal_to("does-not-exist".to_owned());
 }
+
+#[test]
+fn ui_messages_give_english_then_the_chosen_language() {
+    let en = include_str!("locales/en/ui.ftl");
+    let fr = include_str!("locales/fr/ui.ftl");
+    assert_that!(Localizer::new(Some("fr")).ui_messages()).is_equal_to(vec![en, fr]);
+    assert_that!(english().ui_messages()).is_equal_to(vec![en]);
+    assert_that!(Localizer::new(Some("en")).ui_messages()).is_equal_to(vec![en]);
+}
+
+#[test]
+fn every_locale_ends_with_its_ui_messages() {
+    for (locale, sources) in LOCALES {
+        let last = sources.last().copied().unwrap_or_default();
+        asserting(&format!("{locale} : ui.ftl doit être la dernière ressource"))
+            .that(&last.lines().any(|l| l.starts_with("ui-loading = ")))
+            .is_true();
+    }
+}
