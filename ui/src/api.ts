@@ -238,7 +238,14 @@ type Request =
   | { cmd: "edit_templates"; set: string }
   | { cmd: "save_templates"; as_new: boolean }
   | { cmd: "close_templates" }
-  | { cmd: "delete_template_set"; set: string };
+  | { cmd: "delete_template_set"; set: string }
+  | { cmd: "messages" };
+
+/** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
+export interface Messages {
+  locale: string;
+  resources: string[];
+}
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -262,6 +269,7 @@ const call = <T>(req: Request) => host<T>("request", "/api", req);
 
 export const api = {
   snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
+  messages: () => call<Messages>({ cmd: "messages" }),
   newDeck: () => call<Snapshot>({ cmd: "new" }),
   open: (path: string) => call<Snapshot>({ cmd: "open", path }),
   save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),
