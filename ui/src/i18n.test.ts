@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { locale, setMessages, t } from "./i18n";
+import { direction, locale, setMessages, t } from "./i18n";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
 const fr = "ui-hello = Bonjour { $name }\n";
@@ -24,4 +24,11 @@ describe("t", () => {
 test("avant le chargement, t rend l'identifiant", () => {
   setMessages("en", []);
   expect(t("ui-hello")).toBe("ui-hello");
+});
+
+test("direction : de droite à gauche pour l'arabe, de gauche à droite sinon", () => {
+  expect(direction("ar")).toBe("rtl");
+  expect(direction("ar-EG")).toBe("rtl");
+  expect(direction("fr")).toBe("ltr");
+  expect(direction("zh-Hant")).toBe("ltr");
 });

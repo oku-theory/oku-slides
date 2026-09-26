@@ -127,7 +127,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* ---- Étiquette du document ---- */
 .label {
-  grid-area: label; align-self: center; position: relative; z-index: 2; margin-left: var(--space-6); padding: 10px 18px 12px;
+  grid-area: label; align-self: center; position: relative; z-index: 2; margin-inline-start: var(--space-6); padding: 10px 18px 12px;
   display: flex; flex-direction: column; gap: 1px; min-width: 0; width: fit-content; max-width: min(420px, 40vw);
   transform: rotate(-0.8deg); cursor: default;
 }
@@ -139,7 +139,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .doc-name { font: 500 18px/24px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .doc-name-button {
   display: block; max-width: 100%; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--radius-sm);
-  background: transparent; text-align: left; cursor: text; transition: var(--theme-fade);
+  background: transparent; text-align: start; cursor: text; transition: var(--theme-fade);
 }
 .doc-name-button:hover { background: color-mix(in oklab, var(--paper-200) 90%, var(--ink)); }
 .doc-name-input {
@@ -151,7 +151,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .label .caption { white-space: nowrap; }
 
 /* ---- Outils en haut à droite ---- */
-.tray { grid-area: tray; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-right: var(--space-6); }
+.tray { grid-area: tray; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-inline-end: var(--space-6); }
 /* Trop étroit : les outils passent sur deux lignes plutôt que de s'écraser. */
 .tray > * { flex: none; }
 .btn {
@@ -164,10 +164,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn.primary { background: var(--accent-fill); color: var(--on-accent); }
 .theme-card { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-4); height: 44px; cursor: default; }
 .theme-card:hover { transform: none; box-shadow: var(--shadow-object); }
-.add-card { gap: var(--space-4); padding-right: var(--space-4); }
+.add-card { gap: var(--space-4); padding-inline-end: var(--space-4); }
 .add-card .linkish { align-self: center; font-size: 13px; font-weight: 500; opacity: 0.9; }
 .select {
-  appearance: none; -webkit-appearance: none; height: 32px; padding: 0 30px 0 10px; border: 0; border-radius: var(--radius-sm);
+  appearance: none; -webkit-appearance: none; height: 32px; padding-block: 0; padding-inline: 10px 30px; border: 0; border-radius: var(--radius-sm);
   background: color-mix(in oklab, var(--paper-200) 88%, var(--ink)) no-repeat right 10px center / 10px 10px;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%), linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
   background-size: 5px 5px, 5px 5px;
@@ -179,7 +179,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* ---- Pile de slides ---- */
 .pile { grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
-.thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; }
 .thumb-n { width: 18px; font-size: 12px; line-height: 16px; color: var(--ink-muted); padding-top: 2px; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
 .thumb-img {
@@ -188,7 +188,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
 .thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
-.add-slide { margin-left: 26px; width: 150px; height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
+.add-slide { margin-inline-start: 26px; width: 150px; height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
 /* ---- La feuille ---- */
 .sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-6) 40px 56px; display: flex; }
@@ -234,7 +234,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .notes { grid-area: notes; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
 .postit {
   width: 132px; min-height: 96px; padding: 14px 14px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-2);
-  background: var(--postit); color: var(--ink); border: 0; border-radius: 3px 3px var(--radius-md) 3px; text-align: left; cursor: pointer;
+  background: var(--postit); color: var(--ink); border: 0; border-radius: 3px 3px var(--radius-md) 3px; text-align: start; cursor: pointer;
   box-shadow: var(--edge-light), var(--shadow-note); transform: rotate(var(--tilt, -2deg));
   transition: var(--theme-fade), transform 200ms ease-out;
 }
@@ -295,7 +295,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .spacer { flex: 1; }
 
 .dictation-settings {
-  position: absolute; right: 0; bottom: calc(100% + 14px); width: 380px; padding: var(--space-4);
+  position: absolute; inset-inline-end: 0; bottom: calc(100% + 14px); width: 380px; padding: var(--space-4);
   display: flex; flex-direction: column; gap: 10px; cursor: default; border-radius: var(--radius-lg);
   box-shadow: var(--edge-light), var(--shadow-floating); animation: rise 180ms ease-out;
 }
@@ -348,7 +348,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .picker-strip::-webkit-scrollbar { display: none; }
 .template {
   flex: none; width: 272px; scroll-snap-align: center; display: flex; flex-direction: column; gap: 6px; padding: 0;
-  background: none; border: 0; text-align: left; cursor: pointer; color: var(--ink);
+  background: none; border: 0; text-align: start; cursor: pointer; color: var(--ink);
 }
 .template img, .template-empty {
   width: 272px; aspect-ratio: 16 / 9; display: block; border-radius: var(--radius-sm); background: var(--t-bg);
@@ -397,10 +397,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .thumb-ghost img, .thumb-ghost span { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--t-bg, white); }
 .drop-line {
-  position: absolute; left: 22px; right: 0; top: -11px; height: 4px; border-radius: 2px; pointer-events: none;
+  position: absolute; inset-inline: 22px 0; top: -11px; height: 4px; border-radius: 2px; pointer-events: none;
   background: var(--accent-fill); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
 }
-.drop-line.end { position: relative; top: auto; display: block; margin: -9px 0 -9px 22px; flex: none; }
+.drop-line.end { position: relative; top: auto; display: block; margin-block: -9px; margin-inline: 22px 0; flex: none; }
 
 /* ---- Post-it du panneau (surface A2UI) ---- */
 .panel-card { cursor: default; justify-content: flex-start; }
@@ -423,10 +423,19 @@ button, select, input, textarea { font: inherit; color: inherit; }
   position: relative; width: 30px; height: 18px; border-radius: 9px; flex: none; transition: background 140ms;
   background: color-mix(in oklab, var(--postit) 70%, var(--ink));
 }
-.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 140ms; }
+.toggle-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 140ms; }
 .toggle.on .toggle-track { background: var(--accent-fill); }
 .toggle.on .toggle-thumb { transform: translateX(12px); }
 .toggle:focus-visible { outline: none; }
 .toggle:focus-visible .toggle-track { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
 .grid-toggle.on { background: var(--accent-fill); color: var(--on-accent); }
 .grid-toggle svg { width: 18px; height: 18px; }
+
+/* ---- De droite à gauche (arabe) ---- */
+/* Ce que les propriétés logiques ne retournent pas d'elles-mêmes. */
+[dir="rtl"] .select { background-position: left 9px center, left 14px center; }
+[dir="rtl"] .toggle.on .toggle-thumb { transform: translateX(-12px); }
+[dir="rtl"] .postit { border-radius: 3px 3px 3px var(--radius-md); }
+[dir="rtl"] .chart-panel { right: auto; left: var(--space-6, 24px); }
+/* Annuler pointe vers le début de la ligne : à droite en arabe. */
+[dir="rtl"] .tray .token svg { transform: scaleX(-1); }

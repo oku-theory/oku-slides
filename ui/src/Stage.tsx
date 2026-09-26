@@ -339,7 +339,8 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   };
 
   return (
-    <div className="stage-wrap" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
+    // La slide garde ses coordonnées de gauche à droite, même dans une interface en arabe.
+    <div className="stage-wrap" dir="ltr" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
       <div
         className="stage"
         style={{ width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) }}
@@ -384,6 +385,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
               <textarea
                 ref={area}
                 className="editor"
+                dir="auto"
                 autoFocus
                 aria-label={t("ui-stage-edit-text")}
                 spellCheck
