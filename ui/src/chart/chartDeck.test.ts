@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Element } from "../api";
-import { CHART_KINDS, chartKind, chartSource, colorPatch, hexColor, isStacked, seriesColor, seriesNames, stackPatch, stackable, starterChart } from "./chartDeck";
+import { CHART_KINDS, chartKind, chartSource, colorPatch, hexColor, isStacked, paletteOf, seriesColor, seriesNames, stackPatch, stackable, starterChart } from "./chartDeck";
 
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
@@ -117,5 +117,15 @@ describe("hexColor", () => {
 
   test("seriesColor rend la couleur normalisée", () => {
     expect(seriesColor(canonical([{ type: "bar", itemStyle: { color: "#ABC" } }]), 0)).toBe("#aabbcc");
+  });
+});
+
+describe("paletteOf", () => {
+  test("garde les couleurs valides de la palette du thème, normalisées", () => {
+    expect(paletteOf(["#3F6B5E", "rouge", "#abc", 4])).toEqual(["#3f6b5e", "#aabbcc"]);
+  });
+
+  test("sans palette, rien", () => {
+    expect(paletteOf(undefined)).toEqual([]);
   });
 });

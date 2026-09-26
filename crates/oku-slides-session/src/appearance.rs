@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use oku_slides_render::{chart_palette, resolve_color};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -21,18 +22,9 @@ pub struct Appearance {
     /// Familles de police : titres et texte courant.
     pub font_display: Vec<String>,
     pub font_body: Vec<String>,
-}
-
-/// Couleur : hex, ou nom d'une couleur du thème (références suivies).
-fn resolve_color(colors: &serde_json::Map<String, Value>, v: &Value) -> Option<String> {
-    let mut v = v.as_str()?;
-    for _ in 0..8 {
-        if v.starts_with('#') {
-            return Some(v.to_ascii_lowercase());
-        }
-        v = colors.get(v)?.as_str()?;
-    }
-    None
+    /// Palette des graphiques du thème (jetons `chart.palette`), en hex :
+    /// l'interface la propose pour colorer une série.
+    pub chart_palette: Vec<String>,
 }
 
 fn token_fonts(fonts: &serde_json::Map<String, Value>, name: &str) -> Vec<String> {
@@ -68,5 +60,6 @@ pub fn appearance(tokens: &Value) -> Appearance {
         app: app_colors,
         font_display: token_fonts(fonts, "display"),
         font_body: token_fonts(fonts, "body"),
+        chart_palette: chart_palette(tokens),
     }
 }

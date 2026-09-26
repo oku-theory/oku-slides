@@ -101,8 +101,6 @@ pub enum Request {
     Schema,
     /// Langue de l'utilisateur et messages Fluent de l'interface.
     Messages,
-    /// Palette des graphiques (thème Papier), proposée pour colorer une série.
-    ChartPalette,
     /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
     Panel {
         slide: String,
@@ -417,7 +415,6 @@ impl Session {
                     "resources": self.localizer.ui_messages(),
                 }));
             }
-            Request::ChartPalette => return json(&oku_slides_chart::ChartTheme::default().palette),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
@@ -496,9 +493,8 @@ impl Session {
     }
 
     fn rerender(&mut self) -> Result<()> {
-        self.renderer.set_deck(&self.doc.sources.deck, &self.doc.sources.assets).context(RenderSnafu)?;
         let started = std::time::Instant::now();
-        let compiled = self.renderer.compile().context(RenderSnafu)?;
+        let compiled = self.renderer.render(&self.doc.sources.deck, &self.doc.sources.assets).context(RenderSnafu)?;
         tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
         // Le cache ne garde que les pages encore présentes.
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
@@ -637,8 +633,7 @@ impl Session {
                     Some(r) => r,
                     None => self.template_renderer.insert(new_renderer(self.render_fonts.clone(), &self.localizer)?),
                 };
-                renderer.set_deck(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
-                let compiled = renderer.compile().context(RenderSnafu)?;
+                let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
                 let layout = compiled.layout();
                 let views = set
                     .templates

@@ -329,9 +329,15 @@ fn panel_while_editing_templates_binds_grid_steppers() {
 }
 
 #[test]
-fn chart_palette_request_returns_the_papier_palette() {
+fn appearance_carries_the_chart_palette_of_the_deck_theme() {
     let mut s = session();
-    let req = serde_json::from_value(json!({ "cmd": "chart_palette" })).unwrap();
-    let palette: Vec<String> = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
-    assert_that!(palette).is_equal_to(oku_slides_chart::ChartTheme::default().palette);
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()]).unwrap();
+    assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#3f6b5e"));
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "pro" })).unwrap()]).unwrap();
+    assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#0072b0"));
+}
+
+#[test]
+fn chart_palette_request_no_longer_exists() {
+    assert_that!(serde_json::from_value::<Request>(json!({ "cmd": "chart_palette" })).is_err()).is_true();
 }

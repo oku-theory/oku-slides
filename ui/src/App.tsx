@@ -518,6 +518,7 @@ export default function App() {
           <ChartPanel
             slide={view.slide.id}
             element={selectedElement}
+            palette={snap.appearance.chart_palette}
             onApply={apply}
             onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
           />

@@ -4,14 +4,16 @@
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource, colorPatch, isStacked, stackPatch, stackable } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, chartKind, chartSource, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
 import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
-export function ChartPanel({ slide, element, onApply, onKind }: {
+export function ChartPanel({ slide, element, palette, onApply, onKind }: {
   slide: string;
   element: Element;
+  /** Palette des graphiques du thème (apparence). */
+  palette: readonly string[];
   onApply: (label: string, ops: Op[]) => void;
   /** Change le type : le cœur convertit les données (requête `chart_kind`). */
   onKind: (kind: ChartKind) => void;
@@ -44,6 +46,7 @@ export function ChartPanel({ slide, element, onApply, onKind }: {
       )}
       <SeriesColors
         element={element}
+        colors={paletteOf(palette)}
         onColor={(index, color) =>
           onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", slide, element: element.id, patch: colorPatch(element, index, color) }])
         }

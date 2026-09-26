@@ -107,3 +107,8 @@ export function colorPatch(el: Element, i: number, color: string | null): { seri
   });
   return { series };
 }
+
+/** Palette des graphiques du thème (apparence), réduite aux couleurs valides. */
+export function paletteOf(colors: readonly unknown[] | undefined): string[] {
+  return (colors ?? []).map(hexColor).filter((c): c is string => c !== null);
+}

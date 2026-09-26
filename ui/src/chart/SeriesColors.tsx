@@ -1,36 +1,18 @@
 // Couleur de chaque série d'un graphique : une pastille par série ; un clic
-// propose la palette Papier (servie par la session) ou « Automatique ».
+// propose la palette du thème (apparence) ou « Automatique ».
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Element } from "../api";
-import { api } from "../api";
 import { t } from "../i18n";
-import { hexColor, seriesColor, seriesNames } from "./chartDeck";
+import { seriesColor, seriesNames } from "./chartDeck";
 
-/** Palette chargée une fois pour toute l'app. */
-let palette: Promise<string[]> | null = null;
-
-function usePalette(): string[] {
-  const [colors, setColors] = useState<string[]>([]);
-  useEffect(() => {
-    // Sans palette (hôte injoignable), les pastilles restent cachées.
-    palette ??= api
-      .chartPalette()
-      .then((p) => p.map(hexColor).filter((c): c is string => c !== null))
-      .catch(() => []);
-    let live = true;
-    palette.then((p) => live && setColors(p));
-    return () => { live = false; };
-  }, []);
-  return colors;
-}
-
-export function SeriesColors({ element, onColor }: {
+export function SeriesColors({ element, colors, onColor }: {
   element: Element;
+  /** Palette des graphiques du thème, déjà validée (voir paletteOf). */
+  colors: string[];
   /** Couleur choisie pour la série `index` ; `null` = la palette. */
   onColor: (index: number, color: string | null) => void;
 }) {
-  const colors = usePalette();
   const [open, setOpen] = useState<number | null>(null);
   const names = seriesNames(element);
   if (names.length === 0 || colors.length === 0) return null;

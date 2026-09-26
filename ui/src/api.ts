@@ -28,6 +28,8 @@ export interface Appearance {
   metrics: Record<string, number>;
   font_display: string[];
   font_body: string[];
+  /** Palette des graphiques du thème (jetons chart.palette), en hex. */
+  chart_palette: string[];
 }
 
 export interface Snapshot {
@@ -243,8 +245,7 @@ type Request =
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "messages" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
-  | { cmd: "panel"; slide: string }
-  | { cmd: "chart_palette" };
+  | { cmd: "panel"; slide: string };
 
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
@@ -275,8 +276,6 @@ const call = <T>(req: Request) => host<T>("request", "/api", req);
 export const api = {
   snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
   messages: () => call<Messages>({ cmd: "messages" }),
-  /** Palette Papier des graphiques (couleurs #rrggbb), pour colorer une série. */
-  chartPalette: () => call<string[]>({ cmd: "chart_palette" }),
   chartKind: (label: string, slide: string, element: string, kind: string) =>
     call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
   newDeck: () => call<Snapshot>({ cmd: "new" }),
