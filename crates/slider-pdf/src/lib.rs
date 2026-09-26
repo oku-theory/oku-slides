@@ -6,10 +6,10 @@
 //! ```text
 //! Catalog
 //! └─ /PieceInfo
-//!    └─ /Echo
+//!    └─ /OkuSlides
 //!       ├─ /LastModified (D:…)
 //!       └─ /Private
-//!          ├─ /Format (echo-sources)
+//!          ├─ /Format (oku-slides-sources)
 //!          ├─ /Version 1
 //!          ├─ /SHA256 (hex du zip)
 //!          └─ /Sources → flux = zip des sources
@@ -22,8 +22,8 @@ use sha2::{Digest, Sha256};
 use slider_i18n::{Localize, Localizer};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-pub const PIECE_KEY: &[u8] = b"Echo";
-pub const FORMAT: &str = "echo-sources";
+pub const PIECE_KEY: &[u8] = b"OkuSlides";
+pub const FORMAT: &str = "oku-slides-sources";
 pub const VERSION: i64 = 1;
 
 /// Un PDF illisible, ou des sources Écho abîmées.
@@ -167,7 +167,7 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     };
     if let Ok(info) = doc.get_object_mut(info_id).and_then(Object::as_dict_mut) {
         info.set("ModDate", text(&now));
-        info.set("EchoFormat", text(&format!("{FORMAT}/{VERSION}")));
+        info.set("OkuSlidesFormat", text(&format!("{FORMAT}/{VERSION}")));
     }
 
     // Supprime l'ancien flux s'il y en avait un (réenregistrement).
@@ -186,7 +186,7 @@ pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
     let Ok(piece_info) = catalog.get(b"PieceInfo") else { return Ok(None) };
     let Ok(piece_info) = resolve(&doc, piece_info)?.as_dict() else { return Ok(None) };
     let Ok(piece) = piece_info.get(PIECE_KEY) else { return Ok(None) };
-    let piece = resolve(&doc, piece)?.as_dict().context(StructureSnafu { what: "invalid /Echo" })?;
+    let piece = resolve(&doc, piece)?.as_dict().context(StructureSnafu { what: "invalid /OkuSlides" })?;
     let private = resolve(&doc, piece.get(b"Private").context(StructureSnafu { what: "missing /Private" })?)?
         .as_dict()
         .context(StructureSnafu { what: "invalid /Private" })?;

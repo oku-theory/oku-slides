@@ -1,6 +1,6 @@
 session-read = Không thể đọc { $path }
 session-write = Không thể ghi { $path }
-session-not-echo = PDF này không được tạo bằng Écho: không thể chỉnh sửa
+session-not-oku-slides = PDF này không được tạo bằng Écho: không thể chỉnh sửa
 session-invalid-deck = JSON bản trình bày không hợp lệ
 session-invalid-template-set = Bộ mẫu không hợp lệ: { $path }
 session-not-rendered = Bản trình bày chưa được kết xuất

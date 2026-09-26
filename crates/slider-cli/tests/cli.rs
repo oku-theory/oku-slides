@@ -1,5 +1,5 @@
 //! La CLI `slider`, lancée pour de vrai : chaque test a son propre dossier
-//! de données (ECHO_PATHS__DATA) et choisit sa langue (ECHO_I18N__LOCALE).
+//! de données (OKU_SLIDES_PATHS__DATA) et choisit sa langue (OKU_SLIDES_I18N__LOCALE).
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -16,14 +16,14 @@ const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadm
 fn workdir(name: &str) -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("echo-cli-{name}-{}-{n}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("oku-slides-cli-{name}-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
     dir
 }
 
 fn slider(dir: &Path, locale: &str) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_slider"));
-    cmd.env("ECHO_PATHS__DATA", dir.join("data")).env("ECHO_I18N__LOCALE", locale).env("NO_COLOR", "1");
+    cmd.env("OKU_SLIDES_PATHS__DATA", dir.join("data")).env("OKU_SLIDES_I18N__LOCALE", locale).env("NO_COLOR", "1");
     cmd
 }
 
@@ -84,7 +84,7 @@ fn save_open_strip_round_trip_keeps_deck_and_assets() {
     let assets = dir.join("assets");
     std::fs::create_dir_all(&assets).unwrap();
     std::fs::write(assets.join("logo.bin"), [1u8, 2, 3]).unwrap();
-    let pdf = dir.join("deck.echo.pdf");
+    let pdf = dir.join("deck.oku-slides.pdf");
 
     let saved = run(slider(&dir, "en").args(["save", FIXTURE]).arg(&pdf).arg("--assets").arg(&assets));
     assert_that!(saved.status.success()).is_true();
@@ -111,7 +111,7 @@ fn save_open_strip_round_trip_keeps_deck_and_assets() {
 fn save_with_embed_fonts_puts_the_fonts_in_the_sources() {
     let dir = workdir("fonts");
     let fonts = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts");
-    let pdf = dir.join("deck.echo.pdf");
+    let pdf = dir.join("deck.oku-slides.pdf");
     let saved = run(slider(&dir, "en").args(["--fonts", fonts, "save", FIXTURE]).arg(&pdf).arg("--embed-fonts"));
     assert_that!(saved.status.success()).is_true();
     let opened = run(slider(&dir, "en").arg("open").arg(&pdf));
@@ -162,7 +162,7 @@ fn help_is_in_the_configured_language() {
 #[test]
 fn invalid_setting_stops_with_a_clear_error() {
     let dir = workdir("settings");
-    let out = run(slider(&dir, "en").env("ECHO_SERVE__PORT", "not-a-port").arg("schema"));
+    let out = run(slider(&dir, "en").env("OKU_SLIDES_SERVE__PORT", "not-a-port").arg("schema"));
     assert_that!(out.status.success()).is_false();
     assert_that!(stderr(&out)).contains("serve.port");
 }
@@ -218,7 +218,7 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
     let port = free_port();
     let _server = Server(
         slider(&dir, "fr")
-            .env("ECHO_PATHS__MODELS", dir.join("models"))
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
             .args(["serve", FIXTURE, "--port", &port.to_string(), "--ui"])
             .arg(&ui)
             .stdout(Stdio::null())
@@ -258,7 +258,7 @@ fn serve_stops_cleanly_on_sigterm() {
     let dir = workdir("sigterm");
     let port = free_port();
     let mut server = slider(&dir, "en")
-        .env("ECHO_PATHS__MODELS", dir.join("models"))
+        .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
         .args(["serve", "--port", &port.to_string()])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

@@ -1,7 +1,7 @@
 # Écho
 
 `echo "une idée" > deck` : ce que vous dites devient des slides. Écho crée et
-modifie des présentations à la voix ; le document est un PDF (`.echo.pdf`) qui
+modifie des présentations à la voix ; le document est un PDF (`.oku-slides.pdf`) qui
 contient ses propres sources : n'importe quel lecteur l'affiche, Écho le rouvre
 pour continuer l'édition.
 
@@ -31,9 +31,9 @@ Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/c
 ```sh
 just slider check fixtures/roadmap.json                       # valider un deck
 just slider render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
-just save fixtures/roadmap.json deck.echo.pdf                # enregistrer en .echo.pdf
-just slider open deck.echo.pdf --out extrait/                # deck.json + assets
-just slider strip deck.echo.pdf copie.pdf                    # copie sans sources
+just save fixtures/roadmap.json deck.oku-slides.pdf                # enregistrer en .oku-slides.pdf
+just slider open deck.oku-slides.pdf --out extrait/                # deck.json + assets
+just slider strip deck.oku-slides.pdf copie.pdf                    # copie sans sources
 just bench                                                     # latences
 just slider schema                                             # schéma JSON des opérations
 ```
@@ -118,7 +118,7 @@ modèle choisi est téléchargé une fois, puis l'écoute démarre toute seule.
 
 Les modèles vont dans le dossier de données de l'app
 (`~/Library/Application Support/me.dartiguenave.echo/models` sur Mac) ;
-`ECHO_PATHS__MODELS` le remplace (voir [Réglages](#réglages)). Les anciens fichiers `ggml-*.bin` (whisper.cpp)
+`OKU_SLIDES_PATHS__MODELS` le remplace (voir [Réglages](#réglages)). Les anciens fichiers `ggml-*.bin` (whisper.cpp)
 peuvent y être supprimés.
 
 | Geste | Effet |
@@ -132,7 +132,7 @@ nouveau bloc. Chaque dictée s'annule avec ⌘Z.
 
 ```sh
 just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
-ECHO_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
+OKU_SLIDES_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
 ```
 
 ## Réglages
@@ -142,16 +142,16 @@ Les réglages ont trois couches, la dernière l'emporte :
 1. les défauts, embarqués ([`config.default.toml`](crates/slider-platform/src/config.default.toml),
    commentés) ;
 2. `config.toml` dans le dossier de données de l'app, facultatif ;
-3. les variables d'environnement `ECHO_<SECTION>__<CLÉ>`, avec un double
+3. les variables d'environnement `OKU_SLIDES_<SECTION>__<CLÉ>`, avec un double
    soulignement pour descendre d'un niveau.
 
 | Variable | Effet |
 | --- | --- |
-| `ECHO_PATHS__DATA` | Dossier de données de l'app |
-| `ECHO_PATHS__MODELS` | Dossier des modèles de dictée |
-| `ECHO_PATHS__FONTS` | Polices supplémentaires (TTF/OTF) |
-| `ECHO_STT__FAKE_MIC` | Fichier WAV rejoué à la place du micro |
-| `ECHO_STT__VAD__PAUSE` | Pause qui clôt une phrase (s), comme toute clé de `[stt.vad]` |
-| `ECHO_SERVE__PORT` | Port du serveur de développement |
-| `ECHO_I18N__LOCALE` | Langue de l'interface (`fr`, `en`) |
+| `OKU_SLIDES_PATHS__DATA` | Dossier de données de l'app |
+| `OKU_SLIDES_PATHS__MODELS` | Dossier des modèles de dictée |
+| `OKU_SLIDES_PATHS__FONTS` | Polices supplémentaires (TTF/OTF) |
+| `OKU_SLIDES_STT__FAKE_MIC` | Fichier WAV rejoué à la place du micro |
+| `OKU_SLIDES_STT__VAD__PAUSE` | Pause qui clôt une phrase (s), comme toute clé de `[stt.vad]` |
+| `OKU_SLIDES_SERVE__PORT` | Port du serveur de développement |
+| `OKU_SLIDES_I18N__LOCALE` | Langue de l'interface (`fr`, `en`) |
 

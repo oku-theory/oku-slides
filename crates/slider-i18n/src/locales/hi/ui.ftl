@@ -219,5 +219,5 @@ ui-chart-series = सीरीज़ { $n }
 
 ## फ़ाइलें
 
-ui-file-open-prompt = खोलने के लिए फ़ाइल का पाथ (.echo.pdf या .json)
+ui-file-open-prompt = खोलने के लिए फ़ाइल का पाथ (.oku-slides.pdf या .json)
 ui-file-save-prompt = इस रूप में सहेजें (पूरा पाथ)

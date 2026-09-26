@@ -3,8 +3,8 @@
 //! Trois couches, la dernière l'emporte : les défauts embarqués
 //! (`config.default.toml`), `config.toml` dans le dossier de données de
 //! l'app (facultatif), puis les variables d'environnement
-//! `ECHO_<SECTION>__<CLÉ>` (double soulignement pour descendre d'un niveau :
-//! `ECHO_STT__VAD__PAUSE=0.9`).
+//! `OKU_SLIDES_<SECTION>__<CLÉ>` (double soulignement pour descendre d'un niveau :
+//! `OKU_SLIDES_STT__VAD__PAUSE=0.9`).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -109,8 +109,8 @@ pub struct VadSettings {
 impl Settings {
     /// Réglages de l'app : défauts, `config.toml` du dossier de données, environnement.
     pub fn load() -> Result<Self, ConfigError> {
-        let env = config::Environment::with_prefix("ECHO").prefix_separator("_").separator("__").try_parsing(true);
-        let data = std::env::var_os("ECHO_PATHS__DATA").map_or_else(default_data_dir, PathBuf::from);
+        let env = config::Environment::with_prefix("OKU_SLIDES").prefix_separator("_").separator("__").try_parsing(true);
+        let data = std::env::var_os("OKU_SLIDES_PATHS__DATA").map_or_else(default_data_dir, PathBuf::from);
         Self::from_sources(Some(&data.join("config.toml")), env)
     }
 

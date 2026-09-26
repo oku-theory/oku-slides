@@ -219,5 +219,5 @@ ui-chart-series = Seri { $n }
 
 ## Dosyalar
 
-ui-file-open-prompt = Açılacak dosyanın yolu (.echo.pdf veya .json)
+ui-file-open-prompt = Açılacak dosyanın yolu (.oku-slides.pdf veya .json)
 ui-file-save-prompt = Farklı kaydet (tam yol)

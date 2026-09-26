@@ -8,11 +8,16 @@ fn to_json(msg: &ServerMessage) -> Option<Value> {
 }
 
 #[test]
-fn create_surface_names_the_echo_catalog() {
+fn create_surface_names_the_oku_slides_catalog() {
     assert_that!(to_json(&ServerMessage::create_surface("panel"))).is_some().is_equal_to(json!({
         "version": "v0.9",
         "createSurface": { "surfaceId": "panel", "catalogId": CATALOG_ID }
     }));
+}
+
+#[test]
+fn catalog_id_names_oku_slides() {
+    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:panel:v1");
 }
 
 #[test]

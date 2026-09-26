@@ -459,7 +459,7 @@ impl Session {
         self.rerender()
     }
 
-    /// Ouvre un `.echo.pdf` (ou un deck JSON, pour le développement).
+    /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
         let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
         // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
@@ -469,7 +469,7 @@ impl Session {
         Ok(())
     }
 
-    /// Enregistre en `.echo.pdf` : PDF + blob des sources, écriture atomique.
+    /// Enregistre en `.oku-slides.pdf` : PDF + blob des sources, écriture atomique.
     pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
         let mut path = match path {
             Some(p) => p.to_owned(),

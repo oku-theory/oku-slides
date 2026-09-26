@@ -12,7 +12,7 @@ use speculoos::prelude::*;
 fn workdir() -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("echo-session-errors-{}-{n}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("oku-slides-session-errors-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
     dir
 }
@@ -42,7 +42,7 @@ fn request(s: &mut Session, json: serde_json::Value) -> Result<String, SessionEr
 #[test]
 fn open_missing_file_returns_file_error() {
     let dir = workdir();
-    let err = session(&dir).open(&dir.join("absent.echo.pdf")).unwrap_err();
+    let err = session(&dir).open(&dir.join("absent.oku-slides.pdf")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::File);
     assert_that!(french(&err)).starts_with("Impossible de lire");
 }
@@ -58,14 +58,14 @@ fn open_invalid_json_returns_invalid_document() {
 }
 
 #[test]
-fn open_foreign_pdf_returns_not_echo() {
+fn open_foreign_pdf_returns_not_oku_slides() {
     let dir = workdir();
     let mut s = session(&dir);
     s.save(Some(&dir.join("vrai.pdf"))).unwrap();
-    let bare = slider_pdf::strip_sources(&std::fs::read(dir.join("vrai.echo.pdf")).unwrap()).unwrap();
+    let bare = slider_pdf::strip_sources(&std::fs::read(dir.join("vrai.oku-slides.pdf")).unwrap()).unwrap();
     std::fs::write(dir.join("autre.pdf"), bare).unwrap();
     let err = s.open(&dir.join("autre.pdf")).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEcho);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotOkuSlides);
     assert_that!(french(&err)).contains("n'a pas été créé par Écho");
 }
 

@@ -1,6 +1,6 @@
 session-read = Kan { $path } niet lezen
 session-write = Kan { $path } niet schrijven
-session-not-echo = Deze pdf is niet gemaakt met Écho: hij kan niet worden bewerkt
+session-not-oku-slides = Deze pdf is niet gemaakt met Écho: hij kan niet worden bewerkt
 session-invalid-deck = Ongeldige presentatie-JSON
 session-invalid-template-set = Ongeldige sjabloonset: { $path }
 session-not-rendered = De presentatie is nog niet weergegeven

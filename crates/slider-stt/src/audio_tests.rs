@@ -55,7 +55,7 @@ fn parse_wav_without_data_chunk_returns_audio_file_error() {
 
 #[test]
 fn recorder_fake_mic_replays_the_file_then_silence() {
-    let dir = std::env::temp_dir().join(format!("echo-fake-mic-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("oku-slides-fake-mic-{}", std::process::id()));
     let storage = Storage::local().unwrap();
     let file = dir.join("voix.wav");
     storage.write(&file, wav(16_000, 1, &vec![8192; 1600])).unwrap();

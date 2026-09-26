@@ -11,7 +11,7 @@ import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import { t } from "../i18n";
 
-export const CATALOG_ID = "urn:echo:a2ui:catalog:panel:v1";
+export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:panel:v1";
 
 const ColumnApi = { name: "Column", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
 const CardApi = { name: "Card", schema: z.object({ child: CommonSchemas.ComponentId }).strict() };

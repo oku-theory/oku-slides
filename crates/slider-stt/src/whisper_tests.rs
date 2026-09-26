@@ -169,11 +169,11 @@ fn threads_is_between_one_and_eight() {
     assert_that!(threads()).is_less_than_or_equal_to(8);
 }
 
-/// Avec un vrai modèle : `ECHO_TEST_WHISPER_MODEL=<dossier> cargo nextest run --run-ignored all`.
+/// Avec un vrai modèle : `OKU_SLIDES_TEST_WHISPER_MODEL=<dossier> cargo nextest run --run-ignored all`.
 #[test]
-#[ignore = "demande un modèle CTranslate2 (ECHO_TEST_WHISPER_MODEL)"]
+#[ignore = "demande un modèle CTranslate2 (OKU_SLIDES_TEST_WHISPER_MODEL)"]
 fn transcriber_real_model_transcribes_without_error() {
-    let Some(dir) = std::env::var_os("ECHO_TEST_WHISPER_MODEL") else { return };
+    let Some(dir) = std::env::var_os("OKU_SLIDES_TEST_WHISPER_MODEL") else { return };
     let storage = Storage::local().unwrap();
     let t = super::Transcriber::load(Path::new(&dir), &storage).unwrap();
     let silence = vec![0.0f32; 16_000];
@@ -184,7 +184,7 @@ fn transcriber_real_model_transcribes_without_error() {
     assert_that!(t.transcribe(&[], None, None, true).unwrap().text.is_empty()).is_true();
     // Une vraie phrase, si fournie : WAV mono 16 kHz 16 bits et texte attendu.
     if let (Some(wav), Some(expected)) =
-        (std::env::var_os("ECHO_TEST_WHISPER_WAV"), std::env::var("ECHO_TEST_WHISPER_TEXT").ok())
+        (std::env::var_os("OKU_SLIDES_TEST_WHISPER_WAV"), std::env::var("OKU_SLIDES_TEST_WHISPER_TEXT").ok())
     {
         let mut reader = hound::WavReader::open(wav).unwrap();
         let samples: Vec<f32> = reader.samples::<i16>().map(|s| f32::from(s.unwrap()) / 32768.0).collect();
@@ -196,7 +196,7 @@ fn transcriber_real_model_transcribes_without_error() {
 }
 
 fn model_dir(name: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("echo-whisper-{name}-{}", std::process::id()))
+    std::env::temp_dir().join(format!("oku-slides-whisper-{name}-{}", std::process::id()))
 }
 
 #[test]

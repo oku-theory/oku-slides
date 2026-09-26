@@ -21,7 +21,7 @@ pub enum SessionErrorKind {
     /// Fichier illisible ou impossible à écrire.
     File,
     /// Ce PDF ne contient pas de sources Écho.
-    NotEcho,
+    NotOkuSlides,
     /// Sources ou deck illisibles.
     InvalidDocument,
     /// Une opération de la transaction a été refusée.
@@ -56,7 +56,7 @@ pub(crate) enum SessionInner {
     #[snafu(display("cannot write {}", path.display()))]
     Write { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("this PDF was not created by Écho: it cannot be edited"))]
-    NotEcho { backtrace: Backtrace },
+    NotOkuSlides { backtrace: Backtrace },
     #[snafu(display("unreadable PDF"))]
     Pdf { source: slider_pdf::PdfError, backtrace: Backtrace },
     #[snafu(display("unreadable sources"))]
@@ -98,7 +98,7 @@ impl SessionError {
         use SessionInner::*;
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
-            NotEcho { .. } => SessionErrorKind::NotEcho,
+            NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
             Pdf { .. } | Sources { .. } | DeckJson { .. } | TemplateJson { .. } => SessionErrorKind::InvalidDocument,
             Op { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } => SessionErrorKind::Render,
@@ -140,7 +140,7 @@ impl Localize for SessionError {
         match &*self.0 {
             Read { path, .. } => l.tr_with("session-read", &path_arg(path)),
             Write { path, .. } => l.tr_with("session-write", &path_arg(path)),
-            NotEcho { .. } => l.tr("session-not-echo"),
+            NotOkuSlides { .. } => l.tr("session-not-oku-slides"),
             Pdf { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),
             DeckJson { .. } => l.tr("session-invalid-deck"),

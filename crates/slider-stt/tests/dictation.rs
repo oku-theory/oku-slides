@@ -15,7 +15,7 @@ use speculoos::prelude::*;
 fn workdir(name: &str) -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!("echo-dictation-{name}-{}-{n}", std::process::id()))
+    std::env::temp_dir().join(format!("oku-slides-dictation-{name}-{}-{n}", std::process::id()))
 }
 
 /// Un serveur de modèles : chaque fichier vaut `body` ; les `fail_first`

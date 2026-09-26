@@ -1,6 +1,6 @@
 session-read = { $path } okunamıyor
 session-write = { $path } yazılamıyor
-session-not-echo = Bu PDF Écho ile oluşturulmamış: düzenlenemez
+session-not-oku-slides = Bu PDF Écho ile oluşturulmamış: düzenlenemez
 session-invalid-deck = Geçersiz sunu JSON'u
 session-invalid-template-set = Geçersiz şablon seti: { $path }
 session-not-rendered = Sunu henüz oluşturulmadı

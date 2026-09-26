@@ -42,7 +42,7 @@ fn resampler_chunked_input_matches_whole_resample() {
 
 #[test]
 fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
-    let dir = std::env::temp_dir().join(format!("echo-stt-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("oku-slides-stt-{}", std::process::id()));
     let stt = Stt::new(&platform(&dir));
     let s = stt.status();
     assert_that!(s.config.model).is_equal_to(Model::Turbo);

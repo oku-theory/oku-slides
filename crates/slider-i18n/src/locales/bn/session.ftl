@@ -1,6 +1,6 @@
 session-read = { $path } পড়া যাচ্ছে না
 session-write = { $path } লেখা যাচ্ছে না
-session-not-echo = এই PDF Écho দিয়ে তৈরি হয়নি: এটি সম্পাদনা করা যাবে না
+session-not-oku-slides = এই PDF Écho দিয়ে তৈরি হয়নি: এটি সম্পাদনা করা যাবে না
 session-invalid-deck = প্রেজেন্টেশনের JSON অবৈধ
 session-invalid-template-set = অবৈধ টেমপ্লেট সেট: { $path }
 session-not-rendered = প্রেজেন্টেশনটি এখনও রেন্ডার হয়নি

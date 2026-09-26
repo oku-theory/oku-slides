@@ -19,7 +19,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"echo-sources","version":1}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":1}"#;
 const DECK: &[u8] = br#"{"slides":[]}"#;
 
 #[test]
@@ -43,7 +43,7 @@ fn from_zip_other_format_returns_not_sources() {
 
 #[test]
 fn from_zip_newer_version_returns_unsupported_version() {
-    let manifest = br#"{"format":"echo-sources","version":99}"#;
+    let manifest = br#"{"format":"oku-slides-sources","version":99}"#;
     let err = SourceBundle::from_zip(&zip(&[("manifest.json", manifest), ("deck.json", DECK)])).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::UnsupportedVersion);
 }

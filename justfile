@@ -95,8 +95,8 @@ slider *args:
 bench file=deck:
     cargo run -q --release -p slider-cli -- --fonts {{fonts}} bench "{{file}}"
 
-# Enregistre un deck JSON en .echo.pdf
-save file=deck out="deck.echo.pdf":
+# Enregistre un deck JSON en .oku-slides.pdf
+save file=deck out="deck.oku-slides.pdf":
     cargo run -q -p slider-cli -- --fonts {{fonts}} save "{{file}}" "{{out}}"
 
 # Compile un exemple de la bibliothèque Typst : just typst pro

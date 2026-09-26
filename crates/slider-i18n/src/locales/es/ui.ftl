@@ -219,5 +219,5 @@ ui-chart-series = Serie { $n }
 
 ## Archivos
 
-ui-file-open-prompt = Ruta del archivo que abrir (.echo.pdf o .json)
+ui-file-open-prompt = Ruta del archivo que abrir (.oku-slides.pdf o .json)
 ui-file-save-prompt = Guardar como (ruta completa)

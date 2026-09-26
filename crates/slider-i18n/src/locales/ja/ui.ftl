@@ -219,5 +219,5 @@ ui-chart-series = 系列 { $n }
 
 ## ファイル
 
-ui-file-open-prompt = 開くファイルのパス（.echo.pdf または .json）
+ui-file-open-prompt = 開くファイルのパス（.oku-slides.pdf または .json）
 ui-file-save-prompt = 名前を付けて保存（フルパス）

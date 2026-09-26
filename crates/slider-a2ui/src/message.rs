@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 /// Catalogue des surfaces d'Écho, implémenté par l'interface (`ui/src/a2ui`).
-pub const CATALOG_ID: &str = "urn:echo:a2ui:catalog:panel:v1";
+pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:panel:v1";
 
 /// Version du protocole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

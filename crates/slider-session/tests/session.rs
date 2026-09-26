@@ -6,7 +6,7 @@ use speculoos::prelude::*;
 /// Une session isolée : son propre dossier de données, vide.
 fn session() -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    let data = std::env::temp_dir().join(format!("echo-session-{}-{}", std::process::id(), unique()));
+    let data = std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique()));
     settings.paths.data = Some(data);
     // Les messages attendus sont en français, quelle que soit la langue du système.
     settings.i18n.locale = Some("fr".into());
@@ -67,7 +67,7 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     s.save(Some(&dir.join("essai.pdf"))).unwrap();
     let snap = s.snapshot();
     let path = snap.path.unwrap().to_owned();
-    assert_that!(path.to_string_lossy().into_owned()).ends_with("essai.echo.pdf");
+    assert_that!(path.to_string_lossy().into_owned()).ends_with("essai.oku-slides.pdf");
     assert_that!(snap.dirty).is_false();
 
     let deck: Deck = s.deck().clone();
@@ -203,7 +203,7 @@ fn templates_view_renders_previews_in_deck_theme() {
 #[test]
 fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
     use serde_json::json;
-    let dir = std::env::temp_dir().join(format!("echo-session-tpl-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("oku-slides-session-tpl-{}", std::process::id()));
     let mut s = session();
     s.set_templates_dir(&dir);
     let before = s.deck().clone();

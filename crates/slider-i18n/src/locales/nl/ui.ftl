@@ -219,5 +219,5 @@ ui-chart-series = Reeks { $n }
 
 ## Bestanden
 
-ui-file-open-prompt = Pad van het te openen bestand (.echo.pdf of .json)
+ui-file-open-prompt = Pad van het te openen bestand (.oku-slides.pdf of .json)
 ui-file-save-prompt = Opslaan als (volledig pad)

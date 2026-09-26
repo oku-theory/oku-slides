@@ -227,14 +227,14 @@ export default function App() {
   // --- Grille de la slide -------------------------------------------------
   const [gridAlways, setGridAlways] = useState(() => {
     try {
-      return localStorage.getItem("echo.grid") !== "off";
+      return localStorage.getItem("oku-slides.grid") !== "off";
     } catch {
       return true;
     }
   });
   useEffect(() => {
     try {
-      localStorage.setItem("echo.grid", gridAlways ? "on" : "off");
+      localStorage.setItem("oku-slides.grid", gridAlways ? "on" : "off");
     } catch {
       /* préférence facultative */
     }
@@ -426,7 +426,7 @@ export default function App() {
                 count: snap.slides.length,
                 status: t(snap.editing.builtin ? "ui-status-builtin" : snap.dirty ? "ui-status-unsaved" : "ui-status-saved"),
               })
-            : <>{snap.path ? `${snap.name}.echo.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
+            : <>{snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
         </span>
       </header>
 

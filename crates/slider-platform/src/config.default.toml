@@ -1,6 +1,6 @@
 # Réglages par défaut d'Écho. Chaque valeur peut être remplacée par
 # `config.toml` dans le dossier de données de l'app, puis par une variable
-# d'environnement ECHO_<SECTION>__<CLÉ> (ex. ECHO_PATHS__MODELS=/tmp/modeles).
+# d'environnement OKU_SLIDES_<SECTION>__<CLÉ> (ex. OKU_SLIDES_PATHS__MODELS=/tmp/modeles).
 
 [paths]
 # Dossiers : absents = sous le dossier de données de l'app

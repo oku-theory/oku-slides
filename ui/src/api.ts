@@ -307,7 +307,7 @@ export async function pickOpenPath(): Promise<string | null> {
 export async function pickSavePath(defaultName: string): Promise<string | null> {
   if (inTauri) {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    return save({ defaultPath: `${defaultName}.echo.pdf`, filters: [{ name: t("ui-brand"), extensions: ["pdf"] }] });
+    return save({ defaultPath: `${defaultName}.oku-slides.pdf`, filters: [{ name: t("ui-brand"), extensions: ["pdf"] }] });
   }
-  return window.prompt(t("ui-file-save-prompt"), `/tmp/${defaultName}.echo.pdf`);
+  return window.prompt(t("ui-file-save-prompt"), `/tmp/${defaultName}.oku-slides.pdf`);
 }

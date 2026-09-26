@@ -1,6 +1,6 @@
 session-read = Impossible de lire { $path }
 session-write = Impossible d'écrire { $path }
-session-not-echo = Ce PDF n'a pas été créé par Écho, il ne peut pas être modifié
+session-not-oku-slides = Ce PDF n'a pas été créé par Écho, il ne peut pas être modifié
 session-invalid-deck = Deck JSON invalide
 session-invalid-template-set = Ensemble de modèles invalide : { $path }
 session-not-rendered = Le deck n'est pas encore rendu

@@ -2,7 +2,7 @@
 //!
 //! - [`telemetry`] : journaux structurés (`tracing`), à installer en premier.
 //! - [`errors`] : une erreur et ses causes, sur une ligne.
-//! - [`config`] : réglages (défauts embarqués, `config.toml`, `ECHO_…`).
+//! - [`config`] : réglages (défauts embarqués, `config.toml`, `OKU_SLIDES_…`).
 //! - [`storage`] : fichiers locaux, par OpenDAL.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
 //!

@@ -1,6 +1,6 @@
 session-read = 無法讀取 { $path }
 session-write = 無法寫入 { $path }
-session-not-echo = 此 PDF 並非由 Écho 建立，無法編輯
+session-not-oku-slides = 此 PDF 並非由 Écho 建立，無法編輯
 session-invalid-deck = 簡報 JSON 無效
 session-invalid-template-set = 範本集無效：{ $path }
 session-not-rendered = 簡報尚未渲染

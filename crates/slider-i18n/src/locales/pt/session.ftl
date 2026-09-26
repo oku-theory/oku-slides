@@ -1,6 +1,6 @@
 session-read = Não é possível ler { $path }
 session-write = Não é possível gravar { $path }
-session-not-echo = Este PDF não foi criado pelo Écho: não pode ser editado
+session-not-oku-slides = Este PDF não foi criado pelo Écho: não pode ser editado
 session-invalid-deck = JSON de apresentação inválido
 session-invalid-template-set = Conjunto de modelos inválido: { $path }
 session-not-rendered = A apresentação ainda não foi renderizada

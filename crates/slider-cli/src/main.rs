@@ -132,7 +132,7 @@ fn read_deck(storage: &Storage, l: &Localizer, path: &Path) -> Result<Deck> {
     serde_json::from_slice(&bytes).wrap_err_with(|| l.tr_with("cli-invalid-deck", &[("path", shown().into())]))
 }
 
-/// Charge un deck depuis un JSON ou un .echo.pdf.
+/// Charge un deck depuis un JSON ou un .oku-slides.pdf.
 fn load_bundle(storage: &Storage, l: &Localizer, path: &Path) -> Result<SourceBundle> {
     let opened = read_document(storage, path)
         .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))?;

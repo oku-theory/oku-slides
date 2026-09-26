@@ -1,6 +1,6 @@
 session-read = { $path } पढ़ा नहीं जा सकता
 session-write = { $path } लिखा नहीं जा सकता
-session-not-echo = यह PDF Écho से नहीं बनाया गया था: इसे संपादित नहीं किया जा सकता
+session-not-oku-slides = यह PDF Écho से नहीं बनाया गया था: इसे संपादित नहीं किया जा सकता
 session-invalid-deck = प्रेज़ेंटेशन का JSON अमान्य है
 session-invalid-template-set = अमान्य टेम्पलेट सेट: { $path }
 session-not-rendered = प्रेज़ेंटेशन अभी रेंडर नहीं हुआ है

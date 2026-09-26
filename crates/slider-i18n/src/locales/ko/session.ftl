@@ -1,6 +1,6 @@
 session-read = { $path }을(를) 읽을 수 없습니다
 session-write = { $path }에 쓸 수 없습니다
-session-not-echo = Écho로 만든 PDF가 아니므로 편집할 수 없습니다
+session-not-oku-slides = Écho로 만든 PDF가 아니므로 편집할 수 없습니다
 session-invalid-deck = 프레젠테이션 JSON이 올바르지 않습니다
 session-invalid-template-set = 템플릿 세트가 올바르지 않습니다: { $path }
 session-not-rendered = 프레젠테이션이 아직 렌더링되지 않았습니다

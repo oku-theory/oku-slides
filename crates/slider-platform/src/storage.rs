@@ -121,7 +121,7 @@ impl Storage {
     pub fn local() -> Result<Self, StorageError> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
-            .thread_name("echo-storage")
+            .thread_name("oku-slides-storage")
             .enable_all()
             .build()
             .context(RuntimeSnafu)?;

@@ -1,6 +1,6 @@
 session-read = { $path } を読み込めません
 session-write = { $path } に書き込めません
-session-not-echo = この PDF は Écho で作成されたものではないため、編集できません
+session-not-oku-slides = この PDF は Écho で作成されたものではないため、編集できません
 session-invalid-deck = プレゼンテーションの JSON が無効です
 session-invalid-template-set = テンプレートセットが無効です：{ $path }
 session-not-rendered = プレゼンテーションはまだレンダリングされていません

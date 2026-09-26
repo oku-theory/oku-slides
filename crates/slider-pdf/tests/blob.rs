@@ -60,14 +60,14 @@ fn extract_sources_after_external_edit_reports_modified_elsewhere() {
 
 #[test]
 fn extract_sources_blob_under_other_key_returns_none() {
-    // Seule la clé /Echo est lue : un blob sous /Slider n'est pas des sources Écho.
+    // Seule la clé /OkuSlides est lue : un blob sous /Echo (ancien nom) n'est pas des sources.
     let out = slider_pdf::embed_sources(&minimal_pdf(), b"zip").unwrap();
     let mut doc = Document::load_mem(&out).unwrap();
     let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
     let catalog = doc.get_object_mut(root).unwrap().as_dict_mut().unwrap();
     let mut pieces = catalog.get(b"PieceInfo").unwrap().as_dict().unwrap().clone();
-    let piece = pieces.remove(b"Echo").unwrap();
-    pieces.set("Slider", piece);
+    let piece = pieces.remove(b"OkuSlides").unwrap();
+    pieces.set("Echo", piece);
     catalog.set("PieceInfo", Object::Dictionary(pieces));
     let mut legacy = Vec::new();
     doc.save_to(&mut legacy).unwrap();

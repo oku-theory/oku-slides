@@ -1,4 +1,4 @@
-//! Lecture des documents : un `.echo.pdf` (ou un deck JSON). Les dossiers
+//! Lecture des documents : un `.oku-slides.pdf` (ou un deck JSON). Les dossiers
 //! de l'app sont dans les réglages (`slider_platform::config`), les accès
 //! aux fichiers dans `slider_platform::storage`.
 
@@ -10,26 +10,26 @@ use slider_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt};
 
 use crate::Result;
-use crate::error::{DeckJsonSnafu, NotEchoSnafu, PdfSnafu, ReadSnafu, SourcesSnafu};
+use crate::error::{DeckJsonSnafu, NotOkuSlidesSnafu, PdfSnafu, ReadSnafu, SourcesSnafu};
 
 /// Extension d'un document Écho.
-pub const EXTENSION: &str = ".echo.pdf";
+pub const EXTENSION: &str = ".oku-slides.pdf";
 
 /// Un document lu sur disque.
 #[derive(Debug)]
 pub struct Opened {
     pub sources: SourceBundle,
-    /// Lu dans un `.echo.pdf` (sinon, un deck JSON de développement).
+    /// Lu dans un `.oku-slides.pdf` (sinon, un deck JSON de développement).
     pub pdf: bool,
     /// Le PDF a été modifié par un autre outil après Écho.
     pub modified_elsewhere: bool,
 }
 
-/// Lit un `.echo.pdf` (reconnu à son contenu) ou un deck JSON.
+/// Lit un `.oku-slides.pdf` (reconnu à son contenu) ou un deck JSON.
 pub fn read_document(storage: &Storage, path: &Path) -> Result<Opened> {
     let bytes = storage.read(path).context(ReadSnafu { path })?;
     if bytes.starts_with(b"%PDF") {
-        let found = slider_pdf::extract_sources(&bytes).context(PdfSnafu)?.context(NotEchoSnafu)?;
+        let found = slider_pdf::extract_sources(&bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
         let sources = SourceBundle::from_zip(&found.zip).context(SourcesSnafu)?;
         return Ok(Opened { sources, pdf: true, modified_elsewhere: found.modified_elsewhere() });
     }

@@ -217,5 +217,5 @@ ui-chart-series = 계열 { $n }
 
 ## 파일
 
-ui-file-open-prompt = 열 파일의 경로 (.echo.pdf 또는 .json)
+ui-file-open-prompt = 열 파일의 경로 (.oku-slides.pdf 또는 .json)
 ui-file-save-prompt = 다른 이름으로 저장 (전체 경로)

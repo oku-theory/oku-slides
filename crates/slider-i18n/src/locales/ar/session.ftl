@@ -1,6 +1,6 @@
 session-read = تعذّرت قراءة { $path }
 session-write = تعذّرت كتابة { $path }
-session-not-echo = لم يُنشأ ملف PDF هذا بواسطة Écho: لا يمكن تعديله
+session-not-oku-slides = لم يُنشأ ملف PDF هذا بواسطة Écho: لا يمكن تعديله
 session-invalid-deck = JSON العرض التقديمي غير صالح
 session-invalid-template-set = مجموعة قوالب غير صالحة: { $path }
 session-not-rendered = لم يُعرض العرض التقديمي بعد

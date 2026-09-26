@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 use super::*;
 
 fn temp_dir(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("echo-storage-{name}-{}", std::process::id()))
+    std::env::temp_dir().join(format!("oku-slides-storage-{name}-{}", std::process::id()))
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn read_missing_file_returns_not_found() {
 fn write_atomic_replaces_content_and_leaves_no_temp_file() {
     let s = Storage::local().unwrap();
     let dir = temp_dir("atomic");
-    let file = dir.join("deck.echo.pdf");
+    let file = dir.join("deck.oku-slides.pdf");
     s.write_atomic(&file, b"v1".to_vec()).unwrap();
     s.write_atomic(&file, b"v2".to_vec()).unwrap();
     assert_that!(s.read(&file).unwrap()).is_equal_to(b"v2".to_vec());

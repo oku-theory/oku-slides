@@ -1,6 +1,6 @@
 session-read = อ่าน { $path } ไม่ได้
 session-write = เขียน { $path } ไม่ได้
-session-not-echo = PDF นี้ไม่ได้สร้างด้วย Écho จึงแก้ไขไม่ได้
+session-not-oku-slides = PDF นี้ไม่ได้สร้างด้วย Écho จึงแก้ไขไม่ได้
 session-invalid-deck = JSON ของงานนำเสนอไม่ถูกต้อง
 session-invalid-template-set = ชุดเทมเพลตไม่ถูกต้อง: { $path }
 session-not-rendered = งานนำเสนอยังไม่ได้เรนเดอร์

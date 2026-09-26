@@ -217,5 +217,5 @@ ui-chart-series = Chuỗi { $n }
 
 ## Tệp
 
-ui-file-open-prompt = Đường dẫn tệp cần mở (.echo.pdf hoặc .json)
+ui-file-open-prompt = Đường dẫn tệp cần mở (.oku-slides.pdf hoặc .json)
 ui-file-save-prompt = Lưu thành (đường dẫn đầy đủ)

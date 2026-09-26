@@ -217,5 +217,5 @@ ui-chart-series = ชุดข้อมูล { $n }
 
 ## ไฟล์
 
-ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.echo.pdf หรือ .json)
+ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.oku-slides.pdf หรือ .json)
 ui-file-save-prompt = บันทึกเป็น (พาธแบบเต็ม)

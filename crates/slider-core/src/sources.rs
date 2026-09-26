@@ -1,4 +1,4 @@
-//! Le zip des sources (format `echo-sources`) : deck, assets d'origine et
+//! Le zip des sources (format `oku-slides-sources`) : deck, assets d'origine et
 //! polices. C'est ce blob qui est stocké dans le PDF.
 
 use std::collections::BTreeMap;
@@ -14,7 +14,7 @@ use crate::error::{
 };
 use crate::model::Deck;
 
-pub const SOURCES_FORMAT: &str = "echo-sources";
+pub const SOURCES_FORMAT: &str = "oku-slides-sources";
 pub const SOURCES_VERSION: u32 = 1;
 
 /// Identifiant d'un asset : `sha256:<hex>` de son contenu.
