@@ -8,6 +8,7 @@
 .cdg-input { width: 100%; min-width: 6ch; box-sizing: border-box; border: 0; background: transparent; padding: 6px 8px; font: inherit; color: inherit; }
 .cdg-number { text-align: right; }
 .cdg-input:focus { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: -2px; background: var(--papier-surface, #fff); }
+.cdg-check { display: block; margin: 6px auto; accent-color: var(--papier-accent, #2f5d8a); cursor: pointer; }
 .cdg-gutter { width: 1%; }
 .cdg-remove { border: 0; background: transparent; color: var(--papier-text-muted, #6b665e); cursor: pointer; padding: 4px 8px; opacity: 0; }
 tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { opacity: 1; }

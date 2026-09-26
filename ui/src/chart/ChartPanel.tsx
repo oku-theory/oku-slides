@@ -4,7 +4,7 @@
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, chartKind, chartSource, checkboxColumns, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
 import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
@@ -55,6 +55,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
       {source ? (
         <ChartDataGrid
           source={source}
+          checkboxColumns={checkboxColumns(element)}
           onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", slide, element: element.id, change }])}
         />
       ) : (

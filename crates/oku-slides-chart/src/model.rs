@@ -63,13 +63,16 @@ pub struct CartesianSeries {
     pub color: Option<String>,
 }
 
-/// Cascade : une variation par catégorie ; `None` = barre de total.
+/// Cascade : une variation par catégorie ; `totals[i]` fait de la barre `i`
+/// un total (la somme courante), dont la variation est ignorée.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Waterfall {
     pub category_label: String,
     pub categories: Vec<String>,
     pub name: String,
+    /// Variations ; une valeur vide compte pour 0.
     pub steps: Vec<Option<f64>>,
+    pub totals: Vec<bool>,
     pub label: bool,
     pub value_min: Option<f64>,
     pub value_max: Option<f64>,
@@ -138,7 +141,7 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
         SeriesType::Pie => ChartKind::Pie(pie(option, table.as_ref())?),
         SeriesType::Scatter => ChartKind::Scatter(scatter(option, table.as_ref(), labels)?),
         SeriesType::Radar => ChartKind::Radar(radar(option, table.as_ref())?),
-        SeriesType::Waterfall => ChartKind::Waterfall(waterfall(option, table.as_ref(), labels)?),
+        SeriesType::Waterfall => ChartKind::Waterfall(waterfall(option, table.as_ref())?),
     };
 
     let title = option.title.as_ref();
@@ -323,20 +326,29 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
     })
 }
 
-/// Cascade : toujours verticale, une seule série ; les valeurs s'affichent
-/// sauf `label.show: false`.
-fn waterfall(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Waterfall> {
+/// Cascade : toujours verticale, une seule série lue dans `dataset` ; la
+/// colonne qui suit les valeurs, si elle existe, coche les totaux. Les
+/// valeurs s'affichent sauf `label.show: false`.
+fn waterfall(option: &ChartOption, table: Option<&Table>) -> Result<Waterfall> {
     let s = single(option, "cascade")?;
+    let t = match (table, &s.data) {
+        (Some(t), None) => t,
+        _ => return Err(inconsistent(Message::new("chart-waterfall-dataset"))),
+    };
     let (category_label, categories) = categories(option, table, false)?;
-    let (name, steps) = series_values(s, 0, table, false, labels)?;
+    let col = t.resolve(s.encode.as_ref().and_then(|e| e.y.as_ref()), 1)?;
+    let name = s.name.clone().unwrap_or_else(|| t.headers[col].clone());
+    let steps = t.numbers(col);
+    let totals = t.rows.iter().map(|r| r.get(col + 1).is_some_and(Cell::is_checked)).collect::<Vec<_>>();
     let val_axis = option.y_axis.as_ref();
     // charts-rs arrête l'axe pile sur la barre la plus haute : son étiquette
     // serait coupée. L'axe s'arrondit donc au-delà des sommes courantes.
-    let (low, high) = running_extent(&steps);
+    let (low, high) = running_extent(&steps, &totals);
     Ok(Waterfall {
         category_label,
         categories,
         name,
+        totals,
         label: s.label.as_ref().and_then(|l| l.show).unwrap_or(true),
         value_min: val_axis.and_then(|a| a.min).or_else(|| (low < 0.0).then(|| -nice_above(-low))),
         value_max: val_axis.and_then(|a| a.max).or_else(|| (high > 0.0).then(|| nice_above(high))),
@@ -488,11 +500,12 @@ fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
 }
 
 /// Plus basse et plus haute somme courante d'une cascade (0 compris) ; une
-/// barre de total (`None`) reprend la somme courante.
-fn running_extent(steps: &[Option<f64>]) -> (f64, f64) {
+/// barre de total reprend la somme courante sans la changer.
+fn running_extent(steps: &[Option<f64>], totals: &[bool]) -> (f64, f64) {
     let mut sum = 0.0_f64;
     let (mut low, mut high) = (0.0_f64, 0.0_f64);
-    for step in steps.iter().flatten() {
+    let changes = steps.iter().zip(totals).filter(|(_, total)| !**total).filter_map(|(step, _)| *step);
+    for step in changes {
         sum += step;
         low = low.min(sum);
         high = high.max(sum);

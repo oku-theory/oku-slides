@@ -38,6 +38,15 @@ export function chartKind(el: Element): string | null {
   return optionOf(el)?.series?.[0]?.type ?? null;
 }
 
+/**
+ * Colonnes de cases à cocher de la grille : la colonne Total d'une cascade,
+ * celle qui suit les valeurs (forme canonique), si elle existe.
+ */
+export function checkboxColumns(el: Element): number[] {
+  const width = chartSource(el)?.[0]?.length ?? 0;
+  return chartKind(el) === "waterfall" && width > 2 ? [2] : [];
+}
+
 /** Groupe d'empilement que pose l'interface. */
 const STACK = "total";
 

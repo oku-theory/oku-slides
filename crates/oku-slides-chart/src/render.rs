@@ -162,10 +162,11 @@ impl ChartsRsRenderer {
         chart.data = w
             .steps
             .iter()
-            .map(|step| match step {
-                Some(v) => WaterfallData { value: *v as f32, is_total: false },
+            .zip(&w.totals)
+            .map(|(step, total)| match total {
                 // Valeur 0 : charts-rs calcule la somme courante.
-                None => WaterfallData { value: 0.0, is_total: true },
+                true => WaterfallData { value: 0.0, is_total: true },
+                false => WaterfallData { value: step.unwrap_or(0.0) as f32, is_total: false },
             })
             .collect();
         chart.x_axis_data = w.categories.clone();

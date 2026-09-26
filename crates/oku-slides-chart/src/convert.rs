@@ -3,7 +3,8 @@
 //! chaque type sait lire et écrire. Le résultat est canonique.
 //!
 //! Barres, lignes et radar partagent la même forme de tableau ; les secteurs
-//! et la cascade n'en gardent que la première colonne de valeurs ; un nuage de points prend
+//! et la cascade n'en gardent que la première colonne de valeurs (la cascade
+//! y ajoute sa colonne Total, décochée) ; un nuage de points prend
 //! les libellés comme abscisses (numérotées 1, 2… s'ils ne sont pas des nombres).
 
 use serde_json::json;
@@ -35,7 +36,7 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
         }
         SeriesType::Radar => (grid(&table, table.columns.len()), vec![json!({ "type": "radar" })], false),
         SeriesType::Pie => (grid(&table, 1), vec![json!({ "type": "pie" })], false),
-        SeriesType::Waterfall => (grid(&table, 1), vec![json!({ "type": "waterfall" })], true),
+        SeriesType::Waterfall => (waterfall_grid(&table, labels), vec![json!({ "type": "waterfall" })], true),
         SeriesType::Scatter => {
             let series =
                 (0..series_count).map(|i| json!({ "type": "scatter", "encode": { "x": 2 * i, "y": 2 * i + 1 } }));
@@ -68,7 +69,9 @@ fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {
             columns: r.series.into_iter().map(|s| (s.name, s.values)).collect(),
         },
         ChartKind::Waterfall(w) => {
-            Table { label: w.category_label, rows: w.categories, columns: vec![(w.name, w.steps)] }
+            // Un total n'a pas de valeur propre : sa cellule devient vide.
+            let steps = w.steps.into_iter().zip(w.totals).map(|(step, total)| step.filter(|_| !total)).collect();
+            Table { label: w.category_label, rows: w.categories, columns: vec![(w.name, steps)] }
         }
         ChartKind::Pie(p) => {
             let (rows, values) = p.slices.into_iter().unzip();
@@ -110,6 +113,18 @@ fn grid(table: &Table, width: usize) -> Vec<Vec<Cell>> {
         cells
     });
     std::iter::once(header).chain(rows).collect()
+}
+
+/// La première colonne de valeurs, suivie d'une colonne Total décochée.
+fn waterfall_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
+    grid(table, 1)
+        .into_iter()
+        .enumerate()
+        .map(|(i, mut row)| {
+            row.push(if i == 0 { Cell::Text(labels.total().to_owned()) } else { Cell::Bool(false) });
+            row
+        })
+        .collect()
 }
 
 /// Une paire de colonnes (x, y) par série ; une valeur absente n'est pas un point.

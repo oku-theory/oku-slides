@@ -153,7 +153,10 @@ fn render_stacked_bars_share_one_column_per_category() {
 #[test]
 fn render_waterfall_draws_one_bar_per_step_without_legend() {
     let svg = render(json!({
-        "dataset": { "source": [["Poste", "Montant"], ["Début", 100], ["Ventes", 30], ["Coûts", -20], ["Fin", null]] },
+        "dataset": { "source": [
+            ["Poste", "Montant", "Total"],
+            ["Début", 100, false], ["Ventes", 30, false], ["Coûts", -20, false], ["Fin", null, true]
+        ] },
         "series": [{ "type": "waterfall" }]
     }));
     assert_that!(bar_columns(&svg).len()).is_equal_to(4);
@@ -191,4 +194,22 @@ fn render_option_palette_replaces_the_theme_palette() {
     .unwrap();
     let svg = ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap();
     assert_that!((has_color(&svg, "#0A0B0C"), has_color(&svg, "#123456"))).is_equal_to((true, false));
+}
+
+/// Cascade à trois couleurs : total, baisse, hausse (dans cet ordre).
+fn render_waterfall_with_total(total: bool) -> String {
+    let theme =
+        ChartTheme { palette: vec!["#111111".into(), "#222222".into(), "#333333".into()], ..Default::default() };
+    let v = json!({
+        "dataset": { "source": [["Poste", "Montant", "Total"], ["Début", 100, false], ["Fin", null, total]] },
+        "series": [{ "type": "waterfall" }]
+    });
+    let option = parse_option(&v).unwrap_or_else(|e| panic!("{e}\n{v}"));
+    ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
+}
+
+#[test]
+fn render_waterfall_draws_the_total_color_only_for_rows_marked_total() {
+    assert_that!(has_color(&render_waterfall_with_total(true), "#111111")).is_true();
+    assert_that!(has_color(&render_waterfall_with_total(false), "#111111")).is_false();
 }
