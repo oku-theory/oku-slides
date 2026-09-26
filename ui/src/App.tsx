@@ -1,8 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import type { Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
+import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
 import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
 import { applyAppearance } from "./appearance";
-import { findElement, gridPlacement, instantiate, neighbourSlide, newId, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
+import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
@@ -10,7 +10,6 @@ import { t } from "./i18n";
 import Dictation from "./Dictation";
 import { ChartPanel } from "./chart/ChartPanel";
 import { starterChart } from "./chart/chartDeck";
-import type { Cell } from "./grid";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
@@ -148,6 +147,51 @@ export default function App() {
     api.slide(fetchId).then(setView).catch((e) => say(String(e), true));
   }, [fetchId, currentHash]);
 
+  // Presse-papiers : ⌘C, ⌘X et ⌘V passent par les événements du navigateur.
+  // L'élément copié reste ici ; le presse-papiers du système reçoit son texte,
+  // qui dit au collage si l'élément est toujours la dernière chose copiée.
+  const clip = useRef<{ element: Element; text: string } | null>(null);
+  useEffect(() => {
+    const skip = (e: ClipboardEvent) => editing || picking || !view || (e.target as HTMLElement).closest?.("input, textarea, select");
+    const copy = (e: ClipboardEvent) => {
+      if (skip(e) || !view || !selected || selected.startsWith("@")) return false;
+      const element = findElement(view.slide, selected);
+      if (!element) return false;
+      const text = view.targets.find((x) => x.id === selected)?.text || element.kind;
+      e.preventDefault();
+      e.clipboardData?.setData("text/plain", text);
+      clip.current = { element, text };
+      return true;
+    };
+    const cut = (e: ClipboardEvent) => {
+      if (!view || !selected || !copy(e)) return;
+      apply(t("ui-undo-cut"), [{ op: "remove_element", slide: view.slide.id, element: selected }]);
+      setSelected(null);
+    };
+    const paste = (e: ClipboardEvent) => {
+      if (skip(e) || !view) return;
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (clip.current && text === clip.current.text) {
+        e.preventDefault();
+        if (!canAdd(clip.current.element.kind, view.slide.kind)) return;
+        const { id, ops } = pasteOps(view, clip.current.element);
+        apply(t("ui-undo-paste"), ops).then(() => setSelected(id));
+      } else if (text.trim() && canAdd("text", view.slide.kind)) {
+        // Du texte venu d'ailleurs devient un élément texte.
+        e.preventDefault();
+        addElement("text", textToParagraphs(text), t("ui-undo-paste"));
+      }
+    };
+    window.addEventListener("copy", copy);
+    window.addEventListener("cut", cut);
+    window.addEventListener("paste", paste);
+    return () => {
+      window.removeEventListener("copy", copy);
+      window.removeEventListener("cut", cut);
+      window.removeEventListener("paste", paste);
+    };
+  });
+
   const apply = useCallback(
     async (label: string, ops: Op[]) => {
       await run(api.apply(label, ops));
@@ -192,11 +236,7 @@ export default function App() {
     if (zone && g && !hasBlocks) {
       // Sur la grille : le nouvel élément prend la moitié gauche de la première
       // ligne libre sous les autres. (Une slide à blocs reçoit un bloc de plus.)
-      const placed: Cell[] = (slide.elements ?? []).flatMap((e) => (e.cell ? [e.cell] : []));
-      const below = placed.reduce((m, c) => Math.max(m, c.row + (c.rows ?? 1)), 0);
-      const row = below < g.rows ? below : 0;
-      const cell = { col: 0, row, cols: Math.max(1, Math.round(g.columns / 2)), rows: 1 };
-      ops = [{ op: "add_element", slide: slide.id, zone: "elements", element: { id, ...body, cell } }];
+      ops = [{ op: "add_element", slide: slide.id, zone: "elements", element: { id, ...body, cell: freeCell(slide, g) } }];
     } else {
       ops = [{ op: "add_element", slide: slide.id, zone: "blocks", element: { id, ...body } }];
     }

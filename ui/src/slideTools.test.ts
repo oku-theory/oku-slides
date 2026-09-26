@@ -16,6 +16,10 @@ describe("canAdd", () => {
     expect(others.flatMap((s) => ADD_KINDS.filter((k) => canAdd(k, s)))).toEqual([]);
   });
 
+  test("un élément collé suit la même règle, image et groupe compris", () => {
+    expect([canAdd("image", "blank"), canAdd("group", "content"), canAdd("group", "title")]).toEqual([true, true, false]);
+  });
+
   test("sans slide affichée, rien", () => {
     expect(ADD_KINDS.filter((k) => canAdd(k, undefined))).toEqual([]);
   });

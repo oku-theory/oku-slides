@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { Paragraph, SlideView } from "./api";
-import { gridPlacement, instantiate, neighbourSlide, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
+import type { Element, Paragraph, SlideView } from "./api";
+import { gridPlacement, instantiate, neighbourSlide, pasteOps, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
 
 describe("textToParagraphs", () => {
   test("lignes, puces et listes numérotées donnent leurs paragraphes", () => {
@@ -78,6 +78,44 @@ describe("gridPlacement et placeOnGridOps", () => {
     const v = view({ elements: [{ id: "g", kind: "group", children: [{ id: "c", kind: "text", cell: { col: 0, row: 0 } }] }] });
     expect(gridPlacement(v, "c")).toBeNull();
     expect(gridPlacement(v, "g")).toBeNull();
+  });
+});
+
+describe("pasteOps", () => {
+  test("une copie sur la grille prend de nouveaux identifiants et la première ligne libre, même étendue", () => {
+    const source = { id: "e", kind: "group" as const, cell: { col: 2, row: 0, cols: 2, rows: 1 }, children: [{ id: "c", kind: "text" as const }] };
+    const v = view({ elements: [source, { id: "f", kind: "text", cell: { col: 0, row: 1 } }] });
+    const { id, ops } = pasteOps(v, source);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ op: "add_element", slide: "s", zone: "elements", element: { id, cell: { col: 0, row: 2, cols: 2, rows: 1 } } });
+    const el = ops[0].element as Element;
+    expect(id).not.toBe("e");
+    expect(el.children?.[0].id).not.toBe("c");
+    expect(source.id).toBe("e");
+  });
+
+  test("une grille pleine reçoit la copie sur sa première ligne", () => {
+    const source = { id: "e", kind: "text" as const, cell: { col: 0, row: 0, cols: 4, rows: 3 } };
+    const { ops } = pasteOps(view({ elements: [source] }), source);
+    expect(ops[0]).toMatchObject({ element: { cell: { col: 0, row: 0, cols: 4, rows: 3 } } });
+  });
+
+  test("un bloc collé sur une grille prend la moitié gauche de la ligne libre", () => {
+    const { ops } = pasteOps(view({ elements: [] }), { id: "b", kind: "text" });
+    expect(ops[0]).toMatchObject({ zone: "elements", element: { cell: { col: 0, row: 0, cols: 2, rows: 1 } } });
+  });
+
+  test("sans grille, un élément à cadre se colle décalé", () => {
+    const v = { ...view({ elements: [] }), zone: null };
+    const { ops } = pasteOps(v, { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } });
+    expect(ops[0]).toMatchObject({ zone: "elements", element: { frame: { x: 22, y: 32, w: 100, h: 50 } } });
+  });
+
+  test("une slide à blocs reçoit un bloc de plus, sans case ni cadre", () => {
+    const v = view({ blocks: [{ id: "a", kind: "text" }] });
+    const { ops } = pasteOps(v, { id: "e", kind: "text", cell: { col: 1, row: 1 } });
+    expect(ops[0]).toMatchObject({ zone: "blocks" });
+    expect((ops[0].element as Element).cell).toBeUndefined();
   });
 });
 
