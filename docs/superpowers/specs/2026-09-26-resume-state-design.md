@@ -32,29 +32,33 @@ Sous `<data>/resume/` (`<data>` = `settings.paths.data()`), écrits via
 
 ```
 resume/
-  state.json        { version, path, dirty, saved_hash, notice?, mode, ui: { slide, grid } }
+  state.json        { version, mode, ui: { slide, grid } }
   deck/             le document du deck (ou le deck mis de côté pendant l'édition des modèles)
-    deck.json
-    history.json    { undo, redo } — la limite vient des réglages
+    document.json   { path, dirty, saved_hash, deck, history } — une seule écriture atomique :
+                    le deck et son historique ne peuvent pas se désaccorder
     assets/<hex>    écrit s'il n'existe pas ; orphelins supprimés
     fonts/<nom>     idem
-  templates/        présent seulement en édition de modèles : même forme
+  templates/        même forme ; lu seulement quand `mode` est l'édition de modèles
 ```
 
 - `mode` : `"deck"` ou `{ "templates": { set, name, builtin } }`.
-- `saved_hash` : sha256 du fichier `path` au moment de l'ouverture ou du
-  dernier enregistrement.
+- `saved_hash` : sha256 (`asset_id`) du fichier `path` au moment de
+  l'ouverture ou du dernier enregistrement.
 - `version` : `1`. Une version inconnue est traitée comme un état illisible.
+- Les avis (`notice`) ne sont pas persistés : ils ne s'affichent qu'une fois.
+- Écriture : documents d'abord, `state.json` ensuite. Une requête `Ui`
+  n'écrit que `state.json`.
 
 ## Restauration (démarrage de l'app)
 
 1. Lire `state.json`, puis `deck/` (et `templates/` si le mode l'indique).
 2. Document non modifié, `path` présent et hash du fichier différent de
-   `saved_hash` (ou fichier absent de la copie de travail) : rouvrir depuis le
-   disque, historique vide.
+   `saved_hash` : rouvrir depuis le disque, historique vide. Fichier absent
+   ou illisible : la copie de travail est gardée.
 3. Sinon : deck + historique + `dirty` + `path` depuis la copie de travail.
-4. Historique illisible : deck gardé, historique vide. État ou deck
-   illisible : journalisé, deck vierge.
+4. Historique illisible : deck gardé, historique vide. Document des modèles
+   illisible : retour au deck. État ou deck illisible : journalisé, deck
+   vierge.
 5. Fichier passé en argument (« ouvrir avec… ») : il est ouvert, **sauf** si
    l'état restauré contient des modifications non enregistrées. Dans ce cas le
    travail restauré est gardé et un avis (`notice`) le signale.
