@@ -147,6 +147,33 @@ fn history_commit_with_failing_op_rolls_back_whole_transaction() {
 }
 
 #[test]
+fn history_serde_round_trip_keeps_undo_and_redo() {
+    let mut deck = fixture();
+    let before = deck.clone();
+    let mut h = History::new(500);
+    h.commit(&mut deck, "Tout", sample_ops()).unwrap();
+    h.commit(&mut deck, "Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    h.undo(&mut deck).unwrap();
+    let json = serde_json::to_string(&h).unwrap();
+    let mut back: History = serde_json::from_str(&json).unwrap();
+    assert_that!(back.undo_label()).is_equal_to(Some("Tout"));
+    assert_that!(back.redo_label()).is_equal_to(Some("Thème"));
+    back.undo(&mut deck).unwrap();
+    assert_that!(deck).is_equal_to(&before);
+}
+
+#[test]
+fn history_set_limit_drops_oldest_transactions() {
+    let mut deck = fixture();
+    let mut h = History::new(500);
+    h.commit(&mut deck, "Un", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    h.commit(&mut deck, "Deux", vec![Op::SetTheme { theme: Some("papier".into()) }]).unwrap();
+    h.set_limit(1);
+    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Deux"));
+    assert_that!(h.undo(&mut deck).unwrap()).is_none();
+}
+
+#[test]
 fn add_element_with_duplicate_id_returns_duplicate_id() {
     let mut deck = fixture();
     let err = Op::AddElement {
