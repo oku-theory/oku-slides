@@ -212,6 +212,23 @@ impl OkuSlidesWorld {
         Ok(())
     }
 
+    /// Palette des graphiques (jetons du thème) ; s'ils changent, les
+    /// graphiques du deck courant sont redessinés. `true` si elle a changé.
+    pub(crate) fn set_chart_palette(&mut self, palette: Vec<String>) -> Result<bool, RenderError> {
+        if !self.charts.set_palette(palette) {
+            return Ok(false);
+        }
+        let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
+        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts)?;
+        self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
+        self.refresh_main();
+        Ok(true)
+    }
+
+    pub(crate) fn chart_palette(&self) -> &[String] {
+        self.charts.palette()
+    }
+
     /// Refait la source principale si elle a changé (Typst garde son cache sinon).
     fn refresh_main(&mut self) {
         let text = main_source(self.theme.as_deref(), self.hexes.iter().map(String::as_str), &self.labels);

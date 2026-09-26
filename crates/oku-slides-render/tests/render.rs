@@ -241,3 +241,36 @@ fn set_language_after_set_deck_with_charts_still_compiles() {
     let doc = r.compile().unwrap();
     assert_that!(doc.svg(1).unwrap()).contains("<image");
 }
+
+fn themed_chart_deck(theme: &str) -> Deck {
+    let mut deck = chart_deck();
+    deck.theme = Some(theme.into());
+    deck
+}
+
+#[test]
+fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render() {
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let doc = r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
+    assert_that!(doc.page_count()).is_equal_to(2);
+    let papier: Vec<String> =
+        ["#3f6b5e", "#c4622d", "#2f5d8a", "#c9a227", "#8a4f7d", "#686258"].map(String::from).to_vec();
+    assert_that!(r.chart_palette().to_vec()).is_equal_to(papier);
+}
+
+#[test]
+fn render_theme_change_switches_the_chart_palette() {
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
+    r.render(&themed_chart_deck("pro"), &BTreeMap::new()).unwrap();
+    assert_that!(r.chart_palette().first().map(String::as_str)).is_equal_to(Some("#0072b0"));
+}
+
+#[test]
+fn render_deck_tokens_override_the_chart_palette() {
+    let mut deck = themed_chart_deck("papier");
+    deck.tokens = serde_json::json!({ "chart": { "palette": ["#010203", "accent"] } });
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.render(&deck, &BTreeMap::new()).unwrap();
+    assert_that!(r.chart_palette().to_vec()).is_equal_to(vec!["#010203".to_owned(), "#3f6b5e".to_owned()]);
+}

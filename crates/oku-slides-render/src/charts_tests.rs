@@ -100,3 +100,25 @@ fn set_labels_then_attach_redraws_with_new_key() {
     assert_that!(key(&d)).is_not_equal_to(english);
     assert_that!(charts.files.len()).is_equal_to(1);
 }
+
+#[test]
+fn attach_after_set_palette_draws_with_that_palette() {
+    let mut charts = Charts::default();
+    charts.set_palette(vec!["#123456".into()]);
+    let mut d = deck(bars(), None);
+    charts.attach(&mut d, None, &Fonts::default()).unwrap();
+    let svg = svg(&charts, &key(&d).unwrap()).to_lowercase();
+    assert_that!(svg.contains("#123456") || svg.contains("rgb(18,52,86")).is_true();
+}
+
+#[test]
+fn set_palette_changes_the_key_and_reports_the_change() {
+    let mut charts = Charts::default();
+    let mut a = deck(bars(), None);
+    charts.attach(&mut a, None, &Fonts::default()).unwrap();
+    assert_that!(charts.set_palette(vec!["#123456".into()])).is_true();
+    assert_that!(charts.set_palette(vec!["#123456".into()])).is_false();
+    let mut b = deck(bars(), None);
+    charts.attach(&mut b, None, &Fonts::default()).unwrap();
+    assert_that!(key(&a)).is_not_equal_to(key(&b));
+}

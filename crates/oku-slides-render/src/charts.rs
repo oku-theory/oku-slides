@@ -1,7 +1,7 @@
 //! Graphiques du deck : chaque élément `chart` est rendu en SVG par
 //! `oku-slides-chart` et servi à Typst sous `/charts/<empreinte>.svg`.
 //!
-//! L'empreinte couvre les options, la taille, la police et les libellés : un
+//! L'empreinte couvre les options, la taille, la police, la palette et les libellés : un
 //! graphique inchangé n'est pas redessiné d'un rendu à l'autre.
 
 use std::collections::hash_map::Entry;
@@ -52,6 +52,8 @@ fn body_font(theme: Option<&str>) -> &'static str {
 pub(crate) struct Charts {
     files: HashMap<FileId, Bytes>,
     labels: ChartLabels,
+    /// Palette des séries, tirée des jetons du thème ; vide = celle par défaut.
+    palette: Vec<String>,
 }
 
 impl Charts {
@@ -65,13 +67,29 @@ impl Charts {
         self.labels = labels;
     }
 
+    /// Palette des séries (jetons `chart.palette`). Elle entre dans
+    /// l'empreinte ; `true` si elle a changé.
+    pub(crate) fn set_palette(&mut self, palette: Vec<String>) -> bool {
+        let changed = palette != self.palette;
+        self.palette = palette;
+        changed
+    }
+
+    pub(crate) fn palette(&self) -> &[String] {
+        &self.palette
+    }
+
     /// Rend les graphiques de `deck` (JSON) et note l'empreinte de chacun
     /// dans l'élément. Un graphique qui ne se dessine pas n'en a pas : Typst
     /// affiche alors un cadre à la place.
     pub(crate) fn attach(&mut self, deck: &mut Json, theme: Option<&str>, fonts: &Fonts) -> Result<(), RenderError> {
         let family = register_font(fonts, body_font(theme));
         let renderer = ChartsRsRenderer {
-            theme: ChartTheme { font_family: family, ..ChartTheme::default() },
+            theme: if self.palette.is_empty() {
+                ChartTheme { font_family: family, ..ChartTheme::default() }
+            } else {
+                ChartTheme { font_family: family, palette: self.palette.clone(), ..ChartTheme::default() }
+            },
             labels: self.labels.clone(),
         };
         let mut wanted = HashSet::new();
@@ -175,6 +193,7 @@ fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String
     size.width.to_bits().hash(&mut h);
     size.height.to_bits().hash(&mut h);
     renderer.theme.font_family.hash(&mut h);
+    renderer.theme.palette.hash(&mut h);
     renderer.labels.hash(&mut h);
     format!("{:016x}", h.finish())
 }

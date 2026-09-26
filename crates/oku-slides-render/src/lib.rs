@@ -11,6 +11,7 @@ mod charts;
 mod diagnostic;
 mod error;
 mod fonts;
+mod palette;
 mod world;
 
 use std::cell::OnceCell;
@@ -31,6 +32,7 @@ pub use diagnostic::{Diagnostic, Severity};
 use error::{CompileSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RenderError, RenderErrorKind};
 pub use fonts::Fonts;
+pub use palette::{chart_palette, resolve_color};
 use world::OkuSlidesWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
@@ -127,6 +129,25 @@ impl Renderer {
     /// Remplace le deck et les assets à rendre.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
         self.world.set_deck(deck, assets)
+    }
+
+    /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette
+    /// de la compilation précédente : si les jetons compilés en donnent une
+    /// autre (thème changé, jetons surchargés), ils sont redessinés et le deck
+    /// recompilé une fois.
+    pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<Compiled, RenderError> {
+        self.set_deck(deck, assets)?;
+        let compiled = self.compile()?;
+        let palette = compiled.layout().tokens.as_ref().map(chart_palette).unwrap_or_default();
+        if self.world.set_chart_palette(palette)? {
+            return self.compile();
+        }
+        Ok(compiled)
+    }
+
+    /// Palette des graphiques du dernier rendu (celle du thème du deck).
+    pub fn chart_palette(&self) -> &[String] {
+        self.world.chart_palette()
     }
 
     pub fn compile(&self) -> Result<Compiled, RenderError> {
