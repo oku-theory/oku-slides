@@ -10,6 +10,7 @@
 //! Ce crate ne dépend ni de Typst ni de Tauri.
 
 mod canonical;
+mod convert;
 mod data_ops;
 mod error;
 mod labels;
@@ -21,6 +22,7 @@ mod schema;
 mod theme;
 
 pub use canonical::{canonicalize, sync_series_with_columns};
+pub use convert::convert;
 pub use data_ops::ChartDataOp;
 pub use error::{ChartError, ChartErrorKind, Result};
 pub use labels::ChartLabels;
