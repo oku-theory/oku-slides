@@ -3,15 +3,34 @@ use oku_slides_session::{Fonts, Platform, Request, Session, Settings, TargetKind
 use serde_json::json;
 use speculoos::prelude::*;
 
-/// Une session isolée : son propre dossier de données, vide.
-fn session() -> Session {
+fn data_dir() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique()))
+}
+
+/// Une session sur le dossier de données `data`.
+fn session_in(data: &std::path::Path) -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    let data = std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique()));
-    settings.paths.data = Some(data);
+    settings.paths.data = Some(data.to_owned());
     // Les messages attendus sont en français, quelle que soit la langue du système.
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
     Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
+}
+
+/// Une session isolée : son propre dossier de données, vide.
+fn session() -> Session {
+    session_in(&data_dir())
+}
+
+/// Une session qui reprend l'état laissé dans `data`.
+fn resumed(data: &std::path::Path, file: Option<&std::path::Path>) -> Session {
+    let mut s = session_in(data);
+    s.resume(data.join("resume"), file);
+    s
+}
+
+fn set_theme(theme: &str) -> Request {
+    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
 }
 
 fn unique() -> u64 {
@@ -370,4 +389,103 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid() {
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
     s.handle(req(json!({"cmd": "new"}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false}));
+}
+
+#[test]
+fn resume_after_edits_restores_deck_history_and_ui() {
+    let data = data_dir();
+    let mut a = resumed(&data, None);
+    a.handle(set_theme("pro")).unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    let before = snapshot_json(&mut a);
+    drop(a);
+    let mut b = resumed(&data, None);
+    assert_that!(snapshot_json(&mut b)).is_equal_to(&before);
+    b.undo().unwrap();
+    assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("papier"));
+}
+
+#[test]
+fn resume_while_editing_templates_restores_mode_and_stashed_deck() {
+    let data = data_dir();
+    let mut a = resumed(&data, None);
+    a.handle(set_theme("pro")).unwrap();
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    drop(a);
+    let mut b = resumed(&data, None);
+    assert_that!(snapshot_json(&mut b)["editing"]["set"]).is_equal_to(json!(oku_slides_session::DEFAULT_SET));
+    b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["dirty"]).is_equal_to(json!(true));
+}
+
+#[test]
+fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
+    let data = data_dir();
+    let file = data.join("essai.oku-slides.pdf");
+    let mut a = resumed(&data, None);
+    a.handle(req(json!({"cmd": "save", "path": file}))).unwrap();
+    drop(a);
+    // Un autre lancement (sans reprise) change le fichier.
+    let mut other = session();
+    other.open(&file).unwrap();
+    other.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    other.save(Some(&file)).unwrap();
+    let mut b = resumed(&data, None);
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["can_undo"]).is_equal_to(json!(false));
+}
+
+#[test]
+fn resume_with_corrupt_state_starts_blank() {
+    let data = data_dir();
+    std::fs::create_dir_all(data.join("resume")).unwrap();
+    std::fs::write(data.join("resume/state.json"), b"pas du json").unwrap();
+    let mut b = resumed(&data, None);
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["slides"].as_array().unwrap().len()).is_equal_to(2);
+    assert_that!(snap["dirty"]).is_equal_to(json!(false));
+}
+
+#[test]
+fn resume_with_file_and_unsaved_work_keeps_work_with_notice() {
+    let data = data_dir();
+    let mut a = resumed(&data, None);
+    a.handle(set_theme("pro")).unwrap();
+    drop(a);
+    let mut b = resumed(&data, Some(&fixture_path()));
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["notice"].as_str()).is_some();
+}
+
+#[test]
+fn resume_with_file_and_no_unsaved_work_opens_file() {
+    let data = data_dir();
+    drop(resumed(&data, None));
+    let mut b = resumed(&data, Some(&fixture_path()));
+    assert_that!(snapshot_json(&mut b)["slides"].as_array().unwrap().len()).is_equal_to(8);
+}
+
+#[test]
+fn resume_with_file_while_editing_templates_and_dirty_deck_keeps_notice_on_deck() {
+    let data = data_dir();
+    let mut a = resumed(&data, None);
+    a.handle(set_theme("pro")).unwrap();
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    drop(a);
+    let mut b = resumed(&data, Some(&fixture_path()));
+    b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
+    let snap = snapshot_json(&mut b);
+    asserting("l'avis suit le deck mis de côté, pas les modèles en cours").that(&snap["notice"].as_str()).is_some();
+}
+
+#[test]
+fn session_without_resume_writes_nothing() {
+    let data = data_dir();
+    let mut s = session_in(&data);
+    s.handle(set_theme("pro")).unwrap();
+    assert_that!(data.join("resume").exists()).is_false();
 }

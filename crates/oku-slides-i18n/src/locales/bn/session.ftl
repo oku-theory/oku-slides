@@ -23,6 +23,7 @@ templates-default-name = আমার টেমপ্লেট
 templates-copy-name = { $name } (কপি)
 template-default-name = টেমপ্লেট
 notice-modified-elsewhere = Oku Slides-এর পরে অন্য একটি টুল এই PDF পরিবর্তন করেছে: এর উৎস হয়তো PDF রিডারে যা দেখায় তার সঙ্গে আর মিলবে না।
+notice-resume-kept-unsaved = গতবারের অসংরক্ষিত পরিবর্তনগুলো রাখা হয়েছে: অনুরোধ করা ফাইলটি খোলা হয়নি।
 
 log-document-opened = ডকুমেন্ট খোলা হয়েছে
 log-document-saved = ডকুমেন্ট সংরক্ষিত হয়েছে

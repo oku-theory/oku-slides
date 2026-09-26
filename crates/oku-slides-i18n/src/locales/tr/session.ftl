@@ -23,6 +23,7 @@ templates-default-name = Şablonlarım
 templates-copy-name = { $name } (kopya)
 template-default-name = Şablon
 notice-modified-elsewhere = Bu PDF, Oku Slides'dan sonra başka bir araçla değiştirilmiş: kaynakları artık bir PDF okuyucunun gösterdiğiyle eşleşmeyebilir.
+notice-resume-kept-unsaved = Geçen seferki kaydedilmemiş değişiklikleriniz korundu: istenen dosya açılmadı.
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi

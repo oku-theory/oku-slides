@@ -23,6 +23,7 @@ templates-default-name = 我的模板
 templates-copy-name = { $name }（副本）
 template-default-name = 模板
 notice-modified-elsewhere = 此 PDF 在 Oku Slides 之后被其他工具修改过：其源文件可能与 PDF 阅读器中显示的内容不再一致。
+notice-resume-kept-unsaved = 已保留上次未保存的更改：未打开所请求的文件。
 
 log-document-opened = 文档已打开
 log-document-saved = 文档已保存

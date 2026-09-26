@@ -23,6 +23,7 @@ templates-default-name = Moje szablony
 templates-copy-name = { $name } (kopia)
 template-default-name = Szablon
 notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po zapisaniu w Oku Slides: jego źródła mogą już nie odpowiadać temu, co pokazuje czytnik PDF.
+notice-resume-kept-unsaved = Zachowano niezapisane zmiany z poprzedniego razu: żądany plik nie został otwarty.
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany

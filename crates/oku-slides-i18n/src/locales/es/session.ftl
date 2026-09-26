@@ -23,6 +23,7 @@ templates-default-name = Mis plantillas
 templates-copy-name = { $name } (copia)
 template-default-name = Plantilla
 notice-modified-elsewhere = Otra herramienta modificó este PDF después de Oku Slides: puede que sus fuentes ya no coincidan con lo que muestra un lector de PDF.
+notice-resume-kept-unsaved = Se conservaron tus cambios sin guardar de la última vez: no se abrió el archivo solicitado.
 
 log-document-opened = Documento abierto
 log-document-saved = Documento guardado

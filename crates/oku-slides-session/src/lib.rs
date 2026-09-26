@@ -167,6 +167,8 @@ pub struct Session {
     svg_cache: HashMap<u128, Arc<str>>,
     /// Slide courante et grille de l'interface, gardées pour la reprise.
     ui: UiState,
+    /// Reprise activée (app de bureau) : l'état est écrit à chaque commande.
+    resume: Option<resume::Resume>,
 }
 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
@@ -260,6 +262,7 @@ impl Session {
             compiled: None,
             svg_cache: HashMap::new(),
             ui: UiState::default(),
+            resume: None,
         };
         s.rerender()?;
         Ok(s)
@@ -414,6 +417,9 @@ impl Session {
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
+        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux documents.
+        let (changes, documents) =
+            (!matches!(req, Request::Snapshot), !matches!(req, Request::Snapshot | Request::Ui(_)));
         match req {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
@@ -445,6 +451,9 @@ impl Session {
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
             Request::Ui(ui) => self.ui = ui,
+        }
+        if changes {
+            self.persist(documents);
         }
         json(&self.snapshot())
     }

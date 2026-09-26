@@ -9,11 +9,6 @@
 //! Le dossier de reprise suppose un seul écrivain (une seule instance de
 //! l'app) : rien n'y protège contre des écritures concurrentes.
 
-// Rien ici n'est encore appelé hors des tests : la Session le branchera en
-// Task 4. Sans ça, le build de production (sans les tests) voit tout le
-// module comme mort.
-#![cfg_attr(not(test), expect(dead_code, reason = "branché en Task 4"))]
-
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -23,14 +18,12 @@ use snafu::{Backtrace, ResultExt, Snafu, ensure};
 use oku_slides_core::{Deck, History, SourceBundle};
 use oku_slides_platform::storage::{Storage, StorageError};
 
+use crate::files::read_document;
 use crate::views::{TemplateMode, UiState};
-use crate::{Document, EXTENSION, SessionError};
+use crate::{Document, EXTENSION, Mode, Session, SessionError};
 
 pub(crate) const VERSION: u32 = 1;
 pub(crate) const DECK_DIR: &str = "deck";
-// Mort aussi dans les tests (aucun ne s'en sert encore) : le laisser au
-// module-level `expect` ci-dessus l'y ferait manquer sa cible.
-#[cfg_attr(test, expect(dead_code, reason = "branché en Task 4"))]
 pub(crate) const TEMPLATES_DIR: &str = "templates";
 
 #[derive(Debug, Snafu)]
@@ -43,7 +36,6 @@ pub(crate) enum ResumeError {
     #[snafu(display("unsupported resume state version {version}"))]
     Version { version: u32, backtrace: Backtrace },
     #[snafu(display("cannot restore the session"))]
-    #[cfg_attr(test, expect(dead_code, reason = "branché en Task 4"))]
     Session { source: SessionError, backtrace: Backtrace },
 }
 
@@ -279,6 +271,120 @@ impl Resume {
             notice: None,
             saved_hash: raw.saved_hash,
         })
+    }
+}
+
+impl Session {
+    /// Active la reprise dans `dir` : relit l'état du dernier lancement, puis
+    /// ouvre `file` (« ouvrir avec… »), sauf s'il y a du travail non
+    /// enregistré : il passe avant, et un avis le dit.
+    pub fn resume(&mut self, dir: PathBuf, file: Option<&Path>) {
+        let resume = Resume::new(self.storage.clone(), dir);
+        if let Err(e) = self.restore(&resume) {
+            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible : deck vierge");
+            // `restore` peut avoir échoué après avoir déjà basculé en mode
+            // modèles (son propre rendu a échoué) : on repart d'un mode
+            // cohérent avant `new_deck`, qui ne touche qu'au deck.
+            self.mode = Mode::Deck;
+            if let Err(e) = self.new_deck() {
+                tracing::warn!(error = %e.one_line(), "deck vierge");
+            }
+        }
+        if let Some(file) = file {
+            self.open_at_launch(file);
+        }
+        self.resume = Some(resume);
+        self.persist(true);
+    }
+
+    fn restore(&mut self, resume: &Resume) -> Result<()> {
+        let Some(state) = resume.read_state()? else { return Ok(()) };
+        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, self.history_limit)?);
+        let templates = match state.mode {
+            SavedMode::Deck => None,
+            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, self.history_limit) {
+                Ok(doc) => Some((doc, edit)),
+                Err(e) => {
+                    tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "modèles de reprise illisibles");
+                    None
+                }
+            },
+        };
+        self.load_document(deck).context(SessionSnafu)?;
+        if let Some((doc, edit)) = templates {
+            let stash = std::mem::replace(&mut self.doc, doc);
+            self.mode = Mode::Templates { stash: Box::new(stash), edit };
+            self.rerender().context(SessionSnafu)?;
+        }
+        self.ui = state.ui;
+        Ok(())
+    }
+
+    /// Un document non modifié dont le fichier a changé depuis est relu sur
+    /// le disque, sans historique ; absent ou illisible, la copie de travail reste.
+    fn fresh_from_disk(&self, saved: Document) -> Document {
+        let Some(path) = saved.path.as_ref().filter(|_| !saved.dirty) else { return saved };
+        match read_document(&self.storage, path) {
+            Ok(opened) if saved.saved_hash.as_deref() != Some(opened.hash.as_str()) => {
+                let mut doc = Document::new(opened.sources, Some(path.clone()), self.history_limit);
+                doc.saved_hash = Some(opened.hash);
+                doc.notice = opened.modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
+                doc
+            }
+            Ok(_) => saved,
+            Err(e) => {
+                tracing::warn!(path = %path.display(), error = %e.one_line(), "fichier de reprise illisible");
+                saved
+            }
+        }
+    }
+
+    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
+    fn unsaved(&self) -> bool {
+        self.doc.dirty || matches!(&self.mode, Mode::Templates { stash, .. } if stash.dirty)
+    }
+
+    fn open_at_launch(&mut self, file: &Path) {
+        if self.unsaved() {
+            let notice = Some(self.localizer.tr("notice-resume-kept-unsaved"));
+            // L'avis porte sur le document qui a effectivement le travail non
+            // enregistré : le deck mis de côté, s'il est en cause.
+            match &mut self.mode {
+                Mode::Templates { stash, .. } if stash.dirty => stash.notice = notice,
+                _ => self.doc.notice = notice,
+            }
+            return;
+        }
+        let opened = if matches!(self.mode, Mode::Templates { .. }) {
+            self.close_templates().and_then(|()| self.open(file))
+        } else {
+            self.open(file)
+        };
+        if let Err(e) = opened {
+            tracing::warn!(path = %file.display(), error = %e.one_line(), "ouverture au démarrage");
+        }
+    }
+
+    /// Écrit l'état pour la reprise ; `documents` : aussi les documents.
+    pub(crate) fn persist(&self, documents: bool) {
+        let Some(resume) = &self.resume else { return };
+        if let Err(e) = self.write_resume(resume, documents) {
+            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "état de reprise non enregistré");
+        }
+    }
+
+    fn write_resume(&self, resume: &Resume, documents: bool) -> Result<()> {
+        let (deck, mode) = match &self.mode {
+            Mode::Deck => (&self.doc, SavedMode::Deck),
+            Mode::Templates { stash, edit } => (&**stash, SavedMode::Templates(edit.clone())),
+        };
+        if documents {
+            resume.write_doc(DECK_DIR, deck)?;
+            if matches!(self.mode, Mode::Templates { .. }) {
+                resume.write_doc(TEMPLATES_DIR, &self.doc)?;
+            }
+        }
+        resume.write_state(&State { version: VERSION, mode, ui: self.ui.clone() })
     }
 }
 

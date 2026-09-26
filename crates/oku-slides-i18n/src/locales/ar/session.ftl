@@ -23,6 +23,7 @@ templates-default-name = قوالبي
 templates-copy-name = { $name } (نسخة)
 template-default-name = قالب
 notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بعد Oku Slides: قد لا تطابق مصادره ما يعرضه قارئ PDF.
+notice-resume-kept-unsaved = تم الاحتفاظ بتعديلاتك غير المحفوظة من المرة السابقة: لم يُفتح الملف المطلوب.
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند
