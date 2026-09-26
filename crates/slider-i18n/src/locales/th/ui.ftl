@@ -200,11 +200,13 @@ ui-chart-kind = { $kind ->
     [pie] วงกลม
     [scatter] กระจาย
     [radar] เรดาร์
+    [waterfall] น้ำตก
    *[bar] แท่ง
 }
 ui-chart-no-data = แผนภูมินี้ไม่มีตารางข้อมูล
 ui-chart-options = ตัวเลือกแผนภูมิ
 ui-chart-stack = ซ้อนกัน
+ui-chart-waterfall-hint = เว้นค่าว่างไว้เพื่อสร้างแท่งผลรวม
 ui-chart-column-name = ชื่อคอลัมน์ { $col }
 ui-chart-remove-column = ลบคอลัมน์
 ui-chart-cell = แถว { $row }, คอลัมน์ { $col }

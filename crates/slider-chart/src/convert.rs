@@ -3,7 +3,7 @@
 //! chaque type sait lire et écrire. Le résultat est canonique.
 //!
 //! Barres, lignes et radar partagent la même forme de tableau ; les secteurs
-//! n'en gardent que la première colonne de valeurs ; un nuage de points prend
+//! et la cascade n'en gardent que la première colonne de valeurs ; un nuage de points prend
 //! les libellés comme abscisses (numérotées 1, 2… s'ils ne sont pas des nombres).
 
 use serde_json::json;
@@ -35,6 +35,7 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
         }
         SeriesType::Radar => (grid(&table, table.columns.len()), vec![json!({ "type": "radar" })], false),
         SeriesType::Pie => (grid(&table, 1), vec![json!({ "type": "pie" })], false),
+        SeriesType::Waterfall => (grid(&table, 1), vec![json!({ "type": "waterfall" })], true),
         SeriesType::Scatter => {
             let series =
                 (0..series_count).map(|i| json!({ "type": "scatter", "encode": { "x": 2 * i, "y": 2 * i + 1 } }));
@@ -66,6 +67,9 @@ fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {
             rows: r.indicators.into_iter().map(|(name, _)| name).collect(),
             columns: r.series.into_iter().map(|s| (s.name, s.values)).collect(),
         },
+        ChartKind::Waterfall(w) => {
+            Table { label: w.category_label, rows: w.categories, columns: vec![(w.name, w.steps)] }
+        }
         ChartKind::Pie(p) => {
             let (rows, values) = p.slices.into_iter().unzip();
             let name = if p.name.is_empty() { labels.value().to_owned() } else { p.name };

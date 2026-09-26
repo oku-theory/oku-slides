@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Pizza
     [scatter] Dispersão
     [radar] Radar
+    [waterfall] Cascata
    *[bar] Barras
 }
 ui-chart-no-data = Este gráfico não tem tabela de dados.
 ui-chart-options = Opções do gráfico
 ui-chart-stack = Empilhado
+ui-chart-waterfall-hint = Deixe um valor vazio para uma barra de total.
 ui-chart-column-name = Nome da coluna { $col }
 ui-chart-remove-column = Excluir a coluna
 ui-chart-cell = Linha { $row }, coluna { $col }

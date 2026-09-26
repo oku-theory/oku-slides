@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] পাই
     [scatter] বিক্ষেপ
     [radar] রাডার
+    [waterfall] ওয়াটারফল
    *[bar] বার
 }
 ui-chart-no-data = এই চার্টে কোনো ডেটা টেবিল নেই।
 ui-chart-options = চার্টের বিকল্প
 ui-chart-stack = স্তূপীকৃত
+ui-chart-waterfall-hint = মোট বারের জন্য একটি মান খালি রাখুন।
 ui-chart-column-name = কলাম { $col }-এর নাম
 ui-chart-remove-column = কলাম মুছুন
 ui-chart-cell = সারি { $row }, কলাম { $col }

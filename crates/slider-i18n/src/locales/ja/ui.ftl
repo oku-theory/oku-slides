@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] 円
     [scatter] 散布
     [radar] レーダー
+    [waterfall] ウォーターフォール
    *[bar] 棒
 }
 ui-chart-no-data = このグラフにはデータ表がありません。
 ui-chart-options = グラフのオプション
 ui-chart-stack = 積み上げ
+ui-chart-waterfall-hint = 合計の棒にするには値を空欄にします。
 ui-chart-column-name = 列 { $col } の名前
 ui-chart-remove-column = 列を削除
 ui-chart-cell = 行 { $row }、列 { $col }

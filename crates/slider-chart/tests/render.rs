@@ -146,3 +146,13 @@ fn render_stacked_bars_share_one_column_per_category() {
     let stacked = bar_columns(&render(chart(Some("total"))));
     assert_that!((side_by_side.len(), stacked.len())).is_equal_to((6, 3));
 }
+
+#[test]
+fn render_waterfall_draws_one_bar_per_step_without_legend() {
+    let svg = render(json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 100], ["Ventes", 30], ["Coûts", -20], ["Fin", null]] },
+        "series": [{ "type": "waterfall" }]
+    }));
+    assert_that!(bar_columns(&svg).len()).is_equal_to(4);
+    assert_that!(svg.contains("Montant")).is_false();
+}

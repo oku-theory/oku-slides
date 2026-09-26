@@ -4,8 +4,9 @@
 
 use charts_rs::{
     Align, BarChart, ChartBase, HorizontalBarChart, LineChart, PieChart, RadarChart, RadarIndicator, ScatterChart,
-    Series, SeriesCategory, YAxisConfig,
+    Series, SeriesCategory, WaterfallChart, WaterfallData, YAxisConfig,
 };
+use serde_json::json;
 
 use snafu::ResultExt;
 
@@ -132,8 +133,51 @@ impl ChartsRsRenderer {
                 chart.series_fill = r.area;
                 chart.svg()
             }
+            ChartKind::Waterfall(w) => return self.waterfall(w, model, size),
         };
         Ok(svg.context(RenderSnafu)?)
+    }
+
+    /// Cascade : le WaterfallChart de charts-rs. Son axe n'est réglable que
+    /// par `from_json` ; hausse, baisse et total prennent la palette.
+    fn waterfall(&self, w: &Waterfall, model: &ChartModel, size: Size) -> Result<String> {
+        let t = &self.theme;
+        let mut axis = json!({
+            "axis_font_size": t.axis_size,
+            "axis_font_color": t.text_muted,
+            "axis_stroke_color": t.axis,
+        });
+        if let Some(min) = w.value_min {
+            axis["axis_min"] = json!(min);
+        }
+        if let Some(max) = w.value_max {
+            axis["axis_max"] = json!(max);
+        }
+        let mut chart =
+            WaterfallChart::from_json(&json!({ "y_axis_configs": [axis] }).to_string()).context(RenderSnafu)?;
+        chart.data = w
+            .steps
+            .iter()
+            .map(|step| match step {
+                Some(v) => WaterfallData { value: *v as f32, is_total: false },
+                // Valeur 0 : charts-rs calcule la somme courante.
+                None => WaterfallData { value: 0.0, is_total: true },
+            })
+            .collect();
+        chart.x_axis_data = w.categories.clone();
+        self.frame(&mut chart.base, &mut [], model, size);
+        chart.label_show = w.label;
+        let palette = |i: usize| t.palette.get(i).map(|c| color(c));
+        if let Some(c) = palette(0) {
+            chart.total_color = c;
+        }
+        if let Some(c) = palette(1) {
+            chart.decrease_color = c;
+        }
+        if let Some(c) = palette(2) {
+            chart.increase_color = c;
+        }
+        Ok(chart.svg().context(RenderSnafu)?)
     }
 
     /// Taille, titre, légende et thème, communs à tous les graphiques.

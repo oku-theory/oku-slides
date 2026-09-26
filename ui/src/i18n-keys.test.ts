@@ -54,6 +54,7 @@ describe("messages de l'interface", () => {
     expect(t("ui-toast-select-zone", { text: "Bonjour" })).toBe("Sélectionnez une zone pour y placer : « Bonjour »");
     expect(t("ui-field", { kind: "kicker" })).toBe("Surtitre");
     expect(t("ui-field", { kind: "autre" })).toBe("autre");
+    expect(t("ui-chart-kind", { kind: "waterfall" })).toBe("Cascade");
     expect(cellLabel({ col: 0, row: 1, cols: 8 })).toBe("col. 1–8 · lig. 2");
   });
 

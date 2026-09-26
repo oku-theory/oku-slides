@@ -210,11 +210,13 @@ ui-chart-kind = { $kind ->
     [pie] دائري
     [scatter] نقاط
     [radar] رادار
+    [waterfall] شلال
    *[bar] أعمدة
 }
 ui-chart-no-data = لا يحتوي هذا المخطط على جدول بيانات.
 ui-chart-options = خيارات المخطط
 ui-chart-stack = مكدّس
+ui-chart-waterfall-hint = اترك قيمة فارغة لإضافة عمود إجمالي.
 ui-chart-column-name = اسم العمود { $col }
 ui-chart-remove-column = حذف العمود
 ui-chart-cell = الصف { $row }، العمود { $col }

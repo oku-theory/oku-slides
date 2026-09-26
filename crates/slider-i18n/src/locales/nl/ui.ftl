@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Cirkel
     [scatter] Spreiding
     [radar] Radar
+    [waterfall] Waterval
    *[bar] Staven
 }
 ui-chart-no-data = Deze grafiek heeft geen gegevenstabel.
 ui-chart-options = Grafiekopties
 ui-chart-stack = Gestapeld
+ui-chart-waterfall-hint = Laat een waarde leeg voor een totaalbalk.
 ui-chart-column-name = Naam van kolom { $col }
 ui-chart-remove-column = Kolom verwijderen
 ui-chart-cell = Rij { $row }, kolom { $col }

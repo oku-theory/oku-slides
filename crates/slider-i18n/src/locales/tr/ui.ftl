@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Pasta
     [scatter] Dağılım
     [radar] Radar
+    [waterfall] Şelale
    *[bar] Çubuk
 }
 ui-chart-no-data = Bu grafiğin veri tablosu yok.
 ui-chart-options = Grafik seçenekleri
 ui-chart-stack = Yığılmış
+ui-chart-waterfall-hint = Toplam çubuğu için bir değeri boş bırakın.
 ui-chart-column-name = { $col }. sütunun adı
 ui-chart-remove-column = Sütunu sil
 ui-chart-cell = Satır { $row }, sütun { $col }

@@ -26,6 +26,7 @@ pub enum ChartKind {
     Pie(Pie),
     Scatter(Scatter),
     Radar(RadarModel),
+    Waterfall(Waterfall),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +57,18 @@ pub struct CartesianSeries {
     pub label: bool,
     /// Groupe d'empilement : les séries du même groupe s'empilent.
     pub stack: Option<String>,
+}
+
+/// Cascade : une variation par catégorie ; `None` = barre de total.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Waterfall {
+    pub category_label: String,
+    pub categories: Vec<String>,
+    pub name: String,
+    pub steps: Vec<Option<f64>>,
+    pub label: bool,
+    pub value_min: Option<f64>,
+    pub value_max: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,11 +131,12 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
         SeriesType::Pie => ChartKind::Pie(pie(option, table.as_ref())?),
         SeriesType::Scatter => ChartKind::Scatter(scatter(option, table.as_ref(), labels)?),
         SeriesType::Radar => ChartKind::Radar(radar(option, table.as_ref())?),
+        SeriesType::Waterfall => ChartKind::Waterfall(waterfall(option, table.as_ref(), labels)?),
     };
 
     let title = option.title.as_ref();
     let legend = option.legend.as_ref();
-    let default_legend = !matches!(kind, ChartKind::Pie(_));
+    let default_legend = !matches!(kind, ChartKind::Pie(_) | ChartKind::Waterfall(_));
     Ok(ChartModel {
         title: title.and_then(|t| t.text.clone()).unwrap_or_default(),
         subtitle: title.and_then(|t| t.subtext.clone()).unwrap_or_default(),
@@ -192,31 +206,63 @@ fn is_horizontal(option: &ChartOption) -> bool {
     y_cat && x_val
 }
 
-fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Cartesian> {
-    let horizontal = is_horizontal(option);
-    let (cat_axis, val_axis) = if horizontal {
-        (option.y_axis.as_ref(), option.x_axis.as_ref())
-    } else {
-        (option.x_axis.as_ref(), option.y_axis.as_ref())
-    };
-
-    let mut series = Vec::with_capacity(option.series.len());
-    let (category_label, categories) = match table {
+/// Libellé et valeurs de la colonne des catégories : celle de la première
+/// série dans `dataset` (0 par défaut), sinon `data` de l'axe des catégories.
+fn categories(option: &ChartOption, table: Option<&Table>, horizontal: bool) -> Result<(String, Vec<String>)> {
+    match table {
         Some(t) => {
-            // Colonne des catégories : celle de la première série, sinon 0.
             let cat_ref =
                 option.series[0].encode.as_ref().and_then(|e| if horizontal { e.y.as_ref() } else { e.x.as_ref() });
             let cat_col = t.resolve(cat_ref, 0)?;
-            (t.headers[cat_col].clone(), t.labels(cat_col))
+            Ok((t.headers[cat_col].clone(), t.labels(cat_col)))
         }
         None => {
+            let cat_axis = if horizontal { option.y_axis.as_ref() } else { option.x_axis.as_ref() };
             let cats = cat_axis
                 .and_then(|a| a.data.clone())
                 .ok_or_else(|| inconsistent(Message::new("chart-category-data")))?;
-            (String::new(), cats)
+            Ok((String::new(), cats))
         }
-    };
+    }
+}
 
+/// Nom et valeurs de la série `i` sur un axe de catégories : ses données en
+/// ligne, sinon sa colonne de `dataset` (i + 1 par défaut).
+fn series_values(
+    s: &Series,
+    i: usize,
+    table: Option<&Table>,
+    horizontal: bool,
+    labels: &ChartLabels,
+) -> Result<(String, Vec<Option<f64>>)> {
+    match (table, &s.data) {
+        (_, Some(data)) => {
+            let values = data
+                .iter()
+                .map(|d| match d {
+                    DataItem::Value(v) => Ok(Some(*v)),
+                    DataItem::Null => Ok(None),
+                    DataItem::Named(NamedItem { value: ItemValue::Number(v), .. }) => Ok(Some(*v)),
+                    _ => Err(inconsistent(Message::new("chart-series-numbers").arg("index", i))),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok((s.name.clone().unwrap_or_else(|| labels.series(i)), values))
+        }
+        (Some(t), None) => {
+            let val_ref = s.encode.as_ref().and_then(|e| if horizontal { e.x.as_ref() } else { e.y.as_ref() });
+            let col = t.resolve(val_ref, i + 1)?;
+            Ok((s.name.clone().unwrap_or_else(|| t.headers[col].clone()), t.numbers(col)))
+        }
+        (None, None) => Err(inconsistent(Message::new("chart-series-empty").arg("index", i))),
+    }
+}
+
+fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Cartesian> {
+    let horizontal = is_horizontal(option);
+    let val_axis = if horizontal { option.x_axis.as_ref() } else { option.y_axis.as_ref() };
+    let (category_label, categories) = categories(option, table, horizontal)?;
+
+    let mut series = Vec::with_capacity(option.series.len());
     for (i, s) in option.series.iter().enumerate() {
         let mark = match s.kind {
             SeriesType::Bar => CartesianMark::Bar,
@@ -228,26 +274,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
         if horizontal && mark == CartesianMark::Line {
             return Err(inconsistent(Message::new("chart-horizontal-lines")));
         }
-        let (name, values) = match (table, &s.data) {
-            (_, Some(data)) => {
-                let values = data
-                    .iter()
-                    .map(|d| match d {
-                        DataItem::Value(v) => Ok(Some(*v)),
-                        DataItem::Null => Ok(None),
-                        DataItem::Named(NamedItem { value: ItemValue::Number(v), .. }) => Ok(Some(*v)),
-                        _ => Err(inconsistent(Message::new("chart-series-numbers").arg("index", i))),
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                (s.name.clone().unwrap_or_else(|| labels.series(i)), values)
-            }
-            (Some(t), None) => {
-                let val_ref = s.encode.as_ref().and_then(|e| if horizontal { e.x.as_ref() } else { e.y.as_ref() });
-                let col = t.resolve(val_ref, i + 1)?;
-                (s.name.clone().unwrap_or_else(|| t.headers[col].clone()), t.numbers(col))
-            }
-            (None, None) => return Err(inconsistent(Message::new("chart-series-empty").arg("index", i))),
-        };
+        let (name, values) = series_values(s, i, table, horizontal, labels)?;
         series.push(CartesianSeries {
             name,
             mark,
@@ -266,6 +293,24 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
         value_min: val_axis.and_then(|a| a.min),
         value_max: val_axis.and_then(|a| a.max),
         series,
+    })
+}
+
+/// Cascade : toujours verticale, une seule série ; les valeurs s'affichent
+/// sauf `label.show: false`.
+fn waterfall(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Waterfall> {
+    let s = single(option, "cascade")?;
+    let (category_label, categories) = categories(option, table, false)?;
+    let (name, steps) = series_values(s, 0, table, false, labels)?;
+    let val_axis = option.y_axis.as_ref();
+    Ok(Waterfall {
+        category_label,
+        categories,
+        name,
+        steps,
+        label: s.label.as_ref().and_then(|l| l.show).unwrap_or(true),
+        value_min: val_axis.and_then(|a| a.min),
+        value_max: val_axis.and_then(|a| a.max),
     })
 }
 

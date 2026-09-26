@@ -110,3 +110,25 @@ fn convert_unstacked_bars_to_lines_stays_unstacked() {
     let lines = convert(&bars(), SeriesType::Line, en()).unwrap();
     assert_that!(lines.series.iter().all(|s| s.stack.is_none())).is_true();
 }
+
+#[test]
+fn convert_bars_to_waterfall_keeps_the_first_value_column() {
+    let waterfall = convert(&bars(), SeriesType::Waterfall, en()).unwrap();
+    assert_that!(waterfall.dataset.map(|d| d.source)).is_equal_to(Some(vec![
+        vec![Cell::Text("Mois".into()), Cell::Text("Nord".into())],
+        vec![Cell::Text("Jan".into()), Cell::Number(3.0)],
+        vec![Cell::Text("Fév".into()), Cell::Number(5.0)],
+        vec![Cell::Text("Mar".into()), Cell::Number(7.0)],
+    ]));
+    assert_that!(waterfall.series.len()).is_equal_to(1);
+}
+
+#[test]
+fn convert_waterfall_to_bars_keeps_totals_as_empty_values() {
+    let waterfall = opt(json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 100], ["Fin", null]] },
+        "series": [{ "type": "waterfall" }]
+    }));
+    let bars = convert(&waterfall, SeriesType::Bar, en()).unwrap();
+    assert_that!(bars.dataset).is_equal_to(waterfall.dataset);
+}

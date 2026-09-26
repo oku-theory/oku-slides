@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Secteurs
     [scatter] Nuage de points
     [radar] Radar
+    [waterfall] Cascade
    *[bar] Barres
 }
 ui-chart-no-data = Ce graphique n'a pas de tableau de données.
 ui-chart-options = Options du graphique
 ui-chart-stack = Empilé
+ui-chart-waterfall-hint = Laissez une valeur vide pour une barre de total.
 ui-chart-column-name = Nom de la colonne { $col }
 ui-chart-remove-column = Supprimer la colonne
 ui-chart-cell = Ligne { $row }, colonne { $col }

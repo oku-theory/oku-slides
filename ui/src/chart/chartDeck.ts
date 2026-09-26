@@ -5,8 +5,8 @@ import type { Element } from "../api";
 import type { Cell } from "./chartTypes";
 
 /** Types de graphique ; en changer convertit les données (requête `chart_kind`). */
-export type ChartKind = "bar" | "line" | "pie" | "scatter" | "radar";
-export const CHART_KINDS: readonly ChartKind[] = ["bar", "line", "pie", "scatter", "radar"];
+export type ChartKind = "bar" | "line" | "pie" | "scatter" | "radar" | "waterfall";
+export const CHART_KINDS: readonly ChartKind[] = ["bar", "line", "pie", "scatter", "radar", "waterfall"];
 
 type Series = { type: string; [key: string]: unknown };
 type Option = { dataset?: { source: Cell[][] }; series?: Series[]; [key: string]: unknown };

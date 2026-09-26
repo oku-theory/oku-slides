@@ -41,6 +41,7 @@ export function ChartPanel({ slide, element, onApply, onKind }: {
           </button>
         </div>
       )}
+      {current === "waterfall" && <p className="postit-hint">{t("ui-chart-waterfall-hint")}</p>}
       {source ? (
         <ChartDataGrid
           source={source}

@@ -206,11 +206,13 @@ ui-chart-kind = { $kind ->
     [pie] Kołowy
     [scatter] Punktowy
     [radar] Radarowy
+    [waterfall] Kaskadowy
    *[bar] Słupkowy
 }
 ui-chart-no-data = Ten wykres nie ma tabeli danych.
 ui-chart-options = Opcje wykresu
 ui-chart-stack = Skumulowany
+ui-chart-waterfall-hint = Zostaw pustą wartość, aby dodać słupek sumy.
 ui-chart-column-name = Nazwa kolumny { $col }
 ui-chart-remove-column = Usuń kolumnę
 ui-chart-cell = Wiersz { $row }, kolumna { $col }

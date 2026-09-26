@@ -200,11 +200,13 @@ ui-chart-kind = { $kind ->
     [pie] 원형
     [scatter] 분산형
     [radar] 방사형
+    [waterfall] 폭포형
    *[bar] 막대형
 }
 ui-chart-no-data = 이 차트에는 데이터 표가 없습니다.
 ui-chart-options = 차트 옵션
 ui-chart-stack = 누적
+ui-chart-waterfall-hint = 합계 막대를 만들려면 값을 비워 두세요.
 ui-chart-column-name = { $col }열 이름
 ui-chart-remove-column = 열 삭제
 ui-chart-cell = { $row }행, { $col }열

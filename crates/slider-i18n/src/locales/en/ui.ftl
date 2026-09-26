@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Pie
     [scatter] Scatter
     [radar] Radar
+    [waterfall] Waterfall
    *[bar] Bars
 }
 ui-chart-no-data = This chart has no data table.
 ui-chart-options = Chart options
 ui-chart-stack = Stacked
+ui-chart-waterfall-hint = Leave a value empty for a total bar.
 ui-chart-column-name = Name of column { $col }
 ui-chart-remove-column = Delete the column
 ui-chart-cell = Row { $row }, column { $col }

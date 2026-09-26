@@ -200,11 +200,13 @@ ui-chart-kind = { $kind ->
     [pie] Tròn
     [scatter] Phân tán
     [radar] Radar
+    [waterfall] Thác nước
    *[bar] Cột
 }
 ui-chart-no-data = Biểu đồ này không có bảng dữ liệu.
 ui-chart-options = Tùy chọn biểu đồ
 ui-chart-stack = Xếp chồng
+ui-chart-waterfall-hint = Để trống một giá trị để có cột tổng.
 ui-chart-column-name = Tên cột { $col }
 ui-chart-remove-column = Xóa cột
 ui-chart-cell = Hàng { $row }, cột { $col }

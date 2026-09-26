@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] Kreis
     [scatter] Punkte
     [radar] Netz
+    [waterfall] Wasserfall
    *[bar] Balken
 }
 ui-chart-no-data = Dieses Diagramm hat keine Datentabelle.
 ui-chart-options = Diagrammoptionen
 ui-chart-stack = Gestapelt
+ui-chart-waterfall-hint = Lassen Sie einen Wert leer für einen Summenbalken.
 ui-chart-column-name = Name der Spalte { $col }
 ui-chart-remove-column = Spalte löschen
 ui-chart-cell = Zeile { $row }, Spalte { $col }

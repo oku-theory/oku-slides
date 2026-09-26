@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] 饼图
     [scatter] 散点图
     [radar] 雷达图
+    [waterfall] 瀑布图
    *[bar] 柱形图
 }
 ui-chart-no-data = 此图表没有数据表。
 ui-chart-options = 图表选项
 ui-chart-stack = 堆叠
+ui-chart-waterfall-hint = 留空某个值即可生成总计柱。
 ui-chart-column-name = 第 { $col } 列的名称
 ui-chart-remove-column = 删除列
 ui-chart-cell = 第 { $row } 行，第 { $col } 列

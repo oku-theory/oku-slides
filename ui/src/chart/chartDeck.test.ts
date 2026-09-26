@@ -31,8 +31,8 @@ describe("chartSource et chartKind", () => {
   });
 });
 
-test("les cinq types sont proposés", () => {
-  expect([...CHART_KINDS]).toEqual(["bar", "line", "pie", "scatter", "radar"]);
+test("les six types sont proposés", () => {
+  expect([...CHART_KINDS]).toEqual(["bar", "line", "pie", "scatter", "radar", "waterfall"]);
 });
 
 describe("empilement", () => {

@@ -34,6 +34,7 @@ fn values(kind: &ChartKind) -> Vec<(String, Vec<Option<f64>>)> {
     match kind {
         ChartKind::Cartesian(c) => c.series.iter().map(|s| (s.name.clone(), s.values.clone())).collect(),
         ChartKind::Pie(p) => p.slices.iter().map(|(n, v)| (n.clone(), vec![*v])).collect(),
+        ChartKind::Waterfall(w) => vec![(w.name.clone(), w.steps.clone())],
         ChartKind::Scatter(sc) => sc
             .series
             .iter()
@@ -124,4 +125,19 @@ fn sync_series_with_columns_added_column_joins_the_stack() {
     sync_series_with_columns(&mut o);
     assert_that!(o.series.iter().map(|s| s.stack.as_deref()).collect::<Vec<_>>())
         .is_equal_to(vec![Some("total"), Some("total")]);
+}
+
+#[test]
+fn canonicalize_inline_waterfall_moves_to_dataset() {
+    let o = opt(json!({
+        "xAxis": { "type": "category", "data": ["Début", "Fin"] },
+        "series": [{ "type": "waterfall", "name": "Montant", "data": [100, null] }]
+    }));
+    let canon = canonicalize(&o, ChartLabels::english()).unwrap();
+    assert_that!(canon.dataset.map(|d| d.source)).is_equal_to(Some(vec![
+        vec![Cell::Text("Category".into()), Cell::Text("Montant".into())],
+        vec![Cell::Text("Début".into()), Cell::Number(100.0)],
+        vec![Cell::Text("Fin".into()), Cell::Null],
+    ]));
+    assert_that!(canon.series[0].data.is_none() && canon.series[0].name.is_none()).is_true();
 }

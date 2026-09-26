@@ -206,11 +206,13 @@ ui-chart-kind = { $kind ->
     [pie] Кругова
     [scatter] Точкова
     [radar] Пелюсткова
+    [waterfall] Каскад
    *[bar] Стовпці
 }
 ui-chart-no-data = Ця діаграма не має таблиці даних.
 ui-chart-options = Параметри діаграми
 ui-chart-stack = З накопиченням
+ui-chart-waterfall-hint = Залиште значення порожнім для стовпця підсумку.
 ui-chart-column-name = Назва стовпця { $col }
 ui-chart-remove-column = Видалити стовпець
 ui-chart-cell = Рядок { $row }, стовпець { $col }

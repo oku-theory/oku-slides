@@ -202,11 +202,13 @@ ui-chart-kind = { $kind ->
     [pie] पाई
     [scatter] बिंदु
     [radar] रडार
+    [waterfall] वॉटरफ़ॉल
    *[bar] बार
 }
 ui-chart-no-data = इस चार्ट में कोई डेटा तालिका नहीं है।
 ui-chart-options = चार्ट विकल्प
 ui-chart-stack = स्टैक्ड
+ui-chart-waterfall-hint = कुल बार के लिए कोई मान खाली छोड़ें।
 ui-chart-column-name = कॉलम { $col } का नाम
 ui-chart-remove-column = कॉलम हटाएँ
 ui-chart-cell = पंक्ति { $row }, कॉलम { $col }
