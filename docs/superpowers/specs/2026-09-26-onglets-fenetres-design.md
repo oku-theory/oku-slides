@@ -179,11 +179,16 @@ resume/
   travail et ignore un événement plus vieux que le dernier appliqué : l'ordre
   d'arrivée fait foi même si les tâches qui l'appliquent se terminent dans le
   désordre.
-- `drop_tab(tab, x, y)` (Tauri seulement) : onglet lâché hors de sa fenêtre,
-  au point écran `screenX`/`screenY` (pixels CSS, soit les points de macOS).
-  L'hôte le compare aux rectangles logiques des fenêtres
-  (`outer_position` / `scale_factor`). Juste sous macOS ; Windows à densités
-  mixtes et Wayland : t-160.
+- `drop_tab(tab)` (Tauri seulement) : onglet lâché hors de sa fenêtre. L'hôte
+  lit lui-même le curseur (tao, jamais `screenX`/`screenY` : t-165) et le
+  compare aux rectangles des fenêtres dans son repère : les points sous
+  macOS, les pixels physiques du bureau sous Windows et X11, communs à tous
+  les écrans même de densités différentes (t-160). Sous Wayland, curseur et
+  position des fenêtres ne se lisent pas (tao renvoie `(0, 0)`, qui compte
+  pour illisible sous Linux) : le lâcher ouvre une nouvelle fenêtre, placée
+  par le compositeur. Hors macOS, une fenêtre neuve est placée cachée, sa
+  taille réappliquée sur l'écran visé, puis positionnée d'après sa hauteur
+  réelle (barre de titre comprise) avant d'être montrée.
 - `quit` (Tauri seulement) : quitter en gardant tout.
 - `WorkspaceView` : `{ focused, windows: [{ label, active, tabs: [{ id,
   title, dirty, editing_templates, path, pristine }] }] }`. Titre : nom du

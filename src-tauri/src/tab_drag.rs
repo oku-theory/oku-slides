@@ -3,7 +3,8 @@
 //! La page d'origine prévient l'hôte tant que l'onglet est hors de sa
 //! fenêtre (`drag_tab_over`), quand il y revient (`drag_tab_leave`) et au
 //! lâcher (`drop_tab`). L'hôte lit lui-même le curseur (`windows::cursor`),
-//! dans le repère des fenêtres, et prévient la fenêtre visée :
+//! dans le repère des fenêtres, et prévient la fenêtre visée (curseur
+//! illisible, sous Wayland : aucune, et le lâcher ouvre une nouvelle fenêtre) :
 //! `tab-drag` (`{tab, x, y}` dans sa page, ou `null` quand le curseur s'en
 //! va) pour le fantôme et la place de dépôt. Au lâcher, l'hôte déplace
 //! l'onglet (fin de barre, ou nouvelle fenêtre sous le curseur), puis la
@@ -15,7 +16,7 @@ use std::sync::{Mutex, PoisonError};
 use oku_slides_session::{Rect, Workspace, WorkspaceRequest};
 use serde_json::json;
 use tauri::ipc::Response;
-use tauri::{AppHandle, Emitter, LogicalPosition, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::blocking;
 use crate::state::{AppState, CLOSING};
@@ -27,21 +28,24 @@ pub struct Hover(Mutex<Option<String>>);
 
 /// Où vise l'onglet `tab` : le curseur, et la fenêtre dessous (hors la sienne).
 struct Aim {
-    at: (f64, f64),
+    /// `None` : curseur illisible (Wayland), aucune fenêtre visée.
+    at: Option<(f64, f64)>,
     /// Les autres fenêtres, pour le journal.
     others: Vec<(String, Rect)>,
     window: Option<String>,
 }
 
-fn aim(app: &AppHandle, state: &AppState, tab: &str) -> Result<Aim, String> {
-    let at = windows::cursor(app).ok_or_else(|| "cursor position unavailable".to_owned())?;
+fn aim(app: &AppHandle, state: &AppState, tab: &str) -> Aim {
+    let Some(at) = windows::cursor(app) else {
+        return Aim { at: None, others: Vec::new(), window: None };
+    };
     // Avant le verrou : chaque mesure passe par le fil principal.
     let rects = windows::rects(app);
     let ws = Workspace::lock(&state.workspace);
     let from = ws.tab_window(tab);
     let others: Vec<_> = rects.into_iter().filter(|(l, _)| Some(l.as_str()) != from).collect();
     let window = ws.window_at(at.0, at.1, &others);
-    Ok(Aim { at, others, window })
+    Aim { at: Some(at), others, window }
 }
 
 /// La fenêtre survolée devient `next` ; l'ancienne efface son fantôme.
@@ -66,9 +70,9 @@ fn hover(app: &AppHandle, next: Option<(String, serde_json::Value)>) {
 #[tauri::command]
 pub async fn drag_tab_over(app: AppHandle, tab: String) -> Result<(), String> {
     blocking(&app, move |app, state| {
-        let aim = aim(app, state, &tab)?;
-        let next = aim.window.and_then(|w| {
-            let (x, y) = windows::page_point_in(app, &w, aim.at)?;
+        let aim = aim(app, state, &tab);
+        let next = aim.window.zip(aim.at).and_then(|(w, at)| {
+            let (x, y) = windows::page_point_in(app, &w, at)?;
             Some((w, json!({ "tab": tab, "x": x, "y": y })))
         });
         hover(app, next);
@@ -91,7 +95,8 @@ pub async fn drag_tab_leave(app: AppHandle) -> Result<(), String> {
 ///
 /// L'hôte le déplace lui-même, sans dépendre d'aucune page : sur une autre
 /// fenêtre, en fin de sa barre ; ailleurs, dans une nouvelle fenêtre sous le
-/// curseur (l'écran visé). La fenêtre d'arrivée est ensuite prévenue
+/// curseur (l'écran visé), ou n'importe où si le curseur ne se lit pas
+/// (Wayland). La fenêtre d'arrivée est ensuite prévenue
 /// (`tab-drop`) pour le ranger à la place visée : au pire, il reste en fin
 /// de barre, et une erreur de rangement s'affiche dans sa page.
 #[tauri::command]
@@ -101,14 +106,14 @@ pub async fn drop_tab(app: AppHandle, tab: String) -> Result<Response, String> {
             return Err(CLOSING.to_owned());
         }
         hover(app, None);
-        let aim = aim(app, state, &tab)?;
+        let aim = aim(app, state, &tab);
         tracing::debug!(tab, at = ?aim.at, rects = ?aim.others, window = ?aim.window, "onglet lâché hors de sa fenêtre");
         let target = aim.window.clone();
         Workspace::apply(&state.workspace, WorkspaceRequest::MoveTab { tab: tab.clone(), window: aim.window, index: None })
             .map_err(|e| state.refuse(e))?;
-        let view = windows::sync(app, Some(LogicalPosition::new(aim.at.0, aim.at.1)), true);
-        if let Some(w) = target {
-            match windows::page_point_in(app, &w, aim.at) {
+        let view = windows::sync(app, aim.at, true);
+        if let (Some(w), Some(at)) = (target, aim.at) {
+            match windows::page_point_in(app, &w, at) {
                 Some((x, y)) => {
                     if let Err(e) = app.emit_to(w.as_str(), "tab-drop", json!({ "tab": tab, "x": x, "y": y })) {
                         tracing::warn!(label = %w, error = %e, "place visée non transmise : onglet en fin de barre");
