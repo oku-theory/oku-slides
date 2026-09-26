@@ -383,17 +383,18 @@ pub enum ElementBody {
         children: Vec<Element>,
     },
     /// Graphique : options ECharts (sous-ensemble de `oku-slides-chart`), données
-    /// dans `dataset` une fois canonicalisées.
+    /// dans `dataset` une fois canonicalisées. En `Box` : en ligne, les options
+    /// feraient peser chaque élément, texte ou image, près de 300 octets.
     Chart {
         /// Des options incohérentes ne se désérialisent pas : un deck ne
         /// contient que des graphiques qui se dessinent.
         #[serde(deserialize_with = "consistent_chart")]
-        option: oku_slides_chart::ChartOption,
+        option: Box<oku_slides_chart::ChartOption>,
     },
 }
 
-fn consistent_chart<'de, D: serde::Deserializer<'de>>(d: D) -> Result<oku_slides_chart::ChartOption, D::Error> {
-    let option = oku_slides_chart::ChartOption::deserialize(d)?;
+fn consistent_chart<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Box<oku_slides_chart::ChartOption>, D::Error> {
+    let option = Box::<oku_slides_chart::ChartOption>::deserialize(d)?;
     oku_slides_chart::normalize(&option, oku_slides_chart::ChartLabels::english())
         .map_err(|e| serde::de::Error::custom(oku_slides_i18n::Localize::localize(&e, oku_slides_i18n::english())))?;
     Ok(option)

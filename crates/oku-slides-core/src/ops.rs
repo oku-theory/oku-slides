@@ -329,7 +329,7 @@ impl Op {
                     return Err(NotAChartSnafu { element }.build().into());
                 };
                 let (next, inverse) = apply_option_patch(option, &patch).context(ChartSnafu { element: &element })?;
-                *option = next;
+                **option = next;
                 Ok(Op::SetChartOption { slide, element, patch: inverse })
             }
             Op::SetChartData { slide, element, change } => {

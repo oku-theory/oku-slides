@@ -632,7 +632,7 @@ impl Session {
         let oku_slides_core::ElementBody::Chart { option } = &mut chart.body else {
             return Err(NoChartSnafu { id: element }.build().into());
         };
-        *option = oku_slides_chart::convert(option, kind, &self.chart_labels).context(ChartSnafu)?;
+        **option = oku_slides_chart::convert(option, kind, &self.chart_labels).context(ChartSnafu)?;
         self.apply(label, vec![Op::ReplaceElement { slide, element: chart }])
     }
 
