@@ -117,7 +117,7 @@ ui-stage-rendering = 렌더링 중…
 ui-stage-elements = 슬라이드 요소
 ui-stage-edit-text = 텍스트 편집
 ui-stage-hint-field = Enter로 확인 · Esc로 취소
-ui-stage-hint-block = ⌘ Enter로 확인 · 단락마다 한 줄, 글머리 기호는 “- ”
+ui-stage-hint-block = ⌘ Enter로 확인 · 단락마다 한 줄, 글머리 기호는 “- ” · ⌘B 굵게, ⌘I 기울임, ⌘K 링크
 ui-field = { $kind ->
     [title] 제목
     [subtitle] 부제목

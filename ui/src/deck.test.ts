@@ -13,7 +13,7 @@ describe("textToParagraphs", () => {
 
   test("un paragraphe inchangé garde sa mise en forme", () => {
     const bold: Paragraph = { runs: [{ t: "Gras", bold: true }] };
-    expect(textToParagraphs("Gras\nNouveau", [bold])[0]).toBe(bold);
+    expect(textToParagraphs("**Gras**\nNouveau", [bold])[0]).toBe(bold);
   });
 });
 

@@ -1,0 +1,160 @@
+{
+  "_comment": "Aller-retour paragraphes ↔ markdown d'édition : paragraphs_to_text (Rust) écrit `markdown`, textToParagraphs (TS) le relit en `paragraphs`.",
+  "cases": [
+    {
+      "name": "texte simple",
+      "markdown": "Bonjour",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "Bonjour"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gras, italique et les deux",
+      "markdown": "a **gras** *italique* ***les deux***",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "a "
+            },
+            {
+              "t": "gras",
+              "bold": true
+            },
+            {
+              "t": " "
+            },
+            {
+              "t": "italique",
+              "italic": true
+            },
+            {
+              "t": " "
+            },
+            {
+              "t": "les deux",
+              "bold": true,
+              "italic": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lien simple et lien en gras",
+      "markdown": "voir [le site](https://oku.dev/a) ou [**ici**](mailto:a@b.c)",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "voir "
+            },
+            {
+              "t": "le site",
+              "link": "https://oku.dev/a"
+            },
+            {
+              "t": " ou "
+            },
+            {
+              "t": "ici",
+              "bold": true,
+              "link": "mailto:a@b.c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "puces et liste numérotée",
+      "markdown": "Titre\n- **Point**\n1. un\n2. deux",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "Titre"
+            }
+          ]
+        },
+        {
+          "runs": [
+            {
+              "t": "Point",
+              "bold": true
+            }
+          ],
+          "list": "bullet"
+        },
+        {
+          "runs": [
+            {
+              "t": "un"
+            }
+          ],
+          "list": "number"
+        },
+        {
+          "runs": [
+            {
+              "t": "deux"
+            }
+          ],
+          "list": "number"
+        }
+      ]
+    },
+    {
+      "name": "caractères spéciaux échappés",
+      "markdown": "2 \\* 3 \\[note\\] a\\\\b \\_x\\_ snake_case",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "2 * 3 [note] a\\b _x_ snake_case"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "texte qui ressemble à une liste",
+      "markdown": "\\- pas une puce\n1\\. pas un numéro",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "- pas une puce"
+            }
+          ]
+        },
+        {
+          "runs": [
+            {
+              "t": "1. pas un numéro"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "adresse déjà encodée gardée telle quelle",
+      "markdown": "[wiki](https://w.org/A_%28b%29%20c)",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "wiki",
+              "link": "https://w.org/A_%28b%29%20c"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

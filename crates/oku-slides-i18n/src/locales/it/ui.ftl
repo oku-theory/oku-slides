@@ -119,7 +119,7 @@ ui-stage-rendering = Rendering…
 ui-stage-elements = Elementi della diapositiva
 ui-stage-edit-text = Modifica il testo
 ui-stage-hint-field = Invio per confermare · Esc per annullare
-ui-stage-hint-block = ⌘ Invio per confermare · una riga per paragrafo, «- » per un punto elenco
+ui-stage-hint-block = ⌘ Invio per confermare · una riga per paragrafo, «- » per un punto elenco · ⌘B grassetto, ⌘I corsivo, ⌘K link
 ui-field = { $kind ->
     [title] Titolo
     [subtitle] Sottotitolo

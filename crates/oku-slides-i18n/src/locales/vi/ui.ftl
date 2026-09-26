@@ -117,7 +117,7 @@ ui-stage-rendering = Đang kết xuất…
 ui-stage-elements = Các phần tử của trang chiếu
 ui-stage-edit-text = Sửa văn bản
 ui-stage-hint-field = Enter để xác nhận · Esc để hủy
-ui-stage-hint-block = ⌘ Enter để xác nhận · mỗi đoạn một dòng, “- ” cho gạch đầu dòng
+ui-stage-hint-block = ⌘ Enter để xác nhận · mỗi đoạn một dòng, “- ” cho gạch đầu dòng · ⌘B đậm, ⌘I nghiêng, ⌘K liên kết
 ui-field = { $kind ->
     [title] Tiêu đề
     [subtitle] Phụ đề

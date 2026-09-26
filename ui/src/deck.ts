@@ -4,6 +4,7 @@
 import type { Element, Op, Paragraph, Slide, SlideView, Target } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
+import { markdownToRuns, sameFormatting } from "./markdown";
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
 export function newId(prefix: string): string {
@@ -27,10 +28,10 @@ export function findElement(slide: Slide, id: string): Element | undefined {
 /**
  * Texte éditable → paragraphes : l'inverse de `paragraphs_to_text` côté Rust
  * (une ligne par paragraphe, `- ` pour une puce, `1. ` pour une liste
- * numérotée). Les paragraphes inchangés gardent leur mise en forme.
+ * numérotée, markdown inline pour le reste). Un paragraphe dont le markdown
+ * n'a pas changé garde sa mise en forme complète (couleur, taille).
  */
 export function textToParagraphs(text: string, previous: Paragraph[] = []): Paragraph[] {
-  const plain = (p: Paragraph) => p.runs.map((r) => r.t).join("");
   return text.split("\n").map((line) => {
     let list: Paragraph["list"];
     let body = line;
@@ -42,9 +43,10 @@ export function textToParagraphs(text: string, previous: Paragraph[] = []): Para
       list = "number";
       body = num[2];
     }
-    const same = previous.find((p) => p.list === list && plain(p) === body);
+    const runs = markdownToRuns(body);
+    const same = previous.find((p) => p.list === list && sameFormatting(p.runs, runs));
     if (same) return same;
-    return list ? { runs: [{ t: body }], list } : { runs: [{ t: body }] };
+    return list ? { runs, list } : { runs };
   });
 }
 

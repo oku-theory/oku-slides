@@ -24,5 +24,6 @@ issue-cell-outside-grid = cella fuori dalla griglia
 issue-empty-frame = riquadro di dimensione zero
 issue-free-without-frame = elemento libero senza riquadro
 issue-missing-asset = risorsa mancante: { $asset }
+issue-unsupported-link = link non supportato: { $link }
 op-not-a-chart = { $subject } non è un grafico
 op-invalid-chart = Grafico { $subject }: { $reason }

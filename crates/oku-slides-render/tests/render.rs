@@ -86,6 +86,25 @@ fn compile_dictated_text_with_typst_markup_renders_it_verbatim() {
 }
 
 #[test]
+fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
+    let mut deck = fixture();
+    let run =
+        oku_slides_core::Run { link: Some("https://example.com/oku".into()), ..oku_slides_core::Run::plain("site") };
+    Op::SetText {
+        slide: "s-constat".into(),
+        element: "b-points".into(),
+        text: vec![Paragraph { runs: vec![run], list: None }],
+    }
+    .apply(&mut deck)
+    .unwrap();
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
+    let pdf = r.compile().unwrap().pdf().unwrap();
+    let url = b"https://example.com/oku";
+    assert_that!(pdf.windows(url.len()).any(|w| w == url)).is_true();
+}
+
+#[test]
 fn embed_sources_then_extract_gives_back_same_bundle() {
     let deck = fixture();
     let mut bundle = SourceBundle::new(deck.clone());

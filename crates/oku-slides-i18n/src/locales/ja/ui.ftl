@@ -119,7 +119,7 @@ ui-stage-rendering = レンダリング中…
 ui-stage-elements = スライドの要素
 ui-stage-edit-text = テキストを編集
 ui-stage-hint-field = Enter で確定 · Esc でキャンセル
-ui-stage-hint-block = ⌘ Enter で確定 · 1 行に 1 段落、「- 」で箇条書き
+ui-stage-hint-block = ⌘ Enter で確定 · 1 行に 1 段落、「- 」で箇条書き · ⌘B 太字、⌘I 斜体、⌘K リンク
 ui-field = { $kind ->
     [title] タイトル
     [subtitle] サブタイトル

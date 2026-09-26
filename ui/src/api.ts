@@ -89,6 +89,8 @@ export interface Run {
   bold?: boolean;
   italic?: boolean;
   color?: string;
+  /** Cible du lien (`http`, `https` ou `mailto`). */
+  link?: string;
 }
 
 export interface Paragraph {

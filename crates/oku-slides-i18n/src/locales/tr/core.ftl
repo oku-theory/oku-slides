@@ -24,5 +24,6 @@ issue-cell-outside-grid = hücre ızgaranın dışında
 issue-empty-frame = sıfır boyutlu çerçeve
 issue-free-without-frame = çerçevesiz serbest öğe
 issue-missing-asset = eksik varlık: { $asset }
+issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 op-not-a-chart = { $subject } bir grafik değil
 op-invalid-chart = { $subject } grafiği: { $reason }

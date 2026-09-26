@@ -24,5 +24,6 @@ issue-cell-outside-grid = 单元格超出网格
 issue-empty-frame = 框架尺寸为零
 issue-free-without-frame = 自由元素缺少框架
 issue-missing-asset = 缺少资源：{ $asset }
+issue-unsupported-link = 不支持的链接：{ $link }
 op-not-a-chart = { $subject } 不是图表
 op-invalid-chart = 图表 { $subject }：{ $reason }

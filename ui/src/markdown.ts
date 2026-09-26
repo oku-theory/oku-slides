@@ -1,0 +1,201 @@
+/**
+ * Markdown inline d'édition → runs : l'inverse de `runs_to_markdown` côté Rust.
+ *
+ * `**gras**`, `*italique*` ou `_italique_`, `***les deux***`, `[texte](url)` ;
+ * `\` échappe une ponctuation. Un délimiteur sans fermeture reste du texte.
+ */
+import type { Run } from "./api";
+
+interface Format {
+  bold: boolean;
+  italic: boolean;
+  link?: string;
+}
+
+const PUNCTUATION = /[!-/:-@[-`{-~]/;
+const isWord = (c: string | undefined) => c !== undefined && /[\p{L}\p{N}]/u.test(c);
+
+/** Run sans champs superflus : seuls les formats présents apparaissent. */
+function run(t: string, f: Format): Run {
+  const r: Run = { t };
+  if (f.bold) r.bold = true;
+  if (f.italic) r.italic = true;
+  if (f.link !== undefined) r.link = f.link;
+  return r;
+}
+
+/** Runs voisins de même format fusionnés, runs vides retirés. */
+function merge(runs: Run[]): Run[] {
+  const out: Run[] = [];
+  for (const r of runs) {
+    if (r.t === "") continue;
+    const last = out.at(-1);
+    const same = !!last?.bold === !!r.bold && !!last?.italic === !!r.italic && last?.link === r.link;
+    if (last && same) {
+      last.t += r.t;
+    } else {
+      out.push({ ...r });
+    }
+  }
+  return out;
+}
+
+/** Longueur de la suite de `ch` qui commence en `i`. */
+function repeated(s: string, i: number, end: number, ch: string): number {
+  let n = 0;
+  while (i + n < end && s[i + n] === ch) n++;
+  return n;
+}
+
+/** Première position ≥ `from` (hors échappements) où `match` est vrai, sinon -1. */
+function scan(s: string, from: number, end: number, match: (j: number) => number | null): number {
+  for (let j = from; j < end; ) {
+    if (s[j] === "\\" && j + 1 < end) {
+      j += 2;
+      continue;
+    }
+    const step = match(j);
+    if (step === null) return j;
+    j += step;
+  }
+  return -1;
+}
+
+/** Fermeture d'une suite de `n` fois `ch` : une suite d'exactement `n` fois `ch`. */
+function closing(s: string, from: number, end: number, ch: string, n: number): number {
+  return scan(s, from, end, (j) => {
+    if (s[j] !== ch) return 1;
+    const m = repeated(s, j, end, ch);
+    return m === n ? null : m;
+  });
+}
+
+/** Fermeture d'un `_` : un `_` qui n'est pas suivi d'une lettre. */
+function closingUnderscore(s: string, from: number, end: number): number {
+  return scan(s, from, end, (j) => (s[j] === "_" && !isWord(s[j + 1]) ? null : 1));
+}
+
+/** `[texte](url)` qui commence en `i` : fin du texte, adresse et fin du lien. */
+function link(s: string, i: number, end: number): { textEnd: number; url: string; end: number } | null {
+  const textEnd = scan(s, i + 1, end, (j) => (s[j] === "]" ? null : 1));
+  if (textEnd < 0 || s[textEnd + 1] !== "(") return null;
+  const close = s.indexOf(")", textEnd + 2);
+  if (close < 0 || close >= end || close === textEnd + 2) return null;
+  return { textEnd, url: s.slice(textEnd + 2, close), end: close + 1 };
+}
+
+function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
+  let text = "";
+  const flush = () => {
+    out.push(run(text, f));
+    text = "";
+  };
+  let i = start;
+  while (i < end) {
+    const c = s[i];
+    if (c === "\\" && i + 1 < end && PUNCTUATION.test(s[i + 1])) {
+      text += s[i + 1];
+      i += 2;
+      continue;
+    }
+    if (c === "*") {
+      const n = repeated(s, i, end, "*");
+      const close = n <= 3 ? closing(s, i + n, end, "*", n) : -1;
+      if (close > i + n) {
+        flush();
+        parse(s, i + n, close, { ...f, bold: f.bold || n >= 2, italic: f.italic || n !== 2 }, out);
+        i = close + n;
+      } else {
+        text += s.slice(i, i + n);
+        i += n;
+      }
+      continue;
+    }
+    if (c === "_" && !isWord(s[i - 1])) {
+      const close = closingUnderscore(s, i + 1, end);
+      if (close > i + 1) {
+        flush();
+        parse(s, i + 1, close, { ...f, italic: true }, out);
+        i = close + 1;
+        continue;
+      }
+    }
+    if (c === "[") {
+      const l = link(s, i, end);
+      if (l) {
+        flush();
+        parse(s, i + 1, l.textEnd, { ...f, link: l.url }, out);
+        i = l.end;
+        continue;
+      }
+    }
+    text += c;
+    i++;
+  }
+  flush();
+}
+
+/** Une ligne de markdown inline en runs ; une ligne vide donne un run vide. */
+export function markdownToRuns(line: string): Run[] {
+  const out: Run[] = [];
+  parse(line, 0, line.length, { bold: false, italic: false }, out);
+  const runs = merge(out);
+  return runs.length > 0 ? runs : [{ t: "" }];
+}
+
+/** Adresse telle que `paragraphs_to_text` l'écrit : espace et parenthèses encodés. */
+const encodeLink = (url: string | undefined) =>
+  url?.replaceAll(" ", "%20").replaceAll("(", "%28").replaceAll(")", "%29");
+
+/** Même texte et même mise en forme markdown (couleur et taille ignorées). */
+export function sameFormatting(a: Run[], b: Run[]): boolean {
+  const key = (runs: Run[]) =>
+    JSON.stringify(
+      merge(runs.map((r) => run(r.t, { bold: !!r.bold, italic: !!r.italic, link: encodeLink(r.link) }))),
+    );
+  return key(a) === key(b);
+}
+
+/** Texte de l'éditeur et sélection après un raccourci de mise en forme. */
+export interface Edit {
+  value: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Bascule gras ou italique sur la sélection. Les étoiles autour (ou aux bords
+ * de la sélection) disent le format actuel : 1 italique, 2 gras, 3 les deux.
+ */
+export function toggleEmphasis(value: string, start: number, end: number, format: "bold" | "italic"): Edit {
+  // Des étoiles aux deux bords de la sélection comptent comme autour.
+  while (end - start > 2 && value[start] === "*" && value[end - 1] === "*") {
+    start++;
+    end--;
+  }
+  let k = 0;
+  while (k < 3 && value[start - k - 1] === "*" && value[end + k] === "*") k++;
+  let bold = k >= 2;
+  let italic = k % 2 === 1;
+  if (format === "bold") bold = !bold;
+  else italic = !italic;
+  const marks = "*".repeat((bold ? 2 : 0) + (italic ? 1 : 0));
+  const next = value.slice(0, start - k) + marks + value.slice(start, end) + marks + value.slice(end + k);
+  const shift = marks.length - k;
+  return { value: next, start: start + shift, end: end + shift };
+}
+
+/**
+ * Transforme la sélection en lien. Une adresse sélectionnée devient la cible ;
+ * sinon le texte sélectionné devient le libellé et `url` est à remplacer.
+ */
+export function insertLink(value: string, start: number, end: number): Edit {
+  const selected = value.slice(start, end);
+  const before = value.slice(0, start);
+  const after = value.slice(end);
+  if (/^(https?:\/\/|mailto:)\S+$/i.test(selected)) {
+    return { value: `${before}[](${selected})${after}`, start: start + 1, end: start + 1 };
+  }
+  const url = start + selected.length + 3;
+  return { value: `${before}[${selected}](url)${after}`, start: url, end: url + 3 };
+}

@@ -123,7 +123,7 @@ ui-stage-rendering = Відтворення…
 ui-stage-elements = Елементи слайда
 ui-stage-edit-text = Змінити текст
 ui-stage-hint-field = Enter — підтвердити · Esc — скасувати
-ui-stage-hint-block = ⌘ Enter — підтвердити · один рядок на абзац, «- » для пункту списку
+ui-stage-hint-block = ⌘ Enter — підтвердити · один рядок на абзац, «- » для пункту списку · ⌘B жирний, ⌘I курсив, ⌘K посилання
 ui-field = { $kind ->
     [title] Заголовок
     [subtitle] Підзаголовок

@@ -119,7 +119,7 @@ ui-stage-rendering = 渲染中…
 ui-stage-elements = 投影片元素
 ui-stage-edit-text = 編輯文字
 ui-stage-hint-field = Enter 確認 · Esc 取消
-ui-stage-hint-block = ⌘ Enter 確認 · 每段一行，「- 」表示項目符號
+ui-stage-hint-block = ⌘ Enter 確認 · 每段一行，「- 」表示項目符號 · ⌘B 粗體，⌘I 斜體，⌘K 連結
 ui-field = { $kind ->
     [title] 標題
     [subtitle] 副標題

@@ -24,5 +24,6 @@ issue-cell-outside-grid = ô nằm ngoài lưới
 issue-empty-frame = khung có kích thước bằng 0
 issue-free-without-frame = phần tử tự do không có khung
 issue-missing-asset = thiếu tài nguyên: { $asset }
+issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 op-not-a-chart = { $subject } không phải là biểu đồ
 op-invalid-chart = Biểu đồ { $subject }: { $reason }

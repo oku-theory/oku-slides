@@ -46,7 +46,8 @@
   let body = [#interp(r.at("t", default: ""), vars)]
   let a = _text-args(t, r)
   if r.at("bold", default: false) { a.insert("weight", weight-of(t, "strong")) }
-  if a.len() > 0 { text(..a, body) } else { body }
+  let body = if a.len() > 0 { text(..a, body) } else { body }
+  if "link" in r { link(r.link, body) } else { body }
 }).join()
 
 #let _paragraphs(t, paras, vars) = {

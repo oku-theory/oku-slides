@@ -78,3 +78,20 @@ fn issue_localize_prefixes_slide_and_element() {
     let bare = Issue { slide: None, element: None, message: Message::new("issue-empty-frame") };
     assert_that!(bare.to_string()).is_equal_to("zero-size frame".to_owned());
 }
+
+#[test]
+fn validate_link_with_unsafe_scheme_is_reported() {
+    use crate::model::{Paragraph, Run};
+    let run = |link: &str| Run { link: Some(link.into()), ..Run::plain("x") };
+    let mut s = Slide::new("s", SlideKind::Content);
+    s.blocks.push(Element::text(
+        "t",
+        vec![Paragraph {
+            runs: vec![run("https://a.b"), run("mailto:a@b.c"), run("http://a.b"), run("javascript:alert(1)")],
+            list: None,
+        }],
+    ));
+    let issues = validate(&deck(vec![s]), None);
+    assert_that!(issues.iter().map(ToString::to_string).collect::<Vec<_>>())
+        .is_equal_to(vec!["[s/t] unsupported link: javascript:alert(1)".to_owned()]);
+}

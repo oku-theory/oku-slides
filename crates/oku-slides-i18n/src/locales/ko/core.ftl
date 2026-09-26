@@ -24,5 +24,6 @@ issue-cell-outside-grid = 셀이 그리드 밖에 있음
 issue-empty-frame = 크기가 0인 프레임
 issue-free-without-frame = 프레임이 없는 자유 요소
 issue-missing-asset = 누락된 에셋: { $asset }
+issue-unsupported-link = 지원되지 않는 링크: { $link }
 op-not-a-chart = { $subject }은(는) 차트가 아닙니다
 op-invalid-chart = 차트 { $subject }: { $reason }

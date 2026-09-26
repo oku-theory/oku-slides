@@ -117,7 +117,7 @@ ui-stage-rendering = กำลังเรนเดอร์…
 ui-stage-elements = องค์ประกอบของสไลด์
 ui-stage-edit-text = แก้ไขข้อความ
 ui-stage-hint-field = Enter เพื่อยืนยัน · Esc เพื่อยกเลิก
-ui-stage-hint-block = ⌘ Enter เพื่อยืนยัน · หนึ่งบรรทัดต่อย่อหน้า ใช้ “- ” สำหรับหัวข้อย่อย
+ui-stage-hint-block = ⌘ Enter เพื่อยืนยัน · หนึ่งบรรทัดต่อย่อหน้า ใช้ “- ” สำหรับหัวข้อย่อย · ⌘B ตัวหนา ⌘I ตัวเอียง ⌘K ลิงก์
 ui-field = { $kind ->
     [title] ชื่อเรื่อง
     [subtitle] ชื่อรอง

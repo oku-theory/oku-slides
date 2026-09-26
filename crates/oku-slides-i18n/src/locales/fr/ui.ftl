@@ -119,7 +119,7 @@ ui-stage-rendering = Rendu…
 ui-stage-elements = Éléments de la slide
 ui-stage-edit-text = Modifier le texte
 ui-stage-hint-field = Entrée pour valider · Échap pour annuler
-ui-stage-hint-block = ⌘ Entrée pour valider · une ligne par paragraphe, « - » pour une puce
+ui-stage-hint-block = ⌘ Entrée pour valider · une ligne par paragraphe, « - » pour une puce · ⌘B gras, ⌘I italique, ⌘K lien
 ui-field = { $kind ->
     [title] Titre
     [subtitle] Sous-titre

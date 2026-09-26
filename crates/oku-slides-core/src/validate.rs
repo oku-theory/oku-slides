@@ -81,9 +81,19 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
             {
                 out.push(issue(Message::new("issue-missing-asset").arg("asset", asset.as_str())));
             }
+            let runs = || e.body.text().unwrap_or_default().iter().flat_map(|p| &p.runs);
+            for link in runs().filter_map(|r| r.link.as_deref()).filter(|l| !is_safe_link(l)) {
+                out.push(issue(Message::new("issue-unsupported-link").arg("link", link)));
+            }
         }
     }
     out
+}
+
+/// Schémas de lien acceptés : web et courriel, rien qui s'exécute.
+fn is_safe_link(link: &str) -> bool {
+    let lower = link.to_ascii_lowercase();
+    ["http://", "https://", "mailto:"].iter().any(|scheme| lower.starts_with(scheme))
 }
 
 #[cfg(test)]

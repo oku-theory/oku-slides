@@ -119,7 +119,7 @@ ui-stage-rendering = Renderizando…
 ui-stage-elements = Elementos do slide
 ui-stage-edit-text = Editar o texto
 ui-stage-hint-field = Enter para confirmar · Esc para cancelar
-ui-stage-hint-block = ⌘ Enter para confirmar · uma linha por parágrafo, “- ” para um marcador
+ui-stage-hint-block = ⌘ Enter para confirmar · uma linha por parágrafo, “- ” para um marcador · ⌘B negrito, ⌘I itálico, ⌘K link
 ui-field = { $kind ->
     [title] Título
     [subtitle] Subtítulo

@@ -24,5 +24,6 @@ issue-cell-outside-grid = セルがグリッドの外にあります
 issue-empty-frame = フレームのサイズがゼロです
 issue-free-without-frame = 自由配置の要素にフレームがありません
 issue-missing-asset = アセットがありません：{ $asset }
+issue-unsupported-link = サポートされていないリンク：{ $link }
 op-not-a-chart = { $subject } はグラフではありません
 op-invalid-chart = グラフ { $subject }：{ $reason }

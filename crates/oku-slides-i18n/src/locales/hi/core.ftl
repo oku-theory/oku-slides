@@ -24,5 +24,6 @@ issue-cell-outside-grid = सेल ग्रिड से बाहर है
 issue-empty-frame = शून्य आकार का फ़्रेम
 issue-free-without-frame = फ़्रेम के बिना मुक्त एलिमेंट
 issue-missing-asset = एसेट गायब है: { $asset }
+issue-unsupported-link = असमर्थित लिंक: { $link }
 op-not-a-chart = { $subject } चार्ट नहीं है
 op-invalid-chart = चार्ट { $subject }: { $reason }

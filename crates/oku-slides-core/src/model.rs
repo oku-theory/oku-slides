@@ -282,6 +282,9 @@ pub struct Run {
     pub color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<TokenValue>,
+    /// Cible du lien (`http`, `https` ou `mailto`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
 }
 
 impl Run {

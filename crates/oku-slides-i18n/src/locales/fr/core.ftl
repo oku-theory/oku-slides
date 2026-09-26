@@ -24,5 +24,6 @@ issue-cell-outside-grid = cellule hors de la grille
 issue-empty-frame = cadre de taille nulle
 issue-free-without-frame = élément libre sans cadre
 issue-missing-asset = asset manquant : { $asset }
+issue-unsupported-link = lien non pris en charge : { $link }
 op-not-a-chart = { $subject } n'est pas un graphique
 op-invalid-chart = Graphique { $subject } : { $reason }

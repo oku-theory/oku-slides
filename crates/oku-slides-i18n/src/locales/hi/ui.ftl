@@ -119,7 +119,7 @@ ui-stage-rendering = रेंडर हो रहा है…
 ui-stage-elements = स्लाइड के एलिमेंट
 ui-stage-edit-text = टेक्स्ट संपादित करें
 ui-stage-hint-field = पुष्टि के लिए Enter · रद्द करने के लिए Esc
-ui-stage-hint-block = पुष्टि के लिए ⌘ Enter · हर अनुच्छेद के लिए एक पंक्ति, बुलेट के लिए “- ”
+ui-stage-hint-block = पुष्टि के लिए ⌘ Enter · हर अनुच्छेद के लिए एक पंक्ति, बुलेट के लिए “- ” · ⌘B बोल्ड, ⌘I इटैलिक, ⌘K लिंक
 ui-field = { $kind ->
     [title] शीर्षक
     [subtitle] उपशीर्षक

@@ -119,7 +119,7 @@ ui-stage-rendering = রেন্ডার হচ্ছে…
 ui-stage-elements = স্লাইডের উপাদান
 ui-stage-edit-text = টেক্সট সম্পাদনা করুন
 ui-stage-hint-field = নিশ্চিত করতে Enter · বাতিল করতে Esc
-ui-stage-hint-block = নিশ্চিত করতে ⌘ Enter · প্রতি অনুচ্ছেদে এক লাইন, বুলেটের জন্য “- ”
+ui-stage-hint-block = নিশ্চিত করতে ⌘ Enter · প্রতি অনুচ্ছেদে এক লাইন, বুলেটের জন্য “- ” · ⌘B বোল্ড, ⌘I ইটালিক, ⌘K লিঙ্ক
 ui-field = { $kind ->
     [title] শিরোনাম
     [subtitle] উপশিরোনাম

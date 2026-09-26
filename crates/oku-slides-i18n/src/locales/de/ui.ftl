@@ -119,7 +119,7 @@ ui-stage-rendering = Wird gerendert…
 ui-stage-elements = Folienelemente
 ui-stage-edit-text = Text bearbeiten
 ui-stage-hint-field = Enter zum Bestätigen · Esc zum Abbrechen
-ui-stage-hint-block = ⌘ Enter zum Bestätigen · eine Zeile pro Absatz, „- “ für einen Aufzählungspunkt
+ui-stage-hint-block = ⌘ Enter zum Bestätigen · eine Zeile pro Absatz, „- “ für einen Aufzählungspunkt · ⌘B fett, ⌘I kursiv, ⌘K Link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Untertitel

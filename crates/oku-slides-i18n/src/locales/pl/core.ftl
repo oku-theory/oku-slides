@@ -24,5 +24,6 @@ issue-cell-outside-grid = komórka poza siatką
 issue-empty-frame = ramka o zerowym rozmiarze
 issue-free-without-frame = swobodny element bez ramki
 issue-missing-asset = brakujący zasób: { $asset }
+issue-unsupported-link = nieobsługiwany link: { $link }
 op-not-a-chart = { $subject } nie jest wykresem
 op-invalid-chart = Wykres { $subject }: { $reason }

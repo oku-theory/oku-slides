@@ -119,7 +119,7 @@ ui-stage-rendering = Oluşturuluyor…
 ui-stage-elements = Slayt öğeleri
 ui-stage-edit-text = Metni düzenle
 ui-stage-hint-field = Onaylamak için Enter · iptal için Esc
-ui-stage-hint-block = Onaylamak için ⌘ Enter · paragraf başına bir satır, madde işareti için “- ”
+ui-stage-hint-block = Onaylamak için ⌘ Enter · paragraf başına bir satır, madde işareti için “- ” · ⌘B kalın, ⌘I italik, ⌘K bağlantı
 ui-field = { $kind ->
     [title] Başlık
     [subtitle] Alt başlık

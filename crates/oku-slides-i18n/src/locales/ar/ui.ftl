@@ -127,7 +127,7 @@ ui-stage-rendering = جارٍ العرض…
 ui-stage-elements = عناصر الشريحة
 ui-stage-edit-text = تعديل النص
 ui-stage-hint-field = Enter للتأكيد · Esc للإلغاء
-ui-stage-hint-block = ⌘ Enter للتأكيد · سطر لكل فقرة، و«- » لنقطة تعداد
+ui-stage-hint-block = ⌘ Enter للتأكيد · سطر لكل فقرة، و«- » لنقطة تعداد · ⌘B عريض، ⌘I مائل، ⌘K رابط
 ui-field = { $kind ->
     [title] العنوان
     [subtitle] العنوان الفرعي

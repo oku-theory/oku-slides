@@ -24,5 +24,6 @@ issue-cell-outside-grid = cel buiten het raster
 issue-empty-frame = kader zonder afmetingen
 issue-free-without-frame = vrij element zonder kader
 issue-missing-asset = ontbrekende bron: { $asset }
+issue-unsupported-link = niet-ondersteunde link: { $link }
 op-not-a-chart = { $subject } is geen grafiek
 op-invalid-chart = Grafiek { $subject }: { $reason }

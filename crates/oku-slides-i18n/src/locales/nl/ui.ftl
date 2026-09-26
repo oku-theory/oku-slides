@@ -119,7 +119,7 @@ ui-stage-rendering = Weergeven…
 ui-stage-elements = Dia-elementen
 ui-stage-edit-text = Tekst bewerken
 ui-stage-hint-field = Enter om te bevestigen · Esc om te annuleren
-ui-stage-hint-block = ⌘ Enter om te bevestigen · één regel per alinea, ‘- ’ voor een opsommingsteken
+ui-stage-hint-block = ⌘ Enter om te bevestigen · één regel per alinea, ‘- ’ voor een opsommingsteken · ⌘B vet, ⌘I cursief, ⌘K link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Ondertitel

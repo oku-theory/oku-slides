@@ -123,7 +123,7 @@ ui-stage-rendering = Renderowanie…
 ui-stage-elements = Elementy slajdu
 ui-stage-edit-text = Edytuj tekst
 ui-stage-hint-field = Enter, aby zatwierdzić · Esc, aby anulować
-ui-stage-hint-block = ⌘ Enter, aby zatwierdzić · jeden wiersz na akapit, „- ” dla punktu listy
+ui-stage-hint-block = ⌘ Enter, aby zatwierdzić · jeden wiersz na akapit, „- ” dla punktu listy · ⌘B pogrubienie, ⌘I kursywa, ⌘K link
 ui-field = { $kind ->
     [title] Tytuł
     [subtitle] Podtytuł

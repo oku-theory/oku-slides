@@ -119,7 +119,7 @@ ui-stage-rendering = Generando…
 ui-stage-elements = Elementos de la diapositiva
 ui-stage-edit-text = Editar el texto
 ui-stage-hint-field = Intro para confirmar · Esc para cancelar
-ui-stage-hint-block = ⌘ Intro para confirmar · una línea por párrafo, «- » para una viñeta
+ui-stage-hint-block = ⌘ Intro para confirmar · una línea por párrafo, «- » para una viñeta · ⌘B negrita, ⌘I cursiva, ⌘K enlace
 ui-field = { $kind ->
     [title] Título
     [subtitle] Subtítulo

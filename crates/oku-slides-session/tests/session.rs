@@ -122,7 +122,7 @@ fn handle_json_requests_returns_expected_json() {
 }
 
 #[test]
-fn paragraphs_to_text_bold_run_and_bullet_gives_plain_lines() {
+fn paragraphs_to_text_bold_run_and_bullet_gives_markdown_lines() {
     let paras = vec![
         Paragraph {
             runs: vec![oku_slides_core::Run { t: "Gras".into(), bold: true, ..Default::default() }],
@@ -130,7 +130,7 @@ fn paragraphs_to_text_bold_run_and_bullet_gives_plain_lines() {
         },
         Paragraph { runs: vec![oku_slides_core::Run::plain("Point")], list: Some(oku_slides_core::ListKind::Bullet) },
     ];
-    assert_that!(paragraphs_to_text(&paras)).is_equal_to("Gras\n- Point".to_owned());
+    assert_that!(paragraphs_to_text(&paras)).is_equal_to("**Gras**\n- Point".to_owned());
 }
 
 #[test]

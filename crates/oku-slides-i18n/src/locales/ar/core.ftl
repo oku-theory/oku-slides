@@ -24,5 +24,6 @@ issue-cell-outside-grid = خلية خارج الشبكة
 issue-empty-frame = إطار بحجم صفري
 issue-free-without-frame = عنصر حر بلا إطار
 issue-missing-asset = مورد مفقود: { $asset }
+issue-unsupported-link = رابط غير مدعوم: { $link }
 op-not-a-chart = { $subject } ليس مخططًا
 op-invalid-chart = المخطط { $subject }: { $reason }

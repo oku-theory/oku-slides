@@ -119,7 +119,7 @@ ui-stage-rendering = Rendering…
 ui-stage-elements = Slide elements
 ui-stage-edit-text = Edit the text
 ui-stage-hint-field = Enter to confirm · Esc to cancel
-ui-stage-hint-block = ⌘ Enter to confirm · one line per paragraph, “- ” for a bullet
+ui-stage-hint-block = ⌘ Enter to confirm · one line per paragraph, “- ” for a bullet · ⌘B bold, ⌘I italic, ⌘K link
 ui-field = { $kind ->
     [title] Title
     [subtitle] Subtitle

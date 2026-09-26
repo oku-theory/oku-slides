@@ -8,6 +8,7 @@ import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
+import { insertLink, toggleEmphasis } from "./markdown";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -401,6 +402,20 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                   } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey || editTarget.target === "field")) {
                     e.preventDefault();
                     commit();
+                  } else if (editTarget.target === "element" && (e.metaKey || e.ctrlKey) && !e.altKey) {
+                    // Les champs (titre…) sont du texte brut ; seuls les paragraphes ont du markdown.
+                    const el = e.currentTarget;
+                    const key = e.key.toLowerCase();
+                    const edit =
+                      key === "b" ? toggleEmphasis(draft, el.selectionStart, el.selectionEnd, "bold")
+                      : key === "i" ? toggleEmphasis(draft, el.selectionStart, el.selectionEnd, "italic")
+                      : key === "k" ? insertLink(draft, el.selectionStart, el.selectionEnd)
+                      : null;
+                    if (edit) {
+                      e.preventDefault();
+                      setDraft(edit.value);
+                      requestAnimationFrame(() => el.setSelectionRange(edit.start, edit.end));
+                    }
                   }
                   e.stopPropagation();
                 }}

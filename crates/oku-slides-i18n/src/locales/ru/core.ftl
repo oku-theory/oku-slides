@@ -24,5 +24,6 @@ issue-cell-outside-grid = ячейка вне сетки
 issue-empty-frame = рамка нулевого размера
 issue-free-without-frame = свободный элемент без рамки
 issue-missing-asset = отсутствует ресурс: { $asset }
+issue-unsupported-link = неподдерживаемая ссылка: { $link }
 op-not-a-chart = { $subject } не является диаграммой
 op-invalid-chart = Диаграмма { $subject }: { $reason }
