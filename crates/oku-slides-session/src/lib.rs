@@ -25,6 +25,7 @@ mod charts;
 mod error;
 mod files;
 mod panel;
+mod resume;
 pub mod templates;
 mod text;
 mod views;
@@ -53,11 +54,14 @@ struct Document {
     dirty: bool,
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
     notice: Option<String>,
+    /// Empreinte du fichier à l'ouverture ou au dernier enregistrement : la
+    /// reprise voit ainsi s'il a changé depuis.
+    saved_hash: Option<String>,
 }
 
 impl Document {
     fn new(sources: SourceBundle, path: Option<PathBuf>, history_limit: usize) -> Self {
-        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None }
+        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None, saved_hash: None }
     }
 }
 
@@ -474,11 +478,12 @@ impl Session {
 
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
+        let Opened { sources, pdf, modified_elsewhere, hash } = read_document(&self.storage, path)?;
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         self.doc.notice = modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
+        self.doc.saved_hash = pdf.then_some(hash);
         Ok(())
     }
 
@@ -498,10 +503,12 @@ impl Session {
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
         let out = oku_slides_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
+        let hash = oku_slides_core::asset_id(&out);
         self.storage.write_atomic(&path, out).context(WriteSnafu { path: &path })?;
         tracing::info!(path = %path.display(), bytes, "{}", self.localizer.tr("log-document-saved"));
         self.doc.path = Some(path);
         self.doc.dirty = false;
+        self.doc.saved_hash = Some(hash);
         Ok(())
     }
 
