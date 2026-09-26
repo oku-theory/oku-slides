@@ -142,8 +142,6 @@ ui-note-grid-columns = Sütunlar
 ui-note-grid-rows = Satırlar
 ui-stepper-less = { $label }: bir eksik
 ui-stepper-more = { $label }: bir fazla
-ui-note-tip = İpucu
-ui-note-tip-text = Dikte için ⌘D. Izgarayı göstermek için ⌘'. Bir metni düzenlemek için çift tıklayın.
 
 ## Dikte
 

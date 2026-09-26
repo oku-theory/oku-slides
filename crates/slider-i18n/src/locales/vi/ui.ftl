@@ -140,8 +140,6 @@ ui-note-grid-columns = Cột
 ui-note-grid-rows = Hàng
 ui-stepper-less = { $label }: bớt một
 ui-stepper-more = { $label }: thêm một
-ui-note-tip = Mẹo
-ui-note-tip-text = ⌘D để đọc chính tả. ⌘' để hiện lưới. Nhấp đúp để sửa văn bản.
 
 ## Đọc chính tả
 

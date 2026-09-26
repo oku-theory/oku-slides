@@ -241,8 +241,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .postit:disabled .postit-title { opacity: 0.75; }
 .postit-title { font: 600 15px/20px var(--sans); }
 .postit-hint { font-size: 12px; line-height: 16px; color: color-mix(in oklab, var(--ink) 78%, var(--postit)); }
-.postit.note { cursor: default; background: var(--paper-200); }
-.postit.note:hover { transform: rotate(var(--tilt)); box-shadow: var(--shadow-note); }
 
 /* ---- Appareil de dictée ---- */
 .device {

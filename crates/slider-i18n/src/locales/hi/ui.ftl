@@ -142,8 +142,6 @@ ui-note-grid-columns = कॉलम
 ui-note-grid-rows = पंक्तियाँ
 ui-stepper-less = { $label }: एक कम
 ui-stepper-more = { $label }: एक और
-ui-note-tip = सुझाव
-ui-note-tip-text = बोलकर लिखने के लिए ⌘D। ग्रिड दिखाने के लिए ⌘'। टेक्स्ट संपादित करने के लिए डबल-क्लिक करें।
 
 ## डिक्टेशन
 

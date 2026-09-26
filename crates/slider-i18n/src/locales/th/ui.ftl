@@ -140,8 +140,6 @@ ui-note-grid-columns = คอลัมน์
 ui-note-grid-rows = แถว
 ui-stepper-less = { $label }: ลดหนึ่ง
 ui-stepper-more = { $label }: เพิ่มหนึ่ง
-ui-note-tip = เคล็ดลับ
-ui-note-tip-text = ⌘D เพื่อพิมพ์ด้วยเสียง ⌘' เพื่อแสดงเส้นตาราง ดับเบิลคลิกเพื่อแก้ไขข้อความ
 
 ## การพิมพ์ด้วยเสียง
 

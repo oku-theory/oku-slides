@@ -142,8 +142,6 @@ ui-note-grid-columns = Colonnes
 ui-note-grid-rows = Lignes
 ui-stepper-less = { $label } : une de moins
 ui-stepper-more = { $label } : une de plus
-ui-note-tip = Astuce
-ui-note-tip-text = ⌘D pour dicter. ⌘' pour afficher la grille. Double-clic pour modifier un texte.
 
 ## Dictation
 

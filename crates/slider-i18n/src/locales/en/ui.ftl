@@ -142,8 +142,6 @@ ui-note-grid-columns = Columns
 ui-note-grid-rows = Rows
 ui-stepper-less = { $label }: one fewer
 ui-stepper-more = { $label }: one more
-ui-note-tip = Tip
-ui-note-tip-text = ⌘D to dictate. ⌘' to show the grid. Double-click to edit a text.
 
 ## Dictation
 

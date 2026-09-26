@@ -142,8 +142,6 @@ ui-note-grid-columns = Columnas
 ui-note-grid-rows = Filas
 ui-stepper-less = { $label }: uno menos
 ui-stepper-more = { $label }: uno más
-ui-note-tip = Consejo
-ui-note-tip-text = ⌘D para dictar. ⌘' para mostrar la cuadrícula. Doble clic para editar un texto.
 
 ## Dictado
 

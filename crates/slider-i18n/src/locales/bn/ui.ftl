@@ -142,8 +142,6 @@ ui-note-grid-columns = কলাম
 ui-note-grid-rows = সারি
 ui-stepper-less = { $label }: একটি কম
 ui-stepper-more = { $label }: একটি বেশি
-ui-note-tip = টিপ
-ui-note-tip-text = ডিক্টেশনের জন্য ⌘D। গ্রিড দেখাতে ⌘'। টেক্সট সম্পাদনা করতে ডাবল-ক্লিক করুন।
 
 ## ডিক্টেশন
 

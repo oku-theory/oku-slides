@@ -146,8 +146,6 @@ ui-note-grid-columns = Стовпці
 ui-note-grid-rows = Рядки
 ui-stepper-less = { $label }: на один менше
 ui-stepper-more = { $label }: на один більше
-ui-note-tip = Порада
-ui-note-tip-text = ⌘D — диктування. ⌘' — показати сітку. Подвійне клацання — змінити текст.
 
 ## Диктування
 

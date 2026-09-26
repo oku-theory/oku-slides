@@ -140,8 +140,6 @@ ui-note-grid-columns = 열
 ui-note-grid-rows = 행
 ui-stepper-less = { $label }: 하나 줄이기
 ui-stepper-more = { $label }: 하나 늘리기
-ui-note-tip = 팁
-ui-note-tip-text = ⌘D로 받아쓰기, ⌘'로 그리드 표시, 더블 클릭으로 텍스트를 편집하세요.
 
 ## 받아쓰기
 

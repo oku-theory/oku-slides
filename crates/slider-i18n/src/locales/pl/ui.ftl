@@ -146,8 +146,6 @@ ui-note-grid-columns = Kolumny
 ui-note-grid-rows = Wiersze
 ui-stepper-less = { $label }: o jeden mniej
 ui-stepper-more = { $label }: o jeden więcej
-ui-note-tip = Wskazówka
-ui-note-tip-text = ⌘D, aby dyktować. ⌘', aby pokazać siatkę. Kliknij dwukrotnie, aby edytować tekst.
 
 ## Dyktowanie
 

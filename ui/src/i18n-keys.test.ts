@@ -37,6 +37,11 @@ describe("messages de l'interface", () => {
     expect(missing).toEqual([]);
   });
 
+  test("chaque message anglais est utilisé par l'interface", async () => {
+    const used = await usedIds();
+    expect([...keysOf(en)].filter((id) => !used.has(id))).toEqual([]);
+  });
+
   test("le français a exactement les clés de l'anglais", () => {
     expect([...keysOf(fr)]).toEqual([...keysOf(en)]);
   });

@@ -150,8 +150,6 @@ ui-note-grid-columns = الأعمدة
 ui-note-grid-rows = الصفوف
 ui-stepper-less = { $label }: واحد أقل
 ui-stepper-more = { $label }: واحد أكثر
-ui-note-tip = نصيحة
-ui-note-tip-text = ⌘D للإملاء. ⌘' لإظهار الشبكة. انقر مرتين لتعديل نص.
 
 ## الإملاء
 

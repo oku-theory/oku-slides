@@ -142,8 +142,6 @@ ui-note-grid-columns = Spalten
 ui-note-grid-rows = Zeilen
 ui-stepper-less = { $label }: eins weniger
 ui-stepper-more = { $label }: eins mehr
-ui-note-tip = Tipp
-ui-note-tip-text = ⌘D zum Diktieren. ⌘' blendet das Raster ein. Doppelklick bearbeitet einen Text.
 
 ## Diktat
 

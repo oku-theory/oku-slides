@@ -142,8 +142,6 @@ ui-note-grid-columns = Colonne
 ui-note-grid-rows = Righe
 ui-stepper-less = { $label }: uno in meno
 ui-stepper-more = { $label }: uno in più
-ui-note-tip = Suggerimento
-ui-note-tip-text = ⌘D per dettare. ⌘' per mostrare la griglia. Doppio clic per modificare un testo.
 
 ## Dettatura
 

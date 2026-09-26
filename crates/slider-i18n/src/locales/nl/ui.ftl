@@ -142,8 +142,6 @@ ui-note-grid-columns = Kolommen
 ui-note-grid-rows = Rijen
 ui-stepper-less = { $label }: één minder
 ui-stepper-more = { $label }: één meer
-ui-note-tip = Tip
-ui-note-tip-text = ⌘D om te dicteren. ⌘' om het raster te tonen. Dubbelklik om een tekst te bewerken.
 
 ## Dicteren
 

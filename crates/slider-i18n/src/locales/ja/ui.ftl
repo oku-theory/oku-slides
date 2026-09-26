@@ -142,8 +142,6 @@ ui-note-grid-columns = 列
 ui-note-grid-rows = 行
 ui-stepper-less = { $label }：1 つ減らす
 ui-stepper-more = { $label }：1 つ増やす
-ui-note-tip = ヒント
-ui-note-tip-text = ⌘D で音声入力。⌘' でグリッドを表示。ダブルクリックでテキストを編集。
 
 ## 音声入力
 

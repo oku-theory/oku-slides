@@ -142,8 +142,6 @@ ui-note-grid-columns = 列
 ui-note-grid-rows = 行
 ui-stepper-less = { $label }：减少一个
 ui-stepper-more = { $label }：增加一个
-ui-note-tip = 提示
-ui-note-tip-text = ⌘D 听写。⌘' 显示网格。双击编辑文本。
 
 ## 听写
 
