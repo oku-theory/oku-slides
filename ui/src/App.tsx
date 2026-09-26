@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
 import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
 import { applyAppearance } from "./appearance";
@@ -15,7 +15,6 @@ import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
-import { PanelSurface } from "./a2ui/PanelSurface";
 import { panelActionOps } from "./a2ui/panelActions";
 
 const Icon = {
@@ -28,6 +27,9 @@ const Icon = {
     </svg>
   ),
 };
+
+// @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
+const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ default: m.PanelSurface })));
 
 /** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
 const NO_PANEL: A2uiMessage[] = [];
@@ -524,7 +526,11 @@ export default function App() {
 
       {/* Post-it à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
-        <PanelSurface messages={panel} onAction={onPanelAction} onError={(m) => say(m, true)} />
+        {panel.length > 0 && (
+          <Suspense fallback={null}>
+            <PanelSurface messages={panel} onAction={onPanelAction} onError={(m) => say(m, true)} />
+          </Suspense>
+        )}
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}
