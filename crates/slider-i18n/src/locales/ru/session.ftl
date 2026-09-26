@@ -1,6 +1,6 @@
 session-read = Не удаётся прочитать { $path }
 session-write = Не удаётся записать { $path }
-session-not-oku-slides = Этот PDF создан не в Écho: его нельзя редактировать
+session-not-oku-slides = Этот PDF создан не в Oku Slides: его нельзя редактировать
 session-invalid-deck = Недопустимый JSON презентации
 session-invalid-template-set = Недопустимый набор шаблонов: { $path }
 session-not-rendered = Презентация ещё не отрисована
@@ -22,7 +22,7 @@ deck-new-slide-text = Расскажите, что хотите показать
 templates-default-name = Мои шаблоны
 templates-copy-name = { $name } (копия)
 template-default-name = Шаблон
-notice-modified-elsewhere = Этот PDF был изменён другой программой после Écho: его исходники могут не совпадать с тем, что показывает программа просмотра PDF.
+notice-modified-elsewhere = Этот PDF был изменён другой программой после Oku Slides: его исходники могут не совпадать с тем, что показывает программа просмотра PDF.
 
 log-document-opened = Документ открыт
 log-document-saved = Документ сохранён

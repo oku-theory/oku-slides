@@ -9,8 +9,8 @@ op-inconsistent = ইতিহাস আর প্রেজেন্টেশন
 transaction-refused = অপারেশন { $index } প্রত্যাখ্যাত: { $reason }
 
 sources-unreadable = উৎস পড়া যাচ্ছে না
-sources-not-sources = এটি কোনো Écho উৎস আর্কাইভ নয়
-sources-unsupported-version = এই উৎসগুলো Écho-র নতুন সংস্করণে লেখা হয়েছে
+sources-not-sources = এটি কোনো Oku Slides উৎস আর্কাইভ নয়
+sources-unsupported-version = এই উৎসগুলো Oku Slides-এর নতুন সংস্করণে লেখা হয়েছে
 sources-bad-name = উৎসে প্রত্যাখ্যাত ফাইলের নাম
 sources-missing-deck = উৎসে প্রেজেন্টেশনটি নেই
 

@@ -9,8 +9,8 @@ op-inconsistent = ประวัติไม่ตรงกับงานน�
 transaction-refused = การดำเนินการ { $index } ถูกปฏิเสธ: { $reason }
 
 sources-unreadable = อ่านซอร์สไม่ได้
-sources-not-sources = นี่ไม่ใช่ไฟล์เก็บซอร์สของ Écho
-sources-unsupported-version = ซอร์สนี้สร้างด้วย Écho เวอร์ชันที่ใหม่กว่า
+sources-not-sources = นี่ไม่ใช่ไฟล์เก็บซอร์สของ Oku Slides
+sources-unsupported-version = ซอร์สนี้สร้างด้วย Oku Slides เวอร์ชันที่ใหม่กว่า
 sources-bad-name = ชื่อไฟล์ในซอร์สถูกปฏิเสธ
 sources-missing-deck = ไม่มีงานนำเสนอในซอร์ส
 

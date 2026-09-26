@@ -9,8 +9,8 @@ op-inconsistent = La cronologia non corrisponde più alla presentazione
 transaction-refused = Operazione { $index } rifiutata: { $reason }
 
 sources-unreadable = Sorgenti illeggibili
-sources-not-sources = Questo non è un archivio di sorgenti di Écho
-sources-unsupported-version = Queste sorgenti sono state scritte da una versione più recente di Écho
+sources-not-sources = Questo non è un archivio di sorgenti di Oku Slides
+sources-unsupported-version = Queste sorgenti sono state scritte da una versione più recente di Oku Slides
 sources-bad-name = Nome di file rifiutato nelle sorgenti
 sources-missing-deck = Nelle sorgenti manca la presentazione
 

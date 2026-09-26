@@ -1,6 +1,6 @@
 session-read = No se puede leer { $path }
 session-write = No se puede escribir { $path }
-session-not-oku-slides = Este PDF no se creó con Écho: no se puede editar
+session-not-oku-slides = Este PDF no se creó con Oku Slides: no se puede editar
 session-invalid-deck = JSON de presentación no válido
 session-invalid-template-set = Conjunto de plantillas no válido: { $path }
 session-not-rendered = La presentación aún no se ha generado
@@ -22,7 +22,7 @@ deck-new-slide-text = Di lo que quieres mostrar.
 templates-default-name = Mis plantillas
 templates-copy-name = { $name } (copia)
 template-default-name = Plantilla
-notice-modified-elsewhere = Otra herramienta modificó este PDF después de Écho: puede que sus fuentes ya no coincidan con lo que muestra un lector de PDF.
+notice-modified-elsewhere = Otra herramienta modificó este PDF después de Oku Slides: puede que sus fuentes ya no coincidan con lo que muestra un lector de PDF.
 
 log-document-opened = Documento abierto
 log-document-saved = Documento guardado

@@ -462,7 +462,7 @@ impl Session {
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
         let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
-        // Un deck JSON n'est pas un document Écho : on ne l'écrasera pas.
+        // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         self.doc.notice = modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));

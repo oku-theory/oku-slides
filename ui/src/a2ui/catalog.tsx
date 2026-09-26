@@ -1,9 +1,9 @@
-// Catalogue A2UI d'Écho : les composants des surfaces que décrit la session,
+// Catalogue A2UI d'Oku Slides : les composants des surfaces que décrit la session,
 // au style Papier (post-it). Rendu par @a2ui/react ; les messages sont
 // validés contre ces schémas zod par @a2ui/web_core.
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `Stepper` est
-// propre à Écho. Miroir du crate Rust slider-a2ui (même CATALOG_ID).
+// propre à Oku Slides. Miroir du crate Rust slider-a2ui (même CATALOG_ID).
 
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -105,5 +105,5 @@ const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
   );
 });
 
-/** Le catalogue des surfaces d'Écho. */
+/** Le catalogue des surfaces d'Oku Slides. */
 export const panelCatalog = new Catalog(CATALOG_ID, [Column, Card, Text, TextField, Stepper]);

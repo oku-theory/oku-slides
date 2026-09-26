@@ -1,6 +1,6 @@
 [package]
 name = "slider-app"
-description = "Écho : l'application de bureau (Tauri)."
+description = "Oku Slides : l'application de bureau (Tauri)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

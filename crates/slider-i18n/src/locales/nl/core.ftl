@@ -9,8 +9,8 @@ op-inconsistent = De geschiedenis komt niet meer overeen met de presentatie
 transaction-refused = Bewerking { $index } geweigerd: { $reason }
 
 sources-unreadable = Onleesbare bronnen
-sources-not-sources = Dit is geen Écho-bronarchief
-sources-unsupported-version = Deze bronnen zijn gemaakt met een nieuwere versie van Écho
+sources-not-sources = Dit is geen Oku Slides-bronarchief
+sources-unsupported-version = Deze bronnen zijn gemaakt met een nieuwere versie van Oku Slides
 sources-bad-name = Geweigerde bestandsnaam in de bronnen
 sources-missing-deck = De presentatie ontbreekt in de bronnen
 

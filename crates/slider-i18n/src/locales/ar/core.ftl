@@ -9,8 +9,8 @@ op-inconsistent = لم يعد السجل مطابقًا للعرض التقدي�
 transaction-refused = رُفضت العملية { $index }: { $reason }
 
 sources-unreadable = تعذّرت قراءة المصادر
-sources-not-sources = هذا ليس أرشيف مصادر Écho
-sources-unsupported-version = كُتبت هذه المصادر بإصدار أحدث من Écho
+sources-not-sources = هذا ليس أرشيف مصادر Oku Slides
+sources-unsupported-version = كُتبت هذه المصادر بإصدار أحدث من Oku Slides
 sources-bad-name = اسم ملف مرفوض في المصادر
 sources-missing-deck = العرض التقديمي غير موجود في المصادر
 

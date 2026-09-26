@@ -1,4 +1,4 @@
-// Rendu d'un deck décrit en JSON (le modèle de données de l'app Écho).
+// Rendu d'un deck décrit en JSON (le modèle de données de l'app Oku Slides).
 //
 // {
 //   "params": { "title": "…", "author": "…", "date": "…" },

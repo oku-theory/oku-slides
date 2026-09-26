@@ -3,8 +3,8 @@ ui-loading = 読み込み中…
 
 ## ドキュメント
 
-ui-brand = Écho
-ui-brand-templates = Écho · テンプレート
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · テンプレート
 ui-title-rename = プレゼンテーション名を変更
 ui-title-field = プレゼンテーションのタイトル
 ui-status-unsaved = 未保存の変更あり

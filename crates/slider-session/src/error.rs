@@ -20,7 +20,7 @@ pub struct SessionError(Box<SessionInner>);
 pub enum SessionErrorKind {
     /// Fichier illisible ou impossible à écrire.
     File,
-    /// Ce PDF ne contient pas de sources Écho.
+    /// Ce PDF ne contient pas de sources Oku Slides.
     NotOkuSlides,
     /// Sources ou deck illisibles.
     InvalidDocument,
@@ -55,7 +55,7 @@ pub(crate) enum SessionInner {
     Read { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
     Write { path: PathBuf, source: StorageError, backtrace: Backtrace },
-    #[snafu(display("this PDF was not created by Écho: it cannot be edited"))]
+    #[snafu(display("this PDF was not created by Oku Slides: it cannot be edited"))]
     NotOkuSlides { backtrace: Backtrace },
     #[snafu(display("unreadable PDF"))]
     Pdf { source: slider_pdf::PdfError, backtrace: Backtrace },

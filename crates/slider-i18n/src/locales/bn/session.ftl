@@ -1,6 +1,6 @@
 session-read = { $path } পড়া যাচ্ছে না
 session-write = { $path } লেখা যাচ্ছে না
-session-not-oku-slides = এই PDF Écho দিয়ে তৈরি হয়নি: এটি সম্পাদনা করা যাবে না
+session-not-oku-slides = এই PDF Oku Slides দিয়ে তৈরি হয়নি: এটি সম্পাদনা করা যাবে না
 session-invalid-deck = প্রেজেন্টেশনের JSON অবৈধ
 session-invalid-template-set = অবৈধ টেমপ্লেট সেট: { $path }
 session-not-rendered = প্রেজেন্টেশনটি এখনও রেন্ডার হয়নি
@@ -22,7 +22,7 @@ deck-new-slide-text = আপনি কী দেখাতে চান তা �
 templates-default-name = আমার টেমপ্লেট
 templates-copy-name = { $name } (কপি)
 template-default-name = টেমপ্লেট
-notice-modified-elsewhere = Écho-র পরে অন্য একটি টুল এই PDF পরিবর্তন করেছে: এর উৎস হয়তো PDF রিডারে যা দেখায় তার সঙ্গে আর মিলবে না।
+notice-modified-elsewhere = Oku Slides-এর পরে অন্য একটি টুল এই PDF পরিবর্তন করেছে: এর উৎস হয়তো PDF রিডারে যা দেখায় তার সঙ্গে আর মিলবে না।
 
 log-document-opened = ডকুমেন্ট খোলা হয়েছে
 log-document-saved = ডকুমেন্ট সংরক্ষিত হয়েছে

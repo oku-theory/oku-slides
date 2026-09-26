@@ -1,6 +1,6 @@
 [package]
 name = "slider-platform"
-description = "Socle d'Écho : journaux, réglages, fichiers et langues, partagés par l'app, la CLI, la session et la dictée."
+description = "Socle d'Oku Slides : journaux, réglages, fichiers et langues, partagés par l'app, la CLI, la session et la dictée."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

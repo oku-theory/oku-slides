@@ -9,8 +9,8 @@ op-inconsistent = The history no longer matches the deck
 transaction-refused = Operation { $index } refused: { $reason }
 
 sources-unreadable = Unreadable sources
-sources-not-sources = This is not an Écho sources archive
-sources-unsupported-version = These sources were written by a newer version of Écho
+sources-not-sources = This is not an Oku Slides sources archive
+sources-unsupported-version = These sources were written by a newer version of Oku Slides
 sources-bad-name = Rejected file name in the sources
 sources-missing-deck = The deck is missing from the sources
 

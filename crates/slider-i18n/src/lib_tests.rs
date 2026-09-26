@@ -135,3 +135,12 @@ fn every_locale_names_each_chart_kind_differently() {
         asserting(locale).that(&names.len()).is_equal_to(5);
     }
 }
+
+#[test]
+fn every_locale_names_the_app_oku_slides() {
+    for (locale, sources) in LOCALES {
+        let text = sources.concat();
+        asserting(&format!("{locale} : ui-brand")).that(&text.contains("\nui-brand = Oku Slides\n")).is_true();
+        asserting(&format!("{locale} : ancien nom")).that(&text.contains("Écho")).is_false();
+    }
+}

@@ -1,5 +1,5 @@
 //! `slider` : outil en ligne de commande pour rendre, enregistrer et rouvrir
-//! des decks Écho sans l'app. Sert aussi aux tests et aux mesures.
+//! des decks Oku Slides sans l'app. Sert aussi aux tests et aux mesures.
 //!
 //! Les résultats vont sur stdout ([`out`]), les journaux sur stderr ; l'aide
 //! et les messages sont dans la langue des réglages.

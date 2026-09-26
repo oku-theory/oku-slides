@@ -1,5 +1,5 @@
 pdf-unreadable = تعذّرت قراءة ملف PDF
-pdf-unsupported-version = كُتب ملف PDF هذا بإصدار أحدث من Écho
+pdf-unsupported-version = كُتب ملف PDF هذا بإصدار أحدث من Oku Slides
 pdf-corrupted = المصادر في ملف PDF هذا تالفة
 pdf-write = تعذّرت كتابة ملف PDF
 

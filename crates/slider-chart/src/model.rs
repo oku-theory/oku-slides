@@ -120,7 +120,7 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
     Ok(option)
 }
 
-/// Résout les options en modèle. Échoue si les options sont incohérentes.
+/// Résout les options en modèle. Oku Slidesue si les options sont incohérentes.
 /// `labels` nomme les séries qui n'ont pas de nom.
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;

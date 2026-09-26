@@ -5,11 +5,11 @@ all-features = true
 
 [advisories]
 # RUSTSEC-2026-0194/0195 (quick-xml 0.38, via typst-library → hayagriva →
-# citationberg) : lecture de styles CSL de bibliographie. Écho ne donne jamais
+# citationberg) : lecture de styles CSL de bibliographie. Oku Slides ne donne jamais
 # de fichier de bibliographie à Typst ; à retirer quand Typst suivra.
 ignore = [
-    { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Écho" },
-    { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Écho" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Oku Slides" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Oku Slides" },
 ]
 unmaintained = "workspace"
 

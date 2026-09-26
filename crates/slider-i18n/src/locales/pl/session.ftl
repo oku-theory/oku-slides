@@ -1,6 +1,6 @@
 session-read = Nie można odczytać { $path }
 session-write = Nie można zapisać { $path }
-session-not-oku-slides = Ten plik PDF nie został utworzony w Écho: nie można go edytować
+session-not-oku-slides = Ten plik PDF nie został utworzony w Oku Slides: nie można go edytować
 session-invalid-deck = Nieprawidłowy JSON prezentacji
 session-invalid-template-set = Nieprawidłowy zestaw szablonów: { $path }
 session-not-rendered = Prezentacja nie została jeszcze wyrenderowana
@@ -22,7 +22,7 @@ deck-new-slide-text = Powiedz, co chcesz pokazać.
 templates-default-name = Moje szablony
 templates-copy-name = { $name } (kopia)
 template-default-name = Szablon
-notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po zapisaniu w Écho: jego źródła mogą już nie odpowiadać temu, co pokazuje czytnik PDF.
+notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po zapisaniu w Oku Slides: jego źródła mogą już nie odpowiadać temu, co pokazuje czytnik PDF.
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany

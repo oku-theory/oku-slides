@@ -1,6 +1,6 @@
 [package]
 name = "slider-pdf"
-description = "Blob des sources Écho dans un PDF (/PieceInfo) : écriture et lecture."
+description = "Blob des sources Oku Slides dans un PDF (/PieceInfo) : écriture et lecture."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

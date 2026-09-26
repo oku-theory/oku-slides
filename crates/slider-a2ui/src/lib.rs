@@ -1,4 +1,4 @@
-//! Surfaces A2UI d'Écho : les messages v0.9 que la session envoie à l'interface.
+//! Surfaces A2UI d'Oku Slides : les messages v0.9 que la session envoie à l'interface.
 //!
 //! - [`ServerMessage`] : `createSurface`, `updateComponents`,
 //!   `updateDataModel`, `deleteSurface`, au format v0.9.

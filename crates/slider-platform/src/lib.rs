@@ -1,4 +1,4 @@
-//! Socle d'Écho : ce qui relie l'app à son environnement.
+//! Socle d'Oku Slides : ce qui relie l'app à son environnement.
 //!
 //! - [`telemetry`] : journaux structurés (`tracing`), à installer en premier.
 //! - [`errors`] : une erreur et ses causes, sur une ligne.

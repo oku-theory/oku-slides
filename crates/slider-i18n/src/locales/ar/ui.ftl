@@ -3,8 +3,8 @@ ui-loading = جارٍ التحميل…
 
 ## المستند
 
-ui-brand = Écho
-ui-brand-templates = Écho · القوالب
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · القوالب
 ui-title-rename = إعادة تسمية العرض التقديمي
 ui-title-field = عنوان العرض التقديمي
 ui-status-unsaved = تغييرات غير محفوظة

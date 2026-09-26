@@ -1,4 +1,4 @@
-//! Cœur d'Écho : modèle du deck, opérations réversibles, historique,
+//! Cœur d'Oku Slides : modèle du deck, opérations réversibles, historique,
 //! validation et zip des sources. Aucune dépendance à Typst ni à Tauri.
 
 pub mod error;

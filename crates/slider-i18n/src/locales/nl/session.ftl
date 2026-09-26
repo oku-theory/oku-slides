@@ -1,6 +1,6 @@
 session-read = Kan { $path } niet lezen
 session-write = Kan { $path } niet schrijven
-session-not-oku-slides = Deze pdf is niet gemaakt met Écho: hij kan niet worden bewerkt
+session-not-oku-slides = Deze pdf is niet gemaakt met Oku Slides: hij kan niet worden bewerkt
 session-invalid-deck = Ongeldige presentatie-JSON
 session-invalid-template-set = Ongeldige sjabloonset: { $path }
 session-not-rendered = De presentatie is nog niet weergegeven
@@ -22,7 +22,7 @@ deck-new-slide-text = Zeg wat je wilt laten zien.
 templates-default-name = Mijn sjablonen
 templates-copy-name = { $name } (kopie)
 template-default-name = Sjabloon
-notice-modified-elsewhere = Deze pdf is na Écho door een ander programma gewijzigd: de bronnen komen mogelijk niet meer overeen met wat een pdf-lezer toont.
+notice-modified-elsewhere = Deze pdf is na Oku Slides door een ander programma gewijzigd: de bronnen komen mogelijk niet meer overeen met wat een pdf-lezer toont.
 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen

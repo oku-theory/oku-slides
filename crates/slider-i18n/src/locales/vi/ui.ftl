@@ -3,8 +3,8 @@ ui-loading = Đang tải…
 
 ## Tài liệu
 
-ui-brand = Écho
-ui-brand-templates = Écho · mẫu
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · mẫu
 ui-title-rename = Đổi tên bản trình bày
 ui-title-field = Tiêu đề bản trình bày
 ui-status-unsaved = có thay đổi chưa lưu

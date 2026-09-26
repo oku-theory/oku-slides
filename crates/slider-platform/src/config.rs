@@ -1,4 +1,4 @@
-//! Réglages d'Écho, lus une fois au démarrage.
+//! Réglages d'Oku Slides, lus une fois au démarrage.
 //!
 //! Trois couches, la dernière l'emporte : les défauts embarqués
 //! (`config.default.toml`), `config.toml` dans le dossier de données de
@@ -13,7 +13,7 @@ use serde::Deserialize;
 use snafu::{Backtrace, ResultExt, Snafu};
 
 /// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
-pub const APP_ID: &str = "me.dartiguenave.echo";
+pub const APP_ID: &str = "me.dartiguenave.oku-slides";
 
 const DEFAULTS: &str = include_str!("config.default.toml");
 

@@ -9,8 +9,8 @@ op-inconsistent = 歷程記錄與簡報不再一致
 transaction-refused = 操作 { $index } 遭拒：{ $reason }
 
 sources-unreadable = 無法讀取原始檔
-sources-not-sources = 這不是 Écho 原始檔封存
-sources-unsupported-version = 這些原始檔由較新版本的 Écho 寫入
+sources-not-sources = 這不是 Oku Slides 原始檔封存
+sources-unsupported-version = 這些原始檔由較新版本的 Oku Slides 寫入
 sources-bad-name = 原始檔中的檔名遭拒
 sources-missing-deck = 原始檔中缺少簡報
 

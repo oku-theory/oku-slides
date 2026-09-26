@@ -124,8 +124,8 @@ fn build_prompt_without_context_is_the_instruction() {
 
 #[test]
 fn build_prompt_with_context_puts_it_first() {
-    let prompt = build_prompt(Some(tokens(&["▁Écho", "▁slide"])), "en");
-    assert_that!(prompt[..3].to_vec()).is_equal_to(tokens(&["<|startofprev|>", "▁Écho", "▁slide"]));
+    let prompt = build_prompt(Some(tokens(&["▁Oku Slides", "▁slide"])), "en");
+    assert_that!(prompt[..3].to_vec()).is_equal_to(tokens(&["<|startofprev|>", "▁Oku Slides", "▁slide"]));
     assert_that!(prompt[4].as_str()).is_equal_to("<|en|>");
 }
 
@@ -177,7 +177,7 @@ fn transcriber_real_model_transcribes_without_error() {
     let storage = Storage::local().unwrap();
     let t = super::Transcriber::load(Path::new(&dir), &storage).unwrap();
     let silence = vec![0.0f32; 16_000];
-    let quick = t.transcribe(&silence, None, Some("Écho"), true).unwrap();
+    let quick = t.transcribe(&silence, None, Some("Oku Slides"), true).unwrap();
     assert_that!(quick.language.is_some()).is_true();
     let fixed = t.transcribe(&silence, Some("fr"), None, false).unwrap();
     assert_that!(fixed.language.as_deref()).is_equal_to(Some("fr"));

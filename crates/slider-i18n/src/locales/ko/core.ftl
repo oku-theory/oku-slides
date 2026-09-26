@@ -9,8 +9,8 @@ op-inconsistent = 기록이 더 이상 프레젠테이션과 일치하지 않습
 transaction-refused = 작업 { $index }이(가) 거부되었습니다: { $reason }
 
 sources-unreadable = 소스를 읽을 수 없습니다
-sources-not-sources = Écho 소스 아카이브가 아닙니다
-sources-unsupported-version = 더 새로운 버전의 Écho에서 작성된 소스입니다
+sources-not-sources = Oku Slides 소스 아카이브가 아닙니다
+sources-unsupported-version = 더 새로운 버전의 Oku Slides에서 작성된 소스입니다
 sources-bad-name = 소스에 허용되지 않는 파일 이름이 있습니다
 sources-missing-deck = 소스에 프레젠테이션이 없습니다
 

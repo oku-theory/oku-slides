@@ -56,3 +56,8 @@ fn paths_without_overrides_live_under_data_dir() {
     assert_that!(paths.models()).is_equal_to(PathBuf::from("/d/models"));
     assert_that!(paths.templates()).is_equal_to(PathBuf::from("/d/templates"));
 }
+
+#[test]
+fn app_id_names_oku_slides() {
+    assert_that!(APP_ID).is_equal_to("me.dartiguenave.oku-slides");
+}

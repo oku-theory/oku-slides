@@ -3,8 +3,8 @@ ui-loading = 불러오는 중…
 
 ## 문서
 
-ui-brand = Écho
-ui-brand-templates = Écho · 템플릿
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · 템플릿
 ui-title-rename = 프레젠테이션 이름 바꾸기
 ui-title-field = 프레젠테이션 제목
 ui-status-unsaved = 저장되지 않은 변경 사항

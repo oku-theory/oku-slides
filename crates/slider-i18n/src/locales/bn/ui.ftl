@@ -3,8 +3,8 @@ ui-loading = লোড হচ্ছে…
 
 ## ডকুমেন্ট
 
-ui-brand = Écho
-ui-brand-templates = Écho · টেমপ্লেট
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · টেমপ্লেট
 ui-title-rename = প্রেজেন্টেশনের নাম বদলান
 ui-title-field = প্রেজেন্টেশনের শিরোনাম
 ui-status-unsaved = অসংরক্ষিত পরিবর্তন

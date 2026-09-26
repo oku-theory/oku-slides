@@ -104,7 +104,7 @@ fn save_open_strip_round_trip_keeps_deck_and_assets() {
     assert_that!(stdout(&stripped)).contains("copy without sources");
     let reopened = run(slider(&dir, "en").arg("open").arg(&bare));
     assert_that!(reopened.status.success()).is_false();
-    assert_that!(stderr(&reopened)).contains("not created by Écho");
+    assert_that!(stderr(&reopened)).contains("not created by Oku Slides");
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn bench_zero_iterations_is_refused() {
 #[test]
 fn help_is_in_the_configured_language() {
     let dir = workdir("help");
-    assert_that!(stdout(&run(slider(&dir, "fr").arg("--help")))).contains("Rendu et stockage des decks Écho");
+    assert_that!(stdout(&run(slider(&dir, "fr").arg("--help")))).contains("Rendu et stockage des decks Oku Slides");
     let save = stdout(&run(slider(&dir, "en").args(["save", "--help"])));
     assert_that!(save).contains("Also embed the --fonts fonts in the sources");
 }
@@ -213,7 +213,7 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
     let dir = workdir("serve");
     let ui = dir.join("ui");
     std::fs::create_dir_all(&ui).unwrap();
-    std::fs::write(ui.join("index.html"), "<h1>Écho</h1>").unwrap();
+    std::fs::write(ui.join("index.html"), "<h1>Oku Slides</h1>").unwrap();
     std::fs::write(dir.join("secret.txt"), "privé").unwrap();
     let port = free_port();
     let _server = Server(
@@ -246,7 +246,7 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
 
     let (status, page) = http(port, "GET", "/", "");
     assert_that!(status).is_equal_to(200);
-    assert_that!(page).contains("Écho");
+    assert_that!(page).contains("Oku Slides");
 
     let (status, _) = http(port, "GET", "/../secret.txt", "");
     assert_that!(status).is_equal_to(404);

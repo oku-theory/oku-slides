@@ -152,7 +152,7 @@ fn start_with_unreadable_model_reports_a_localized_error_and_goes_idle() {
     let dir = workdir("start");
     let wav = broken_model_and_fake_mic(&dir);
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", Some(wav)));
-    let status = stt.handle(SttRequest::Start { prompt: Some("Écho".into()) });
+    let status = stt.handle(SttRequest::Start { prompt: Some("Oku Slides".into()) });
     assert_that!(status.state).is_equal_to(State::Recording);
     let failed = wait_until(&stt, "erreur du modèle", |s| s.error.is_some());
     assert_that!(failed.error.as_deref()).is_equal_to(Some("Modèle de dictée illisible"));

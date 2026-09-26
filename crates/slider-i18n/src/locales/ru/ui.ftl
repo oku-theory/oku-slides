@@ -3,8 +3,8 @@ ui-loading = Загрузка…
 
 ## Документ
 
-ui-brand = Écho
-ui-brand-templates = Écho · шаблоны
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · шаблоны
 ui-title-rename = Переименовать презентацию
 ui-title-field = Название презентации
 ui-status-unsaved = есть несохранённые изменения

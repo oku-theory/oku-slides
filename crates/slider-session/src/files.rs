@@ -12,7 +12,7 @@ use snafu::{OptionExt, ResultExt};
 use crate::Result;
 use crate::error::{DeckJsonSnafu, NotOkuSlidesSnafu, PdfSnafu, ReadSnafu, SourcesSnafu};
 
-/// Extension d'un document Écho.
+/// Extension d'un document Oku Slides.
 pub const EXTENSION: &str = ".oku-slides.pdf";
 
 /// Un document lu sur disque.
@@ -21,7 +21,7 @@ pub struct Opened {
     pub sources: SourceBundle,
     /// Lu dans un `.oku-slides.pdf` (sinon, un deck JSON de développement).
     pub pdf: bool,
-    /// Le PDF a été modifié par un autre outil après Écho.
+    /// Le PDF a été modifié par un autre outil après Oku Slides.
     pub modified_elsewhere: bool,
 }
 

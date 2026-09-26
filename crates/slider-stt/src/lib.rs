@@ -1,4 +1,4 @@
-//! Dictée d'Écho : micro → détection de la voix → Whisper en local → texte.
+//! Dictée d'Oku Slides : micro → détection de la voix → Whisper en local → texte.
 //!
 //! - La voix est détectée trame par trame (earshot) : seules les phrases
 //!   parlées sont transcrites, et l'écoute s'arrête seule après un silence.

@@ -1,6 +1,6 @@
 [package]
 name = "slider-stt"
-description = "Dictée d'Écho : micro, détection de la voix, Whisper sur CTranslate2 en local."
+description = "Dictée d'Oku Slides : micro, détection de la voix, Whisper sur CTranslate2 en local."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -117,7 +117,7 @@ pub struct SourcesError(SourcesInner);
 pub enum SourcesErrorKind {
     /// Le zip ou son contenu est illisible.
     Unreadable,
-    /// Ce n'est pas un zip de sources Écho.
+    /// Ce n'est pas un zip de sources Oku Slides.
     NotSources,
     /// Écrit par une version plus récente.
     UnsupportedVersion,
@@ -135,7 +135,7 @@ pub(crate) enum SourcesInner {
     Io { source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("invalid JSON in {file}"))]
     Json { file: String, source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("not an Écho sources zip"))]
+    #[snafu(display("not an Oku Slides sources zip"))]
     NotSources { backtrace: Backtrace },
     #[snafu(display("unsupported format version: {version}"))]
     UnsupportedVersion { version: u32, backtrace: Backtrace },

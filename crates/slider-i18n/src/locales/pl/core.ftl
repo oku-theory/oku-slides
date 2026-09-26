@@ -9,8 +9,8 @@ op-inconsistent = Historia nie odpowiada już prezentacji
 transaction-refused = Operacja { $index } odrzucona: { $reason }
 
 sources-unreadable = Nieczytelne źródła
-sources-not-sources = To nie jest archiwum źródeł Écho
-sources-unsupported-version = Te źródła zostały zapisane nowszą wersją Écho
+sources-not-sources = To nie jest archiwum źródeł Oku Slides
+sources-unsupported-version = Te źródła zostały zapisane nowszą wersją Oku Slides
 sources-bad-name = Odrzucona nazwa pliku w źródłach
 sources-missing-deck = W źródłach brakuje prezentacji
 

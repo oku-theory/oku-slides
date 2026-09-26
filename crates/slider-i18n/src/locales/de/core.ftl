@@ -9,8 +9,8 @@ op-inconsistent = Der Verlauf passt nicht mehr zur Präsentation
 transaction-refused = Vorgang { $index } abgelehnt: { $reason }
 
 sources-unreadable = Quellen nicht lesbar
-sources-not-sources = Dies ist kein Écho-Quellarchiv
-sources-unsupported-version = Diese Quellen wurden mit einer neueren Version von Écho erstellt
+sources-not-sources = Dies ist kein Oku-Slides-Quellarchiv
+sources-unsupported-version = Diese Quellen wurden mit einer neueren Version von Oku Slides erstellt
 sources-bad-name = Unzulässiger Dateiname in den Quellen
 sources-missing-deck = Die Präsentation fehlt in den Quellen
 

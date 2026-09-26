@@ -1,6 +1,6 @@
 session-read = 無法讀取 { $path }
 session-write = 無法寫入 { $path }
-session-not-oku-slides = 此 PDF 並非由 Écho 建立，無法編輯
+session-not-oku-slides = 此 PDF 並非由 Oku Slides 建立，無法編輯
 session-invalid-deck = 簡報 JSON 無效
 session-invalid-template-set = 範本集無效：{ $path }
 session-not-rendered = 簡報尚未渲染
@@ -22,7 +22,7 @@ deck-new-slide-text = 寫下你想呈現的內容。
 templates-default-name = 我的範本
 templates-copy-name = { $name }（副本）
 template-default-name = 範本
-notice-modified-elsewhere = 此 PDF 在 Écho 之後曾被其他工具修改：其原始檔可能與 PDF 閱讀器顯示的內容不再一致。
+notice-modified-elsewhere = 此 PDF 在 Oku Slides 之後曾被其他工具修改：其原始檔可能與 PDF 閱讀器顯示的內容不再一致。
 
 log-document-opened = 文件已開啟
 log-document-saved = 文件已儲存

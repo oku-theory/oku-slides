@@ -1,4 +1,4 @@
-# Rust Retrofit Audit — Écho (slider)
+# Rust Retrofit Audit — Oku Slides (slider)
 
 **Date :** 2026-09-25 · **Portée :** tout le workspace (8 crates, dont `slider-chart` et `src-tauri`)
 **Référence :** Oku Theory Rust Guidelines (les fichiers `docs/…` cités par le skill ne sont pas
@@ -123,7 +123,7 @@ Limites connues :
 - ✓ Aucun `unsafe` dans le code du projet (cargo-geiger non installé : dépendances non
   mesurées) ; ✓ aucun secret en dur ; pas de secrets à manipuler (pas de `secrecy` nécessaire).
 - ✗ **E7.1** `cargo audit` : **RUSTSEC-2026-0194 / 0195** (`quick-xml` 0.38.4, déni de service),
-  arrivé par `typst-library → hayagriva → citationberg` (bibliographies CSL). Écho ne donne
+  arrivé par `typst-library → hayagriva → citationberg` (bibliographies CSL). Oku Slides ne donne
   jamais de fichier de bibliographie de l'utilisateur à Typst : chemin non atteignable ;
   correction = monter Typst quand `citationberg` suit. 12 avertissements « non maintenu »
   (bincode, paste, proc-macro-error, rustybuzz, ttf-parser, unic-*…), tous transitifs.

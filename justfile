@@ -1,4 +1,4 @@
-# Écho — toutes les commandes se lancent depuis la racine du dépôt.
+# Oku Slides — toutes les commandes se lancent depuis la racine du dépôt.
 # `just` sans argument affiche la liste.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]

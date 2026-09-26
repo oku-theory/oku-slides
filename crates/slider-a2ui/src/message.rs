@@ -1,11 +1,11 @@
-//! Messages A2UI v0.9 du serveur et composants du catalogue d'Écho.
+//! Messages A2UI v0.9 du serveur et composants du catalogue d'Oku Slides.
 
 use std::collections::BTreeMap;
 
 use serde::Serialize;
 use serde_json::Value;
 
-/// Catalogue des surfaces d'Écho, implémenté par l'interface (`ui/src/a2ui`).
+/// Catalogue des surfaces d'Oku Slides, implémenté par l'interface (`ui/src/a2ui`).
 pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:panel:v1";
 
 /// Version du protocole.
@@ -77,7 +77,7 @@ pub struct Component {
 }
 
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
-/// ceux du catalogue de base v0.9 ; `Stepper` est propre à Écho.
+/// ceux du catalogue de base v0.9 ; `Stepper` est propre à Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -172,7 +172,7 @@ impl ServerMessage {
         Self { version: Version::V0_9, body }
     }
 
-    /// `createSurface` avec le catalogue d'Écho.
+    /// `createSurface` avec le catalogue d'Oku Slides.
     pub fn create_surface(surface_id: impl Into<String>) -> Self {
         Self::v0_9(ServerBody::CreateSurface(CreateSurface {
             surface_id: surface_id.into(),

@@ -3,8 +3,8 @@ ui-loading = Caricamento…
 
 ## Documento
 
-ui-brand = Écho
-ui-brand-templates = Écho · modelli
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · modelli
 ui-title-rename = Rinomina la presentazione
 ui-title-field = Titolo della presentazione
 ui-status-unsaved = modifiche non salvate

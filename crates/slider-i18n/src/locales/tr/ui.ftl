@@ -3,8 +3,8 @@ ui-loading = Yükleniyor…
 
 ## Belge
 
-ui-brand = Écho
-ui-brand-templates = Écho · şablonlar
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · şablonlar
 ui-title-rename = Sunuyu yeniden adlandır
 ui-title-field = Sunu başlığı
 ui-status-unsaved = kaydedilmemiş değişiklikler

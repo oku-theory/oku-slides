@@ -1,4 +1,4 @@
-//! Le blob des sources Écho dans un PDF.
+//! Le blob des sources Oku Slides dans un PDF.
 //!
 //! Le zip des sources est stocké comme un flux binaire privé, via le
 //! dictionnaire de pièce de page du catalogue (ISO 32000, clause 14.5) :
@@ -26,7 +26,7 @@ pub const PIECE_KEY: &[u8] = b"OkuSlides";
 pub const FORMAT: &str = "oku-slides-sources";
 pub const VERSION: i64 = 1;
 
-/// Un PDF illisible, ou des sources Écho abîmées.
+/// Un PDF illisible, ou des sources Oku Slides abîmées.
 #[derive(Debug, Snafu)]
 pub struct PdfError(PdfInner);
 
@@ -36,7 +36,7 @@ pub struct PdfError(PdfInner);
 pub enum PdfErrorKind {
     /// Le PDF ne se lit pas, ou pas comme attendu.
     Unreadable,
-    /// Écrit par une version plus récente d'Écho.
+    /// Écrit par une version plus récente d'Oku Slides.
     UnsupportedVersion,
     /// Le blob ne correspond plus à son empreinte.
     Corrupted,
@@ -93,7 +93,7 @@ pub struct Sources {
 }
 
 impl Sources {
-    /// Vrai si le document a été modifié après l'écriture du blob par Écho.
+    /// Vrai si le document a été modifié après l'écriture du blob par Oku Slides.
     pub fn modified_elsewhere(&self) -> bool {
         match (&self.last_modified, &self.document_modified) {
             (Some(a), Some(b)) => a != b,
@@ -177,7 +177,7 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     Ok(out)
 }
 
-/// Lit le blob des sources. `Ok(None)` : ce PDF n'a pas été créé par Écho.
+/// Lit le blob des sources. `Ok(None)` : ce PDF n'a pas été créé par Oku Slides.
 pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
     let doc = Document::load_mem(pdf).context(ParseSnafu)?;
     let root = catalog_id(&doc)?;

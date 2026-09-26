@@ -1,8 +1,8 @@
-# Écho
+# Oku Slides
 
-`echo "une idée" > deck` : ce que vous dites devient des slides. Écho crée et
+`echo "une idée" > deck` : ce que vous dites devient des slides. Oku Slides crée et
 modifie des présentations à la voix ; le document est un PDF (`.oku-slides.pdf`) qui
-contient ses propres sources : n'importe quel lecteur l'affiche, Écho le rouvre
+contient ses propres sources : n'importe quel lecteur l'affiche, Oku Slides le rouvre
 pour continuer l'édition.
 
 Le code garde son nom de travail : crates `slider-*`, outil `slider`,
@@ -117,7 +117,7 @@ modèle choisi est téléchargé une fois, puis l'écoute démarre toute seule.
 - **Langue** : imposée, ou détectée sur la première phrase puis gardée.
 
 Les modèles vont dans le dossier de données de l'app
-(`~/Library/Application Support/me.dartiguenave.echo/models` sur Mac) ;
+(`~/Library/Application Support/me.dartiguenave.oku-slides/models` sur Mac) ;
 `OKU_SLIDES_PATHS__MODELS` le remplace (voir [Réglages](#réglages)). Les anciens fichiers `ggml-*.bin` (whisper.cpp)
 peuvent y être supprimés.
 

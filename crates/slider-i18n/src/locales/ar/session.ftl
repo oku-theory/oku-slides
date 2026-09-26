@@ -1,6 +1,6 @@
 session-read = تعذّرت قراءة { $path }
 session-write = تعذّرت كتابة { $path }
-session-not-oku-slides = لم يُنشأ ملف PDF هذا بواسطة Écho: لا يمكن تعديله
+session-not-oku-slides = لم يُنشأ ملف PDF هذا بواسطة Oku Slides: لا يمكن تعديله
 session-invalid-deck = JSON العرض التقديمي غير صالح
 session-invalid-template-set = مجموعة قوالب غير صالحة: { $path }
 session-not-rendered = لم يُعرض العرض التقديمي بعد
@@ -22,7 +22,7 @@ deck-new-slide-text = قل ما تريد عرضه.
 templates-default-name = قوالبي
 templates-copy-name = { $name } (نسخة)
 template-default-name = قالب
-notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بعد Écho: قد لا تطابق مصادره ما يعرضه قارئ PDF.
+notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بعد Oku Slides: قد لا تطابق مصادره ما يعرضه قارئ PDF.
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند

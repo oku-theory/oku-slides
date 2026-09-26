@@ -9,8 +9,8 @@ op-inconsistent = Geçmiş artık sunuyla eşleşmiyor
 transaction-refused = { $index }. işlem reddedildi: { $reason }
 
 sources-unreadable = Kaynaklar okunamıyor
-sources-not-sources = Bu bir Écho kaynak arşivi değil
-sources-unsupported-version = Bu kaynaklar Écho'nun daha yeni bir sürümüyle yazılmış
+sources-not-sources = Bu bir Oku Slides kaynak arşivi değil
+sources-unsupported-version = Bu kaynaklar Oku Slides'ın daha yeni bir sürümüyle yazılmış
 sources-bad-name = Kaynaklarda reddedilen dosya adı
 sources-missing-deck = Kaynaklarda sunu eksik
 

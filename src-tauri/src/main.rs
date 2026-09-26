@@ -1,4 +1,4 @@
-//! Écho : application de bureau. Toute la logique est dans `slider-session` ;
+//! Oku Slides : application de bureau. Toute la logique est dans `slider-session` ;
 //! l'interface appelle une seule commande, `request`, avec une requête JSON.
 //!
 //! Démarrage : journaux → plateforme (réglages, fichiers, langue) → session

@@ -1,6 +1,6 @@
 session-read = { $path } okunamıyor
 session-write = { $path } yazılamıyor
-session-not-oku-slides = Bu PDF Écho ile oluşturulmamış: düzenlenemez
+session-not-oku-slides = Bu PDF Oku Slides ile oluşturulmamış: düzenlenemez
 session-invalid-deck = Geçersiz sunu JSON'u
 session-invalid-template-set = Geçersiz şablon seti: { $path }
 session-not-rendered = Sunu henüz oluşturulmadı
@@ -22,7 +22,7 @@ deck-new-slide-text = Ne göstermek istediğinizi anlatın.
 templates-default-name = Şablonlarım
 templates-copy-name = { $name } (kopya)
 template-default-name = Şablon
-notice-modified-elsewhere = Bu PDF, Écho'dan sonra başka bir araçla değiştirilmiş: kaynakları artık bir PDF okuyucunun gösterdiğiyle eşleşmeyebilir.
+notice-modified-elsewhere = Bu PDF, Oku Slides'dan sonra başka bir araçla değiştirilmiş: kaynakları artık bir PDF okuyucunun gösterdiğiyle eşleşmeyebilir.
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi

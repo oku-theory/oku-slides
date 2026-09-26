@@ -1,6 +1,6 @@
 session-read = อ่าน { $path } ไม่ได้
 session-write = เขียน { $path } ไม่ได้
-session-not-oku-slides = PDF นี้ไม่ได้สร้างด้วย Écho จึงแก้ไขไม่ได้
+session-not-oku-slides = PDF นี้ไม่ได้สร้างด้วย Oku Slides จึงแก้ไขไม่ได้
 session-invalid-deck = JSON ของงานนำเสนอไม่ถูกต้อง
 session-invalid-template-set = ชุดเทมเพลตไม่ถูกต้อง: { $path }
 session-not-rendered = งานนำเสนอยังไม่ได้เรนเดอร์
@@ -22,7 +22,7 @@ deck-new-slide-text = บอกสิ่งที่คุณอยากนำ�
 templates-default-name = เทมเพลตของฉัน
 templates-copy-name = { $name } (สำเนา)
 template-default-name = เทมเพลต
-notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเครื่องมืออื่นหลังจาก Écho: ซอร์สอาจไม่ตรงกับสิ่งที่โปรแกรมอ่าน PDF แสดงอีกต่อไป
+notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเครื่องมืออื่นหลังจาก Oku Slides: ซอร์สอาจไม่ตรงกับสิ่งที่โปรแกรมอ่าน PDF แสดงอีกต่อไป
 
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว

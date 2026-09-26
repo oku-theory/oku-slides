@@ -1,4 +1,4 @@
-//! Langues d'Écho : les messages de l'app, en Fluent.
+//! Langues d'Oku Slides : les messages de l'app, en Fluent.
 //!
 //! - [`Localizer`] : les messages d'une langue, avec l'anglais en secours
 //!   pour un message qui manquerait.

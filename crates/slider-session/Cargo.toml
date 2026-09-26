@@ -1,6 +1,6 @@
 [package]
 name = "slider-session"
-description = "Session d'édition Écho : deck ouvert, historique, rendu, enregistrement. Partagée par l'app Tauri et le serveur de dev."
+description = "Session d'édition Oku Slides : deck ouvert, historique, rendu, enregistrement. Partagée par l'app Tauri et le serveur de dev."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

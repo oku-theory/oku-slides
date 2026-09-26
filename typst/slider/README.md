@@ -3,7 +3,7 @@
 Slides 16:9 (1920 × 1080 pt) à structure imposée : slide de titre, sommaire,
 chapitres, slides de contenu avec en-tête et pied, slide de fin. Tout le style
 passe par des **jetons** ; le contenu peut être écrit en Typst ou fourni en
-**JSON** (le modèle de données de l'app Écho).
+**JSON** (le modèle de données de l'app Oku Slides).
 
 ## Démarrage
 

@@ -30,7 +30,7 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     s.open(&fixture_path()).unwrap();
     let snap = s.snapshot();
     assert_that!(snap.slides.len()).is_equal_to(8);
-    asserting("un JSON n'est pas un fichier Écho : pas de chemin").that(&snap.path).is_none();
+    asserting("un JSON n'est pas un fichier Oku Slides : pas de chemin").that(&snap.path).is_none();
 
     let view = s.slide("s-libre").unwrap();
     let texte = view.targets.iter().find(|t| t.id == "e-texte").unwrap();

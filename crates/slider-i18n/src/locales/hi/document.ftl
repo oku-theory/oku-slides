@@ -1,5 +1,5 @@
 pdf-unreadable = PDF पढ़ा नहीं जा सकता
-pdf-unsupported-version = यह PDF Écho के नए संस्करण से लिखा गया था
+pdf-unsupported-version = यह PDF Oku Slides के नए संस्करण से लिखा गया था
 pdf-corrupted = इस PDF के स्रोत क्षतिग्रस्त हैं
 pdf-write = PDF लिखा नहीं जा सका
 

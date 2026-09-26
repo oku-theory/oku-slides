@@ -3,8 +3,8 @@ ui-loading = 載入中…
 
 ## 文件
 
-ui-brand = Écho
-ui-brand-templates = Écho · 範本
+ui-brand = Oku Slides
+ui-brand-templates = Oku Slides · 範本
 ui-title-rename = 重新命名簡報
 ui-title-field = 簡報標題
 ui-status-unsaved = 有未儲存的變更

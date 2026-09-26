@@ -1,6 +1,6 @@
 session-read = { $path } を読み込めません
 session-write = { $path } に書き込めません
-session-not-oku-slides = この PDF は Écho で作成されたものではないため、編集できません
+session-not-oku-slides = この PDF は Oku Slides で作成されたものではないため、編集できません
 session-invalid-deck = プレゼンテーションの JSON が無効です
 session-invalid-template-set = テンプレートセットが無効です：{ $path }
 session-not-rendered = プレゼンテーションはまだレンダリングされていません
@@ -22,7 +22,7 @@ deck-new-slide-text = 伝えたいことを書きましょう。
 templates-default-name = マイテンプレート
 templates-copy-name = { $name }（コピー）
 template-default-name = テンプレート
-notice-modified-elsewhere = この PDF は Écho の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
+notice-modified-elsewhere = この PDF は Oku Slides の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
 
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました

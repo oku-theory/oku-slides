@@ -1,5 +1,5 @@
 pdf-unreadable = PDF illisible
-pdf-unsupported-version = Ce PDF vient d'une version plus récente d'Écho
+pdf-unsupported-version = Ce PDF vient d'une version plus récente d'Oku Slides
 pdf-corrupted = Les sources de ce PDF sont abîmées
 pdf-write = Le PDF n'a pas pu être écrit
 

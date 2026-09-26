@@ -66,7 +66,7 @@ fn open_foreign_pdf_returns_not_oku_slides() {
     std::fs::write(dir.join("autre.pdf"), bare).unwrap();
     let err = s.open(&dir.join("autre.pdf")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotOkuSlides);
-    assert_that!(french(&err)).contains("n'a pas été créé par Écho");
+    assert_that!(french(&err)).contains("n'a pas été créé par Oku Slides");
 }
 
 #[test]

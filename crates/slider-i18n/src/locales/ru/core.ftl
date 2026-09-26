@@ -9,8 +9,8 @@ op-inconsistent = История больше не соответствует п
 transaction-refused = Операция { $index } отклонена: { $reason }
 
 sources-unreadable = Исходники не читаются
-sources-not-sources = Это не архив исходников Écho
-sources-unsupported-version = Эти исходники созданы более новой версией Écho
+sources-not-sources = Это не архив исходников Oku Slides
+sources-unsupported-version = Эти исходники созданы более новой версией Oku Slides
 sources-bad-name = Недопустимое имя файла в исходниках
 sources-missing-deck = В исходниках нет презентации
 

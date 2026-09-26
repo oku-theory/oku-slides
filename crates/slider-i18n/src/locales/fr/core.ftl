@@ -9,8 +9,8 @@ op-inconsistent = L'historique ne correspond plus au deck
 transaction-refused = Opération { $index } refusée : { $reason }
 
 sources-unreadable = Sources illisibles
-sources-not-sources = Ce n'est pas un zip de sources Écho
-sources-unsupported-version = Ces sources viennent d'une version plus récente d'Écho
+sources-not-sources = Ce n'est pas un zip de sources Oku Slides
+sources-unsupported-version = Ces sources viennent d'une version plus récente d'Oku Slides
 sources-bad-name = Nom de fichier refusé dans les sources
 sources-missing-deck = Le deck manque dans les sources
 

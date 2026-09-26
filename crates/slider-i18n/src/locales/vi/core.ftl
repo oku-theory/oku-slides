@@ -9,8 +9,8 @@ op-inconsistent = Lịch sử không còn khớp với bản trình bày
 transaction-refused = Thao tác { $index } bị từ chối: { $reason }
 
 sources-unreadable = Không đọc được nguồn
-sources-not-sources = Đây không phải là kho nguồn Écho
-sources-unsupported-version = Nguồn này được tạo bởi phiên bản Écho mới hơn
+sources-not-sources = Đây không phải là kho nguồn Oku Slides
+sources-unsupported-version = Nguồn này được tạo bởi phiên bản Oku Slides mới hơn
 sources-bad-name = Tên tệp trong nguồn bị từ chối
 sources-missing-deck = Nguồn không chứa bản trình bày
 
