@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
 import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
 import { applyAppearance } from "./appearance";
-import { findElement, gridPlacement, instantiate, newId, placeOnGridOps, textOps, textToParagraphs } from "./deck";
+import { findElement, gridPlacement, instantiate, neighbourSlide, newId, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
@@ -138,11 +138,13 @@ export default function App() {
     if (!current || !snap.slides.some((s) => s.id === current)) setCurrent(snap.slides[0]?.id ?? null);
   }, [snap, current]);
 
-  const currentHash = snap?.slides.find((s) => s.id === current)?.hash;
+  // Jamais la vue d'une slide que le snapshot n'a plus (elle vient d'être supprimée).
+  const fetchId = snap ? slideToFetch(snap.slides, current) : null;
+  const currentHash = snap?.slides.find((s) => s.id === fetchId)?.hash;
   useEffect(() => {
-    if (!current) return;
-    api.slide(current).then(setView).catch((e) => say(String(e), true));
-  }, [current, currentHash]);
+    if (!fetchId) return;
+    api.slide(fetchId).then(setView).catch((e) => say(String(e), true));
+  }, [fetchId, currentHash]);
 
   const apply = useCallback(
     async (label: string, ops: Op[]) => {
@@ -288,7 +290,10 @@ export default function App() {
 
   const removeSlide = () => {
     if (!snap || !current || !canRemoveSlide(snap.slides.length)) return;
-    apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: current }]);
+    const next = neighbourSlide(snap.slides, current);
+    run(api.apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: current }])).then((s) => {
+      if (s) setCurrent(next);
+    });
   };
 
   // Raccourcis clavier.

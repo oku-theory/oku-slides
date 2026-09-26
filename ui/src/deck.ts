@@ -146,3 +146,14 @@ export function placeOnGridOps(view: SlideView, id: string, cell: Cell): Op[] {
   if (findElement(view.slide, id)?.frame) ops.push({ op: "set_frame", slide: view.slide.id, element: id, frame: null });
   return ops;
 }
+
+/** Slide à montrer après avoir retiré `removed` : la suivante, sinon la précédente. */
+export function neighbourSlide(slides: { id: string }[], removed: string): string | null {
+  const i = slides.findIndex((s) => s.id === removed);
+  return slides[i + 1]?.id ?? slides[i - 1]?.id ?? null;
+}
+
+/** Slide dont charger la vue : `current` s'il est encore dans le deck, sinon aucune. */
+export function slideToFetch(slides: { id: string }[], current: string | null): string | null {
+  return current && slides.some((s) => s.id === current) ? current : null;
+}

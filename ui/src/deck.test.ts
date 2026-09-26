@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Paragraph, SlideView } from "./api";
-import { gridPlacement, instantiate, placeOnGridOps, textToParagraphs } from "./deck";
+import { gridPlacement, instantiate, neighbourSlide, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
 
 describe("textToParagraphs", () => {
   test("lignes, puces et listes numérotées donnent leurs paragraphes", () => {
@@ -78,5 +78,31 @@ describe("gridPlacement et placeOnGridOps", () => {
     const v = view({ elements: [{ id: "g", kind: "group", children: [{ id: "c", kind: "text", cell: { col: 0, row: 0 } }] }] });
     expect(gridPlacement(v, "c")).toBeNull();
     expect(gridPlacement(v, "g")).toBeNull();
+  });
+});
+
+describe("neighbourSlide", () => {
+  const slides = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  test("neighbourSlide au milieu renvoie la suivante", () => {
+    expect(neighbourSlide(slides, "b")).toBe("c");
+  });
+
+  test("neighbourSlide en dernier renvoie la précédente", () => {
+    expect(neighbourSlide(slides, "c")).toBe("b");
+  });
+
+  test("neighbourSlide seule slide renvoie null", () => {
+    expect(neighbourSlide([{ id: "a" }], "a")).toBeNull();
+  });
+});
+
+describe("slideToFetch", () => {
+  test("slideToFetch id présent renvoie l'id", () => {
+    expect(slideToFetch([{ id: "a" }, { id: "b" }], "b")).toBe("b");
+  });
+
+  test("slideToFetch id supprimé renvoie null", () => {
+    expect(slideToFetch([{ id: "a" }], "s-constat")).toBeNull();
   });
 });
