@@ -5,7 +5,7 @@ import type { Frame, Op, SlideView, Target } from "./api";
 import { fontStack } from "./appearance";
 import { luminance } from "./color";
 import type { GridPlacement } from "./deck";
-import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./deck";
+import { findElement, gridPlacement, isBlock, placeOnGridOps, textChanged, textOps } from "./deck";
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
@@ -281,7 +281,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
 
   const commit = (text: string) => {
     if (!editTarget) return;
-    if (text !== (editTarget.text ?? "")) {
+    if (textChanged(editTarget, text)) {
       onApply(t("ui-undo-edit-text"), textOps(view, editTarget, text));
     }
     onEdit(null);

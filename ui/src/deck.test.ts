@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { Element, Paragraph, SlideView } from "./api";
-import { gridPlacement, instantiate, neighbourSlide, pasteOps, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
+import {
+  gridPlacement,
+  instantiate,
+  neighbourSlide,
+  pasteOps,
+  placeOnGridOps,
+  slideToFetch,
+  textChanged,
+  textToParagraphs,
+} from "./deck";
 
 describe("textToParagraphs", () => {
   test("lignes, puces et listes numérotées donnent leurs paragraphes", () => {
@@ -45,6 +54,19 @@ function view(slide: Partial<SlideView["slide"]>, targets: SlideView["targets"] 
 
 const box = (id: string, x: number, y: number, w: number, h: number) => ({
   id, target: "element" as const, kind: "text", free: false, text: "", x, y, w, h, ax: x, aw: w, style: null,
+});
+
+describe("textChanged", () => {
+  test("champ : le retour à la ligne aplati par l'éditeur ne compte pas comme une modification", () => {
+    expect(textChanged({ target: "field", text: "a\nb" }, "a b")).toBe(false);
+    expect(textChanged({ target: "field", text: "a\nb" }, "a c")).toBe(true);
+    expect(textChanged({ target: "field", text: null }, "")).toBe(false);
+  });
+
+  test("bloc : le retour à la ligne est du contenu", () => {
+    expect(textChanged({ target: "element", text: "a\nb" }, "a b")).toBe(true);
+    expect(textChanged({ target: "element", text: "a\nb" }, "a\nb")).toBe(false);
+  });
 });
 
 describe("gridPlacement et placeOnGridOps", () => {

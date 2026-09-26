@@ -58,6 +58,13 @@ export function instantiate(template: Slide): Slide {
   return copy;
 }
 
+/** Le texte validé diffère-t-il de celui de la cible ? Un champ s'édite sur
+ *  une ligne : ses retours à la ligne, aplatis par l'éditeur, ne comptent pas. */
+export function textChanged(t: Pick<Target, "target" | "text">, text: string): boolean {
+  const before = t.text ?? "";
+  return text !== (t.target === "field" ? before.replaceAll("\n", " ") : before);
+}
+
 /** Ops pour remplacer le texte d'une cible. */
 export function textOps(view: SlideView, t: Target, value: string): Op[] {
   const slide = view.slide;
