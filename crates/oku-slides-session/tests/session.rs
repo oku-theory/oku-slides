@@ -327,3 +327,11 @@ fn panel_while_editing_templates_binds_grid_steppers() {
     assert_that!(stepper.as_ref().map(|c| c["value"].clone())).is_equal_to(Some(json!({ "path": "/grid/columns" })));
     assert_that!(stepper.map(|c| c["action"]["event"]["name"].clone())).is_equal_to(Some(json!("set_grid")));
 }
+
+#[test]
+fn chart_palette_request_returns_the_papier_palette() {
+    let mut s = session();
+    let req = serde_json::from_value(json!({ "cmd": "chart_palette" })).unwrap();
+    let palette: Vec<String> = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
+    assert_that!(palette).is_equal_to(oku_slides_chart::ChartTheme::default().palette);
+}

@@ -101,6 +101,8 @@ pub enum Request {
     Schema,
     /// Langue de l'utilisateur et messages Fluent de l'interface.
     Messages,
+    /// Palette des graphiques (thème Papier), proposée pour colorer une série.
+    ChartPalette,
     /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
     Panel {
         slide: String,
@@ -415,6 +417,7 @@ impl Session {
                     "resources": self.localizer.ui_messages(),
                 }));
             }
+            Request::ChartPalette => return json(&oku_slides_chart::ChartTheme::default().palette),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
