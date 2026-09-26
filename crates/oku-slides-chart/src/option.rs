@@ -143,7 +143,7 @@ pub enum SeriesType {
     Pie,
     Scatter,
     Radar,
-    /// Cascade (extension d'Écho, absente d'ECharts) : une seule série de
+    /// Cascade (extension d'Oku Slides, absente d'ECharts) : une seule série de
     /// variations sur un axe de catégories ; une valeur vide (`null`) marque
     /// une barre de total, la somme courante.
     Waterfall,
