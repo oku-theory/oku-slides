@@ -341,3 +341,33 @@ fn appearance_carries_the_chart_palette_of_the_deck_theme() {
 fn chart_palette_request_no_longer_exists() {
     assert_that!(serde_json::from_value::<Request>(json!({ "cmd": "chart_palette" })).is_err()).is_true();
 }
+
+fn req(v: serde_json::Value) -> Request {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("requête invalide : {e}"))
+}
+
+fn snapshot_json(s: &mut Session) -> serde_json::Value {
+    let reply = s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("snapshot refusé : {}", e.one_line()));
+    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("snapshot illisible : {e}"))
+}
+
+#[test]
+fn ui_request_is_kept_in_snapshot() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": "s-1", "grid": false}));
+}
+
+#[test]
+fn snapshot_ui_defaults_to_grid_shown_and_no_slide() {
+    let mut s = session();
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": true}));
+}
+
+#[test]
+fn new_deck_forgets_the_remembered_slide_but_keeps_grid() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    s.handle(req(json!({"cmd": "new"}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false}));
+}

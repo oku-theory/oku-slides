@@ -41,7 +41,7 @@ pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView,
+    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView, UiState,
 };
 
 /// Un document ouvert : ses sources (deck, assets, polices), son historique
@@ -134,6 +134,8 @@ pub enum Request {
     DeleteTemplateSet {
         set: String,
     },
+    /// Slide courante et grille de l'interface (gardées pour la reprise).
+    Ui(UiState),
 }
 
 // ---- Session ----------------------------------------------------------------------
@@ -159,6 +161,8 @@ pub struct Session {
     appearance: Appearance,
     compiled: Option<Compiled>,
     svg_cache: HashMap<u128, Arc<str>>,
+    /// Slide courante et grille de l'interface, gardées pour la reprise.
+    ui: UiState,
 }
 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
@@ -251,6 +255,7 @@ impl Session {
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
+            ui: UiState::default(),
         };
         s.rerender()?;
         Ok(s)
@@ -320,6 +325,7 @@ impl Session {
             }
             Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
         };
+        self.ui.slide = None;
         self.rerender()?;
         Ok(())
     }
@@ -387,6 +393,7 @@ impl Session {
             self.doc = *stash;
         }
         self.template_cache = None;
+        self.ui.slide = None;
         self.rerender()?;
         Ok(())
     }
@@ -433,6 +440,7 @@ impl Session {
             Request::EditTemplates { set } => self.edit_templates(&set)?,
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
+            Request::Ui(ui) => self.ui = ui,
         }
         json(&self.snapshot())
     }
@@ -441,21 +449,26 @@ impl Session {
         self.load(SourceBundle::new(blank_deck(&self.localizer)), None)
     }
 
-    /// Charge un deck (déjà lu) dans la session.
+    /// Charge un document (déjà lu) dans la session.
+    pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+        self.load_document(Document::new(sources, path, self.history_limit))
+    }
+
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
     /// pour que la grille puisse éditer leurs données.
-    pub fn load(&mut self, mut sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
-        charts::canonicalize_deck(&mut sources.deck, &self.chart_labels);
-        if sources.fonts != self.doc.sources.fonts {
+    fn load_document(&mut self, mut doc: Document) -> Result<()> {
+        charts::canonicalize_deck(&mut doc.sources.deck, &self.chart_labels);
+        if doc.sources.fonts != self.doc.sources.fonts {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
-            self.render_fonts = self.app_fonts.with(sources.fonts.values().cloned());
+            self.render_fonts = self.app_fonts.with(doc.sources.fonts.values().cloned());
             self.renderer = new_renderer(self.render_fonts.clone(), &self.localizer)?;
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
         }
-        self.doc = Document::new(sources, path, self.history_limit);
+        self.doc = doc;
+        self.ui.slide = None;
         self.rerender()
     }
 
@@ -615,6 +628,7 @@ impl Session {
             appearance: &self.appearance,
             templates: self.deck_set(),
             editing: self.editing(),
+            ui: &self.ui,
         }
     }
 

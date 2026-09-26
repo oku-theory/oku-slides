@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
 
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 
 use oku_slides_core::{Slide, SlideKind};
 use oku_slides_render::{ElementBox, TextStyle, ZoneBox};
@@ -65,10 +65,32 @@ pub struct Snapshot<'a> {
     pub templates: &'a str,
     /// Mode d'édition des modèles : l'ensemble en cours de modification.
     pub editing: Option<&'a TemplateMode>,
+    /// Slide courante et grille, gardées pour la reprise.
+    pub ui: &'a UiState,
+}
+
+/// Ce que l'interface fait garder à l'hôte : slide courante et grille.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UiState {
+    #[serde(default)]
+    pub slide: Option<String>,
+    /// Grille de la slide toujours visible.
+    #[serde(default = "shown")]
+    pub grid: bool,
+}
+
+fn shown() -> bool {
+    true
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self { slide: None, grid: true }
+    }
 }
 
 /// Édition d'un ensemble de modèles : chaque slide est un modèle.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateMode {
     pub set: String,
     pub name: String,
