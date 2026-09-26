@@ -39,6 +39,8 @@
   page: (margin-x: 128, margin-top: 112, margin-bottom: 160, header-y: 56, footer-y: 64),
   radius: (sm: 4, md: 8, lg: 8),
   stroke: (hairline: 1, rule: 2, accent: 6),
+  // Graphiques : les bleus du système (texte d'accent, cyan, navy), puis leurs tons clairs.
+  chart: (palette: ("accent-text", "accent", "brand-ink", "on-dark-body", "on-dark-muted", "ink-muted")),
   // Interface : table claire (teinte « border » du système), encre navy, accent cyan.
   app: (
     scheme: "light",

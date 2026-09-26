@@ -55,6 +55,9 @@
   ),
   radius: (flat: 0, sm: 4, md: 10, lg: 16),
   stroke: (hairline: 1, rule: 2, accent: 6),
+  // Graphiques : couleurs des séries, dans l'ordre (hex ou nom d'une couleur
+  // ci-dessus). L'interface les propose pour colorer une série.
+  chart: (palette: ("#2f5d8a", "#c4622d", "#5b8a3c", "#8a4f7d", "#c9a227", "#3c8a86")),
 
   // Jetons de composants : ils référencent les jetons ci-dessus par nom.
   // Couleurs de l'interface de l'app (pas des slides). Chaque valeur : hex, nom
