@@ -100,20 +100,8 @@ pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartO
             out.series[0].data = None;
             std::iter::once(header).chain(rows).collect()
         }
-        ChartKind::Waterfall(w) => {
-            let header = vec![text(&or(&w.category_label, labels.category())), text(&w.name)];
-            let rows =
-                w.categories.iter().enumerate().map(|(i, cat)| vec![text(cat), num(w.steps.get(i).copied().flatten())]);
-            for axis in [&mut out.x_axis, &mut out.y_axis].into_iter().flatten() {
-                axis.data = None;
-            }
-            out.x_axis.get_or_insert_with(empty_axis).kind = Some(AxisType::Category);
-            let s = &mut out.series[0];
-            s.data = None;
-            s.encode = None;
-            s.name = None;
-            std::iter::once(header).chain(rows).collect()
-        }
+        // La cascade lit toujours `dataset` : `normalize` a déjà refusé le reste.
+        ChartKind::Waterfall(_) => return Ok(out),
     };
     out.dataset = Some(Dataset { source });
     normalize(&out, labels)?;

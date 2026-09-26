@@ -8,3 +8,5 @@ Claude outputs/
 /src-tauri/gen
 /src-tauri/target
 *.tsbuildinfo
+
+.superpowers/

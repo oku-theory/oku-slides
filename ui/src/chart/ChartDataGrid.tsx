@@ -24,9 +24,18 @@ export type ChartDataGridProps = {
   onOp: (op: ChartDataOp) => void;
   /** Colonne 0 en texte (catégories) ; les autres attendent des nombres. */
   firstColumnIsLabel?: boolean;
+  /** Colonnes de cases à cocher (booléens), comme le Total d'une cascade. */
+  checkboxColumns?: readonly number[];
 };
 
-export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: ChartDataGridProps) {
+const NO_CHECKBOXES: readonly number[] = [];
+
+export function ChartDataGrid({
+  source,
+  onOp,
+  firstColumnIsLabel = true,
+  checkboxColumns = NO_CHECKBOXES,
+}: ChartDataGridProps) {
   const header = source[0] ?? [];
   const width = header.length;
   const data = useMemo<Row[]>(
@@ -59,33 +68,43 @@ export function ChartDataGrid({ source, onOp, firstColumnIsLabel = true }: Chart
                 )}
               </div>
             ),
-            cell: (ctx) => (
-              <CellInput
-                value={ctx.getValue()}
-                label={firstColumnIsLabel && col === 0}
-                ariaLabel={t("ui-chart-cell", { row: ctx.row.original.index, col: col + 1 })}
-                onCommit={(value) =>
-                  onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
-                }
-                onPasteGrid={(grid) =>
-                  onOp({
-                    op: "replace",
-                    source: pasteInto(
-                      source,
-                      grid,
-                      ctx.row.original.index,
-                      col,
-                      firstColumnIsLabel,
-                    ),
-                  })
-                }
-              />
-            ),
+            cell: (ctx) =>
+              checkboxColumns.includes(col) ? (
+                <CellCheck
+                  value={ctx.getValue()}
+                  ariaLabel={t("ui-chart-cell", { row: ctx.row.original.index, col: col + 1 })}
+                  onCommit={(value) =>
+                    onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
+                  }
+                />
+              ) : (
+                <CellInput
+                  value={ctx.getValue()}
+                  label={firstColumnIsLabel && col === 0}
+                  ariaLabel={t("ui-chart-cell", { row: ctx.row.original.index, col: col + 1 })}
+                  onCommit={(value) =>
+                    onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
+                  }
+                  onPasteGrid={(grid) =>
+                    onOp({
+                      op: "replace",
+                      source: pasteInto(
+                        source,
+                        grid,
+                        ctx.row.original.index,
+                        col,
+                        firstColumnIsLabel,
+                        checkboxColumns,
+                      ),
+                    })
+                  }
+                />
+              ),
           }),
         ),
       ),
     // `source` est nécessaire au collage ; les colonnes changent peu.
-    [source, header, width, onOp, firstColumnIsLabel],
+    [source, header, width, onOp, firstColumnIsLabel, checkboxColumns],
   );
 
   const table = useTable({ features, columns, data });
@@ -182,8 +201,25 @@ function CellInput({ value, label, ariaLabel, onCommit, onPasteGrid }: CellInput
   );
 }
 
+function CellCheck({ value, ariaLabel, onCommit }: {
+  value: Cell;
+  ariaLabel: string;
+  onCommit: (value: boolean) => void;
+}) {
+  return (
+    <input
+      type="checkbox"
+      className="cdg-check"
+      checked={value === true}
+      aria-label={ariaLabel}
+      onChange={(e) => onCommit(e.currentTarget.checked)}
+    />
+  );
+}
+
 function display(c: Cell): string {
   if (c === null) return "";
+  if (typeof c === "boolean") return String(c);
   if (typeof c === "number")
     return c.toLocaleString(locale(), { maximumFractionDigits: 10, useGrouping: false });
   return c;
@@ -195,6 +231,12 @@ export function parseCell(raw: string): Cell {
   if (t === "") return null;
   const n = Number(t.replace(/[\s\u00a0\u202f]/g, "").replace(",", "."));
   return Number.isFinite(n) ? n : t;
+}
+
+/** Case collée : cochée sauf si vide ou fausse (« false », « faux », « 0 », « non »…). */
+export function parseCheck(raw: string): boolean {
+  const t = raw.trim().toLowerCase();
+  return t !== "" && !["false", "faux", "0", "non", "no"].includes(t);
 }
 
 export function parseTsv(text: string): string[][] {
@@ -212,6 +254,7 @@ export function pasteInto(
   row: number,
   col: number,
   firstColumnIsLabel: boolean,
+  checkboxColumns: readonly number[] = [],
 ): Cell[][] {
   const out = source.map((r) => [...r]);
   const width = Math.max(out[0]?.length ?? 0, col + Math.max(...grid.map((r) => r.length)));
@@ -220,7 +263,12 @@ export function pasteInto(
     while (out.length <= r) out.push([]);
     cells.forEach((raw, dc) => {
       const c = col + dc;
-      out[r][c] = firstColumnIsLabel && c === 0 ? raw : parseCell(raw);
+      out[r][c] =
+        firstColumnIsLabel && c === 0
+          ? raw
+          : checkboxColumns.includes(c)
+            ? parseCheck(raw)
+            : parseCell(raw);
     });
   });
   for (const r of out) while (r.length < width) r.push(null);

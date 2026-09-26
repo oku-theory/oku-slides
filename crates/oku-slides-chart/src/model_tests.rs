@@ -36,25 +36,38 @@ fn waterfall_of(v: serde_json::Value) -> Result<Waterfall> {
 }
 
 #[test]
-fn normalize_waterfall_dataset_reads_steps_and_empty_totals() {
+fn normalize_waterfall_dataset_reads_steps_and_total_column() {
     let w = waterfall_of(serde_json::json!({
-        "dataset": { "source": [["Poste", "Montant"], ["Début", 100], ["Ventes", 30], ["Coûts", -20], ["Fin", null]] },
+        "dataset": { "source": [
+            ["Poste", "Montant", "Total"],
+            ["Début", 100, false], ["Ventes", 30, false], ["Coûts", -20, false], ["Fin", null, true]
+        ] },
         "series": [{ "type": "waterfall" }]
     }))
     .unwrap();
     assert_that!(w.categories).is_equal_to(vec!["Début".into(), "Ventes".into(), "Coûts".into(), "Fin".into()]);
     assert_that!(w.steps).is_equal_to(vec![Some(100.0), Some(30.0), Some(-20.0), None]);
+    assert_that!(w.totals).is_equal_to(vec![false, false, false, true]);
     assert_that!(w.name.as_str()).is_equal_to("Montant");
 }
 
 #[test]
-fn normalize_waterfall_inline_data_reads_categories_from_x_axis() {
+fn normalize_waterfall_empty_value_without_total_is_not_a_total() {
+    let w = waterfall_of(serde_json::json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 100], ["Fin", null]] },
+        "series": [{ "type": "waterfall" }]
+    }))
+    .unwrap();
+    assert_that!(w.totals).is_equal_to(vec![false, false]);
+}
+
+#[test]
+fn normalize_waterfall_inline_data_fails() {
     let w = waterfall_of(serde_json::json!({
         "xAxis": { "type": "category", "data": ["Début", "Hausse", "Fin"] },
         "series": [{ "type": "waterfall", "data": [10, 5, null] }]
-    }))
-    .unwrap();
-    assert_that!(w.steps).is_equal_to(vec![Some(10.0), Some(5.0), None]);
+    }));
+    assert_that!(w.err().map(|e| e.kind())).is_equal_to(Some(crate::ChartErrorKind::Inconsistent));
 }
 
 #[test]
@@ -110,6 +123,16 @@ fn normalize_waterfall_keeps_declared_axis_bounds() {
     }))
     .unwrap();
     assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-1.0), Some(4.0)));
+}
+
+#[test]
+fn normalize_waterfall_total_rows_ignore_their_value_for_the_axis() {
+    let w = waterfall_of(serde_json::json!({
+        "dataset": { "source": [["Poste", "Montant", "Total"], ["Début", 3, false], ["Fin", 900, true]] },
+        "series": [{ "type": "waterfall" }]
+    }))
+    .unwrap();
+    assert_that!(w.value_max).is_equal_to(Some(5.0));
 }
 
 fn two_bars(extra: serde_json::Value) -> ChartOption {

@@ -73,12 +73,14 @@ pub struct Dataset {
     pub source: Vec<Vec<Cell>>,
 }
 
-/// Cellule de `dataset.source` : nombre, texte ou vide.
+/// Cellule de `dataset.source` : nombre, texte, booléen ou vide.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Cell {
     Number(f64),
     Text(String),
+    /// Case à cocher (colonne Total d'une cascade).
+    Bool(bool),
     Null,
 }
 
@@ -87,14 +89,20 @@ impl Cell {
         match self {
             Cell::Number(n) => Some(*n),
             Cell::Text(s) => s.trim().replace(',', ".").parse().ok(),
-            Cell::Null => None,
+            Cell::Bool(_) | Cell::Null => None,
         }
+    }
+
+    /// Case cochée ; toute autre cellule compte comme décochée.
+    pub fn is_checked(&self) -> bool {
+        matches!(self, Cell::Bool(true))
     }
 
     pub fn as_label(&self) -> String {
         match self {
             Cell::Number(n) => format_number(*n),
             Cell::Text(s) => s.clone(),
+            Cell::Bool(b) => b.to_string(),
             Cell::Null => String::new(),
         }
     }
@@ -149,8 +157,9 @@ pub enum SeriesType {
     Scatter,
     Radar,
     /// Cascade (extension d'Oku Slides, absente d'ECharts) : une seule série de
-    /// variations sur un axe de catégories ; une valeur vide (`null`) marque
-    /// une barre de total, la somme courante.
+    /// variations sur un axe de catégories, lue dans `dataset`. La colonne qui
+    /// suit les valeurs, si elle existe, marque les totaux : `true` dessine la
+    /// somme courante (la valeur de la ligne est ignorée).
     Waterfall,
 }
 

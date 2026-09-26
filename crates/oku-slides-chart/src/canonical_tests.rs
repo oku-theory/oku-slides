@@ -128,16 +128,10 @@ fn sync_series_with_columns_added_column_joins_the_stack() {
 }
 
 #[test]
-fn canonicalize_inline_waterfall_moves_to_dataset() {
+fn canonicalize_inline_waterfall_fails() {
     let o = opt(json!({
         "xAxis": { "type": "category", "data": ["Début", "Fin"] },
         "series": [{ "type": "waterfall", "name": "Montant", "data": [100, null] }]
     }));
-    let canon = canonicalize(&o, ChartLabels::english()).unwrap();
-    assert_that!(canon.dataset.map(|d| d.source)).is_equal_to(Some(vec![
-        vec![Cell::Text("Category".into()), Cell::Text("Montant".into())],
-        vec![Cell::Text("Début".into()), Cell::Number(100.0)],
-        vec![Cell::Text("Fin".into()), Cell::Null],
-    ]));
-    assert_that!(canon.series[0].data.is_none() && canon.series[0].name.is_none()).is_true();
+    assert_that!(canonicalize(&o, ChartLabels::english()).is_err()).is_true();
 }

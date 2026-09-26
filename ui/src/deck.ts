@@ -48,18 +48,20 @@ export function textToParagraphs(text: string, previous: Paragraph[] = []): Para
   });
 }
 
+/** Donne de nouveaux identifiants aux éléments et à leurs enfants (sur place). */
+function renewIds(list?: Element[]) {
+  for (const e of list ?? []) {
+    e.id = newId("e");
+    renewIds(e.children);
+  }
+}
+
 /** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments). */
 export function instantiate(template: Slide): Slide {
   const copy: Slide = structuredClone(template);
   copy.id = newId("s");
-  const renew = (list?: Element[]) => {
-    for (const e of list ?? []) {
-      e.id = newId("e");
-      renew(e.children);
-    }
-  };
-  renew(copy.blocks);
-  renew(copy.elements);
+  renewIds(copy.blocks);
+  renewIds(copy.elements);
   return copy;
 }
 
@@ -145,6 +147,46 @@ export function placeOnGridOps(view: SlideView, id: string, cell: Cell): Op[] {
   const ops: Op[] = [{ op: "set_cell", slide: view.slide.id, element: id, cell }];
   if (findElement(view.slide, id)?.frame) ops.push({ op: "set_frame", slide: view.slide.id, element: id, frame: null });
   return ops;
+}
+
+/**
+ * Case d'un nouvel élément : à gauche de la première ligne libre sous les
+ * autres (la première ligne si la grille est pleine), sur `cols` × `rows`.
+ * Par défaut, la moitié de la largeur sur une ligne.
+ */
+export function freeCell(slide: Slide, grid: GridSpec, span: { cols?: number; rows?: number } = {}): Cell {
+  const placed = (slide.elements ?? []).flatMap((e) => (e.cell ? [e.cell] : []));
+  const below = placed.reduce((m, c) => Math.max(m, c.row + (c.rows ?? 1)), 0);
+  const row = below < grid.rows ? below : 0;
+  return { col: 0, row, cols: span.cols ?? Math.max(1, Math.round(grid.columns / 2)), rows: span.rows ?? 1 };
+}
+
+/** Décalage d'un élément collé sur son original, hors grille (pt). */
+const PASTE_OFFSET = 12;
+
+/**
+ * Ops qui collent une copie de `source` sur la slide de `view`, avec de
+ * nouveaux identifiants : une slide à blocs reçoit un bloc de plus ; sur la
+ * grille, la copie garde son étendue sur la première ligne libre ; sinon,
+ * elle se pose décalée de son cadre.
+ */
+export function pasteOps(view: SlideView, source: Element): { id: string; ops: Op[] } {
+  const copy: Element = structuredClone(source);
+  renewIds([copy]);
+  const slide = view.slide;
+  const grid = view.zone?.grid;
+  const { frame, cell, ...body } = copy;
+  let element: Element;
+  let zone: "blocks" | "elements" = "elements";
+  if ((slide.blocks?.length ?? 0) > 0 || (!grid && !frame)) {
+    element = body;
+    zone = "blocks";
+  } else if (grid) {
+    element = { ...body, cell: freeCell(slide, grid, cell ? { cols: cell.cols ?? 1, rows: cell.rows ?? 1 } : {}) };
+  } else {
+    element = { ...body, frame: frame && { ...frame, x: frame.x + PASTE_OFFSET, y: frame.y + PASTE_OFFSET } };
+  }
+  return { id: copy.id, ops: [{ op: "add_element", slide: slide.id, zone, element }] };
 }
 
 /** Slide à montrer après avoir retiré `removed` : la suivante, sinon la précédente. */

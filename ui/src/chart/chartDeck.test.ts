@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Element } from "../api";
-import { CHART_KINDS, chartKind, chartSource, colorPatch, hexColor, isStacked, paletteOf, seriesColor, seriesNames, stackPatch, stackable, starterChart } from "./chartDeck";
+import { CHART_KINDS, chartKind, checkboxColumns, chartSource, colorPatch, hexColor, isStacked, paletteOf, seriesColor, seriesNames, stackPatch, stackable, starterChart } from "./chartDeck";
 
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
@@ -28,6 +28,21 @@ describe("chartSource et chartKind", () => {
     const text: Element = { id: "t", kind: "text" };
     expect(chartSource(text)).toBeNull();
     expect(chartKind(text)).toBeNull();
+  });
+});
+
+describe("checkboxColumns", () => {
+  test("la colonne Total d'une cascade se coche", () => {
+    const el = canonical([{ type: "waterfall" }], [["Poste", "Montant", "Total"], ["Fin", null, true]]);
+    expect(checkboxColumns(el)).toEqual([2]);
+  });
+
+  test("une cascade sans colonne Total n'a pas de case", () => {
+    expect(checkboxColumns(canonical([{ type: "waterfall" }], [["Poste", "Montant"]]))).toEqual([]);
+  });
+
+  test("des barres n'ont pas de case", () => {
+    expect(checkboxColumns(canonical([{ type: "bar" }, { type: "bar" }]))).toEqual([]);
   });
 });
 

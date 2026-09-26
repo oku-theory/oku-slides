@@ -17,6 +17,7 @@ pub struct ChartLabels {
     value: String,
     name: String,
     axis: String,
+    total: String,
     x_of: String,
 }
 
@@ -30,6 +31,7 @@ impl ChartLabels {
             value: l.tr("chart-default-value"),
             name: l.tr("chart-default-name"),
             axis: l.tr("chart-default-axis"),
+            total: l.tr("chart-default-total"),
             x_of: l.tr_with("chart-default-x", &[("name", SLOT.into())]),
         }
     }
@@ -62,6 +64,11 @@ impl ChartLabels {
     /// En-tête de la colonne des axes (radar).
     pub fn axis(&self) -> &str {
         &self.axis
+    }
+
+    /// En-tête de la colonne qui coche les totaux (cascade).
+    pub fn total(&self) -> &str {
+        &self.total
     }
 
     /// En-tête de la colonne des abscisses d'une série de points.
