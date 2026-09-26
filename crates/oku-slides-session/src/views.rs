@@ -90,7 +90,10 @@ impl Default for UiState {
 }
 
 /// Un onglet vu de sa barre : titre, travail non enregistré, mode.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+///
+/// Aussi gardé dans `workspace.json` : la barre se montre au lancement sans
+/// relire les sessions (relu, il n'est pas digne de confiance).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TabInfo {
     /// Nom du fichier du deck, sinon son titre.
     pub title: String,

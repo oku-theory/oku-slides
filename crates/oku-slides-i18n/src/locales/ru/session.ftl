@@ -27,6 +27,7 @@ templates-copy-name = { $name } (копия)
 template-default-name = Шаблон
 notice-modified-elsewhere = Этот PDF был изменён другой программой после Oku Slides: его исходники могут не совпадать с тем, что показывает программа просмотра PDF.
 notice-open-failed = Не удалось открыть { $path }: { $reason }
+notice-tab-resume-failed = Не удалось восстановить состояние этой вкладки: оно отложено, а вкладка начинается с пустой презентации.
 
 log-document-opened = Документ открыт
 log-document-saved = Документ сохранён

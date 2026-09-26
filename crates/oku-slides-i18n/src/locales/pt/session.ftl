@@ -27,6 +27,7 @@ templates-copy-name = { $name } (cópia)
 template-default-name = Modelo
 notice-modified-elsewhere = Este PDF foi alterado por outra ferramenta depois do Oku Slides: suas fontes podem não corresponder mais ao que um leitor de PDF mostra.
 notice-open-failed = Não foi possível abrir { $path }: { $reason }
+notice-tab-resume-failed = Não foi possível restaurar o estado deste separador: foi posto de parte e o separador recomeça com uma apresentação em branco.
 
 log-document-opened = Documento aberto
 log-document-saved = Documento salvo

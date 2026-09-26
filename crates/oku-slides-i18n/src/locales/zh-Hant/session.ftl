@@ -27,6 +27,7 @@ templates-copy-name = { $name }（副本）
 template-default-name = 範本
 notice-modified-elsewhere = 此 PDF 在 Oku Slides 之後曾被其他工具修改：其原始檔可能與 PDF 閱讀器顯示的內容不再一致。
 notice-open-failed = 無法開啟 { $path }：{ $reason }
+notice-tab-resume-failed = 無法還原此分頁的狀態：該狀態已另行保存，分頁從空白簡報重新開始。
 
 log-document-opened = 文件已開啟
 log-document-saved = 文件已儲存

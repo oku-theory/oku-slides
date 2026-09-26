@@ -3,7 +3,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use oku_slides_session::{Fonts, Platform, Request, Settings, Workspace, WorkspaceRequest, WorkspaceView};
+use oku_slides_session::{
+    Fonts, Platform, Request, SessionErrorKind, Settings, Workspace, WorkspaceRequest, WorkspaceView,
+};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -140,8 +142,11 @@ fn resume_with_corrupt_layout_moves_resume_aside_and_starts_blank() {
     assert_that!(aside).has_length(1);
 }
 
+/// t-158 : un onglet n'est relu qu'à sa première requête. Illisible, il
+/// reste à sa place : son état est mis de côté, il repart d'un deck vierge
+/// et le dit ; les autres onglets n'en savent rien.
 #[test]
-fn resume_with_one_corrupt_tab_keeps_the_others_and_its_data() {
+fn resume_with_one_corrupt_tab_sets_it_aside_at_its_first_request() {
     let data = Data::new();
     let a = resumed(&data);
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
@@ -150,9 +155,77 @@ fn resume_with_one_corrupt_tab_keeps_the_others_and_its_data() {
     std::fs::write(data.resume().join("tabs/t-2/state.json"), br#"{"version":99}"#).unwrap();
     let ws = resumed(&data);
     let ids: Vec<String> = view(&ws).windows[0].tabs.iter().map(|t| t.id.clone()).collect();
+    assert_that!(ids).is_equal_to(vec!["t-1".to_owned(), "t-2".to_owned(), "t-3".to_owned()]);
+    let aside =
+        |data: &Data| names(&data.resume().join("tabs")).iter().filter(|n| n.starts_with("t-2.failed-")).count();
+    assert_that!(aside(&data)).is_equal_to(0);
+    let snap = tab(&ws, "t-2", json!({"cmd": "snapshot"}));
+    let expected = platform(&data.0).localizer.tr("notice-tab-resume-failed");
+    assert_that!(snap["notice"].as_str()).is_equal_to(Some(expected.as_str()));
+    assert_that!(aside(&data)).is_equal_to(1);
+    assert_that!(data.resume().join("tabs/t-2/state.json").exists()).is_true();
+    assert_that!(view(&ws).windows[0].tabs[1].info.pristine).is_true();
+}
+
+/// t-158 : au lancement, la barre montre les onglets tels qu'enregistrés,
+/// sans relire leur session (un état illisible n'y change rien).
+#[test]
+fn resume_shows_saved_tab_titles_without_reading_the_tabs() {
+    let data = Data::new();
+    let file = saved_pdf(&data, "rapport");
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    std::fs::write(data.resume().join("tabs/t-2/state.json"), br#"{"version":99}"#).unwrap();
+    let v = view(&resumed(&data));
+    let t2 = v.windows[0].tabs.iter().find(|t| t.id == "t-2").unwrap_or_else(|| panic!("t-2 absent : {v:?}"));
+    assert_that!(t2.info.title.as_str()).is_equal_to("rapport");
+    assert_that!(t2.info.path.as_deref()).is_equal_to(Some(oku_slides_platform::storage::resolve(&file).as_path()));
+}
+
+/// t-158 : un onglet inactif revient entier à sa première requête.
+#[test]
+fn resume_reads_an_inactive_tab_at_its_first_request() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    tab(&a, "t-2", set_theme("pro"));
+    send(&a, json!({"cmd": "activate", "tab": "t-1"}));
+    drop(a);
+    let b = resumed(&data);
+    assert_that!(view(&b).windows[0].tabs[1].info.dirty).is_true();
+    assert_that!(tab(&b, "t-2", json!({"cmd": "snapshot"}))["theme"]).is_equal_to(json!("pro"));
+}
+
+/// t-158 : les infos d'onglet sont enregistrées dès qu'elles changent, pas
+/// seulement avec la structure : un arrêt brutal garde le bon titre.
+#[test]
+fn request_that_changes_a_tab_records_its_info_in_workspace_json() {
+    let data = Data::new();
+    let a = resumed(&data);
+    tab(&a, "t-1", set_theme("pro"));
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap();
+    let layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_that!(layout["info"]["t-1"]["dirty"]).is_equal_to(json!(true));
+}
+
+/// `workspace.json` n'est pas digne de confiance : un onglet sans infos
+/// enregistrées est relu au lancement, comme avant ; illisible, il est retiré.
+#[test]
+fn resume_without_saved_info_reads_the_tab_at_launch() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap();
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    layout["info"].as_object_mut().unwrap().remove("t-2");
+    write_layout(&data, layout);
+    std::fs::write(data.resume().join("tabs/t-2/state.json"), br#"{"version":99}"#).unwrap();
+    let ids: Vec<String> = view(&resumed(&data)).windows[0].tabs.iter().map(|t| t.id.clone()).collect();
     assert_that!(ids).is_equal_to(vec!["t-1".to_owned(), "t-3".to_owned()]);
-    let tabs = names(&data.resume().join("tabs"));
-    assert_that!(tabs.iter().filter(|n| n.starts_with("t-2.failed-")).count()).is_equal_to(1);
 }
 
 #[test]
@@ -398,4 +471,133 @@ fn apply_open_tab_after_settle_is_refused() {
     let req = WorkspaceRequest::OpenTab { window, path: saved_pdf(&data, "essai") };
     let err = Workspace::apply(&ws, req).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::UnknownWindow);
+}
+
+/// t-158 : fermer un onglet endormi et modifié pose la question (l'onglet
+/// est relu d'abord : ses infos enregistrées peuvent être en retard).
+#[test]
+fn close_of_a_dormant_modified_tab_is_refused_until_discarded() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    tab(&a, "t-2", set_theme("pro"));
+    send(&a, json!({"cmd": "activate", "tab": "t-1"}));
+    drop(a);
+    let b = resumed(&data);
+    let close = |discard: bool| {
+        let req: WorkspaceRequest = serde_json::from_value(json!({"cmd": "close", "tab": "t-2", "discard": discard}))
+            .unwrap_or_else(|e| panic!("requête invalide : {e}"));
+        Workspace::apply(&b, req)
+    };
+    let refused = close(false).err().map(|e| e.kind());
+    assert_that!(refused).is_equal_to(Some(SessionErrorKind::Unsaved));
+    assert_that!(close(true).is_ok()).is_true();
+    assert_that!(view(&b).windows[0].tabs).has_length(1);
+}
+
+/// Infos enregistrées en retard (arrêt brutal entre l'état de l'onglet et
+/// `workspace.json`) : fermer relit l'onglet et pose quand même la question.
+#[test]
+fn close_of_a_dormant_tab_with_stale_clean_info_is_refused() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    tab(&a, "t-2", set_theme("pro"));
+    send(&a, json!({"cmd": "activate", "tab": "t-1"}));
+    drop(a);
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
+    layout["info"]["t-2"]["dirty"] = json!(false);
+    write_layout(&data, layout);
+    let b = resumed(&data);
+    let req: WorkspaceRequest = serde_json::from_value(json!({"cmd": "close", "tab": "t-2"}))
+        .unwrap_or_else(|e| panic!("requête invalide : {e}"));
+    let refused = Workspace::apply(&b, req).err().map(|e| e.kind());
+    assert_that!(refused).is_equal_to(Some(SessionErrorKind::Unsaved));
+    assert_that!(data.resume().join("tabs/t-2/state.json").exists()).is_true();
+}
+
+/// Une entrée `info` malformée ne coûte que son onglet (relu au lancement),
+/// pas tout l'espace de travail.
+#[test]
+fn resume_with_one_malformed_tab_info_reads_that_tab_and_keeps_the_rest() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
+    layout["info"]["t-2"] = json!({"title": 42});
+    write_layout(&data, layout);
+    let v = view(&resumed(&data));
+    assert_that!(v.windows[0].tabs).has_length(2);
+    let aside: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
+    assert_that!(aside).is_empty();
+}
+
+/// `workspace.json` d'avant t-158, sans `info` : les onglets sont relus au
+/// lancement, avec leur titre.
+#[test]
+fn resume_of_a_layout_without_info_restores_every_tab() {
+    let data = Data::new();
+    let file = saved_pdf(&data, "bilan");
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
+    layout.as_object_mut().unwrap_or_else(|| panic!("objet attendu")).remove("info");
+    write_layout(&data, layout);
+    let v = view(&resumed(&data));
+    let titles: Vec<&str> = v.windows[0].tabs.iter().map(|t| t.info.title.as_str()).collect();
+    assert_that!(titles.contains(&"bilan")).is_true();
+    assert_that!(v.windows[0].tabs).has_length(2);
+}
+
+/// Relancé sur un seul onglet vierge, un fichier ouvert le remplace encore :
+/// l'onglet endormi, enregistré vierge, est relu pour s'en assurer.
+#[test]
+fn open_tab_after_resume_replaces_the_restored_blank_tab() {
+    let data = Data::new();
+    drop(resumed(&data));
+    let file = saved_pdf(&data, "note");
+    let ws = resumed(&data);
+    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    let v = view(&ws);
+    assert_that!(v.windows[0].tabs).has_length(1);
+    assert_that!(v.windows[0].tabs[0].info.title.as_str()).is_equal_to("note");
+}
+
+/// Fermer la seule fenêtre quitte l'app en gardant tout : ses onglets
+/// endormis ne sont pas relus pour rien (un état illisible reste en place).
+#[test]
+fn close_window_of_the_only_window_leaves_dormant_tabs_asleep() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    std::fs::write(data.resume().join("tabs/t-2/state.json"), br#"{"version":99}"#)
+        .unwrap_or_else(|e| panic!("state.json : {e}"));
+    let b = resumed(&data);
+    send(&b, json!({"cmd": "close_window", "window": "w-1"}));
+    let aside = names(&data.resume().join("tabs")).into_iter().filter(|n| n.starts_with("t-2.failed-")).count();
+    assert_that!(aside).is_equal_to(0);
+}
+
+/// Un champ `info` qui n'est pas un objet ne coûte que les infos : les
+/// onglets sont relus au lancement, rien n'est mis de côté.
+#[test]
+fn resume_with_info_that_is_not_an_object_reads_the_tabs() {
+    let data = Data::new();
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
+    layout["info"] = json!([1, 2]);
+    write_layout(&data, layout);
+    assert_that!(view(&resumed(&data)).windows[0].tabs).has_length(2);
+    let aside: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
+    assert_that!(aside).is_empty();
 }

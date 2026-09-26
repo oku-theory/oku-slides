@@ -108,7 +108,9 @@ Sous `<data>/resume/`, via `Storage::write_atomic` :
 ```
 resume/
   workspace.json    { version: 2, next_tab, next_window, focused,
-                      windows: [{ label, tabs: [id…], active }], kept: [id…] }
+                      windows: [{ label, tabs: [id…], active }], kept: [id…],
+                      info: { id: { title, dirty, editing_templates, path,
+                                    pristine } } }
   tabs/<id>/        la forme de l'ancien resume/ (v1) :
     state.json      { version, mode, ui }
     deck/ …         document.json (avec `blank`), assets/, fonts/
@@ -144,10 +146,24 @@ resume/
 1. `workspace.json` absent : une fenêtre, un onglet vierge.
 2. Illisible ou version inconnue : tout `resume/` mis de côté
    (`resume.failed-…`), une fenêtre, un onglet vierge.
-3. Chaque onglet se restaure comme la reprise v1 (fichier modifié ailleurs,
-   historique illisible…). Onglet illisible : son dossier seul est mis de
-   côté (`t-3.failed-…`), l'onglet est retiré, les autres restent. Onglet
-   cité sans `state.json` : retiré (dossier gardé s'il existe, via `kept`).
+3. Restauration paresseuse (t-158) : aucun onglet n'est relu au lancement.
+   La barre vient des infos de `workspace.json` (`info`, écrites avec la
+   structure et à chaque changement de titre ou d'état) ; la session d'un
+   onglet n'est relue qu'à sa première requête, comme la reprise v1
+   (fichier modifié ailleurs, historique illisible…). Illisible à ce
+   moment-là : son dossier seul est mis de côté (`t-3.failed-…`), l'onglet
+   reste, repart d'un deck vierge avec une reprise neuve et l'annonce
+   (`notice-tab-resume-failed`). Les infos enregistrées peuvent être en
+   retard (arrêt brutal entre deux écritures) : fermer un onglet endormi
+   sans abandon, ou remplacer un onglet enregistré vierge par un fichier
+   ouvert, le relit d'abord, hors du verrou de l'espace de travail, sans
+   jamais attendre une session occupée. Relecture impossible : fermeture
+   refusée (question), pas de remplacement. Un onglet fermé avant d'avoir
+   été relu n'est plus jamais réveillé (son dossier n'est pas réécrit).
+   Onglet cité sans infos lisibles (fichier d'avant t-158, ou entrée
+   altérée, qui ne coûte que son onglet) : relu au lancement, retiré s'il
+   est illisible. Onglet cité sans `state.json` :
+   retiré (dossier gardé s'il existe, via `kept`).
    Fenêtre restée sans onglet : retirée. Plus aucune fenêtre : une fenêtre,
    un onglet vierge.
 4. Dossiers `tabs/t-<n>` que `workspace.json` ne cite pas (ni dans une
@@ -302,7 +318,12 @@ resume/
   enregistré dans une session se voit dans une autre.
 - `tests/workspace.rs` (reprise) : aller-retour complet (2 fenêtres, 3
   onglets, actifs, un onglet en mode modèles, historique et `undo`) ;
-  `workspace.json` corrompu ; un onglet corrompu parmi trois ; onglet cité
+  `workspace.json` corrompu ; un onglet corrompu parmi trois (gardé, mis de
+  côté à sa première requête, avec son avis) ; restauration paresseuse
+  (titres sans relecture, onglet inactif relu entier, infos écrites à
+  chaque changement, fermeture d'un onglet endormi modifié ou aux infos en
+  retard, entrée `info` malformée, fichier sans `info`, fichier ouvert qui
+  remplace l'onglet vierge restauré) ; onglet cité
   sans dossier ; onglet cité sans état gardé sur deux lancements ; fenêtre
   refusée ; identifiants altérés ; compteurs trop bas ou trop hauts ;
   orphelins supprimés, dossiers mis de côté et étrangers gardés ; fichiers

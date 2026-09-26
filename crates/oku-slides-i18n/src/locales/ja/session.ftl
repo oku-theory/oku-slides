@@ -27,6 +27,7 @@ templates-copy-name = { $name }（コピー）
 template-default-name = テンプレート
 notice-modified-elsewhere = この PDF は Oku Slides の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
 notice-open-failed = { $path } を開けませんでした: { $reason }
+notice-tab-resume-failed = このタブの状態を復元できませんでした。状態は別に保管され、タブは空のプレゼンテーションから始まります。
 
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました

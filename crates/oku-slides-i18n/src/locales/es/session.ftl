@@ -27,6 +27,7 @@ templates-copy-name = { $name } (copia)
 template-default-name = Plantilla
 notice-modified-elsewhere = Otra herramienta modificó este PDF después de Oku Slides: puede que sus fuentes ya no coincidan con lo que muestra un lector de PDF.
 notice-open-failed = No se pudo abrir { $path }: { $reason }
+notice-tab-resume-failed = No se pudo restaurar el estado de esta pestaña: se ha apartado y la pestaña empieza de nuevo con una presentación en blanco.
 
 log-document-opened = Documento abierto
 log-document-saved = Documento guardado

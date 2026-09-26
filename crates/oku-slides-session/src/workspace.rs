@@ -3,6 +3,9 @@
 //! Chaque fenêtre a ses onglets, dans l'ordre de sa barre, et un onglet
 //! actif ; un onglet n'est que dans une fenêtre. Les sessions sont partagées
 //! (`Arc<Mutex<_>>`) : une requête d'onglet ne verrouille que la sienne.
+//! Reprise, un onglet dort (`workspace_slot.rs`) jusqu'à sa première
+//! requête : le lancement ne relit aucune session, la barre vient de
+//! `workspace.json`.
 //!
 //! Ordre des verrous : l'espace de travail, puis une session, jamais
 //! l'inverse. Seules [`Workspace::apply`], [`Workspace::request`],
@@ -233,14 +236,19 @@ impl Layout {
 }
 
 struct Tab {
-    session: Arc<Mutex<Session>>,
+    session: Arc<Mutex<Slot>>,
     /// Dernières infos connues : la vue se construit sans verrouiller les sessions.
     info: TabInfo,
 }
 
 impl Tab {
     fn new(session: Session) -> Self {
-        Self { info: session.tab_info(), session: Arc::new(Mutex::new(session)) }
+        Self { info: session.tab_info(), session: Arc::new(Mutex::new(Slot::Ready(Box::new(session)))) }
+    }
+
+    /// Un onglet repris qui dort : sa session sera relue à sa première requête.
+    fn dormant(info: TabInfo, dormant: Dormant) -> Self {
+        Self { info, session: Arc::new(Mutex::new(Slot::Dormant(Box::new(dormant)))) }
     }
 }
 
@@ -257,7 +265,7 @@ impl Trash {
     /// sans dossier.
     fn empty(&self, gone: Vec<(String, Tab)>) {
         for (id, tab) in gone {
-            relock(&tab.session).stop_resume();
+            relock(&tab.session).stop_resume(&id);
             let Some(dir) = &self.dir else { continue };
             // Double contrôle : jamais de suppression hors de `tabs/`.
             if !is_tab_id(&id) {
@@ -428,12 +436,65 @@ impl Workspace {
             Err(e) => return (Err(e), false),
         };
         let (reply, info) = {
-            let mut s = relock(&session);
-            let reply = s.handle(req);
-            (reply, s.tab_info())
+            let mut slot = relock(&session);
+            match slot.ready() {
+                Ok(s) => {
+                    let reply = s.handle(req);
+                    (reply, Some(s.tab_info()))
+                }
+                Err(e) => (Err(e), None),
+            }
         };
-        let changed = Self::lock(ws).note(tab, info);
+        let changed = info.is_some_and(|info| Self::refresh(ws, tab, info));
         (reply, changed)
+    }
+
+    /// Les infos d'un onglet après usage de sa session ; `true` si elles ont changé.
+    ///
+    /// Elles vivent aussi dans `workspace.json` (la barre du prochain
+    /// lancement) : écrites dès qu'elles changent.
+    fn refresh(ws: &Mutex<Self>, tab: &str, info: TabInfo) -> bool {
+        let mut w = Self::lock(ws);
+        let changed = w.note(tab, info);
+        if changed {
+            w.save_layout();
+        }
+        changed
+    }
+
+    /// Réveille les onglets endormis parmi `tabs`, hors du verrou de l'espace de travail.
+    ///
+    /// Avant une décision qui doit lire leur état réel (fermer sans
+    /// question, remplacer un onglet vierge) : les infos enregistrées
+    /// peuvent être en retard (arrêt brutal entre deux écritures). Un échec
+    /// est journalisé ; l'onglet reste endormi et la décision prudente.
+    fn wake(ws: &Mutex<Self>, tabs: &[String]) {
+        let sessions: Vec<(String, Arc<Mutex<Slot>>)> = {
+            let w = Self::lock(ws);
+            tabs.iter().filter_map(|id| Some((id.clone(), w.session(id).ok()?))).collect()
+        };
+        for (id, session) in sessions {
+            let info = {
+                // Jamais d'attente : une session occupée n'est pas endormie
+                // (déjà relue, ou en train de l'être), la décision reste prudente.
+                let mut slot = match session.try_lock() {
+                    Ok(slot) => slot,
+                    Err(std::sync::TryLockError::Poisoned(p)) => p.into_inner(),
+                    Err(std::sync::TryLockError::WouldBlock) => continue,
+                };
+                if !slot.is_dormant() {
+                    continue;
+                }
+                match slot.ready() {
+                    Ok(s) => s.tab_info(),
+                    Err(e) => {
+                        tracing::warn!(tab = %id, error = %e.one_line(), "onglet endormi non relu");
+                        continue;
+                    }
+                }
+            };
+            Self::refresh(ws, &id, info);
+        }
     }
 
     /// Traite une requête de structure ; renvoie la vue (ou les messages), en JSON.
@@ -446,6 +507,8 @@ impl Workspace {
     /// (sous ce même verrou, voir [`Workspace::is_only_window`]) ; deux
     /// fermetures concurrentes ne peuvent jamais vider l'espace de travail.
     pub fn apply(ws: &Mutex<Self>, req: WorkspaceRequest) -> Result<WorkspaceOutcome> {
+        let waking = Self::lock(ws).to_wake(&req);
+        Self::wake(ws, &waking);
         let pending = {
             let mut w = Self::lock(ws);
             match req {
@@ -540,11 +603,13 @@ impl Workspace {
         };
         // Toujours vierge ? L'état réel de la session fait foi. Sans attendre
         // sous le verrou : une session occupée (un rendu en cours) est en
-        // train d'être modifiée, donc pas vierge.
+        // train d'être modifiée, donc pas vierge ; une session endormie n'a
+        // pas été relue, donc rien ne prouve qu'elle l'est.
         let replaced = replace.filter(|r| {
+            let pristine = |slot: &Slot| slot.info().is_some_and(|i| i.pristine);
             w.session(r).is_ok_and(|s| match s.try_lock() {
-                Ok(s) => s.tab_info().pristine,
-                Err(std::sync::TryLockError::Poisoned(p)) => p.into_inner().tab_info().pristine,
+                Ok(slot) => pristine(&slot),
+                Err(std::sync::TryLockError::Poisoned(p)) => pristine(&p.into_inner()),
                 Err(std::sync::TryLockError::WouldBlock) => false,
             })
         });
@@ -578,10 +643,42 @@ impl Workspace {
         let mut w = Self::lock(ws);
         w.closed = true;
         w.save_layout();
-        let sessions: Vec<Arc<Mutex<Session>>> = w.tabs.values().map(|t| Arc::clone(&t.session)).collect();
+        let sessions: Vec<Arc<Mutex<Slot>>> = w.tabs.values().map(|t| Arc::clone(&t.session)).collect();
         drop(w);
         for session in sessions {
             drop(relock(&session));
+        }
+    }
+
+    /// Onglets dont `req` doit lire l'état réel : fermés sans abandon, ou
+    /// l'onglet vierge qu'un fichier ouvert remplacerait (s'il l'était).
+    fn to_wake(&self, req: &WorkspaceRequest) -> Vec<String> {
+        match req {
+            WorkspaceRequest::Close { tab, discard: false } => vec![tab.clone()],
+            // La seule fenêtre ne se ferme pas (l'app quitte en gardant tout) :
+            // rien à relire, la reprise paresseuse reste paresseuse.
+            WorkspaceRequest::CloseWindow { window, .. } if self.is_only_window(window) => Vec::new(),
+            WorkspaceRequest::CloseWindow { window, discard } => self
+                .layout
+                .windows
+                .iter()
+                .find(|w| &w.label == window)
+                .map(|w| w.tabs.iter().filter(|t| !discard.contains(t)).cloned().collect())
+                .unwrap_or_default(),
+            // Fin engagée, ou fichier déjà ouvert : aucun onglet ne sera remplacé.
+            WorkspaceRequest::OpenTab { path, .. } if self.closed || self.tab_with_path(&resolve(path)).is_some() => {
+                Vec::new()
+            }
+            WorkspaceRequest::OpenTab { window, .. } => self
+                .layout
+                .windows
+                .iter()
+                .find(|w| &w.label == window)
+                .map(|w| w.active.clone())
+                .filter(|id| self.tabs.get(id).is_some_and(|t| t.info.pristine))
+                .into_iter()
+                .collect(),
+            _ => Vec::new(),
         }
     }
 
@@ -641,32 +738,24 @@ impl Workspace {
     /// Refuse de fermer un onglet non enregistré, sans jamais attendre sa session.
     ///
     /// `discard` : l'utilisateur abandonne le travail, rien à lire. Sinon,
-    /// seul `try_lock` est tenté : verrouillée (un rendu en cours) ou
-    /// empoisonnée (une panique) refuse aussi la fermeture, pour ne jamais
-    /// fermer un onglet occupé en silence ; l'utilisateur retente.
+    /// seul `try_lock` est tenté : verrouillée (un rendu en cours),
+    /// empoisonnée (une panique) ou encore endormie (réveil en échec, voir
+    /// [`Workspace::wake`]) refuse aussi la fermeture, pour ne jamais fermer
+    /// en silence un onglet dont on ne connaît pas l'état ; l'utilisateur
+    /// retente, ou abandonne.
     fn ensure_closable(&self, tab: &str, discard: bool) -> Result<()> {
+        let t = self.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
         if discard {
             return Ok(());
         }
-        let session = self.session(tab)?;
-        match session.try_lock() {
-            Ok(s) => {
-                let info = s.tab_info();
-                ensure!(!info.dirty, UnsavedSnafu { title: info.title });
-                Ok(())
-            }
-            Err(std::sync::TryLockError::WouldBlock) => {
-                let title = self.tabs.get(tab).map(|t| t.info.title.clone()).unwrap_or_default();
-                Err(UnsavedSnafu { title }.build().into())
-            }
-            Err(std::sync::TryLockError::Poisoned(p)) => {
-                Err(UnsavedSnafu { title: p.into_inner().tab_info().title }.build().into())
-            }
-        }
+        let info = t.session.try_lock().ok().and_then(|slot| slot.info());
+        let (dirty, title) = info.map_or((true, t.info.title.clone()), |i| (i.dirty, i.title));
+        ensure!(!dirty, UnsavedSnafu { title });
+        Ok(())
     }
 
-    /// La session d'un onglet.
-    fn session(&self, tab: &str) -> Result<Arc<Mutex<Session>>> {
+    /// La session d'un onglet, peut-être endormie.
+    fn session(&self, tab: &str) -> Result<Arc<Mutex<Slot>>> {
         Ok(self.tabs.get(tab).map(|t| Arc::clone(&t.session)).context(UnknownTabSnafu { id: tab })?)
     }
 
@@ -809,6 +898,11 @@ impl Workspace {
 
 #[path = "workspace_resume.rs"]
 mod resume;
+
+#[path = "workspace_slot.rs"]
+mod slot;
+
+use slot::{Dormant, Slot};
 
 #[cfg(test)]
 #[path = "workspace_tests.rs"]

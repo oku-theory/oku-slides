@@ -27,6 +27,7 @@ templates-copy-name = { $name } (copia)
 template-default-name = Modello
 notice-modified-elsewhere = Questo PDF è stato modificato da un altro strumento dopo Oku Slides: le sue sorgenti potrebbero non corrispondere più a ciò che mostra un lettore PDF.
 notice-open-failed = Impossibile aprire { $path }: { $reason }
+notice-tab-resume-failed = Non è stato possibile ripristinare lo stato di questa scheda: è stato messo da parte e la scheda riparte da una presentazione vuota.
 
 log-document-opened = Documento aperto
 log-document-saved = Documento salvato

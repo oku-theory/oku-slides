@@ -253,7 +253,8 @@ fn close_tab_with_only_edited_templates_returns_unsaved() {
     let ws = workspace_in(&data);
     let edit: Request = serde_json::from_value(json!({"cmd": "edit_templates", "set": crate::DEFAULT_SET})).unwrap();
     Workspace::request(&ws, "t-1", edit).0.unwrap();
-    let first = Workspace::lock(&ws).session("t-1").unwrap().lock().unwrap().deck().slides[0].id.clone();
+    let first =
+        Workspace::lock(&ws).session("t-1").unwrap().lock().unwrap().ready().unwrap().deck().slides[0].id.clone();
     let remove: Request = serde_json::from_value(
         json!({"cmd": "apply", "label": "Retirer", "ops": [{"op": "remove_slide", "slide": first}]}),
     )
@@ -689,4 +690,18 @@ fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
     let reply = send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap().into_json();
     let after: serde_json::Value = serde_json::from_str(&reply).unwrap();
     assert_that!(after["generation"].as_u64().unwrap()).is_greater_than(before);
+}
+
+/// Un onglet fermé avant d'avoir été relu n'est plus jamais réveillé : une
+/// requête en retard ne réécrit pas le dossier qu'on vient de supprimer.
+#[test]
+fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
+    let data = Data::new();
+    let dir = data.0.join("tabs/t-9");
+    let dormant = Dormant { dir: dir.clone(), fonts: Fonts::default(), platform: platform(&data.0) };
+    let mut slot = Slot::Dormant(Box::new(dormant));
+    slot.stop_resume("t-9");
+    let err = slot.ready().err().map(|e| e.kind());
+    assert_that!(err).is_equal_to(Some(SessionErrorKind::UnknownTab));
+    assert_that!(dir.exists()).is_false();
 }

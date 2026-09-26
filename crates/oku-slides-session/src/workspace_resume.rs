@@ -3,19 +3,55 @@
 //! Relit `workspace.json` et chaque onglet, écarte les orphelins et les
 //! entrées non fiables, puis réécrit l'état à chaque changement.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::Localize;
 use crate::error::Result;
 use crate::resume::{Resume, ResumeError};
+use crate::views::TabInfo;
 use crate::{Fonts, Platform, Session};
 
+use serde::{Deserialize, Serialize};
+
 use super::{
-    LAYOUT_VERSION, Layout, MAX_NUMBER, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest, is_tab_id,
+    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest, is_tab_id,
     is_window_label, number, relock,
 };
+
+/// `workspace.json` tel qu'écrit : la structure, et les infos de chaque onglet.
+#[derive(Serialize)]
+struct LayoutFile<'a> {
+    #[serde(flatten)]
+    layout: &'a Layout,
+    /// La barre du lancement suivant, sans session relue.
+    info: BTreeMap<&'a str, &'a TabInfo>,
+}
+
+/// `workspace.json` tel que relu.
+///
+/// Les infos restent brutes jusqu'à leur onglet : une entrée malformée ne
+/// coûte que la sienne (l'onglet est alors relu au lancement), jamais tout
+/// l'espace de travail.
+#[derive(Deserialize)]
+struct SavedLayout {
+    #[serde(flatten)]
+    layout: Layout,
+    /// Brut jusqu'au bout : même autre chose qu'un objet ne coûte que les infos.
+    #[serde(default)]
+    info: serde_json::Value,
+}
+
+impl SavedLayout {
+    /// Les infos enregistrées de l'onglet `id`, si elles se lisent.
+    fn take_info(&mut self, id: &str) -> Option<TabInfo> {
+        let raw = self.info.as_object_mut()?.remove(id)?;
+        serde_json::from_value(raw)
+            .inspect_err(|e| tracing::warn!(tab = id, error = %e, "infos d'onglet illisibles : onglet relu"))
+            .ok()
+    }
+}
 
 impl Workspace {
     /// Reprend l'espace de travail laissé dans `dir` (`<data>/resume`).
@@ -68,10 +104,10 @@ impl Workspace {
     /// identifiant relu + 1 et `MAX_NUMBER`.
     fn restore(&mut self, dir: &Path) -> std::result::Result<HashSet<String>, ResumeError> {
         let resume = Resume::new(self.platform.storage.clone(), dir.to_owned());
-        let Some(mut saved) = resume.read_json::<Layout>("workspace.json", LAYOUT_VERSION)? else {
+        let Some(mut file) = resume.read_json::<SavedLayout>("workspace.json", LAYOUT_VERSION)? else {
             return Ok(HashSet::new());
         };
-        let windows = std::mem::take(&mut saved.windows);
+        let windows = std::mem::take(&mut file.layout.windows);
         let mut cited = HashSet::new();
         let mut restored = HashSet::new();
         let mut labels = HashSet::new();
@@ -90,7 +126,7 @@ impl Workspace {
                     tracing::warn!(tab = %id, "onglet de reprise refusé");
                     continue;
                 }
-                if accepted && self.restore_tab(dir, &id) {
+                if accepted && self.restore_tab(dir, &id, file.take_info(&id)) {
                     restored.insert(id.clone());
                     tabs.push(id);
                 }
@@ -102,6 +138,7 @@ impl Workspace {
             self.recent.push(w.label.clone());
             self.layout.windows.push(WindowLayout { label: w.label, tabs, active });
         }
+        let saved = file.layout;
         // Les onglets gardés la dernière fois restent cités (après les
         // fenêtres : un identifiant des deux côtés reste restauré).
         cited.extend(saved.kept.iter().filter(|id| is_tab_id(id)).cloned());
@@ -131,9 +168,14 @@ impl Workspace {
         Ok(cited)
     }
 
-    /// Relit la session d'un onglet ; `false` : onglet retiré (sans dossier,
-    /// ou illisible). Son dossier, s'il existe, reste en place.
-    fn restore_tab(&mut self, dir: &Path, id: &str) -> bool {
+    /// Reprend un onglet ; `false` : onglet retiré (sans dossier, ou illisible).
+    ///
+    /// Avec ses infos enregistrées, l'onglet dort : sa session ne sera relue
+    /// qu'à sa première requête, et un état illisible découvert alors ne le
+    /// retire plus (voir `workspace_slot.rs`). Sans infos lisibles (fichier
+    /// d'avant t-158, ou altéré), l'onglet est relu tout de suite et retiré
+    /// s'il est illisible. Son dossier, s'il existe, reste en place.
+    fn restore_tab(&mut self, dir: &Path, id: &str, info: Option<TabInfo>) -> bool {
         let tab_dir = dir.join(TABS_DIR).join(id);
         match self.platform.storage.exists(&tab_dir.join("state.json")) {
             Ok(true) => {}
@@ -145,6 +187,11 @@ impl Workspace {
                 tracing::warn!(tab = id, error = %oku_slides_platform::errors::one_line(&e), "onglet illisible : retiré, gardé sur le disque");
                 return false;
             }
+        }
+        if let Some(info) = info {
+            let dormant = Dormant { dir: tab_dir, fonts: self.fonts.clone(), platform: self.platform.clone() };
+            self.tabs.insert(id.to_owned(), Tab::dormant(info, dormant));
+            return true;
         }
         let mut session = match Session::new(self.fonts.clone(), &self.platform) {
             Ok(s) => s,
@@ -229,19 +276,30 @@ impl Workspace {
                 if active.is_none() {
                     tracing::warn!(path = %path.display(), "aucune fenêtre pour montrer l'avis d'ouverture");
                 }
-                (text, active.and_then(|id| w.session(&id).ok()))
+                (text, active.and_then(|id| Some((w.session(&id).ok()?, id))))
             };
-            if let Some(session) = session {
-                relock(&session).set_notice(text);
+            let Some((session, id)) = session else { continue };
+            // L'onglet actif, peut-être endormi : relu ici, il le serait de toute façon.
+            let info = relock(&session).ready().map(|s| {
+                s.set_notice(text);
+                s.tab_info()
+            });
+            match info {
+                Ok(info) => {
+                    Self::refresh(ws, &id, info);
+                }
+                Err(e) => tracing::warn!(path = %path.display(), error = %e.one_line(), "avis d'ouverture non posé"),
             }
         }
     }
 
-    /// Écrit `workspace.json` ; un échec est journalisé.
+    /// Écrit `workspace.json`, avec les infos de chaque onglet ; un échec est journalisé.
     pub(super) fn save_layout(&self) {
         let Some(dir) = &self.dir else { return };
+        let file =
+            LayoutFile { layout: &self.layout, info: self.tabs.iter().map(|(id, t)| (id.as_str(), &t.info)).collect() };
         let resume = Resume::new(self.platform.storage.clone(), dir.clone());
-        if let Err(e) = resume.write_json("workspace.json", &self.layout) {
+        if let Err(e) = resume.write_json("workspace.json", &file) {
             tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "espace de travail non enregistré");
         }
     }

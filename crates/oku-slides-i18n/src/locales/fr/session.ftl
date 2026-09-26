@@ -27,6 +27,7 @@ templates-copy-name = { $name } (copie)
 template-default-name = Modèle
 notice-modified-elsewhere = Ce PDF a été modifié par un autre outil après Oku Slides : ses sources peuvent ne plus correspondre à ce qui s'affiche dans un lecteur PDF.
 notice-open-failed = { $path } n'a pas pu être ouvert : { $reason }
+notice-tab-resume-failed = L'état de cet onglet n'a pas pu être repris : il a été mis de côté, et l'onglet repart d'une présentation vierge.
 
 log-document-opened = Document ouvert
 log-document-saved = Document enregistré

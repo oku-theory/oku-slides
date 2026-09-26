@@ -323,7 +323,8 @@ impl Session {
     /// pas. Renvoie `false` si l'état est illisible : il ne doit jamais
     /// coûter le travail non enregistré qu'il contenait peut-être, le dossier
     /// est donc déplacé de côté (jamais écrasé) ; la session repart d'un deck
-    /// vierge et n'écrit rien. L'espace de travail retire alors l'onglet.
+    /// vierge et n'écrit rien. L'espace de travail retire alors l'onglet au
+    /// lancement, ou le garde vierge s'il le relit plus tard (`workspace_slot.rs`).
     #[must_use]
     pub fn resume(&mut self, dir: PathBuf) -> bool {
         let resume = Resume::new(self.storage.clone(), dir);
