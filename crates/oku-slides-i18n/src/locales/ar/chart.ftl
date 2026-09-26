@@ -36,3 +36,4 @@ chart-default-name = الاسم
 chart-default-axis = المحور
 chart-default-x = { $name } (x)
 chart-patch-inline-data = مع وجود dataset، يجب أن تبقى البيانات فيه: عدّلها باستخدام set_chart_data
+chart-bad-color = لون غير صالح: { $color } (المتوقع #rgb أو #rrggbb)

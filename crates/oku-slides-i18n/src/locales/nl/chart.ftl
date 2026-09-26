@@ -36,3 +36,4 @@ chart-default-name = Naam
 chart-default-axis = As
 chart-default-x = { $name } (x)
 chart-patch-inline-data = met een dataset moeten de gegevens in de dataset blijven: bewerk ze met set_chart_data
+chart-bad-color = ongeldige kleur: { $color } (verwacht #rgb of #rrggbb)

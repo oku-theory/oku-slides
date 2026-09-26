@@ -18,6 +18,8 @@ pub struct ChartModel {
     pub legend_show: bool,
     pub legend_align: HAlign,
     pub kind: ChartKind,
+    /// Palette des séries ; `None` = celle du thème.
+    pub palette: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,6 +59,8 @@ pub struct CartesianSeries {
     pub label: bool,
     /// Groupe d'empilement : les séries du même groupe s'empilent.
     pub stack: Option<String>,
+    /// Couleur propre à la série ; `None` = la palette.
+    pub color: Option<String>,
 }
 
 /// Cascade : une variation par catégorie ; `None` = barre de total.
@@ -96,6 +100,8 @@ pub struct Scatter {
 pub struct ScatterSeries {
     pub name: String,
     pub points: Vec<(f64, f64)>,
+    /// Couleur propre à la série ; `None` = la palette.
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +130,7 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
 /// `labels` nomme les séries qui n'ont pas de nom.
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
+    check_colors(option)?;
     let table = option.dataset.as_ref().map(Table::new).transpose()?;
 
     let kind = match first.kind {
@@ -144,7 +151,26 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
         legend_show: legend.and_then(|l| l.show).unwrap_or(default_legend),
         legend_align: legend.and_then(|l| l.left).unwrap_or(HAlign::Center),
         kind,
+        palette: option.color.clone(),
     })
+}
+
+/// Couleur d'une série (`itemStyle.color`), si elle en a une.
+fn series_color(s: &Series) -> Option<String> {
+    s.item_style.as_ref().and_then(|i| i.color.clone())
+}
+
+/// Les couleurs de la palette et des séries sont en `#rgb` ou `#rrggbb`.
+fn check_colors(option: &ChartOption) -> Result<()> {
+    let is_hex = |c: &str| {
+        c.strip_prefix('#').is_some_and(|h| matches!(h.len(), 3 | 6) && h.chars().all(|ch| ch.is_ascii_hexdigit()))
+    };
+    let palette = option.color.iter().flatten();
+    let series = option.series.iter().filter_map(|s| s.item_style.as_ref()?.color.as_ref());
+    match palette.chain(series).find(|c| !is_hex(c)) {
+        Some(bad) => Err(inconsistent(Message::new("chart-bad-color").arg("color", bad.as_str()))),
+        None => Ok(()),
+    }
 }
 
 fn inconsistent(reason: Message) -> ChartError {
@@ -281,6 +307,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
             values,
             label: s.label.as_ref().and_then(|l| l.show).unwrap_or(false),
             stack: s.stack.clone(),
+            color: series_color(s),
         });
     }
 
@@ -389,7 +416,7 @@ fn scatter(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) ->
             }
             (None, None) => return Err(inconsistent(Message::new("chart-series-empty").arg("index", i))),
         };
-        series.push(ScatterSeries { name, points });
+        series.push(ScatterSeries { name, points, color: series_color(s) });
     }
     let x = option.x_axis.as_ref();
     let y = option.y_axis.as_ref();

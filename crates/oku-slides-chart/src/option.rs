@@ -4,8 +4,9 @@
 //! désérialisation (`deny_unknown_fields`) et génèrent le JSON Schema fourni
 //! au LLM (voir [`crate::schema`]). Les noms de champs suivent ECharts.
 //!
-//! Les couleurs et les polices ne font pas partie du sous-ensemble : elles
-//! viennent du thème appliqué au rendu.
+//! Les polices viennent du thème appliqué au rendu. Les couleurs aussi, sauf
+//! `color` (palette des séries) et `series.itemStyle.color` (une série), en
+//! `#rgb` ou `#rrggbb`.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,10 @@ pub struct ChartOption {
     pub radar: Option<Radar>,
     /// Au moins une série.
     pub series: Vec<Series>,
+    /// Palette des séries, dans l'ordre (`#rgb` ou `#rrggbb`) ; celle du
+    /// thème si absente.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -180,6 +185,17 @@ pub struct Series {
     pub rose_type: Option<RoseType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<Label>,
+    /// Barres, lignes ou nuage : couleur de la série.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_style: Option<ItemStyle>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ItemStyle {
+    /// `#rgb` ou `#rrggbb`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

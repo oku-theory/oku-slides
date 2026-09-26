@@ -36,3 +36,4 @@ chart-default-name = Nombre
 chart-default-axis = Eje
 chart-default-x = { $name } (x)
 chart-patch-inline-data = con un dataset, los datos deben quedarse en el dataset: edítalos con set_chart_data
+chart-bad-color = color no válido: { $color } (se espera #rgb o #rrggbb)

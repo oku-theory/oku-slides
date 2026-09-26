@@ -36,3 +36,4 @@ chart-default-name = Nazwa
 chart-default-axis = Oś
 chart-default-x = { $name } (x)
 chart-patch-inline-data = przy zbiorze danych dane muszą pozostać w zbiorze: edytuj je za pomocą set_chart_data
+chart-bad-color = nieprawidłowy kolor: { $color } (oczekiwano #rgb lub #rrggbb)

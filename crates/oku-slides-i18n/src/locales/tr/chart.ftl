@@ -36,3 +36,4 @@ chart-default-name = Ad
 chart-default-axis = Eksen
 chart-default-x = { $name } (x)
 chart-patch-inline-data = dataset varken veriler dataset içinde kalmalı: set_chart_data ile düzenleyin
+chart-bad-color = geçersiz renk: { $color } (beklenen #rgb veya #rrggbb)

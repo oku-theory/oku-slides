@@ -122,7 +122,8 @@ fn parse_option_inconsistent_options_explain_the_fix() {
     let err = parse_option(&json!({ "series": [{ "type": "bar", "itemStyle": { "color": "red" } }] }))
         .unwrap_err()
         .localize(oku_slides_i18n::english());
-    asserting(&err).that(&err.as_str()).contains("itemStyle");
+    asserting(&err).that(&err.as_str()).contains("red");
+    asserting(&err).that(&err.as_str()).contains("#rrggbb");
 }
 
 /// Abscisses distinctes des barres (rectangles pleins) d'un SVG.
@@ -157,4 +158,37 @@ fn render_waterfall_draws_one_bar_per_step_without_legend() {
     }));
     assert_that!(bar_columns(&svg).len()).is_equal_to(4);
     assert_that!(svg.contains("Montant")).is_false();
+}
+
+/// Le SVG contient la couleur, en hexadécimal ou en rgb().
+fn has_color(svg: &str, hex: &str) -> bool {
+    let h = hex.trim_start_matches('#');
+    let byte = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).unwrap_or(0);
+    svg.to_lowercase().contains(&hex.to_lowercase())
+        || svg.contains(&format!("rgb({},{},{}", byte(0), byte(2), byte(4)))
+}
+
+#[test]
+fn render_series_color_overrides_the_palette_for_that_series_only() {
+    let theme = ChartTheme { palette: vec!["#123456".into(), "#654321".into()], ..Default::default() };
+    let option = parse_option(&json!({
+        "xAxis": { "data": ["a"] },
+        "series": [{ "type": "bar", "data": [1] }, { "type": "bar", "data": [2], "itemStyle": { "color": "#ABCDEF" } }]
+    }))
+    .unwrap();
+    let svg = ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap();
+    assert_that!((has_color(&svg, "#123456"), has_color(&svg, "#ABCDEF"), has_color(&svg, "#654321")))
+        .is_equal_to((true, true, false));
+}
+
+#[test]
+fn render_option_palette_replaces_the_theme_palette() {
+    let theme = ChartTheme { palette: vec!["#123456".into()], ..Default::default() };
+    let option = parse_option(&json!({
+        "color": ["#0A0B0C"],
+        "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }]
+    }))
+    .unwrap();
+    let svg = ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap();
+    assert_that!((has_color(&svg, "#0A0B0C"), has_color(&svg, "#123456"))).is_equal_to((true, false));
 }

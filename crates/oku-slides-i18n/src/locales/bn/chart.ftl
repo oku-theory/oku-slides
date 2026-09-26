@@ -36,3 +36,4 @@ chart-default-name = নাম
 chart-default-axis = অক্ষ
 chart-default-x = { $name } (x)
 chart-patch-inline-data = dataset থাকলে ডেটা dataset-এই থাকতে হবে: set_chart_data দিয়ে সম্পাদনা করুন
+chart-bad-color = অবৈধ রং: { $color } (প্রত্যাশিত #rgb বা #rrggbb)

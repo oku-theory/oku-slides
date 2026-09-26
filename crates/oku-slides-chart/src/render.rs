@@ -48,6 +48,7 @@ impl ChartsRsRenderer {
                 let mut chart = HorizontalBarChart::new_with_theme(series, c.categories.clone(), "light");
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
+                self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
                 set_bounds(&mut axes, c.value_min, c.value_max);
                 chart.y_axis_configs = axes;
                 chart.svg()
@@ -57,6 +58,7 @@ impl ChartsRsRenderer {
                 let mut chart = LineChart::new_with_theme(series, c.categories.clone(), "light");
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
+                self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
                 set_bounds(&mut axes, c.value_min, c.value_max);
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
@@ -68,6 +70,7 @@ impl ChartsRsRenderer {
                 let mut chart = BarChart::new_with_theme(series, c.categories.clone(), "light");
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
+                self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
                 set_bounds(&mut axes, c.value_min, c.value_max);
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
@@ -105,6 +108,7 @@ impl ChartsRsRenderer {
                 let mut chart = ScatterChart::new_with_theme(series, "light");
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
+                self.series_colors(&mut chart.base, model, s.series.iter().map(|ss| ss.color.as_deref()));
                 set_bounds(&mut axes, s.y_min, s.y_max);
                 chart.y_axis_configs = axes;
                 self.axis_style(&mut chart.x_axis_config);
@@ -167,7 +171,7 @@ impl ChartsRsRenderer {
         chart.x_axis_data = w.categories.clone();
         self.frame(&mut chart.base, &mut [], model, size);
         chart.label_show = w.label;
-        let palette = |i: usize| t.palette.get(i).map(|c| color(c));
+        let palette = |i: usize| self.palette(model).get(i).map(|c| color(c));
         if let Some(c) = palette(0) {
             chart.total_color = c;
         }
@@ -178,6 +182,22 @@ impl ChartsRsRenderer {
             chart.increase_color = c;
         }
         Ok(chart.svg().context(RenderSnafu)?)
+    }
+
+    /// Palette des séries : celle des options, sinon celle du thème.
+    fn palette<'a>(&'a self, model: &'a ChartModel) -> &'a [String] {
+        model.palette.as_deref().filter(|p| !p.is_empty()).unwrap_or(&self.theme.palette)
+    }
+
+    /// Couleur de chaque série : la sienne, sinon la palette (en boucle).
+    fn series_colors<'a>(&self, base: &mut ChartBase, model: &ChartModel, own: impl Iterator<Item = Option<&'a str>>) {
+        let palette = self.palette(model);
+        base.series_colors = own
+            .enumerate()
+            .map(|(i, c)| {
+                color(c.or_else(|| palette.get(i % palette.len().max(1)).map(String::as_str)).unwrap_or("#000"))
+            })
+            .collect();
     }
 
     /// Taille, titre, légende et thème, communs à tous les graphiques.
@@ -213,7 +233,7 @@ impl ChartsRsRenderer {
         base.x_axis_font_color = color(&t.text_muted);
         base.x_axis_stroke_color = color(&t.axis);
         base.grid_stroke_color = color(&t.grid);
-        base.series_colors = t.palette.iter().map(|c| color(c)).collect();
+        base.series_colors = self.palette(model).iter().map(|c| color(c)).collect();
         base.series_label_font_size = t.label_size;
         base.series_label_font_color = color(&t.text);
         base.series_stroke_width = t.stroke_width;

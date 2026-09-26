@@ -36,3 +36,4 @@ chart-default-name = 名前
 chart-default-axis = 軸
 chart-default-x = { $name }（x）
 chart-patch-inline-data = dataset がある場合、データは dataset 内に置く必要があります：set_chart_data で編集してください
+chart-bad-color = 無効な色：{ $color }（#rgb または #rrggbb が必要です）

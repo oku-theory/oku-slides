@@ -111,3 +111,43 @@ fn normalize_waterfall_keeps_declared_axis_bounds() {
     .unwrap();
     assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-1.0), Some(4.0)));
 }
+
+fn two_bars(extra: serde_json::Value) -> ChartOption {
+    let mut v = serde_json::json!({
+        "dataset": { "source": [["Mois", "Nord", "Sud"], ["Jan", 3, 4]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }, { "type": "bar", "itemStyle": { "color": "#C4622D" } }]
+    });
+    json_patch::merge(&mut v, &extra);
+    option(v)
+}
+
+#[test]
+fn normalize_option_color_becomes_the_palette() {
+    let model =
+        normalize(&two_bars(serde_json::json!({ "color": ["#112233", "#445566"] })), ChartLabels::english()).unwrap();
+    assert_that!(model.palette).is_equal_to(Some(vec!["#112233".to_owned(), "#445566".to_owned()]));
+}
+
+#[test]
+fn normalize_series_color_reaches_the_cartesian_series() {
+    let ChartKind::Cartesian(c) = normalize(&two_bars(serde_json::json!({})), ChartLabels::english()).unwrap().kind
+    else {
+        panic!("cartésien attendu")
+    };
+    assert_that!(c.series.iter().map(|s| s.color.as_deref()).collect::<Vec<_>>())
+        .is_equal_to(vec![None, Some("#C4622D")]);
+}
+
+#[test]
+fn normalize_invalid_series_color_is_rejected() {
+    let bad = two_bars(serde_json::json!({ "series": [{ "type": "bar", "itemStyle": { "color": "rouge" } }] }));
+    let err = normalize(&bad, ChartLabels::english()).err();
+    assert_that!(err.map(|e| e.kind())).is_equal_to(Some(crate::ChartErrorKind::Inconsistent));
+}
+
+#[test]
+fn normalize_invalid_palette_color_is_rejected() {
+    let bad = two_bars(serde_json::json!({ "color": ["#12345"] }));
+    assert_that!(normalize(&bad, ChartLabels::english()).is_err()).is_true();
+}

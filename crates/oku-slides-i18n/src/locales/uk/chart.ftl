@@ -36,3 +36,4 @@ chart-default-name = Назва
 chart-default-axis = Вісь
 chart-default-x = { $name } (x)
 chart-patch-inline-data = за наявності dataset дані мають залишатися в dataset: змінюйте їх через set_chart_data
+chart-bad-color = неприпустимий колір: { $color } (очікується #rgb або #rrggbb)

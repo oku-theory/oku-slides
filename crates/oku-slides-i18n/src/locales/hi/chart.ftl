@@ -36,3 +36,4 @@ chart-default-name = नाम
 chart-default-axis = अक्ष
 chart-default-x = { $name } (x)
 chart-patch-inline-data = dataset होने पर डेटा dataset में ही रहना चाहिए: इसे set_chart_data से संपादित करें
+chart-bad-color = अमान्य रंग: { $color } (अपेक्षित #rgb या #rrggbb)

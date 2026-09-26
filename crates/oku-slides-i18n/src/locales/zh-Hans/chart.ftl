@@ -36,3 +36,4 @@ chart-default-name = 名称
 chart-default-axis = 轴
 chart-default-x = { $name }（x）
 chart-patch-inline-data = 使用 dataset 时，数据必须保留在 dataset 中：请用 set_chart_data 编辑
+chart-bad-color = 无效的颜色：{ $color }（应为 #rgb 或 #rrggbb）
