@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
 import { fontStack } from "./appearance";
+import { luminance } from "./color";
 import type { GridPlacement } from "./deck";
 import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./deck";
 import type { Cell, GridSpec, ZoneView } from "./grid";
@@ -89,16 +90,6 @@ function dragged(d: Drag): Frame {
 const WEIGHTS: Record<string, number> = {
   thin: 100, extralight: 200, light: 300, regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900,
 };
-
-/** Luminance relative d'une couleur #rrggbb (WCAG). */
-function luminance(hex: string): number | null {
-  const m = /^#?([0-9a-f]{6})/i.exec(hex);
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => lin(v / 255));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
 
 /**
  * Fond de l'éditeur : celui de la slide sous le texte ; s'il ne contraste pas
