@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 use oku_slides_session::{Request, Workspace, WorkspaceRequest};
 use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::ipc::Response;
-use tauri::{AppHandle, LogicalPosition, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::state::{self, AppState, CLOSING};
 use crate::windows;
@@ -20,7 +20,7 @@ use crate::windows;
 ///
 /// `f` reçoit l'`AppHandle` (pour `windows::sync` et consorts) et l'état de
 /// l'app, tous deux prêts sur ce fil dédié.
-async fn blocking<T: Send + 'static>(
+pub async fn blocking<T: Send + 'static>(
     app: &AppHandle,
     f: impl FnOnce(&AppHandle, &AppState) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -92,30 +92,6 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         } else {
             Ok(outcome.into_json())
         }
-    })
-    .await?;
-    Ok(Response::new(reply))
-}
-
-/// Onglet lâché hors de sa fenêtre au point écran `(x, y)`.
-///
-/// Il rejoint la fenêtre sous ce point, sinon une nouvelle fenêtre à cet
-/// endroit (l'écran visé).
-#[tauri::command]
-pub async fn drop_tab(app: AppHandle, tab: String, x: f64, y: f64) -> Result<Response, String> {
-    if !(x.is_finite() && y.is_finite()) {
-        return Err("invalid drop point".to_owned());
-    }
-    let reply = blocking(&app, move |app, state| {
-        if state.closing.load(Ordering::SeqCst) {
-            return Err(CLOSING.to_owned());
-        }
-        let rects = windows::rects(app);
-        let window = Workspace::lock(&state.workspace).window_at(x, y, &rects);
-        Workspace::apply(&state.workspace, WorkspaceRequest::MoveTab { tab, window, index: None })
-            .map_err(|e| state.refuse(e))?;
-        let view = windows::sync(app, Some(LogicalPosition::new(x, y)), true);
-        serde_json::to_string(&view).map_err(|e| e.to_string())
     })
     .await?;
     Ok(Response::new(reply))

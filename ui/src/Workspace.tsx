@@ -1,9 +1,9 @@
-// Une fenêtre : la barre d'onglets et l'`App` de l'onglet actif.
+// Une fenêtre : l'`App` de l'onglet actif, la barre d'onglets en bas.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import App from "./App";
 import TabBar from "./TabBar";
-import { errorText, inTauri, isMac, tabApi, workspace, type WorkspaceView } from "./api";
+import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, type WorkspaceView } from "./api";
 import { mayClose } from "./close";
 import { t } from "./i18n";
 import { cycle, nth, tabShortcut } from "./tabs";
@@ -13,19 +13,6 @@ async function ownLabel(view: WorkspaceView): Promise<string> {
   if (!inTauri) return view.windows[0]?.label ?? "";
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   return getCurrentWindow().label;
-}
-
-/** Écoute un événement Tauri ; l'abonnement suit la vie de l'effet (StrictMode compris). */
-function listenTauri(subscribe: () => Promise<() => void>): () => void {
-  let stop: (() => void) | undefined;
-  let dead = false;
-  subscribe()
-    .then((un) => (dead ? un() : (stop = un)))
-    .catch((e) => console.error("événement de l'hôte", e));
-  return () => {
-    dead = true;
-    stop?.();
-  };
 }
 
 /** Une fenêtre : sa barre d'onglets et l'`App` de l'onglet actif. */
@@ -222,10 +209,9 @@ export default function Workspace() {
   // Un fichier ouvert devient l'onglet actif (nouveau, ou déjà ouvert
   // ailleurs) : `key` remonte l'`App`. Déjà actif : rien à recharger.
   const onOpen = (path: string) => void run(workspace.openTab(label, path));
-  const dropOutside = async (id: string, x: number, y: number) => {
+  const dropOutside = async (id: string) => {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("drop_tab", { tab: id, x, y });
+      await tabDrag.drop(id);
     } catch (e) {
       if (alive.current) setError(errorText(e));
     }
@@ -233,10 +219,16 @@ export default function Workspace() {
 
   return (
     <div className="workspace">
+      {/* Barre de titre intégrée (macOS) : de quoi déplacer la fenêtre, et ses boutons. */}
+      {inTauri && isMac && <div className="titlebar" data-tauri-drag-region />}
+      {error && <p className="workspace-error" role="alert">{error}</p>}
+      <div className="workspace-body">
+        {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
+        <App key={win.active} tab={win.active} nonce={nonce} onOpen={onOpen} onChange={inTauri ? undefined : reread} />
+      </div>
       <TabBar
         view={view}
         win={win}
-        overlay={inTauri && isMac}
         windows={inTauri}
         onActivate={(id) => run(workspace.activate(id))}
         onClose={closeTab}
@@ -244,13 +236,10 @@ export default function Workspace() {
         onNew={() => run(workspace.newTab(label))}
         onReorder={(id, index) => run(workspace.reorder(id, index))}
         onMove={(id, target) => run(workspace.moveTab(id, target))}
+        onDragOver={tabDrag.over}
+        onDragLeave={tabDrag.leave}
         onDropOutside={dropOutside}
       />
-      {error && <p className="workspace-error" role="alert">{error}</p>}
-      <div className="workspace-body">
-        {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
-        <App key={win.active} tab={win.active} nonce={nonce} onOpen={onOpen} onChange={inTauri ? undefined : reread} />
-      </div>
     </div>
   );
 }

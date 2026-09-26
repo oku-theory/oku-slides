@@ -392,6 +392,11 @@ impl Workspace {
         self.recent.iter().rev().find(|label| rects.iter().any(|(l, r)| l == *label && r.contains(x, y))).cloned()
     }
 
+    /// Label de la fenêtre qui porte l'onglet `tab`.
+    pub fn tab_window(&self, tab: &str) -> Option<&str> {
+        self.layout.windows.iter().find(|w| w.tabs.iter().any(|t| t == tab)).map(|w| w.label.as_str())
+    }
+
     /// `label` est-elle la seule fenêtre de l'espace de travail ?
     ///
     /// Prédicat unique, utilisé par [`Workspace::apply`] (`CloseWindow`, sous

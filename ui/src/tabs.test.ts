@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cycle, finalIndex, nth, outside, slotAt, tabShortcut } from "./tabs";
+import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, nth, outside, slotAt, tabShortcut } from "./tabs";
 
 const key = (code: string, key: string, mods: Partial<{ metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; repeat: boolean }> = {}) => ({
   code,
@@ -93,5 +93,76 @@ describe("barre d'onglets", () => {
     expect(outside(10, 10, 100, 100)).toBe(false);
     expect(outside(-1, 10, 100, 100)).toBe(true);
     expect(outside(10, 100, 100, 100)).toBe(true);
+  });
+
+  test("menuAbove pose le menu au-dessus du pointeur", () => {
+    expect(menuAbove(100, 700, 240, 160, 1440, 900)).toEqual({ x: 100, y: 540 });
+  });
+
+  test("menuAbove garde le menu dans la fenêtre à droite et en haut", () => {
+    expect(menuAbove(1400, 100, 240, 160, 1440, 900)).toEqual({ x: 1192, y: 8 });
+  });
+
+  test("coalesce ne lance qu'un appel à la fois et relance une fois ceux arrivés entre-temps", async () => {
+    let calls = 0;
+    const done: (() => void)[] = [];
+    const { run } = coalesce(() => {
+      calls += 1;
+      return new Promise<void>((r) => done.push(r));
+    });
+    run();
+    run();
+    run();
+    expect(calls).toBe(1);
+    done[0]();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toBe(2);
+  });
+
+  test("coalesce sans appel entre-temps ne relance pas", async () => {
+    let calls = 0;
+    const { run } = coalesce(async () => {
+      calls += 1;
+    });
+    run();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toBe(1);
+  });
+
+  test("coalesce continue après un appel en échec", async () => {
+    let calls = 0;
+    const { run } = coalesce(async () => {
+      calls += 1;
+      throw new Error("hôte occupé");
+    });
+    run();
+    await Promise.resolve();
+    await Promise.resolve();
+    run();
+    expect(calls).toBe(2);
+  });
+
+  test("coalesce idle attend la relance comprise", async () => {
+    const order: string[] = [];
+    const done: (() => void)[] = [];
+    const { run, idle } = coalesce(() => new Promise<void>((r) => done.push(() => (order.push("appel"), r()))));
+    run();
+    run();
+    const waited = idle().then(() => order.push("idle"));
+    done[0]();
+    await new Promise((r) => setTimeout(r, 0));
+    done[1]();
+    await waited;
+    expect(order).toEqual(["appel", "appel", "idle"]);
+  });
+
+  test("arrivalIndex place l'onglet arrivé parmi les autres", () => {
+    expect(arrivalIndex([50, 150, 250], 100)).toBe(1);
+  });
+
+  test("arrivalIndex au-delà du dernier onglet laisse l'onglet en fin de barre", () => {
+    expect(arrivalIndex([50, 150, 250], 400)).toBeNull();
   });
 });

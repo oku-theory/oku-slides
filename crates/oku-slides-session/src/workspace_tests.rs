@@ -483,6 +483,63 @@ fn window_at_overlap_prefers_the_most_recently_focused_window() {
     assert_that!(w.window_at(25.0, 50.0, &rects)).is_equal_to(Some("w-1".to_owned()));
 }
 
+/// Deux écrans, en points (macOS) : le portable (1512 × 982, origine du
+/// repère), et un écran externe 2560 × 1440 à sa droite, haut aligné 200
+/// points plus haut (y négatifs). Une fenêtre 1440 × 900 sur chacun.
+fn two_screens() -> Vec<(String, Rect)> {
+    vec![
+        ("w-1".to_owned(), Rect { x: 36.0, y: 38.0, w: 1440.0, h: 900.0 }),
+        ("w-2".to_owned(), Rect { x: 1800.0, y: -120.0, w: 1440.0, h: 900.0 }),
+    ]
+}
+
+#[test]
+fn window_at_two_screens_finds_the_window_on_the_other_screen() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let mut w = Workspace::lock(&ws);
+    // L'onglet part de w-1, la plus récente.
+    w.focus("w-1").unwrap();
+    assert_that!(w.window_at(2000.0, 700.0, &two_screens())).is_equal_to(Some("w-2".to_owned()));
+}
+
+#[test]
+fn window_at_two_screens_accepts_a_point_above_the_primary_screen() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let w = Workspace::lock(&ws);
+    assert_that!(w.window_at(1900.0, -100.0, &two_screens())).is_equal_to(Some("w-2".to_owned()));
+}
+
+#[test]
+fn window_at_two_screens_between_the_windows_returns_none() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let w = Workspace::lock(&ws);
+    // Sur l'écran externe, à gauche de w-2 : une nouvelle fenêtre.
+    assert_that!(w.window_at(1600.0, 300.0, &two_screens())).is_none();
+}
+
+#[test]
+fn tab_window_returns_the_label_of_the_window_holding_the_tab() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let v = view(&ws);
+    let tab = v.windows[1].tabs[0].id.clone();
+    assert_that!(Workspace::lock(&ws).tab_window(&tab)).is_equal_to(Some(v.windows[1].label.as_str()));
+}
+
+#[test]
+fn tab_window_unknown_tab_returns_none() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    assert_that!(Workspace::lock(&ws).tab_window("t-99")).is_none();
+}
+
 #[test]
 fn window_at_ignores_rects_of_unknown_windows() {
     let data = Data::new();

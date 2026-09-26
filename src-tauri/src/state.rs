@@ -27,7 +27,7 @@ pub struct AppState {
     /// verrou de l'espace de travail (`commands::focused`).
     pub focus_applied: Mutex<u64>,
     /// Fin engagée (`state::shutdown` l'a posé) : `request`, `workspace` et
-    /// `drop_tab` refusent tout, sans plus toucher à l'espace de travail.
+    /// `tab_drag::drop_tab` refusent tout, sans plus toucher à l'espace de travail.
     pub closing: AtomicBool,
 }
 
@@ -72,6 +72,8 @@ impl AppState {
 pub fn shutdown(app: &AppHandle) {
     if let Some(state) = app.try_state::<AppState>() {
         state.closing.store(true, Ordering::SeqCst);
+        // Les fenêtres existent encore : taille et position gardées sans attendre.
+        crate::window_state::save(app);
         Workspace::settle(&state.workspace);
     }
     app.exit(0);

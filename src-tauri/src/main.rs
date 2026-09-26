@@ -2,10 +2,12 @@
 //!
 //! Toute la logique est dans `oku-slides-session` : l'espace de travail
 //! (fenêtres, onglets) et une session par onglet. L'interface appelle
-//! `request` (un onglet), `workspace` (onglets et fenêtres), `drop_tab` et
-//! `quit`. Démarrage : journaux → plateforme → espace de travail (reprise)
-//! et dictée → fenêtres ; chacune reprend sa taille et sa position. Les
-//! fichiers reçus au lancement s'ouvrent ensuite, hors du fil principal.
+//! `request` (un onglet), `workspace` (onglets et fenêtres), le glisser
+//! d'onglets entre fenêtres (`tab_drag`) et `quit`. Démarrage : journaux →
+//! plateforme → espace de travail (reprise) et dictée → fenêtres ; chacune
+//! reprend sa taille et sa position, enregistrées une fois le geste fini
+//! (`window_state`). Les fichiers reçus au lancement s'ouvrent ensuite, hors
+//! du fil principal.
 //!
 //! `state` porte l'état de l'app et la fin propre (`state::shutdown`,
 //! `Workspace::settle`) ; `commands` et `windows` en dépendent tous deux,
@@ -26,6 +28,8 @@ mod commands;
 mod menu;
 mod pending;
 mod state;
+mod tab_drag;
+mod window_state;
 mod windows;
 
 use std::path::{Path, PathBuf};
@@ -35,7 +39,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use oku_slides_session::{Fonts, Platform, Storage, Workspace};
 use oku_slides_stt::Stt;
 use tauri::{Manager, RunEvent, WindowEvent};
-use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use pending::Pending;
 use state::AppState;
@@ -72,7 +75,7 @@ fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     oku_slides_platform::telemetry::init();
     let platform = Platform::load()?;
-    let builder = tauri::Builder::default().manage(Pending::default());
+    let builder = tauri::Builder::default().manage(Pending::default()).manage(tab_drag::Hover::default());
     // Linux : `tauri-plugin-single-instance` 2.4.5 fait un `unwrap()` sur le
     // bus de session D-Bus dans son greffon (`linux.rs`), et panique s'il n'y
     // en a pas (CI headless, conteneur sans D-Bus) ; il ne servirait de toute
@@ -119,10 +122,10 @@ fn main() -> color_eyre::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_window_event(|window, event| match event {
-            // Taille et position gardées à chaque changement, pas seulement à la fermeture.
+            // Taille et position gardées une fois le geste fini, pas seulement à la fermeture.
             WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
-                if let Err(e) = window.app_handle().save_window_state(StateFlags::all()) {
-                    tracing::warn!(error = %e, "état de la fenêtre non enregistré");
+                if let Some(saver) = window.app_handle().try_state::<window_state::Saver>() {
+                    saver.changed();
                 }
             }
             WindowEvent::Focused(true) => commands::focused(window.app_handle(), window.label()),
@@ -158,6 +161,7 @@ fn main() -> color_eyre::Result<()> {
                 closing: AtomicBool::new(false),
             });
             app.manage(Stt::new(&platform));
+            app.manage(window_state::Saver::new(app.handle().clone()));
             // « Quitter » (menu macOS) : jamais le `terminate:` natif, pour
             // toujours passer par `state::shutdown` (voir `menu.rs`).
             app.on_menu_event(|app, event| {
@@ -196,7 +200,9 @@ fn main() -> color_eyre::Result<()> {
         .invoke_handler(tauri::generate_handler![
             commands::request,
             commands::workspace,
-            commands::drop_tab,
+            tab_drag::drag_tab_over,
+            tab_drag::drag_tab_leave,
+            tab_drag::drop_tab,
             commands::quit,
             commands::stt
         ])

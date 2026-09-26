@@ -60,3 +60,54 @@ export function tabShortcut(e: Keys, mac: boolean): TabAction | null {
 export function outside(x: number, y: number, width: number, height: number): boolean {
   return x < 0 || y < 0 || x >= width || y >= height;
 }
+
+/** Coin d'un menu `w` × `h` ouvert vers le haut depuis le pointeur, gardé dans la fenêtre. */
+export function menuAbove(x: number, y: number, w: number, h: number, width: number, height: number): { x: number; y: number } {
+  const margin = 8;
+  return {
+    x: Math.max(margin, Math.min(x, width - w - margin)),
+    y: Math.max(margin, Math.min(y - h, height - h - margin)),
+  };
+}
+
+/**
+ * Appels regroupés : un seul en cours ; ceux arrivés entre-temps n'en font qu'un.
+ *
+ * Pour suivre le pointeur sans empiler les requêtes à l'hôte : la dernière
+ * position est toujours envoyée, les intermédiaires sont sautées. `idle` :
+ * plus rien en cours ni en attente (avant un appel qui doit passer après).
+ */
+export function coalesce(call: () => Promise<unknown>): { run: () => void; idle: () => Promise<void> } {
+  let current: Promise<void> | null = null;
+  let again = false;
+  const run = () => {
+    if (current) {
+      again = true;
+      return;
+    }
+    again = false;
+    current = call()
+      .then(
+        () => {},
+        (e) => console.warn("appel regroupé en échec", e),
+      )
+      .finally(() => {
+        current = null;
+        if (again) run();
+      });
+  };
+  const idle = async () => {
+    while (current) await current;
+  };
+  return { run, idle };
+}
+
+/**
+ * Place d'un onglet arrivé d'une autre fenêtre (déjà en fin de barre).
+ *
+ * `mids` : milieu des autres onglets. `null` : il est déjà à sa place.
+ */
+export function arrivalIndex(mids: number[], x: number, rtl = false): number | null {
+  const slot = slotAt(mids, x, rtl);
+  return slot < mids.length ? slot : null;
+}

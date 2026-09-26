@@ -21,6 +21,8 @@ tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-window-state.workspace = true
 tauri-plugin-single-instance.workspace = true
+# Seulement pour reconnaître une fenêtre détruite (`window_state::is_window_gone`).
+tauri-runtime.workspace = true
 
 # Dictée sur Mac : calcul par Accelerate (le framework d'Apple).
 [target.'cfg(target_os = "macos")'.dependencies]

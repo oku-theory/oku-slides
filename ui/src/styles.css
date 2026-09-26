@@ -440,25 +440,35 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
 
-/* Onglets : la bande du haut de la fenêtre (la barre de titre intégrée sous macOS). */
+/* Onglets : la bande du bas de la fenêtre ; en haut, la barre de titre intégrée (macOS). */
 .workspace { height: 100%; display: flex; flex-direction: column; }
 .workspace-body { flex: 1; min-height: 0; }
 .workspace-error { margin: 0; padding: 4px 12px; background: var(--danger); color: var(--on-accent); font-size: 12px; }
+/* Hauteur de la barre de titre macOS : les boutons de fenêtre y sont centrés. */
+.titlebar { height: 28px; flex: none; background: var(--paper-000); }
+/* Sans préfixe, WebKit (WKWebView) sélectionne le libellé au glisser : le geste
+   devient une sélection et se termine en `pointercancel`, l'onglet n'est pas lâché. */
 .tabbar {
-  height: 36px; flex: none; display: flex; align-items: flex-end; gap: 2px;
+  height: 36px; flex: none; display: flex; align-items: flex-start; gap: 2px;
   padding: 0 var(--space-2); background: var(--shade); position: relative;
+  -webkit-user-select: none; user-select: none;
 }
-/* `tabbar-overlay`, pas `overlay` : cette classe existe déjà (plein écran). */
-.tabbar.tabbar-overlay { padding-left: 80px; }
-.tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs { display: flex; align-items: flex-start; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   display: flex; align-items: center; gap: 6px; min-width: 96px; max-width: 220px; height: 30px;
-  padding: 0 4px 0 12px; border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: 0 4px 0 12px; border-radius: 0 0 var(--radius-md) var(--radius-md);
   color: var(--ink-muted); cursor: default; position: relative;
 }
 .tab.active { background: var(--paper-200); color: var(--ink); }
 .tab.dragging { opacity: 0.5; }
+/* Fantôme de l'onglet glissé, sous le pointeur ; ailleurs, la barre qui l'accueillerait. */
+.tab-ghost {
+  position: fixed; z-index: 30; pointer-events: none; width: 180px;
+  box-shadow: 0 6px 18px color-mix(in oklab, var(--ink) 22%, transparent); opacity: 0.92;
+  border-radius: var(--radius-md);
+}
+.tabbar.drop-target { box-shadow: inset 0 2px 0 var(--accent); }
 .tab.drop-before::before, .tabbar.drop-end::after {
   content: ""; position: absolute; top: 6px; bottom: 6px; width: 2px; background: var(--accent);
 }
@@ -473,7 +483,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 /* Invisible mais toujours dans l'arbre d'accessibilité (état « désactivé » lisible). */
 .tab-close:disabled { opacity: 0; pointer-events: none; }
-.tab-new { margin-bottom: 4px; }
+.tab-new { margin-top: 4px; }
 .tab-close:hover, .tab-new:hover { background: var(--paper-200); }
 .tab-menu { position: fixed; z-index: 20; display: flex; flex-direction: column; padding: 4px; min-width: 240px; }
 .tab-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }

@@ -377,6 +377,39 @@ export const workspace = {
   closeWindow: (window: string, discard: string[]) => ws<WorkspaceView>({ cmd: "close_window", window, discard }),
 };
 
+/**
+ * Glisser un onglet hors de sa fenêtre (Tauri) : l'hôte lit le curseur lui-même.
+ *
+ * Jamais `screenX/screenY` : WKWebView ne les donne pas dans le repère des
+ * fenêtres (écran au-dessus du principal). La fenêtre visée reçoit
+ * `tab-drag` (fantôme, place de dépôt) puis `tab-drop`.
+ */
+export const tabDrag = {
+  over: async (tab: string) => (await import("@tauri-apps/api/core")).invoke<void>("drag_tab_over", { tab }),
+  leave: async () => (await import("@tauri-apps/api/core")).invoke<void>("drag_tab_leave"),
+  drop: async (tab: string) => (await import("@tauri-apps/api/core")).invoke<WorkspaceView>("drop_tab", { tab }),
+};
+
+/** Onglet d'une autre fenêtre sous le pointeur, en coordonnées de cette page. */
+export interface TabAt {
+  tab: string;
+  x: number;
+  y: number;
+}
+
+/** Écoute un événement Tauri ; l'abonnement suit la vie de l'effet (StrictMode compris). */
+export function listenTauri(subscribe: () => Promise<() => void>): () => void {
+  let stop: (() => void) | undefined;
+  let dead = false;
+  subscribe()
+    .then((un) => (dead ? un() : (stop = un)))
+    .catch((e) => console.error("événement de l'hôte", e));
+  return () => {
+    dead = true;
+    stop?.();
+  };
+}
+
 /** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */
 export async function pickOpenPath(): Promise<string | null> {
   if (inTauri) {

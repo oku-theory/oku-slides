@@ -9,7 +9,10 @@
 use std::sync::PoisonError;
 
 use oku_slides_session::{Rect, Workspace, WorkspaceView};
-use tauri::{AppHandle, Emitter, LogicalPosition, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, LogicalPosition, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
+};
 
 use crate::state::{self, AppState};
 
@@ -17,8 +20,8 @@ use crate::state::{self, AppState};
 const SIZE: (f64, f64) = (1440.0, 900.0);
 const MIN_SIZE: (f64, f64) = (1024.0, 640.0);
 /// Décalage du coin de la fenêtre au pointeur : l'onglet lâché tombe dans sa
-/// barre, à droite des boutons de fenêtre.
-const DROP_OFFSET: (f64, f64) = (160.0, 18.0);
+/// barre, en bas de la fenêtre (36 points de haut), sur le premier onglet.
+const DROP_OFFSET: (f64, f64) = (80.0, SIZE.1 - 18.0);
 
 /// Coin de la fenêtre neuve : le point lâché, décalé par `DROP_OFFSET`.
 fn drop_corner(at: LogicalPosition<f64>) -> (f64, f64) {
@@ -40,16 +43,54 @@ fn open(app: &AppHandle, label: &str, at: Option<LogicalPosition<f64>>) -> tauri
     builder.build()
 }
 
+/// Rectangle logique d'une fenêtre, d'après ses mesures physiques.
+///
+/// `scale` : celle de l'écran de la fenêtre. Sous macOS, les mesures
+/// physiques sont les points multipliés par cette échelle : chaque fenêtre
+/// retrouve ainsi le repère commun en points, celui de `screenX/screenY`.
+fn logical_rect(pos: PhysicalPosition<i32>, size: PhysicalSize<u32>, scale: f64) -> Rect {
+    let p = pos.to_logical::<f64>(scale);
+    let s = size.to_logical::<f64>(scale);
+    Rect { x: p.x, y: p.y, w: s.width, h: s.height }
+}
+
+/// Curseur en points, d'après sa position physique.
+///
+/// Sous macOS, tao l'exprime dans le repère des fenêtres (retourné par la
+/// hauteur de l'écran principal) et en pixels de l'écran principal : d'où
+/// `primary_scale`. Jamais `screenX/screenY` de la page : WKWebView ne les
+/// donne pas dans ce repère (écrans au-dessus du principal).
+fn cursor_points(pos: PhysicalPosition<f64>, primary_scale: f64) -> (f64, f64) {
+    let p = pos.to_logical::<f64>(primary_scale);
+    (p.x, p.y)
+}
+
+/// Le point `at` (écran, en points) dans la page de contenu `content`.
+fn page_point(at: (f64, f64), content: &Rect) -> (f64, f64) {
+    (at.0 - content.x, at.1 - content.y)
+}
+
+/// Le curseur, en points ; `None` si l'hôte ne sait pas le lire.
+pub fn cursor(app: &AppHandle) -> Option<(f64, f64)> {
+    let scale = app.primary_monitor().ok().flatten()?.scale_factor();
+    Some(cursor_points(app.cursor_position().ok()?, scale))
+}
+
+/// Le point `at` (écran, en points) dans la page de la fenêtre `label`.
+pub fn page_point_in(app: &AppHandle, label: &str, at: (f64, f64)) -> Option<(f64, f64)> {
+    let w = app.get_webview_window(label)?;
+    let content = logical_rect(w.inner_position().ok()?, w.inner_size().ok()?, w.scale_factor().ok()?);
+    Some(page_point(at, &content))
+}
+
 /// Rectangle logique de chaque fenêtre visible.
 pub fn rects(app: &AppHandle) -> Vec<(String, Rect)> {
     app.webview_windows()
         .into_iter()
         .filter(|(_, w)| !w.is_minimized().unwrap_or(false))
         .filter_map(|(label, w)| {
-            let scale = w.scale_factor().ok()?;
-            let p = w.outer_position().ok()?.to_logical::<f64>(scale);
-            let s = w.outer_size().ok()?.to_logical::<f64>(scale);
-            Some((label, Rect { x: p.x, y: p.y, w: s.width, h: s.height }))
+            let rect = logical_rect(w.outer_position().ok()?, w.outer_size().ok()?, w.scale_factor().ok()?);
+            Some((label, rect))
         })
         .collect()
 }
