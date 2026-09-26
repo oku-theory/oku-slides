@@ -61,6 +61,7 @@ ureq = "3"
 tauri = "2"
 tauri-build = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-window-state = "2"
 # Tests
 hound = "3"
 speculoos = "0.13"
