@@ -219,6 +219,24 @@
           ]
         }
       ]
+    },
+    {
+      "name": "pastilles voisines",
+      "markdown": "==a=={1}==b=={2}",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "a",
+              "highlight": 1
+            },
+            {
+              "t": "b",
+              "highlight": 2
+            }
+          ]
+        }
+      ]
     }
   ]
 }

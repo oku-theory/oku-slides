@@ -44,7 +44,8 @@ fn runs_to_markdown(runs: &[Run]) -> String {
     }
     let mut out = String::new();
     let mut after_highlight = false;
-    for Run { t, bold, italic, link, highlight, .. } in merged {
+    let mut runs = merged.into_iter().peekable();
+    while let Some(Run { t, bold, italic, link, highlight, .. }) = runs.next() {
         let marks = match (bold, italic) {
             (true, true) => "***",
             (true, false) => "**",
@@ -58,7 +59,10 @@ fn runs_to_markdown(runs: &[Run]) -> String {
         }
         after_highlight = highlight.is_some() && link.is_none();
         if let Some(n) = highlight {
-            let color = if n == 1 { String::new() } else { format!("{{{n}}}") };
+            // Une pastille collée à la suivante garde sa couleur, même `{1}` :
+            // sinon `==a====b==` se lirait comme une seule pastille.
+            let before_highlight = link.is_none() && runs.peek().is_some_and(|r| r.highlight.is_some());
+            let color = if n == 1 && !before_highlight { String::new() } else { format!("{{{n}}}") };
             body = format!("=={body}=={color}");
         }
         match link {
