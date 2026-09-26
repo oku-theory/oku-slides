@@ -147,7 +147,7 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     assert_that!(pro.app["desk"].as_str()).is_equal_to("#e1e5ea");
     assert_that!(pro.app["ink"].as_str()).is_equal_to("#00154e");
     assert_that!(pro.app["accent-text"].as_str()).is_equal_to("#0072b0");
-    assert_that!(pro.font_body).is_equal_to(vec!["Inter".to_owned()]);
+    assert_that!(pro.font_body).is_equal_to(vec!["Inter".to_owned(), "Noto Sans Arabic".to_owned()]);
     assert_that!(pro.metrics["radius-lg"]).is_close_to(16.0, f64::EPSILON);
     assert_that!(pro.metrics["elevation"]).is_close_to(1.5, f64::EPSILON);
 

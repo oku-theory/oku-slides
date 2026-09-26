@@ -79,9 +79,11 @@
   let el = if kind == "text" {
     set text(.._text-args(t, style))
     if "leading" in style { set par(leading: leading-of(t, style.leading)) }
-    let al = style.at("align", default: "left")
+    // Sans alignement choisi, le texte part du début de la ligne : à gauche,
+    // ou à droite dans une langue écrite de droite à gauche.
+    let al = style.at("align", default: "start")
     let body = if "text" in e { _paragraphs(t, e.text, vars) } else { [] }
-    align((left: left, center: center, right: right).at(al, default: left), body)
+    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), body)
   } else if kind == "image" {
     if image-loader != none { image-loader(e) } else { _image-placeholder(t, e) }
   } else if kind == "chart" {
@@ -137,7 +139,7 @@
       let over = if kind == "text" {
         let o = _text-args(t, style)
         if "leading" in style { o.insert("leading", leading-of(t, style.leading)) }
-        o.insert("align", (left: left, center: center, right: right).at(style.at("align", default: "left"), default: left))
+        o.insert("align", (left: left, center: center, right: right, start: start, end: end).at(style.at("align", default: "start"), default: start))
         o
       } else { (:) }
       [#metadata((id: str(e.id), page: p.page, x: p.x / 1pt, y: p.y / 1pt,

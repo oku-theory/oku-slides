@@ -191,7 +191,7 @@
       grid(
         rows: (1fr, auto),
         row-gutter: space-of(t, "xl"),
-        align(bottom + left, stack(
+        align(bottom + start, stack(
           spacing: space-of(t, "md"),
           ..(bar, if kick != none { styled(t, t.component.kicker, kick) }, title-block, sub, body)
             .filter(x => x != none),
@@ -215,7 +215,7 @@
       block(width: 100%, height: top-h, inset: (x: mx), {
         align(horizon, grid(
           columns: (1fr, auto),
-          align: (left + horizon, right + horizon),
+          align: (start + horizon, end + horizon),
           text(size: size-of(t, "subtitle"), weight: weight-of(t, "title"), fill: color-of(t, t.component.title.color),
             fill-template(k.top-left, fields)),
           stack(dir: ltr, spacing: space-of(t, "md"),
@@ -246,7 +246,7 @@
   page(fill: color-of(t, k.bg), foreground: none, {
     _mark(id)
     set text(fill: ink)
-    align(left + horizon, stack(
+    align(start + horizon, stack(
       spacing: space-of(t, "lg"),
       chapter-counter.step(),
       ..if pattern != none {

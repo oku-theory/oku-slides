@@ -204,7 +204,13 @@ pub fn blank_deck(l: &Localizer) -> Deck {
     Deck {
         version: slider_core::DECK_VERSION,
         theme: Some("papier".into()),
-        params: Params { title: Some(l.tr("deck-new-title")), ..Default::default() },
+        params: Params {
+            title: Some(l.tr("deck-new-title")),
+            // Code de langue seul (`zh-Hant` → `zh`) : Typst en déduit la
+            // direction du texte (droite à gauche en arabe) et les césures.
+            lang: l.locale().split('-').next().map(str::to_owned),
+            ..Default::default()
+        },
         vars: BTreeMap::new(),
         tokens: Value::Null,
         templates: None,

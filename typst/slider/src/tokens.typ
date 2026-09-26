@@ -19,8 +19,9 @@
     rule: "#d9d6d0",
   ),
   font: (
-    display: ("Libertinus Serif",),
-    body: ("Libertinus Serif",),
+    // Noto Sans Arabic (livrée avec l'app) : l'arabe.
+    display: ("Libertinus Serif", "Noto Sans Arabic"),
+    body: ("Libertinus Serif", "Noto Sans Arabic"),
     mono: ("DejaVu Sans Mono",),
   ),
   size: (

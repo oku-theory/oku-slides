@@ -42,7 +42,15 @@
     font: font,
     weight: if type(weight) == int { weight } else { repr(weight).trim("\"") },
     fill: if type(fill) == color { fill.to-hex() } else { none },
-    align: if a.contains("center") { "center" } else if a.contains("right") or a.contains("end") { "right" } else { "left" },
+    align: {
+      // Début et fin de ligne dépendent de la direction du texte.
+      let rtl = text.dir == rtl or (text.dir == auto and text.lang in ("ar", "he", "fa", "ur"))
+      if a.contains("center") { "center" }
+      else if a.contains("right") { "right" }
+      else if a.contains("left") { "left" }
+      else if a.contains("end") { if rtl { "left" } else { "right" } }
+      else if rtl { "right" } else { "left" }
+    },
     case: over.at("case", default: none),
     bg: {
       let b = over.at("bg", default: page.fill)
@@ -175,7 +183,7 @@
   let f = template-fields(ctx)
   grid(
     columns: (1fr, auto),
-    align: (left + horizon, right + horizon),
+    align: (start + horizon, end + horizon),
     fill-template(comp.at("left", default: none), f),
     fill-template(comp.at("right", default: none), f),
   )
@@ -185,7 +193,7 @@
   let comp = ctx.tokens.component.header
   if ctx.params.logo != none {
     let f = template-fields(ctx)
-    grid(columns: (1fr, auto), align: (left + horizon, right + horizon),
+    grid(columns: (1fr, auto), align: (start + horizon, end + horizon),
       fill-template(comp.left, f), ctx.params.logo)
   } else { _slots(ctx, comp) }
 }

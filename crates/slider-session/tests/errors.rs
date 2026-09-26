@@ -18,10 +18,15 @@ fn workdir() -> PathBuf {
 }
 
 fn session(dir: &std::path::Path) -> Session {
+    session_in(dir, "fr")
+}
+
+/// Une session dans une langue donnée.
+fn session_in(dir: &std::path::Path, locale: &str) -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.join("data"));
-    // Les messages attendus sont en français, quelle que soit la langue du système.
-    settings.i18n.locale = Some("fr".into());
+    // Les messages attendus sont dans cette langue, quelle que soit celle du système.
+    settings.i18n.locale = Some(locale.into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {}", e.one_line()))
 }
@@ -249,4 +254,29 @@ fn chart_kind_on_a_text_or_missing_slide_is_refused() {
     let missing =
         serde_json::json!({ "cmd": "chart_kind", "label": "x", "slide": "absente", "element": "g", "kind": "pie" });
     assert_that!(request(&mut s, missing).unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
+}
+
+#[test]
+fn new_deck_in_arabic_is_written_right_to_left() {
+    let dir = workdir();
+    let mut s = session_in(&dir, "ar");
+    s.new_deck().unwrap();
+    assert_that!(s.snapshot().slides.len()).is_equal_to(2);
+    let slide = s.snapshot().slides[1].id.to_string();
+    let view: serde_json::Value =
+        serde_json::from_str(&request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap()).unwrap();
+    assert_that!(view["slide"].is_object()).is_true();
+    assert_that!(s.deck().params.lang.as_deref()).is_equal_to(Some("ar"));
+    let aligns: Vec<&str> =
+        view["targets"].as_array().unwrap().iter().filter_map(|t| t["style"]["align"].as_str()).collect();
+    assert_that!(aligns.is_empty()).is_false();
+    assert_that!(aligns.iter().all(|a| *a == "right")).is_true();
+}
+
+#[test]
+fn new_deck_in_chinese_uses_the_language_code_typst_knows() {
+    let dir = workdir();
+    let mut s = session_in(&dir, "zh-TW");
+    s.new_deck().unwrap();
+    assert_that!(s.deck().params.lang.as_deref()).is_equal_to(Some("zh"));
 }
