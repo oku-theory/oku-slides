@@ -8,7 +8,7 @@ import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
-import { insertLink, toggleEmphasis } from "./markdown";
+import { insertLink, toggleEmphasis } from "./textEdits";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 

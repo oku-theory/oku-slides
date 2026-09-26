@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { Paragraph } from "./api";
-import { insertLink, listPrefix, markdownSpans, markdownToRuns, sameFormatting, toggleEmphasis } from "./markdown";
+import { listPrefix, markdownSpans, markdownToRuns, sameFormatting } from "./markdown";
 import { textToParagraphs } from "./deck";
 
 interface Case {
@@ -69,32 +69,6 @@ test("textToParagraphs garde tel quel un lien non encodé d'un paragraphe inchan
 test("textToParagraphs garde un paragraphe coloré dont le markdown n'a pas changé", () => {
   const colored: Paragraph = { runs: [{ t: "Gras", bold: true, color: "accent" }] };
   expect(textToParagraphs("**Gras**\nNouveau", [colored])[0]).toBe(colored);
-});
-
-describe("toggleEmphasis", () => {
-  test("gras entoure la sélection et la garde", () => {
-    expect(toggleEmphasis("a mot b", 2, 5, "bold")).toEqual({ value: "a **mot** b", start: 4, end: 7 });
-  });
-
-  test("gras retire le gras autour de la sélection", () => {
-    expect(toggleEmphasis("a **mot** b", 4, 7, "bold")).toEqual({ value: "a mot b", start: 2, end: 5 });
-  });
-
-  test("gras retire le gras inclus dans la sélection", () => {
-    expect(toggleEmphasis("a **mot** b", 2, 9, "bold")).toEqual({ value: "a mot b", start: 2, end: 5 });
-  });
-
-  test("italique sur du gras donne les deux", () => {
-    expect(toggleEmphasis("**mot**", 2, 5, "italic")).toEqual({ value: "***mot***", start: 3, end: 6 });
-  });
-
-  test("gras retiré de gras-italique laisse l'italique", () => {
-    expect(toggleEmphasis("***mot***", 3, 6, "bold")).toEqual({ value: "*mot*", start: 1, end: 4 });
-  });
-
-  test("sans sélection place le curseur entre les marques", () => {
-    expect(toggleEmphasis("ab", 1, 1, "italic")).toEqual({ value: "a**b", start: 2, end: 2 });
-  });
 });
 
 describe("markdownSpans", () => {
@@ -220,15 +194,5 @@ describe("listPrefix", () => {
     for (const line of ["1.x", "-x", "\\- x", "1\\. x", ""]) {
       expect(listPrefix(line)).toEqual({ length: 0 });
     }
-  });
-});
-
-describe("insertLink", () => {
-  test("entoure la sélection et sélectionne l'adresse à remplir", () => {
-    expect(insertLink("voir site", 5, 9)).toEqual({ value: "voir [site](url)", start: 12, end: 15 });
-  });
-
-  test("une adresse sélectionnée devient la cible et le texte reste à écrire", () => {
-    expect(insertLink("https://oku.dev", 0, 15)).toEqual({ value: "[](https://oku.dev)", start: 1, end: 1 });
   });
 });
