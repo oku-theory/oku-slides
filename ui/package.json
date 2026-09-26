@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "bun test"
+    "test": "bun test",
+    "e2e": "bun e2e/toolbar.cjs && bun e2e/panel.cjs"
   },
   "dependencies": {
     "@a2ui/react": "0.11.1",
@@ -27,6 +28,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "1.63.0",
     "typescript": "^5.9.0",
     "vite": "^7.1.0"
   }

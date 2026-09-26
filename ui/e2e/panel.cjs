@@ -1,5 +1,5 @@
 // Panneau de droite (surface A2UI) : renommer un modèle et changer sa grille, puis annuler.
-// Contre `slider serve fixtures/roadmap.json`. Lancer : bun ui/e2e/panel.cjs (Playwright installé).
+// Contre `slider serve fixtures/roadmap.json`. Lancer : bun run e2e dans ui/ (Chromium : bunx playwright install chromium).
 // E2E_URL change l'adresse (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -20,7 +20,7 @@ const state = (p) => p.evaluate(() => ({
   await p.waitForSelector('.stage img');
   // Hors des modèles, le panneau est vide.
   assert.equal((await state(p)).cards, 0);
-  await p.getByRole('button', { name: 'Créer et modifier les modèles de slides' }).click();
+  await p.getByRole('button', { name: 'Modèles', exact: true }).click();
   await p.waitForSelector('.notes .panel-card');
   const before = await state(p);
   assert.equal(before.cards, 2);

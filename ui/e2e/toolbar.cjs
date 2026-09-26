@@ -1,5 +1,5 @@
 // Barre d'outils : ajout d'éléments et suppression de slide, contre `slider serve fixtures/roadmap.json`.
-// Lancer : bun ui/e2e/toolbar.cjs (Playwright installé). E2E_URL change l'adresse (défaut port 4870).
+// Lancer : bun run e2e dans ui/ (Chromium : bunx playwright install chromium). E2E_URL change l'adresse (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
