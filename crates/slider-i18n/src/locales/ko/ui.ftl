@@ -45,6 +45,17 @@ ui-toolbar-finish = 완료
 ui-toolbar-templates = 템플릿
 ui-toolbar-templates-title = 슬라이드 템플릿 만들기 및 편집
 ui-toolbar-open = 열기
+ui-toolbar-add-label = 슬라이드에 추가
+ui-toolbar-add = 추가
+ui-add-kind = { $kind ->
+    [card] 카드
+    [shape] 도형
+    [chart] 차트
+   *[text] 텍스트
+}
+ui-toolbar-remove-template = 템플릿 삭제
+ui-toolbar-remove-slide = 슬라이드 삭제
+ui-toolbar-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
 
 ## 실행 취소 레이블
 
@@ -123,23 +134,12 @@ ui-notes = 슬라이드 도구
 ui-note-template = 이 템플릿
 ui-note-template-name = 이름
 ui-note-template-description = 설명
-ui-note-add-label = 슬라이드에 추가
-ui-note-add = 추가
-ui-add-kind = { $kind ->
-    [card] 카드
-    [shape] 도형
-    [chart] 차트
-   *[text] 텍스트
-}
 ui-note-grid-label = 템플릿 그리드
 ui-note-grid = 그리드
 ui-note-grid-columns = 열
 ui-note-grid-rows = 행
 ui-stepper-less = { $label }: 하나 줄이기
 ui-stepper-more = { $label }: 하나 늘리기
-ui-note-remove-template = 템플릿 삭제
-ui-note-remove-slide = 슬라이드 삭제
-ui-note-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
 ui-note-tip = 팁
 ui-note-tip-text = ⌘D로 받아쓰기, ⌘'로 그리드 표시, 더블 클릭으로 텍스트를 편집하세요.
 
@@ -203,6 +203,8 @@ ui-chart-kinds = 차트 유형
 ui-chart-kind = { $kind ->
     [line] 선형
     [pie] 원형
+    [scatter] 분산형
+    [radar] 방사형
    *[bar] 막대형
 }
 ui-chart-no-data = 이 차트에는 데이터 표가 없습니다.

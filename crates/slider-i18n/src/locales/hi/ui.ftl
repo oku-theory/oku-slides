@@ -47,6 +47,17 @@ ui-toolbar-finish = हो गया
 ui-toolbar-templates = टेम्पलेट
 ui-toolbar-templates-title = स्लाइड टेम्पलेट बनाएँ और संपादित करें
 ui-toolbar-open = खोलें
+ui-toolbar-add-label = स्लाइड में जोड़ें
+ui-toolbar-add = जोड़ें
+ui-add-kind = { $kind ->
+    [card] कार्ड
+    [shape] आकृति
+    [chart] चार्ट
+   *[text] टेक्स्ट
+}
+ui-toolbar-remove-template = टेम्पलेट हटाएँ
+ui-toolbar-remove-slide = स्लाइड हटाएँ
+ui-toolbar-remove-hint = स्लाइड { $n } · ⌘Z से पूर्ववत करें
 
 ## पूर्ववत लेबल
 
@@ -125,23 +136,12 @@ ui-notes = स्लाइड टूल
 ui-note-template = यह टेम्पलेट
 ui-note-template-name = नाम
 ui-note-template-description = विवरण
-ui-note-add-label = स्लाइड में जोड़ें
-ui-note-add = जोड़ें
-ui-add-kind = { $kind ->
-    [card] कार्ड
-    [shape] आकृति
-    [chart] चार्ट
-   *[text] टेक्स्ट
-}
 ui-note-grid-label = टेम्पलेट ग्रिड
 ui-note-grid = ग्रिड
 ui-note-grid-columns = कॉलम
 ui-note-grid-rows = पंक्तियाँ
 ui-stepper-less = { $label }: एक कम
 ui-stepper-more = { $label }: एक और
-ui-note-remove-template = टेम्पलेट हटाएँ
-ui-note-remove-slide = स्लाइड हटाएँ
-ui-note-remove-hint = स्लाइड { $n } · ⌘Z से पूर्ववत करें
 ui-note-tip = सुझाव
 ui-note-tip-text = बोलकर लिखने के लिए ⌘D। ग्रिड दिखाने के लिए ⌘'। टेक्स्ट संपादित करने के लिए डबल-क्लिक करें।
 
@@ -205,6 +205,8 @@ ui-chart-kinds = चार्ट का प्रकार
 ui-chart-kind = { $kind ->
     [line] लाइनें
     [pie] पाई
+    [scatter] बिंदु
+    [radar] रडार
    *[bar] बार
 }
 ui-chart-no-data = इस चार्ट में कोई डेटा तालिका नहीं है।

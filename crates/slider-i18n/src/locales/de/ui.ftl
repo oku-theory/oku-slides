@@ -47,6 +47,17 @@ ui-toolbar-finish = Fertig
 ui-toolbar-templates = Vorlagen
 ui-toolbar-templates-title = Folienvorlagen erstellen und bearbeiten
 ui-toolbar-open = Öffnen
+ui-toolbar-add-label = Zur Folie hinzufügen
+ui-toolbar-add = Hinzufügen
+ui-add-kind = { $kind ->
+    [card] Karte
+    [shape] Form
+    [chart] Diagramm
+   *[text] Text
+}
+ui-toolbar-remove-template = Vorlage löschen
+ui-toolbar-remove-slide = Folie löschen
+ui-toolbar-remove-hint = Folie { $n } · rückgängig mit ⌘Z
 
 ## Rückgängig-Beschriftungen
 
@@ -125,23 +136,12 @@ ui-notes = Folienwerkzeuge
 ui-note-template = Diese Vorlage
 ui-note-template-name = Name
 ui-note-template-description = Beschreibung
-ui-note-add-label = Zur Folie hinzufügen
-ui-note-add = Hinzufügen
-ui-add-kind = { $kind ->
-    [card] Karte
-    [shape] Form
-    [chart] Diagramm
-   *[text] Text
-}
 ui-note-grid-label = Vorlagenraster
 ui-note-grid = Raster
 ui-note-grid-columns = Spalten
 ui-note-grid-rows = Zeilen
 ui-stepper-less = { $label }: eins weniger
 ui-stepper-more = { $label }: eins mehr
-ui-note-remove-template = Vorlage löschen
-ui-note-remove-slide = Folie löschen
-ui-note-remove-hint = Folie { $n } · rückgängig mit ⌘Z
 ui-note-tip = Tipp
 ui-note-tip-text = ⌘D zum Diktieren. ⌘' blendet das Raster ein. Doppelklick bearbeitet einen Text.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Diagrammtyp
 ui-chart-kind = { $kind ->
     [line] Linien
     [pie] Kreis
+    [scatter] Punkte
+    [radar] Netz
    *[bar] Balken
 }
 ui-chart-no-data = Dieses Diagramm hat keine Datentabelle.

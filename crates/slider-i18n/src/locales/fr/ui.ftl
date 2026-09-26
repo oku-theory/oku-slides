@@ -47,6 +47,17 @@ ui-toolbar-finish = Terminer
 ui-toolbar-templates = Modèles
 ui-toolbar-templates-title = Créer et modifier les modèles de slides
 ui-toolbar-open = Ouvrir
+ui-toolbar-add-label = Ajouter sur la slide
+ui-toolbar-add = Ajouter
+ui-add-kind = { $kind ->
+    [card] Carte
+    [shape] Forme
+    [chart] Graphique
+   *[text] Texte
+}
+ui-toolbar-remove-template = Supprimer le modèle
+ui-toolbar-remove-slide = Supprimer la slide
+ui-toolbar-remove-hint = Slide { $n } · annulable avec ⌘Z
 
 ## Undo labels
 
@@ -125,23 +136,12 @@ ui-notes = Outils de la slide
 ui-note-template = Ce modèle
 ui-note-template-name = Nom
 ui-note-template-description = Description
-ui-note-add-label = Ajouter sur la slide
-ui-note-add = Ajouter
-ui-add-kind = { $kind ->
-    [card] Carte
-    [shape] Forme
-    [chart] Graphique
-   *[text] Texte
-}
 ui-note-grid-label = Grille du modèle
 ui-note-grid = Grille
 ui-note-grid-columns = Colonnes
 ui-note-grid-rows = Lignes
 ui-stepper-less = { $label } : une de moins
 ui-stepper-more = { $label } : une de plus
-ui-note-remove-template = Supprimer le modèle
-ui-note-remove-slide = Supprimer la slide
-ui-note-remove-hint = Slide { $n } · annulable avec ⌘Z
 ui-note-tip = Astuce
 ui-note-tip-text = ⌘D pour dicter. ⌘' pour afficher la grille. Double-clic pour modifier un texte.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Type de graphique
 ui-chart-kind = { $kind ->
     [line] Lignes
     [pie] Secteurs
+    [scatter] Nuage de points
+    [radar] Radar
    *[bar] Barres
 }
 ui-chart-no-data = Ce graphique n'a pas de tableau de données.

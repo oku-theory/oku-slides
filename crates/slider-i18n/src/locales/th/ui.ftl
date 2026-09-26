@@ -45,6 +45,17 @@ ui-toolbar-finish = เสร็จสิ้น
 ui-toolbar-templates = เทมเพลต
 ui-toolbar-templates-title = สร้างและแก้ไขเทมเพลตสไลด์
 ui-toolbar-open = เปิด
+ui-toolbar-add-label = เพิ่มลงในสไลด์
+ui-toolbar-add = เพิ่ม
+ui-add-kind = { $kind ->
+    [card] การ์ด
+    [shape] รูปร่าง
+    [chart] แผนภูมิ
+   *[text] ข้อความ
+}
+ui-toolbar-remove-template = ลบเทมเพลต
+ui-toolbar-remove-slide = ลบสไลด์
+ui-toolbar-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
 
 ## ป้ายกำกับการเลิกทำ
 
@@ -123,23 +134,12 @@ ui-notes = เครื่องมือสไลด์
 ui-note-template = เทมเพลตนี้
 ui-note-template-name = ชื่อ
 ui-note-template-description = คำอธิบาย
-ui-note-add-label = เพิ่มลงในสไลด์
-ui-note-add = เพิ่ม
-ui-add-kind = { $kind ->
-    [card] การ์ด
-    [shape] รูปร่าง
-    [chart] แผนภูมิ
-   *[text] ข้อความ
-}
 ui-note-grid-label = เส้นตารางของเทมเพลต
 ui-note-grid = เส้นตาราง
 ui-note-grid-columns = คอลัมน์
 ui-note-grid-rows = แถว
 ui-stepper-less = { $label }: ลดหนึ่ง
 ui-stepper-more = { $label }: เพิ่มหนึ่ง
-ui-note-remove-template = ลบเทมเพลต
-ui-note-remove-slide = ลบสไลด์
-ui-note-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
 ui-note-tip = เคล็ดลับ
 ui-note-tip-text = ⌘D เพื่อพิมพ์ด้วยเสียง ⌘' เพื่อแสดงเส้นตาราง ดับเบิลคลิกเพื่อแก้ไขข้อความ
 
@@ -203,6 +203,8 @@ ui-chart-kinds = ประเภทแผนภูมิ
 ui-chart-kind = { $kind ->
     [line] เส้น
     [pie] วงกลม
+    [scatter] กระจาย
+    [radar] เรดาร์
    *[bar] แท่ง
 }
 ui-chart-no-data = แผนภูมินี้ไม่มีตารางข้อมูล

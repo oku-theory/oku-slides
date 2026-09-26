@@ -47,6 +47,17 @@ ui-toolbar-finish = Done
 ui-toolbar-templates = Templates
 ui-toolbar-templates-title = Create and edit slide templates
 ui-toolbar-open = Open
+ui-toolbar-add-label = Add to the slide
+ui-toolbar-add = Add
+ui-add-kind = { $kind ->
+    [card] Card
+    [shape] Shape
+    [chart] Chart
+   *[text] Text
+}
+ui-toolbar-remove-template = Delete the template
+ui-toolbar-remove-slide = Delete the slide
+ui-toolbar-remove-hint = Slide { $n } · undo with ⌘Z
 
 ## Undo labels
 
@@ -125,23 +136,12 @@ ui-notes = Slide tools
 ui-note-template = This template
 ui-note-template-name = Name
 ui-note-template-description = Description
-ui-note-add-label = Add to the slide
-ui-note-add = Add
-ui-add-kind = { $kind ->
-    [card] Card
-    [shape] Shape
-    [chart] Chart
-   *[text] Text
-}
 ui-note-grid-label = Template grid
 ui-note-grid = Grid
 ui-note-grid-columns = Columns
 ui-note-grid-rows = Rows
 ui-stepper-less = { $label }: one fewer
 ui-stepper-more = { $label }: one more
-ui-note-remove-template = Delete the template
-ui-note-remove-slide = Delete the slide
-ui-note-remove-hint = Slide { $n } · undo with ⌘Z
 ui-note-tip = Tip
 ui-note-tip-text = ⌘D to dictate. ⌘' to show the grid. Double-click to edit a text.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Chart type
 ui-chart-kind = { $kind ->
     [line] Lines
     [pie] Pie
+    [scatter] Scatter
+    [radar] Radar
    *[bar] Bars
 }
 ui-chart-no-data = This chart has no data table.

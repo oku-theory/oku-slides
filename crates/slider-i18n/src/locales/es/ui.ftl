@@ -47,6 +47,17 @@ ui-toolbar-finish = Listo
 ui-toolbar-templates = Plantillas
 ui-toolbar-templates-title = Crear y editar plantillas de diapositivas
 ui-toolbar-open = Abrir
+ui-toolbar-add-label = Añadir a la diapositiva
+ui-toolbar-add = Añadir
+ui-add-kind = { $kind ->
+    [card] Tarjeta
+    [shape] Forma
+    [chart] Gráfico
+   *[text] Texto
+}
+ui-toolbar-remove-template = Eliminar la plantilla
+ui-toolbar-remove-slide = Eliminar la diapositiva
+ui-toolbar-remove-hint = Diapositiva { $n } · deshaz con ⌘Z
 
 ## Etiquetas de deshacer
 
@@ -125,23 +136,12 @@ ui-notes = Herramientas de la diapositiva
 ui-note-template = Esta plantilla
 ui-note-template-name = Nombre
 ui-note-template-description = Descripción
-ui-note-add-label = Añadir a la diapositiva
-ui-note-add = Añadir
-ui-add-kind = { $kind ->
-    [card] Tarjeta
-    [shape] Forma
-    [chart] Gráfico
-   *[text] Texto
-}
 ui-note-grid-label = Cuadrícula de la plantilla
 ui-note-grid = Cuadrícula
 ui-note-grid-columns = Columnas
 ui-note-grid-rows = Filas
 ui-stepper-less = { $label }: uno menos
 ui-stepper-more = { $label }: uno más
-ui-note-remove-template = Eliminar la plantilla
-ui-note-remove-slide = Eliminar la diapositiva
-ui-note-remove-hint = Diapositiva { $n } · deshaz con ⌘Z
 ui-note-tip = Consejo
 ui-note-tip-text = ⌘D para dictar. ⌘' para mostrar la cuadrícula. Doble clic para editar un texto.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Tipo de gráfico
 ui-chart-kind = { $kind ->
     [line] Líneas
     [pie] Circular
+    [scatter] Dispersión
+    [radar] Radar
    *[bar] Barras
 }
 ui-chart-no-data = Este gráfico no tiene tabla de datos.

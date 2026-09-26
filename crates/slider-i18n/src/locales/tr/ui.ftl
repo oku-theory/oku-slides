@@ -47,6 +47,17 @@ ui-toolbar-finish = Bitti
 ui-toolbar-templates = Şablonlar
 ui-toolbar-templates-title = Slayt şablonları oluştur ve düzenle
 ui-toolbar-open = Aç
+ui-toolbar-add-label = Slayta ekle
+ui-toolbar-add = Ekle
+ui-add-kind = { $kind ->
+    [card] Kart
+    [shape] Şekil
+    [chart] Grafik
+   *[text] Metin
+}
+ui-toolbar-remove-template = Şablonu sil
+ui-toolbar-remove-slide = Slaytı sil
+ui-toolbar-remove-hint = Slayt { $n } · ⌘Z ile geri alın
 
 ## Geri alma etiketleri
 
@@ -125,23 +136,12 @@ ui-notes = Slayt araçları
 ui-note-template = Bu şablon
 ui-note-template-name = Ad
 ui-note-template-description = Açıklama
-ui-note-add-label = Slayta ekle
-ui-note-add = Ekle
-ui-add-kind = { $kind ->
-    [card] Kart
-    [shape] Şekil
-    [chart] Grafik
-   *[text] Metin
-}
 ui-note-grid-label = Şablon ızgarası
 ui-note-grid = Izgara
 ui-note-grid-columns = Sütunlar
 ui-note-grid-rows = Satırlar
 ui-stepper-less = { $label }: bir eksik
 ui-stepper-more = { $label }: bir fazla
-ui-note-remove-template = Şablonu sil
-ui-note-remove-slide = Slaytı sil
-ui-note-remove-hint = Slayt { $n } · ⌘Z ile geri alın
 ui-note-tip = İpucu
 ui-note-tip-text = Dikte için ⌘D. Izgarayı göstermek için ⌘'. Bir metni düzenlemek için çift tıklayın.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Grafik türü
 ui-chart-kind = { $kind ->
     [line] Çizgi
     [pie] Pasta
+    [scatter] Dağılım
+    [radar] Radar
    *[bar] Çubuk
 }
 ui-chart-no-data = Bu grafiğin veri tablosu yok.

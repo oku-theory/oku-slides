@@ -47,6 +47,17 @@ ui-toolbar-finish = Klaar
 ui-toolbar-templates = Sjablonen
 ui-toolbar-templates-title = Diasjablonen maken en bewerken
 ui-toolbar-open = Openen
+ui-toolbar-add-label = Toevoegen aan de dia
+ui-toolbar-add = Toevoegen
+ui-add-kind = { $kind ->
+    [card] Kaart
+    [shape] Vorm
+    [chart] Grafiek
+   *[text] Tekst
+}
+ui-toolbar-remove-template = Sjabloon verwijderen
+ui-toolbar-remove-slide = Dia verwijderen
+ui-toolbar-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
 
 ## Labels voor ongedaan maken
 
@@ -125,23 +136,12 @@ ui-notes = Dia-hulpmiddelen
 ui-note-template = Dit sjabloon
 ui-note-template-name = Naam
 ui-note-template-description = Beschrijving
-ui-note-add-label = Toevoegen aan de dia
-ui-note-add = Toevoegen
-ui-add-kind = { $kind ->
-    [card] Kaart
-    [shape] Vorm
-    [chart] Grafiek
-   *[text] Tekst
-}
 ui-note-grid-label = Sjabloonraster
 ui-note-grid = Raster
 ui-note-grid-columns = Kolommen
 ui-note-grid-rows = Rijen
 ui-stepper-less = { $label }: één minder
 ui-stepper-more = { $label }: één meer
-ui-note-remove-template = Sjabloon verwijderen
-ui-note-remove-slide = Dia verwijderen
-ui-note-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
 ui-note-tip = Tip
 ui-note-tip-text = ⌘D om te dicteren. ⌘' om het raster te tonen. Dubbelklik om een tekst te bewerken.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Grafiektype
 ui-chart-kind = { $kind ->
     [line] Lijnen
     [pie] Cirkel
+    [scatter] Spreiding
+    [radar] Radar
    *[bar] Staven
 }
 ui-chart-no-data = Deze grafiek heeft geen gegevenstabel.

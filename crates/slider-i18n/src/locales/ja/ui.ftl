@@ -47,6 +47,17 @@ ui-toolbar-finish = 完了
 ui-toolbar-templates = テンプレート
 ui-toolbar-templates-title = スライドテンプレートを作成・編集
 ui-toolbar-open = 開く
+ui-toolbar-add-label = スライドに追加
+ui-toolbar-add = 追加
+ui-add-kind = { $kind ->
+    [card] カード
+    [shape] 図形
+    [chart] グラフ
+   *[text] テキスト
+}
+ui-toolbar-remove-template = テンプレートを削除
+ui-toolbar-remove-slide = スライドを削除
+ui-toolbar-remove-hint = スライド { $n } · ⌘Z で取り消し
 
 ## 取り消しラベル
 
@@ -125,23 +136,12 @@ ui-notes = スライドツール
 ui-note-template = このテンプレート
 ui-note-template-name = 名前
 ui-note-template-description = 説明
-ui-note-add-label = スライドに追加
-ui-note-add = 追加
-ui-add-kind = { $kind ->
-    [card] カード
-    [shape] 図形
-    [chart] グラフ
-   *[text] テキスト
-}
 ui-note-grid-label = テンプレートのグリッド
 ui-note-grid = グリッド
 ui-note-grid-columns = 列
 ui-note-grid-rows = 行
 ui-stepper-less = { $label }：1 つ減らす
 ui-stepper-more = { $label }：1 つ増やす
-ui-note-remove-template = テンプレートを削除
-ui-note-remove-slide = スライドを削除
-ui-note-remove-hint = スライド { $n } · ⌘Z で取り消し
 ui-note-tip = ヒント
 ui-note-tip-text = ⌘D で音声入力。⌘' でグリッドを表示。ダブルクリックでテキストを編集。
 
@@ -205,6 +205,8 @@ ui-chart-kinds = グラフの種類
 ui-chart-kind = { $kind ->
     [line] 折れ線
     [pie] 円
+    [scatter] 散布
+    [radar] レーダー
    *[bar] 棒
 }
 ui-chart-no-data = このグラフにはデータ表がありません。

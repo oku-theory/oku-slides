@@ -47,6 +47,17 @@ ui-toolbar-finish = 完成
 ui-toolbar-templates = 模板
 ui-toolbar-templates-title = 创建和编辑幻灯片模板
 ui-toolbar-open = 打开
+ui-toolbar-add-label = 添加到幻灯片
+ui-toolbar-add = 添加
+ui-add-kind = { $kind ->
+    [card] 卡片
+    [shape] 形状
+    [chart] 图表
+   *[text] 文本
+}
+ui-toolbar-remove-template = 删除模板
+ui-toolbar-remove-slide = 删除幻灯片
+ui-toolbar-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
 
 ## 撤销标签
 
@@ -125,23 +136,12 @@ ui-notes = 幻灯片工具
 ui-note-template = 此模板
 ui-note-template-name = 名称
 ui-note-template-description = 描述
-ui-note-add-label = 添加到幻灯片
-ui-note-add = 添加
-ui-add-kind = { $kind ->
-    [card] 卡片
-    [shape] 形状
-    [chart] 图表
-   *[text] 文本
-}
 ui-note-grid-label = 模板网格
 ui-note-grid = 网格
 ui-note-grid-columns = 列
 ui-note-grid-rows = 行
 ui-stepper-less = { $label }：减少一个
 ui-stepper-more = { $label }：增加一个
-ui-note-remove-template = 删除模板
-ui-note-remove-slide = 删除幻灯片
-ui-note-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
 ui-note-tip = 提示
 ui-note-tip-text = ⌘D 听写。⌘' 显示网格。双击编辑文本。
 
@@ -205,6 +205,8 @@ ui-chart-kinds = 图表类型
 ui-chart-kind = { $kind ->
     [line] 折线图
     [pie] 饼图
+    [scatter] 散点图
+    [radar] 雷达图
    *[bar] 柱形图
 }
 ui-chart-no-data = 此图表没有数据表。

@@ -47,6 +47,17 @@ ui-toolbar-finish = Concluir
 ui-toolbar-templates = Modelos
 ui-toolbar-templates-title = Criar e editar modelos de slide
 ui-toolbar-open = Abrir
+ui-toolbar-add-label = Adicionar ao slide
+ui-toolbar-add = Adicionar
+ui-add-kind = { $kind ->
+    [card] Cartão
+    [shape] Forma
+    [chart] Gráfico
+   *[text] Texto
+}
+ui-toolbar-remove-template = Excluir o modelo
+ui-toolbar-remove-slide = Excluir o slide
+ui-toolbar-remove-hint = Slide { $n } · desfaça com ⌘Z
 
 ## Rótulos de desfazer
 
@@ -125,23 +136,12 @@ ui-notes = Ferramentas do slide
 ui-note-template = Este modelo
 ui-note-template-name = Nome
 ui-note-template-description = Descrição
-ui-note-add-label = Adicionar ao slide
-ui-note-add = Adicionar
-ui-add-kind = { $kind ->
-    [card] Cartão
-    [shape] Forma
-    [chart] Gráfico
-   *[text] Texto
-}
 ui-note-grid-label = Grade do modelo
 ui-note-grid = Grade
 ui-note-grid-columns = Colunas
 ui-note-grid-rows = Linhas
 ui-stepper-less = { $label }: um a menos
 ui-stepper-more = { $label }: um a mais
-ui-note-remove-template = Excluir o modelo
-ui-note-remove-slide = Excluir o slide
-ui-note-remove-hint = Slide { $n } · desfaça com ⌘Z
 ui-note-tip = Dica
 ui-note-tip-text = ⌘D para ditar. ⌘' para mostrar a grade. Clique duas vezes para editar um texto.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Tipo de gráfico
 ui-chart-kind = { $kind ->
     [line] Linhas
     [pie] Pizza
+    [scatter] Dispersão
+    [radar] Radar
    *[bar] Barras
 }
 ui-chart-no-data = Este gráfico não tem tabela de dados.

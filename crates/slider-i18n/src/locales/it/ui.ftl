@@ -47,6 +47,17 @@ ui-toolbar-finish = Fine
 ui-toolbar-templates = Modelli
 ui-toolbar-templates-title = Crea e modifica i modelli di diapositiva
 ui-toolbar-open = Apri
+ui-toolbar-add-label = Aggiungi alla diapositiva
+ui-toolbar-add = Aggiungi
+ui-add-kind = { $kind ->
+    [card] Scheda
+    [shape] Forma
+    [chart] Grafico
+   *[text] Testo
+}
+ui-toolbar-remove-template = Elimina il modello
+ui-toolbar-remove-slide = Elimina la diapositiva
+ui-toolbar-remove-hint = Diapositiva { $n } · annulla con ⌘Z
 
 ## Etichette di annullamento
 
@@ -125,23 +136,12 @@ ui-notes = Strumenti della diapositiva
 ui-note-template = Questo modello
 ui-note-template-name = Nome
 ui-note-template-description = Descrizione
-ui-note-add-label = Aggiungi alla diapositiva
-ui-note-add = Aggiungi
-ui-add-kind = { $kind ->
-    [card] Scheda
-    [shape] Forma
-    [chart] Grafico
-   *[text] Testo
-}
 ui-note-grid-label = Griglia del modello
 ui-note-grid = Griglia
 ui-note-grid-columns = Colonne
 ui-note-grid-rows = Righe
 ui-stepper-less = { $label }: uno in meno
 ui-stepper-more = { $label }: uno in più
-ui-note-remove-template = Elimina il modello
-ui-note-remove-slide = Elimina la diapositiva
-ui-note-remove-hint = Diapositiva { $n } · annulla con ⌘Z
 ui-note-tip = Suggerimento
 ui-note-tip-text = ⌘D per dettare. ⌘' per mostrare la griglia. Doppio clic per modificare un testo.
 
@@ -205,6 +205,8 @@ ui-chart-kinds = Tipo di grafico
 ui-chart-kind = { $kind ->
     [line] Linee
     [pie] Torta
+    [scatter] Dispersione
+    [radar] Radar
    *[bar] Barre
 }
 ui-chart-no-data = Questo grafico non ha una tabella di dati.

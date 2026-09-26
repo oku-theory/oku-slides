@@ -47,6 +47,17 @@ ui-toolbar-finish = 完成
 ui-toolbar-templates = 範本
 ui-toolbar-templates-title = 建立及編輯投影片範本
 ui-toolbar-open = 開啟
+ui-toolbar-add-label = 新增至投影片
+ui-toolbar-add = 新增
+ui-add-kind = { $kind ->
+    [card] 卡片
+    [shape] 形狀
+    [chart] 圖表
+   *[text] 文字
+}
+ui-toolbar-remove-template = 刪除範本
+ui-toolbar-remove-slide = 刪除投影片
+ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
 
 ## 還原標籤
 
@@ -125,23 +136,12 @@ ui-notes = 投影片工具
 ui-note-template = 此範本
 ui-note-template-name = 名稱
 ui-note-template-description = 描述
-ui-note-add-label = 新增至投影片
-ui-note-add = 新增
-ui-add-kind = { $kind ->
-    [card] 卡片
-    [shape] 形狀
-    [chart] 圖表
-   *[text] 文字
-}
 ui-note-grid-label = 範本格線
 ui-note-grid = 格線
 ui-note-grid-columns = 欄
 ui-note-grid-rows = 列
 ui-stepper-less = { $label }：減少一個
 ui-stepper-more = { $label }：增加一個
-ui-note-remove-template = 刪除範本
-ui-note-remove-slide = 刪除投影片
-ui-note-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
 ui-note-tip = 提示
 ui-note-tip-text = ⌘D 聽寫。⌘' 顯示格線。按兩下以編輯文字。
 
@@ -205,6 +205,8 @@ ui-chart-kinds = 圖表類型
 ui-chart-kind = { $kind ->
     [line] 折線圖
     [pie] 圓餅圖
+    [scatter] 散佈圖
+    [radar] 雷達圖
    *[bar] 長條圖
 }
 ui-chart-no-data = 此圖表沒有資料表。

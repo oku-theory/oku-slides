@@ -51,6 +51,17 @@ ui-toolbar-finish = Gotowe
 ui-toolbar-templates = Szablony
 ui-toolbar-templates-title = Twórz i edytuj szablony slajdów
 ui-toolbar-open = Otwórz
+ui-toolbar-add-label = Dodaj do slajdu
+ui-toolbar-add = Dodaj
+ui-add-kind = { $kind ->
+    [card] Karta
+    [shape] Kształt
+    [chart] Wykres
+   *[text] Tekst
+}
+ui-toolbar-remove-template = Usuń szablon
+ui-toolbar-remove-slide = Usuń slajd
+ui-toolbar-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
 
 ## Etykiety cofania
 
@@ -129,23 +140,12 @@ ui-notes = Narzędzia slajdu
 ui-note-template = Ten szablon
 ui-note-template-name = Nazwa
 ui-note-template-description = Opis
-ui-note-add-label = Dodaj do slajdu
-ui-note-add = Dodaj
-ui-add-kind = { $kind ->
-    [card] Karta
-    [shape] Kształt
-    [chart] Wykres
-   *[text] Tekst
-}
 ui-note-grid-label = Siatka szablonu
 ui-note-grid = Siatka
 ui-note-grid-columns = Kolumny
 ui-note-grid-rows = Wiersze
 ui-stepper-less = { $label }: o jeden mniej
 ui-stepper-more = { $label }: o jeden więcej
-ui-note-remove-template = Usuń szablon
-ui-note-remove-slide = Usuń slajd
-ui-note-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
 ui-note-tip = Wskazówka
 ui-note-tip-text = ⌘D, aby dyktować. ⌘', aby pokazać siatkę. Kliknij dwukrotnie, aby edytować tekst.
 
@@ -209,6 +209,8 @@ ui-chart-kinds = Typ wykresu
 ui-chart-kind = { $kind ->
     [line] Liniowy
     [pie] Kołowy
+    [scatter] Punktowy
+    [radar] Radarowy
    *[bar] Słupkowy
 }
 ui-chart-no-data = Ten wykres nie ma tabeli danych.

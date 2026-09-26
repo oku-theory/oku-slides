@@ -12,10 +12,13 @@ import { ChartPanel } from "./chart/ChartPanel";
 import { starterChart } from "./chart/chartDeck";
 import type { Cell } from "./grid";
 import { moveCell, rescaleCell, trackSize } from "./grid";
+import type { AddKind } from "./slideTools";
+import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
   redo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></svg>,
+  remove: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /><path d="M10 11v5M14 11v5" /></svg>,
   grid: (
     <svg viewBox="0 0 24 24" fill="currentColor">
       {[5, 9.7, 14.3, 19].flatMap((y) => [5, 9.7, 14.3, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.3} />))}
@@ -159,7 +162,7 @@ export default function App() {
 
 
   /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
-  const addElement = (kind: "text" | "card" | "shape" | "chart", text?: Paragraph[], label?: string) => {
+  const addElement = (kind: AddKind, text?: Paragraph[], label?: string) => {
     if (!view) return;
     const slide = view.slide;
     const id = newId(kind[0]);
@@ -279,7 +282,7 @@ export default function App() {
   };
 
   const removeSlide = () => {
-    if (!snap || !current || snap.slides.length < 2) return;
+    if (!snap || !current || !canRemoveSlide(snap.slides.length)) return;
     apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: current }]);
   };
 
@@ -417,6 +420,23 @@ export default function App() {
 
       {/* Outils posés en haut de la table. */}
       <div className="tray">
+        <div className="object theme-card add-card" role="group" aria-label={t("ui-toolbar-add-label")}>
+          <span className="caption">{t("ui-toolbar-add")}</span>
+          {ADD_KINDS.map((k) => (
+            <button key={k} className="linkish" disabled={!canAdd(k, view?.slide.kind)} onClick={() => addElement(k)}>
+              {t("ui-add-kind", { kind: k })}
+            </button>
+          ))}
+        </div>
+        <button
+          className="object token"
+          aria-label={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
+          title={t("ui-toolbar-remove-hint", { n: index + 1 })}
+          disabled={!canRemoveSlide(snap.slides.length)}
+          onClick={removeSlide}
+        >
+          {Icon.remove}
+        </button>
         <button className="object token" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
         <button className="object token" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
         <button
@@ -504,16 +524,6 @@ export default function App() {
             />
           </div>
         )}
-        <div className="postit add-note" role="group" aria-label={t("ui-note-add-label")}>
-          <span className="postit-title">{t("ui-note-add")}</span>
-          <div className="add-row">
-            {(["text", "card", "shape", "chart"] as const).map((k) => (
-              <button key={k} className="linkish" disabled={!view || !(view.slide.kind === "content" || (k !== "text" && view.slide.kind === "blank"))} onClick={() => addElement(k)}>
-                {t("ui-add-kind", { kind: k })}
-              </button>
-            ))}
-          </div>
-        </div>
         {/* La grille se règle dans le modèle ; dans les slides, elle vient du modèle. */}
         {snap.editing && slideGrid && (
           <div className="postit grid-note" role="group" aria-label={t("ui-note-grid-label")}>
@@ -522,10 +532,6 @@ export default function App() {
             <Stepper label={t("ui-note-grid-rows")} value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
           </div>
         )}
-        <button className="postit" onClick={removeSlide} disabled={snap.slides.length < 2}>
-          <span className="postit-title">{t(snap.editing ? "ui-note-remove-template" : "ui-note-remove-slide")}</span>
-          <span className="postit-hint">{t("ui-note-remove-hint", { n: index + 1 })}</span>
-        </button>
         {!snap.editing && <div className="postit note" role="note">
           <span className="postit-title">{t("ui-note-tip")}</span>
           <span className="postit-hint">{t("ui-note-tip-text")}</span>

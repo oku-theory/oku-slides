@@ -45,6 +45,17 @@ ui-toolbar-finish = Xong
 ui-toolbar-templates = Mẫu
 ui-toolbar-templates-title = Tạo và chỉnh sửa mẫu trang chiếu
 ui-toolbar-open = Mở
+ui-toolbar-add-label = Thêm vào trang chiếu
+ui-toolbar-add = Thêm
+ui-add-kind = { $kind ->
+    [card] Thẻ
+    [shape] Hình
+    [chart] Biểu đồ
+   *[text] Văn bản
+}
+ui-toolbar-remove-template = Xóa mẫu
+ui-toolbar-remove-slide = Xóa trang chiếu
+ui-toolbar-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
 
 ## Nhãn hoàn tác
 
@@ -123,23 +134,12 @@ ui-notes = Công cụ trang chiếu
 ui-note-template = Mẫu này
 ui-note-template-name = Tên
 ui-note-template-description = Mô tả
-ui-note-add-label = Thêm vào trang chiếu
-ui-note-add = Thêm
-ui-add-kind = { $kind ->
-    [card] Thẻ
-    [shape] Hình
-    [chart] Biểu đồ
-   *[text] Văn bản
-}
 ui-note-grid-label = Lưới của mẫu
 ui-note-grid = Lưới
 ui-note-grid-columns = Cột
 ui-note-grid-rows = Hàng
 ui-stepper-less = { $label }: bớt một
 ui-stepper-more = { $label }: thêm một
-ui-note-remove-template = Xóa mẫu
-ui-note-remove-slide = Xóa trang chiếu
-ui-note-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
 ui-note-tip = Mẹo
 ui-note-tip-text = ⌘D để đọc chính tả. ⌘' để hiện lưới. Nhấp đúp để sửa văn bản.
 
@@ -203,6 +203,8 @@ ui-chart-kinds = Loại biểu đồ
 ui-chart-kind = { $kind ->
     [line] Đường
     [pie] Tròn
+    [scatter] Phân tán
+    [radar] Radar
    *[bar] Cột
 }
 ui-chart-no-data = Biểu đồ này không có bảng dữ liệu.

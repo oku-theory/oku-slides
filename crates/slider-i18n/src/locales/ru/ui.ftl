@@ -51,6 +51,17 @@ ui-toolbar-finish = Готово
 ui-toolbar-templates = Шаблоны
 ui-toolbar-templates-title = Создание и редактирование шаблонов слайдов
 ui-toolbar-open = Открыть
+ui-toolbar-add-label = Добавить на слайд
+ui-toolbar-add = Добавить
+ui-add-kind = { $kind ->
+    [card] Карточка
+    [shape] Фигура
+    [chart] Диаграмма
+   *[text] Текст
+}
+ui-toolbar-remove-template = Удалить шаблон
+ui-toolbar-remove-slide = Удалить слайд
+ui-toolbar-remove-hint = Слайд { $n } · отменить: ⌘Z
 
 ## Подписи отмены
 
@@ -129,23 +140,12 @@ ui-notes = Инструменты слайда
 ui-note-template = Этот шаблон
 ui-note-template-name = Название
 ui-note-template-description = Описание
-ui-note-add-label = Добавить на слайд
-ui-note-add = Добавить
-ui-add-kind = { $kind ->
-    [card] Карточка
-    [shape] Фигура
-    [chart] Диаграмма
-   *[text] Текст
-}
 ui-note-grid-label = Сетка шаблона
 ui-note-grid = Сетка
 ui-note-grid-columns = Столбцы
 ui-note-grid-rows = Строки
 ui-stepper-less = { $label }: на один меньше
 ui-stepper-more = { $label }: на один больше
-ui-note-remove-template = Удалить шаблон
-ui-note-remove-slide = Удалить слайд
-ui-note-remove-hint = Слайд { $n } · отменить: ⌘Z
 ui-note-tip = Совет
 ui-note-tip-text = ⌘D — диктовка. ⌘' — показать сетку. Двойной щелчок — изменить текст.
 
@@ -209,6 +209,8 @@ ui-chart-kinds = Тип диаграммы
 ui-chart-kind = { $kind ->
     [line] Линии
     [pie] Круговая
+    [scatter] Точечная
+    [radar] Лепестковая
    *[bar] Столбцы
 }
 ui-chart-no-data = У этой диаграммы нет таблицы данных.

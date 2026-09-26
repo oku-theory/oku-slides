@@ -55,6 +55,17 @@ ui-toolbar-finish = تم
 ui-toolbar-templates = القوالب
 ui-toolbar-templates-title = إنشاء قوالب الشرائح وتعديلها
 ui-toolbar-open = فتح
+ui-toolbar-add-label = إضافة إلى الشريحة
+ui-toolbar-add = إضافة
+ui-add-kind = { $kind ->
+    [card] بطاقة
+    [shape] شكل
+    [chart] مخطط
+   *[text] نص
+}
+ui-toolbar-remove-template = حذف القالب
+ui-toolbar-remove-slide = حذف الشريحة
+ui-toolbar-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
 
 ## تسميات التراجع
 
@@ -133,23 +144,12 @@ ui-notes = أدوات الشريحة
 ui-note-template = هذا القالب
 ui-note-template-name = الاسم
 ui-note-template-description = الوصف
-ui-note-add-label = إضافة إلى الشريحة
-ui-note-add = إضافة
-ui-add-kind = { $kind ->
-    [card] بطاقة
-    [shape] شكل
-    [chart] مخطط
-   *[text] نص
-}
 ui-note-grid-label = شبكة القالب
 ui-note-grid = الشبكة
 ui-note-grid-columns = الأعمدة
 ui-note-grid-rows = الصفوف
 ui-stepper-less = { $label }: واحد أقل
 ui-stepper-more = { $label }: واحد أكثر
-ui-note-remove-template = حذف القالب
-ui-note-remove-slide = حذف الشريحة
-ui-note-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
 ui-note-tip = نصيحة
 ui-note-tip-text = ⌘D للإملاء. ⌘' لإظهار الشبكة. انقر مرتين لتعديل نص.
 
@@ -213,6 +213,8 @@ ui-chart-kinds = نوع المخطط
 ui-chart-kind = { $kind ->
     [line] خطوط
     [pie] دائري
+    [scatter] نقاط
+    [radar] رادار
    *[bar] أعمدة
 }
 ui-chart-no-data = لا يحتوي هذا المخطط على جدول بيانات.

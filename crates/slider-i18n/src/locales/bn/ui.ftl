@@ -47,6 +47,17 @@ ui-toolbar-finish = সম্পন্ন
 ui-toolbar-templates = টেমপ্লেট
 ui-toolbar-templates-title = স্লাইড টেমপ্লেট তৈরি ও সম্পাদনা করুন
 ui-toolbar-open = খুলুন
+ui-toolbar-add-label = স্লাইডে যোগ করুন
+ui-toolbar-add = যোগ করুন
+ui-add-kind = { $kind ->
+    [card] কার্ড
+    [shape] আকৃতি
+    [chart] চার্ট
+   *[text] টেক্সট
+}
+ui-toolbar-remove-template = টেমপ্লেট মুছুন
+ui-toolbar-remove-slide = স্লাইড মুছুন
+ui-toolbar-remove-hint = স্লাইড { $n } · ⌘Z দিয়ে পূর্বাবস্থায় ফেরান
 
 ## পূর্বাবস্থার লেবেল
 
@@ -125,23 +136,12 @@ ui-notes = স্লাইড টুল
 ui-note-template = এই টেমপ্লেট
 ui-note-template-name = নাম
 ui-note-template-description = বিবরণ
-ui-note-add-label = স্লাইডে যোগ করুন
-ui-note-add = যোগ করুন
-ui-add-kind = { $kind ->
-    [card] কার্ড
-    [shape] আকৃতি
-    [chart] চার্ট
-   *[text] টেক্সট
-}
 ui-note-grid-label = টেমপ্লেটের গ্রিড
 ui-note-grid = গ্রিড
 ui-note-grid-columns = কলাম
 ui-note-grid-rows = সারি
 ui-stepper-less = { $label }: একটি কম
 ui-stepper-more = { $label }: একটি বেশি
-ui-note-remove-template = টেমপ্লেট মুছুন
-ui-note-remove-slide = স্লাইড মুছুন
-ui-note-remove-hint = স্লাইড { $n } · ⌘Z দিয়ে পূর্বাবস্থায় ফেরান
 ui-note-tip = টিপ
 ui-note-tip-text = ডিক্টেশনের জন্য ⌘D। গ্রিড দেখাতে ⌘'। টেক্সট সম্পাদনা করতে ডাবল-ক্লিক করুন।
 
@@ -205,6 +205,8 @@ ui-chart-kinds = চার্টের ধরন
 ui-chart-kind = { $kind ->
     [line] লাইন
     [pie] পাই
+    [scatter] বিক্ষেপ
+    [radar] রাডার
    *[bar] বার
 }
 ui-chart-no-data = এই চার্টে কোনো ডেটা টেবিল নেই।
