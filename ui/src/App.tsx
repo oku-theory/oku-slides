@@ -11,9 +11,12 @@ import Dictation from "./Dictation";
 import { ChartPanel } from "./chart/ChartPanel";
 import { starterChart } from "./chart/chartDeck";
 import type { Cell } from "./grid";
-import { moveCell, rescaleCell, trackSize } from "./grid";
+import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
+import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
+import { PanelSurface } from "./a2ui/PanelSurface";
+import { panelActionOps } from "./a2ui/panelActions";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
@@ -25,6 +28,9 @@ const Icon = {
     </svg>
   ),
 };
+
+/** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
+const NO_PANEL: A2uiMessage[] = [];
 
 /** SVG des slides, en URL d'objet, mis en cache par empreinte de rendu. */
 function useSvgCache() {
@@ -233,17 +239,16 @@ export default function App() {
   // défaut si la slide n'en précise pas) ; l'accrochage est automatique.
   const slideGrid = view?.zone?.grid ?? undefined;
 
-  const setGrid = (columns: number, rows: number) => {
-    if (!view || !slideGrid) return;
-    const slide = view.slide;
-    const from = slideGrid;
-    const next = { ...(slide.grid ?? {}), columns, rows };
-    const ops: Op[] = [{ op: "set_grid", slide: slide.id, grid: next }];
-    // Les éléments gardent leurs proportions sur la nouvelle grille.
-    for (const e of slide.elements ?? []) {
-      if (e.cell) ops.push({ op: "set_cell", slide: slide.id, element: e.id, cell: rescaleCell(e.cell, from, next) });
-    }
-    apply(t("ui-undo-grid", { columns, rows }), ops);
+  // Panneau de droite : surface A2UI de la session, en édition des modèles.
+  const [panel, setPanel] = useState<A2uiMessage[]>(NO_PANEL);
+  useEffect(() => {
+    if (!current || !snap?.editing) return setPanel(NO_PANEL);
+    api.panel(current).then(setPanel).catch((e) => say(String(e), true));
+  }, [current, snap]);
+  const onPanelAction = (action: A2uiClientAction) => {
+    if (!view) return;
+    const change = panelActionOps(action, view.slide, slideGrid);
+    if (change) apply(change.label, change.ops);
   };
 
   // --- Édition des modèles ------------------------------------------------
@@ -514,29 +519,7 @@ export default function App() {
 
       {/* Post-it à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
-        {snap.editing && view && (
-          <div className="postit template-note" role="group" aria-label={t("ui-note-template")}>
-            <span className="postit-title">{t("ui-note-template")}</span>
-            <NoteField
-              label={t("ui-note-template-name")}
-              value={view.slide.name ?? ""}
-              onCommit={(v) => apply(t("ui-undo-rename-template"), [{ op: "set_slide_field", slide: view.slide.id, field: "name", value: v.trim() || null }])}
-            />
-            <NoteField
-              label={t("ui-note-template-description")}
-              value={view.slide.description ?? ""}
-              onCommit={(v) => apply(t("ui-undo-describe-template"), [{ op: "set_slide_field", slide: view.slide.id, field: "description", value: v.trim() || null }])}
-            />
-          </div>
-        )}
-        {/* La grille se règle dans le modèle ; dans les slides, elle vient du modèle. */}
-        {snap.editing && slideGrid && (
-          <div className="postit grid-note" role="group" aria-label={t("ui-note-grid-label")}>
-            <span className="postit-title">{t("ui-note-grid")}</span>
-            <Stepper label={t("ui-note-grid-columns")} value={slideGrid.columns} onChange={(v) => setGrid(v, slideGrid.rows)} />
-            <Stepper label={t("ui-note-grid-rows")} value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
-          </div>
-        )}
+        <PanelSurface messages={panel} onAction={onPanelAction} onError={(m) => say(m, true)} />
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}
@@ -555,41 +538,5 @@ export default function App() {
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
     </div>
-  );
-}
-
-/** Petit compteur − valeur + posé sur un post-it. */
-function Stepper({ label, value, onChange, min = 1, max = 24 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
-  return (
-    <div className="stepper">
-      <span className="postit-hint">{label}</span>
-      <button aria-label={t("ui-stepper-less", { label })} disabled={value <= min} onClick={() => onChange(value - 1)}>−</button>
-      <span className="stepper-value">{value}</span>
-      <button aria-label={t("ui-stepper-more", { label })} disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
-    </div>
-  );
-}
-
-/** Champ d'un post-it, validé à la sortie ou par Entrée. */
-function NoteField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = () => {
-    if (draft !== value) onCommit(draft);
-  };
-  return (
-    <label className="note-field">
-      <span className="postit-hint">{label}</span>
-      <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "Escape") { setDraft(value); e.currentTarget.blur(); }
-          e.stopPropagation();
-        }}
-      />
-    </label>
   );
 }

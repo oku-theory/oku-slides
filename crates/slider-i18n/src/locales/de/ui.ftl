@@ -133,13 +133,6 @@ ui-grid-cell = Sp. { $cols } · Zeile { $rows }
 ## Foliennotizen
 
 ui-notes = Folienwerkzeuge
-ui-note-template = Diese Vorlage
-ui-note-template-name = Name
-ui-note-template-description = Beschreibung
-ui-note-grid-label = Vorlagenraster
-ui-note-grid = Raster
-ui-note-grid-columns = Spalten
-ui-note-grid-rows = Zeilen
 ui-stepper-less = { $label }: eins weniger
 ui-stepper-more = { $label }: eins mehr
 

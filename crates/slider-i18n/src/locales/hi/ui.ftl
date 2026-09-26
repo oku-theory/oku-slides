@@ -133,13 +133,6 @@ ui-grid-cell = कॉलम { $cols } · पंक्ति { $rows }
 ## स्लाइड नोट्स
 
 ui-notes = स्लाइड टूल
-ui-note-template = यह टेम्पलेट
-ui-note-template-name = नाम
-ui-note-template-description = विवरण
-ui-note-grid-label = टेम्पलेट ग्रिड
-ui-note-grid = ग्रिड
-ui-note-grid-columns = कॉलम
-ui-note-grid-rows = पंक्तियाँ
 ui-stepper-less = { $label }: एक कम
 ui-stepper-more = { $label }: एक और
 

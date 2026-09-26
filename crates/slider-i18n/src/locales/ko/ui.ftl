@@ -131,13 +131,6 @@ ui-grid-cell = { $cols }열 · { $rows }행
 ## 슬라이드 노트
 
 ui-notes = 슬라이드 도구
-ui-note-template = 이 템플릿
-ui-note-template-name = 이름
-ui-note-template-description = 설명
-ui-note-grid-label = 템플릿 그리드
-ui-note-grid = 그리드
-ui-note-grid-columns = 열
-ui-note-grid-rows = 행
 ui-stepper-less = { $label }: 하나 줄이기
 ui-stepper-more = { $label }: 하나 늘리기
 

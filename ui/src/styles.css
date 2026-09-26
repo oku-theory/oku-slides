@@ -238,8 +238,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
   box-shadow: var(--edge-light), var(--shadow-note); transform: rotate(var(--tilt, -2deg));
   transition: var(--theme-fade), transform 200ms ease-out;
 }
-.postit:nth-child(2) { --tilt: 1.6deg; }
-.postit:nth-child(3) { --tilt: -1deg; }
 .postit:hover:not(:disabled) { transform: rotate(0deg) var(--lift); box-shadow: var(--shadow-floating); }
 .postit:disabled { opacity: 0.72; cursor: default; }
 .postit:disabled .postit-title { opacity: 0.75; }
@@ -404,9 +402,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .drop-line.end { position: relative; top: auto; display: block; margin: -9px 0 -9px 22px; flex: none; }
 
-/* ---- Post-it : modèle ---- */
-.template-note { cursor: default; justify-content: flex-start; }
-.template-note:hover { transform: rotate(var(--tilt, -2deg)); box-shadow: var(--edge-light), var(--shadow-note); }
+/* ---- Post-it du panneau (surface A2UI) ---- */
+.panel-card { cursor: default; justify-content: flex-start; }
+/* Colonnes A2UI : les post-it de la racine s'espacent comme dans le panneau, le contenu d'un post-it se serre. */
+.a2ui-column { display: flex; flex-direction: column; gap: var(--space-2); }
+.notes > .a2ui-column { gap: 22px; }
+.notes > .a2ui-column > .a2ui-slot:nth-child(2) > .postit { --tilt: 1.6deg; }
+.notes > .a2ui-column > .a2ui-slot:nth-child(3) > .postit { --tilt: -1deg; }
+.panel-card:hover { transform: rotate(var(--tilt, -2deg)); box-shadow: var(--edge-light), var(--shadow-note); }
 .linkish:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
 .note-field { display: flex; flex-direction: column; gap: 2px; }
 .note-field input {

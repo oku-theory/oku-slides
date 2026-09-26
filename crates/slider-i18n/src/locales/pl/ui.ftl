@@ -137,13 +137,6 @@ ui-grid-cell = kol. { $cols } · wiersz { $rows }
 ## Notatki slajdu
 
 ui-notes = Narzędzia slajdu
-ui-note-template = Ten szablon
-ui-note-template-name = Nazwa
-ui-note-template-description = Opis
-ui-note-grid-label = Siatka szablonu
-ui-note-grid = Siatka
-ui-note-grid-columns = Kolumny
-ui-note-grid-rows = Wiersze
 ui-stepper-less = { $label }: o jeden mniej
 ui-stepper-more = { $label }: o jeden więcej
 

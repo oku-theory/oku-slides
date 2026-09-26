@@ -133,13 +133,6 @@ ui-grid-cell = kol. { $cols } · rij { $rows }
 ## Dianotities
 
 ui-notes = Dia-hulpmiddelen
-ui-note-template = Dit sjabloon
-ui-note-template-name = Naam
-ui-note-template-description = Beschrijving
-ui-note-grid-label = Sjabloonraster
-ui-note-grid = Raster
-ui-note-grid-columns = Kolommen
-ui-note-grid-rows = Rijen
 ui-stepper-less = { $label }: één minder
 ui-stepper-more = { $label }: één meer
 

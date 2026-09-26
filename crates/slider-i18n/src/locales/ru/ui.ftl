@@ -137,13 +137,6 @@ ui-grid-cell = стб. { $cols } · стр. { $rows }
 ## Заметки к слайду
 
 ui-notes = Инструменты слайда
-ui-note-template = Этот шаблон
-ui-note-template-name = Название
-ui-note-template-description = Описание
-ui-note-grid-label = Сетка шаблона
-ui-note-grid = Сетка
-ui-note-grid-columns = Столбцы
-ui-note-grid-rows = Строки
 ui-stepper-less = { $label }: на один меньше
 ui-stepper-more = { $label }: на один больше
 

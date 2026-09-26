@@ -133,13 +133,6 @@ ui-grid-cell = süt. { $cols } · satır { $rows }
 ## Slayt notları
 
 ui-notes = Slayt araçları
-ui-note-template = Bu şablon
-ui-note-template-name = Ad
-ui-note-template-description = Açıklama
-ui-note-grid-label = Şablon ızgarası
-ui-note-grid = Izgara
-ui-note-grid-columns = Sütunlar
-ui-note-grid-rows = Satırlar
 ui-stepper-less = { $label }: bir eksik
 ui-stepper-more = { $label }: bir fazla
 

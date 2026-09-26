@@ -131,13 +131,6 @@ ui-grid-cell = คอลัมน์ { $cols } · แถว { $rows }
 ## บันทึกของสไลด์
 
 ui-notes = เครื่องมือสไลด์
-ui-note-template = เทมเพลตนี้
-ui-note-template-name = ชื่อ
-ui-note-template-description = คำอธิบาย
-ui-note-grid-label = เส้นตารางของเทมเพลต
-ui-note-grid = เส้นตาราง
-ui-note-grid-columns = คอลัมน์
-ui-note-grid-rows = แถว
 ui-stepper-less = { $label }: ลดหนึ่ง
 ui-stepper-more = { $label }: เพิ่มหนึ่ง
 

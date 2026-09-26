@@ -133,13 +133,6 @@ ui-grid-cell = 列 { $cols } · 行 { $rows }
 ## スライドノート
 
 ui-notes = スライドツール
-ui-note-template = このテンプレート
-ui-note-template-name = 名前
-ui-note-template-description = 説明
-ui-note-grid-label = テンプレートのグリッド
-ui-note-grid = グリッド
-ui-note-grid-columns = 列
-ui-note-grid-rows = 行
 ui-stepper-less = { $label }：1 つ減らす
 ui-stepper-more = { $label }：1 つ増やす
 

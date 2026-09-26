@@ -133,13 +133,6 @@ ui-grid-cell = col. { $cols } · fila { $rows }
 ## Notas de la diapositiva
 
 ui-notes = Herramientas de la diapositiva
-ui-note-template = Esta plantilla
-ui-note-template-name = Nombre
-ui-note-template-description = Descripción
-ui-note-grid-label = Cuadrícula de la plantilla
-ui-note-grid = Cuadrícula
-ui-note-grid-columns = Columnas
-ui-note-grid-rows = Filas
 ui-stepper-less = { $label }: uno menos
 ui-stepper-more = { $label }: uno más
 

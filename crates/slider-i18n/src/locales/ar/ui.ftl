@@ -141,13 +141,6 @@ ui-grid-cell = عمود { $cols } · صف { $rows }
 ## ملاحظات الشريحة
 
 ui-notes = أدوات الشريحة
-ui-note-template = هذا القالب
-ui-note-template-name = الاسم
-ui-note-template-description = الوصف
-ui-note-grid-label = شبكة القالب
-ui-note-grid = الشبكة
-ui-note-grid-columns = الأعمدة
-ui-note-grid-rows = الصفوف
 ui-stepper-less = { $label }: واحد أقل
 ui-stepper-more = { $label }: واحد أكثر
 

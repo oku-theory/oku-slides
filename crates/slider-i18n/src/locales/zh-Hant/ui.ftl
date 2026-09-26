@@ -133,13 +133,6 @@ ui-grid-cell = 欄 { $cols } · 列 { $rows }
 ## 投影片備註
 
 ui-notes = 投影片工具
-ui-note-template = 此範本
-ui-note-template-name = 名稱
-ui-note-template-description = 描述
-ui-note-grid-label = 範本格線
-ui-note-grid = 格線
-ui-note-grid-columns = 欄
-ui-note-grid-rows = 列
 ui-stepper-less = { $label }：減少一個
 ui-stepper-more = { $label }：增加一個
 

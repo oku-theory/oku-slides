@@ -133,13 +133,6 @@ ui-grid-cell = col. { $cols } · lig. { $rows }
 ## Slide notes
 
 ui-notes = Outils de la slide
-ui-note-template = Ce modèle
-ui-note-template-name = Nom
-ui-note-template-description = Description
-ui-note-grid-label = Grille du modèle
-ui-note-grid = Grille
-ui-note-grid-columns = Colonnes
-ui-note-grid-rows = Lignes
 ui-stepper-less = { $label } : une de moins
 ui-stepper-more = { $label } : une de plus
 

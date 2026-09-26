@@ -131,13 +131,6 @@ ui-grid-cell = cột { $cols } · hàng { $rows }
 ## Ghi chú trang chiếu
 
 ui-notes = Công cụ trang chiếu
-ui-note-template = Mẫu này
-ui-note-template-name = Tên
-ui-note-template-description = Mô tả
-ui-note-grid-label = Lưới của mẫu
-ui-note-grid = Lưới
-ui-note-grid-columns = Cột
-ui-note-grid-rows = Hàng
 ui-stepper-less = { $label }: bớt một
 ui-stepper-more = { $label }: thêm một
 

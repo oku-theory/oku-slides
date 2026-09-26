@@ -2,6 +2,7 @@
 // en développement), et les dialogues de fichier. Les types décrivent le JSON
 // échangé.
 
+import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Cell, ZoneView } from "./grid";
 import { t } from "./i18n";
 
@@ -241,7 +242,8 @@ type Request =
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "messages" }
-  | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string };
+  | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
+  | { cmd: "panel"; slide: string };
 
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
@@ -279,6 +281,8 @@ export const api = {
   save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),
   slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
   svg: (id: string) => call<string>({ cmd: "svg", id }),
+  /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
+  panel: (slide: string) => call<A2uiMessage[]>({ cmd: "panel", slide }),
   apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
   undo: () => call<Snapshot>({ cmd: "undo" }),
   redo: () => call<Snapshot>({ cmd: "redo" }),
