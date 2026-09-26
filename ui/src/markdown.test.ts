@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { Paragraph } from "./api";
-import { insertLink, markdownToRuns, sameFormatting, toggleEmphasis } from "./markdown";
+import { insertLink, listPrefix, markdownSpans, markdownToRuns, sameFormatting, toggleEmphasis } from "./markdown";
 import { textToParagraphs } from "./deck";
 
 interface Case {
@@ -94,6 +94,132 @@ describe("toggleEmphasis", () => {
 
   test("sans sélection place le curseur entre les marques", () => {
     expect(toggleEmphasis("ab", 1, 1, "italic")).toEqual({ value: "a**b", start: 2, end: 2 });
+  });
+});
+
+describe("markdownSpans", () => {
+  test("gras : marques autour, gras dedans", () => {
+    expect(markdownSpans("a **b** c")).toEqual([
+      { from: 2, to: 4, kind: "mark" },
+      { from: 4, to: 5, kind: "bold" },
+      { from: 5, to: 7, kind: "mark" },
+    ]);
+  });
+
+  test("triple étoile : gras puis italique sur la même plage", () => {
+    expect(markdownSpans("***x***")).toEqual([
+      { from: 0, to: 3, kind: "mark" },
+      { from: 3, to: 4, kind: "bold" },
+      { from: 3, to: 4, kind: "italic" },
+      { from: 4, to: 7, kind: "mark" },
+    ]);
+  });
+
+  test("italique dans du gras : l'englobante avant l'englobée", () => {
+    expect(markdownSpans("**a *b* c**")).toEqual([
+      { from: 0, to: 2, kind: "mark" },
+      { from: 2, to: 9, kind: "bold" },
+      { from: 4, to: 5, kind: "mark" },
+      { from: 5, to: 6, kind: "italic" },
+      { from: 6, to: 7, kind: "mark" },
+      { from: 9, to: 11, kind: "mark" },
+    ]);
+  });
+
+  test("underscore autour d'un mot : italique", () => {
+    expect(markdownSpans("_mot_")).toEqual([
+      { from: 0, to: 1, kind: "mark" },
+      { from: 1, to: 4, kind: "italic" },
+      { from: 4, to: 5, kind: "mark" },
+    ]);
+  });
+
+  test("lien : texte, adresse et marques", () => {
+    expect(markdownSpans("[le site](https://a.b)")).toEqual([
+      { from: 0, to: 1, kind: "mark" },
+      { from: 1, to: 8, kind: "link" },
+      { from: 8, to: 10, kind: "mark" },
+      { from: 10, to: 21, kind: "url" },
+      { from: 21, to: 22, kind: "mark" },
+    ]);
+  });
+
+  test("lien en gras : le gras est dans le lien", () => {
+    expect(markdownSpans("[**a**](u)")).toEqual([
+      { from: 0, to: 1, kind: "mark" },
+      { from: 1, to: 6, kind: "link" },
+      { from: 1, to: 3, kind: "mark" },
+      { from: 3, to: 4, kind: "bold" },
+      { from: 4, to: 6, kind: "mark" },
+      { from: 6, to: 8, kind: "mark" },
+      { from: 8, to: 9, kind: "url" },
+      { from: 9, to: 10, kind: "mark" },
+    ]);
+  });
+
+  test("lien au texte vide : pas de plage vide", () => {
+    expect(markdownSpans("[](u)")).toEqual([
+      { from: 0, to: 1, kind: "mark" },
+      { from: 1, to: 3, kind: "mark" },
+      { from: 3, to: 4, kind: "url" },
+      { from: 4, to: 5, kind: "mark" },
+    ]);
+  });
+
+  test("pastille avec couleur : la couleur fait partie de la marque fermante", () => {
+    expect(markdownSpans("==上手=={2}")).toEqual([
+      { from: 0, to: 2, kind: "mark" },
+      { from: 2, to: 4, kind: "highlight", highlight: 2 },
+      { from: 4, to: 9, kind: "mark" },
+    ]);
+  });
+
+  test("pastille sans couleur : la première", () => {
+    expect(markdownSpans("==x==")).toEqual([
+      { from: 0, to: 2, kind: "mark" },
+      { from: 2, to: 3, kind: "highlight", highlight: 1 },
+      { from: 3, to: 5, kind: "mark" },
+    ]);
+  });
+
+  test("emoji avant du gras : décalages en unités UTF-16", () => {
+    expect(markdownSpans("😀 **a**")).toEqual([
+      { from: 3, to: 5, kind: "mark" },
+      { from: 5, to: 6, kind: "bold" },
+      { from: 6, to: 8, kind: "mark" },
+    ]);
+  });
+
+  test("échappement dans du gras : la barre oblique est une marque", () => {
+    expect(markdownSpans("**\\*x**")).toEqual([
+      { from: 0, to: 2, kind: "mark" },
+      { from: 2, to: 5, kind: "bold" },
+      { from: 2, to: 3, kind: "mark" },
+      { from: 5, to: 7, kind: "mark" },
+    ]);
+  });
+
+  test("délimiteurs sans fermeture, quadruple étoile, snake_case : aucune plage", () => {
+    expect(markdownSpans("a **b et [c](")).toEqual([]);
+    expect(markdownSpans("****")).toEqual([]);
+    expect(markdownSpans("snake_case_mot")).toEqual([]);
+    expect(markdownSpans("")).toEqual([]);
+  });
+});
+
+describe("listPrefix", () => {
+  test("puce : deux caractères", () => {
+    expect(listPrefix("- a")).toEqual({ list: "bullet", length: 2 });
+  });
+
+  test("numéro à deux chiffres : quatre caractères", () => {
+    expect(listPrefix("12. a")).toEqual({ list: "number", length: 4 });
+  });
+
+  test("sans espace, tiret collé ou marqueur échappé : pas de liste", () => {
+    for (const line of ["1.x", "-x", "\\- x", "1\\. x", ""]) {
+      expect(listPrefix(line)).toEqual({ length: 0 });
+    }
   });
 });
 

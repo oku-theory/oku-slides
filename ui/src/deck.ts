@@ -4,7 +4,7 @@
 import type { Element, Op, Paragraph, Slide, SlideView, Target } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
-import { markdownToRuns, sameFormatting } from "./markdown";
+import { listPrefix, markdownToRuns, sameFormatting } from "./markdown";
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
 export function newId(prefix: string): string {
@@ -33,17 +33,8 @@ export function findElement(slide: Slide, id: string): Element | undefined {
  */
 export function textToParagraphs(text: string, previous: Paragraph[] = []): Paragraph[] {
   return text.split("\n").map((line) => {
-    let list: Paragraph["list"];
-    let body = line;
-    const num = /^(\d+)\. (.*)$/.exec(line);
-    if (line.startsWith("- ")) {
-      list = "bullet";
-      body = line.slice(2);
-    } else if (num) {
-      list = "number";
-      body = num[2];
-    }
-    const runs = markdownToRuns(body);
+    const { list, length } = listPrefix(line);
+    const runs = markdownToRuns(line.slice(length));
     const same = previous.find((p) => p.list === list && sameFormatting(p.runs, runs));
     if (same) return same;
     return list ? { runs, list } : { runs };

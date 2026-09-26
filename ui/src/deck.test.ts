@@ -15,6 +15,10 @@ describe("textToParagraphs", () => {
     const bold: Paragraph = { runs: [{ t: "Gras", bold: true }] };
     expect(textToParagraphs("**Gras**\nNouveau", [bold])[0]).toBe(bold);
   });
+
+  test("numéro suivi d'une fin de ligne Windows : reste une liste, comme côté Rust", () => {
+    expect(textToParagraphs("1. a\r")).toEqual([{ runs: [{ t: "a\r" }], list: "number" }]);
+  });
 });
 
 test("instantiate renouvelle les identifiants de la slide et des éléments", () => {

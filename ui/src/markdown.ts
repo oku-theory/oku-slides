@@ -4,13 +4,26 @@
  * `**gras**`, `*italique*` ou `_italique_`, `***les deux***`, `[texte](url)`,
  * `==pastille==` ou `==pastille=={n}` (n-ième couleur de la palette du thème) ;
  * `\` échappe une ponctuation. Un délimiteur sans fermeture reste du texte.
+ * Le même parcours donne les plages positionnées que l'éditeur met en forme
+ * (`markdownSpans`) ; `listPrefix` est la règle unique des préfixes de liste.
  */
-import type { Run } from "./api";
+import type { Paragraph, Run } from "./api";
 
 interface Format {
   bold: boolean;
   italic: boolean;
   link?: string;
+  highlight?: number;
+}
+
+/** Nature d'une plage : délimiteur, mise en forme ou adresse de lien. */
+export type SpanKind = "mark" | "bold" | "italic" | "link" | "url" | "highlight";
+
+/** Plage d'une ligne de markdown (indices de chaîne), mise en forme par l'éditeur. */
+export interface Span {
+  from: number;
+  to: number;
+  kind: SpanKind;
   highlight?: number;
 }
 
@@ -88,16 +101,19 @@ function link(s: string, i: number, end: number): { textEnd: number; url: string
   return { textEnd, url: s.slice(textEnd + 2, close), end: close + 1 };
 }
 
-function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
+function parse(s: string, start: number, end: number, f: Format, out: Run[], spans?: Span[]) {
   let text = "";
   const flush = () => {
     out.push(run(text, f));
     text = "";
   };
+  const span = (from: number, to: number, kind: SpanKind, highlight?: number) =>
+    spans?.push(highlight === undefined ? { from, to, kind } : { from, to, kind, highlight });
   let i = start;
   while (i < end) {
     const c = s[i];
     if (c === "\\" && i + 1 < end && PUNCTUATION.test(s[i + 1])) {
+      span(i, i + 1, "mark");
       text += s[i + 1];
       i += 2;
       continue;
@@ -107,7 +123,11 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
       const close = n <= 3 ? closing(s, i + n, end, "*", n) : -1;
       if (close > i + n) {
         flush();
-        parse(s, i + n, close, { ...f, bold: f.bold || n >= 2, italic: f.italic || n !== 2 }, out);
+        span(i, i + n, "mark");
+        if (n >= 2) span(i + n, close, "bold");
+        if (n !== 2) span(i + n, close, "italic");
+        span(close, close + n, "mark");
+        parse(s, i + n, close, { ...f, bold: f.bold || n >= 2, italic: f.italic || n !== 2 }, out, spans);
         i = close + n;
       } else {
         text += s.slice(i, i + n);
@@ -119,9 +139,14 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
       const close = closing(s, i + 2, end, "=", 2);
       if (close > i + 2) {
         const color = /^\{(\d+)\}/.exec(s.slice(close + 2, end));
+        const highlight = color ? Number(color[1]) : 1;
+        const after = close + 2 + (color?.[0].length ?? 0);
         flush();
-        parse(s, i + 2, close, { ...f, highlight: color ? Number(color[1]) : 1 }, out);
-        i = close + 2 + (color?.[0].length ?? 0);
+        span(i, i + 2, "mark");
+        span(i + 2, close, "highlight", highlight);
+        span(close, after, "mark");
+        parse(s, i + 2, close, { ...f, highlight }, out, spans);
+        i = after;
         continue;
       }
     }
@@ -129,7 +154,10 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
       const close = closingUnderscore(s, i + 1, end);
       if (close > i + 1) {
         flush();
-        parse(s, i + 1, close, { ...f, italic: true }, out);
+        span(i, i + 1, "mark");
+        span(i + 1, close, "italic");
+        span(close, close + 1, "mark");
+        parse(s, i + 1, close, { ...f, italic: true }, out, spans);
         i = close + 1;
         continue;
       }
@@ -138,7 +166,12 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
       const l = link(s, i, end);
       if (l) {
         flush();
-        parse(s, i + 1, l.textEnd, { ...f, link: l.url }, out);
+        span(i, i + 1, "mark");
+        span(i + 1, l.textEnd, "link");
+        span(l.textEnd, l.textEnd + 2, "mark");
+        span(l.textEnd + 2, l.end - 1, "url");
+        span(l.end - 1, l.end, "mark");
+        parse(s, i + 1, l.textEnd, { ...f, link: l.url }, out, spans);
         i = l.end;
         continue;
       }
@@ -155,6 +188,20 @@ export function markdownToRuns(line: string): Run[] {
   parse(line, 0, line.length, { bold: false, italic: false }, out);
   const runs = merge(out);
   return runs.length > 0 ? runs : [{ t: "" }];
+}
+
+/** Plages non vides d'une ligne, l'englobante avant l'englobée. */
+export function markdownSpans(line: string): Span[] {
+  const spans: Span[] = [];
+  parse(line, 0, line.length, { bold: false, italic: false }, [], spans);
+  return spans.filter((s) => s.to > s.from).sort((a, b) => a.from - b.from || b.to - a.to);
+}
+
+/** Préfixe de liste d'une ligne : `- ` (puce), `1. ` (numéro), sinon rien. */
+export function listPrefix(line: string): { list?: NonNullable<Paragraph["list"]>; length: number } {
+  if (line.startsWith("- ")) return { list: "bullet", length: 2 };
+  const num = /^\d+\. /.exec(line);
+  return num ? { list: "number", length: num[0].length } : { length: 0 };
 }
 
 /** Adresse telle que `paragraphs_to_text` l'écrit : espace et parenthèses encodés. */
