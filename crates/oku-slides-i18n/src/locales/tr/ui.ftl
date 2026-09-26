@@ -228,3 +228,18 @@ ui-chart-series = Seri { $n }
 
 ui-file-open-prompt = Açılacak dosyanın yolu (.oku-slides.pdf veya .json)
 ui-file-save-prompt = Farklı kaydet (tam yol)
+
+## Sekmeler
+
+ui-tabs = Açık sunumlar
+ui-tab-new = Yeni sekme
+ui-tab-close = Sekmeyi kapat
+ui-tab-unsaved = Kaydedilmemiş değişiklikler
+ui-tab-templates = Şablonlar
+ui-tab-move-new-window = Yeni pencereye taşı
+ui-tab-move-to = { $n }. pencereye taşı
+ui-tab-close-others = Diğer sekmeleri kapat
+ui-close-unsaved = Kapatmadan önce “{ $name }” değişiklikleri kaydedilsin mi?
+ui-close-save = Kaydet
+ui-close-discard = Kaydetme
+ui-close-cancel = İptal

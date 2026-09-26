@@ -2,7 +2,7 @@
 //! aussitôt, elles ne copient ni le deck ni le rendu.
 
 use std::borrow::Cow;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
@@ -87,6 +87,21 @@ impl Default for UiState {
     fn default() -> Self {
         Self { slide: None, grid: true }
     }
+}
+
+/// Un onglet vu de sa barre : titre, travail non enregistré, mode.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TabInfo {
+    /// Nom du fichier du deck, sinon son titre.
+    pub title: String,
+    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
+    pub dirty: bool,
+    /// L'onglet édite un ensemble de modèles.
+    pub editing_templates: bool,
+    /// Fichier du deck, absolu et normalisé : un fichier ouvert une fois.
+    pub path: Option<PathBuf>,
+    /// Deck neuf jamais touché : ouvrir un fichier le remplace.
+    pub pristine: bool,
 }
 
 /// Édition d'un ensemble de modèles : chaque slide est un modèle.

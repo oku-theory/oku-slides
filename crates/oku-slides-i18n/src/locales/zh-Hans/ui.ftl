@@ -228,3 +228,18 @@ ui-chart-series = 系列 { $n }
 
 ui-file-open-prompt = 要打开的文件路径（.oku-slides.pdf 或 .json）
 ui-file-save-prompt = 另存为（完整路径）
+
+## 标签页
+
+ui-tabs = 已打开的演示文稿
+ui-tab-new = 新建标签页
+ui-tab-close = 关闭标签页
+ui-tab-unsaved = 未保存的更改
+ui-tab-templates = 模板
+ui-tab-move-new-window = 移到新窗口
+ui-tab-move-to = 移到窗口 { $n }
+ui-tab-close-others = 关闭其他标签页
+ui-close-unsaved = 关闭前是否保存对“{ $name }”的更改？
+ui-close-save = 保存
+ui-close-discard = 不保存
+ui-close-cancel = 取消

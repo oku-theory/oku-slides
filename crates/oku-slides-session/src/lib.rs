@@ -1,6 +1,14 @@
-//! Session d'édition : le deck ouvert, son historique, son rendu et son
-//! fichier. L'app Tauri et le serveur de développement exposent la même API
-//! (voir [`Request`] et [`Session::handle`]).
+//! Session d'édition et espace de travail : deck, historique, rendu et
+//! fichier de chaque onglet.
+//!
+//! - [`Session`] et [`Request`] : un deck (une session par onglet).
+//! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`] :
+//!   les fenêtres, les onglets, la reprise de l'ensemble.
+//!
+//! L'app Tauri et le serveur de développement exposent la même API. Ordre
+//! des verrous : l'espace de travail puis une session, jamais l'inverse ;
+//! quatre fonctions s'en chargent, `Workspace::apply`, `Workspace::request`,
+//! `Workspace::open_files` et `Workspace::settle`.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -29,6 +37,7 @@ mod resume;
 pub mod templates;
 mod text;
 mod views;
+mod workspace;
 
 pub use appearance::{Appearance, appearance};
 use error::{
@@ -42,8 +51,10 @@ pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView, UiState,
+    PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TargetKind, TemplateMode, TemplateView,
+    TemplatesView, UiState,
 };
+pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
 /// Un document ouvert : ses sources (deck, assets, polices), son historique
 /// et son fichier.
@@ -57,11 +68,22 @@ struct Document {
     /// Empreinte du fichier à l'ouverture ou au dernier enregistrement : la
     /// reprise voit ainsi s'il a changé depuis.
     saved_hash: Option<String>,
+    /// Deck neuf de la session, jamais remplacé : l'onglet est vierge tant
+    /// que rien n'y est fait.
+    blank: bool,
 }
 
 impl Document {
     fn new(sources: SourceBundle, path: Option<PathBuf>, history_limit: usize) -> Self {
-        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None, saved_hash: None }
+        Self {
+            sources,
+            history: History::new(history_limit),
+            path,
+            dirty: false,
+            notice: None,
+            saved_hash: None,
+            blank: false,
+        }
     }
 }
 
@@ -83,10 +105,6 @@ enum Mode {
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Request {
     Snapshot,
-    New,
-    Open {
-        path: PathBuf,
-    },
     Save {
         path: Option<PathBuf>,
     },
@@ -103,8 +121,6 @@ pub enum Request {
     Undo,
     Redo,
     Schema,
-    /// Langue de l'utilisateur et messages Fluent de l'interface.
-    Messages,
     /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
     Panel {
         slide: String,
@@ -246,7 +262,10 @@ impl Session {
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let mut s = Self {
-            doc: Document::new(SourceBundle::new(blank_deck(l)), None, settings.history.limit),
+            doc: Document {
+                blank: true,
+                ..Document::new(SourceBundle::new(blank_deck(l)), None, settings.history.limit)
+            },
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
             storage,
@@ -285,6 +304,55 @@ impl Session {
             Mode::Deck => None,
             Mode::Templates { edit, .. } => Some(edit),
         }
+    }
+
+    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
+    fn unsaved(&self) -> bool {
+        self.doc.dirty || matches!(&self.mode, Mode::Templates { stash, .. } if stash.dirty)
+    }
+
+    /// Nom d'un document : son fichier, sinon le titre de son deck.
+    fn document_name(&self, doc: &Document) -> String {
+        let deck = &doc.sources.deck;
+        doc.path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
+            .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
+            .unwrap_or_else(|| self.localizer.tr("deck-untitled"))
+    }
+
+    /// Ce que la barre d'onglets montre de cette session.
+    ///
+    /// Pendant l'édition des modèles, le titre et le fichier restent ceux du
+    /// deck mis de côté.
+    pub fn tab_info(&self) -> TabInfo {
+        let deck = match &self.mode {
+            Mode::Deck => &self.doc,
+            Mode::Templates { stash, .. } => stash,
+        };
+        TabInfo {
+            title: self.document_name(deck),
+            dirty: self.unsaved(),
+            editing_templates: self.editing().is_some(),
+            path: deck.path.as_deref().map(oku_slides_platform::storage::resolve),
+            pristine: matches!(self.mode, Mode::Deck)
+                && deck.blank
+                && deck.path.is_none()
+                && !deck.dirty
+                && !deck.history.can_undo()
+                && !deck.history.can_redo(),
+        }
+    }
+
+    /// Un avis à montrer une fois, avec le prochain snapshot.
+    pub fn set_notice(&mut self, text: String) {
+        self.doc.notice = Some(text);
+    }
+
+    /// Plus rien n'est écrit pour la reprise (l'onglet est fermé).
+    pub(crate) fn stop_resume(&mut self) {
+        self.resume = None;
     }
 
     /// Dossier des ensembles de modèles de l'utilisateur.
@@ -410,9 +478,7 @@ impl Session {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
             Ok(serde_json::to_string(v).context(ResponseSnafu)?)
         }
-        if matches!(self.mode, Mode::Templates { .. })
-            && matches!(req, Request::New | Request::Open { .. } | Request::Save { .. })
-        {
+        if matches!(self.mode, Mode::Templates { .. }) && matches!(req, Request::Save { .. }) {
             return EditingTemplatesSnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
@@ -426,12 +492,6 @@ impl Session {
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::Panel { slide } => return json(&self.panel(&slide)?),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
-            Request::Messages => {
-                return json(&serde_json::json!({
-                    "locale": self.localizer.locale(),
-                    "resources": self.localizer.ui_messages(),
-                }));
-            }
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
@@ -440,8 +500,6 @@ impl Session {
                 self.template_cache = None;
                 return json(&self.library.list());
             }
-            Request::New => self.new_deck()?,
-            Request::Open { path } => self.open(&path)?,
             Request::Save { path } => self.save(path.as_deref())?,
             Request::Apply { label, ops } => self.apply(&label, ops)?,
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
@@ -465,7 +523,9 @@ impl Session {
     }
 
     pub fn new_deck(&mut self) -> Result<()> {
-        self.load(SourceBundle::new(blank_deck(&self.localizer)), None)
+        self.load(SourceBundle::new(blank_deck(&self.localizer)), None)?;
+        self.doc.blank = true;
+        Ok(())
     }
 
     /// Charge un document (déjà lu) dans la session.
@@ -623,13 +683,7 @@ impl Session {
                 }
             })
             .collect();
-        let name = doc
-            .path
-            .as_ref()
-            .and_then(|p| p.file_name())
-            .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
-            .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
-            .unwrap_or_else(|| self.localizer.tr("deck-untitled"));
+        let name = self.document_name(doc);
         Snapshot {
             path: doc.path.as_deref(),
             name,

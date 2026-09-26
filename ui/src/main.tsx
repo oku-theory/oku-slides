@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import Workspace from "./Workspace";
 import { loadMessages } from "./i18n";
 import "./styles.css";
 
@@ -11,7 +11,7 @@ loadMessages()
   .finally(() =>
     createRoot(document.getElementById("root")!).render(
       <StrictMode>
-        <App />
+        <Workspace />
       </StrictMode>,
     ),
   );

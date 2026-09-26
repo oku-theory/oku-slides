@@ -12,7 +12,10 @@ session-no-templates-dir = No folder for your templates
 session-editing-templates = Finish editing the templates first
 session-not-editing-templates = No template set is being edited
 session-response = The answer could not be written
-session-busy = The session is unavailable
+session-unknown-tab = This tab is no longer open.
+session-unknown-window = This window is no longer open.
+session-last-window = The last window stays open: quit the app instead.
+session-unsaved = “{ $title }” has unsaved changes.
 session-bad-request = Invalid request: { $reason }
 
 deck-untitled = Untitled
@@ -23,7 +26,7 @@ templates-default-name = My templates
 templates-copy-name = { $name } (copy)
 template-default-name = Template
 notice-modified-elsewhere = This PDF was changed by another tool after Oku Slides: its sources may no longer match what a PDF reader shows.
-notice-resume-kept-unsaved = Your unsaved changes from last time were kept: the file you asked to open was not opened.
+notice-open-failed = { $path } could not be opened: { $reason }
 
 log-document-opened = Document opened
 log-document-saved = Document saved
@@ -36,3 +39,9 @@ session-panel-description = Description
 session-panel-grid = Grid
 session-panel-columns = Columns
 session-panel-rows = Rows
+
+## Menu
+
+menu-edit = Edit
+menu-window = Window
+menu-quit = Quit

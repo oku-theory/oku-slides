@@ -208,6 +208,30 @@ fn http(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
     (status, body)
 }
 
+/// Un `POST` avec l'en-tête `Host` donné et des en-têtes en plus ; renvoie le statut.
+fn http_host(port: u16, path: &str, body: &str, host: &str, headers: &str) -> u16 {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("serveur injoignable : {e}"));
+    write!(
+        stream,
+        "POST {path} HTTP/1.1\r\nHost: {host}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+    .unwrap_or_else(|e| panic!("requête : {e}"));
+    let mut response = String::new();
+    stream.read_to_string(&mut response).unwrap_or_else(|e| panic!("réponse : {e}"));
+    response.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0)
+}
+
+/// Comme `http`, avec des en-têtes en plus (ex. `Origin`) ; renvoie le statut.
+fn http_with(port: u16, path: &str, body: &str, headers: &str) -> u16 {
+    http_host(port, path, body, "localhost", headers)
+}
+
+/// Comme `http`, avec un autre en-tête `Host` ; renvoie le statut.
+fn http_raw(port: u16, path: &str, body: &str, host: &str) -> u16 {
+    http_host(port, path, body, host, "")
+}
+
 #[test]
 fn serve_answers_the_api_the_dictation_and_static_files() {
     let dir = workdir("serve");
@@ -227,18 +251,49 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
             .unwrap(),
     );
 
-    let (status, snapshot) = http(port, "POST", "/api", r#"{"cmd":"snapshot"}"#);
+    let (status, snapshot) = http(port, "POST", "/api", r#"{"tab":"t-1","req":{"cmd":"snapshot"}}"#);
     assert_that!(status).is_equal_to(200);
     let snapshot: serde_json::Value = serde_json::from_str(&snapshot).unwrap();
     assert_that!(snapshot["slides"].as_array().map(Vec::len)).is_equal_to(Some(8));
 
-    let (status, error) = http(port, "POST", "/api", r#"{"cmd":"slide","id":"absente"}"#);
+    let (status, error) = http(port, "POST", "/api", r#"{"tab":"t-1","req":{"cmd":"slide","id":"absente"}}"#);
     assert_that!(status).is_equal_to(400);
     assert_that!(error).contains("Slide introuvable : absente");
 
     let (status, error) = http(port, "POST", "/api", "pas du json");
     assert_that!(status).is_equal_to(400);
     assert_that!(error).contains("requête invalide");
+
+    // Un deuxième onglet : vierge, distinct du premier.
+    let (status, view) = http(port, "POST", "/api/workspace", r#"{"cmd":"new_tab","window":"w-1"}"#);
+    assert_that!(status).is_equal_to(200);
+    assert_that!(view.as_str()).contains(r#""id":"t-2""#);
+    let (status, blank) = http(port, "POST", "/api", r#"{"tab":"t-2","req":{"cmd":"snapshot"}}"#);
+    assert_that!(status).is_equal_to(200);
+    let blank: serde_json::Value = serde_json::from_str(&blank).unwrap();
+    assert_that!(blank["slides"].as_array().map(Vec::len)).is_equal_to(Some(2));
+    let (status, error) = http(port, "POST", "/api", r#"{"tab":"t-9","req":{"cmd":"snapshot"}}"#);
+    assert_that!(status).is_equal_to(400);
+    assert_that!(error).is_equal_to(r#"{"error":"Cet onglet n'est plus ouvert."}"#.to_owned());
+    // Une page web d'une autre origine ne pilote pas le serveur.
+    let evil = http_with(port, "/api/workspace", r#"{"cmd":"new_window"}"#, "Origin: http://evil.example\r\n");
+    assert_that!(evil).is_equal_to(403);
+    // DNS rebinding : un nom étranger qui pointe sur 127.0.0.1.
+    let rebound = http_raw(port, "/api/workspace", r#"{"cmd":"view"}"#, "evil.example");
+    assert_that!(rebound).is_equal_to(403);
+    let same = http_with(port, "/api/workspace", r#"{"cmd":"view"}"#, &format!("Origin: http://localhost:{port}\r\n"));
+    assert_that!(same).is_equal_to(200);
+    // Le serveur Vite de `just web` (port 5173) relaie l'origine de sa page.
+    let vite = http_with(port, "/api/workspace", r#"{"cmd":"view"}"#, "Origin: http://localhost:5173\r\n");
+    assert_that!(vite).is_equal_to(200);
+    // Les requêtes refusées n'ont rien changé : toujours une fenêtre, deux onglets.
+    let (status, view) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
+    assert_that!(status).is_equal_to(200);
+    let view: serde_json::Value = serde_json::from_str(&view).unwrap();
+    let windows = view["windows"].as_array().unwrap();
+    assert_that!(windows.len()).is_equal_to(1);
+    let tabs: Vec<&str> = windows[0]["tabs"].as_array().unwrap().iter().filter_map(|t| t["id"].as_str()).collect();
+    assert_that!(tabs).is_equal_to(vec!["t-1", "t-2"]);
 
     let (status, stt) = http(port, "POST", "/api/stt", r#"{"cmd":"status"}"#);
     assert_that!(status).is_equal_to(200);
@@ -250,6 +305,104 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
 
     let (status, _) = http(port, "GET", "/../secret.txt", "");
     assert_that!(status).is_equal_to(404);
+}
+
+/// Le serveur de développement n'a pas de fenêtre native à quitter : fermer
+/// la seule fenêtre est refusé (409, `{error}`), sans rien fermer.
+#[test]
+fn serve_close_window_on_the_only_window_answers_409_and_keeps_it() {
+    let dir = workdir("serve-close-window");
+    let ui = dir.join("ui");
+    std::fs::create_dir_all(&ui).unwrap_or_else(|e| panic!("dossier ui : {e}"));
+    std::fs::write(ui.join("index.html"), "<h1>Oku Slides</h1>").unwrap_or_else(|e| panic!("index.html : {e}"));
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .args(["serve", "--port", &port.to_string(), "--ui"])
+            .arg(&ui)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+
+    let (status, reply) = http(port, "POST", "/api/workspace", r#"{"cmd":"close_window","window":"w-1"}"#);
+    assert_that!(status).is_equal_to(409);
+    let reply: serde_json::Value = serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réponse illisible : {e}"));
+    assert_that!(reply["error"].as_str().is_some_and(|m| !m.is_empty())).is_true();
+
+    let (status, view) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
+    assert_that!(status).is_equal_to(200);
+    let view: serde_json::Value = serde_json::from_str(&view).unwrap_or_else(|e| panic!("vue illisible : {e}"));
+    assert_that!(view["windows"].as_array().map(Vec::len)).is_equal_to(Some(1));
+    assert_that!(view["windows"][0]["label"].as_str()).is_equal_to(Some("w-1"));
+}
+
+/// Un corps de plus de 64 Mio est refusé (413) sans être traité ; le
+/// serveur répond ensuite normalement. Un vrai corps : `Content-Length`
+/// seul, plus grand que le corps envoyé, n'est pas fiable avec tiny_http.
+#[test]
+fn serve_body_over_64_mib_answers_413() {
+    let dir = workdir("serve-body-cap");
+    let ui = dir.join("ui");
+    std::fs::create_dir_all(&ui).unwrap_or_else(|e| panic!("dossier ui : {e}"));
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .args(["serve", "--port", &port.to_string(), "--ui"])
+            .arg(&ui)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+
+    let big = " ".repeat(64 * 1024 * 1024 + 1);
+    let (status, _) = http(port, "POST", "/api/workspace", &big);
+    assert_that!(status).is_equal_to(413);
+    let (status, _) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
+    assert_that!(status).is_equal_to(200);
+}
+
+/// Fermer le dernier onglet de la seule fenêtre viderait l'espace de travail :
+/// l'interface resterait sur « chargement ». Refusé (409), rien n'est fermé.
+#[test]
+fn serve_close_last_tab_of_the_only_window_answers_409_and_keeps_it() {
+    let dir = workdir("serve-close-last-tab");
+    let ui = dir.join("ui");
+    std::fs::create_dir_all(&ui).unwrap_or_else(|e| panic!("dossier ui : {e}"));
+    std::fs::write(ui.join("index.html"), "<h1>Oku Slides</h1>").unwrap_or_else(|e| panic!("index.html : {e}"));
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .args(["serve", "--port", &port.to_string(), "--ui"])
+            .arg(&ui)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+
+    // Deux onglets : le premier se ferme normalement.
+    let (status, _) = http(port, "POST", "/api/workspace", r#"{"cmd":"new_tab","window":"w-1"}"#);
+    assert_that!(status).is_equal_to(200);
+    let (status, _) = http(port, "POST", "/api/workspace", r#"{"cmd":"close","tab":"t-1","discard":true}"#);
+    assert_that!(status).is_equal_to(200);
+
+    // Le dernier : refusé.
+    let (status, reply) = http(port, "POST", "/api/workspace", r#"{"cmd":"close","tab":"t-2","discard":true}"#);
+    assert_that!(status).is_equal_to(409);
+    let reply: serde_json::Value = serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réponse illisible : {e}"));
+    assert_that!(reply["error"].as_str().is_some_and(|m| !m.is_empty())).is_true();
+
+    let (status, view) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
+    assert_that!(status).is_equal_to(200);
+    let view: serde_json::Value = serde_json::from_str(&view).unwrap_or_else(|e| panic!("vue illisible : {e}"));
+    assert_that!(view["windows"].as_array().map(Vec::len)).is_equal_to(Some(1));
+    assert_that!(view["windows"][0]["tabs"][0]["id"].as_str()).is_equal_to(Some("t-2"));
 }
 
 #[cfg(unix)]
@@ -264,7 +417,7 @@ fn serve_stops_cleanly_on_sigterm() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    let (status, _) = http(port, "POST", "/api", r#"{"cmd":"snapshot"}"#);
+    let (status, _) = http(port, "POST", "/api", r#"{"tab":"t-1","req":{"cmd":"snapshot"}}"#);
     assert_that!(status).is_equal_to(200);
 
     let killed = Command::new("kill").args(["-TERM", &server.id().to_string()]).status().unwrap();

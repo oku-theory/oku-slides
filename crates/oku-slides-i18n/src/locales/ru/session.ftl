@@ -12,7 +12,10 @@ session-no-templates-dir = Нет папки для ваших шаблонов
 session-editing-templates = Сначала завершите редактирование шаблонов
 session-not-editing-templates = Ни один набор шаблонов не редактируется
 session-response = Не удалось записать ответ
-session-busy = Сеанс недоступен
+session-unknown-tab = Эта вкладка больше не открыта.
+session-unknown-window = Это окно больше не открыто.
+session-last-window = Последнее окно остаётся открытым: вместо этого закройте приложение.
+session-unsaved = В «{ $title }» есть несохранённые изменения.
 session-bad-request = Недопустимый запрос: { $reason }
 
 deck-untitled = Без названия
@@ -23,7 +26,7 @@ templates-default-name = Мои шаблоны
 templates-copy-name = { $name } (копия)
 template-default-name = Шаблон
 notice-modified-elsewhere = Этот PDF был изменён другой программой после Oku Slides: его исходники могут не совпадать с тем, что показывает программа просмотра PDF.
-notice-resume-kept-unsaved = Ваши несохранённые изменения с прошлого раза восстановлены: запрошенный файл не открыт.
+notice-open-failed = Не удалось открыть { $path }: { $reason }
 
 log-document-opened = Документ открыт
 log-document-saved = Документ сохранён
@@ -36,3 +39,9 @@ session-panel-description = Описание
 session-panel-grid = Сетка
 session-panel-columns = Столбцы
 session-panel-rows = Строки
+
+## Menu
+
+menu-edit = Правка
+menu-window = Окно
+menu-quit = Выход

@@ -23,9 +23,9 @@ fn session() -> Session {
 }
 
 /// Une session qui reprend l'état laissé dans `data`.
-fn resumed(data: &std::path::Path, file: Option<&std::path::Path>) -> Session {
+fn resumed(data: &std::path::Path) -> Session {
     let mut s = session_in(data);
-    s.resume(data.join("resume"), file);
+    assert!(s.resume(data.join("resume")), "reprise refusée");
     s
 }
 
@@ -387,19 +387,19 @@ fn snapshot_ui_defaults_to_grid_shown_and_no_slide() {
 fn new_deck_forgets_the_remembered_slide_but_keeps_grid() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
-    s.handle(req(json!({"cmd": "new"}))).unwrap();
+    s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false}));
 }
 
 #[test]
 fn resume_after_edits_restores_deck_history_and_ui() {
     let data = data_dir();
-    let mut a = resumed(&data, None);
+    let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
     a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
     let before = snapshot_json(&mut a);
     drop(a);
-    let mut b = resumed(&data, None);
+    let mut b = resumed(&data);
     assert_that!(snapshot_json(&mut b)).is_equal_to(&before);
     b.undo().unwrap();
     assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("papier"));
@@ -408,11 +408,11 @@ fn resume_after_edits_restores_deck_history_and_ui() {
 #[test]
 fn resume_while_editing_templates_restores_mode_and_stashed_deck() {
     let data = data_dir();
-    let mut a = resumed(&data, None);
+    let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
     a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
     drop(a);
-    let mut b = resumed(&data, None);
+    let mut b = resumed(&data);
     assert_that!(snapshot_json(&mut b)["editing"]["set"]).is_equal_to(json!(oku_slides_session::DEFAULT_SET));
     b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
     let snap = snapshot_json(&mut b);
@@ -424,7 +424,7 @@ fn resume_while_editing_templates_restores_mode_and_stashed_deck() {
 fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     let data = data_dir();
     let file = data.join("essai.oku-slides.pdf");
-    let mut a = resumed(&data, None);
+    let mut a = resumed(&data);
     a.handle(req(json!({"cmd": "save", "path": file}))).unwrap();
     drop(a);
     // Un autre lancement (sans reprise) change le fichier.
@@ -432,7 +432,7 @@ fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     other.open(&file).unwrap();
     other.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
     other.save(Some(&file)).unwrap();
-    let mut b = resumed(&data, None);
+    let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
     assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["can_undo"]).is_equal_to(json!(false));
@@ -443,83 +443,148 @@ fn resume_with_corrupt_state_starts_blank() {
     let data = data_dir();
     std::fs::create_dir_all(data.join("resume")).unwrap();
     std::fs::write(data.join("resume/state.json"), b"pas du json").unwrap();
-    let mut b = resumed(&data, None);
+    let mut b = session_in(&data);
+    assert_that!(b.resume(data.join("resume"))).is_false();
     let snap = snapshot_json(&mut b);
     assert_that!(snap["slides"].as_array().unwrap().len()).is_equal_to(2);
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
 }
 
 #[test]
-fn resume_with_file_and_unsaved_work_keeps_work_with_notice() {
+fn resume_with_corrupt_state_leaves_a_pristine_blank_deck() {
     let data = data_dir();
-    let mut a = resumed(&data, None);
-    a.handle(set_theme("pro")).unwrap();
-    drop(a);
-    let mut b = resumed(&data, Some(&fixture_path()));
-    let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
-    assert_that!(snap["notice"].as_str()).is_some();
+    std::fs::create_dir_all(data.join("resume")).unwrap();
+    std::fs::write(data.join("resume/state.json"), b"pas du json").unwrap();
+    let mut b = session_in(&data);
+    assert_that!(b.resume(data.join("resume"))).is_false();
+    assert_that!(b.tab_info().pristine).is_true();
 }
 
 #[test]
-fn resume_with_file_and_no_unsaved_work_opens_file() {
+fn resume_in_empty_dir_returns_true_and_writes_state() {
     let data = data_dir();
-    drop(resumed(&data, None));
-    let mut b = resumed(&data, Some(&fixture_path()));
-    assert_that!(snapshot_json(&mut b)["slides"].as_array().unwrap().len()).is_equal_to(8);
+    let mut s = session_in(&data);
+    assert_that!(s.resume(data.join("resume"))).is_true();
+    assert_that!(data.join("resume/state.json").exists()).is_true();
+    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
-fn resume_with_file_while_editing_templates_and_dirty_deck_keeps_notice_on_deck() {
-    let data = data_dir();
-    let mut a = resumed(&data, None);
-    a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
-    drop(a);
-    let mut b = resumed(&data, Some(&fixture_path()));
-    // L'avis doit être visible dès la première capture (les modèles sont
-    // affichés, le deck qui porte le travail non enregistré est de côté),
-    // avant même de fermer l'édition des modèles.
-    let first = snapshot_json(&mut b);
-    asserting("l'avis est visible dès la première capture, sur le document affiché")
-        .that(&first["notice"].as_str())
-        .is_some();
-    // La réponse de `close_templates` est elle-même une capture : l'avis du
-    // deck retrouvé y apparaît (une seule fois, comme tout avis).
-    let reply = b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
-    let closed: serde_json::Value = serde_json::from_str(&reply).unwrap();
-    asserting("l'avis suit le deck mis de côté, pas les modèles en cours").that(&closed["notice"].as_str()).is_some();
+fn tab_info_new_session_is_pristine_clean_and_named_like_the_snapshot() {
+    let s = session();
+    let info = s.tab_info();
+    assert_that!(info.pristine).is_true();
+    assert_that!(info.dirty).is_false();
+    assert_that!(info.editing_templates).is_false();
+    assert_that!(info.path).is_none();
+    assert_that!(info.title).is_equal_to(s.snapshot().name);
 }
 
 #[test]
-fn resume_with_file_matching_the_dirty_document_path_does_not_set_misleading_notice() {
+fn tab_info_after_new_deck_is_pristine() {
+    let mut s = session();
+    s.handle(set_theme("pro")).unwrap();
+    s.new_deck().unwrap();
+    assert_that!(s.tab_info().pristine).is_true();
+}
+
+#[test]
+fn tab_info_after_edit_is_dirty_and_no_longer_pristine() {
+    let mut s = session();
+    s.handle(set_theme("pro")).unwrap();
+    let info = s.tab_info();
+    assert_that!(info.dirty).is_true();
+    assert_that!(info.pristine).is_false();
+}
+
+#[test]
+fn tab_info_after_undoing_every_edit_is_not_pristine() {
+    let mut s = session();
+    s.handle(set_theme("pro")).unwrap();
+    s.undo().unwrap();
+    assert_that!(s.tab_info().pristine).is_false();
+}
+
+/// Un deck JSON ouvert n'a pas de fichier associé : il n'est pas vierge
+/// pour autant, et ouvrir un autre fichier ne doit pas le remplacer.
+#[test]
+fn tab_info_after_opening_a_json_deck_is_not_pristine() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let info = s.tab_info();
+    assert_that!(info.path).is_none();
+    assert_that!(info.pristine).is_false();
+}
+
+#[test]
+fn tab_info_after_save_has_file_name_as_title_and_resolved_path() {
     let data = data_dir();
     let file = data.join("essai.oku-slides.pdf");
-    let mut a = resumed(&data, None);
-    a.handle(req(json!({"cmd": "save", "path": file}))).unwrap();
-    a.handle(set_theme("pro")).unwrap();
-    drop(a);
-    // Le fichier demandé au lancement est celui-là même que la copie de
-    // travail non enregistrée : pas la peine de dire qu'il n'a pas été ouvert.
-    let mut b = resumed(&data, Some(&file));
-    let snap = snapshot_json(&mut b);
-    assert_that!(snap["dirty"]).is_equal_to(json!(true));
-    asserting("le fichier demandé est déjà celui affiché : pas d'avis trompeur")
-        .that(&snap["notice"].as_str())
-        .is_none();
+    let mut s = session_in(&data);
+    s.handle(req(json!({"cmd": "save", "path": data.join("./x/../essai.oku-slides.pdf")}))).unwrap();
+    let info = s.tab_info();
+    assert_that!(info.title.as_str()).is_equal_to("essai");
+    assert_that!(info.path).is_equal_to(Some(file));
+    assert_that!(info.pristine).is_false();
+    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
-fn notice_is_shown_once_then_cleared_from_the_next_snapshot() {
+fn tab_info_editing_templates_keeps_deck_title_and_reports_mode() {
+    let mut s = session();
+    let title = s.tab_info().title;
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    let info = s.tab_info();
+    assert_that!(info.editing_templates).is_true();
+    assert_that!(info.title).is_equal_to(title);
+    assert_that!(info.pristine).is_false();
+}
+
+/// Un deck propre mis de côté ne rend pas l'onglet non enregistré : seul le
+/// deck (ou l'ensemble de modèles) réellement modifié doit compter.
+#[test]
+fn tab_info_editing_templates_with_a_clean_stashed_deck_is_not_dirty() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    assert_that!(s.tab_info().dirty).is_false();
+}
+
+/// Le deck mis de côté pendant l'édition des modèles garde son travail non
+/// enregistré, que l'onglet doit continuer à signaler.
+#[test]
+fn tab_info_editing_templates_reports_dirty_from_the_stashed_deck() {
+    let mut s = session();
+    s.handle(set_theme("pro")).unwrap();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    assert_that!(s.tab_info().dirty).is_true();
+}
+
+#[test]
+fn set_notice_is_shown_once_in_the_snapshot() {
+    let mut s = session();
+    s.set_notice("Attention".into());
+    assert_that!(snapshot_json(&mut s)["notice"]).is_equal_to(json!("Attention"));
+    assert_that!(snapshot_json(&mut s)["notice"]).is_equal_to(json!(null));
+}
+
+/// Test de caractérisation (vert dès l'écriture, et doit le rester) : deux
+/// onglets, un seul dossier de modèles ; le cache d'aperçus d'une session
+/// suit ce qu'une autre enregistre, car il compare l'ensemble relu.
+#[test]
+fn templates_view_after_other_session_saves_the_set_shows_the_new_templates() {
     let data = data_dir();
-    let mut a = resumed(&data, None);
-    a.handle(set_theme("pro")).unwrap();
-    drop(a);
-    let mut b = resumed(&data, Some(&fixture_path()));
-    let first = snapshot_json(&mut b);
-    asserting("l'avis est présent une première fois").that(&first["notice"].as_str()).is_some();
-    let second = snapshot_json(&mut b);
-    asserting("l'avis ne s'affiche qu'une fois").that(&second["notice"].as_str()).is_none();
+    let mut a = session_in(&data);
+    a.edit_templates(oku_slides_session::DEFAULT_SET).unwrap();
+    a.save_templates(true).unwrap();
+    let id = snapshot_json(&mut a)["editing"]["set"].as_str().unwrap().to_owned();
+    let mut b = session_in(&data);
+    let before = b.templates_view(Some(id.clone())).unwrap().templates.len();
+    let first = a.deck().slides[0].id.clone();
+    a.apply("Retirer", vec![Op::RemoveSlide { slide: first }]).unwrap();
+    a.save_templates(false).unwrap();
+    let after = b.templates_view(Some(id)).unwrap().templates.len();
+    assert_that!(after).is_equal_to(before - 1);
+    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
@@ -533,7 +598,7 @@ fn resume_with_unreadable_state_moves_old_data_aside_instead_of_overwriting() {
     std::fs::write(resume_dir.join("deck/document.json"), &doc_bytes).unwrap();
 
     let mut s = session_in(&data);
-    s.resume(resume_dir.clone(), None);
+    assert_that!(s.resume(resume_dir.clone())).is_false();
 
     // La reprise a échoué : deck vierge, rien d'anormal en apparence.
     let snap = s.snapshot();
@@ -550,6 +615,8 @@ fn resume_with_unreadable_state_moves_old_data_aside_instead_of_overwriting() {
     assert_that!(moved.len()).is_equal_to(1);
     let old_bytes = std::fs::read(moved[0].join("deck/document.json")).unwrap();
     assert_that!(old_bytes).is_equal_to(doc_bytes);
+    // Rien n'est écrit à la place : l'onglet sera retiré par l'espace de travail.
+    assert_that!(resume_dir.exists()).is_false();
 }
 
 /// Quand le déplacement de côté lui-même échoue (ici : dossier parent en
@@ -571,7 +638,7 @@ fn resume_with_unreadable_state_and_failed_quarantine_disables_resume_but_keeps_
     // le déplacement de côté échoue.
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o555)).unwrap();
     let mut s = session_in(&data);
-    s.resume(resume_dir.clone(), None);
+    assert_that!(s.resume(resume_dir.clone())).is_false();
     // On restaure les permissions tout de suite, pour pouvoir nettoyer et
     // relire le dossier ensuite, échec de la reprise ou pas.
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o755)).unwrap();

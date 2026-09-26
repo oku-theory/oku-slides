@@ -1,8 +1,7 @@
 // Carrousel des modèles de slides, posé sur la table au-dessus de la feuille.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SetInfo, TemplateView } from "./api";
-import { api } from "./api";
+import { errorText, type SetInfo, type TabApi, type TemplateView } from "./api";
 import { t } from "./i18n";
 
 interface Props {
@@ -15,9 +14,11 @@ interface Props {
   /** Autre ensemble choisi dans la liste (le deck l'adopte). */
   onSetChange?: (set: SetInfo) => void;
   onClose: () => void;
+  /** Requêtes de l'onglet du picker. */
+  api: TabApi;
 }
 
-export default function TemplatePicker({ themeKey, initialSet, title, onPick, onSetChange, onClose }: Props) {
+export default function TemplatePicker({ themeKey, initialSet, title, onPick, onSetChange, onClose, api }: Props) {
   const [items, setItems] = useState<TemplateView[] | null>(null);
   const [sets, setSets] = useState<SetInfo[]>([]);
   const [set, setSet] = useState(initialSet);
@@ -36,11 +37,11 @@ export default function TemplatePicker({ themeKey, initialSet, title, onPick, on
         setSets(v.sets);
         setFocus(0);
       })
-      .catch((e) => alive && setError(String(e)));
+      .catch((e) => alive && setError(errorText(e)));
     return () => {
       alive = false;
     };
-  }, [themeKey, set]);
+  }, [themeKey, set, api]);
 
   const chooseSet = (id: string) => {
     setSet(id);

@@ -12,7 +12,10 @@ session-no-templates-dir = Nessuna cartella per i tuoi modelli
 session-editing-templates = Termina prima la modifica dei modelli
 session-not-editing-templates = Nessun set di modelli in modifica
 session-response = Impossibile scrivere la risposta
-session-busy = La sessione non è disponibile
+session-unknown-tab = Questa scheda non è più aperta.
+session-unknown-window = Questa finestra non è più aperta.
+session-last-window = L'ultima finestra resta aperta: esci invece dall'applicazione.
+session-unsaved = «{ $title }» ha modifiche non salvate.
 session-bad-request = Richiesta non valida: { $reason }
 
 deck-untitled = Senza titolo
@@ -23,7 +26,7 @@ templates-default-name = I miei modelli
 templates-copy-name = { $name } (copia)
 template-default-name = Modello
 notice-modified-elsewhere = Questo PDF è stato modificato da un altro strumento dopo Oku Slides: le sue sorgenti potrebbero non corrispondere più a ciò che mostra un lettore PDF.
-notice-resume-kept-unsaved = Le modifiche non salvate dell'ultima volta sono state mantenute: il file richiesto non è stato aperto.
+notice-open-failed = Impossibile aprire { $path }: { $reason }
 
 log-document-opened = Documento aperto
 log-document-saved = Documento salvato
@@ -36,3 +39,9 @@ session-panel-description = Descrizione
 session-panel-grid = Griglia
 session-panel-columns = Colonne
 session-panel-rows = Righe
+
+## Menu
+
+menu-edit = Modifica
+menu-window = Finestra
+menu-quit = Esci

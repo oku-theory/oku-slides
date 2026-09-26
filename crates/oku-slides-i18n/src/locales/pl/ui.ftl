@@ -232,3 +232,18 @@ ui-chart-series = Seria { $n }
 
 ui-file-open-prompt = Ścieżka pliku do otwarcia (.oku-slides.pdf lub .json)
 ui-file-save-prompt = Zapisz jako (pełna ścieżka)
+
+## Karty
+
+ui-tabs = Otwarte prezentacje
+ui-tab-new = Nowa karta
+ui-tab-close = Zamknij kartę
+ui-tab-unsaved = Niezapisane zmiany
+ui-tab-templates = Szablony
+ui-tab-move-new-window = Przenieś do nowego okna
+ui-tab-move-to = Przenieś do okna { $n }
+ui-tab-close-others = Zamknij pozostałe karty
+ui-close-unsaved = Zapisać zmiany w „{ $name }” przed zamknięciem?
+ui-close-save = Zapisz
+ui-close-discard = Nie zapisuj
+ui-close-cancel = Anuluj

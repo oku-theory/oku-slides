@@ -1,6 +1,6 @@
-// Accès à l'hôte Rust : la session et la dictée (`invoke` dans Tauri, `POST`
-// en développement), et les dialogues de fichier. Les types décrivent le JSON
-// échangé.
+// Accès à l'hôte : requêtes par onglet, espace de travail (fenêtres et
+// onglets), dictée et dialogues de fichier. `invoke` dans Tauri, `POST` au
+// serveur de développement ailleurs. Les types décrivent le JSON de l'hôte.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Cell, ZoneView } from "./grid";
@@ -221,7 +221,7 @@ type SttRequest =
   | { cmd: "cancel" }
   | { cmd: "download"; model: SttModel };
 
-const sttCall = (req: SttRequest) => host<SttStatus>("stt", "/api/stt", req);
+const sttCall = (req: SttRequest) => host<SttStatus>("stt", { req }, "/api/stt", req);
 
 export const stt = {
   status: () => sttCall({ cmd: "status" }),
@@ -236,8 +236,6 @@ export type Op = { op: string } & Record<string, unknown>;
 
 type Request =
   | { cmd: "snapshot" }
-  | { cmd: "new" }
-  | { cmd: "open"; path: string }
   | { cmd: "save"; path: string | null }
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
@@ -250,7 +248,6 @@ type Request =
   | { cmd: "save_templates"; as_new: boolean }
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
-  | { cmd: "messages" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "panel"; slide: string }
   | { cmd: "ui"; slide: string | null; grid: boolean };
@@ -263,46 +260,117 @@ export interface Messages {
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-/** Une requête à l'hôte : la commande Tauri `command`, ou `POST endpoint` en développement. */
-async function host<T>(command: string, endpoint: string, req: object): Promise<T> {
+/** Requête à l'hôte : commande Tauri, ou `POST` en développement. */
+async function host<T>(command: string, args: Record<string, unknown>, endpoint: string, body: unknown): Promise<T> {
   if (inTauri) {
     const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<T>(command, { req });
+    return invoke<T>(command, args);
   }
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
+    body: JSON.stringify(body),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? res.statusText);
-  return body as T;
+  // Un refus (403) ou une page d'erreur du proxy peuvent arriver sans corps
+  // JSON : le statut reste lisible.
+  const text = await res.text();
+  let json: { error?: string } = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  if (!res.ok) throw new Error(json.error ?? `${res.status} ${res.statusText}`);
+  return json as unknown as T;
 }
 
-const call = <T>(req: Request) => host<T>("request", "/api", req);
+/** Le texte d'une erreur. */
+export function errorText(e: unknown): string {
+  return String(e instanceof Error ? e.message : e);
+}
 
-export const api = {
-  snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
-  messages: () => call<Messages>({ cmd: "messages" }),
-  chartKind: (label: string, slide: string, element: string, kind: string) =>
-    call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
-  newDeck: () => call<Snapshot>({ cmd: "new" }),
-  open: (path: string) => call<Snapshot>({ cmd: "open", path }),
-  save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),
-  slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
-  svg: (id: string) => call<string>({ cmd: "svg", id }),
-  /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
-  panel: (slide: string) => call<A2uiMessage[]>({ cmd: "panel", slide }),
-  apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
-  undo: () => call<Snapshot>({ cmd: "undo" }),
-  redo: () => call<Snapshot>({ cmd: "redo" }),
-  templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
-  templateSets: () => call<SetInfo[]>({ cmd: "template_sets" }),
-  editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
-  saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
-  closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
-  deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
-  ui: (slide: string | null, grid: boolean) => call<Snapshot>({ cmd: "ui", slide, grid }),
+/** Sur macOS : ⌘ et barre de titre intégrée. */
+export const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
+
+/** Les requêtes d'un onglet : chacune ne touche que sa session. */
+export function tabApi(tab: string) {
+  const call = <T>(req: Request) => host<T>("request", { tab, req }, "/api", { tab, req });
+  return {
+    snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
+    chartKind: (label: string, slide: string, element: string, kind: string) =>
+      call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
+    save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),
+    slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
+    svg: (id: string) => call<string>({ cmd: "svg", id }),
+    /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
+    panel: (slide: string) => call<A2uiMessage[]>({ cmd: "panel", slide }),
+    apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
+    undo: () => call<Snapshot>({ cmd: "undo" }),
+    redo: () => call<Snapshot>({ cmd: "redo" }),
+    templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
+    templateSets: () => call<SetInfo[]>({ cmd: "template_sets" }),
+    editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
+    saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
+    closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
+    deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
+    ui: (slide: string | null, grid: boolean) => call<Snapshot>({ cmd: "ui", slide, grid }),
+  };
+}
+
+/** Les requêtes d'un onglet (voir `tabApi`). */
+export type TabApi = ReturnType<typeof tabApi>;
+
+/** Un onglet, tel que la barre le montre. */
+export interface TabInfo {
+  id: string;
+  title: string;
+  dirty: boolean;
+  editing_templates: boolean;
+  path: string | null;
+  pristine: boolean;
+}
+
+/** Une fenêtre : ses onglets et l'onglet actif. */
+export interface WindowView {
+  label: string;
+  active: string;
+  tabs: TabInfo[];
+}
+
+/** Les fenêtres et leurs onglets ; `focused` : la dernière fenêtre active. */
+export interface WorkspaceView {
+  focused: string;
+  windows: WindowView[];
+}
+
+type WorkspaceRequest =
+  | { cmd: "view" }
+  | { cmd: "messages" }
+  | { cmd: "new_tab"; window: string }
+  | { cmd: "open_tab"; window: string; path: string }
+  | { cmd: "activate"; tab: string }
+  | { cmd: "close"; tab: string; discard: boolean }
+  | { cmd: "reorder"; tab: string; index: number }
+  | { cmd: "move_tab"; tab: string; window: string | null; index: number | null }
+  | { cmd: "new_window" }
+  | { cmd: "close_window"; window: string; discard: string[] };
+
+const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
+
+/** L'espace de travail : fenêtres et onglets. */
+export const workspace = {
+  view: () => ws<WorkspaceView>({ cmd: "view" }),
+  messages: () => ws<Messages>({ cmd: "messages" }),
+  newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
+  openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
+  activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),
+  /** `discard` : l'utilisateur a choisi de perdre le travail non enregistré. */
+  close: (tab: string, discard = false) => ws<WorkspaceView>({ cmd: "close", tab, discard }),
+  reorder: (tab: string, index: number) => ws<WorkspaceView>({ cmd: "reorder", tab, index }),
+  moveTab: (tab: string, window: string | null, index: number | null = null) =>
+    ws<WorkspaceView>({ cmd: "move_tab", tab, window, index }),
+  newWindow: () => ws<WorkspaceView>({ cmd: "new_window" }),
+  closeWindow: (window: string, discard: string[]) => ws<WorkspaceView>({ cmd: "close_window", window, discard }),
 };
 
 /** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */

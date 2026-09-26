@@ -12,7 +12,10 @@ session-no-templates-dir = لا يوجد مجلد لقوالبك
 session-editing-templates = أنهِ تعديل القوالب أولًا
 session-not-editing-templates = لا توجد مجموعة قوالب قيد التعديل
 session-response = تعذّرت كتابة الرد
-session-busy = الجلسة غير متاحة
+session-unknown-tab = لم تعد علامة التبويب هذه مفتوحة.
+session-unknown-window = لم تعد هذه النافذة مفتوحة.
+session-last-window = تبقى النافذة الأخيرة مفتوحة: أغلق التطبيق بدلًا من ذلك.
+session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }
 
 deck-untitled = بلا عنوان
@@ -23,7 +26,7 @@ templates-default-name = قوالبي
 templates-copy-name = { $name } (نسخة)
 template-default-name = قالب
 notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بعد Oku Slides: قد لا تطابق مصادره ما يعرضه قارئ PDF.
-notice-resume-kept-unsaved = تم الاحتفاظ بتعديلاتك غير المحفوظة من المرة السابقة: لم يُفتح الملف المطلوب.
+notice-open-failed = تعذّر فتح { $path }: { $reason }
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند
@@ -36,3 +39,9 @@ session-panel-description = الوصف
 session-panel-grid = الشبكة
 session-panel-columns = الأعمدة
 session-panel-rows = الصفوف
+
+## Menu
+
+menu-edit = تحرير
+menu-window = نافذة
+menu-quit = خروج

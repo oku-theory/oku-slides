@@ -71,6 +71,14 @@ fn normalize(path: &Path) -> PathBuf {
     out
 }
 
+/// Chemin absolu, `.` et `..` résolus, sans toucher au disque.
+///
+/// Les liens ne sont pas suivis : deux chemins vers un même fichier par un
+/// lien restent différents.
+pub fn resolve(path: &Path) -> PathBuf {
+    normalize(&std::path::absolute(path).unwrap_or_else(|_| path.to_owned()))
+}
+
 /// Extensions des fichiers de police lus par [`Storage::read_fonts`].
 const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "ttc", "otc"];
 
@@ -167,9 +175,14 @@ impl Storage {
 
     /// Écrit dans un fichier temporaire à côté, puis renomme : un lecteur ne
     /// voit jamais de fichier à moitié écrit.
+    ///
+    /// Le nom temporaire est propre à chaque écriture : deux écritures
+    /// simultanées du même fichier ne se marchent pas dessus.
     pub fn write_atomic(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        let tmp = path.with_file_name(format!(".{name}.tmp"));
+        let tmp = path.with_file_name(format!(".{name}.{}-{n}.tmp", std::process::id()));
         self.write(&tmp, bytes)?;
         self.rename(&tmp, path)
     }
@@ -186,6 +199,13 @@ impl Storage {
     pub fn delete(&self, path: &Path) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
         Ok(op.delete(&key).context(AccessSnafu { action: "delete", path })?)
+    }
+
+    /// Supprime un dossier et tout son contenu ; un dossier absent n'est pas une erreur.
+    pub fn delete_dir(&self, dir: &Path) -> Result<(), StorageError> {
+        let (op, key) = self.dir_at(dir)?;
+        let opts = opendal::options::DeleteOptions { recursive: true, ..Default::default() };
+        Ok(op.delete_options(&key, opts).context(AccessSnafu { action: "delete", path: dir })?)
     }
 
     pub fn exists(&self, path: &Path) -> Result<bool, StorageError> {
@@ -219,6 +239,22 @@ impl Storage {
         Ok(entries
             .into_iter()
             .filter(|e| e.metadata().is_file())
+            .map(|e| dir.join(e.name().trim_end_matches('/')))
+            .collect())
+    }
+
+    /// Sous-dossiers d'un dossier ; un dossier absent est vide.
+    pub fn list_dirs(&self, dir: &Path) -> Result<Vec<PathBuf>, StorageError> {
+        let (op, key) = self.dir_at(dir)?;
+        let entries = match op.list(&key) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e).context(AccessSnafu { action: "list", path: dir })?,
+        };
+        Ok(entries
+            .into_iter()
+            // La liste d'un dossier peut contenir le dossier lui-même.
+            .filter(|e| e.metadata().is_dir() && e.path() != key)
             .map(|e| dir.join(e.name().trim_end_matches('/')))
             .collect())
     }

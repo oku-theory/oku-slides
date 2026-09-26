@@ -226,3 +226,18 @@ ui-chart-series = ชุดข้อมูล { $n }
 
 ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.oku-slides.pdf หรือ .json)
 ui-file-save-prompt = บันทึกเป็น (พาธแบบเต็ม)
+
+## แท็บ
+
+ui-tabs = งานนำเสนอที่เปิดอยู่
+ui-tab-new = แท็บใหม่
+ui-tab-close = ปิดแท็บ
+ui-tab-unsaved = การเปลี่ยนแปลงที่ยังไม่บันทึก
+ui-tab-templates = เทมเพลต
+ui-tab-move-new-window = ย้ายไปหน้าต่างใหม่
+ui-tab-move-to = ย้ายไปหน้าต่าง { $n }
+ui-tab-close-others = ปิดแท็บอื่น
+ui-close-unsaved = บันทึกการเปลี่ยนแปลงใน “{ $name }” ก่อนปิดหรือไม่
+ui-close-save = บันทึก
+ui-close-discard = ไม่บันทึก
+ui-close-cancel = ยกเลิก

@@ -12,7 +12,10 @@ session-no-templates-dir = आपके टेम्पलेट के लि�
 session-editing-templates = पहले टेम्पलेट का संपादन पूरा करें
 session-not-editing-templates = कोई टेम्पलेट सेट संपादित नहीं हो रहा है
 session-response = उत्तर लिखा नहीं जा सका
-session-busy = सत्र उपलब्ध नहीं है
+session-unknown-tab = यह टैब अब खुला नहीं है।
+session-unknown-window = यह विंडो अब खुली नहीं है।
+session-last-window = आख़िरी विंडो खुली रहती है: इसके बजाय ऐप बंद करें।
+session-unsaved = “{ $title }” में बिना सहेजे बदलाव हैं।
 session-bad-request = अमान्य अनुरोध: { $reason }
 
 deck-untitled = बिना शीर्षक
@@ -23,7 +26,7 @@ templates-default-name = मेरे टेम्पलेट
 templates-copy-name = { $name } (कॉपी)
 template-default-name = टेम्पलेट
 notice-modified-elsewhere = Oku Slides के बाद इस PDF को किसी अन्य टूल ने बदला है: हो सकता है इसके स्रोत PDF रीडर में दिखने वाली सामग्री से मेल न खाएँ।
-notice-resume-kept-unsaved = पिछली बार के बिना सहेजे गए बदलाव रखे गए हैं: माँगी गई फ़ाइल नहीं खोली गई।
+notice-open-failed = { $path } नहीं खुल सका: { $reason }
 
 log-document-opened = दस्तावेज़ खोला गया
 log-document-saved = दस्तावेज़ सहेजा गया
@@ -36,3 +39,9 @@ session-panel-description = विवरण
 session-panel-grid = ग्रिड
 session-panel-columns = कॉलम
 session-panel-rows = पंक्तियाँ
+
+## Menu
+
+menu-edit = संपादन
+menu-window = विंडो
+menu-quit = छोड़ें

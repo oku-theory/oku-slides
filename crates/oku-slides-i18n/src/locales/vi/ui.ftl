@@ -226,3 +226,18 @@ ui-chart-series = Chuỗi { $n }
 
 ui-file-open-prompt = Đường dẫn tệp cần mở (.oku-slides.pdf hoặc .json)
 ui-file-save-prompt = Lưu thành (đường dẫn đầy đủ)
+
+## Thẻ
+
+ui-tabs = Bản trình bày đang mở
+ui-tab-new = Thẻ mới
+ui-tab-close = Đóng thẻ
+ui-tab-unsaved = Thay đổi chưa lưu
+ui-tab-templates = Mẫu
+ui-tab-move-new-window = Chuyển sang cửa sổ mới
+ui-tab-move-to = Chuyển sang cửa sổ { $n }
+ui-tab-close-others = Đóng các thẻ khác
+ui-close-unsaved = Lưu thay đổi của “{ $name }” trước khi đóng?
+ui-close-save = Lưu
+ui-close-discard = Không lưu
+ui-close-cancel = Hủy

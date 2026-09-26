@@ -3,7 +3,7 @@
 // l'utilisateur le recouvre, message par message.
 
 import { FluentBundle, FluentResource, type FluentVariable } from "@fluent/bundle";
-import { api } from "./api";
+import { workspace } from "./api";
 
 let bundle = new FluentBundle("en", { useIsolating: false });
 
@@ -40,6 +40,6 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
 
 /** Charge les messages de l'hôte ; à attendre avant le premier rendu. */
 export async function loadMessages(): Promise<void> {
-  const { locale: lang, resources } = await api.messages();
+  const { locale: lang, resources } = await workspace.messages();
   setMessages(lang, resources);
 }

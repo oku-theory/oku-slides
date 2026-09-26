@@ -16,17 +16,7 @@
     }
   },
   "app": {
-    "windows": [
-      {
-        "title": "Oku Slides",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1024,
-        "minHeight": 640,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": "default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     }

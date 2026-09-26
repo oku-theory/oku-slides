@@ -236,3 +236,18 @@ ui-chart-series = السلسلة { $n }
 
 ui-file-open-prompt = مسار الملف المراد فتحه (.oku-slides.pdf أو .json)
 ui-file-save-prompt = حفظ باسم (المسار الكامل)
+
+## علامات التبويب
+
+ui-tabs = العروض المفتوحة
+ui-tab-new = علامة تبويب جديدة
+ui-tab-close = إغلاق علامة التبويب
+ui-tab-unsaved = تغييرات غير محفوظة
+ui-tab-templates = القوالب
+ui-tab-move-new-window = نقل إلى نافذة جديدة
+ui-tab-move-to = نقل إلى النافذة { $n }
+ui-tab-close-others = إغلاق علامات التبويب الأخرى
+ui-close-unsaved = هل تريد حفظ التغييرات على «{ $name }» قبل الإغلاق؟
+ui-close-save = حفظ
+ui-close-discard = عدم الحفظ
+ui-close-cancel = إلغاء

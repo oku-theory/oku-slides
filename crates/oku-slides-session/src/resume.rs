@@ -1,17 +1,18 @@
-//! Reprise : l'état de la session, écrit à chaque modification sous
-//! `<data>/resume/`, relu au lancement suivant.
+//! Reprise d'une session (un onglet) : son état.
+//! Écrit à chaque modification dans son dossier, relu au lancement suivant.
 //!
 //! `state.json` dit le mode et l'état de l'interface ; chaque document
 //! (`deck/`, `templates/`) tient dans un `document.json` (deck, historique,
 //! fichier) écrit d'un coup, plus ses assets et polices, écrits une fois par
 //! nom.
 //!
-//! Le dossier de reprise suppose un seul écrivain (une seule instance de
-//! l'app) : rien n'y protège contre des écritures concurrentes.
+//! Un seul écrivain par dossier : la session de l'onglet. L'espace de travail
+//! (`workspace.rs`) écrit seul `workspace.json`, au-dessus.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
@@ -72,6 +73,7 @@ struct DocOut<'a> {
     saved_hash: Option<&'a str>,
     deck: &'a Deck,
     history: &'a History,
+    blank: bool,
 }
 
 #[derive(Deserialize)]
@@ -86,6 +88,8 @@ struct DocIn {
     /// Lu à part : un historique illisible ne coûte pas le deck.
     #[serde(default)]
     history: serde_json::Value,
+    #[serde(default)]
+    blank: bool,
 }
 
 /// Un nom de fichier sûr : un seul composant normal, ni vide ni caché (les
@@ -94,7 +98,7 @@ fn safe_name(name: &str) -> bool {
     !name.is_empty() && !name.starts_with('.') && Path::new(name).file_name().is_some_and(|n| n == name)
 }
 
-/// Le dossier de reprise et ses fichiers.
+/// Un dossier de reprise (celui d'un onglet, ou la racine) et ses fichiers.
 #[derive(Debug)]
 pub(crate) struct Resume {
     storage: Storage,
@@ -114,25 +118,34 @@ impl Resume {
         self.storage.read(path).context(AccessSnafu { path })
     }
 
-    pub fn write_state(&self, state: &State) -> Result<()> {
-        let path = self.dir.join("state.json");
-        let bytes = serde_json::to_vec(state).context(JsonSnafu { path: &path })?;
+    /// Écrit `name` (JSON) dans le dossier, d'un coup.
+    pub fn write_json(&self, name: &str, value: &impl Serialize) -> Result<()> {
+        let path = self.dir.join(name);
+        let bytes = serde_json::to_vec(value).context(JsonSnafu { path: &path })?;
         self.put(&path, bytes)
     }
 
-    /// L'état du dernier lancement ; `None` au premier.
-    pub fn read_state(&self) -> Result<Option<State>> {
-        let path = self.dir.join("state.json");
+    /// Relit `name` s'il existe ; une autre version que `version` est une erreur.
+    pub fn read_json<T: DeserializeOwned>(&self, name: &str, version: u32) -> Result<Option<T>> {
+        let path = self.dir.join(name);
         if !self.storage.exists(&path).context(AccessSnafu { path: &path })? {
             return Ok(None);
         }
         let bytes = self.get(&path)?;
         // La version se lit à part : une version future peut avoir changé de
-        // forme, illisible en `State` alors que sa version l'est bien.
+        // forme, illisible en `T` alors que sa version l'est bien.
         let versioned: Versioned = serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?;
-        ensure!(versioned.version == VERSION, VersionSnafu { version: versioned.version });
-        let state: State = serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?;
-        Ok(Some(state))
+        ensure!(versioned.version == version, VersionSnafu { version: versioned.version });
+        Ok(Some(serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?))
+    }
+
+    pub fn write_state(&self, state: &State) -> Result<()> {
+        self.write_json("state.json", state)
+    }
+
+    /// L'état du dernier lancement ; `None` au premier.
+    pub fn read_state(&self) -> Result<Option<State>> {
+        self.read_json("state.json", VERSION)
     }
 
     /// Écrit un document : assets et polices d'abord (le deck les cite), puis
@@ -176,6 +189,7 @@ impl Resume {
             saved_hash: doc.saved_hash.as_deref(),
             deck: &doc.sources.deck,
             history: &doc.history,
+            blank: doc.blank,
         };
         let bytes = serde_json::to_vec(&out).context(JsonSnafu { path: &path })?;
         self.put(&path, bytes)?;
@@ -225,15 +239,16 @@ impl Resume {
         Ok(files)
     }
 
-    /// Déplace tout le dossier de reprise vers un dossier voisin
-    /// `<nom>.failed-<horodatage>[-<n>]`, pour ne jamais écraser du travail
-    /// non enregistré qu'on n'a pas su relire ; renvoie ce nouveau dossier.
+    /// Déplace ce dossier (celui d'un onglet, ou la racine) vers un dossier
+    /// voisin `<nom>.failed-<horodatage>[-<n>]`, pour ne jamais écraser du
+    /// travail non enregistré qu'on n'a pas su relire.
+    /// Renvoie ce nouveau dossier.
     ///
     /// Le suffixe numérique évite qu'un deuxième échec dans la même seconde
     /// (relance rapide après un premier échec) vise le même dossier voisin :
     /// un renommage vers un dossier déjà pris le remplacerait plutôt que de
     /// le garder, ce qui perdrait justement ce qu'on essaie de préserver.
-    fn quarantine(&self) -> Result<PathBuf> {
+    pub(crate) fn quarantine(&self) -> Result<PathBuf> {
         let secs =
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
         let name = self.dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "resume".into());
@@ -292,53 +307,78 @@ impl Resume {
             dirty: raw.dirty,
             notice: None,
             saved_hash: raw.saved_hash,
+            blank: raw.blank,
         })
     }
 }
 
 impl Session {
-    /// Active la reprise dans `dir` : relit l'état du dernier lancement, puis
-    /// ouvre `file` (« ouvrir avec… »), sauf s'il y a du travail non
-    /// enregistré : il passe avant, et un avis le dit.
+    /// Active la reprise dans `dir`, le dossier d'un onglet.
     ///
-    /// Une reprise illisible ne doit jamais coûter le travail non enregistré
-    /// qu'elle contenait peut-être : avant de repartir d'un deck vierge, le
-    /// dossier en échec est déplacé de côté plutôt qu'écrasé. S'il n'a même
-    /// pas pu être déplacé, on n'écrit rien du tout ce lancement-ci (la
-    /// reprise reste désactivée), pour ne prendre aucun risque de plus.
-    pub fn resume(&mut self, dir: PathBuf, file: Option<&Path>) {
+    /// Relit l'état qui s'y trouve, ou y écrit l'état courant s'il n'y en a
+    /// pas. Renvoie `false` si l'état est illisible : il ne doit jamais
+    /// coûter le travail non enregistré qu'il contenait peut-être, le dossier
+    /// est donc déplacé de côté (jamais écrasé) ; la session repart d'un deck
+    /// vierge et n'écrit rien. L'espace de travail retire alors l'onglet.
+    #[must_use]
+    pub fn resume(&mut self, dir: PathBuf) -> bool {
         let resume = Resume::new(self.storage.clone(), dir);
-        let keep = match self.restore(&resume) {
-            Ok(()) => true,
-            Err(e) => {
-                tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible : deck vierge");
-                // `restore` peut avoir échoué après avoir déjà basculé en mode
-                // modèles (son propre rendu a échoué) : on repart d'un mode
-                // cohérent avant `new_deck`, qui ne touche qu'au deck.
-                self.mode = Mode::Deck;
-                if let Err(e) = self.new_deck() {
-                    tracing::warn!(error = %e.one_line(), "deck vierge");
+        if let Err(e) = self.restore(&resume) {
+            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible");
+            // `restore` peut avoir échoué après avoir déjà basculé en mode
+            // modèles (son propre rendu a échoué) : on repart d'un mode
+            // cohérent avant `new_deck`, qui ne touche qu'au deck.
+            self.mode = Mode::Deck;
+            if let Err(e) = self.new_deck() {
+                tracing::warn!(error = %e.one_line(), "deck vierge");
+            }
+            match resume.quarantine() {
+                Ok(moved) => tracing::warn!(path = %moved.display(), "reprise en échec mise de côté"),
+                Err(e) => tracing::warn!(
+                    error = %oku_slides_platform::errors::one_line(&e),
+                    "reprise en échec non déplacée"
+                ),
+            }
+            // Rien n'est écrit à la place, même si `resume` était déjà activée.
+            self.resume = None;
+            return false;
+        }
+        self.resume = Some(resume);
+        self.persist(true);
+        true
+    }
+
+    /// Active la reprise d'un onglet neuf dans `dir`, sans rien y relire.
+    ///
+    /// Le deck courant (un fichier tout juste ouvert) est gardé. Un état
+    /// déjà présent, ou illisible, n'est pas le sien : mis de côté, jamais
+    /// relu ni écrasé, puis la reprise démarre à neuf. Seul un reste
+    /// impossible à déplacer laisse la session sans reprise (`false`).
+    #[must_use]
+    pub(crate) fn resume_fresh(&mut self, dir: PathBuf) -> bool {
+        let resume = Resume::new(self.storage.clone(), dir);
+        match resume.read_state() {
+            Ok(None) => {}
+            found => {
+                if let Err(e) = &found {
+                    tracing::warn!(error = %oku_slides_platform::errors::one_line(e), "reste de reprise illisible");
                 }
                 match resume.quarantine() {
-                    Ok(moved) => {
-                        tracing::warn!(path = %moved.display(), "reprise en échec mise de côté");
-                        true
-                    }
+                    Ok(moved) => tracing::warn!(path = %moved.display(), "reste de reprise mis de côté"),
                     Err(e) => {
                         tracing::warn!(
                             error = %oku_slides_platform::errors::one_line(&e),
-                            "reprise en échec non déplacée : rien n'est écrit"
+                            "reste de reprise non déplacé : rien n'est écrit"
                         );
-                        false
+                        self.resume = None;
+                        return false;
                     }
                 }
             }
-        };
-        if let Some(file) = file {
-            self.open_at_launch(file);
         }
-        self.resume = keep.then_some(resume);
+        self.resume = Some(resume);
         self.persist(true);
+        true
     }
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
@@ -380,45 +420,6 @@ impl Session {
                 tracing::warn!(path = %path.display(), error = %e.one_line(), "fichier du document illisible");
                 saved
             }
-        }
-    }
-
-    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
-    fn unsaved(&self) -> bool {
-        self.doc.dirty || matches!(&self.mode, Mode::Templates { stash, .. } if stash.dirty)
-    }
-
-    fn open_at_launch(&mut self, file: &Path) {
-        if self.unsaved() {
-            // Le fichier demandé au lancement est déjà celui affiché (avec du
-            // travail non enregistré) : pas la peine de dire qu'il n'a pas
-            // été ouvert, l'utilisateur le regarde déjà.
-            let dirty_path = match &self.mode {
-                Mode::Templates { stash, .. } if stash.dirty => stash.path.as_deref(),
-                _ => self.doc.path.as_deref(),
-            };
-            if dirty_path != Some(file) {
-                let notice = Some(self.localizer.tr("notice-resume-kept-unsaved"));
-                // L'avis porte sur le document affiché (la capture le montre
-                // toujours), et aussi sur le deck mis de côté quand c'est lui
-                // qui porte le travail non enregistré, pour qu'il survive à
-                // `close_templates`.
-                self.doc.notice = notice.clone();
-                if let Mode::Templates { stash, .. } = &mut self.mode
-                    && stash.dirty
-                {
-                    stash.notice = notice;
-                }
-            }
-            return;
-        }
-        let opened = if matches!(self.mode, Mode::Templates { .. }) {
-            self.close_templates().and_then(|()| self.open(file))
-        } else {
-            self.open(file)
-        };
-        if let Err(e) = opened {
-            tracing::warn!(path = %file.display(), error = %e.one_line(), "ouverture au démarrage");
         }
     }
 

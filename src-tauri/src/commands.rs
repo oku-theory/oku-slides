@@ -1,0 +1,228 @@
+//! Commandes de l'interface et réactions aux événements des fenêtres.
+//!
+//! Le travail (rendu, lecture de fichiers, fenêtres) tourne hors du fil
+//! principal (`blocking`, `spawn_blocking`) : le fil principal ne verrouille
+//! jamais l'espace de travail, ni ne fabrique ou détruit de fenêtre lui-même.
+
+use std::path::PathBuf;
+use std::sync::PoisonError;
+use std::sync::atomic::Ordering;
+
+use oku_slides_session::{Request, Workspace, WorkspaceRequest};
+use oku_slides_stt::{Status, Stt, SttRequest};
+use tauri::ipc::Response;
+use tauri::{AppHandle, LogicalPosition, Manager};
+
+use crate::state::{self, AppState, CLOSING};
+use crate::windows;
+
+/// Travail bloquant hors du fil principal ; sa panique devient une erreur.
+///
+/// `f` reçoit l'`AppHandle` (pour `windows::sync` et consorts) et l'état de
+/// l'app, tous deux prêts sur ce fil dédié.
+async fn blocking<T: Send + 'static>(
+    app: &AppHandle,
+    f: impl FnOnce(&AppHandle, &AppState) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.try_state::<AppState>().ok_or_else(|| "app not ready".to_owned())?;
+        f(&app, &state)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// `changes` : les fenêtres sont à resynchroniser après la requête.
+/// `focus` : la fenêtre visée doit passer au premier plan.
+///
+/// Exhaustif à dessein : une variante ajoutée à `WorkspaceRequest` sans
+/// mise à jour ici ne compile plus.
+fn classify(req: &WorkspaceRequest) -> (bool, bool) {
+    match req {
+        WorkspaceRequest::View | WorkspaceRequest::Messages => (false, false),
+        WorkspaceRequest::NewTab { .. }
+        | WorkspaceRequest::Activate { .. }
+        | WorkspaceRequest::Close { .. }
+        | WorkspaceRequest::Reorder { .. }
+        | WorkspaceRequest::CloseWindow { .. } => (true, false),
+        WorkspaceRequest::OpenTab { .. } | WorkspaceRequest::NewWindow | WorkspaceRequest::MoveTab { .. } => {
+            (true, true)
+        }
+    }
+}
+
+/// Une requête pour l'onglet `tab`.
+#[tauri::command]
+pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Response, String> {
+    let reply = blocking(&app, move |app, state| {
+        if state.closing.load(Ordering::SeqCst) {
+            return Err(CLOSING.to_owned());
+        }
+        let (reply, changed) = Workspace::request(&state.workspace, &tab, req);
+        if changed {
+            windows::emit_view(app);
+        }
+        Ok(reply.map_err(|e| state.refuse(e)))
+    })
+    .await?;
+    reply.map(Response::new)
+}
+
+/// Une requête de l'espace de travail ; les fenêtres suivent.
+///
+/// Fermer la dernière fenêtre ne la ferme pas (voir `Workspace::apply` et
+/// `WorkspaceOutcome::LastWindow`) : elle quitte l'app en gardant tout, la
+/// règle vit dans la session, pas seulement dans l'interface.
+#[tauri::command]
+pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response, String> {
+    let (changes, focus) = classify(&req);
+    let reply = blocking(&app, move |app, state| {
+        if state.closing.load(Ordering::SeqCst) {
+            return Err(CLOSING.to_owned());
+        }
+        let outcome = Workspace::apply(&state.workspace, req).map_err(|e| state.refuse(e))?;
+        if outcome.is_last_window() {
+            state::shutdown(app);
+            return Ok(outcome.into_json());
+        }
+        if changes {
+            let view = windows::sync(app, None, focus);
+            serde_json::to_string(&view).map_err(|e| e.to_string())
+        } else {
+            Ok(outcome.into_json())
+        }
+    })
+    .await?;
+    Ok(Response::new(reply))
+}
+
+/// Onglet lâché hors de sa fenêtre au point écran `(x, y)`.
+///
+/// Il rejoint la fenêtre sous ce point, sinon une nouvelle fenêtre à cet
+/// endroit (l'écran visé).
+#[tauri::command]
+pub async fn drop_tab(app: AppHandle, tab: String, x: f64, y: f64) -> Result<Response, String> {
+    if !(x.is_finite() && y.is_finite()) {
+        return Err("invalid drop point".to_owned());
+    }
+    let reply = blocking(&app, move |app, state| {
+        if state.closing.load(Ordering::SeqCst) {
+            return Err(CLOSING.to_owned());
+        }
+        let rects = windows::rects(app);
+        let window = Workspace::lock(&state.workspace).window_at(x, y, &rects);
+        Workspace::apply(&state.workspace, WorkspaceRequest::MoveTab { tab, window, index: None })
+            .map_err(|e| state.refuse(e))?;
+        let view = windows::sync(app, Some(LogicalPosition::new(x, y)), true);
+        serde_json::to_string(&view).map_err(|e| e.to_string())
+    })
+    .await?;
+    Ok(Response::new(reply))
+}
+
+/// Quitter en gardant tout (repli de l'interface pour la dernière fenêtre).
+#[tauri::command]
+pub async fn quit(app: AppHandle) {
+    let app2 = app.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || state::shutdown(&app2)).await;
+}
+
+/// Dictée : jamais bloquant (téléchargement, micro et Whisper tournent dans leurs fils).
+#[tauri::command]
+pub fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
+    engine.handle(req)
+}
+
+/// `candidate` est-il plus récent que le dernier focus appliqué ?
+///
+/// Extraite pour le test : les numéros ne se recroisent jamais (compteur
+/// entier, jamais remis à zéro), donc « plus récent » est un simple `>`.
+fn is_newer(candidate: u64, last_applied: u64) -> bool {
+    candidate > last_applied
+}
+
+/// Une fenêtre passe au premier plan.
+///
+/// Le numéro est pris ici, sur le fil principal, à l'arrivée de
+/// l'événement : l'ordre d'arrivée fait foi. Le travail (verrou de l'espace
+/// de travail, jamais abandonné s'il est occupé, pour ne jamais perdre un
+/// focus) tourne ensuite hors du fil principal (`spawn_blocking`) ; comme
+/// plusieurs tâches peuvent se chevaucher et finir dans le désordre, chacune
+/// n'applique son focus que s'il est plus récent que le dernier appliqué
+/// (`is_newer`, sous le même verrou que `Workspace::focus`).
+pub fn focused(app: &AppHandle, label: &str) {
+    let Some(state) = app.try_state::<AppState>() else { return };
+    let seq = state.focus_seq.fetch_add(1, Ordering::SeqCst) + 1;
+    let app = app.clone();
+    let label = label.to_owned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(state) = app.try_state::<AppState>() else { return };
+        let mut ws = Workspace::lock(&state.workspace);
+        let mut last = state.focus_applied.lock().unwrap_or_else(PoisonError::into_inner);
+        if !is_newer(seq, *last) {
+            return;
+        }
+        *last = seq;
+        drop(last);
+        if let Err(e) = ws.focus(&label) {
+            // Une fenêtre en cours de création n'y est pas encore.
+            tracing::debug!(label, error = %e.one_line(), "focus ignoré");
+        }
+    });
+}
+
+/// Fermeture native demandée (bouton, ⌘W du système, Alt+F4).
+///
+/// La dernière fenêtre quitte l'app en gardant tout, sans passer par la
+/// page ; une autre prévient sa page, qui pose la question pour ses onglets
+/// modifiés. Espace de travail occupé (`try_workspace` refuse) : on
+/// transmet à la page par prudence — si c'était bien la dernière fenêtre,
+/// `workspace` (ci-dessus) le redécouvrira atomiquement à la prochaine
+/// `close_window` et quittera alors (même prédicat, `Workspace::is_only_window`,
+/// utilisé ici en aperçu hors verrou et là-bas sous verrou).
+pub fn close_requested(app: &AppHandle, label: &str) {
+    use tauri::Emitter;
+    let last = app.try_state::<AppState>().and_then(|state| Some(state.try_workspace()?.is_only_window(label)));
+    if last == Some(true) {
+        let app2 = app.clone();
+        tauri::async_runtime::spawn_blocking(move || state::shutdown(&app2));
+        return;
+    }
+    if let Err(e) = app.emit_to(label, "close-requested", ()) {
+        tracing::warn!(label, error = %e, "fermeture non transmise");
+    }
+}
+
+/// Ouvre des fichiers reçus, hors du fil principal ; la fenêtre active passe devant.
+///
+/// `AppState::closing` est vérifié une fois ici, avant de verrouiller quoi
+/// que ce soit : une économie (rien engagé pour rien juste avant de quitter),
+/// pas la garantie — une seconde instance ou macOS (`RunEvent::Opened`)
+/// peuvent transmettre des fichiers pendant que `Workspace::settle` avance
+/// entre-temps. La garantie vient de `Workspace` lui-même, qui refuse chaque
+/// fichier sous son propre verrou une fois `closed` posé (voir
+/// `Workspace::open_files` et `apply` sur `OpenTab`).
+pub fn open_files(app: &AppHandle, files: Vec<PathBuf>) {
+    if files.is_empty() {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let synced = blocking(&app, move |app, state| {
+            if state.closing.load(Ordering::SeqCst) {
+                return Err(CLOSING.to_owned());
+            }
+            Workspace::open_files(&state.workspace, &files);
+            Ok(windows::sync(app, None, true))
+        })
+        .await;
+        if let Err(e) = synced {
+            tracing::warn!(error = %e, "fichiers reçus non ouverts");
+        }
+    });
+}
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod commands_tests;

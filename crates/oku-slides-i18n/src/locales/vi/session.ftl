@@ -12,7 +12,10 @@ session-no-templates-dir = Không có thư mục cho mẫu của bạn
 session-editing-templates = Hãy hoàn tất chỉnh sửa mẫu trước
 session-not-editing-templates = Không có bộ mẫu nào đang được chỉnh sửa
 session-response = Không thể ghi phản hồi
-session-busy = Phiên làm việc không khả dụng
+session-unknown-tab = Thẻ này không còn mở nữa.
+session-unknown-window = Cửa sổ này không còn mở nữa.
+session-last-window = Cửa sổ cuối cùng vẫn được giữ mở: thay vào đó, hãy thoát ứng dụng.
+session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }
 
 deck-untitled = Không có tiêu đề
@@ -23,7 +26,7 @@ templates-default-name = Mẫu của tôi
 templates-copy-name = { $name } (bản sao)
 template-default-name = Mẫu
 notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau Oku Slides: nguồn có thể không còn khớp với nội dung trình đọc PDF hiển thị.
-notice-resume-kept-unsaved = Các thay đổi chưa lưu từ lần trước đã được giữ lại: tệp được yêu cầu chưa được mở.
+notice-open-failed = Không thể mở { $path }: { $reason }
 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu
@@ -36,3 +39,9 @@ session-panel-description = Mô tả
 session-panel-grid = Lưới
 session-panel-columns = Cột
 session-panel-rows = Hàng
+
+## Menu
+
+menu-edit = Sửa
+menu-window = Cửa sổ
+menu-quit = Thoát

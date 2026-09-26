@@ -162,3 +162,23 @@ fn read_doc_with_stored_relative_path_drops_path() {
     assert_that!(r.read_doc(DECK_DIR, 10).unwrap().path).is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
+
+#[test]
+fn write_doc_then_read_doc_keeps_the_blank_flag() {
+    let r = resume();
+    let mut doc = document();
+    doc.blank = true;
+    r.write_doc(DECK_DIR, &doc).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_doc_then_read_doc_keeps_a_non_blank_flag() {
+    let r = resume();
+    let doc = document();
+    assert_that!(doc.blank).is_false();
+    r.write_doc(DECK_DIR, &doc).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_false();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
