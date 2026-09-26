@@ -3,8 +3,30 @@ use oku_slides_session::{Fonts, Platform, Request, Session, Settings, TargetKind
 use serde_json::json;
 use speculoos::prelude::*;
 
-fn data_dir() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique()))
+/// Un dossier de données neuf, supprimé à la fin du test (t-145).
+struct Data(std::path::PathBuf);
+
+impl std::ops::Deref for Data {
+    type Target = std::path::Path;
+    fn deref(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl AsRef<std::path::Path> for Data {
+    fn as_ref(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for Data {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.0).ok();
+    }
+}
+
+fn data_dir() -> Data {
+    Data(std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique())))
 }
 
 /// Une session sur le dossier de données `data`.
@@ -81,7 +103,7 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     assert_that!(s.slide("s-libre").unwrap().hash).is_equal_to(before_hash);
     s.redo().unwrap();
 
-    let dir = std::env::temp_dir().join(format!("oku-slides-test-{}", std::process::id()));
+    let dir = data_dir();
     std::fs::create_dir_all(&dir).unwrap();
     s.save(Some(&dir.join("essai.pdf"))).unwrap();
     let snap = s.snapshot();
@@ -93,7 +115,6 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     let mut s2 = session();
     s2.open(&path).unwrap();
     assert_that!(s2.deck()).is_equal_to(&deck);
-    std::fs::remove_dir_all(dir).ok();
 }
 
 #[test]
@@ -227,9 +248,9 @@ fn templates_view_renders_previews_in_deck_theme() {
 #[test]
 fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
     use serde_json::json;
-    let dir = std::env::temp_dir().join(format!("oku-slides-session-tpl-{}", std::process::id()));
+    let dir = data_dir();
     let mut s = session();
-    s.set_templates_dir(&dir);
+    s.set_templates_dir(&*dir);
     let before = s.deck().clone();
 
     s.edit_templates("grilles").unwrap();
@@ -258,7 +279,6 @@ fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
     let view = s.templates_view(Some("grilles-copie".into())).unwrap();
     assert_that!(view.templates[0].template.name.as_str()).is_equal_to("Ma grille");
     assert_that!(view.sets.iter().any(|x| x.id == "grilles-copie" && !x.builtin)).is_true();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -468,7 +488,6 @@ fn resume_in_empty_dir_returns_true_and_writes_state() {
     let mut s = session_in(&data);
     assert_that!(s.resume(data.join("resume"))).is_true();
     assert_that!(data.join("resume/state.json").exists()).is_true();
-    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
@@ -528,7 +547,6 @@ fn tab_info_after_save_has_file_name_as_title_and_resolved_path() {
     assert_that!(info.title.as_str()).is_equal_to("essai");
     assert_that!(info.path).is_equal_to(Some(file));
     assert_that!(info.pristine).is_false();
-    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
@@ -586,7 +604,6 @@ fn templates_view_after_other_session_saves_the_set_shows_the_new_templates() {
     a.save_templates(false).unwrap();
     let after = b.templates_view(Some(id)).unwrap().templates.len();
     assert_that!(after).is_equal_to(before - 1);
-    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]
@@ -666,4 +683,62 @@ fn session_without_resume_writes_nothing() {
     let mut s = session_in(&data);
     s.handle(set_theme("pro")).unwrap();
     assert_that!(data.join("resume").exists()).is_false();
+}
+
+/// t-145 : en mode modèles, un ensemble de modèles illisible ramène au deck,
+/// sans rien perdre du deck mis de côté.
+#[test]
+fn resume_with_unreadable_templates_returns_to_the_deck_without_loss() {
+    let data = data_dir();
+    let mut a = resumed(&data);
+    a.handle(set_theme("pro")).unwrap();
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    drop(a);
+    let templates = data.join("resume/templates/document.json");
+    assert_that!(templates.exists()).is_true();
+    std::fs::write(&templates, b"pas du json").unwrap();
+    let mut b = resumed(&data);
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["editing"]).is_equal_to(json!(null));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["dirty"]).is_equal_to(json!(true));
+}
+
+/// t-145 : un deck illisible fait repartir d'un deck vierge ; l'ancien
+/// dossier est mis de côté, jamais écrasé.
+#[test]
+fn resume_with_unreadable_deck_starts_blank_and_sets_the_folder_aside() {
+    let data = data_dir();
+    let mut a = resumed(&data);
+    a.handle(set_theme("pro")).unwrap();
+    drop(a);
+    let deck = data.join("resume/deck/document.json");
+    assert_that!(deck.exists()).is_true();
+    std::fs::write(&deck, b"pas du json").unwrap();
+    let mut b = session_in(&data);
+    assert_that!(b.resume(data.join("resume"))).is_false();
+    assert_that!(b.tab_info().pristine).is_true();
+    let aside = std::fs::read_dir(&data)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().starts_with("resume.failed-"))
+        .count();
+    assert_that!(aside).is_equal_to(1);
+}
+
+/// t-145 : le fichier du deck supprimé du disque, la copie de travail reste.
+#[test]
+fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
+    let data = data_dir();
+    let file = data.join("parti.oku-slides.pdf");
+    let mut a = resumed(&data);
+    a.handle(set_theme("pro")).unwrap();
+    a.handle(req(json!({"cmd": "save", "path": file}))).unwrap();
+    drop(a);
+    std::fs::remove_file(&file).unwrap();
+    let mut b = resumed(&data);
+    let snap = snapshot_json(&mut b);
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["can_undo"]).is_equal_to(json!(true));
+    assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
 }

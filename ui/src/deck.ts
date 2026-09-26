@@ -200,6 +200,14 @@ export function slideToFetch(slides: { id: string }[], current: string | null): 
   return current && slides.some((s) => s.id === current) ? current : null;
 }
 
+/**
+ * Grille à montrer : au premier snapshot, celle que l'hôte a gardée pour la
+ * reprise ; ensuite, le choix courant de l'utilisateur.
+ */
+export function restoredGrid(first: boolean, ui: { grid: boolean }, current: boolean): boolean {
+  return first ? ui.grid : current;
+}
+
 /** Slide à montrer : la courante si elle existe encore, sinon celle retenue par l'hôte, sinon la première. */
 export function pickSlide(slides: { id: string }[], current: string | null, remembered: string | null): string | null {
   const has = (id: string | null): id is string => id !== null && slides.some((s) => s.id === id);

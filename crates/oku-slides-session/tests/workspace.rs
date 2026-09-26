@@ -650,3 +650,26 @@ fn resume_prunes_with_the_configured_count_and_spares_this_launch() {
     assert_that!(root).has_length(1);
     assert_that!(root.iter().any(|n| n == "resume.failed-10" || n == "resume.failed-20")).is_false();
 }
+
+/// t-145 : au relancement, ouvrir le fichier d'un onglet en mode modèles
+/// active cet onglet (son fichier reste celui du deck mis de côté), sans
+/// doublon, et il reste en mode modèles.
+#[test]
+fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
+    let data = Data::new();
+    let file = saved_pdf(&data, "atelier");
+    let a = resumed(&data);
+    send(&a, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    let id = view(&a).windows[0].active.clone();
+    tab(&a, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}));
+    send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
+    drop(a);
+    // Relancé : l'onglet dort (t-158), reconnu d'après ses infos enregistrées.
+    let b = resumed(&data);
+    send(&b, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    let v = view(&b);
+    assert_that!(v.windows[0].tabs).has_length(2);
+    assert_that!(v.windows[0].active.as_str()).is_equal_to(id.as_str());
+    assert_that!(tab(&b, &id, json!({"cmd": "snapshot"}))["editing"]["set"])
+        .is_equal_to(json!(oku_slides_session::DEFAULT_SET));
+}

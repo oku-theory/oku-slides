@@ -7,6 +7,7 @@ import {
   pasteOps,
   pickSlide,
   placeOnGridOps,
+  restoredGrid,
   slideToFetch,
   textChanged,
   textToParagraphs,
@@ -185,5 +186,15 @@ describe("pickSlide", () => {
   });
   test("pickSlide deck vide renvoie null", () => {
     expect(pickSlide([], null, "a")).toBeNull();
+  });
+});
+
+describe("restoredGrid", () => {
+  test("restoredGrid premier snapshot reprend la grille gardée par l'hôte", () => {
+    expect(restoredGrid(true, { slide: null, grid: false }, true)).toBe(false);
+  });
+
+  test("restoredGrid snapshot suivant garde le choix de l'utilisateur", () => {
+    expect(restoredGrid(false, { slide: null, grid: false }, true)).toBe(true);
   });
 });

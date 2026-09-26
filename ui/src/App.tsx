@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TabApi, TemplateView } from "./api";
 import { errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { applyAppearance } from "./appearance";
-import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
+import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
@@ -177,10 +177,9 @@ export default function App({ tab, nonce, onOpen, onChange }: {
   const restored = useRef(false);
   useEffect(() => {
     if (!snap) return;
-    if (!restored.current) {
-      restored.current = true;
-      setGridAlways(snap.ui.grid);
-    }
+    const first = !restored.current;
+    restored.current = true;
+    setGridAlways((g) => restoredGrid(first, snap.ui, g));
     const next = pickSlide(snap.slides, current, snap.ui.slide);
     if (next !== current) setCurrent(next);
   }, [snap, current]);
