@@ -152,7 +152,7 @@ export default function App() {
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   const clip = useRef<{ element: Element; text: string } | null>(null);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || !view || (e.target as HTMLElement).closest?.("input, textarea, select");
+    const skip = (e: ClipboardEvent) => editing || picking || !view || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected || selected.startsWith("@")) return false;
       const element = findElement(view.slide, selected);
@@ -341,7 +341,7 @@ export default function App() {
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (editing || picking || (e.target as HTMLElement).closest("input, textarea, select")) return;
+      if (editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]')) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -550,6 +550,7 @@ export default function App() {
             onApply={apply}
             dictated={dictated}
             showGridAlways={gridAlways}
+            palette={snap.appearance.chart_palette}
           />
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>

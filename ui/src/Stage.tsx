@@ -9,7 +9,8 @@ import { findElement, gridPlacement, isBlock, placeOnGridOps, textOps } from "./
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
-import { insertLink, toggleEmphasis } from "./textEdits";
+import type { TextEditorHandle } from "./TextEditor";
+import TextEditor from "./TextEditor";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -44,6 +45,8 @@ interface Props {
   dictated?: { seq: number; text: string } | null;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
+  /** Couleurs des pastilles dans l'éditeur (palette des graphiques du thème). */
+  palette: string[];
 }
 
 /** Nom d'un champ de slide (titre, sous-titre…) ; un champ inconnu garde son identifiant. */
@@ -199,9 +202,9 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
   );
 }
 
-export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false }: Props) {
+export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, palette }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
-  const area = useRef<HTMLTextAreaElement>(null);
+  const editor = useRef<TextEditorHandle>(null);
   const [scale, setScale] = useState(0.5);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [draft, setDraft] = useState("");
@@ -220,34 +223,16 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   }, [view.width, view.height]);
 
   const editTarget = view.targets.find((t) => t.id === editing) ?? null;
-  useEffect(() => {
-    setDraft(editTarget?.text ?? "");
-  }, [editing, editTarget?.text]);
-
-  // L'éditeur grandit avec le texte, comme la boîte rendue ; l'aide se pose dessous.
+  // Brouillon à l'ouverture, avant l'affichage : il ne sert qu'à la largeur d'un champ.
+  // Il ne suit pas le serveur pendant l'édition : CodeMirror est la source de vérité.
   useLayoutEffect(() => {
-    const el = area.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [draft, editing, scale]);
+    setDraft(editTarget?.text ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
 
-  // La dictée s'insère au curseur, avec les espaces qu'il faut.
+  // La dictée s'insère au curseur de l'éditeur ouvert.
   useEffect(() => {
-    const el = area.current;
-    if (!dictated || !el) return;
-    const { selectionStart: a, selectionEnd: b, value } = el;
-    const before = value.slice(0, a);
-    const after = value.slice(b);
-    const lead = before && !/[\s(«"']$/.test(before) ? " " : "";
-    const trail = after && !/^[\s.,;:!?)»]/.test(after) ? " " : "";
-    const next = before + lead + dictated.text + trail + after;
-    setDraft(next);
-    const caret = (before + lead + dictated.text).length;
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(caret, caret);
-    });
+    if (dictated) editor.current?.insertAtCursor(dictated.text);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictated?.seq]);
 
@@ -294,10 +279,10 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     }
   };
 
-  const commit = () => {
+  const commit = (text: string) => {
     if (!editTarget) return;
-    if (draft !== (editTarget.text ?? "")) {
-      onApply(t("ui-undo-edit-text"), textOps(view, editTarget, draft));
+    if (text !== (editTarget.text ?? "")) {
+      onApply(t("ui-undo-edit-text"), textOps(view, editTarget, text));
     }
     onEdit(null);
   };
@@ -374,43 +359,17 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                 className="editor-mask"
                 style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editorBackground(editTarget.style?.fill ?? null, editTarget.style?.bg ?? null) }}
               />
-              <textarea
-                ref={area}
-                className="editor"
-                dir="auto"
-                autoFocus
-                aria-label={t("ui-stage-edit-text")}
-                spellCheck
-                rows={1}
+              <TextEditor
+                key={editTarget.id}
+                ref={editor}
+                initial={editTarget.text ?? ""}
+                field={editTarget.target === "field"}
+                palette={palette}
+                label={t("ui-stage-edit-text")}
                 style={g.style}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onPointerDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    onEdit(null);
-                  } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey || editTarget.target === "field")) {
-                    e.preventDefault();
-                    commit();
-                  } else if (editTarget.target === "element" && (e.metaKey || e.ctrlKey) && !e.altKey) {
-                    // Les champs (titre…) sont du texte brut ; seuls les paragraphes ont du markdown.
-                    const el = e.currentTarget;
-                    const key = e.key.toLowerCase();
-                    const edit =
-                      key === "b" ? toggleEmphasis(draft, el.selectionStart, el.selectionEnd, "bold")
-                      : key === "i" ? toggleEmphasis(draft, el.selectionStart, el.selectionEnd, "italic")
-                      : key === "k" ? insertLink(draft, el.selectionStart, el.selectionEnd)
-                      : null;
-                    if (edit) {
-                      e.preventDefault();
-                      setDraft(edit.value);
-                      requestAnimationFrame(() => el.setSelectionRange(edit.start, edit.end));
-                    }
-                  }
-                  e.stopPropagation();
-                }}
-                onBlur={commit}
+                onChange={setDraft}
+                onCommit={commit}
+                onCancel={() => onEdit(null)}
               />
               <span className="editor-hint">
                 {t(editTarget.target === "field" ? "ui-stage-hint-field" : "ui-stage-hint-block")}

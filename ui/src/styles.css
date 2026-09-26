@@ -216,15 +216,19 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 
 .editor {
-  position: absolute; z-index: 5; margin: 0; overflow: hidden; resize: none; user-select: text;
+  position: absolute; z-index: 5; margin: 0; overflow: hidden; user-select: text;
   background: var(--t-bg, var(--paper-200)); color: var(--t-ink, var(--ink));
   border: 0; border-radius: var(--radius-sm);
   box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 5px color-mix(in oklab, var(--accent) 16%, transparent), var(--shadow-floating);
   font-kerning: normal; font-optical-sizing: auto; caret-color: var(--accent);
 }
-.editor:focus { outline: none; }
 .editor-mask { position: absolute; z-index: 4; background: var(--t-bg, var(--paper-200)); pointer-events: none; }
-.editor::selection { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+.editor ::selection { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+/* Markdown dans l'éditeur (plages de markdownDecorations ; la pastille porte son style en ligne). */
+.editor .cm-md-mark, .editor .cm-md-url { opacity: 0.4; }
+.editor .cm-md-bold { font-weight: bolder; }
+.editor .cm-md-italic { font-style: italic; }
+.editor .cm-md-link { color: var(--t-accent); text-decoration: underline; }
 .editor-hint {
   position: absolute; z-index: 5; left: 50%; top: calc(100% + 14px); transform: translateX(-50%); animation: fade-in 160ms ease-out; font-size: 12px; line-height: 16px; white-space: nowrap; color: var(--ink-muted);
   background: var(--paper-200); padding: 4px 10px; border-radius: 999px; box-shadow: var(--edge-light), var(--shadow-rest); pointer-events: none;
