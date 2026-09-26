@@ -23,7 +23,7 @@
 3. **`PermissionGate`** : pas de trait fourni par l'hôte. La confirmation des outils non annulables est une méthode du `SurfaceHub` (`confirm`), qui ouvre la forme confirmation ; l'hôte n'a rien à implémenter.
 4. **Clés de `set_setting`** : `dictation.model`, `dictation.language`, `dictation.auto_stop`, `dictation.silence` (appliquées tout de suite par la dictée), `i18n.locale`, `history.limit`, `stt.vad.<clé>` (écrites dans `config.toml`, effet au prochain lancement). Le préfixe `dictation.` évite de confondre les réglages de la dictée (`<models>/config.json`) avec la section `[stt]` de `config.toml`.
 5. **Bout à bout** : la consigne est envoyée par `POST /api/agent` depuis le test, pas par un faux micro (le test n'aurait pas de modèle Whisper). Les deux modes du micro sont couverts par les tests de l'interface (Task 19).
-6. **`rust-mcp-sdk` 1.1.0, pas 2.0** : la 2.0 ne parle que MCP 2026-07-28 (sans état) ; le client MCP du SDK Claude (`@anthropic-ai/claude-agent-sdk` 0.3.280) parle au plus 2025-11-25. Vérifié : 1.1.0 négocie 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 avec `@modelcontextprotocol/sdk` 1.30.1. Limite de 1.x : le schéma d'entrée d'un outil ne garde que `properties` et `required` à la racine ; les `$defs` d'un schéma sont donc déplacés sous la propriété (Task 8, `nest_schema`).
+6. **`rust-mcp-sdk` 1.1.0, pas 2.0** : le serveur `rust-mcp-sdk` 2.0 ne parle **que** MCP 2026-07-28 (sans état, erreur -32022 sinon). Le SDK officiel TypeScript est passé en v2 (`@modelcontextprotocol/client|server|core` 2.1.0, ligne stable, spec 2026-07-28) et son client retombe sur l'ère d'avant 2026-07-28 ; mais les agents embarquent encore le client v1 : `@anthropic-ai/claude-agent-sdk` 0.3.283 (0.3.280 dans `claude-agent-acp` 0.81.2) et `@google/gemini-cli` 0.61.0 parlent au plus 2025-11-25 (vérifié dans les paquets npm le 2026-09-26). Un serveur 1.1.0 (ère legacy) sert donc les agents d'aujourd'hui et ceux qui passeront au client v2 (repli legacy) ; passer à `rust-mcp-sdk` 2.x quand on voudra les fonctions propres à 2026-07-28. Vérifié : 1.1.0 négocie 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 avec `@modelcontextprotocol/sdk` 1.30.1. Limite de 1.x : le schéma d'entrée d'un outil ne garde que `properties` et `required` à la racine ; les `$defs` d'un schéma sont donc déplacés sous la propriété (Task 8, `nest_schema`).
 7. **`History::rollback`** (ajout) : `Session::apply` défaisait un rendu raté par `undo`, ce qui laissait un « rétablir » fantôme et, dans un tour, aurait défait tout le tour. `rollback` ne défait que le dernier commit.
 
 ## Global Constraints
@@ -2099,7 +2099,7 @@ Workspace `Cargo.toml` (`[workspace.dependencies]`) :
 ```toml
 oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
-# Agent : MCP 1.x (négocie 2025-11-25 et avant, comme le SDK Claude) et ACP
+# Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
 rust-mcp-sdk = "=1.1.0"
 rust-mcp-axum = "=1.0.2"
 agent-client-protocol = "=2.2.0"
@@ -2990,7 +2990,7 @@ fn details() -> InitializeResult {
 }
 ```
 
-`ARCHITECTURE.md` (moins de 50 lignes) : rôle du crate, les modules ci-dessus, points d'extension (`SettingsPort`, ajout d'un outil = une ligne dans `tools::list` + un bras dans `Tools::call`), dépendances (`oku-slides-session`, `rust-mcp-sdk`/`rust-mcp-axum` 1.x et pourquoi pas 2.0), sécurité (127.0.0.1, jeton, jamais journalisé).
+`ARCHITECTURE.md` (moins de 50 lignes) : rôle du crate, les modules ci-dessus, points d'extension (`SettingsPort`, ajout d'un outil = une ligne dans `tools::list` + un bras dans `Tools::call`), dépendances (`oku-slides-session`, `rust-mcp-sdk`/`rust-mcp-axum` 1.x : la 2.0 n'accepte que MCP 2026-07-28 alors que les agents embarquent encore des clients ≤ 2025-11-25 ; la migration vers 2.x restera locale à `server.rs`, `handler.rs`, `tools.rs`), sécurité (127.0.0.1, jeton, jamais journalisé).
 
 - [ ] **Step 4 :** `cargo nextest run -p oku-slides-mcp -p oku-slides-i18n` → tout passe.
 - [ ] **Step 5 : commit**
