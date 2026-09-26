@@ -240,7 +240,8 @@ type Request =
   | { cmd: "save_templates"; as_new: boolean }
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
-  | { cmd: "messages" };
+  | { cmd: "messages" }
+  | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string };
 
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
@@ -271,6 +272,8 @@ const call = <T>(req: Request) => host<T>("request", "/api", req);
 export const api = {
   snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
   messages: () => call<Messages>({ cmd: "messages" }),
+  chartKind: (label: string, slide: string, element: string, kind: string) =>
+    call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
   newDeck: () => call<Snapshot>({ cmd: "new" }),
   open: (path: string) => call<Snapshot>({ cmd: "open", path }),
   save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),

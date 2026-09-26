@@ -503,7 +503,12 @@ export default function App() {
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
         {view && selectedElement?.kind === "chart" && (
-          <ChartPanel slide={view.slide.id} element={selectedElement} onApply={apply} />
+          <ChartPanel
+            slide={view.slide.id}
+            element={selectedElement}
+            onApply={apply}
+            onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+          />
         )}
       </main>
 
@@ -532,10 +537,6 @@ export default function App() {
             <Stepper label={t("ui-note-grid-rows")} value={slideGrid.rows} onChange={(v) => setGrid(slideGrid.columns, v)} />
           </div>
         )}
-        {!snap.editing && <div className="postit note" role="note">
-          <span className="postit-title">{t("ui-note-tip")}</span>
-          <span className="postit-hint">{t("ui-note-tip-text")}</span>
-        </div>}
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}

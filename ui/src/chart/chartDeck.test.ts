@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Element } from "../api";
-import { chartKind, chartSource, kindPatch, starterChart } from "./chartDeck";
+import { CHART_KINDS, chartKind, chartSource, starterChart } from "./chartDeck";
 
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
@@ -31,29 +31,6 @@ describe("chartSource et chartKind", () => {
   });
 });
 
-describe("kindPatch", () => {
-  test("vers des lignes : une série par colonne de valeurs", () => {
-    expect(kindPatch(canonical([{ type: "bar" }, { type: "bar" }]), "line")).toEqual({
-      xAxis: { type: "category" },
-      yAxis: { type: "value" },
-      series: [{ type: "line" }, { type: "line" }],
-    });
-  });
-
-  test("vers un camembert : une seule série, sans axes", () => {
-    expect(kindPatch(canonical([{ type: "bar" }, { type: "bar" }]), "pie")).toEqual({
-      xAxis: null,
-      yAxis: null,
-      series: [{ type: "pie" }],
-    });
-  });
-
-  test("sans dataset, rien : le patch effacerait les données en ligne des séries", () => {
-    const inline: Element = { id: "g", kind: "chart", option: { series: [{ type: "bar", data: [1, 2] }] } };
-    expect(kindPatch(inline, "pie")).toBeNull();
-  });
-
-  test("le même type ne change rien", () => {
-    expect(kindPatch(canonical([{ type: "bar" }, { type: "bar" }]), "bar")).toBeNull();
-  });
+test("les cinq types sont proposés", () => {
+  expect([...CHART_KINDS]).toEqual(["bar", "line", "pie", "scatter", "radar"]);
 });

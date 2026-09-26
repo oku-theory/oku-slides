@@ -4,20 +4,21 @@
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource, kindPatch } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, chartKind, chartSource } from "./chartDeck";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
-export function ChartPanel({ slide, element, onApply }: {
+export function ChartPanel({ slide, element, onApply, onKind }: {
   slide: string;
   element: Element;
   onApply: (label: string, ops: Op[]) => void;
+  /** Change le type : le cœur convertit les données (requête `chart_kind`). */
+  onKind: (kind: ChartKind) => void;
 }) {
   const source = chartSource(element);
   const current = chartKind(element);
   const setKind = (kind: ChartKind) => {
-    const patch = kindPatch(element, kind);
-    if (patch) onApply(t("ui-undo-chart-kind"), [{ op: "set_chart_option", slide, element: element.id, patch }]);
+    if (kind !== current) onKind(kind);
   };
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>

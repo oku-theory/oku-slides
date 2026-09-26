@@ -123,3 +123,15 @@ fn every_locale_formats_every_message_without_errors() {
         }
     }
 }
+
+#[test]
+fn every_locale_names_each_chart_kind_differently() {
+    for (locale, _) in LOCALES {
+        let l = Localizer::new(Some(locale));
+        let names: BTreeSet<String> = ["bar", "line", "pie", "scatter", "radar"]
+            .into_iter()
+            .map(|kind| l.tr_with("ui-chart-kind", &[("kind", kind.into())]))
+            .collect();
+        asserting(locale).that(&names.len()).is_equal_to(5);
+    }
+}
