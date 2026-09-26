@@ -90,6 +90,7 @@ ui-undo-rename-template = টেমপ্লেটের নাম বদলা�
 ui-undo-describe-template = টেমপ্লেটের বিবরণ দিন
 ui-undo-chart-kind = চার্টের ধরন বদলান
 ui-undo-chart-data = ডেটা সম্পাদনা করুন
+ui-undo-chart-color = সিরিজে রং দিন
 ui-undo-chart-stack = { $stacked ->
     [yes] সিরিজগুলো স্তূপ করুন
    *[no] সিরিজগুলো আলাদা করুন
@@ -209,6 +210,10 @@ ui-chart-no-data = এই চার্টে কোনো ডেটা টেব
 ui-chart-options = চার্টের বিকল্প
 ui-chart-stack = স্তূপীকৃত
 ui-chart-waterfall-hint = মোট বারের জন্য একটি মান খালি রাখুন।
+ui-chart-colors = সিরিজের রং
+ui-chart-color-of = { $name }-এর রং
+ui-chart-color-auto = স্বয়ংক্রিয়
+ui-chart-color-pick = রং { $n }
 ui-chart-column-name = কলাম { $col }-এর নাম
 ui-chart-remove-column = কলাম মুছুন
 ui-chart-cell = সারি { $row }, কলাম { $col }

@@ -88,6 +88,7 @@ ui-undo-rename-template = 템플릿 이름 바꾸기
 ui-undo-describe-template = 템플릿 설명 작성
 ui-undo-chart-kind = 차트 유형 변경
 ui-undo-chart-data = 데이터 편집
+ui-undo-chart-color = 계열 색 지정
 ui-undo-chart-stack = { $stacked ->
     [yes] 계열 누적
    *[no] 계열 누적 해제
@@ -207,6 +208,10 @@ ui-chart-no-data = 이 차트에는 데이터 표가 없습니다.
 ui-chart-options = 차트 옵션
 ui-chart-stack = 누적
 ui-chart-waterfall-hint = 합계 막대를 만들려면 값을 비워 두세요.
+ui-chart-colors = 계열 색상
+ui-chart-color-of = { $name } 색상
+ui-chart-color-auto = 자동
+ui-chart-color-pick = 색상 { $n }
 ui-chart-column-name = { $col }열 이름
 ui-chart-remove-column = 열 삭제
 ui-chart-cell = { $row }행, { $col }열

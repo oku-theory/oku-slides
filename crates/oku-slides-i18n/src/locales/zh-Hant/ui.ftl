@@ -90,6 +90,7 @@ ui-undo-rename-template = 重新命名範本
 ui-undo-describe-template = 描述範本
 ui-undo-chart-kind = 變更圖表類型
 ui-undo-chart-data = 編輯資料
+ui-undo-chart-color = 為系列設定顏色
 ui-undo-chart-stack = { $stacked ->
     [yes] 堆疊系列
    *[no] 取消堆疊系列
@@ -209,6 +210,10 @@ ui-chart-no-data = 此圖表沒有資料表。
 ui-chart-options = 圖表選項
 ui-chart-stack = 堆疊
 ui-chart-waterfall-hint = 留空某個值即可產生總計柱。
+ui-chart-colors = 系列顏色
+ui-chart-color-of = { $name } 的顏色
+ui-chart-color-auto = 自動
+ui-chart-color-pick = 顏色 { $n }
 ui-chart-column-name = 第 { $col } 欄的名稱
 ui-chart-remove-column = 刪除欄
 ui-chart-cell = 第 { $row } 列，第 { $col } 欄

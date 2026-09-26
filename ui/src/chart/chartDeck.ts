@@ -63,3 +63,47 @@ export function stackPatch(el: Element, stacked: boolean): { series: Series[] } 
   const series = (optionOf(el)?.series ?? []).map(({ stack: _stack, ...rest }) => (stacked ? { ...rest, stack: STACK } : rest));
   return { series };
 }
+
+/**
+ * Séries qu'on peut colorer, nommées par leur en-tête (forme canonique) :
+ * barres et lignes lisent la colonne i + 1, un nuage la paire (2i, 2i + 1).
+ * Secteurs, radar et cascade suivent la palette : aucune.
+ */
+export function seriesNames(el: Element): string[] {
+  const option = optionOf(el);
+  const series = option?.series ?? [];
+  const header = option?.dataset?.source?.[0] ?? [];
+  const label = (col: number) => String(header[col] ?? "");
+  if (series.length > 0 && series.every(cartesian)) return series.map((_, i) => label(i + 1));
+  if (series.length > 0 && series.every((s) => s.type === "scatter")) return series.map((_, i) => label(2 * i + 1));
+  return [];
+}
+
+/**
+ * Couleur `#rgb` ou `#rrggbb` ramenée à `#rrggbb` en minuscules ; `null`
+ * pour toute autre valeur. Une couleur lue dans le deck passe par là avant
+ * d'atteindre le CSS.
+ */
+export function hexColor(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
+  if (!m) return null;
+  const h = m[1].toLowerCase();
+  return `#${h.length === 3 ? [...h].map((c) => c + c).join("") : h}`;
+}
+
+/** Couleur propre à la série `i` (`itemStyle.color`, normalisée), ou `null` (palette). */
+export function seriesColor(el: Element, i: number): string | null {
+  const style = optionOf(el)?.series?.[i]?.itemStyle as { color?: unknown } | undefined;
+  return hexColor(style?.color);
+}
+
+/** Patch `set_chart_option` qui colore la série `i`, ou la rend à la palette. */
+export function colorPatch(el: Element, i: number, color: string | null): { series: Series[] } {
+  const series = (optionOf(el)?.series ?? []).map((s, j) => {
+    if (j !== i) return s;
+    const { itemStyle: _itemStyle, ...rest } = s;
+    return color ? { ...rest, itemStyle: { color } } : rest;
+  });
+  return { series };
+}

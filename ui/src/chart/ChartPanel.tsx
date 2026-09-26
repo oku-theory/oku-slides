@@ -4,7 +4,8 @@
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource, isStacked, stackPatch, stackable } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, chartKind, chartSource, colorPatch, isStacked, stackPatch, stackable } from "./chartDeck";
+import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
@@ -41,6 +42,12 @@ export function ChartPanel({ slide, element, onApply, onKind }: {
           </button>
         </div>
       )}
+      <SeriesColors
+        element={element}
+        onColor={(index, color) =>
+          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", slide, element: element.id, patch: colorPatch(element, index, color) }])
+        }
+      />
       {current === "waterfall" && <p className="postit-hint">{t("ui-chart-waterfall-hint")}</p>}
       {source ? (
         <ChartDataGrid

@@ -88,6 +88,7 @@ ui-undo-rename-template = Đổi tên mẫu
 ui-undo-describe-template = Mô tả mẫu
 ui-undo-chart-kind = Đổi loại biểu đồ
 ui-undo-chart-data = Sửa dữ liệu
+ui-undo-chart-color = Tô màu một chuỗi
 ui-undo-chart-stack = { $stacked ->
     [yes] Xếp chồng các chuỗi
    *[no] Tách các chuỗi
@@ -207,6 +208,10 @@ ui-chart-no-data = Biểu đồ này không có bảng dữ liệu.
 ui-chart-options = Tùy chọn biểu đồ
 ui-chart-stack = Xếp chồng
 ui-chart-waterfall-hint = Để trống một giá trị để có cột tổng.
+ui-chart-colors = Màu của chuỗi
+ui-chart-color-of = Màu của { $name }
+ui-chart-color-auto = Tự động
+ui-chart-color-pick = Màu { $n }
 ui-chart-column-name = Tên cột { $col }
 ui-chart-remove-column = Xóa cột
 ui-chart-cell = Hàng { $row }, cột { $col }

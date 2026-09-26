@@ -88,6 +88,7 @@ ui-undo-rename-template = เปลี่ยนชื่อเทมเพลต
 ui-undo-describe-template = อธิบายเทมเพลต
 ui-undo-chart-kind = เปลี่ยนประเภทแผนภูมิ
 ui-undo-chart-data = แก้ไขข้อมูล
+ui-undo-chart-color = กำหนดสีชุดข้อมูล
 ui-undo-chart-stack = { $stacked ->
     [yes] ซ้อนชุดข้อมูล
    *[no] แยกชุดข้อมูล
@@ -207,6 +208,10 @@ ui-chart-no-data = แผนภูมินี้ไม่มีตาราง�
 ui-chart-options = ตัวเลือกแผนภูมิ
 ui-chart-stack = ซ้อนกัน
 ui-chart-waterfall-hint = เว้นค่าว่างไว้เพื่อสร้างแท่งผลรวม
+ui-chart-colors = สีของชุดข้อมูล
+ui-chart-color-of = สีของ { $name }
+ui-chart-color-auto = อัตโนมัติ
+ui-chart-color-pick = สี { $n }
 ui-chart-column-name = ชื่อคอลัมน์ { $col }
 ui-chart-remove-column = ลบคอลัมน์
 ui-chart-cell = แถว { $row }, คอลัมน์ { $col }

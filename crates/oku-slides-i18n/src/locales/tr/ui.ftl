@@ -90,6 +90,7 @@ ui-undo-rename-template = Şablonu yeniden adlandır
 ui-undo-describe-template = Şablonu açıkla
 ui-undo-chart-kind = Grafik türünü değiştir
 ui-undo-chart-data = Verileri düzenle
+ui-undo-chart-color = Seriyi renklendir
 ui-undo-chart-stack = { $stacked ->
     [yes] Serileri yığ
    *[no] Serileri ayır
@@ -209,6 +210,10 @@ ui-chart-no-data = Bu grafiğin veri tablosu yok.
 ui-chart-options = Grafik seçenekleri
 ui-chart-stack = Yığılmış
 ui-chart-waterfall-hint = Toplam çubuğu için bir değeri boş bırakın.
+ui-chart-colors = Seri renkleri
+ui-chart-color-of = { $name } rengi
+ui-chart-color-auto = Otomatik
+ui-chart-color-pick = Renk { $n }
 ui-chart-column-name = { $col }. sütunun adı
 ui-chart-remove-column = Sütunu sil
 ui-chart-cell = Satır { $row }, sütun { $col }

@@ -19,3 +19,11 @@ tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { o
 .chart-kinds, .chart-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .chart-kinds button, .chart-options button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
 .chart-kinds button.on, .chart-options button.on { background: var(--papier-accent, #2f5d8a); border-color: transparent; color: #fff; }
+.series-colors { display: flex; flex-wrap: wrap; gap: 6px; }
+.series-color { display: flex; flex-direction: column; gap: 4px; }
+.series-chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 10px 3px 4px; cursor: pointer; }
+.series-chip.on { border-color: var(--papier-accent, #2f5d8a); }
+.swatches { display: flex; gap: 4px; }
+.swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.15); padding: 0; flex: none; }
+button.swatch { cursor: pointer; }
+.swatch.on { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: 1px; }

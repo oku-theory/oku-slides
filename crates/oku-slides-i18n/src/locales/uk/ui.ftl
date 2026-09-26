@@ -94,6 +94,7 @@ ui-undo-rename-template = Перейменувати шаблон
 ui-undo-describe-template = Описати шаблон
 ui-undo-chart-kind = Змінити тип діаграми
 ui-undo-chart-data = Змінити дані
+ui-undo-chart-color = Задати колір ряду
 ui-undo-chart-stack = { $stacked ->
     [yes] Скласти ряди
    *[no] Розділити ряди
@@ -213,6 +214,10 @@ ui-chart-no-data = Ця діаграма не має таблиці даних.
 ui-chart-options = Параметри діаграми
 ui-chart-stack = З накопиченням
 ui-chart-waterfall-hint = Залиште значення порожнім для стовпця підсумку.
+ui-chart-colors = Кольори рядів
+ui-chart-color-of = Колір ряду { $name }
+ui-chart-color-auto = Автоматично
+ui-chart-color-pick = Колір { $n }
 ui-chart-column-name = Назва стовпця { $col }
 ui-chart-remove-column = Видалити стовпець
 ui-chart-cell = Рядок { $row }, стовпець { $col }

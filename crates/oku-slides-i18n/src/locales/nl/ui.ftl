@@ -90,6 +90,7 @@ ui-undo-rename-template = Sjabloon hernoemen
 ui-undo-describe-template = Sjabloon beschrijven
 ui-undo-chart-kind = Grafiektype wijzigen
 ui-undo-chart-data = Gegevens bewerken
+ui-undo-chart-color = Reeks kleuren
 ui-undo-chart-stack = { $stacked ->
     [yes] Reeksen stapelen
    *[no] Reeksen scheiden
@@ -209,6 +210,10 @@ ui-chart-no-data = Deze grafiek heeft geen gegevenstabel.
 ui-chart-options = Grafiekopties
 ui-chart-stack = Gestapeld
 ui-chart-waterfall-hint = Laat een waarde leeg voor een totaalbalk.
+ui-chart-colors = Reekskleuren
+ui-chart-color-of = Kleur van { $name }
+ui-chart-color-auto = Automatisch
+ui-chart-color-pick = Kleur { $n }
 ui-chart-column-name = Naam van kolom { $col }
 ui-chart-remove-column = Kolom verwijderen
 ui-chart-cell = Rij { $row }, kolom { $col }

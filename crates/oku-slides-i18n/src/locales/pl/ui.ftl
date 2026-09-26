@@ -94,6 +94,7 @@ ui-undo-rename-template = Zmień nazwę szablonu
 ui-undo-describe-template = Opisz szablon
 ui-undo-chart-kind = Zmień typ wykresu
 ui-undo-chart-data = Edytuj dane
+ui-undo-chart-color = Pokoloruj serię
 ui-undo-chart-stack = { $stacked ->
     [yes] Skumuluj serie
    *[no] Rozdziel serie
@@ -213,6 +214,10 @@ ui-chart-no-data = Ten wykres nie ma tabeli danych.
 ui-chart-options = Opcje wykresu
 ui-chart-stack = Skumulowany
 ui-chart-waterfall-hint = Zostaw pustą wartość, aby dodać słupek sumy.
+ui-chart-colors = Kolory serii
+ui-chart-color-of = Kolor serii { $name }
+ui-chart-color-auto = Automatycznie
+ui-chart-color-pick = Kolor { $n }
 ui-chart-column-name = Nazwa kolumny { $col }
 ui-chart-remove-column = Usuń kolumnę
 ui-chart-cell = Wiersz { $row }, kolumna { $col }

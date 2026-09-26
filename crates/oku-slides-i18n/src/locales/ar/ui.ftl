@@ -98,6 +98,7 @@ ui-undo-rename-template = إعادة تسمية القالب
 ui-undo-describe-template = وصف القالب
 ui-undo-chart-kind = تغيير نوع المخطط
 ui-undo-chart-data = تعديل البيانات
+ui-undo-chart-color = تلوين سلسلة
 ui-undo-chart-stack = { $stacked ->
     [yes] تكديس السلاسل
    *[no] فصل السلاسل
@@ -217,6 +218,10 @@ ui-chart-no-data = لا يحتوي هذا المخطط على جدول بيان�
 ui-chart-options = خيارات المخطط
 ui-chart-stack = مكدّس
 ui-chart-waterfall-hint = اترك قيمة فارغة لإضافة عمود إجمالي.
+ui-chart-colors = ألوان السلاسل
+ui-chart-color-of = لون { $name }
+ui-chart-color-auto = تلقائي
+ui-chart-color-pick = اللون { $n }
 ui-chart-column-name = اسم العمود { $col }
 ui-chart-remove-column = حذف العمود
 ui-chart-cell = الصف { $row }، العمود { $col }

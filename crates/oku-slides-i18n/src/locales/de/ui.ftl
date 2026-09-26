@@ -90,6 +90,7 @@ ui-undo-rename-template = Vorlage umbenennen
 ui-undo-describe-template = Vorlage beschreiben
 ui-undo-chart-kind = Diagrammtyp ändern
 ui-undo-chart-data = Daten bearbeiten
+ui-undo-chart-color = Reihe einfärben
 ui-undo-chart-stack = { $stacked ->
     [yes] Reihen stapeln
    *[no] Reihen trennen
@@ -209,6 +210,10 @@ ui-chart-no-data = Dieses Diagramm hat keine Datentabelle.
 ui-chart-options = Diagrammoptionen
 ui-chart-stack = Gestapelt
 ui-chart-waterfall-hint = Lassen Sie einen Wert leer für einen Summenbalken.
+ui-chart-colors = Reihenfarben
+ui-chart-color-of = Farbe von { $name }
+ui-chart-color-auto = Automatisch
+ui-chart-color-pick = Farbe { $n }
 ui-chart-column-name = Name der Spalte { $col }
 ui-chart-remove-column = Spalte löschen
 ui-chart-cell = Zeile { $row }, Spalte { $col }

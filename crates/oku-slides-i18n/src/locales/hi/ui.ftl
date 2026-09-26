@@ -90,6 +90,7 @@ ui-undo-rename-template = टेम्पलेट का नाम बदले
 ui-undo-describe-template = टेम्पलेट का विवरण दें
 ui-undo-chart-kind = चार्ट का प्रकार बदलें
 ui-undo-chart-data = डेटा संपादित करें
+ui-undo-chart-color = श्रृंखला को रंगें
 ui-undo-chart-stack = { $stacked ->
     [yes] श्रृंखलाओं को स्टैक करें
    *[no] श्रृंखलाओं को अलग करें
@@ -209,6 +210,10 @@ ui-chart-no-data = इस चार्ट में कोई डेटा त�
 ui-chart-options = चार्ट विकल्प
 ui-chart-stack = स्टैक्ड
 ui-chart-waterfall-hint = कुल बार के लिए कोई मान खाली छोड़ें।
+ui-chart-colors = श्रृंखलाओं के रंग
+ui-chart-color-of = { $name } का रंग
+ui-chart-color-auto = स्वचालित
+ui-chart-color-pick = रंग { $n }
 ui-chart-column-name = कॉलम { $col } का नाम
 ui-chart-remove-column = कॉलम हटाएँ
 ui-chart-cell = पंक्ति { $row }, कॉलम { $col }

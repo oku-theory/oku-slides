@@ -90,6 +90,7 @@ ui-undo-rename-template = Rename the template
 ui-undo-describe-template = Describe the template
 ui-undo-chart-kind = Change the chart type
 ui-undo-chart-data = Edit the data
+ui-undo-chart-color = Color a series
 ui-undo-chart-stack = { $stacked ->
     [yes] Stack the series
    *[no] Unstack the series
@@ -209,6 +210,10 @@ ui-chart-no-data = This chart has no data table.
 ui-chart-options = Chart options
 ui-chart-stack = Stacked
 ui-chart-waterfall-hint = Leave a value empty for a total bar.
+ui-chart-colors = Series colors
+ui-chart-color-of = Color of { $name }
+ui-chart-color-auto = Automatic
+ui-chart-color-pick = Color { $n }
 ui-chart-column-name = Name of column { $col }
 ui-chart-remove-column = Delete the column
 ui-chart-cell = Row { $row }, column { $col }

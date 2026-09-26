@@ -90,6 +90,7 @@ ui-undo-rename-template = Rinomina il modello
 ui-undo-describe-template = Descrivi il modello
 ui-undo-chart-kind = Cambia il tipo di grafico
 ui-undo-chart-data = Modifica i dati
+ui-undo-chart-color = Colora una serie
 ui-undo-chart-stack = { $stacked ->
     [yes] Impila le serie
    *[no] Separa le serie
@@ -209,6 +210,10 @@ ui-chart-no-data = Questo grafico non ha una tabella di dati.
 ui-chart-options = Opzioni del grafico
 ui-chart-stack = In pila
 ui-chart-waterfall-hint = Lascia un valore vuoto per una barra di totale.
+ui-chart-colors = Colori delle serie
+ui-chart-color-of = Colore di { $name }
+ui-chart-color-auto = Automatico
+ui-chart-color-pick = Colore { $n }
 ui-chart-column-name = Nome della colonna { $col }
 ui-chart-remove-column = Elimina la colonna
 ui-chart-cell = Riga { $row }, colonna { $col }
