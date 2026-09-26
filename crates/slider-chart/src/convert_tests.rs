@@ -54,6 +54,8 @@ fn convert_scatter_back_to_lines_uses_x_as_categories() {
     assert_that!(c.categories).is_equal_to(vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]);
     assert_that!(c.series[0].values).is_equal_to(vec![Some(3.0), Some(5.0), Some(7.0)]);
     assert_that!(c.series[1].values).is_equal_to(vec![Some(4.0), None, Some(6.0)]);
+    // Le nuage n'a pas de colonne de libellés : l'en-tête par défaut la nomme.
+    assert_that!(c.category_label.as_str()).is_equal_to("Category");
 }
 
 #[test]

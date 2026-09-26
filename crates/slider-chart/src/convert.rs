@@ -80,7 +80,7 @@ fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {
                     (s.name, values)
                 })
                 .collect();
-            Table { label: String::new(), rows: xs.iter().map(|x| number(*x)).collect(), columns }
+            Table { label: labels.category().to_owned(), rows: xs.iter().map(|x| number(*x)).collect(), columns }
         }
     })
 }
