@@ -132,6 +132,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   transform: rotate(-0.8deg); cursor: default;
 }
 .label:hover { transform: rotate(-0.8deg); box-shadow: var(--edge-light), var(--shadow-object); }
+/* Fenêtre étroite : la barre d'outils occupe toute sa zone, l'étiquette reste dans sa colonne. */
+@media (max-width: 1365px) { .label { max-width: calc(100% - var(--space-6)); } }
 .label { cursor: default; }
 .brand { font: 500 13px/16px var(--serif); color: var(--accent); letter-spacing: 0.02em; }
 .doc-name { font: 500 18px/24px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
@@ -149,7 +151,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .label .caption { white-space: nowrap; }
 
 /* ---- Outils en haut à droite ---- */
-.tray { grid-area: tray; position: relative; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding-right: var(--space-6); }
+.tray { grid-area: tray; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-right: var(--space-6); }
+/* Trop étroit : les outils passent sur deux lignes plutôt que de s'écraser. */
+.tray > * { flex: none; }
 .btn {
   height: 44px; padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2);
   font-size: 13px; font-weight: 500; line-height: 18px;

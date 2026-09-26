@@ -34,6 +34,18 @@ const state = (p) => p.evaluate(() => ({
   assert.equal((await state(p)).slides, before);
   // Plus de post-it d'ajout ni de suppression dans le panneau.
   assert.equal(await p.locator('.notes .add-note, .notes button.postit').count(), 0);
+  // Fenêtre minimale (1024 px) : les outils ne chevauchent pas l'étiquette et ne s'écrasent pas.
+  await p.setViewportSize({ width: 1024, height: 640 });
+  await p.waitForTimeout(300);
+  const fit = await p.evaluate(() => {
+    const items = [...document.querySelectorAll('.tray > *')].map((e) => e.getBoundingClientRect());
+    return {
+      gap: Math.min(...items.map((r) => r.left)) - document.querySelector('.label').getBoundingClientRect().right,
+      tokens: [...document.querySelectorAll('.tray .token')].map((e) => e.getBoundingClientRect().width),
+    };
+  });
+  assert.ok(fit.gap > 0, `outils sur l'étiquette (${fit.gap} px)`);
+  assert.ok(fit.tokens.every((w) => w === 44), `jetons écrasés : ${fit.tokens}`);
   assert.deepEqual(errors, []);
   console.log('barre d\'outils ok');
   await b.close();
