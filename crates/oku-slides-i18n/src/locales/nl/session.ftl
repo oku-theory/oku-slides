@@ -12,7 +12,10 @@ session-no-templates-dir = Geen map voor je sjablonen
 session-editing-templates = Rond eerst het bewerken van de sjablonen af
 session-not-editing-templates = Er wordt geen sjabloonset bewerkt
 session-response = Het antwoord kon niet worden geschreven
-session-busy = De sessie is niet beschikbaar
+session-unknown-tab = Dit tabblad is niet meer geopend.
+session-unknown-window = Dit venster is niet meer geopend.
+session-last-window = Het laatste venster blijft open: sluit in plaats daarvan de app af.
+session-unsaved = ‘{ $title }’ heeft niet-opgeslagen wijzigingen.
 session-bad-request = Ongeldig verzoek: { $reason }
 
 deck-untitled = Naamloos
@@ -23,7 +26,7 @@ templates-default-name = Mijn sjablonen
 templates-copy-name = { $name } (kopie)
 template-default-name = Sjabloon
 notice-modified-elsewhere = Deze pdf is na Oku Slides door een ander programma gewijzigd: de bronnen komen mogelijk niet meer overeen met wat een pdf-lezer toont.
-notice-resume-kept-unsaved = Je niet-opgeslagen wijzigingen van de vorige keer zijn bewaard: het gevraagde bestand is niet geopend.
+notice-open-failed = { $path } kon niet worden geopend: { $reason }
 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen
@@ -36,3 +39,9 @@ session-panel-description = Beschrijving
 session-panel-grid = Raster
 session-panel-columns = Kolommen
 session-panel-rows = Rijen
+
+## Menu
+
+menu-edit = Wijzig
+menu-window = Venster
+menu-quit = Afsluiten

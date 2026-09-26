@@ -12,7 +12,10 @@ session-no-templates-dir = ไม่มีโฟลเดอร์สำหร�
 session-editing-templates = แก้ไขเทมเพลตให้เสร็จก่อน
 session-not-editing-templates = ไม่มีชุดเทมเพลตที่กำลังแก้ไข
 session-response = เขียนคำตอบไม่ได้
-session-busy = เซสชันไม่พร้อมใช้งาน
+session-unknown-tab = แท็บนี้ไม่ได้เปิดอยู่แล้ว
+session-unknown-window = หน้าต่างนี้ไม่ได้เปิดอยู่แล้ว
+session-last-window = หน้าต่างสุดท้ายจะยังคงเปิดอยู่ ให้ออกจากแอปแทน
+session-unsaved = “{ $title }” มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }
 
 deck-untitled = ไม่มีชื่อ
@@ -23,7 +26,7 @@ templates-default-name = เทมเพลตของฉัน
 templates-copy-name = { $name } (สำเนา)
 template-default-name = เทมเพลต
 notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเครื่องมืออื่นหลังจาก Oku Slides: ซอร์สอาจไม่ตรงกับสิ่งที่โปรแกรมอ่าน PDF แสดงอีกต่อไป
-notice-resume-kept-unsaved = เก็บการเปลี่ยนแปลงที่ยังไม่ได้บันทึกจากครั้งก่อนไว้แล้ว: ไม่ได้เปิดไฟล์ที่ขอ
+notice-open-failed = ไม่สามารถเปิด { $path } ได้: { $reason }
 
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว
@@ -36,3 +39,9 @@ session-panel-description = คำอธิบาย
 session-panel-grid = เส้นตาราง
 session-panel-columns = คอลัมน์
 session-panel-rows = แถว
+
+## Menu
+
+menu-edit = แก้ไข
+menu-window = หน้าต่าง
+menu-quit = ออก

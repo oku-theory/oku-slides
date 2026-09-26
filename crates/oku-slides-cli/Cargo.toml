@@ -24,6 +24,7 @@ tracing.workspace = true
 oku-slides-platform.workspace = true
 oku-slides-i18n.workspace = true
 clap.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

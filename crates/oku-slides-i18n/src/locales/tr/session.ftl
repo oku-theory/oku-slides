@@ -12,7 +12,10 @@ session-no-templates-dir = Şablonlarınız için klasör yok
 session-editing-templates = Önce şablonları düzenlemeyi bitirin
 session-not-editing-templates = Düzenlenmekte olan şablon seti yok
 session-response = Yanıt yazılamadı
-session-busy = Oturum kullanılamıyor
+session-unknown-tab = Bu sekme artık açık değil.
+session-unknown-window = Bu pencere artık açık değil.
+session-last-window = Son pencere açık kalır: bunun yerine uygulamadan çıkın.
+session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }
 
 deck-untitled = Adsız
@@ -23,7 +26,7 @@ templates-default-name = Şablonlarım
 templates-copy-name = { $name } (kopya)
 template-default-name = Şablon
 notice-modified-elsewhere = Bu PDF, Oku Slides'dan sonra başka bir araçla değiştirilmiş: kaynakları artık bir PDF okuyucunun gösterdiğiyle eşleşmeyebilir.
-notice-resume-kept-unsaved = Geçen seferki kaydedilmemiş değişiklikleriniz korundu: istenen dosya açılmadı.
+notice-open-failed = { $path } açılamadı: { $reason }
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi
@@ -36,3 +39,9 @@ session-panel-description = Açıklama
 session-panel-grid = Izgara
 session-panel-columns = Sütunlar
 session-panel-rows = Satırlar
+
+## Menu
+
+menu-edit = Düzen
+menu-window = Pencere
+menu-quit = Çıkış

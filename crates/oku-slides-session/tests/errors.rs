@@ -128,11 +128,11 @@ fn delete_builtin_template_set_is_refused() {
 }
 
 #[test]
-fn open_while_editing_templates_is_refused() {
+fn save_while_editing_templates_is_refused() {
     let dir = workdir();
     let mut s = session(&dir);
     s.edit_templates("essentiel").unwrap();
-    let err = request(&mut s, serde_json::json!({"cmd": "new"})).unwrap_err();
+    let err = request(&mut s, serde_json::json!({"cmd": "save", "path": null})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
     assert_that!(french(&err)).is_equal_to("Terminez d'abord l'édition des modèles".to_owned());
 }
@@ -204,16 +204,6 @@ fn open_deck_with_inline_chart_makes_its_data_editable() {
     request(&mut s, edit).unwrap();
     let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": "s" })).unwrap();
     assert_that!(json).contains(r#"["a",7.0]"#);
-}
-
-#[test]
-fn messages_give_the_ui_its_language_and_fluent_resources() {
-    let dir = workdir();
-    let json = request(&mut session(&dir), serde_json::json!({ "cmd": "messages" })).unwrap();
-    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let locale = v["locale"].as_str().unwrap();
-    let resources: Vec<&str> = v["resources"].as_array().unwrap().iter().filter_map(|r| r.as_str()).collect();
-    assert_that!(resources).is_equal_to(Localizer::new(Some(locale)).ui_messages());
 }
 
 #[test]

@@ -1,0 +1,48 @@
+use oku_slides_session::WorkspaceRequest;
+use speculoos::prelude::*;
+
+use super::*;
+
+fn req(v: serde_json::Value) -> WorkspaceRequest {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("requête invalide : {e}"))
+}
+
+#[test]
+fn classify_view_and_messages_never_touch_windows() {
+    assert_that!(classify(&req(serde_json::json!({"cmd": "view"})))).is_equal_to((false, false));
+    assert_that!(classify(&req(serde_json::json!({"cmd": "messages"})))).is_equal_to((false, false));
+}
+
+#[test]
+fn classify_structural_requests_resync_without_forcing_focus() {
+    for v in [
+        serde_json::json!({"cmd": "new_tab", "window": "w-1"}),
+        serde_json::json!({"cmd": "activate", "tab": "t-1"}),
+        serde_json::json!({"cmd": "close", "tab": "t-1"}),
+        serde_json::json!({"cmd": "reorder", "tab": "t-1", "index": 0}),
+        serde_json::json!({"cmd": "close_window", "window": "w-1"}),
+    ] {
+        assert_that!(classify(&req(v))).is_equal_to((true, false));
+    }
+}
+
+#[test]
+fn classify_requests_that_move_a_tab_also_force_focus() {
+    for v in [
+        serde_json::json!({"cmd": "open_tab", "window": "w-1", "path": "/a"}),
+        serde_json::json!({"cmd": "new_window"}),
+        serde_json::json!({"cmd": "move_tab", "tab": "t-1"}),
+    ] {
+        assert_that!(classify(&req(v))).is_equal_to((true, true));
+    }
+}
+
+#[test]
+fn is_newer_only_when_strictly_greater_than_the_last_applied() {
+    assert_that!(is_newer(2, 1)).is_true();
+    assert_that!(is_newer(1, 1)).is_false();
+    assert_that!(is_newer(0, 1)).is_false();
+    // Un focus arrivé après, mais dont la tâche termine avant, reste refusé
+    // une fois qu'un focus plus récent a déjà été appliqué.
+    assert_that!(is_newer(5, 10)).is_false();
+}

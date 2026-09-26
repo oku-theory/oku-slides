@@ -228,3 +228,18 @@ ui-chart-series = Reeks { $n }
 
 ui-file-open-prompt = Pad van het te openen bestand (.oku-slides.pdf of .json)
 ui-file-save-prompt = Opslaan als (volledig pad)
+
+## Tabbladen
+
+ui-tabs = Geopende presentaties
+ui-tab-new = Nieuw tabblad
+ui-tab-close = Tabblad sluiten
+ui-tab-unsaved = Niet-opgeslagen wijzigingen
+ui-tab-templates = Sjablonen
+ui-tab-move-new-window = Naar nieuw venster verplaatsen
+ui-tab-move-to = Naar venster { $n } verplaatsen
+ui-tab-close-others = Andere tabbladen sluiten
+ui-close-unsaved = Wijzigingen in ‘{ $name }’ opslaan voor het sluiten?
+ui-close-save = Opslaan
+ui-close-discard = Niet opslaan
+ui-close-cancel = Annuleren

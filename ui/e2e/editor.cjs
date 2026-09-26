@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const slide = (p) => p.evaluate(() =>
-  fetch('/api', { method: 'POST', body: JSON.stringify({ cmd: 'slide', id: 's-constat' }) })
+  fetch('/api', { method: 'POST', body: JSON.stringify({ tab: 't-1', req: { cmd: 'slide', id: 's-constat' } }) })
     .then((r) => r.json())
     .then((s) => s.slide));
 const points = async (p) => (await slide(p)).blocks.find((e) => e.id === 'b-points').text;
@@ -170,7 +170,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.click('.thumb >> nth=0');
   await until(
     () => p.evaluate(() =>
-      fetch('/api', { method: 'POST', body: JSON.stringify({ cmd: 'snapshot' }) })
+      fetch('/api', { method: 'POST', body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) })
         .then((r) => r.json())
         .then((s) => s.ui.slide)),
     (id) => id === 's-title',

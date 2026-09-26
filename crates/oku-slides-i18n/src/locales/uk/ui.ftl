@@ -232,3 +232,18 @@ ui-chart-series = Ряд { $n }
 
 ui-file-open-prompt = Шлях до файлу для відкриття (.oku-slides.pdf або .json)
 ui-file-save-prompt = Зберегти як (повний шлях)
+
+## Вкладки
+
+ui-tabs = Відкриті презентації
+ui-tab-new = Нова вкладка
+ui-tab-close = Закрити вкладку
+ui-tab-unsaved = Незбережені зміни
+ui-tab-templates = Шаблони
+ui-tab-move-new-window = Перемістити в нове вікно
+ui-tab-move-to = Перемістити у вікно { $n }
+ui-tab-close-others = Закрити інші вкладки
+ui-close-unsaved = Зберегти зміни в «{ $name }» перед закриттям?
+ui-close-save = Зберегти
+ui-close-discard = Не зберігати
+ui-close-cancel = Скасувати

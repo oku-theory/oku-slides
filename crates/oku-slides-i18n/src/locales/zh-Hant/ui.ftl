@@ -228,3 +228,18 @@ ui-chart-series = 數列 { $n }
 
 ui-file-open-prompt = 要開啟的檔案路徑（.oku-slides.pdf 或 .json）
 ui-file-save-prompt = 另存為（完整路徑）
+
+## 分頁
+
+ui-tabs = 已開啟的簡報
+ui-tab-new = 新增分頁
+ui-tab-close = 關閉分頁
+ui-tab-unsaved = 未儲存的變更
+ui-tab-templates = 範本
+ui-tab-move-new-window = 移至新視窗
+ui-tab-move-to = 移至視窗 { $n }
+ui-tab-close-others = 關閉其他分頁
+ui-close-unsaved = 關閉前要儲存「{ $name }」的變更嗎？
+ui-close-save = 儲存
+ui-close-discard = 不要儲存
+ui-close-cancel = 取消

@@ -33,7 +33,7 @@ pub(crate) fn canonicalize_deck(deck: &mut Deck, labels: &ChartLabels) {
 fn canonicalize_tree(e: &mut Element, labels: &ChartLabels) {
     if let ElementBody::Chart { option } = &mut e.body {
         match canonicalize(option, labels) {
-            Ok(canonical) => *option = canonical,
+            Ok(canonical) => **option = canonical,
             // L'op refusera ce graphique avec la raison ; rien à ranger ici.
             Err(error) => tracing::debug!(element = %e.id, %error, "graphique non canonicalisé"),
         }

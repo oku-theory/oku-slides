@@ -2,6 +2,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use oku_slides_core::{Deck, Op, SourceBundle};
+use oku_slides_platform::storage::StorageErrorKind;
 
 fn temp_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -99,6 +100,20 @@ fn read_state_unknown_version_returns_error() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
+/// Un `state.json` valide mais démesuré n'est pas lu en entier : illisible.
+#[test]
+fn read_state_oversized_returns_access_error_too_large() {
+    let r = resume();
+    let mut bytes = br#"{"version":1,"mode":"deck"}"#.to_vec();
+    bytes.resize(usize::try_from(MAX_JSON_BYTES).unwrap() + 1, b' ');
+    std::fs::create_dir_all(&r.dir).unwrap();
+    std::fs::write(r.dir.join("state.json"), bytes).unwrap();
+    let err = r.read_state().unwrap_err();
+    let too_large = matches!(&err, ResumeError::Access { source, .. } if source.kind() == StorageErrorKind::TooLarge);
+    assert_that!(too_large).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
 #[test]
 fn read_state_future_version_with_other_shape_returns_version_error() {
     let r = resume();
@@ -160,5 +175,25 @@ fn read_doc_with_stored_relative_path_drops_path() {
     doc.path = Some(PathBuf::from("essai.oku-slides.pdf"));
     r.write_doc(DECK_DIR, &doc).unwrap();
     assert_that!(r.read_doc(DECK_DIR, 10).unwrap().path).is_none();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_doc_then_read_doc_keeps_the_blank_flag() {
+    let r = resume();
+    let mut doc = document();
+    doc.blank = true;
+    r.write_doc(DECK_DIR, &doc).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_doc_then_read_doc_keeps_a_non_blank_flag() {
+    let r = resume();
+    let doc = document();
+    assert_that!(doc.blank).is_false();
+    r.write_doc(DECK_DIR, &doc).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }

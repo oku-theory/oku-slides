@@ -228,3 +228,18 @@ ui-chart-series = 系列 { $n }
 
 ui-file-open-prompt = 開くファイルのパス（.oku-slides.pdf または .json）
 ui-file-save-prompt = 名前を付けて保存（フルパス）
+
+## タブ
+
+ui-tabs = 開いているプレゼンテーション
+ui-tab-new = 新しいタブ
+ui-tab-close = タブを閉じる
+ui-tab-unsaved = 未保存の変更
+ui-tab-templates = テンプレート
+ui-tab-move-new-window = 新しいウィンドウに移動
+ui-tab-move-to = ウィンドウ { $n } に移動
+ui-tab-close-others = ほかのタブを閉じる
+ui-close-unsaved = 閉じる前に「{ $name }」の変更を保存しますか？
+ui-close-save = 保存
+ui-close-discard = 保存しない
+ui-close-cancel = キャンセル

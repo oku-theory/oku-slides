@@ -12,7 +12,10 @@ session-no-templates-dir = Brak folderu na własne szablony
 session-editing-templates = Najpierw zakończ edycję szablonów
 session-not-editing-templates = Żaden zestaw szablonów nie jest edytowany
 session-response = Nie udało się zapisać odpowiedzi
-session-busy = Sesja jest niedostępna
+session-unknown-tab = Ta karta nie jest już otwarta.
+session-unknown-window = To okno nie jest już otwarte.
+session-last-window = Ostatnie okno pozostaje otwarte: zamiast tego zamknij aplikację.
+session-unsaved = „{ $title }” ma niezapisane zmiany.
 session-bad-request = Nieprawidłowe żądanie: { $reason }
 
 deck-untitled = Bez tytułu
@@ -23,7 +26,7 @@ templates-default-name = Moje szablony
 templates-copy-name = { $name } (kopia)
 template-default-name = Szablon
 notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po zapisaniu w Oku Slides: jego źródła mogą już nie odpowiadać temu, co pokazuje czytnik PDF.
-notice-resume-kept-unsaved = Zachowano niezapisane zmiany z poprzedniego razu: żądany plik nie został otwarty.
+notice-open-failed = Nie udało się otworzyć { $path }: { $reason }
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany
@@ -36,3 +39,9 @@ session-panel-description = Opis
 session-panel-grid = Siatka
 session-panel-columns = Kolumny
 session-panel-rows = Wiersze
+
+## Menu
+
+menu-edit = Edycja
+menu-window = Okno
+menu-quit = Zakończ

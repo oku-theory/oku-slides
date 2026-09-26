@@ -46,6 +46,12 @@ pub enum SessionErrorKind {
     NotEditingTemplates,
     /// La réponse n'a pas pu être écrite en JSON.
     Response,
+    /// Onglet inconnu (fermé entre-temps).
+    UnknownTab,
+    /// Fenêtre inconnue (fermée entre-temps).
+    UnknownWindow,
+    /// Fermeture refusée : travail non enregistré.
+    Unsaved,
 }
 
 #[derive(Debug, Snafu)]
@@ -91,6 +97,12 @@ pub(crate) enum SessionInner {
     NotEditingTemplates { backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("tab not found: {id}"))]
+    UnknownTab { id: String, backtrace: Backtrace },
+    #[snafu(display("window not found: {label}"))]
+    UnknownWindow { label: String, backtrace: Backtrace },
+    #[snafu(display("{title} has unsaved changes"))]
+    Unsaved { title: String, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -112,6 +124,9 @@ impl SessionError {
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
             Response { .. } => SessionErrorKind::Response,
+            UnknownTab { .. } => SessionErrorKind::UnknownTab,
+            UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
+            Unsaved { .. } => SessionErrorKind::Unsaved,
         }
     }
 
@@ -158,6 +173,9 @@ impl Localize for SessionError {
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
             Response { .. } => l.tr("session-response"),
+            UnknownTab { .. } => l.tr("session-unknown-tab"),
+            UnknownWindow { .. } => l.tr("session-unknown-window"),
+            Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),
         }
     }
 }

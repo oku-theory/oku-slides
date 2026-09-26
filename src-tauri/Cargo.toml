@@ -16,13 +16,18 @@ oku-slides-stt.workspace = true
 oku-slides-platform.workspace = true
 color-eyre.workspace = true
 tracing.workspace = true
+serde_json.workspace = true
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-window-state.workspace = true
+tauri-plugin-single-instance.workspace = true
 
 # Dictée sur Mac : calcul par Accelerate (le framework d'Apple).
 [target.'cfg(target_os = "macos")'.dependencies]
 oku-slides-stt = { workspace = true, features = ["accelerate"] }
+
+[dev-dependencies]
+speculoos.workspace = true
 
 [lints]
 workspace = true

@@ -12,7 +12,10 @@ session-no-templates-dir = 没有用于存放你的模板的文件夹
 session-editing-templates = 请先完成模板编辑
 session-not-editing-templates = 当前没有正在编辑的模板集
 session-response = 无法写入响应
-session-busy = 会话不可用
+session-unknown-tab = 此标签页已不再打开。
+session-unknown-window = 此窗口已不再打开。
+session-last-window = 最后一个窗口会保持打开：请改为退出应用。
+session-unsaved = “{ $title }”有未保存的更改。
 session-bad-request = 请求无效：{ $reason }
 
 deck-untitled = 未命名
@@ -23,7 +26,7 @@ templates-default-name = 我的模板
 templates-copy-name = { $name }（副本）
 template-default-name = 模板
 notice-modified-elsewhere = 此 PDF 在 Oku Slides 之后被其他工具修改过：其源文件可能与 PDF 阅读器中显示的内容不再一致。
-notice-resume-kept-unsaved = 已保留上次未保存的更改：未打开所请求的文件。
+notice-open-failed = 无法打开 { $path }：{ $reason }
 
 log-document-opened = 文档已打开
 log-document-saved = 文档已保存
@@ -36,3 +39,9 @@ session-panel-description = 描述
 session-panel-grid = 网格
 session-panel-columns = 列
 session-panel-rows = 行
+
+## Menu
+
+menu-edit = 编辑
+menu-window = 窗口
+menu-quit = 退出

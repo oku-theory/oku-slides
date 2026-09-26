@@ -228,3 +228,18 @@ ui-chart-series = Serie { $n }
 
 ui-file-open-prompt = Ruta del archivo que abrir (.oku-slides.pdf o .json)
 ui-file-save-prompt = Guardar como (ruta completa)
+
+## Pestañas
+
+ui-tabs = Presentaciones abiertas
+ui-tab-new = Nueva pestaña
+ui-tab-close = Cerrar pestaña
+ui-tab-unsaved = Cambios sin guardar
+ui-tab-templates = Plantillas
+ui-tab-move-new-window = Mover a una ventana nueva
+ui-tab-move-to = Mover a la ventana { $n }
+ui-tab-close-others = Cerrar las demás pestañas
+ui-close-unsaved = ¿Guardar los cambios de «{ $name }» antes de cerrar?
+ui-close-save = Guardar
+ui-close-discard = No guardar
+ui-close-cancel = Cancelar

@@ -12,7 +12,10 @@ session-no-templates-dir = Kein Ordner für eigene Vorlagen
 session-editing-templates = Zuerst die Bearbeitung der Vorlagen abschließen
 session-not-editing-templates = Es wird kein Vorlagenset bearbeitet
 session-response = Die Antwort konnte nicht geschrieben werden
-session-busy = Die Sitzung ist nicht verfügbar
+session-unknown-tab = Dieser Tab ist nicht mehr geöffnet.
+session-unknown-window = Dieses Fenster ist nicht mehr geöffnet.
+session-last-window = Das letzte Fenster bleibt geöffnet: Beenden Sie stattdessen die App.
+session-unsaved = „{ $title }“ hat nicht gespeicherte Änderungen.
 session-bad-request = Ungültige Anfrage: { $reason }
 
 deck-untitled = Ohne Titel
@@ -23,7 +26,7 @@ templates-default-name = Meine Vorlagen
 templates-copy-name = { $name } (Kopie)
 template-default-name = Vorlage
 notice-modified-elsewhere = Dieses PDF wurde nach Oku Slides mit einem anderen Programm geändert: Seine Quellen stimmen möglicherweise nicht mehr mit der Anzeige im PDF-Reader überein.
-notice-resume-kept-unsaved = Deine nicht gespeicherten Änderungen vom letzten Mal wurden behalten: Die angeforderte Datei wurde nicht geöffnet.
+notice-open-failed = { $path } konnte nicht geöffnet werden: { $reason }
 
 log-document-opened = Dokument geöffnet
 log-document-saved = Dokument gespeichert
@@ -36,3 +39,9 @@ session-panel-description = Beschreibung
 session-panel-grid = Raster
 session-panel-columns = Spalten
 session-panel-rows = Zeilen
+
+## Menu
+
+menu-edit = Bearbeiten
+menu-window = Fenster
+menu-quit = Beenden

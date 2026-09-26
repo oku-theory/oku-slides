@@ -226,3 +226,18 @@ ui-chart-series = 계열 { $n }
 
 ui-file-open-prompt = 열 파일의 경로 (.oku-slides.pdf 또는 .json)
 ui-file-save-prompt = 다른 이름으로 저장 (전체 경로)
+
+## 탭
+
+ui-tabs = 열린 프레젠테이션
+ui-tab-new = 새 탭
+ui-tab-close = 탭 닫기
+ui-tab-unsaved = 저장하지 않은 변경 사항
+ui-tab-templates = 템플릿
+ui-tab-move-new-window = 새 창으로 이동
+ui-tab-move-to = { $n }번 창으로 이동
+ui-tab-close-others = 다른 탭 닫기
+ui-close-unsaved = 닫기 전에 “{ $name }”의 변경 사항을 저장할까요?
+ui-close-save = 저장
+ui-close-discard = 저장 안 함
+ui-close-cancel = 취소

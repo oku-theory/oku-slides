@@ -29,6 +29,8 @@ pub enum StorageErrorKind {
     NotFound,
     /// Chemin qui ne peut pas désigner un fichier (non UTF-8…).
     InvalidPath,
+    /// Fichier plus gros que la limite de [`Storage::read_limited`].
+    TooLarge,
     Other,
 }
 
@@ -42,6 +44,8 @@ enum StorageInner {
     InvalidPath { path: PathBuf, backtrace: Backtrace },
     #[snafu(display("cannot {action} {}", path.display()))]
     Access { action: &'static str, path: PathBuf, source: opendal::Error, backtrace: Backtrace },
+    #[snafu(display("{} is larger than {max} bytes", path.display()))]
+    TooLarge { path: PathBuf, max: u64, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
     Stream { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
 }
@@ -51,6 +55,7 @@ impl StorageError {
         match &*self.0 {
             StorageInner::Access { source, .. } if source.kind() == ErrorKind::NotFound => StorageErrorKind::NotFound,
             StorageInner::InvalidPath { .. } => StorageErrorKind::InvalidPath,
+            StorageInner::TooLarge { .. } => StorageErrorKind::TooLarge,
             _ => StorageErrorKind::Other,
         }
     }
@@ -69,6 +74,14 @@ fn normalize(path: &Path) -> PathBuf {
         }
     }
     out
+}
+
+/// Chemin absolu, `.` et `..` résolus, sans toucher au disque.
+///
+/// Les liens ne sont pas suivis : deux chemins vers un même fichier par un
+/// lien restent différents.
+pub fn resolve(path: &Path) -> PathBuf {
+    normalize(&std::path::absolute(path).unwrap_or_else(|_| path.to_owned()))
 }
 
 /// Extensions des fichiers de police lus par [`Storage::read_fonts`].
@@ -158,6 +171,19 @@ impl Storage {
         Ok(buffer.to_vec())
     }
 
+    /// Lit le fichier s'il ne dépasse pas `max` octets ; au-delà, [`StorageErrorKind::TooLarge`].
+    ///
+    /// Jamais plus de `max` octets en mémoire : seule la taille vue au départ
+    /// est lue, même si le fichier grossit entre-temps.
+    pub fn read_limited(&self, path: &Path, max: u64) -> Result<Vec<u8>, StorageError> {
+        let (op, key) = self.at(path)?;
+        let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length();
+        ensure!(len <= max, TooLargeSnafu { path, max });
+        let opts = opendal::options::ReadOptions { range: (0..len).into(), ..Default::default() };
+        let buffer = op.read_options(&key, opts).context(AccessSnafu { action: "read", path })?;
+        Ok(buffer.to_vec())
+    }
+
     /// Écrit le fichier (et crée ses dossiers).
     pub fn write(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
@@ -167,9 +193,14 @@ impl Storage {
 
     /// Écrit dans un fichier temporaire à côté, puis renomme : un lecteur ne
     /// voit jamais de fichier à moitié écrit.
+    ///
+    /// Le nom temporaire est propre à chaque écriture : deux écritures
+    /// simultanées du même fichier ne se marchent pas dessus.
     pub fn write_atomic(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        let tmp = path.with_file_name(format!(".{name}.tmp"));
+        let tmp = path.with_file_name(format!(".{name}.{}-{n}.tmp", std::process::id()));
         self.write(&tmp, bytes)?;
         self.rename(&tmp, path)
     }
@@ -186,6 +217,18 @@ impl Storage {
     pub fn delete(&self, path: &Path) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
         Ok(op.delete(&key).context(AccessSnafu { action: "delete", path })?)
+    }
+
+    /// Supprime un dossier et tout son contenu ; un dossier absent n'est pas une erreur.
+    ///
+    /// Les liens symboliques ne sont jamais suivis : un lien (à la place du
+    /// dossier ou dedans) est retiré, sa cible reste. OpenDAL retire le `/`
+    /// final et `remove_dir_all` de la bibliothèque standard ne traverse pas
+    /// les liens ; les tests (`storage_tests`, régression t-163) le gardent.
+    pub fn delete_dir(&self, dir: &Path) -> Result<(), StorageError> {
+        let (op, key) = self.dir_at(dir)?;
+        let opts = opendal::options::DeleteOptions { recursive: true, ..Default::default() };
+        Ok(op.delete_options(&key, opts).context(AccessSnafu { action: "delete", path: dir })?)
     }
 
     pub fn exists(&self, path: &Path) -> Result<bool, StorageError> {
@@ -219,6 +262,22 @@ impl Storage {
         Ok(entries
             .into_iter()
             .filter(|e| e.metadata().is_file())
+            .map(|e| dir.join(e.name().trim_end_matches('/')))
+            .collect())
+    }
+
+    /// Sous-dossiers d'un dossier ; un dossier absent est vide.
+    pub fn list_dirs(&self, dir: &Path) -> Result<Vec<PathBuf>, StorageError> {
+        let (op, key) = self.dir_at(dir)?;
+        let entries = match op.list(&key) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e).context(AccessSnafu { action: "list", path: dir })?,
+        };
+        Ok(entries
+            .into_iter()
+            // La liste d'un dossier peut contenir le dossier lui-même.
+            .filter(|e| e.metadata().is_dir() && e.path() != key)
             .map(|e| dir.join(e.name().trim_end_matches('/')))
             .collect())
     }

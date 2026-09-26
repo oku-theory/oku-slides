@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
-import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
+import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TabApi, TemplateView } from "./api";
+import { errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { applyAppearance } from "./appearance";
 import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
@@ -15,6 +15,7 @@ import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
 import { panelActionOps } from "./a2ui/panelActions";
+import { Latest } from "./latest";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
@@ -34,24 +35,38 @@ const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ def
 const NO_PANEL: A2uiMessage[] = [];
 
 /** SVG des slides, en URL d'objet, mis en cache par empreinte de rendu. */
-function useSvgCache() {
+function useSvgCache(api: TabApi) {
   const cache = useRef(new Map<string, string>());
   const [, bump] = useState(0);
   const pending = useRef(new Set<string>());
+  const alive = useRef(true);
+  useEffect(() => {
+    // StrictMode monte, démonte puis remonte en développement : on repart
+    // d'un cache vide et vivant à chaque montage.
+    alive.current = true;
+    const [urls, waiting] = [cache.current, pending.current];
+    return () => {
+      alive.current = false;
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+      waiting.clear();
+    };
+  }, []);
   const get = useCallback((id: string, hash: string): string | null => {
     const hit = cache.current.get(hash);
     if (hit) return hit;
     if (hash && !pending.current.has(hash)) {
       pending.current.add(hash);
       api.svg(id).then((svg) => {
+        pending.current.delete(hash);
+        if (!alive.current) return;
         const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
         cache.current.set(hash, url);
-        pending.current.delete(hash);
         bump((n) => n + 1);
       }).catch(() => pending.current.delete(hash));
     }
     return null;
-  }, []);
+  }, [api]);
   return get;
 }
 
@@ -93,38 +108,59 @@ function TitleField({ value, display, onCommit }: { value: string; display: stri
   );
 }
 
-/** Dans l'app macOS, la barre de titre est intégrée : les feux se posent sur la table. */
-const titlebarOverlay = inTauri && /Mac/i.test(navigator.userAgent);
-
-export default function App() {
+/** Un onglet : le deck de la session `tab`. */
+export default function App({ tab, nonce, onOpen, onChange }: {
+  tab: string;
+  /** Change à chaque vue diffusée : le snapshot est relu (un avis a pu arriver). */
+  nonce: number;
+  /** Ouvrir un fichier : l'espace de travail choisit l'onglet. */
+  onOpen: (path: string) => void;
+  /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
+  onChange?: () => void;
+}) {
+  // Monté par onglet (`key`) : l'API ne change pas pendant la vie du composant.
+  const [api] = useState(() => tabApi(tab));
+  // Dernier `onChange` reçu, sans faire changer `run` d'identité.
+  const changed = useRef(onChange);
+  changed.current = onChange;
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
-  const svg = useSvgCache();
+  const svg = useSvgCache(api);
 
   const say = (text: string, error = false) => {
     setToast({ text, error });
     window.setTimeout(() => setToast((cur) => (cur?.text === text ? null : cur)), error ? 6000 : 2500);
   };
 
+  // Une relecture (`nonce`) croise parfois une modification : la réponse la
+  // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
+  const latest = useRef(new Latest());
   const run = useCallback(async (p: Promise<Snapshot>) => {
+    const n = latest.current.begin();
     try {
       const s = await p;
-      setSnap(s);
+      if (latest.current.accept(n)) {
+        setSnap(s);
+        changed.current?.();
+      }
+      // L'hôte n'envoie un avis qu'une fois : même dépassé, il s'affiche.
       if (s.notice) say(s.notice, true);
       return s;
     } catch (e) {
-      say(String(e instanceof Error ? e.message : e), true);
+      say(errorText(e), true);
       return null;
     }
   }, []);
 
+  // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
+  // (fichier reçu qui n'a pas pu s'ouvrir) n'attend pas la prochaine édition.
   useEffect(() => {
     run(api.snapshot());
-  }, [run]);
+  }, [run, nonce]);
 
   // L'interface suit le thème des slides, à chaque changement.
   const appearanceKey = snap ? JSON.stringify(snap.appearance) : "";
@@ -219,10 +255,7 @@ export default function App() {
 
   const open = async () => {
     const path = await pickOpenPath();
-    if (path && (await run(api.open(path)))) {
-      setCurrent(null);
-      setSelected(null);
-    }
+    if (path) onOpen(path);
   };
 
   const save = async (as = false) => {
@@ -452,9 +485,7 @@ export default function App() {
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
 
   return (
-    <div className={`table${titlebarOverlay ? " overlay-titlebar" : ""}`}>
-      {/* Bord supérieur : on y saisit la fenêtre pour la déplacer (barre de titre intégrée). */}
-      {titlebarOverlay && <div className="drag-strip" data-tauri-drag-region />}
+    <div className="table">
       {/* Étiquette du document, posée sur la table. */}
       <header className={`label object${snap.editing ? " editing-templates" : ""}`}>
         <span className="brand">{t(snap.editing ? "ui-brand-templates" : "ui-brand")}</span>
@@ -589,6 +620,7 @@ export default function App() {
           onPick={insertTemplate}
           onSetChange={adoptSet}
           onClose={() => setPicking(false)}
+          api={api}
         />
       )}
 

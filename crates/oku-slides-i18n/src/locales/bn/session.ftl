@@ -12,7 +12,10 @@ session-no-templates-dir = আপনার টেমপ্লেটের জন
 session-editing-templates = আগে টেমপ্লেট সম্পাদনা শেষ করুন
 session-not-editing-templates = কোনো টেমপ্লেট সেট সম্পাদনা করা হচ্ছে না
 session-response = উত্তর লেখা যায়নি
-session-busy = সেশনটি উপলব্ধ নয়
+session-unknown-tab = এই ট্যাবটি আর খোলা নেই।
+session-unknown-window = এই উইন্ডোটি আর খোলা নেই।
+session-last-window = শেষ উইন্ডোটি খোলা থাকে: এর বদলে অ্যাপটি বন্ধ করুন।
+session-unsaved = “{ $title }”-এ অসংরক্ষিত পরিবর্তন আছে।
 session-bad-request = অবৈধ অনুরোধ: { $reason }
 
 deck-untitled = শিরোনামহীন
@@ -23,7 +26,7 @@ templates-default-name = আমার টেমপ্লেট
 templates-copy-name = { $name } (কপি)
 template-default-name = টেমপ্লেট
 notice-modified-elsewhere = Oku Slides-এর পরে অন্য একটি টুল এই PDF পরিবর্তন করেছে: এর উৎস হয়তো PDF রিডারে যা দেখায় তার সঙ্গে আর মিলবে না।
-notice-resume-kept-unsaved = গতবারের অসংরক্ষিত পরিবর্তনগুলো রাখা হয়েছে: অনুরোধ করা ফাইলটি খোলা হয়নি।
+notice-open-failed = { $path } খোলা যায়নি: { $reason }
 
 log-document-opened = ডকুমেন্ট খোলা হয়েছে
 log-document-saved = ডকুমেন্ট সংরক্ষিত হয়েছে
@@ -36,3 +39,9 @@ session-panel-description = বিবরণ
 session-panel-grid = গ্রিড
 session-panel-columns = কলাম
 session-panel-rows = সারি
+
+## Menu
+
+menu-edit = সম্পাদনা
+menu-window = উইন্ডো
+menu-quit = প্রস্থান

@@ -108,11 +108,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   transition: var(--theme-fade);
 }
 
-/* Barre de titre intégrée (macOS) : bande de glissement et place pour les feux. */
 .table { position: relative; }
-.table.overlay-titlebar { padding-top: 22px; }
-.table.overlay-titlebar .label { margin-left: 92px; }
-.drag-strip { position: absolute; inset: 0 0 auto 0; height: 36px; z-index: 1; }
 
 /* Objets posés sur la table : ils se soulèvent au survol. */
 .object {
@@ -443,3 +439,43 @@ button, select, input, textarea { font: inherit; color: inherit; }
 [dir="rtl"] .chart-panel { right: auto; left: var(--space-6, 24px); }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
+
+/* Onglets : la bande du haut de la fenêtre (la barre de titre intégrée sous macOS). */
+.workspace { height: 100%; display: flex; flex-direction: column; }
+.workspace-body { flex: 1; min-height: 0; }
+.workspace-error { margin: 0; padding: 4px 12px; background: var(--danger); color: var(--on-accent); font-size: 12px; }
+.tabbar {
+  height: 36px; flex: none; display: flex; align-items: flex-end; gap: 2px;
+  padding: 0 var(--space-2); background: var(--shade); position: relative;
+}
+/* `tabbar-overlay`, pas `overlay` : cette classe existe déjà (plein écran). */
+.tabbar.tabbar-overlay { padding-left: 80px; }
+.tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  display: flex; align-items: center; gap: 6px; min-width: 96px; max-width: 220px; height: 30px;
+  padding: 0 4px 0 12px; border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--ink-muted); cursor: default; position: relative;
+}
+.tab.active { background: var(--paper-200); color: var(--ink); }
+.tab.dragging { opacity: 0.5; }
+.tab.drop-before::before, .tabbar.drop-end::after {
+  content: ""; position: absolute; top: 6px; bottom: 6px; width: 2px; background: var(--accent);
+}
+.tab.drop-before::before { left: -2px; }
+.tabbar.drop-end::after { right: var(--space-2); }
+.tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-badge { font-size: 11px; color: var(--accent); }
+.tab-dirty { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.tab-close, .tab-new {
+  border: 0; background: none; color: inherit; width: 22px; height: 22px; flex: none;
+  border-radius: var(--radius-sm); font-size: 16px; line-height: 1; cursor: pointer;
+}
+/* Invisible mais toujours dans l'arbre d'accessibilité (état « désactivé » lisible). */
+.tab-close:disabled { opacity: 0; pointer-events: none; }
+.tab-new { margin-bottom: 4px; }
+.tab-close:hover, .tab-new:hover { background: var(--paper-200); }
+.tab-menu { position: fixed; z-index: 20; display: flex; flex-direction: column; padding: 4px; min-width: 240px; }
+.tab-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }
+.tab-menu button:hover:not(:disabled) { background: var(--shade); }
+.tab-menu button:disabled { color: var(--ink-muted); }

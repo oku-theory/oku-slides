@@ -12,7 +12,10 @@ session-no-templates-dir = テンプレート用のフォルダがありませ�
 session-editing-templates = 先にテンプレートの編集を終了してください
 session-not-editing-templates = 編集中のテンプレートセットはありません
 session-response = 応答を書き込めませんでした
-session-busy = セッションを利用できません
+session-unknown-tab = このタブはもう開いていません。
+session-unknown-window = このウィンドウはもう開いていません。
+session-last-window = 最後のウィンドウは開いたままになります。代わりにアプリを終了してください。
+session-unsaved = 「{ $title }」に未保存の変更があります。
 session-bad-request = 無効なリクエスト：{ $reason }
 
 deck-untitled = 無題
@@ -23,7 +26,7 @@ templates-default-name = マイテンプレート
 templates-copy-name = { $name }（コピー）
 template-default-name = テンプレート
 notice-modified-elsewhere = この PDF は Oku Slides の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
-notice-resume-kept-unsaved = 前回の未保存の変更を保持しました。指定されたファイルは開いていません。
+notice-open-failed = { $path } を開けませんでした: { $reason }
 
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました
@@ -36,3 +39,9 @@ session-panel-description = 説明
 session-panel-grid = グリッド
 session-panel-columns = 列
 session-panel-rows = 行
+
+## Menu
+
+menu-edit = 編集
+menu-window = ウインドウ
+menu-quit = 終了
