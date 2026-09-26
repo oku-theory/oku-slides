@@ -26,3 +26,12 @@ notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเค
 
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = เทมเพลตนี้
+session-panel-name = ชื่อ
+session-panel-description = คำอธิบาย
+session-panel-grid = เส้นตาราง
+session-panel-columns = คอลัมน์
+session-panel-rows = แถว

@@ -270,3 +270,57 @@ fn errors_localize_in_the_configured_language() {
     let en = Localizer::new(Some("en"));
     assert_that!(s.slide("absente").unwrap_err().localize(&en)).is_equal_to("Slide not found: absente".to_owned());
 }
+
+/// Messages A2UI de la requête `panel` pour une slide.
+fn panel(s: &mut Session, slide: &str) -> Vec<serde_json::Value> {
+    let req = serde_json::from_value(json!({ "cmd": "panel", "slide": slide }))
+        .unwrap_or_else(|e| panic!("requête panel invalide : {e}"));
+    let reply = s.handle(req).unwrap_or_else(|e| panic!("panel refusé : {}", e.one_line()));
+    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réponse panel illisible : {e}"))
+}
+
+/// Le composant `id` des messages `updateComponents`.
+fn component<'a>(msgs: &'a [serde_json::Value], id: &str) -> Option<&'a serde_json::Value> {
+    msgs.iter().filter_map(|m| m["updateComponents"]["components"].as_array()).flatten().find(|c| c["id"] == id)
+}
+
+#[test]
+fn panel_outside_template_editing_is_empty() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    assert_that!(panel(&mut s, "s-libre")).is_empty();
+}
+
+#[test]
+fn panel_while_editing_templates_binds_name_and_description() {
+    let mut s = session();
+    s.edit_templates("grilles").unwrap();
+    let first = s.snapshot().slides[0].id.to_owned();
+    let name = s.deck().slides[0].name.clone();
+    let msgs = panel(&mut s, &first);
+
+    assert_that!(msgs[0]["createSurface"]["catalogId"].as_str()).is_equal_to(Some(slider_a2ui::CATALOG_ID));
+    let data = msgs.iter().find_map(|m| m.get("updateDataModel")).map(|u| u["value"].clone());
+    assert_that!(data.map(|d| d["template"]["name"].clone())).is_equal_to(Some(json!(name)));
+    assert_that!(component(&msgs, "template-name").cloned()).is_some().is_equal_to(json!({
+        "id": "template-name", "component": "TextField", "label": "Nom", "value": { "path": "/template/name" },
+        "action": { "event": { "name": "rename_template",
+            "context": { "slide": first, "value": { "path": "/template/name" } } } }
+    }));
+    assert_that!(component(&msgs, "template-title").map(|c| c["text"].clone())).is_equal_to(Some(json!("Ce modèle")));
+}
+
+#[test]
+fn panel_while_editing_templates_binds_grid_steppers() {
+    let mut s = session();
+    s.edit_templates("grilles").unwrap();
+    let first = s.snapshot().slides[0].id.to_owned();
+    let columns = s.slide(&first).unwrap().zone.and_then(|z| z.grid.as_ref()).map(|g| g.columns);
+    let msgs = panel(&mut s, &first);
+
+    let data = msgs.iter().find_map(|m| m.get("updateDataModel")).map(|u| u["value"]["grid"]["columns"].clone());
+    assert_that!(data).is_equal_to(columns.map(|c| json!(c)));
+    let stepper = component(&msgs, "grid-columns").cloned();
+    assert_that!(stepper.as_ref().map(|c| c["value"].clone())).is_equal_to(Some(json!({ "path": "/grid/columns" })));
+    assert_that!(stepper.map(|c| c["action"]["event"]["name"].clone())).is_equal_to(Some(json!("set_grid")));
+}

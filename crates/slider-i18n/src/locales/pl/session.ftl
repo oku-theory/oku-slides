@@ -26,3 +26,12 @@ notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po 
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Ten szablon
+session-panel-name = Nazwa
+session-panel-description = Opis
+session-panel-grid = Siatka
+session-panel-columns = Kolumny
+session-panel-rows = Wiersze

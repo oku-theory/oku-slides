@@ -26,3 +26,12 @@ notice-modified-elsewhere = 此 PDF 在 Écho 之後曾被其他工具修改：�
 
 log-document-opened = 文件已開啟
 log-document-saved = 文件已儲存
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = 此範本
+session-panel-name = 名稱
+session-panel-description = 描述
+session-panel-grid = 格線
+session-panel-columns = 欄
+session-panel-rows = 列

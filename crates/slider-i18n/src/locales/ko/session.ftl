@@ -26,3 +26,12 @@ notice-modified-elsewhere = 이 PDF는 Écho 이후 다른 도구에서 수정�
 
 log-document-opened = 문서를 열었습니다
 log-document-saved = 문서를 저장했습니다
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = 이 템플릿
+session-panel-name = 이름
+session-panel-description = 설명
+session-panel-grid = 그리드
+session-panel-columns = 열
+session-panel-rows = 행

@@ -26,3 +26,12 @@ notice-modified-elsewhere = Écho के बाद इस PDF को किस�
 
 log-document-opened = दस्तावेज़ खोला गया
 log-document-saved = दस्तावेज़ सहेजा गया
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = यह टेम्पलेट
+session-panel-name = नाम
+session-panel-description = विवरण
+session-panel-grid = ग्रिड
+session-panel-columns = कॉलम
+session-panel-rows = पंक्तियाँ

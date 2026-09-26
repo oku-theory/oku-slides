@@ -26,3 +26,12 @@ notice-modified-elsewhere = This PDF was changed by another tool after Écho: it
 
 log-document-opened = Document opened
 log-document-saved = Document saved
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = This template
+session-panel-name = Name
+session-panel-description = Description
+session-panel-grid = Grid
+session-panel-columns = Columns
+session-panel-rows = Rows

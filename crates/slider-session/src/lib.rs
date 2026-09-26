@@ -24,6 +24,7 @@ mod appearance;
 mod charts;
 mod error;
 mod files;
+mod panel;
 pub mod templates;
 mod text;
 mod views;
@@ -36,6 +37,7 @@ use error::{
 };
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use files::{EXTENSION, Opened, read_document};
+pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
@@ -99,6 +101,10 @@ pub enum Request {
     Schema,
     /// Langue de l'utilisateur et messages Fluent de l'interface.
     Messages,
+    /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
+    Panel {
+        slide: String,
+    },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
     ChartKind {
         label: String,
@@ -395,6 +401,7 @@ impl Session {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Svg { id } => return json(&*self.svg(&id)?),
+            Request::Panel { slide } => return json(&self.panel(&slide)?),
             Request::Schema => return json(&slider_core::ops_schema().context(ResponseSnafu)?),
             Request::Messages => {
                 return json(&serde_json::json!({
@@ -654,6 +661,13 @@ impl Session {
     }
 
     /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
+    /// Messages A2UI du panneau de droite pour la slide `id`.
+    pub fn panel(&self, id: &str) -> Result<Vec<slider_a2ui::ServerMessage>> {
+        let view = self.slide(id)?;
+        let editing = matches!(self.mode, Mode::Templates { .. });
+        Ok(panel::panel(view.slide, view.zone.and_then(|z| z.grid.as_ref()), editing, &self.localizer))
+    }
+
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = &self.doc.sources.deck;

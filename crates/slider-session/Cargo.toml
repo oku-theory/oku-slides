@@ -13,6 +13,7 @@ slider-platform.workspace = true
 tracing.workspace = true
 slider-core.workspace = true
 slider-chart.workspace = true
+slider-a2ui.workspace = true
 slider-render.workspace = true
 slider-pdf.workspace = true
 serde.workspace = true

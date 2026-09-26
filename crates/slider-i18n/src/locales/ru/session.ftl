@@ -26,3 +26,12 @@ notice-modified-elsewhere = Этот PDF был изменён другой пр
 
 log-document-opened = Документ открыт
 log-document-saved = Документ сохранён
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Этот шаблон
+session-panel-name = Название
+session-panel-description = Описание
+session-panel-grid = Сетка
+session-panel-columns = Столбцы
+session-panel-rows = Строки

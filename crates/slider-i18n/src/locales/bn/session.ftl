@@ -26,3 +26,12 @@ notice-modified-elsewhere = Écho-র পরে অন্য একটি টু
 
 log-document-opened = ডকুমেন্ট খোলা হয়েছে
 log-document-saved = ডকুমেন্ট সংরক্ষিত হয়েছে
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = এই টেমপ্লেট
+session-panel-name = নাম
+session-panel-description = বিবরণ
+session-panel-grid = গ্রিড
+session-panel-columns = কলাম
+session-panel-rows = সারি

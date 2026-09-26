@@ -26,3 +26,12 @@ notice-modified-elsewhere = Dieses PDF wurde nach Écho mit einem anderen Progra
 
 log-document-opened = Dokument geöffnet
 log-document-saved = Dokument gespeichert
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Diese Vorlage
+session-panel-name = Name
+session-panel-description = Beschreibung
+session-panel-grid = Raster
+session-panel-columns = Spalten
+session-panel-rows = Zeilen

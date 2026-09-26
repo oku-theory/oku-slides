@@ -26,3 +26,12 @@ notice-modified-elsewhere = この PDF は Écho の後に別のツールで変�
 
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = このテンプレート
+session-panel-name = 名前
+session-panel-description = 説明
+session-panel-grid = グリッド
+session-panel-columns = 列
+session-panel-rows = 行

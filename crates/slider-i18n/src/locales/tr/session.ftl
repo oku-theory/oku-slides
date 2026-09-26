@@ -26,3 +26,12 @@ notice-modified-elsewhere = Bu PDF, Écho'dan sonra başka bir araçla değişti
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Bu şablon
+session-panel-name = Ad
+session-panel-description = Açıklama
+session-panel-grid = Izgara
+session-panel-columns = Sütunlar
+session-panel-rows = Satırlar

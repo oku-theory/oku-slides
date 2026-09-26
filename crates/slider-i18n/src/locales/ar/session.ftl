@@ -26,3 +26,12 @@ notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بع�
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = هذا القالب
+session-panel-name = الاسم
+session-panel-description = الوصف
+session-panel-grid = الشبكة
+session-panel-columns = الأعمدة
+session-panel-rows = الصفوف

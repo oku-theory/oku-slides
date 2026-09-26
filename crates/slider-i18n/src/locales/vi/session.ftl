@@ -26,3 +26,12 @@ notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau
 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Mẫu này
+session-panel-name = Tên
+session-panel-description = Mô tả
+session-panel-grid = Lưới
+session-panel-columns = Cột
+session-panel-rows = Hàng

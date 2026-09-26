@@ -26,3 +26,12 @@ notice-modified-elsewhere = Deze pdf is na Écho door een ander programma gewijz
 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen
+
+## Panneau de droite (surface A2UI)
+
+session-panel-template = Dit sjabloon
+session-panel-name = Naam
+session-panel-description = Beschrijving
+session-panel-grid = Raster
+session-panel-columns = Kolommen
+session-panel-rows = Rijen

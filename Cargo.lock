@@ -6039,6 +6039,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "slider-a2ui",
  "slider-chart",
  "slider-core",
  "slider-i18n",
