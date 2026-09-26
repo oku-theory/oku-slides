@@ -1,6 +1,6 @@
 // Panneau de droite (surface A2UI) : renommer un modèle et changer sa grille, puis annuler.
-// Contre `slider serve fixtures/roadmap.json`. Lancer : bun run e2e dans ui/ (Chromium : bunx playwright install chromium).
-// E2E_URL change l'adresse (défaut port 4870).
+// Contre `slider serve fixtures/roadmap.json`. Lancer : just e2e (serveur neuf, port 4872).
+// À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';

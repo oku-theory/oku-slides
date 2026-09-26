@@ -42,6 +42,17 @@ test:
     cargo nextest run --workspace --exclude slider-app
     cd ui && bun test
 
+# Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf sur le port 4872
+e2e: install
+    #!/usr/bin/env bash
+    set -euo pipefail
+    (cd ui && bun run build && bunx playwright install chromium)
+    cargo build -q -p slider-cli
+    ./target/debug/slider --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
+    trap "kill $! 2>/dev/null" EXIT
+    for _ in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:4872/ && break; sleep 0.2; done
+    cd ui && E2E_URL=http://127.0.0.1:4872/ bun run e2e
+
 # Vérifications : format, clippy, types TypeScript
 check: install
     cargo fmt --all --check
