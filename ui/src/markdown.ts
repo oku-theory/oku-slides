@@ -138,8 +138,9 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[], spa
     if (c === "=" && repeated(s, i, end, "=") === 2) {
       const close = closing(s, i + 2, end, "=", 2);
       if (close > i + 2) {
-        // `{1}`..`{255}` seulement : la couleur est un u8 non nul côté Rust.
-        const color = /^\{([1-9]\d?|1\d\d|2[0-4]\d|25[0-5])\}/.exec(s.slice(close + 2, end));
+        // `{0}`..`{255}` seulement : la couleur est un u8 côté Rust ({0}, signalé
+        // par la validation, prend la dernière couleur comme dans Typst).
+        const color = /^\{(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\}/.exec(s.slice(close + 2, end));
         const highlight = color ? Number(color[1]) : 1;
         const after = close + 2 + (color?.[0].length ?? 0);
         flush();
