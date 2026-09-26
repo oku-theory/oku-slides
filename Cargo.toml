@@ -17,6 +17,7 @@ slider-pdf = { path = "crates/slider-pdf" }
 slider-session = { path = "crates/slider-session" }
 slider-stt = { path = "crates/slider-stt" }
 slider-chart = { path = "crates/slider-chart" }
+slider-a2ui = { path = "crates/slider-a2ui" }
 slider-platform = { path = "crates/slider-platform" }
 slider-i18n = { path = "crates/slider-i18n" }
 serde = { version = "1", features = ["derive", "rc"] }
