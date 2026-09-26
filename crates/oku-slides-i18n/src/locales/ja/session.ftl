@@ -23,6 +23,7 @@ templates-default-name = マイテンプレート
 templates-copy-name = { $name }（コピー）
 template-default-name = テンプレート
 notice-modified-elsewhere = この PDF は Oku Slides の後に別のツールで変更されています。ソースが PDF ビューアの表示内容と一致しない可能性があります。
+notice-resume-kept-unsaved = 前回の未保存の変更を保持しました。指定されたファイルは開いていません。
 
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました

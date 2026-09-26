@@ -1,8 +1,8 @@
 //! Oku Slides : application de bureau. Toute la logique est dans `oku-slides-session` ;
 //! l'interface appelle une seule commande, `request`, avec une requête JSON.
 //!
-//! Démarrage : journaux → plateforme (réglages, fichiers, langue) → session
-//! et dictée.
+//! Démarrage : journaux → plateforme → session (reprise de l'état) et dictée ;
+//! la fenêtre reprend sa taille et sa position.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -11,8 +11,9 @@ use std::sync::{Arc, Mutex};
 
 use oku_slides_session::{Fonts, Localize, Localizer, Platform, Request, Session, Storage};
 use oku_slides_stt::{Status, Stt, SttRequest};
-use tauri::Manager;
 use tauri::ipc::Response;
+use tauri::{Manager, WindowEvent};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 struct AppState {
     session: Mutex<Session>,
@@ -57,6 +58,15 @@ fn main() -> color_eyre::Result<()> {
     let platform = Platform::load()?;
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .on_window_event(|window, event| {
+            // Taille et position gardées à chaque changement, pas seulement à la fermeture.
+            if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_))
+                && let Err(e) = window.app_handle().save_window_state(StateFlags::all())
+            {
+                tracing::warn!(error = %e, "état de la fenêtre non enregistré");
+            }
+        })
         .setup(move |app| {
             let mut dirs = Vec::new();
             if let Ok(res) = app.path().resource_dir() {
@@ -66,13 +76,10 @@ fn main() -> color_eyre::Result<()> {
             // En développement, les polices du dépôt.
             dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
             let mut session = Session::new(app_fonts(&platform.storage, &dirs), &platform)?;
-            // Un fichier passé en argument (ouvrir avec…) est ouvert au démarrage.
-            if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from)
-                && path.exists()
-                && let Err(e) = session.open(&path)
-            {
-                tracing::warn!(path = %path.display(), error = %e.one_line(), "ouverture au démarrage");
-            }
+            // L'état du dernier lancement ; un fichier passé en argument (ouvrir
+            // avec…) est ouvert, sauf travail non enregistré.
+            let file = std::env::args_os().nth(1).map(PathBuf::from).filter(|p| p.exists());
+            session.resume(platform.settings.paths.data().join("resume"), file.as_deref());
             app.manage(AppState { session: Mutex::new(session), localizer: platform.localizer.clone() });
             app.manage(Stt::new(&platform));
             Ok(())

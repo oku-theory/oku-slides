@@ -23,6 +23,7 @@ templates-default-name = Mẫu của tôi
 templates-copy-name = { $name } (bản sao)
 template-default-name = Mẫu
 notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau Oku Slides: nguồn có thể không còn khớp với nội dung trình đọc PDF hiển thị.
+notice-resume-kept-unsaved = Các thay đổi chưa lưu từ lần trước đã được giữ lại: tệp được yêu cầu chưa được mở.
 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu

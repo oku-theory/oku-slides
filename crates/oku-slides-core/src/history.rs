@@ -11,7 +11,7 @@ use crate::error::TransactionError;
 use crate::model::Deck;
 use crate::ops::{Op, apply_all};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 struct Transaction {
     /// Libellé affiché (« Dictée : passer l'accent en bleu », « Déplacer »…).
     label: String,
@@ -19,7 +19,8 @@ struct Transaction {
     ops: Vec<Op>,
 }
 
-#[derive(Debug, Clone)]
+/// Sérialisable : la reprise de l'app le garde d'un lancement à l'autre.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct History {
     undo: VecDeque<Transaction>,
     redo: VecDeque<Transaction>,
@@ -80,5 +81,16 @@ impl History {
 
     pub fn redo_label(&self) -> Option<&str> {
         self.redo.back().map(|t| t.label.as_str())
+    }
+
+    /// Garde au plus `limit` transactions de chaque côté ; les plus anciennes partent.
+    pub fn set_limit(&mut self, limit: usize) {
+        self.limit = limit.max(1);
+        while self.undo.len() > self.limit {
+            self.undo.pop_front();
+        }
+        while self.redo.len() > self.limit {
+            self.redo.pop_front();
+        }
     }
 }

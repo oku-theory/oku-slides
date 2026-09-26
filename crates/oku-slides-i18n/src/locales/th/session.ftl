@@ -23,6 +23,7 @@ templates-default-name = เทมเพลตของฉัน
 templates-copy-name = { $name } (สำเนา)
 template-default-name = เทมเพลต
 notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเครื่องมืออื่นหลังจาก Oku Slides: ซอร์สอาจไม่ตรงกับสิ่งที่โปรแกรมอ่าน PDF แสดงอีกต่อไป
+notice-resume-kept-unsaved = เก็บการเปลี่ยนแปลงที่ยังไม่ได้บันทึกจากครั้งก่อนไว้แล้ว: ไม่ได้เปิดไฟล์ที่ขอ
 
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว

@@ -25,6 +25,7 @@ mod charts;
 mod error;
 mod files;
 mod panel;
+mod resume;
 pub mod templates;
 mod text;
 mod views;
@@ -41,7 +42,7 @@ pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView,
+    PageHash, SlideSummary, SlideView, Snapshot, Target, TargetKind, TemplateMode, TemplateView, TemplatesView, UiState,
 };
 
 /// Un document ouvert : ses sources (deck, assets, polices), son historique
@@ -53,11 +54,14 @@ struct Document {
     dirty: bool,
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
     notice: Option<String>,
+    /// Empreinte du fichier à l'ouverture ou au dernier enregistrement : la
+    /// reprise voit ainsi s'il a changé depuis.
+    saved_hash: Option<String>,
 }
 
 impl Document {
     fn new(sources: SourceBundle, path: Option<PathBuf>, history_limit: usize) -> Self {
-        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None }
+        Self { sources, history: History::new(history_limit), path, dirty: false, notice: None, saved_hash: None }
     }
 }
 
@@ -134,6 +138,8 @@ pub enum Request {
     DeleteTemplateSet {
         set: String,
     },
+    /// Slide courante et grille de l'interface (gardées pour la reprise).
+    Ui(UiState),
 }
 
 // ---- Session ----------------------------------------------------------------------
@@ -159,6 +165,10 @@ pub struct Session {
     appearance: Appearance,
     compiled: Option<Compiled>,
     svg_cache: HashMap<u128, Arc<str>>,
+    /// Slide courante et grille de l'interface, gardées pour la reprise.
+    ui: UiState,
+    /// Reprise activée (app de bureau) : l'état est écrit à chaque commande.
+    resume: Option<resume::Resume>,
 }
 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
@@ -251,6 +261,8 @@ impl Session {
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
+            ui: UiState::default(),
+            resume: None,
         };
         s.rerender()?;
         Ok(s)
@@ -320,6 +332,7 @@ impl Session {
             }
             Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
         };
+        self.ui.slide = None;
         self.rerender()?;
         Ok(())
     }
@@ -387,6 +400,7 @@ impl Session {
             self.doc = *stash;
         }
         self.template_cache = None;
+        self.ui.slide = None;
         self.rerender()?;
         Ok(())
     }
@@ -403,6 +417,9 @@ impl Session {
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
+        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux documents.
+        let (changes, documents) =
+            (!matches!(req, Request::Snapshot), !matches!(req, Request::Snapshot | Request::Ui(_)));
         match req {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
@@ -433,39 +450,55 @@ impl Session {
             Request::EditTemplates { set } => self.edit_templates(&set)?,
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
+            Request::Ui(ui) => self.ui = ui,
         }
-        json(&self.snapshot())
+        if changes {
+            self.persist(documents);
+        }
+        let out = json(&self.snapshot())?;
+        // Les avis ne s'affichent qu'une fois : celui du document affiché
+        // vient d'être envoyé, il ne le sera plus. (Celui du deck mis de
+        // côté, s'il y en a un, n'est pas encore montré : il reste, pour
+        // apparaître à son tour quand `close_templates` le rendra visible.)
+        self.doc.notice = None;
+        Ok(out)
     }
 
     pub fn new_deck(&mut self) -> Result<()> {
         self.load(SourceBundle::new(blank_deck(&self.localizer)), None)
     }
 
-    /// Charge un deck (déjà lu) dans la session.
+    /// Charge un document (déjà lu) dans la session.
+    pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+        self.load_document(Document::new(sources, path, self.history_limit))
+    }
+
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
     /// pour que la grille puisse éditer leurs données.
-    pub fn load(&mut self, mut sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
-        charts::canonicalize_deck(&mut sources.deck, &self.chart_labels);
-        if sources.fonts != self.doc.sources.fonts {
+    fn load_document(&mut self, mut doc: Document) -> Result<()> {
+        charts::canonicalize_deck(&mut doc.sources.deck, &self.chart_labels);
+        if doc.sources.fonts != self.doc.sources.fonts {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
-            self.render_fonts = self.app_fonts.with(sources.fonts.values().cloned());
+            self.render_fonts = self.app_fonts.with(doc.sources.fonts.values().cloned());
             self.renderer = new_renderer(self.render_fonts.clone(), &self.localizer)?;
             self.template_renderer = None;
             self.template_cache = None;
             self.svg_cache.clear();
         }
-        self.doc = Document::new(sources, path, self.history_limit);
+        self.doc = doc;
+        self.ui.slide = None;
         self.rerender()
     }
 
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let Opened { sources, pdf, modified_elsewhere } = read_document(&self.storage, path)?;
+        let Opened { sources, pdf, modified_elsewhere, hash } = read_document(&self.storage, path)?;
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         self.doc.notice = modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
+        self.doc.saved_hash = pdf.then_some(hash);
         Ok(())
     }
 
@@ -485,10 +518,12 @@ impl Session {
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
         let out = oku_slides_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
+        let hash = oku_slides_core::asset_id(&out);
         self.storage.write_atomic(&path, out).context(WriteSnafu { path: &path })?;
         tracing::info!(path = %path.display(), bytes, "{}", self.localizer.tr("log-document-saved"));
         self.doc.path = Some(path);
         self.doc.dirty = false;
+        self.doc.saved_hash = Some(hash);
         Ok(())
     }
 
@@ -615,6 +650,7 @@ impl Session {
             appearance: &self.appearance,
             templates: self.deck_set(),
             editing: self.editing(),
+            ui: &self.ui,
         }
     }
 

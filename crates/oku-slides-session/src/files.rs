@@ -23,16 +23,19 @@ pub struct Opened {
     pub pdf: bool,
     /// Le PDF a été modifié par un autre outil après Oku Slides.
     pub modified_elsewhere: bool,
+    /// Empreinte du fichier lu (`sha256:…`).
+    pub hash: String,
 }
 
 /// Lit un `.oku-slides.pdf` (reconnu à son contenu) ou un deck JSON.
 pub fn read_document(storage: &Storage, path: &Path) -> Result<Opened> {
     let bytes = storage.read(path).context(ReadSnafu { path })?;
+    let hash = oku_slides_core::asset_id(&bytes);
     if bytes.starts_with(b"%PDF") {
         let found = oku_slides_pdf::extract_sources(&bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
         let sources = SourceBundle::from_zip(&found.zip).context(SourcesSnafu)?;
-        return Ok(Opened { sources, pdf: true, modified_elsewhere: found.modified_elsewhere() });
+        return Ok(Opened { sources, pdf: true, modified_elsewhere: found.modified_elsewhere(), hash });
     }
     let deck = serde_json::from_slice(&bytes).context(DeckJsonSnafu)?;
-    Ok(Opened { sources: SourceBundle::new(deck), pdf: false, modified_elsewhere: false })
+    Ok(Opened { sources: SourceBundle::new(deck), pdf: false, modified_elsewhere: false, hash })
 }

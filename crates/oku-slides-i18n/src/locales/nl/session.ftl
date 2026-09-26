@@ -23,6 +23,7 @@ templates-default-name = Mijn sjablonen
 templates-copy-name = { $name } (kopie)
 template-default-name = Sjabloon
 notice-modified-elsewhere = Deze pdf is na Oku Slides door een ander programma gewijzigd: de bronnen komen mogelijk niet meer overeen met wat een pdf-lezer toont.
+notice-resume-kept-unsaved = Je niet-opgeslagen wijzigingen van de vorige keer zijn bewaard: het gevraagde bestand is niet geopend.
 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen

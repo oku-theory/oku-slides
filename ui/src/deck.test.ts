@@ -5,6 +5,7 @@ import {
   instantiate,
   neighbourSlide,
   pasteOps,
+  pickSlide,
   placeOnGridOps,
   slideToFetch,
   textChanged,
@@ -168,5 +169,21 @@ describe("slideToFetch", () => {
 
   test("slideToFetch id supprimé renvoie null", () => {
     expect(slideToFetch([{ id: "a" }], "s-constat")).toBeNull();
+  });
+});
+
+describe("pickSlide", () => {
+  const slides = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  test("pickSlide courante présente la garde", () => {
+    expect(pickSlide(slides, "b", "c")).toBe("b");
+  });
+  test("pickSlide sans courante prend la slide retenue", () => {
+    expect(pickSlide(slides, null, "c")).toBe("c");
+  });
+  test("pickSlide retenue disparue prend la première", () => {
+    expect(pickSlide(slides, null, "z")).toBe("a");
+  });
+  test("pickSlide deck vide renvoie null", () => {
+    expect(pickSlide([], null, "a")).toBeNull();
   });
 });

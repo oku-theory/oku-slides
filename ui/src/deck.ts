@@ -199,3 +199,11 @@ export function neighbourSlide(slides: { id: string }[], removed: string): strin
 export function slideToFetch(slides: { id: string }[], current: string | null): string | null {
   return current && slides.some((s) => s.id === current) ? current : null;
 }
+
+/** Slide à montrer : la courante si elle existe encore, sinon celle retenue par l'hôte, sinon la première. */
+export function pickSlide(slides: { id: string }[], current: string | null, remembered: string | null): string | null {
+  const has = (id: string | null): id is string => id !== null && slides.some((s) => s.id === id);
+  if (has(current)) return current;
+  if (has(remembered)) return remembered;
+  return slides[0]?.id ?? null;
+}

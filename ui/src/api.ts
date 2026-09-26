@@ -52,6 +52,13 @@ export interface Snapshot {
   templates: string;
   /** Édition d'un ensemble de modèles en cours. */
   editing: TemplateMode | null;
+  ui: UiState;
+}
+
+/** Slide courante et grille, gardées par l'hôte d'un lancement à l'autre. */
+export interface UiState {
+  slide: string | null;
+  grid: boolean;
 }
 
 export interface TemplateMode {
@@ -249,7 +256,8 @@ type Request =
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "messages" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
-  | { cmd: "panel"; slide: string };
+  | { cmd: "panel"; slide: string }
+  | { cmd: "ui"; slide: string | null; grid: boolean };
 
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
@@ -298,6 +306,7 @@ export const api = {
   saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
   closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
   deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
+  ui: (slide: string | null, grid: boolean) => call<Snapshot>({ cmd: "ui", slide, grid }),
 };
 
 /** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */
