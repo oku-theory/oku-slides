@@ -45,6 +45,12 @@ describe("markdownToRuns", () => {
   test("ligne vide donne un run vide", () => {
     expect(markdownToRuns("")).toEqual([{ t: "" }]);
   });
+
+  test("couleur de pastille jusqu'à 255 seulement ; au-delà ou 0, texte littéral", () => {
+    expect(markdownToRuns("==x=={255}")).toEqual([{ t: "x", highlight: 255 }]);
+    expect(markdownToRuns("==x=={256}")).toEqual([{ t: "x", highlight: 1 }, { t: "{256}" }]);
+    expect(markdownToRuns("==x=={0}")).toEqual([{ t: "x", highlight: 1 }, { t: "{0}" }]);
+  });
 });
 
 describe("sameFormatting", () => {
@@ -146,6 +152,21 @@ describe("markdownSpans", () => {
       { from: 2, to: 4, kind: "highlight", highlight: 2 },
       { from: 4, to: 9, kind: "mark" },
     ]);
+  });
+
+  test("couleur de pastille hors 1..255 : pas de marque sur le {n}", () => {
+    expect(markdownSpans("==x=={255}")).toEqual([
+      { from: 0, to: 2, kind: "mark" },
+      { from: 2, to: 3, kind: "highlight", highlight: 255 },
+      { from: 3, to: 10, kind: "mark" },
+    ]);
+    for (const n of ["{256}", "{0}"]) {
+      expect(markdownSpans(`==x==${n}`)).toEqual([
+        { from: 0, to: 2, kind: "mark" },
+        { from: 2, to: 3, kind: "highlight", highlight: 1 },
+        { from: 3, to: 5, kind: "mark" },
+      ]);
+    }
   });
 
   test("pastille sans couleur : la première", () => {
