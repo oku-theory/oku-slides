@@ -165,6 +165,18 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await commitWith(p, () => p.keyboard.press('Enter'));
   assert.equal((await slide(p)).title, 'Constat **2**');
 
+  // L'hôte garde la slide courante (t-87) : rendre la slide 1 pour que les scripts suivants
+  // (toolbar.cjs, panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.
+  await p.click('.thumb >> nth=0');
+  await until(
+    () => p.evaluate(() =>
+      fetch('/api', { method: 'POST', body: JSON.stringify({ cmd: 'snapshot' }) })
+        .then((r) => r.json())
+        .then((s) => s.ui.slide)),
+    (id) => id === 's-title',
+    'retour à la slide 1',
+  );
+
   assert.deepEqual(errors, []);
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });
