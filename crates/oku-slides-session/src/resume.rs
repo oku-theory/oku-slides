@@ -26,6 +26,8 @@ use crate::{Document, EXTENSION, Mode, Session, SessionError};
 pub(crate) const VERSION: u32 = 1;
 pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const TEMPLATES_DIR: &str = "templates";
+/// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
+pub(crate) const MAX_JSON_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -126,12 +128,14 @@ impl Resume {
     }
 
     /// Relit `name` s'il existe ; une autre version que `version` est une erreur.
+    ///
+    /// Au-delà de [`MAX_JSON_BYTES`], le fichier est illisible, sans être lu.
     pub fn read_json<T: DeserializeOwned>(&self, name: &str, version: u32) -> Result<Option<T>> {
         let path = self.dir.join(name);
         if !self.storage.exists(&path).context(AccessSnafu { path: &path })? {
             return Ok(None);
         }
-        let bytes = self.get(&path)?;
+        let bytes = self.storage.read_limited(&path, MAX_JSON_BYTES).context(AccessSnafu { path: &path })?;
         // La version se lit à part : une version future peut avoir changé de
         // forme, illisible en `T` alors que sa version l'est bien.
         let versioned: Versioned = serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?;

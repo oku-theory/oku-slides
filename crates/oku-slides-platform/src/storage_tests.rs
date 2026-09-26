@@ -72,6 +72,73 @@ fn delete_dir_removes_the_tree_and_ignores_missing_dirs() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// Un lien dans l'arbre est retiré, jamais suivi : sa cible reste.
+#[cfg(unix)]
+#[test]
+fn delete_dir_nested_symlink_removes_the_link_not_its_target() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("rmdir-nested-link");
+    let victim = dir.join("victim");
+    s.write(&victim.join("precious.txt"), b"keep".to_vec()).unwrap();
+    s.write(&dir.join("t-1/deck/document.json"), vec![1]).unwrap();
+    std::os::unix::fs::symlink(&victim, dir.join("t-1/deck/assets")).unwrap();
+    s.delete_dir(&dir.join("t-1")).unwrap();
+    assert_that!(dir.join("t-1").exists()).is_false();
+    assert_that!(s.read(&victim.join("precious.txt")).unwrap()).is_equal_to(b"keep".to_vec());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Un lien vers un fichier n'est pas un dossier : seul le lien part.
+#[cfg(unix)]
+#[test]
+fn delete_dir_symlink_to_file_removes_only_the_link() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("rmdir-file-link");
+    s.write(&dir.join("target.txt"), b"keep".to_vec()).unwrap();
+    std::os::unix::fs::symlink(dir.join("target.txt"), dir.join("t-2")).unwrap();
+    s.delete_dir(&dir.join("t-2")).unwrap();
+    assert_that!(dir.join("t-2").symlink_metadata().is_err()).is_true();
+    assert_that!(s.read(&dir.join("target.txt")).unwrap()).is_equal_to(b"keep".to_vec());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn read_limited_within_the_limit_returns_the_bytes() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("limited");
+    let file = dir.join("state.json");
+    s.write(&file, b"{}".to_vec()).unwrap();
+    assert_that!(s.read_limited(&file, 2).unwrap()).is_equal_to(b"{}".to_vec());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn read_limited_empty_file_returns_no_bytes() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("limited-empty");
+    let file = dir.join("state.json");
+    s.write(&file, Vec::new()).unwrap();
+    assert_that!(s.read_limited(&file, 10).unwrap()).is_empty();
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn read_limited_one_byte_over_returns_too_large() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("limited-over");
+    let file = dir.join("state.json");
+    s.write(&file, b"{ }".to_vec()).unwrap();
+    assert_that!(s.read_limited(&file, 2).unwrap_err().kind()).is_equal_to(StorageErrorKind::TooLarge);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn read_limited_missing_file_returns_not_found() {
+    let s = Storage::local().unwrap();
+    let err = s.read_limited(&temp_dir("limited-absent").join("x"), 10).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
+}
+
 #[test]
 fn list_files_missing_dir_returns_empty_and_skips_subdirs() {
     let s = Storage::local().unwrap();

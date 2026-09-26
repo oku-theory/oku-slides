@@ -2,6 +2,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use oku_slides_core::{Deck, Op, SourceBundle};
+use oku_slides_platform::storage::StorageErrorKind;
 
 fn temp_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -96,6 +97,20 @@ fn read_state_unknown_version_returns_error() {
     std::fs::create_dir_all(&r.dir).unwrap();
     std::fs::write(r.dir.join("state.json"), br#"{"version":99,"mode":"deck"}"#).unwrap();
     assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 99, .. }))).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Un `state.json` valide mais démesuré n'est pas lu en entier : illisible.
+#[test]
+fn read_state_oversized_returns_access_error_too_large() {
+    let r = resume();
+    let mut bytes = br#"{"version":1,"mode":"deck"}"#.to_vec();
+    bytes.resize(usize::try_from(MAX_JSON_BYTES).unwrap() + 1, b' ');
+    std::fs::create_dir_all(&r.dir).unwrap();
+    std::fs::write(r.dir.join("state.json"), bytes).unwrap();
+    let err = r.read_state().unwrap_err();
+    let too_large = matches!(&err, ResumeError::Access { source, .. } if source.kind() == StorageErrorKind::TooLarge);
+    assert_that!(too_large).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

@@ -29,6 +29,8 @@ pub enum StorageErrorKind {
     NotFound,
     /// Chemin qui ne peut pas désigner un fichier (non UTF-8…).
     InvalidPath,
+    /// Fichier plus gros que la limite de [`Storage::read_limited`].
+    TooLarge,
     Other,
 }
 
@@ -42,6 +44,8 @@ enum StorageInner {
     InvalidPath { path: PathBuf, backtrace: Backtrace },
     #[snafu(display("cannot {action} {}", path.display()))]
     Access { action: &'static str, path: PathBuf, source: opendal::Error, backtrace: Backtrace },
+    #[snafu(display("{} is larger than {max} bytes", path.display()))]
+    TooLarge { path: PathBuf, max: u64, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
     Stream { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
 }
@@ -51,6 +55,7 @@ impl StorageError {
         match &*self.0 {
             StorageInner::Access { source, .. } if source.kind() == ErrorKind::NotFound => StorageErrorKind::NotFound,
             StorageInner::InvalidPath { .. } => StorageErrorKind::InvalidPath,
+            StorageInner::TooLarge { .. } => StorageErrorKind::TooLarge,
             _ => StorageErrorKind::Other,
         }
     }
@@ -166,6 +171,19 @@ impl Storage {
         Ok(buffer.to_vec())
     }
 
+    /// Lit le fichier s'il ne dépasse pas `max` octets ; au-delà, [`StorageErrorKind::TooLarge`].
+    ///
+    /// Jamais plus de `max` octets en mémoire : seule la taille vue au départ
+    /// est lue, même si le fichier grossit entre-temps.
+    pub fn read_limited(&self, path: &Path, max: u64) -> Result<Vec<u8>, StorageError> {
+        let (op, key) = self.at(path)?;
+        let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length();
+        ensure!(len <= max, TooLargeSnafu { path, max });
+        let opts = opendal::options::ReadOptions { range: (0..len).into(), ..Default::default() };
+        let buffer = op.read_options(&key, opts).context(AccessSnafu { action: "read", path })?;
+        Ok(buffer.to_vec())
+    }
+
     /// Écrit le fichier (et crée ses dossiers).
     pub fn write(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
@@ -202,6 +220,11 @@ impl Storage {
     }
 
     /// Supprime un dossier et tout son contenu ; un dossier absent n'est pas une erreur.
+    ///
+    /// Les liens symboliques ne sont jamais suivis : un lien (à la place du
+    /// dossier ou dedans) est retiré, sa cible reste. OpenDAL retire le `/`
+    /// final et `remove_dir_all` de la bibliothèque standard ne traverse pas
+    /// les liens ; les tests (`storage_tests`, régression t-163) le gardent.
     pub fn delete_dir(&self, dir: &Path) -> Result<(), StorageError> {
         let (op, key) = self.dir_at(dir)?;
         let opts = opendal::options::DeleteOptions { recursive: true, ..Default::default() };
