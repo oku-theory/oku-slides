@@ -45,7 +45,8 @@ Tous les restes du retrofit sont faits, chacun avec sa tâche et ses tests :
 
 Limites connues :
 - CTranslate2 lit les poids du modèle par chemin (code natif, hors OpenDAL).
-- L'arabe est traduit mais l'interface reste disposée de gauche à droite.
+- Slides en hindi, bengali, thaï, chinois, japonais et coréen : aucune
+  police livrée ne couvre ces alphabets (l'arabe a Noto Sans Arabic, t-72).
 - Les traductions ont été produites sans relecture native.
 
 ---
