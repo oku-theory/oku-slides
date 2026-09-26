@@ -60,14 +60,15 @@
   if web { link(r.link, body) } else { body }
 }).join()
 
+// Des éléments (`list.item`, `enum.item`), pas des listes : Typst regroupe
+// les éléments voisins en une seule liste, numérotée 1, 2, 3.
 #let _paragraphs(t, paras, vars) = {
-  let items = ()
   let out = ()
   for p in paras {
     let body = _runs(t, p.at("runs", default: ()), vars)
     let kind = p.at("list", default: none)
-    if kind == "bullet" { out.push(list(body)) }
-    else if kind == "number" { out.push(enum(body)) }
+    if kind == "bullet" { out.push(list.item(body)) }
+    else if kind == "number" { out.push(enum.item(body)) }
     else { out.push(par(body)) }
   }
   out.join()

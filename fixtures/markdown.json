@@ -110,6 +110,59 @@
       ]
     },
     {
+      "name": "liste numérotée reprise à 1 après un paragraphe ou une puce",
+      "markdown": "1. un\n2. deux\nEntre\n1. trois\n- puce\n1. quatre",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "un"
+            }
+          ],
+          "list": "number"
+        },
+        {
+          "runs": [
+            {
+              "t": "deux"
+            }
+          ],
+          "list": "number"
+        },
+        {
+          "runs": [
+            {
+              "t": "Entre"
+            }
+          ]
+        },
+        {
+          "runs": [
+            {
+              "t": "trois"
+            }
+          ],
+          "list": "number"
+        },
+        {
+          "runs": [
+            {
+              "t": "puce"
+            }
+          ],
+          "list": "bullet"
+        },
+        {
+          "runs": [
+            {
+              "t": "quatre"
+            }
+          ],
+          "list": "number"
+        }
+      ]
+    },
+    {
       "name": "caractères spéciaux échappés",
       "markdown": "2 \\* 3 \\[note\\] a\\\\b \\_x\\_ snake_case",
       "paragraphs": [

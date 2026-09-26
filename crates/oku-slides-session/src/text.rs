@@ -26,6 +26,10 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
             }
             None => {}
         }
+        // Comme au rendu : tout autre paragraphe clôt la liste numérotée.
+        if p.list != Some(ListKind::Number) {
+            n = 0;
+        }
         out.push_str(&escape_list_marker(&runs_to_markdown(&p.runs)));
     }
     out
