@@ -1,4 +1,4 @@
-//! Oku Slides : application de bureau. Toute la logique est dans `slider-session` ;
+//! Oku Slides : application de bureau. Toute la logique est dans `oku-slides-session` ;
 //! l'interface appelle une seule commande, `request`, avec une requête JSON.
 //!
 //! Démarrage : journaux → plateforme (réglages, fichiers, langue) → session
@@ -9,8 +9,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use slider_session::{Fonts, Localize, Localizer, Platform, Request, Session, Storage};
-use slider_stt::{Status, Stt, SttRequest};
+use oku_slides_session::{Fonts, Localize, Localizer, Platform, Request, Session, Storage};
+use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::Manager;
 use tauri::ipc::Response;
 
@@ -43,7 +43,7 @@ fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
         dirs.iter()
             .flat_map(|dir| {
                 storage.read_fonts(dir).unwrap_or_else(|e| {
-                    tracing::warn!(dir = %dir.display(), error = %slider_platform::errors::one_line(&e), "polices");
+                    tracing::warn!(dir = %dir.display(), error = %oku_slides_platform::errors::one_line(&e), "polices");
                     Default::default()
                 })
             })
@@ -53,7 +53,7 @@ fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
-    slider_platform::telemetry::init();
+    oku_slides_platform::telemetry::init();
     let platform = Platform::load()?;
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

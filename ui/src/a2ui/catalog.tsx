@@ -3,7 +3,7 @@
 // validés contre ces schémas zod par @a2ui/web_core.
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `Stepper` est
-// propre à Oku Slides. Miroir du crate Rust slider-a2ui (même CATALOG_ID).
+// propre à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
 import { useEffect, useState } from "react";
 import { z } from "zod";

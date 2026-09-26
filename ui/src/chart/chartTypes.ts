@@ -1,4 +1,4 @@
-// Miroir des types Rust de slider-chart. Dans le dépôt, ces types viennent de
+// Miroir des types Rust de oku-slides-chart. Dans le dépôt, ces types viennent de
 // bindings.ts (tauri-specta) ; ce fichier sert tant qu'ils n'y sont pas.
 
 /** Cellule de dataset.source. */

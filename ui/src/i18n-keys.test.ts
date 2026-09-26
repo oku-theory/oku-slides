@@ -3,7 +3,7 @@ import { cellLabel } from "./grid";
 import { setMessages, t } from "./i18n";
 
 const ftl = (lang: string) =>
-  Bun.file(new URL(`../../crates/slider-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
+  Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
 
 /** Identifiants des messages d'une ressource Fluent (hors termes et commentaires). */
 const keysOf = (source: string) =>

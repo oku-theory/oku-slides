@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// En développement hors Tauri, /api est servi par `slider serve` (port 4870).
+// En développement hors Tauri, /api est servi par `oku-slides serve` (port 4870).
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,

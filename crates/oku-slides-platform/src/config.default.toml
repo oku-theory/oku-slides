@@ -1,0 +1,60 @@
+# Réglages par défaut d'Oku Slides. Chaque valeur peut être remplacée par
+# `config.toml` dans le dossier de données de l'app, puis par une variable
+# d'environnement OKU_SLIDES_<SECTION>__<CLÉ> (ex. OKU_SLIDES_PATHS__MODELS=/tmp/modeles).
+
+[paths]
+# Dossiers : absents = sous le dossier de données de l'app
+# (~/Library/Application Support/me.dartiguenave.oku-slides sur Mac).
+# data = "…"
+# models = "…"
+# templates = "…"
+# Polices supplémentaires (TTF/OTF), en plus de celles livrées avec l'app.
+# fonts = "…"
+
+[history]
+# Transactions gardées pour annuler.
+limit = 500
+
+[serve]
+# Serveur de développement (`oku-slides serve`).
+host = "127.0.0.1"
+port = 4870
+
+[i18n]
+# Langue des messages (`fr`, `en`…) ; absente = celle du système.
+# locale = "fr"
+
+[stt]
+# Rythme de la boucle d'écoute (ms).
+tick_ms = 50
+# Sans aucune parole pendant ce temps, l'écoute s'arrête (s).
+nothing_heard_secs = 10.0
+# Nouvel aperçu quand la phrase en cours a grandi d'au moins (s).
+preview_step_secs = 0.5
+# Plus courte, une « phrase » est un bruit (claquement) : ignorée (s).
+min_phrase_secs = 0.3
+# Silence après lequel le compte à rebours de l'arrêt s'affiche (s).
+countdown_after_secs = 0.3
+# Dépôt des modèles, tentatives et attente entre deux tentatives (s).
+hub_url = "https://huggingface.co"
+download_retries = 5
+download_backoff_secs = 4
+# Micro simulé : rejoue ce fichier WAV au lieu du micro (tests, démos).
+# fake_mic = "voix.wav"
+
+[stt.vad]
+# Score à partir duquel une trame de 16 ms est parlée.
+threshold = 0.5
+# Trames parlées d'affilée pour ouvrir une phrase.
+onset_frames = 3
+# Pause qui clôt une phrase (s)…
+pause = 0.7
+# …si elle dure déjà au moins ceci (s) ; plus courte, elle attend la suite,
+min_phrase = 2.5
+# sauf après une pause plus longue que celle-ci (s).
+long_pause = 1.2
+# Audio gardé avant le début et après la fin de la parole (s).
+pre_roll = 0.3
+post_roll = 0.25
+# Longueur maximale d'une phrase (s) : Whisper lit 30 s à la fois.
+max_phrase = 25.0

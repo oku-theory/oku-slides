@@ -1,0 +1,8 @@
+[package]
+name = "oku-slides"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["Matthieu"]
+description = "Slides structurées (titre, chapitres, sommaire, en-tête, pied) pilotées par paramètres, variables et jetons de design."
+compiler = "0.15.0"
+exclude = ["examples/*.pdf", "examples/*.png"]

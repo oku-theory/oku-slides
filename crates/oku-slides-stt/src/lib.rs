@@ -1,0 +1,689 @@
+//! Dictée d'Oku Slides : micro → détection de la voix → Whisper en local → texte.
+//!
+//! - La voix est détectée trame par trame (earshot) : seules les phrases
+//!   parlées sont transcrites, et l'écoute s'arrête seule après un silence.
+//! - Chaque phrase terminée est transcrite une fois, en qualité finale, dès
+//!   qu'on marque une pause ; l'aperçu ne retranscrit que la phrase en cours.
+//!   À l'arrêt, il ne reste donc que la dernière phrase à traiter.
+//! - Le moteur est CTranslate2 (celui de faster-whisper), via ct2rs.
+//!
+//! Le moteur est interrogé par sondage (`status`), ce qui sert à la fois l'app
+//! Tauri et le serveur de développement : pas d'événements à propager.
+//! Un appui sur le micro suffit : si le modèle manque, il est téléchargé,
+//! puis l'écoute commence toute seule.
+
+mod audio;
+mod error;
+mod models;
+mod vad;
+mod whisper;
+
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+
+pub use audio::{SAMPLE_RATE, resample};
+pub use error::{SttError, SttErrorKind};
+pub use models::{Model, download};
+use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_platform::Platform;
+use oku_slides_platform::config::SttSettings;
+use oku_slides_platform::storage::Storage;
+use vad::{Phrase, Segmenter};
+pub use whisper::{Transcriber, Transcript};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum State {
+    #[default]
+    Idle,
+    Downloading,
+    Recording,
+    Transcribing,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Config {
+    pub model: Model,
+    /// Code de langue (`fr`, `en`…) ou `None` pour la détection automatique.
+    pub language: Option<String>,
+    /// Arrêter l'écoute seule après un silence.
+    pub auto_stop: bool,
+    /// Durée de ce silence (s).
+    pub silence: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self { model: Model::Turbo, language: None, auto_stop: true, silence: 1.5 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelInfo {
+    pub id: Model,
+    pub label: String,
+    pub size: u64,
+    pub installed: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Download {
+    pub model: Model,
+    pub received: u64,
+    pub total: u64,
+}
+
+/// Ce que l'interface affiche.
+#[derive(Debug, Clone, Serialize)]
+pub struct Status {
+    pub state: State,
+    pub config: Config,
+    pub models: Vec<ModelInfo>,
+    pub download: Option<Download>,
+    /// Niveau du micro, 0..1.
+    pub level: f32,
+    /// Voix détectée en ce moment.
+    pub speaking: bool,
+    /// Phrases déjà transcrites (texte définitif).
+    pub committed: String,
+    /// Phrase en cours (aperçu provisoire).
+    pub partial: String,
+    /// Langue détectée pendant cette dictée.
+    pub detected: Option<String>,
+    /// Secondes avant l'arrêt automatique (pendant un silence), sinon `None`.
+    pub stop_in: Option<f32>,
+    /// Dernière transcription terminée, et son numéro (change à chaque nouvelle).
+    pub text: Option<String>,
+    pub seq: u64,
+    /// Secondes écoutées.
+    pub seconds: f32,
+    pub error: Option<String>,
+}
+
+/// Requêtes de l'interface (même forme pour Tauri et HTTP).
+#[derive(Debug, Deserialize)]
+#[serde(tag = "cmd", rename_all = "snake_case")]
+pub enum SttRequest {
+    Status,
+    Configure(Config),
+    /// Démarre la dictée ; `prompt` aide Whisper (titres du deck, noms propres).
+    Start {
+        #[serde(default)]
+        prompt: Option<String>,
+    },
+    Stop,
+    Cancel,
+    Download {
+        model: Model,
+    },
+}
+
+struct Inner {
+    state: State,
+    config: Config,
+    download: Option<Download>,
+    level: f32,
+    speaking: bool,
+    /// Textes des phrases closes, dans l'ordre (None : pas encore transcrite).
+    phrases: Vec<Option<String>>,
+    partial: String,
+    detected: Option<String>,
+    stop_in: Option<f32>,
+    text: Option<String>,
+    seq: u64,
+    error: Option<String>,
+    started: Option<Instant>,
+    prompt: Option<String>,
+    start_after_download: bool,
+    engine: Option<(Model, Arc<Transcriber>)>,
+    /// Modèles présents sur le disque (dans l'ordre de `Model::ALL`) : lus au
+    /// démarrage et après un téléchargement, pas à chaque sondage.
+    installed: [bool; Model::ALL.len()],
+    /// Incrémenté à chaque dictée : les fils d'une dictée abandonnée
+    /// s'arrêtent d'eux-mêmes.
+    session: u64,
+}
+
+impl Inner {
+    fn committed(&self) -> String {
+        join(self.phrases.iter().flatten())
+    }
+}
+
+#[derive(Clone)]
+pub struct Stt {
+    inner: Arc<Mutex<Inner>>,
+    dir: PathBuf,
+    /// Rythmes et seuils (réglages de l'app).
+    settings: Arc<SttSettings>,
+    storage: Storage,
+    localizer: Arc<Localizer>,
+    cancel_download: Arc<AtomicBool>,
+}
+
+fn config_path(dir: &Path) -> PathBuf {
+    dir.join("config.json")
+}
+
+/// Travail pour le fil de transcription.
+enum Job {
+    /// Phrase close : texte définitif, rangé à l'indice donné.
+    Final { index: usize, audio: Vec<f32> },
+    /// Phrase en cours : aperçu.
+    Preview { audio: Vec<f32> },
+    /// Fin de la dictée : assembler le texte.
+    Done,
+}
+
+impl std::fmt::Debug for Stt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Stt").field("dir", &self.dir).finish_non_exhaustive()
+    }
+}
+
+impl Stt {
+    /// La dictée de la plateforme : dossier des modèles et rythmes de
+    /// l'écoute (réglages), fichiers, langue des messages.
+    pub fn new(platform: &Platform) -> Self {
+        let dir = platform.settings.paths.models();
+        let storage = platform.storage.clone();
+        // Réglages absents ou illisibles : ceux par défaut.
+        let config =
+            storage.read(&config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        Self {
+            inner: Arc::new(Mutex::new(Inner {
+                state: State::Idle,
+                config,
+                download: None,
+                level: 0.0,
+                speaking: false,
+                phrases: Vec::new(),
+                partial: String::new(),
+                detected: None,
+                stop_in: None,
+                text: None,
+                seq: 0,
+                error: None,
+                started: None,
+                prompt: None,
+                start_after_download: false,
+                engine: None,
+                session: 0,
+                installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
+            })),
+            dir,
+            settings: Arc::new(platform.settings.stt.clone()),
+            storage,
+            localizer: platform.localizer.clone(),
+            cancel_download: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// L'état partagé, même si un fil a paniqué en le tenant : l'interface
+    /// doit toujours pouvoir le lire, et une dictée neuve le remet d'aplomb.
+    fn state(&self) -> MutexGuard<'_, Inner> {
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn models_dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// Traite une requête et renvoie l'état.
+    pub fn handle(&self, req: SttRequest) -> Status {
+        match req {
+            SttRequest::Status => {}
+            SttRequest::Configure(config) => self.configure(config),
+            SttRequest::Start { prompt } => self.start(prompt),
+            SttRequest::Stop => self.stop(),
+            SttRequest::Cancel => self.cancel(),
+            SttRequest::Download { model } => self.download(model, false),
+        }
+        self.status()
+    }
+
+    pub fn status(&self) -> Status {
+        let g = self.state();
+        Status {
+            state: g.state,
+            config: g.config.clone(),
+            models: Model::ALL
+                .iter()
+                .zip(g.installed)
+                .map(|(&m, installed)| ModelInfo { id: m, label: m.label(&self.localizer), size: m.size(), installed })
+                .collect(),
+            download: g.download.clone(),
+            level: g.level,
+            speaking: g.speaking,
+            committed: g.committed(),
+            partial: g.partial.clone(),
+            detected: g.detected.clone(),
+            stop_in: g.stop_in,
+            text: g.text.clone(),
+            seq: g.seq,
+            seconds: g.started.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0),
+            error: g.error.clone(),
+        }
+    }
+
+    pub fn configure(&self, mut config: Config) {
+        config.silence = config.silence.clamp(0.5, 10.0);
+        let mut g = self.state();
+        if g.state != State::Idle {
+            return;
+        }
+        if g.engine.as_ref().is_some_and(|(m, _)| *m != config.model) {
+            g.engine = None; // libère la mémoire de l'ancien modèle
+        }
+        let saved = serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
+            self.storage.write(&config_path(&self.dir), json).map_err(|e| oku_slides_platform::errors::one_line(&e))
+        });
+        if let Err(e) = saved {
+            // Les réglages restent en vigueur pour cette session.
+            tracing::warn!(error = %e, "réglages de la dictée non enregistrés");
+        }
+        g.config = config;
+    }
+
+    /// Démarre la dictée (téléchargement du modèle d'abord s'il manque).
+    pub fn start(&self, prompt: Option<String>) {
+        let model = {
+            let mut g = self.state();
+            if g.state != State::Idle {
+                return;
+            }
+            g.error = None;
+            g.prompt = prompt;
+            g.config.model
+        };
+        if model.is_installed(&self.storage, &self.dir) {
+            self.begin_recording();
+        } else {
+            self.download(model, true);
+        }
+    }
+
+    pub fn download(&self, model: Model, then_start: bool) {
+        {
+            let mut g = self.state();
+            if g.state != State::Idle || model.is_installed(&self.storage, &self.dir) {
+                return;
+            }
+            g.state = State::Downloading;
+            g.download = Some(Download { model, received: 0, total: model.size() });
+            g.start_after_download = then_start;
+        }
+        self.cancel_download.store(false, Ordering::Relaxed);
+        let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
+        std::thread::spawn(move || {
+            let mut last = Instant::now();
+            let result = models::download(model, &dir, &me.settings, &me.storage, |received, total| {
+                if last.elapsed() > Duration::from_millis(100) {
+                    last = Instant::now();
+                    me.state().download = Some(Download { model, received, total });
+                }
+                !cancel.load(Ordering::Relaxed)
+            });
+            let start = {
+                let mut g = me.state();
+                g.download = None;
+                g.state = State::Idle;
+                g.installed = Model::ALL.map(|m| m.is_installed(&me.storage, &dir));
+                match result {
+                    Ok(_) => {
+                        tracing::info!(?model, "{}", me.localizer.tr("log-model-downloaded"));
+                        std::mem::take(&mut g.start_after_download)
+                    }
+                    Err(e) if e.kind() == SttErrorKind::Cancelled => false,
+                    Err(e) => {
+                        tracing::warn!(?model, error = %snafu::Report::from_error(&e), "téléchargement du modèle");
+                        g.error = Some(e.localize(&me.localizer));
+                        false
+                    }
+                }
+            };
+            if start {
+                me.begin_recording();
+            }
+        });
+    }
+
+    fn begin_recording(&self) {
+        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref(), &self.storage) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
+                self.state().error = Some(e.localize(&self.localizer));
+                return;
+            }
+        };
+        let session = {
+            let mut g = self.state();
+            g.session += 1;
+            g.state = State::Recording;
+            g.phrases.clear();
+            g.partial.clear();
+            g.detected = None;
+            g.stop_in = None;
+            g.started = Some(Instant::now());
+            g.session
+        };
+        let (jobs, rx) = mpsc::channel();
+        let busy = Arc::new(AtomicBool::new(false));
+        let worker = self.clone();
+        let worker_busy = busy.clone();
+        std::thread::spawn(move || worker.transcribe_loop(session, rx, worker_busy));
+        let listener = self.clone();
+        std::thread::spawn(move || listener.listen_loop(session, recorder, jobs, busy));
+    }
+
+    /// Modèle chargé une fois (et gardé tant qu'on ne change pas de modèle).
+    fn engine(&self) -> Result<Arc<Transcriber>, SttError> {
+        let model = {
+            let g = self.state();
+            if let Some((m, e)) = &g.engine
+                && *m == g.config.model
+            {
+                return Ok(e.clone());
+            }
+            g.config.model
+        };
+        static LOADING: Mutex<()> = Mutex::new(());
+        let _loading = LOADING.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some((m, e)) = &self.state().engine
+            && *m == model
+        {
+            return Ok(e.clone());
+        }
+        let started = Instant::now();
+        let engine = Arc::new(Transcriber::load(&model.path(&self.dir), &self.storage)?);
+        tracing::debug!(?model, ms = started.elapsed().as_millis(), "modèle de dictée chargé");
+        self.state().engine = Some((model, engine.clone()));
+        Ok(engine)
+    }
+
+    fn alive(&self, session: u64) -> bool {
+        self.state().session == session
+    }
+
+    /// Écoute : micro → 16 kHz → détection de la voix → phrases.
+    fn listen_loop(&self, session: u64, mut recorder: audio::Recorder, jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>) {
+        let s = &self.settings;
+        let mut seg = Segmenter::new(s.vad);
+        let mut resampler: Option<audio::Resampler> = None;
+        let mut fresh = Vec::new();
+        let mut previewed = 0usize;
+        let mut pull = |seg: &mut Segmenter, recorder: &audio::Recorder| {
+            let (samples, rate) = recorder.take();
+            if samples.is_empty() {
+                return;
+            }
+            fresh.clear();
+            resampler.get_or_insert_with(|| audio::Resampler::new(rate)).push(&samples, &mut fresh);
+            for phrase in seg.push(&fresh) {
+                self.send_final(seg, phrase, &jobs);
+            }
+        };
+        loop {
+            std::thread::sleep(Duration::from_millis(s.tick_ms));
+            let (state, auto_stop, silence_limit) = {
+                let g = self.state();
+                if g.session != session {
+                    return; // dictée abandonnée
+                }
+                (g.state, g.config.auto_stop, g.config.silence)
+            };
+            pull(&mut seg, &recorder);
+
+            if state != State::Recording {
+                // Arrêt demandé : derniers échantillons, dernière phrase.
+                recorder.finish();
+                pull(&mut seg, &recorder);
+                if let Some(phrase) = seg.close() {
+                    self.send_final(&seg, phrase, &jobs);
+                }
+                jobs.send(Job::Done).ok();
+                return;
+            }
+
+            // Aperçu de la phrase en cours, quand le fil de transcription est libre.
+            let current = seg.current();
+            if let Some(p) = current
+                && !busy.load(Ordering::Relaxed)
+                && p.end.saturating_sub(previewed.max(p.start)) as f32 >= s.preview_step_secs * SAMPLE_RATE as f32
+            {
+                previewed = p.end;
+                busy.store(true, Ordering::Relaxed);
+                jobs.send(Job::Preview { audio: seg.slice(p).to_vec() }).ok();
+            }
+
+            // Arrêt automatique après un silence (ou si rien n'est dit).
+            let silence = seg.silence();
+            let limit = if seg.heard { silence_limit } else { s.nothing_heard_secs };
+            let stop_in = (auto_stop && current.is_none() && seg.heard && silence > s.countdown_after_secs)
+                .then(|| (limit - silence).max(0.0));
+            let stop = auto_stop && silence >= limit;
+            {
+                let mut g = self.state();
+                g.level = recorder.level();
+                g.speaking = seg.speaking;
+                g.stop_in = stop_in;
+                if current.is_none() {
+                    g.partial.clear();
+                }
+                if stop && g.state == State::Recording {
+                    g.state = State::Transcribing;
+                    g.started = None;
+                }
+            }
+        }
+    }
+
+    fn send_final(&self, seg: &Segmenter, phrase: Phrase, jobs: &mpsc::Sender<Job>) {
+        // Un simple claquement ne fait pas une phrase.
+        if phrase.seconds() < self.settings.min_phrase_secs {
+            return;
+        }
+        let index = {
+            let mut g = self.state();
+            g.phrases.push(None);
+            g.phrases.len() - 1
+        };
+        jobs.send(Job::Final { index, audio: seg.slice(phrase).to_vec() }).ok();
+    }
+
+    /// Transcription : phrases closes en qualité finale, aperçu de la phrase en cours.
+    fn transcribe_loop(&self, session: u64, rx: mpsc::Receiver<Job>, busy: Arc<AtomicBool>) {
+        // Chargement du modèle pendant qu'on commence à parler.
+        let engine = match self.engine() {
+            Ok(e) => e,
+            Err(e) => {
+                let mut g = self.state();
+                if g.session == session {
+                    g.error = Some(e.localize(&self.localizer));
+                    g.state = State::Idle;
+                    g.session += 1;
+                }
+                return;
+            }
+        };
+        let mut pending: Vec<Job> = Vec::new();
+        loop {
+            // Les phrases closes passent avant l'aperçu ; un aperçu périmé est sauté.
+            while let Ok(job) = rx.try_recv() {
+                pending.push(job);
+            }
+            if pending.is_empty() {
+                match rx.recv() {
+                    Ok(job) => pending.push(job),
+                    Err(_) => return,
+                }
+                continue;
+            }
+            let pick = pending
+                .iter()
+                .position(|j| matches!(j, Job::Final { .. }))
+                .or_else(|| pending.iter().rposition(|j| matches!(j, Job::Preview { .. })))
+                .unwrap_or(0);
+            let job = pending.remove(pick);
+            if matches!(job, Job::Preview { .. }) {
+                pending.retain(|j| !matches!(j, Job::Preview { .. }));
+            }
+            if !self.alive(session) {
+                return;
+            }
+            let (language, context) = {
+                let g = self.state();
+                let lang = g.config.language.clone().or_else(|| g.detected.clone());
+                (lang, context_of(g.prompt.as_deref(), &g.committed()))
+            };
+            match job {
+                Job::Final { index, audio } => {
+                    let result = engine.transcribe(&audio, language.as_deref(), Some(&context), false);
+                    let mut g = self.state();
+                    if g.session != session {
+                        return;
+                    }
+                    match result {
+                        Ok(t) => {
+                            // La première phrase fixe la langue pour la suite.
+                            if g.detected.is_none() && g.config.language.is_none() {
+                                g.detected = t.language.clone();
+                            }
+                            g.phrases[index] = Some(keep(&t));
+                            g.partial.clear();
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "transcription");
+                            g.error = Some(e.localize(&self.localizer));
+                        }
+                    }
+                }
+                Job::Preview { audio } => {
+                    let result = engine.transcribe(&audio, language.as_deref(), Some(&context), true);
+                    busy.store(false, Ordering::Relaxed);
+                    let mut g = self.state();
+                    if g.session != session {
+                        return;
+                    }
+                    if let Ok(t) = result
+                        && g.state == State::Recording
+                    {
+                        g.partial = keep(&t);
+                    }
+                }
+                Job::Done => {
+                    if pending.iter().any(|j| matches!(j, Job::Final { .. })) {
+                        // Des phrases restent : on les traite d'abord.
+                        pending.push(Job::Done);
+                        continue;
+                    }
+                    let mut g = self.state();
+                    if g.session != session {
+                        return;
+                    }
+                    g.text = Some(g.committed());
+                    g.seq += 1;
+                    g.phrases.clear();
+                    g.partial.clear();
+                    g.state = State::Idle;
+                    g.stop_in = None;
+                    g.level = 0.0;
+                    g.speaking = false;
+                    g.session += 1;
+                    return;
+                }
+            }
+        }
+    }
+
+    /// Termine l'écoute ; la dernière phrase est transcrite puis le texte assemblé.
+    pub fn stop(&self) {
+        let mut g = self.state();
+        if g.state == State::Recording {
+            g.state = State::Transcribing;
+            g.started = None;
+            g.stop_in = None;
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancel_download.store(true, Ordering::Relaxed);
+        let mut g = self.state();
+        if matches!(g.state, State::Recording | State::Transcribing) {
+            g.state = State::Idle;
+            g.started = None;
+            g.phrases.clear();
+            g.partial.clear();
+            g.stop_in = None;
+            g.level = 0.0;
+            g.speaking = false;
+            g.session += 1;
+        }
+        g.start_after_download = false;
+    }
+
+    /// Transcrit un audio complet (mono 16 kHz) comme une dictée : découpage
+    /// par la détection de voix, phrase par phrase, avec le contexte.
+    /// Renvoie le texte et les phrases (début, fin en secondes, texte).
+    pub fn transcribe_samples(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
+        let (mut language, prompt) = {
+            let g = self.state();
+            (g.config.language.clone(), g.prompt.clone())
+        };
+        let engine = self.engine()?;
+        let mut texts: Vec<String> = Vec::new();
+        let mut phrases = Vec::new();
+        for phrase in vad::split(audio, self.settings.vad) {
+            let slice = &audio[phrase.start..phrase.end.min(audio.len())];
+            let context = context_of(prompt.as_deref(), &join(texts.iter()));
+            let t = engine.transcribe(slice, language.as_deref(), Some(&context), false)?;
+            if language.is_none() {
+                language = t.language.clone();
+            }
+            let text = keep(&t);
+            let sr = SAMPLE_RATE as f32;
+            phrases.push((phrase.start as f32 / sr, phrase.end as f32 / sr, text.clone()));
+            texts.push(text);
+        }
+        Ok((join(texts.iter()), phrases))
+    }
+}
+
+/// Phrase transcrite : début et fin (s), texte.
+pub type TimedPhrase = (f32, f32, String);
+
+/// Contexte donné à Whisper : vocabulaire du deck, puis ce qui vient d'être dicté.
+fn context_of(prompt: Option<&str>, committed: &str) -> String {
+    [prompt.unwrap_or(""), committed].iter().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// Texte d'une transcription, sans les hallucinations sur du non-parlé.
+fn keep(t: &Transcript) -> String {
+    let text = clean(&t.text);
+    if t.no_speech > 0.6 && text.split_whitespace().count() < 4 { String::new() } else { text }
+}
+
+fn join<'a>(parts: impl Iterator<Item = &'a String>) -> String {
+    parts.map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// Retire les artefacts de Whisper (espaces, marqueurs de silence).
+fn clean(text: &str) -> String {
+    let t = text.trim();
+    let noise = ["[BLANK_AUDIO]", "[Musique]", "[Music]", "(musique)", "[silence]"];
+    if noise.iter().any(|n| t.eq_ignore_ascii_case(n)) {
+        return String::new();
+    }
+    t.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod lib_tests;

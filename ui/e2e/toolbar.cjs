@@ -1,4 +1,4 @@
-// Barre d'outils : ajout d'éléments et suppression de slide, contre `slider serve fixtures/roadmap.json`.
+// Barre d'outils : ajout d'éléments et suppression de slide, contre `oku-slides serve fixtures/roadmap.json`.
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');

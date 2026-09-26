@@ -1,0 +1,28 @@
+[package]
+name = "oku-slides-session"
+description = "Session d'édition Oku Slides : deck ouvert, historique, rendu, enregistrement. Partagée par l'app Tauri et le serveur de dev."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+oku-slides-i18n.workspace = true
+oku-slides-platform.workspace = true
+tracing.workspace = true
+oku-slides-core.workspace = true
+oku-slides-chart.workspace = true
+oku-slides-a2ui.workspace = true
+oku-slides-render.workspace = true
+oku-slides-pdf.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+snafu.workspace = true
+
+[dev-dependencies]
+oku-slides-pdf.workspace = true
+speculoos.workspace = true
+
+[lints]
+workspace = true

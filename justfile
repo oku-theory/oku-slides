@@ -17,7 +17,7 @@ install:
 # Lance l'app de bureau en développement (Vite + Tauri), relancée à chaque modification :
 # interface (HMR), crates Rust et bibliothèque Typst embarquée
 dev: install
-    cargo tauri dev --additional-watch-folders "{{justfile_directory()}}/typst/slider"
+    cargo tauri dev --additional-watch-folders "{{justfile_directory()}}/typst/oku-slides"
 
 # Construit l'app (.app / .dmg sur macOS)
 build: install
@@ -26,20 +26,20 @@ build: install
 # Interface dans le navigateur, sans Tauri : http://127.0.0.1:4870
 serve file=deck: install
     cd ui && bun run build
-    cargo run -q -p slider-cli -- --fonts {{fonts}} serve "{{file}}"
+    cargo run -q -p oku-slides-cli -- --fonts {{fonts}} serve "{{file}}"
 
 # Interface avec rechargement à chaud (http://localhost:5173) et API Rust
 web file=deck: install
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build -q -p slider-cli
-    ./target/debug/slider --fonts {{fonts}} serve "{{file}}" --ui ui/dist &
+    cargo build -q -p oku-slides-cli
+    ./target/debug/oku-slides --fonts {{fonts}} serve "{{file}}" --ui ui/dist &
     trap "kill $! 2>/dev/null" EXIT
     cd ui && bun run dev
 
 # Tests Rust (hors app Tauri) et tests de l'interface
 test:
-    cargo nextest run --workspace --exclude slider-app
+    cargo nextest run --workspace --exclude oku-slides-app
     cd ui && bun test
 
 # Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf sur le port 4872
@@ -47,8 +47,8 @@ e2e: install
     #!/usr/bin/env bash
     set -euo pipefail
     (cd ui && bun run build && bunx playwright install chromium)
-    cargo build -q -p slider-cli
-    ./target/debug/slider --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
+    cargo build -q -p oku-slides-cli
+    ./target/debug/oku-slides --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
     trap "kill $! 2>/dev/null" EXIT
     for _ in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:4872/ && break; sleep 0.2; done
     cd ui && E2E_URL=http://127.0.0.1:4872/ bun run e2e
@@ -69,7 +69,7 @@ lint-fix:
 
 # Couverture des tests (lignes), crate par crate
 coverage:
-    cargo llvm-cov nextest --workspace --exclude slider-app --summary-only
+    cargo llvm-cov nextest --workspace --exclude oku-slides-app --summary-only
 
 # Dépendances : licences, avis de sécurité, sources
 audit:
@@ -87,21 +87,21 @@ ci: check test audit
 setup:
     cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-llvm-cov cargo-watch tauri-cli
 
-# Outil en ligne de commande : just slider render fixtures/roadmap.json --out out
-slider *args:
-    cargo run -q -p slider-cli -- --fonts {{fonts}} {{args}}
+# Outil en ligne de commande : just oku-slides render fixtures/roadmap.json --out out
+oku-slides *args:
+    cargo run -q -p oku-slides-cli -- --fonts {{fonts}} {{args}}
 
 # Latences de rendu et d'enregistrement (build optimisé)
 bench file=deck:
-    cargo run -q --release -p slider-cli -- --fonts {{fonts}} bench "{{file}}"
+    cargo run -q --release -p oku-slides-cli -- --fonts {{fonts}} bench "{{file}}"
 
 # Enregistre un deck JSON en .oku-slides.pdf
 save file=deck out="deck.oku-slides.pdf":
-    cargo run -q -p slider-cli -- --fonts {{fonts}} save "{{file}}" "{{out}}"
+    cargo run -q -p oku-slides-cli -- --fonts {{fonts}} save "{{file}}" "{{out}}"
 
 # Compile un exemple de la bibliothèque Typst : just typst pro
 typst example="demo":
-    typst compile --root typst/slider --font-path {{fonts}} typst/slider/examples/{{example}}.typ
+    typst compile --root typst/oku-slides --font-path {{fonts}} typst/oku-slides/examples/{{example}}.typ
 
 # Génère toutes les icônes de l'app depuis src-tauri/icons/icon.png
 icons:
@@ -124,7 +124,7 @@ stt_features := if os() == "macos" { "accelerate" } else { "" }
 
 # Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
 transcribe wav model="turbo" lang="":
-    cargo run -q --release -p slider-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+    cargo run -q --release -p oku-slides-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
 
 # Supprime les builds (Rust et interface)
 clean:

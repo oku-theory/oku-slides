@@ -1,9 +1,9 @@
 # Rust Retrofit Audit — Oku Slides (slider)
 
-**Date :** 2026-09-25 · **Portée :** tout le workspace (8 crates, dont `slider-chart` et `src-tauri`)
+**Date :** 2026-09-25 · **Portée :** tout le workspace (8 crates, dont `oku-slides-chart` et `src-tauri`)
 **Référence :** Oku Theory Rust Guidelines (les fichiers `docs/…` cités par le skill ne sont pas
 livrés avec le plugin : l'audit suit les règles chargées dans la session).
-**Vérité terrain :** `cargo nextest run --workspace --exclude slider-app` → 57/57 ✓
+**Vérité terrain :** `cargo nextest run --workspace --exclude oku-slides-app` → 57/57 ✓
 
 ## Avancement
 
@@ -19,18 +19,18 @@ Audit : `180ee21`. Corrections : étape par étape, chaque commit vérifié
 | 5. Async (Tokio) | — N/A | — (Tokio seulement sous OpenDAL, runtime privé) | — |
 | 6. Tests | ✗ ÉCHEC | ✓ speculoos, noms `<unité>_<cas>_<résultat>`, fichiers `_tests.rs`, `tests/regressions/`, couverture 80,3 % | ce commit |
 | 7. Sécurité | ! PARTIEL | ✓ 2 failles corrigées (asset → panique / injection Typst), `serve` ne lit plus `..` ; avis quick-xml documentés dans `deny.toml` | `20b886b`, `2ba7bc0` |
-| 8. i18n (Fluent) | ✗ ÉCHEC | ✓ `slider-i18n`, `en` de référence + `fr` ; erreurs, CLI (aide comprise), textes créés | `3255bbf` |
-| 9. Stockage (OpenDAL) | ✗ ÉCHEC | ✓ `slider_platform::storage`, plus de `std::fs` en production | `2ba7bc0` |
+| 8. i18n (Fluent) | ✗ ÉCHEC | ✓ `oku-slides-i18n`, `en` de référence + `fr` ; erreurs, CLI (aide comprise), textes créés | `3255bbf` |
+| 9. Stockage (OpenDAL) | ✗ ÉCHEC | ✓ `oku_slides_platform::storage`, plus de `std::fs` en production | `2ba7bc0` |
 | 10. Configuration | ! PARTIEL | ✓ `config` : défauts embarqués, `config.toml`, `ECHO_<SECTION>__<CLÉ>` | `20b886b` |
 | 11. Observabilité | ✗ ÉCHEC | ✓ `tracing` (INFO fixe en production), `color-eyre` ; la CLI écrit ses résultats sans `println!` | `09f12c2`, `3255bbf` |
 
-## Restes traités (projet Oku `slider`, parent t-1)
+## Restes traités (projet Oku `oku-slides`, parent t-1)
 
 Tous les restes du retrofit sont faits, chacun avec sa tâche et ses tests :
 
 - **t-13 Stockage multi-racine** : un opérateur OpenDAL par racine de
   chemin (`/`, `C:\\`, partages UNC), clés séparées par `/`.
-- **t-14 Arrêt propre de `slider serve`** : SIGINT/SIGTERM/SIGHUP, code 0.
+- **t-14 Arrêt propre de `oku-slides serve`** : SIGINT/SIGTERM/SIGHUP, code 0.
 - **t-15 Whisper sans modèle** : logique extraite en fonctions pures,
   testées ; deux paniques sur `preprocessor_config.json` corrigées ; un
   test opt-in (`ECHO_TEST_WHISPER_MODEL`) couvre le vrai modèle.
@@ -54,10 +54,10 @@ Limites connues :
 ## Étape 1 — Structure & outillage
 
 - ✓ `[workspace]`, `resolver = "3"`, `edition = "2024"`, `rust-version = "1.88"` (≥ 1.85).
-- ✓ Aucun fichier > 1000 lignes. Au-dessus de la cible de 500 : `slider-stt/src/lib.rs` (706),
-  `slider-session/src/lib.rs` (629), `slider-core/src/ops.rs` (503).
+- ✓ Aucun fichier > 1000 lignes. Au-dessus de la cible de 500 : `oku-slides-stt/src/lib.rs` (706),
+  `oku-slides-session/src/lib.rs` (629), `oku-slides-core/src/ops.rs` (503).
 - ✗ **E1.1** `clippy.toml` et `deny.toml` absents (seul `rustfmt.toml` existe).
-- ! **W1.1** `slider-stt/src/lib.rs` mélange état, boucles de fils et nettoyage de texte : à
+- ! **W1.1** `oku-slides-stt/src/lib.rs` mélange état, boucles de fils et nettoyage de texte : à
   découper (`engine.rs`, `listen.rs`, `text.rs`).
 - ! **W1.2** `justfile` n'a ni `just ci`, ni `just audit`, ni `just watch`, ni `just setup`.
 
@@ -66,10 +66,10 @@ Limites connues :
 - ✗ **E2.1** `thiserror` partout (core, pdf, render, session, stt, chart) ; aucun `snafu`, aucun
   `backtrace: Backtrace`. 7 énumérations d'erreur à migrer : `OpError`, `SourcesError`,
   `PdfError`, `RenderError`, `SessionError`, `DownloadError`, `ChartError`.
-- ✗ **E2.2** 8 `Result<_, String>` dans `slider-stt` (`Recorder::start`, `Transcriber::load`,
+- ✗ **E2.2** 8 `Result<_, String>` dans `oku-slides-stt` (`Recorder::start`, `Transcriber::load`,
   `transcribe`, `engine`…) : pas de type d'erreur.
 - ✗ **E2.3** 48 `unwrap`/`expect` hors tests : 22 `Mutex::lock().unwrap()` (dont 20 dans
-  `slider-stt/src/lib.rs`), le reste des invariants (`expect("sérialisable")`,
+  `oku-slides-stt/src/lib.rs`), le reste des invariants (`expect("sérialisable")`,
   `expect("chemin non vide")`, `expect("l'inverse d'une op appliquée s'applique toujours")`…).
   La règle les interdit ; les invariants deviennent des erreurs ou des `unreachable!` documentés,
   les verrous empoisonnés un `SttError::Poisoned` (ou `lock().unwrap_or_else(PoisonError::into_inner)`).
@@ -79,11 +79,11 @@ Limites connues :
 ## Étape 3 — Clippy / rustfmt
 
 - ✓ `cargo fmt --check` ; ✓ `cargo clippy --workspace --all-targets -D warnings` ; ✓ aucun
-  `#[allow]` ; ✓ aucun `get_` ; ✓ `//!` sur tous les modules sauf `slider-chart/src/error.rs`.
+  `#[allow]` ; ✓ aucun `get_` ; ✓ `//!` sur tous les modules sauf `oku-slides-chart/src/error.rs`.
 - ✗ **E3.1** Types publics sans `Debug` : `Walk` (core), `Fonts` (Debug manuel ✓ — faux positif),
   `Renderer`, `Compiled` (render), `Session` (session), `Stt`, `Recorder`, `Captured`,
   `Resampler`, `Segmenter`, `Transcriber` (stt).
-- ! **W3.1** `slider-chart/src/error.rs` sans documentation de module.
+- ! **W3.1** `oku-slides-chart/src/error.rs` sans documentation de module.
 
 ## Étape 4 — Dépendances
 
@@ -113,7 +113,7 @@ Limites connues :
 - ! **W6.1** Tests en ligne (`#[cfg(test)] mod tests`) ou dans `tests/`, pas en fichiers
   `*_tests.rs` côte à côte ; noms en français sans le motif `<unit>_<scenario>_<result>`.
 - ✗ **E6.3** Couverture des lignes **66,7 %** (régions 63,6 %, fonctions 67,7 %) pour 80 % visés.
-  Trous : `slider-cli` 0 %, `slider-stt` `whisper.rs` 16 %, `audio.rs` 17 %, `lib.rs` 27 %,
+  Trous : `oku-slides-cli` 0 %, `oku-slides-stt` `whisper.rs` 16 %, `audio.rs` 17 %, `lib.rs` 27 %,
   `models.rs` 26 % (micro et modèle requis : il faut des doublures), `session/files.rs` 43 %,
   `render/fonts.rs` 48 %, `core/validate.rs` 65 %, `chart/option.rs` 56 %. Bien couverts : core
   (sauf validate), pdf 97 %, render 86–94 %, session 86–95 %, `vad.rs` 89 %.
@@ -153,7 +153,7 @@ Limites connues :
 ## Étape 11 — Observabilité
 
 - ✗ **E11.1** Pas de `tracing` : 22 `println!/eprintln!` dans la CLI (sorties voulues d'un
-  outil en ligne de commande), 1 `eprintln!` dans `slider-stt/src/audio.rs` (erreur du flux
+  outil en ligne de commande), 1 `eprintln!` dans `oku-slides-stt/src/audio.rs` (erreur du flux
   micro, à passer en `tracing::warn!`). Aucun abonné configuré dans l'app.
 
 ---
@@ -161,7 +161,7 @@ Limites connues :
 ## Corrections automatiques possibles (`--fix`)
 
 - [ ] `#[derive(Debug)]` (ou Debug manuel) sur 10 types publics (E3.1)
-- [ ] `//!` sur `slider-chart/src/error.rs` (W3.1)
+- [ ] `//!` sur `oku-slides-chart/src/error.rs` (W3.1)
 - [ ] Versions déplacées dans `[workspace.dependencies]` (E4.2)
 - [ ] `license` dans `[workspace.package]` + `deny.toml` + `clippy.toml` (E1.1, E4.3)
 - [ ] `eprintln!` de `audio.rs` → `tracing::warn!` (E11.1, demande d'ajouter `tracing`)

@@ -5,37 +5,37 @@ modifie des présentations à la voix ; le document est un PDF (`.oku-slides.pdf
 contient ses propres sources : n'importe quel lecteur l'affiche, Oku Slides le rouvre
 pour continuer l'édition.
 
-Le code garde son nom de travail : crates `slider-*`, outil `slider`,
-bibliothèque Typst `slider`.
+Dans le code : crates `oku-slides-*`, outil `oku-slides`, bibliothèque Typst
+`oku-slides`.
 
-Plan d'implémentation : [Slider — plan d'implémentation](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
+Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
 
 ## Contenu du dépôt
 
 | Chemin | Rôle |
 | --- | --- |
-| `crates/slider-core` | Modèle du deck, opérations réversibles, historique, validation, zip des sources |
-| `crates/slider-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
-| `crates/slider-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
-| `crates/slider-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
-| `crates/slider-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
-| `crates/slider-cli` | Outil `slider` : rendu, enregistrement, relecture, mesures, serveur de dev |
+| `crates/oku-slides-core` | Modèle du deck, opérations réversibles, historique, validation, zip des sources |
+| `crates/oku-slides-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
+| `crates/oku-slides-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
+| `crates/oku-slides-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
+| `crates/oku-slides-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
+| `crates/oku-slides-cli` | Outil `oku-slides` : rendu, enregistrement, relecture, mesures, serveur de dev |
 | `src-tauri` | Application de bureau Tauri 2 |
 | `ui` | Interface React + TypeScript (design system Papier) |
 | `assets/fonts` | Polices livrées (Newsreader, Instrument Sans, Inter) |
-| `typst/slider` | Bibliothèque Typst de slides (structure, jetons, thèmes `papier` et `pro`) |
+| `typst/oku-slides` | Bibliothèque Typst de slides (structure, jetons, thèmes `papier` et `pro`) |
 | `fixtures/` | Decks d'exemple |
 
 ## Outil en ligne de commande
 
 ```sh
-just slider check fixtures/roadmap.json                       # valider un deck
-just slider render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
+just oku-slides check fixtures/roadmap.json                       # valider un deck
+just oku-slides render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
 just save fixtures/roadmap.json deck.oku-slides.pdf                # enregistrer en .oku-slides.pdf
-just slider open deck.oku-slides.pdf --out extrait/                # deck.json + assets
-just slider strip deck.oku-slides.pdf copie.pdf                    # copie sans sources
+just oku-slides open deck.oku-slides.pdf --out extrait/                # deck.json + assets
+just oku-slides strip deck.oku-slides.pdf copie.pdf                    # copie sans sources
 just bench                                                     # latences
-just slider schema                                             # schéma JSON des opérations
+just oku-slides schema                                             # schéma JSON des opérations
 ```
 
 `--fonts <dossier>` ajoute des polices (TTF/OTF) ; sans elles, Typst utilise
@@ -139,7 +139,7 @@ OKU_SLIDES_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interfac
 
 Les réglages ont trois couches, la dernière l'emporte :
 
-1. les défauts, embarqués ([`config.default.toml`](crates/slider-platform/src/config.default.toml),
+1. les défauts, embarqués ([`config.default.toml`](crates/oku-slides-platform/src/config.default.toml),
    commentés) ;
 2. `config.toml` dans le dossier de données de l'app, facultatif ;
 3. les variables d'environnement `OKU_SLIDES_<SECTION>__<CLÉ>`, avec un double

@@ -1,0 +1,24 @@
+[package]
+name = "oku-slides-chart"
+description = "Graphiques : sous-ensemble des options ECharts, rendu SVG par charts-rs, opérations sur les données."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+oku-slides-i18n.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+snafu.workspace = true
+charts-rs.workspace = true
+json-patch.workspace = true
+
+[dev-dependencies]
+speculoos.workspace = true
+oku-slides-platform.workspace = true
+
+[lints]
+workspace = true

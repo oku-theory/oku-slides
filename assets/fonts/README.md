@@ -1,6 +1,6 @@
-# Polices livrées avec Slider
+# Polices livrées avec Oku Slides
 
-Chargées par le rendu Typst au démarrage de l'app (et par `slider --fonts assets/fonts`).
+Chargées par le rendu Typst au démarrage de l'app (et par `oku-slides --fonts assets/fonts`).
 
 | Famille | Fichiers | Thème |
 | --- | --- | --- |

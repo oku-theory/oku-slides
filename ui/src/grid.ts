@@ -4,7 +4,7 @@
 // séparées par une gouttière. Un élément accroché occupe un rectangle de
 // cellules : il prend une colonne, une ligne, ou un bloc de cases.
 //
-// Même calcul que `grid-frame` dans typst/slider/src/data.typ : le rendu et
+// Même calcul que `grid-frame` dans typst/oku-slides/src/data.typ : le rendu et
 // l'édition doivent rester alignés au point près.
 
 import { t } from "./i18n";

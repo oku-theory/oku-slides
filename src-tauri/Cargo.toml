@@ -1,5 +1,5 @@
 [package]
-name = "slider-app"
+name = "oku-slides-app"
 description = "Oku Slides : l'application de bureau (Tauri)."
 version.workspace = true
 edition.workspace = true
@@ -11,9 +11,9 @@ publish.workspace = true
 tauri-build.workspace = true
 
 [dependencies]
-slider-session.workspace = true
-slider-stt.workspace = true
-slider-platform.workspace = true
+oku-slides-session.workspace = true
+oku-slides-stt.workspace = true
+oku-slides-platform.workspace = true
 color-eyre.workspace = true
 tracing.workspace = true
 tauri.workspace = true
@@ -21,7 +21,7 @@ tauri-plugin-dialog.workspace = true
 
 # Dictée sur Mac : calcul par Accelerate (le framework d'Apple).
 [target.'cfg(target_os = "macos")'.dependencies]
-slider-stt = { workspace = true, features = ["accelerate"] }
+oku-slides-stt = { workspace = true, features = ["accelerate"] }
 
 [lints]
 workspace = true

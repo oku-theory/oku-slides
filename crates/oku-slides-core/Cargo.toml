@@ -1,0 +1,25 @@
+[package]
+name = "oku-slides-core"
+description = "Modèle de deck Oku Slides : slides, éléments, opérations, historique, sources."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+oku-slides-i18n.workspace = true
+oku-slides-chart.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+snafu.workspace = true
+zip.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+speculoos.workspace = true
+
+[lints]
+workspace = true

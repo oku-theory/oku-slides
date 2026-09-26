@@ -11,15 +11,15 @@ authors = ["Matthieu"]
 publish = false
 
 [workspace.dependencies]
-slider-core = { path = "crates/slider-core" }
-slider-render = { path = "crates/slider-render" }
-slider-pdf = { path = "crates/slider-pdf" }
-slider-session = { path = "crates/slider-session" }
-slider-stt = { path = "crates/slider-stt" }
-slider-chart = { path = "crates/slider-chart" }
-slider-a2ui = { path = "crates/slider-a2ui" }
-slider-platform = { path = "crates/slider-platform" }
-slider-i18n = { path = "crates/slider-i18n" }
+oku-slides-core = { path = "crates/oku-slides-core" }
+oku-slides-render = { path = "crates/oku-slides-render" }
+oku-slides-pdf = { path = "crates/oku-slides-pdf" }
+oku-slides-session = { path = "crates/oku-slides-session" }
+oku-slides-stt = { path = "crates/oku-slides-stt" }
+oku-slides-chart = { path = "crates/oku-slides-chart" }
+oku-slides-a2ui = { path = "crates/oku-slides-a2ui" }
+oku-slides-platform = { path = "crates/oku-slides-platform" }
+oku-slides-i18n = { path = "crates/oku-slides-i18n" }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"

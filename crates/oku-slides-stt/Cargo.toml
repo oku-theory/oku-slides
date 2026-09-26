@@ -1,0 +1,38 @@
+[package]
+name = "oku-slides-stt"
+description = "Dictée d'Oku Slides : micro, détection de la voix, Whisper sur CTranslate2 en local."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# macOS : calcul matriciel par Accelerate, le framework d'Apple.
+accelerate = ["ct2rs/accelerate"]
+
+[dependencies]
+oku-slides-i18n.workspace = true
+oku-slides-platform.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+snafu.workspace = true
+# CTranslate2, le moteur de faster-whisper.
+ct2rs.workspace = true
+tokenizers.workspace = true
+mel_spec.workspace = true
+ndarray.workspace = true
+# Détection de la voix, en Rust pur.
+earshot.workspace = true
+cpal.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+tiny_http.workspace = true
+speculoos.workspace = true
+hound.workspace = true
+
+[lints]
+workspace = true
