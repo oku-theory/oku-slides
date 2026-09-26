@@ -90,6 +90,10 @@ ui-undo-rename-template = Sjabloon hernoemen
 ui-undo-describe-template = Sjabloon beschrijven
 ui-undo-chart-kind = Grafiektype wijzigen
 ui-undo-chart-data = Gegevens bewerken
+ui-undo-chart-stack = { $stacked ->
+    [yes] Reeksen stapelen
+   *[no] Reeksen scheiden
+}
 
 ## Nieuwe elementen
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] Staven
 }
 ui-chart-no-data = Deze grafiek heeft geen gegevenstabel.
+ui-chart-options = Grafiekopties
+ui-chart-stack = Gestapeld
 ui-chart-column-name = Naam van kolom { $col }
 ui-chart-remove-column = Kolom verwijderen
 ui-chart-cell = Rij { $row }, kolom { $col }

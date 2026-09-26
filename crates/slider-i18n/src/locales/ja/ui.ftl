@@ -90,6 +90,10 @@ ui-undo-rename-template = テンプレート名を変更
 ui-undo-describe-template = テンプレートの説明を編集
 ui-undo-chart-kind = グラフの種類を変更
 ui-undo-chart-data = データを編集
+ui-undo-chart-stack = { $stacked ->
+    [yes] 系列を積み上げ
+   *[no] 系列の積み上げを解除
+}
 
 ## 新しい要素
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] 棒
 }
 ui-chart-no-data = このグラフにはデータ表がありません。
+ui-chart-options = グラフのオプション
+ui-chart-stack = 積み上げ
 ui-chart-column-name = 列 { $col } の名前
 ui-chart-remove-column = 列を削除
 ui-chart-cell = 行 { $row }、列 { $col }

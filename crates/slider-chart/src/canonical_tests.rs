@@ -110,3 +110,18 @@ fn canonicalize_unnamed_data_takes_headers_in_the_user_language() {
     let canon = canonicalize(&pie, ChartLabels::english()).unwrap();
     assert_that!(header(&canon)).is_equal_to(vec![Cell::Text("Name".into()), Cell::Text("Value".into())]);
 }
+
+#[test]
+fn sync_series_with_columns_added_column_joins_the_stack() {
+    let mut o = opt(json!({
+        "dataset": { "source": [["Mois", "Nord"], ["Jan", 10]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "stack": "total" }]
+    }));
+    ChartDataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)] }
+        .apply(o.dataset.as_mut().unwrap())
+        .unwrap();
+    sync_series_with_columns(&mut o);
+    assert_that!(o.series.iter().map(|s| s.stack.as_deref()).collect::<Vec<_>>())
+        .is_equal_to(vec![Some("total"), Some("total")]);
+}

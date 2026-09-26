@@ -88,6 +88,10 @@ ui-undo-rename-template = เปลี่ยนชื่อเทมเพลต
 ui-undo-describe-template = อธิบายเทมเพลต
 ui-undo-chart-kind = เปลี่ยนประเภทแผนภูมิ
 ui-undo-chart-data = แก้ไขข้อมูล
+ui-undo-chart-stack = { $stacked ->
+    [yes] ซ้อนชุดข้อมูล
+   *[no] แยกชุดข้อมูล
+}
 
 ## องค์ประกอบใหม่
 
@@ -199,6 +203,8 @@ ui-chart-kind = { $kind ->
    *[bar] แท่ง
 }
 ui-chart-no-data = แผนภูมินี้ไม่มีตารางข้อมูล
+ui-chart-options = ตัวเลือกแผนภูมิ
+ui-chart-stack = ซ้อนกัน
 ui-chart-column-name = ชื่อคอลัมน์ { $col }
 ui-chart-remove-column = ลบคอลัมน์
 ui-chart-cell = แถว { $row }, คอลัมน์ { $col }

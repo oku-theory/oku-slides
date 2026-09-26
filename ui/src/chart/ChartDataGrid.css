@@ -16,6 +16,6 @@ tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { o
 
 /* Panneau du graphique sélectionné, posé sous la feuille. */
 .chart-panel { position: absolute; right: var(--space-6, 24px); bottom: var(--space-6, 24px); width: min(460px, 45%); max-height: 55%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper, #fff); border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-note, 0 6px 24px rgb(0 0 0 / 0.12)); z-index: 5; }
-.chart-kinds { display: flex; gap: 6px; }
-.chart-kinds button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
-.chart-kinds button.on { background: var(--papier-accent, #2f5d8a); border-color: transparent; color: #fff; }
+.chart-kinds, .chart-options { display: flex; gap: 6px; }
+.chart-kinds button, .chart-options button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.chart-kinds button.on, .chart-options button.on { background: var(--papier-accent, #2f5d8a); border-color: transparent; color: #fff; }

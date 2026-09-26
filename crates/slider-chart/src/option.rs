@@ -158,6 +158,10 @@ pub struct Series {
     /// Données en ligne, si la série n'utilise pas `dataset`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<Vec<DataItem>>,
+    /// Barres ou lignes : les séries d'un même groupe s'empilent (les
+    /// valeurs négatives vers le bas, séparément).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stack: Option<String>,
     /// Ligne : courbe lissée.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub smooth: Option<bool>,

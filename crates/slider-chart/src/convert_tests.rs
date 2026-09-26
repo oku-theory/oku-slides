@@ -93,3 +93,20 @@ fn convert_every_kind_to_every_kind_stays_drawable() {
         }
     }
 }
+
+#[test]
+fn convert_stacked_bars_to_lines_keeps_the_stack() {
+    let mut stacked = bars();
+    for s in &mut stacked.series {
+        s.stack = Some("total".into());
+    }
+    let lines = convert(&stacked, SeriesType::Line, en()).unwrap();
+    assert_that!(lines.series.iter().map(|s| s.stack.as_deref()).collect::<Vec<_>>())
+        .is_equal_to(vec![Some("total"), Some("total")]);
+}
+
+#[test]
+fn convert_unstacked_bars_to_lines_stays_unstacked() {
+    let lines = convert(&bars(), SeriesType::Line, en()).unwrap();
+    assert_that!(lines.series.iter().all(|s| s.stack.is_none())).is_true();
+}

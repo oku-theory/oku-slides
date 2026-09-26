@@ -4,7 +4,7 @@
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, chartKind, chartSource, isStacked, stackPatch, stackable } from "./chartDeck";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
@@ -20,6 +20,11 @@ export function ChartPanel({ slide, element, onApply, onKind }: {
   const setKind = (kind: ChartKind) => {
     if (kind !== current) onKind(kind);
   };
+  const stacked = isStacked(element);
+  const toggleStack = () =>
+    onApply(t("ui-undo-chart-stack", { stacked: stacked ? "no" : "yes" }), [
+      { op: "set_chart_option", slide, element: element.id, patch: stackPatch(element, !stacked) },
+    ]);
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
       <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
@@ -29,6 +34,13 @@ export function ChartPanel({ slide, element, onApply, onKind }: {
           </button>
         ))}
       </div>
+      {stackable(element) && (
+        <div className="chart-options" role="group" aria-label={t("ui-chart-options")}>
+          <button aria-pressed={stacked} className={stacked ? "on" : ""} onClick={toggleStack}>
+            {t("ui-chart-stack")}
+          </button>
+        </div>
+      )}
       {source ? (
         <ChartDataGrid
           source={source}

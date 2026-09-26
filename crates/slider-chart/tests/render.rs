@@ -122,3 +122,27 @@ fn parse_option_inconsistent_options_explain_the_fix() {
         .localize(slider_i18n::english());
     asserting(&err).that(&err.as_str()).contains("itemStyle");
 }
+
+/// Abscisses distinctes des barres (rectangles pleins) d'un SVG.
+fn bar_columns(svg: &str) -> std::collections::BTreeSet<String> {
+    svg.split("<rect")
+        .skip(1)
+        .filter(|r| !r.contains("fill=\"none\"") && !r.contains("fill-opacity=\"0\""))
+        .filter_map(|r| r.split(" x=\"").nth(1).and_then(|x| x.split('"').next()).map(str::to_owned))
+        .collect()
+}
+
+#[test]
+fn render_stacked_bars_share_one_column_per_category() {
+    let chart = |stack: Option<&str>| {
+        json!({
+            "legend": { "show": false },
+            "dataset": { "source": [["Mois", "Nord", "Sud"], ["Jan", 3, 4], ["Fév", 5, 2], ["Mar", 7, 6]] },
+            "xAxis": { "type": "category" },
+            "series": [{ "type": "bar", "stack": stack }, { "type": "bar", "stack": stack }]
+        })
+    };
+    let side_by_side = bar_columns(&render(chart(None)));
+    let stacked = bar_columns(&render(chart(Some("total"))));
+    assert_that!((side_by_side.len(), stacked.len())).is_equal_to((6, 3));
+}

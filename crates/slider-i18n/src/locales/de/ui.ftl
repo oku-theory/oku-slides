@@ -90,6 +90,10 @@ ui-undo-rename-template = Vorlage umbenennen
 ui-undo-describe-template = Vorlage beschreiben
 ui-undo-chart-kind = Diagrammtyp ändern
 ui-undo-chart-data = Daten bearbeiten
+ui-undo-chart-stack = { $stacked ->
+    [yes] Reihen stapeln
+   *[no] Reihen trennen
+}
 
 ## Neue Elemente
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] Balken
 }
 ui-chart-no-data = Dieses Diagramm hat keine Datentabelle.
+ui-chart-options = Diagrammoptionen
+ui-chart-stack = Gestapelt
 ui-chart-column-name = Name der Spalte { $col }
 ui-chart-remove-column = Spalte löschen
 ui-chart-cell = Zeile { $row }, Spalte { $col }

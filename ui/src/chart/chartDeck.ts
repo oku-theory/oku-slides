@@ -37,3 +37,29 @@ export function chartSource(el: Element): Cell[][] | null {
 export function chartKind(el: Element): string | null {
   return optionOf(el)?.series?.[0]?.type ?? null;
 }
+
+/** Groupe d'empilement que pose l'interface. */
+const STACK = "total";
+
+const cartesian = (s: Series) => s.type === "bar" || s.type === "line";
+
+/** Barres ou lignes à plusieurs séries : l'empilement a un sens. */
+export function stackable(el: Element): boolean {
+  const series = optionOf(el)?.series ?? [];
+  return series.length > 1 && series.every(cartesian);
+}
+
+/** Toutes les séries partagent un même groupe d'empilement. */
+export function isStacked(el: Element): boolean {
+  const series = optionOf(el)?.series ?? [];
+  return series.length > 0 && series.every((s) => typeof s.stack === "string" && s.stack === series[0].stack);
+}
+
+/**
+ * Patch `set_chart_option` qui empile (ou non) toutes les séries. Un merge
+ * patch remplace le tableau entier : chaque série garde ses autres réglages.
+ */
+export function stackPatch(el: Element, stacked: boolean): { series: Series[] } {
+  const series = (optionOf(el)?.series ?? []).map(({ stack: _stack, ...rest }) => (stacked ? { ...rest, stack: STACK } : rest));
+  return { series };
+}

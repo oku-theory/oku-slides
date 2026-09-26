@@ -196,6 +196,7 @@ impl ChartRenderer for ChartsRsRenderer {
 fn cartesian_series(s: &CartesianSeries) -> Series {
     let mut out = Series::new_nullable(s.name.clone(), s.values.iter().map(|v| v.map(|x| x as f32)).collect());
     out.label_show = s.label;
+    out.stack.clone_from(&s.stack);
     if s.mark == CartesianMark::Line {
         out.category = Some(SeriesCategory::Line);
     }

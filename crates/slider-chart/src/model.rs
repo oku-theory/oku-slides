@@ -54,6 +54,8 @@ pub struct CartesianSeries {
     pub mark: CartesianMark,
     pub values: Vec<Option<f64>>,
     pub label: bool,
+    /// Groupe d'empilement : les séries du même groupe s'empilent.
+    pub stack: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -251,6 +253,7 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
             mark,
             values,
             label: s.label.as_ref().and_then(|l| l.show).unwrap_or(false),
+            stack: s.stack.clone(),
         });
     }
 

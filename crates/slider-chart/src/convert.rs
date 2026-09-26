@@ -27,7 +27,11 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
     let series_count = table.columns.len().max(1);
     let (source, series, axes) = match kind {
         SeriesType::Bar | SeriesType::Line => {
-            (grid(&table, table.columns.len()), vec![json!({ "type": kind }); series_count], true)
+            let series = match shared_stack(option) {
+                Some(stack) => json!({ "type": kind, "stack": stack }),
+                None => json!({ "type": kind }),
+            };
+            (grid(&table, table.columns.len()), vec![series; series_count], true)
         }
         SeriesType::Radar => (grid(&table, table.columns.len()), vec![json!({ "type": "radar" })], false),
         SeriesType::Pie => (grid(&table, 1), vec![json!({ "type": "pie" })], false),
@@ -83,6 +87,13 @@ fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {
             Table { label: labels.category().to_owned(), rows: xs.iter().map(|x| number(*x)).collect(), columns }
         }
     })
+}
+
+/// Le groupe d'empilement commun à toutes les séries, s'il y en a un :
+/// des barres empilées deviennent des lignes empilées, et inversement.
+fn shared_stack(option: &ChartOption) -> Option<&str> {
+    let first = option.series.first()?.stack.as_deref()?;
+    option.series.iter().all(|s| s.stack.as_deref() == Some(first)).then_some(first)
 }
 
 /// En-têtes puis une ligne par libellé, avec les `width` premières colonnes.

@@ -94,6 +94,10 @@ ui-undo-rename-template = Zmień nazwę szablonu
 ui-undo-describe-template = Opisz szablon
 ui-undo-chart-kind = Zmień typ wykresu
 ui-undo-chart-data = Edytuj dane
+ui-undo-chart-stack = { $stacked ->
+    [yes] Skumuluj serie
+   *[no] Rozdziel serie
+}
 
 ## Nowe elementy
 
@@ -205,6 +209,8 @@ ui-chart-kind = { $kind ->
    *[bar] Słupkowy
 }
 ui-chart-no-data = Ten wykres nie ma tabeli danych.
+ui-chart-options = Opcje wykresu
+ui-chart-stack = Skumulowany
 ui-chart-column-name = Nazwa kolumny { $col }
 ui-chart-remove-column = Usuń kolumnę
 ui-chart-cell = Wiersz { $row }, kolumna { $col }

@@ -88,6 +88,10 @@ ui-undo-rename-template = 템플릿 이름 바꾸기
 ui-undo-describe-template = 템플릿 설명 작성
 ui-undo-chart-kind = 차트 유형 변경
 ui-undo-chart-data = 데이터 편집
+ui-undo-chart-stack = { $stacked ->
+    [yes] 계열 누적
+   *[no] 계열 누적 해제
+}
 
 ## 새 요소
 
@@ -199,6 +203,8 @@ ui-chart-kind = { $kind ->
    *[bar] 막대형
 }
 ui-chart-no-data = 이 차트에는 데이터 표가 없습니다.
+ui-chart-options = 차트 옵션
+ui-chart-stack = 누적
 ui-chart-column-name = { $col }열 이름
 ui-chart-remove-column = 열 삭제
 ui-chart-cell = { $row }행, { $col }열

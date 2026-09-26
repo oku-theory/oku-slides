@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Element } from "../api";
-import { CHART_KINDS, chartKind, chartSource, starterChart } from "./chartDeck";
+import { CHART_KINDS, chartKind, chartSource, isStacked, stackPatch, stackable, starterChart } from "./chartDeck";
 
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
@@ -33,4 +33,34 @@ describe("chartSource et chartKind", () => {
 
 test("les cinq types sont proposés", () => {
   expect([...CHART_KINDS]).toEqual(["bar", "line", "pie", "scatter", "radar"]);
+});
+
+describe("empilement", () => {
+  test("des barres ou des lignes à plusieurs séries s'empilent", () => {
+    expect(stackable(canonical([{ type: "bar" }, { type: "bar" }]))).toBe(true);
+    expect(stackable(canonical([{ type: "line" }, { type: "line" }]))).toBe(true);
+  });
+
+  test("une seule série, un camembert ou un nuage ne s'empilent pas", () => {
+    expect(stackable(canonical([{ type: "bar" }]))).toBe(false);
+    expect(stackable(canonical([{ type: "pie" }]))).toBe(false);
+    expect(stackable(canonical([{ type: "scatter" }, { type: "scatter" }]))).toBe(false);
+  });
+
+  test("empilé quand toutes les séries partagent un groupe", () => {
+    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar", stack: "total" }]))).toBe(true);
+    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar" }]))).toBe(false);
+  });
+
+  test("stackPatch met toutes les séries dans un groupe, en gardant leurs réglages", () => {
+    const el = canonical([{ type: "bar", label: { show: true } }, { type: "line" }]);
+    expect(stackPatch(el, true)).toEqual({
+      series: [{ type: "bar", label: { show: true }, stack: "total" }, { type: "line", stack: "total" }],
+    });
+  });
+
+  test("stackPatch sans empilement retire le groupe", () => {
+    const el = canonical([{ type: "bar", stack: "total" }, { type: "bar", stack: "total" }]);
+    expect(stackPatch(el, false)).toEqual({ series: [{ type: "bar" }, { type: "bar" }] });
+  });
 });

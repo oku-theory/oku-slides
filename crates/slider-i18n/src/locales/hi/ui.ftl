@@ -90,6 +90,10 @@ ui-undo-rename-template = टेम्पलेट का नाम बदले
 ui-undo-describe-template = टेम्पलेट का विवरण दें
 ui-undo-chart-kind = चार्ट का प्रकार बदलें
 ui-undo-chart-data = डेटा संपादित करें
+ui-undo-chart-stack = { $stacked ->
+    [yes] श्रृंखलाओं को स्टैक करें
+   *[no] श्रृंखलाओं को अलग करें
+}
 
 ## नए एलिमेंट
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] बार
 }
 ui-chart-no-data = इस चार्ट में कोई डेटा तालिका नहीं है।
+ui-chart-options = चार्ट विकल्प
+ui-chart-stack = स्टैक्ड
 ui-chart-column-name = कॉलम { $col } का नाम
 ui-chart-remove-column = कॉलम हटाएँ
 ui-chart-cell = पंक्ति { $row }, कॉलम { $col }

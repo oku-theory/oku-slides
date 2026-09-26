@@ -90,6 +90,10 @@ ui-undo-rename-template = Renomear o modelo
 ui-undo-describe-template = Descrever o modelo
 ui-undo-chart-kind = Alterar o tipo de gráfico
 ui-undo-chart-data = Editar os dados
+ui-undo-chart-stack = { $stacked ->
+    [yes] Empilhar as séries
+   *[no] Separar as séries
+}
 
 ## Novos elementos
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] Barras
 }
 ui-chart-no-data = Este gráfico não tem tabela de dados.
+ui-chart-options = Opções do gráfico
+ui-chart-stack = Empilhado
 ui-chart-column-name = Nome da coluna { $col }
 ui-chart-remove-column = Excluir a coluna
 ui-chart-cell = Linha { $row }, coluna { $col }

@@ -94,6 +94,10 @@ ui-undo-rename-template = Перейменувати шаблон
 ui-undo-describe-template = Описати шаблон
 ui-undo-chart-kind = Змінити тип діаграми
 ui-undo-chart-data = Змінити дані
+ui-undo-chart-stack = { $stacked ->
+    [yes] Скласти ряди
+   *[no] Розділити ряди
+}
 
 ## Нові елементи
 
@@ -205,6 +209,8 @@ ui-chart-kind = { $kind ->
    *[bar] Стовпці
 }
 ui-chart-no-data = Ця діаграма не має таблиці даних.
+ui-chart-options = Параметри діаграми
+ui-chart-stack = З накопиченням
 ui-chart-column-name = Назва стовпця { $col }
 ui-chart-remove-column = Видалити стовпець
 ui-chart-cell = Рядок { $row }, стовпець { $col }

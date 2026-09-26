@@ -88,6 +88,10 @@ ui-undo-rename-template = Đổi tên mẫu
 ui-undo-describe-template = Mô tả mẫu
 ui-undo-chart-kind = Đổi loại biểu đồ
 ui-undo-chart-data = Sửa dữ liệu
+ui-undo-chart-stack = { $stacked ->
+    [yes] Xếp chồng các chuỗi
+   *[no] Tách các chuỗi
+}
 
 ## Phần tử mới
 
@@ -199,6 +203,8 @@ ui-chart-kind = { $kind ->
    *[bar] Cột
 }
 ui-chart-no-data = Biểu đồ này không có bảng dữ liệu.
+ui-chart-options = Tùy chọn biểu đồ
+ui-chart-stack = Xếp chồng
 ui-chart-column-name = Tên cột { $col }
 ui-chart-remove-column = Xóa cột
 ui-chart-cell = Hàng { $row }, cột { $col }

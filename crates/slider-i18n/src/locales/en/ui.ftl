@@ -90,6 +90,10 @@ ui-undo-rename-template = Rename the template
 ui-undo-describe-template = Describe the template
 ui-undo-chart-kind = Change the chart type
 ui-undo-chart-data = Edit the data
+ui-undo-chart-stack = { $stacked ->
+    [yes] Stack the series
+   *[no] Unstack the series
+}
 
 ## New elements
 
@@ -201,6 +205,8 @@ ui-chart-kind = { $kind ->
    *[bar] Bars
 }
 ui-chart-no-data = This chart has no data table.
+ui-chart-options = Chart options
+ui-chart-stack = Stacked
 ui-chart-column-name = Name of column { $col }
 ui-chart-remove-column = Delete the column
 ui-chart-cell = Row { $row }, column { $col }
