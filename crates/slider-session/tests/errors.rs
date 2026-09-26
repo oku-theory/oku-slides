@@ -210,3 +210,43 @@ fn messages_give_the_ui_its_language_and_fluent_resources() {
     let resources: Vec<&str> = v["resources"].as_array().unwrap().iter().filter_map(|r| r.as_str()).collect();
     assert_that!(resources).is_equal_to(Localizer::new(Some(locale)).ui_messages());
 }
+
+#[test]
+fn chart_kind_converts_the_data_and_undoes_in_one_step() {
+    let dir = workdir();
+    let mut s = session(&dir);
+    s.new_deck().unwrap();
+    let slide = s.snapshot().slides[1].id.to_string();
+    let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
+        "op": "add_element", "slide": slide, "zone": "blocks",
+        "element": { "id": "g", "kind": "chart", "option": {
+            "xAxis": { "type": "category", "data": ["a", "b"] },
+            "series": [{ "type": "bar", "data": [3, 5] }] } } }] });
+    request(&mut s, add).unwrap();
+    let before = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    let to_scatter =
+        serde_json::json!({ "cmd": "chart_kind", "label": "nuage", "slide": slide, "element": "g", "kind": "scatter" });
+    request(&mut s, to_scatter).unwrap();
+    let after = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    assert_that!(after).contains(r#"["Série 1 (x)","Série 1"]"#);
+    assert_that!(after).contains(r#""type":"scatter""#);
+    request(&mut s, serde_json::json!({ "cmd": "undo" })).unwrap();
+    let undone = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
+    assert_that!(undone).is_equal_to(before);
+}
+
+#[test]
+fn chart_kind_on_a_text_or_missing_slide_is_refused() {
+    let dir = workdir();
+    let mut s = session(&dir);
+    s.new_deck().unwrap();
+    let slide = s.snapshot().slides[1].id.to_string();
+    let text =
+        serde_json::json!({ "cmd": "chart_kind", "label": "x", "slide": slide, "element": "b-1", "kind": "pie" });
+    let err = request(&mut s, text).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NoChart);
+    assert_that!(french(&err)).is_equal_to("b-1 n'est pas un graphique".to_owned());
+    let missing =
+        serde_json::json!({ "cmd": "chart_kind", "label": "x", "slide": "absente", "element": "g", "kind": "pie" });
+    assert_that!(request(&mut s, missing).unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
+}

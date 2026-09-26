@@ -30,9 +30,9 @@ mod views;
 
 pub use appearance::{Appearance, appearance};
 use error::{
-    BuiltinTemplateSetSnafu, EditingTemplatesSnafu, NoPathSnafu, NoSlideSnafu, NoTemplateSetSnafu,
-    NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu,
-    WriteSnafu,
+    BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, NoChartSnafu, NoPathSnafu, NoSlideSnafu,
+    NoTemplateSetSnafu, NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu,
+    SourcesSnafu, WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use files::{EXTENSION, Opened, read_document};
@@ -99,6 +99,13 @@ pub enum Request {
     Schema,
     /// Langue de l'utilisateur et messages Fluent de l'interface.
     Messages,
+    /// Change le type d'un graphique ; ses données sont converties. Annulable.
+    ChartKind {
+        label: String,
+        slide: String,
+        element: String,
+        kind: slider_chart::SeriesType,
+    },
     /// Modèles d'un ensemble (celui du deck par défaut), rendus avec le thème du deck.
     Templates {
         #[serde(default)]
@@ -407,6 +414,7 @@ impl Session {
             Request::Open { path } => self.open(&path)?,
             Request::Save { path } => self.save(path.as_deref())?,
             Request::Apply { label, ops } => self.apply(&label, ops)?,
+            Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
             Request::EditTemplates { set } => self.edit_templates(&set)?,
@@ -499,6 +507,26 @@ impl Session {
         }
         self.doc.dirty = true;
         Ok(())
+    }
+
+    /// Redessine le graphique `element` en `kind` : ses données sont
+    /// converties (en-têtes dans la langue de l'utilisateur), l'élément
+    /// remplacé en une transaction.
+    pub fn set_chart_kind(
+        &mut self,
+        label: &str,
+        slide: String,
+        element: &str,
+        kind: slider_chart::SeriesType,
+    ) -> Result<()> {
+        let deck = &self.doc.sources.deck;
+        let located = deck.slide(&slide).context(NoSlideSnafu { id: &slide })?.locate(element);
+        let mut chart = located.map(|l| l.element.clone()).context(NoChartSnafu { id: element })?;
+        let slider_core::ElementBody::Chart { option } = &mut chart.body else {
+            return Err(NoChartSnafu { id: element }.build().into());
+        };
+        *option = slider_chart::convert(option, kind, &self.chart_labels).context(ChartSnafu)?;
+        self.apply(label, vec![Op::ReplaceElement { slide, element: chart }])
     }
 
     pub fn undo(&mut self) -> Result<()> {

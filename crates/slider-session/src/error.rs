@@ -30,6 +30,10 @@ pub enum SessionErrorKind {
     /// Aucun fichier : il faut choisir où enregistrer.
     NoPath,
     NoSlide,
+    /// L'élément n'est pas un graphique (ou n'existe pas).
+    NoChart,
+    /// Le graphique n'a pas pu changer de type.
+    Chart,
     /// Ensemble de modèles introuvable.
     NoTemplateSet,
     /// Un ensemble intégré ne se supprime pas.
@@ -71,6 +75,10 @@ pub(crate) enum SessionInner {
     NoPath { backtrace: Backtrace },
     #[snafu(display("slide not found: {id}"))]
     NoSlide { id: String, backtrace: Backtrace },
+    #[snafu(display("not a chart: {id}"))]
+    NoChart { id: String, backtrace: Backtrace },
+    #[snafu(display("chart conversion failed"))]
+    Chart { source: slider_chart::ChartError, backtrace: Backtrace },
     #[snafu(display("template set not found: {id}"))]
     NoTemplateSet { id: String, backtrace: Backtrace },
     #[snafu(display("built-in template set {id} cannot be deleted"))]
@@ -96,6 +104,8 @@ impl SessionError {
             Render { .. } | NotRendered { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
+            NoChart { .. } => SessionErrorKind::NoChart,
+            Chart { .. } => SessionErrorKind::Chart,
             NoTemplateSet { .. } => SessionErrorKind::NoTemplateSet,
             BuiltinTemplateSet { .. } => SessionErrorKind::BuiltinTemplateSet,
             NoTemplatesDir { .. } => SessionErrorKind::NoTemplatesDir,
@@ -140,6 +150,8 @@ impl Localize for SessionError {
             NotRendered { .. } => l.tr("session-not-rendered"),
             NoPath { .. } => l.tr("session-no-path"),
             NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
+            NoChart { id, .. } => l.tr_with("op-not-a-chart", &[("subject", id.as_str().into())]),
+            Chart { source, .. } => source.localize(l),
             NoTemplateSet { id, .. } => l.tr_with("session-no-template-set", &[("id", id.as_str().into())]),
             BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
             NoTemplatesDir { .. } => l.tr("session-no-templates-dir"),
