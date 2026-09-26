@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import type { Op, Paragraph, SetInfo, SlideView, Snapshot, TemplateView } from "./api";
 import { api, inTauri, pickOpenPath, pickSavePath } from "./api";
 import { applyAppearance } from "./appearance";
-import { findElement, gridPlacement, instantiate, neighbourSlide, newId, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
+import { findElement, gridPlacement, instantiate, neighbourSlide, newId, pickSlide, placeOnGridOps, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
@@ -134,11 +134,29 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appearanceKey]);
 
-  // Slide courante : la première si l'actuelle a disparu.
+  // --- Grille de la slide -------------------------------------------------
+  const [gridAlways, setGridAlways] = useState(true);
+
+  // Au premier snapshot, l'interface reprend la slide et la grille gardées par
+  // l'hôte ; ensuite, la slide courante, ou la première si elle a disparu.
+  const restored = useRef(false);
   useEffect(() => {
     if (!snap) return;
-    if (!current || !snap.slides.some((s) => s.id === current)) setCurrent(snap.slides[0]?.id ?? null);
+    if (!restored.current) {
+      restored.current = true;
+      setGridAlways(snap.ui.grid);
+    }
+    const next = pickSlide(snap.slides, current, snap.ui.slide);
+    if (next !== current) setCurrent(next);
   }, [snap, current]);
+
+  // Slide courante et grille : l'hôte les garde pour le prochain lancement.
+  useEffect(() => {
+    if (!restored.current) return;
+    api.ui(current, gridAlways).catch(() => {
+      /* reprise facultative : l'édition continue */
+    });
+  }, [current, gridAlways]);
 
   // Jamais la vue d'une slide que le snapshot n'a plus (elle vient d'être supprimée).
   const fetchId = snap ? slideToFetch(snap.slides, current) : null;
@@ -224,21 +242,6 @@ export default function App() {
     });
   };
 
-  // --- Grille de la slide -------------------------------------------------
-  const [gridAlways, setGridAlways] = useState(() => {
-    try {
-      return localStorage.getItem("oku-slides.grid") !== "off";
-    } catch {
-      return true;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("oku-slides.grid", gridAlways ? "on" : "off");
-    } catch {
-      /* préférence facultative */
-    }
-  }, [gridAlways]);
   // Toute slide à zone libre a une grille, résolue par le rendu (celle par
   // défaut si la slide n'en précise pas) ; l'accrochage est automatique.
   const slideGrid = view?.zone?.grid ?? undefined;
