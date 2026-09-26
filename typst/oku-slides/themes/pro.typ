@@ -20,8 +20,8 @@
     white: "#ffffff",
   ),
   font: (
-    display: ("Inter", "Noto Sans Arabic"),
-    body: ("Inter", "Noto Sans Arabic"),
+    display: ("Inter",),
+    body: ("Inter",),
   ),
   size: (
     display: 104,   // cover-title

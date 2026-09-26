@@ -45,8 +45,9 @@ Tous les restes du retrofit sont faits, chacun avec sa tâche et ses tests :
 
 Limites connues :
 - CTranslate2 lit les poids du modèle par chemin (code natif, hors OpenDAL).
-- Slides en hindi, bengali, thaï, chinois, japonais et coréen : aucune
-  police livrée ne couvre ces alphabets (l'arabe a Noto Sans Arabic, t-72).
+- Slides en hindi, bengali et thaï : aucune police livrée ne couvre ces
+  alphabets (l'arabe a Noto Sans Arabic, t-72 ; le chinois, le japonais et le
+  coréen Noto Sans CJK en sous-ensembles, t-176, sans graphie serif).
 - Les traductions ont été produites sans relecture native.
 
 ---

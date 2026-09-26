@@ -19,9 +19,9 @@
     rule: "#d9d6d0",
   ),
   font: (
-    // Noto Sans Arabic (livrée avec l'app) : l'arabe.
-    display: ("Libertinus Serif", "Noto Sans Arabic"),
-    body: ("Libertinus Serif", "Noto Sans Arabic"),
+    // Les alphabets hors latin : `script-fallback`, ajouté par `deck`.
+    display: ("Libertinus Serif",),
+    body: ("Libertinus Serif",),
     mono: ("DejaVu Sans Mono",),
   ),
   size: (
@@ -153,6 +153,37 @@
     out.insert(k, if k in a { merge(a.at(k), v) } else { v })
   }
   out
+}
+
+// ---- Alphabets hors latin --------------------------------------------------
+
+// Langue et région Typst d'une étiquette BCP 47 ("zh-Hant-TW" → ("zh", "TW")).
+#let split-lang(tag) = {
+  let parts = tag.split("-")
+  let region = parts.slice(1).find(p => p.len() == 2)
+  (lower(parts.first()), if region == none { none } else { upper(region) })
+}
+
+// Polices livrées pour les alphabets que les polices des thèmes ne couvrent
+// pas. Les idéogrammes communs se dessinent selon la région : celle de la
+// langue passe en tête (chinois simplifié par défaut).
+#let script-fallback(tag) = {
+  let parts = lower(tag).split("-")
+  let first = if parts.first() == "ja" { "JP" } else if parts.first() == "ko" { "KR" } else if (
+    parts.first() == "zh" and parts.any(p => p in ("hant", "tw", "hk", "mo"))
+  ) { "TC" } else { "SC" }
+  let regions = (first,) + ("JP", "SC", "TC", "KR").filter(r => r != first)
+  ("Noto Sans Arabic",) + regions.map(r => "Noto Sans " + r)
+}
+
+// Ajoute `script-fallback(tag)` à chaque famille de `t.font`.
+#let with-script-fallback(t, tag) = {
+  let fallback = script-fallback(tag)
+  for (k, v) in t.font {
+    let families = if type(v) == array { v } else { (v,) }
+    t.font.insert(k, families.filter(f => f not in fallback) + fallback)
+  }
+  t
 }
 
 // ---- Résolution des jetons -------------------------------------------------

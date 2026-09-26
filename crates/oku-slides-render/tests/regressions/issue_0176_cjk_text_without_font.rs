@@ -1,0 +1,80 @@
+//! Le japonais, le chinois et le coréen sortaient en carrés vides (.notdef) :
+//! aucune police livrée ne couvrait ces alphabets (t-176). Typst ne signale
+//! pas un glyphe manquant ; on lit donc les polices embarquées dans le PDF.
+//! Les idéogrammes communs se dessinent différemment selon la région : la
+//! police retenue suit la langue du deck.
+
+use std::collections::BTreeMap;
+
+use oku_slides_core::Deck;
+use oku_slides_render::{Fonts, Renderer};
+use serde_json::json;
+use speculoos::prelude::*;
+
+/// Les polices livrées avec l'app, comme les charge `oku-slides --fonts`.
+fn app_fonts() -> Fonts {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts");
+    let files = std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{dir} illisible : {e}"));
+    Fonts::new(files.filter_map(|f| {
+        let path = f.ok()?.path();
+        matches!(path.extension()?.to_str()?, "ttf" | "otf" | "ttc").then(|| std::fs::read(path).ok())?
+    }))
+}
+
+/// PDF d'une slide de titre et de texte en `theme`, dans la langue `lang`.
+fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
+    let deck: Deck = serde_json::from_value(json!({
+        "theme": theme, "params": { "lang": lang },
+        "slides": [{ "id": "s", "kind": "content", "title": text, "blocks": [
+            { "id": "b", "kind": "text", "text": [{ "runs": [{ "t": text }] }] }
+        ] }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
+    r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Noms des polices embarquées (`/BaseFont/ABCDEF+Nom`), sans le préfixe de sous-ensemble.
+fn embedded_fonts(pdf: &[u8]) -> Vec<String> {
+    let s = String::from_utf8_lossy(pdf);
+    let mut names: Vec<String> = s
+        .split("/BaseFont/")
+        .skip(1)
+        .filter_map(|rest| {
+            let name = rest.split(['/', ' ', '>', '\n']).next()?;
+            Some(name.split_once('+').map_or(name, |(_, n)| n).trim_end_matches("-Identity-H").to_owned())
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+#[test]
+fn cjk_text_in_every_theme_is_drawn_with_cjk_fonts() {
+    for theme in [Some("papier"), Some("pro"), None] {
+        let fonts = embedded_fonts(&pdf(theme, "ja", "日本語 한국어 中文"));
+        asserting(&format!("{theme:?} : {fonts:?}")).that(&fonts.iter().any(|f| f.starts_with("NotoSansJP"))).is_true();
+        asserting(&format!("{theme:?} : {fonts:?}")).that(&fonts.iter().any(|f| f.starts_with("NotoSansKR"))).is_true();
+    }
+}
+
+#[test]
+fn han_characters_follow_the_deck_language_region() {
+    for (lang, region) in [("ja", "JP"), ("zh", "SC"), ("zh-TW", "TC"), ("zh-Hant", "TC"), ("ko", "KR"), ("fr", "SC")] {
+        let fonts = embedded_fonts(&pdf(Some("papier"), lang, "中文 直"));
+        let cjk: Vec<_> = fonts.iter().filter(|f| f.starts_with("NotoSans") && !f.contains("Arabic")).collect();
+        asserting(&format!("{lang} : {fonts:?}"))
+            .that(&cjk.iter().all(|f| f.starts_with(&format!("NotoSans{region}"))))
+            .is_true();
+        asserting(&format!("{lang} : {fonts:?}")).that(&cjk.is_empty()).is_false();
+    }
+}
+
+#[test]
+fn cjk_pdf_embeds_only_the_used_glyphs() {
+    let size = pdf(Some("papier"), "ja", "日本語 한국어 中文").len();
+    // Une police CJK complète pèse plusieurs Mo : seul le sous-ensemble utilisé est embarqué.
+    assert_that!(size).is_less_than(300_000);
+}

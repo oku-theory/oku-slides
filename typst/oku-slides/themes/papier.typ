@@ -11,9 +11,8 @@
     rule: "#ddd7cc",
   ),
   font: (
-    // Noto Sans Arabic : l'arabe, que les polices latines ne couvrent pas.
-    display: ("Newsreader", "Newsreader 16pt", "Libertinus Serif", "Noto Sans Arabic"),
-    body: ("Instrument Sans", "Libertinus Serif", "Noto Sans Arabic"),
+    display: ("Newsreader", "Newsreader 16pt", "Libertinus Serif"),
+    body: ("Instrument Sans", "Libertinus Serif"),
   ),
   weight: (display: 500, title: 500, label: 500, strong: 600),
   // Graphiques : l'accent d'abord, puis des tons chauds et sourds du papier.

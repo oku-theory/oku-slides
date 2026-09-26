@@ -4,3 +4,4 @@
 mod issue_0001_asset_id_escaping_or_injecting;
 mod issue_0002_chart_small_frame_or_huge_data;
 mod issue_0003_numbered_list_counts_up;
+mod issue_0176_cjk_text_without_font;

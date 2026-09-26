@@ -12,6 +12,8 @@
   if theme != none { t = merge(t, theme) }
   t = merge(t, tokens)
   let p = merge(default-params, params.named())
+  t = with-script-fallback(t, p.lang)
+  let (lang, region) = split-lang(p.lang)
   for key in ("title", "subtitle", "author", "organization", "date") {
     p.insert(key, interp(p.at(key), vars))
   }
@@ -42,7 +44,8 @@
     size: size-of(t, "body"),
     weight: weight-of(t, "body"),
     fill: color-of(t, "ink"),
-    lang: p.lang,
+    lang: lang,
+    region: region,
   )
   set par(leading: leading-of(t, "normal"), spacing: space-of(t, "md"))
   set list(
