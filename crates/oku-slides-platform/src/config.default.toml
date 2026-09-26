@@ -15,6 +15,12 @@
 # Transactions gardées pour annuler.
 limit = 500
 
+[resume]
+# Reprises illisibles mises de côté (`resume.failed-…`, `tabs/t-….failed-…`) :
+# au lancement, seules les plus récentes restent, dans chacun des deux dossiers
+# (0 : aucune ; celles de ce lancement restent jusqu'au suivant).
+keep_failed = 3
+
 [serve]
 # Serveur de développement (`oku-slides serve`).
 host = "127.0.0.1"

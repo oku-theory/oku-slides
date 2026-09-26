@@ -601,3 +601,52 @@ fn resume_with_info_that_is_not_an_object_reads_the_tabs() {
     let aside: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
     assert_that!(aside).is_empty();
 }
+
+/// t-143 : au lancement, seules les `keep_failed` (3) dernières reprises
+/// mises de côté restent, à la racine comme parmi les onglets ; un dossier
+/// étranger n'est jamais touché.
+#[test]
+fn resume_prunes_old_failed_folders_beyond_the_setting() {
+    let data = Data::new();
+    drop(resumed(&data));
+    for secs in [10, 20, 30, 40] {
+        std::fs::create_dir_all(data.0.join(format!("resume.failed-{secs}"))).unwrap_or_else(|e| panic!("{e}"));
+        std::fs::create_dir_all(data.resume().join(format!("tabs/t-9.failed-{secs}")))
+            .unwrap_or_else(|e| panic!("{e}"));
+    }
+    std::fs::create_dir_all(data.0.join("resume.failed-notes")).unwrap_or_else(|e| panic!("{e}"));
+    drop(resumed(&data));
+    let root: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
+    assert_that!(root).is_equal_to(vec![
+        "resume.failed-20".to_owned(),
+        "resume.failed-30".to_owned(),
+        "resume.failed-40".to_owned(),
+        "resume.failed-notes".to_owned(),
+    ]);
+    let tabs: Vec<String> = names(&data.resume().join("tabs")).into_iter().filter(|n| n.contains(".failed-")).collect();
+    assert_that!(tabs).is_equal_to(vec![
+        "t-9.failed-20".to_owned(),
+        "t-9.failed-30".to_owned(),
+        "t-9.failed-40".to_owned(),
+    ]);
+}
+
+/// Le réglage `resume.keep_failed` fait foi (ici 1), et une reprise mise de
+/// côté pendant ce lancement reste jusqu'au suivant, même à 0.
+#[test]
+fn resume_prunes_with_the_configured_count_and_spares_this_launch() {
+    let data = Data::new();
+    drop(resumed(&data));
+    for secs in [10, 20] {
+        std::fs::create_dir_all(data.0.join(format!("resume.failed-{secs}"))).unwrap_or_else(|e| panic!("{e}"));
+    }
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}"));
+    settings.paths.data = Some(data.0.clone());
+    settings.resume.keep_failed = 0;
+    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(data.resume().join("workspace.json"), b"pas du json").unwrap_or_else(|e| panic!("{e}"));
+    drop(Workspace::resume(Fonts::default(), &platform, data.resume()).unwrap_or_else(|e| panic!("{}", e.one_line())));
+    let root: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
+    assert_that!(root).has_length(1);
+    assert_that!(root.iter().any(|n| n == "resume.failed-10" || n == "resume.failed-20")).is_false();
+}

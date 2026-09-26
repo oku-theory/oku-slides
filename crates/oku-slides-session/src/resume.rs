@@ -266,6 +266,38 @@ impl Resume {
         Ok(to)
     }
 
+    /// Ne garde que les `keep` plus récents des dossiers mis de côté de `dir`.
+    ///
+    /// Candidats : `<base>.failed-<secondes>[-<n>]` où `is_base(<base>)`
+    /// (voir [`failed_to_prune`]) ; rien d'autre n'est touché. Chaque
+    /// suppression, ou son échec, est journalisée.
+    pub(crate) fn prune_failed(storage: &Storage, dir: &Path, is_base: impl Fn(&str) -> bool, keep: usize) {
+        let listed = match storage.list_dirs(dir) {
+            Ok(listed) => listed,
+            Err(e) => {
+                tracing::warn!(
+                    path = %dir.display(),
+                    error = %oku_slides_platform::errors::one_line(&e),
+                    "reprises mises de côté non listées : rien n'est supprimé"
+                );
+                return;
+            }
+        };
+        let names: Vec<String> =
+            listed.iter().filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())).collect();
+        for name in failed_to_prune(&names, is_base, keep) {
+            let path = dir.join(&name);
+            match storage.delete_dir(&path) {
+                Ok(()) => tracing::info!(path = %path.display(), "ancienne reprise mise de côté supprimée"),
+                Err(e) => tracing::warn!(
+                    path = %path.display(),
+                    error = %oku_slides_platform::errors::one_line(&e),
+                    "ancienne reprise mise de côté non supprimée"
+                ),
+            }
+        }
+    }
+
     /// Relit un document ; son historique garde au plus `history_limit` transactions.
     pub fn read_doc(&self, sub: &str, history_limit: usize) -> Result<Document> {
         let dir = self.dir.join(sub);
@@ -314,6 +346,34 @@ impl Resume {
             blank: raw.blank,
         })
     }
+}
+
+/// Horodatage et suffixe d'un dossier `<base>.failed-<secondes>[-<n>]`.
+fn failed_stamp(name: &str, is_base: &impl Fn(&str) -> bool) -> Option<(u64, u64)> {
+    let (base, rest) = name.split_once(".failed-")?;
+    if !is_base(base) {
+        return None;
+    }
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let (secs, n) = match rest.split_once('-') {
+        Some((secs, n)) if digits(secs) && digits(n) => (secs, n),
+        None if digits(rest) => (rest, "0"),
+        _ => return None,
+    };
+    Some((secs.parse().ok()?, n.parse().ok()?))
+}
+
+/// Les dossiers mis de côté à supprimer : tous sauf les `keep` plus récents.
+///
+/// Ordre : horodatage puis suffixe, en nombres (`-100-10` après `-100-2`).
+/// Un nom hors du motif n'est jamais candidat. Renvoyés du plus ancien au
+/// plus récent.
+pub(crate) fn failed_to_prune(names: &[String], is_base: impl Fn(&str) -> bool, keep: usize) -> Vec<String> {
+    let mut failed: Vec<((u64, u64), &String)> =
+        names.iter().filter_map(|n| Some((failed_stamp(n, &is_base)?, n))).collect();
+    failed.sort();
+    let excess = failed.len().saturating_sub(keep);
+    failed.into_iter().take(excess).map(|(_, n)| n.clone()).collect()
 }
 
 impl Session {

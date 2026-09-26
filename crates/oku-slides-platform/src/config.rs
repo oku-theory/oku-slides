@@ -31,6 +31,7 @@ pub struct ConfigError {
 pub struct Settings {
     pub paths: PathSettings,
     pub history: HistorySettings,
+    pub resume: ResumeSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub stt: SttSettings,
@@ -52,6 +53,14 @@ pub struct PathSettings {
 pub struct HistorySettings {
     /// Transactions gardées pour annuler.
     pub limit: usize,
+}
+
+/// Reprise de l'état au relancement.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct ResumeSettings {
+    /// Reprises mises de côté (`*.failed-*`) gardées au lancement, par dossier.
+    pub keep_failed: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

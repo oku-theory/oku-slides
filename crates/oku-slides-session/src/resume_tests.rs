@@ -197,3 +197,51 @@ fn write_doc_then_read_doc_keeps_a_non_blank_flag() {
     assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
+
+fn names(v: &[&str]) -> Vec<String> {
+    v.iter().map(|s| (*s).to_owned()).collect()
+}
+
+/// t-143 : au-delà de `keep`, les plus anciens partent ; l'ordre est celui
+/// de l'horodatage puis du suffixe, en nombres (pas alphabétique).
+#[test]
+fn failed_to_prune_beyond_keep_returns_the_oldest_in_numeric_order() {
+    let found = names(&[
+        "resume.failed-100",
+        "resume.failed-99",
+        "resume.failed-100-2",
+        "resume.failed-100-10",
+        "resume.failed-1000",
+    ]);
+    let gone = failed_to_prune(&found, |b| b == "resume", 2);
+    assert_that!(gone).is_equal_to(names(&["resume.failed-99", "resume.failed-100", "resume.failed-100-2"]));
+}
+
+#[test]
+fn failed_to_prune_within_keep_returns_nothing() {
+    let found = names(&["resume.failed-1", "resume.failed-2"]);
+    assert_that!(failed_to_prune(&found, |b| b == "resume", 3)).is_empty();
+}
+
+/// Seuls les dossiers au motif exact sont candidats : jamais un nom voisin.
+#[test]
+fn failed_to_prune_ignores_names_outside_the_pattern() {
+    let found = names(&[
+        "resume",
+        "resume.failed-",
+        "resume.failed-12x",
+        "resume.failed-1-",
+        "resume.failed-1-2-3",
+        "autre.failed-5",
+        "resume.failed-7",
+    ]);
+    assert_that!(failed_to_prune(&found, |b| b == "resume", 0)).is_equal_to(names(&["resume.failed-7"]));
+}
+
+/// Onglets : un seul ensemble, tous identifiants confondus.
+#[test]
+fn failed_to_prune_across_tab_folders_keeps_the_most_recent_overall() {
+    let found = names(&["t-1.failed-10", "t-2.failed-30", "t-3.failed-20", "t-2", "t-x.failed-40"]);
+    let is_tab = |b: &str| b.strip_prefix("t-").is_some_and(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit()));
+    assert_that!(failed_to_prune(&found, is_tab, 2)).is_equal_to(names(&["t-1.failed-10"]));
+}

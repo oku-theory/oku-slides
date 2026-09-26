@@ -167,8 +167,10 @@ resume/
    Fenêtre restée sans onglet : retirée. Plus aucune fenêtre : une fenêtre,
    un onglet vierge.
 4. Dossiers `tabs/t-<n>` que `workspace.json` ne cite pas (ni dans une
-   fenêtre, ni dans `kept`) : supprimés. Les dossiers mis de côté et les
-   noms étrangers restent.
+   fenêtre, ni dans `kept`) : supprimés. Les noms étrangers restent. Les
+   dossiers mis de côté aussi, sauf au-delà du réglage `resume.keep_failed`
+   (3 par défaut) : au lancement, seuls les plus récents restent, parmi les
+   `resume.failed-*` et parmi les `tabs/t-<n>.failed-*` (t-143).
    Un onglet neuf ne relit rien : un reste trouvé à son numéro est mis de
    côté, l'onglet garde son deck (le fichier tout juste ouvert) et sa
    reprise démarre à neuf ; seul un reste impossible à déplacer le laisse

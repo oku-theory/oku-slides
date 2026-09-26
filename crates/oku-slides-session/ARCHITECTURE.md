@@ -11,8 +11,7 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : les
   fenêtres `w-<n>`, leurs onglets `t-<n>`, l'onglet actif, la fenêtre active ;
   `TabInfo` (`views.rs`) : ce que la barre montre d'un onglet.
-- `Slot` (`workspace_slot.rs`) : la session d'un onglet, `Ready`, `Dormant`
-  (reprise, pas encore relue) ou `Closed` (fermé endormi, jamais réveillé).
+- `Slot` (`workspace_slot.rs`) : session d'un onglet, `Ready`, `Dormant` ou `Closed`.
 - `workspace_resume.rs` : relecture et écriture de `workspace.json`, orphelins, `open_files`.
 
 ## Verrous
@@ -40,7 +39,8 @@ tabs/t-<n>/      state.json, deck/, templates/   (écrit par sa session seule)
 - `workspace.json` n'est pas digne de confiance : identifiants validés,
   infos lues entrée par entrée, compteurs bornés. Illisible : tout
   `resume/` mis de côté (`resume.failed-…`) ; un onglet illisible : son
-  dossier seul (`t-<n>.failed-…`).
+  dossier seul (`t-<n>.failed-…`). Au lancement, seuls les
+  `resume.keep_failed` plus récents de chaque sorte restent.
 - Restauration paresseuse : la barre vient de `info`, une session n'est
   relue qu'à la première requête de son onglet (ADR-0001).
 

@@ -62,6 +62,9 @@ impl Workspace {
     /// côté seul et retiré ; les autres restent.
     pub fn resume(fonts: Fonts, platform: &Platform, dir: PathBuf) -> Result<Self> {
         let mut ws = Self::empty(fonts, platform, Some(dir.clone()));
+        // Avant toute relecture : ce que ce lancement met de côté reste
+        // intact jusqu'au suivant, quels que soient le réglage et l'horloge.
+        ws.prune_failed(&dir);
         let cited = match ws.restore(&dir) {
             Ok(cited) => cited,
             Err(e) => {
@@ -69,7 +72,7 @@ impl Workspace {
                 ws.tabs.clear();
                 ws.layout = Layout::new();
                 ws.recent.clear();
-                match Resume::new(platform.storage.clone(), dir).quarantine() {
+                match Resume::new(platform.storage.clone(), dir.clone()).quarantine() {
                     Ok(moved) => tracing::warn!(path = %moved.display(), "reprise en échec mise de côté"),
                     Err(e) => {
                         tracing::warn!(
@@ -205,6 +208,19 @@ impl Workspace {
         }
         self.tabs.insert(id.to_owned(), Tab::new(session));
         true
+    }
+
+    /// Ne garde que les plus récentes reprises mises de côté (réglage
+    /// `resume.keep_failed`) : `resume.failed-*` à côté de `dir`, et
+    /// `t-<n>.failed-*` dans `dir/tabs`, tous onglets confondus. Appelée
+    /// avant la relecture : jamais sur ce que ce lancement met de côté.
+    fn prune_failed(&self, dir: &Path) {
+        let (storage, keep) = (&self.platform.storage, self.platform.settings.resume.keep_failed);
+        let root = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if let Some(parent) = dir.parent() {
+            Resume::prune_failed(storage, parent, |b| b == root, keep);
+        }
+        Resume::prune_failed(storage, &dir.join(TABS_DIR), is_tab_id, keep);
     }
 
     /// Supprime les dossiers `t-<n>` que `workspace.json` ne citait pas.

@@ -18,6 +18,7 @@ fn env(vars: &[(&str, &str)]) -> config::Environment {
 fn defaults_embedded_file_gives_documented_values() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.history.limit).is_equal_to(500);
+    assert_that!(s.resume.keep_failed).is_equal_to(3);
     assert_that!((s.serve.host.as_str(), s.serve.port)).is_equal_to(("127.0.0.1", 4870));
     assert_that!(s.stt.tick_ms).is_equal_to(50);
     assert_that!(s.stt.vad.onset_frames).is_equal_to(3);
