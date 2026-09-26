@@ -61,12 +61,14 @@ fn render_each_v1_type_produces_svg() {
             }),
         ),
     ];
+    // Cargo fournit CARGO_TARGET_TMPDIR à la compilation des tests d'intégration : env! est voulu.
+    let out_dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("oku-slides-chart-svg");
     for (name, option) in cases {
         let svg = render(option);
         asserting(&format!("{name} : pas un SVG")).that(&svg.as_str()).starts_with("<svg");
         asserting(&format!("{name} : taille non appliquée")).that(&svg.as_str()).contains("width=\"640\"");
-        std::fs::create_dir_all("target/oku-slides-chart-svg").unwrap();
-        std::fs::write(format!("target/oku-slides-chart-svg/{name}.svg"), svg).unwrap();
+        std::fs::create_dir_all(&out_dir).unwrap();
+        std::fs::write(out_dir.join(format!("{name}.svg")), svg).unwrap();
     }
 }
 
