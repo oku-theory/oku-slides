@@ -58,6 +58,8 @@ pub(crate) enum SttInner {
     ModelLoad { dir: PathBuf, source: BoxError, backtrace: Backtrace },
     #[snafu(display("unreadable model file {}", path.display()))]
     ModelFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
+    #[snafu(display("dictation model has no {name} ({})", dir.display()))]
+    MissingModelFile { dir: PathBuf, name: &'static str, backtrace: Backtrace },
     #[snafu(display("invalid model settings"))]
     ModelSettings { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid model settings: {field} must be positive"))]
@@ -95,9 +97,12 @@ impl SttError {
             | UnsupportedFormat { .. }
             | MicrophoneTimeout { .. } => SttErrorKind::Microphone,
             AudioFile { .. } | Wav { .. } => SttErrorKind::AudioFile,
-            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | ZeroSetting { .. } | MelFilters { .. } => {
-                SttErrorKind::Model
-            }
+            ModelLoad { .. }
+            | ModelFile { .. }
+            | MissingModelFile { .. }
+            | ModelSettings { .. }
+            | ZeroSetting { .. }
+            | MelFilters { .. } => SttErrorKind::Model,
             Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => {
                 SttErrorKind::Transcription
             }
@@ -118,9 +123,12 @@ impl Localize for SttError {
             MicrophoneTimeout { .. } => l.tr("stt-microphone-silent"),
             UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
             AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
-            ModelLoad { .. } | ModelFile { .. } | ModelSettings { .. } | ZeroSetting { .. } | MelFilters { .. } => {
-                l.tr("stt-model")
-            }
+            ModelLoad { .. }
+            | ModelFile { .. }
+            | MissingModelFile { .. }
+            | ModelSettings { .. }
+            | ZeroSetting { .. }
+            | MelFilters { .. } => l.tr("stt-model"),
             Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => l.tr("stt-transcription"),
             Incomplete { got, expected, .. } => {
                 l.tr_with("stt-download-incomplete", &[("got", (*got).into()), ("expected", (*expected).into())])

@@ -49,6 +49,8 @@ typst-layout = "0.15.1"
 tiny_http = "0.12"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
+# Même version que ct2rs : son tokenizer se construit depuis un tokenizers::Tokenizer.
+tokenizers = { version = "0.22", default-features = false }
 mel_spec = "0.3"
 ndarray = "0.16"
 earshot = "1.2"

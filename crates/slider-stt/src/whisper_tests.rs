@@ -79,13 +79,6 @@ fn preprocessor_zero_hop_length_returns_model_error() {
 }
 
 #[test]
-fn preprocessor_read_missing_file_returns_model_error() {
-    let storage = Storage::local().unwrap();
-    let err = Preprocessor::read(&storage, Path::new("/nonexistent/preprocessor_config.json")).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
-}
-
-#[test]
 fn mel_empty_audio_returns_no_chunk() {
     let (features, chunks) = small().mel(&[]).unwrap();
     assert_that!(chunks).is_equal_to(0);
@@ -189,4 +182,48 @@ fn transcriber_real_model_transcribes_without_error() {
     let fixed = t.transcribe(&silence, Some("fr"), None, false).unwrap();
     assert_that!(fixed.language.as_deref()).is_equal_to(Some("fr"));
     assert_that!(t.transcribe(&[], None, None, true).unwrap().text.is_empty()).is_true();
+    // Une vraie phrase, si fournie : WAV mono 16 kHz 16 bits et texte attendu.
+    if let (Some(wav), Some(expected)) =
+        (std::env::var_os("ECHO_TEST_WHISPER_WAV"), std::env::var("ECHO_TEST_WHISPER_TEXT").ok())
+    {
+        let mut reader = hound::WavReader::open(wav).unwrap();
+        let samples: Vec<f32> = reader.samples::<i16>().map(|s| f32::from(s.unwrap()) / 32768.0).collect();
+        let heard = t.transcribe(&samples, Some("fr"), None, false).unwrap().text.to_lowercase();
+        for word in expected.to_lowercase().split_whitespace() {
+            asserting(&format!("« {word} » dans « {heard} »")).that(&heard.contains(word)).is_true();
+        }
+    }
+}
+
+fn model_dir(name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("echo-whisper-{name}-{}", std::process::id()))
+}
+
+#[test]
+fn read_model_lists_visible_files_through_storage() {
+    let storage = Storage::local().unwrap();
+    let dir = model_dir("read");
+    storage.write(&dir.join("model.bin"), b"poids".to_vec()).unwrap();
+    storage.write(&dir.join("config.json"), b"{}".to_vec()).unwrap();
+    storage.write(&dir.join(".complete"), Vec::new()).unwrap();
+    let mut names: Vec<String> = super::read_model(&storage, &dir).unwrap().into_iter().map(|(n, _)| n).collect();
+    names.sort();
+    assert_that!(names).is_equal_to(vec!["config.json".to_owned(), "model.bin".to_owned()]);
+}
+
+#[test]
+fn read_model_without_files_returns_model_error() {
+    let storage = Storage::local().unwrap();
+    let err = super::read_model(&storage, &model_dir("absent")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
+}
+
+#[test]
+fn load_without_tokenizer_returns_model_error() {
+    let storage = Storage::local().unwrap();
+    let dir = model_dir("no-tokenizer");
+    storage.write(&dir.join("model.bin"), b"poids".to_vec()).unwrap();
+    let err = super::Transcriber::load(&dir, &storage).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
+    assert_that!(err.to_string()).contains("tokenizer.json");
 }

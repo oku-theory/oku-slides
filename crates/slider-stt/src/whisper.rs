@@ -18,8 +18,8 @@ use slider_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::error::{
-    FeaturesSnafu, MelFiltersSnafu, ModelFileSnafu, ModelLoadSnafu, ModelSettingsSnafu, NoLanguageSnafu,
-    NotContiguousSnafu, SttError, TranscribeSnafu, ZeroSettingSnafu, boxed,
+    FeaturesSnafu, MelFiltersSnafu, MissingModelFileSnafu, ModelFileSnafu, ModelLoadSnafu, ModelSettingsSnafu,
+    NoLanguageSnafu, NotContiguousSnafu, SttError, TranscribeSnafu, ZeroSettingSnafu, boxed,
 };
 
 /// Résultat d'une transcription.
@@ -60,19 +60,38 @@ impl std::fmt::Debug for Transcriber {
 }
 
 impl Transcriber {
-    /// `dir` : dossier d'un modèle CTranslate2. Les poids sont quantifiés en int8
-    /// au chargement (rapide sur processeur, peu de mémoire).
+    /// `dir` : dossier d'un modèle CTranslate2. Ses fichiers sont lus par
+    /// `storage` et donnés à CTranslate2 en mémoire, un par un (chacun est
+    /// libéré dès qu'il est copié). Les poids sont quantifiés en int8 au
+    /// chargement (rapide sur processeur, peu de mémoire).
     pub fn load(dir: &Path, storage: &Storage) -> Result<Self, SttError> {
+        let files = read_model(storage, dir)?;
+        let file = |name: &'static str| {
+            files
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, b)| b.as_slice())
+                .context(MissingModelFileSnafu { dir, name })
+        };
+        let json = file("tokenizer.json")?;
+        let mut tokenizer: hf::Tokenizer =
+            tokenizers::Tokenizer::from_bytes(json).map_err(boxed).context(ModelLoadSnafu { dir })?.into();
+        // Le contexte est encodé sans jetons spéciaux automatiques.
+        tokenizer.disable_spacial_token();
+        let pre = Preprocessor::parse(file("preprocessor_config.json")?)?;
+
+        // L'identifiant ne sert qu'aux messages de CTranslate2.
+        let mut reader = sys::ModelMemoryReader::new("whisper").map_err(boxed).context(ModelLoadSnafu { dir })?;
+        for (name, bytes) in files {
+            reader.register_file(&name, &bytes);
+        }
         let config = sys::Config {
             compute_type: sys::ComputeType::INT8,
             num_threads_per_replica: threads(),
             ..Default::default()
         };
-        let whisper = sys::Whisper::new(dir, config).map_err(boxed).context(ModelLoadSnafu { dir })?;
-        let mut tokenizer = hf::Tokenizer::new(dir).map_err(boxed).context(ModelLoadSnafu { dir })?;
-        // Le contexte est encodé sans jetons spéciaux automatiques.
-        tokenizer.disable_spacial_token();
-        let pre = Preprocessor::read(storage, &dir.join("preprocessor_config.json"))?;
+        let whisper =
+            sys::Whisper::new_from_memory(&mut reader, config).map_err(boxed).context(ModelLoadSnafu { dir })?;
         Ok(Self { whisper, tokenizer, pre })
     }
 
@@ -153,11 +172,23 @@ impl Transcriber {
     }
 }
 
-impl Preprocessor {
-    fn read(storage: &Storage, path: &Path) -> Result<Self, SttError> {
-        Self::parse(&storage.read(path).context(ModelFileSnafu { path })?)
+/// Fichiers d'un modèle (nom, contenu), lus par `storage` ; les fichiers
+/// cachés (`.complete`, téléchargements `.part`) sont ignorés.
+pub(crate) fn read_model(storage: &Storage, dir: &Path) -> Result<Vec<(String, Vec<u8>)>, SttError> {
+    let mut out = Vec::new();
+    for path in storage.list_files(dir).context(ModelFileSnafu { path: dir })? {
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
+        if name.starts_with('.') || name.ends_with(".part") {
+            continue;
+        }
+        let bytes = storage.read(&path).context(ModelFileSnafu { path: &path })?;
+        out.push((name.to_owned(), bytes));
     }
+    ensure!(!out.is_empty(), MissingModelFileSnafu { dir, name: "model.bin" });
+    Ok(out)
+}
 
+impl Preprocessor {
     /// Lit `preprocessor_config.json` ; sans filtres mel fournis, ils sont calculés.
     fn parse(bytes: &[u8]) -> Result<Self, SttError> {
         #[derive(Deserialize)]
@@ -301,7 +332,7 @@ pub(crate) fn repetitive(text: &str) -> bool {
 
 /// Fils de calcul : les cœurs disponibles, jusqu'à 8.
 pub(crate) fn threads() -> usize {
-    std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8)
+    std::thread::available_parallelism().map_or(4, |n| n.get()).min(8)
 }
 
 #[cfg(test)]

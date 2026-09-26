@@ -21,6 +21,7 @@ serde_json.workspace = true
 snafu.workspace = true
 # CTranslate2, le moteur de faster-whisper.
 ct2rs.workspace = true
+tokenizers.workspace = true
 mel_spec.workspace = true
 ndarray.workspace = true
 # Détection de la voix, en Rust pur.
