@@ -303,14 +303,17 @@ fn waterfall(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
     let (category_label, categories) = categories(option, table, false)?;
     let (name, steps) = series_values(s, 0, table, false, labels)?;
     let val_axis = option.y_axis.as_ref();
+    // charts-rs arrête l'axe pile sur la barre la plus haute : son étiquette
+    // serait coupée. L'axe s'arrondit donc au-delà des sommes courantes.
+    let (low, high) = running_extent(&steps);
     Ok(Waterfall {
         category_label,
         categories,
         name,
-        steps,
         label: s.label.as_ref().and_then(|l| l.show).unwrap_or(true),
-        value_min: val_axis.and_then(|a| a.min),
-        value_max: val_axis.and_then(|a| a.max),
+        value_min: val_axis.and_then(|a| a.min).or_else(|| (low < 0.0).then(|| -nice_above(-low))),
+        value_max: val_axis.and_then(|a| a.max).or_else(|| (high > 0.0).then(|| nice_above(high))),
+        steps,
     })
 }
 
@@ -455,6 +458,25 @@ fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
         .collect();
 
     Ok(RadarModel { indicator_label, indicators, series, area: s.area_style.is_some() })
+}
+
+/// Plus basse et plus haute somme courante d'une cascade (0 compris) ; une
+/// barre de total (`None`) reprend la somme courante.
+fn running_extent(steps: &[Option<f64>]) -> (f64, f64) {
+    let mut sum = 0.0_f64;
+    let (mut low, mut high) = (0.0_f64, 0.0_f64);
+    for step in steps.iter().flatten() {
+        sum += step;
+        low = low.min(sum);
+        high = high.max(sum);
+    }
+    (low, high)
+}
+
+/// Borne d'axe arrondie strictement au-delà de `v` (5 % de marge), pour
+/// qu'une barre n'en touche jamais le bord.
+fn nice_above(v: f64) -> f64 {
+    nice_ceiling(v * 1.05)
 }
 
 /// Arrondit au-dessus vers 1, 2, 2.5 ou 5 × 10ⁿ.

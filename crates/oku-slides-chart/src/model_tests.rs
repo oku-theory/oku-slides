@@ -78,3 +78,36 @@ fn normalize_waterfall_with_two_series_fails() {
     }));
     assert_that!(w.err().map(|e| e.kind())).is_equal_to(Some(crate::ChartErrorKind::Inconsistent));
 }
+
+#[test]
+fn normalize_waterfall_rounds_the_axis_above_the_highest_running_sum() {
+    let w = waterfall_of(serde_json::json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 3], ["Baisse", -1], ["Hausse", 4], ["Fin", null]] },
+        "series": [{ "type": "waterfall" }]
+    }))
+    .unwrap();
+    // Sommes courantes : 3, 2, 6, total 6 → 10.
+    assert_that!((w.value_min, w.value_max)).is_equal_to((None, Some(10.0)));
+}
+
+#[test]
+fn normalize_waterfall_going_below_zero_rounds_the_axis_down() {
+    let w = waterfall_of(serde_json::json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 2], ["Perte", -5]] },
+        "series": [{ "type": "waterfall" }]
+    }))
+    .unwrap();
+    // Sommes courantes : 2, puis −3 → axe de −5 à 2,5 (jamais pile sur une barre).
+    assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-5.0), Some(2.5)));
+}
+
+#[test]
+fn normalize_waterfall_keeps_declared_axis_bounds() {
+    let w = waterfall_of(serde_json::json!({
+        "dataset": { "source": [["Poste", "Montant"], ["Début", 3]] },
+        "yAxis": { "type": "value", "min": -1, "max": 4 },
+        "series": [{ "type": "waterfall" }]
+    }))
+    .unwrap();
+    assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-1.0), Some(4.0)));
+}
