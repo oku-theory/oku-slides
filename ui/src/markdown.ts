@@ -206,8 +206,7 @@ export function listPrefix(line: string): { list?: NonNullable<Paragraph["list"]
 }
 
 /** Adresse telle que `paragraphs_to_text` l'écrit : espace et parenthèses encodés. */
-const encodeLink = (url: string | undefined) =>
-  url?.replaceAll(" ", "%20").replaceAll("(", "%28").replaceAll(")", "%29");
+export const encodeLink = (url: string) => url.replaceAll(" ", "%20").replaceAll("(", "%28").replaceAll(")", "%29");
 
 /** Même texte et même mise en forme markdown (couleur et taille ignorées). */
 export function sameFormatting(a: Run[], b: Run[]): boolean {
@@ -215,7 +214,7 @@ export function sameFormatting(a: Run[], b: Run[]): boolean {
     JSON.stringify(
       merge(
         runs.map((r) =>
-          run(r.t, { bold: !!r.bold, italic: !!r.italic, link: encodeLink(r.link), highlight: r.highlight }),
+          run(r.t, { bold: !!r.bold, italic: !!r.italic, link: r.link && encodeLink(r.link), highlight: r.highlight }),
         ),
       ),
     );

@@ -5,6 +5,8 @@
  * raccourcis de mise en forme, dictée, et plus petit changement à appliquer.
  */
 
+import { encodeLink } from "./markdown";
+
 /** Texte de l'éditeur et sélection après un raccourci de mise en forme. */
 export interface Edit {
   value: string;
@@ -43,7 +45,7 @@ export function insertLink(value: string, start: number, end: number): Edit {
   const before = value.slice(0, start);
   const after = value.slice(end);
   if (/^(https?:\/\/|mailto:)\S+$/i.test(selected)) {
-    return { value: `${before}[](${selected})${after}`, start: start + 1, end: start + 1 };
+    return { value: `${before}[](${encodeLink(selected)})${after}`, start: start + 1, end: start + 1 };
   }
   const url = start + selected.length + 3;
   return { value: `${before}[${selected}](url)${after}`, start: url, end: url + 3 };

@@ -35,6 +35,10 @@ describe("insertLink", () => {
   test("une adresse sélectionnée devient la cible et le texte reste à écrire", () => {
     expect(insertLink("https://oku.dev", 0, 15)).toEqual({ value: "[](https://oku.dev)", start: 1, end: 1 });
   });
+
+  test("adresse sélectionnée avec parenthèses : encodée comme à l'écriture", () => {
+    expect(insertLink("https://w.org/A_(b)", 0, 19)).toEqual({ value: "[](https://w.org/A_%28b%29)", start: 1, end: 1 });
+  });
 });
 
 describe("insertDictated", () => {
