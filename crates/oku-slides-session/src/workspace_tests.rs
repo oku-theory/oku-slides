@@ -669,3 +669,24 @@ fn is_tab_id_accepts_only_t_and_digits() {
     assert_that!(is_window_label("w-3")).is_true();
     assert_that!(is_window_label("main")).is_false();
 }
+
+/// t-159 : une vue construite plus tard porte un numéro plus grand, même
+/// sans changement ; l'interface écarte une vue plus ancienne que la sienne.
+#[test]
+fn view_generation_grows_with_each_view() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let first = view(&ws).generation;
+    let second = view(&ws).generation;
+    assert_that!(second).is_greater_than(first);
+}
+
+#[test]
+fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let before = view(&ws).generation;
+    let reply = send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap().into_json();
+    let after: serde_json::Value = serde_json::from_str(&reply).unwrap();
+    assert_that!(after["generation"].as_u64().unwrap()).is_greater_than(before);
+}

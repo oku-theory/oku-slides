@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
@@ -142,6 +143,9 @@ pub struct WindowView {
 /// Ce que l'interface voit : les fenêtres et leurs onglets.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WorkspaceView {
+    /// Numéro de la vue, croissant : une vue plus petite que celle déjà
+    /// montrée est plus ancienne (réponse doublée par un événement) et écartée.
+    pub generation: u64,
     /// Dernière fenêtre active.
     pub focused: String,
     /// Fenêtres, dans l'ordre de création.
@@ -314,6 +318,8 @@ pub struct Workspace {
     /// (voir [`Workspace::open_files`] et `apply` sur `OpenTab`), sous ce même
     /// verrou, pour ne jamais courir après `settle`.
     closed: bool,
+    /// Numéro de la dernière vue construite (voir [`WorkspaceView::generation`]).
+    generation: AtomicU64,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -343,6 +349,7 @@ impl Workspace {
             tabs: HashMap::new(),
             dir,
             closed: false,
+            generation: AtomicU64::new(0),
         }
     }
 
@@ -366,9 +373,13 @@ impl Workspace {
         Ok(())
     }
 
-    /// Les fenêtres et leurs onglets.
+    /// Les fenêtres et leurs onglets, avec un numéro neuf.
+    ///
+    /// Le numéro est pris sous le verrou de l'espace de travail : une vue
+    /// construite plus tard reflète un état au moins aussi récent.
     pub fn view(&self) -> WorkspaceView {
         WorkspaceView {
+            generation: self.generation.fetch_add(1, Ordering::SeqCst) + 1,
             focused: self.layout.focused.clone(),
             windows: self
                 .layout

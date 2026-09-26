@@ -6,6 +6,7 @@ import TabBar from "./TabBar";
 import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, type WorkspaceView } from "./api";
 import { mayClose } from "./close";
 import { t } from "./i18n";
+import { newest } from "./latest";
 import { cycle, nth, tabShortcut } from "./tabs";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
@@ -17,7 +18,9 @@ async function ownLabel(view: WorkspaceView): Promise<string> {
 
 /** Une fenêtre : sa barre d'onglets et l'`App` de l'onglet actif. */
 export default function Workspace() {
-  const [view, setView] = useState<WorkspaceView | null>(null);
+  const [view, setShown] = useState<WorkspaceView | null>(null);
+  // Réponses et événements peuvent arriver dans le désordre : jamais une vue plus ancienne.
+  const setView = useCallback((v: WorkspaceView) => setShown((cur) => newest(cur, v)), []);
   const [label, setLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Composant démonté (StrictMode, ou fenêtre fermée) : on ignore les réponses tardives.

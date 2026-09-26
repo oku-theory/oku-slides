@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Latest } from "./latest";
+import { Latest, newest } from "./latest";
 
 describe("Latest", () => {
   test("accept : réponses dans l'ordre des demandes, toutes appliquées", () => {
@@ -23,5 +23,27 @@ describe("Latest", () => {
     const a = l.begin();
     expect(l.accept(a)).toBe(true);
     expect(l.accept(a)).toBe(false);
+  });
+});
+
+describe("newest", () => {
+  const v = (generation: number) => ({ generation });
+
+  test("newest : sans vue montrée, la nouvelle est prise", () => {
+    expect(newest(null, v(3))).toEqual(v(3));
+  });
+
+  test("newest : vue plus récente que celle montrée, prise", () => {
+    expect(newest(v(3), v(4))).toEqual(v(4));
+  });
+
+  test("newest : vue plus ancienne (réponse doublée par un événement), écartée", () => {
+    const shown = v(5);
+    expect(newest(shown, v(4))).toBe(shown);
+  });
+
+  test("newest : même numéro, prise (relecture sans changement)", () => {
+    const next = v(5);
+    expect(newest(v(5), next)).toBe(next);
   });
 });

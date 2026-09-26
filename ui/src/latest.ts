@@ -23,3 +23,14 @@ export class Latest {
     return true;
   }
 }
+
+/**
+ * La vue à montrer : `next`, sauf si elle est plus ancienne que `current`.
+ *
+ * L'hôte numérote chaque vue (`generation`, croissant) : une réponse de
+ * commande arrivée après un événement plus récent ne ramène pas la barre en
+ * arrière. À numéro égal, `next` est prise (même état).
+ */
+export function newest<T extends { generation: number }>(current: T | null, next: T): T {
+  return current && current.generation > next.generation ? current : next;
+}

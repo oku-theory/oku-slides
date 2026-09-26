@@ -343,6 +343,8 @@ export interface WindowView {
 
 /** Les fenêtres et leurs onglets ; `focused` : la dernière fenêtre active. */
 export interface WorkspaceView {
+  /** Numéro croissant de la vue : une vue plus petite est plus ancienne. */
+  generation: number;
   focused: string;
   windows: WindowView[];
 }

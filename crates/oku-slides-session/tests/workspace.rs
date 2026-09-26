@@ -119,7 +119,9 @@ fn resume_restores_windows_tabs_focus_mode_and_history() {
     assert_that!(before.focused.as_str()).is_equal_to("w-1");
     drop(a);
     let b = resumed(&data);
-    assert_that!(view(&b)).is_equal_to(&before);
+    let after = view(&b);
+    assert_that!(after.focused).is_equal_to(&before.focused);
+    assert_that!(after.windows).is_equal_to(&before.windows);
     assert_that!(view(&b).windows[1].tabs[0].info.editing_templates).is_true();
     let snap = tab(&b, "t-2", json!({"cmd": "undo"}));
     assert_that!(snap["theme"]).is_equal_to(json!("papier"));
