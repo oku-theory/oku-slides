@@ -1,7 +1,8 @@
 /**
  * Markdown inline d'édition → runs : l'inverse de `runs_to_markdown` côté Rust.
  *
- * `**gras**`, `*italique*` ou `_italique_`, `***les deux***`, `[texte](url)` ;
+ * `**gras**`, `*italique*` ou `_italique_`, `***les deux***`, `[texte](url)`,
+ * `==pastille==` ou `==pastille=={n}` (n-ième couleur de la palette du thème) ;
  * `\` échappe une ponctuation. Un délimiteur sans fermeture reste du texte.
  */
 import type { Run } from "./api";
@@ -10,6 +11,7 @@ interface Format {
   bold: boolean;
   italic: boolean;
   link?: string;
+  highlight?: number;
 }
 
 const PUNCTUATION = /[!-/:-@[-`{-~]/;
@@ -21,6 +23,7 @@ function run(t: string, f: Format): Run {
   if (f.bold) r.bold = true;
   if (f.italic) r.italic = true;
   if (f.link !== undefined) r.link = f.link;
+  if (f.highlight !== undefined) r.highlight = f.highlight;
   return r;
 }
 
@@ -30,7 +33,8 @@ function merge(runs: Run[]): Run[] {
   for (const r of runs) {
     if (r.t === "") continue;
     const last = out.at(-1);
-    const same = !!last?.bold === !!r.bold && !!last?.italic === !!r.italic && last?.link === r.link;
+    const same =
+      !!last?.bold === !!r.bold && !!last?.italic === !!r.italic && last?.link === r.link && last?.highlight === r.highlight;
     if (last && same) {
       last.t += r.t;
     } else {
@@ -111,6 +115,16 @@ function parse(s: string, start: number, end: number, f: Format, out: Run[]) {
       }
       continue;
     }
+    if (c === "=" && repeated(s, i, end, "=") === 2) {
+      const close = closing(s, i + 2, end, "=", 2);
+      if (close > i + 2) {
+        const color = /^\{(\d+)\}/.exec(s.slice(close + 2, end));
+        flush();
+        parse(s, i + 2, close, { ...f, highlight: color ? Number(color[1]) : 1 }, out);
+        i = close + 2 + (color?.[0].length ?? 0);
+        continue;
+      }
+    }
     if (c === "_" && !isWord(s[i - 1])) {
       const close = closingUnderscore(s, i + 1, end);
       if (close > i + 1) {
@@ -151,7 +165,11 @@ const encodeLink = (url: string | undefined) =>
 export function sameFormatting(a: Run[], b: Run[]): boolean {
   const key = (runs: Run[]) =>
     JSON.stringify(
-      merge(runs.map((r) => run(r.t, { bold: !!r.bold, italic: !!r.italic, link: encodeLink(r.link) }))),
+      merge(
+        runs.map((r) =>
+          run(r.t, { bold: !!r.bold, italic: !!r.italic, link: encodeLink(r.link), highlight: r.highlight }),
+        ),
+      ),
     );
   return key(a) === key(b);
 }

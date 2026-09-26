@@ -25,5 +25,6 @@ issue-empty-frame = рамка нульового розміру
 issue-free-without-frame = вільний елемент без рамки
 issue-missing-asset = бракує ресурсу: { $asset }
 issue-unsupported-link = непідтримуване посилання: { $link }
+issue-highlight-zero = кольори виділення нумеруються з 1
 op-not-a-chart = { $subject } не є діаграмою
 op-invalid-chart = Діаграма { $subject }: { $reason }

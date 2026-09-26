@@ -91,6 +91,8 @@ export interface Run {
   color?: string;
   /** Cible du lien (`http`, `https` ou `mailto`). */
   link?: string;
+  /** Pastille : numéro (dès 1) de la couleur de fond dans la palette du thème. */
+  highlight?: number;
 }
 
 export interface Paragraph {

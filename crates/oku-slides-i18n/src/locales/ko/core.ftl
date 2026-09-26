@@ -25,5 +25,6 @@ issue-empty-frame = 크기가 0인 프레임
 issue-free-without-frame = 프레임이 없는 자유 요소
 issue-missing-asset = 누락된 에셋: { $asset }
 issue-unsupported-link = 지원되지 않는 링크: { $link }
+issue-highlight-zero = 강조 색상 번호는 1부터 시작합니다
 op-not-a-chart = { $subject }은(는) 차트가 아닙니다
 op-invalid-chart = 차트 { $subject }: { $reason }

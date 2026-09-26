@@ -285,6 +285,9 @@ pub struct Run {
     /// Cible du lien (`http`, `https` ou `mailto`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
+    /// Pastille : numéro (dès 1) de la couleur de fond dans la palette du thème.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlight: Option<u8>,
 }
 
 impl Run {

@@ -85,6 +85,9 @@ pub fn validate(deck: &Deck, assets: Option<&HashSet<String>>) -> Vec<Issue> {
             for link in runs().filter_map(|r| r.link.as_deref()).filter(|l| !is_safe_link(l)) {
                 out.push(issue(Message::new("issue-unsupported-link").arg("link", link)));
             }
+            if runs().any(|r| r.highlight == Some(0)) {
+                out.push(issue(Message::new("issue-highlight-zero")));
+            }
         }
     }
     out

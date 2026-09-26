@@ -25,5 +25,6 @@ issue-empty-frame = শূন্য আকারের ফ্রেম
 issue-free-without-frame = ফ্রেম ছাড়া মুক্ত উপাদান
 issue-missing-asset = অ্যাসেট অনুপস্থিত: { $asset }
 issue-unsupported-link = অসমর্থিত লিঙ্ক: { $link }
+issue-highlight-zero = হাইলাইট রঙের নম্বর 1 থেকে শুরু
 op-not-a-chart = { $subject } কোনো চার্ট নয়
 op-invalid-chart = চার্ট { $subject }: { $reason }

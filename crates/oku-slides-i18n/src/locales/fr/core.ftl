@@ -25,5 +25,6 @@ issue-empty-frame = cadre de taille nulle
 issue-free-without-frame = élément libre sans cadre
 issue-missing-asset = asset manquant : { $asset }
 issue-unsupported-link = lien non pris en charge : { $link }
+issue-highlight-zero = les couleurs de pastille se numérotent à partir de 1
 op-not-a-chart = { $subject } n'est pas un graphique
 op-invalid-chart = Graphique { $subject } : { $reason }

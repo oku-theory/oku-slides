@@ -46,7 +46,14 @@
   let body = [#interp(r.at("t", default: ""), vars)]
   let a = _text-args(t, r)
   if r.at("bold", default: false) { a.insert("weight", weight-of(t, "strong")) }
+  let n = r.at("highlight", default: none)
+  let fill = if n != none { highlight-of(t, n) }
+  if fill != none and "fill" not in a { a.insert("fill", ink-on(t, fill)) }
   let body = if a.len() > 0 { text(..a, body) } else { body }
+  // Pastille : fond arrondi qui ne se coupe pas en fin de ligne.
+  let body = if fill != none {
+    box(fill: fill, radius: radius-of(t, "sm"), inset: (x: 0.35em), outset: (y: 0.2em), body)
+  } else { body }
   if "link" in r { link(r.link, body) } else { body }
 }).join()
 

@@ -25,5 +25,6 @@ issue-empty-frame = marco de tamaño cero
 issue-free-without-frame = elemento libre sin marco
 issue-missing-asset = recurso ausente: { $asset }
 issue-unsupported-link = enlace no admitido: { $link }
+issue-highlight-zero = los colores de resaltado se numeran desde 1
 op-not-a-chart = { $subject } no es un gráfico
 op-invalid-chart = Gráfico { $subject }: { $reason }

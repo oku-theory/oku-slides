@@ -25,5 +25,6 @@ issue-empty-frame = khung có kích thước bằng 0
 issue-free-without-frame = phần tử tự do không có khung
 issue-missing-asset = thiếu tài nguyên: { $asset }
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }
+issue-highlight-zero = màu tô sáng được đánh số từ 1
 op-not-a-chart = { $subject } không phải là biểu đồ
 op-invalid-chart = Biểu đồ { $subject }: { $reason }

@@ -25,5 +25,6 @@ issue-empty-frame = Rahmen ohne Größe
 issue-free-without-frame = freies Element ohne Rahmen
 issue-missing-asset = fehlende Ressource: { $asset }
 issue-unsupported-link = nicht unterstützter Link: { $link }
+issue-highlight-zero = Hervorhebungsfarben werden ab 1 nummeriert
 op-not-a-chart = { $subject } ist kein Diagramm
 op-invalid-chart = Diagramm { $subject }: { $reason }

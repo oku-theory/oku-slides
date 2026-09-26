@@ -25,5 +25,6 @@ issue-empty-frame = フレームのサイズがゼロです
 issue-free-without-frame = 自由配置の要素にフレームがありません
 issue-missing-asset = アセットがありません：{ $asset }
 issue-unsupported-link = サポートされていないリンク：{ $link }
+issue-highlight-zero = ハイライトの色番号は 1 から始まります
 op-not-a-chart = { $subject } はグラフではありません
 op-invalid-chart = グラフ { $subject }：{ $reason }

@@ -95,3 +95,14 @@ fn validate_link_with_unsafe_scheme_is_reported() {
     assert_that!(issues.iter().map(ToString::to_string).collect::<Vec<_>>())
         .is_equal_to(vec!["[s/t] unsupported link: javascript:alert(1)".to_owned()]);
 }
+
+#[test]
+fn validate_highlight_zero_is_reported() {
+    use crate::model::{Paragraph, Run};
+    let run = |h: u8| Run { highlight: Some(h), ..Run::plain("x") };
+    let mut s = Slide::new("s", SlideKind::Content);
+    s.blocks.push(Element::text("t", vec![Paragraph { runs: vec![run(1), run(0), run(9)], list: None }]));
+    let issues = validate(&deck(vec![s]), None);
+    assert_that!(issues.iter().map(ToString::to_string).collect::<Vec<_>>())
+        .is_equal_to(vec!["[s/t] highlight colors are numbered from 1".to_owned()]);
+}

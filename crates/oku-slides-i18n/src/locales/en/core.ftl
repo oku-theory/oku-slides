@@ -25,5 +25,6 @@ issue-empty-frame = zero-size frame
 issue-free-without-frame = free element without a frame
 issue-missing-asset = missing asset: { $asset }
 issue-unsupported-link = unsupported link: { $link }
+issue-highlight-zero = highlight colors are numbered from 1
 op-not-a-chart = { $subject } is not a chart
 op-invalid-chart = Chart { $subject }: { $reason }

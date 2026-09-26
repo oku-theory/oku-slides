@@ -105,6 +105,31 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
 }
 
 #[test]
+fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
+    // SVG de la page de `s-constat` après avoir remplacé ses puces par `runs`.
+    let constat_svg = |runs: Vec<oku_slides_core::Run>| {
+        let mut deck = fixture();
+        Op::SetText {
+            slide: "s-constat".into(),
+            element: "b-points".into(),
+            text: vec![Paragraph { runs, list: None }],
+        }
+        .apply(&mut deck)
+        .unwrap();
+        let mut r = Renderer::new(Fonts::default()).unwrap();
+        r.set_deck(&deck, &BTreeMap::new()).unwrap();
+        let doc = r.compile().unwrap();
+        let page = doc.layout().page_of("s-constat").unwrap();
+        doc.svg(page - 1).unwrap().to_lowercase()
+    };
+    let run = |h| oku_slides_core::Run { highlight: h, ..oku_slides_core::Run::plain("上手") };
+    assert_that!(constat_svg(vec![run(None)])).does_not_contain("#c4622d");
+    assert_that!(constat_svg(vec![run(Some(2))])).contains("#c4622d");
+    // Au-delà de la palette (6 couleurs), on reboucle : 8 → 2.
+    assert_that!(constat_svg(vec![run(Some(8))])).contains("#c4622d");
+}
+
+#[test]
 fn embed_sources_then_extract_gives_back_same_bundle() {
     let deck = fixture();
     let mut bundle = SourceBundle::new(deck.clone());

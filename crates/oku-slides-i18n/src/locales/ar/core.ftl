@@ -25,5 +25,6 @@ issue-empty-frame = إطار بحجم صفري
 issue-free-without-frame = عنصر حر بلا إطار
 issue-missing-asset = مورد مفقود: { $asset }
 issue-unsupported-link = رابط غير مدعوم: { $link }
+issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
 op-not-a-chart = { $subject } ليس مخططًا
 op-invalid-chart = المخطط { $subject }: { $reason }

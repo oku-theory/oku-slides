@@ -38,6 +38,10 @@ describe("markdownToRuns", () => {
     ]);
   });
 
+  test("pastille sans fermeture ou triple égal reste du texte", () => {
+    expect(markdownToRuns("a ==b et c === d")).toEqual([{ t: "a ==b et c === d" }]);
+  });
+
   test("ligne vide donne un run vide", () => {
     expect(markdownToRuns("")).toEqual([{ t: "" }]);
   });

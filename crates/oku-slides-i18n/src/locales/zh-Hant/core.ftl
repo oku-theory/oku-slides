@@ -25,5 +25,6 @@ issue-empty-frame = 框架尺寸為零
 issue-free-without-frame = 自由元素缺少框架
 issue-missing-asset = 缺少資源：{ $asset }
 issue-unsupported-link = 不支援的連結：{ $link }
+issue-highlight-zero = 醒目提示顏色從 1 開始編號
 op-not-a-chart = { $subject } 不是圖表
 op-invalid-chart = 圖表 { $subject }：{ $reason }

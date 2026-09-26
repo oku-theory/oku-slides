@@ -155,6 +155,70 @@
           ]
         }
       ]
+    },
+    {
+      "name": "pastilles de couleur",
+      "markdown": "==上手=={2} ==に=={5} ==なる==",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "上手",
+              "highlight": 2
+            },
+            {
+              "t": " "
+            },
+            {
+              "t": "に",
+              "highlight": 5
+            },
+            {
+              "t": " "
+            },
+            {
+              "t": "なる",
+              "highlight": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pastille en gras dans un lien",
+      "markdown": "[==**x**=={3}](https://a.b)",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "x",
+              "bold": true,
+              "highlight": 3,
+              "link": "https://a.b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "signes égal et accolades échappés",
+      "markdown": "a \\=\\= b, x=y ==a==\\{2} et {{nom}}",
+      "paragraphs": [
+        {
+          "runs": [
+            {
+              "t": "a == b, x=y "
+            },
+            {
+              "t": "a",
+              "highlight": 1
+            },
+            {
+              "t": "{2} et {{nom}}"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

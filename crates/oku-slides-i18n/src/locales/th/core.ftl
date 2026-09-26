@@ -25,5 +25,6 @@ issue-empty-frame = กรอบมีขนาดเป็นศูนย์
 issue-free-without-frame = องค์ประกอบอิสระไม่มีกรอบ
 issue-missing-asset = ไม่มีแอสเซ็ต: { $asset }
 issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { $link }
+issue-highlight-zero = สีไฮไลต์เริ่มนับจาก 1
 op-not-a-chart = { $subject } ไม่ใช่แผนภูมิ
 op-invalid-chart = แผนภูมิ { $subject }: { $reason }

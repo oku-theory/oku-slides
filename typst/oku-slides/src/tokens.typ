@@ -167,6 +167,18 @@
   panic("oku-slides : couleur inconnue : " + repr(v))
 }
 
+// Pastille n (dès 1) : couleur de la palette des graphiques, en rebouclant.
+#let highlight-of(t, n) = {
+  let palette = t.chart.palette
+  color-of(t, palette.at(calc.rem(n - 1, palette.len())))
+}
+
+// Texte lisible sur un fond : l'encre sur un fond clair, le fond de page sinon.
+#let ink-on(t, fill) = {
+  let l = luma(fill).components().first()
+  if l > 60% { color-of(t, "ink") } else { color-of(t, "bg") }
+}
+
 #let _num(t, family, v) = {
   if v == none { return none }
   if type(v) == length { return v }
