@@ -54,7 +54,10 @@
   let body = if fill != none {
     box(fill: fill, radius: radius-of(t, "sm"), inset: (x: 0.35em), outset: (y: 0.2em), body)
   } else { body }
-  if "link" in r { link(r.link, body) } else { body }
+  // Seuls les liens web et mail deviennent cliquables (pas de `javascript:`).
+  let url = lower(r.at("link", default: ""))
+  let web = ("http://", "https://", "mailto:").any(p => url.starts-with(p))
+  if web { link(r.link, body) } else { body }
 }).join()
 
 #let _paragraphs(t, paras, vars) = {

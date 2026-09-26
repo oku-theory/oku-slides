@@ -105,6 +105,24 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
 }
 
 #[test]
+fn compile_run_with_a_non_web_link_renders_plain_text_without_a_pdf_link() {
+    let mut deck = fixture();
+    let run = oku_slides_core::Run { link: Some("javascript:alert(1)".into()), ..oku_slides_core::Run::plain("site") };
+    Op::SetText {
+        slide: "s-constat".into(),
+        element: "b-points".into(),
+        text: vec![Paragraph { runs: vec![run], list: None }],
+    }
+    .apply(&mut deck)
+    .unwrap();
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_deck(&deck, &BTreeMap::new()).unwrap();
+    let pdf = r.compile().unwrap().pdf().unwrap();
+    let scheme = b"javascript:";
+    assert_that!(pdf.windows(scheme.len()).any(|w| w == scheme)).is_false();
+}
+
+#[test]
 fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
     // SVG de la page de `s-constat` après avoir remplacé ses puces par `runs`.
     let constat_svg = |runs: Vec<oku_slides_core::Run>| {
