@@ -225,6 +225,28 @@ impl Resume {
         Ok(files)
     }
 
+    /// Déplace tout le dossier de reprise vers un dossier voisin
+    /// `<nom>.failed-<horodatage>[-<n>]`, pour ne jamais écraser du travail
+    /// non enregistré qu'on n'a pas su relire ; renvoie ce nouveau dossier.
+    ///
+    /// Le suffixe numérique évite qu'un deuxième échec dans la même seconde
+    /// (relance rapide après un premier échec) vise le même dossier voisin :
+    /// un renommage vers un dossier déjà pris le remplacerait plutôt que de
+    /// le garder, ce qui perdrait justement ce qu'on essaie de préserver.
+    fn quarantine(&self) -> Result<PathBuf> {
+        let secs =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
+        let name = self.dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "resume".into());
+        let mut to = self.dir.with_file_name(format!("{name}.failed-{secs}"));
+        let mut n = 1u32;
+        while self.storage.exists(&to).context(AccessSnafu { path: &self.dir })? {
+            to = self.dir.with_file_name(format!("{name}.failed-{secs}-{n}"));
+            n += 1;
+        }
+        self.storage.rename(&self.dir, &to).context(AccessSnafu { path: &self.dir })?;
+        Ok(to)
+    }
+
     /// Relit un document ; son historique garde au plus `history_limit` transactions.
     pub fn read_doc(&self, sub: &str, history_limit: usize) -> Result<Document> {
         let dir = self.dir.join(sub);
@@ -278,22 +300,44 @@ impl Session {
     /// Active la reprise dans `dir` : relit l'état du dernier lancement, puis
     /// ouvre `file` (« ouvrir avec… »), sauf s'il y a du travail non
     /// enregistré : il passe avant, et un avis le dit.
+    ///
+    /// Une reprise illisible ne doit jamais coûter le travail non enregistré
+    /// qu'elle contenait peut-être : avant de repartir d'un deck vierge, le
+    /// dossier en échec est déplacé de côté plutôt qu'écrasé. S'il n'a même
+    /// pas pu être déplacé, on n'écrit rien du tout ce lancement-ci (la
+    /// reprise reste désactivée), pour ne prendre aucun risque de plus.
     pub fn resume(&mut self, dir: PathBuf, file: Option<&Path>) {
         let resume = Resume::new(self.storage.clone(), dir);
-        if let Err(e) = self.restore(&resume) {
-            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible : deck vierge");
-            // `restore` peut avoir échoué après avoir déjà basculé en mode
-            // modèles (son propre rendu a échoué) : on repart d'un mode
-            // cohérent avant `new_deck`, qui ne touche qu'au deck.
-            self.mode = Mode::Deck;
-            if let Err(e) = self.new_deck() {
-                tracing::warn!(error = %e.one_line(), "deck vierge");
+        let keep = match self.restore(&resume) {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible : deck vierge");
+                // `restore` peut avoir échoué après avoir déjà basculé en mode
+                // modèles (son propre rendu a échoué) : on repart d'un mode
+                // cohérent avant `new_deck`, qui ne touche qu'au deck.
+                self.mode = Mode::Deck;
+                if let Err(e) = self.new_deck() {
+                    tracing::warn!(error = %e.one_line(), "deck vierge");
+                }
+                match resume.quarantine() {
+                    Ok(moved) => {
+                        tracing::warn!(path = %moved.display(), "reprise en échec mise de côté");
+                        true
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            error = %oku_slides_platform::errors::one_line(&e),
+                            "reprise en échec non déplacée : rien n'est écrit"
+                        );
+                        false
+                    }
+                }
             }
-        }
+        };
         if let Some(file) = file {
             self.open_at_launch(file);
         }
-        self.resume = Some(resume);
+        self.resume = keep.then_some(resume);
         self.persist(true);
     }
 
@@ -333,7 +377,7 @@ impl Session {
             }
             Ok(_) => saved,
             Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e.one_line(), "fichier de reprise illisible");
+                tracing::warn!(path = %path.display(), error = %e.one_line(), "fichier du document illisible");
                 saved
             }
         }
@@ -346,12 +390,25 @@ impl Session {
 
     fn open_at_launch(&mut self, file: &Path) {
         if self.unsaved() {
-            let notice = Some(self.localizer.tr("notice-resume-kept-unsaved"));
-            // L'avis porte sur le document qui a effectivement le travail non
-            // enregistré : le deck mis de côté, s'il est en cause.
-            match &mut self.mode {
-                Mode::Templates { stash, .. } if stash.dirty => stash.notice = notice,
-                _ => self.doc.notice = notice,
+            // Le fichier demandé au lancement est déjà celui affiché (avec du
+            // travail non enregistré) : pas la peine de dire qu'il n'a pas
+            // été ouvert, l'utilisateur le regarde déjà.
+            let dirty_path = match &self.mode {
+                Mode::Templates { stash, .. } if stash.dirty => stash.path.as_deref(),
+                _ => self.doc.path.as_deref(),
+            };
+            if dirty_path != Some(file) {
+                let notice = Some(self.localizer.tr("notice-resume-kept-unsaved"));
+                // L'avis porte sur le document affiché (la capture le montre
+                // toujours), et aussi sur le deck mis de côté quand c'est lui
+                // qui porte le travail non enregistré, pour qu'il survive à
+                // `close_templates`.
+                self.doc.notice = notice.clone();
+                if let Mode::Templates { stash, .. } = &mut self.mode
+                    && stash.dirty
+                {
+                    stash.notice = notice;
+                }
             }
             return;
         }

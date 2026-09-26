@@ -455,7 +455,13 @@ impl Session {
         if changes {
             self.persist(documents);
         }
-        json(&self.snapshot())
+        let out = json(&self.snapshot())?;
+        // Les avis ne s'affichent qu'une fois : celui du document affiché
+        // vient d'être envoyé, il ne le sera plus. (Celui du deck mis de
+        // côté, s'il y en a un, n'est pas encore montré : il reste, pour
+        // apparaître à son tour quand `close_templates` le rendra visible.)
+        self.doc.notice = None;
+        Ok(out)
     }
 
     pub fn new_deck(&mut self) -> Result<()> {

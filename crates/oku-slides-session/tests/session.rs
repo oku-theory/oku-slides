@@ -477,9 +477,118 @@ fn resume_with_file_while_editing_templates_and_dirty_deck_keeps_notice_on_deck(
     a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
     drop(a);
     let mut b = resumed(&data, Some(&fixture_path()));
-    b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
+    // L'avis doit être visible dès la première capture (les modèles sont
+    // affichés, le deck qui porte le travail non enregistré est de côté),
+    // avant même de fermer l'édition des modèles.
+    let first = snapshot_json(&mut b);
+    asserting("l'avis est visible dès la première capture, sur le document affiché")
+        .that(&first["notice"].as_str())
+        .is_some();
+    // La réponse de `close_templates` est elle-même une capture : l'avis du
+    // deck retrouvé y apparaît (une seule fois, comme tout avis).
+    let reply = b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
+    let closed: serde_json::Value = serde_json::from_str(&reply).unwrap();
+    asserting("l'avis suit le deck mis de côté, pas les modèles en cours").that(&closed["notice"].as_str()).is_some();
+}
+
+#[test]
+fn resume_with_file_matching_the_dirty_document_path_does_not_set_misleading_notice() {
+    let data = data_dir();
+    let file = data.join("essai.oku-slides.pdf");
+    let mut a = resumed(&data, None);
+    a.handle(req(json!({"cmd": "save", "path": file}))).unwrap();
+    a.handle(set_theme("pro")).unwrap();
+    drop(a);
+    // Le fichier demandé au lancement est celui-là même que la copie de
+    // travail non enregistrée : pas la peine de dire qu'il n'a pas été ouvert.
+    let mut b = resumed(&data, Some(&file));
     let snap = snapshot_json(&mut b);
-    asserting("l'avis suit le deck mis de côté, pas les modèles en cours").that(&snap["notice"].as_str()).is_some();
+    assert_that!(snap["dirty"]).is_equal_to(json!(true));
+    asserting("le fichier demandé est déjà celui affiché : pas d'avis trompeur")
+        .that(&snap["notice"].as_str())
+        .is_none();
+}
+
+#[test]
+fn notice_is_shown_once_then_cleared_from_the_next_snapshot() {
+    let data = data_dir();
+    let mut a = resumed(&data, None);
+    a.handle(set_theme("pro")).unwrap();
+    drop(a);
+    let mut b = resumed(&data, Some(&fixture_path()));
+    let first = snapshot_json(&mut b);
+    asserting("l'avis est présent une première fois").that(&first["notice"].as_str()).is_some();
+    let second = snapshot_json(&mut b);
+    asserting("l'avis ne s'affiche qu'une fois").that(&second["notice"].as_str()).is_none();
+}
+
+#[test]
+fn resume_with_unreadable_state_moves_old_data_aside_instead_of_overwriting() {
+    let data = data_dir();
+    let resume_dir = data.join("resume");
+    std::fs::create_dir_all(resume_dir.join("deck")).unwrap();
+    // Version future : `read_state` échoue avant même de lire le deck.
+    std::fs::write(resume_dir.join("state.json"), br#"{"version":99,"mode":"deck"}"#).unwrap();
+    let doc_bytes = br#"{"deck":{"version":1,"theme":"papier","slides":[]}}"#.to_vec();
+    std::fs::write(resume_dir.join("deck/document.json"), &doc_bytes).unwrap();
+
+    let mut s = session_in(&data);
+    s.resume(resume_dir.clone(), None);
+
+    // La reprise a échoué : deck vierge, rien d'anormal en apparence.
+    let snap = s.snapshot();
+    assert_that!(snap.dirty).is_false();
+    assert_that!(snap.slides.len()).is_equal_to(2);
+
+    // Les anciennes données ne sont pas perdues : déplacées de côté.
+    let moved: Vec<_> = std::fs::read_dir(&data)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("resume.failed-")))
+        .collect();
+    assert_that!(moved.len()).is_equal_to(1);
+    let old_bytes = std::fs::read(moved[0].join("deck/document.json")).unwrap();
+    assert_that!(old_bytes).is_equal_to(doc_bytes);
+}
+
+/// Quand le déplacement de côté lui-même échoue (ici : dossier parent en
+/// lecture seule, donc `rename` impossible), la reprise ne doit rien écrire
+/// ce lancement-ci plutôt que de risquer d'écraser les anciennes données.
+#[cfg(unix)]
+#[test]
+fn resume_with_unreadable_state_and_failed_quarantine_disables_resume_but_keeps_old_data() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let data = data_dir();
+    let resume_dir = data.join("resume");
+    std::fs::create_dir_all(resume_dir.join("deck")).unwrap();
+    std::fs::write(resume_dir.join("state.json"), br#"{"version":99,"mode":"deck"}"#).unwrap();
+    let doc_bytes = br#"{"deck":{"version":1,"theme":"papier","slides":[]}}"#.to_vec();
+    std::fs::write(resume_dir.join("deck/document.json"), &doc_bytes).unwrap();
+
+    // Le dossier parent en lecture seule empêche de créer un dossier voisin :
+    // le déplacement de côté échoue.
+    std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let mut s = session_in(&data);
+    s.resume(resume_dir.clone(), None);
+    // On restaure les permissions tout de suite, pour pouvoir nettoyer et
+    // relire le dossier ensuite, échec de la reprise ou pas.
+    std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    // Le deck est vierge malgré l'échec du déplacement.
+    let snap = s.snapshot();
+    assert_that!(snap.dirty).is_false();
+
+    // Rien n'a été écrasé : les anciennes données sont toujours à leur place
+    // (le déplacement de côté n'a pas eu lieu).
+    let old_bytes = std::fs::read(resume_dir.join("deck/document.json")).unwrap();
+    assert_that!(old_bytes).is_equal_to(doc_bytes);
+
+    // Rien de nouveau n'a été écrit non plus (la reprise reste désactivée ce
+    // lancement-ci) : `state.json` garde son contenu d'origine (version 99).
+    let state = std::fs::read_to_string(resume_dir.join("state.json")).unwrap();
+    assert_that!(state.as_str()).contains("99");
 }
 
 #[test]
