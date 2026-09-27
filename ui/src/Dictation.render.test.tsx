@@ -113,26 +113,33 @@ async function press(key: string, mods: { meta?: boolean; shift?: boolean } = {}
 const agentButton = (host: HTMLElement) => host.querySelector(".agent-mic") as HTMLButtonElement;
 
 describe("dictée en deux modes", () => {
-  test("⌘⇧D écoute pour l'agent ; le texte part à l'agent", async () => {
+  test("⌘D dicte en mode auto : l'app choisit curseur ou brouillon", async () => {
+    const { texts } = await mount();
+    await press("d", { meta: true });
+    await press("d", { meta: true });
+    expect(texts).toEqual([["bonjour", "auto"]]);
+  });
+
+  test("⌘⇧D dicte dans le brouillon, affiché pendant l'écoute", async () => {
     const { host, texts } = await mount();
     await press("d", { meta: true, shift: true });
-    expect(host.querySelector(".device")?.classList.contains("agent")).toBe(true);
+    expect(host.querySelector(".device")?.classList.contains("draft")).toBe(true);
     await press("d", { meta: true, shift: true });
-    expect(texts).toEqual([["bonjour", "agent"]]);
+    expect(texts).toEqual([["bonjour", "draft"]]);
   });
 
   test("la dictée garde le mode de son début, même arrêtée par ⌘D", async () => {
     const { texts } = await mount();
     await press("d", { meta: true, shift: true });
     await press("d", { meta: true });
-    expect(texts).toEqual([["bonjour", "agent"]]);
+    expect(texts).toEqual([["bonjour", "draft"]]);
   });
 
-  test("au repos, le mode agent ne reste pas affiché", async () => {
+  test("au repos, le mode brouillon ne reste pas affiché", async () => {
     const { host } = await mount();
     await press("d", { meta: true, shift: true });
     await press("d", { meta: true, shift: true });
-    expect(host.querySelector(".device")?.classList.contains("agent")).toBe(false);
+    expect(host.querySelector(".device")?.classList.contains("draft")).toBe(false);
     expect(host.textContent).toContain("le titre");
   });
 
@@ -149,7 +156,7 @@ describe("dictée en deux modes", () => {
     await rerender(true);
     await press("d", { meta: true, shift: true });
     expect(cancels()).toBe(0);
-    expect(texts).toEqual([["bonjour", "agent"]]);
+    expect(texts).toEqual([["bonjour", "draft"]]);
   });
 
   test("Échap annule une écoute ; au repos, la dictée laisse Échap à l'app", async () => {
@@ -163,14 +170,9 @@ describe("dictée en deux modes", () => {
     expect(engine.calls).toEqual(["start", "cancel"]);
   });
 
-  test("le bouton de l'agent : parler au repos, arrêter pendant un tour, inactif pendant une écoute", async () => {
+  test("un seul micro au repos : le bouton de l'agent n'apparaît que pour arrêter un tour", async () => {
     const { host, cancels, rerender } = await mount();
-    expect(agentButton(host).getAttribute("aria-label")).toBe("ui-dictation-agent-start");
-    await act(async () => agentButton(host).click());
-    await settle();
-    expect(engine.calls).toEqual(["start"]);
-    expect(agentButton(host).disabled).toBe(true);
-    await press("d", { meta: true, shift: true });
+    expect(agentButton(host)).toBeNull();
     await rerender(true);
     expect(agentButton(host).getAttribute("aria-label")).toBe("ui-dictation-agent-stop");
     await act(async () => agentButton(host).click());

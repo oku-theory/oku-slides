@@ -19,7 +19,7 @@ vocale des réponses ; `undo` / `redo` pour l'agent.
 
 | # | Décision |
 | --- | --- |
-| 1 | Deux modes de dictée explicites : ⌘D écrit le texte (inchangé, local, hors ligne), ⌘⇧D parle à l'agent. |
+| 1 | Un seul micro, un brouillon à deux sorties (révisé le 2026-09-27 ; d'abord deux modes, ⌘D texte et ⌘⇧D agent, mais l'arrêt sur silence envoyait des consignes partielles). ⌘D écrit au curseur pendant l'édition d'un texte, sinon dans le brouillon ; ⌘⇧D écrit toujours dans le brouillon. Le brouillon s'**insère** tel quel (local, hors ligne) ou s'**envoie à l'agent**. |
 | 2 | N'importe quel agent ACP, déclaré dans `[agent]` (`command`, `args`) ; `claude-code-acp` par défaut. |
 | 3 | L'agent n'agit que par les outils MCP d'Oku Slides : le client ACP n'annonce ni `fs` ni `terminal`. |
 | 4 | ACP en stdio (Oku Slides lance l'agent) ; MCP en HTTP streamable, dans le processus Oku Slides, sur `127.0.0.1`, jeton par lancement. Un agent sans `mcpCapabilities.http` est refusé avec une erreur claire. |

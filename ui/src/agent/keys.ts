@@ -1,7 +1,10 @@
-// Raccourcis de la dictée (⌘D texte, ⌘⇧D agent) et ce que fait Échap.
+// Raccourcis de la dictée (⌘D, ⌘⇧D brouillon) et ce que fait Échap.
 
-/** Où va une dictée : dans le deck (texte) ou à l'agent (consigne). */
-export type DictationMode = "text" | "agent";
+/**
+ * Où va une dictée : `auto` (⌘D) au curseur d'un texte en cours d'édition,
+ * sinon au brouillon ; `draft` (⌘⇧D) toujours au brouillon.
+ */
+export type DictationMode = "auto" | "draft";
 
 /** Ce que les raccourcis lisent d'un évènement clavier. */
 export interface KeyboardEventLike {
@@ -26,8 +29,8 @@ export function dictationShortcut(
 ): DictationMode | "agent-cancel" | null {
   if (e.repeat || e.altKey || !(e.metaKey || e.ctrlKey)) return null;
   if (e.code !== "KeyD" && e.key.toLowerCase() !== "d") return null;
-  if (!e.shiftKey) return "text";
-  return agentBusy && !recording ? "agent-cancel" : "agent";
+  if (!e.shiftKey) return "auto";
+  return agentBusy && !recording ? "agent-cancel" : "draft";
 }
 
 /**

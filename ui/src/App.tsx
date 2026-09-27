@@ -9,6 +9,8 @@ import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
 import { t } from "./i18n";
 import Dictation from "./Dictation";
+import { DictationDraft } from "./DictationDraft";
+import { appendDraft, dictationRoute } from "./draft";
 import { ChartPanel } from "./chart/ChartPanel";
 import { starterChart } from "./chart/chartDeck";
 import { moveCell, trackSize } from "./grid";
@@ -535,7 +537,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const target = view && selected ? view.targets.find((x) => x.id === selected) : undefined;
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
   const writable = target && target.text !== null ? target : undefined;
-  const destination = editing
+  // Où « Insérer » écrit le brouillon ; `null` : aucune zone où écrire.
+  const insertTo = editing
     ? t("ui-dictation-to-cursor")
     : writable
       ? writable.target === "field"
@@ -543,16 +546,33 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         : t("ui-dictation-to-block")
       : view?.slide.kind === "content"
         ? t("ui-dictation-new-block")
-        : t("ui-dictation-select-zone");
+        : null;
+  // Où va ⌘D : au curseur pendant l'édition, au brouillon ailleurs.
+  const destination = t(editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft");
   const whisperPrompt = snap
     ? [snap.title, ...snap.slides.map((s) => s.title)].filter(Boolean).join(". ").slice(0, 600)
     : "";
 
+  // Hors édition, une dictée s'écrit dans le brouillon : « Insérer » l'écrit
+  // tel quel dans le deck, « Envoyer » la donne à l'agent.
+  const [draft, setDraft] = useState<{ text: string | null; dictations: number }>({ text: null, dictations: 0 });
+  const closeDraft = () => setDraft((d) => ({ ...d, text: null }));
+  const sendDraft = (text: string) => {
+    closeDraft();
+    agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
+  };
+  const insertDraft = (text: string) => {
+    closeDraft();
+    insertText(text);
+  };
+
   const onDictated = (text: string, mode: DictationMode) => {
-    if (mode === "agent") {
-      agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
-      return;
-    }
+    if (dictationRoute(mode, editing !== null) === "cursor") insertText(text);
+    else setDraft((d) => ({ text: appendDraft(d.text, text), dictations: d.dictations + 1 }));
+  };
+
+  /** Écrit un texte tel quel : au curseur, dans la zone sélectionnée ou en nouveau bloc. */
+  const insertText = (text: string) => {
     if (editing) {
       setDictated((d) => ({ seq: (d?.seq ?? 0) + 1, text }));
       return;
@@ -720,6 +740,16 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onAction={onSurfaceAction}
           onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
           onError={(m) => say(m, true)}
+        />
+        <DictationDraft
+          text={draft.text}
+          dictations={draft.dictations}
+          busy={busy}
+          insertTo={insertTo}
+          onChange={(text) => setDraft((d) => ({ ...d, text }))}
+          onInsert={insertDraft}
+          onSend={sendDraft}
+          onDiscard={closeDraft}
         />
         {panel.length > 0 && (
           <Suspense fallback={null}>

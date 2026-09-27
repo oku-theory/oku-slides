@@ -41,9 +41,6 @@ const MicIcon = (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
 );
 const StopIcon = <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5" /></svg>;
-const AgentIcon = (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" /><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z" /></svg>
-);
 const GearIcon = (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
 );
@@ -53,7 +50,7 @@ interface Props {
   destination: string;
   /** Mots utiles à Whisper : titres, noms propres du deck. */
   prompt: string;
-  /** Texte final d'une dictée, et où il va : le deck (`text`) ou l'agent (`agent`). */
+  /** Texte final d'une dictée et son mode : l'app l'écrit au curseur ou au brouillon. */
   onText: (text: string, mode: DictationMode) => void;
   onError: (message: string) => void;
   /** Un tour de l'agent est en cours (hors question ouverte) : ⌘⇧D l'arrête (Échap : voir `App`). */
@@ -69,9 +66,9 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
   const lastSeq = useRef<number | null>(null);
   const lastError = useRef<string | null>(null);
-  const [mode, setMode] = useState<DictationMode>("text");
+  const [mode, setMode] = useState<DictationMode>("auto");
   // Lu par `receive` (stable) : la dictée qui se termine garde le mode de son début.
-  const modeRef = useRef<DictationMode>("text");
+  const modeRef = useRef<DictationMode>("auto");
   const handlers = useRef({ onText, onError, onAgentCancel });
   handlers.current = { onText, onError, onAgentCancel };
 
@@ -126,7 +123,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
     [status, prompt, send],
   );
 
-  // ⌘D texte, ⌘⇧D agent (Ctrl ailleurs), partout, même pendant la saisie d'un texte.
+  // ⌘D, ⌘⇧D brouillon (Ctrl ailleurs), partout, même pendant la saisie d'un texte.
   // Écouteur posé une fois : l'état change toutes les 90 ms pendant une écoute,
   // il est lu par des refs.
   const keys = useRef({ status, agentBusy, toggle, send });
@@ -164,8 +161,8 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
   const langs = languages();
   const language = langs.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
   const { state } = status;
-  // Le mode ne se montre que pendant une dictée : au repos, ⌘D et le micro vont au deck.
-  const shownMode = state === "idle" ? "text" : mode;
+  // Le mode ne se montre que pendant une dictée : au repos, le micro est en mode auto.
+  const shownMode = state === "idle" ? "auto" : mode;
 
   let body: React.ReactNode;
   if (state === "downloading" && status.download) {
@@ -238,7 +235,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
   }
 
   return (
-    <div className={`device object dictation ${state}${shownMode === "agent" ? " agent" : ""}`} aria-label={t("ui-dictation")}>
+    <div className={`device object dictation ${state}${shownMode === "draft" ? " draft" : ""}`} aria-label={t("ui-dictation")}>
       <button
         className={`mic${state === "recording" ? " live" : ""}`}
         aria-label={t(state === "recording" ? "ui-dictation-finish" : "ui-dictation-start")}
@@ -246,23 +243,24 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
         disabled={state === "downloading" || state === "transcribing"}
         // Ne pas voler le focus : un texte en cours d'édition reste ouvert.
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => toggle("text")}
+        onClick={() => toggle("auto")}
       >
         {state === "recording" ? StopIcon : MicIcon}
         {state === "recording" && <span className="mic-ring" style={{ transform: `scale(${1 + status.level * 0.5})` }} />}
       </button>
-      {/* Au repos seulement : pendant une dictée, le micro principal l'arrête. */}
-      <button
-        type="button"
-        className="mic agent-mic"
-        aria-label={t(agentBusy ? "ui-dictation-agent-stop" : "ui-dictation-agent-start")}
-        title={t(agentBusy ? "ui-dictation-agent-stop" : "ui-dictation-agent-start-title")}
-        disabled={state !== "idle"}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (agentBusy ? handlers.current.onAgentCancel() : toggle("agent"))}
-      >
-        {agentBusy ? StopIcon : AgentIcon}
-      </button>
+      {/* Un seul micro : ce bouton n'apparaît que pour arrêter un tour de l'agent. */}
+      {agentBusy && (
+        <button
+          type="button"
+          className="mic agent-mic"
+          aria-label={t("ui-dictation-agent-stop")}
+          title={t("ui-dictation-agent-stop")}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => handlers.current.onAgentCancel()}
+        >
+          {StopIcon}
+        </button>
+      )}
       {body}
       {state === "recording" || state === "downloading" ? (
         <button className="btn ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{t("ui-dictation-cancel")}</button>

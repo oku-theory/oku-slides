@@ -474,8 +474,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
 .agent-entry .plan { list-style: none; padding: 0; margin: 0; }
 .agent-entry .error { color: var(--danger); }
-/* Couleur d'accent de l'agent, sauf pendant l'écoute (`.live` garde son rouge). */
-.device.dictation.agent .mic:not(.live), .mic.agent-mic { background: var(--accent-fill); color: var(--on-accent); }
+/* Brouillon des dictées : relu, retouché, puis inséré ou envoyé à l'agent. */
+.draft { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); background: var(--paper-000); border-radius: var(--radius-sm); padding: var(--space-1); border-inline-start: 3px solid var(--accent-fill); }
+.draft-text { resize: vertical; min-height: 4em; font: inherit; color: inherit; background: var(--paper-100); border: 1px solid var(--ink-muted); border-radius: var(--radius-sm); padding: 4px 6px; }
+.draft-text:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.draft-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-1); }
+.draft-exits { display: flex; gap: var(--space-1); }
+/* Couleur d'accent du brouillon (⌘⇧D), sauf pendant l'écoute (`.live` garde son rouge). */
+.device.dictation.draft .mic:not(.live), .mic.agent-mic { background: var(--accent-fill); color: var(--on-accent); }
 
 /* --- Fiche, tiroir et fenêtre de l'agent ---------------------------------- */
 .agent-sheet { position: absolute; z-index: 6; width: min(320px, 60%); }

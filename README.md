@@ -129,21 +129,28 @@ peuvent y être supprimés.
 | Geste | Effet |
 | --- | --- |
 | ⌘D ou le micro | Commencer, puis terminer la dictée |
+| ⌘⇧D | Dicter dans le brouillon, même pendant l'édition d'un texte |
 | Échap | Abandonner l'écoute ou le téléchargement |
 
-Le texte va au curseur si un texte est en cours d'édition, sinon dans la zone
-sélectionnée (un champ est remplacé, un bloc est complété), sinon dans un
-nouveau bloc. Chaque dictée s'annule avec ⌘Z.
+Pendant l'édition d'un texte, ⌘D écrit au curseur. Ailleurs, la dictée va dans
+un **brouillon** du panneau de droite : on la relit, la retouche ou la complète
+(chaque dictée s'y ajoute), puis on choisit :
+
+- **Insérer** (⌘⇧↩) l'écrit tel quel dans la zone sélectionnée (un champ est
+  remplacé, un bloc est complété), sinon dans un nouveau bloc ;
+- **Envoyer à l'agent** (⌘↩) en fait une consigne (voir [Agent](#agent)).
+
+Une pause ne décide donc jamais à votre place. Chaque insertion s'annule avec ⌘Z.
 
 ```sh
 just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
 OKU_SLIDES_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
 ```
 
-### Agent (⌘⇧D)
+### Agent
 
-⌘D dicte du texte ; **⌘⇧D parle à un agent** qui modifie la présentation.
-La consigne est transcrite sur la machine (Whisper), puis envoyée par
+Un agent modifie la présentation sur consigne. La consigne se dicte comme un
+texte, dans le [brouillon](#dictée) ; **Envoyer à l'agent** (⌘↩) la donne par
 [ACP](https://agentclientprotocol.com) à un agent lancé par Oku Slides. Il
 n'a ni fichiers ni terminal : il n'agit que par les outils d'Oku Slides,
 servis en MCP sur `127.0.0.1` avec un jeton propre à chaque onglet.
@@ -156,7 +163,7 @@ servis en MCP sur `127.0.0.1` avec un jeton propre à chaque onglet.
 - **Décisions** : l'agent pose ses questions dans une fiche sous l'élément
   (choix, reformulations : `1`–`4`, Entrée, `E` pour retoucher, Échap), propose
   des variantes rendues dans un tiroir sous la scène, et des réglages en direct
-  dans un post-it. On peut répondre à une question à la voix (⌘⇧D).
+  dans un post-it. On peut répondre à une question à la voix, par le brouillon.
 - **Conversation** : une par onglet, jamais enregistrée ; les onglets
   travaillent en même temps. « Nouvelle conversation » repart de zéro. ⌘⇧D
   pendant un tour l'arrête.
