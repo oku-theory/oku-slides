@@ -74,6 +74,13 @@ impl Slot {
         }
     }
 
+    /// Attend que la reprise envoyée par la session soit écrite.
+    pub(super) fn flush(&self) {
+        if let Self::Ready(session) = self {
+            session.flush_resume();
+        }
+    }
+
     /// Plus rien n'est écrit pour la reprise de l'onglet `id` (il est fermé).
     pub(super) fn stop_resume(&mut self, id: &str) {
         match self {

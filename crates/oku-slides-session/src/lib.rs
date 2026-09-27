@@ -34,6 +34,7 @@ mod error;
 mod files;
 mod panel;
 mod resume;
+mod resume_writer;
 pub mod templates;
 mod text;
 mod views;
@@ -183,8 +184,12 @@ pub struct Session {
     svg_cache: HashMap<u128, Arc<str>>,
     /// Slide courante et grille de l'interface, gardées pour la reprise.
     ui: UiState,
-    /// Reprise activée (app de bureau) : l'état est écrit à chaque commande.
-    resume: Option<resume::Resume>,
+    /// Reprise activée (app de bureau) : l'état est écrit après chaque
+    /// commande, par un fil dédié (`resume_writer`).
+    resume: Option<resume_writer::Writer>,
+    /// Images et polices déjà envoyées au fil de reprise : partagées tant
+    /// qu'elles ne changent pas (voir `resume::DocSnapshot`).
+    sent_blobs: Vec<Arc<resume::Blobs>>,
 }
 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
@@ -282,6 +287,7 @@ impl Session {
             svg_cache: HashMap::new(),
             ui: UiState::default(),
             resume: None,
+            sent_blobs: Vec::new(),
         };
         s.rerender()?;
         Ok(s)
@@ -350,9 +356,18 @@ impl Session {
         self.doc.notice = Some(text);
     }
 
-    /// Plus rien n'est écrit pour la reprise (l'onglet est fermé).
+    /// Plus rien n'est écrit pour la reprise (l'onglet est fermé) : ce qui
+    /// était en cours est écrit d'abord, avant de rendre la main.
     pub(crate) fn stop_resume(&mut self) {
         self.resume = None;
+        self.sent_blobs.clear();
+    }
+
+    /// Attend que l'état de reprise envoyé soit écrit (avant de quitter).
+    pub(crate) fn flush_resume(&self) {
+        if let Some(writer) = &self.resume {
+            writer.flush();
+        }
     }
 
     /// Dossier des ensembles de modèles de l'utilisateur.

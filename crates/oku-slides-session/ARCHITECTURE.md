@@ -6,8 +6,8 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 
 ## Types clés
 
-- `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son
-  historique, son mode modèles, sa reprise (`resume.rs`, dossier `tabs/<id>`).
+- `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son historique, son
+  mode modèles, sa reprise (`resume.rs`, écrite par un fil dédié : `resume_writer.rs`).
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : les
   fenêtres `w-<n>`, leurs onglets `t-<n>`, l'onglet actif, la fenêtre active ;
   `TabInfo` (`views.rs`) : ce que la barre montre d'un onglet.

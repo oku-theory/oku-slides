@@ -11,6 +11,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use oku_slides_core::{Deck, History, SourceBundle};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
+use crate::resume_writer::{Job, Writer};
 use crate::views::{TemplateMode, UiState};
 use crate::{Document, EXTENSION, Mode, Session, SessionError};
 
@@ -52,12 +54,73 @@ pub(crate) enum SavedMode {
     Templates(TemplateMode),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct State {
     pub version: u32,
     pub mode: SavedMode,
     #[serde(default)]
     pub ui: UiState,
+}
+
+/// Octets d'un document (images, polices), partagés d'un envoi au suivant
+/// tant qu'ils ne changent pas : une commande ne les recopie pas.
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct Blobs {
+    pub assets: BTreeMap<String, Vec<u8>>,
+    pub fonts: BTreeMap<String, Vec<u8>>,
+}
+
+impl Blobs {
+    /// Mêmes octets que `sources` ? Un asset est nommé par son empreinte :
+    /// ses clés suffisent. Une police est nommée par son fichier : ses octets
+    /// comptent aussi.
+    fn matches(&self, sources: &SourceBundle) -> bool {
+        self.assets.keys().eq(sources.assets.keys()) && self.fonts == sources.fonts
+    }
+}
+
+/// Un document à écrire hors du verrou de la session (fil de reprise).
+pub(crate) struct DocSnapshot {
+    deck: Deck,
+    history: History,
+    path: Option<PathBuf>,
+    dirty: bool,
+    saved_hash: Option<String>,
+    blank: bool,
+    blobs: Arc<Blobs>,
+}
+
+impl DocSnapshot {
+    #[cfg(test)]
+    pub(crate) fn blobs(&self) -> &Arc<Blobs> {
+        &self.blobs
+    }
+
+    /// L'instantané de `doc` ; ses octets viennent de `cache` s'ils n'ont pas
+    /// changé depuis un envoi précédent, sinon ils y entrent (copiés une fois).
+    pub(crate) fn of(doc: &Document, cache: &mut Vec<Arc<Blobs>>) -> Self {
+        let blobs = match cache.iter().find(|b| b.matches(&doc.sources)) {
+            Some(b) => Arc::clone(b),
+            None => {
+                let b = Arc::new(Blobs { assets: doc.sources.assets.clone(), fonts: doc.sources.fonts.clone() });
+                // Deck et ensemble de modèles : deux documents au plus.
+                if cache.len() >= 2 {
+                    cache.remove(0);
+                }
+                cache.push(Arc::clone(&b));
+                b
+            }
+        };
+        Self {
+            deck: doc.sources.deck.clone(),
+            history: doc.history.clone(),
+            path: doc.path.clone(),
+            dirty: doc.dirty,
+            saved_hash: doc.saved_hash.clone(),
+            blank: doc.blank,
+            blobs,
+        }
+    }
 }
 
 /// Juste assez de `state.json` pour vérifier la version avant de tenter de
@@ -101,7 +164,7 @@ fn safe_name(name: &str) -> bool {
 }
 
 /// Un dossier de reprise (celui d'un onglet, ou la racine) et ses fichiers.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Resume {
     storage: Storage,
     pub(crate) dir: PathBuf,
@@ -157,12 +220,21 @@ impl Resume {
     /// dans cet ordre, un fichier cité par `document.json` a toujours été
     /// écrit avant, et on ne perd jamais un fichier encore cité si on
     /// s'interrompt entre les deux étapes.
-    pub fn write_doc(&self, sub: &str, doc: &Document) -> Result<()> {
+    pub(crate) fn write_snapshot(&self, sub: &str, doc: &DocSnapshot) -> Result<()> {
+        let out = DocOut {
+            path: doc.path.as_deref(),
+            dirty: doc.dirty,
+            saved_hash: doc.saved_hash.as_deref(),
+            deck: &doc.deck,
+            history: &doc.history,
+            blank: doc.blank,
+        };
+        let (assets, fonts) = (&doc.blobs.assets, &doc.blobs.fonts);
         let dir = self.dir.join(sub);
         // Le deck cite les assets par identifiant : on garde ce nom tel quel
         // (pas question de le recalculer depuis les octets), juste validé —
         // `sha256:` suivi d'hexadécimal ne sait pas sortir du dossier.
-        let assets = doc.sources.assets.iter().filter_map(|(id, b)| match id.strip_prefix("sha256:") {
+        let assets = assets.iter().filter_map(|(id, b)| match id.strip_prefix("sha256:") {
             Some(hex) if !hex.is_empty() && hex.bytes().all(|c| c.is_ascii_hexdigit()) => Some((hex.to_owned(), b)),
             _ => {
                 tracing::warn!(id, "identifiant d'asset de reprise refusé");
@@ -175,7 +247,7 @@ impl Resume {
         // avec un contenu différent écrit un fichier différent plutôt que de
         // garder le vieux fichier périmé (le fichier périmé est retiré plus
         // bas, avec les autres orphelins).
-        let fonts = doc.sources.fonts.iter().filter_map(|(name, b)| {
+        let fonts = fonts.iter().filter_map(|(name, b)| {
             if !safe_name(name) {
                 tracing::warn!(name, "nom de police de reprise refusé");
                 return None;
@@ -187,14 +259,6 @@ impl Resume {
         let keep_fonts = self.write_missing(&dir.join("fonts"), fonts)?;
 
         let path = dir.join("document.json");
-        let out = DocOut {
-            path: doc.path.as_deref(),
-            dirty: doc.dirty,
-            saved_hash: doc.saved_hash.as_deref(),
-            deck: &doc.sources.deck,
-            history: &doc.history,
-            blank: doc.blank,
-        };
         let bytes = serde_json::to_vec(&out).context(JsonSnafu { path: &path })?;
         self.put(&path, bytes)?;
 
@@ -387,6 +451,8 @@ impl Session {
     /// lancement, ou le garde vierge s'il le relit plus tard (`workspace_slot.rs`).
     #[must_use]
     pub fn resume(&mut self, dir: PathBuf) -> bool {
+        // Un seul écrivain par dossier : l'ancien fil finit et s'arrête d'abord.
+        self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
         if let Err(e) = self.restore(&resume) {
             tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible");
@@ -408,8 +474,9 @@ impl Session {
             self.resume = None;
             return false;
         }
-        self.resume = Some(resume);
+        self.resume = Some(Writer::new(resume));
         self.persist(true);
+        self.flush_resume();
         true
     }
 
@@ -421,6 +488,7 @@ impl Session {
     /// impossible à déplacer laisse la session sans reprise (`false`).
     #[must_use]
     pub(crate) fn resume_fresh(&mut self, dir: PathBuf) -> bool {
+        self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
         match resume.read_state() {
             Ok(None) => {}
@@ -441,8 +509,9 @@ impl Session {
                 }
             }
         }
-        self.resume = Some(resume);
+        self.resume = Some(Writer::new(resume));
         self.persist(true);
+        self.flush_resume();
         true
     }
 
@@ -488,26 +557,25 @@ impl Session {
         }
     }
 
-    /// Écrit l'état pour la reprise ; `documents` : aussi les documents.
-    pub(crate) fn persist(&self, documents: bool) {
-        let Some(resume) = &self.resume else { return };
-        if let Err(e) = self.write_resume(resume, documents) {
-            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "état de reprise non enregistré");
-        }
-    }
-
-    fn write_resume(&self, resume: &Resume, documents: bool) -> Result<()> {
+    /// Envoie l'état à écrire pour la reprise ; `documents` : aussi les documents.
+    ///
+    /// Ne bloque pas : le fil de reprise écrit (voir `resume_writer`). Seuls
+    /// le deck et l'historique sont copiés ; images et polices inchangées
+    /// sont partagées avec l'envoi précédent.
+    pub(crate) fn persist(&mut self, documents: bool) {
+        let Some(writer) = &self.resume else { return };
         let (deck, mode) = match &self.mode {
             Mode::Deck => (&self.doc, SavedMode::Deck),
             Mode::Templates { stash, edit } => (&**stash, SavedMode::Templates(edit.clone())),
         };
+        let mut docs = Vec::new();
         if documents {
-            resume.write_doc(DECK_DIR, deck)?;
+            docs.push((DECK_DIR, DocSnapshot::of(deck, &mut self.sent_blobs)));
             if matches!(self.mode, Mode::Templates { .. }) {
-                resume.write_doc(TEMPLATES_DIR, &self.doc)?;
+                docs.push((TEMPLATES_DIR, DocSnapshot::of(&self.doc, &mut self.sent_blobs)));
             }
         }
-        resume.write_state(&State { version: VERSION, mode, ui: self.ui.clone() })
+        writer.send(Job { docs, state: State { version: VERSION, mode, ui: self.ui.clone() } });
     }
 }
 

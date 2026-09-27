@@ -635,7 +635,8 @@ impl Workspace {
     /// force l'écriture pour que la fenêtre au premier plan soit reprise même
     /// si rien d'autre n'a changé depuis. Verrouille l'espace de travail (ce
     /// qui attend un `apply` en cours), puis chaque session une fois (ce qui
-    /// attend une requête en cours), jamais en même temps que celui de
+    /// attend une requête en cours, puis l'écriture de sa reprise par son
+    /// fil), jamais en même temps que celui de
     /// l'espace de travail. Pose aussi `closed`, sous ce verrou : plus aucun
     /// fichier reçu ensuite (`open_files`, `apply` sur `OpenTab`) ne s'ouvre,
     /// et un onglet dont la construction chevauche cet appel n'est pas inséré.
@@ -645,8 +646,9 @@ impl Workspace {
         w.save_layout();
         let sessions: Vec<Arc<Mutex<Slot>>> = w.tabs.values().map(|t| Arc::clone(&t.session)).collect();
         drop(w);
+        // Chaque session : sa requête en cours finie, puis sa reprise écrite.
         for session in sessions {
-            drop(relock(&session));
+            relock(&session).flush();
         }
     }
 
