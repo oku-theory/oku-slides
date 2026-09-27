@@ -14,6 +14,8 @@
     display: ("Newsreader", "Newsreader 16pt", "Libertinus Serif"),
     body: ("Instrument Sans", "Libertinus Serif"),
   ),
+  // Titres serif (Newsreader) : un serif aussi en japonais, chinois, coréen.
+  script-style: (display: "serif"),
   weight: (display: 500, title: 500, label: 500, strong: 600),
   // Graphiques : l'accent d'abord, puis des tons chauds et sourds du papier.
   chart: (palette: ("accent", "#c4622d", "#2f5d8a", "#c9a227", "#8a4f7d", "ink-muted")),

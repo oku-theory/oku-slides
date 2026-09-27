@@ -2,11 +2,12 @@
 # requires-python = ">=3.11"
 # dependencies = ["fonttools==4.60.1"]
 # ///
-"""Sous-ensembles des polices Noto Sans CJK livrées avec Oku Slides.
+"""Sous-ensembles des polices Noto Sans et Serif CJK livrées avec Oku Slides.
 
-Usage : uv run assets/fonts/subset-cjk.py <dossier des OTF sources>
+Usage : uv run assets/fonts/subset-cjk.py <dossier des OTF sources> [Sans|Serif]
 
-Sources : notofonts/noto-cjk, Sans/SubsetOTF/{JP,SC,TC,KR}/NotoSans{R}-{Regular,Bold}.otf.
+Sources : notofonts/noto-cjk, {Sans,Serif}/SubsetOTF/{JP,SC,TC,KR}/Noto{Sans,Serif}{R}-{Regular,Bold}.otf
+(Sans par défaut).
 Chaque police garde l'ASCII, la ponctuation CJK, les kana, les formes pleine
 chasse et le jeu de caractères national de sa région :
 JP = JIS X 0208 (Shift_JIS), SC = GB 2312, TC = Big5,
@@ -44,7 +45,7 @@ def encodable(codec: str) -> list[int]:
     return out
 
 
-def main(src: Path, dst: Path) -> None:
+def main(src: Path, dst: Path, family: str) -> None:
     for region, (codec, extra) in REGIONS.items():
         unicodes = sorted(set(COMMON + extra + encodable(codec)))
         for style, weight in WEIGHTS.items():
@@ -52,14 +53,17 @@ def main(src: Path, dst: Path) -> None:
             options.layout_features = ["*"]  # locl, vert, palt… restent disponibles
             options.name_IDs = ["*"]
             options.notdef_outline = True
-            font = subset.load_font(src / f"NotoSans{region}-{style}.otf", options)
+            font = subset.load_font(src / f"Noto{family}{region}-{style}.otf", options)
             subsetter = subset.Subsetter(options)
             subsetter.populate(unicodes=unicodes)
             subsetter.subset(font)
-            out = dst / f"noto-sans-{region.lower()}-{weight}.otf"
+            out = dst / f"noto-{family.lower()}-{region.lower()}-{weight}.otf"
             subset.save_font(font, out, options)
             print(f"{out.name}: {len(unicodes)} caractères, {out.stat().st_size // 1024} Kio")
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]), Path(__file__).parent)
+    family = sys.argv[2] if len(sys.argv) > 2 else "Sans"
+    if family not in ("Sans", "Serif"):
+        sys.exit(f"famille inconnue : {family} (Sans ou Serif)")
+    main(Path(sys.argv[1]), Path(__file__).parent, family)

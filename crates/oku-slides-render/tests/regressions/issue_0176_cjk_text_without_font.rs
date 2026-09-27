@@ -91,3 +91,55 @@ fn devanagari_bengali_and_thai_in_every_theme_are_drawn_with_their_fonts() {
         }
     }
 }
+
+/// PDF d'une slide dont le titre et le texte diffèrent.
+fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> Vec<u8> {
+    let deck: Deck = serde_json::from_value(json!({
+        "theme": theme, "params": { "lang": lang },
+        "slides": [{ "id": "s", "kind": "content", "title": title, "blocks": [
+            { "id": "b", "kind": "text", "text": [{ "runs": [{ "t": body }] }] }
+        ] }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
+    r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// t-178 : les titres serif du thème papier (Newsreader) prennent le serif
+/// CJK de leur région ; le texte courant reste en sans.
+#[test]
+fn papier_cjk_titles_use_serif_and_body_stays_sans() {
+    for (lang, region) in [("ja", "JP"), ("zh", "SC"), ("zh-TW", "TC"), ("ko", "KR")] {
+        let fonts = embedded_fonts(&pdf_title_body(Some("papier"), lang, "題名 제목", "本文 본문"));
+        asserting(&format!("{lang} : {fonts:?}"))
+            .that(&fonts.iter().any(|f| f.starts_with(&format!("NotoSerif{region}"))))
+            .is_true();
+        asserting(&format!("{lang} : {fonts:?}"))
+            .that(&fonts.iter().any(|f| f.starts_with(&format!("NotoSans{region}"))))
+            .is_true();
+    }
+}
+
+/// Un thème aux titres sans (pro) ne prend jamais le serif CJK.
+#[test]
+fn pro_cjk_titles_stay_sans() {
+    let fonts = embedded_fonts(&pdf_title_body(Some("pro"), "ja", "題名", "本文"));
+    asserting(&format!("{fonts:?}")).that(&fonts.iter().any(|f| f.starts_with("NotoSerif"))).is_false();
+}
+
+/// Une graphie inconnue dans `script-style` (faute de frappe d'un thème)
+/// fait échouer le rendu, jamais un repli silencieux sur le sans.
+#[test]
+fn unknown_script_style_fails_to_compile() {
+    let deck: Deck = serde_json::from_value(json!({
+        "theme": "papier", "params": { "lang": "ja" },
+        "tokens": { "script-style": { "display": "serf" } },
+        "slides": [{ "id": "s", "kind": "content", "title": "題名", "blocks": [] }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
+    let err = r.compile().err().map(|e| e.to_string()).unwrap_or_default();
+    assert_that!(err).contains("script-style");
+}

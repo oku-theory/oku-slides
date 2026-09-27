@@ -24,6 +24,9 @@
     body: ("Libertinus Serif",),
     mono: ("DejaVu Sans Mono",),
   ),
+  // Graphie des polices de secours CJK, par rôle de `font` : "sans" ou
+  // "serif" (des titres serif gardent un serif en japonais, chinois, coréen).
+  script-style: (display: "sans", body: "sans", mono: "sans"),
   size: (
     display: 112,
     title: 60,
@@ -165,22 +168,29 @@
 }
 
 // Polices livrées pour les alphabets que les polices des thèmes ne couvrent
-// pas : arabe, devanagari, bengali, thaï, puis CJK. Les idéogrammes communs se dessinent selon la région : celle de la
-// langue passe en tête (chinois simplifié par défaut).
-#let script-fallback(tag) = {
+// pas : arabe, devanagari, bengali, thaï, puis CJK. Les idéogrammes communs
+// se dessinent selon la région : celle de la langue passe en tête (chinois
+// simplifié par défaut). `style` "serif" : le CJK en Noto Serif d'abord
+// (les autres alphabets n'ont que des Sans livrées), le Sans en dernier recours.
+#let script-fallback(tag, style: "sans") = {
+  assert(style in ("sans", "serif"), message: "script-style : \"sans\" ou \"serif\", pas " + repr(style))
   let parts = lower(tag).split("-")
   let first = if parts.first() == "ja" { "JP" } else if parts.first() == "ko" { "KR" } else if (
     parts.first() == "zh" and parts.any(p => p in ("hant", "tw", "hk", "mo"))
   ) { "TC" } else { "SC" }
   let regions = (first,) + ("JP", "SC", "TC", "KR").filter(r => r != first)
-  let scripts = ("Arabic", "Devanagari", "Bengali", "Thai")
-  (scripts + regions).map(s => "Noto Sans " + s)
+  let scripts = ("Arabic", "Devanagari", "Bengali", "Thai").map(s => "Noto Sans " + s)
+  let sans = regions.map(r => "Noto Sans " + r)
+  let cjk = if style == "serif" { regions.map(r => "Noto Serif " + r) + sans } else { sans }
+  scripts + cjk
 }
 
-// Ajoute `script-fallback(tag)` à chaque famille de `t.font`.
+// Ajoute `script-fallback(tag)` à chaque famille de `t.font`, dans la
+// graphie que `t.script-style` donne à son rôle.
 #let with-script-fallback(t, tag) = {
-  let fallback = script-fallback(tag)
+  let styles = t.at("script-style", default: (:))
   for (k, v) in t.font {
+    let fallback = script-fallback(tag, style: styles.at(k, default: "sans"))
     let families = if type(v) == array { v } else { (v,) }
     t.font.insert(k, families.filter(f => f not in fallback) + fallback)
   }
