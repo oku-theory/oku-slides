@@ -44,8 +44,10 @@ ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono
 ## Lancer l'application
 
 Tout se lance depuis la racine du dépôt avec [just](https://just.systems).
-Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour CTranslate2), et la CLI Tauri
-(`cargo install tauri-cli --version "^2"`). `just doctor` vérifie tout.
+Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour CTranslate2), la CLI Tauri
+(`cargo install tauri-cli --version "^2"`) et [Git LFS](https://git-lfs.com) pour les
+polices de `assets/fonts` (`git lfs install` avant de cloner, sinon `git lfs pull`).
+`just doctor` vérifie tout.
 
 ```sh
 just dev      # app de bureau en développement (installe les dépendances de l'interface)

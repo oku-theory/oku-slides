@@ -2,6 +2,10 @@
 
 Chargées par le rendu Typst au démarrage de l'app (et par `oku-slides --fonts assets/fonts`).
 
+Suivies par Git LFS (`.gitattributes`) : installer Git LFS (`git lfs install`)
+avant de cloner, ou `git lfs pull` dans un clone existant ; sinon ce dossier
+ne contient que des pointeurs texte et le rendu n'a plus ses polices.
+
 | Famille | Fichiers | Thème |
 | --- | --- | --- |
 | Newsreader | `newsreader-latin-standard-*.ttf` | papier (titres, contenu) |
