@@ -88,10 +88,19 @@ Chaque champ du modèle relève d'une catégorie :
   `italic`, `color`, `size`, `highlight` (`expand: After`), `link`
   (`expand: None`). Le `list` d'un paragraphe est une marque sur son `\n`.
   La lecture reconstruit les `Run` depuis `to_delta()`.
-- **Prose toujours présente.** À la création d'une slide ou d'un élément,
-  tous ses `LoroText` de prose sont créés, vides au besoin.
+- **Prose et collections toujours présentes.** À la création du deck, d'une
+  slide ou d'un élément, tous ses `LoroText` de prose et toutes ses
+  collections à `id` (`slides`, `blocks`, `elements`, `children`) sont
+  créés, vides au besoin. Une valeur absente du JSON vide le conteneur,
+  sans jamais retirer la clé. Sinon, deux pairs qui créent la même clé
+  en concurrence (premier élément d'une slide vide, premier titre) font
+  chacun leur conteneur, et un seul survit.
+- **Séparateur de paragraphes** : `U+2029` (et non `\n`, qu'un run peut
+  contenir). Chaque paragraphe se termine par ce séparateur, le dernier
+  compris. Les runs adjacents de même mise en forme sont fusionnés à la
+  lecture (forme canonique).
 - **Vide = absent, invariant du modèle.** `opt_string` (`ops.rs`) convertit
-  `""` en `None` (couvre `SetSlideField` et `SetParam`) ; la lecture Loro
+  une chaîne vide ou faite d'espaces en `None` (même règle que l'UI) (couvre `SetSlideField` et `SetParam`) ; la lecture Loro
   ramène un texte vide à `None`. Les normalisations de l'UI
   (`deck.ts:76`, `a2ui/panelActions.ts:25`, `App.tsx:494`) disparaissent.
   Audit : aucun modèle ni test ne s'appuie sur `Some("")` ; seul effet
@@ -179,6 +188,10 @@ fonts/<nom>      tels quels
   version doit se rendre. Fusion = union.
 - **Blob non fiable** : import sous `catch_unwind` et taille maximale
   (réglage) ; panique ou octets refusés → `Corrupted`.
+- **Lecture totale, trois niveaux** : un élément illisible est écarté
+  (`issue-unreadable-element`), puis une slide (`issue-unreadable-slide`),
+  puis un champ de haut niveau du deck (`theme`, `params`, `vars`,
+  `templates`), remis à sa valeur par défaut (`issue-unreadable-field`).
 
 ## Fusion
 
@@ -230,8 +243,8 @@ s'affiche en lecture seule.
 
 | Où | Type | `kind` |
 |---|---|---|
-| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Unrelated` |
-| `oku-slides-core::sources` | `SourcesError` | existants, plus `MissingReplica` |
+| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge` ; `Unrelated` avec la fusion |
+| `oku-slides-core::sources` | `SourcesError` | existants ; `MissingDeck` couvre l'absence de `deck.loro` |
 | `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen`, `DiskReplaced` |
 
 Ne sont pas des erreurs : un sous-arbre illisible après fusion (écarté,
