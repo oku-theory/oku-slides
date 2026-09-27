@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
 import { fontStack } from "./appearance";
-import { luminance } from "./color";
+import { editorBackground } from "./color";
 import type { GridPlacement } from "./deck";
 import { findElement, gridPlacement, isBlock, placeOnGridOps, textChanged, textOps } from "./deck";
 import type { Cell, GridSpec, ZoneView } from "./grid";
@@ -93,22 +93,6 @@ function dragged(d: Drag): Frame {
 const WEIGHTS: Record<string, number> = {
   thin: 100, extralight: 200, light: 300, regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900,
 };
-
-/**
- * Fond de l'éditeur : celui de la slide sous le texte ; s'il ne contraste pas
- * assez avec le texte (texte clair sur un bandeau que Typst ne voit pas), un
- * fond sombre ou clair selon le texte, pour qu'il reste lisible.
- */
-export function editorBackground(fill: string | null, bg: string | null): string | undefined {
-  const lf = fill ? luminance(fill) : null;
-  const lb = bg ? luminance(bg) : null;
-  if (lf === null) return bg ?? undefined;
-  if (lb !== null) {
-    const ratio = (Math.max(lf, lb) + 0.05) / (Math.min(lf, lb) + 0.05);
-    if (ratio >= 3) return bg!;
-  }
-  return lf > 0.4 ? "#1d2230" : "#ffffff";
-}
 
 let measureCtx: CanvasRenderingContext2D | null = null;
 
