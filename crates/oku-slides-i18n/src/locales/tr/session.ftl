@@ -14,6 +14,7 @@ session-not-editing-templates = Düzenlenmekte olan şablon seti yok
 session-response = Yanıt yazılamadı
 session-unknown-tab = Bu sekme artık açık değil.
 session-unknown-window = Bu pencere artık açık değil.
+session-single-document = Burada yalnızca bir sunu açık olabilir.
 session-last-window = Son pencere açık kalır: bunun yerine uygulamadan çıkın.
 session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }

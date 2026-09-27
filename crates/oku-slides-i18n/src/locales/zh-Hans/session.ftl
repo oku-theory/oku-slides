@@ -14,6 +14,7 @@ session-not-editing-templates = 当前没有正在编辑的模板集
 session-response = 无法写入响应
 session-unknown-tab = 此标签页已不再打开。
 session-unknown-window = 此窗口已不再打开。
+session-single-document = 此处只能打开一个演示文稿。
 session-last-window = 最后一个窗口会保持打开：请改为退出应用。
 session-unsaved = “{ $title }”有未保存的更改。
 session-bad-request = 请求无效：{ $reason }

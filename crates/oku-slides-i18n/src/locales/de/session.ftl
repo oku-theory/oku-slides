@@ -14,6 +14,7 @@ session-not-editing-templates = Es wird kein Vorlagenset bearbeitet
 session-response = Die Antwort konnte nicht geschrieben werden
 session-unknown-tab = Dieser Tab ist nicht mehr geöffnet.
 session-unknown-window = Dieses Fenster ist nicht mehr geöffnet.
+session-single-document = Hier kann nur eine Präsentation geöffnet sein.
 session-last-window = Das letzte Fenster bleibt geöffnet: Beenden Sie stattdessen die App.
 session-unsaved = „{ $title }“ hat nicht gespeicherte Änderungen.
 session-bad-request = Ungültige Anfrage: { $reason }

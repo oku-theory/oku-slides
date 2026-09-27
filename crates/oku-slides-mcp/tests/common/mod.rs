@@ -109,26 +109,37 @@ impl Sessions for ClosedTabs {
     }
 }
 
-/// Un `Sessions` dont tout fichier est déjà ouvert dans un autre onglet.
+/// Un `Sessions` à plusieurs onglets : tout fichier est déjà ouvert dans un
+/// autre onglet, et `open_tab` note l'ouverture puis rend `t-7`.
 #[derive(Debug)]
-pub struct OpenElsewhere(Arc<Mutex<Session>>);
+pub struct OtherTabs {
+    session: Arc<Mutex<Session>>,
+    /// `(onglet, fichier)` de chaque `open_tab`.
+    pub opened: Mutex<Vec<(String, std::path::PathBuf)>>,
+}
 
-impl Sessions for OpenElsewhere {
+impl Sessions for OtherTabs {
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        self.0.with(tab, f)
+        self.session.with(tab, f)
     }
 
     fn open_elsewhere(&self, _tab: &str, _path: &std::path::Path) -> bool {
         true
     }
+
+    fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {
+        self.opened.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((tab.to_owned(), path.to_owned()));
+        Ok("t-7".to_owned())
+    }
 }
 
-/// Un serveur dont les fichiers sont tous ouverts dans un autre onglet.
-pub async fn start_open_elsewhere() -> Harness {
+/// Un serveur parmi d'autres onglets (voir [`OtherTabs`]).
+pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
     let (platform, session) = prepared().await;
     let session = Arc::new(Mutex::new(session));
-    let sessions: Arc<dyn Sessions> = Arc::new(OpenElsewhere(session.clone()));
-    start_with(platform, sessions, session).await
+    let tabs = Arc::new(OtherTabs { session: session.clone(), opened: Mutex::default() });
+    let h = start_with(platform, tabs.clone(), session).await;
+    (h, tabs)
 }
 
 /// Un serveur dont l'onglet est fermé : tout outil sur la session échoue.

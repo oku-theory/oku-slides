@@ -68,12 +68,14 @@ session.
   serveur arrêté, questions relâchées ; une commande tardive pour cet
   onglet est ensuite ignorée, les identifiants ne revenant jamais) ;
   `after_change(tab)` (élagage des surfaces). Un autre document s'ouvre dans
-  un nouvel onglet : pas de « document changé » côté hôte. Les outils
-  `open` / `new_deck` de l'agent remplacent le deck de son onglet (la
-  conversation continue, les post-its sont élagués) ; `open` refuse un
-  fichier déjà ouvert dans un autre onglet (`Sessions::open_elsewhere`).
-  Suite (tâche t-242) : `open` de l'agent devrait ouvrir un nouvel onglet,
-  et `save {path}` vers un fichier ouvert ailleurs être refusé.
+  un nouvel onglet : pas de « document changé » côté hôte. L'outil
+  `new_deck` de l'agent remplace le deck de son onglet (la conversation
+  continue, les post-its sont élagués). `open` (t-242) ouvre le fichier
+  dans un nouvel onglet de la même fenêtre, ou active celui qui l'a
+  (`Sessions::open_tab`, `Workspace::open_beside`, jamais un onglet
+  remplacé) : le nouvel onglet a sa propre conversation, celui de l'agent
+  garde son deck. `save {path}` refuse un fichier ouvert dans un autre
+  onglet (`Sessions::open_elsewhere`).
 - Démarrage borné : l'agent doit être prêt (poignée de main faite) dans
   `READY_WITHIN` (120 s, `npx` peut télécharger) ; au-delà il est tué et
   le prompt reçoit `agent-stopped`.

@@ -114,6 +114,12 @@ impl Tools {
             Ok(p) => p,
             Err(e) => return fail(e),
         };
+        // Un fichier ne vit que dans un onglet : refusé sans rien demander.
+        if let Some(p) = &path
+            && self.open_elsewhere(p).await
+        {
+            return fail(self.localizer.tr("agent-open-elsewhere"));
+        }
         let shown = match &path {
             Some(p) => p.display().to_string(),
             None => match self.current_path().await {
@@ -130,6 +136,8 @@ impl Tools {
         self.guarded(message, exists, Request::Save { path, overwrite: false }).await
     }
 
+    /// Ouvre le fichier dans un autre onglet (ou montre celui qui l'a) ;
+    /// l'onglet de l'agent garde son deck et sa conversation.
     pub(crate) async fn open(&self, args: Value) -> CallToolResult {
         let OpenArgs { path } = match parse(args) {
             Ok(a) => a,
@@ -139,18 +147,16 @@ impl Tools {
             Ok(p) => p,
             Err(e) => return fail(e),
         };
-        // Un fichier ne vit que dans un onglet : refusé sans rien demander.
-        if self.open_elsewhere(&path).await {
-            return fail(self.localizer.tr("agent-open-elsewhere"));
+        let message = self.localizer.tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
+        if !self.hub.confirm(message, false).await {
+            return fail(DENIED);
         }
-        let dirty = self.dirty().await;
-        let key = if dirty { "agent-confirm-open-dirty" } else { "agent-confirm-open" };
-        let message = self.localizer.tr_with(key, &[("path", path.display().to_string().into())]);
-        // Le document de l'onglet est remplacé (l'onglet reste le même) ; les
-        // post-its de l'ancien deck se ferment, la conversation continue.
-        let result = self.guarded_with(message, dirty, move |s| s.open(&path)).await;
-        self.prune_if_done(&result).await;
-        result
+        let session = self.session.clone();
+        match tokio::task::spawn_blocking(move || session.open_tab(&path)).await {
+            Ok(Ok(tab)) => json_result(&json!({ "ok": true, "tab": tab })),
+            Ok(Err(e)) => fail(e.one_line()),
+            Err(e) => fail(format!("open task failed: {e}")),
+        }
     }
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {

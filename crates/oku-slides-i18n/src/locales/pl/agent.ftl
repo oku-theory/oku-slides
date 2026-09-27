@@ -25,7 +25,6 @@ agent-undo-rewrite = Przeformułowanie
 agent-confirm-save = Zapisać prezentację jako { $path }?
 agent-confirm-save-over = Zastąpić { $path }? Istniejący plik zostanie nadpisany.
 agent-confirm-open = Otworzyć { $path }?
-agent-confirm-open-dirty = Otworzyć { $path }? Niezapisane zmiany zostaną utracone.
 agent-open-elsewhere = Ten plik jest już otwarty w innej karcie.
 agent-confirm-new = Rozpocząć nową prezentację?
 agent-confirm-new-dirty = Rozpocząć nową prezentację? Niezapisane zmiany zostaną utracone.

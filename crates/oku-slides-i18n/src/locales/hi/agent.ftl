@@ -25,7 +25,6 @@ agent-undo-rewrite = पुनर्लेखन
 agent-confirm-save = प्रस्तुति को { $path } के रूप में सहेजें?
 agent-confirm-save-over = { $path } को बदलें? मौजूदा फ़ाइल अधिलेखित हो जाएगी।
 agent-confirm-open = { $path } खोलें?
-agent-confirm-open-dirty = { $path } खोलें? न सहेजे गए बदलाव खो जाएँगे।
 agent-open-elsewhere = यह फ़ाइल पहले से किसी दूसरे टैब में खुली है।
 agent-confirm-new = नई प्रस्तुति शुरू करें?
 agent-confirm-new-dirty = नई प्रस्तुति शुरू करें? न सहेजे गए बदलाव खो जाएँगे।

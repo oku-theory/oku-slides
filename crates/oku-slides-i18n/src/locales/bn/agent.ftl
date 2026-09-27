@@ -25,7 +25,6 @@ agent-undo-rewrite = পুনর্লিখন
 agent-confirm-save = উপস্থাপনাটি { $path } হিসেবে সংরক্ষণ করবেন?
 agent-confirm-save-over = { $path } প্রতিস্থাপন করবেন? বিদ্যমান ফাইলটি ওভাররাইট হয়ে যাবে।
 agent-confirm-open = { $path } খুলবেন?
-agent-confirm-open-dirty = { $path } খুলবেন? সংরক্ষণ না করা পরিবর্তনগুলো হারিয়ে যাবে।
 agent-open-elsewhere = এই ফাইলটি ইতিমধ্যে অন্য একটি ট্যাবে খোলা আছে।
 agent-confirm-new = নতুন উপস্থাপনা শুরু করবেন?
 agent-confirm-new-dirty = নতুন উপস্থাপনা শুরু করবেন? সংরক্ষণ না করা পরিবর্তনগুলো হারিয়ে যাবে।

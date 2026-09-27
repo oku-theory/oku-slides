@@ -14,6 +14,7 @@ session-not-editing-templates = Ни один набор шаблонов не �
 session-response = Не удалось записать ответ
 session-unknown-tab = Эта вкладка больше не открыта.
 session-unknown-window = Это окно больше не открыто.
+session-single-document = Здесь можно открыть только одну презентацию.
 session-last-window = Последнее окно остаётся открытым: вместо этого закройте приложение.
 session-unsaved = В «{ $title }» есть несохранённые изменения.
 session-bad-request = Недопустимый запрос: { $reason }

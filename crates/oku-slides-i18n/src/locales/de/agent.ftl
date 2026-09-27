@@ -25,7 +25,6 @@ agent-undo-rewrite = Umformulierung
 agent-confirm-save = Präsentation als { $path } speichern?
 agent-confirm-save-over = { $path } ersetzen? Die vorhandene Datei wird überschrieben.
 agent-confirm-open = { $path } öffnen?
-agent-confirm-open-dirty = { $path } öffnen? Nicht gespeicherte Änderungen gehen verloren.
 agent-open-elsewhere = Diese Datei ist bereits in einem anderen Tab geöffnet.
 agent-confirm-new = Neue Präsentation beginnen?
 agent-confirm-new-dirty = Neue Präsentation beginnen? Nicht gespeicherte Änderungen gehen verloren.

@@ -25,7 +25,6 @@ agent-undo-rewrite = Riformulazione
 agent-confirm-save = Salvare la presentazione come { $path }?
 agent-confirm-save-over = Sostituire { $path }? Il file esistente verrà sovrascritto.
 agent-confirm-open = Aprire { $path }?
-agent-confirm-open-dirty = Aprire { $path }? Le modifiche non salvate andranno perse.
 agent-open-elsewhere = Questo file è già aperto in un’altra scheda.
 agent-confirm-new = Iniziare una nuova presentazione?
 agent-confirm-new-dirty = Iniziare una nuova presentazione? Le modifiche non salvate andranno perse.

@@ -14,6 +14,7 @@ session-not-editing-templates = Không có bộ mẫu nào đang được chỉn
 session-response = Không thể ghi phản hồi
 session-unknown-tab = Thẻ này không còn mở nữa.
 session-unknown-window = Cửa sổ này không còn mở nữa.
+session-single-document = Ở đây chỉ có thể mở một bản trình bày.
 session-last-window = Cửa sổ cuối cùng vẫn được giữ mở: thay vào đó, hãy thoát ứng dụng.
 session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }

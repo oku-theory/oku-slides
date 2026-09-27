@@ -52,6 +52,8 @@ pub enum SessionErrorKind {
     UnknownTab,
     /// Fenêtre inconnue (fermée entre-temps).
     UnknownWindow,
+    /// Hôte à un seul document : pas d'autre onglet.
+    SingleDocument,
     /// Fermeture refusée : travail non enregistré.
     Unsaved,
     /// Fusion refusée : ce PDF est une autre présentation.
@@ -107,6 +109,8 @@ pub(crate) enum SessionInner {
     UnknownTab { id: String, backtrace: Backtrace },
     #[snafu(display("window not found: {label}"))]
     UnknownWindow { label: String, backtrace: Backtrace },
+    #[snafu(display("only one presentation can be open here"))]
+    SingleDocument { backtrace: Backtrace },
     #[snafu(display("{title} has unsaved changes"))]
     Unsaved { title: String, backtrace: Backtrace },
     #[snafu(display("cannot merge another presentation"))]
@@ -135,6 +139,7 @@ impl SessionError {
             AgentForm { .. } => SessionErrorKind::AgentForm,
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
             UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
+            SingleDocument { .. } => SessionErrorKind::SingleDocument,
             Unsaved { .. } => SessionErrorKind::Unsaved,
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
         }
@@ -197,6 +202,7 @@ impl Localize for SessionError {
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
+            SingleDocument { .. } => l.tr("session-single-document"),
             Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),
             MergeUnrelated { .. } => l.tr("replica-unrelated"),
         }

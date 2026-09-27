@@ -59,20 +59,56 @@ async fn open_with_parent_component_is_refused_without_asking() {
     assert_that!(h.hub.has_pending_ask()).is_false();
 }
 
+/// Le fichier de la session de test (celui de la fixture).
+fn own_path(h: &Harness) -> Option<std::path::PathBuf> {
+    h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).snapshot().path.map(|p| p.to_path_buf())
+}
+
+/// t-242 : le fichier s'ouvre dans un autre onglet ; celui de l'agent garde son deck.
 #[tokio::test(flavor = "multi_thread")]
-async fn open_of_a_file_open_in_another_tab_is_refused_without_asking() {
-    let h = start_open_elsewhere().await;
-    let before =
-        h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).snapshot().path.map(|p| p.to_path_buf());
+async fn open_confirmed_opens_the_file_in_another_tab_and_keeps_this_deck() {
+    let (h, tabs) = start_other_tabs().await;
+    let before = own_path(&h);
+    let path = std::env::temp_dir().join("oku-slides-voisin.oku-slides.pdf");
+    let r = guarded(&h, "open", json!({ "path": path.to_string_lossy() }), true).await;
+    assert_that!(json_of(&r)).is_equal_to(json!({ "ok": true, "tab": "t-7" }));
+    let opened = tabs.opened.lock().unwrap().clone();
+    assert_that!(opened).is_equal_to(vec![("t-1".to_owned(), path)]);
+    assert_that!(own_path(&h)).is_equal_to(before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_denied_opens_nothing() {
+    let (h, tabs) = start_other_tabs().await;
+    let path = std::env::temp_dir().join("oku-slides-refuse.oku-slides.pdf");
+    let r = guarded(&h, "open", json!({ "path": path.to_string_lossy() }), false).await;
+    assert_that!(text_of(&r).as_str()).is_equal_to("denied by user");
+    assert_that!(tabs.opened.lock().unwrap().is_empty()).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_on_a_single_document_host_fails_and_keeps_this_deck() {
+    let h = start().await;
+    let before = own_path(&h);
+    let path = std::env::temp_dir().join("oku-slides-seul.oku-slides.pdf");
+    let r = guarded(&h, "open", json!({ "path": path.to_string_lossy() }), true).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r).contains("only one presentation")).is_true();
+    assert_that!(own_path(&h)).is_equal_to(before);
+}
+
+/// t-242 : enregistrer sous le fichier d'un autre onglet est refusé, sans rien demander.
+#[tokio::test(flavor = "multi_thread")]
+async fn save_to_a_file_open_in_another_tab_is_refused_without_asking() {
+    let (h, _) = start_other_tabs().await;
+    let path = std::env::temp_dir().join(format!("oku-slides-pris-{}.oku-slides.pdf", std::process::id()));
+    std::fs::remove_file(&path).ok();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let path = std::env::temp_dir().join("oku-slides-ailleurs.oku-slides.pdf");
-    let r = call(&c, "open", json!({ "path": path.to_string_lossy() })).await;
+    let r = call(&c, "save", json!({ "path": path.to_string_lossy() })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-open-elsewhere"));
     assert_that!(h.hub.has_pending_ask()).is_false();
-    let after =
-        h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).snapshot().path.map(|p| p.to_path_buf());
-    assert_that!(after).is_equal_to(before);
+    assert_that!(path.exists()).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]

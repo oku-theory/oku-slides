@@ -25,7 +25,6 @@ agent-undo-rewrite = Yeniden ifade etme
 agent-confirm-save = Sunum { $path } olarak kaydedilsin mi?
 agent-confirm-save-over = { $path } değiştirilsin mi? Mevcut dosyanın üzerine yazılacak.
 agent-confirm-open = { $path } açılsın mı?
-agent-confirm-open-dirty = { $path } açılsın mı? Kaydedilmemiş değişiklikler kaybolacak.
 agent-open-elsewhere = Bu dosya zaten başka bir sekmede açık.
 agent-confirm-new = Yeni bir sunum başlatılsın mı?
 agent-confirm-new-dirty = Yeni bir sunum başlatılsın mı? Kaydedilmemiş değişiklikler kaybolacak.

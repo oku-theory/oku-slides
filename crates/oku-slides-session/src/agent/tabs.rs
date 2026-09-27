@@ -21,6 +21,15 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
     fn open_elsewhere(&self, _tab: &str, _path: &Path) -> bool {
         false
     }
+
+    /// Ouvre `path` dans un nouvel onglet à côté de `tab` (déjà ouvert : son
+    /// onglet devient actif) et rend l'onglet du fichier ; bloquant.
+    /// L'onglet `tab` et son document restent tels quels.
+    ///
+    /// Par défaut `SingleDocument` : un hôte à un seul document n'a pas d'autre onglet.
+    fn open_tab(&self, _tab: &str, _path: &Path) -> crate::Result<String> {
+        Err(crate::error::SingleDocumentSnafu.build().into())
+    }
 }
 
 /// Une seule session, quel que soit l'onglet (tests, hôtes à un document).
@@ -52,6 +61,11 @@ impl TabSession {
     /// Vrai si `path` est déjà ouvert dans un autre onglet ; bloquant (verrou).
     pub fn open_elsewhere(&self, path: &Path) -> bool {
         self.sessions.open_elsewhere(&self.tab, path)
+    }
+
+    /// Ouvre `path` à côté de cet onglet (voir [`Sessions::open_tab`]) ; bloquant.
+    pub fn open_tab(&self, path: &Path) -> crate::Result<String> {
+        self.sessions.open_tab(&self.tab, path)
     }
 
     /// `f` sur la session de l'onglet ; bloquant (verrou) : hors du fil

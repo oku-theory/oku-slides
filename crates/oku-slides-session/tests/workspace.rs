@@ -860,3 +860,67 @@ fn resume_with_tab_info_without_deck_uid_reads_it_as_none() {
     assert_that!(t.info.deck_uid).is_none();
     assert_that!(t.info.title.as_str()).is_equal_to("deck");
 }
+
+/// t-242 : l'agent ouvre un fichier dans un nouvel onglet de sa fenêtre, sans
+/// remplacer son propre onglet, même vierge (il y converse).
+#[test]
+fn open_beside_opens_a_new_tab_in_the_window_of_the_tab_and_keeps_it() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    send(&ws, json!({"cmd": "new_window"}));
+    let file = saved_pdf(&data, "voisin");
+    let opened = Workspace::open_beside(&ws, "t-2", &file).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    assert_that!(opened.as_str()).is_equal_to("t-3");
+    let v = view(&ws);
+    let w2 = v.windows.iter().find(|w| w.tabs.iter().any(|t| t.id == "t-2")).unwrap();
+    let ids: Vec<&str> = w2.tabs.iter().map(|t| t.id.as_str()).collect();
+    assert_that!(ids).is_equal_to(vec!["t-2", "t-3"]);
+    assert_that!(w2.active.as_str()).is_equal_to("t-3");
+    assert_that!(v.windows[0].tabs).has_length(1);
+}
+
+#[test]
+fn open_beside_of_a_file_already_open_activates_its_tab() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    tab(&ws, "t-1", set_theme("pro"));
+    let file = saved_pdf(&data, "ouvert");
+    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
+    send(&ws, json!({"cmd": "activate", "tab": "t-1"}));
+    let opened = Workspace::open_beside(&ws, "t-1", &file).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    assert_that!(opened.as_str()).is_equal_to("t-2");
+    let v = view(&ws);
+    assert_that!(v.windows[0].tabs).has_length(2);
+    assert_that!(v.windows[0].active.as_str()).is_equal_to("t-2");
+}
+
+#[test]
+fn open_beside_of_an_unknown_tab_is_refused() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let err = Workspace::open_beside(&ws, "t-9", &saved_pdf(&data, "orphelin")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownTab);
+    assert_that!(view(&ws).windows[0].tabs).has_length(1);
+}
+
+#[test]
+fn open_beside_after_settle_is_refused() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let file = saved_pdf(&data, "tard");
+    Workspace::settle(&ws);
+    let err = Workspace::open_beside(&ws, "t-1", &file).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownTab);
+    assert_that!(view(&ws).windows[0].tabs).has_length(1);
+}
+
+#[test]
+fn sessions_open_tab_of_a_workspace_opens_beside() {
+    use oku_slides_session::agent::Sessions;
+    let data = Data::new();
+    let ws = resumed(&data);
+    let file = saved_pdf(&data, "trait");
+    let opened = ws.open_tab("t-1", &file).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    assert_that!(opened.as_str()).is_equal_to("t-2");
+    assert_that!(view(&ws).windows[0].tabs).has_length(2);
+}

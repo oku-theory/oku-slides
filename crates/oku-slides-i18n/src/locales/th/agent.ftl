@@ -25,7 +25,6 @@ agent-undo-rewrite = การเรียบเรียงใหม่
 agent-confirm-save = บันทึกงานนำเสนอเป็น { $path } ไหม
 agent-confirm-save-over = แทนที่ { $path } ไหม ไฟล์เดิมจะถูกเขียนทับ
 agent-confirm-open = เปิด { $path } ไหม
-agent-confirm-open-dirty = เปิด { $path } ไหม การเปลี่ยนแปลงที่ยังไม่ได้บันทึกจะหายไป
 agent-open-elsewhere = ไฟล์นี้เปิดอยู่ในแท็บอื่นแล้ว
 agent-confirm-new = เริ่มงานนำเสนอใหม่ไหม
 agent-confirm-new-dirty = เริ่มงานนำเสนอใหม่ไหม การเปลี่ยนแปลงที่ยังไม่ได้บันทึกจะหายไป

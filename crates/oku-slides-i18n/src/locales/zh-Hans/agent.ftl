@@ -25,7 +25,6 @@ agent-undo-rewrite = 改写
 agent-confirm-save = 要将演示文稿另存为{ $path }吗？
 agent-confirm-save-over = 要替换{ $path }吗？现有文件将被覆盖。
 agent-confirm-open = 要打开{ $path }吗？
-agent-confirm-open-dirty = 要打开{ $path }吗？未保存的更改将丢失。
 agent-open-elsewhere = 此文件已在另一个标签页中打开。
 agent-confirm-new = 要新建一个演示文稿吗？
 agent-confirm-new-dirty = 要新建一个演示文稿吗？未保存的更改将丢失。

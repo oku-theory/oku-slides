@@ -14,6 +14,7 @@ session-not-editing-templates = Er wordt geen sjabloonset bewerkt
 session-response = Het antwoord kon niet worden geschreven
 session-unknown-tab = Dit tabblad is niet meer geopend.
 session-unknown-window = Dit venster is niet meer geopend.
+session-single-document = Hier kan maar één presentatie open zijn.
 session-last-window = Het laatste venster blijft open: sluit in plaats daarvan de app af.
 session-unsaved = ‘{ $title }’ heeft niet-opgeslagen wijzigingen.
 session-bad-request = Ongeldig verzoek: { $reason }

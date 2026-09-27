@@ -76,7 +76,8 @@ impl AppState {
 
 /// Les sessions des onglets, pour l'agent : par l'espace de travail
 /// ([`Workspace::with_session`]) ; la barre d'onglets est redessinée dans
-/// toutes les fenêtres quand un outil l'a changée (titre, modifié).
+/// toutes les fenêtres quand un outil l'a changée (titre, modifié), et les
+/// fenêtres suivent un fichier que l'agent ouvre à côté (`open_tab`).
 pub struct AppSessions {
     app: AppHandle,
     workspace: Arc<Mutex<Workspace>>,
@@ -105,6 +106,14 @@ impl Sessions for AppSessions {
 
     fn open_elsewhere(&self, tab: &str, path: &std::path::Path) -> bool {
         Workspace::lock(&self.workspace).open_elsewhere(tab, path)
+    }
+
+    /// Le fichier dans un nouvel onglet de la fenêtre de `tab` ; les fenêtres
+    /// suivent, l'onglet ouvert passe devant (hors du fil principal : un outil).
+    fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {
+        let opened = Workspace::open_beside(&self.workspace, tab, path)?;
+        crate::windows::sync(&self.app, None, true);
+        Ok(opened)
     }
 }
 

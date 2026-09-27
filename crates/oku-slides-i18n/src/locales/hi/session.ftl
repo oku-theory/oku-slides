@@ -14,6 +14,7 @@ session-not-editing-templates = कोई टेम्पलेट सेट स
 session-response = उत्तर लिखा नहीं जा सका
 session-unknown-tab = यह टैब अब खुला नहीं है।
 session-unknown-window = यह विंडो अब खुली नहीं है।
+session-single-document = यहाँ केवल एक प्रस्तुति खुली रह सकती है।
 session-last-window = आख़िरी विंडो खुली रहती है: इसके बजाय ऐप बंद करें।
 session-unsaved = “{ $title }” में बिना सहेजे बदलाव हैं।
 session-bad-request = अमान्य अनुरोध: { $reason }

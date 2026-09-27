@@ -25,7 +25,6 @@ agent-undo-rewrite = إعادة الصياغة
 agent-confirm-save = هل تريد حفظ العرض التقديمي باسم { $path }؟
 agent-confirm-save-over = هل تريد استبدال { $path }؟ سيتم الكتابة فوق الملف الحالي.
 agent-confirm-open = هل تريد فتح { $path }؟
-agent-confirm-open-dirty = هل تريد فتح { $path }؟ ستُفقد التغييرات غير المحفوظة.
 agent-open-elsewhere = هذا الملف مفتوح بالفعل في علامة تبويب أخرى.
 agent-confirm-new = هل تريد بدء عرض تقديمي جديد؟
 agent-confirm-new-dirty = هل تريد بدء عرض تقديمي جديد؟ ستُفقد التغييرات غير المحفوظة.

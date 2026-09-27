@@ -14,6 +14,7 @@ session-not-editing-templates = ไม่มีชุดเทมเพลตท
 session-response = เขียนคำตอบไม่ได้
 session-unknown-tab = แท็บนี้ไม่ได้เปิดอยู่แล้ว
 session-unknown-window = หน้าต่างนี้ไม่ได้เปิดอยู่แล้ว
+session-single-document = ที่นี่เปิดงานนำเสนอได้เพียงรายการเดียว
 session-last-window = หน้าต่างสุดท้ายจะยังคงเปิดอยู่ ให้ออกจากแอปแทน
 session-unsaved = “{ $title }” มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }

@@ -14,6 +14,7 @@ session-not-editing-templates = Nessun set di modelli in modifica
 session-response = Impossibile scrivere la risposta
 session-unknown-tab = Questa scheda non è più aperta.
 session-unknown-window = Questa finestra non è più aperta.
+session-single-document = Qui può essere aperta una sola presentazione.
 session-last-window = L'ultima finestra resta aperta: esci invece dall'applicazione.
 session-unsaved = «{ $title }» ha modifiche non salvate.
 session-bad-request = Richiesta non valida: { $reason }

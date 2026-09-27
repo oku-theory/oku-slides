@@ -19,7 +19,8 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 - `paragraphs_to_text` (`text.rs`, inline dans `inline.rs`) : markdown d'édition
   relu par `@lezer/markdown` ; contrat `fixtures/markdown.json` et `-corpus.json` (`UPDATE_CORPUS=1`).
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; l'espace de travail
-  l'implémente par `Workspace::with_session` et `Workspace::open_elsewhere` (`impl Sessions for Mutex<Workspace>`).
+  l'implémente par `Workspace::with_session`, `open_elsewhere` et `open_beside`
+  (`workspace_agent.rs` : `impl Sessions for Mutex<Workspace>`).
   Un tour de l'agent est un groupe d'annulation du replica (`begin_turn` / `end_turn`).
 
 ## Verrous

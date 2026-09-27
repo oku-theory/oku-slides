@@ -25,7 +25,6 @@ agent-undo-rewrite = Herformulering
 agent-confirm-save = Presentatie opslaan als { $path }?
 agent-confirm-save-over = { $path } vervangen? Het bestaande bestand wordt overschreven.
 agent-confirm-open = { $path } openen?
-agent-confirm-open-dirty = { $path } openen? Niet-opgeslagen wijzigingen gaan verloren.
 agent-open-elsewhere = Dit bestand is al geopend in een ander tabblad.
 agent-confirm-new = Nieuwe presentatie beginnen?
 agent-confirm-new-dirty = Nieuwe presentatie beginnen? Niet-opgeslagen wijzigingen gaan verloren.

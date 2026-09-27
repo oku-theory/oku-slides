@@ -14,6 +14,7 @@ session-not-editing-templates = لا توجد مجموعة قوالب قيد ا�
 session-response = تعذّرت كتابة الرد
 session-unknown-tab = لم تعد علامة التبويب هذه مفتوحة.
 session-unknown-window = لم تعد هذه النافذة مفتوحة.
+session-single-document = يمكن فتح عرض تقديمي واحد فقط هنا.
 session-last-window = تبقى النافذة الأخيرة مفتوحة: أغلق التطبيق بدلًا من ذلك.
 session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }

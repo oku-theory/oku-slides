@@ -25,7 +25,6 @@ agent-undo-rewrite = Diễn đạt lại
 agent-confirm-save = Lưu bài trình bày dưới dạng { $path }?
 agent-confirm-save-over = Thay thế { $path }? Tệp hiện có sẽ bị ghi đè.
 agent-confirm-open = Mở { $path }?
-agent-confirm-open-dirty = Mở { $path }? Các thay đổi chưa lưu sẽ bị mất.
 agent-open-elsewhere = Tệp này đã được mở trong một thẻ khác.
 agent-confirm-new = Bắt đầu bài trình bày mới?
 agent-confirm-new-dirty = Bắt đầu bài trình bày mới? Các thay đổi chưa lưu sẽ bị mất.

@@ -14,6 +14,7 @@ session-not-editing-templates = 目前沒有正在編輯的範本集
 session-response = 無法寫入回應
 session-unknown-tab = 此分頁已不再開啟。
 session-unknown-window = 此視窗已不再開啟。
+session-single-document = 此處只能開啟一個簡報。
 session-last-window = 最後一個視窗會保持開啟：請改為結束應用程式。
 session-unsaved = 「{ $title }」有未儲存的變更。
 session-bad-request = 要求無效：{ $reason }

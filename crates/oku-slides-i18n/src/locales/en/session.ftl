@@ -14,6 +14,7 @@ session-not-editing-templates = No template set is being edited
 session-response = The answer could not be written
 session-unknown-tab = This tab is no longer open.
 session-unknown-window = This window is no longer open.
+session-single-document = Only one presentation can be open here.
 session-last-window = The last window stays open: quit the app instead.
 session-unsaved = “{ $title }” has unsaved changes.
 session-bad-request = Invalid request: { $reason }

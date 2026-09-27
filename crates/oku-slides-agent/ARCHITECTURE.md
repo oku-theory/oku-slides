@@ -37,7 +37,9 @@ la session de l'onglet. Un arrêt fait échouer les tours de tous les onglets
 questions ; le prompt suivant relance l'agent. Une requête refusée
 (`agent-failed`) garde la session. Lâcher le dernier `Link` arrête l'agent ;
 `Stack::shutdown` (fin de l'app) le tue et n'en relance plus.
-`open`/`save` de l'agent restent dans son onglet (suite : tâche t-242).
+`open` de l'agent ouvre le fichier dans un nouvel onglet (`Sessions::open_tab`),
+dont l'agent démarre à sa première commande ; le sien garde son deck et sa
+conversation. `save {path}` refuse le fichier d'un autre onglet.
 
 ## Sécurité
 

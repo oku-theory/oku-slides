@@ -25,7 +25,6 @@ agent-undo-rewrite = 다시 쓰기
 agent-confirm-save = 프레젠테이션을 { $path }(으)로 저장할까요?
 agent-confirm-save-over = { $path }을(를) 바꿀까요? 기존 파일을 덮어씁니다.
 agent-confirm-open = { $path }을(를) 열까요?
-agent-confirm-open-dirty = { $path }을(를) 열까요? 저장하지 않은 변경 사항이 사라집니다.
 agent-open-elsewhere = 이 파일은 이미 다른 탭에서 열려 있습니다.
 agent-confirm-new = 새 프레젠테이션을 시작할까요?
 agent-confirm-new-dirty = 새 프레젠테이션을 시작할까요? 저장하지 않은 변경 사항이 사라집니다.

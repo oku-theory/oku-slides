@@ -14,6 +14,7 @@ session-not-editing-templates = Żaden zestaw szablonów nie jest edytowany
 session-response = Nie udało się zapisać odpowiedzi
 session-unknown-tab = Ta karta nie jest już otwarta.
 session-unknown-window = To okno nie jest już otwarte.
+session-single-document = Tutaj można otworzyć tylko jedną prezentację.
 session-last-window = Ostatnie okno pozostaje otwarte: zamiast tego zamknij aplikację.
 session-unsaved = „{ $title }” ma niezapisane zmiany.
 session-bad-request = Nieprawidłowe żądanie: { $reason }

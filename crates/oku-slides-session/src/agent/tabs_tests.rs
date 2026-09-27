@@ -36,3 +36,10 @@ fn open_elsewhere_defaults_to_false_for_a_single_session_host() {
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(session())));
     assert_that!(tab.open_elsewhere(std::path::Path::new("/tmp/a.oku-slides.pdf"))).is_false();
 }
+
+#[test]
+fn open_tab_defaults_to_single_document_for_a_single_session_host() {
+    let tab = TabSession::new("t-1", Arc::new(Mutex::new(session())));
+    let r = tab.open_tab(std::path::Path::new("/tmp/a.oku-slides.pdf")).map_err(|e| e.kind());
+    assert_that!(r).is_err().is_equal_to(crate::SessionErrorKind::SingleDocument);
+}

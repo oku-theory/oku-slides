@@ -14,6 +14,7 @@ session-not-editing-templates = 編集中のテンプレートセットはあり
 session-response = 応答を書き込めませんでした
 session-unknown-tab = このタブはもう開いていません。
 session-unknown-window = このウィンドウはもう開いていません。
+session-single-document = ここで開けるプレゼンテーションは1つだけです。
 session-last-window = 最後のウィンドウは開いたままになります。代わりにアプリを終了してください。
 session-unsaved = 「{ $title }」に未保存の変更があります。
 session-bad-request = 無効なリクエスト：{ $reason }

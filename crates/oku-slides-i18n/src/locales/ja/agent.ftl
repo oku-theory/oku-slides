@@ -25,7 +25,6 @@ agent-undo-rewrite = 言い換え
 agent-confirm-save = プレゼンテーションを{ $path }として保存しますか？
 agent-confirm-save-over = { $path }を置き換えますか？既存のファイルは上書きされます。
 agent-confirm-open = { $path }を開きますか？
-agent-confirm-open-dirty = { $path }を開きますか？保存されていない変更は失われます。
 agent-open-elsewhere = このファイルは別のタブですでに開かれています。
 agent-confirm-new = 新しいプレゼンテーションを開始しますか？
 agent-confirm-new-dirty = 新しいプレゼンテーションを開始しますか？保存されていない変更は失われます。

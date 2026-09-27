@@ -14,6 +14,7 @@ session-not-editing-templates = 편집 중인 템플릿 세트가 없습니다
 session-response = 응답을 작성할 수 없습니다
 session-unknown-tab = 이 탭은 더 이상 열려 있지 않습니다.
 session-unknown-window = 이 창은 더 이상 열려 있지 않습니다.
+session-single-document = 여기서는 프레젠테이션을 하나만 열 수 있습니다.
 session-last-window = 마지막 창은 열린 상태로 유지됩니다. 대신 앱을 종료하세요.
 session-unsaved = “{ $title }”에 저장하지 않은 변경 사항이 있습니다.
 session-bad-request = 잘못된 요청입니다: { $reason }

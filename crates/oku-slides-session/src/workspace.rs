@@ -616,11 +616,12 @@ impl Workspace {
             }
         };
         let session = pending.build()?;
-        Self::finish(ws, pending, session)
+        Self::finish(ws, pending, session).map(|(outcome, _)| outcome)
     }
 
-    /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`).
-    fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<WorkspaceOutcome> {
+    /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
+    /// rend aussi l'onglet du fichier (le nouveau, ou celui qui l'avait déjà).
+    fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<(WorkspaceOutcome, String)> {
         let Pending { id, window, path, replace, .. } = pending;
         let mut w = Self::lock(ws);
         // `settle` passé pendant la construction : refusé comme avant elle ;
@@ -641,7 +642,7 @@ impl Workspace {
             // La session construite pour rien part à la corbeille, même en cas d'erreur.
             trash.empty(vec![(id, Tab::new(session))]);
             activated?;
-            return json.map(WorkspaceOutcome::Applied);
+            return json.map(|json| (WorkspaceOutcome::Applied(json), existing));
         }
         let window = match window {
             Some(label) if w.window_index(&label).is_ok() => Some(label),
@@ -661,7 +662,7 @@ impl Workspace {
                 Err(std::sync::TryLockError::WouldBlock) => false,
             })
         });
-        w.insert_tab(window.as_deref(), id, session, replaced.as_deref());
+        w.insert_tab(window.as_deref(), id.clone(), session, replaced.as_deref());
         let mut gone = Vec::new();
         if let Some(r) = replaced {
             if let Err(e) = w.detach(&r) {
@@ -673,7 +674,7 @@ impl Workspace {
         let (json, trash) = (w.view_json(), w.trash());
         drop(w);
         trash.empty(gone);
-        json.map(WorkspaceOutcome::Applied)
+        json.map(|json| (WorkspaceOutcome::Applied(json), id))
     }
 
     /// Attend les requêtes en cours puis enregistre l'état courant ; à
@@ -971,20 +972,10 @@ mod slot;
 #[path = "workspace_same_deck.rs"]
 mod same_deck;
 
+#[path = "workspace_agent.rs"]
+mod agent;
+
 use slot::{Dormant, Slot};
-
-/// L'agent atteint les sessions des onglets par l'espace de travail ; la
-/// barre à redessiner est ignorée ici (l'hôte qui la veut appelle
-/// [`Workspace::with_session`]).
-impl crate::agent::Sessions for Mutex<Workspace> {
-    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> Result<()> {
-        Workspace::with_session(self, tab, |s| f(s)).0
-    }
-
-    fn open_elsewhere(&self, tab: &str, path: &Path) -> bool {
-        Workspace::lock(self).open_elsewhere(tab, path)
-    }
-}
 
 #[cfg(test)]
 #[path = "workspace_tests.rs"]
