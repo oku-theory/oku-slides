@@ -6,6 +6,8 @@ import { lazy, Suspense } from "react";
 import type { AgentState, Place, StopReason, Surface } from "../api";
 import { t } from "../i18n";
 import type { Thread } from "./thread";
+import { Markdown } from "./Markdown";
+import { threadItems } from "./thread";
 
 // @a2ui ne se charge qu'avec la première surface (comme le panneau des modèles).
 const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
@@ -65,11 +67,21 @@ export function AgentThread({
         <button type="button" className="linkish" onClick={onNewConversation}>{t("ui-agent-new-conversation")}</button>
       </header>
       <ol className="agent-entries" aria-live="polite">
-        {thread.entries.map((e, i) => (
-          <li key={i} className={`agent-entry ${e.kind}`}>
-            {e.kind === "user" && <span className="you">« {e.text} »</span>}
-            {e.kind === "agent" && <span className="msg">{e.text}</span>}
-            {e.kind === "tool" && <span className="tool">{TOOL_MARK[e.status] ?? "·"} {e.title}</span>}
+        {threadItems(thread.entries).map((e) => (
+          <li key={e.at} className={`agent-entry ${e.kind}`}>
+            {e.kind === "user" && <span className="you postit">{e.text}</span>}
+            {e.kind === "agent" && <div className="msg md"><Markdown text={e.text} /></div>}
+            {e.kind === "tools" && (
+              // Fermé par défaut ; l'état ouvert tient tant que la clé (`at`) ne change pas.
+              <details className="tools">
+                <summary className="caption">
+                  {TOOL_MARK[e.tools.at(-1)!.status] ?? "·"} {t("ui-agent-tools", { count: e.tools.length })}
+                </summary>
+                <ul className="tool-list">
+                  {e.tools.map((x) => <li key={x.id} className="tool">{TOOL_MARK[x.status] ?? "·"} {x.title}</li>)}
+                </ul>
+              </details>
+            )}
             {e.kind === "plan" && (
               <ul className="plan">
                 {e.entries.map((p, j) => <li key={j} className={statusClass(p.status)}>{TOOL_MARK[p.status] ?? "☐"} {p.content}</li>)}

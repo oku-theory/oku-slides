@@ -29,8 +29,9 @@ ui-confirm-quit-templates = Вийти, не зберігши змінені ш�
 
 ## Сповіщення
 
-ui-toast-saved = Презентацію збережено
 ui-toast-templates-saved = Шаблони збережено: { $name }
+ui-toast-moved = Презентацію переміщено
+ui-toast-copied = Копію збережено
 ui-toast-select-zone = Виділіть область, щоб розмістити: «{ $text }»
 
 ## Панель інструментів
@@ -41,19 +42,18 @@ ui-toolbar-redo = Повторити
 ui-toolbar-redo-label = Повторити: { $label }
 ui-toolbar-grid-hide = Сховати сітку
 ui-toolbar-grid-show = Показати сітку
-ui-toolbar-grid-hide-title = Сховати сітку (⌘')
-ui-toolbar-grid-show-title = Показати сітку (⌘')
 ui-toolbar-theme = Тема
 ui-toolbar-theme-default = Типова
 ui-toolbar-save-copy = Зберегти копію
-ui-toolbar-save = Зберегти
 ui-toolbar-finish = Готово
 ui-toolbar-templates = Шаблони
-ui-toolbar-templates-title = Створення та редагування шаблонів слайдів
 ui-toolbar-open = Відкрити
 ui-merge = Об’єднати з PDF…
+ui-menu = Меню
+ui-menu-move = Перемістити…
+ui-language = Мова
+ui-language-system = Мова системи
 ui-toolbar-add-label = Додати на слайд
-ui-toolbar-add = Додати
 ui-add-kind = { $kind ->
     [card] Картка
     [shape] Фігура
@@ -150,6 +150,11 @@ ui-stepper-more = { $label }: на один більше
 ui-agent-color-other = Інший колір
 ui-agent-thread = Агент
 ui-agent-new-conversation = Нова розмова
+ui-agent-tools = { $count ->
+    [one] { $count } інструмент
+    [few] { $count } інструменти
+   *[other] { $count } інструментів
+}
 ui-draft = Чернетка
 ui-draft-insert = Вставити
 ui-draft-insert-title = Вставити як є (⌘⇧↩)
@@ -269,9 +274,6 @@ ui-tab-templates = Шаблони
 ui-tab-move-new-window = Перемістити в нове вікно
 ui-tab-move-to = Перемістити у вікно { $n }
 ui-tab-close-others = Закрити інші вкладки
-ui-close-unsaved = Зберегти зміни в «{ $name }» перед закриттям?
-ui-close-save = Зберегти
-ui-close-discard = Не зберігати
 ui-close-cancel = Скасувати
 ui-disk-replaced-question = { $file } на диску замінено іншою презентацією.
 ui-disk-replaced-overwrite = Перезаписати

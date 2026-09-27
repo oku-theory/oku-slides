@@ -124,10 +124,12 @@ boîtes ; ce sous-projet se contente de les émettre et de les tester.
 2. Complète `params` avec les `default` du schéma ; résout les `bind`.
 3. Convertit chaque `rich` en contenu (`_paragraphs`, interpolation des
    `vars`), chaque `plain` par `interp`.
-4. Rend chaque `slot` récursivement en un tableau de contenus. Dans un slot
-   `free`, chaque enfant est déjà placé (`place` sur son `frame` ou sa
-   `cell`) ; dans un slot `flow`, l'agencement (pile, colonnes, grille)
-   revient au widget.
+4. Rend chaque `slot` récursivement en un tableau d'entrées. Slot `flow` :
+   `(kind, id, body)`, l'agencement (pile, colonnes, grille) revient au
+   widget. Slot `free` : `(kind, id, frame, cell, show)`, où `show(frame)`
+   rend l'enfant à la taille d'un cadre résolu ; le widget les place avec
+   `free-area(t, children, grid:)` (`src/zone.typ`), qui résout les
+   cellules de grille dans la taille réelle de la zone.
 5. Appelle `render(args, ctx)` ; `ctx` porte le thème, les vars, l'id.
 6. Emballe l'élément dans sa boîte `<oku-slides-box>` et son label `e-<id>`
    comme aujourd'hui.

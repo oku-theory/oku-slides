@@ -105,6 +105,11 @@ describe("rendu du catalogue v2", () => {
     expect(actions.map((a) => a.name)).toEqual(["confirm"]);
   });
 
+  test("Button a le style des boutons de l'app", async () => {
+    const { host } = await mount({ component: "Button", label: "OK", action: event("confirm") });
+    expect(host.querySelector("button")?.classList.contains("object")).toBe(true);
+  });
+
   test("Button sans primary n'est pas l'action principale", async () => {
     const { host } = await mount({ component: "Button", label: "Annuler", action: event("dismiss") });
     expect(host.querySelector("button")?.hasAttribute("data-primary")).toBe(false);

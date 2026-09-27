@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { EMPTY_THREAD, threadReducer } from "./thread";
+import { EMPTY_THREAD, threadItems, threadReducer } from "./thread";
 import type { AgentEvent } from "../api";
 
 const run = (events: AgentEvent[]) => events.reduce(threadReducer, EMPTY_THREAD);
@@ -102,5 +102,24 @@ describe("fil de l'agent", () => {
     const entries: AgentEvent[] = [{ kind: "user_text", text: "a" }, { kind: "chunk", text: "b" }];
     const replayed = run(entries);
     expect(threadReducer(withAChunk, { kind: "thread", entries })).toEqual(replayed);
+  });
+});
+
+describe("lignes affichées du fil", () => {
+  const tool = (id: string) => ({ kind: "tool" as const, id, title: id, status: "completed" });
+
+  test("threadItems regroupe les outils consécutifs", () => {
+    const items = threadItems([{ kind: "user", text: "a" }, tool("1"), tool("2"), { kind: "agent", text: "b" }, tool("3")]);
+    expect(items.map((x) => (x.kind === "tools" ? x.tools.map((t) => t.id) : x.kind))).toEqual([
+      "user",
+      ["1", "2"],
+      "agent",
+      ["3"],
+    ]);
+  });
+
+  test("threadItems garde l'indice de la première ligne de chaque élément", () => {
+    const items = threadItems([{ kind: "user", text: "a" }, tool("1"), tool("2"), { kind: "agent", text: "b" }]);
+    expect(items.map((x) => x.at)).toEqual([0, 1, 3]);
   });
 });

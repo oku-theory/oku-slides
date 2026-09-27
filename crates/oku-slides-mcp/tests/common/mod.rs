@@ -22,6 +22,8 @@ pub fn platform() -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     settings.paths.data = Some(std::env::temp_dir().join(format!("oku-slides-mcp-{}-{n}", std::process::id())));
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme de test : {e}"))
 }

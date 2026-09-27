@@ -112,6 +112,15 @@ async function press(key: string, mods: { meta?: boolean; shift?: boolean } = {}
 
 const agentButton = (host: HTMLElement) => host.querySelector(".agent-mic") as HTMLButtonElement;
 
+describe("dictée au repos", () => {
+  test("Dictation au repos ne montre que « Dicter » ; le détail passe dans l'info-bulle", async () => {
+    const { host } = await mount();
+    const line = host.querySelector(".dictation-line") as HTMLElement;
+    expect(line.textContent).toBe("ui-dictation-start");
+    expect(line.getAttribute("title")).toContain("le titre");
+  });
+});
+
 describe("dictée en deux modes", () => {
   test("⌘D dicte en mode auto : l'app choisit curseur ou brouillon", async () => {
     const { texts } = await mount();
@@ -140,7 +149,7 @@ describe("dictée en deux modes", () => {
     await press("d", { meta: true, shift: true });
     await press("d", { meta: true, shift: true });
     expect(host.querySelector(".device")?.classList.contains("draft")).toBe(false);
-    expect(host.textContent).toContain("le titre");
+    expect(host.querySelector(".dictation-line")?.getAttribute("title")).toContain("le titre");
   });
 
   test("⌘⇧D pendant un tour arrête l'agent sans écouter", async () => {

@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 
 use oku_slides_core::{MergeReport, SourceBundle};
 use oku_slides_i18n::{Localize, Localizer};
-use snafu::{OptionExt, ensure};
+use snafu::ensure;
 
 use crate::error::{EditingTemplatesSnafu, NoPathSnafu, NotOkuSlidesSnafu, merge_error};
 use oku_slides_platform::storage::StorageErrorKind;
 
+use crate::deck_file::{free_path, safe_stem};
 use crate::files::{EXTENSION, parse_document, read_document};
 use crate::{Mode, Result, Session};
 
@@ -143,17 +144,48 @@ impl Session {
         }
     }
 
+    /// Déplace le fichier du document : écrit à `path` (le dialogue du système
+    /// a fait confirmer un remplacement), puis supprime l'ancien fichier.
+    pub fn move_to(&mut self, path: &Path) -> Result<()> {
+        let old = self.doc.path.clone();
+        self.save(Some(path))?;
+        if let Some(old) = old
+            && self.doc.path.as_deref() != Some(old.as_path())
+        {
+            // Déjà parti : rien à supprimer ; sinon il reste, et c'est dit.
+            if let Err(e) = self.storage.delete(&old)
+                && e.kind() != StorageErrorKind::NotFound
+            {
+                tracing::warn!(path = %old.display(), error = %e, "ancien fichier gardé après déplacement");
+            }
+        }
+        Ok(())
+    }
+
+    /// Écrit une copie à `path` ; le document garde son fichier et ses
+    /// modifications à enregistrer.
+    pub fn save_copy(&self, path: &Path) -> Result<()> {
+        let path = self.save_path(Some(path))?;
+        self.write_file(&path).map(|_| ())
+    }
+
     /// Enregistre sans vérifier le disque (CLI, choix « Écraser »).
     pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
         self.save_checked(path, true).map(|_| ())
     }
 
-    /// Le chemin où enregistrer : `path`, sinon celui du document, toujours
-    /// avec l'extension `.oku-slides.pdf`.
+    /// Le chemin où enregistrer : `path`, sinon celui du document, sinon une
+    /// place libre du dossier des decks sous le titre ; toujours avec
+    /// l'extension `.oku-slides.pdf`.
     fn save_path(&self, path: Option<&Path>) -> Result<PathBuf> {
-        let mut path = match path {
-            Some(p) => p.to_owned(),
-            None => self.doc.path.clone().context(NoPathSnafu)?,
+        let mut path = match (path, &self.doc.path, &self.decks_dir) {
+            (Some(p), _, _) => p.to_owned(),
+            (None, Some(p), _) => p.clone(),
+            (None, None, Some(dir)) => {
+                let stem = safe_stem(&self.document_name(&self.doc), &self.localizer.tr("deck-untitled"));
+                free_path(dir, &stem, |p| self.storage.exists(p).unwrap_or(true))
+            }
+            (None, None, None) => NoPathSnafu.fail()?,
         };
         let name = file_name(&path);
         if !name.ends_with(EXTENSION) {

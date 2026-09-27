@@ -15,6 +15,8 @@ pub(crate) fn session() -> Session {
     let data =
         std::env::temp_dir().join(format!("oku-slides-session-test-support-{}-{}", std::process::id(), unique()));
     settings.paths.data = Some(data);
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
     let mut s =

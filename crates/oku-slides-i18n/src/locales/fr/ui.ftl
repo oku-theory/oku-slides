@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Quitter sans enregistrer les modèles modifiés ?
 
 ## Toasts
 
-ui-toast-saved = Votre présentation est enregistrée
 ui-toast-templates-saved = Modèles enregistrés : { $name }
+ui-toast-moved = Présentation déplacée
+ui-toast-copied = Copie enregistrée
 ui-toast-select-zone = Sélectionnez une zone pour y placer : « { $text } »
 
 ## Toolbar
@@ -37,19 +38,18 @@ ui-toolbar-redo = Rétablir
 ui-toolbar-redo-label = Rétablir : { $label }
 ui-toolbar-grid-hide = Masquer la grille
 ui-toolbar-grid-show = Afficher la grille
-ui-toolbar-grid-hide-title = Masquer la grille (⌘')
-ui-toolbar-grid-show-title = Afficher la grille (⌘')
 ui-toolbar-theme = Thème
 ui-toolbar-theme-default = Par défaut
 ui-toolbar-save-copy = Enregistrer une copie
-ui-toolbar-save = Enregistrer
 ui-toolbar-finish = Terminer
 ui-toolbar-templates = Modèles
-ui-toolbar-templates-title = Créer et modifier les modèles de slides
 ui-toolbar-open = Ouvrir
 ui-merge = Fusionner avec un PDF…
+ui-menu = Menu
+ui-menu-move = Déplacer…
+ui-language = Langue
+ui-language-system = Langue du système
 ui-toolbar-add-label = Ajouter sur la slide
-ui-toolbar-add = Ajouter
 ui-add-kind = { $kind ->
     [card] Carte
     [shape] Forme
@@ -146,6 +146,10 @@ ui-stepper-more = { $label } : une de plus
 ui-agent-color-other = Autre couleur
 ui-agent-thread = Agent
 ui-agent-new-conversation = Nouvelle conversation
+ui-agent-tools = { $count ->
+    [one] { $count } outil
+   *[other] { $count } outils
+}
 ui-draft = Brouillon
 ui-draft-insert = Insérer
 ui-draft-insert-title = Insérer tel quel (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Modèles
 ui-tab-move-new-window = Déplacer vers une nouvelle fenêtre
 ui-tab-move-to = Déplacer vers la fenêtre { $n }
 ui-tab-close-others = Fermer les autres onglets
-ui-close-unsaved = Enregistrer les modifications de « { $name } » avant de fermer ?
-ui-close-save = Enregistrer
-ui-close-discard = Ne pas enregistrer
 ui-close-cancel = Annuler
 ui-disk-replaced-question = { $file } a été remplacé sur le disque par une autre présentation.
 ui-disk-replaced-overwrite = Écraser

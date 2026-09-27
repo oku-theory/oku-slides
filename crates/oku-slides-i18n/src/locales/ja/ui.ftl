@@ -25,8 +25,9 @@ ui-confirm-quit-templates = 変更したテンプレートを保存せずに終�
 
 ## トースト
 
-ui-toast-saved = プレゼンテーションを保存しました
 ui-toast-templates-saved = テンプレートを保存しました：{ $name }
+ui-toast-moved = プレゼンテーションを移動しました
+ui-toast-copied = コピーを保存しました
 ui-toast-select-zone = 配置する領域を選択してください：「{ $text }」
 
 ## ツールバー
@@ -37,19 +38,18 @@ ui-toolbar-redo = やり直す
 ui-toolbar-redo-label = やり直す：{ $label }
 ui-toolbar-grid-hide = グリッドを隠す
 ui-toolbar-grid-show = グリッドを表示
-ui-toolbar-grid-hide-title = グリッドを隠す（⌘'）
-ui-toolbar-grid-show-title = グリッドを表示（⌘'）
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-default = デフォルト
 ui-toolbar-save-copy = コピーを保存
-ui-toolbar-save = 保存
 ui-toolbar-finish = 完了
 ui-toolbar-templates = テンプレート
-ui-toolbar-templates-title = スライドテンプレートを作成・編集
 ui-toolbar-open = 開く
 ui-merge = PDF と統合…
+ui-menu = メニュー
+ui-menu-move = 移動…
+ui-language = 言語
+ui-language-system = システムの言語
 ui-toolbar-add-label = スライドに追加
-ui-toolbar-add = 追加
 ui-add-kind = { $kind ->
     [card] カード
     [shape] 図形
@@ -146,6 +146,7 @@ ui-stepper-more = { $label }：1 つ増やす
 ui-agent-color-other = その他の色
 ui-agent-thread = エージェント
 ui-agent-new-conversation = 新しい会話
+ui-agent-tools = ツール { $count } 件
 ui-draft = 下書き
 ui-draft-insert = 挿入
 ui-draft-insert-title = そのまま挿入 (⌘⇧↩)
@@ -265,9 +266,6 @@ ui-tab-templates = テンプレート
 ui-tab-move-new-window = 新しいウィンドウに移動
 ui-tab-move-to = ウィンドウ { $n } に移動
 ui-tab-close-others = ほかのタブを閉じる
-ui-close-unsaved = 閉じる前に「{ $name }」の変更を保存しますか？
-ui-close-save = 保存
-ui-close-discard = 保存しない
 ui-close-cancel = キャンセル
 ui-disk-replaced-question = { $file } はディスク上で別のプレゼンテーションに置き換えられました。
 ui-disk-replaced-overwrite = 上書き

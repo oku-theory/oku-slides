@@ -1,5 +1,5 @@
 // Pile des miniatures, à gauche de la table. On y choisit une slide, et on
-// la réordonne en la faisant glisser.
+// la réordonne en la faisant glisser, et on la supprime depuis son coin.
 //
 // Le glisser est fait à la main (événements de pointeur) plutôt qu'avec le
 // glisser-déposer HTML5 : dans l'app Tauri, la webview réserve ce dernier au
@@ -22,6 +22,11 @@ interface Props {
   /** Déplace la slide à la place `slot` (0 = avant la première). */
   onMove: (id: string, slot: number) => void;
   onAdd: () => void;
+  /** Nom du bouton de suppression d'une miniature. */
+  removeLabel: string;
+  /** Faux s'il ne reste qu'une slide : on ne la supprime pas. */
+  canRemove: boolean;
+  onRemove: (id: string) => void;
 }
 
 interface Drag {
@@ -39,10 +44,19 @@ interface Drag {
   slot: number;
 }
 
+/** La corbeille du bouton de suppression. */
+const RemoveIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /><path d="M10 11v5M14 11v5" />
+  </svg>
+);
+
 /** Distance (px) avant qu'un appui devienne un glisser. */
 const THRESHOLD = 5;
 
-export default function SlidePile({ slides, current, svg, names, label, addLabel, onSelect, onMove, onAdd }: Props) {
+export default function SlidePile({
+  slides, current, svg, names, label, addLabel, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove,
+}: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -153,6 +167,18 @@ export default function SlidePile({ slides, current, svg, names, label, addLabel
                 {name && <span className="thumb-name">{name}</span>}
               </span>
             </button>
+            {/* À côté de la miniature, pas dedans : un bouton ne peut pas en contenir un autre. */}
+            {!drag?.moved && (
+              <button
+                className="object token thumb-remove"
+                aria-label={removeLabel}
+                title={t("ui-toolbar-remove-hint", { n: i + 1 })}
+                disabled={!canRemove}
+                onClick={() => onRemove(s.id)}
+              >
+                {RemoveIcon}
+              </button>
+            )}
           </div>
         );
       })}

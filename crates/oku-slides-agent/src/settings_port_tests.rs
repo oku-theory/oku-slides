@@ -13,6 +13,8 @@ fn platform() -> Platform {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::remove_file(dir.join("config.toml")).ok();
     settings.paths.data = Some(dir);
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     Platform::with_settings(settings).unwrap()
 }
 

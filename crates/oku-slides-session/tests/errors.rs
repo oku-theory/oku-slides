@@ -25,6 +25,8 @@ fn session(dir: &std::path::Path) -> Session {
 fn session_in(dir: &std::path::Path, locale: &str) -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.join("data"));
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     // Les messages attendus sont dans cette langue, quelle que soit celle du système.
     settings.i18n.locale = Some(locale.into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));

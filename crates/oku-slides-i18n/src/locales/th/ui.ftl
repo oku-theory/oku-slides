@@ -23,8 +23,9 @@ ui-confirm-quit-templates = ออกโดยไม่บันทึกเท�
 
 ## การแจ้งเตือน
 
-ui-toast-saved = บันทึกงานนำเสนอของคุณแล้ว
 ui-toast-templates-saved = บันทึกเทมเพลตแล้ว: { $name }
+ui-toast-moved = ย้ายงานนำเสนอแล้ว
+ui-toast-copied = บันทึกสำเนาแล้ว
 ui-toast-select-zone = เลือกพื้นที่สำหรับวาง: “{ $text }”
 
 ## แถบเครื่องมือ
@@ -35,19 +36,18 @@ ui-toolbar-redo = ทำซ้ำ
 ui-toolbar-redo-label = ทำซ้ำ: { $label }
 ui-toolbar-grid-hide = ซ่อนเส้นตาราง
 ui-toolbar-grid-show = แสดงเส้นตาราง
-ui-toolbar-grid-hide-title = ซ่อนเส้นตาราง (⌘')
-ui-toolbar-grid-show-title = แสดงเส้นตาราง (⌘')
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-default = ค่าเริ่มต้น
 ui-toolbar-save-copy = บันทึกสำเนา
-ui-toolbar-save = บันทึก
 ui-toolbar-finish = เสร็จสิ้น
 ui-toolbar-templates = เทมเพลต
-ui-toolbar-templates-title = สร้างและแก้ไขเทมเพลตสไลด์
 ui-toolbar-open = เปิด
 ui-merge = รวมกับ PDF…
+ui-menu = เมนู
+ui-menu-move = ย้าย…
+ui-language = ภาษา
+ui-language-system = ภาษาของระบบ
 ui-toolbar-add-label = เพิ่มลงในสไลด์
-ui-toolbar-add = เพิ่ม
 ui-add-kind = { $kind ->
     [card] การ์ด
     [shape] รูปร่าง
@@ -144,6 +144,7 @@ ui-stepper-more = { $label }: เพิ่มหนึ่ง
 ui-agent-color-other = สีอื่น
 ui-agent-thread = เอเจนต์
 ui-agent-new-conversation = บทสนทนาใหม่
+ui-agent-tools = เครื่องมือ { $count } รายการ
 ui-draft = ฉบับร่าง
 ui-draft-insert = แทรก
 ui-draft-insert-title = แทรกตามเดิม (⌘⇧↩)
@@ -263,9 +264,6 @@ ui-tab-templates = เทมเพลต
 ui-tab-move-new-window = ย้ายไปหน้าต่างใหม่
 ui-tab-move-to = ย้ายไปหน้าต่าง { $n }
 ui-tab-close-others = ปิดแท็บอื่น
-ui-close-unsaved = บันทึกการเปลี่ยนแปลงใน “{ $name }” ก่อนปิดหรือไม่
-ui-close-save = บันทึก
-ui-close-discard = ไม่บันทึก
 ui-close-cancel = ยกเลิก
 ui-disk-replaced-question = { $file } บนดิสก์ถูกแทนที่ด้วยงานนำเสนออื่น
 ui-disk-replaced-overwrite = เขียนทับ

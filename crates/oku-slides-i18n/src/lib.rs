@@ -104,7 +104,7 @@ impl Localizer {
     /// système, sinon l'anglais. `fr-CA` donne `fr`.
     pub fn new(requested: Option<&str>) -> Self {
         let system = sys_locale::get_locale();
-        let chosen = requested.and_then(supported).or_else(|| system.as_deref().and_then(supported));
+        let chosen = requested.and_then(shipped).or_else(|| system.as_deref().and_then(shipped));
         match chosen {
             Some(locale) if locale != REFERENCE => Self::build(locale, Some(Box::new(Self::build(REFERENCE, None)))),
             _ => Self::build(REFERENCE, None),
@@ -171,7 +171,13 @@ impl Localizer {
 }
 
 /// La langue livrée qui correspond à `tag` (`fr-FR` → `fr`, `zh-TW` → `zh-Hant`).
-fn supported(tag: &str) -> Option<&'static str> {
+/// Les langues livrées (`en`, `fr`…), la référence d'abord.
+pub fn available() -> Vec<&'static str> {
+    LOCALES.iter().map(|(l, _)| *l).collect()
+}
+
+/// La langue livrée pour `tag` (`fr-CA` → `fr`) ; `None` si elle ne l'est pas.
+pub fn shipped(tag: &str) -> Option<&'static str> {
     let wanted = candidate(tag);
     LOCALES.iter().map(|(l, _)| *l).find(|l| *l == wanted)
 }

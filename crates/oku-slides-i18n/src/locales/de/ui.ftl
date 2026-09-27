@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Beenden, ohne die geänderten Vorlagen zu speichern?
 
 ## Meldungen
 
-ui-toast-saved = Die Präsentation ist gespeichert
 ui-toast-templates-saved = Vorlagen gespeichert: { $name }
+ui-toast-moved = Präsentation verschoben
+ui-toast-copied = Kopie gespeichert
 ui-toast-select-zone = Bereich auswählen, um „{ $text }“ zu platzieren
 
 ## Werkzeugleiste
@@ -37,19 +38,18 @@ ui-toolbar-redo = Wiederholen
 ui-toolbar-redo-label = Wiederholen: { $label }
 ui-toolbar-grid-hide = Raster ausblenden
 ui-toolbar-grid-show = Raster einblenden
-ui-toolbar-grid-hide-title = Raster ausblenden (⌘')
-ui-toolbar-grid-show-title = Raster einblenden (⌘')
 ui-toolbar-theme = Design
 ui-toolbar-theme-default = Standard
 ui-toolbar-save-copy = Kopie speichern
-ui-toolbar-save = Speichern
 ui-toolbar-finish = Fertig
 ui-toolbar-templates = Vorlagen
-ui-toolbar-templates-title = Folienvorlagen erstellen und bearbeiten
 ui-toolbar-open = Öffnen
 ui-merge = Mit PDF zusammenführen…
+ui-menu = Menü
+ui-menu-move = Verschieben…
+ui-language = Sprache
+ui-language-system = Systemsprache
 ui-toolbar-add-label = Zur Folie hinzufügen
-ui-toolbar-add = Hinzufügen
 ui-add-kind = { $kind ->
     [card] Karte
     [shape] Form
@@ -146,6 +146,10 @@ ui-stepper-more = { $label }: eins mehr
 ui-agent-color-other = Andere Farbe
 ui-agent-thread = Agent
 ui-agent-new-conversation = Neue Unterhaltung
+ui-agent-tools = { $count ->
+    [one] { $count } Werkzeug
+   *[other] { $count } Werkzeuge
+}
 ui-draft = Entwurf
 ui-draft-insert = Einfügen
 ui-draft-insert-title = Unverändert einfügen (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Vorlagen
 ui-tab-move-new-window = In neues Fenster verschieben
 ui-tab-move-to = In Fenster { $n } verschieben
 ui-tab-close-others = Andere Tabs schließen
-ui-close-unsaved = Änderungen an „{ $name }“ vor dem Schließen speichern?
-ui-close-save = Speichern
-ui-close-discard = Nicht speichern
 ui-close-cancel = Abbrechen
 ui-disk-replaced-question = { $file } wurde auf dem Datenträger durch eine andere Präsentation ersetzt.
 ui-disk-replaced-overwrite = Überschreiben

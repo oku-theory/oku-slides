@@ -1,46 +1,15 @@
-// Fermer un onglet modifié : la question, et l'enregistrement qui la suit.
+// Fermer un onglet modifié : on n'enregistre jamais à la main, il est
+// enregistré sans question (au dossier par défaut s'il n'a pas de fichier).
 
-import { inTauri, pickSavePath, type TabApi, type TabInfo } from "./api";
-import { t } from "./i18n";
+import { pickSavePath, type TabApi, type TabInfo } from "./api";
 import { type AskReplaced, type PickSavePath, saveGuarded } from "./merge";
-
-/** Ce que l'utilisateur veut faire du travail non enregistré. */
-export type CloseChoice = "save" | "discard" | "cancel";
-
-/** Libellés des trois boutons du dialogue. */
-export interface CloseLabels {
-  save: string;
-  discard: string;
-  cancel: string;
-}
-
-/** Pose la question d'un document modifié qu'on ferme ; le choix de l'utilisateur. */
-export type AskUnsaved = (name: string) => Promise<CloseChoice>;
-
-/** Le choix d'après la réponse du dialogue (libellé cliqué, ou réponse système). */
-export function choiceOf(result: string, labels: CloseLabels): CloseChoice {
-  if (result === labels.save || result === "Yes") return "save";
-  if (result === labels.discard || result === "No") return "discard";
-  return "cancel";
-}
-
-/** Demande quoi faire d'un document modifié qu'on ferme. */
-async function askUnsaved(name: string): Promise<CloseChoice> {
-  const text = t("ui-close-unsaved", { name });
-  // Navigateur (développement) : `window.confirm` n'a que deux boutons, pas de « ne pas enregistrer ».
-  if (!inTauri) return window.confirm(text) ? "save" : "cancel";
-  const labels = { save: t("ui-close-save"), discard: t("ui-close-discard"), cancel: t("ui-close-cancel") };
-  const { message } = await import("@tauri-apps/plugin-dialog");
-  const result = await message(text, { kind: "warning", buttons: { yes: labels.save, no: labels.discard, cancel: labels.cancel } });
-  return choiceOf(result, labels);
-}
 
 /**
  * Enregistre un onglet avant de le fermer ; `false` : renoncé.
  *
  * L'ensemble de modèles en cours d'abord (puis le deck retrouvé), le deck
- * ensuite, avec un dialogue s'il n'a pas de fichier, et la question d'un
- * fichier remplacé par un autre deck (`ask`, injectable pour les tests).
+ * ensuite ; seul un fichier remplacé par un autre deck pose une question
+ * (`ask` et `pick`, injectables pour les tests).
  */
 export async function saveForClose(api: TabApi, pick: PickSavePath = pickSavePath, ask?: AskReplaced): Promise<boolean> {
   let s = await api.snapshot();
@@ -49,25 +18,21 @@ export async function saveForClose(api: TabApi, pick: PickSavePath = pickSavePat
     s = await api.closeTemplates();
   }
   if (!s.dirty) return true;
-  return (await saveGuarded(api, s, false, ask, pick)) !== null;
+  return (await saveGuarded(api, s, ask, pick)) !== null;
 }
 
 /**
- * Peut-on fermer cet onglet ? Pose la question s'il est modifié.
+ * Peut-on fermer cet onglet ? Modifié, il est d'abord enregistré.
  *
- * `"discard"` : fermer en abandonnant le travail ; `"keep"` : fermer (rien à
- * perdre, ou enregistré) ; `null` : ne pas fermer. `ask` et `pick` s'injectent
- * pour les tests (par défaut, la question et le dialogue réels).
+ * `"keep"` : fermer (rien à perdre) ; `null` : ne pas fermer (enregistrement
+ * refusé). `pick` et `ask` s'injectent pour les tests.
  */
 export async function mayClose(
   tab: TabInfo,
   api: TabApi,
-  ask: AskUnsaved = askUnsaved,
   pick: PickSavePath = pickSavePath,
-): Promise<"discard" | "keep" | null> {
+  ask?: AskReplaced,
+): Promise<"keep" | null> {
   if (!tab.dirty) return "keep";
-  const choice = await ask(tab.title);
-  if (choice === "discard") return "discard";
-  if (choice === "save") return (await saveForClose(api, pick)) ? "keep" : null;
-  return null;
+  return (await saveForClose(api, pick, ask)) ? "keep" : null;
 }

@@ -26,7 +26,7 @@ use oku_slides_platform::storage::{Storage, resolve};
 
 use crate::error::{ResponseSnafu, Result, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu};
 use crate::views::TabInfo;
-use crate::{Fonts, Platform, Request, Session};
+use crate::{Fonts, Localizer, Platform, Request, Session};
 
 /// Version de `workspace.json`.
 const LAYOUT_VERSION: u32 = 2;
@@ -69,6 +69,10 @@ pub enum WorkspaceRequest {
     View,
     /// Langue de l'utilisateur et messages Fluent de l'interface.
     Messages,
+    /// Choisit la langue de l'interface (`None` : celle du système), gardée
+    /// dans `config.toml` ; répond comme `Messages`. Les messages du cœur
+    /// (erreurs, noms par défaut) suivent au prochain lancement.
+    SetLocale { locale: Option<String> },
     /// Un onglet vierge, à la fin de `window`.
     NewTab {
         /// Label de la fenêtre.
@@ -307,7 +311,7 @@ impl Pending {
     /// Un onglet neuf n'a rien à relire : un échec de reprise ne lui coûte
     /// pas le fichier ouvert, il reste seulement sans reprise.
     fn build(&self) -> Result<Session> {
-        let mut session = Session::new(self.fonts.clone(), &self.platform)?;
+        let mut session = tab_session(&self.fonts, &self.platform)?;
         if let Some(path) = &self.path {
             session.open(path)?;
         }
@@ -337,6 +341,8 @@ pub struct Workspace {
     closed: Arc<AtomicBool>,
     /// Numéro de la dernière vue construite (voir [`WorkspaceView::generation`]).
     generation: AtomicU64,
+    /// Langue choisie dans les réglages ; `None` : celle du système.
+    chosen_locale: Option<&'static str>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -367,6 +373,34 @@ impl Workspace {
             dir,
             closed: Arc::new(AtomicBool::new(false)),
             generation: AtomicU64::new(0),
+            chosen_locale: platform.settings.i18n.locale.as_deref().and_then(oku_slides_i18n::shipped),
+        }
+    }
+
+    /// Les messages de l'interface dans la langue choisie, les langues
+    /// livrées et le choix (`null` : langue du système).
+    fn messages_json(&self) -> Result<String> {
+        let l = Localizer::new(self.chosen_locale);
+        let messages = serde_json::json!({
+            "locale": l.locale(),
+            "resources": l.ui_messages(),
+            "available": oku_slides_i18n::available(),
+            "chosen": self.chosen_locale,
+        });
+        Ok(serde_json::to_string(&messages).context(ResponseSnafu)?)
+    }
+
+    /// Retient la langue de l'interface (inconnue : celle du système) et
+    /// l'écrit dans `config.toml` ; un échec d'écriture ne coûte que le
+    /// prochain lancement.
+    fn set_locale(&mut self, locale: Option<&str>) {
+        self.chosen_locale = locale.and_then(oku_slides_i18n::shipped);
+        let value = self.chosen_locale.map_or(serde_json::Value::Null, serde_json::Value::from);
+        let file = self.platform.settings.config_file();
+        if let Err(e) =
+            oku_slides_platform::config_write::write_value(&self.platform.storage, &file, "i18n.locale", &value)
+        {
+            tracing::warn!(path = %file.display(), error = %e, "langue non gardée pour le prochain lancement");
         }
     }
 
@@ -561,10 +595,10 @@ impl Workspace {
             let mut w = Self::lock(ws);
             match req {
                 WorkspaceRequest::View => return w.view_json().map(WorkspaceOutcome::Applied),
-                WorkspaceRequest::Messages => {
-                    let l = &w.platform.localizer;
-                    let messages = serde_json::json!({ "locale": l.locale(), "resources": l.ui_messages() });
-                    return Ok(WorkspaceOutcome::Applied(serde_json::to_string(&messages).context(ResponseSnafu)?));
+                WorkspaceRequest::Messages => return w.messages_json().map(WorkspaceOutcome::Applied),
+                WorkspaceRequest::SetLocale { locale } => {
+                    w.set_locale(locale.as_deref());
+                    return w.messages_json().map(WorkspaceOutcome::Applied);
                 }
                 WorkspaceRequest::NewTab { window } => {
                     w.window_index(&window)?;
@@ -779,6 +813,7 @@ impl Workspace {
             WorkspaceRequest::MoveTab { tab, window, index } => self.move_tab(&tab, window.as_deref(), index)?,
             WorkspaceRequest::View
             | WorkspaceRequest::Messages
+            | WorkspaceRequest::SetLocale { .. }
             | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
@@ -976,6 +1011,14 @@ mod same_deck;
 mod agent;
 
 use slot::{Dormant, Slot};
+
+/// La session d'un onglet : un deck sans fichier s'enregistre de lui-même
+/// dans le dossier des decks (`paths.decks`).
+pub(crate) fn tab_session(fonts: &Fonts, platform: &Platform) -> Result<Session> {
+    let mut session = Session::new(fonts.clone(), platform)?;
+    session.set_decks_dir(platform.settings.paths.decks());
+    Ok(session)
+}
 
 #[cfg(test)]
 #[path = "workspace_tests.rs"]

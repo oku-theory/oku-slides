@@ -25,6 +25,8 @@ fn data_dir() -> Data {
 fn session_in(data: &Path) -> Session {
     let mut settings = Settings::defaults().unwrap();
     settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     Session::new(Fonts::default(), &Platform::with_settings(settings).unwrap()).unwrap()
 }

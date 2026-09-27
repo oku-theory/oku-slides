@@ -88,6 +88,18 @@ fn paths_without_overrides_live_under_data_dir() {
 }
 
 #[test]
+fn decks_configured_path_wins() {
+    let paths = PathSettings { decks: Some(PathBuf::from("/mes/decks")), ..PathSettings::default() };
+    assert_that!(paths.decks()).is_equal_to(PathBuf::from("/mes/decks"));
+}
+
+#[test]
+fn decks_default_is_oku_slides_in_documents() {
+    let paths = PathSettings { data: Some(PathBuf::from("/d")), ..PathSettings::default() };
+    assert_that!(paths.decks().ends_with("Documents/Oku Slides")).is_true();
+}
+
+#[test]
 fn app_id_names_oku_slides() {
     assert_that!(APP_ID).is_equal_to("me.dartiguenave.oku-slides");
 }

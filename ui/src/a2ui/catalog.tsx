@@ -230,7 +230,7 @@ export function sixDigits(color: string | undefined): string {
 const Button = createComponentImplementation(ButtonApi, ({ props }) => (
   <button
     type="button"
-    className={`btn${props.primary ? " primary" : ""}${props.danger ? " danger" : ""}`}
+    className={`object btn${props.primary ? " primary" : ""}${props.danger ? " danger" : ""}`}
     data-primary={props.primary ? "" : undefined}
     onClick={() => props.action()}
   >

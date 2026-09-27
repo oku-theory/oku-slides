@@ -41,7 +41,8 @@ pub struct Settings {
     pub author: AuthorSettings,
 }
 
-/// Dossiers de l'app ; un dossier absent se déduit du dossier de données.
+/// Dossiers de l'app ; un dossier absent se déduit du dossier de données
+/// (les decks, du dossier Documents).
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[non_exhaustive]
 pub struct PathSettings {
@@ -50,6 +51,8 @@ pub struct PathSettings {
     pub templates: Option<PathBuf>,
     /// Polices supplémentaires (TTF/OTF).
     pub fonts: Option<PathBuf>,
+    /// Où s'enregistre de lui-même un deck qui n'a pas encore de fichier.
+    pub decks: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -227,12 +230,21 @@ impl PathSettings {
     pub fn templates(&self) -> PathBuf {
         self.templates.clone().unwrap_or_else(|| self.data().join("templates"))
     }
+
+    /// Decks enregistrés d'eux-mêmes : `Documents/Oku Slides` par défaut.
+    pub fn decks(&self) -> PathBuf {
+        self.decks.clone().unwrap_or_else(|| home_dir().join("Documents").join("Oku Slides"))
+    }
+}
+
+/// Dossier personnel de l'utilisateur ; vide s'il est inconnu.
+fn home_dir() -> PathBuf {
+    std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default()
 }
 
 /// Dossier de données de la plateforme pour [`APP_ID`].
 fn default_data_dir() -> PathBuf {
-    let home =
-        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
+    let home = home_dir();
     let base = if cfg!(target_os = "macos") {
         home.join("Library/Application Support")
     } else if cfg!(windows) {

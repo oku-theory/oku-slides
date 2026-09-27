@@ -9,7 +9,7 @@ describe("saveGuarded", () => {
   test("saveGuarded with an unchanged file saves once", async () => {
     const calls: unknown[] = [];
     const api = { save: async (p: string | null, o = false) => (calls.push([p, o]), snap({ dirty: false })) } as never;
-    const out = await saveGuarded(api, snap(), false);
+    const out = await saveGuarded(api, snap());
     expect(calls).toEqual([[null, false]]);
     expect(out).not.toBeNull();
   });
@@ -25,7 +25,7 @@ describe("saveGuarded", () => {
         return r;
       },
     } as never;
-    await saveGuarded(api, snap(), false, async () => "overwrite");
+    await saveGuarded(api, snap(), async () => "overwrite");
     expect(calls).toEqual([[null, false], [null, true]]);
   });
 
@@ -40,7 +40,7 @@ describe("saveGuarded", () => {
         return r;
       },
     } as never;
-    await saveGuarded(api, snap(), false, async () => "save-as", async () => "/d/autre.oku-slides.pdf");
+    await saveGuarded(api, snap(), async () => "save-as", async () => "/d/autre.oku-slides.pdf");
     expect(calls).toEqual([[null, false], ["/d/autre.oku-slides.pdf", true]]);
   });
 
@@ -49,42 +49,35 @@ describe("saveGuarded", () => {
     const api = {
       save: async (p: string | null, o = false) => (calls.push([p, o]), snap({ disk_replaced: calls.length === 1 })),
     } as never;
-    const out = await saveGuarded(api, snap(), false, async () => "save-as", async () => "/d/deck.oku-slides.pdf");
+    const out = await saveGuarded(api, snap(), async () => "save-as", async () => "/d/deck.oku-slides.pdf");
     expect(calls).toEqual([[null, false], ["/d/deck.oku-slides.pdf", true]]);
     expect(out).not.toBeNull();
   });
 
   test("saveGuarded returns null when the last save still reports a replaced file", async () => {
     const api = { save: async () => snap({ disk_replaced: true }) } as never;
-    expect(await saveGuarded(api, snap(), false, async () => "overwrite")).toBeNull();
-    expect(await saveGuarded(api, snap(), false, async () => "save-as", async () => "/d/deck.oku-slides.pdf")).toBeNull();
+    expect(await saveGuarded(api, snap(), async () => "overwrite")).toBeNull();
+    expect(await saveGuarded(api, snap(), async () => "save-as", async () => "/d/deck.oku-slides.pdf")).toBeNull();
   });
 
   test("saveGuarded on a replaced file and cancel returns null", async () => {
     const api = { save: async () => snap({ disk_replaced: true }) } as never;
-    expect(await saveGuarded(api, snap(), false, async () => "cancel")).toBeNull();
+    expect(await saveGuarded(api, snap(), async () => "cancel")).toBeNull();
   });
 
   test("saveGuarded on a replaced file asks with the file name only", async () => {
     const asked: string[] = [];
     const api = { save: async () => snap({ disk_replaced: true }) } as never;
-    await saveGuarded(api, snap(), false, async (file) => (asked.push(file), "cancel"));
+    await saveGuarded(api, snap(), async (file) => (asked.push(file), "cancel"));
     expect(asked).toEqual(["deck.oku-slides.pdf"]);
   });
 
-  test("saveGuarded as a new name saves with overwrite, confirmed by the dialog", async () => {
+  test("saveGuarded without a file saves to the default place, without a dialog", async () => {
     const calls: unknown[] = [];
-    const api = { save: async (p: string | null, o = false) => (calls.push([p, o]), snap({ dirty: false })) } as never;
-    const out = await saveGuarded(api, snap(), true, undefined, async () => "/d/deck.oku-slides.pdf");
-    expect(calls).toEqual([["/d/deck.oku-slides.pdf", true]]);
-    expect(out).not.toBeNull();
-  });
-
-  test("saveGuarded without a file and no path picked saves nothing", async () => {
-    const calls: unknown[] = [];
-    const api = { save: async (p: string | null) => (calls.push(p), snap()) } as never;
-    expect(await saveGuarded(api, snap({ path: null }), false, undefined, async () => null)).toBeNull();
-    expect(calls).toEqual([]);
+    const api = { save: async (p: string | null, o = false) => (calls.push([p, o]), snap()) } as never;
+    const pick = async () => (calls.push("pick"), null);
+    expect(await saveGuarded(api, snap({ path: null }), undefined, pick)).not.toBeNull();
+    expect(calls).toEqual([[null, false]]);
   });
 });
 

@@ -31,6 +31,8 @@ impl Drop for Data {
 fn platform(data: &Path) -> Platform {
     let mut settings = Settings::defaults().unwrap();
     settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     Platform::with_settings(settings).unwrap()
 }
@@ -101,6 +103,47 @@ fn open_tab_after_saving_the_blank_deck_adds_a_tab() {
     let file = saved_pdf(&data, "essai");
     send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1", "t-2"]);
+}
+
+/// Jamais enregistré à la main : le deck d'un onglet va de lui-même au dossier des decks.
+#[test]
+fn save_without_path_in_a_tab_writes_into_the_decks_dir() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
+    let save: Request = serde_json::from_value(json!({"cmd": "save", "path": null})).unwrap();
+    Workspace::request(&ws, "t-1", save).0.unwrap();
+    let path = view(&ws).windows[0].tabs[0].info.path.clone().unwrap();
+    assert_that!(path.starts_with(data.0.join("decks"))).is_true();
+    assert_that!(path.exists()).is_true();
+}
+
+#[test]
+fn move_request_moves_the_tab_file() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let first = data.0.join("avant.oku-slides.pdf");
+    let save: Request = serde_json::from_value(json!({"cmd": "save", "path": first})).unwrap();
+    Workspace::request(&ws, "t-1", save).0.unwrap();
+    let moved = data.0.join("apres.oku-slides.pdf");
+    let mv: Request = serde_json::from_value(json!({"cmd": "move", "path": moved})).unwrap();
+    Workspace::request(&ws, "t-1", mv).0.unwrap();
+    assert_that!(first.exists()).is_false();
+    assert_that!(view(&ws).windows[0].tabs[0].info.path.clone()).is_equal_to(Some(moved));
+}
+
+#[test]
+fn save_copy_request_keeps_the_tab_file() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let file = data.0.join("deck.oku-slides.pdf");
+    let save: Request = serde_json::from_value(json!({"cmd": "save", "path": file})).unwrap();
+    Workspace::request(&ws, "t-1", save).0.unwrap();
+    let copy = data.0.join("copie.oku-slides.pdf");
+    let req: Request = serde_json::from_value(json!({"cmd": "save_copy", "path": copy})).unwrap();
+    Workspace::request(&ws, "t-1", req).0.unwrap();
+    assert_that!(copy.exists()).is_true();
+    assert_that!(view(&ws).windows[0].tabs[0].info.path.clone()).is_equal_to(Some(file));
 }
 
 /// Un verrou empoisonné (panique d'un autre fil) est repris : l'app continue.
@@ -647,6 +690,50 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     let w = &view(&again).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
+}
+
+#[test]
+fn messages_list_the_shipped_languages_and_the_chosen_one() {
+    let data = Data::new();
+    let json = send(&workspace_in(&data), json!({"cmd": "messages"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let available: Vec<String> = serde_json::from_value(v["available"].clone()).unwrap();
+    assert_that!(available).contains("de".to_owned());
+    assert_that!(available).has_length(20);
+    // Les réglages de test disent `fr`.
+    assert_that!(v["chosen"].as_str()).is_equal_to(Some("fr"));
+}
+
+#[test]
+fn set_locale_answers_with_the_messages_of_that_language_and_keeps_it() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let json = send(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["locale"].as_str()).is_equal_to(Some("de"));
+    assert_that!(v["chosen"].as_str()).is_equal_to(Some("de"));
+    let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
+    assert_that!(config.contains("locale = \"de\"")).is_true();
+}
+
+#[test]
+fn set_locale_null_follows_the_system_again() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap();
+    let json = send(&ws, json!({"cmd": "set_locale", "locale": null})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["chosen"].is_null()).is_true();
+    let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
+    assert_that!(config.contains("locale")).is_false();
+}
+
+#[test]
+fn set_locale_unknown_language_follows_the_system() {
+    let data = Data::new();
+    let json = send(&workspace_in(&data), json!({"cmd": "set_locale", "locale": "xx"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["chosen"].is_null()).is_true();
 }
 
 #[test]

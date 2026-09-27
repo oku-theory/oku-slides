@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { direction, locale, setMessages, t } from "./i18n";
+import { applyMessages, availableLocales, chosenLocale, direction, languageName, locale, onLocaleChange, setMessages, t } from "./i18n";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
 const fr = "ui-hello = Bonjour { $name }\n";
@@ -31,4 +31,22 @@ test("direction : de droite à gauche pour l'arabe, de gauche à droite sinon", 
   expect(direction("ar-EG")).toBe("rtl");
   expect(direction("fr")).toBe("ltr");
   expect(direction("zh-Hant")).toBe("ltr");
+});
+
+describe("choix de la langue", () => {
+  test("languageName nomme chaque langue dans elle-même, avec une majuscule", () => {
+    expect(languageName("fr")).toBe("Français");
+    expect(languageName("de")).toBe("Deutsch");
+  });
+
+  test("applyMessages retient les langues livrées et le choix, puis prévient", () => {
+    let told = 0;
+    const stop = onLocaleChange(() => told++);
+    applyMessages({ locale: "de", resources: [en], available: ["en", "de"], chosen: "de" });
+    stop();
+    expect(availableLocales()).toEqual(["en", "de"]);
+    expect(chosenLocale()).toBe("de");
+    expect(locale()).toBe("de");
+    expect(told).toBe(1);
+  });
 });

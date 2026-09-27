@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Sair sem salvar os modelos alterados?
 
 ## Notificações
 
-ui-toast-saved = Sua apresentação foi salva
 ui-toast-templates-saved = Modelos salvos: { $name }
+ui-toast-moved = Apresentação movida
+ui-toast-copied = Cópia guardada
 ui-toast-select-zone = Selecione uma área para posicionar: “{ $text }”
 
 ## Barra de ferramentas
@@ -37,19 +38,18 @@ ui-toolbar-redo = Refazer
 ui-toolbar-redo-label = Refazer: { $label }
 ui-toolbar-grid-hide = Ocultar a grade
 ui-toolbar-grid-show = Mostrar a grade
-ui-toolbar-grid-hide-title = Ocultar a grade (⌘')
-ui-toolbar-grid-show-title = Mostrar a grade (⌘')
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Padrão
 ui-toolbar-save-copy = Salvar uma cópia
-ui-toolbar-save = Salvar
 ui-toolbar-finish = Concluir
 ui-toolbar-templates = Modelos
-ui-toolbar-templates-title = Criar e editar modelos de slide
 ui-toolbar-open = Abrir
 ui-merge = Mesclar com um PDF…
+ui-menu = Menu
+ui-menu-move = Mover…
+ui-language = Idioma
+ui-language-system = Idioma do sistema
 ui-toolbar-add-label = Adicionar ao slide
-ui-toolbar-add = Adicionar
 ui-add-kind = { $kind ->
     [card] Cartão
     [shape] Forma
@@ -146,6 +146,10 @@ ui-stepper-more = { $label }: um a mais
 ui-agent-color-other = Outra cor
 ui-agent-thread = Agente
 ui-agent-new-conversation = Nova conversa
+ui-agent-tools = { $count ->
+    [one] { $count } ferramenta
+   *[other] { $count } ferramentas
+}
 ui-draft = Rascunho
 ui-draft-insert = Inserir
 ui-draft-insert-title = Inserir como está (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Modelos
 ui-tab-move-new-window = Mover para uma nova janela
 ui-tab-move-to = Mover para a janela { $n }
 ui-tab-close-others = Fechar as outras abas
-ui-close-unsaved = Salvar as alterações em “{ $name }” antes de fechar?
-ui-close-save = Salvar
-ui-close-discard = Não salvar
 ui-close-cancel = Cancelar
 ui-disk-replaced-question = { $file } foi substituído no disco por outra apresentação.
 ui-disk-replaced-overwrite = Substituir

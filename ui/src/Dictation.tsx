@@ -214,21 +214,18 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
       </div>
     );
   } else {
+    // Au repos, rien que « Dicter » : où va le texte et les réglages sont dans
+    // l'info-bulle ; seul un modèle à télécharger se signale (sans lui, rien ne marche).
+    const details = [
+      `→ ${destination}`,
+      [model?.label.split(" (")[0], language].filter(Boolean).join(" · "),
+      status.config.auto_stop ? t("ui-dictation-auto-stop", { duration: secs(status.config.silence) }) : "",
+    ].filter(Boolean).join("\n");
     body = (
       <div className="dictation-body">
-        <div className="dictation-line">
-          <span className="dictation-state">
-            {agentBusy ? (
-              t("ui-dictation-agent-working")
-            ) : (
-              <>{t("ui-dictation-start")} <span className="caption">→ {destination}</span></>
-            )}
-          </span>
-          <span className="caption">
-            {model?.label.split(" (")[0]} · {language}
-            {status.config.auto_stop ? ` · ${t("ui-dictation-auto-stop", { duration: secs(status.config.silence) })}` : ""}
-            {model && !model.installed ? ` · ${t("ui-dictation-to-download", { size: mo(model.size) })}` : ""}
-          </span>
+        <div className="dictation-line" title={details}>
+          <span className="dictation-state">{agentBusy ? t("ui-dictation-agent-working") : t("ui-dictation-start")}</span>
+          {model && !model.installed && <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>}
         </div>
       </div>
     );

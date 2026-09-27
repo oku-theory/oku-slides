@@ -24,7 +24,7 @@ impl Dormant {
     /// Un état illisible est mis de côté par [`Session::resume`] ; l'onglet
     /// repart d'un deck vierge avec une reprise neuve, et le dit.
     fn wake(&self) -> Result<Session> {
-        let mut session = Session::new(self.fonts.clone(), &self.platform)?;
+        let mut session = super::tab_session(&self.fonts, &self.platform)?;
         if !session.resume(self.dir.clone()) {
             if !session.resume_fresh(self.dir.clone()) {
                 tracing::warn!(path = %self.dir.display(), "reprise de l'onglet inactive");

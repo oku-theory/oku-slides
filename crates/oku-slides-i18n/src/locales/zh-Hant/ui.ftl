@@ -25,8 +25,9 @@ ui-confirm-quit-templates = 要結束而不儲存已修改的範本嗎？
 
 ## 通知
 
-ui-toast-saved = 簡報已儲存
 ui-toast-templates-saved = 範本已儲存：{ $name }
+ui-toast-moved = 簡報已移動
+ui-toast-copied = 副本已儲存
 ui-toast-select-zone = 請選取要放置的區域：「{ $text }」
 
 ## 工具列
@@ -37,19 +38,18 @@ ui-toolbar-redo = 重做
 ui-toolbar-redo-label = 重做：{ $label }
 ui-toolbar-grid-hide = 隱藏格線
 ui-toolbar-grid-show = 顯示格線
-ui-toolbar-grid-hide-title = 隱藏格線（⌘'）
-ui-toolbar-grid-show-title = 顯示格線（⌘'）
 ui-toolbar-theme = 主題
 ui-toolbar-theme-default = 預設
 ui-toolbar-save-copy = 儲存副本
-ui-toolbar-save = 儲存
 ui-toolbar-finish = 完成
 ui-toolbar-templates = 範本
-ui-toolbar-templates-title = 建立及編輯投影片範本
 ui-toolbar-open = 開啟
 ui-merge = 與 PDF 合併…
+ui-menu = 選單
+ui-menu-move = 移動…
+ui-language = 語言
+ui-language-system = 系統語言
 ui-toolbar-add-label = 新增至投影片
-ui-toolbar-add = 新增
 ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形狀
@@ -146,6 +146,7 @@ ui-stepper-more = { $label }：增加一個
 ui-agent-color-other = 其他顏色
 ui-agent-thread = 智慧代理
 ui-agent-new-conversation = 新對話
+ui-agent-tools = { $count } 個工具
 ui-draft = 草稿
 ui-draft-insert = 插入
 ui-draft-insert-title = 原樣插入 (⌘⇧↩)
@@ -265,9 +266,6 @@ ui-tab-templates = 範本
 ui-tab-move-new-window = 移至新視窗
 ui-tab-move-to = 移至視窗 { $n }
 ui-tab-close-others = 關閉其他分頁
-ui-close-unsaved = 關閉前要儲存「{ $name }」的變更嗎？
-ui-close-save = 儲存
-ui-close-discard = 不要儲存
 ui-close-cancel = 取消
 ui-disk-replaced-question = 磁碟上的 { $file } 已被另一份簡報取代。
 ui-disk-replaced-overwrite = 覆寫

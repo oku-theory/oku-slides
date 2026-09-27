@@ -23,8 +23,9 @@ ui-confirm-quit-templates = 수정한 템플릿을 저장하지 않고 종료할
 
 ## 알림
 
-ui-toast-saved = 프레젠테이션을 저장했습니다
 ui-toast-templates-saved = 템플릿을 저장했습니다: { $name }
+ui-toast-moved = 프레젠테이션을 이동했습니다
+ui-toast-copied = 사본을 저장했습니다
 ui-toast-select-zone = 배치할 영역을 선택하세요: “{ $text }”
 
 ## 도구 모음
@@ -35,19 +36,18 @@ ui-toolbar-redo = 다시 실행
 ui-toolbar-redo-label = 다시 실행: { $label }
 ui-toolbar-grid-hide = 그리드 숨기기
 ui-toolbar-grid-show = 그리드 표시
-ui-toolbar-grid-hide-title = 그리드 숨기기 (⌘')
-ui-toolbar-grid-show-title = 그리드 표시 (⌘')
 ui-toolbar-theme = 테마
 ui-toolbar-theme-default = 기본값
 ui-toolbar-save-copy = 사본 저장
-ui-toolbar-save = 저장
 ui-toolbar-finish = 완료
 ui-toolbar-templates = 템플릿
-ui-toolbar-templates-title = 슬라이드 템플릿 만들기 및 편집
 ui-toolbar-open = 열기
 ui-merge = PDF와 병합…
+ui-menu = 메뉴
+ui-menu-move = 이동…
+ui-language = 언어
+ui-language-system = 시스템 언어
 ui-toolbar-add-label = 슬라이드에 추가
-ui-toolbar-add = 추가
 ui-add-kind = { $kind ->
     [card] 카드
     [shape] 도형
@@ -144,6 +144,7 @@ ui-stepper-more = { $label }: 하나 늘리기
 ui-agent-color-other = 다른 색
 ui-agent-thread = 에이전트
 ui-agent-new-conversation = 새 대화
+ui-agent-tools = 도구 { $count }개
 ui-draft = 초안
 ui-draft-insert = 삽입
 ui-draft-insert-title = 그대로 삽입 (⌘⇧↩)
@@ -263,9 +264,6 @@ ui-tab-templates = 템플릿
 ui-tab-move-new-window = 새 창으로 이동
 ui-tab-move-to = { $n }번 창으로 이동
 ui-tab-close-others = 다른 탭 닫기
-ui-close-unsaved = 닫기 전에 “{ $name }”의 변경 사항을 저장할까요?
-ui-close-save = 저장
-ui-close-discard = 저장 안 함
 ui-close-cancel = 취소
 ui-disk-replaced-question = { $file }이(가) 디스크에서 다른 프레젠테이션으로 바뀌었습니다.
 ui-disk-replaced-overwrite = 덮어쓰기

@@ -80,13 +80,62 @@ describe("fil de l'agent", () => {
       ],
     });
     const kinds = [...host.querySelectorAll(".agent-entry")].map((e) => [...e.classList].filter((c) => c !== "agent-entry")[0]);
-    expect(kinds).toEqual(["user", "tool", "plan", "agent", "error", "stop"]);
-    expect(host.querySelector(".you")?.textContent).toBe("« plus court »");
+    expect(kinds).toEqual(["user", "tools", "plan", "agent", "error", "stop"]);
+    expect(host.querySelector(".you")?.textContent).toBe("plus court");
     expect(host.querySelector(".tool")?.textContent).toBe("☑ Lire la slide");
     expect(host.querySelector(".plan li")?.className).toBe("in_progress");
     expect(host.querySelector(".msg")?.textContent).toBe("C'est fait.");
     expect(host.querySelector('[role="alert"]')?.textContent).toBe("agent introuvable");
     expect(host.querySelector(".agent-entry.stop")?.textContent).toBe("ui-agent-stopped");
+  });
+
+  test("une réponse de l'agent est rendue en Markdown", async () => {
+    const { host } = await mount({ state: "idle", entries: [{ kind: "agent", text: "- **Toto** et la Seine" }] });
+    expect(host.querySelector(".msg li strong")?.textContent).toBe("Toto");
+  });
+
+  test("une consigne envoyée reste sur sa carte", async () => {
+    const { host } = await mount({ state: "working", entries: [{ kind: "user", text: "plus court" }] });
+    expect(host.querySelector(".agent-entry.user .you")?.classList.contains("postit")).toBe(true);
+  });
+
+  test("les consignes successives s'empilent dans l'ordre", async () => {
+    const { host } = await mount({
+      state: "idle",
+      entries: [
+        { kind: "user", text: "un" },
+        { kind: "agent", text: "ok" },
+        { kind: "user", text: "deux" },
+      ],
+    });
+    expect([...host.querySelectorAll(".you")].map((e) => e.textContent)).toEqual(["un", "deux"]);
+  });
+
+  test("les appels d'outils consécutifs tiennent dans un accordéon fermé", async () => {
+    const { host } = await mount({
+      state: "working",
+      entries: [
+        { kind: "user", text: "a" },
+        { kind: "tool", id: "t1", title: "Lire", status: "completed" },
+        { kind: "tool", id: "t2", title: "Écrire", status: "in_progress" },
+        { kind: "agent", text: "fait" },
+        { kind: "tool", id: "t3", title: "Rendre", status: "completed" },
+      ],
+    });
+    const groups = [...host.querySelectorAll("details.tools")] as HTMLDetailsElement[];
+    expect(groups.map((d) => d.querySelectorAll(".tool").length)).toEqual([2, 1]);
+    expect(groups.every((d) => !d.open)).toBe(true);
+  });
+
+  test("le résumé d'un accordéon d'outils porte la marque du dernier outil", async () => {
+    const { host } = await mount({
+      state: "working",
+      entries: [
+        { kind: "tool", id: "t1", title: "Lire", status: "completed" },
+        { kind: "tool", id: "t2", title: "Écrire", status: "in_progress" },
+      ],
+    });
+    expect(host.querySelector("details.tools summary")?.textContent).toBe("◌ ui-agent-tools");
   });
 
   test("chaque fin de tour connue a sa phrase ; une raison inconnue est citée", async () => {

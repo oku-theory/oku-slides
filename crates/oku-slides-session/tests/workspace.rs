@@ -40,6 +40,8 @@ impl Drop for Data {
 fn platform(data: &Path) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"))
 }
@@ -645,6 +647,8 @@ fn resume_prunes_with_the_configured_count_and_spares_this_launch() {
     }
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}"));
     settings.paths.data = Some(data.0.clone());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.resume.keep_failed = 0;
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(data.resume().join("workspace.json"), b"pas du json").unwrap_or_else(|e| panic!("{e}"));

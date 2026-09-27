@@ -8,6 +8,9 @@
 # data = "…"
 # models = "…"
 # templates = "…"
+# Où s'enregistre de lui-même un deck qui n'a pas encore de fichier
+# (absent = Documents/Oku Slides).
+# decks = "…"
 # Polices supplémentaires (TTF/OTF), en plus de celles livrées avec l'app.
 # fonts = "…"
 

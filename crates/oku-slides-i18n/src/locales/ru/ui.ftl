@@ -29,8 +29,9 @@ ui-confirm-quit-templates = Выйти, не сохранив изменённы
 
 ## Уведомления
 
-ui-toast-saved = Презентация сохранена
 ui-toast-templates-saved = Шаблоны сохранены: { $name }
+ui-toast-moved = Презентация перемещена
+ui-toast-copied = Копия сохранена
 ui-toast-select-zone = Выделите область, чтобы разместить: «{ $text }»
 
 ## Панель инструментов
@@ -41,19 +42,18 @@ ui-toolbar-redo = Повторить
 ui-toolbar-redo-label = Повторить: { $label }
 ui-toolbar-grid-hide = Скрыть сетку
 ui-toolbar-grid-show = Показать сетку
-ui-toolbar-grid-hide-title = Скрыть сетку (⌘')
-ui-toolbar-grid-show-title = Показать сетку (⌘')
 ui-toolbar-theme = Тема
 ui-toolbar-theme-default = По умолчанию
 ui-toolbar-save-copy = Сохранить копию
-ui-toolbar-save = Сохранить
 ui-toolbar-finish = Готово
 ui-toolbar-templates = Шаблоны
-ui-toolbar-templates-title = Создание и редактирование шаблонов слайдов
 ui-toolbar-open = Открыть
 ui-merge = Объединить с PDF…
+ui-menu = Меню
+ui-menu-move = Переместить…
+ui-language = Язык
+ui-language-system = Язык системы
 ui-toolbar-add-label = Добавить на слайд
-ui-toolbar-add = Добавить
 ui-add-kind = { $kind ->
     [card] Карточка
     [shape] Фигура
@@ -150,6 +150,11 @@ ui-stepper-more = { $label }: на один больше
 ui-agent-color-other = Другой цвет
 ui-agent-thread = Агент
 ui-agent-new-conversation = Новый разговор
+ui-agent-tools = { $count ->
+    [one] { $count } инструмент
+    [few] { $count } инструмента
+   *[other] { $count } инструментов
+}
 ui-draft = Черновик
 ui-draft-insert = Вставить
 ui-draft-insert-title = Вставить как есть (⌘⇧↩)
@@ -269,9 +274,6 @@ ui-tab-templates = Шаблоны
 ui-tab-move-new-window = Переместить в новое окно
 ui-tab-move-to = Переместить в окно { $n }
 ui-tab-close-others = Закрыть другие вкладки
-ui-close-unsaved = Сохранить изменения в «{ $name }» перед закрытием?
-ui-close-save = Сохранить
-ui-close-discard = Не сохранять
 ui-close-cancel = Отмена
 ui-disk-replaced-question = { $file } на диске заменён другой презентацией.
 ui-disk-replaced-overwrite = Перезаписать

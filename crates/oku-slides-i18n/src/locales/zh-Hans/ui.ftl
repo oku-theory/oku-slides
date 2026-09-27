@@ -25,8 +25,9 @@ ui-confirm-quit-templates = 不保存已修改的模板就退出吗？
 
 ## 提示消息
 
-ui-toast-saved = 演示文稿已保存
 ui-toast-templates-saved = 模板已保存：{ $name }
+ui-toast-moved = 演示文稿已移动
+ui-toast-copied = 副本已保存
 ui-toast-select-zone = 请选择一个区域来放置：“{ $text }”
 
 ## 工具栏
@@ -37,19 +38,18 @@ ui-toolbar-redo = 重做
 ui-toolbar-redo-label = 重做：{ $label }
 ui-toolbar-grid-hide = 隐藏网格
 ui-toolbar-grid-show = 显示网格
-ui-toolbar-grid-hide-title = 隐藏网格（⌘'）
-ui-toolbar-grid-show-title = 显示网格（⌘'）
 ui-toolbar-theme = 主题
 ui-toolbar-theme-default = 默认
 ui-toolbar-save-copy = 保存副本
-ui-toolbar-save = 保存
 ui-toolbar-finish = 完成
 ui-toolbar-templates = 模板
-ui-toolbar-templates-title = 创建和编辑幻灯片模板
 ui-toolbar-open = 打开
 ui-merge = 与 PDF 合并…
+ui-menu = 菜单
+ui-menu-move = 移动…
+ui-language = 语言
+ui-language-system = 系统语言
 ui-toolbar-add-label = 添加到幻灯片
-ui-toolbar-add = 添加
 ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形状
@@ -146,6 +146,7 @@ ui-stepper-more = { $label }：增加一个
 ui-agent-color-other = 其他颜色
 ui-agent-thread = 智能体
 ui-agent-new-conversation = 新对话
+ui-agent-tools = { $count } 个工具
 ui-draft = 草稿
 ui-draft-insert = 插入
 ui-draft-insert-title = 原样插入 (⌘⇧↩)
@@ -265,9 +266,6 @@ ui-tab-templates = 模板
 ui-tab-move-new-window = 移到新窗口
 ui-tab-move-to = 移到窗口 { $n }
 ui-tab-close-others = 关闭其他标签页
-ui-close-unsaved = 关闭前是否保存对“{ $name }”的更改？
-ui-close-save = 保存
-ui-close-discard = 不保存
 ui-close-cancel = 取消
 ui-disk-replaced-question = 磁盘上的 { $file } 已被另一个演示文稿替换。
 ui-disk-replaced-overwrite = 覆盖

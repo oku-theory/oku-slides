@@ -1,13 +1,16 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Element, McpEvent, Op, Paragraph, SetInfo, SlideView, Snapshot, Surface, TabApi, TemplateView } from "./api";
-import { agentApi, errorText, pickOpenPath, tabApi } from "./api";
+import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
+import { createAutosave, wantsAutosave } from "./autosave";
+import type { MenuEntry } from "./ActionMenu";
+import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
 import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
-import { t } from "./i18n";
+import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { appendDraft, dictationRoute } from "./draft";
@@ -34,12 +37,11 @@ import { Latest } from "./latest";
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
   redo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></svg>,
-  remove: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /><path d="M10 11v5M14 11v5" /></svg>,
-  grid: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      {[5, 9.7, 14.3, 19].flatMap((y) => [5, 9.7, 14.3, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.3} />))}
-    </svg>
-  ),
+  // Ce qu'on ajoute à la slide, dans l'ordre d'ADD_KINDS.
+  text: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" /></svg>,
+  card: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="M7 10h10M7 14h6" /></svg>,
+  shape: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></svg>,
+  chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></svg>,
 };
 
 // @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
@@ -289,11 +291,54 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     if (path) await run(api.merge(path));
   };
 
-  const save = async (as = false) => {
+  // --- Enregistrement automatique -----------------------------------------
+  // On n'enregistre jamais à la main : chaque modification part au fichier
+  // (au dossier par défaut pour un deck neuf) peu après la dernière.
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+  // Un fichier remplacé par un autre deck, et l'écrasement refusé : plus
+  // d'enregistrement automatique jusqu'à un déplacement.
+  const [autosavePaused, setAutosavePaused] = useState(false);
+  const pausedRef = useRef(autosavePaused);
+  pausedRef.current = autosavePaused;
+  const autosave = useMemo(
+    () =>
+      createAutosave(async () => {
+        const s = snapRef.current;
+        if (!s || !wantsAutosave(s, pausedRef.current)) return;
+        if (s.editing) {
+          await run(api.saveTemplates(false));
+          return;
+        }
+        const saved = await run(saveGuarded(api, s));
+        if (!saved) setAutosavePaused(true);
+      }),
+    [api, run],
+  );
+  useEffect(() => {
+    if (snap && wantsAutosave(snap, autosavePaused)) autosave.schedule();
+  }, [snap, autosavePaused, autosave]);
+  // Onglet quitté (`App` remonté) : ce qui attend part tout de suite.
+  useEffect(() => () => void autosave.flush(), [autosave]);
+
+  /** Déplace le fichier du deck ; l'enregistrement automatique reprend. */
+  const moveFile = async () => {
     if (!snap) return;
-    const s = await run(saveGuarded(api, snap, as));
-    // Enregistré après fusion : l'avis de fusion reste affiché.
-    if (s && !s.notice) say(t("ui-toast-saved"));
+    const path = await pickSavePath(snap.name);
+    if (!path) return;
+    await autosave.flush();
+    if (await run(api.move(path))) {
+      setAutosavePaused(false);
+      say(t("ui-toast-moved"));
+    }
+  };
+
+  /** Écrit une copie du deck ailleurs ; il garde son fichier. */
+  const saveCopy = async () => {
+    if (!snap) return;
+    const path = await pickSavePath(snap.name);
+    if (!path) return;
+    if (await run(api.saveCopy(path))) say(t("ui-toast-copied"));
   };
 
 
@@ -426,7 +471,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   const finishTemplates = async () => {
     if (!snap?.editing) return;
-    if (snap.dirty && !window.confirm(t("ui-confirm-quit-templates"))) return;
+    await autosave.flush();
+    // Seuls des modèles intégrés modifiés restent à enregistrer (en copie).
+    if (snapRef.current?.dirty && !window.confirm(t("ui-confirm-quit-templates"))) return;
     if (await run(api.closeTemplates())) {
       setCurrent(null);
       setSelected(null);
@@ -451,10 +498,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     apply(t(snap.editing ? "ui-undo-move-template" : "ui-undo-move-slide"), [{ op: "move_slide", slide: id, index: to }]);
   };
 
-  const removeSlide = () => {
-    if (!snap || !current || !canRemoveSlide(snap.slides.length)) return;
-    const next = neighbourSlide(snap.slides, current);
-    run(api.apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: current }])).then((s) => {
+  /** Supprime une slide ; la slide affichée supprimée, on passe à sa voisine. */
+  const removeSlide = (id: string) => {
+    if (!snap || !canRemoveSlide(snap.slides.length)) return;
+    const next = id === current ? neighbourSlide(snap.slides, id) : current;
+    run(api.apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: id }])).then((s) => {
       if (s) setCurrent(next);
     });
   };
@@ -470,8 +518,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         e.preventDefault();
         run(e.shiftKey ? api.redo() : api.undo());
       } else if (mod && e.key.toLowerCase() === "s") {
+        // Tout s'enregistre de soi-même : ⌘S n'avance que l'échéance, ⌘⇧S fait une copie.
         e.preventDefault();
-        save(e.shiftKey);
+        if (e.shiftKey && !snap?.editing) saveCopy();
+        else void autosave.flush();
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         open();
@@ -594,8 +644,59 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
+  const themePicker = (
+    <label className="menu-theme">
+      <span className="caption">{t("ui-toolbar-theme")}</span>
+      <select className="select" value={snap.theme ?? ""} onChange={(e) => apply(t("ui-undo-theme"), [{ op: "set_theme", theme: e.target.value || null }])}>
+        <option value="">{t("ui-toolbar-theme-default")}</option>
+        {snap.themes.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </label>
+  );
+  const languagePicker = (
+    <label className="menu-theme">
+      <span className="caption">{t("ui-language")}</span>
+      <select
+        className="select"
+        value={chosenLocale() ?? ""}
+        onChange={(e) => changeLocale(e.target.value || null).catch((err) => say(errorText(err), true))}
+      >
+        <option value="">{t("ui-language-system")}</option>
+        {availableLocales().map((code) => <option key={code} value={code}>{languageName(code)}</option>)}
+      </select>
+    </label>
+  );
+  const gridEntry: MenuEntry = {
+    kind: "item",
+    label: t(gridAlways ? "ui-toolbar-grid-hide" : "ui-toolbar-grid-show"),
+    shortcut: "⌘'",
+    onSelect: () => setGridAlways((v) => !v),
+  };
+  const menuEntries: MenuEntry[] = snap.editing
+    ? [
+        ...(snap.editing.builtin
+          ? [{ kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) }]
+          : []),
+        { kind: "separator" },
+        { kind: "custom", node: themePicker },
+        gridEntry,
+        { kind: "separator" },
+        { kind: "custom", node: languagePicker },
+      ]
+    : [
+        { kind: "item", label: t("ui-toolbar-open"), shortcut: "⌘O", onSelect: open },
+        { kind: "item", label: t("ui-merge"), onSelect: merge },
+        { kind: "separator" },
+        { kind: "item", label: t("ui-menu-move"), onSelect: moveFile },
+        { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
+        { kind: "separator" },
+        { kind: "item", label: t("ui-toolbar-templates"), onSelect: editTemplates },
+        { kind: "custom", node: themePicker },
+        gridEntry,
+        { kind: "separator" },
+        { kind: "custom", node: languagePicker },
+      ];
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
-  const index = snap.slides.findIndex((s) => s.id === current);
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
 
   return (
@@ -618,59 +719,27 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         </span>
       </header>
 
-      {/* Outils posés en haut de la table. */}
+      {/* Ce qu'on ajoute à la slide, puis annuler / rétablir : posés sous la feuille. */}
+      <div className="object theme-card tools-tray">
+        <div className="add-group" role="group" aria-label={t("ui-toolbar-add-label")}>
+          {ADD_KINDS.map((k) => {
+            const name = t("ui-add-kind", { kind: k });
+            return (
+              <button key={k} className="token ghost" aria-label={name} title={name} disabled={!canAdd(k, view?.slide.kind)} onClick={() => addElement(k)}>
+                {Icon[k]}
+              </button>
+            );
+          })}
+        </div>
+        <span className="tools-sep" aria-hidden />
+        <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
+        <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+      </div>
+
+      {/* En haut à droite, tout ce qui sert rarement : un seul menu. */}
       <div className="tray">
-        <div className="object theme-card add-card" role="group" aria-label={t("ui-toolbar-add-label")}>
-          <span className="caption">{t("ui-toolbar-add")}</span>
-          {ADD_KINDS.map((k) => (
-            <button key={k} className="linkish" disabled={!canAdd(k, view?.slide.kind)} onClick={() => addElement(k)}>
-              {t("ui-add-kind", { kind: k })}
-            </button>
-          ))}
-        </div>
-        <button
-          className="object token"
-          aria-label={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
-          title={t("ui-toolbar-remove-hint", { n: index + 1 })}
-          disabled={!canRemoveSlide(snap.slides.length)}
-          onClick={removeSlide}
-        >
-          {Icon.remove}
-        </button>
-        <button className="object token" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
-        <button className="object token" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
-        <button
-          className={`object token grid-toggle${gridAlways ? " on" : ""}`}
-          aria-pressed={gridAlways}
-          aria-label={t(gridAlways ? "ui-toolbar-grid-hide" : "ui-toolbar-grid-show")}
-          title={t(gridAlways ? "ui-toolbar-grid-hide-title" : "ui-toolbar-grid-show-title")}
-          onClick={() => setGridAlways((v) => !v)}
-        >
-          {Icon.grid}
-        </button>
-        <div className="object theme-card">
-          <label className="caption" htmlFor="theme">{t("ui-toolbar-theme")}</label>
-          <select id="theme" className="select" value={snap.theme ?? ""} onChange={(e) => { e.currentTarget.blur(); apply(t("ui-undo-theme"), [{ op: "set_theme", theme: e.target.value || null }]); }}>
-            <option value="">{t("ui-toolbar-theme-default")}</option>
-            {snap.themes.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </div>
-        {snap.editing ? (
-          <>
-            {!snap.editing.builtin && <button className="object btn" onClick={() => saveTemplates(true)}>{t("ui-toolbar-save-copy")}</button>}
-            <button className="object btn primary" onClick={() => saveTemplates(false)} disabled={!snap.dirty && !snap.editing.builtin}>
-              {t(snap.editing.builtin ? "ui-toolbar-save-copy" : "ui-toolbar-save")}
-            </button>
-            <button className="object btn" onClick={finishTemplates}>{t("ui-toolbar-finish")}</button>
-          </>
-        ) : (
-          <>
-            <button className="object btn" onClick={editTemplates} title={t("ui-toolbar-templates-title")}>{t("ui-toolbar-templates")}</button>
-            <button className="object btn" onClick={open}>{t("ui-toolbar-open")}</button>
-            <button className="object btn" onClick={merge}>{t("ui-merge")}</button>
-            <button className="object btn primary" onClick={() => save(false)} disabled={!snap.dirty && !!snap.path}>{t("ui-toolbar-save")}</button>
-          </>
-        )}
+        {snap.editing && <button className="object btn" onClick={finishTemplates}>{t("ui-toolbar-finish")}</button>}
+        <ActionMenu label={t("ui-menu")} entries={menuEntries} />
       </div>
 
       {/* Pile de slides, à gauche. */}
@@ -684,6 +753,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         onSelect={(id) => { setCurrent(id); setSelected(null); setEditing(null); }}
         onMove={moveSlide}
         onAdd={addSlide}
+        removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
+        canRemove={canRemoveSlide(snap.slides.length)}
+        onRemove={removeSlide}
       />
 
       {/* La feuille, posée au centre. */}

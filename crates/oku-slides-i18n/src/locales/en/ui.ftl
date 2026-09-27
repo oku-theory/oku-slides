@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Quit without saving the modified templates?
 
 ## Toasts
 
-ui-toast-saved = Your presentation is saved
 ui-toast-templates-saved = Templates saved: { $name }
+ui-toast-moved = Presentation moved
+ui-toast-copied = Copy saved
 ui-toast-select-zone = Select an area to place: “{ $text }”
 
 ## Toolbar
@@ -37,19 +38,18 @@ ui-toolbar-redo = Redo
 ui-toolbar-redo-label = Redo: { $label }
 ui-toolbar-grid-hide = Hide the grid
 ui-toolbar-grid-show = Show the grid
-ui-toolbar-grid-hide-title = Hide the grid (⌘')
-ui-toolbar-grid-show-title = Show the grid (⌘')
 ui-toolbar-theme = Theme
 ui-toolbar-theme-default = Default
 ui-toolbar-save-copy = Save a copy
-ui-toolbar-save = Save
 ui-toolbar-finish = Done
 ui-toolbar-templates = Templates
-ui-toolbar-templates-title = Create and edit slide templates
 ui-toolbar-open = Open
 ui-merge = Merge with a PDF…
+ui-menu = Menu
+ui-menu-move = Move…
+ui-language = Language
+ui-language-system = System language
 ui-toolbar-add-label = Add to the slide
-ui-toolbar-add = Add
 ui-add-kind = { $kind ->
     [card] Card
     [shape] Shape
@@ -146,6 +146,10 @@ ui-stepper-more = { $label }: one more
 ui-agent-color-other = Other color
 ui-agent-thread = Agent
 ui-agent-new-conversation = New conversation
+ui-agent-tools = { $count ->
+    [one] { $count } tool
+   *[other] { $count } tools
+}
 ui-draft = Draft
 ui-draft-insert = Insert
 ui-draft-insert-title = Insert as is (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Templates
 ui-tab-move-new-window = Move to new window
 ui-tab-move-to = Move to window { $n }
 ui-tab-close-others = Close other tabs
-ui-close-unsaved = Save the changes to “{ $name }” before closing?
-ui-close-save = Save
-ui-close-discard = Don't save
 ui-close-cancel = Cancel
 ui-disk-replaced-question = { $file } was replaced on disk by another presentation.
 ui-disk-replaced-overwrite = Overwrite

@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Afsluiten zonder de gewijzigde sjablonen op te slaan
 
 ## Meldingen
 
-ui-toast-saved = Je presentatie is opgeslagen
 ui-toast-templates-saved = Sjablonen opgeslagen: { $name }
+ui-toast-moved = Presentatie verplaatst
+ui-toast-copied = Kopie opgeslagen
 ui-toast-select-zone = Selecteer een gebied om te plaatsen: ‘{ $text }’
 
 ## Werkbalk
@@ -37,19 +38,18 @@ ui-toolbar-redo = Opnieuw
 ui-toolbar-redo-label = Opnieuw: { $label }
 ui-toolbar-grid-hide = Raster verbergen
 ui-toolbar-grid-show = Raster tonen
-ui-toolbar-grid-hide-title = Raster verbergen (⌘')
-ui-toolbar-grid-show-title = Raster tonen (⌘')
 ui-toolbar-theme = Thema
 ui-toolbar-theme-default = Standaard
 ui-toolbar-save-copy = Kopie opslaan
-ui-toolbar-save = Opslaan
 ui-toolbar-finish = Klaar
 ui-toolbar-templates = Sjablonen
-ui-toolbar-templates-title = Diasjablonen maken en bewerken
 ui-toolbar-open = Openen
 ui-merge = Samenvoegen met een pdf…
+ui-menu = Menu
+ui-menu-move = Verplaatsen…
+ui-language = Taal
+ui-language-system = Systeemtaal
 ui-toolbar-add-label = Toevoegen aan de dia
-ui-toolbar-add = Toevoegen
 ui-add-kind = { $kind ->
     [card] Kaart
     [shape] Vorm
@@ -146,6 +146,10 @@ ui-stepper-more = { $label }: één meer
 ui-agent-color-other = Andere kleur
 ui-agent-thread = Agent
 ui-agent-new-conversation = Nieuw gesprek
+ui-agent-tools = { $count ->
+    [one] { $count } tool
+   *[other] { $count } tools
+}
 ui-draft = Concept
 ui-draft-insert = Invoegen
 ui-draft-insert-title = Ongewijzigd invoegen (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Sjablonen
 ui-tab-move-new-window = Naar nieuw venster verplaatsen
 ui-tab-move-to = Naar venster { $n } verplaatsen
 ui-tab-close-others = Andere tabbladen sluiten
-ui-close-unsaved = Wijzigingen in ‘{ $name }’ opslaan voor het sluiten?
-ui-close-save = Opslaan
-ui-close-discard = Niet opslaan
 ui-close-cancel = Annuleren
 ui-disk-replaced-question = { $file } is op de schijf vervangen door een andere presentatie.
 ui-disk-replaced-overwrite = Overschrijven

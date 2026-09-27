@@ -13,7 +13,7 @@ use crate::Localize;
 use crate::error::Result;
 use crate::resume::{Resume, ResumeError};
 use crate::views::TabInfo;
-use crate::{Fonts, Platform, Session};
+use crate::{Fonts, Platform};
 
 use serde::{Deserialize, Serialize};
 
@@ -198,7 +198,7 @@ impl Workspace {
             self.tabs.insert(id.to_owned(), Tab::dormant(info, dormant));
             return true;
         }
-        let mut session = match Session::new(self.fonts.clone(), &self.platform) {
+        let mut session = match super::tab_session(&self.fonts, &self.platform) {
             Ok(s) => s,
             Err(e) => {
                 tracing::warn!(tab = id, error = %e.one_line(), "session de l'onglet");

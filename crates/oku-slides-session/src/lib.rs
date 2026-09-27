@@ -34,6 +34,7 @@ use oku_slides_render::{Compiled, Renderer};
 pub mod agent;
 mod appearance;
 mod charts;
+mod deck_file;
 mod error;
 mod files;
 mod inline;
@@ -183,6 +184,14 @@ pub enum Request {
     Merge {
         path: PathBuf,
     },
+    /// Déplace le fichier du deck : écrit à `path`, supprime l'ancien.
+    Move {
+        path: PathBuf,
+    },
+    /// Écrit une copie à `path` ; le deck garde son fichier.
+    SaveCopy {
+        path: PathBuf,
+    },
 }
 
 impl Request {
@@ -199,7 +208,8 @@ impl Request {
             | Self::ChartKind { .. }
             | Self::EditTemplates { .. }
             | Self::CloseTemplates
-            | Self::Merge { .. } => true,
+            | Self::Merge { .. }
+            | Self::Move { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Svg { .. }
@@ -209,6 +219,7 @@ impl Request {
             | Self::TemplateSets
             | Self::SaveTemplates { .. }
             | Self::DeleteTemplateSet { .. }
+            | Self::SaveCopy { .. }
             | Self::Ui(_) => false,
         }
     }
@@ -220,6 +231,8 @@ pub struct Session {
     doc: Document,
     mode: Mode,
     library: Library,
+    /// Où s'enregistre un deck sans fichier ; `None` : il faut choisir (CLI, tests).
+    decks_dir: Option<PathBuf>,
     storage: Storage,
     localizer: Arc<Localizer>,
     /// En-têtes des graphiques reçus, dans la langue de l'utilisateur.
@@ -347,6 +360,7 @@ impl Session {
             },
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
+            decks_dir: None,
             storage,
             doc_defaults,
             source_limits: files::source_limits(settings),
@@ -463,6 +477,11 @@ impl Session {
     pub fn set_templates_dir(&mut self, dir: impl Into<PathBuf>) {
         self.library = Library::new(Some(dir.into()), self.storage.clone());
         self.template_cache = None;
+    }
+
+    /// Dossier où s'enregistre de lui-même un deck qui n'a pas de fichier.
+    pub fn set_decks_dir(&mut self, dir: impl Into<PathBuf>) {
+        self.decks_dir = Some(dir.into());
     }
 
     /// Ensemble de modèles du deck (celui par défaut s'il n'en choisit pas).
@@ -584,7 +603,12 @@ impl Session {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
             Ok(serde_json::to_string(v).context(ResponseSnafu)?)
         }
-        if matches!(self.mode, Mode::Templates { .. }) && matches!(req, Request::Save { .. } | Request::Merge { .. }) {
+        if matches!(self.mode, Mode::Templates { .. })
+            && matches!(
+                req,
+                Request::Save { .. } | Request::Merge { .. } | Request::Move { .. } | Request::SaveCopy { .. }
+            )
+        {
             return EditingTemplatesSnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
@@ -613,6 +637,8 @@ impl Session {
             Request::Save { path, overwrite } => {
                 self.save_checked(path.as_deref(), overwrite)?;
             }
+            Request::Move { path } => self.move_to(&path)?,
+            Request::SaveCopy { path } => self.save_copy(&path)?,
             Request::Merge { path } => {
                 self.merge_file(&path)?;
             }
@@ -719,18 +745,24 @@ impl Session {
     /// Écrit en `.oku-slides.pdf` (`path` déjà normalisé, voir `save_path`) :
     /// PDF + blob des sources, écriture atomique.
     fn write_to(&mut self, path: PathBuf) -> Result<()> {
+        let hash = self.write_file(&path)?;
+        self.doc.path = Some(path);
+        self.doc.dirty = false;
+        self.doc.saved_hash = Some(hash);
+        Ok(())
+    }
+
+    /// Écrit le document (PDF et sources) dans `path` ; son empreinte.
+    pub(crate) fn write_file(&self, path: &Path) -> Result<String> {
         let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
         let pdf = compiled.pdf().context(RenderSnafu)?;
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
         let out = oku_slides_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
         let hash = oku_slides_core::asset_id(&out);
-        self.storage.write_atomic(&path, out).context(WriteSnafu { path: &path })?;
+        self.storage.write_atomic(path, out).context(WriteSnafu { path })?;
         tracing::info!(path = %path.display(), bytes, "{}", self.localizer.tr("log-document-saved"));
-        self.doc.path = Some(path);
-        self.doc.dirty = false;
-        self.doc.saved_hash = Some(hash);
-        Ok(())
+        Ok(hash)
     }
 
     /// Installe un rendu : le cache ne garde que les pages encore présentes.

@@ -33,8 +33,9 @@ ui-confirm-quit-templates = هل تريد الخروج دون حفظ القوا�
 
 ## الإشعارات
 
-ui-toast-saved = حُفظ عرضك التقديمي
 ui-toast-templates-saved = حُفظت القوالب: { $name }
+ui-toast-moved = تم نقل العرض التقديمي
+ui-toast-copied = تم حفظ نسخة
 ui-toast-select-zone = حدّد منطقة لوضع: «{ $text }»
 
 ## شريط الأدوات
@@ -45,19 +46,18 @@ ui-toolbar-redo = إعادة
 ui-toolbar-redo-label = إعادة: { $label }
 ui-toolbar-grid-hide = إخفاء الشبكة
 ui-toolbar-grid-show = إظهار الشبكة
-ui-toolbar-grid-hide-title = إخفاء الشبكة (⌘')
-ui-toolbar-grid-show-title = إظهار الشبكة (⌘')
 ui-toolbar-theme = السمة
 ui-toolbar-theme-default = الافتراضية
 ui-toolbar-save-copy = حفظ نسخة
-ui-toolbar-save = حفظ
 ui-toolbar-finish = تم
 ui-toolbar-templates = القوالب
-ui-toolbar-templates-title = إنشاء قوالب الشرائح وتعديلها
 ui-toolbar-open = فتح
 ui-merge = دمج مع ملف PDF…
+ui-menu = القائمة
+ui-menu-move = نقل…
+ui-language = اللغة
+ui-language-system = لغة النظام
 ui-toolbar-add-label = إضافة إلى الشريحة
-ui-toolbar-add = إضافة
 ui-add-kind = { $kind ->
     [card] بطاقة
     [shape] شكل
@@ -154,6 +154,7 @@ ui-stepper-more = { $label }: واحد أكثر
 ui-agent-color-other = لون آخر
 ui-agent-thread = الوكيل
 ui-agent-new-conversation = محادثة جديدة
+ui-agent-tools = الأدوات ({ $count })
 ui-draft = مسودة
 ui-draft-insert = إدراج
 ui-draft-insert-title = إدراج كما هو (⌘⇧↩)
@@ -273,9 +274,6 @@ ui-tab-templates = القوالب
 ui-tab-move-new-window = نقل إلى نافذة جديدة
 ui-tab-move-to = نقل إلى النافذة { $n }
 ui-tab-close-others = إغلاق علامات التبويب الأخرى
-ui-close-unsaved = هل تريد حفظ التغييرات على «{ $name }» قبل الإغلاق؟
-ui-close-save = حفظ
-ui-close-discard = عدم الحفظ
 ui-close-cancel = إلغاء
 ui-disk-replaced-question = تم استبدال { $file } على القرص بعرض تقديمي آخر.
 ui-disk-replaced-overwrite = استبدال

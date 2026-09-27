@@ -25,8 +25,9 @@ ui-confirm-quit-templates = Değiştirilen şablonlar kaydedilmeden çıkılsın
 
 ## Bildirimler
 
-ui-toast-saved = Sununuz kaydedildi
 ui-toast-templates-saved = Şablonlar kaydedildi: { $name }
+ui-toast-moved = Sunu taşındı
+ui-toast-copied = Kopya kaydedildi
 ui-toast-select-zone = Yerleştirmek için bir alan seçin: “{ $text }”
 
 ## Araç çubuğu
@@ -37,19 +38,18 @@ ui-toolbar-redo = Yinele
 ui-toolbar-redo-label = Yinele: { $label }
 ui-toolbar-grid-hide = Izgarayı gizle
 ui-toolbar-grid-show = Izgarayı göster
-ui-toolbar-grid-hide-title = Izgarayı gizle (⌘')
-ui-toolbar-grid-show-title = Izgarayı göster (⌘')
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Varsayılan
 ui-toolbar-save-copy = Kopyasını kaydet
-ui-toolbar-save = Kaydet
 ui-toolbar-finish = Bitti
 ui-toolbar-templates = Şablonlar
-ui-toolbar-templates-title = Slayt şablonları oluştur ve düzenle
 ui-toolbar-open = Aç
 ui-merge = PDF ile birleştir…
+ui-menu = Menü
+ui-menu-move = Taşı…
+ui-language = Dil
+ui-language-system = Sistem dili
 ui-toolbar-add-label = Slayta ekle
-ui-toolbar-add = Ekle
 ui-add-kind = { $kind ->
     [card] Kart
     [shape] Şekil
@@ -146,6 +146,7 @@ ui-stepper-more = { $label }: bir fazla
 ui-agent-color-other = Başka renk
 ui-agent-thread = Ajan
 ui-agent-new-conversation = Yeni konuşma
+ui-agent-tools = { $count } araç
 ui-draft = Taslak
 ui-draft-insert = Ekle
 ui-draft-insert-title = Olduğu gibi ekle (⌘⇧↩)
@@ -265,9 +266,6 @@ ui-tab-templates = Şablonlar
 ui-tab-move-new-window = Yeni pencereye taşı
 ui-tab-move-to = { $n }. pencereye taşı
 ui-tab-close-others = Diğer sekmeleri kapat
-ui-close-unsaved = Kapatmadan önce “{ $name }” değişiklikleri kaydedilsin mi?
-ui-close-save = Kaydet
-ui-close-discard = Kaydetme
 ui-close-cancel = İptal
 ui-disk-replaced-question = { $file } diskte başka bir sunumla değiştirildi.
 ui-disk-replaced-overwrite = Üzerine yaz

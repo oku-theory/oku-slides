@@ -39,6 +39,8 @@ impl Drop for Data {
 fn platform(data: &Path) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"))
 }

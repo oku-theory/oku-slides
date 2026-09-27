@@ -74,6 +74,8 @@ async fn session(dir: PathBuf) -> (Session, Platform) {
     tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(dir);
+        // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+        settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
         let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
         let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
@@ -263,6 +265,8 @@ pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (oku_slide
     let (sessions, platform) = tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(dir);
+        // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+        settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
         settings.agent.command = env!("CARGO_BIN_EXE_oku-slides-fake-agent").into();
         settings.agent.args = args;

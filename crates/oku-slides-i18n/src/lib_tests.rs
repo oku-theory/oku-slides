@@ -144,3 +144,16 @@ fn every_locale_names_the_app_oku_slides() {
         asserting(&format!("{locale} : ancien nom")).that(&text.contains("Écho")).is_false();
     }
 }
+
+#[test]
+fn available_lists_every_shipped_language_reference_first() {
+    let all = available();
+    assert_that!(all.first().copied()).is_equal_to(Some(REFERENCE));
+    assert_that!(all).has_length(LOCALES.len());
+}
+
+#[test]
+fn shipped_maps_a_region_tag_and_refuses_the_unknown() {
+    assert_that!(shipped("fr-CA")).is_equal_to(Some("fr"));
+    assert_that!(shipped("xx")).is_none();
+}

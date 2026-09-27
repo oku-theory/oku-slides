@@ -64,3 +64,21 @@ export function threadReducer(t: Thread, e: AgentEvent): Thread {
     }
   }
 }
+
+/** Un appel d'outil du fil. */
+export type ToolEntry = Extract<Entry, { kind: "tool" }>;
+
+/** Une ligne affichée : une entrée, ou des appels d'outils consécutifs ; `at` : indice de la première. */
+export type ThreadItem = (Exclude<Entry, ToolEntry> | { kind: "tools"; tools: ToolEntry[] }) & { at: number };
+
+/** Les lignes à afficher : les appels d'outils consécutifs tiennent en une seule. */
+export function threadItems(entries: readonly Entry[]): ThreadItem[] {
+  const items: ThreadItem[] = [];
+  entries.forEach((e, at) => {
+    const last = items.at(-1);
+    if (e.kind !== "tool") items.push({ ...e, at });
+    else if (last?.kind === "tools") last.tools.push(e);
+    else items.push({ kind: "tools", tools: [e], at });
+  });
+  return items;
+}

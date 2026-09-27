@@ -29,8 +29,9 @@ ui-confirm-quit-templates = Zakończyć bez zapisywania zmienionych szablonów?
 
 ## Powiadomienia
 
-ui-toast-saved = Prezentacja została zapisana
 ui-toast-templates-saved = Szablony zapisane: { $name }
+ui-toast-moved = Prezentacja przeniesiona
+ui-toast-copied = Kopia zapisana
 ui-toast-select-zone = Zaznacz obszar, aby umieścić: „{ $text }”
 
 ## Pasek narzędzi
@@ -41,19 +42,18 @@ ui-toolbar-redo = Ponów
 ui-toolbar-redo-label = Ponów: { $label }
 ui-toolbar-grid-hide = Ukryj siatkę
 ui-toolbar-grid-show = Pokaż siatkę
-ui-toolbar-grid-hide-title = Ukryj siatkę (⌘')
-ui-toolbar-grid-show-title = Pokaż siatkę (⌘')
 ui-toolbar-theme = Motyw
 ui-toolbar-theme-default = Domyślny
 ui-toolbar-save-copy = Zapisz kopię
-ui-toolbar-save = Zapisz
 ui-toolbar-finish = Gotowe
 ui-toolbar-templates = Szablony
-ui-toolbar-templates-title = Twórz i edytuj szablony slajdów
 ui-toolbar-open = Otwórz
 ui-merge = Scal z plikiem PDF…
+ui-menu = Menu
+ui-menu-move = Przenieś…
+ui-language = Język
+ui-language-system = Język systemu
 ui-toolbar-add-label = Dodaj do slajdu
-ui-toolbar-add = Dodaj
 ui-add-kind = { $kind ->
     [card] Karta
     [shape] Kształt
@@ -150,6 +150,11 @@ ui-stepper-more = { $label }: o jeden więcej
 ui-agent-color-other = Inny kolor
 ui-agent-thread = Agent
 ui-agent-new-conversation = Nowa rozmowa
+ui-agent-tools = { $count ->
+    [one] { $count } narzędzie
+    [few] { $count } narzędzia
+   *[other] { $count } narzędzi
+}
 ui-draft = Szkic
 ui-draft-insert = Wstaw
 ui-draft-insert-title = Wstaw bez zmian (⌘⇧↩)
@@ -269,9 +274,6 @@ ui-tab-templates = Szablony
 ui-tab-move-new-window = Przenieś do nowego okna
 ui-tab-move-to = Przenieś do okna { $n }
 ui-tab-close-others = Zamknij pozostałe karty
-ui-close-unsaved = Zapisać zmiany w „{ $name }” przed zamknięciem?
-ui-close-save = Zapisz
-ui-close-discard = Nie zapisuj
 ui-close-cancel = Anuluj
 ui-disk-replaced-question = { $file } został zastąpiony na dysku inną prezentacją.
 ui-disk-replaced-overwrite = Nadpisz

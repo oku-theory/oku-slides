@@ -1,4 +1,4 @@
-// Rendu du brouillon des dictées dans un DOM happy-dom.
+// Rendu du brouillon de consigne dans un DOM happy-dom.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -42,9 +42,10 @@ async function mount(text: string | null, { busy = false, insertTo = "dans le ti
     );
   });
   const area = () => host.querySelector("textarea") as HTMLTextAreaElement;
+  const note = () => host.querySelector(".draft-note") as HTMLElement;
   const send = () => host.querySelector(".draft-send") as HTMLButtonElement;
   const insert = () => host.querySelector(".draft-insert") as HTMLButtonElement;
-  return { host, area, send, insert, sent, inserted, changes, discarded: () => discarded };
+  return { host, area, note, send, insert, sent, inserted, changes, discarded: () => discarded };
 }
 
 const key = (el: Element, init: KeyboardEventInit) =>
@@ -56,9 +57,43 @@ describe("brouillon de dictée", () => {
     expect(host.querySelector(".draft")).toBeNull();
   });
 
-  test("DictationDraft avec une dictée la montre, éditable", async () => {
-    const { area } = await mount("rends ce titre plus court");
-    expect(area().value).toBe("rends ce titre plus court");
+  test("DictationDraft avec une dictée la montre sur un post-it, sans champ", async () => {
+    const { note, area } = await mount("rends ce titre plus court");
+    expect(note().textContent).toBe("rends ce titre plus court");
+    expect(area()).toBeNull();
+  });
+
+  test("DictationDraft clic sur le post-it ouvre l'édition, curseur en fin", async () => {
+    const { note, area } = await mount("plus court");
+    await act(async () => note().click());
+    expect(area().value).toBe("plus court");
+    expect(document.activeElement).toBe(area());
+    expect(area().selectionStart).toBe("plus court".length);
+  });
+
+  test("DictationDraft Entrée sur le post-it ouvre l'édition", async () => {
+    const { note, area } = await mount("plus court");
+    await act(async () => key(note(), { key: "Enter" }));
+    expect(area()).not.toBeNull();
+  });
+
+  test("DictationDraft Échap dans le champ revient au post-it", async () => {
+    const { note, area } = await mount("plus court");
+    await act(async () => note().click());
+    await act(async () => key(area(), { key: "Escape" }));
+    expect(area()).toBeNull();
+    expect(document.activeElement).toBe(note());
+  });
+
+  test("DictationDraft retouché transmet le texte", async () => {
+    const { note, area, changes } = await mount("plus court");
+    await act(async () => note().click());
+    await act(async () => {
+      const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+      set.call(area(), "plus long");
+      area().dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(changes).toEqual(["plus long"]);
   });
 
   test("DictationDraft n'envoie rien tant qu'on n'appuie pas sur Envoyer", async () => {
@@ -67,35 +102,48 @@ describe("brouillon de dictée", () => {
     expect(sent).toEqual([]);
   });
 
+  test("DictationDraft Envoyer a le style des boutons de l'app", async () => {
+    const { send } = await mount("plus court");
+    expect(send().classList.contains("object")).toBe(true);
+  });
+
   test("DictationDraft Envoyer envoie le texte sans ses blancs de bord", async () => {
     const { send, sent } = await mount("  plus court \n");
     await act(async () => send().click());
     expect(sent).toEqual(["plus court"]);
   });
 
-  test("DictationDraft ⌘↩ dans le texte envoie", async () => {
-    const { area, sent } = await mount("plus court");
+  test("DictationDraft ⌘↩ sur le post-it envoie", async () => {
+    const { note, sent } = await mount("plus court");
+    await act(async () => key(note(), { key: "Enter", metaKey: true }));
+    expect(sent).toEqual(["plus court"]);
+  });
+
+  test("DictationDraft ⌘↩ dans le champ envoie", async () => {
+    const { note, area, sent } = await mount("plus court");
+    await act(async () => note().click());
     await act(async () => key(area(), { key: "Enter", metaKey: true }));
     expect(sent).toEqual(["plus court"]);
   });
 
-  test("DictationDraft ↩ seul n'envoie pas", async () => {
-    const { area, sent } = await mount("plus court");
+  test("DictationDraft ↩ seul dans le champ n'envoie pas", async () => {
+    const { note, area, sent } = await mount("plus court");
+    await act(async () => note().click());
     await act(async () => key(area(), { key: "Enter" }));
     expect(sent).toEqual([]);
   });
 
   test("DictationDraft vide ne peut pas être envoyé", async () => {
-    const { area, send, sent } = await mount("   ");
+    const { note, send, sent } = await mount("   ");
     expect(send().disabled).toBe(true);
-    await act(async () => key(area(), { key: "Enter", metaKey: true }));
+    await act(async () => key(note(), { key: "Enter", metaKey: true }));
     expect(sent).toEqual([]);
   });
 
   test("DictationDraft pendant un tour de l'agent attend pour envoyer", async () => {
-    const { area, send, sent } = await mount("plus court", { busy: true });
+    const { note, send, sent } = await mount("plus court", { busy: true });
     expect(send().disabled).toBe(true);
-    await act(async () => key(area(), { key: "Enter", metaKey: true }));
+    await act(async () => key(note(), { key: "Enter", metaKey: true }));
     expect(sent).toEqual([]);
   });
 
@@ -105,10 +153,9 @@ describe("brouillon de dictée", () => {
     expect(discarded()).toBe(1);
   });
 
-  test("DictationDraft après une dictée place le curseur en fin de texte", async () => {
-    const { area } = await mount("plus court");
-    expect(document.activeElement).toBe(area());
-    expect(area().selectionStart).toBe("plus court".length);
+  test("DictationDraft après une dictée donne le focus au post-it", async () => {
+    const { note } = await mount("plus court");
+    expect(document.activeElement).toBe(note());
   });
 
   test("DictationDraft Insérer écrit le texte tel quel, sans l'agent", async () => {
@@ -119,8 +166,8 @@ describe("brouillon de dictée", () => {
   });
 
   test("DictationDraft ⌘⇧↩ insère", async () => {
-    const { area, inserted, sent } = await mount("Budget 2027");
-    await act(async () => key(area(), { key: "Enter", metaKey: true, shiftKey: true }));
+    const { note, inserted, sent } = await mount("Budget 2027");
+    await act(async () => key(note(), { key: "Enter", metaKey: true, shiftKey: true }));
     expect(inserted).toEqual(["Budget 2027"]);
     expect(sent).toEqual([]);
   });
@@ -131,9 +178,9 @@ describe("brouillon de dictée", () => {
   });
 
   test("DictationDraft sans zone où écrire ne peut pas insérer", async () => {
-    const { insert, area, inserted } = await mount("Budget 2027", { insertTo: null });
+    const { insert, note, inserted } = await mount("Budget 2027", { insertTo: null });
     expect(insert().disabled).toBe(true);
-    await act(async () => key(area(), { key: "Enter", metaKey: true, shiftKey: true }));
+    await act(async () => key(note(), { key: "Enter", metaKey: true, shiftKey: true }));
     expect(inserted).toEqual([]);
   });
 

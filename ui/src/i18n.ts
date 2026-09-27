@@ -3,7 +3,7 @@
 // l'utilisateur le recouvre, message par message.
 
 import { FluentBundle, FluentResource, type FluentVariable } from "@fluent/bundle";
-import { workspace } from "./api";
+import { type Messages, workspace } from "./api";
 
 let bundle = new FluentBundle("en", { useIsolating: false });
 
@@ -38,8 +38,51 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
   return message?.value ? bundle.formatPattern(message.value, args) : id;
 }
 
+let available: string[] = [];
+let chosen: string | null = null;
+const listeners = new Set<() => void>();
+
+/** Langues livrées par l'hôte, l'anglais d'abord. */
+export function availableLocales(): string[] {
+  return available;
+}
+
+/** Langue choisie dans les réglages ; `null` : celle du système. */
+export function chosenLocale(): string | null {
+  return chosen;
+}
+
+/** Prévient quand la langue change ; rend de quoi se désabonner. */
+export function onLocaleChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Installe les messages reçus de l'hôte, puis prévient. */
+export function applyMessages(m: Messages): void {
+  setMessages(m.locale, m.resources);
+  available = m.available ?? [];
+  chosen = m.chosen ?? null;
+  for (const listener of listeners) listener();
+}
+
+/** Le nom d'une langue dans elle-même (`de` → « Deutsch »). */
+export function languageName(code: string): string {
+  let name = code;
+  try {
+    name = new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
+  } catch {
+    /* moteur sans noms de langues : le code */
+  }
+  return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);
+}
+
 /** Charge les messages de l'hôte ; à attendre avant le premier rendu. */
 export async function loadMessages(): Promise<void> {
-  const { locale: lang, resources } = await workspace.messages();
-  setMessages(lang, resources);
+  applyMessages(await workspace.messages());
+}
+
+/** Change la langue de l'interface (`null` : celle du système). */
+export async function changeLocale(code: string | null): Promise<void> {
+  applyMessages(await workspace.setLocale(code));
 }

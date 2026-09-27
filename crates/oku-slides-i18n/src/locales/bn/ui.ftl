@@ -25,8 +25,9 @@ ui-confirm-quit-templates = পরিবর্তিত টেমপ্লেট
 
 ## বিজ্ঞপ্তি
 
-ui-toast-saved = আপনার প্রেজেন্টেশন সংরক্ষিত হয়েছে
 ui-toast-templates-saved = টেমপ্লেট সংরক্ষিত: { $name }
+ui-toast-moved = উপস্থাপনা সরানো হয়েছে
+ui-toast-copied = অনুলিপি সংরক্ষিত
 ui-toast-select-zone = বসানোর জন্য একটি এলাকা বেছে নিন: “{ $text }”
 
 ## টুলবার
@@ -37,19 +38,18 @@ ui-toolbar-redo = আবার করুন
 ui-toolbar-redo-label = আবার করুন: { $label }
 ui-toolbar-grid-hide = গ্রিড লুকান
 ui-toolbar-grid-show = গ্রিড দেখান
-ui-toolbar-grid-hide-title = গ্রিড লুকান (⌘')
-ui-toolbar-grid-show-title = গ্রিড দেখান (⌘')
 ui-toolbar-theme = থিম
 ui-toolbar-theme-default = ডিফল্ট
 ui-toolbar-save-copy = একটি কপি সংরক্ষণ করুন
-ui-toolbar-save = সংরক্ষণ করুন
 ui-toolbar-finish = সম্পন্ন
 ui-toolbar-templates = টেমপ্লেট
-ui-toolbar-templates-title = স্লাইড টেমপ্লেট তৈরি ও সম্পাদনা করুন
 ui-toolbar-open = খুলুন
 ui-merge = PDF-এর সঙ্গে একত্র করুন…
+ui-menu = মেনু
+ui-menu-move = সরান…
+ui-language = ভাষা
+ui-language-system = সিস্টেমের ভাষা
 ui-toolbar-add-label = স্লাইডে যোগ করুন
-ui-toolbar-add = যোগ করুন
 ui-add-kind = { $kind ->
     [card] কার্ড
     [shape] আকৃতি
@@ -146,6 +146,7 @@ ui-stepper-more = { $label }: একটি বেশি
 ui-agent-color-other = অন্য রং
 ui-agent-thread = এজেন্ট
 ui-agent-new-conversation = নতুন কথোপকথন
+ui-agent-tools = { $count }টি টুল
 ui-draft = খসড়া
 ui-draft-insert = বসান
 ui-draft-insert-title = যেমন আছে তেমন বসান (⌘⇧↩)
@@ -265,9 +266,6 @@ ui-tab-templates = টেমপ্লেট
 ui-tab-move-new-window = নতুন উইন্ডোতে সরান
 ui-tab-move-to = উইন্ডো { $n }-এ সরান
 ui-tab-close-others = অন্য ট্যাবগুলি বন্ধ করুন
-ui-close-unsaved = বন্ধ করার আগে “{ $name }”-এর পরিবর্তন সংরক্ষণ করবেন?
-ui-close-save = সংরক্ষণ করুন
-ui-close-discard = সংরক্ষণ করবেন না
 ui-close-cancel = বাতিল
 ui-disk-replaced-question = ডিস্কে { $file } অন্য একটি উপস্থাপনা দিয়ে প্রতিস্থাপিত হয়েছে।
 ui-disk-replaced-overwrite = ওভাররাইট করুন

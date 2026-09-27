@@ -28,27 +28,22 @@ async function askReplaced(file: string): Promise<ReplacedChoice> {
 }
 
 /**
- * Enregistre `snap` (sous un nouveau nom si `as`, ou s'il n'a pas de
- * fichier) ; un fichier remplacé par un autre deck fait poser la question.
+ * Enregistre `snap` à sa place (un deck sans fichier va au dossier par
+ * défaut) ; un fichier remplacé par un autre deck fait poser la question.
  * `null` : rien n'a été enregistré. `ask` et `pick` s'injectent pour les
  * tests (par défaut, la question et le dialogue réels).
  */
 export async function saveGuarded(
   api: TabApi,
   snap: Snapshot,
-  as: boolean,
   ask: AskReplaced = askReplaced,
   pick: PickSavePath = pickSavePath,
 ): Promise<Snapshot | null> {
-  const path = as || !snap.path ? await pick(snap.name) : null;
-  if ((as || !snap.path) && !path) return null;
-  // « Enregistrer sous » : le dialogue du système a déjà fait confirmer le
-  // remplacement d'un fichier existant.
-  const s = await api.save(path, as);
+  const s = await api.save(null, false);
   if (!s.disk_replaced) return s;
-  const choice = await ask(fileName(path ?? snap.path, snap.name));
+  const choice = await ask(fileName(snap.path, snap.name));
   let last: Snapshot | null = null;
-  if (choice === "overwrite") last = await api.save(path, true);
+  if (choice === "overwrite") last = await api.save(null, true);
   if (choice === "save-as") {
     // Le dialogue du système a déjà fait confirmer le remplacement d'un
     // fichier existant, fût-ce celui-là même.

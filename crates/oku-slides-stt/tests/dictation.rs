@@ -41,6 +41,8 @@ fn hub(status: u16, fail_first: usize, body: &'static [u8]) -> String {
 fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.join("data"));
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.paths.models = Some(dir.join("models"));
     settings.stt.hub_url = hub_url.to_owned();
     settings.stt.download_backoff_secs = 0;

@@ -244,6 +244,8 @@ type Request =
   | { cmd: "snapshot" }
   | { cmd: "save"; path: string | null; overwrite: boolean }
   | { cmd: "merge"; path: string }
+  | { cmd: "move"; path: string }
+  | { cmd: "save_copy"; path: string }
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
   | { cmd: "apply"; label: string; ops: Op[] }
@@ -263,6 +265,10 @@ type Request =
 export interface Messages {
   locale: string;
   resources: string[];
+  /** Langues livrées, l'anglais d'abord. */
+  available: string[];
+  /** Langue choisie ; `null` : celle du système. */
+  chosen: string | null;
 }
 
 // --- Agent -----------------------------------------------------------------
@@ -396,6 +402,10 @@ export function tabApi(tab: string) {
     save: (path: string | null, overwrite = false) => call<Snapshot>({ cmd: "save", path, overwrite }),
     /** Fusionne un autre PDF du même deck ; l'avis de fusion arrive par `notice`. */
     merge: (path: string) => call<Snapshot>({ cmd: "merge", path }),
+    /** Déplace le fichier du deck (l'ancien est supprimé). */
+    move: (path: string) => call<Snapshot>({ cmd: "move", path }),
+    /** Écrit une copie ailleurs ; le deck garde son fichier. */
+    saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
     /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
@@ -446,6 +456,7 @@ export interface WorkspaceView {
 type WorkspaceRequest =
   | { cmd: "view" }
   | { cmd: "messages" }
+  | { cmd: "set_locale"; locale: string | null }
   | { cmd: "new_tab"; window: string }
   | { cmd: "open_tab"; window: string; path: string }
   | { cmd: "same_deck"; path: string }
@@ -462,6 +473,8 @@ const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/wor
 export const workspace = {
   view: () => ws<WorkspaceView>({ cmd: "view" }),
   messages: () => ws<Messages>({ cmd: "messages" }),
+  /** Choisit la langue de l'interface (`null` : celle du système) ; ses messages. */
+  setLocale: (locale: string | null) => ws<Messages>({ cmd: "set_locale", locale }),
   newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
   openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
   /** L'onglet qui tient déjà le deck de `path` sous un autre fichier ; ne change rien. */

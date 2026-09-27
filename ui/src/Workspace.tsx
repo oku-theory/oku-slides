@@ -122,7 +122,7 @@ export default function Workspace() {
   // Un double clic sur la croix d'un onglet modifié ne pose la question qu'une fois.
   const closing = useRef(new Set<string>());
 
-  /** Ferme un onglet après la question ; `false` : l'utilisateur a renoncé. */
+  /** Ferme un onglet, enregistré d'abord s'il est modifié ; `false` : pas fermé. */
   const closeTab = useCallback(
     async (id: string): Promise<boolean> => {
       if (closing.current.has(id)) return false;
@@ -132,7 +132,7 @@ export default function Workspace() {
         if (!tab) return true;
         const verdict = await mayClose(tab, tabApi(id));
         if (!verdict) return false;
-        await run(workspace.close(id, verdict === "discard"));
+        await run(workspace.close(id, false));
         return true;
       } catch (e) {
         if (alive.current) setError(errorText(e));
@@ -167,8 +167,7 @@ export default function Workspace() {
         const activeBefore = winRef.current?.active;
         try {
           if ((viewRef.current?.windows.length ?? 0) <= 1) return void (await invoke("quit"));
-          const discard: string[] = [];
-          // Une question par onglet modifié, volontairement : chaque document a sa décision.
+          // Chaque onglet modifié est enregistré ; montré d'abord, s'il faut répondre à un conflit.
           for (const tab of await freshTabs()) {
             if (!tab.dirty) continue;
             await workspace.activate(tab.id);
@@ -177,9 +176,8 @@ export default function Workspace() {
               if (activeBefore) await workspace.activate(activeBefore);
               return;
             }
-            if (verdict === "discard") discard.push(tab.id);
           }
-          await workspace.closeWindow(label, discard);
+          await workspace.closeWindow(label, []);
         } catch (e) {
           if (alive.current) setError(errorText(e));
         } finally {

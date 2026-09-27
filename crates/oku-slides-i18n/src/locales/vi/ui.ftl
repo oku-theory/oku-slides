@@ -23,8 +23,9 @@ ui-confirm-quit-templates = Thoát mà không lưu các mẫu đã sửa?
 
 ## Thông báo
 
-ui-toast-saved = Đã lưu bản trình bày của bạn
 ui-toast-templates-saved = Đã lưu mẫu: { $name }
+ui-toast-moved = Đã di chuyển bản trình bày
+ui-toast-copied = Đã lưu bản sao
 ui-toast-select-zone = Chọn vùng để đặt: “{ $text }”
 
 ## Thanh công cụ
@@ -35,19 +36,18 @@ ui-toolbar-redo = Làm lại
 ui-toolbar-redo-label = Làm lại: { $label }
 ui-toolbar-grid-hide = Ẩn lưới
 ui-toolbar-grid-show = Hiện lưới
-ui-toolbar-grid-hide-title = Ẩn lưới (⌘')
-ui-toolbar-grid-show-title = Hiện lưới (⌘')
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-default = Mặc định
 ui-toolbar-save-copy = Lưu bản sao
-ui-toolbar-save = Lưu
 ui-toolbar-finish = Xong
 ui-toolbar-templates = Mẫu
-ui-toolbar-templates-title = Tạo và chỉnh sửa mẫu trang chiếu
 ui-toolbar-open = Mở
 ui-merge = Hợp nhất với PDF…
+ui-menu = Menu
+ui-menu-move = Di chuyển…
+ui-language = Ngôn ngữ
+ui-language-system = Ngôn ngữ hệ thống
 ui-toolbar-add-label = Thêm vào trang chiếu
-ui-toolbar-add = Thêm
 ui-add-kind = { $kind ->
     [card] Thẻ
     [shape] Hình
@@ -144,6 +144,7 @@ ui-stepper-more = { $label }: thêm một
 ui-agent-color-other = Màu khác
 ui-agent-thread = Tác tử
 ui-agent-new-conversation = Cuộc trò chuyện mới
+ui-agent-tools = { $count } công cụ
 ui-draft = Bản nháp
 ui-draft-insert = Chèn
 ui-draft-insert-title = Chèn nguyên văn (⌘⇧↩)
@@ -263,9 +264,6 @@ ui-tab-templates = Mẫu
 ui-tab-move-new-window = Chuyển sang cửa sổ mới
 ui-tab-move-to = Chuyển sang cửa sổ { $n }
 ui-tab-close-others = Đóng các thẻ khác
-ui-close-unsaved = Lưu thay đổi của “{ $name }” trước khi đóng?
-ui-close-save = Lưu
-ui-close-discard = Không lưu
 ui-close-cancel = Hủy
 ui-disk-replaced-question = { $file } đã bị thay trên ổ đĩa bằng một bản trình bày khác.
 ui-disk-replaced-overwrite = Ghi đè

@@ -25,8 +25,9 @@ ui-confirm-quit-templates = ¿Salir sin guardar las plantillas modificadas?
 
 ## Avisos
 
-ui-toast-saved = Tu presentación se ha guardado
 ui-toast-templates-saved = Plantillas guardadas: { $name }
+ui-toast-moved = Presentación movida
+ui-toast-copied = Copia guardada
 ui-toast-select-zone = Selecciona una zona donde colocar: «{ $text }»
 
 ## Barra de herramientas
@@ -37,19 +38,18 @@ ui-toolbar-redo = Rehacer
 ui-toolbar-redo-label = Rehacer: { $label }
 ui-toolbar-grid-hide = Ocultar la cuadrícula
 ui-toolbar-grid-show = Mostrar la cuadrícula
-ui-toolbar-grid-hide-title = Ocultar la cuadrícula (⌘')
-ui-toolbar-grid-show-title = Mostrar la cuadrícula (⌘')
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Predeterminado
 ui-toolbar-save-copy = Guardar una copia
-ui-toolbar-save = Guardar
 ui-toolbar-finish = Listo
 ui-toolbar-templates = Plantillas
-ui-toolbar-templates-title = Crear y editar plantillas de diapositivas
 ui-toolbar-open = Abrir
 ui-merge = Fusionar con un PDF…
+ui-menu = Menú
+ui-menu-move = Mover…
+ui-language = Idioma
+ui-language-system = Idioma del sistema
 ui-toolbar-add-label = Añadir a la diapositiva
-ui-toolbar-add = Añadir
 ui-add-kind = { $kind ->
     [card] Tarjeta
     [shape] Forma
@@ -146,6 +146,10 @@ ui-stepper-more = { $label }: uno más
 ui-agent-color-other = Otro color
 ui-agent-thread = Agente
 ui-agent-new-conversation = Nueva conversación
+ui-agent-tools = { $count ->
+    [one] { $count } herramienta
+   *[other] { $count } herramientas
+}
 ui-draft = Borrador
 ui-draft-insert = Insertar
 ui-draft-insert-title = Insertar tal cual (⌘⇧↩)
@@ -265,9 +269,6 @@ ui-tab-templates = Plantillas
 ui-tab-move-new-window = Mover a una ventana nueva
 ui-tab-move-to = Mover a la ventana { $n }
 ui-tab-close-others = Cerrar las demás pestañas
-ui-close-unsaved = ¿Guardar los cambios de «{ $name }» antes de cerrar?
-ui-close-save = Guardar
-ui-close-discard = No guardar
 ui-close-cancel = Cancelar
 ui-disk-replaced-question = { $file } fue reemplazado en el disco por otra presentación.
 ui-disk-replaced-overwrite = Sobrescribir
