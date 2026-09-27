@@ -165,7 +165,7 @@
 }
 
 // Polices livrées pour les alphabets que les polices des thèmes ne couvrent
-// pas. Les idéogrammes communs se dessinent selon la région : celle de la
+// pas : arabe, devanagari, bengali, thaï, puis CJK. Les idéogrammes communs se dessinent selon la région : celle de la
 // langue passe en tête (chinois simplifié par défaut).
 #let script-fallback(tag) = {
   let parts = lower(tag).split("-")
@@ -173,7 +173,8 @@
     parts.first() == "zh" and parts.any(p => p in ("hant", "tw", "hk", "mo"))
   ) { "TC" } else { "SC" }
   let regions = (first,) + ("JP", "SC", "TC", "KR").filter(r => r != first)
-  ("Noto Sans Arabic",) + regions.map(r => "Noto Sans " + r)
+  let scripts = ("Arabic", "Devanagari", "Bengali", "Thai")
+  (scripts + regions).map(s => "Noto Sans " + s)
 }
 
 // Ajoute `script-fallback(tag)` à chaque famille de `t.font`.

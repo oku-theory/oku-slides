@@ -86,6 +86,8 @@ pub fn resolve(path: &Path) -> PathBuf {
 
 /// Extensions des fichiers de police lus par [`Storage::read_fonts`].
 const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "ttc", "otc"];
+/// Début d'un pointeur Git LFS : la police n'a jamais été récupérée.
+const LFS_POINTER: &[u8] = b"version https://git-lfs.github.com/spec/v1";
 
 /// Les fichiers locaux, par OpenDAL. Se clone sans rien recréer.
 ///
@@ -283,6 +285,9 @@ impl Storage {
     }
 
     /// Fichiers de police d'un dossier (TTF, OTF, TTC, OTC), par nom de fichier.
+    ///
+    /// Un pointeur Git LFS (police jamais récupérée) est écarté et signalé
+    /// par une erreur au journal, avec le remède.
     pub fn read_fonts(&self, dir: &Path) -> Result<BTreeMap<String, Vec<u8>>, StorageError> {
         let mut fonts = BTreeMap::new();
         for path in self.list_files(dir)? {
@@ -290,9 +295,17 @@ impl Storage {
                 .extension()
                 .and_then(|e| e.to_str())
                 .is_some_and(|e| FONT_EXTENSIONS.iter().any(|x| e.eq_ignore_ascii_case(x)));
-            if let (true, Some(name)) = (is_font, path.file_name()) {
-                fonts.insert(name.to_string_lossy().into_owned(), self.read(&path)?);
+            let Some(name) = path.file_name().filter(|_| is_font) else { continue };
+            let bytes = self.read(&path)?;
+            // Clone sans Git LFS : un pointeur texte à la place de la police.
+            if bytes.starts_with(LFS_POINTER) {
+                tracing::error!(
+                    path = %path.display(),
+                    "police absente (pointeur Git LFS) : git lfs install && git lfs pull"
+                );
+                continue;
             }
+            fonts.insert(name.to_string_lossy().into_owned(), bytes);
         }
         Ok(fonts)
     }

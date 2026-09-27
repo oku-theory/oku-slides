@@ -238,3 +238,18 @@ fn at_same_root_reuses_one_operator() {
     s.exists(Path::new("/usr/b")).unwrap();
     assert_that!(s.roots.lock().unwrap().len()).is_equal_to(1);
 }
+
+/// Clone sans Git LFS : les polices ne sont que des pointeurs texte. Jamais
+/// passées au rendu comme des polices (une erreur, avec le remède, est
+/// journalisée) ; les vraies polices du dossier restent.
+#[test]
+fn read_fonts_skips_git_lfs_pointers() {
+    let s = Storage::local().unwrap();
+    let dir = temp_dir("fonts-lfs");
+    let pointer = b"version https://git-lfs.github.com/spec/v1\noid sha256:5d3c\nsize 66592\n".to_vec();
+    s.write(&dir.join("inter-400.ttf"), pointer).unwrap();
+    s.write(&dir.join("noto.otf"), vec![0; 4]).unwrap();
+    let fonts = s.read_fonts(&dir).unwrap();
+    assert_that!(fonts.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["noto.otf"]);
+    std::fs::remove_dir_all(&dir).ok();
+}

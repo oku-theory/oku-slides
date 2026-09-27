@@ -53,11 +53,24 @@ e2e: install
     for _ in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:4872/ && break; sleep 0.2; done
     cd ui && E2E_URL=http://127.0.0.1:4872/ bun run e2e
 
-# Vérifications : format, clippy, types TypeScript
-check: install
+# Vérifications : format, clippy, types TypeScript, polices en LFS
+check: install fonts-lfs
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
     cd ui && bun run typecheck
+
+# Polices de l'index : des pointeurs Git LFS, jamais le binaire (ajout sans git-lfs)
+fonts-lfs:
+    #!/usr/bin/env bash
+    bad=0
+    while IFS= read -r f; do
+      head=$(git cat-file -p ":$f" | head -c 43 | tr -d '\0')
+      if [ "$head" != "version https://git-lfs.github.com/spec/v1" ]; then
+        echo "✗ $f : binaire dans l'index au lieu d'un pointeur LFS (git lfs install && git add --renormalize $f)"
+        bad=1
+      fi
+    done < <(git ls-files -- '{{fonts}}/*.ttf' '{{fonts}}/*.otf')
+    exit $bad
 
 # Formate le code Rust
 fmt:

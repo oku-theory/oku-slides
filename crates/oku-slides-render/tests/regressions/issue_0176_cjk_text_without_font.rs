@@ -78,3 +78,16 @@ fn cjk_pdf_embeds_only_the_used_glyphs() {
     // Une police CJK complète pèse plusieurs Mo : seul le sous-ensemble utilisé est embarqué.
     assert_that!(size).is_less_than(300_000);
 }
+
+/// t-177 : le hindi, le bengali et le thaï sortaient aussi en carrés vides.
+#[test]
+fn devanagari_bengali_and_thai_in_every_theme_are_drawn_with_their_fonts() {
+    for theme in [Some("papier"), Some("pro"), None] {
+        let fonts = embedded_fonts(&pdf(theme, "hi", "हिन्दी বাংলা ภาษาไทย"));
+        for family in ["NotoSansDevanagari", "NotoSansBengali", "NotoSansThai"] {
+            asserting(&format!("{theme:?}, {family} : {fonts:?}"))
+                .that(&fonts.iter().any(|f| f.starts_with(family)))
+                .is_true();
+        }
+    }
+}
