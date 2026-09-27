@@ -131,6 +131,10 @@ doctor:
     command -v cmake >/dev/null || echo "  cmake sert à compiler CTranslate2 (dictée) : brew install cmake"
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     if command -v git-lfs >/dev/null; then echo "✓ git-lfs"; else echo "✗ git-lfs manquant (polices de assets/fonts) : brew install git-lfs && git lfs install"; ok=0; fi
+    # Installé dans CE clone : le filtre (checkout) et le hook pre-push (envoi des polices).
+    if [ "$(git config --get filter.lfs.process)" = "git-lfs filter-process" ]; then echo "✓ filtre LFS"; else echo "✗ filtre LFS absent : git lfs install"; ok=0; fi
+    hooks="$(git rev-parse --git-dir)/hooks"; global="$(git config --get core.hooksPath)"
+    if grep -qs 'git lfs pre-push' "$hooks/pre-push" || { [ -n "$global" ] && grep -qs 'git lfs pre-push' "$global/pre-push"; }; then echo "✓ hook pre-push LFS"; else echo "✗ hook pre-push LFS absent (les polices ne seraient pas envoyées) : git lfs install"; ok=0; fi
     # Sans Git LFS au clonage, les polices ne sont que des pointeurs texte.
     if grep -lq "^version https://git-lfs" {{fonts}}/*.ttf {{fonts}}/*.otf 2>/dev/null; then echo "✗ polices non récupérées (pointeurs LFS) : git lfs pull"; ok=0; else echo "✓ polices"; fi
     [ "$ok" = 1 ]
