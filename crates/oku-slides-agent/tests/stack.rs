@@ -189,3 +189,36 @@ async fn commands_for_a_closed_tab_are_ignored_and_start_nothing() {
     let from_closed = rx.lock().unwrap().iter().filter(|(_, v)| v["tab"] == "t-1").count();
     assert_that!(from_closed).is_equal_to(0);
 }
+
+/// Le processus `pid` existe-t-il encore ? (`kill -0`, sans signal envoyé.)
+#[cfg(unix)]
+fn alive(pid: u64) -> bool {
+    std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn shutdown_kills_the_agent_and_later_commands_start_nothing() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
+    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    let pid = common::logged(&log, "pid")[0].as_u64().unwrap();
+    stack.shutdown().await;
+    // Tué (puis ramassé en arrière-plan par tokio) : parti en moins de 2 s.
+    let mut gone = false;
+    for _ in 0..100 {
+        if !alive(pid) {
+            gone = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_that!(gone).is_true();
+    assert_that!(stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "tardive" })))).is_ok();
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert_that!(common::logged(&log, "initialize")).has_length(1);
+}

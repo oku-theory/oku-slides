@@ -268,7 +268,7 @@ impl Workspace {
             let resolved = resolve(path);
             let (window, closed, already) = {
                 let w = Self::lock(ws);
-                (w.focused().to_owned(), w.closed, w.tab_with_path(&resolved).is_some())
+                (w.focused().to_owned(), w.is_closed(), w.tab_with_path(&resolved).is_some())
             };
             if closed {
                 break;

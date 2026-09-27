@@ -37,7 +37,7 @@ pub struct AppState {
     /// Vit jusqu'à la fin du processus : `AppState` → `Stack` → `AppSessions`
     /// (et le rappel de `forward`) → `AppHandle` → `AppState` forment un
     /// cycle, jamais lâché. Aucun risque de le lâcher dans un contexte async
-    /// (voir `Stack`) ; l'arrêt des agents repose sur la fin du processus.
+    /// (voir `Stack`) ; `shutdown` arrête les agents (`Stack::shutdown`).
     pub stack: Stack,
 }
 
@@ -108,8 +108,9 @@ impl Sessions for AppSessions {
     }
 }
 
-/// Termine proprement : marque la fin (`closing`), attend les requêtes en
-/// cours, enregistre l'espace de travail, puis quitte.
+/// Termine proprement : marque la fin (`closing`), arrête les agents (le
+/// sous-processus ACP est tué), attend les requêtes en cours, enregistre
+/// l'espace de travail, puis quitte.
 ///
 /// Jamais sur le fil principal, sauf le filet de sécurité documenté dans
 /// `main.rs` (`RunEvent::Exit`, où plus aucun fil ne peut détenir ces
@@ -126,6 +127,8 @@ pub fn shutdown(app: &AppHandle) {
         state.closing.store(true, Ordering::SeqCst);
         // Les fenêtres existent encore : taille et position gardées sans attendre.
         crate::window_state::save(app);
+        // Hors d'un contexte async (voir plus haut) : `block_on` y est permis.
+        tauri::async_runtime::block_on(state.stack.shutdown());
         Workspace::settle(&state.workspace);
     }
     app.exit(0);

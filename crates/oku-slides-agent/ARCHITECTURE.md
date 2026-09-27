@@ -17,10 +17,12 @@ les consignes dictées relayées avec le contexte de l'interface.
   `new_conversation`) : sa session ACP et ses outils (`ToolsAccess`).
 - `turn` : un tour, simultané entre onglets ; `permission` : `PermissionChoice` ;
   `settings_port` : `AppSettings`, les réglages de l'app pour `set_setting`.
-- `stack` : `Stack`, table des onglets (1re commande → `tab_closed`, puis commandes ignorées) ;
-  `forward` relaie `{tab, event}` ; `resync` : fil gardé puis surfaces.
+- `stack` : `Stack`, table des onglets (1re commande → `tab_closed`, puis commandes ignorées ;
+  onglets démarrés et fermés sous un seul verrou) ; `forward` relaie `{tab, event}` ;
+  `resync` : fil gardé puis surfaces ; `shutdown` : fin de l'app, agent ACP tué.
 - `tab_entry` : un onglet ; outils puis agent démarrés dans `rt`, commandes
-  en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`).
+  en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`) ;
+  fermé, son hub refuse toute question (`SurfaceHub::close`).
 - `thread_log` : `ThreadLog`, 200 entrées du fil d'un onglet (morceaux
   fusionnés), l'état courant rejoué en dernier.
 - `bin/fake_agent` : `oku-slides-fake-agent`, agent ACP minimal piloté par un
@@ -33,7 +35,8 @@ démarre (un seul pour l'app ; pas prêt dans `ready_within` : tué) puis ouvre
 la session de l'onglet. Un arrêt fait échouer les tours de tous les onglets
 (`agent-stopped`), referme leurs groupes d'annulation et relâche leurs
 questions ; le prompt suivant relance l'agent. Une requête refusée
-(`agent-failed`) garde la session. Lâcher le dernier `Link` arrête l'agent.
+(`agent-failed`) garde la session. Lâcher le dernier `Link` arrête l'agent ;
+`Stack::shutdown` (fin de l'app) le tue et n'en relance plus.
 `open`/`save` de l'agent restent dans son onglet (suite : tâche t-242).
 
 ## Sécurité

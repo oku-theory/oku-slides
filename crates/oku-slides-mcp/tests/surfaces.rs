@@ -425,3 +425,49 @@ async fn param_change_is_kept_for_resync() {
     let model = json[0]["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap().clone();
     assert_that!(model["value"]["f0"].clone()).is_equal_to(json!("pro"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn close_releases_every_waiting_tool() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let pending = tokio::spawn({
+        let c = c.clone();
+        async move { call(&c, "ask_confirm", json!({ "message": "Sûr ?" })).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.close();
+    assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "cancelled": true }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ask_after_close_is_cancelled_without_opening_a_surface() {
+    let h = start().await;
+    h.hub.close();
+    let confirmed = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.confirm("Sûr ?".into(), false)).await;
+    assert_that!(confirmed).is_equal_to(Ok(false));
+    let permission = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.permission("?", &[])).await;
+    assert_that!(permission).is_equal_to(Ok(None));
+    assert_that!(h.hub.surfaces()).is_empty();
+    assert_that!(h.hub.has_pending_ask()).is_false();
+}
+
+/// t-249 : sans post-it, `prune` ne prend pas la session (un rendu en cours ne la bloque pas).
+#[tokio::test(flavor = "multi_thread")]
+async fn prune_without_post_it_does_not_wait_for_the_session() {
+    let h = start().await;
+    let (session, hub) = (h.session.clone(), h.hub.clone());
+    // Session tenue pendant tout l'essai ; `prune` tourne à côté.
+    let done = tokio::task::spawn_blocking(move || {
+        let _held = session.lock().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            hub.prune();
+            let _ = tx.send(());
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(2)).is_ok()
+    })
+    .await
+    .unwrap();
+    assert_that!(done).is_true();
+}

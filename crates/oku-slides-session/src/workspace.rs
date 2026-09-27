@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
@@ -332,8 +332,9 @@ pub struct Workspace {
     dir: Option<PathBuf>,
     /// Posé par [`Workspace::settle`] : plus aucun fichier ne s'ouvre ensuite
     /// (voir [`Workspace::open_files`] et `apply` sur `OpenTab`), sous ce même
-    /// verrou, pour ne jamais courir après `settle`.
-    closed: bool,
+    /// verrou, pour ne jamais courir après `settle`. Partagé : relu aussi par
+    /// [`Workspace::with_session`] sous le verrou d'une session, sans celui-ci.
+    closed: Arc<AtomicBool>,
     /// Numéro de la dernière vue construite (voir [`WorkspaceView::generation`]).
     generation: AtomicU64,
 }
@@ -364,7 +365,7 @@ impl Workspace {
             recent: Vec::new(),
             tabs: HashMap::new(),
             dir,
-            closed: false,
+            closed: Arc::new(AtomicBool::new(false)),
             generation: AtomicU64::new(0),
         }
     }
@@ -461,13 +462,25 @@ impl Workspace {
     ///
     /// Même discipline que [`Workspace::request`] : l'espace de travail est
     /// verrouillé avant et après, jamais pendant `f`.
+    ///
+    /// Après [`Workspace::settle`], refusée comme un onglet fermé
+    /// (`UnknownTab`) : sa reprise est écrite, plus rien ne doit la changer.
     pub fn with_session<R>(ws: &Mutex<Self>, tab: &str, f: impl FnOnce(&mut Session) -> R) -> (Result<R>, bool) {
-        let session = match Self::lock(ws).session(tab) {
-            Ok(session) => session,
-            Err(e) => return (Err(e), false),
+        let (session, closed) = {
+            let w = Self::lock(ws);
+            match w.session(tab) {
+                Ok(session) => (session, Arc::clone(&w.closed)),
+                Err(e) => return (Err(e), false),
+            }
         };
         let (out, info) = {
             let mut slot = relock(&session);
+            // Relu sous le verrou de la session : `settle` pose `closed` avant
+            // de vider chaque session sous ce même verrou ; vu faux ici, le
+            // changement de `f` sera donc vidé après.
+            if closed.load(Ordering::SeqCst) {
+                return (Err(UnknownTabSnafu { id: tab }.build().into()), false);
+            }
             match slot.ready() {
                 Ok(s) => {
                     let out = f(s);
@@ -561,7 +574,7 @@ impl Workspace {
                     // Fin déjà engagée (`settle`) : refusé, comme si la
                     // fenêtre visée n'existait plus (elle est en train de
                     // disparaître). Sous ce même verrou : atomique avec `settle`.
-                    if w.closed {
+                    if w.is_closed() {
                         return Err(UnknownWindowSnafu { label: window }.build().into());
                     }
                     let path = resolve(&path);
@@ -612,7 +625,7 @@ impl Workspace {
         let mut w = Self::lock(ws);
         // `settle` passé pendant la construction : refusé comme avant elle ;
         // la session construite pour rien part à la corbeille.
-        if w.closed {
+        if w.is_closed() {
             let trash = w.trash();
             drop(w);
             trash.empty(vec![(id, Tab::new(session))]);
@@ -674,10 +687,11 @@ impl Workspace {
     /// fil), jamais en même temps que celui de
     /// l'espace de travail. Pose aussi `closed`, sous ce verrou : plus aucun
     /// fichier reçu ensuite (`open_files`, `apply` sur `OpenTab`) ne s'ouvre,
-    /// et un onglet dont la construction chevauche cet appel n'est pas inséré.
+    /// et un onglet dont la construction chevauche cet appel n'est pas inséré ;
+    /// plus aucune session ne change ensuite ([`Workspace::with_session`]).
     pub fn settle(ws: &Mutex<Self>) {
-        let mut w = Self::lock(ws);
-        w.closed = true;
+        let w = Self::lock(ws);
+        w.closed.store(true, Ordering::SeqCst);
         w.save_layout();
         let sessions: Vec<Arc<Mutex<Slot>>> = w.tabs.values().map(|t| Arc::clone(&t.session)).collect();
         drop(w);
@@ -703,7 +717,9 @@ impl Workspace {
                 .map(|w| w.tabs.iter().filter(|t| !discard.contains(t)).cloned().collect())
                 .unwrap_or_default(),
             // Fin engagée, ou fichier déjà ouvert : aucun onglet ne sera remplacé.
-            WorkspaceRequest::OpenTab { path, .. } if self.closed || self.tab_with_path(&resolve(path)).is_some() => {
+            WorkspaceRequest::OpenTab { path, .. }
+                if self.is_closed() || self.tab_with_path(&resolve(path)).is_some() =>
+            {
                 Vec::new()
             }
             WorkspaceRequest::OpenTab { window, .. } => self
@@ -813,6 +829,11 @@ impl Workspace {
     pub fn open_elsewhere(&self, tab: &str, path: &Path) -> bool {
         let path = resolve(path);
         self.tabs.iter().any(|(id, t)| id != tab && t.info.path.as_deref() == Some(path.as_path()))
+    }
+
+    /// `settle` est passée : plus rien ne s'ouvre ni ne change.
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
     }
 
     fn tab_with_path(&self, path: &Path) -> Option<String> {

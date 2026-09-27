@@ -97,8 +97,9 @@ impl TabEntry {
 
 impl Drop for TabEntry {
     fn drop(&mut self) {
-        // Une réponse en attente ne doit jamais bloquer l'arrêt du serveur d'outils.
-        self.link.hub.cancel_asks();
+        // Une réponse en attente ne doit jamais bloquer l'arrêt du serveur
+        // d'outils ; une question posée ensuite (permission ACP tardive) non plus.
+        self.link.hub.close();
         self.cancel.cancel();
     }
 }

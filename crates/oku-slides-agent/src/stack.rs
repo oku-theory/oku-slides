@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use oku_slides_mcp::{McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
@@ -60,6 +61,28 @@ impl AgentCommand {
     }
 }
 
+/// Attente de l'arrêt de l'agent ACP à la fin de l'app (`Stack::shutdown`).
+const SHUTDOWN_WITHIN: Duration = Duration::from_secs(2);
+
+/// Les onglets démarrés et fermés, sous un seul verrou : un onglet ne
+/// démarre jamais après sa fermeture, même si les deux se croisent.
+#[derive(Debug, Default)]
+struct Table {
+    tabs: HashMap<String, TabEntry>,
+    /// Onglets fermés : leurs identifiants ne reviennent jamais, une
+    /// commande tardive pour l'un d'eux est ignorée (sinon elle relancerait
+    /// un agent que plus rien n'arrêterait).
+    closed: HashSet<String>,
+    /// Fin de l'app (`Stack::shutdown`) : plus aucun onglet ne démarre.
+    shut: bool,
+}
+
+impl Table {
+    fn refuses(&self, tab: &str) -> bool {
+        self.shut || self.closed.contains(tab)
+    }
+}
+
 /// Les agents des onglets d'un hôte, sur un seul agent ACP ; chaque onglet
 /// démarre à sa première commande et s'arrête à sa fermeture (ou avec la pile).
 ///
@@ -72,11 +95,7 @@ pub struct Stack {
     platform: Platform,
     settings: Arc<AppSettings>,
     rt: Handle,
-    tabs: Mutex<HashMap<String, TabEntry>>,
-    /// Onglets fermés : leurs identifiants ne reviennent jamais, une
-    /// commande tardive pour l'un d'eux est ignorée (sinon elle relancerait
-    /// un agent que plus rien n'arrêterait).
-    closed: Mutex<HashSet<String>>,
+    table: Mutex<Table>,
     out_tx: mpsc::UnboundedSender<Out>,
     out_rx: Mutex<Option<mpsc::UnboundedReceiver<Out>>>,
 }
@@ -100,8 +119,7 @@ impl Stack {
             platform: platform.clone(),
             settings: Arc::new(AppSettings::new(platform, stt)),
             rt,
-            tabs: Mutex::new(HashMap::new()),
-            closed: Mutex::new(HashSet::new()),
+            table: Mutex::new(Table::default()),
             out_tx,
             out_rx: Mutex::new(Some(out_rx)),
         }
@@ -115,8 +133,9 @@ impl Stack {
         }
         match cmd {
             AgentCommand::Prompt { tab, text, ui } => {
+                // Fermé entre-temps : ignorée, comme ci-dessus.
+                let Some(t) = self.open(&tab) else { return Ok(()) };
                 // Consigne dictée : réponse à la question en attente, sinon nouveau tour.
-                let t = self.open(&tab);
                 if !t.hub.answer_pending(&text) {
                     t.send(Command::Prompt { text, ui });
                 }
@@ -156,7 +175,8 @@ impl Stack {
         }
     }
 
-    /// Le deck de l'onglet a changé depuis l'interface : fermer les post-its orphelins.
+    /// Le deck de l'onglet a changé depuis l'interface (voir
+    /// `Request::changes_deck`) : fermer les post-its orphelins.
     pub fn after_change(&self, tab: &str) {
         if let Some(t) = self.tab(tab) {
             t.hub.prune();
@@ -166,13 +186,29 @@ impl Stack {
     /// L'onglet est fermé : son agent s'arrête (tour annulé, questions
     /// relâchées), ses outils aussi.
     pub fn tab_closed(&self, tab: &str) {
-        self.closed.lock().unwrap_or_else(PoisonError::into_inner).insert(tab.to_owned());
-        let gone = self.tabs().remove(tab);
+        let gone = {
+            let mut table = self.table();
+            table.closed.insert(tab.to_owned());
+            table.tabs.remove(tab)
+        };
+        // Lâché hors du verrou : l'arrêt d'un onglet ne bloque pas les autres.
         drop(gone);
     }
 
+    /// Fin de l'app : chaque onglet s'arrête et l'agent ACP est tué (attendu
+    /// au plus 2 s) ; toute commande ensuite est ignorée.
+    pub async fn shutdown(&self) {
+        let gone = {
+            let mut table = self.table();
+            table.shut = true;
+            std::mem::take(&mut table.tabs)
+        };
+        drop(gone);
+        self.link.shutdown(SHUTDOWN_WITHIN).await;
+    }
+
     fn is_closed(&self, tab: &str) -> bool {
-        self.closed.lock().unwrap_or_else(PoisonError::into_inner).contains(tab)
+        self.table().refuses(tab)
     }
 
     /// Relaie les évènements de tous les onglets vers `sink` : canal
@@ -190,20 +226,24 @@ impl Stack {
         });
     }
 
-    fn tabs(&self) -> std::sync::MutexGuard<'_, HashMap<String, TabEntry>> {
-        self.tabs.lock().unwrap_or_else(PoisonError::into_inner)
+    fn table(&self) -> std::sync::MutexGuard<'_, Table> {
+        self.table.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// L'onglet s'il a déjà un agent ; le verrou n'est pas gardé.
     fn tab(&self, tab: &str) -> Option<TabLink> {
-        self.tabs().get(tab).map(|e| e.link.clone())
+        self.table().tabs.get(tab).map(|e| e.link.clone())
     }
 
-    /// L'onglet, démarré s'il n'a pas encore d'agent.
-    fn open(&self, tab: &str) -> TabLink {
-        let mut tabs = self.tabs();
-        if let Some(e) = tabs.get(tab) {
-            return e.link.clone();
+    /// L'onglet, démarré s'il n'a pas encore d'agent ; `None` s'il est fermé
+    /// (ou l'app finie), vérifié sous le verrou où il serait inséré.
+    fn open(&self, tab: &str) -> Option<TabLink> {
+        let mut table = self.table();
+        if table.refuses(tab) {
+            return None;
+        }
+        if let Some(e) = table.tabs.get(tab) {
+            return Some(e.link.clone());
         }
         let session = TabSession::new(tab, self.sessions.clone());
         let entry = TabEntry::start(
@@ -215,7 +255,7 @@ impl Stack {
             self.out_tx.clone(),
         );
         let link = entry.link.clone();
-        tabs.insert(tab.to_owned(), entry);
-        link
+        table.tabs.insert(tab.to_owned(), entry);
+        Some(link)
     }
 }

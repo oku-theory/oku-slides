@@ -265,6 +265,7 @@ async fn main() -> agent_client_protocol::Result<()> {
         .on_receive_request(
             async move |req: InitializeRequest, responder, _cx: ConnectionTo<Client>| {
                 s1.log("initialize", serde_json::to_value(&req).unwrap_or_default());
+                s1.log("pid", serde_json::json!(std::process::id()));
                 if s1.script.hang_initialize {
                     std::future::pending::<()>().await;
                 }

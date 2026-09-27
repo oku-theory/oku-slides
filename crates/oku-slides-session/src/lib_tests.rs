@@ -156,3 +156,44 @@ fn resume_round_trip_keeps_deck_and_uid_without_undo() {
     assert_that!(b.snapshot().can_undo).is_false();
     assert_that!(b.snapshot().dirty).is_true();
 }
+
+#[test]
+fn changes_deck_read_requests_return_false() {
+    let reads = [
+        json!({ "cmd": "snapshot" }),
+        json!({ "cmd": "slide", "id": "s-1" }),
+        json!({ "cmd": "svg", "id": "s-1" }),
+        json!({ "cmd": "schema" }),
+        json!({ "cmd": "panel", "slide": "s-1" }),
+        json!({ "cmd": "templates" }),
+        json!({ "cmd": "template_sets" }),
+        json!({ "cmd": "ui", "slide": null, "grid": false }),
+        json!({ "cmd": "save_templates" }),
+        json!({ "cmd": "delete_template_set", "set": "x" }),
+    ];
+    let changing: Vec<_> = reads
+        .into_iter()
+        .map(|r| serde_json::from_value::<Request>(r).unwrap())
+        .filter(Request::changes_deck)
+        .collect();
+    assert_that!(changing).is_empty();
+}
+
+#[test]
+fn changes_deck_edit_requests_return_true() {
+    let edits = [
+        json!({ "cmd": "apply", "label": "x", "ops": [] }),
+        json!({ "cmd": "undo" }),
+        json!({ "cmd": "redo" }),
+        json!({ "cmd": "save", "path": null }),
+        json!({ "cmd": "edit_templates", "set": "x" }),
+        json!({ "cmd": "close_templates" }),
+        json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
+    ];
+    let kept: Vec<_> = edits
+        .into_iter()
+        .map(|r| serde_json::from_value::<Request>(r).unwrap())
+        .filter(|r| !r.changes_deck())
+        .collect();
+    assert_that!(kept).is_empty();
+}

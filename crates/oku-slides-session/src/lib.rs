@@ -185,6 +185,35 @@ pub enum Request {
     },
 }
 
+impl Request {
+    /// Vrai si la requête peut changer le deck (slides ajoutées ou retirées).
+    ///
+    /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
+    /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
+    pub fn changes_deck(&self) -> bool {
+        match self {
+            Self::Save { .. }
+            | Self::Apply { .. }
+            | Self::Undo
+            | Self::Redo
+            | Self::ChartKind { .. }
+            | Self::EditTemplates { .. }
+            | Self::CloseTemplates
+            | Self::Merge { .. } => true,
+            Self::Snapshot
+            | Self::Slide { .. }
+            | Self::Svg { .. }
+            | Self::Schema
+            | Self::Panel { .. }
+            | Self::Templates { .. }
+            | Self::TemplateSets
+            | Self::SaveTemplates { .. }
+            | Self::DeleteTemplateSet { .. }
+            | Self::Ui(_) => false,
+        }
+    }
+}
+
 // ---- Session ----------------------------------------------------------------------
 
 pub struct Session {

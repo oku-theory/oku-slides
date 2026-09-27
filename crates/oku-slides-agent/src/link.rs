@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
+use std::time::Duration;
 
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
@@ -99,6 +100,10 @@ impl Link {
     /// poignée de main faite) si la précédente est finie.
     pub(crate) async fn connect(&self) -> Result<Live, AgentError> {
         let mut state = self.inner.state.lock().await;
+        // Arrêtée pour de bon (`shutdown`) : plus aucun lancement.
+        if self.inner.shutdown.is_cancelled() {
+            return Err(StoppedSnafu { message: "shut down".to_owned() }.build().into());
+        }
         if let Some(live) = &state.live
             && !live.closed.is_cancelled()
         {
@@ -109,6 +114,20 @@ impl Link {
         let live = self.launch(state.generation).await?;
         state.live = Some(live.clone());
         Ok(live)
+    }
+
+    /// Arrête l'agent pour de bon (fin de l'app) : le sous-processus est tué,
+    /// aucun autre ne sera lancé. Attend la fin de la connexion au plus
+    /// `within` ; un lancement en cours n'est pas attendu (sa poignée de main
+    /// s'interrompt, et son sous-processus avec).
+    pub(crate) async fn shutdown(&self, within: Duration) {
+        self.inner.shutdown.cancel();
+        let live = self.inner.state.try_lock().ok().and_then(|s| s.live.clone());
+        if let Some(live) = live
+            && tokio::time::timeout(within, live.closed.cancelled()).await.is_err()
+        {
+            tracing::warn!(generation = live.generation, "agent pas arrêté à temps");
+        }
     }
 
     /// Livre à `route` ce qui arrive pour la session `id` du lancement `generation`.
@@ -233,7 +252,15 @@ impl Serving {
             .connect_with(transport, {
                 let closed = closed.clone();
                 async move |cx: ConnectionTo<Agent>| {
-                    match handshake(&cx).await {
+                    let shaken = tokio::select! {
+                        r = handshake(&cx) => r,
+                        // Fin de l'app pendant la poignée de main : le sous-processus part avec la tâche.
+                        () = shutdown.cancelled() => {
+                            let _ = ready.send(Err(StoppedSnafu { message: "shut down".to_owned() }.build().into()));
+                            return Ok(());
+                        }
+                    };
+                    match shaken {
                         Ok(true) => {}
                         Ok(false) => {
                             let _ = ready.send(Err(NoHttpSnafu.build().into()));
@@ -248,7 +275,12 @@ impl Serving {
                     tokio::select! {
                         () = cx.incoming_closed() => {}
                         _ = child.wait() => {}
-                        () = shutdown.cancelled() => {}
+                        // Tué tout de suite, avant `closed` : `Link::shutdown` n'attend que lui.
+                        () = shutdown.cancelled() => {
+                            if let Err(e) = child.start_kill() {
+                                tracing::debug!(generation, error = %e, "agent déjà arrêté");
+                            }
+                        }
                     }
                     // Avant la fin du pilote : les requêtes encore en cours
                     // échoueront avec `closed` déjà annulé (arrêt, pas refus).

@@ -61,12 +61,13 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
         }
+        let changes_deck = req.changes_deck();
         let (reply, changed) = Workspace::request(&state.workspace, &tab, req);
         if changed {
             windows::emit_view(app);
         }
-        if reply.is_ok() {
-            // Le deck a pu changer : les post-its orphelins de l'agent se ferment.
+        if reply.is_ok() && changes_deck {
+            // Le deck a changé : les post-its orphelins de l'agent se ferment.
             state.stack.after_change(&tab);
         }
         Ok(reply.map_err(|e| state.refuse(e)))

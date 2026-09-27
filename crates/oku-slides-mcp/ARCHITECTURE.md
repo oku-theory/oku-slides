@@ -12,7 +12,8 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
   l'interface via `McpEvent`). La liste des surfaces ouvertes n'est changée
   que par `emit` (et par `act`, qui en retire une question répondue ou y
   recopie un réglage) ; `resync` la renvoie entière (`McpEvent::Surfaces`),
-  remplie par `emit` sous le même verrou.
+  remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
+  questions en attente et rend `Cancelled` à toute question ultérieure.
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
   (`nest_schema` adapte JSON Schema à MCP 1.x).
 - `read_tools` : les outils de lecture (`deck_outline`, `slide`,

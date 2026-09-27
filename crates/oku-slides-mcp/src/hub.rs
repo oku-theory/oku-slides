@@ -99,6 +99,8 @@ struct HubState {
     /// passent par `emit` ; une question répondue en sort dès la réponse, un
     /// réglage changé y est recopié (`act`).
     open: Vec<Surface>,
+    /// L'onglet est fermé (`SurfaceHub::close`) : plus aucune question ne s'ouvre.
+    closed: bool,
 }
 
 impl HubState {
@@ -189,10 +191,17 @@ impl SurfaceHub {
     /// Affiche `surface` et attend la réponse ; `dismiss` vaut `Cancelled`.
     /// Sûr à l'annulation : si ce futur est abandonné avant la réponse,
     /// `CloseOnDrop` retire la question et ferme la surface à sa place.
+    /// Onglet fermé (`close`) : `Cancelled` tout de suite, sans rien afficher.
     pub async fn ask(&self, surface: Surface) -> Answer {
         let (tx, rx) = oneshot::channel();
         let id = surface.id.clone();
-        self.state().asks.push(PendingAsk { id: id.clone(), tx });
+        {
+            let mut state = self.state();
+            if state.closed {
+                return Answer::Cancelled;
+            }
+            state.asks.push(PendingAsk { id: id.clone(), tx });
+        }
         self.emit(McpEvent::Surface { surface });
         let _guard = CloseOnDrop { hub: self, id };
         rx.await.unwrap_or(Answer::Cancelled)
@@ -244,6 +253,22 @@ impl SurfaceHub {
         // fin de la boucle : on le lie d'abord pour ne pas le tenir pendant
         // l'envoi (qui peut réveiller le futur en attente).
         let asks = self.state().take_asks();
+        Self::release(asks);
+    }
+
+    /// L'onglet est fermé : les questions en attente sont relâchées, et toute
+    /// question ultérieure (`ask`, `confirm`, `permission`) vaut `Cancelled`.
+    pub fn close(&self) {
+        // Sous le même verrou qu'`ask` : aucune question ne s'ouvre après.
+        let asks = {
+            let mut state = self.state();
+            state.closed = true;
+            state.take_asks()
+        };
+        Self::release(asks);
+    }
+
+    fn release(asks: Vec<PendingAsk>) {
         for ask in asks {
             let _ = ask.tx.send(Answer::Cancelled);
         }
@@ -337,8 +362,12 @@ impl SurfaceHub {
         Ok(())
     }
 
-    /// Ferme les post-its dont la slide n'existe plus.
+    /// Ferme les post-its dont la slide n'existe plus ; sans post-it, ne
+    /// prend pas la session (appelée après chaque requête qui change le deck).
     pub fn prune(&self) {
+        if self.state().shows.is_empty() {
+            return;
+        }
         let Ok(gone) = self.session.with(|s| {
             let deck = s.deck();
             let mut state = self.state();

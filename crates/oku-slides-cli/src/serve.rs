@@ -167,10 +167,13 @@ pub fn serve(
                     Ok(TabRequest { tab, req }) => {
                         // Le serveur de développement ignore le drapeau : l'interface relit
                         // l'espace de travail après chaque commande.
+                        let changes_deck = req.changes_deck();
                         let (result, _changed) = Workspace::request(&workspace, &tab, req);
                         match result {
                             Ok(json) => {
-                                stack.after_change(&tab);
+                                if changes_deck {
+                                    stack.after_change(&tab);
+                                }
                                 (200, json)
                             }
                             Err(e) => refused(e),

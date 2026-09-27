@@ -731,6 +731,19 @@ fn with_session_on_a_closed_tab_returns_unknown_tab_without_calling_f() {
     assert_that!(changed).is_false();
 }
 
+/// t-249 : après `settle`, l'agent ne change plus rien (sa reprise est écrite).
+#[test]
+fn with_session_after_settle_returns_unknown_tab_without_calling_f() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    Workspace::settle(&ws);
+    let mut called = false;
+    let (r, changed) = Workspace::with_session(&ws, "t-1", |_| called = true);
+    assert_that!(r.map_err(|e| e.kind())).is_err().is_equal_to(SessionErrorKind::UnknownTab);
+    assert_that!(called).is_false();
+    assert_that!(changed).is_false();
+}
+
 #[test]
 fn with_session_releases_the_workspace_lock_while_f_runs() {
     let data = Data::new();
