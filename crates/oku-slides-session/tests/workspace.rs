@@ -676,3 +676,187 @@ fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
     assert_that!(tab(&b, &id, json!({"cmd": "snapshot"}))["editing"]["set"])
         .is_equal_to(json!(oku_slides_session::DEFAULT_SET));
 }
+
+/// Un `OpenTab` de `path` dans la première fenêtre de la vue.
+fn open_in_first_window(ws: &Mutex<Workspace>, path: &Path) {
+    let window = view(ws).windows[0].label.clone();
+    send(ws, json!({"cmd": "open_tab", "window": window, "path": path}));
+}
+
+/// La réponse de `SameDeck` pour `path`.
+fn same_deck(ws: &Mutex<Workspace>, path: &Path) -> serde_json::Value {
+    let reply = Workspace::apply(ws, WorkspaceRequest::SameDeck { path: path.to_owned() })
+        .unwrap_or_else(|e| panic!("requête refusée : {}", e.one_line()))
+        .into_json();
+    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réponse illisible : {e}"))
+}
+
+/// L'avis montré avec le snapshot de l'onglet actif de la fenêtre active.
+fn notice_of_active_tab(ws: &Mutex<Workspace>) -> Option<String> {
+    let v = view(ws);
+    let win = v.windows.iter().find(|w| w.label == v.focused).unwrap_or_else(|| panic!("fenêtre active absente"));
+    tab(ws, &win.active, json!({"cmd": "snapshot"}))["notice"].as_str().map(str::to_owned)
+}
+
+/// Une copie de `original` à côté, sous un autre nom.
+fn copy_of(data: &Data, original: &Path) -> PathBuf {
+    let copy = data.0.join("copie.oku-slides.pdf");
+    std::fs::copy(original, &copy).unwrap_or_else(|e| panic!("copie impossible : {e}"));
+    copy
+}
+
+#[test]
+fn same_deck_finds_the_tab_holding_that_deck() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let original = saved_pdf(&data, "deck");
+    open_in_first_window(&ws, &original);
+    let id = view(&ws).windows[0].active.clone();
+    let v = same_deck(&ws, &copy_of(&data, &original));
+    assert_that!(v["tab"].as_str()).is_equal_to(Some(id.as_str()));
+    assert_that!(v["title"].as_str()).is_equal_to(Some("deck"));
+}
+
+#[test]
+fn same_deck_for_the_very_same_path_answers_none() {
+    // OpenTab active déjà l'onglet de ce chemin : pas de question.
+    let data = Data::new();
+    let ws = resumed(&data);
+    let original = saved_pdf(&data, "deck");
+    open_in_first_window(&ws, &original);
+    let v = same_deck(&ws, &original);
+    assert_that!(v["tab"].is_null()).is_true();
+    assert_that!(v["title"].is_null()).is_true();
+}
+
+#[test]
+fn same_deck_for_another_deck_answers_none() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let a = saved_pdf(&data, "a");
+    let b = saved_pdf(&data, "b");
+    open_in_first_window(&ws, &a);
+    assert_that!(same_deck(&ws, &b)["tab"].is_null()).is_true();
+}
+
+#[test]
+fn same_deck_for_an_unreadable_file_is_an_error() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let absent = data.0.join("absent.oku-slides.pdf");
+    let reply = Workspace::apply(&ws, WorkspaceRequest::SameDeck { path: absent });
+    assert_that!(reply.is_err()).is_true();
+}
+
+#[test]
+fn same_deck_after_resume_finds_the_dormant_tab() {
+    let data = Data::new();
+    let original = saved_pdf(&data, "deck");
+    let id = {
+        let ws = resumed(&data);
+        open_in_first_window(&ws, &original);
+        view(&ws).windows[0].active.clone()
+    };
+    let ws = resumed(&data);
+    assert_that!(same_deck(&ws, &copy_of(&data, &original))["tab"].as_str()).is_equal_to(Some(id.as_str()));
+}
+
+#[test]
+fn tab_info_keeps_deck_uid_across_resume() {
+    let data = Data::new();
+    let original = saved_pdf(&data, "deck");
+    {
+        let ws = resumed(&data);
+        open_in_first_window(&ws, &original);
+    }
+    let ws = resumed(&data);
+    let v = view(&ws);
+    let uids: Vec<_> = v.windows[0].tabs.iter().filter_map(|t| t.info.deck_uid.clone()).collect();
+    assert_that!(uids).has_length(1);
+}
+
+#[test]
+fn open_files_of_a_deck_already_open_opens_apart_with_a_notice() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let original = saved_pdf(&data, "deck");
+    open_in_first_window(&ws, &original);
+    Workspace::open_files(&ws, &[copy_of(&data, &original)]);
+    assert_that!(view(&ws).windows[0].tabs).has_length(2);
+    // Le nouvel onglet porte l'avis qui désigne l'onglet déjà ouvert.
+    let notice = notice_of_active_tab(&ws).unwrap_or_else(|| panic!("avis attendu"));
+    assert_that!(notice.contains("« deck »")).is_true();
+}
+
+#[test]
+fn open_files_of_another_deck_sets_no_notice() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let a = saved_pdf(&data, "a");
+    let b = saved_pdf(&data, "b");
+    open_in_first_window(&ws, &a);
+    Workspace::open_files(&ws, &[b]);
+    assert_that!(view(&ws).windows[0].tabs).has_length(2);
+    assert_that!(notice_of_active_tab(&ws)).is_none();
+}
+
+/// Le fichier touché par un autre outil : même deck, avis
+/// `notice-modified-elsewhere` à l'ouverture (la date `/ModDate` change, à
+/// longueur égale).
+fn touch_elsewhere(path: &Path) {
+    let mut bytes = std::fs::read(path).unwrap_or_else(|e| panic!("lecture : {e}"));
+    let at = bytes.windows(8).position(|w| w == b"/ModDate").unwrap_or_else(|| panic!("/ModDate absent"));
+    let date = at + bytes[at..].windows(2).position(|w| w == b"D:").unwrap_or_else(|| panic!("date absente")) + 2;
+    bytes[date..date + 4].copy_from_slice(b"2099");
+    std::fs::write(path, bytes).unwrap_or_else(|e| panic!("écriture : {e}"));
+}
+
+/// L'avis posé par l'ouverture et celui du deck déjà ouvert s'ajoutent.
+#[test]
+fn open_files_of_a_copy_with_its_own_notice_keeps_both_notices() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let original = saved_pdf(&data, "deck");
+    open_in_first_window(&ws, &original);
+    let copy = copy_of(&data, &original);
+    touch_elsewhere(&copy);
+    Workspace::open_files(&ws, &[copy]);
+    let notice = notice_of_active_tab(&ws).unwrap_or_else(|| panic!("avis attendu"));
+    let parts: Vec<&str> = notice.split("\n\n").collect();
+    assert_that!(parts).has_length(2);
+    assert_that!(parts[0]).contains("autre outil");
+    assert_that!(parts[1]).contains("« deck »");
+}
+
+#[test]
+fn same_deck_skips_a_tab_editing_templates() {
+    let data = Data::new();
+    let ws = resumed(&data);
+    let original = saved_pdf(&data, "deck");
+    open_in_first_window(&ws, &original);
+    let id = view(&ws).windows[0].active.clone();
+    tab(&ws, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}));
+    assert_that!(same_deck(&ws, &copy_of(&data, &original))["tab"].is_null()).is_true();
+}
+
+/// Un `workspace.json` d'avant `deck_uid` : l'onglet reprend, endormi, sans
+/// `deck_uid` (lu comme absent, pas comme une entrée malformée relue).
+#[test]
+fn resume_with_tab_info_without_deck_uid_reads_it_as_none() {
+    let data = Data::new();
+    let original = saved_pdf(&data, "deck");
+    let id = {
+        let ws = resumed(&data);
+        open_in_first_window(&ws, &original);
+        view(&ws).windows[0].active.clone()
+    };
+    let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
+    let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
+    let info = layout["info"][&id].as_object_mut().unwrap_or_else(|| panic!("infos de {id} absentes"));
+    assert_that!(info.remove("deck_uid").is_some()).is_true();
+    write_layout(&data, layout);
+    let v = view(&resumed(&data));
+    let t = v.windows[0].tabs.iter().find(|t| t.id == id).unwrap_or_else(|| panic!("onglet {id} absent"));
+    assert_that!(t.info.deck_uid).is_none();
+    assert_that!(t.info.title.as_str()).is_equal_to("deck");
+}

@@ -27,7 +27,7 @@ describe("fermeture d'un onglet modifié", () => {
     const save = mock(async () => snap({ path: "/x.oku-slides.pdf" }));
     const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
     expect(await saveForClose(api)).toBe(true);
-    expect(save).toHaveBeenCalledWith(null);
+    expect(save).toHaveBeenCalledWith(null, false);
   });
 
   test("saveForClose : modèles modifiés enregistrés, puis le deck retrouvé", async () => {
@@ -61,11 +61,27 @@ describe("fermeture d'un onglet modifié", () => {
     expect(await saveForClose(api, pick)).toBe(false);
     expect(save).not.toHaveBeenCalled();
   });
+
+  test("saveForClose : fichier remplacé par un autre deck, on renonce : pas fermé", async () => {
+    const save = mock(async () => snap({ dirty: true, path: "/x.oku-slides.pdf", disk_replaced: true }));
+    const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
+    expect(await saveForClose(api, undefined, async () => "cancel")).toBe(false);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  test("saveForClose : fichier remplacé, « Écraser » : enregistré, fermé", async () => {
+    const calls: unknown[] = [];
+    const save = async (p: string | null, o = false) =>
+      (calls.push([p, o]), snap({ path: "/x.oku-slides.pdf", disk_replaced: calls.length === 1 }));
+    const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
+    expect(await saveForClose(api, undefined, async () => "overwrite")).toBe(true);
+    expect(calls).toEqual([[null, false], [null, true]]);
+  });
 });
 
 describe("mayClose", () => {
   const snap = (s: Partial<Snapshot>) => ({ dirty: false, path: null, name: "essai", editing: null, ...s }) as Snapshot;
-  const tab = (dirty: boolean): TabInfo => ({ id: "t1", title: "essai", dirty, editing_templates: false, path: null, pristine: !dirty });
+  const tab = (dirty: boolean): TabInfo => ({ id: "t1", title: "essai", dirty, editing_templates: false, path: null, pristine: !dirty, deck_uid: null });
 
   test("onglet propre : keep, sans poser de question", async () => {
     const ask = mock(async () => "cancel" as const);

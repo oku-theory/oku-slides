@@ -36,6 +36,8 @@ pub struct Settings {
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub stt: SttSettings,
+    #[serde(default)]
+    pub author: AuthorSettings,
 }
 
 /// Dossiers de l'app ; un dossier absent se déduit du dossier de données.
@@ -84,6 +86,27 @@ impl SourcesSettings {
     /// [`Self::max_sources_mib`] en octets.
     pub fn max_sources_bytes(&self) -> usize {
         self.max_sources_mib.saturating_mul(1024 * 1024)
+    }
+}
+
+/// Auteur des modifications, inscrit dans l'historique du deck.
+#[derive(Debug, Clone, PartialEq, Deserialize, Default)]
+#[non_exhaustive]
+pub struct AuthorSettings {
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+impl AuthorSettings {
+    /// Le nom réglé, sinon l'utilisateur du système ; blanc = aucun.
+    pub fn resolved(&self) -> Option<String> {
+        let blank = |s: &String| s.trim().is_empty();
+        self.name
+            .clone()
+            .filter(|n| !blank(n))
+            .or_else(|| std::env::var("USER").ok().filter(|n| !blank(n)))
+            .or_else(|| std::env::var("USERNAME").ok().filter(|n| !blank(n)))
+            .map(|n| n.trim().to_owned())
     }
 }
 

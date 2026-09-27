@@ -9,16 +9,16 @@ sources. Aucune dépendance à Typst ni à Tauri.
   `templates` ; schéma JSON (`schemars`).
 - `Op` + `apply_all` (`ops.rs`) : les opérations d'édition, appliquées
   atomiquement sur un `Deck` cloné (erreur → rien n'a bougé).
-- `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, historique complet
-  et identité (`deck_uid`). `reconcile(&Deck)` diffuse les changements d'un
-  `Deck` modifié vers le replica (pas de traduction des `Op`), `commit`
-  clôt une transaction, `deck()` fait une **lecture totale** (jamais
-  d'erreur : un sous-arbre illisible devient un `Issue` et une valeur par
-  défaut). Annuler / rétablir passent par son `UndoManager` (`undo.rs`),
-  non persisté. `merge` réconcilie deux replicas de même `deck_uid`.
-  Le module est scindé par rôle : `schema` (catégories de champs),
-  `read`/`write` (aller-retour `Deck` ↔ `LoroDoc`), `rich` (texte à
-  marques), `undo`.
+- `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, historique complet et identité
+  (`deck_uid`). `reconcile(&Deck)` diffuse les changements d'un `Deck` modifié (pas de
+  traduction des `Op`) ; `commit(label)` clôt une transaction — un commit = un *change* Loro,
+  `label` en message (`set_change_merge_interval(-1)`) ; `deck()` fait une **lecture totale**
+  (jamais d'erreur : sous-arbre illisible → `Issue` et valeur par défaut). `UndoManager`
+  (`undo.rs`) non persisté pour annuler / rétablir. `merge` réconcilie deux replicas de même
+  `deck_uid`, rend un `MergeReport` (`authors.rs`) ; racine `peers` : nom de chaque pair,
+  inscrit à sa première édition (réglage `[author] name`, sinon utilisateur système).
+  Modules : `schema` (catégories de champs), `read`/`write` (aller-retour `Deck` ↔ `LoroDoc`),
+  `rich` (texte à marques), `undo`, `authors`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'est qu'une
   **vue** matérialisée tenue à jour par `apply` — utilisée par le rendu,
   `validate`, `locate`. Zip des sources (`to_zip` / `from_zip`) : replica en

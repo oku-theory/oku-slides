@@ -152,6 +152,11 @@ impl SourceBundle {
         &self.replica
     }
 
+    /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
+    pub fn set_author(&mut self, name: Option<String>) {
+        self.replica.set_author(name);
+    }
+
     /// Remplace le deck par `deck` (canonique : voir l'invariant du module),
     /// en une étape d'annulation `label`.
     pub fn apply(&mut self, deck: Deck, label: &str) -> Result<(), SourcesError> {
@@ -159,6 +164,9 @@ impl SourceBundle {
         // changements déjà faits restent en attente dans le doc, sans commit.
         // Le prochain commit, ou le prochain export (dont le snapshot de
         // reprise), les valide implicitement.
+        // Avant la réconciliation : la première édition de ce pair inscrit
+        // son auteur dans le même commit.
+        self.replica.claim_author().context(ReplicaSnafu)?;
         self.replica.reconcile(&deck).context(ReplicaSnafu)?;
         self.replica.commit(label);
         self.deck = deck;
@@ -212,6 +220,21 @@ impl SourceBundle {
     /// Nombre maximal d'étapes d'annulation conservées ; `0` vaut `1`.
     pub fn set_undo_limit(&mut self, steps: usize) {
         self.replica.set_undo_limit(steps);
+    }
+
+    /// Fusionne `other` : son historique, puis ses assets et polices (à nom égal,
+    /// on garde les nôtres). La vue est relue ; ses parties illisibles sont rendues.
+    pub fn merge(&mut self, other: SourceBundle) -> Result<(crate::MergeReport, Vec<Issue>), SourcesError> {
+        let report = self.replica.merge(&other.replica).context(ReplicaSnafu)?;
+        for (id, bytes) in other.assets {
+            self.assets.entry(id).or_insert(bytes);
+        }
+        for (name, bytes) in other.fonts {
+            self.fonts.entry(name).or_insert(bytes);
+        }
+        let (deck, issues) = self.replica.deck();
+        self.deck = deck;
+        Ok((report, issues))
     }
 
     /// Ajoute un asset et renvoie son identifiant.

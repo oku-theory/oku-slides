@@ -9,8 +9,9 @@
 //!
 //! Ordre des verrous : l'espace de travail, puis une session, jamais
 //! l'inverse. Seules [`Workspace::apply`], [`Workspace::request`],
-//! [`Workspace::open_files`] et [`Workspace::settle`] combinent les deux ;
-//! une session neuve se construit hors du verrou de l'espace de travail.
+//! [`Workspace::open_files`], [`Workspace::settle`] et `post_notice`
+//! combinent les deux, en séquence, jamais imbriqués ; une session neuve se
+//! construit hors du verrou de l'espace de travail.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -76,6 +77,12 @@ pub enum WorkspaceRequest {
     OpenTab {
         /// Fenêtre d'arrivée d'un nouvel onglet.
         window: String,
+        /// Le fichier (normalisé à la réception).
+        path: PathBuf,
+    },
+    /// L'onglet qui tient déjà le deck de `path` sous un autre fichier :
+    /// `{ "tab": "t-3" | null, "title": … | null }` ; ne change rien.
+    SameDeck {
         /// Le fichier (normalisé à la réception).
         path: PathBuf,
     },
@@ -507,6 +514,10 @@ impl Workspace {
     /// (sous ce même verrou, voir [`Workspace::is_only_window`]) ; deux
     /// fermetures concurrentes ne peuvent jamais vider l'espace de travail.
     pub fn apply(ws: &Mutex<Self>, req: WorkspaceRequest) -> Result<WorkspaceOutcome> {
+        // Lit un fichier : jamais sous le verrou (voir `workspace_same_deck.rs`).
+        if let WorkspaceRequest::SameDeck { path } = &req {
+            return Self::same_deck(ws, path);
+        }
         let waking = Self::lock(ws).to_wake(&req);
         Self::wake(ws, &waking);
         let pending = {
@@ -727,6 +738,7 @@ impl Workspace {
             WorkspaceRequest::MoveTab { tab, window, index } => self.move_tab(&tab, window.as_deref(), index)?,
             WorkspaceRequest::View
             | WorkspaceRequest::Messages
+            | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
             | WorkspaceRequest::NewWindow
@@ -903,6 +915,9 @@ mod resume;
 
 #[path = "workspace_slot.rs"]
 mod slot;
+
+#[path = "workspace_same_deck.rs"]
+mod same_deck;
 
 use slot::{Dormant, Slot};
 

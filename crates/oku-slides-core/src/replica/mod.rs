@@ -4,11 +4,14 @@
 //!   réconciliation avec un `Deck` modifié, commit.
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
 
+mod authors;
 mod read;
 mod rich;
 mod schema;
 mod undo;
 mod write;
+
+pub use authors::MergeReport;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -32,6 +35,8 @@ const DECK_UID: &str = "deck_uid";
 pub struct DeckReplica {
     doc: LoroDoc,
     undo: Undo,
+    /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
+    author: Option<String>,
 }
 
 impl std::fmt::Debug for DeckReplica {
@@ -51,6 +56,9 @@ pub type DeckRead = (Deck, Vec<crate::Issue>);
 fn configure(doc: &LoroDoc) {
     doc.set_record_timestamp(true);
     doc.config_text_style(rich::styles());
+    // Sans cela, Loro fusionne les commits locaux d'une fenêtre de 1000 s
+    // portant le même message en un seul *change* : un commit, un change.
+    doc.set_change_merge_interval(-1);
 }
 
 fn uid_of(doc: &LoroDoc) -> String {
@@ -109,7 +117,7 @@ impl DeckReplica {
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
-        Ok(Self { doc, undo })
+        Ok(Self { doc, undo, author: None })
     }
 
     /// Relit un snapshot. Les octets viennent d'un fichier : non fiables.
@@ -132,7 +140,7 @@ impl DeckReplica {
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
-        Ok((Self { doc, undo }, read))
+        Ok((Self { doc, undo, author: None }, read))
     }
 
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
@@ -146,6 +154,34 @@ impl DeckReplica {
     /// Le deck relu depuis le replica, et ce qui n'a pas pu être lu.
     pub fn deck(&self) -> DeckRead {
         read_deck(&self.doc)
+    }
+
+    /// Identifiant de ce pair (session d'édition).
+    pub fn peer_id(&self) -> u64 {
+        self.doc.peer_id()
+    }
+
+    /// Nom de l'auteur de ce pair ; un nom blanc vaut aucun.
+    pub fn set_author(&mut self, name: Option<String>) {
+        self.author = name.map(|n| n.trim().to_owned()).filter(|n| !n.is_empty());
+    }
+
+    /// Nom inscrit pour `peer` dans `peers`, s'il y en a un.
+    pub fn author_of(&self, peer: u64) -> Option<String> {
+        authors::author_of(&self.doc, peer)
+    }
+
+    /// Nombre de *changes* Loro (tests, mesures).
+    pub fn len_changes(&self) -> usize {
+        self.doc.len_changes()
+    }
+
+    /// Inscrit l'auteur de ce pair, s'il en a un, avant sa première édition.
+    pub(crate) fn claim_author(&self) -> Result<(), ReplicaError> {
+        match &self.author {
+            Some(name) => Ok(authors::claim(&self.doc, name)?),
+            None => Ok(()),
+        }
     }
 
     /// Amène le replica à l'état de `deck` (sans committer).
@@ -171,6 +207,9 @@ impl DeckReplica {
     /// Valide les changements en cours comme une étape d'annulation portant `label`.
     pub fn commit(&mut self, label: &str) {
         self.undo.label_next(label);
+        // Le libellé est aussi le message du change Loro : avec
+        // `set_change_merge_interval(-1)`, un commit fait un change.
+        self.doc.set_next_commit_message(label);
         self.doc.commit();
         // Un commit sans changement n'a rien empilé : le libellé ne doit pas fuir au suivant.
         self.undo.clear_next();
@@ -226,13 +265,15 @@ impl DeckReplica {
     /// encore sont importés. Refuse deux replicas sans `deck_uid` commun.
     /// L'import et la relecture complète sont d'abord essayés sous garde sur
     /// une copie : une panique de Loro donne `Corrupted` et laisse `self` intact.
-    pub fn merge(&mut self, other: &DeckReplica) -> Result<(), ReplicaError> {
+    /// Le rapport dit combien de modifications ont été importées et par qui.
+    pub fn merge(&mut self, other: &DeckReplica) -> Result<MergeReport, ReplicaError> {
         Ok(self.merge_inner(other)?)
     }
 
-    fn merge_inner(&mut self, other: &DeckReplica) -> Result<(), ReplicaInner> {
+    fn merge_inner(&mut self, other: &DeckReplica) -> Result<MergeReport, ReplicaInner> {
         ensure!(self.deck_uid() == other.deck_uid(), UnrelatedSnafu);
-        let updates = other.doc.export(ExportMode::updates(&self.doc.oplog_vv())).context(ExportSnafu)?;
+        let before = self.doc.oplog_vv();
+        let updates = other.doc.export(ExportMode::updates(&before)).context(ExportSnafu)?;
         // Répétition sous garde, sur une copie : importer puis relire tout le
         // deck. Une panique n'empoisonne que la copie ; `self` reste intact.
         // L'import dans `self`, identique et déterministe, suit sans garde.
@@ -243,7 +284,7 @@ impl DeckReplica {
             Ok(read_deck(doc))
         })?;
         self.doc.import(&updates).context(ImportSnafu)?;
-        Ok(())
+        Ok(authors::report_since(&self.doc, &before))
     }
 }
 

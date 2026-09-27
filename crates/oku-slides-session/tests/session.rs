@@ -1,68 +1,16 @@
 use oku_slides_core::{Deck, Frame, Op, Paragraph};
-use oku_slides_session::{Fonts, Platform, Request, Session, Settings, TargetKind, paragraphs_to_text};
+use oku_slides_session::{Request, Session, Settings, TargetKind, paragraphs_to_text};
 use serde_json::json;
 use speculoos::prelude::*;
 
-/// Un dossier de données neuf, supprimé à la fin du test (t-145).
-struct Data(std::path::PathBuf);
-
-impl std::ops::Deref for Data {
-    type Target = std::path::Path;
-    fn deref(&self) -> &std::path::Path {
-        &self.0
-    }
-}
-
-impl AsRef<std::path::Path> for Data {
-    fn as_ref(&self) -> &std::path::Path {
-        &self.0
-    }
-}
-
-impl Drop for Data {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).ok();
-    }
-}
-
-fn data_dir() -> Data {
-    Data(std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique())))
-}
-
-/// Une session sur le dossier de données `data`.
-fn session_in(data: &std::path::Path) -> Session {
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    settings.paths.data = Some(data.to_owned());
-    // Les messages attendus sont en français, quelle que soit la langue du système.
-    settings.i18n.locale = Some("fr".into());
-    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
-    Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
-}
-
-/// Une session isolée : son propre dossier de données, vide.
-fn session() -> Session {
-    session_in(&data_dir())
-}
+mod common;
+use common::{data_dir, fixture_path, req, session, session_in, session_with_settings, set_theme, snapshot_json};
 
 /// Une session qui reprend l'état laissé dans `data`.
 fn resumed(data: &std::path::Path) -> Session {
     let mut s = session_in(data);
     assert!(s.resume(data.join("resume")), "reprise refusée");
     s
-}
-
-fn set_theme(theme: &str) -> Request {
-    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
-}
-
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    NEXT.fetch_add(1, Ordering::Relaxed)
-}
-
-fn fixture_path() -> std::path::PathBuf {
-    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
 }
 
 #[test]
@@ -392,13 +340,15 @@ fn chart_palette_request_no_longer_exists() {
     assert_that!(serde_json::from_value::<Request>(json!({ "cmd": "chart_palette" })).is_err()).is_true();
 }
 
-fn req(v: serde_json::Value) -> Request {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("requête invalide : {e}"))
-}
-
-fn snapshot_json(s: &mut Session) -> serde_json::Value {
-    let reply = s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("snapshot refusé : {}", e.one_line()));
-    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("snapshot illisible : {e}"))
+#[test]
+fn edit_records_the_configured_author() {
+    let data = data_dir();
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
+    settings.author.name = Some("Julie".into());
+    let mut s = session_with_settings(&data, settings);
+    s.handle(set_theme("pro")).unwrap();
+    let r = s.sources_for_tests().replica();
+    assert_that!(r.author_of(r.peer_id())).is_equal_to(Some("Julie".to_owned()));
 }
 
 #[test]

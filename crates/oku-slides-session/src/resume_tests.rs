@@ -4,6 +4,11 @@ use super::*;
 use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
 
+/// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
+fn defaults() -> DocDefaults {
+    DocDefaults { undo_limit: 10, author: None }
+}
+
 fn temp_dir() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -26,7 +31,7 @@ fn document() -> Document {
     let mut sources = SourceBundle::new(deck()).unwrap();
     sources.add_asset(b"image".to_vec());
     sources.fonts.insert("Inter.ttf".into(), b"police".to_vec());
-    let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), 10);
+    let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), &defaults());
     let mut next = doc.sources.deck().clone();
     next.theme = Some("pro".into());
     doc.sources.apply(next, "Thème").unwrap();
@@ -40,7 +45,7 @@ fn write_snapshot_then_read_doc_round_trips_sources_uid_and_meta() {
     let r = resume();
     let doc = document();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap();
     assert_that!(back.sources).is_equal_to(&doc.sources);
     assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
     assert_that!(back.path).is_equal_to(&doc.path);
@@ -56,7 +61,7 @@ fn write_snapshot_removes_orphan_assets() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.assets.clear();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().sources.assets.len()).is_equal_to(0);
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().sources.assets.len()).is_equal_to(0);
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -66,7 +71,7 @@ fn read_doc_with_corrupt_deck_loro_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
     std::fs::write(r.dir.join(DECK_DIR).join("deck.loro"), b"illisible").unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).is_err()).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).is_err()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -75,7 +80,7 @@ fn read_doc_with_corrupt_deck_loro_returns_error() {
 fn read_doc_with_deck_loro_over_the_maximum_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 16).is_err()).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 16).is_err()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -137,7 +142,7 @@ fn write_snapshot_font_changed_under_same_name_reads_new_bytes() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.fonts.insert("Inter.ttf".into(), b"nouvelle police".to_vec());
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap();
     assert_that!(back.sources.fonts.get("Inter.ttf").cloned()).is_equal_to(Some(b"nouvelle police".to_vec()));
     let fonts_dir = r.dir.join(DECK_DIR).join("fonts");
     assert_that!(std::fs::read_dir(&fonts_dir).unwrap().count()).is_equal_to(1);
@@ -158,7 +163,7 @@ fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
     assert_that!(r.dir.join(DECK_DIR).join("fonts").join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.parent().unwrap().join("evil.ttf").exists()).is_false();
-    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap();
     assert_that!(back.sources.assets.contains_key("sha256:../x")).is_false();
     assert_that!(back.sources.fonts.contains_key("evil.ttf")).is_false();
     assert_that!(back.sources.fonts.contains_key(".hidden.ttf")).is_false();
@@ -171,7 +176,7 @@ fn read_doc_with_stored_path_not_oku_slides_drops_path() {
     let mut doc = document();
     doc.path = Some(PathBuf::from("/tmp/notes.txt"));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().path).is_none();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().path).is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -181,7 +186,7 @@ fn read_doc_with_stored_relative_path_drops_path() {
     let mut doc = document();
     doc.path = Some(PathBuf::from("essai.oku-slides.pdf"));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().path).is_none();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().path).is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -191,7 +196,7 @@ fn write_snapshot_then_read_doc_keeps_the_blank_flag() {
     let mut doc = document();
     doc.blank = true;
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().blank).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().blank).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -201,7 +206,7 @@ fn write_snapshot_then_read_doc_keeps_a_non_blank_flag() {
     let doc = document();
     assert_that!(doc.blank).is_false();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().blank).is_false();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().blank).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

@@ -60,6 +60,9 @@ pub struct Snapshot<'a> {
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil, ou
     /// des parties du deck étaient illisibles et ont été mises de côté.
     pub notice: Option<&'a str>,
+    /// Le dernier `Save` n'a rien écrit : le fichier est devenu un autre deck
+    /// (vrai une fois ; l'interface propose « Écraser » ou « Enregistrer sous… »).
+    pub disk_replaced: bool,
     /// L'interface prend les couleurs et les polices du thème des slides.
     pub appearance: &'a Appearance,
     /// Ensemble de modèles du deck.
@@ -106,6 +109,10 @@ pub struct TabInfo {
     pub path: Option<PathBuf>,
     /// Deck neuf jamais touché : ouvrir un fichier le remplace.
     pub pristine: bool,
+    /// Identité du deck (son replica) : une autre copie du même deck se
+    /// reconnaît sans réveiller l'onglet. Absente d'un `workspace.json` plus ancien.
+    #[serde(default)]
+    pub deck_uid: Option<String>,
 }
 
 /// Édition d'un ensemble de modèles : chaque slide est un modèle.

@@ -91,3 +91,21 @@ fn paths_without_overrides_live_under_data_dir() {
 fn app_id_names_oku_slides() {
     assert_that!(APP_ID).is_equal_to("me.dartiguenave.oku-slides");
 }
+
+#[test]
+fn author_name_setting_wins_over_system_user() {
+    let a = AuthorSettings { name: Some("Julie".into()) };
+    assert_that!(a.resolved()).is_equal_to(Some("Julie".to_owned()));
+}
+
+#[test]
+fn blank_author_name_falls_back_to_system_user() {
+    let a = AuthorSettings { name: Some("  ".into()) };
+    let expected = std::env::var("USER").or_else(|_| std::env::var("USERNAME")).ok().filter(|u| !u.trim().is_empty());
+    assert_that!(a.resolved()).is_equal_to(expected);
+}
+
+#[test]
+fn default_settings_have_no_author_name() {
+    assert_that!(Settings::defaults().unwrap().author.name).is_none();
+}

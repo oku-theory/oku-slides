@@ -83,6 +83,12 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   pas une réécriture du format.
 - Un deck partiellement illisible (corruption, fusion hostile) reste
   ouvrable : lecture totale par construction.
+- **Un commit applicatif est un *change* Loro**, avec son libellé comme
+  message (`set_change_merge_interval(-1)`, `set_next_commit_message`) :
+  l'historique garde un grain fin (une étape d'annulation = un *change*),
+  au lieu que Loro en regroupe plusieurs dans sa fenêtre de fusion par
+  défaut. Un compte de « N modifications » (fusion, curseur du mode
+  historique) reste donc significatif.
 
 **Reculs assumés**
 
@@ -101,8 +107,10 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   snapshot complet embarqué contient tout contenu ayant existé — slides,
   éléments et textes supprimés, versions antérieures de chaque texte,
   assets retirés — ainsi que l'horodatage de chaque modification
-  (`set_record_timestamp`). Les noms d'auteur s'y ajouteront avec le
-  plan 2 (identité des pairs). N'importe quel destinataire peut relire cet
+  (`set_record_timestamp`). Les noms d'auteur voyagent eux aussi dans le
+  document, depuis le plan 2 : la map racine `peers` associe le `PeerID` de
+  chaque pair au nom tiré de `[author] name` ou de l'utilisateur système, à
+  sa première édition. N'importe quel destinataire peut relire cet
   historique avec un outil Loro. Accepté par conception : pas
   d'aplatissement (snapshot sans historique) à l'enregistrement, qui
   casserait l'historique et la fusion. Atténuation : l'export sans sources,

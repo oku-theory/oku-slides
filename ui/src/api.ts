@@ -47,6 +47,8 @@ export interface Snapshot {
   redo_label: string | null;
   warnings: string[];
   notice: string | null;
+  /** Le dernier enregistrement n'a rien écrit : le fichier est devenu un autre deck (vrai une fois). */
+  disk_replaced: boolean;
   appearance: Appearance;
   /** Ensemble de modèles du deck. */
   templates: string;
@@ -240,7 +242,8 @@ export type Op = { op: string } & Record<string, unknown>;
 
 type Request =
   | { cmd: "snapshot" }
-  | { cmd: "save"; path: string | null }
+  | { cmd: "save"; path: string | null; overwrite: boolean }
+  | { cmd: "merge"; path: string }
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
   | { cmd: "apply"; label: string; ops: Op[] }
@@ -303,7 +306,9 @@ export function tabApi(tab: string) {
     snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
     chartKind: (label: string, slide: string, element: string, kind: string) =>
       call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
-    save: (path: string | null) => call<Snapshot>({ cmd: "save", path }),
+    save: (path: string | null, overwrite = false) => call<Snapshot>({ cmd: "save", path, overwrite }),
+    /** Fusionne un autre PDF du même deck ; l'avis de fusion arrive par `notice`. */
+    merge: (path: string) => call<Snapshot>({ cmd: "merge", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
     /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
@@ -332,6 +337,8 @@ export interface TabInfo {
   editing_templates: boolean;
   path: string | null;
   pristine: boolean;
+  /** Identité du deck : une autre copie du même deck la partage. */
+  deck_uid: string | null;
 }
 
 /** Une fenêtre : ses onglets et l'onglet actif. */
@@ -354,6 +361,7 @@ type WorkspaceRequest =
   | { cmd: "messages" }
   | { cmd: "new_tab"; window: string }
   | { cmd: "open_tab"; window: string; path: string }
+  | { cmd: "same_deck"; path: string }
   | { cmd: "activate"; tab: string }
   | { cmd: "close"; tab: string; discard: boolean }
   | { cmd: "reorder"; tab: string; index: number }
@@ -369,6 +377,8 @@ export const workspace = {
   messages: () => ws<Messages>({ cmd: "messages" }),
   newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
   openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
+  /** L'onglet qui tient déjà le deck de `path` sous un autre fichier ; ne change rien. */
+  sameDeck: (path: string) => ws<{ tab: string | null; title: string | null }>({ cmd: "same_deck", path }),
   activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),
   /** `discard` : l'utilisateur a choisi de perdre le travail non enregistré. */
   close: (tab: string, discard = false) => ws<WorkspaceView>({ cmd: "close", tab, discard }),

@@ -5,9 +5,11 @@
 //!   [`apply_all`]), validation ([`validate`]).
 //! - [`DeckReplica`] : le deck dans un document Loro (CRDT), réconcilié par
 //!   diff depuis un `Deck` et relu ; annuler et rétablir passent par son
-//!   `UndoManager` ; [`ReplicaError`] pour ses échecs.
+//!   `UndoManager` ; [`ReplicaError`] pour ses échecs ; [`DeckReplica::merge`]
+//!   fusionne l'historique d'un autre replica et rend un [`MergeReport`].
 //! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
-//!   la relecture du replica, sous forme canonique ([`canonicalize`]).
+//!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
+//!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
 
 mod canonical;
 pub mod error;
@@ -25,6 +27,6 @@ pub use error::{
 pub use locate::{Located, Walk};
 pub use model::*;
 pub use ops::{Op, SlideField, apply_all, ops_schema};
-pub use replica::{DeckRead, DeckReplica};
+pub use replica::{DeckRead, DeckReplica, MergeReport};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};

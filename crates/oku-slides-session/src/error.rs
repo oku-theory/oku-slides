@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::storage::StorageError;
-use snafu::{Backtrace, Snafu};
+use snafu::{Backtrace, IntoError, Snafu};
 
 /// Une requête de l'interface qui n'a pas abouti. La session est intacte.
 ///
@@ -52,6 +52,8 @@ pub enum SessionErrorKind {
     UnknownWindow,
     /// Fermeture refusée : travail non enregistré.
     Unsaved,
+    /// Fusion refusée : ce PDF est une autre présentation.
+    MergeUnrelated,
 }
 
 #[derive(Debug, Snafu)]
@@ -103,6 +105,8 @@ pub(crate) enum SessionInner {
     UnknownWindow { label: String, backtrace: Backtrace },
     #[snafu(display("{title} has unsaved changes"))]
     Unsaved { title: String, backtrace: Backtrace },
+    #[snafu(display("cannot merge another presentation"))]
+    MergeUnrelated { source: oku_slides_core::SourcesError, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -127,6 +131,7 @@ impl SessionError {
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
             UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
             Unsaved { .. } => SessionErrorKind::Unsaved,
+            MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
         }
     }
 
@@ -141,6 +146,17 @@ impl SessionError {
     /// L'erreur et ses causes, sur une ligne.
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
+    }
+}
+
+/// L'erreur d'une fusion : une autre présentation (sans origine commune)
+/// a sa propre variante, les autres erreurs de sources restent `Sources`.
+pub(crate) fn merge_error(source: oku_slides_core::SourcesError) -> SessionError {
+    use oku_slides_core::{ReplicaErrorKind, SourcesErrorKind};
+    if source.kind() == SourcesErrorKind::Replica(ReplicaErrorKind::Unrelated) {
+        MergeUnrelatedSnafu.into_error(source).into()
+    } else {
+        SourcesSnafu.into_error(source).into()
     }
 }
 
@@ -176,6 +192,7 @@ impl Localize for SessionError {
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
             Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),
+            MergeUnrelated { .. } => l.tr("replica-unrelated"),
         }
     }
 }

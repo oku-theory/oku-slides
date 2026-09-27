@@ -70,9 +70,14 @@ Limites observées, reproduites sur Loro brut :
 Racine `deck` (`LoroMap`), plus deux maps racines :
 
 - `meta` : `deck_uid` (aléatoire, posé à la création, jamais modifié).
-- `peers` : `{ <PeerID>: "<nom d'auteur>" }`, une entrée par pair, posée à
-  son premier commit (nom tiré des réglages, sinon de l'utilisateur
-  système).
+- `peers` : `{ <PeerID>: "<nom d'auteur>" }`, une entrée par pair, inscrite
+  avant sa première édition, dans le même commit (`claim_author`). Le nom
+  vient du réglage `[author] name`, sinon de l'utilisateur système
+  (`USER`/`USERNAME`) ; blanc des deux côtés → pair sans entrée, ses
+  modifications restent anonymes dans un `MergeReport`. L'inscription fait
+  partie de l'étape annulable : annuler la première édition d'un pair retire
+  aussi son entrée (une édition entièrement annulée n'a rien laissé à
+  signer), jusqu'à sa prochaine édition, qui l'inscrit de nouveau.
 
 Chaque champ du modèle relève d'une catégorie :
 
@@ -154,6 +159,14 @@ Chaque champ du modèle relève d'une catégorie :
 Le rendu passe **avant** le commit : l'historique Loro est définitif, un
 rendu raté ne doit pas y laisser de trace.
 
+- **Un commit = un *change* Loro.** `set_change_merge_interval(-1)` désactive
+  la fusion automatique des commits locaux d'une fenêtre de temps (1000 s par
+  défaut) ; sans elle, Loro regrouperait plusieurs commits en un seul
+  *change* et « N modifications » (fusion, curseur du mode historique) ne
+  voudrait plus rien dire. Le libellé du commit (`commit(label)`) est aussi
+  posé comme message du *change* (`set_next_commit_message`), pour qu'un
+  outil externe qui lit l'historique Loro retrouve l'intention de chaque
+  étape sans passer par l'app.
 - **Pair** : `PeerID` aléatoire à chaque chargement (ouverture, reprise,
   nouvel onglet), jamais persisté. Deux écrivains d'un même pair
   corrompraient le document.
@@ -226,18 +239,70 @@ fonts/<nom>      tels quels
 - **Parenté** : deux replicas ne fusionnent que si leur `deck_uid` est égal ;
   sinon `Unrelated` (« ces deux présentations n'ont pas d'origine
   commune »).
-- **Étapes** : lire le blob entrant, vérifier `deck_uid`, `import`, union
-  des assets et polices, relire (lecture totale), rendre. Avis « Fusionné
-  avec *x.pdf* : N changements de Julie ». Le document devient `dirty`.
-- **Déclencheurs** :
-  1. *Fichier → Fusionner avec un PDF…* sur l'onglet actif.
-  2. **À l'enregistrement** : si le fichier sur disque a changé depuis
-     l'ouverture (`saved_hash`) et porte le même `deck_uid`, fusion puis
-     écriture. S'il porte un autre deck (ou aucun) : `DiskReplaced`, l'UI
-     propose d'écraser ou d'enregistrer sous un autre nom.
-  3. **À l'ouverture** : un PDF dont le `deck_uid` est déjà ouvert dans un
-     onglet (lu dans `TabInfo`) propose « Fusionner dans cet onglet » ou
-     « Ouvrir à part ».
+- **Étapes** (`SourceBundle::merge`, appelé par `Session::absorb`) : lire le
+  blob entrant, vérifier `deck_uid`, `import`, union des assets et polices,
+  relire (lecture totale), rendre. L'avis et `dirty` sont posés dès la
+  fusion faite, avant le rendu : un rendu raté ne doit pas laisser passer un
+  contenu fusionné pour enregistré. Une fusion sans rien de nouveau (0
+  modification, aucun asset ni police ajouté) ne marque pas le document
+  modifié ; demandée (`merge_file`), elle pose quand même l'avis « 0 » ; à
+  l'enregistrement, elle n'en pose aucun (le toast « Enregistré » suffit).
+- **Avis** : `notice-merged` (« Fusionné avec *x.pdf* — modifications
+  importées : N (auteurs) ») quand la fusion importe au moins un pair nommé,
+  `notice-merged-anonymous` (sans la liste d'auteurs) sinon — pairs sans
+  entrée dans `peers`, ou fusion à 0 modification. N compte les *changes*
+  importés, pas seulement les éditions : annulations et rétablissements,
+  canonicalisations silencieuses et inscriptions d'auteur en sont aussi.
+  L'avis ne nomme que les auteurs inscrits et ne mentionne pas les pairs
+  anonymes (le `MergeReport` les compte, `anonymous`). Un avis s'ajoute à
+  celui qui attend encore (onglet endormi réveillé par la fusion et relu
+  avec son propre avis, fichier ouvert avec des parties illisibles…),
+  séparé par une ligne vide ; chacun ne se montre qu'une fois.
+- **Déclencheurs**, tels que construits (trois écarts à la conception
+  initiale, ci-dessous) :
+  1. *Fichier → Fusionner avec un PDF…* sur l'onglet actif (`merge_file`,
+     refusé en mode modèles).
+  2. **À l'enregistrement** (`save_checked`) : si le fichier sur disque a
+     changé depuis l'ouverture ou le dernier enregistrement (empreinte de
+     `saved_hash`, comparée aux octets avant tout décodage) et porte le même
+     `deck_uid`, fusion puis écriture. S'il porte un autre deck, plus de
+     sources Oku Slides, ou est illisible : rien n'est écrit, le prochain
+     snapshot porte `disk_replaced: true` (une fois, comme `notice`) ; l'UI
+     propose d'écraser ou d'enregistrer sous un autre nom (`ui/src/merge.ts`,
+     `saveGuarded`). Les deux choix rappellent `save` avec `overwrite: true` :
+     après « Enregistrer sous… », le dialogue système d'enregistrement a déjà
+     fait confirmer le remplacement du fichier choisi, même quand c'est le
+     même fichier qu'avant. Une réponse qui porte encore `disk_replaced`
+     (l'utilisateur a visé un chemin lui aussi remplacé entre-temps) vaut
+     pour `saveGuarded` « rien n'a été enregistré ». Seul un fichier absent
+     (`StorageErrorKind::NotFound`) compte comme inchangé — toute autre
+     erreur de lecture (droits, disque réseau, fichier trop gros) est
+     traitée comme un remplacement, par prudence. Limite acceptée : la
+     vérification et l'écriture (`write_atomic`) ne sont pas atomiques
+     ensemble ; sur un disque synchronisé, un autre écrivain qui dépose sa
+     version entre les deux est écrasé sans fusion.
+  3. **À l'ouverture**, deux voies selon que l'hôte peut poser une question :
+     - *Ouvrir…*, glisser-déposer sur la fenêtre : la requête en lecture
+       seule `SameDeck { path }` (`Workspace::same_deck`, sans effet) cherche
+       l'onglet non vierge qui tient déjà ce `deck_uid` sous un autre
+       chemin (un onglet en mode modèles ne compte pas : il refuserait la
+       fusion). S'il y en a un, l'UI demande « Fusionner dans cet onglet » ou
+       « Ouvrir à part » puis, selon le choix, envoie `Request::Merge` à cet
+       onglet ou ouvre un nouvel onglet. L'avis de fusion s'affiche dans
+       l'onglet fusionné ; s'il est dans une autre fenêtre, dans l'onglet
+       actif de la fenêtre d'où l'on a ouvert (`mergedNotice`), sans amener
+       l'autre fenêtre au premier plan.
+     - **Fichiers remis par l'OS** (Finder, glisser-déposer sur l'icône,
+       ligne de commande — `open_files`) : l'hôte ne peut pas poser de
+       question à l'ouverture, le fichier s'ouvre toujours à part ; l'avis
+       `notice-same-deck-open` se pose sur le nouvel onglet et nomme
+       l'onglet déjà ouvert (« Cette présentation est déjà ouverte dans
+       l'onglet « … » »), sans rien fusionner.
+- Sous Tauri, ce détour par une requête en lecture seule est nécessaire
+  parce qu'une requête d'espace de travail qui changerait la structure rend
+  la vue synchronisée à la place de sa réponse
+  (`src-tauri/src/commands.rs:77-95`) : `SameDeck` ne change rien, seule la
+  fusion qui suit (sur l'onglet trouvé) le fait.
 - Pas de dialogue de conflit : chaque conflit a une issue déterministe ;
   on corrige après coup, ou on restaure la version d'avant la fusion.
 
@@ -273,12 +338,24 @@ s'affiche en lecture seule.
 |---|---|---|
 | `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Write` ; `Unrelated` avec la fusion |
 | `oku-slides-core::sources` | `SourcesError` | existants ; `MissingDeck` couvre l'absence de `deck.loro` |
-| `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen`, `DiskReplaced` |
+| `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen` (mode historique, plan 3) |
+
+- **`MergeUnrelated`** reprend le message existant `replica-unrelated`
+  (« ces deux présentations n'ont pas d'origine commune ») : pas de nouvelle
+  clé Fluent.
+- **`DiskReplaced` n'est pas une erreur.** Les erreurs de session n'arrivent
+  à l'UI que sous forme de texte déjà traduit (`state.refuse` → `localize`),
+  qui ne se distingue pas d'un autre message ; or l'UI doit réagir
+  différemment (proposer d'écraser ou d'enregistrer sous). Le disque
+  remplacé devient donc l'indicateur `disk_replaced: bool` du `Snapshot`
+  (`views.rs`), posé une fois par `save_checked` et effacé au prochain
+  rendu — même patron que `notice`.
 
 Ne sont pas des erreurs : un sous-arbre illisible après fusion (écarté,
 signalé par un `Issue`) ; un rendu raté pendant un apply (rien n'est
-validé, l'erreur remonte comme aujourd'hui). Messages en Fluent : anglais
-d'abord, puis les langues existantes.
+validé, l'erreur remonte comme aujourd'hui) ; un disque remplacé par un
+autre deck à l'enregistrement (`disk_replaced`, ci-dessus). Messages en
+Fluent : anglais d'abord, puis les langues existantes.
 
 ## Tests (TDD)
 
@@ -299,8 +376,9 @@ Les scénarios du spike sont les premiers tests rouges.
   `UnsupportedVersion`.
 - **Session** : rendu raté → replica intact ; libellés d'annulation ;
   reprise sans pile d'annulation ; fusion à l'ouverture et à
-  l'enregistrement (`DiskReplaced`) ; mode historique (ouvrir, `seek`,
-  restaurer = nouveau commit, fermer).
+  l'enregistrement (fichier remplacé : `Saved::DiskReplaced`, indicateur
+  `disk_replaced`) ; mode historique (ouvrir, `seek`, restaurer = nouveau
+  commit, fermer).
 - **UI (Bun)** : ordre et repères du curseur ; rendu du dernier cran
   pendant le glissement.
 - **Mesure au plan** : coût d'un rendu en mode historique ; au-delà de
@@ -319,8 +397,10 @@ Les scénarios du spike sont les premiers tests rouges.
 - Le PDF ne maigrit jamais (historique et assets en ajout seul).
 - **Confidentialité** : chaque PDF partagé porte tout le contenu passé du
   deck (slides, éléments et textes supprimés, anciennes versions des
-  textes, assets retirés) et l'horodatage de chaque modification ; les
-  noms d'auteur viendront avec le plan 2. Tout destinataire peut le relire.
+  textes, assets retirés), l'horodatage de chaque modification et le nom
+  d'auteur de chaque pair qui a édité (map `peers` : réglage `[author]
+  name`, sinon le nom d'utilisateur système). Tout destinataire peut le
+  relire.
   Accepté par conception (pas d'aplatissement de l'historique).
   Atténuation : l'export sans sources, `oku-slides strip <entrée> <sortie>`
   (`oku_slides_pdf::strip_sources`), pour l'instant en ligne de commande

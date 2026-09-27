@@ -40,7 +40,8 @@ pub async fn blocking<T: Send + 'static>(
 /// mise à jour ici ne compile plus.
 fn classify(req: &WorkspaceRequest) -> (bool, bool) {
     match req {
-        WorkspaceRequest::View | WorkspaceRequest::Messages => (false, false),
+        // `SameDeck` ne change rien : sa réponse est rendue telle quelle.
+        WorkspaceRequest::View | WorkspaceRequest::Messages | WorkspaceRequest::SameDeck { .. } => (false, false),
         WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }

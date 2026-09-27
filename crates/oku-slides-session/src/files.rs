@@ -6,6 +6,7 @@ use std::path::Path;
 
 use oku_slides_core::{Issue, SourceBundle, SourceLimits};
 use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_platform::config::Settings;
 use oku_slides_platform::storage::Storage;
 
 use snafu::{OptionExt, ResultExt};
@@ -54,12 +55,32 @@ impl Opened {
 pub fn read_document(storage: &Storage, path: &Path, limits: SourceLimits) -> Result<Opened> {
     let bytes = storage.read(path).context(ReadSnafu { path })?;
     let hash = oku_slides_core::asset_id(&bytes);
+    parse_document(&bytes, hash, limits)
+}
+
+/// Les bornes des sources lues dans un PDF, d'après les réglages `[sources]`.
+pub(crate) fn source_limits(settings: &Settings) -> SourceLimits {
+    SourceLimits {
+        replica_bytes: settings.sources.max_replica_bytes(),
+        total_bytes: settings.sources.max_sources_bytes(),
+    }
+}
+
+/// Le `deck_uid` du document `path` ; `None` pour un deck JSON (sans
+/// fichier Oku Slides, il n'est la copie d'aucun autre).
+pub fn deck_uid_of(storage: &Storage, path: &Path, limits: SourceLimits) -> Result<Option<String>> {
+    let opened = read_document(storage, path, limits)?;
+    Ok(opened.pdf.then(|| opened.sources.replica().deck_uid()))
+}
+
+/// Lit un document déjà chargé : `bytes`, d'empreinte `hash`.
+pub(crate) fn parse_document(bytes: &[u8], hash: String, limits: SourceLimits) -> Result<Opened> {
     if bytes.starts_with(b"%PDF") {
-        let found = oku_slides_pdf::extract_sources(&bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
+        let found = oku_slides_pdf::extract_sources(bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
         let (sources, issues) = SourceBundle::from_zip(&found.zip, limits).context(SourcesSnafu)?;
         return Ok(Opened { sources, issues, pdf: true, modified_elsewhere: found.modified_elsewhere(), hash });
     }
-    let deck = serde_json::from_slice(&bytes).context(DeckJsonSnafu)?;
+    let deck = serde_json::from_slice(bytes).context(DeckJsonSnafu)?;
     let sources = SourceBundle::new(deck).context(SourcesSnafu)?;
     Ok(Opened { sources, issues: Vec::new(), pdf: false, modified_elsewhere: false, hash })
 }

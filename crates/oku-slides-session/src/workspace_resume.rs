@@ -7,6 +7,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use oku_slides_platform::storage::resolve;
+
 use crate::Localize;
 use crate::error::Result;
 use crate::resume::{Resume, ResumeError};
@@ -17,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest, is_tab_id,
-    is_window_label, number, relock,
+    is_window_label, number,
 };
 
 /// `workspace.json` tel qu'écrit : la structure, et les infos de chaque onglet.
@@ -263,15 +265,25 @@ impl Workspace {
     /// jamais après coup.
     pub fn open_files(ws: &Mutex<Self>, files: &[PathBuf]) {
         for path in files {
-            let (window, closed) = {
+            let resolved = resolve(path);
+            let (window, closed, already) = {
                 let w = Self::lock(ws);
-                (w.focused().to_owned(), w.closed)
+                (w.focused().to_owned(), w.closed, w.tab_with_path(&resolved).is_some())
             };
             if closed {
                 break;
             }
             let open = WorkspaceRequest::OpenTab { window: window.clone(), path: path.clone() };
-            let Err(e) = Self::apply(ws, open) else { continue };
+            let e = match Self::apply(ws, open) {
+                // Un nouvel onglet : son deck est peut-être déjà ouvert ailleurs
+                // (l'hôte ne peut rien demander, le fichier s'ouvre à part).
+                Ok(_) if !already => {
+                    Self::note_same_deck(ws, &resolved);
+                    continue;
+                }
+                Ok(_) => continue,
+                Err(e) => e,
+            };
             tracing::warn!(path = %path.display(), error = %e.one_line(), "ouverture d'un fichier reçu");
             let (text, session) = {
                 let w = Self::lock(ws);
@@ -296,16 +308,7 @@ impl Workspace {
             };
             let Some((session, id)) = session else { continue };
             // L'onglet actif, peut-être endormi : relu ici, il le serait de toute façon.
-            let info = relock(&session).ready().map(|s| {
-                s.set_notice(text);
-                s.tab_info()
-            });
-            match info {
-                Ok(info) => {
-                    Self::refresh(ws, &id, info);
-                }
-                Err(e) => tracing::warn!(path = %path.display(), error = %e.one_line(), "avis d'ouverture non posé"),
-            }
+            Self::post_notice(ws, &id, &session, text);
         }
     }
 

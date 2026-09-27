@@ -7,8 +7,8 @@
 //!
 //! L'app Tauri et le serveur de développement exposent la même API. Ordre
 //! des verrous : l'espace de travail puis une session, jamais l'inverse ;
-//! quatre fonctions s'en chargent, `Workspace::apply`, `Workspace::request`,
-//! `Workspace::open_files` et `Workspace::settle`.
+//! cinq fonctions s'en chargent, en séquence, `Workspace::apply`, `request`,
+//! `open_files`, `settle` et `post_notice`.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -33,6 +33,7 @@ mod charts;
 mod error;
 mod files;
 mod inline;
+mod merge;
 mod panel;
 mod resume;
 mod resume_writer;
@@ -43,12 +44,13 @@ mod workspace;
 
 pub use appearance::{Appearance, appearance};
 use error::{
-    BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, NoChartSnafu, NoPathSnafu, NoSlideSnafu,
-    NoTemplateSetSnafu, NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu,
-    SourcesSnafu, WriteSnafu,
+    BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, NoChartSnafu, NoSlideSnafu, NoTemplateSetSnafu,
+    NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu,
+    WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
-pub use files::{EXTENSION, Opened, read_document};
+pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
+pub use merge::Saved;
 pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
@@ -72,14 +74,29 @@ struct Document {
     /// Deck neuf de la session, jamais remplacé : l'onglet est vierge tant
     /// que rien n'y est fait.
     blank: bool,
+    /// Le dernier enregistrement a été refusé : le fichier est devenu un
+    /// autre deck. Signalé une fois, avec le prochain snapshot.
+    disk_replaced: bool,
 }
 
 impl Document {
-    /// `undo_limit` : étapes d'annulation gardées (réglage `history.limit`).
-    fn new(mut sources: SourceBundle, path: Option<PathBuf>, undo_limit: usize) -> Self {
-        sources.set_undo_limit(undo_limit);
-        Self { sources, path, dirty: false, notice: None, saved_hash: None, blank: false }
+    /// `defaults` : étapes d'annulation gardées et auteur (réglages
+    /// `history.limit` et `[author]`).
+    fn new(mut sources: SourceBundle, path: Option<PathBuf>, defaults: &DocDefaults) -> Self {
+        sources.set_undo_limit(defaults.undo_limit);
+        sources.set_author(defaults.author.clone());
+        Self { sources, path, dirty: false, notice: None, saved_hash: None, blank: false, disk_replaced: false }
     }
+}
+
+/// Réglages appliqués à chaque document ouvert par la session
+/// (`history.limit`, `[author]`).
+#[derive(Debug, Clone)]
+struct DocDefaults {
+    /// Étapes d'annulation gardées.
+    undo_limit: usize,
+    /// Auteur inscrit dans l'historique du deck ; absent = anonyme.
+    author: Option<String>,
 }
 
 /// Ce que la session édite : le deck, ou un ensemble de modèles pendant que
@@ -100,8 +117,13 @@ enum Mode {
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Request {
     Snapshot,
+    /// Enregistre ; sans `overwrite`, un fichier changé sur disque est
+    /// d'abord fusionné (même deck) ou laissé tel quel (autre deck, signalé
+    /// par `disk_replaced` dans le snapshot).
     Save {
         path: Option<PathBuf>,
+        #[serde(default)]
+        overwrite: bool,
     },
     Slide {
         id: String,
@@ -151,6 +173,10 @@ pub enum Request {
     },
     /// Slide courante et grille de l'interface (gardées pour la reprise).
     Ui(UiState),
+    /// Fusionne un autre `.oku-slides.pdf` du même deck. Non annulable.
+    Merge {
+        path: PathBuf,
+    },
 }
 
 // ---- Session ----------------------------------------------------------------------
@@ -163,8 +189,8 @@ pub struct Session {
     localizer: Arc<Localizer>,
     /// En-têtes des graphiques reçus, dans la langue de l'utilisateur.
     chart_labels: ChartLabels,
-    /// Étapes d'annulation gardées, dans chaque document (`history.limit`).
-    history_limit: usize,
+    /// Réglages appliqués à chaque document ouvert (`history.limit`, `[author]`).
+    doc_defaults: DocDefaults,
     /// Plafonds des sources lues dans un PDF ou dans la reprise (`[sources]`).
     source_limits: SourceLimits,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
@@ -174,6 +200,9 @@ pub struct Session {
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
     render_fonts: Fonts,
+    /// Nombre de polices du deck dans `render_fonts` : s'il diffère de celui
+    /// des sources, le rendu est à refaire (même après un échec).
+    render_deck_fonts: usize,
     /// Apparence tirée du dernier rendu.
     appearance: Appearance,
     compiled: Option<Compiled>,
@@ -213,6 +242,15 @@ fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
 /// Même style : même thème, mêmes jetons, paramètres et variables.
 fn same_style(a: &Deck, b: &Deck) -> bool {
     a.theme == b.theme && a.tokens == b.tokens && a.params == b.params && a.vars == b.vars
+}
+
+/// Un rendu prêt pour de nouvelles polices, pas encore installé.
+struct FontsRenderer {
+    /// Polices de l'app et du deck.
+    fonts: Fonts,
+    renderer: Renderer,
+    /// Nombre de polices du deck parmi elles.
+    deck_fonts: usize,
 }
 
 /// Un rendu dont l'image absente se dit dans la langue de l'utilisateur.
@@ -262,23 +300,22 @@ impl Session {
     /// langue.
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
+        let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
         let mut s = Self {
             doc: Document {
                 blank: true,
-                ..Document::new(SourceBundle::new(blank_deck(l)).context(SourcesSnafu)?, None, settings.history.limit)
+                ..Document::new(SourceBundle::new(blank_deck(l)).context(SourcesSnafu)?, None, &doc_defaults)
             },
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
             storage,
-            history_limit: settings.history.limit,
-            source_limits: SourceLimits {
-                replica_bytes: settings.sources.max_replica_bytes(),
-                total_bytes: settings.sources.max_sources_bytes(),
-            },
+            doc_defaults,
+            source_limits: files::source_limits(settings),
             renderer: new_renderer(app_fonts.clone(), l)?,
             localizer: l.clone(),
             chart_labels: ChartLabels::new(l),
             render_fonts: app_fonts.clone(),
+            render_deck_fonts: 0,
             appearance: Appearance::default(),
             template_renderer: None,
             template_cache: None,
@@ -295,6 +332,12 @@ impl Session {
 
     pub fn deck(&self) -> &Deck {
         self.doc.sources.deck()
+    }
+
+    /// Sources du document courant (tests seulement : réplica Loro, auteurs…).
+    #[doc(hidden)]
+    pub fn sources_for_tests(&self) -> &SourceBundle {
+        &self.doc.sources
     }
 
     /// Le deck de l'utilisateur, même pendant l'édition des modèles.
@@ -348,12 +391,17 @@ impl Session {
                 && !deck.dirty
                 && !deck.sources.replica().can_undo()
                 && !deck.sources.replica().can_redo(),
+            deck_uid: Some(deck.sources.replica().deck_uid()),
         }
     }
 
-    /// Un avis à montrer une fois, avec le prochain snapshot.
+    /// Un avis à montrer une fois, avec le prochain snapshot ; ajouté après
+    /// celui qui attend encore, une ligne vide entre les deux.
     pub fn set_notice(&mut self, text: String) {
-        self.doc.notice = Some(text);
+        self.doc.notice = Some(match self.doc.notice.take() {
+            Some(pending) => format!("{pending}\n\n{text}"),
+            None => text,
+        });
     }
 
     /// Plus rien n'est écrit pour la reprise (l'onglet est fermé) : ce qui
@@ -405,7 +453,7 @@ impl Session {
         let mut deck = styled_like(self.user_deck(), slides);
         deck.params.title = Some(set.name.clone());
         deck.templates = Some(set.id.clone());
-        let templates = Document::new(SourceBundle::new(deck).context(SourcesSnafu)?, None, self.history_limit);
+        let templates = Document::new(SourceBundle::new(deck).context(SourcesSnafu)?, None, &self.doc_defaults);
         let edit = TemplateMode { set: set.id, name: set.name, builtin };
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
             // Déjà en édition : on change d'ensemble, le deck reste de côté.
@@ -495,7 +543,7 @@ impl Session {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
             Ok(serde_json::to_string(v).context(ResponseSnafu)?)
         }
-        if matches!(self.mode, Mode::Templates { .. }) && matches!(req, Request::Save { .. }) {
+        if matches!(self.mode, Mode::Templates { .. }) && matches!(req, Request::Save { .. } | Request::Merge { .. }) {
             return EditingTemplatesSnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
@@ -517,7 +565,12 @@ impl Session {
                 self.template_cache = None;
                 return json(&self.library.list());
             }
-            Request::Save { path } => self.save(path.as_deref())?,
+            Request::Save { path, overwrite } => {
+                self.save_checked(path.as_deref(), overwrite)?;
+            }
+            Request::Merge { path } => {
+                self.merge_file(&path)?;
+            }
             Request::Apply { label, ops } => self.apply(&label, ops)?,
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
@@ -536,6 +589,7 @@ impl Session {
         // côté, s'il y en a un, n'est pas encore montré : il reste, pour
         // apparaître à son tour quand `close_templates` le rendra visible.)
         self.doc.notice = None;
+        self.doc.disk_replaced = false;
         Ok(out)
     }
 
@@ -547,7 +601,7 @@ impl Session {
 
     /// Charge un document (déjà lu) dans la session.
     pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
-        self.load_document(Document::new(sources, path, self.history_limit))
+        self.load_document(Document::new(sources, path, &self.doc_defaults))
     }
 
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
@@ -559,18 +613,46 @@ impl Session {
             // Forme canonique des graphiques : pas une action de l'utilisateur.
             doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         }
-        if doc.sources.fonts != self.doc.sources.fonts {
-            // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
-            // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
-            self.render_fonts = self.app_fonts.with(doc.sources.fonts.values().cloned());
-            self.renderer = new_renderer(self.render_fonts.clone(), &self.localizer)?;
-            self.template_renderer = None;
-            self.template_cache = None;
-            self.svg_cache.clear();
-        }
+        // Le rendu des nouvelles polices est prêt avant de remplacer le
+        // document : s'il échoue, l'ancien document et son rendu restent.
+        let fonts = (doc.sources.fonts != self.doc.sources.fonts)
+            .then(|| self.fonts_renderer(&doc.sources.fonts))
+            .transpose()?;
         self.doc = doc;
+        if let Some(fonts) = fonts {
+            self.install_fonts(fonts);
+        }
         self.ui.slide = None;
         self.rerender()
+    }
+
+    /// Nouvelles polices dans les sources : nouveau monde Typst. À l'appelant
+    /// de dire si elles ont changé : comparer les polices coûte, reconstruire
+    /// le rendu plus encore.
+    fn refresh_fonts(&mut self) -> Result<()> {
+        let fonts = self.fonts_renderer(&self.doc.sources.fonts)?;
+        self.install_fonts(fonts);
+        Ok(())
+    }
+
+    /// Les polices du rendu (app + `fonts` du deck) et leur rendu, sans rien
+    /// installer. Les fichiers restent aussi dans les sources (ils sont
+    /// enregistrés avec le deck), d'où la copie.
+    fn fonts_renderer(&self, fonts: &BTreeMap<String, Vec<u8>>) -> Result<FontsRenderer> {
+        let render_fonts = self.app_fonts.with(fonts.values().cloned());
+        let renderer = new_renderer(render_fonts.clone(), &self.localizer)?;
+        Ok(FontsRenderer { fonts: render_fonts, renderer, deck_fonts: fonts.len() })
+    }
+
+    /// Installe des polices et leur rendu (voir `fonts_renderer`) ; les
+    /// aperçus et SVG en cache, faits avec les anciennes, sont oubliés.
+    fn install_fonts(&mut self, built: FontsRenderer) {
+        self.render_fonts = built.fonts;
+        self.renderer = built.renderer;
+        self.render_deck_fonts = built.deck_fonts;
+        self.template_renderer = None;
+        self.template_cache = None;
+        self.svg_cache.clear();
     }
 
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
@@ -586,17 +668,9 @@ impl Session {
         Ok(())
     }
 
-    /// Enregistre en `.oku-slides.pdf` : PDF + blob des sources, écriture atomique.
-    pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
-        let mut path = match path {
-            Some(p) => p.to_owned(),
-            None => self.doc.path.clone().context(NoPathSnafu)?,
-        };
-        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        if !name.ends_with(EXTENSION) {
-            let stem = name.strip_suffix(".pdf").unwrap_or(&name).to_owned();
-            path.set_file_name(format!("{stem}{EXTENSION}"));
-        }
+    /// Écrit en `.oku-slides.pdf` (`path` déjà normalisé, voir `save_path`) :
+    /// PDF + blob des sources, écriture atomique.
+    fn write_to(&mut self, path: PathBuf) -> Result<()> {
         let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
         let pdf = compiled.pdf().context(RenderSnafu)?;
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
@@ -727,6 +801,7 @@ impl Session {
                 .map(|c| c.warnings.iter().map(|w| w.localize(&self.localizer)).collect())
                 .unwrap_or_default(),
             notice: doc.notice.as_deref(),
+            disk_replaced: doc.disk_replaced,
             appearance: &self.appearance,
             templates: self.deck_set(),
             editing: self.editing(),

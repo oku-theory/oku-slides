@@ -38,3 +38,15 @@ fn notice_modified_elsewhere_with_unreadable_parts_joins_both_lines() {
     assert_that!(lines[0].to_owned()).is_equal_to(l.tr("notice-modified-elsewhere"));
     assert_that!(lines[1]).ends_with("(1).");
 }
+
+#[test]
+fn deck_uid_of_a_json_deck_is_none() {
+    let dir = std::env::temp_dir().join(format!("oku-slides-files-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("deck.json");
+    std::fs::write(&path, r#"{"slides":[]}"#).unwrap();
+    let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20 };
+    let uid = deck_uid_of(&Storage::local().unwrap(), &path, limits);
+    std::fs::remove_dir_all(&dir).ok();
+    assert_that!(uid.unwrap()).is_none();
+}

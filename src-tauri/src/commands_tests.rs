@@ -14,6 +14,12 @@ fn classify_view_and_messages_never_touch_windows() {
 }
 
 #[test]
+fn classify_same_deck_returns_its_own_reply() {
+    let same = req(serde_json::json!({"cmd": "same_deck", "path": "/d/x.oku-slides.pdf"}));
+    assert_that!(classify(&same)).is_equal_to((false, false));
+}
+
+#[test]
 fn classify_structural_requests_resync_without_forcing_focus() {
     for v in [
         serde_json::json!({"cmd": "new_tab", "window": "w-1"}),

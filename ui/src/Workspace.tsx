@@ -7,6 +7,7 @@ import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, typ
 import { mayClose } from "./close";
 import { t } from "./i18n";
 import { newest } from "./latest";
+import { mergedNotice, openGuarded } from "./merge";
 import { cycle, nth, tabShortcut } from "./tabs";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
@@ -39,6 +40,9 @@ export default function Workspace() {
   // s'ouvrir) s'affiche aussitôt.
   const [nonce, setNonce] = useState(0);
   const bump = useCallback(() => setNonce((n) => n + 1), []);
+  // L'avis d'une fusion faite à l'ouverture : seule la réponse de la fusion
+  // le porte, l'`App` de son onglet le montre (voir `openGuarded`).
+  const [merged, setMerged] = useState<{ tab: string; text: string } | null>(null);
 
   /** Relit la vue, sans relecture du snapshot : ce que fait l'`App` après chaque commande. */
   const reread = useCallback(() => {
@@ -96,6 +100,13 @@ export default function Workspace() {
   }, []);
 
   const win = view?.windows.find((w) => w.label === label);
+  // L'avis de fusion, montré par l'`App` de l'onglet actif (celui de la
+  // fusion, ou l'actif d'ici si elle a eu lieu dans une autre fenêtre) ; ses
+  // effets passent avant celui-ci, qui l'oublie une fois montré.
+  const mergeNotice = win ? mergedNotice(merged, win) : null;
+  useEffect(() => {
+    if (mergeNotice !== null) setMerged(null);
+  }, [mergeNotice]);
   const viewRef = useRef(view);
   viewRef.current = view;
   const winRef = useRef(win);
@@ -210,8 +221,20 @@ export default function Workspace() {
   }
 
   // Un fichier ouvert devient l'onglet actif (nouveau, ou déjà ouvert
-  // ailleurs) : `key` remonte l'`App`. Déjà actif : rien à recharger.
-  const onOpen = (path: string) => void run(workspace.openTab(label, path));
+  // ailleurs) : `key` remonte l'`App`. Déjà actif : rien à recharger. Une
+  // autre copie d'un deck déjà ouvert fait d'abord poser la question ; fusionné
+  // dans l'onglet déjà actif, son `App` relit le snapshot (`bump`).
+  const onOpen = (path: string) =>
+    void run(
+      openGuarded(label, path).then(async (notice) => {
+        const v = await workspace.view();
+        if (notice && alive.current) {
+          setMerged(notice);
+          bump();
+        }
+        return v;
+      }),
+    );
   const dropOutside = async (id: string) => {
     try {
       await tabDrag.drop(id);
@@ -227,7 +250,14 @@ export default function Workspace() {
       {error && <p className="workspace-error" role="alert">{error}</p>}
       <div className="workspace-body">
         {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
-        <App key={win.active} tab={win.active} nonce={nonce} onOpen={onOpen} onChange={inTauri ? undefined : reread} />
+        <App
+          key={win.active}
+          tab={win.active}
+          nonce={nonce}
+          notice={mergeNotice}
+          onOpen={onOpen}
+          onChange={inTauri ? undefined : reread}
+        />
       </div>
       <TabBar
         view={view}

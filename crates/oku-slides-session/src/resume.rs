@@ -24,7 +24,7 @@ use oku_slides_platform::storage::{Storage, StorageError};
 use crate::files::read_document;
 use crate::resume_writer::{Job, Writer};
 use crate::views::{TemplateMode, UiState};
-use crate::{Document, EXTENSION, Mode, Session, SessionError};
+use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
 pub(crate) const VERSION: u32 = 1;
 pub(crate) const DECK_DIR: &str = "deck";
@@ -365,9 +365,9 @@ impl Resume {
     }
 
     /// Relit un document : son replica (`deck.loro`, au plus
-    /// `max_replica_bytes`), avec une pile d'annulation neuve d'au plus
-    /// `undo_limit` étapes. Sans `deck.loro` (ancien format), illisible.
-    pub fn read_doc(&self, sub: &str, undo_limit: usize, max_replica_bytes: usize) -> Result<Document> {
+    /// `max_replica_bytes`), avec une pile d'annulation neuve et l'auteur de
+    /// `defaults`. Sans `deck.loro` (ancien format), illisible.
+    pub fn read_doc(&self, sub: &str, defaults: &DocDefaults, max_replica_bytes: usize) -> Result<Document> {
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
         let raw: DocIn = serde_json::from_slice(&self.get(&path)?).context(JsonSnafu { path: &path })?;
@@ -409,7 +409,7 @@ impl Resume {
         for issue in &issues {
             tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
         }
-        let mut doc = Document::new(sources, path, undo_limit);
+        let mut doc = Document::new(sources, path, defaults);
         doc.dirty = raw.dirty;
         doc.saved_hash = raw.saved_hash;
         doc.blank = raw.blank;
@@ -522,11 +522,11 @@ impl Session {
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
-        let (limit, max) = (self.history_limit, self.source_limits.replica_bytes);
-        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, limit, max)?);
+        let max = self.source_limits.replica_bytes;
+        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max)?);
         let templates = match state.mode {
             SavedMode::Deck => None,
-            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, limit, max) {
+            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, &self.doc_defaults, max) {
                 Ok(doc) => Some((doc, edit)),
                 Err(e) => {
                     tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "modèles de reprise illisibles");
@@ -551,7 +551,7 @@ impl Session {
         match read_document(&self.storage, path, self.source_limits) {
             Ok(opened) if saved.saved_hash.as_deref() != Some(opened.hash.as_str()) => {
                 let notice = opened.notice(&self.localizer);
-                let mut doc = Document::new(opened.sources, Some(path.clone()), self.history_limit);
+                let mut doc = Document::new(opened.sources, Some(path.clone()), &self.doc_defaults);
                 doc.saved_hash = Some(opened.hash);
                 doc.notice = notice;
                 doc

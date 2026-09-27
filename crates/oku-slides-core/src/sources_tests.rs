@@ -220,3 +220,25 @@ fn sources_error_replica_localizes_as_replica_error() {
         oku_slides_i18n::Localize::localize(&DeckReplica::from_snapshot(b"x", MAX.replica_bytes).unwrap_err(), &fr);
     assert_that!(oku_slides_i18n::Localize::localize(&err, &fr)).is_equal_to(expected);
 }
+
+#[test]
+fn merge_unions_assets_and_keeps_our_font_on_name_clash() {
+    let deck = roadmap();
+    let mut a = SourceBundle::new(deck.clone()).unwrap();
+    let snap = a.to_zip().unwrap();
+    let mut b = SourceBundle::from_zip(&snap, MAX).unwrap().0;
+    a.fonts.insert("f.ttf".into(), b"n\xc3\xb4tre".to_vec());
+    b.fonts.insert("f.ttf".into(), b"sienne".to_vec());
+    let id = b.add_asset(b"png".to_vec());
+    a.merge(b).unwrap();
+    assert_that!(a.assets.contains_key(&id)).is_true();
+    assert_that!(a.fonts.get("f.ttf").map(Vec::as_slice)).is_equal_to(Some(&b"n\xc3\xb4tre"[..]));
+}
+
+#[test]
+fn merge_unrelated_bundles_returns_replica_unrelated() {
+    let mut a = SourceBundle::new(roadmap()).unwrap();
+    let b = SourceBundle::new(roadmap()).unwrap();
+    let err = a.merge(b).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::Replica(ReplicaErrorKind::Unrelated));
+}

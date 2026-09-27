@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TabApi, TemplateView } from "./api";
-import { errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
+import { errorText, pickOpenPath, tabApi } from "./api";
+import { saveGuarded } from "./merge";
 import { applyAppearance } from "./appearance";
 import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, textOps, textToParagraphs } from "./deck";
 import TemplatePicker from "./TemplatePicker";
@@ -109,10 +110,12 @@ function TitleField({ value, display, onCommit }: { value: string; display: stri
 }
 
 /** Un onglet : le deck de la session `tab`. */
-export default function App({ tab, nonce, onOpen, onChange }: {
+export default function App({ tab, nonce, notice, onOpen, onChange }: {
   tab: string;
   /** Change à chaque vue diffusée : le snapshot est relu (un avis a pu arriver). */
   nonce: number;
+  /** Un avis venu d'ailleurs (fusion faite à l'ouverture), montré une fois. */
+  notice?: string | null;
   /** Ouvrir un fichier : l'espace de travail choisit l'onglet. */
   onOpen: (path: string) => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
@@ -139,10 +142,12 @@ export default function App({ tab, nonce, onOpen, onChange }: {
   // Une relecture (`nonce`) croise parfois une modification : la réponse la
   // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
   const latest = useRef(new Latest());
-  const run = useCallback(async (p: Promise<Snapshot>) => {
+  // `null` : rien n'a été fait (dialogue abandonné), l'état ne change pas.
+  const run = useCallback(async (p: Promise<Snapshot | null>) => {
     const n = latest.current.begin();
     try {
       const s = await p;
+      if (!s) return null;
       if (latest.current.accept(n)) {
         setSnap(s);
         changed.current?.();
@@ -155,6 +160,10 @@ export default function App({ tab, nonce, onOpen, onChange }: {
       return null;
     }
   }, []);
+
+  useEffect(() => {
+    if (notice) say(notice, true);
+  }, [notice]);
 
   // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
   // (fichier reçu qui n'a pas pu s'ouvrir) n'attend pas la prochaine édition.
@@ -257,11 +266,17 @@ export default function App({ tab, nonce, onOpen, onChange }: {
     if (path) onOpen(path);
   };
 
+  /** Fusionne un autre PDF du même deck dans celui de l'onglet. */
+  const merge = async () => {
+    const path = await pickOpenPath();
+    if (path) await run(api.merge(path));
+  };
+
   const save = async (as = false) => {
     if (!snap) return;
-    const path = as || !snap.path ? await pickSavePath(snap.name) : null;
-    if ((as || !snap.path) && !path) return;
-    if (await run(api.save(path))) say(t("ui-toast-saved"));
+    const s = await run(saveGuarded(api, snap, as));
+    // Enregistré après fusion : l'avis de fusion reste affiché.
+    if (s && !s.notice) say(t("ui-toast-saved"));
   };
 
 
@@ -552,6 +567,7 @@ export default function App({ tab, nonce, onOpen, onChange }: {
           <>
             <button className="object btn" onClick={editTemplates} title={t("ui-toolbar-templates-title")}>{t("ui-toolbar-templates")}</button>
             <button className="object btn" onClick={open}>{t("ui-toolbar-open")}</button>
+            <button className="object btn" onClick={merge}>{t("ui-merge")}</button>
             <button className="object btn primary" onClick={() => save(false)} disabled={!snap.dirty && !!snap.path}>{t("ui-toolbar-save")}</button>
           </>
         )}
