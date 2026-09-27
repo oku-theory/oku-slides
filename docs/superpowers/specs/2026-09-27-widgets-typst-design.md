@@ -10,19 +10,19 @@ avec un schéma de paramètres nommés et typés. Le modèle du deck passe d'un
 enum Rust fermé (`ElementBody`, `SlideKind`) à une forme générique
 `{ id, kind, params }`, validée contre ce schéma.
 
-C'est la fondation de l'édition par zones : une carte expose `kicker`,
+C'est la fondation de l'édition par champs : une carte expose `kicker`,
 `title` et `body`, trois paramètres Typst, que l'édition en place pourra
 cibler séparément.
 
 Programme en trois sous-projets, chacun avec sa spec :
 
 1. **Widgets Typst et modèle générique** (cette spec, t-270).
-2. Zones éditables en place par widget (t-271) : un éditeur par zone, à sa
-   position exacte, placeholders des zones vides, Tab entre zones.
+2. Champs éditables en place par widget (t-271) : un éditeur par champ, à sa
+   position exacte, placeholders des champs vides, Tab entre champs.
 3. Quasi-rendu en ligne de l'éditeur (t-272) : marques markdown masquées
-   hors du curseur, style fidèle à la zone.
+   hors du curseur, style fidèle au champ.
 
-Hors périmètre ici : l'éditeur par zone et le quasi-rendu (sous-projets 2
+Hors périmètre ici : l'éditeur par champ et le quasi-rendu (sous-projets 2
 et 3), les widgets embarqués dans un deck, la lecture des decks v1.
 
 ## Décisions
@@ -42,9 +42,11 @@ et 3), les widgets embarqués dans un deck, la lecture des decks v1.
 - **Pas de rétrocompatibilité.** `DECK_VERSION` passe à 2 ; un deck v1
   (y compris ses sources Loro) n'est pas lu. Fixtures et templates sont
   réécrits.
-- **Vocabulaire.** Une *zone* est une région de texte éditable en place ;
-  un *slot* est un paramètre qui contient des éléments. L'enum
-  `Zone { Blocks, Elements }` actuelle disparaît au profit des slots.
+- **Vocabulaire.** Un *champ* (`field`) est une région de texte éditable
+  en place, liée à un paramètre ; un *slot* est un paramètre qui contient
+  des éléments. « Zone » garde son sens actuel : la zone de corps où se
+  placent les éléments libres (`<oku-slides-zone>`, `ZoneBox`). L'enum
+  `Zone { Blocks, Elements }` du modèle disparaît au profit des slots.
 
 ## Côté Typst
 
@@ -62,7 +64,7 @@ templates/grilles/
 
 ### Déclaration
 
-`src/widget.typ` exporte `widget`, `zone` et `p` :
+`src/widget.typ` exporte `widget`, `field` et `p` :
 
 ```typst
 #let card = widget("card",
@@ -73,7 +75,7 @@ templates/grilles/
     body:      p.rich(label: "Corps"),
     highlight: p.flag(label: "Mise en avant", default: false),
   ),
-  (args, ctx) => { … zone("kicker", args.kicker, style: …) … })
+  (args, ctx) => { … field(ctx, "kicker", args.kicker, style: …) … })
 ```
 
 Descripteurs `p.*`, tous sérialisables en dictionnaire
@@ -87,7 +89,7 @@ Descripteurs `p.*`, tous sérialisables en dictionnaire
 | `p.number(min:, max:)` | nombre |
 | `p.choice(..values)` | une valeur parmi une liste |
 | `p.asset()` | identifiant d'asset `sha256:…` |
-| `p.slot(mode: "flow" \| "free", accepts: (..kinds) \| "any")` | liste d'éléments |
+| `p.slot(mode: "flow" \| "free", accepts: (..kinds) \| none)` | liste d'éléments (`none` : tout widget d'élément) |
 | `p.grid()` | grille `{columns, rows, gap}` |
 | `p.host("chart")` | type fourni et validé par l'hôte Rust |
 
@@ -96,20 +98,23 @@ valeur y est lue et écrite. La couverture s'en sert pour `title` et
 `subtitle`.
 
 `widget(name, label:, category:, params:, render)` renvoie
-`(name, schema, render)`. `category` vaut `"slide"` ou `"element"`. Le
+`(name, schema, render)`. Dans `schema`, les paramètres forment un tableau
+ordonné `((name: …, type: …, …), …)` : l'ordre de déclaration est celui de
+l'édition (Tab) et de l'inspecteur. `category` vaut `"slide"` ou `"element"`. Le
 registre d'un pack est le tableau `registry` exporté par son `widgets.typ` ;
 un nom déjà présent dans la base **remplace** le widget de base (voir
 « Surcharge »).
 
-### Zones
+### Champs
 
-`zone(name, content, style:)` généralise `tracked()` : elle émet
-`#metadata((id: "<élément>.<zone>", page, x, y, w, h, ax, aw, style))<oku-slides-box>`
-avec la sonde de style (`text-probe`), puis le contenu. L'id de l'élément
-vient du contexte de rendu posé par le rendu générique. Chaque widget
-enveloppe ses paramètres `plain` et `rich` dans `zone()`. Le sous-projet 2
-consomme ces boîtes ; ce sous-projet se contente de les émettre et de les
-tester.
+`field(ctx, name, content, style:)` généralise `tracked()` : elle émet
+`#metadata((owner, field, page, x, y, w, h, ax, aw, style))<oku-slides-field>`
+avec la sonde de style (`text-probe`), puis le contenu. `owner` est l'id de
+l'élément ou de la slide, lu dans `ctx.id`. Une étiquette à part, et non
+`<oku-slides-box>`, garde les boîtes d'éléments intactes : le rendu les
+range dans `Layout::fields` (`FieldBox`). Chaque widget enveloppe ses
+paramètres `plain` et `rich` dans `field()`. Le sous-projet 2 consomme ces
+boîtes ; ce sous-projet se contente de les émettre et de les tester.
 
 ### Rendu générique
 
@@ -168,17 +173,17 @@ L'hôte compile un document minimal par pack :
 ### Registre (`oku-slides-core`, sans dépendance à Typst)
 
 ```rust
-pub struct WidgetRegistry { widgets: BTreeMap<String, WidgetSchema>, fingerprint: String }
-pub struct WidgetSchema  { name: String, label: String, category: Category,
-                           params: IndexMap<String, ParamSchema> }
+pub struct WidgetRegistry { widgets: BTreeMap<String, WidgetSchema> }
+pub struct WidgetSchema  { name: String, label: Option<String>, category: Category,
+                           params: Vec<ParamSchema> }   // ordre de déclaration
 pub enum   Category      { Slide, Element }
-pub struct ParamSchema   { label: String, ty: ParamType,
+pub struct ParamSchema   { name: String, label: Option<String>, ty: ParamType,
                            default: Option<Value>, bind: Option<String> }
 pub enum   ParamType     { Plain, Rich, Flag, Number { min: Option<f64>, max: Option<f64> },
-                           Choice(Vec<String>), Asset,
-                           Slot { mode: SlotMode, accepts: Accepts }, Grid, Host(HostType) }
+                           Choice { values: Vec<String> }, Asset,
+                           Slot { mode: SlotMode, accepts: Option<Vec<String>> }, Grid,
+                           Host { host: HostType } }
 pub enum   SlotMode      { Flow, Free }
-pub enum   Accepts       { Any, Kinds(Vec<String>) }
 pub enum   HostType      { Chart }
 ```
 
@@ -186,8 +191,9 @@ pub enum   HostType      { Chart }
 
 `load_registry(pack) -> Result<WidgetRegistry, RegistryError>` compile la
 sonde avec le `World` du rendu, lit `<oku-widgets>`, fusionne avec la base
-(règle de surcharge), désérialise. Cache par empreinte (hash de la
-bibliothèque et de `widgets.typ`).
+(règle de surcharge), désérialise. Le cache (`Registries`, dans render)
+range les registres par empreinte (sha-256 de la bibliothèque et de
+`widgets.typ`) ; l'empreinte n'est pas dans `WidgetRegistry`.
 
 **Surcharge.** Un pack peut redéfinir un widget de base si chaque paramètre
 de base existe avec le même type ; les ajouts sont permis. Sinon le pack ne
@@ -286,7 +292,8 @@ une valeur mal typée.
   base.
 - `views.rs` : `Target` porte `widget` et la liste des paramètres du schéma
   (nom, type, label). Les ids `@title`, `@subtitle`, `@kicker`, `@text`
-  disparaissent : les zones s'appellent `<id>.<param>` (slide comprise).
+  disparaissent : les champs d'une slide sont des `FieldBox` d'`owner`
+  l'id de la slide, comme ceux d'un élément.
 - Nouvelle vue `widgets()` : le registre (nom, label, catégorie,
   paramètres).
 
@@ -306,8 +313,8 @@ une valeur mal typée.
 - `slideTools.ts`, `a2ui/panelActions.ts` : listes de widgets lues dans le
   registre.
 - L'édition en place actuelle continue de fonctionner : sur une carte elle
-  édite `body`, sur un texte `body`, sur une slide les zones `plain`
-  existantes. Le positionnement par zone arrive avec t-271.
+  édite `body`, sur un texte `body`, sur une slide les champs `plain`
+  existants. Le positionnement par champ arrive avec t-271.
 
 ### Dépôt
 
@@ -328,12 +335,25 @@ une valeur mal typée.
   `ChoiceOutOfRange`, `WrongCategory`.
 - Snafu avec backtrace, messages en minuscules, localisés via Fluent.
 
+## Plans
+
+Deux plans, une seule branche :
+
+1. **Plan 1, additif** : `widget`, `field`, `p` ; tous les widgets déclarés ;
+   l'ancien dispatcher de `data.typ` appelle leurs rendus ; `WidgetRegistry`
+   (core), `load_registry` et `Registries` (render), pack injecté dans le
+   monde Typst. Le workspace reste vert à chaque tâche.
+2. **Plan 2, bascule v2** : modèle, Loro, ops, validation, rendu générique,
+   puis session, MCP, agent, UI, packs au format dossier, fixtures, i18n.
+   Seul le crate en cours est vert à chaque tâche ; le workspace l'est à la
+   fin.
+
 ## Tests
 
 Dans l'ordre de construction, en TDD :
 
 1. **Typst** : la sonde du pack de base produit le JSON attendu (snapshot
-   `insta`) ; `zone()` émet `c1.title` avec boîte et style ; le rendu
+   `insta`) ; `field()` émet `(owner: "c1", field: "title")` avec boîte et style ; le rendu
    générique de `fixtures/roadmap` est identique au rendu actuel
    (comparaison des pages rendues).
 2. **Registre** : descripteurs `p.*` ; cache par empreinte ; surcharge
