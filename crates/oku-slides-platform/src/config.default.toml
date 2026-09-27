@@ -29,7 +29,10 @@ max_replica_mib = 32
 max_sources_mib = 256
 
 [serve]
-# Serveur de développement (`oku-slides serve`).
+# Serveur de développement (`oku-slides serve`), sans authentification.
+# Il ne répond qu'aux requêtes adressées à la boucle locale (localhost,
+# 127.0.0.1, ::1) ou à `host` lui-même ; avec `0.0.0.0` ou `::`, il écoute
+# partout mais le réseau local reste refusé (garde contre le DNS rebinding).
 host = "127.0.0.1"
 port = 4870
 
@@ -76,3 +79,10 @@ pre_roll = 0.3
 post_roll = 0.25
 # Longueur maximale d'une phrase (s) : Whisper lit 30 s à la fois.
 max_phrase = 25.0
+
+[agent]
+# Agent ACP lancé par ⌘⇧D : commande et arguments. Il ne reçoit que les
+# outils d'Oku Slides (serveur MCP local), ni fichiers ni terminal.
+# OKU_SLIDES_AGENT__ARGS se découpe sur les espaces.
+command = "npx"
+args = ["-y", "@agentclientprotocol/claude-agent-acp@0.81.2"]

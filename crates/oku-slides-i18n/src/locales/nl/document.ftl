@@ -6,6 +6,8 @@ pdf-write = De pdf kon niet worden geschreven
 render-compile = De presentatie kon niet worden weergegeven
 render-pdf = De pdf-export is mislukt
 render-no-page = Deze pagina bestaat niet
+render-image = Afbeelding van de dia kon niet worden gemaakt
+
 render-setup = De renderer kon niet starten
 render-missing-image = ontbrekende afbeelding
 diagnostic-error = fout

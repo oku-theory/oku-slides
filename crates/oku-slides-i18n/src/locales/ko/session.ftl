@@ -17,6 +17,7 @@ session-unknown-window = 이 창은 더 이상 열려 있지 않습니다.
 session-last-window = 마지막 창은 열린 상태로 유지됩니다. 대신 앱을 종료하세요.
 session-unsaved = “{ $title }”에 저장하지 않은 변경 사항이 있습니다.
 session-bad-request = 잘못된 요청입니다: { $reason }
+session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
 
 deck-untitled = 제목 없음
 deck-new-title = 새 프레젠테이션

@@ -29,6 +29,8 @@ cli-stopped = หยุดเซิร์ฟเวอร์แล้ว
 cli-not-found = ไม่พบ
 cli-bad-header = ส่วนหัว HTTP ไม่ถูกต้อง: { $value }
 cli-bad-request = คำขอไม่ถูกต้อง: { $reason }
+cli-sse-full = มีสตรีมเหตุการณ์เปิดอยู่มากเกินไป
+cli-forbidden = ปฏิเสธคำขอ: คำขอไม่ได้มาจากอินเทอร์เฟซภายในเครื่อง
 
 cli-about = เรนเดอร์และจัดเก็บงานนำเสนอ Oku Slides
 cli-arg-fonts = โฟลเดอร์ฟอนต์เพิ่มเติม (TTF/OTF); ค่าเริ่มต้น: paths.fonts ในการตั้งค่า

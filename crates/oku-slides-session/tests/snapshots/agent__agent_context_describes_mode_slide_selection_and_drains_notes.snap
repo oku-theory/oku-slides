@@ -1,0 +1,13 @@
+---
+source: crates/oku-slides-session/tests/agent.rs
+assertion_line: 455
+expression: ctx
+---
+<oku-slides-context>
+mode: deck
+locale: fr · theme: papier · template_set: essentiel
+slide: s-libre (7/8) kind=content title="Placement libre"
+selection: element=e-texte field=- editing=false
+since_last_turn:
+  - variant picked: "image à gauche" (s-libre)
+</oku-slides-context>

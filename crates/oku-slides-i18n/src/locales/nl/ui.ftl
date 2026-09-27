@@ -143,12 +143,32 @@ ui-grid-cell = kol. { $cols } · rij { $rows }
 ui-notes = Dia-hulpmiddelen
 ui-stepper-less = { $label }: één minder
 ui-stepper-more = { $label }: één meer
+ui-agent-color-other = Andere kleur
+ui-agent-thread = Agent
+ui-agent-new-conversation = Nieuw gesprek
+ui-agent-state-idle = Agent
+ui-agent-state-starting = De agent start…
+ui-agent-state-working = De agent is bezig…
+ui-agent-stopped = Gestopt.
+ui-agent-ended = Beurt beëindigd ({ $stop }).
+ui-agent-stop-max-tokens = De agent heeft zijn lengtelimiet bereikt.
+ui-agent-stop-max-turns = De agent heeft zijn stappenlimiet bereikt.
+ui-agent-stop-refusal = De agent heeft geweigerd.
+ui-agent-sheet = Vraag van de agent
+ui-agent-sheet-keys = 1–4 kiezen · Enter bevestigen · E bewerken · Esc annuleren
+ui-agent-variants = Varianten
+ui-agent-drawer-keys = Klik of 1–4 · Esc sluit
+ui-agent-confirm = Bevestiging van de agent
 
 ## Dicteren
 
 ui-dictation = Dicteren
 ui-dictation-start = Dicteren
 ui-dictation-start-title = Dicteren (⌘D)
+ui-dictation-agent-start = Praat met de agent
+ui-dictation-agent-start-title = Praat met de agent (⌘⇧D)
+ui-dictation-agent-stop = Stop de agent (⌘⇧D of Esc)
+ui-dictation-agent-working = De agent is bezig… ⌘⇧D of Esc stopt hem
 ui-dictation-finish = Dicteren beëindigen
 ui-dictation-finish-title = Beëindigen (⌘D)
 ui-dictation-cancel = Annuleren

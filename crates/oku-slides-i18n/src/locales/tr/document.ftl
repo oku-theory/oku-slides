@@ -6,6 +6,8 @@ pdf-write = PDF yazılamadı
 render-compile = Sunu oluşturulamadı
 render-pdf = PDF dışa aktarımı başarısız oldu
 render-no-page = Bu sayfa mevcut değil
+render-image = Slayt görüntüsü oluşturulamadı
+
 render-setup = Oluşturucu başlatılamadı
 render-missing-image = eksik görsel
 diagnostic-error = hata

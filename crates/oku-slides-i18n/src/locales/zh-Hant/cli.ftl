@@ -29,6 +29,8 @@ cli-stopped = 伺服器已停止
 cli-not-found = 找不到
 cli-bad-header = HTTP 標頭無效：{ $value }
 cli-bad-request = 要求無效：{ $reason }
+cli-sse-full = 已開啟的事件串流過多
+cli-forbidden = 請求遭拒：並非來自本機介面
 
 cli-about = 渲染並儲存 Oku Slides 簡報
 cli-arg-fonts = 額外字型資料夾（TTF/OTF）；預設：設定中的 paths.fonts

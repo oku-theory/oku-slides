@@ -705,3 +705,91 @@ fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
     assert_that!(err).is_equal_to(Some(SessionErrorKind::UnknownTab));
     assert_that!(dir.exists()).is_false();
 }
+
+#[test]
+fn with_session_runs_f_and_reports_that_the_tab_changed() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let (read, changed) = Workspace::with_session(&ws, "t-1", |s| s.deck().slides.len());
+    assert_that!(read).is_ok();
+    assert_that!(changed).is_false();
+    let (applied, changed) = Workspace::with_session(&ws, "t-1", |s| s.handle(set_theme()).is_ok());
+    assert_that!(applied).is_ok().is_true();
+    assert_that!(changed).is_true(); // l'onglet n'est plus vierge : la barre change
+}
+
+#[test]
+fn with_session_on_a_closed_tab_returns_unknown_tab_without_calling_f() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    send(&ws, json!({"cmd": "close", "tab": "t-1", "discard": true})).unwrap();
+    let mut called = false;
+    let (r, changed) = Workspace::with_session(&ws, "t-1", |_| called = true);
+    assert_that!(r.map_err(|e| e.kind())).is_err().is_equal_to(SessionErrorKind::UnknownTab);
+    assert_that!(called).is_false();
+    assert_that!(changed).is_false();
+}
+
+#[test]
+fn with_session_releases_the_workspace_lock_while_f_runs() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let (free, _) = Workspace::with_session(&ws, "t-1", |_| ws.try_lock().is_ok());
+    assert_that!(free).is_ok().is_true();
+}
+
+#[test]
+fn open_elsewhere_is_true_only_for_the_file_of_another_tab() {
+    use crate::agent::Sessions;
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let file = saved_pdf(&data, "ailleurs");
+    Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
+    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    // t-2 tient le fichier.
+    assert_that!(ws.open_elsewhere("t-1", &file)).is_true();
+    assert_that!(ws.open_elsewhere("t-2", &file)).is_false();
+    assert_that!(ws.open_elsewhere("t-1", &data.0.join("inconnu.oku-slides.pdf"))).is_false();
+}
+
+#[test]
+fn tab_ids_lists_the_tabs_of_every_window() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    assert_that!(Workspace::lock(&ws).tab_ids()).is_equal_to(vec!["t-1".to_owned(), "t-2".to_owned()]);
+}
+
+#[test]
+fn closed_by_reports_the_tabs_a_request_closed_or_replaced() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let (r, closed) = Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "close", "tab": "t-1", "discard": true})));
+    assert_that!(r).is_ok();
+    assert_that!(closed).is_equal_to(vec!["t-1".to_owned()]);
+    // Onglet vierge remplacé par un fichier : fermé lui aussi.
+    let file = saved_pdf(&data, "remplace");
+    let (_, closed) =
+        Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})));
+    assert_that!(closed).is_equal_to(vec!["t-2".to_owned()]);
+    let (_, closed) = Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "new_tab", "window": "w-1"})));
+    assert_that!(closed).is_empty();
+}
+
+#[test]
+fn with_session_wakes_a_dormant_resumed_tab() {
+    let data = Data::new();
+    let dir = data.0.join("resume");
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir.clone()).unwrap());
+    Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
+    Workspace::settle(&ws);
+    drop(ws);
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir).unwrap());
+    let slot = Workspace::lock(&again).session("t-1").unwrap();
+    assert_that!(matches!(*relock(&slot), Slot::Dormant(_))).is_true();
+    let (theme, _) = Workspace::with_session(&again, "t-1", |s| s.deck().theme.clone());
+    assert_that!(theme).is_ok().is_equal_to(Some("pro".to_owned()));
+    assert_that!(matches!(*relock(&slot), Slot::Ready(_))).is_true();
+}

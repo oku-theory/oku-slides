@@ -6,6 +6,8 @@ pdf-write = Không thể ghi PDF
 render-compile = Không thể kết xuất bản trình bày
 render-pdf = Xuất PDF thất bại
 render-no-page = Trang này không tồn tại
+render-image = Không thể tạo hình ảnh của slide
+
 render-setup = Không thể khởi động trình kết xuất
 render-missing-image = thiếu hình ảnh
 diagnostic-error = lỗi

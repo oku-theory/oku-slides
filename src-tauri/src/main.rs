@@ -21,6 +21,10 @@
 //!
 //! Une seule instance : une seconde transmet ses fichiers à la première ;
 //! sous macOS, Finder les envoie (`RunEvent::Opened`).
+//!
+//! L'agent (`oku-slides-agent::Stack`) : un par onglet, sessions via
+//! `AppSessions` ; commande `agent`, évènements `oku-slides:mcp` et
+//! `oku-slides:agent` émis à toutes les fenêtres.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -33,15 +37,16 @@ mod window_state;
 mod windows;
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::{Arc, Mutex};
 
+use oku_slides_agent::Stack;
 use oku_slides_session::{Fonts, Platform, Storage, Workspace};
 use oku_slides_stt::Stt;
-use tauri::{Manager, RunEvent, WindowEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 use pending::Pending;
-use state::AppState;
+use state::{AppSessions, AppState};
 
 /// Polices livrées avec l'app (ressource `fonts/`), plus `paths.fonts` des
 /// réglages ; un dossier illisible est signalé et ignoré.
@@ -152,15 +157,28 @@ fn main() -> color_eyre::Result<()> {
             dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
             let fonts = app_fonts(&platform.storage, &dirs);
             let workspace = Workspace::resume(fonts, &platform, platform.settings.paths.data().join("resume"))?;
+            let workspace = Arc::new(Mutex::new(workspace));
+            let stt = Stt::new(&platform);
+            // Les outils et l'agent vivent dans le runtime tokio de Tauri.
+            let rt = tauri::async_runtime::handle().inner().clone();
+            let sessions = AppSessions::new(app.handle().clone(), Arc::clone(&workspace));
+            let stack = Stack::start(Arc::new(sessions), &platform, Some(stt.clone()), rt);
+            let handle = app.handle().clone();
+            stack.forward(move |name, json| {
+                if let Err(e) = handle.emit(&format!("oku-slides:{name}"), json) {
+                    tracing::debug!(name, error = %e, "évènement de l'agent non émis");
+                }
+            });
             app.manage(AppState {
-                workspace: Mutex::new(workspace),
+                workspace,
                 localizer: platform.localizer.clone(),
                 sync: Mutex::new(()),
                 focus_seq: AtomicU64::new(0),
                 focus_applied: Mutex::new(0),
                 closing: AtomicBool::new(false),
+                stack,
             });
-            app.manage(Stt::new(&platform));
+            app.manage(stt);
             app.manage(window_state::Saver::new(app.handle().clone()));
             // « Quitter » (menu macOS) : jamais le `terminate:` natif, pour
             // toujours passer par `state::shutdown` (voir `menu.rs`).
@@ -204,7 +222,8 @@ fn main() -> color_eyre::Result<()> {
             tab_drag::drag_tab_leave,
             tab_drag::drop_tab,
             commands::quit,
-            commands::stt
+            commands::stt,
+            commands::agent
         ])
         .build(tauri::generate_context!())?;
     app.run(|app_handle, event| {

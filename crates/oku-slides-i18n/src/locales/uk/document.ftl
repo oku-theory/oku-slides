@@ -6,6 +6,8 @@ pdf-write = Не вдалося записати PDF
 render-compile = Не вдалося відтворити презентацію
 render-pdf = Не вдалося експортувати PDF
 render-no-page = Такої сторінки немає
+render-image = Неможливо створити зображення слайда
+
 render-setup = Не вдалося запустити відтворення
 render-missing-image = зображення відсутнє
 diagnostic-error = помилка

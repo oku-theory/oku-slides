@@ -18,15 +18,17 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
   (`TabInfo.deck_uid`) ; `post_notice` y pose l'avis d'un fichier ouvert à part par l'OS.
 - `paragraphs_to_text` (`text.rs`, inline dans `inline.rs`) : markdown d'édition
   relu par `@lezer/markdown` ; contrat `fixtures/markdown.json` et `-corpus.json` (`UPDATE_CORPUS=1`).
+- `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; l'espace de travail
+  l'implémente par `Workspace::with_session` et `Workspace::open_elsewhere` (`impl Sessions for Mutex<Workspace>`).
+  Un tour de l'agent est un groupe d'annulation du replica (`begin_turn` / `end_turn`).
 
 ## Verrous
 
 `Mutex<Workspace>` pour la structure, `Arc<Mutex<Slot>>` par onglet.
-
 - Ordre : **l'espace de travail, puis une session, jamais l'inverse.**
 - Jamais d'attente sur une session sous le verrou de l'espace de travail : `try_lock` seulement (fermeture, remplacement d'un onglet vierge).
 - Travail lent hors du verrou de l'espace de travail : session neuve construite puis insérée, onglet endormi relu sous son seul verrou, dossiers fermés supprimés après.
-- Seules `Workspace::apply`, `request`, `open_files`, `settle` et `post_notice` combinent les deux verrous, toujours en séquence, jamais imbriqués. Verrou empoisonné : `relock`.
+- Seules `Workspace::apply`, `request` (par `with_session`, que l'agent emprunte aussi), `open_files`, `settle` et `post_notice` combinent les deux verrous, toujours en séquence, jamais imbriqués. Verrou empoisonné : `relock`.
 
 ## Disposition de `<data>/resume/`
 

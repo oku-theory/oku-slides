@@ -17,6 +17,7 @@ session-unknown-window = यह विंडो अब खुली नहीं
 session-last-window = आख़िरी विंडो खुली रहती है: इसके बजाय ऐप बंद करें।
 session-unsaved = “{ $title }” में बिना सहेजे बदलाव हैं।
 session-bad-request = अमान्य अनुरोध: { $reason }
+session-agent-form = एजेंट का अनुरोध अमान्य है: { $reason }
 
 deck-untitled = बिना शीर्षक
 deck-new-title = नया प्रेज़ेंटेशन

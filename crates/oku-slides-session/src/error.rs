@@ -46,6 +46,8 @@ pub enum SessionErrorKind {
     NotEditingTemplates,
     /// La réponse n'a pas pu être écrite en JSON.
     Response,
+    /// Arguments d'une surface de l'agent invalides.
+    AgentForm,
     /// Onglet inconnu (fermé entre-temps).
     UnknownTab,
     /// Fenêtre inconnue (fermée entre-temps).
@@ -99,6 +101,8 @@ pub(crate) enum SessionInner {
     NotEditingTemplates { backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("invalid surface: {reason}"))]
+    AgentForm { reason: String, backtrace: Backtrace },
     #[snafu(display("tab not found: {id}"))]
     UnknownTab { id: String, backtrace: Backtrace },
     #[snafu(display("window not found: {label}"))]
@@ -128,6 +132,7 @@ impl SessionError {
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
             Response { .. } => SessionErrorKind::Response,
+            AgentForm { .. } => SessionErrorKind::AgentForm,
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
             UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
             Unsaved { .. } => SessionErrorKind::Unsaved,
@@ -189,6 +194,7 @@ impl Localize for SessionError {
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
             Response { .. } => l.tr("session-response"),
+            AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
             Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),

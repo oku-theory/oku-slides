@@ -143,12 +143,32 @@ ui-grid-cell = col. { $cols } · linha { $rows }
 ui-notes = Ferramentas do slide
 ui-stepper-less = { $label }: um a menos
 ui-stepper-more = { $label }: um a mais
+ui-agent-color-other = Outra cor
+ui-agent-thread = Agente
+ui-agent-new-conversation = Nova conversa
+ui-agent-state-idle = Agente
+ui-agent-state-starting = O agente está iniciando…
+ui-agent-state-working = O agente está trabalhando…
+ui-agent-stopped = Interrompido.
+ui-agent-ended = Turno encerrado ({ $stop }).
+ui-agent-stop-max-tokens = O agente atingiu o limite de tamanho.
+ui-agent-stop-max-turns = O agente atingiu o limite de etapas.
+ui-agent-stop-refusal = O agente recusou.
+ui-agent-sheet = Pergunta do agente
+ui-agent-sheet-keys = 1–4 escolher · Enter confirmar · E editar · Esc cancelar
+ui-agent-variants = Variantes
+ui-agent-drawer-keys = Clique ou 1–4 · Esc fecha
+ui-agent-confirm = Confirmação do agente
 
 ## Ditado
 
 ui-dictation = Ditado
 ui-dictation-start = Ditar
 ui-dictation-start-title = Ditar (⌘D)
+ui-dictation-agent-start = Falar com o agente
+ui-dictation-agent-start-title = Falar com o agente (⌘⇧D)
+ui-dictation-agent-stop = Parar o agente (⌘⇧D ou Esc)
+ui-dictation-agent-working = O agente está trabalhando… ⌘⇧D ou Esc o interrompe
 ui-dictation-finish = Concluir o ditado
 ui-dictation-finish-title = Concluir (⌘D)
 ui-dictation-cancel = Cancelar

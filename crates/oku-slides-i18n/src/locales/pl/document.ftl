@@ -6,6 +6,8 @@ pdf-write = Nie udało się zapisać pliku PDF
 render-compile = Nie udało się wyrenderować prezentacji
 render-pdf = Eksport do PDF nie powiódł się
 render-no-page = Ta strona nie istnieje
+render-image = Nie udało się wygenerować obrazu slajdu
+
 render-setup = Nie udało się uruchomić renderera
 render-missing-image = brakujący obraz
 diagnostic-error = błąd

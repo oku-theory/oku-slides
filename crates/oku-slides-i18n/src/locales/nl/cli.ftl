@@ -29,6 +29,8 @@ cli-stopped = server gestopt
 cli-not-found = niet gevonden
 cli-bad-header = ongeldige HTTP-header: { $value }
 cli-bad-request = ongeldig verzoek: { $reason }
+cli-sse-full = te veel gebeurtenisstromen al geopend
+cli-forbidden = verzoek geweigerd: het komt niet van de lokale interface
 
 cli-about = Oku Slides-presentaties weergeven en opslaan
 cli-arg-fonts = Extra lettertypemap (TTF/OTF); standaard: paths.fonts in de instellingen

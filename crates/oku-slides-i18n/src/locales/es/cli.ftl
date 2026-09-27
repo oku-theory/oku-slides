@@ -29,6 +29,8 @@ cli-stopped = servidor detenido
 cli-not-found = no encontrado
 cli-bad-header = encabezado HTTP no válido: { $value }
 cli-bad-request = solicitud no válida: { $reason }
+cli-sse-full = demasiados flujos de eventos ya abiertos
+cli-forbidden = solicitud rechazada: no proviene de la interfaz local
 
 cli-about = Genera y almacena presentaciones de Oku Slides
 cli-arg-fonts = Carpeta de tipografías adicional (TTF/OTF); por defecto: paths.fonts en la configuración

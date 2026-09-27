@@ -6,6 +6,8 @@ pdf-write = 無法寫入 PDF
 render-compile = 無法渲染簡報
 render-pdf = PDF 匯出失敗
 render-no-page = 此頁面不存在
+render-image = 無法生成幻燈片的圖像
+
 render-setup = 渲染器無法啟動
 render-missing-image = 缺少圖片
 diagnostic-error = 錯誤

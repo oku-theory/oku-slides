@@ -143,12 +143,32 @@ ui-grid-cell = कॉलम { $cols } · पंक्ति { $rows }
 ui-notes = स्लाइड टूल
 ui-stepper-less = { $label }: एक कम
 ui-stepper-more = { $label }: एक और
+ui-agent-color-other = अन्य रंग
+ui-agent-thread = एजेंट
+ui-agent-new-conversation = नई बातचीत
+ui-agent-state-idle = एजेंट
+ui-agent-state-starting = एजेंट शुरू हो रहा है…
+ui-agent-state-working = एजेंट काम कर रहा है…
+ui-agent-stopped = रोका गया।
+ui-agent-ended = बारी समाप्त ({ $stop })।
+ui-agent-stop-max-tokens = एजेंट अपनी लंबाई सीमा तक पहुँच गया।
+ui-agent-stop-max-turns = एजेंट अपनी चरण सीमा तक पहुँच गया।
+ui-agent-stop-refusal = एजेंट ने मना कर दिया।
+ui-agent-sheet = एजेंट का प्रश्न
+ui-agent-sheet-keys = 1–4 चुनें · Enter पुष्टि · E संपादित करें · Esc रद्द करें
+ui-agent-variants = विकल्प
+ui-agent-drawer-keys = क्लिक या 1–4 · Esc बंद करता है
+ui-agent-confirm = एजेंट की पुष्टि
 
 ## डिक्टेशन
 
 ui-dictation = डिक्टेशन
 ui-dictation-start = बोलकर लिखें
 ui-dictation-start-title = बोलकर लिखें (⌘D)
+ui-dictation-agent-start = एजेंट से बोलें
+ui-dictation-agent-start-title = एजेंट से बोलें (⌘⇧D)
+ui-dictation-agent-stop = एजेंट रोकें (⌘⇧D या Esc)
+ui-dictation-agent-working = एजेंट काम कर रहा है… ⌘⇧D या Esc उसे रोकता है
 ui-dictation-finish = डिक्टेशन समाप्त करें
 ui-dictation-finish-title = समाप्त करें (⌘D)
 ui-dictation-cancel = रद्द करें

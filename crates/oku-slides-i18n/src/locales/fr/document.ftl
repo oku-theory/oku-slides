@@ -7,6 +7,7 @@ render-compile = Le rendu du deck a échoué
 render-pdf = L'export PDF a échoué
 render-no-page = Cette page n'existe pas
 render-setup = Le rendu n'a pas pu démarrer
+render-image = L'image de la slide n'a pas pu être produite
 render-missing-image = image manquante
 diagnostic-error = erreur
 diagnostic-warning = avertissement

@@ -151,12 +151,32 @@ ui-grid-cell = عمود { $cols } · صف { $rows }
 ui-notes = أدوات الشريحة
 ui-stepper-less = { $label }: واحد أقل
 ui-stepper-more = { $label }: واحد أكثر
+ui-agent-color-other = لون آخر
+ui-agent-thread = الوكيل
+ui-agent-new-conversation = محادثة جديدة
+ui-agent-state-idle = الوكيل
+ui-agent-state-starting = الوكيل يبدأ…
+ui-agent-state-working = الوكيل يعمل…
+ui-agent-stopped = تم الإيقاف.
+ui-agent-ended = انتهى الدور ({ $stop }).
+ui-agent-stop-max-tokens = بلغ الوكيل حدّ الطول.
+ui-agent-stop-max-turns = بلغ الوكيل حدّ الخطوات.
+ui-agent-stop-refusal = رفض الوكيل.
+ui-agent-sheet = سؤال الوكيل
+ui-agent-sheet-keys = 1–4 اختيار · Enter تأكيد · E تعديل · Esc إلغاء
+ui-agent-variants = البدائل
+ui-agent-drawer-keys = انقر أو 1–4 · Esc يغلق
+ui-agent-confirm = تأكيد الوكيل
 
 ## الإملاء
 
 ui-dictation = الإملاء
 ui-dictation-start = إملاء
 ui-dictation-start-title = إملاء (⌘D)
+ui-dictation-agent-start = تحدّث إلى الوكيل
+ui-dictation-agent-start-title = تحدّث إلى الوكيل (⌘⇧D)
+ui-dictation-agent-stop = أوقف الوكيل (⌘⇧D أو Esc)
+ui-dictation-agent-working = الوكيل يعمل… ⌘⇧D أو Esc يوقفه
 ui-dictation-finish = إنهاء الإملاء
 ui-dictation-finish-title = إنهاء (⌘D)
 ui-dictation-cancel = إلغاء

@@ -29,7 +29,7 @@ use typst_layout::PagedDocument;
 use oku_slides_core::Deck;
 
 pub use diagnostic::{Diagnostic, Severity};
-use error::{CompileSnafu, NoPageSnafu, PdfSnafu};
+use error::{CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
@@ -230,6 +230,9 @@ fn parsed<T: serde::de::DeserializeOwned>(values: Vec<Json>) -> Vec<T> {
 }
 
 /// Un document compilé.
+/// Échelle admise pour une image : au-delà, l'image serait démesurée.
+const PNG_SCALE: std::ops::RangeInclusive<f32> = 0.1..=10.0;
+
 pub struct Compiled {
     doc: PagedDocument,
     pub warnings: Vec<Diagnostic>,
@@ -255,6 +258,19 @@ impl Compiled {
     pub fn svg(&self, index: usize) -> Result<String, RenderError> {
         let page = self.doc.pages().get(index).context(NoPageSnafu { index })?;
         Ok(typst_svg::svg(page, &typst_svg::SvgOptions::default()))
+    }
+
+    /// PNG de la page `index` (0 = première), à `pixel_per_pt` pixels par point.
+    pub fn png(&self, index: usize, pixel_per_pt: f32) -> Result<Vec<u8>, RenderError> {
+        if !pixel_per_pt.is_finite() || !PNG_SCALE.contains(&pixel_per_pt) {
+            return Err(ImageSnafu { message: format!("pixel_per_pt out of range: {pixel_per_pt}") }.build().into());
+        }
+        let page = self.doc.pages().get(index).context(NoPageSnafu { index })?;
+        let options =
+            typst_render::RenderOptions { pixel_per_pt: f64::from(pixel_per_pt).into(), ..Default::default() };
+        typst_render::render(page, &options)
+            .encode_png()
+            .map_err(|e| ImageSnafu { message: e.to_string() }.build().into())
     }
 
     /// Empreinte d'une page : sert de clé de cache pour son SVG.

@@ -35,6 +35,8 @@ const DECK_UID: &str = "deck_uid";
 pub struct DeckReplica {
     doc: LoroDoc,
     undo: Undo,
+    /// Libellé du groupe d'annulation ouvert (un tour de l'agent) ; non persisté.
+    group: Option<String>,
     /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
     author: Option<String>,
 }
@@ -117,7 +119,7 @@ impl DeckReplica {
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
-        Ok(Self { doc, undo, author: None })
+        Ok(Self { doc, undo, group: None, author: None })
     }
 
     /// Relit un snapshot. Les octets viennent d'un fichier : non fiables.
@@ -140,7 +142,7 @@ impl DeckReplica {
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
-        Ok((Self { doc, undo, author: None }, read))
+        Ok((Self { doc, undo, group: None, author: None }, read))
     }
 
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
@@ -205,8 +207,11 @@ impl DeckReplica {
     }
 
     /// Valide les changements en cours comme une étape d'annulation portant `label`.
+    /// Dans un groupe, le libellé du groupe l'emporte.
     pub fn commit(&mut self, label: &str) {
-        self.undo.label_next(label);
+        // Un tour de l'agent (groupe ouvert) est une étape d'annulation sous
+        // le libellé du groupe ; le change Loro garde le libellé de l'opération.
+        self.undo.label_next(self.group.as_deref().unwrap_or(label));
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -222,13 +227,41 @@ impl DeckReplica {
         self.doc.commit();
     }
 
+    /// Ouvre un groupe : les commits qui suivent forment une seule étape
+    /// d'annulation, portant `label`. Un groupe encore ouvert est d'abord fermé.
+    pub fn begin_group(&mut self, label: &str) {
+        self.end_group();
+        // L'`UndoManager` est prêt dès sa construction et aucun groupe n'est
+        // ouvert : l'échec n'arrive pas. S'il arrivait, les commits resteraient
+        // des étapes séparées, sous le libellé du groupe.
+        if let Err(e) = self.undo.manager().group_start() {
+            tracing::warn!(error = %e, "groupe d'annulation non ouvert : étapes séparées");
+        }
+        self.group = Some(label.to_owned());
+    }
+
+    /// Ferme le groupe ouvert (sans effet s'il n'y en a pas).
+    pub fn end_group(&mut self) {
+        if self.group.take().is_some() {
+            self.undo.manager().group_end();
+        }
+    }
+
+    pub fn in_group(&self) -> bool {
+        self.group.is_some()
+    }
+
     /// Défait la dernière étape locale ; `false` s'il n'y en avait pas.
+    /// Ferme d'abord le groupe ouvert.
     pub fn undo(&mut self) -> Result<bool, ReplicaError> {
+        self.end_group();
         Ok(self.undo.manager().undo().context(LoroSnafu)?)
     }
 
     /// Rétablit la dernière étape locale défaite ; `false` s'il n'y en avait pas.
+    /// Ferme d'abord le groupe ouvert.
     pub fn redo(&mut self) -> Result<bool, ReplicaError> {
+        self.end_group();
         Ok(self.undo.manager().redo().context(LoroSnafu)?)
     }
 

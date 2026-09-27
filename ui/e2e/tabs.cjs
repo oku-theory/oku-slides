@@ -42,7 +42,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await tabs.nth(2).locator('.tab-close').click();
   await (await dialog).dismiss();
   // Refus : aucune requête de fermeture ; la vue relue montre toujours B.
-  await p.evaluate(() => fetch('/api/workspace', { method: 'POST', body: JSON.stringify({ cmd: 'view' }) }));
+  await p.evaluate(() => fetch('/api/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'view' }) }));
   await tabs.nth(2).locator('.tab-dirty').waitFor();
   assert.equal(await tabs.count(), 3);
   assert.equal(await tabs.nth(2).getAttribute('aria-selected'), 'true');

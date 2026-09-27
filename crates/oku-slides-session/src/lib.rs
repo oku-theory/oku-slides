@@ -5,6 +5,9 @@
 //! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`] :
 //!   les fenêtres, les onglets, la reprise de l'ensemble.
 //!
+//! L'agent atteint la session d'un onglet par [`agent::TabSession`], fournie
+//! par l'hôte via [`agent::Sessions`] (voir [`Workspace::with_session`]).
+//!
 //! L'app Tauri et le serveur de développement exposent la même API. Ordre
 //! des verrous : l'espace de travail puis une session, jamais l'inverse ;
 //! cinq fonctions s'en chargent, en séquence, `Workspace::apply`, `request`,
@@ -28,6 +31,7 @@ pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
 use oku_slides_render::{Compiled, Renderer};
 
+pub mod agent;
 mod appearance;
 mod charts;
 mod error;
@@ -38,6 +42,8 @@ mod panel;
 mod resume;
 mod resume_writer;
 pub mod templates;
+#[cfg(test)]
+pub(crate) mod test_support;
 mod text;
 mod views;
 mod workspace;
@@ -101,7 +107,7 @@ struct DocDefaults {
 
 /// Ce que la session édite : le deck, ou un ensemble de modèles pendant que
 /// le deck attend de côté.
-enum Mode {
+pub(crate) enum Mode {
     Deck,
     Templates {
         /// Le deck mis de côté, retrouvé tel quel à la fin.
@@ -196,6 +202,8 @@ pub struct Session {
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<Previews>,
+    /// Rendu des variantes proposées par l'agent, séparé du deck.
+    variant_renderer: Option<Renderer>,
     renderer: Renderer,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
@@ -215,6 +223,8 @@ pub struct Session {
     /// Images et polices déjà envoyées au fil de reprise : partagées tant
     /// qu'elles ne changent pas (voir `resume::DocSnapshot`).
     sent_blobs: Vec<Arc<resume::Blobs>>,
+    /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
+    agent_notes: Vec<String>,
 }
 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
@@ -254,7 +264,7 @@ struct FontsRenderer {
 }
 
 /// Un rendu dont l'image absente se dit dans la langue de l'utilisateur.
-fn new_renderer(fonts: Fonts, l: &Localizer) -> Result<Renderer> {
+pub(crate) fn new_renderer(fonts: Fonts, l: &Localizer) -> Result<Renderer> {
     let mut renderer = Renderer::new(fonts).context(RenderSnafu)?;
     renderer.set_language(l).context(RenderSnafu)?;
     Ok(renderer)
@@ -319,11 +329,13 @@ impl Session {
             appearance: Appearance::default(),
             template_renderer: None,
             template_cache: None,
+            variant_renderer: None,
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
             ui: UiState::default(),
             resume: None,
+            agent_notes: Vec::new(),
             sent_blobs: Vec::new(),
         };
         s.rerender()?;
@@ -425,7 +437,7 @@ impl Session {
     }
 
     /// Ensemble de modèles du deck (celui par défaut s'il n'en choisit pas).
-    fn deck_set(&self) -> &str {
+    pub(crate) fn deck_set(&self) -> &str {
         self.user_deck().templates.as_deref().unwrap_or(DEFAULT_SET)
     }
 
@@ -548,9 +560,13 @@ impl Session {
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
-        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux documents.
-        let (changes, documents) =
-            (!matches!(req, Request::Snapshot), !matches!(req, Request::Snapshot | Request::Ui(_)));
+        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux
+        // documents ; `apply` écrit déjà son propre état de reprise (l'agent
+        // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
+        let (changes, documents) = (
+            !matches!(req, Request::Snapshot | Request::Apply { .. }),
+            !matches!(req, Request::Snapshot | Request::Ui(_)),
+        );
         match req {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
@@ -596,6 +612,7 @@ impl Session {
     pub fn new_deck(&mut self) -> Result<()> {
         self.load(SourceBundle::new(blank_deck(&self.localizer)).context(SourcesSnafu)?, None)?;
         self.doc.blank = true;
+        self.persist(true);
         Ok(())
     }
 
@@ -651,6 +668,7 @@ impl Session {
         self.renderer = built.renderer;
         self.render_deck_fonts = built.deck_fonts;
         self.template_renderer = None;
+        self.variant_renderer = None;
         self.template_cache = None;
         self.svg_cache.clear();
     }
@@ -665,6 +683,7 @@ impl Session {
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         self.doc.notice = notice;
         self.doc.saved_hash = pdf.then_some(opened.hash);
+        self.persist(true);
         Ok(())
     }
 
@@ -713,6 +732,7 @@ impl Session {
         self.doc.sources.apply(next, label).context(SourcesSnafu)?;
         self.install(compiled);
         self.doc.dirty = true;
+        self.persist(true);
         Ok(())
     }
 

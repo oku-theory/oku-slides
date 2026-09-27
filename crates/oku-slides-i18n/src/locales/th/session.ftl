@@ -17,6 +17,7 @@ session-unknown-window = หน้าต่างนี้ไม่ได้เ�
 session-last-window = หน้าต่างสุดท้ายจะยังคงเปิดอยู่ ให้ออกจากแอปแทน
 session-unsaved = “{ $title }” มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }
+session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 
 deck-untitled = ไม่มีชื่อ
 deck-new-title = งานนำเสนอใหม่

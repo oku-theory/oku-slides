@@ -44,6 +44,10 @@ pub(crate) fn panel(slide: &Slide, grid: Option<&GridBox>, editing: bool, l: &Lo
     ]
 }
 
+fn slide_context(slide: &Slide) -> (&'static str, Dynamic<Value>) {
+    ("slide", Dynamic::Literal(Value::String(slide.id.clone())))
+}
+
 /// Post-it du modèle : titre, nom, description.
 fn template_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
     let field = |id: &str, label: &str, path: &str, action: &str| {
@@ -57,9 +61,9 @@ fn template_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
         )
     };
     vec![
-        Component::new("template", ComponentKind::Card { child: "template-body".into() }),
-        column("template-body", &["template-title", "template-name", "template-description"]),
-        title("template-title", l.tr("session-panel-template")),
+        Component::card("template", "template-body"),
+        Component::column("template-body", &["template-title", "template-name", "template-description"]),
+        Component::text("template-title", l.tr("session-panel-template"), Some(TextVariant::H4)),
         field("template-name", "session-panel-name", "/template/name", "rename_template"),
         field("template-description", "session-panel-description", "/template/description", "describe_template"),
     ]
@@ -84,22 +88,10 @@ fn grid_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
         )
     };
     vec![
-        Component::new("grid", ComponentKind::Card { child: "grid-body".into() }),
-        column("grid-body", &["grid-title", "grid-columns", "grid-rows"]),
-        title("grid-title", l.tr("session-panel-grid")),
+        Component::card("grid", "grid-body"),
+        Component::column("grid-body", &["grid-title", "grid-columns", "grid-rows"]),
+        Component::text("grid-title", l.tr("session-panel-grid"), Some(TextVariant::H4)),
         stepper("grid-columns", "session-panel-columns", "/grid/columns"),
         stepper("grid-rows", "session-panel-rows", "/grid/rows"),
     ]
-}
-
-fn slide_context(slide: &Slide) -> (&'static str, Dynamic<Value>) {
-    ("slide", Dynamic::Literal(Value::String(slide.id.clone())))
-}
-
-fn column(id: &str, children: &[&str]) -> Component {
-    Component::new(id, ComponentKind::Column { children: children.iter().map(|c| (*c).to_owned()).collect() })
-}
-
-fn title(id: &str, text: String) -> Component {
-    Component::new(id, ComponentKind::Text { text: Dynamic::Literal(text), variant: Some(TextVariant::H4) })
 }

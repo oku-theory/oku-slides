@@ -5,8 +5,10 @@
 //! et les messages sont dans la langue des réglages.
 
 mod bench;
+mod guard;
 mod out;
 mod serve;
+mod sse;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

@@ -6,6 +6,8 @@ pdf-write = PDF लिखा नहीं जा सका
 render-compile = प्रेज़ेंटेशन रेंडर नहीं हो सका
 render-pdf = PDF एक्सपोर्ट विफल रहा
 render-no-page = यह पेज मौजूद नहीं है
+render-image = स्लाइड की छवि का उत्पादन नहीं किया जा सका
+
 render-setup = रेंडरर शुरू नहीं हो सका
 render-missing-image = इमेज गायब है
 diagnostic-error = त्रुटि

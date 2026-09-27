@@ -29,6 +29,8 @@ cli-stopped = サーバーを停止しました
 cli-not-found = 見つかりません
 cli-bad-header = 無効な HTTP ヘッダー：{ $value }
 cli-bad-request = 無効なリクエスト：{ $reason }
+cli-sse-full = イベントストリームが多すぎます（既に開いています）
+cli-forbidden = リクエストを拒否しました：ローカルのインターフェースからではありません
 
 cli-about = Oku Slides のプレゼンテーションをレンダリングして保存します
 cli-arg-fonts = 追加のフォントフォルダ（TTF/OTF）。デフォルト：設定の paths.fonts

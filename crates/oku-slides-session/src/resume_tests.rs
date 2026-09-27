@@ -1,7 +1,7 @@
 use speculoos::prelude::*;
 
 use super::*;
-use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_core::{Deck, Op, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
@@ -256,4 +256,34 @@ fn failed_to_prune_across_tab_folders_keeps_the_most_recent_overall() {
     let found = names(&["t-1.failed-10", "t-2.failed-30", "t-3.failed-20", "t-2", "t-x.failed-40"]);
     let is_tab = |b: &str| b.strip_prefix("t-").is_some_and(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit()));
     assert_that!(failed_to_prune(&found, is_tab, 2)).is_equal_to(names(&["t-1.failed-10"]));
+}
+
+/// t-224 : l'agent modifie la session directement (`Session::apply`), sans
+/// passer par `handle` : l'op doit être écrite pour la reprise.
+#[test]
+fn apply_without_handle_writes_the_op_for_resume() {
+    let dir = temp_dir();
+    let mut s = crate::test_support::session();
+    assert_that!(s.resume(dir.clone())).is_true();
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    s.flush_resume();
+    let mut back = crate::test_support::session();
+    assert_that!(back.resume(dir.clone())).is_true();
+    assert_that!(back.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// t-224 : `Session::new_deck` appelé directement (sans `handle`) doit lui
+/// aussi être écrit : la reprise retrouve un deck vierge.
+#[test]
+fn new_deck_without_handle_resumes_to_a_blank_deck() {
+    let dir = temp_dir();
+    let mut s = crate::test_support::session();
+    assert_that!(s.resume(dir.clone())).is_true();
+    s.new_deck().unwrap();
+    s.flush_resume();
+    let mut back = crate::test_support::session();
+    assert_that!(back.resume(dir.clone())).is_true();
+    assert_that!(back.tab_info().pristine).is_true();
+    std::fs::remove_dir_all(&dir).ok();
 }

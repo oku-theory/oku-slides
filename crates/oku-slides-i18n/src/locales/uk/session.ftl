@@ -17,6 +17,7 @@ session-unknown-window = Це вікно більше не відкрите.
 session-last-window = Останнє вікно залишається відкритим: натомість закрийте застосунок.
 session-unsaved = У «{ $title }» є незбережені зміни.
 session-bad-request = Недопустимий запит: { $reason }
+session-agent-form = Запит агента недійсний: { $reason }
 
 deck-untitled = Без назви
 deck-new-title = Нова презентація

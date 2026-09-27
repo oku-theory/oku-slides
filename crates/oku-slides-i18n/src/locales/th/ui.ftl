@@ -141,12 +141,32 @@ ui-grid-cell = คอลัมน์ { $cols } · แถว { $rows }
 ui-notes = เครื่องมือสไลด์
 ui-stepper-less = { $label }: ลดหนึ่ง
 ui-stepper-more = { $label }: เพิ่มหนึ่ง
+ui-agent-color-other = สีอื่น
+ui-agent-thread = เอเจนต์
+ui-agent-new-conversation = บทสนทนาใหม่
+ui-agent-state-idle = เอเจนต์
+ui-agent-state-starting = เอเจนต์กำลังเริ่ม…
+ui-agent-state-working = เอเจนต์กำลังทำงาน…
+ui-agent-stopped = หยุดแล้ว
+ui-agent-ended = จบรอบ ({ $stop })
+ui-agent-stop-max-tokens = เอเจนต์ถึงขีดจำกัดความยาวแล้ว
+ui-agent-stop-max-turns = เอเจนต์ถึงขีดจำกัดจำนวนขั้นแล้ว
+ui-agent-stop-refusal = เอเจนต์ปฏิเสธ
+ui-agent-sheet = คำถามของเอเจนต์
+ui-agent-sheet-keys = 1–4 เลือก · Enter ยืนยัน · E แก้ไข · Esc ยกเลิก
+ui-agent-variants = รูปแบบอื่น
+ui-agent-drawer-keys = คลิกหรือ 1–4 · Esc ปิด
+ui-agent-confirm = การยืนยันของเอเจนต์
 
 ## การพิมพ์ด้วยเสียง
 
 ui-dictation = การพิมพ์ด้วยเสียง
 ui-dictation-start = พิมพ์ด้วยเสียง
 ui-dictation-start-title = พิมพ์ด้วยเสียง (⌘D)
+ui-dictation-agent-start = พูดกับเอเจนต์
+ui-dictation-agent-start-title = พูดกับเอเจนต์ (⌘⇧D)
+ui-dictation-agent-stop = หยุดเอเจนต์ (⌘⇧D หรือ Esc)
+ui-dictation-agent-working = เอเจนต์กำลังทำงาน… ⌘⇧D หรือ Esc เพื่อหยุด
 ui-dictation-finish = จบการพิมพ์ด้วยเสียง
 ui-dictation-finish-title = จบ (⌘D)
 ui-dictation-cancel = ยกเลิก

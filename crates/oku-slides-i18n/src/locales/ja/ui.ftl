@@ -143,12 +143,32 @@ ui-grid-cell = 列 { $cols } · 行 { $rows }
 ui-notes = スライドツール
 ui-stepper-less = { $label }：1 つ減らす
 ui-stepper-more = { $label }：1 つ増やす
+ui-agent-color-other = その他の色
+ui-agent-thread = エージェント
+ui-agent-new-conversation = 新しい会話
+ui-agent-state-idle = エージェント
+ui-agent-state-starting = エージェントを起動中…
+ui-agent-state-working = エージェントが作業中…
+ui-agent-stopped = 停止しました。
+ui-agent-ended = ターン終了 ({ $stop })。
+ui-agent-stop-max-tokens = エージェントが長さの上限に達しました。
+ui-agent-stop-max-turns = エージェントがステップ数の上限に達しました。
+ui-agent-stop-refusal = エージェントが断りました。
+ui-agent-sheet = エージェントの質問
+ui-agent-sheet-keys = 1–4 選択 · Enter 確定 · E 編集 · Esc 取り消し
+ui-agent-variants = バリエーション
+ui-agent-drawer-keys = クリックまたは 1–4 · Esc で閉じる
+ui-agent-confirm = エージェントの確認
 
 ## 音声入力
 
 ui-dictation = 音声入力
 ui-dictation-start = 音声入力
 ui-dictation-start-title = 音声入力（⌘D）
+ui-dictation-agent-start = エージェントに話す
+ui-dictation-agent-start-title = エージェントに話す（⌘⇧D）
+ui-dictation-agent-stop = エージェントを停止（⌘⇧D または Esc）
+ui-dictation-agent-working = エージェントが作業中… ⌘⇧D または Esc で停止
 ui-dictation-finish = 音声入力を終了
 ui-dictation-finish-title = 終了（⌘D）
 ui-dictation-cancel = キャンセル

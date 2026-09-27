@@ -11,6 +11,7 @@ publish.workspace = true
 tauri-build.workspace = true
 
 [dependencies]
+oku-slides-agent.workspace = true
 oku-slides-session.workspace = true
 oku-slides-stt.workspace = true
 oku-slides-platform.workspace = true

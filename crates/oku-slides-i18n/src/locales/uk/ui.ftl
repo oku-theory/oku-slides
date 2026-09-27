@@ -147,12 +147,32 @@ ui-grid-cell = стовп. { $cols } · рядок { $rows }
 ui-notes = Інструменти слайда
 ui-stepper-less = { $label }: на один менше
 ui-stepper-more = { $label }: на один більше
+ui-agent-color-other = Інший колір
+ui-agent-thread = Агент
+ui-agent-new-conversation = Нова розмова
+ui-agent-state-idle = Агент
+ui-agent-state-starting = Агент запускається…
+ui-agent-state-working = Агент працює…
+ui-agent-stopped = Зупинено.
+ui-agent-ended = Хід завершено ({ $stop }).
+ui-agent-stop-max-tokens = Агент досяг межі довжини.
+ui-agent-stop-max-turns = Агент досяг межі кроків.
+ui-agent-stop-refusal = Агент відмовився.
+ui-agent-sheet = Запитання агента
+ui-agent-sheet-keys = 1–4 вибрати · Enter підтвердити · E змінити · Esc скасувати
+ui-agent-variants = Варіанти
+ui-agent-drawer-keys = Клацання або 1–4 · Esc закриває
+ui-agent-confirm = Підтвердження агента
 
 ## Диктування
 
 ui-dictation = Диктування
 ui-dictation-start = Диктувати
 ui-dictation-start-title = Диктувати (⌘D)
+ui-dictation-agent-start = Говорити з агентом
+ui-dictation-agent-start-title = Говорити з агентом (⌘⇧D)
+ui-dictation-agent-stop = Зупинити агента (⌘⇧D або Esc)
+ui-dictation-agent-working = Агент працює… ⌘⇧D або Esc зупиняє його
 ui-dictation-finish = Завершити диктування
 ui-dictation-finish-title = Завершити (⌘D)
 ui-dictation-cancel = Скасувати

@@ -4,12 +4,14 @@
 //! - [`errors`] : une erreur et ses causes, sur une ligne.
 //! - [`config`] : réglages (défauts embarqués, `config.toml`, `OKU_SLIDES_…`).
 //! - [`storage`] : fichiers locaux, par OpenDAL.
+//! - [`config_write`] : écriture d'une clé dans `config.toml`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
 //!
 //! Ordre de démarrage d'un binaire : journaux → réglages → infrastructure →
 //! état de l'app.
 
 pub mod config;
+pub mod config_write;
 pub mod errors;
 pub mod storage;
 

@@ -97,3 +97,83 @@ fn undo_limit_drops_oldest_steps() {
     assert_that!(r.undo().unwrap()).is_true();
     assert_that!(r.undo().unwrap()).is_false();
 }
+
+fn themed(deck: &Deck, t: &str) -> Deck {
+    let mut d = deck.clone();
+    d.theme = Some(t.into());
+    d
+}
+
+#[test]
+fn group_merges_commits_into_one_undo_step_with_the_group_label() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    r.begin_group("Agent : titre plus percutant");
+    r.reconcile(&titled(&deck, "Un")).unwrap();
+    r.commit("ignoré");
+    r.reconcile(&themed(&titled(&deck, "Un"), "pro")).unwrap();
+    r.commit("ignoré aussi");
+    r.end_group();
+    assert_that!(r.undo_label()).is_equal_to(Some("Agent : titre plus percutant".to_owned()));
+    assert_that!(r.undo().unwrap()).is_true();
+    assert_that!(r.deck().0).is_equal_to(&deck);
+    assert_that!(r.can_undo()).is_false();
+}
+
+#[test]
+fn group_redo_replays_every_commit() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    let after = themed(&titled(&deck, "Un"), "pro");
+    r.begin_group("Tour");
+    r.reconcile(&titled(&deck, "Un")).unwrap();
+    r.commit("a");
+    r.reconcile(&after).unwrap();
+    r.commit("b");
+    r.end_group();
+    r.undo().unwrap();
+    assert_that!(r.redo_label()).is_equal_to(Some("Tour".to_owned()));
+    assert_that!(r.redo().unwrap()).is_true();
+    assert_that!(r.deck().0).is_equal_to(&after);
+}
+
+#[test]
+fn empty_group_creates_no_step() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    r.reconcile(&titled(&deck, "Avant")).unwrap();
+    r.commit("Avant");
+    r.begin_group("Tour vide");
+    r.end_group();
+    assert_that!(r.undo_label()).is_equal_to(Some("Avant".to_owned()));
+}
+
+#[test]
+fn undo_inside_a_group_closes_it() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    r.begin_group("Tour");
+    r.reconcile(&titled(&deck, "Un")).unwrap();
+    r.commit("a");
+    r.undo().unwrap();
+    assert_that!(r.in_group()).is_false();
+    r.reconcile(&titled(&deck, "Seul")).unwrap();
+    r.commit("Seul");
+    assert_that!(r.undo_label()).is_equal_to(Some("Seul".to_owned()));
+}
+
+#[test]
+fn a_new_group_closes_the_open_one() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    r.begin_group("Premier");
+    r.reconcile(&titled(&deck, "Un")).unwrap();
+    r.commit("a");
+    r.begin_group("Second");
+    r.reconcile(&titled(&deck, "Deux")).unwrap();
+    r.commit("b");
+    r.end_group();
+    assert_that!(r.undo_label()).is_equal_to(Some("Second".to_owned()));
+    r.undo().unwrap();
+    assert_that!(r.undo_label()).is_equal_to(Some("Premier".to_owned()));
+}

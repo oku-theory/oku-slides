@@ -17,6 +17,7 @@ session-unknown-window = Bu pencere artık açık değil.
 session-last-window = Son pencere açık kalır: bunun yerine uygulamadan çıkın.
 session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }
+session-agent-form = Ajanın isteği geçersiz: { $reason }
 
 deck-untitled = Adsız
 deck-new-title = Yeni sunu

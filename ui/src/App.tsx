@@ -1,6 +1,6 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import type { Element, Op, Paragraph, SetInfo, SlideView, Snapshot, TabApi, TemplateView } from "./api";
-import { errorText, pickOpenPath, tabApi } from "./api";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { Element, McpEvent, Op, Paragraph, SetInfo, SlideView, Snapshot, Surface, TabApi, TemplateView } from "./api";
+import { agentApi, errorText, pickOpenPath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { applyAppearance } from "./appearance";
 import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, textOps, textToParagraphs } from "./deck";
@@ -16,6 +16,17 @@ import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
 import { panelActionOps } from "./a2ui/panelActions";
+import { AgentThread } from "./agent/AgentThread";
+import { subscribeHost } from "./agent/events";
+import type { DictationMode } from "./agent/keys";
+import { escapeAction } from "./agent/keys";
+import type { QuickAction } from "./agent/quick";
+import { fromA2ui } from "./agent/quick";
+import { agentBusy, routeSurfaces, surfacesReducer } from "./agent/surfaces";
+import { withRewriteParagraphs } from "./agent/rewrite";
+import { useQuickKeys } from "./agent/useQuickKeys";
+import { EMPTY_THREAD, threadReducer } from "./agent/thread";
+import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 
 const Icon = {
@@ -31,6 +42,10 @@ const Icon = {
 
 // @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
 const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ default: m.PanelSurface })));
+// Surfaces de l'agent : chargées avec @a2ui, à la première question.
+const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
+const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
+const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
 
 /** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
 const NO_PANEL: A2uiMessage[] = [];
@@ -345,6 +360,60 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     if (change) apply(change.label, change.ops);
   };
 
+  // --- Agent ------------------------------------------------------------------
+  // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
+  const agent = useMemo(() => agentApi(tab), [tab]);
+  const [thread, onAgentEvent] = useReducer(threadReducer, EMPTY_THREAD);
+  const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
+  const busy = agentBusy(thread.state, surfaces);
+  // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
+  // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
+  const routed = useMemo(
+    () =>
+      routeSurfaces(
+        surfaces,
+        view && view.slide.id === current ? { slide: view.slide.id, targets: view.targets.map((x) => x.id) } : null,
+      ),
+    [surfaces, view, current],
+  );
+  const { stage: sheet, drawer, modal } = routed;
+  const threadSurfaces = routed.thread;
+  const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
+  useEffect(
+    () =>
+      subscribeHost(tab, {
+        onMcp: (e: McpEvent) => {
+          onSurfaceEvent(e);
+          if (e.kind === "changed") run(api.snapshot());
+          if (e.kind === "focus") {
+            setCurrent(e.slide);
+            setSelected(e.element);
+          }
+        },
+        onAgent: onAgentEvent,
+        onError: (m) => console.warn(m),
+        // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
+        // (les évènements manqués pendant la coupure sont perdus). Sans outils
+        // (pile absente), `resync` échoue : il n'y a alors pas de surface.
+        onReady: () => {
+          agent.resync().catch((err) => console.warn("resync", err));
+          run(api.snapshot());
+        },
+      }),
+    // S'abonner une fois par onglet : `run`, `api`, `agent` et les setters sont stables.
+    [run, tab, api, agent],
+  );
+  const sendAction = (s: Surface, a: QuickAction) => {
+    const action = withRewriteParagraphs(s, a);
+    agent.surfaceAction(s.id, action.name, action.context).catch((err) => say(String(err), true));
+  };
+  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => sendAction(s, fromA2ui(a));
+  useQuickKeys(
+    modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
+    !editing && !picking,
+    sendAction,
+  );
+
   // --- Édition des modèles ------------------------------------------------
   const editTemplates = async () => {
     if (!snap) return;
@@ -391,7 +460,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]')) return;
+      // Dans une surface A2UI (panneau, agent), une fiche de l'agent ou l'éditeur de texte, les touches sont les leurs.
+      // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
+      if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -410,10 +481,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         const i = snap.slides.findIndex((s) => s.id === current);
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
         if (slot >= 0 && slot <= snap.slides.length) moveSlide(current, slot);
+      } else if (e.key === "Escape") {
+        const action = escapeAction({ selected: selected !== null, agentBusy: busy });
+        if (action === "deselect") setSelected(null);
+        else if (action === "agent-cancel") {
+          e.preventDefault();
+          cancelAgent();
+        }
       } else if (!view || !selected) {
         return;
-      } else if (e.key === "Escape") {
-        setSelected(null);
       } else if (e.key === "Enter") {
         const tg = view.targets.find((x) => x.id === selected);
         if (tg?.text !== null && tg?.text !== undefined) {
@@ -472,7 +548,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     ? [snap.title, ...snap.slides.map((s) => s.title)].filter(Boolean).join(". ").slice(0, 600)
     : "";
 
-  const onDictated = (text: string) => {
+  const onDictated = (text: string, mode: DictationMode) => {
+    if (mode === "agent") {
+      agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
+      return;
+    }
     if (editing) {
       setDictated((d) => ({ seq: (d?.seq ?? 0) + 1, text }));
       return;
@@ -599,6 +679,18 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onApply={apply}
             dictated={dictated}
             showGridAlways={gridAlways}
+            overlay={
+              sheet?.anchor
+                ? {
+                    target: sheet.anchor.element,
+                    node: (
+                      <Suspense fallback={null}>
+                        <AgentSheet key={sheet.id} surface={sheet} onAction={sendAction} onError={(m) => say(m, true)} />
+                      </Suspense>
+                    ),
+                  }
+                : undefined
+            }
             palette={snap.appearance.chart_palette}
           />
         ) : (
@@ -613,10 +705,22 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
           />
         )}
+        {drawer && (
+          <Suspense fallback={null}>
+            <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />
+          </Suspense>
+        )}
       </main>
 
       {/* Post-it à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
+        <AgentThread
+          thread={thread}
+          surfaces={threadSurfaces}
+          onAction={onSurfaceAction}
+          onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
+          onError={(m) => say(m, true)}
+        />
         {panel.length > 0 && (
           <Suspense fallback={null}>
             <PanelSurface messages={panel} onAction={onPanelAction} onError={(m) => say(m, true)} />
@@ -625,7 +729,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}
-      <Dictation destination={destination} prompt={whisperPrompt} onText={onDictated} onError={(m) => say(m, true)} />
+      <Dictation
+        destination={destination}
+        prompt={whisperPrompt}
+        onText={onDictated}
+        onError={(m) => say(m, true)}
+        agentBusy={busy}
+        onAgentCancel={cancelAgent}
+      />
 
       {picking && (
         <TemplatePicker
@@ -637,6 +748,12 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onClose={() => setPicking(false)}
           api={api}
         />
+      )}
+
+      {modal && (
+        <Suspense fallback={null}>
+          <ConfirmModal key={modal.id} surface={modal} onAction={sendAction} onError={(m) => say(m, true)} />
+        </Suspense>
       )}
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}

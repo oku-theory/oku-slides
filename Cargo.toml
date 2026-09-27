@@ -5,7 +5,7 @@ members = ["crates/*", "src-tauri"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.92"
 authors = ["Matthieu"]
 # Crates internes à l'app : jamais publiées (cargo-deny ignore leur licence).
 publish = false
@@ -20,10 +20,21 @@ oku-slides-chart = { path = "crates/oku-slides-chart" }
 oku-slides-a2ui = { path = "crates/oku-slides-a2ui" }
 oku-slides-platform = { path = "crates/oku-slides-platform" }
 oku-slides-i18n = { path = "crates/oku-slides-i18n" }
+oku-slides-mcp = { path = "crates/oku-slides-mcp" }
+oku-slides-agent = { path = "crates/oku-slides-agent" }
+# Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
+rust-mcp-sdk = "=1.1.0"
+rust-mcp-axum = "=1.0.2"
+agent-client-protocol = "=2.2.0"
+tokio-util = { version = "0.7", features = ["compat", "rt"] }
+async-trait = "0.1"
+base64 = "0.22"
+getrandom = { version = "0.3", features = ["std"] }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"
 snafu = "0.9"
+toml_edit = "0.25"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
 hex = "0.4"
@@ -31,6 +42,7 @@ lopdf = "0.45"
 typst = "0.15.1"
 typst-pdf = "0.15.1"
 typst-svg = "0.15.1"
+typst-render = "0.15.1"
 typst-assets = { version = "0.15.1", features = ["fonts"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 tracing = "0.1"
@@ -48,6 +60,7 @@ charts-rs = "1.1"
 json-patch = "4"
 typst-layout = "0.15.1"
 tiny_http = "0.12"
+similar = "3"
 loro = "1.16"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
@@ -68,6 +81,7 @@ tauri-runtime = "2.11"
 # Tests
 hound = "3"
 speculoos = "0.13"
+insta = { version = "1", features = ["json"] }
 rstest = "0.26"
 proptest = "1"
 # Somme de contrôle des snapshots Loro : forger un snapshot malformé mais accepté.

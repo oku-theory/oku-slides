@@ -158,6 +158,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .token { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; color: var(--ink); }
 .token svg { width: 18px; height: 18px; }
 .btn.primary { background: var(--accent-fill); color: var(--on-accent); }
+/* Une action qui engage (non annulable, permission durable) : cernée de rouge ; pleine si c'est aussi le bouton principal.
+   Texte blanc comme `.mic.live` : `--on-accent` suit l'accent du thème, pas le rouge. */
+.btn.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+.btn.primary.danger { background: var(--danger); color: white; box-shadow: none; }
 .theme-card { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-4); height: 44px; cursor: default; }
 .theme-card:hover { transform: none; box-shadow: var(--shadow-object); }
 .add-card { gap: var(--space-4); padding-inline-end: var(--space-4); }
@@ -189,6 +193,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- La feuille ---- */
 .sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-6) 40px 56px; display: flex; }
 .stage-wrap { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* Même taille que la scène, sans la rogner : ce qui déborde (fiche de l'agent) s'y pose. */
+.stage-frame { position: relative; }
 .stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet); overflow: hidden; }
 .stage > img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .overlay { position: absolute; inset: 0; }
@@ -406,9 +412,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .panel-card { cursor: default; justify-content: flex-start; }
 /* Colonnes A2UI : les post-it de la racine s'espacent comme dans le panneau, le contenu d'un post-it se serre. */
 .a2ui-column { display: flex; flex-direction: column; gap: var(--space-2); }
-.notes > .a2ui-column { gap: 22px; }
-.notes > .a2ui-column > .a2ui-slot:nth-child(2) > .postit { --tilt: 1.6deg; }
-.notes > .a2ui-column > .a2ui-slot:nth-child(3) > .postit { --tilt: -1deg; }
+.a2ui-surface { display: contents; }
+.notes > .a2ui-surface > .a2ui-column { gap: 22px; }
+.notes > .a2ui-surface > .a2ui-column > .a2ui-slot:nth-child(2) > .postit { --tilt: 1.6deg; }
+.notes > .a2ui-surface > .a2ui-column > .a2ui-slot:nth-child(3) > .postit { --tilt: -1deg; }
 .panel-card:hover { transform: rotate(var(--tilt, -2deg)); box-shadow: var(--edge-light), var(--shadow-note); }
 .linkish:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
 .note-field { display: flex; flex-direction: column; gap: 2px; }
@@ -439,6 +446,51 @@ button, select, input, textarea { font: inherit; color: inherit; }
 [dir="rtl"] .chart-panel { right: auto; left: var(--space-6, 24px); }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
+
+/* --- Surfaces de l'agent (catalogue v2) --------------------------------- */
+.a2ui-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: stretch; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.chip { border: 1px solid var(--accent-fill); color: var(--accent); background: transparent; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.chip.on { background: var(--accent-fill); color: var(--on-accent); }
+.chip-key { opacity: .6; font-variant-numeric: tabular-nums; }
+.swatches { display: flex; gap: var(--space-1); align-items: center; }
+.swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--ink-muted); cursor: pointer; }
+.swatch.on { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.slide-thumb { display: flex; flex-direction: column; gap: var(--space-1); border: 0; background: none; cursor: pointer; padding: 0; }
+.slide-thumb img { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); box-shadow: 0 1px 3px rgb(0 0 0 / .2); background: var(--paper-200); }
+.slide-thumb:focus-visible img, .slide-thumb:hover img { outline: 2px solid var(--accent-fill); }
+.diff-text { margin: 0; line-height: 1.5; }
+.diff-text del { color: var(--danger); }
+.diff-text ins { text-decoration: none; background: color-mix(in oklab, var(--accent-fill) 22%, transparent); }
+.chip:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+
+/* --- Fil de l'agent ------------------------------------------------------- */
+/* Même couche que les post-its : la feuille peut déborder sur la colonne des notes. */
+.agent-thread { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; overflow: auto; background: var(--paper-000); border-radius: var(--radius-sm); padding: var(--space-1); }
+.agent-thread-head { display: flex; justify-content: space-between; align-items: baseline; }
+.agent-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.agent-entry .you { color: var(--ink-muted); font-style: italic; }
+.agent-entry .msg { display: block; background: var(--paper-100); border-inline-start: 3px solid var(--accent-fill); padding: 4px 6px; border-radius: var(--radius-sm); }
+.agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
+.agent-entry .plan { list-style: none; padding: 0; margin: 0; }
+.agent-entry .error { color: var(--danger); }
+/* Couleur d'accent de l'agent, sauf pendant l'écoute (`.live` garde son rouge). */
+.device.dictation.agent .mic:not(.live), .mic.agent-mic { background: var(--accent-fill); color: var(--on-accent); }
+
+/* --- Fiche, tiroir et fenêtre de l'agent ---------------------------------- */
+.agent-sheet { position: absolute; z-index: 6; width: min(320px, 60%); }
+.agent-sheet.rtl { transform: translateX(-100%); }
+.agent-sheet-box, .variant-drawer, .agent-modal { background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); padding: var(--space-2); outline: none; }
+.agent-sheet-box:focus-visible, .variant-drawer:focus-visible, .agent-modal:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.variant-drawer { position: absolute; inset-inline: var(--space-4); bottom: 0; z-index: 4; border-end-start-radius: 0; border-end-end-radius: 0; }
+.variant-drawer .a2ui-row > * { flex: 1 1 0; min-width: 0; }
+.agent-veil { position: fixed; inset: 0; background: rgb(0 0 0 / .35); display: grid; place-items: center; z-index: 20; }
+.agent-modal { width: min(420px, 90vw); }
+/* La carte A2UI d'une fiche, du tiroir ou de la fenêtre : le cadre est celui de la surface, pas un post-it. */
+.agent-sheet-box .postit, .variant-drawer .postit, .agent-modal .postit,
+.agent-sheet-box .postit:hover, .variant-drawer .postit:hover, .agent-modal .postit:hover {
+  width: auto; min-height: 0; padding: 0; background: transparent; box-shadow: none; transform: none; cursor: default;
+}
 
 /* Onglets : la bande du bas de la fenêtre ; en haut, la barre de titre intégrée (macOS). */
 .workspace { height: 100%; display: flex; flex-direction: column; }

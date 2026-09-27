@@ -29,6 +29,8 @@ cli-stopped = sunucu durduruldu
 cli-not-found = bulunamadı
 cli-bad-header = geçersiz HTTP başlığı: { $value }
 cli-bad-request = geçersiz istek: { $reason }
+cli-sse-full = zaten çok fazla olay akışı açık
+cli-forbidden = istek reddedildi: yerel arayüzden gelmiyor
 
 cli-about = Oku Slides sunularını oluşturur ve saklar
 cli-arg-fonts = Ek yazı tipi klasörü (TTF/OTF); varsayılan: ayarlardaki paths.fonts

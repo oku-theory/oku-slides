@@ -143,12 +143,32 @@ ui-grid-cell = 欄 { $cols } · 列 { $rows }
 ui-notes = 投影片工具
 ui-stepper-less = { $label }：減少一個
 ui-stepper-more = { $label }：增加一個
+ui-agent-color-other = 其他顏色
+ui-agent-thread = 智慧代理
+ui-agent-new-conversation = 新對話
+ui-agent-state-idle = 智慧代理
+ui-agent-state-starting = 智慧代理正在啟動…
+ui-agent-state-working = 智慧代理正在工作…
+ui-agent-stopped = 已停止。
+ui-agent-ended = 本輪結束（{ $stop }）。
+ui-agent-stop-max-tokens = 智慧代理已達到長度上限。
+ui-agent-stop-max-turns = 智慧代理已達到步數上限。
+ui-agent-stop-refusal = 智慧代理拒絕了。
+ui-agent-sheet = 智慧代理的問題
+ui-agent-sheet-keys = 1–4 選擇 · Enter 確認 · E 修改 · Esc 取消
+ui-agent-variants = 變體
+ui-agent-drawer-keys = 點擊或 1–4 · Esc 關閉
+ui-agent-confirm = 智慧代理的確認
 
 ## 聽寫
 
 ui-dictation = 聽寫
 ui-dictation-start = 聽寫
 ui-dictation-start-title = 聽寫（⌘D）
+ui-dictation-agent-start = 對智慧代理說話
+ui-dictation-agent-start-title = 對智慧代理說話（⌘⇧D）
+ui-dictation-agent-stop = 停止智慧代理（⌘⇧D 或 Esc）
+ui-dictation-agent-working = 智慧代理正在工作… ⌘⇧D 或 Esc 可停止
 ui-dictation-finish = 結束聽寫
 ui-dictation-finish-title = 結束（⌘D）
 ui-dictation-cancel = 取消

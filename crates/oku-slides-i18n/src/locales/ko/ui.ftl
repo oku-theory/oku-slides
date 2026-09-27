@@ -141,12 +141,32 @@ ui-grid-cell = { $cols }열 · { $rows }행
 ui-notes = 슬라이드 도구
 ui-stepper-less = { $label }: 하나 줄이기
 ui-stepper-more = { $label }: 하나 늘리기
+ui-agent-color-other = 다른 색
+ui-agent-thread = 에이전트
+ui-agent-new-conversation = 새 대화
+ui-agent-state-idle = 에이전트
+ui-agent-state-starting = 에이전트 시작 중…
+ui-agent-state-working = 에이전트가 작업 중…
+ui-agent-stopped = 중지됨.
+ui-agent-ended = 턴 종료 ({ $stop }).
+ui-agent-stop-max-tokens = 에이전트가 길이 한도에 도달했습니다.
+ui-agent-stop-max-turns = 에이전트가 단계 한도에 도달했습니다.
+ui-agent-stop-refusal = 에이전트가 거절했습니다.
+ui-agent-sheet = 에이전트의 질문
+ui-agent-sheet-keys = 1–4 선택 · Enter 확인 · E 편집 · Esc 취소
+ui-agent-variants = 변형
+ui-agent-drawer-keys = 클릭 또는 1–4 · Esc로 닫기
+ui-agent-confirm = 에이전트 확인
 
 ## 받아쓰기
 
 ui-dictation = 받아쓰기
 ui-dictation-start = 받아쓰기
 ui-dictation-start-title = 받아쓰기 (⌘D)
+ui-dictation-agent-start = 에이전트에게 말하기
+ui-dictation-agent-start-title = 에이전트에게 말하기 (⌘⇧D)
+ui-dictation-agent-stop = 에이전트 중지 (⌘⇧D 또는 Esc)
+ui-dictation-agent-working = 에이전트가 작업 중… ⌘⇧D 또는 Esc로 중지
 ui-dictation-finish = 받아쓰기 종료
 ui-dictation-finish-title = 종료 (⌘D)
 ui-dictation-cancel = 취소

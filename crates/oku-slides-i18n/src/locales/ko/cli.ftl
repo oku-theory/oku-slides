@@ -29,6 +29,8 @@ cli-stopped = 서버가 중지되었습니다
 cli-not-found = 찾을 수 없음
 cli-bad-header = 잘못된 HTTP 헤더: { $value }
 cli-bad-request = 잘못된 요청: { $reason }
+cli-sse-full = 이미 너무 많은 이벤트 스트림이 열려 있습니다
+cli-forbidden = 요청 거부됨: 로컬 인터페이스에서 온 요청이 아닙니다
 
 cli-about = Oku Slides 프레젠테이션을 렌더링하고 저장합니다
 cli-arg-fonts = 추가 글꼴 폴더 (TTF/OTF). 기본값: 설정의 paths.fonts

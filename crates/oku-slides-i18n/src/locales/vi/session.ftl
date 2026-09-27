@@ -17,6 +17,7 @@ session-unknown-window = Cửa sổ này không còn mở nữa.
 session-last-window = Cửa sổ cuối cùng vẫn được giữ mở: thay vào đó, hãy thoát ứng dụng.
 session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }
+session-agent-form = Yêu cầu của tác nhân không hợp lệ: { $reason }
 
 deck-untitled = Không có tiêu đề
 deck-new-title = Bản trình bày mới

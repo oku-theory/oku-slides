@@ -17,6 +17,7 @@ session-unknown-window = 此窗口已不再打开。
 session-last-window = 最后一个窗口会保持打开：请改为退出应用。
 session-unsaved = “{ $title }”有未保存的更改。
 session-bad-request = 请求无效：{ $reason }
+session-agent-form = 代理的请求无效：{ $reason }
 
 deck-untitled = 未命名
 deck-new-title = 新演示文稿

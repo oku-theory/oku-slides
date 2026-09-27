@@ -143,12 +143,32 @@ ui-grid-cell = 列 { $cols } · 行 { $rows }
 ui-notes = 幻灯片工具
 ui-stepper-less = { $label }：减少一个
 ui-stepper-more = { $label }：增加一个
+ui-agent-color-other = 其他颜色
+ui-agent-thread = 智能体
+ui-agent-new-conversation = 新对话
+ui-agent-state-idle = 智能体
+ui-agent-state-starting = 智能体正在启动…
+ui-agent-state-working = 智能体正在工作…
+ui-agent-stopped = 已停止。
+ui-agent-ended = 本轮结束（{ $stop }）。
+ui-agent-stop-max-tokens = 智能体已达到长度上限。
+ui-agent-stop-max-turns = 智能体已达到步数上限。
+ui-agent-stop-refusal = 智能体拒绝了。
+ui-agent-sheet = 智能体的问题
+ui-agent-sheet-keys = 1–4 选择 · Enter 确认 · E 修改 · Esc 取消
+ui-agent-variants = 变体
+ui-agent-drawer-keys = 点击或 1–4 · Esc 关闭
+ui-agent-confirm = 智能体的确认
 
 ## 听写
 
 ui-dictation = 听写
 ui-dictation-start = 听写
 ui-dictation-start-title = 听写（⌘D）
+ui-dictation-agent-start = 对智能体说话
+ui-dictation-agent-start-title = 对智能体说话（⌘⇧D）
+ui-dictation-agent-stop = 停止智能体（⌘⇧D 或 Esc）
+ui-dictation-agent-working = 智能体正在工作… ⌘⇧D 或 Esc 可停止
 ui-dictation-finish = 结束听写
 ui-dictation-finish-title = 结束（⌘D）
 ui-dictation-cancel = 取消

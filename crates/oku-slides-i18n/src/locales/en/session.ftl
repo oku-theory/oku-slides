@@ -17,6 +17,7 @@ session-unknown-window = This window is no longer open.
 session-last-window = The last window stays open: quit the app instead.
 session-unsaved = “{ $title }” has unsaved changes.
 session-bad-request = Invalid request: { $reason }
+session-agent-form = The agent's request is invalid: { $reason }
 
 deck-untitled = Untitled
 deck-new-title = New presentation

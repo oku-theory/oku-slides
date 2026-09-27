@@ -30,7 +30,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await p.fill('.editor .cm-content', 'Titre modifié à la main');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(700);
-  const snap = await p.evaluate(() => fetch('/api', {method:'POST', body: JSON.stringify({tab:'t-1', req:{cmd:'slide', id:'s-libre'}})}).then(r => r.json()));
+  const snap = await p.evaluate(() => fetch('/api', {method:'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({tab:'t-1', req:{cmd:'slide', id:'s-libre'}})}).then(r => r.json()));
   console.log('titre', snap.slide.title, '| cadre', JSON.stringify(snap.slide.elements.find(e => e.id==='e-texte').frame));
   await p.screenshot({ path: '/tmp/e2e-3.png' });
   // Annuler deux fois.
@@ -38,7 +38,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await p.waitForTimeout(500);
   await p.keyboard.press('Control+z');
   await p.waitForTimeout(700);
-  const s2 = await p.evaluate(() => fetch('/api', {method:'POST', body: JSON.stringify({tab:'t-1', req:{cmd:'slide', id:'s-libre'}})}).then(r => r.json()));
+  const s2 = await p.evaluate(() => fetch('/api', {method:'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({tab:'t-1', req:{cmd:'slide', id:'s-libre'}})}).then(r => r.json()));
   console.log('après annulation', s2.slide.title, JSON.stringify(s2.slide.elements.find(e => e.id==='e-texte').frame));
   // Thème pro.
   await p.selectOption('#theme', 'pro');

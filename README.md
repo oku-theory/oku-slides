@@ -19,6 +19,9 @@ Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.
 | `crates/oku-slides-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
 | `crates/oku-slides-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
 | `crates/oku-slides-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
+| `crates/oku-slides-a2ui` | Surfaces A2UI v0.9 (catalogue de composants), partagées par le panneau et l'agent |
+| `crates/oku-slides-mcp` | Outils MCP de l'agent (HTTP local, jeton) : lecture, `apply`, surfaces, confirmations |
+| `crates/oku-slides-agent` | Agent vocal : client ACP (agent en sous-processus), tours, pile pour l'app et le serveur ; faux agent de test |
 | `crates/oku-slides-cli` | Outil `oku-slides` : rendu, enregistrement, relecture, mesures, serveur de dev |
 | `src-tauri` | Application de bureau Tauri 2 |
 | `ui` | Interface React + TypeScript (design system Papier) |
@@ -135,6 +138,38 @@ nouveau bloc. Chaque dictée s'annule avec ⌘Z.
 ```sh
 just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
 OKU_SLIDES_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
+```
+
+### Agent (⌘⇧D)
+
+⌘D dicte du texte ; **⌘⇧D parle à un agent** qui modifie la présentation.
+La consigne est transcrite sur la machine (Whisper), puis envoyée par
+[ACP](https://agentclientprotocol.com) à un agent lancé par Oku Slides. Il
+n'a ni fichiers ni terminal : il n'agit que par les outils d'Oku Slides,
+servis en MCP sur `127.0.0.1` avec un jeton propre à chaque onglet.
+
+- **Tout s'annule** : un tour de l'agent est une seule entrée ⌘Z.
+- **Ce qui ne s'annule pas** (enregistrer, ouvrir, supprimer un ensemble de
+  modèles, changer un réglage) attend votre confirmation, comme les
+  permissions que l'agent demande : un clic, jamais Entrée, et jamais
+  « toujours autoriser » par défaut.
+- **Décisions** : l'agent pose ses questions dans une fiche sous l'élément
+  (choix, reformulations : `1`–`4`, Entrée, `E` pour retoucher, Échap), propose
+  des variantes rendues dans un tiroir sous la scène, et des réglages en direct
+  dans un post-it. On peut répondre à une question à la voix (⌘⇧D).
+- **Conversation** : une par onglet, jamais enregistrée ; les onglets
+  travaillent en même temps. « Nouvelle conversation » repart de zéro. ⌘⇧D
+  pendant un tour l'arrête.
+
+| Réglage | Défaut |
+| --- | --- |
+| `[agent] command` / `OKU_SLIDES_AGENT__COMMAND` | `npx` |
+| `[agent] args` / `OKU_SLIDES_AGENT__ARGS` (séparés par des espaces) | `-y @agentclientprotocol/claude-agent-acp@0.81.2` |
+
+N'importe quel agent ACP qui accepte des serveurs MCP en HTTP convient.
+
+```sh
+just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"   # vrai agent
 ```
 
 ## Réglages

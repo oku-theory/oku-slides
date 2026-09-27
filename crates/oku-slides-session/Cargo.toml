@@ -19,10 +19,13 @@ oku-slides-pdf.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
+similar.workspace = true
+schemars.workspace = true
 
 [dev-dependencies]
 oku-slides-pdf.workspace = true
 speculoos.workspace = true
+insta.workspace = true
 
 [lints]
 workspace = true

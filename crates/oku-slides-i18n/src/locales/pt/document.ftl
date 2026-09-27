@@ -6,6 +6,8 @@ pdf-write = Não foi possível gravar o PDF
 render-compile = Não foi possível renderizar a apresentação
 render-pdf = A exportação para PDF falhou
 render-no-page = Esta página não existe
+render-image = Não foi possível gerar a imagem do slide
+
 render-setup = Não foi possível iniciar o renderizador
 render-missing-image = imagem ausente
 diagnostic-error = erro

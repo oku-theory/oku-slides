@@ -6,6 +6,8 @@ pdf-write = เขียน PDF ไม่ได้
 render-compile = เรนเดอร์งานนำเสนอไม่ได้
 render-pdf = ส่งออก PDF ไม่สำเร็จ
 render-no-page = ไม่มีหน้านี้
+render-image = ไม่สามารถสร้างภาพของสไลด์ได้
+
 render-setup = เริ่มตัวเรนเดอร์ไม่ได้
 render-missing-image = ไม่มีรูปภาพ
 diagnostic-error = ข้อผิดพลาด

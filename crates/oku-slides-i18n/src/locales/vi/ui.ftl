@@ -141,12 +141,32 @@ ui-grid-cell = cột { $cols } · hàng { $rows }
 ui-notes = Công cụ trang chiếu
 ui-stepper-less = { $label }: bớt một
 ui-stepper-more = { $label }: thêm một
+ui-agent-color-other = Màu khác
+ui-agent-thread = Tác tử
+ui-agent-new-conversation = Cuộc trò chuyện mới
+ui-agent-state-idle = Tác tử
+ui-agent-state-starting = Tác tử đang khởi động…
+ui-agent-state-working = Tác tử đang làm việc…
+ui-agent-stopped = Đã dừng.
+ui-agent-ended = Kết thúc lượt ({ $stop }).
+ui-agent-stop-max-tokens = Tác tử đã chạm giới hạn độ dài.
+ui-agent-stop-max-turns = Tác tử đã chạm giới hạn số bước.
+ui-agent-stop-refusal = Tác tử đã từ chối.
+ui-agent-sheet = Câu hỏi của tác tử
+ui-agent-sheet-keys = 1–4 chọn · Enter xác nhận · E chỉnh sửa · Esc hủy
+ui-agent-variants = Biến thể
+ui-agent-drawer-keys = Nhấp hoặc 1–4 · Esc đóng
+ui-agent-confirm = Xác nhận của tác tử
 
 ## Đọc chính tả
 
 ui-dictation = Đọc chính tả
 ui-dictation-start = Đọc chính tả
 ui-dictation-start-title = Đọc chính tả (⌘D)
+ui-dictation-agent-start = Nói với tác tử
+ui-dictation-agent-start-title = Nói với tác tử (⌘⇧D)
+ui-dictation-agent-stop = Dừng tác tử (⌘⇧D hoặc Esc)
+ui-dictation-agent-working = Tác tử đang làm việc… ⌘⇧D hoặc Esc để dừng
 ui-dictation-finish = Kết thúc đọc chính tả
 ui-dictation-finish-title = Kết thúc (⌘D)
 ui-dictation-cancel = Hủy

@@ -1,6 +1,7 @@
 // La scène : le SVG rendu par Typst, et par-dessus la couche de sélection.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { Frame, Op, SlideView, Target } from "./api";
 import { fontStack } from "./appearance";
 import { editorBackground } from "./color";
@@ -9,6 +10,7 @@ import { findElement, gridPlacement, isBlock, placeOnGridOps, textChanged, textO
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
+import { sheetPosition } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 
@@ -45,6 +47,8 @@ interface Props {
   dictated?: { seq: number; text: string } | null;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
+  /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide. */
+  overlay?: { target: string; node: ReactNode };
   /** Couleurs des pastilles dans l'éditeur (palette des graphiques du thème). */
   palette: string[];
 }
@@ -186,7 +190,7 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
   );
 }
 
-export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, palette }: Props) {
+export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const editor = useRef<TextEditorHandle>(null);
   const [scale, setScale] = useState(0.5);
@@ -299,69 +303,88 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     return cell && grid ? `${label} · ${cellLabel(cell)}` : label;
   };
 
+  const size = { width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) };
   return (
     // La slide garde ses coordonnées de gauche à droite, même dans une interface en arabe.
     <div className="stage-wrap" dir="ltr" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
-      <div
-        className="stage"
-        style={{ width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) }}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={() => setDrag(null)}
-      >
-        {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
-        {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
-        <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
-          {ordered.map((tg) => {
-            const sel = tg.id === selected;
-            const label = tg.target === "field" ? fieldLabel(tg.kind) : kindLabel(tg.kind);
+      {/* Cadre de la scène : même origine que la slide, sans rogner (la fiche de l'agent déborde). */}
+      <div className="stage-frame" style={size}>
+        <div
+          className="stage"
+          style={size}
+          onPointerMove={moveDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={() => setDrag(null)}
+        >
+          {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
+          {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
+          <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
+            {ordered.map((tg) => {
+              const sel = tg.id === selected;
+              const label = tg.target === "field" ? fieldLabel(tg.kind) : kindLabel(tg.kind);
+              return (
+                <div
+                  key={tg.id}
+                  className={`target${tg.free || (!!grid && isBlock(view, tg.id)) ? " free" : ""}${sel ? " selected" : ""}`}
+                  style={box(tg)}
+                  aria-label={label}
+                  aria-selected={sel}
+                  onPointerDown={(e) => startDrag(e, tg, "move")}
+                  onDoubleClick={() => tg.text !== null && onEdit(tg.id)}
+                >
+                  {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
+                  {sel && (tg.free || (!!grid && isBlock(view, tg.id))) &&
+                    (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
+                      <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
+                    ))}
+                </div>
+              );
+            })}
+          </div>
+          {editTarget && (() => {
+            const g = editorGeometry(editTarget, draft, scale);
             return (
-              <div
-                key={tg.id}
-                className={`target${tg.free || (!!grid && isBlock(view, tg.id)) ? " free" : ""}${sel ? " selected" : ""}`}
-                style={box(tg)}
-                aria-label={label}
-                aria-selected={sel}
-                onPointerDown={(e) => startDrag(e, tg, "move")}
-                onDoubleClick={() => tg.text !== null && onEdit(tg.id)}
-              >
-                {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
-                {sel && (tg.free || (!!grid && isBlock(view, tg.id))) &&
-                  (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
-                    <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
-                  ))}
-              </div>
+              <>
+                {/* Cache le texte rendu dessous : seul le brouillon se voit. */}
+                <span
+                  className="editor-mask"
+                  style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editorBackground(editTarget.style?.fill ?? null, editTarget.style?.bg ?? null) }}
+                />
+                <TextEditor
+                  key={editTarget.id}
+                  ref={editor}
+                  initial={editTarget.text ?? ""}
+                  field={editTarget.target === "field"}
+                  palette={palette}
+                  label={t("ui-stage-edit-text")}
+                  style={g.style}
+                  onChange={setDraft}
+                  onCommit={commit}
+                  onCancel={() => onEdit(null)}
+                />
+                <span className="editor-hint">
+                  {t(editTarget.target === "field" ? "ui-stage-hint-field" : "ui-stage-hint-block")}
+                </span>
+              </>
             );
-          })}
+          })()}
         </div>
-        {editTarget && (() => {
-          const g = editorGeometry(editTarget, draft, scale);
-          return (
-            <>
-              {/* Cache le texte rendu dessous : seul le brouillon se voit. */}
-              <span
-                className="editor-mask"
-                style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editorBackground(editTarget.style?.fill ?? null, editTarget.style?.bg ?? null) }}
-              />
-              <TextEditor
-                key={editTarget.id}
-                ref={editor}
-                initial={editTarget.text ?? ""}
-                field={editTarget.target === "field"}
-                palette={palette}
-                label={t("ui-stage-edit-text")}
-                style={g.style}
-                onChange={setDraft}
-                onCommit={commit}
-                onCancel={() => onEdit(null)}
-              />
-              <span className="editor-hint">
-                {t(editTarget.target === "field" ? "ui-stage-hint-field" : "ui-stage-hint-block")}
-              </span>
-            </>
-          );
-        })()}
+        {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}
       </div>
+    </div>
+  );
+}
+
+/** La fiche de l'agent, posée sous son élément ; rien si l'élément n'est pas sur la slide. */
+function SheetOverlay({ view, scale, overlay }: { view: SlideView; scale: number; overlay: { target: string; node: ReactNode } }) {
+  const tg = view.targets.find((x) => x.id === overlay.target);
+  if (!tg) return null;
+  // L'interface peut être en arabe même si la slide reste de gauche à droite.
+  const rtl = document.documentElement.dir === "rtl";
+  const pos = sheetPosition(tg, scale, rtl);
+  return (
+    <div className={`agent-sheet${rtl ? " rtl" : ""}`} dir={rtl ? "rtl" : "ltr"} style={{ left: pos.left, top: pos.top }}>
+      {overlay.node}
     </div>
   );
 }

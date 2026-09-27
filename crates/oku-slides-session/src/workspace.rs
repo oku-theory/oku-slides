@@ -8,7 +8,8 @@
 //! `workspace.json`.
 //!
 //! Ordre des verrous : l'espace de travail, puis une session, jamais
-//! l'inverse. Seules [`Workspace::apply`], [`Workspace::request`],
+//! l'inverse. Seules [`Workspace::apply`], [`Workspace::request`] (par
+//! [`Workspace::with_session`], que l'agent emprunte aussi),
 //! [`Workspace::open_files`], [`Workspace::settle`] et `post_notice`
 //! combinent les deux, en séquence, jamais imbriqués ; une session neuve se
 //! construit hors du verrou de l'espace de travail.
@@ -413,6 +414,20 @@ impl Workspace {
         }
     }
 
+    /// Les onglets ouverts, toutes fenêtres confondues.
+    pub fn tab_ids(&self) -> Vec<String> {
+        self.layout.windows.iter().flat_map(|w| w.tabs.iter().cloned()).collect()
+    }
+
+    /// `f` sur l'espace de travail, et les onglets qu'elle a fermés (ou
+    /// vierges remplacés par un fichier) : l'hôte arrête leur agent.
+    pub fn closed_by<R>(ws: &Mutex<Self>, f: impl FnOnce(&Mutex<Self>) -> R) -> (R, Vec<String>) {
+        let before = Self::lock(ws).tab_ids();
+        let out = f(ws);
+        let after = Self::lock(ws).tab_ids();
+        (out, before.into_iter().filter(|id| !after.contains(id)).collect())
+    }
+
     /// La fenêtre sous le point `(x, y)` : la plus récemment active qui le contient.
     pub fn window_at(&self, x: f64, y: f64, rects: &[(String, Rect)]) -> Option<String> {
         self.recent.iter().rev().find(|label| rects.iter().any(|(l, r)| l == *label && r.contains(x, y))).cloned()
@@ -438,22 +453,31 @@ impl Workspace {
     /// Seule la session de l'onglet est verrouillée pendant le rendu ;
     /// l'espace de travail l'est avant et après, jamais en même temps.
     pub fn request(ws: &Mutex<Self>, tab: &str, req: Request) -> (Result<String>, bool) {
+        let (reply, changed) = Self::with_session(ws, tab, |s| s.handle(req));
+        (reply.and_then(|r| r), changed)
+    }
+
+    /// `f` sur la session de l'onglet (réveillée au besoin) ; `true` : la barre est à redessiner.
+    ///
+    /// Même discipline que [`Workspace::request`] : l'espace de travail est
+    /// verrouillé avant et après, jamais pendant `f`.
+    pub fn with_session<R>(ws: &Mutex<Self>, tab: &str, f: impl FnOnce(&mut Session) -> R) -> (Result<R>, bool) {
         let session = match Self::lock(ws).session(tab) {
             Ok(session) => session,
             Err(e) => return (Err(e), false),
         };
-        let (reply, info) = {
+        let (out, info) = {
             let mut slot = relock(&session);
             match slot.ready() {
                 Ok(s) => {
-                    let reply = s.handle(req);
-                    (reply, Some(s.tab_info()))
+                    let out = f(s);
+                    (Ok(out), Some(s.tab_info()))
                 }
                 Err(e) => (Err(e), None),
             }
         };
         let changed = info.is_some_and(|info| Self::refresh(ws, tab, info));
-        (reply, changed)
+        (out, changed)
     }
 
     /// Les infos d'un onglet après usage de sa session ; `true` si elles ont changé.
@@ -784,6 +808,13 @@ impl Workspace {
         }
     }
 
+    /// Vrai si `path` (normalisé comme pour `OpenTab`) est le fichier d'un
+    /// autre onglet que `tab`.
+    pub fn open_elsewhere(&self, tab: &str, path: &Path) -> bool {
+        let path = resolve(path);
+        self.tabs.iter().any(|(id, t)| id != tab && t.info.path.as_deref() == Some(path.as_path()))
+    }
+
     fn tab_with_path(&self, path: &Path) -> Option<String> {
         self.tabs.iter().find(|(_, t)| t.info.path.as_deref() == Some(path)).map(|(id, _)| id.clone())
     }
@@ -920,6 +951,19 @@ mod slot;
 mod same_deck;
 
 use slot::{Dormant, Slot};
+
+/// L'agent atteint les sessions des onglets par l'espace de travail ; la
+/// barre à redessiner est ignorée ici (l'hôte qui la veut appelle
+/// [`Workspace::with_session`]).
+impl crate::agent::Sessions for Mutex<Workspace> {
+    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> Result<()> {
+        Workspace::with_session(self, tab, |s| f(s)).0
+    }
+
+    fn open_elsewhere(&self, tab: &str, path: &Path) -> bool {
+        Workspace::lock(self).open_elsewhere(tab, path)
+    }
+}
 
 #[cfg(test)]
 #[path = "workspace_tests.rs"]

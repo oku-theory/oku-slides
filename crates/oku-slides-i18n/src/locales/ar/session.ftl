@@ -17,6 +17,7 @@ session-unknown-window = لم تعد هذه النافذة مفتوحة.
 session-last-window = تبقى النافذة الأخيرة مفتوحة: أغلق التطبيق بدلًا من ذلك.
 session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }
+session-agent-form = طلب الوكيل غير صالح: { $reason }
 
 deck-untitled = بلا عنوان
 deck-new-title = عرض تقديمي جديد

@@ -1,0 +1,42 @@
+{
+  "http": true,
+  "turns": [
+    {
+      "plan": [{ "content": "Lire la slide", "status": "completed" }, { "content": "Proposer des reformulations", "status": "in_progress" }],
+      "tool_calls": [{ "id": "t1", "title": "Lire la slide" }],
+      "mcp": [
+        { "tool": "focus", "args": { "slide": "s-libre", "element": "e-texte" } },
+        { "tool": "ask_rewrite", "args": { "slide": "s-libre", "element": "e-texte", "proposals": ["Un bloc bien placé", "Un bloc libre"] } }
+      ],
+      "chunks": ["Texte reformulé."]
+    },
+    {
+      "mcp": [
+        { "tool": "show_variants", "args": { "slide": "s-libre", "variants": [
+          { "label": "Un", "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": "Variante un" }] }] }] },
+          { "label": "Deux", "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": "Variante deux" }] }] }] }
+        ] } }
+      ],
+      "chunks": ["Voici deux variantes."]
+    },
+    {
+      "mcp": [
+        { "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
+          { "id": "a", "label": "A" }, { "id": "b", "label": "B" }
+        ], "anchor": { "slide": "s-libre", "element": "e-texte" } } }
+      ]
+    }
+  ],
+  "sessions": {
+    "2": [
+      {
+        "mcp": [
+          { "tool": "apply", "args": { "label": "Titre : second onglet", "ops": [
+            { "op": "set_slide_field", "slide": "s-1", "field": "title", "value": "Second onglet, bonjour" }
+          ] } }
+        ],
+        "chunks": ["Titre changé."]
+      }
+    ]
+  }
+}

@@ -1,31 +1,14 @@
 //! La CLI `oku-slides`, lancée pour de vrai : chaque test a son propre dossier
 //! de données (OKU_SLIDES_PATHS__DATA) et choisit sa langue (OKU_SLIDES_I18N__LOCALE).
 
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Output, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+mod common;
+
+use std::io::Read;
+use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
+use common::{FIXTURE, Server, free_port, http, oku_slides, request, workdir};
 use speculoos::prelude::*;
-
-const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
-
-/// Un dossier de travail neuf pour un test.
-fn workdir(name: &str) -> PathBuf {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("oku-slides-cli-{name}-{}-{n}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
-    dir
-}
-
-fn oku_slides(dir: &Path, locale: &str) -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_oku-slides"));
-    cmd.env("OKU_SLIDES_PATHS__DATA", dir.join("data")).env("OKU_SLIDES_I18N__LOCALE", locale).env("NO_COLOR", "1");
-    cmd
-}
 
 fn run(cmd: &mut Command) -> Output {
     cmd.output().unwrap_or_else(|e| panic!("oku-slides ne se lance pas : {e}"))
@@ -169,69 +152,6 @@ fn invalid_setting_stops_with_a_clear_error() {
 
 // ---- Serveur de développement ------------------------------------------------
 
-struct Server(Child);
-
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .and_then(|l| l.local_addr())
-        .map(|a| a.port())
-        .unwrap_or_else(|e| panic!("port libre : {e}"))
-}
-
-/// Une requête HTTP/1.1 minimale ; renvoie le statut et le corps.
-fn http(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let mut stream = loop {
-        match TcpStream::connect(("127.0.0.1", port)) {
-            Ok(s) => break s,
-            Err(_) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(100)),
-            Err(e) => panic!("serveur injoignable : {e}"),
-        }
-    };
-    write!(
-        stream,
-        "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    )
-    .unwrap_or_else(|e| panic!("requête : {e}"));
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap_or_else(|e| panic!("réponse : {e}"));
-    let status = response.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-    let body = response.split_once("\r\n\r\n").map(|(_, b)| b.to_owned()).unwrap_or_default();
-    (status, body)
-}
-
-/// Un `POST` avec l'en-tête `Host` donné et des en-têtes en plus ; renvoie le statut.
-fn http_host(port: u16, path: &str, body: &str, host: &str, headers: &str) -> u16 {
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("serveur injoignable : {e}"));
-    write!(
-        stream,
-        "POST {path} HTTP/1.1\r\nHost: {host}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    )
-    .unwrap_or_else(|e| panic!("requête : {e}"));
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap_or_else(|e| panic!("réponse : {e}"));
-    response.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0)
-}
-
-/// Comme `http`, avec des en-têtes en plus (ex. `Origin`) ; renvoie le statut.
-fn http_with(port: u16, path: &str, body: &str, headers: &str) -> u16 {
-    http_host(port, path, body, "localhost", headers)
-}
-
-/// Comme `http`, avec un autre en-tête `Host` ; renvoie le statut.
-fn http_raw(port: u16, path: &str, body: &str, host: &str) -> u16 {
-    http_host(port, path, body, host, "")
-}
-
 #[test]
 fn serve_answers_the_api_the_dictation_and_static_files() {
     let dir = workdir("serve");
@@ -276,15 +196,21 @@ fn serve_answers_the_api_the_dictation_and_static_files() {
     assert_that!(status).is_equal_to(400);
     assert_that!(error).is_equal_to(r#"{"error":"Cet onglet n'est plus ouvert."}"#.to_owned());
     // Une page web d'une autre origine ne pilote pas le serveur.
-    let evil = http_with(port, "/api/workspace", r#"{"cmd":"new_window"}"#, "Origin: http://evil.example\r\n");
+    let local = format!("localhost:{port}");
+    let with = |host: &str, origin: Option<&str>, body: &str| {
+        let mut headers = vec![("Host", host), ("Content-Type", "application/json")];
+        headers.extend(origin.map(|o| ("Origin", o)));
+        request(port, "POST", "/api/workspace", &headers, body).0
+    };
+    let evil = with(&local, Some("http://evil.example"), r#"{"cmd":"new_window"}"#);
     assert_that!(evil).is_equal_to(403);
     // DNS rebinding : un nom étranger qui pointe sur 127.0.0.1.
-    let rebound = http_raw(port, "/api/workspace", r#"{"cmd":"view"}"#, "evil.example");
+    let rebound = with("evil.example", None, r#"{"cmd":"view"}"#);
     assert_that!(rebound).is_equal_to(403);
-    let same = http_with(port, "/api/workspace", r#"{"cmd":"view"}"#, &format!("Origin: http://localhost:{port}\r\n"));
+    let same = with(&local, Some(&format!("http://localhost:{port}")), r#"{"cmd":"view"}"#);
     assert_that!(same).is_equal_to(200);
-    // Le serveur Vite de `just web` (port 5173) relaie l'origine de sa page.
-    let vite = http_with(port, "/api/workspace", r#"{"cmd":"view"}"#, "Origin: http://localhost:5173\r\n");
+    // Le proxy de Vite (`just web`, port 5173) garde l'en-tête `Host` du navigateur.
+    let vite = with("localhost:5173", Some("http://localhost:5173"), r#"{"cmd":"view"}"#);
     assert_that!(vite).is_equal_to(200);
     // Les requêtes refusées n'ont rien changé : toujours une fenêtre, deux onglets.
     let (status, view) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);

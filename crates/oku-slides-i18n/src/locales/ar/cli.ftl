@@ -29,6 +29,8 @@ cli-stopped = توقف الخادم
 cli-not-found = غير موجود
 cli-bad-header = ترويسة HTTP غير صالحة: { $value }
 cli-bad-request = طلب غير صالح: { $reason }
+cli-sse-full = عدد كبير جدًا من تدفقات الأحداث مفتوحة بالفعل
+cli-forbidden = تم رفض الطلب: لم يصدر عن الواجهة المحلية
 
 cli-about = عرض عروض Oku Slides التقديمية وحفظها
 cli-arg-fonts = مجلد خطوط إضافي (TTF/OTF)؛ الافتراضي: paths.fonts في الإعدادات

@@ -17,6 +17,7 @@ session-unknown-window = このウィンドウはもう開いていません。
 session-last-window = 最後のウィンドウは開いたままになります。代わりにアプリを終了してください。
 session-unsaved = 「{ $title }」に未保存の変更があります。
 session-bad-request = 無効なリクエスト：{ $reason }
+session-agent-form = エージェントのリクエストが無効です：{ $reason }
 
 deck-untitled = 無題
 deck-new-title = 新規プレゼンテーション

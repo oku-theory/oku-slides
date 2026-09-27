@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::PoisonError;
 use std::sync::atomic::Ordering;
 
+use oku_slides_agent::AgentCommand;
 use oku_slides_session::{Request, Workspace, WorkspaceRequest};
 use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::ipc::Response;
@@ -64,6 +65,10 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
         if changed {
             windows::emit_view(app);
         }
+        if reply.is_ok() {
+            // Le deck a pu changer : les post-its orphelins de l'agent se ferment.
+            state.stack.after_change(&tab);
+        }
         Ok(reply.map_err(|e| state.refuse(e)))
     })
     .await?;
@@ -82,7 +87,10 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
         }
-        let outcome = Workspace::apply(&state.workspace, req).map_err(|e| state.refuse(e))?;
+        let (outcome, closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::apply(ws, req));
+        // Onglets fermés (ou vierge remplacé) : leur agent s'arrête.
+        state.stop_closed_agents(&closed);
+        let outcome = outcome.map_err(|e| state.refuse(e))?;
         if outcome.is_last_window() {
             state::shutdown(app);
             return Ok(outcome.into_json());
@@ -109,6 +117,23 @@ pub async fn quit(app: AppHandle) {
 #[tauri::command]
 pub fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
     engine.handle(req)
+}
+
+/// Agent d'un onglet : consigne, annulation, nouvelle conversation, action
+/// d'une surface, reprise du fil (chaque commande nomme son onglet).
+///
+/// Hors du fil principal (`blocking`) : une action de surface (réglage,
+/// variante) applique au deck par `AppSessions`, qui verrouille l'espace de
+/// travail et redessine les barres d'onglets (`windows::emit_view`).
+#[tauri::command]
+pub async fn agent(app: AppHandle, req: AgentCommand) -> Result<(), String> {
+    blocking(&app, move |_, state| {
+        if state.closing.load(Ordering::SeqCst) {
+            return Err(CLOSING.to_owned());
+        }
+        state.stack.handle(req)
+    })
+    .await
 }
 
 /// `candidate` est-il plus récent que le dernier focus appliqué ?
@@ -190,7 +215,9 @@ pub fn open_files(app: &AppHandle, files: Vec<PathBuf>) {
             if state.closing.load(Ordering::SeqCst) {
                 return Err(CLOSING.to_owned());
             }
-            Workspace::open_files(&state.workspace, &files);
+            let ((), closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::open_files(ws, &files));
+            // Un onglet vierge remplacé par un fichier : son agent s'arrête.
+            state.stop_closed_agents(&closed);
             Ok(windows::sync(app, None, true))
         })
         .await;

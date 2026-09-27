@@ -17,6 +17,7 @@ session-unknown-window = এই উইন্ডোটি আর খোলা ন
 session-last-window = শেষ উইন্ডোটি খোলা থাকে: এর বদলে অ্যাপটি বন্ধ করুন।
 session-unsaved = “{ $title }”-এ অসংরক্ষিত পরিবর্তন আছে।
 session-bad-request = অবৈধ অনুরোধ: { $reason }
+session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 
 deck-untitled = শিরোনামহীন
 deck-new-title = নতুন প্রেজেন্টেশন

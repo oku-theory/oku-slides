@@ -17,6 +17,7 @@ oku-slides-render.workspace = true
 oku-slides-pdf.workspace = true
 oku-slides-session.workspace = true
 oku-slides-stt.workspace = true
+oku-slides-agent.workspace = true
 tiny_http.workspace = true
 ctrlc.workspace = true
 color-eyre.workspace = true
@@ -26,6 +27,7 @@ oku-slides-i18n.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 speculoos.workspace = true

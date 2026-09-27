@@ -7,6 +7,7 @@ render-compile = No se pudo generar la presentación
 render-pdf = Falló la exportación a PDF
 render-no-page = Esta página no existe
 render-setup = No se pudo iniciar el motor de renderizado
+render-image = No se pudo producir la imagen de la diapositiva
 render-missing-image = imagen ausente
 diagnostic-error = error
 diagnostic-warning = advertencia

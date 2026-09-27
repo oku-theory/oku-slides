@@ -1,0 +1,87 @@
+---
+source: crates/oku-slides-session/src/agent/forms_tests.rs
+expression: s
+---
+{
+  "id": "ask-3",
+  "place": "modal",
+  "messages": [
+    {
+      "version": "v0.9",
+      "createSurface": {
+        "surfaceId": "ask-3",
+        "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "ask-3",
+        "components": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "body"
+          },
+          {
+            "id": "body",
+            "component": "Column",
+            "children": [
+              "message",
+              "buttons"
+            ]
+          },
+          {
+            "id": "message",
+            "component": "Text",
+            "text": "Remplacer le fichier ?",
+            "variant": "body"
+          },
+          {
+            "id": "buttons",
+            "component": "Row",
+            "children": [
+              "yes",
+              "no"
+            ]
+          },
+          {
+            "id": "yes",
+            "component": "Button",
+            "label": "Oui, le faire",
+            "primary": true,
+            "danger": true,
+            "action": {
+              "event": {
+                "name": "confirm",
+                "context": {
+                  "confirmed": true
+                }
+              }
+            }
+          },
+          {
+            "id": "no",
+            "component": "Button",
+            "label": "Annuler",
+            "action": {
+              "event": {
+                "name": "confirm",
+                "context": {
+                  "confirmed": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateDataModel": {
+        "surfaceId": "ask-3",
+        "value": {}
+      }
+    }
+  ]
+}

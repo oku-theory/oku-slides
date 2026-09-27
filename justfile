@@ -40,15 +40,18 @@ web file=deck: install
 # Tests Rust (hors app Tauri) et tests de l'interface
 test:
     cargo nextest run --workspace --exclude oku-slides-app
-    cd ui && bun test
+    # Tests de rendu (DOM happy-dom) dans leur propre processus : cache de modules à part.
+    cd ui && bun run test
 
 # Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf sur le port 4872
 e2e: install
     #!/usr/bin/env bash
     set -euo pipefail
     (cd ui && bun run build && bunx playwright install chromium)
-    cargo build -q -p oku-slides-cli
-    ./target/debug/oku-slides --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
+    cargo build -q -p oku-slides-cli -p oku-slides-agent --bin oku-slides --bin oku-slides-fake-agent
+    OKU_SLIDES_AGENT__COMMAND="$PWD/target/debug/oku-slides-fake-agent" \
+    OKU_SLIDES_AGENT__ARGS="--script $PWD/fixtures/agent/e2e.json" \
+      ./target/debug/oku-slides --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
     trap "kill $! 2>/dev/null" EXIT
     for _ in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:4872/ && break; sleep 0.2; done
     cd ui && E2E_URL=http://127.0.0.1:4872/ bun run e2e
@@ -145,6 +148,10 @@ stt_features := if os() == "macos" { "accelerate" } else { "" }
 # Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
 transcribe wav model="turbo" lang="":
     cargo run -q --release -p oku-slides-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+
+# Vérification manuelle avec le vrai agent (réseau, compte) : just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"
+agent-smoke deck prompt:
+    cargo run -p oku-slides-agent --example smoke -- {{deck}} "{{prompt}}"
 
 # Supprime les builds (Rust et interface)
 clean:

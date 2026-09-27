@@ -93,6 +93,25 @@ fn app_id_names_oku_slides() {
 }
 
 #[test]
+fn defaults_agent_runs_claude_agent_acp_through_npx() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.agent.command.as_str()).is_equal_to("npx");
+    assert_that!(s.agent.args.clone())
+        .is_equal_to(vec!["-y".to_owned(), "@agentclientprotocol/claude-agent-acp@0.81.2".to_owned()]);
+}
+
+#[test]
+fn env_agent_args_split_on_spaces() {
+    let env = Settings::environment().source(Some(std::collections::HashMap::from([
+        ("OKU_SLIDES_AGENT__COMMAND".to_owned(), "/bin/faux".to_owned()),
+        ("OKU_SLIDES_AGENT__ARGS".to_owned(), "--scenario e2e.json".to_owned()),
+    ])));
+    let s = Settings::from_sources(None, env).unwrap();
+    assert_that!(s.agent.command.as_str()).is_equal_to("/bin/faux");
+    assert_that!(s.agent.args.clone()).is_equal_to(vec!["--scenario".to_owned(), "e2e.json".to_owned()]);
+}
+
+#[test]
 fn author_name_setting_wins_over_system_user() {
     let a = AuthorSettings { name: Some("Julie".into()) };
     assert_that!(a.resolved()).is_equal_to(Some("Julie".to_owned()));

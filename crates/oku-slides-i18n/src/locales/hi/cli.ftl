@@ -29,6 +29,8 @@ cli-stopped = सर्वर बंद हुआ
 cli-not-found = नहीं मिला
 cli-bad-header = अमान्य HTTP हेडर: { $value }
 cli-bad-request = अमान्य अनुरोध: { $reason }
+cli-sse-full = पहले से ही बहुत सारे इवेंट स्ट्रीम खुले हैं
+cli-forbidden = अनुरोध अस्वीकृत: यह स्थानीय इंटरफ़ेस से नहीं आया
 
 cli-about = Oku Slides प्रेज़ेंटेशन रेंडर और संग्रहीत करें
 cli-arg-fonts = अतिरिक्त फ़ॉन्ट फ़ोल्डर (TTF/OTF); डिफ़ॉल्ट: सेटिंग्स में paths.fonts

@@ -36,6 +36,7 @@ pub struct Settings {
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub stt: SttSettings,
+    pub agent: AgentSettings,
     #[serde(default)]
     pub author: AuthorSettings,
 }
@@ -162,18 +163,41 @@ pub struct VadSettings {
     pub max_phrase: f32,
 }
 
+/// Agent ACP de la dictée vers l'agent (⌘⇧D).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct AgentSettings {
+    /// Programme lancé (cherché dans le `PATH`).
+    pub command: String,
+    pub args: Vec<String>,
+}
+
 impl Settings {
     /// Réglages de l'app : défauts, `config.toml` du dossier de données, environnement.
     pub fn load() -> Result<Self, ConfigError> {
-        let env =
-            config::Environment::with_prefix("OKU_SLIDES").prefix_separator("_").separator("__").try_parsing(true);
+        let env = Self::environment();
         let data = std::env::var_os("OKU_SLIDES_PATHS__DATA").map_or_else(default_data_dir, PathBuf::from);
         Self::from_sources(Some(&data.join("config.toml")), env)
     }
 
+    /// Variables `OKU_SLIDES_<SECTION>__<CLÉ>` ; `agent.args` se découpe sur les espaces.
+    pub(crate) fn environment() -> config::Environment {
+        config::Environment::with_prefix("OKU_SLIDES")
+            .prefix_separator("_")
+            .separator("__")
+            .try_parsing(true)
+            .list_separator(" ")
+            .with_list_parse_key("agent.args")
+    }
+
+    /// `config.toml` du dossier de données (facultatif, écrit par `set_setting`).
+    pub fn config_file(&self) -> PathBuf {
+        self.paths.data().join("config.toml")
+    }
+
     /// Les seuls défauts embarqués (tests, outils).
     pub fn defaults() -> Result<Self, ConfigError> {
-        Self::from_sources(None, config::Environment::default().source(Some(HashMap::new())))
+        Self::from_sources(None, Self::environment().source(Some(HashMap::new())))
     }
 
     /// Défauts, puis `file` s'il existe, puis `env`.

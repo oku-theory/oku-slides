@@ -29,6 +29,8 @@ cli-stopped = сервер остановлен
 cli-not-found = не найдено
 cli-bad-header = недопустимый HTTP-заголовок: { $value }
 cli-bad-request = недопустимый запрос: { $reason }
+cli-sse-full = слишком много уже открытых потоков событий
+cli-forbidden = запрос отклонён: он поступил не из локального интерфейса
 
 cli-about = Отрисовка и хранение презентаций Oku Slides
 cli-arg-fonts = Дополнительная папка шрифтов (TTF/OTF); по умолчанию: paths.fonts в настройках

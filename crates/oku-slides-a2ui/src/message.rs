@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::Value;
 
-/// Catalogue des surfaces d'Oku Slides, implémenté par l'interface (`ui/src/a2ui`).
-pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:panel:v1";
+/// Catalogue des surfaces d'Oku Slides (panneau et agent), implémenté par l'interface (`ui/src/a2ui`).
+pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v2";
 
 /// Version du protocole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -77,7 +77,8 @@ pub struct Component {
 }
 
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
-/// ceux du catalogue de base v0.9 ; `Stepper` est propre à Oku Slides.
+/// ceux du catalogue de base v0.9 ; `Stepper`, `ChoiceChips`, `ColorField`,
+/// `SlideThumb`, `DiffText` sont propres à Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -110,6 +111,61 @@ pub enum ComponentKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         action: Option<Action>,
     },
+    /// Enfants côte à côte.
+    Row { children: Vec<String> },
+    /// Un bouton ; `primary` : l'action principale de la surface ; `danger` :
+    /// une action qui engage (non annulable, permission permanente).
+    Button {
+        label: Dynamic<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        primary: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        danger: Option<bool>,
+        action: Action,
+    },
+    /// Des pastilles, une par option ; choisir écrit l'`id` dans `value` puis envoie `action`.
+    ChoiceChips {
+        options: Vec<ChoiceOption>,
+        value: Dynamic<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Un curseur ; `action` part quand on lâche.
+    Slider {
+        label: Dynamic<String>,
+        value: Dynamic<f64>,
+        min: f64,
+        max: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        step: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Une couleur (hex), choisie dans `palette` ou libre.
+    ColorField {
+        label: Dynamic<String>,
+        value: Dynamic<String>,
+        palette: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Une liste déroulante.
+    Select {
+        label: Dynamic<String>,
+        value: Dynamic<String>,
+        options: Vec<ChoiceOption>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Miniature d'une slide rendue par la session (SVG), cliquable.
+    SlideThumb {
+        svg: String,
+        label: Dynamic<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Un texte et ses changements, mot à mot.
+    DiffText { segments: Vec<DiffSegment> },
 }
 
 /// Style d'un texte (sous-ensemble des variantes v0.9).
@@ -119,6 +175,31 @@ pub enum TextVariant {
     H4,
     Body,
     Caption,
+}
+
+/// Une option d'un choix ou d'une liste. Aussi argument des outils de
+/// l'agent (`ask_choice`, champs `select`) : désérialisable, avec schéma.
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct ChoiceOption {
+    pub id: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+}
+
+/// Un morceau de texte gardé, retiré ou ajouté.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DiffSegment {
+    pub kind: DiffKind,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DiffKind {
+    Keep,
+    Del,
+    Ins,
 }
 
 /// Une valeur écrite telle quelle, ou lue dans le modèle de données.
@@ -156,6 +237,47 @@ impl Component {
     pub fn new(id: impl Into<String>, kind: ComponentKind) -> Self {
         Self { id: id.into(), kind }
     }
+
+    /// Un post-it autour de `child`.
+    pub fn card(id: impl Into<String>, child: &str) -> Self {
+        Self::new(id, ComponentKind::Card { child: child.to_owned() })
+    }
+
+    pub fn column(id: impl Into<String>, children: &[&str]) -> Self {
+        Self::new(id, ComponentKind::Column { children: children.iter().map(|c| (*c).to_owned()).collect() })
+    }
+
+    pub fn row(id: impl Into<String>, children: &[&str]) -> Self {
+        Self::new(id, ComponentKind::Row { children: children.iter().map(|c| (*c).to_owned()).collect() })
+    }
+
+    pub fn text(id: impl Into<String>, text: impl Into<String>, variant: Option<TextVariant>) -> Self {
+        Self::new(id, ComponentKind::Text { text: Dynamic::Literal(text.into()), variant })
+    }
+
+    pub fn button(id: impl Into<String>, label: impl Into<String>, primary: bool, action: Action) -> Self {
+        Self::new(
+            id,
+            ComponentKind::Button {
+                label: Dynamic::Literal(label.into()),
+                primary: primary.then_some(true),
+                danger: None,
+                action,
+            },
+        )
+    }
+
+    /// Le même bouton, marqué ou non comme une action qui engage.
+    ///
+    /// Ne concerne que les boutons : un autre composant est rendu tel quel.
+    #[must_use]
+    pub fn danger(mut self, on: bool) -> Self {
+        debug_assert!(matches!(self.kind, ComponentKind::Button { .. }), "danger() ne vaut que pour un bouton");
+        if let ComponentKind::Button { danger, .. } = &mut self.kind {
+            *danger = on.then_some(true);
+        }
+        self
+    }
 }
 
 impl Action {
@@ -164,6 +286,11 @@ impl Action {
         Self {
             event: Event { name: name.into(), context: context.into_iter().map(|(k, v)| (k.to_owned(), v)).collect() },
         }
+    }
+
+    /// L'évènement `name`, sans contexte.
+    pub fn named(name: impl Into<String>) -> Self {
+        Self { event: Event { name: name.into(), context: BTreeMap::new() } }
     }
 }
 

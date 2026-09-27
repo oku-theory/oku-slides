@@ -7,6 +7,7 @@ render-compile = プレゼンテーションをレンダリングできません
 render-pdf = PDF の書き出しに失敗しました
 render-no-page = このページは存在しません
 render-setup = レンダラーを起動できませんでした
+render-image = スライドの画像を生成できませんでした
 render-missing-image = 画像がありません
 diagnostic-error = エラー
 diagnostic-warning = 警告

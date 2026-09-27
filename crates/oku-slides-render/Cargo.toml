@@ -17,6 +17,7 @@ tracing.workspace = true
 typst.workspace = true
 typst-pdf.workspace = true
 typst-svg.workspace = true
+typst-render.workspace = true
 typst-layout.workspace = true
 serde.workspace = true
 typst-assets.workspace = true

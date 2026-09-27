@@ -143,12 +143,32 @@ ui-grid-cell = süt. { $cols } · satır { $rows }
 ui-notes = Slayt araçları
 ui-stepper-less = { $label }: bir eksik
 ui-stepper-more = { $label }: bir fazla
+ui-agent-color-other = Başka renk
+ui-agent-thread = Ajan
+ui-agent-new-conversation = Yeni konuşma
+ui-agent-state-idle = Ajan
+ui-agent-state-starting = Ajan başlatılıyor…
+ui-agent-state-working = Ajan çalışıyor…
+ui-agent-stopped = Durduruldu.
+ui-agent-ended = Tur bitti ({ $stop }).
+ui-agent-stop-max-tokens = Ajan uzunluk sınırına ulaştı.
+ui-agent-stop-max-turns = Ajan adım sınırına ulaştı.
+ui-agent-stop-refusal = Ajan reddetti.
+ui-agent-sheet = Ajanın sorusu
+ui-agent-sheet-keys = 1–4 seç · Enter onayla · E düzenle · Esc iptal
+ui-agent-variants = Varyantlar
+ui-agent-drawer-keys = Tıkla veya 1–4 · Esc kapatır
+ui-agent-confirm = Ajan onayı
 
 ## Dikte
 
 ui-dictation = Dikte
 ui-dictation-start = Dikte et
 ui-dictation-start-title = Dikte et (⌘D)
+ui-dictation-agent-start = Ajanla konuş
+ui-dictation-agent-start-title = Ajanla konuş (⌘⇧D)
+ui-dictation-agent-stop = Ajanı durdur (⌘⇧D veya Esc)
+ui-dictation-agent-working = Ajan çalışıyor… ⌘⇧D veya Esc durdurur
 ui-dictation-finish = Dikteyi bitir
 ui-dictation-finish-title = Bitir (⌘D)
 ui-dictation-cancel = İptal

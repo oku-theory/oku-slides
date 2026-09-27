@@ -29,6 +29,8 @@ cli-stopped = সার্ভার বন্ধ হয়েছে
 cli-not-found = পাওয়া যায়নি
 cli-bad-header = অবৈধ HTTP হেডার: { $value }
 cli-bad-request = অবৈধ অনুরোধ: { $reason }
+cli-sse-full = ইতিমধ্যে অনেক বেশি ইভেন্ট স্ট্রিম খোলা আছে
+cli-forbidden = অনুরোধ প্রত্যাখ্যাত: এটি স্থানীয় ইন্টারফেস থেকে আসেনি
 
 cli-about = Oku Slides প্রেজেন্টেশন রেন্ডার ও সংরক্ষণ করুন
 cli-arg-fonts = অতিরিক্ত ফন্ট ফোল্ডার (TTF/OTF); ডিফল্ট: সেটিংসে paths.fonts

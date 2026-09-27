@@ -6,6 +6,8 @@ pdf-write = PDF를 저장할 수 없습니다
 render-compile = 프레젠테이션을 렌더링할 수 없습니다
 render-pdf = PDF 내보내기에 실패했습니다
 render-no-page = 존재하지 않는 페이지입니다
+render-image = 슬라이드의 이미지를 생성할 수 없습니다
+
 render-setup = 렌더러를 시작할 수 없습니다
 render-missing-image = 이미지 없음
 diagnostic-error = 오류

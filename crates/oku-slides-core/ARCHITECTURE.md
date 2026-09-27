@@ -14,7 +14,8 @@ sources. Aucune dépendance à Typst ni à Tauri.
   traduction des `Op`) ; `commit(label)` clôt une transaction — un commit = un *change* Loro,
   `label` en message (`set_change_merge_interval(-1)`) ; `deck()` fait une **lecture totale**
   (jamais d'erreur : sous-arbre illisible → `Issue` et valeur par défaut). `UndoManager`
-  (`undo.rs`) non persisté pour annuler / rétablir. `merge` réconcilie deux replicas de même
+  (`undo.rs`) non persisté pour annuler / rétablir ; `begin_group`/`end_group` : un tour de
+    l'agent = une étape. `merge` réconcilie deux replicas de même
   `deck_uid`, rend un `MergeReport` (`authors.rs`) ; racine `peers` : nom de chaque pair,
   inscrit à sa première édition (réglage `[author] name`, sinon utilisateur système).
   Modules : `schema` (catégories de champs), `read`/`write` (aller-retour `Deck` ↔ `LoroDoc`),
@@ -44,6 +45,5 @@ messages Fluent.
 
 ## Dépendances
 
-`oku-slides-i18n` (messages), `oku-slides-chart` (schéma des graphiques),
-`loro` (replica), `zip` (sources), `sha2`/`hex` (identité des assets). Dev :
-`speculoos`, `rstest`, `proptest` (convergence par propriété).
+`oku-slides-i18n`, `oku-slides-chart` (schéma des graphiques), `loro`, `zip`,
+`sha2`/`hex` (identité des assets) ; dev : `speculoos`, `rstest`, `proptest`.

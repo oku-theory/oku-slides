@@ -1,0 +1,738 @@
+[
+  {
+    "id": "ask-1",
+    "place": "sheet",
+    "anchor": {
+      "slide": "s-4",
+      "element": "e-2"
+    },
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "ask-1",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "ask-1",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "question",
+                "options",
+                "cancel"
+              ]
+            },
+            {
+              "id": "question",
+              "component": "Text",
+              "text": "Quelle mise en page ?",
+              "variant": "h4"
+            },
+            {
+              "id": "options",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "a",
+                  "label": "Deux colonnes"
+                },
+                {
+                  "id": "b",
+                  "label": "Citation",
+                  "hint": "sobre"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              },
+              "action": {
+                "event": {
+                  "name": "choose",
+                  "context": {
+                    "choice": {
+                      "path": "/choice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "cancel",
+              "component": "Button",
+              "label": "Annuler",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "ask-1",
+          "value": {
+            "choice": ""
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "ask-2",
+    "place": "modal",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "ask-2",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "ask-2",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "message",
+                "buttons"
+              ]
+            },
+            {
+              "id": "message",
+              "component": "Text",
+              "text": "Remplacer le fichier ?",
+              "variant": "body"
+            },
+            {
+              "id": "buttons",
+              "component": "Row",
+              "children": [
+                "yes",
+                "no"
+              ]
+            },
+            {
+              "id": "yes",
+              "component": "Button",
+              "label": "Oui, le faire",
+              "primary": true,
+              "danger": true,
+              "action": {
+                "event": {
+                  "name": "confirm",
+                  "context": {
+                    "confirmed": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "no",
+              "component": "Button",
+              "label": "Annuler",
+              "action": {
+                "event": {
+                  "name": "confirm",
+                  "context": {
+                    "confirmed": false
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "ask-2",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "id": "perm-3",
+    "place": "modal",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "perm-3",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "perm-3",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "title",
+                "buttons"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Écrire le fichier ?",
+              "variant": "h4"
+            },
+            {
+              "id": "buttons",
+              "component": "Row",
+              "children": [
+                "option-1",
+                "option-2",
+                "option-0"
+              ]
+            },
+            {
+              "id": "option-1",
+              "component": "Button",
+              "label": "Autoriser une fois",
+              "primary": true,
+              "action": {
+                "event": {
+                  "name": "permission",
+                  "context": {
+                    "index": 1
+                  }
+                }
+              }
+            },
+            {
+              "id": "option-2",
+              "component": "Button",
+              "label": "Refuser",
+              "action": {
+                "event": {
+                  "name": "permission",
+                  "context": {
+                    "index": 2
+                  }
+                }
+              }
+            },
+            {
+              "id": "option-0",
+              "component": "Button",
+              "label": "Toujours autoriser · pour toujours",
+              "danger": true,
+              "action": {
+                "event": {
+                  "name": "permission",
+                  "context": {
+                    "index": 0
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "perm-3",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "id": "ask-4",
+    "place": "sheet",
+    "anchor": {
+      "slide": "s-4",
+      "element": "@title"
+    },
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "ask-4",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "ask-4",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "title",
+                "diff-0",
+                "pick-0",
+                "diff-1",
+                "pick-1",
+                "keep",
+                "edit"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Reformulation",
+              "variant": "h4"
+            },
+            {
+              "id": "diff-0",
+              "component": "DiffText",
+              "segments": [
+                {
+                  "kind": "keep",
+                  "text": "Nos "
+                },
+                {
+                  "kind": "del",
+                  "text": "objectifs"
+                },
+                {
+                  "kind": "ins",
+                  "text": "paris"
+                },
+                {
+                  "kind": "keep",
+                  "text": " pour 2027"
+                }
+              ]
+            },
+            {
+              "id": "pick-0",
+              "component": "Button",
+              "label": "Choisir 1",
+              "primary": true,
+              "action": {
+                "event": {
+                  "name": "rewrite",
+                  "context": {
+                    "kept": 0,
+                    "text": "Nos paris pour 2027"
+                  }
+                }
+              }
+            },
+            {
+              "id": "diff-1",
+              "component": "DiffText",
+              "segments": [
+                {
+                  "kind": "del",
+                  "text": "Nos"
+                },
+                {
+                  "kind": "ins",
+                  "text": "Ce"
+                },
+                {
+                  "kind": "keep",
+                  "text": " "
+                },
+                {
+                  "kind": "del",
+                  "text": "objectifs"
+                },
+                {
+                  "kind": "ins",
+                  "text": "que"
+                },
+                {
+                  "kind": "keep",
+                  "text": " "
+                },
+                {
+                  "kind": "del",
+                  "text": "pour"
+                },
+                {
+                  "kind": "ins",
+                  "text": "nous"
+                },
+                {
+                  "kind": "keep",
+                  "text": " "
+                },
+                {
+                  "kind": "del",
+                  "text": "2027"
+                },
+                {
+                  "kind": "ins",
+                  "text": "visons"
+                }
+              ]
+            },
+            {
+              "id": "pick-1",
+              "component": "Button",
+              "label": "Choisir 2",
+              "action": {
+                "event": {
+                  "name": "rewrite",
+                  "context": {
+                    "kept": 1,
+                    "text": "Ce que nous visons"
+                  }
+                }
+              }
+            },
+            {
+              "id": "keep",
+              "component": "Button",
+              "label": "Garder l'original",
+              "action": {
+                "event": {
+                  "name": "rewrite",
+                  "context": {
+                    "kept": "original",
+                    "text": "Nos objectifs pour 2027"
+                  }
+                }
+              }
+            },
+            {
+              "id": "edit",
+              "component": "TextField",
+              "label": "Retoucher avant d'appliquer",
+              "value": {
+                "path": "/draft"
+              },
+              "action": {
+                "event": {
+                  "name": "rewrite",
+                  "context": {
+                    "kept": "edited",
+                    "text": {
+                      "path": "/draft"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "ask-4",
+          "value": {
+            "draft": "Nos paris pour 2027"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "show-5",
+    "place": "postit",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "show-5",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "show-5",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "title",
+                "f0",
+                "f1",
+                "f2",
+                "f3",
+                "f4",
+                "close"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Réglages",
+              "variant": "h4"
+            },
+            {
+              "id": "f0",
+              "component": "Stepper",
+              "label": "Colonnes",
+              "value": {
+                "path": "/f0"
+              },
+              "min": 1,
+              "max": 6,
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 0,
+                    "value": {
+                      "path": "/f0"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "f1",
+              "component": "Slider",
+              "label": "Espacement",
+              "value": {
+                "path": "/f1"
+              },
+              "min": 0.0,
+              "max": 64.0,
+              "step": 4.0,
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 1,
+                    "value": {
+                      "path": "/f1"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "f2",
+              "component": "ColorField",
+              "label": "Accent",
+              "value": {
+                "path": "/f2"
+              },
+              "palette": [
+                "#c2573a",
+                "#1f4e79"
+              ],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 2,
+                    "value": {
+                      "path": "/f2"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "f3",
+              "component": "Select",
+              "label": "Mise en page",
+              "value": {
+                "path": "/f3"
+              },
+              "options": [
+                {
+                  "id": "a",
+                  "label": "Deux colonnes"
+                },
+                {
+                  "id": "b",
+                  "label": "Citation",
+                  "hint": "sobre"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 3,
+                    "value": {
+                      "path": "/f3"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "f4",
+              "component": "TextField",
+              "label": "Légende",
+              "value": {
+                "path": "/f4"
+              },
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 4,
+                    "value": {
+                      "path": "/f4"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "show-5",
+          "value": {
+            "f0": 2,
+            "f1": 16,
+            "f2": "#c2573a",
+            "f3": "a",
+            "f4": "Source : Insee"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "show-6",
+    "place": "drawer",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "show-6",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "show-6",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "title",
+                "row",
+                "close"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Variantes",
+              "variant": "h4"
+            },
+            {
+              "id": "row",
+              "component": "Row",
+              "children": [
+                "v0",
+                "v1"
+              ]
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            },
+            {
+              "id": "v0",
+              "component": "SlideThumb",
+              "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+              "label": "1 · Aérée",
+              "action": {
+                "event": {
+                  "name": "variant",
+                  "context": {
+                    "index": 0
+                  }
+                }
+              }
+            },
+            {
+              "id": "v1",
+              "component": "SlideThumb",
+              "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+              "label": "2 · Dense",
+              "action": {
+                "event": {
+                  "name": "variant",
+                  "context": {
+                    "index": 1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "show-6",
+          "value": {}
+        }
+      }
+    ]
+  }
+]

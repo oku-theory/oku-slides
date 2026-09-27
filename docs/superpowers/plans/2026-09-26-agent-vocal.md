@@ -25,6 +25,9 @@
 5. **Bout à bout** : la consigne est envoyée par `POST /api/agent` depuis le test, pas par un faux micro (le test n'aurait pas de modèle Whisper). Les deux modes du micro sont couverts par les tests de l'interface (Task 19).
 6. **`rust-mcp-sdk` 1.1.0, pas 2.0** : le serveur `rust-mcp-sdk` 2.0 ne parle **que** MCP 2026-07-28 (sans état, erreur -32022 sinon). Le SDK officiel TypeScript est passé en v2 (`@modelcontextprotocol/client|server|core` 2.1.0, ligne stable, spec 2026-07-28) et son client retombe sur l'ère d'avant 2026-07-28 ; mais les agents embarquent encore le client v1 : `@anthropic-ai/claude-agent-sdk` 0.3.283 (0.3.280 dans `claude-agent-acp` 0.81.2) et `@google/gemini-cli` 0.61.0 parlent au plus 2025-11-25 (vérifié dans les paquets npm le 2026-09-26). Un serveur 1.1.0 (ère legacy) sert donc les agents d'aujourd'hui et ceux qui passeront au client v2 (repli legacy) ; passer à `rust-mcp-sdk` 2.x quand on voudra les fonctions propres à 2026-07-28. Vérifié : 1.1.0 négocie 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 avec `@modelcontextprotocol/sdk` 1.30.1. Limite de 1.x : le schéma d'entrée d'un outil ne garde que `properties` et `required` à la racine ; les `$defs` d'un schéma sont donc déplacés sous la propriété (Task 8, `nest_schema`).
 7. **`History::rollback`** (ajout) : `Session::apply` défaisait un rendu raté par `undo`, ce qui laissait un « rétablir » fantôme et, dans un tour, aurait défait tout le tour. `rollback` ne défait que le dernier commit.
+8. **`subscribeHost(…, onError?)`** (ajout, revue de t-115) : un évènement illisible, un flux SSE coupé ou une écoute Tauri qui échoue ne passent plus inaperçus. Le fil ignore un `kind` inconnu (hôte plus récent) au lieu de rendre `undefined`. `status` et `stop` sont des unions de valeurs ACP connues, ouvertes à une valeur future (`PlanStatus`, `ToolStatus`, `StopReason`) ; `agentCall` prend une union `AgentCommand` qui reflète `stack.rs`.
+9. **Resynchronisation des surfaces** (ajout, revue de t-115, décision utilisateur) : Task 18 bis (t-182). Le `SurfaceHub` garde la liste des surfaces ouvertes ; `resync` et un retard du relais émettent `surfaces` (liste entière), que l'interface prend telle quelle à l'abonnement, à chaque reconnexion SSE et après un retard.
+10. **Tests de rendu avec happy-dom** (ajout, décision utilisateur du 2026-09-27) : Task 18 ter (t-196). `happy-dom` et `@happy-dom/global-registrator` 20.14.5 en dépendances de développement de `ui/` ; le DOM n'est installé que par les fichiers `*.render.test.tsx` (via `src/test/dom.ts`), lancés dans leur propre passe de `bun test` ; `ui/tsconfig.json` fixe `"types": []`.
 
 ## Global Constraints
 
@@ -65,6 +68,8 @@ Créées sous t-89 (projet `slider`), une par tâche, titre identique. Chaque co
 | 16 | t-114 | Hôte serve : agent et évènements SSE |
 | 17 | t-115 | UI : api de l'agent, fil et surfaces |
 | 18 | t-116 | UI : catalogue v2 |
+| 18 bis | t-182 | Surfaces : resynchronisation après retard ou reconnexion |
+| 18 ter | t-196 | UI : tests de rendu avec happy-dom |
 | 19 | t-117 | UI : micro en deux modes et fil de l'agent |
 | 20 | t-118 | UI : fiche, tiroir, post-it et fenêtre |
 | 21 | t-119 | Bout à bout, documentation et vérification |
@@ -6228,7 +6233,7 @@ La condition `POST` devient `url == "/api" || url == "/api/stt" || url == "/api/
 
 `main.rs` : `mod sse;`.
 
-- [ ] **Step 4 :** `cargo nextest run -p oku-slides-cli` passe. Vérification à la main : `OKU_SLIDES_AGENT__COMMAND=$PWD/target/debug/oku-slides-fake-agent cargo run -p oku-slides-cli -- serve fixtures/roadmap.json --ui ui/dist --port 4873`, puis dans un autre terminal `curl -N http://127.0.0.1:4873/api/events` et `curl -X POST http://127.0.0.1:4873/api/agent -d '{"cmd":"prompt","text":"bonjour"}'` : le premier affiche des `event: agent` (`status`, `user_text`, `turn_ended`).
+- [ ] **Step 4 :** `cargo nextest run -p oku-slides-cli` passe. Vérification à la main : `OKU_SLIDES_AGENT__COMMAND=$PWD/target/debug/oku-slides-fake-agent cargo run -p oku-slides-cli -- serve fixtures/roadmap.json --ui ui/dist --port 4873`, puis dans un autre terminal `curl -N http://127.0.0.1:4873/api/events` et `curl -X POST http://127.0.0.1:4873/api/agent -H 'Content-Type: application/json' -d '{"cmd":"prompt","text":"bonjour"}'` : le premier affiche des `event: agent` (`status`, `user_text`, `turn_ended`).
 - [ ] **Step 5 : commit**
 
 ```bash
@@ -6247,7 +6252,7 @@ git commit -m "feat(cli) : l'agent dans oku-slides serve, évènements en SSE (t
 - Consumes: commandes `agent` (Tauri) / `POST /api/agent` ; évènements `oku-slides:mcp|agent` (Tauri) / `GET /api/events` (SSE).
 - Produces (TS) :
   - `api.ts` : types `AgentEvent`, `McpEvent`, `Surface`, `Place`, `AgentUi` ; `agent = { prompt(text, ui), cancel(), newConversation(), surfaceAction(surface, name, context) }` ;
-  - `agent/events.ts` : `subscribeHost(onMcp: (e: McpEvent) => void, onAgent: (e: AgentEvent) => void): () => void` ;
+  - `agent/events.ts` : `subscribeHost(handlers: HostHandlers): () => void` (`HostHandlers` : `onMcp`, `onAgent`, `onError?`, `onReady?` — Task 18 bis), bâti sur `subscribeTauri(load, handlers)` et `subscribeSse(url, handlers)` (exportés pour les tests : `listen` et `EventSource` s'y remplacent par des faux) ; une charge illisible ou sans `kind`, un flux SSE en erreur, un `listen` qui échoue vont à `onError` (voir écart 8) ;
   - `agent/thread.ts` : `Entry`, `Thread`, `EMPTY_THREAD`, `threadReducer(t: Thread, e: AgentEvent): Thread` ;
   - `agent/surfaces.ts` : `surfacesReducer(list: Surface[], e: McpEvent): Surface[]`, `byPlace(list, place): Surface[]`, `isAsking(list): boolean` (une question attend une réponse : fiche, question dans le fil ou fenêtre) ;
   - `agent/ui.ts` : `agentUi(current: string | null, selected: string | null, editing: string | null): AgentUi`.
@@ -6854,7 +6859,11 @@ export function SurfaceView({
 .diff-text ins { text-decoration: none; background: color-mix(in oklab, #2a7a3a 20%, transparent); }
 ```
 
-Fluent `ui-agent-color-other` (ui.ftl, 20 locales) : en « Other colour », fr « Autre couleur ».
+Fluent `ui-agent-color-other` (ui.ftl, 20 locales) : en « Other color », fr « Autre couleur ».
+
+À l'exécution (t-116) : `palette` est déclarée `z.array(z.string()).readonly()` (un `string[]` est typé comme une `ChildList` par `ResolveA2uiProp` de `@a2ui/react`) ; `.chip.on` prend `var(--on-accent)`, jeton existant, au lieu de `var(--paper-50, #fff)`, qui n'existe pas.
+
+Revue de t-116 (corrigé dans le même commit) : le sélecteur de couleur et le curseur valident sur l'évènement natif `change` (plus d'action à chaque mouvement), avec `useCommit` contre le renvoi d'une même valeur ; `palette` n'accepte que l'hexadécimal ; `ChoiceChips` est un `radiogroup` (touche `aria-hidden`, montrée pour 1–4) ; `Select` montre une option vide pour une valeur inconnue ; `type="button"` partout ; `Row`/`Column` partagent `children` ; `SurfaceView` expose `buildSurface` (testé), signale l'erreur dans un effet, libère la surface remplacée (`dispose`) et s'enveloppe d'un `.a2ui-surface` (`display: contents`) que le gestionnaire de raccourcis d'`App` ignore. Contrat Rust → TS : `ui/src/a2ui/fixtures/agent-surfaces.json`, écrit par `forms_tests::every_form_matches_the_ui_fixture` (`OKU_UPDATE_FIXTURES=1`) et validé par `catalog.test.tsx`.
 
 Remplacer les autres usages de `panelCatalog` (grep) par `catalog`.
 
@@ -6868,6 +6877,86 @@ git commit -m "feat(ui) : catalogue A2UI v2 pour les surfaces de l'agent (t-116)
 
 ---
 
+### Task 18 bis : Surfaces : resynchronisation après retard ou reconnexion
+
+Ajoutée après la revue de t-115 (écart 9). L'interface ne connaît les surfaces que par les deltas `surface` / `close_surface`. Un évènement perdu (retard du canal `broadcast`, reconnexion automatique d'`EventSource`, évènements émis avant la fin de `listen` dans Tauri) laissait une question invisible (l'agent attend, ⌘⇧D arrête le tour au lieu de répondre) ou une surface fermée à l'écran.
+
+**Files:**
+- Modify: `crates/oku-slides-mcp/src/hub.rs`, `crates/oku-slides-mcp/tests/surfaces.rs`
+- Modify: `crates/oku-slides-agent/src/stack.rs`, `crates/oku-slides-agent/tests/stack.rs`
+- Modify: `ui/src/api.ts`, `ui/src/agent/surfaces.ts`, `ui/src/agent/surfaces.test.ts`, `ui/src/agent/events.ts`, `ui/src/agent/events.test.ts`
+
+**Interfaces:**
+- Produces (Rust) :
+  - `McpEvent::Surfaces { list: Vec<Surface> }` (JSON `{"kind":"surfaces","list":[…]}`) : la liste entière, dans l'ordre d'ouverture ;
+  - `SurfaceHub::surfaces(&self) -> Vec<Surface>` et `SurfaceHub::resync(&self)` (émet `Surfaces`) ; la liste est tenue par `emit` lui-même (`Surface` → remplace ou ajoute, `CloseSurface` → retire), sous le verrou de `state`, pour qu'elle ne diverge jamais des évènements ;
+  - `AgentCommand::Resync` (`{"cmd":"resync"}`) → `hub.resync()` ;
+  - `Stack::forward` : sur `RecvError::Lagged` du canal des outils, `Changed` puis `Surfaces { list: hub.surfaces() }`.
+- Produces (TS) :
+  - `McpEvent` gagne `{ kind: "surfaces"; list: Surface[] }` ; `surfacesReducer` la prend telle quelle (remplacement) ;
+  - `agent.resync()` ;
+  - `HostHandlers.onReady?: () => void` (`subscribeHost` prend désormais un seul objet `HostHandlers`) : appelé quand l'écoute est en place (Tauri : les deux `listen` résolus ; SSE : chaque `open`, reconnexions comprises). Task 19 y appelle `agent.resync()` (un échec, outils indisponibles, est ignoré : il n'y a alors pas de surface).
+
+Revue de t-182 (corrigé dans le même commit) : `emit` remplit lui-même la liste d'un `Surfaces` sous son verrou (plus d'écart entre la liste lue et l'envoi) ; une question répondue quitte la liste dès la réponse (`HubState::take_ask`) ; un réglage changé est recopié dans la surface gardée (`Surface::set_value`, clé `forms::param_key`) ; le relais de `Stack::forward` ne garde qu'une référence faible au hub (sinon la pile n'était jamais libérée). `onReady` relit aussi l'instantané du deck (Task 19). Reporté : files SSE bornées par client (`sse.rs`).
+
+- [ ] **Step 1 : tests qui échouent.**
+  - `crates/oku-slides-mcp/tests/surfaces.rs` :
+    - `surfaces_follow_open_and_close_in_order` : `show_params` puis `ask` (tâche tokio) → `surfaces()` rend les deux, dans l'ordre ; la réponse à la question la retire ; `prune` après suppression de la slide retire le post-it ;
+    - `surfaces_after_a_dropped_ask_is_empty` : le futur de `ask` abandonné → `surfaces()` vide ;
+    - `resync_emits_the_whole_list` : un abonné reçoit `McpEvent::Surfaces` avec les surfaces ouvertes.
+  - `crates/oku-slides-agent/tests/stack.rs` : `resync_command_emits_the_surfaces` (`handle(AgentCommand::Resync)` → `Surfaces` relayé par `forward` sous le nom `"mcp"`) ; `lagged_ui_gets_changed_then_surfaces` (plus de 64 évènements émis sans lire → le relais envoie `changed` puis `surfaces`).
+  - `ui/src/agent/surfaces.test.ts` : `surfaces` remplace la liste (y compris par une liste vide).
+  - `ui/src/agent/events.test.ts` : `onReady` après les deux `listen` (Tauri) ; `onReady` à chaque `open` du flux SSE.
+- [ ] **Step 2 :** `cargo nextest run -p oku-slides-mcp -p oku-slides-agent` et `cd ui && bun test src/agent` → échec.
+- [ ] **Step 3 : implémentation** selon les interfaces ci-dessus ; `emit` :
+
+```rust
+/// Envoie un évènement et tient la liste des surfaces ouvertes ; personne à l'écoute n'est pas une erreur.
+pub fn emit(&self, event: McpEvent) {
+    let mut state = self.state();
+    match &event {
+        McpEvent::Surface { surface } => match state.open.iter_mut().find(|s| s.id == surface.id) {
+            Some(open) => *open = surface.clone(),
+            None => state.open.push(surface.clone()),
+        },
+        McpEvent::CloseSurface { id } => state.open.retain(|s| &s.id != id),
+        McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::Surfaces { .. } => {}
+    }
+    // Envoyé sous le verrou : l'ordre des évènements suit celui de la liste.
+    let _ = self.events.send(event);
+}
+```
+
+- [ ] **Step 4 :** `cargo nextest run -p oku-slides-mcp -p oku-slides-agent -p oku-slides-cli`, `cd ui && bun test && bunx tsc -b` → tout passe.
+- [ ] **Step 5 : commit**
+
+```bash
+git add crates/oku-slides-mcp crates/oku-slides-agent ui/src/api.ts ui/src/agent
+git commit -m "feat(agent) : resynchronisation des surfaces après retard ou reconnexion (t-182)"
+oku cli task done --project slider --id t-182
+```
+
+---
+
+### Task 18 ter : UI : tests de rendu avec happy-dom
+
+Ajoutée à la demande de l'utilisateur (écart 10) : la revue de t-116 demandait des tests de rendu et de comportement que `bun test` ne pouvait pas faire sans DOM.
+
+**Files:**
+- Modify: `ui/package.json` (`happy-dom`, `@happy-dom/global-registrator` 20.14.5, épinglés, en `devDependencies` ; script `test` en deux passes), `ui/bun.lock`, `ui/tsconfig.json` (`"types": []` : les `@types/node` tirés par happy-dom n'entrent pas dans le typage de l'app), `justfile` (`bun run test`)
+- Create: `ui/src/test/dom.ts` (DOM de test : installé une fois à l'import, gardé pour toute la passe de rendu), `ui/src/a2ui/catalog.render.test.tsx`
+
+**Mise en place :** un fichier de rendu importe `../test/dom` puis charge React, react-dom et les composants par `await import` (react-dom cherche le DOM à son chargement, et Bun n'évalue pas les imports statiques dans l'ordre écrit). Les fichiers `*.render.test.tsx` tournent dans leur propre processus (`bun test --path-ignore-patterns='**/*.render.test.tsx' && bun test .render.test.`) : le cache de modules de Bun est partagé entre les fichiers d'une passe, et un react-dom chargé sans DOM par un autre test casserait ces tests selon l'ordre des fichiers.
+
+**Contenu (13 tests) :** `DiffText` (`<del>`, `<ins>`) ; `SlideThumb` en une seule `<img>` (ni `<object>`, `<embed>`, `<iframe>`, ni SVG en ligne) ; `Button` (`type="button"`, `data-primary` seulement si `primary`, action au clic) ; `ChoiceChips` (radiogroup, `aria-checked`, touche `aria-hidden`, valeur écrite avant l'action) ; `ColorField` (le sélecteur suit le glissé sans action, une seule au `change` ; pastille déjà choisie ou recliquée sans renvoi) ; `Slider` (libellé suit le glissé, une action au `change` et rien au `focusout` qui suit ; quitter le champ après un glissé envoie une fois) ; `Select` (option vide pour une valeur inconnue, aucune pour une valeur connue) ; `SurfaceView` (surface invalide → `onError`, rien d'affiché ; enveloppe `.a2ui-surface`). Chaque test de comportement a été vérifié en réintroduisant le défaut qu'il garde : envoi à chaque mouvement du sélecteur, action avant la valeur, envoi pendant le glissé, garde contre le renvoi retirée, envoi à la sortie du curseur retiré, `data-primary` partout.
+
+`bunx tsc -b` ne vérifie pas les fichiers de test (exclus par `ui/tsconfig.json`, règle antérieure) ; il vérifie `src/test/dom.ts`.
+
+- [x] Tests écrits et vérifiés par défauts réintroduits ; `bun run test`, `bunx tsc -b` et `just e2e` passent.
+- [ ] Commit : `test(ui) : rendu des composants du catalogue v2 avec happy-dom (t-196)` ; `oku cli task done --project slider --id t-196`.
+
+---
+
 ### Task 19 : UI : micro en deux modes et fil de l'agent
 
 **Files:**
@@ -6876,8 +6965,8 @@ git commit -m "feat(ui) : catalogue A2UI v2 pour les surfaces de l'agent (t-116)
 - Modify: `crates/oku-slides-i18n/src/locales/*/ui.ftl` (20 locales)
 
 **Interfaces:**
-- Consumes: `agent`, `subscribeHost`, `threadReducer`, `surfacesReducer`, `byPlace`, `agentUi`, `SurfaceView`.
-- Produces: `Dictation` : prop `onText(text: string, mode: DictationMode)` et `agentBusy: boolean`, `onAgentCancel()` ; `DictationMode = "text" | "agent"` ; `keys.ts` : `dictationShortcut(e: KeyboardEventLike, agentBusy: boolean): "text" | "agent" | "agent-cancel" | null` ; `AgentThread` (fil + surfaces `thread` et `postit`).
+- Consumes: `agent` (dont `agent.resync()`, appelé par `onReady` de `subscribeHost`, Task 18 bis), `subscribeHost`, `threadReducer`, `surfacesReducer`, `byPlace`, `agentUi`, `SurfaceView`.
+- Produces: `Dictation` : prop `onText(text: string, mode: DictationMode)` et `agentBusy: boolean`, `onAgentCancel()` ; `DictationMode = "text" | "agent"` ; `keys.ts` : `dictationShortcut(e: KeyboardEventLike, { agentBusy, recording }): "text" | "agent" | "agent-cancel" | null` et `escapeAction({ selected, agentBusy })` (voir « À l'exécution ») ; `AgentThread` (fil + surfaces `thread` et `postit`).
 
 - [ ] **Step 1 : test qui échoue** — `ui/src/agent/keys.test.ts` :
 
@@ -7028,8 +7117,8 @@ Dans le composant :
   const agentBusy = thread.state !== "idle" && !isAsking(surfaces);
   useEffect(
     () =>
-      subscribeHost(
-        (e: McpEvent) => {
+      subscribeHost({
+        onMcp: (e: McpEvent) => {
           onSurfaceEvent(e);
           if (e.kind === "changed") run(api.snapshot());
           if (e.kind === "focus") {
@@ -7037,8 +7126,16 @@ Dans le composant :
             setSelected(e.element);
           }
         },
-        (e: AgentEvent) => onAgentEvent(e),
-      ),
+        onAgent: (e: AgentEvent) => onAgentEvent(e),
+        onError: (m) => console.warn(m),
+        // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
+        // (les évènements manqués pendant la coupure sont perdus). Sans outils
+        // (pile absente), `resync` échoue : il n'y a alors pas de surface.
+        onReady: () => {
+          agent.resync().catch(() => {});
+          run(api.snapshot());
+        },
+      }),
     // S'abonner une fois ; `run` et les setters sont stables.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -7096,6 +7193,352 @@ Fluent (ui.ftl, 20 locales) :
 
 `ui/src/i18n-keys.test.ts` exige que chaque clé `ui-…` soit écrite **en littéral** dans le code : `t(\`ui-agent-state-${thread.state}\`)` ne compte pas. Écrire à la place `const STATE_KEY = { idle: "ui-agent-state-idle", starting: "ui-agent-state-starting", working: "ui-agent-state-working" } as const;` et `t(STATE_KEY[thread.state])`.
 
+À l'exécution (t-117), après la revue :
+- `dictationShortcut(e, { agentBusy, recording })` : pendant une écoute, ⌘D comme ⌘⇧D l'arrêtent (jamais « arrêter l'agent ») ; touche répétée, ⌥ et autres touches ignorées ; la lettre est lue par sa position (`e.code === "KeyD"`) pour les claviers non latins. `KeyboardEventLike` gagne `code`, `altKey`, `repeat`.
+- Échap n'est plus pris par `Dictation` pour l'agent (écouteur en capture : il avalait Échap dans toute l'app pendant un tour). `escapeAction({ selected, agentBusy })` (keys.ts) décide dans le gestionnaire de touches d'`App`, après les champs, l'édition et le sélecteur : désélectionner d'abord, arrêter le tour en dernier recours. `Dictation` ne garde Échap que pour annuler une écoute.
+- `agentBusy(state, surfaces)` (surfaces.ts) remplace le calcul en ligne d'`App`. Les surfaces du fil sont filtrées une fois (`useMemo`), dans l'ordre d'arrivée.
+- `Dictation` : écouteur clavier posé une fois (état lu par des refs) ; le mode ne s'affiche que pendant une dictée (au repos, le micro et ⌘D vont au deck), d'où le retrait de `ui-dictation-agent-idle` ; le bouton de l'agent n'agit qu'au repos, et dit « Arrêter l'agent » (`ui-dictation-agent-stop`, icône d'arrêt) pendant un tour ; infobulle `ui-dictation-agent-start-title`, sur le modèle du micro principal.
+- Fin de tour : une phrase par raison ACP connue (`ui-agent-stop-max-tokens`, `ui-agent-stop-max-turns`, `ui-agent-stop-refusal`), `ui-agent-ended` pour une raison inconnue. Classes CSS des statuts et places venus de l'hôte limitées aux valeurs connues.
+- Clés de la dictée rangées sous `## Dictation` ; portugais du Brésil, comme le reste de `pt`.
+- L'abonnement de `App` dépend de `[run]` (stable) ; un échec de `resync` est journalisé.
+- CSS : jetons existants (`--paper-000`, `--paper-100`, `--on-accent`, `--danger`, `--space-1`, `--radius-sm`) ; `.agent-thread` sur la couche des post-its (`position: relative; z-index: 3`, fond du bureau) : vérifié dans le navigateur, la feuille déborde sur la colonne des notes et recouvrait le fil. La couleur de l'agent ne remplace pas le rouge d'une écoute (`:not(.live)`).
+- Tests de rendu : `ui/src/agent/AgentThread.render.test.tsx`, `ui/src/Dictation.render.test.tsx` (faux moteur par `spyOn(stt, …)`) ; chaque test de comportement vérifié en réintroduisant son défaut.
+- `src/test/dom.ts` n'a plus de `releaseDom` : la passe des tests de rendu garde le DOM d'un fichier à l'autre (le module, en cache, ne se réévalue pas).
+- Reporté (tâches créées) : `App` re-rendu à chaque morceau de réponse ; région `aria-live` du fil ; `focus` de l'agent pendant une édition ; bouton de l'agent sans agent disponible ; longueur du fil.
+
+- [ ] **Step 4 :** `cd ui && bun test && bunx tsc -b` ; `cargo nextest run -p oku-slides-i18n` → tout passe.
+- [ ] **Step 5 : commit**
+
+```bash
+git add ui/src/a2ui ui/src/styles.css crates/oku-slides-i18n
+git commit -m "feat(ui) : catalogue A2UI v2 pour les surfaces de l'agent (t-116)"
+```
+
+---
+
+### Task 18 bis : Surfaces : resynchronisation après retard ou reconnexion
+
+Ajoutée après la revue de t-115 (écart 9). L'interface ne connaît les surfaces que par les deltas `surface` / `close_surface`. Un évènement perdu (retard du canal `broadcast`, reconnexion automatique d'`EventSource`, évènements émis avant la fin de `listen` dans Tauri) laissait une question invisible (l'agent attend, ⌘⇧D arrête le tour au lieu de répondre) ou une surface fermée à l'écran.
+
+**Files:**
+- Modify: `crates/oku-slides-mcp/src/hub.rs`, `crates/oku-slides-mcp/tests/surfaces.rs`
+- Modify: `crates/oku-slides-agent/src/stack.rs`, `crates/oku-slides-agent/tests/stack.rs`
+- Modify: `ui/src/api.ts`, `ui/src/agent/surfaces.ts`, `ui/src/agent/surfaces.test.ts`, `ui/src/agent/events.ts`, `ui/src/agent/events.test.ts`
+
+**Interfaces:**
+- Produces (Rust) :
+  - `McpEvent::Surfaces { list: Vec<Surface> }` (JSON `{"kind":"surfaces","list":[…]}`) : la liste entière, dans l'ordre d'ouverture ;
+  - `SurfaceHub::surfaces(&self) -> Vec<Surface>` et `SurfaceHub::resync(&self)` (émet `Surfaces`) ; la liste est tenue par `emit` lui-même (`Surface` → remplace ou ajoute, `CloseSurface` → retire), sous le verrou de `state`, pour qu'elle ne diverge jamais des évènements ;
+  - `AgentCommand::Resync` (`{"cmd":"resync"}`) → `hub.resync()` ;
+  - `Stack::forward` : sur `RecvError::Lagged` du canal des outils, `Changed` puis `Surfaces { list: hub.surfaces() }`.
+- Produces (TS) :
+  - `McpEvent` gagne `{ kind: "surfaces"; list: Surface[] }` ; `surfacesReducer` la prend telle quelle (remplacement) ;
+  - `agent.resync()` ;
+  - `HostHandlers.onReady?: () => void` (`subscribeHost` prend désormais un seul objet `HostHandlers`) : appelé quand l'écoute est en place (Tauri : les deux `listen` résolus ; SSE : chaque `open`, reconnexions comprises). Task 19 y appelle `agent.resync()` (un échec, outils indisponibles, est ignoré : il n'y a alors pas de surface).
+
+Revue de t-182 (corrigé dans le même commit) : `emit` remplit lui-même la liste d'un `Surfaces` sous son verrou (plus d'écart entre la liste lue et l'envoi) ; une question répondue quitte la liste dès la réponse (`HubState::take_ask`) ; un réglage changé est recopié dans la surface gardée (`Surface::set_value`, clé `forms::param_key`) ; le relais de `Stack::forward` ne garde qu'une référence faible au hub (sinon la pile n'était jamais libérée). `onReady` relit aussi l'instantané du deck (Task 19). Reporté : files SSE bornées par client (`sse.rs`).
+
+- [ ] **Step 1 : tests qui échouent.**
+  - `crates/oku-slides-mcp/tests/surfaces.rs` :
+    - `surfaces_follow_open_and_close_in_order` : `show_params` puis `ask` (tâche tokio) → `surfaces()` rend les deux, dans l'ordre ; la réponse à la question la retire ; `prune` après suppression de la slide retire le post-it ;
+    - `surfaces_after_a_dropped_ask_is_empty` : le futur de `ask` abandonné → `surfaces()` vide ;
+    - `resync_emits_the_whole_list` : un abonné reçoit `McpEvent::Surfaces` avec les surfaces ouvertes.
+  - `crates/oku-slides-agent/tests/stack.rs` : `resync_command_emits_the_surfaces` (`handle(AgentCommand::Resync)` → `Surfaces` relayé par `forward` sous le nom `"mcp"`) ; `lagged_ui_gets_changed_then_surfaces` (plus de 64 évènements émis sans lire → le relais envoie `changed` puis `surfaces`).
+  - `ui/src/agent/surfaces.test.ts` : `surfaces` remplace la liste (y compris par une liste vide).
+  - `ui/src/agent/events.test.ts` : `onReady` après les deux `listen` (Tauri) ; `onReady` à chaque `open` du flux SSE.
+- [ ] **Step 2 :** `cargo nextest run -p oku-slides-mcp -p oku-slides-agent` et `cd ui && bun test src/agent` → échec.
+- [ ] **Step 3 : implémentation** selon les interfaces ci-dessus ; `emit` :
+
+```rust
+/// Envoie un évènement et tient la liste des surfaces ouvertes ; personne à l'écoute n'est pas une erreur.
+pub fn emit(&self, event: McpEvent) {
+    let mut state = self.state();
+    match &event {
+        McpEvent::Surface { surface } => match state.open.iter_mut().find(|s| s.id == surface.id) {
+            Some(open) => *open = surface.clone(),
+            None => state.open.push(surface.clone()),
+        },
+        McpEvent::CloseSurface { id } => state.open.retain(|s| &s.id != id),
+        McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::Surfaces { .. } => {}
+    }
+    // Envoyé sous le verrou : l'ordre des évènements suit celui de la liste.
+    let _ = self.events.send(event);
+}
+```
+
+- [ ] **Step 4 :** `cargo nextest run -p oku-slides-mcp -p oku-slides-agent -p oku-slides-cli`, `cd ui && bun test && bunx tsc -b` → tout passe.
+- [ ] **Step 5 : commit**
+
+```bash
+git add crates/oku-slides-mcp crates/oku-slides-agent ui/src/api.ts ui/src/agent
+git commit -m "feat(agent) : resynchronisation des surfaces après retard ou reconnexion (t-182)"
+oku cli task done --project slider --id t-182
+```
+
+---
+
+### Task 18 ter : UI : tests de rendu avec happy-dom
+
+Ajoutée à la demande de l'utilisateur (écart 10) : la revue de t-116 demandait des tests de rendu et de comportement que `bun test` ne pouvait pas faire sans DOM.
+
+**Files:**
+- Modify: `ui/package.json` (`happy-dom`, `@happy-dom/global-registrator` 20.14.5, épinglés, en `devDependencies` ; script `test` en deux passes), `ui/bun.lock`, `ui/tsconfig.json` (`"types": []` : les `@types/node` tirés par happy-dom n'entrent pas dans le typage de l'app), `justfile` (`bun run test`)
+- Create: `ui/src/test/dom.ts` (DOM de test : installé une fois à l'import, gardé pour toute la passe de rendu), `ui/src/a2ui/catalog.render.test.tsx`
+
+**Mise en place :** un fichier de rendu importe `../test/dom` puis charge React, react-dom et les composants par `await import` (react-dom cherche le DOM à son chargement, et Bun n'évalue pas les imports statiques dans l'ordre écrit). Les fichiers `*.render.test.tsx` tournent dans leur propre processus (`bun test --path-ignore-patterns='**/*.render.test.tsx' && bun test .render.test.`) : le cache de modules de Bun est partagé entre les fichiers d'une passe, et un react-dom chargé sans DOM par un autre test casserait ces tests selon l'ordre des fichiers.
+
+**Contenu (13 tests) :** `DiffText` (`<del>`, `<ins>`) ; `SlideThumb` en une seule `<img>` (ni `<object>`, `<embed>`, `<iframe>`, ni SVG en ligne) ; `Button` (`type="button"`, `data-primary` seulement si `primary`, action au clic) ; `ChoiceChips` (radiogroup, `aria-checked`, touche `aria-hidden`, valeur écrite avant l'action) ; `ColorField` (le sélecteur suit le glissé sans action, une seule au `change` ; pastille déjà choisie ou recliquée sans renvoi) ; `Slider` (libellé suit le glissé, une action au `change` et rien au `focusout` qui suit ; quitter le champ après un glissé envoie une fois) ; `Select` (option vide pour une valeur inconnue, aucune pour une valeur connue) ; `SurfaceView` (surface invalide → `onError`, rien d'affiché ; enveloppe `.a2ui-surface`). Chaque test de comportement a été vérifié en réintroduisant le défaut qu'il garde : envoi à chaque mouvement du sélecteur, action avant la valeur, envoi pendant le glissé, garde contre le renvoi retirée, envoi à la sortie du curseur retiré, `data-primary` partout.
+
+`bunx tsc -b` ne vérifie pas les fichiers de test (exclus par `ui/tsconfig.json`, règle antérieure) ; il vérifie `src/test/dom.ts`.
+
+- [x] Tests écrits et vérifiés par défauts réintroduits ; `bun run test`, `bunx tsc -b` et `just e2e` passent.
+- [ ] Commit : `test(ui) : rendu des composants du catalogue v2 avec happy-dom (t-196)` ; `oku cli task done --project slider --id t-196`.
+
+---
+
+### Task 19 : UI : micro en deux modes et fil de l'agent
+
+**Files:**
+- Modify: `ui/src/Dictation.tsx`, `ui/src/App.tsx`, `ui/src/styles.css`
+- Create: `ui/src/agent/AgentThread.tsx`, `ui/src/agent/keys.ts`, `ui/src/agent/keys.test.ts`
+- Modify: `crates/oku-slides-i18n/src/locales/*/ui.ftl` (20 locales)
+
+**Interfaces:**
+- Consumes: `agent` (dont `agent.resync()`, appelé par `onReady` de `subscribeHost`, Task 18 bis), `subscribeHost`, `threadReducer`, `surfacesReducer`, `byPlace`, `agentUi`, `SurfaceView`.
+- Produces: `Dictation` : prop `onText(text: string, mode: DictationMode)` et `agentBusy: boolean`, `onAgentCancel()` ; `DictationMode = "text" | "agent"` ; `keys.ts` : `dictationShortcut(e: KeyboardEventLike, { agentBusy, recording }): "text" | "agent" | "agent-cancel" | null` et `escapeAction({ selected, agentBusy })` (voir « À l'exécution ») ; `AgentThread` (fil + surfaces `thread` et `postit`).
+
+- [ ] **Step 1 : test qui échoue** — `ui/src/agent/keys.test.ts` :
+
+```ts
+import { describe, expect, test } from "bun:test";
+import { dictationShortcut } from "./keys";
+
+const k = (key: string, mods: { meta?: boolean; ctrl?: boolean; shift?: boolean } = {}) => ({
+  key, metaKey: !!mods.meta, ctrlKey: !!mods.ctrl, shiftKey: !!mods.shift,
+});
+
+describe("raccourcis de la dictée", () => {
+  test("⌘D dicte du texte", () => expect(dictationShortcut(k("d", { meta: true }), false)).toBe("text"));
+  test("⌘⇧D parle à l'agent", () => expect(dictationShortcut(k("D", { meta: true, shift: true }), false)).toBe("agent"));
+  test("Ctrl⇧D aussi", () => expect(dictationShortcut(k("d", { ctrl: true, shift: true }), false)).toBe("agent"));
+  test("⌘⇧D pendant un tour arrête l'agent", () =>
+    expect(dictationShortcut(k("d", { meta: true, shift: true }), true)).toBe("agent-cancel"));
+  test("D seul ne fait rien", () => expect(dictationShortcut(k("d"), false)).toBeNull());
+});
+```
+
+- [ ] **Step 2 :** `cd ui && bun test src/agent/keys` → échec.
+
+- [ ] **Step 3 : implémentation.**
+
+`ui/src/agent/keys.ts` :
+
+```ts
+// Raccourcis de la dictée : ⌘D texte, ⌘⇧D agent (ou arrêt pendant un tour).
+
+export type DictationMode = "text" | "agent";
+
+export interface KeyboardEventLike {
+  key: string;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+}
+
+export function dictationShortcut(e: KeyboardEventLike, agentBusy: boolean): DictationMode | "agent-cancel" | null {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "d") return null;
+  if (!e.shiftKey) return "text";
+  return agentBusy ? "agent-cancel" : "agent";
+}
+```
+
+`Dictation.tsx` :
+- Props : `onText: (text: string, mode: DictationMode) => void` ; `agentBusy: boolean` ; `onAgentCancel: () => void`.
+- Un `mode` d'état (`useState<DictationMode>("text")`) et une ref `modeRef` lue dans `receive` : `handlers.current.onText(s.text, modeRef.current)`.
+- `toggle` devient `toggle(mode: DictationMode)` : au repos, `setMode(mode); modeRef.current = mode;` puis `stt.start(...)` ; pendant l'écoute, `stt.stop()`.
+- Le gestionnaire clavier utilise `dictationShortcut(e, agentBusy)` : `"text"` / `"agent"` → `toggle(mode)` ; `"agent-cancel"` → `onAgentCancel()` ; toujours `preventDefault` + `stopPropagation` quand le résultat n'est pas `null`.
+- Rendu : la classe du boîtier devient `` `device object dictation ${state}${mode === "agent" ? " agent" : ""}` `` ; à côté du bouton micro, un second bouton `className="mic agent-mic"`, `aria-label={t("ui-dictation-agent-start")}`, `title="⌘⇧D"`, `onClick={() => agentBusy ? onAgentCancel() : toggle("agent")}`, icône :
+
+```tsx
+const AgentIcon = (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" /><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z" /></svg>
+);
+```
+
+- Au repos en mode agent, la ligne d'état dit `t("ui-dictation-agent-idle")` au lieu de la destination ; pendant un tour (`agentBusy`), `t("ui-dictation-agent-working")`.
+
+`ui/src/agent/AgentThread.tsx` :
+
+```tsx
+// Le fil de l'agent dans le panneau de droite : consignes, outils, plan,
+// réponses, et les surfaces qui y vivent (questions sans ancre, paramètres).
+
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
+import { lazy, Suspense } from "react";
+import type { Surface } from "../api";
+import { t } from "../i18n";
+import type { Thread } from "./thread";
+
+const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
+
+const TOOL_MARK: Record<string, string> = { pending: "☐", in_progress: "◌", completed: "☑", failed: "✕" };
+
+export function AgentThread({
+  thread,
+  surfaces,
+  onAction,
+  onNewConversation,
+  onError,
+}: {
+  thread: Thread;
+  surfaces: Surface[];
+  onAction: (surface: Surface, action: A2uiClientAction) => void;
+  onNewConversation: () => void;
+  onError: (message: string) => void;
+}) {
+  if (thread.entries.length === 0 && surfaces.length === 0) return null;
+  return (
+    <section className="agent-thread" aria-label={t("ui-agent-thread")}>
+      <header className="agent-thread-head">
+        <span className="caption">{t(`ui-agent-state-${thread.state}`)}</span>
+        <button className="linkish" onClick={onNewConversation}>{t("ui-agent-new-conversation")}</button>
+      </header>
+      <ol className="agent-entries" aria-live="polite">
+        {thread.entries.map((e, i) => (
+          <li key={i} className={`agent-entry ${e.kind}`}>
+            {e.kind === "user" && <span className="you">« {e.text} »</span>}
+            {e.kind === "agent" && <span className="msg">{e.text}</span>}
+            {e.kind === "tool" && <span className="tool">{TOOL_MARK[e.status] ?? "·"} {e.title}</span>}
+            {e.kind === "plan" && (
+              <ul className="plan">
+                {e.entries.map((p, j) => <li key={j} className={p.status}>{TOOL_MARK[p.status] ?? "☐"} {p.content}</li>)}
+              </ul>
+            )}
+            {e.kind === "error" && <span className="error" role="alert">{e.text}</span>}
+            {e.kind === "stop" && <span className="caption">{t(e.stop === "cancelled" ? "ui-agent-stopped" : "ui-agent-ended", { stop: e.stop })}</span>}
+          </li>
+        ))}
+      </ol>
+      <Suspense fallback={null}>
+        {surfaces.map((s) => (
+          <div key={s.id} className={`agent-surface ${s.place}`}>
+            <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
+          </div>
+        ))}
+      </Suspense>
+    </section>
+  );
+}
+```
+
+`App.tsx` :
+
+```tsx
+import { useReducer } from "react";
+import { agent } from "./api";
+import type { AgentEvent, McpEvent, Surface } from "./api";
+import { subscribeHost } from "./agent/events";
+import { EMPTY_THREAD, threadReducer } from "./agent/thread";
+import { byPlace, isAsking, surfacesReducer } from "./agent/surfaces";
+import { agentUi } from "./agent/ui";
+import { AgentThread } from "./agent/AgentThread";
+import type { DictationMode } from "./agent/keys";
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
+```
+
+Dans le composant :
+
+```tsx
+  // --- Agent ------------------------------------------------------------------
+  const [thread, onAgentEvent] = useReducer(threadReducer, EMPTY_THREAD);
+  const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
+  // Pendant une question, ⌘⇧D répond (Stack::prompt) au lieu d'arrêter le tour.
+  const agentBusy = thread.state !== "idle" && !isAsking(surfaces);
+  useEffect(
+    () =>
+      subscribeHost({
+        onMcp: (e: McpEvent) => {
+          onSurfaceEvent(e);
+          if (e.kind === "changed") run(api.snapshot());
+          if (e.kind === "focus") {
+            setCurrent(e.slide);
+            setSelected(e.element);
+          }
+        },
+        onAgent: (e: AgentEvent) => onAgentEvent(e),
+        onError: (m) => console.warn(m),
+        // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
+        // (les évènements manqués pendant la coupure sont perdus). Sans outils
+        // (pile absente), `resync` échoue : il n'y a alors pas de surface.
+        onReady: () => {
+          agent.resync().catch(() => {});
+          run(api.snapshot());
+        },
+      }),
+    // S'abonner une fois ; `run` et les setters sont stables.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
+    agent.surfaceAction(s.id, a.name, (a.context ?? {}) as Record<string, unknown>).catch((err) => say(String(err), true));
+  };
+```
+
+(`A2uiClientAction` expose le nom et le contexte déjà résolus ; si ses champs portent d'autres noms, s'aligner sur `panelActions.ts`, qui lit déjà ces actions.) `run` doit être une fonction stable : si elle ne l'est pas, passer par une ref (`const runRef = useRef(run); runRef.current = run;` et `runRef.current(api.snapshot())`).
+
+`onDictated(text)` devient `onDictated(text, mode: DictationMode)` : si `mode === "agent"`, `agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true)); return;` en tête ; le reste inchangé. Le rendu de `<Dictation>` passe `agentBusy={agentBusy}` et `onAgentCancel={() => agent.cancel().catch((err) => say(String(err), true))}`.
+
+Dans `<aside className="notes">`, avant `PanelSurface` :
+
+```tsx
+          <AgentThread
+            thread={thread}
+            surfaces={[...byPlace(surfaces, "thread"), ...byPlace(surfaces, "postit")]}
+            onAction={onSurfaceAction}
+            onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
+            onError={(m) => say(m, true)}
+          />
+```
+
+`styles.css` :
+
+```css
+/* --- Fil de l'agent ------------------------------------------------------- */
+.agent-thread { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: auto; }
+.agent-thread-head { display: flex; justify-content: space-between; align-items: baseline; }
+.agent-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.agent-entry .you { color: var(--ink-muted); font-style: italic; }
+.agent-entry .msg { display: block; background: var(--sheet, #fffdf7); border-inline-start: 3px solid var(--accent-fill); padding: 4px 6px; border-radius: 2px; }
+.agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
+.agent-entry .plan { list-style: none; padding: 0; margin: 0; }
+.agent-entry .error { color: var(--danger, #a33); }
+.device.dictation.agent .mic, .mic.agent-mic { background: var(--accent-fill); color: var(--paper-50, #fff); }
+```
+
+Fluent (ui.ftl, 20 locales) :
+
+| Clé | en | fr |
+| --- | --- | --- |
+| `ui-dictation-agent-start` | `Speak to the agent (⌘⇧D)` | `Parler à l'agent (⌘⇧D)` |
+| `ui-dictation-agent-idle` | `Speak to the agent` | `Parler à l'agent` |
+| `ui-dictation-agent-working` | `The agent is working… ⌘⇧D or Esc stops it` | `L'agent travaille… ⌘⇧D ou Échap l'arrête` |
+| `ui-agent-thread` | `Agent` | `Agent` |
+| `ui-agent-new-conversation` | `New conversation` | `Nouvelle conversation` |
+| `ui-agent-state-idle` | `Agent` | `Agent` |
+| `ui-agent-state-starting` | `Starting the agent…` | `L'agent démarre…` |
+| `ui-agent-state-working` | `The agent is working…` | `L'agent travaille…` |
+| `ui-agent-stopped` | `Stopped.` | `Arrêté.` |
+| `ui-agent-ended` | `Turn ended ({ $stop }).` | `Tour terminé ({ $stop }).` |
+
+`ui/src/i18n-keys.test.ts` exige que chaque clé `ui-…` soit écrite **en littéral** dans le code : `t(\`ui-agent-state-${thread.state}\`)` ne compte pas. Écrire à la place `const STATE_KEY = { idle: "ui-agent-state-idle", starting: "ui-agent-state-starting", working: "ui-agent-state-working" } as const;` et `t(STATE_KEY[thread.state])`.
+
+À l'exécution (t-117) :
+- Échap arrête aussi un tour de l'agent (hors écoute), comme le promet `ui-dictation-agent-working` : `Dictation` appelle `onAgentCancel`.
+- L'abonnement de `App` dépend de `[run]` (stable) au lieu d'un commentaire eslint.
+- CSS : jetons existants (`--paper-100`, `--on-accent`, `--danger`, `--space-1`, `--radius-sm`) au lieu de `--sheet`, `--paper-50` et des valeurs de repli. `.agent-thread` est sur la couche des post-its (`position: relative; z-index: 3`, fond papier) : vérifié dans le navigateur, la feuille déborde sur la colonne des notes et recouvrait le fil.
+- Test de rendu ajouté : `ui/src/agent/AgentThread.render.test.tsx` (happy-dom, Task 18 ter).
+- `src/test/dom.ts` n'a plus de `releaseDom` : la passe des tests de rendu garde le DOM d'un fichier à l'autre (le module, en cache, ne se réévalue pas).
+
 - [ ] **Step 4 :** `cd ui && bun test && bunx tsc -b` ; `cargo nextest run -p oku-slides-i18n` → tout passe. Vérifier dans le navigateur (`just web` + `oku-slides serve` avec le faux agent, comme en Task 16) : ⌘⇧D passe le micro en couleur d'accent ; une consigne envoyée par `curl` s'affiche dans le fil avec la réponse du faux agent.
 - [ ] **Step 5 : commit**
 
@@ -7112,9 +7555,11 @@ git commit -m "feat(ui) : micro en deux modes et fil de l'agent dans le panneau 
 - Create: `ui/src/agent/quick.ts`, `ui/src/agent/quick.test.ts`, `ui/src/agent/useSurfaceKeys.ts`, `ui/src/agent/AgentSheet.tsx`, `ui/src/agent/VariantDrawer.tsx`, `ui/src/agent/ConfirmModal.tsx`
 - Modify: `ui/src/Stage.tsx` (prop `overlay`), `ui/src/App.tsx`, `ui/src/styles.css`
 
+**Reporté de la revue de t-116 :** le rendu et le comportement des composants v2 sont couverts par `ui/src/a2ui/catalog.render.test.tsx` (Task 18 ter) ; les tests de rendu de cette tâche suivent le même modèle (`../test/dom`, `await import`, fichier `*.render.test.tsx`). happy-dom ne dit pas comment WKWebView émet `change` pour `<input type="color">` (NSColorPanel) : garder ici un contrôle e2e, dans l'app, qu'un glissé dans le sélecteur de couleur et sur un curseur n'envoie qu'une action. Les touches rapides déclenchent le bouton ou la pastille de la surface (un clic sur le n-ième `.chip`, sur `[data-primary]`) plutôt que de refabriquer l'action, et le gestionnaire ignore une touche dont la cible est déjà un bouton (sinon Entrée enverrait deux fois). `SurfaceView` recrée la surface à chaque liste de messages : si le focus se perd lors d'une mise à jour d'une surface ouverte, garder un `MessageProcessor` par surface.
+
 **Interfaces:**
 - Consumes: `Surface`, `SurfaceView`, `agent.surfaceAction`, `byPlace`.
-- Produces : `quick.ts` : `quickAction(surface: Surface, key: string): { name: string; context: Record<string, unknown> } | null` (`1`–`4`, `Enter`, `Escape`) ; `sheetPosition(target: { x: number; y: number; w: number; h: number }, scale: number, rtl: boolean): { left: number; top: number }` ; `Stage` prop `overlay?: { target: string; node: ReactNode }`.
+- Produces : `quick.ts` : `quickAction(surface: Surface, key: string): { name: string; context: Record<string, unknown> } | null` (`1`–`4`, `Enter`, `Escape`), `quickKey(e)`, `fromA2ui` ; `useQuickKeys` ; `routeSurfaces` (voir « À l'exécution ») ; `sheetPosition(target: { x: number; y: number; w: number; h: number }, scale: number, rtl: boolean): { left: number; top: number }` ; `Stage` prop `overlay?: { target: string; node: ReactNode }`.
 
 - [ ] **Step 1 : tests qui échouent** — `ui/src/agent/quick.test.ts` :
 
@@ -7386,6 +7831,18 @@ export function ConfirmModal({ surface, onAction, onError }: SurfaceProps) {
 
 Fluent (ui.ftl, 20 locales) : `ui-agent-sheet` en « Agent question », fr « Question de l'agent » ; `ui-agent-sheet-keys` en « 1–3 choose · Enter confirm · E edit · Esc cancel », fr « 1–3 choisir · Entrée valider · E retoucher · Échap abandonner » ; `ui-agent-variants` en « Variants », fr « Variantes » ; `ui-agent-drawer-keys` en « Click or 1–4 · Esc closes », fr « Clic ou 1–4 · Échap ferme ».
 
+À l'exécution (t-118), après la revue (décisions de l'utilisateur du 2026-09-27) :
+- **Touches rapides à l'échelle de la fenêtre** : `useSurfaceKeys` est remplacé par `useQuickKeys(target, enabled, onAction)` (`ui/src/agent/useQuickKeys.ts`), un seul écouteur sur la fenêtre qui agit sur la surface du dessus (fenêtre, sinon fiche, sinon tiroir). La fiche et le tiroir ne prennent plus le focus : ⌘S/⌘Z restent actifs, un brouillon n'est pas envoyé en perdant le focus, le rappel des touches reste vrai. Ignorées : cible éditable, modificateurs, répétition, composition (IME), évènement déjà traité ; Entrée sur un bouton reste son clic ; E met le focus dans le champ de la surface (`data-surface-id`).
+- **Geste délibéré dans une fenêtre** (`ask_confirm`, outils non annulables, permissions) : ni Entrée ni chiffres ; Échap annule ; touches et clics ignorés pendant `ARMING_MS` (500 ms) après l'ouverture ; la fenêtre prend le focus, le garde (Tab tourne à l'intérieur) et le rend en se fermant ; `aria-label` `ui-agent-confirm`. Les raccourcis d'`App` ne réagissent pas tant qu'une fenêtre est ouverte. Fenêtres dans l'ordre d'arrivée (une question en attente n'est jamais remplacée sous le curseur).
+- `quickKey(e)` lit chiffres et E par leur position (`code`) : 1–4 en AZERTY, E sur un clavier cyrillique. `quickAction` fusionne les mises à jour de composants et de modèle, lit les valeurs liées au modèle comme au clic (`null` plutôt qu'une action incomplète) ; les chiffres suivent l'ordre des boutons et miniatures porteurs d'une action (hors `dismiss`) au lieu d'identifiants `pick-`/`v` : la fenêtre de permission et « garder l'original » (3) ont aussi leurs chiffres. Les chiffres choisissent l'option en reprenant l'action des pastilles (chemin remplacé par l'option), sans cliquer le DOM (la fiche se ferme aussitôt : l'état « choisi » de la pastille ne se voit pas).
+- `routeSurfaces(surfaces, shown)` (surfaces.ts, testé) répartit fiche sur la scène (seulement si son élément est sur la slide affichée, comparée à `current`), tiroir (le plus récent), fenêtre (la plus ancienne) et fil (le reste) : jamais invisible. `App` la mémoïse ; chaque surface est rendue avec `key={surface.id}`.
+- `AgentSurfaceBox` : cadre commun des trois surfaces (plus de classe `object` : pas de soulèvement au survol) ; `AgentSheet`, `VariantDrawer`, `ConfirmModal` en sont des variantes, chargées à la demande par `App`. `fromA2ui` est dans `quick.ts`.
+- `Stage` : la fiche est posée par `SheetOverlay` dans un cadre `.stage-frame` de même taille et même origine que `.stage` (qui rogne), pour pouvoir déborder sous la slide.
+- Rappel des touches de la fiche : « 1–4 » (et non « 1–3 ») ; th `ui-agent-variants` = รูปแบบอื่น.
+- Tests : `quick.test.ts` (dont surfaces réelles de la fixture Rust, AZERTY, modificateurs), `surfaces.test.ts` (`routeSurfaces`), `AgentSurfaces.render.test.tsx` (touches par la fenêtre, champ, ⌘, évènement traité, Entrée sur un bouton, E, fenêtre : focus, Tab, délai, pas d'Entrée) ; chaque protection vérifiée en réintroduisant son défaut.
+- Vérifié dans le navigateur (faux agent) : la fiche ne prend pas le focus, `2` tapé n'importe où applique la seconde proposition, `2` choisit la variante, Entrée ne confirme pas la fenêtre, un clic la confirme.
+- Reporté (tâches créées) : contrôle dans l'app Tauri du sélecteur de couleur (t-213) ; fiche retournée ou recadrée près des bords ; place du tiroir dans la mise en page ; `MessageProcessor` par surface. Permissions de l'agent (option par défaut choisie par l'agent) : correctif séparé, t-222 (nature ACP gardée, principal = « autoriser une fois », jamais « toujours autoriser », bouton `danger` au catalogue A2UI).
+
 - [ ] **Step 4 :** `cd ui && bun test && bunx tsc -b` ; `cargo nextest run -p oku-slides-i18n` → tout passe. Dans le navigateur (serveur de Task 16 avec un scénario qui appelle `ask_rewrite` puis `show_variants`, par exemple `fixtures/agent/e2e.json` de la Task 21) : la fiche apparaît sous le texte visé, `2` choisit la seconde proposition, le tiroir montre les variantes rendues, `ask_confirm` ouvre la fenêtre modale ; capture d'écran à l'appui.
 - [ ] **Step 5 : commit**
 
@@ -7405,7 +7862,7 @@ git commit -m "feat(ui) : fiche ancrée, tiroir des variantes, post-its et fenê
 - Consumes: tout ce qui précède.
 - Produces: `just e2e` couvre l'agent (faux agent) ; README à jour.
 
-- [ ] **Step 1 : le scénario et le test.**
+- [x] **Step 1 : le scénario et le test.**
 
 `fixtures/agent/e2e.json` :
 
@@ -7497,6 +7954,8 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).targ
 
 (L'interface accepte ⌘Z et Ctrl+Z : `e.metaKey || e.ctrlKey`.)
 
+> Écart constaté : la garde anti-CSRF de `oku-slides serve` exige `Content-Type: application/json` ; `api` et `prompt` passent par un `post` qui l'envoie.
+
 `ui/package.json` : `"e2e": "bun e2e/toolbar.cjs && bun e2e/panel.cjs && bun e2e/agent.cjs"`.
 
 `justfile`, recette `e2e` : construire le faux agent et le passer au serveur :
@@ -7510,9 +7969,9 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).targ
 
 (à la place des deux lignes `cargo build -q -p oku-slides-cli` et `./target/debug/oku-slides … &` actuelles ; le binaire de la CLI s'appelle `oku-slides`).
 
-- [ ] **Step 2 :** `just e2e` → `agent.cjs` échoue tant que rien n'est branché ; si toutes les tâches précédentes sont faites, il doit passer. S'il échoue, diagnostiquer (G13–G15 : test qui reproduit, traces, une correction par diagnostic).
+- [x] **Step 2 :** `just e2e` → `agent.cjs` échoue tant que rien n'est branché ; si toutes les tâches précédentes sont faites, il doit passer. S'il échoue, diagnostiquer (G13–G15 : test qui reproduit, traces, une correction par diagnostic).
 
-- [ ] **Step 3 : documentation.**
+- [x] **Step 3 : documentation.**
 
 `README.md` : dans le tableau « Contenu du dépôt », ajouter
 
@@ -7554,7 +8013,7 @@ just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percut
 ```
 ```
 
-- [ ] **Step 4 : vérification complète** (superpowers:verification-before-completion) :
+- [x] **Step 4 : vérification complète** (superpowers:verification-before-completion) :
 
 ```bash
 just check
@@ -7565,7 +8024,7 @@ cargo build -p oku-slides-app
 
 Tout passe ; noter les sorties. Passe de consolidation (G10) : chercher les doublons (`grep -rn "fn session()" crates/*/tests` : les helpers de test par crate sont attendus ; aucun helper de production en double), vérifier qu'aucun `#[allow(dead_code)]` hors `tests/common` n'a été ajouté, que `CATALOG_ID` n'a qu'une valeur côté Rust et côté TS.
 
-- [ ] **Step 5 : commit et clôture**
+- [x] **Step 5 : commit et clôture**
 
 ```bash
 git add fixtures/agent ui/e2e/agent.cjs ui/package.json justfile README.md

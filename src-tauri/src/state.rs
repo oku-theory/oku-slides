@@ -4,7 +4,9 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 
-use oku_slides_session::{Localize, Localizer, SessionError, Workspace};
+use oku_slides_agent::Stack;
+use oku_slides_session::agent::Sessions;
+use oku_slides_session::{Localize, Localizer, Session, SessionError, Workspace};
 use tauri::{AppHandle, Manager};
 
 /// Réponse des commandes une fois la fin engagée (`AppState::closing`) : pas
@@ -13,8 +15,9 @@ pub const CLOSING: &str = "app is closing";
 
 /// État de l'app : l'espace de travail et ce qu'il faut autour.
 pub struct AppState {
-    /// Fenêtres, onglets, et une session par onglet.
-    pub workspace: Mutex<Workspace>,
+    /// Fenêtres, onglets, et une session par onglet ; partagé avec l'agent
+    /// (`AppSessions`).
+    pub workspace: Arc<Mutex<Workspace>>,
     /// Langue des erreurs renvoyées à l'interface.
     pub localizer: Arc<Localizer>,
     /// Sérialise `windows::sync`.
@@ -29,6 +32,13 @@ pub struct AppState {
     /// Fin engagée (`state::shutdown` l'a posé) : `request`, `workspace` et
     /// `tab_drag::drop_tab` refusent tout, sans plus toucher à l'espace de travail.
     pub closing: AtomicBool,
+    /// L'agent de chaque onglet (outils MCP et agent ACP).
+    ///
+    /// Vit jusqu'à la fin du processus : `AppState` → `Stack` → `AppSessions`
+    /// (et le rappel de `forward`) → `AppHandle` → `AppState` forment un
+    /// cycle, jamais lâché. Aucun risque de le lâcher dans un contexte async
+    /// (voir `Stack`) ; l'arrêt des agents repose sur la fin du processus.
+    pub stack: Stack,
 }
 
 impl std::fmt::Debug for AppState {
@@ -53,6 +63,48 @@ impl AppState {
             Err(TryLockError::Poisoned(p)) => Some(p.into_inner()),
             Err(TryLockError::WouldBlock) => None,
         }
+    }
+
+    /// Arrête l'agent de chaque onglet de `closed` (fermé, ou onglet vierge
+    /// remplacé par un fichier : voir [`Workspace::closed_by`]).
+    pub fn stop_closed_agents(&self, closed: &[String]) {
+        for gone in closed {
+            self.stack.tab_closed(gone);
+        }
+    }
+}
+
+/// Les sessions des onglets, pour l'agent : par l'espace de travail
+/// ([`Workspace::with_session`]) ; la barre d'onglets est redessinée dans
+/// toutes les fenêtres quand un outil l'a changée (titre, modifié).
+pub struct AppSessions {
+    app: AppHandle,
+    workspace: Arc<Mutex<Workspace>>,
+}
+
+impl AppSessions {
+    pub fn new(app: AppHandle, workspace: Arc<Mutex<Workspace>>) -> Self {
+        Self { app, workspace }
+    }
+}
+
+impl std::fmt::Debug for AppSessions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppSessions").finish_non_exhaustive()
+    }
+}
+
+impl Sessions for AppSessions {
+    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
+        let (done, changed) = Workspace::with_session(&self.workspace, tab, |s| f(s));
+        if changed {
+            crate::windows::emit_view(&self.app);
+        }
+        done
+    }
+
+    fn open_elsewhere(&self, tab: &str, path: &std::path::Path) -> bool {
+        Workspace::lock(&self.workspace).open_elsewhere(tab, path)
     }
 }
 

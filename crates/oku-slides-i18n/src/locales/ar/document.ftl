@@ -6,6 +6,8 @@ pdf-write = تعذّرت كتابة ملف PDF
 render-compile = تعذّر عرض العرض التقديمي
 render-pdf = فشل التصدير إلى PDF
 render-no-page = هذه الصفحة غير موجودة
+render-image = صورة الشريحة لم تتمكن من الإنتاج
+
 render-setup = تعذّر تشغيل محرك العرض
 render-missing-image = صورة مفقودة
 diagnostic-error = خطأ

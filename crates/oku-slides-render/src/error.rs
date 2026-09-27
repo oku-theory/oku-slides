@@ -24,6 +24,8 @@ pub enum RenderErrorKind {
     NoPage,
     /// Le monde Typst n'a pas pu être préparé.
     Setup,
+    /// L'export d'une image a échoué.
+    Image,
 }
 
 #[derive(Debug, Snafu)]
@@ -35,6 +37,8 @@ pub(crate) enum RenderInner {
     Pdf { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
     #[snafu(display("no such page: {index}"))]
     NoPage { index: usize, backtrace: Backtrace },
+    #[snafu(display("PNG export failed: {message}"))]
+    Image { message: String, backtrace: Backtrace },
     #[snafu(display("invalid virtual path {path}"))]
     Path { path: String, source: typst::syntax::PathError, backtrace: Backtrace },
     #[snafu(display("the deck could not be written as JSON"))]
@@ -47,6 +51,7 @@ impl RenderError {
             RenderInner::Compile { .. } => RenderErrorKind::Compile,
             RenderInner::Pdf { .. } => RenderErrorKind::Pdf,
             RenderInner::NoPage { .. } => RenderErrorKind::NoPage,
+            RenderInner::Image { .. } => RenderErrorKind::Image,
             RenderInner::Path { .. } | RenderInner::DeckJson { .. } => RenderErrorKind::Setup,
         }
     }
@@ -68,6 +73,7 @@ impl Localize for RenderError {
             RenderErrorKind::Pdf => "render-pdf",
             RenderErrorKind::NoPage => "render-no-page",
             RenderErrorKind::Setup => "render-setup",
+            RenderErrorKind::Image => "render-image",
         });
         for d in self.diagnostics() {
             out.push('\n');

@@ -1,0 +1,220 @@
+//! Liste des outils, schémas d'entrée et résultats.
+//!
+//! MCP 1.x ne garde que `properties` et `required` à la racine d'un schéma :
+//! [`nest_schema`] déplace les `$defs` sous la première propriété.
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, OnceLock};
+
+use base64::Engine as _;
+use oku_slides_i18n::Localizer;
+use oku_slides_platform::storage::Storage;
+use oku_slides_session::Platform;
+use oku_slides_session::agent::TabSession;
+use rust_mcp_sdk::schema::{CallToolResult, ImageContent, TextContent, Tool, ToolInputSchema};
+use schemars::JsonSchema;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
+
+use crate::{Applied, SettingsPort, SurfaceHub};
+
+/// Les outils de l'agent, servis par [`crate::ToolServer`].
+#[derive(Clone)]
+pub struct Tools {
+    pub(crate) session: TabSession,
+    pub(crate) hub: Arc<SurfaceHub>,
+    pub(crate) settings: Arc<dyn SettingsPort>,
+    pub(crate) storage: Storage,
+    pub(crate) localizer: Arc<Localizer>,
+}
+
+impl std::fmt::Debug for Tools {
+    /// `Storage` (OpenDAL) n'implémente pas `Debug`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tools").finish_non_exhaustive()
+    }
+}
+
+impl Tools {
+    pub fn new(
+        session: TabSession,
+        hub: Arc<SurfaceHub>,
+        settings: Arc<dyn SettingsPort>,
+        platform: &Platform,
+    ) -> Self {
+        Self { session, hub, settings, storage: platform.storage.clone(), localizer: platform.localizer.clone() }
+    }
+
+    /// Travail synchrone sur la session de l'onglet, hors du fil async ; le
+    /// verrou n'est tenu que le temps de `f`.
+    pub(crate) async fn with_session<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut oku_slides_session::Session) -> Result<T, String> + Send + 'static,
+    ) -> Result<T, String> {
+        let session = self.session.clone();
+        tokio::task::spawn_blocking(move || session.with(f).map_err(|e| e.one_line())?)
+            .await
+            .map_err(|e| format!("session task failed: {e}"))?
+    }
+
+    /// Lecture des réglages, hors du fil async : l'implémentation réelle
+    /// (`config.toml` via `Storage`/OpenDAL) bloque comme la session.
+    pub(crate) async fn settings_read(&self) -> BTreeMap<String, Value> {
+        let settings = self.settings.clone();
+        tokio::task::spawn_blocking(move || settings.read()).await.unwrap_or_default()
+    }
+
+    /// Écriture d'un réglage déjà autorisé, hors du fil async.
+    pub(crate) async fn settings_write(&self, key: String, value: Value) -> Result<Applied, String> {
+        let settings = self.settings.clone();
+        tokio::task::spawn_blocking(move || settings.write(&key, &value))
+            .await
+            .map_err(|e| format!("settings task failed: {e}"))?
+    }
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize, JsonSchema)]
+pub(crate) struct NoArgs {}
+
+#[derive(Debug, Clone, serde::Deserialize, JsonSchema)]
+pub(crate) struct SlideId {
+    /// Identifiant de la slide (voir `deck_outline`).
+    pub id: String,
+}
+
+/// Arguments d'un outil, ou le résultat d'erreur à renvoyer.
+#[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
+pub(crate) fn parse<T: DeserializeOwned>(args: Value) -> Result<T, CallToolResult> {
+    serde_json::from_value(args).map_err(|e| fail(format!("invalid arguments: {e}")))
+}
+
+pub(crate) fn text(s: impl Into<String>) -> CallToolResult {
+    CallToolResult::text_content(vec![TextContent::new(s.into(), None, None)])
+}
+
+pub(crate) fn json_result(v: &impl Serialize) -> CallToolResult {
+    match serde_json::to_string(v) {
+        Ok(s) => text(s),
+        Err(e) => fail(format!("response not serializable: {e}")),
+    }
+}
+
+pub(crate) fn fail(msg: impl Into<String>) -> CallToolResult {
+    let mut r = text(msg);
+    r.is_error = Some(true);
+    r
+}
+
+pub(crate) fn png(bytes: &[u8]) -> CallToolResult {
+    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    CallToolResult::image_content(vec![ImageContent::new(b64, "image/png".into(), None, None)])
+}
+
+/// Déplace les `$defs` de la racine sous la première propriété et réécrit
+/// les `$ref` (`#/$defs/X` → `#/properties/<p>/$defs/X`).
+pub(crate) fn nest_schema(mut schema: Value) -> Value {
+    let Some(defs) = schema.as_object_mut().and_then(|o| o.remove("$defs")) else { return schema };
+    let Some(first) = schema.get("properties").and_then(Value::as_object).and_then(|p| p.keys().next().cloned()) else {
+        return schema;
+    };
+    let prefix = format!("#/properties/{first}/$defs/");
+    fn rewrite(v: &mut Value, prefix: &str) {
+        match v {
+            Value::Object(map) => {
+                for (k, child) in map.iter_mut() {
+                    if k == "$ref" {
+                        if let Some(rest) = child.as_str().and_then(|r| r.strip_prefix("#/$defs/")) {
+                            *child = Value::String(format!("{prefix}{rest}"));
+                        }
+                    } else {
+                        rewrite(child, prefix);
+                    }
+                }
+            }
+            Value::Array(items) => items.iter_mut().for_each(|c| rewrite(c, prefix)),
+            _ => {}
+        }
+    }
+    let mut defs = defs;
+    rewrite(&mut defs, &prefix);
+    rewrite(&mut schema, &prefix);
+    if let Some(p) = schema.pointer_mut(&format!("/properties/{first}")).and_then(Value::as_object_mut) {
+        p.insert("$defs".into(), defs);
+    }
+    schema
+}
+
+/// Schéma d'entrée MCP 1.x : `properties` et `required` seulement.
+fn input_schema(schema: Value) -> ToolInputSchema {
+    let schema = nest_schema(schema);
+    let properties = schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .map(|p| p.iter().map(|(k, v)| (k.clone(), v.as_object().cloned().unwrap_or_default())).collect());
+    let required = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(|s| s.as_str().map(str::to_owned)).collect())
+        .unwrap_or_default();
+    ToolInputSchema::new(required, properties, None)
+}
+
+fn tool<T: JsonSchema>(name: &str, description: &str) -> Tool {
+    let schema = serde_json::to_value(schemars::schema_for!(T)).unwrap_or_else(|_| json!({}));
+    Tool {
+        name: name.into(),
+        title: None,
+        description: Some(description.into()),
+        input_schema: input_schema(schema),
+        output_schema: None,
+        annotations: None,
+        execution: None,
+        icons: vec![],
+        meta: None,
+    }
+}
+
+/// Tous les outils, dans l'ordre où l'agent les lit.
+pub(crate) fn list() -> Vec<Tool> {
+    static LIST: OnceLock<Vec<Tool>> = OnceLock::new();
+    LIST.get_or_init(|| {
+        vec![
+            tool::<NoArgs>(
+                "deck_outline",
+                "List the slides of the open deck: id, kind, title, element count; theme, template set, mode.",
+            ),
+            tool::<SlideId>(
+                "slide",
+                "Full content of one slide: elements, styles, grid, notes, and their boxes on the page.",
+            ),
+            tool::<SlideId>(
+                "render_slide",
+                "PNG image of one slide as rendered now. Look at it after changing the layout.",
+            ),
+            tool::<NoArgs>("templates", "Template sets (built-in and the user's) with their templates."),
+            tool::<NoArgs>("settings", "App settings you can read (dictation, language, history)."),
+            tool::<crate::edit_tools::ApplyArgs>("apply", "Apply deck ops atomically (all or nothing). Every change the user can undo. Prefer one apply with several ops over many calls."),
+            tool::<crate::edit_tools::ChartKindArgs>("chart_kind", "Change a chart's type; its data is converted."),
+            tool::<crate::edit_tools::SetArgs>("edit_templates", "Switch to editing a template set (the deck is put aside, nothing is lost)."),
+            tool::<NoArgs>("close_templates", "Leave template editing and get the deck back (unsaved template changes are dropped)."),
+            tool::<crate::edit_tools::FocusArgs>("focus", "Show a slide (and an element) to the user."),
+            tool::<oku_slides_session::agent::AskChoice>("ask_choice", "Ask the user to choose (2-6 options). Blocks until they answer; returns {choice} or {answer_text} if they answered by voice, or {cancelled}. Use when the decision is theirs."),
+            tool::<oku_slides_session::agent::AskConfirm>("ask_confirm", "Ask yes/no. Blocks; returns {confirmed} / {answer_text} / {cancelled}."),
+            tool::<oku_slides_session::agent::AskRewrite>("ask_rewrite", "Propose 2-3 rewordings of a text element or slide field (@title, @subtitle, @kicker, @text). Blocks; the chosen text is applied by Oku Slides; returns {kept, text}."),
+            tool::<oku_slides_session::agent::ShowParams>("show_params", "Show a panel of live settings; each field applies op_template with \"$value\" replaced. Returns at once; later changes are reported in the next context."),
+            tool::<oku_slides_session::agent::ShowVariants>("show_variants", "Show 2-4 rendered variants of a slide; the user's pick is applied. Returns at once; the pick is reported in the next context."),
+            tool::<crate::guarded_tools::SaveArgs>("save", "Save the deck as .oku-slides.pdf. The user confirms first."),
+            tool::<crate::guarded_tools::OpenArgs>("open", "Open another .oku-slides.pdf (absolute path). The user confirms first."),
+            tool::<NoArgs>("new", "Start a new blank deck. The user confirms first."),
+            tool::<crate::guarded_tools::SaveTemplatesArgs>("save_templates", "Save the template set being edited. The user confirms first."),
+            tool::<crate::edit_tools::SetArgs>("delete_template_set", "Delete one of the user's template sets. The user confirms first."),
+            tool::<crate::guarded_tools::SetSettingArgs>("set_setting", "Change an app setting (whitelisted keys only). The user confirms first; returns {applied: now|next_launch}."),
+        ]
+    })
+    .clone()
+}
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

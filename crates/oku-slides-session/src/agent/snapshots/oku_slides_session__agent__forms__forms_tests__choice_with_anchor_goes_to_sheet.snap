@@ -1,0 +1,96 @@
+---
+source: crates/oku-slides-session/src/agent/forms_tests.rs
+expression: s
+---
+{
+  "id": "ask-1",
+  "place": "sheet",
+  "anchor": {
+    "slide": "s-4",
+    "element": "e-2"
+  },
+  "messages": [
+    {
+      "version": "v0.9",
+      "createSurface": {
+        "surfaceId": "ask-1",
+        "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "ask-1",
+        "components": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "body"
+          },
+          {
+            "id": "body",
+            "component": "Column",
+            "children": [
+              "question",
+              "options",
+              "cancel"
+            ]
+          },
+          {
+            "id": "question",
+            "component": "Text",
+            "text": "Quelle mise en page ?",
+            "variant": "h4"
+          },
+          {
+            "id": "options",
+            "component": "ChoiceChips",
+            "options": [
+              {
+                "id": "a",
+                "label": "Deux colonnes"
+              },
+              {
+                "id": "b",
+                "label": "Citation",
+                "hint": "sobre"
+              }
+            ],
+            "value": {
+              "path": "/choice"
+            },
+            "action": {
+              "event": {
+                "name": "choose",
+                "context": {
+                  "choice": {
+                    "path": "/choice"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "cancel",
+            "component": "Button",
+            "label": "Annuler",
+            "action": {
+              "event": {
+                "name": "dismiss"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateDataModel": {
+        "surfaceId": "ask-1",
+        "value": {
+          "choice": ""
+        }
+      }
+    }
+  ]
+}

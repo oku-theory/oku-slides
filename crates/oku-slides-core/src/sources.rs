@@ -193,6 +193,16 @@ impl SourceBundle {
         );
     }
 
+    /// Ouvre un groupe d'annulation (voir [`DeckReplica::begin_group`]).
+    pub fn begin_group(&mut self, label: &str) {
+        self.replica.begin_group(label);
+    }
+
+    /// Ferme le groupe d'annulation ouvert.
+    pub fn end_group(&mut self) {
+        self.replica.end_group();
+    }
+
     /// Défait la dernière étape ; `false` s'il n'y en avait pas.
     pub fn undo(&mut self) -> Result<bool, SourcesError> {
         let done = self.replica.undo().context(ReplicaSnafu)?;
