@@ -24,6 +24,9 @@ export function toggleEmphasis(value: string, start: number, end: number, format
     start++;
     end--;
   }
+  // Les espaces aux bords ne sont jamais mises en forme (relues comme texte littéral).
+  while (start < end && /\s/.test(value[start])) start++;
+  while (end > start && /\s/.test(value[end - 1])) end--;
   let k = 0;
   while (k < 3 && value[start - k - 1] === "*" && value[end + k] === "*") k++;
   let bold = k >= 2;

@@ -1,5 +1,5 @@
 {
-  "_comment": "Aller-retour paragraphes ↔ markdown d'édition : paragraphs_to_text (Rust) écrit `markdown`, textToParagraphs (TS) le relit en `paragraphs`.",
+  "_comment": "Aller-retour paragraphes ↔ markdown d'édition : paragraphs_to_text (Rust) écrit `markdown`, textToParagraphs (TS) le relit en `paragraphs`. `lossy` : perte documentée des bords, relue en `reread`.",
   "cases": [
     {
       "name": "texte simple",
@@ -290,6 +290,67 @@
           ]
         }
       ]
+    },
+    {
+      "name": "texte qui ressemble à de la mise en forme",
+      "markdown": "a \\*b\\* c \\[x\\](y)",
+      "paragraphs": [{ "runs": [{ "t": "a *b* c [x](y)" }] }]
+    },
+    {
+      "name": "titre et citation en début de ligne",
+      "markdown": "# pas un titre\n> pas une citation",
+      "paragraphs": [{ "runs": [{ "t": "# pas un titre" }] }, { "runs": [{ "t": "> pas une citation" }] }]
+    },
+    {
+      "name": "ponctuation française",
+      "markdown": "Bonjour ! Ça va ?",
+      "paragraphs": [{ "runs": [{ "t": "Bonjour ! Ça va ?" }] }]
+    },
+    {
+      "name": "pastille réduite à un égal",
+      "markdown": "==\\===",
+      "paragraphs": [{ "runs": [{ "t": "=", "highlight": 1 }] }]
+    },
+    {
+      "name": "italique puis gras collés",
+      "markdown": "*a***b**",
+      "paragraphs": [{ "runs": [{ "t": "a", "italic": true }, { "t": "b", "bold": true }] }]
+    },
+    {
+      "name": "gras-italique puis italique",
+      "markdown": "***X**Y*",
+      "paragraphs": [{ "runs": [{ "t": "X", "bold": true, "italic": true }, { "t": "Y", "italic": true }] }]
+    },
+    {
+      "name": "pastille en gras collée à du japonais",
+      "markdown": "上==**a**=={2}です",
+      "paragraphs": [{ "runs": [{ "t": "上" }, { "t": "a", "bold": true, "highlight": 2 }, { "t": "です" }] }]
+    }
+  ],
+  "lossy": [
+    {
+      "name": "espaces en bord de gras",
+      "paragraphs": [{ "runs": [{ "t": "a" }, { "t": " x ", "bold": true }, { "t": "b" }] }],
+      "markdown": "a **x** b",
+      "reread": [{ "runs": [{ "t": "a " }, { "t": "x", "bold": true }, { "t": " b" }] }]
+    },
+    {
+      "name": "ponctuation collée à une lettre",
+      "paragraphs": [{ "runs": [{ "t": "a" }, { "t": "\"x\"", "italic": true }, { "t": "b" }] }],
+      "markdown": "a\"*x*\"b",
+      "reread": [{ "runs": [{ "t": "a\"" }, { "t": "x", "italic": true }, { "t": "\"b" }] }]
+    },
+    {
+      "name": "pastille réduite à une espace",
+      "paragraphs": [{ "runs": [{ "t": "a" }, { "t": " ", "highlight": 2 }, { "t": "b" }] }],
+      "markdown": "a b",
+      "reread": [{ "runs": [{ "t": "a b" }] }]
+    },
+    {
+      "name": "gras sur un tiret collé à de l'italique",
+      "paragraphs": [{ "runs": [{ "t": "-", "bold": true }, { "t": "a", "italic": true }] }],
+      "markdown": "-*a*",
+      "reread": [{ "runs": [{ "t": "-" }, { "t": "a", "italic": true }] }]
     }
   ]
 }

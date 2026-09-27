@@ -10,16 +10,27 @@ struct Case {
     paragraphs: Vec<Paragraph>,
 }
 
-fn cases() -> Vec<Case> {
+fn fixture() -> serde_json::Value {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/markdown.json");
     let json = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("fixture {path} illisible : {e}"));
-    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-    serde_json::from_value(v["cases"].clone()).unwrap()
+    serde_json::from_str(&json).unwrap()
+}
+
+fn cases() -> Vec<Case> {
+    serde_json::from_value(fixture()["cases"].clone()).unwrap()
 }
 
 #[test]
 fn paragraphs_to_text_fixture_cases_give_their_markdown() {
     for c in cases() {
+        asserting(&c.name).that(&paragraphs_to_text(&c.paragraphs)).is_equal_to(c.markdown);
+    }
+}
+
+#[test]
+fn paragraphs_to_text_lossy_cases_give_their_markdown() {
+    let lossy: Vec<Case> = serde_json::from_value(fixture()["lossy"].clone()).unwrap();
+    for c in lossy {
         asserting(&c.name).that(&paragraphs_to_text(&c.paragraphs)).is_equal_to(c.markdown);
     }
 }

@@ -1,15 +1,15 @@
-//! Texte affiché dans l'interface : paragraphes en markdown éditable, et
-//! variables du deck remplacées.
+//! Texte affiché dans l'interface : paragraphes en markdown éditable
+//! (l'inline est écrit par `inline.rs`), et variables du deck remplacées.
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{ListKind, Paragraph, Run};
+use oku_slides_core::{ListKind, Paragraph};
 use serde_json::Value;
 
+use crate::inline::runs_to_markdown;
+
 /// Texte éditable en markdown : un paragraphe par ligne, `- ` pour une puce,
-/// `1. ` pour une liste numérotée ; `**gras**`, `*italique*`, `[texte](url)`.
-///
-/// `color` et `size` des runs n'ont pas d'écriture markdown : ils sont omis.
+/// `1. ` pour une liste numérotée, le reste en markdown inline (`inline.rs`).
 pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
     let mut out = String::new();
     let mut n = 0;
@@ -31,73 +31,6 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
             n = 0;
         }
         out.push_str(&escape_list_marker(&runs_to_markdown(&p.runs)));
-    }
-    out
-}
-
-/// Runs en markdown inline ; les runs voisins de même format ne font qu'un.
-fn runs_to_markdown(runs: &[Run]) -> String {
-    let same =
-        |a: &Run, b: &Run| a.bold == b.bold && a.italic == b.italic && a.link == b.link && a.highlight == b.highlight;
-    let mut merged: Vec<Run> = Vec::new();
-    for r in runs.iter().filter(|r| !r.t.is_empty()) {
-        match merged.last_mut() {
-            Some(last) if same(last, r) => last.t.push_str(&r.t),
-            _ => merged.push(r.clone()),
-        }
-    }
-    let mut out = String::new();
-    let mut after_highlight = false;
-    let mut runs = merged.into_iter().peekable();
-    while let Some(Run { t, bold, italic, link, highlight, .. }) = runs.next() {
-        let marks = match (bold, italic) {
-            (true, true) => "***",
-            (true, false) => "**",
-            (false, true) => "*",
-            (false, false) => "",
-        };
-        let mut body = format!("{marks}{}{marks}", escape_inline(&t));
-        // `{n}` juste après une pastille serait lu comme sa couleur.
-        if after_highlight && body.starts_with('{') {
-            body.insert(0, '\\');
-        }
-        after_highlight = highlight.is_some() && link.is_none();
-        if let Some(n) = highlight {
-            // Une pastille collée à la suivante garde sa couleur, même `{1}` :
-            // sinon `==a====b==` se lirait comme une seule pastille.
-            let before_highlight = link.is_none() && runs.peek().is_some_and(|r| r.highlight.is_some());
-            let color = if n == 1 && !before_highlight { String::new() } else { format!("{{{n}}}") };
-            body = format!("=={body}=={color}");
-        }
-        match link {
-            Some(url) => {
-                let url = url.replace(' ', "%20").replace('(', "%28").replace(')', "%29");
-                out.push_str(&format!("[{body}]({url})"));
-            }
-            None => out.push_str(&body),
-        }
-    }
-    out
-}
-
-/// Échappe ce qui se lirait comme du markdown ; `_` au milieu d'un mot et
-/// `=` isolé restent tels quels.
-fn escape_inline(t: &str) -> String {
-    let chars: Vec<char> = t.chars().collect();
-    let mut out = String::with_capacity(t.len());
-    for (i, &c) in chars.iter().enumerate() {
-        let intraword = || {
-            let alnum = |j: Option<usize>| j.and_then(|j| chars.get(j)).is_some_and(|c| c.is_alphanumeric());
-            alnum(i.checked_sub(1)) && alnum(Some(i + 1))
-        };
-        // `=` contre un autre `=` ou au bord du run pourrait former `==`.
-        let equals = || {
-            [i.checked_sub(1), Some(i + 1)].into_iter().any(|j| j.and_then(|j| chars.get(j)).is_none_or(|&n| n == '='))
-        };
-        if matches!(c, '\\' | '*' | '[' | ']') || (c == '_' && !intraword()) || (c == '=' && equals()) {
-            out.push('\\');
-        }
-        out.push(c);
     }
     out
 }

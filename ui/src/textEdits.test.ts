@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { markdownToRuns } from "./markdown";
 import { insertDictated, insertLink, minimalChange, toggleEmphasis } from "./textEdits";
 
 describe("toggleEmphasis", () => {
@@ -24,6 +25,16 @@ describe("toggleEmphasis", () => {
 
   test("sans sélection place le curseur entre les marques", () => {
     expect(toggleEmphasis("ab", 1, 1, "italic")).toEqual({ value: "a**b", start: 2, end: 2 });
+  });
+
+  test("gras avec l'espace de fin dans la sélection : l'espace reste hors des étoiles", () => {
+    const result = toggleEmphasis("a word b", 2, 7, "bold");
+    expect(result).toEqual({ value: "a **word** b", start: 4, end: 8 });
+    expect(markdownToRuns(result.value)).toEqual([{ t: "a " }, { t: "word", bold: true }, { t: " b" }]);
+  });
+
+  test("italique avec l'espace de début dans la sélection : l'espace reste hors des étoiles", () => {
+    expect(toggleEmphasis("a word b", 1, 6, "italic")).toEqual({ value: "a *word* b", start: 3, end: 7 });
   });
 });
 

@@ -8,11 +8,12 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 
 - `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son historique, son
   mode modèles, sa reprise (`resume.rs`, écrite par un fil dédié : `resume_writer.rs`).
-- `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : les
-  fenêtres `w-<n>`, leurs onglets `t-<n>`, l'onglet actif, la fenêtre active ;
-  `TabInfo` (`views.rs`) : ce que la barre montre d'un onglet.
+- `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`,
+  onglets `t-<n>`, onglet/fenêtre actifs ; `TabInfo` (`views.rs`) : ce que montre la barre.
 - `Slot` (`workspace_slot.rs`) : session d'un onglet, `Ready`, `Dormant` ou `Closed`.
 - `workspace_resume.rs` : relecture et écriture de `workspace.json`, orphelins, `open_files`.
+- `paragraphs_to_text` (`text.rs`, inline dans `inline.rs`) : markdown d'édition
+  relu par `@lezer/markdown` ; contrat `fixtures/markdown.json` et `-corpus.json` (`UPDATE_CORPUS=1`).
 
 ## Verrous
 
@@ -21,9 +22,8 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 - Ordre : **l'espace de travail, puis une session, jamais l'inverse.**
 - Jamais d'attente sur une session sous le verrou de l'espace de travail :
   `try_lock` seulement (fermeture, remplacement d'un onglet vierge).
-- Travail lent hors du verrou de l'espace de travail : session neuve
-  construite puis insérée, onglet endormi relu sous son seul verrou,
-  dossiers des onglets fermés supprimés après.
+- Travail lent hors du verrou de l'espace de travail : session neuve construite puis
+  insérée, onglet endormi relu sous son seul verrou, dossiers des onglets fermés supprimés après.
 - Seules `Workspace::apply`, `request`, `open_files` et `settle` combinent
   les deux verrous. Un verrou empoisonné est repris (`relock`).
 
@@ -36,11 +36,10 @@ tabs/t-<n>/      state.json, deck/, templates/   (écrit par sa session seule)
 
 - Création : dossier de l'onglet d'abord, `workspace.json` ensuite ;
   fermeture : l'inverse. Un orphelin est supprimé au lancement suivant.
-- `workspace.json` n'est pas digne de confiance : identifiants validés,
-  infos lues entrée par entrée, compteurs bornés. Illisible : tout
-  `resume/` mis de côté (`resume.failed-…`) ; un onglet illisible : son
-  dossier seul (`t-<n>.failed-…`). Au lancement, seuls les
-  `resume.keep_failed` plus récents de chaque sorte restent.
+- `workspace.json` n'est pas digne de confiance : identifiants validés, infos lues
+  entrée par entrée, compteurs bornés. Illisible : tout `resume/` mis de côté
+  (`resume.failed-…`) ; un onglet illisible : son dossier seul (`t-<n>.failed-…`).
+  Au lancement, seuls les `resume.keep_failed` plus récents de chaque sorte restent.
 - Restauration paresseuse : la barre vient de `info`, une session n'est
   relue qu'à la première requête de son onglet (ADR-0001).
 

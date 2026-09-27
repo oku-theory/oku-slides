@@ -4,7 +4,7 @@
 import type { Element, Op, Paragraph, Slide, SlideView, Target } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
-import { listPrefix, markdownToRuns, sameFormatting } from "./markdown";
+import { listPrefix, markdownToRuns } from "./markdown";
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
 export function newId(prefix: string): string {
@@ -28,15 +28,20 @@ export function findElement(slide: Slide, id: string): Element | undefined {
 /**
  * Texte éditable → paragraphes : l'inverse de `paragraphs_to_text` côté Rust
  * (une ligne par paragraphe, `- ` pour une puce, `1. ` pour une liste
- * numérotée, markdown inline pour le reste). Un paragraphe dont le markdown
- * n'a pas changé garde sa mise en forme complète (couleur, taille).
+ * numérotée, markdown inline pour le reste). Une ligne identique à une ligne
+ * de `previous.text` (écrit par Rust pour `previous.paragraphs`) garde ce
+ * paragraphe tel quel : couleur, taille et bords perdus à l'écriture compris.
+ * Cette réutilisation suppose une ligne par paragraphe ; si un run contient
+ * `\n`, les indices se décalent et on relit tout depuis le texte.
  */
-export function textToParagraphs(text: string, previous: Paragraph[] = []): Paragraph[] {
+export function textToParagraphs(text: string, previous?: { paragraphs: Paragraph[]; text: string }): Paragraph[] {
+  const before = previous ? previous.text.split("\n") : [];
+  const alignable = previous !== undefined && before.length === previous.paragraphs.length;
   return text.split("\n").map((line) => {
+    const same = alignable ? previous?.paragraphs[before.indexOf(line)] : undefined;
+    if (same) return same;
     const { list, length } = listPrefix(line);
     const runs = markdownToRuns(line.slice(length));
-    const same = previous.find((p) => p.list === list && sameFormatting(p.runs, runs));
-    if (same) return same;
     return list ? { runs, list } : { runs };
   });
 }
@@ -70,7 +75,8 @@ export function textOps(view: SlideView, t: Target, value: string): Op[] {
   const slide = view.slide;
   if (t.target === "element") {
     const e = findElement(slide, t.id);
-    return [{ op: "set_text", slide: slide.id, element: t.id, text: textToParagraphs(value, e?.text ?? []) }];
+    const previous = { paragraphs: e?.text ?? [], text: t.text ?? "" };
+    return [{ op: "set_text", slide: slide.id, element: t.id, text: textToParagraphs(value, previous) }];
   }
   const field = t.kind;
   const v = value.trim() === "" ? null : value;

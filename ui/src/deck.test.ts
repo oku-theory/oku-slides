@@ -22,13 +22,38 @@ describe("textToParagraphs", () => {
     ]);
   });
 
-  test("un paragraphe inchangé garde sa mise en forme", () => {
-    const bold: Paragraph = { runs: [{ t: "Gras", bold: true }] };
-    expect(textToParagraphs("**Gras**\nNouveau", [bold])[0]).toBe(bold);
+  test("une ligne inchangée garde son paragraphe", () => {
+    const bold: Paragraph = { runs: [{ t: "Gras", bold: true, color: "accent" }] };
+    const previous = { paragraphs: [bold], text: "**Gras**" };
+    expect(textToParagraphs("**Gras**\nNouveau", previous)[0]).toBe(bold);
+  });
+
+  test("une ligne aux bords perdus garde son paragraphe tant qu'elle n'est pas éditée", () => {
+    const edges: Paragraph = { runs: [{ t: "a" }, { t: " x ", bold: true, color: "accent" }, { t: "b" }] };
+    const previous = { paragraphs: [edges], text: "a **x** b" };
+    expect(textToParagraphs("Avant\na **x** b", previous)[1]).toBe(edges);
+  });
+
+  test("une ligne éditée est relue", () => {
+    const bold: Paragraph = { runs: [{ t: "Gras", bold: true, color: "accent" }] };
+    const previous = { paragraphs: [bold], text: "**Gras**" };
+    expect(textToParagraphs("**Gras** !", previous)).toEqual([{ runs: [{ t: "Gras", bold: true }, { t: " !" }] }]);
   });
 
   test("numéro suivi d'une fin de ligne Windows : reste une liste, comme côté Rust", () => {
     expect(textToParagraphs("1. a\r")).toEqual([{ runs: [{ t: "a\r" }], list: "number" }]);
+  });
+
+  test("un run contenant un saut de ligne désaligne les indices : pas de réutilisation ni de doublon", () => {
+    const previous = {
+      paragraphs: [{ runs: [{ t: "a\nb" }] }, { runs: [{ t: "c" }] }] as Paragraph[],
+      text: "a\nb\nc",
+    };
+    const edited = "a\nb\nc d";
+    const result = textToParagraphs(edited, previous);
+    const texts = result.map((p) => p.runs.map((r) => r.t).join(""));
+    expect(new Set(texts).size).toBe(texts.length);
+    expect(texts.join("\n")).toBe(edited);
   });
 });
 

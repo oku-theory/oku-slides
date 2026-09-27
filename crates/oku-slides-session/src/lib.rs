@@ -32,6 +32,7 @@ mod appearance;
 mod charts;
 mod error;
 mod files;
+mod inline;
 mod panel;
 mod resume;
 mod resume_writer;

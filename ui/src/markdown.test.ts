@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import type { Paragraph } from "./api";
-import { listPrefix, markdownSpans, markdownToRuns, sameFormatting } from "./markdown";
+import type { Paragraph, Run } from "./api";
+import { listPrefix, markdownSpans, markdownToRuns } from "./markdown";
 import { textToParagraphs } from "./deck";
 
 interface Case {
@@ -10,13 +10,26 @@ interface Case {
   paragraphs: Paragraph[];
 }
 
-const fixture = new URL("../../fixtures/markdown.json", import.meta.url);
-const cases: Case[] = JSON.parse(readFileSync(fixture, "utf8")).cases;
+interface Lossy extends Case {
+  reread: Paragraph[];
+}
+
+const fixture = JSON.parse(readFileSync(new URL("../../fixtures/markdown.json", import.meta.url), "utf8"));
+const cases: Case[] = fixture.cases;
+const lossy: Lossy[] = fixture.lossy;
 
 describe("textToParagraphs sur la fixture partagée avec Rust", () => {
   for (const c of cases) {
     test(`${c.name} redonne ses paragraphes`, () => {
       expect(textToParagraphs(c.markdown)).toEqual(c.paragraphs);
+    });
+  }
+});
+
+describe("perte documentée : bords des runs délimités", () => {
+  for (const c of lossy) {
+    test(`${c.name} se relit sans ses bords`, () => {
+      expect(textToParagraphs(c.markdown)).toEqual(c.reread);
     });
   }
 });
@@ -52,30 +65,59 @@ describe("markdownToRuns", () => {
     expect(markdownToRuns("==x=={256}")).toEqual([{ t: "x", highlight: 1 }, { t: "{256}" }]);
     expect(markdownToRuns("==x=={007}")).toEqual([{ t: "x", highlight: 1 }, { t: "{007}" }]);
   });
-});
 
-describe("sameFormatting", () => {
-  test("ignore couleur et taille, et fusionne les runs voisins", () => {
-    const before = [
-      { t: "a", bold: true, color: "accent" },
-      { t: "b", bold: true },
-    ];
-    expect(sameFormatting(before, [{ t: "ab", bold: true }])).toBe(true);
+  test("délimiteur suivi d'une espace : pas de gras (CommonMark)", () => {
+    expect(markdownToRuns("** x**")).toEqual([{ t: "** x**" }]);
   });
 
-  test("un lien différent change la mise en forme", () => {
-    expect(sameFormatting([{ t: "a", link: "https://x.y" }], [{ t: "a" }])).toBe(false);
+  test("étoile contre une ponctuation, après une lettre : pas d'italique (CommonMark)", () => {
+    expect(markdownToRuns("a*!b*")).toEqual([{ t: "a*!b*" }]);
+  });
+
+  test("gras-italique puis italique : l'italique partagé reste ouvert", () => {
+    expect(markdownToRuns("***X**Y*")).toEqual([
+      { t: "X", bold: true, italic: true },
+      { t: "Y", italic: true },
+    ]);
+  });
+
+  test("pastille en gras collée à du japonais", () => {
+    expect(markdownToRuns("上==**a**=={2}です")).toEqual([
+      { t: "上" },
+      { t: "a", bold: true, highlight: 2 },
+      { t: "です" },
+    ]);
+  });
+
+  test("pastille dont le texte est un égal échappé", () => {
+    expect(markdownToRuns("==\\===")).toEqual([{ t: "=", highlight: 1 }]);
+  });
+
+  test("lien sans adresse : texte littéral", () => {
+    for (const s of ["[a]", "[a][b]", "[a]()", "voir [note] ici"]) {
+      expect(markdownToRuns(s)).toEqual([{ t: s }]);
+    }
+  });
+
+  test("image : hors du dialecte, mais son `[alt](src)` reste un lien", () => {
+    expect(markdownToRuns("![alt](src)")).toEqual([{ t: "!" }, { t: "alt", link: "src" }]);
+  });
+
+  test("reste d'une liste qui ressemble à une liste : pas de nouvelle troncature", () => {
+    expect(markdownToRuns("2. deux")).toEqual([{ t: "2. deux" }]);
+  });
+
+  test("titres, citations, code, html et entités restent du texte", () => {
+    for (const s of ["# titre", "> citation", "    indenté", "`code`", "<b>x</b>", "&amp;", "<https://a.b>", "***"]) {
+      expect(markdownToRuns(s)).toEqual([{ t: s }]);
+    }
   });
 });
 
-test("textToParagraphs garde tel quel un lien non encodé d'un paragraphe inchangé", () => {
+test("textToParagraphs garde tel quel un lien non encodé d'une ligne inchangée", () => {
   const raw: Paragraph = { runs: [{ t: "w", link: "https://w.org/A (b)", color: "accent" }] };
-  expect(textToParagraphs("[w](https://w.org/A%20%28b%29)\nNouveau", [raw])[0]).toBe(raw);
-});
-
-test("textToParagraphs garde un paragraphe coloré dont le markdown n'a pas changé", () => {
-  const colored: Paragraph = { runs: [{ t: "Gras", bold: true, color: "accent" }] };
-  expect(textToParagraphs("**Gras**\nNouveau", [colored])[0]).toBe(colored);
+  const previous = { paragraphs: [raw], text: "[w](https://w.org/A%20%28b%29)" };
+  expect(textToParagraphs("[w](https://w.org/A%20%28b%29)\nNouveau", previous)[0]).toBe(raw);
 });
 
 describe("markdownSpans", () => {
@@ -87,12 +129,14 @@ describe("markdownSpans", () => {
     ]);
   });
 
-  test("triple étoile : gras puis italique sur la même plage", () => {
+  test("triple étoile : CommonMark imbrique l'italique autour du gras", () => {
     expect(markdownSpans("***x***")).toEqual([
-      { from: 0, to: 3, kind: "mark" },
+      { from: 0, to: 1, kind: "mark" },
+      { from: 1, to: 6, kind: "italic" },
+      { from: 1, to: 3, kind: "mark" },
       { from: 3, to: 4, kind: "bold" },
-      { from: 3, to: 4, kind: "italic" },
-      { from: 4, to: 7, kind: "mark" },
+      { from: 4, to: 6, kind: "mark" },
+      { from: 6, to: 7, kind: "mark" },
     ]);
   });
 
@@ -216,5 +260,24 @@ describe("listPrefix", () => {
     for (const line of ["1.x", "-x", "\\- x", "1\\. x", ""]) {
       expect(listPrefix(line)).toEqual({ length: 0 });
     }
+  });
+});
+
+const corpus: { runs: Run[]; markdown: string }[] = JSON.parse(
+  readFileSync(new URL("../../fixtures/markdown-corpus.json", import.meta.url), "utf8"),
+).cases;
+
+/** Chaque caractère et son format, compté seulement sur les lettres et chiffres. */
+function formatOfLetters(runs: Run[]) {
+  return runs.flatMap((r) =>
+    [...r.t].map((c) => [c, /[\p{L}\p{N}]/u.test(c) ? `${!!r.bold}${!!r.italic}${r.link ?? ""}|${r.highlight ?? ""}` : ""]),
+  );
+}
+
+describe("corpus écrit par Rust : texte intact, lettres et chiffres gardent leur format", () => {
+  corpus.forEach((c, i) => {
+    test(`cas ${i}`, () => {
+      expect(formatOfLetters(markdownToRuns(c.markdown))).toEqual(formatOfLetters(c.runs));
+    });
   });
 });
