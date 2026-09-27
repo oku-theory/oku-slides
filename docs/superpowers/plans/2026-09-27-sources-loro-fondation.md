@@ -27,26 +27,20 @@
 
 ## Sous-tâches Oku
 
-Avant la tâche 1, mettre à jour le corps de t-188 (chemin de ce plan + titres des tâches) et créer une sous-tâche par tâche, titre identique :
+Créées sous t-188 ; chaque commit cite **sa** sous-tâche, marquée faite (`oku cli task done t-N`) dès sa tâche terminée.
 
-```bash
-oku cli task update t-188 --body "Plan 1 : docs/superpowers/plans/2026-09-27-sources-loro-fondation.md (tâches 1 à 10). Plans 2 (fusion) et 3 (mode historique) à venir."
-for name in \
-  "Vide = absent dans le modèle" \
-  "DeckReplica : schéma, réconciliation, lecture" \
-  "Prose riche en texte à marques" \
-  "Lecture totale, blob non fiable, fusion" \
-  "Annuler et rétablir par UndoManager" \
-  "Convergence par propriété" \
-  "Zip des sources et PDF en version 2" \
-  "Session et reprise sur le replica" \
-  "Supprimer History et les inverses d'ops" \
-  "Documentation, ADR et vérification complète"; do
-  oku cli task create --project slider --parent t-188 --name "$name"
-done
-```
-
-Vérifier la syntaxe exacte avec `oku cli task update --help` si besoin. Noter les identifiants `t-N` rendus : chaque commit cite **sa** sous-tâche. Marquer chaque sous-tâche faite dès sa tâche terminée (`oku cli task done t-N`).
+| Tâche | Sous-tâche |
+|---|---|
+| 1. Vide = absent dans le modèle | t-198 |
+| 2. DeckReplica : schéma, réconciliation, lecture | t-199 |
+| 3. Prose riche en texte à marques | t-200 |
+| 4. Lecture totale, blob non fiable, fusion | t-201 |
+| 5. Annuler et rétablir par UndoManager | t-202 |
+| 6. Convergence par propriété | t-203 |
+| 7. Zip des sources et PDF en version 2 | t-204 |
+| 8. Session et reprise sur le replica | t-205 |
+| 9. Supprimer History et les inverses d'ops | t-206 |
+| 10. Documentation, ADR et vérification complète | t-207 |
 
 ## Carte des fichiers
 
@@ -140,7 +134,7 @@ fn opt_string(field: &str, v: Value) -> Result<Option<String>, OpError> {
 
 ```bash
 git add crates/oku-slides-core ui/src Cargo.toml
-git commit -m "feat(core) : une prose vide vaut absente, règle portée par le cœur (t-<N1>)"
+git commit -m "feat(core) : une prose vide vaut absente, règle portée par le cœur (t-198)"
 ```
 
 ---
@@ -808,7 +802,7 @@ mod mod_tests;
 
 ```bash
 git add Cargo.toml Cargo.lock crates/oku-slides-core crates/oku-slides-i18n
-git commit -m "feat(core) : DeckReplica, le deck dans un document Loro réconcilié par diff (t-<N2>)"
+git commit -m "feat(core) : DeckReplica, le deck dans un document Loro réconcilié par diff (t-199)"
 ```
 
 ---
@@ -1110,7 +1104,7 @@ Note : dans `current`, le filtre `v_k.is_empty()` est inutile ; le simplifier en
 
 ```bash
 git add crates/oku-slides-core
-git commit -m "feat(core) : prose riche du replica en texte à marques (t-<N3>)"
+git commit -m "feat(core) : prose riche du replica en texte à marques (t-200)"
 ```
 
 ---
@@ -1358,7 +1352,7 @@ Supprimer `import_for_tests`, remplacer ses appels par `a.merge(&b).unwrap()`, e
 
 ```bash
 git add crates/oku-slides-core crates/oku-slides-i18n docs/superpowers/specs/2026-09-27-sources-loro-design.md
-git commit -m "feat(core) : lecture totale du replica, snapshot non fiable, fusion par deck_uid (t-<N4>)"
+git commit -m "feat(core) : lecture totale du replica, snapshot non fiable, fusion par deck_uid (t-201)"
 ```
 
 ---
@@ -1595,7 +1589,7 @@ Dans `create`, remplacer `r.commit("")` par un `doc.commit()` direct avant de co
 
 ```bash
 git add crates/oku-slides-core
-git commit -m "feat(core) : annuler et rétablir par l'UndoManager du replica, avec libellés (t-<N5>)"
+git commit -m "feat(core) : annuler et rétablir par l'UndoManager du replica, avec libellés (t-202)"
 ```
 
 ---
@@ -1725,7 +1719,7 @@ proptest! {
 
 ```bash
 git add Cargo.toml Cargo.lock crates/oku-slides-core
-git commit -m "test(core) : convergence du replica par propriété, N pairs en parallèle (t-<N6>)"
+git commit -m "test(core) : convergence du replica par propriété, N pairs en parallèle (t-203)"
 ```
 
 ---
@@ -1970,7 +1964,7 @@ max_replica_mib = 32
 
 ```bash
 git add crates Cargo.lock
-git commit -m "feat(core)!: sources v2, le replica Loro remplace deck.json dans le zip et le PDF (t-<N7>)"
+git commit -m "feat(core)!: sources v2, le replica Loro remplace deck.json dans le zip et le PDF (t-204)"
 ```
 
 ---
@@ -2151,7 +2145,7 @@ if deck != *doc.sources.deck() {
 
 ```bash
 git add crates Cargo.lock
-git commit -m "feat(session)!: rendre avant de valider, annuler par le replica, reprise en deck.loro (t-<N8>)"
+git commit -m "feat(session)!: rendre avant de valider, annuler par le replica, reprise en deck.loro (t-205)"
 ```
 
 ---
@@ -2195,7 +2189,7 @@ pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<(), TransactionError> 
 
 ```bash
 git add crates
-git commit -m "refactor(core)!: supprimer History et les inverses d'ops, remplacés par le replica (t-<N9>)"
+git commit -m "refactor(core)!: supprimer History et les inverses d'ops, remplacés par le replica (t-206)"
 ```
 
 ---
@@ -2221,7 +2215,7 @@ git commit -m "refactor(core)!: supprimer History et les inverses d'ops, remplac
 
 ```bash
 git add crates docs
-git commit -m "docs(core) : architecture du replica, ADR-0002, reprise sans pile d'annulation (t-<N10>)"
+git commit -m "docs(core) : architecture du replica, ADR-0002, reprise sans pile d'annulation (t-207)"
 ```
 
 - [ ] **Step 7 : clôture** — `oku cli task done` sur chaque sous-tâche restante ; t-188 reste ouverte (plans 2 et 3).
