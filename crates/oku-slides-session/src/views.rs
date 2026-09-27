@@ -52,12 +52,13 @@ pub struct Snapshot<'a> {
     pub title_source: Option<&'a str>,
     pub slides: Vec<SlideSummary<'a>>,
     pub can_undo: bool,
-    pub undo_label: Option<&'a str>,
+    pub undo_label: Option<String>,
     pub can_redo: bool,
-    pub redo_label: Option<&'a str>,
+    pub redo_label: Option<String>,
     /// Avertissements du rendu, dans la langue de l'utilisateur.
     pub warnings: Vec<String>,
-    /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
+    /// Signalé à l'ouverture : le PDF a été modifié par un autre outil, ou
+    /// des parties du deck étaient illisibles et ont été mises de côté.
     pub notice: Option<&'a str>,
     /// L'interface prend les couleurs et les polices du thème des slides.
     pub appearance: &'a Appearance,

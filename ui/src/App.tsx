@@ -491,7 +491,7 @@ export default function App({ tab, nonce, onOpen, onChange }: {
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}
-          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-set" : "ui-undo-rename-deck"), [{ op: "set_param", key: "title", value: v.trim() || null }])}
+          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-set" : "ui-undo-rename-deck"), [{ op: "set_param", key: "title", value: v }])}
         />
         <span className="caption" role="status">
           {snap.editing

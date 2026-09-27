@@ -48,6 +48,7 @@ charts-rs = "1.1"
 json-patch = "4"
 typst-layout = "0.15.1"
 tiny_http = "0.12"
+loro = "1.16"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
 # Même version que ct2rs : son tokenizer se construit depuis un tokenizers::Tokenizer.
@@ -67,6 +68,12 @@ tauri-runtime = "2.11"
 # Tests
 hound = "3"
 speculoos = "0.13"
+rstest = "0.26"
+proptest = "1"
+# Somme de contrôle des snapshots Loro : forger un snapshot malformé mais accepté.
+xxhash-rust = { version = "0.8", features = ["xxh32"] }
+loro-kv-store = "1.16"
+bytes = "1"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

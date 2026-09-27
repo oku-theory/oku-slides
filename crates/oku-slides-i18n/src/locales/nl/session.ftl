@@ -28,6 +28,7 @@ template-default-name = Sjabloon
 notice-modified-elsewhere = Deze pdf is na Oku Slides door een ander programma gewijzigd: de bronnen komen mogelijk niet meer overeen met wat een pdf-lezer toont.
 notice-open-failed = { $path } kon niet worden geopend: { $reason }
 notice-tab-resume-failed = De toestand van dit tabblad kon niet worden hersteld: die is apart gezet en het tabblad begint opnieuw met een lege presentatie.
+notice-unreadable-parts = Delen van deze presentatie konden niet worden gelezen en zijn apart gezet ({ $count }).
 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen

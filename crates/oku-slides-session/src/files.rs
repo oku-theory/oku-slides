@@ -4,7 +4,8 @@
 
 use std::path::Path;
 
-use oku_slides_core::SourceBundle;
+use oku_slides_core::{Issue, SourceBundle, SourceLimits};
+use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::storage::Storage;
 
 use snafu::{OptionExt, ResultExt};
@@ -19,6 +20,8 @@ pub const EXTENSION: &str = ".oku-slides.pdf";
 #[derive(Debug)]
 pub struct Opened {
     pub sources: SourceBundle,
+    /// Ce que la relecture du replica n'a pas pu lire (vide pour un deck JSON).
+    pub issues: Vec<Issue>,
     /// Lu dans un `.oku-slides.pdf` (sinon, un deck JSON de développement).
     pub pdf: bool,
     /// Le PDF a été modifié par un autre outil après Oku Slides.
@@ -27,15 +30,40 @@ pub struct Opened {
     pub hash: String,
 }
 
+impl Opened {
+    /// L'avis à montrer à l'ouverture : PDF modifié par un autre outil,
+    /// parties illisibles mises de côté (une ligne chacun). Les parties
+    /// illisibles sont aussi journalisées, une par une.
+    pub(crate) fn notice(&self, l: &Localizer) -> Option<String> {
+        for issue in &self.issues {
+            tracing::warn!(issue = %issue.localize(l), "partie illisible mise de côté");
+        }
+        let unreadable = (!self.issues.is_empty())
+            .then(|| l.tr_with("notice-unreadable-parts", &[("count", self.issues.len().into())]));
+        let elsewhere = self.modified_elsewhere.then(|| l.tr("notice-modified-elsewhere"));
+        match (elsewhere, unreadable) {
+            (Some(a), Some(b)) => Some(format!("{a}\n{b}")),
+            (a, b) => a.or(b),
+        }
+    }
+}
+
 /// Lit un `.oku-slides.pdf` (reconnu à son contenu) ou un deck JSON.
-pub fn read_document(storage: &Storage, path: &Path) -> Result<Opened> {
+/// `limits` borne les sources lues dans le PDF (réglages `[sources]
+/// max_replica_mib` et `max_sources_mib`).
+pub fn read_document(storage: &Storage, path: &Path, limits: SourceLimits) -> Result<Opened> {
     let bytes = storage.read(path).context(ReadSnafu { path })?;
     let hash = oku_slides_core::asset_id(&bytes);
     if bytes.starts_with(b"%PDF") {
         let found = oku_slides_pdf::extract_sources(&bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
-        let sources = SourceBundle::from_zip(&found.zip).context(SourcesSnafu)?;
-        return Ok(Opened { sources, pdf: true, modified_elsewhere: found.modified_elsewhere(), hash });
+        let (sources, issues) = SourceBundle::from_zip(&found.zip, limits).context(SourcesSnafu)?;
+        return Ok(Opened { sources, issues, pdf: true, modified_elsewhere: found.modified_elsewhere(), hash });
     }
     let deck = serde_json::from_slice(&bytes).context(DeckJsonSnafu)?;
-    Ok(Opened { sources: SourceBundle::new(deck), pdf: false, modified_elsewhere: false, hash })
+    let sources = SourceBundle::new(deck).context(SourcesSnafu)?;
+    Ok(Opened { sources, issues: Vec::new(), pdf: false, modified_elsewhere: false, hash })
 }
+
+#[cfg(test)]
+#[path = "files_tests.rs"]
+mod files_tests;

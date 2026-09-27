@@ -28,6 +28,7 @@ template-default-name = قالب
 notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بعد Oku Slides: قد لا تطابق مصادره ما يعرضه قارئ PDF.
 notice-open-failed = تعذّر فتح { $path }: { $reason }
 notice-tab-resume-failed = تعذّرت استعادة حالة علامة التبويب هذه: وُضعت جانبًا، وتبدأ علامة التبويب من جديد بعرض تقديمي فارغ.
+notice-unreadable-parts = تعذّرت قراءة بعض أجزاء هذا العرض التقديمي فنُحّيت جانبًا ({ $count }).
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند

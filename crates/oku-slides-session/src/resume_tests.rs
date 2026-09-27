@@ -1,7 +1,7 @@
 use speculoos::prelude::*;
 
 use super::*;
-use oku_slides_core::{Deck, Op, SourceBundle};
+use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
 
 fn temp_dir() -> PathBuf {
@@ -23,24 +23,26 @@ fn deck() -> Deck {
 }
 
 fn document() -> Document {
-    let mut sources = SourceBundle::new(deck());
+    let mut sources = SourceBundle::new(deck()).unwrap();
     sources.add_asset(b"image".to_vec());
     sources.fonts.insert("Inter.ttf".into(), b"police".to_vec());
     let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), 10);
-    doc.history.commit(&mut doc.sources.deck, "Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    let mut next = doc.sources.deck().clone();
+    next.theme = Some("pro".into());
+    doc.sources.apply(next, "Thème").unwrap();
     doc.dirty = true;
     doc.saved_hash = Some("sha256:00".into());
     doc
 }
 
 #[test]
-fn write_snapshot_then_read_doc_round_trips_sources_history_and_meta() {
+fn write_snapshot_then_read_doc_round_trips_sources_uid_and_meta() {
     let r = resume();
     let doc = document();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    let back = r.read_doc(DECK_DIR, 10).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
     assert_that!(back.sources).is_equal_to(&doc.sources);
-    assert_that!(back.history.undo_label()).is_equal_to(Some("Thème"));
+    assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
     assert_that!(back.path).is_equal_to(&doc.path);
     assert_that!(back.dirty).is_true();
     assert_that!(back.saved_hash).is_equal_to(&doc.saved_hash);
@@ -51,24 +53,29 @@ fn write_snapshot_then_read_doc_round_trips_sources_history_and_meta() {
 fn write_snapshot_removes_orphan_assets() {
     let r = resume();
     let mut doc = document();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.assets.clear();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().sources.assets.len()).is_equal_to(0);
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().sources.assets.len()).is_equal_to(0);
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
+/// Un `deck.loro` abîmé rend le document illisible (l'onglet est mis de côté).
 #[test]
-fn read_doc_with_corrupt_history_keeps_deck_with_empty_history() {
+fn read_doc_with_corrupt_deck_loro_returns_error() {
     let r = resume();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new())).unwrap();
-    let path = r.dir.join(DECK_DIR).join("document.json");
-    let mut v: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    v["history"] = serde_json::json!("illisible");
-    std::fs::write(&path, serde_json::to_vec(&v).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, 10).unwrap();
-    assert_that!(back.sources.deck.theme.as_deref()).is_equal_to(Some("pro"));
-    assert_that!(back.history.can_undo()).is_false();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+    std::fs::write(r.dir.join(DECK_DIR).join("deck.loro"), b"illisible").unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).is_err()).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Un `deck.loro` au-delà du maximum n'est pas relu.
+#[test]
+fn read_doc_with_deck_loro_over_the_maximum_returns_error() {
+    let r = resume();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 16).is_err()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -127,10 +134,10 @@ fn read_state_future_version_with_other_shape_returns_version_error() {
 fn write_snapshot_font_changed_under_same_name_reads_new_bytes() {
     let r = resume();
     let mut doc = document();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.fonts.insert("Inter.ttf".into(), b"nouvelle police".to_vec());
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    let back = r.read_doc(DECK_DIR, 10).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
     assert_that!(back.sources.fonts.get("Inter.ttf").cloned()).is_equal_to(Some(b"nouvelle police".to_vec()));
     let fonts_dir = r.dir.join(DECK_DIR).join("fonts");
     assert_that!(std::fs::read_dir(&fonts_dir).unwrap().count()).is_equal_to(1);
@@ -144,14 +151,14 @@ fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
     doc.sources.assets.insert("sha256:../x".into(), b"evil".to_vec());
     doc.sources.fonts.insert("../evil.ttf".into(), b"evil".to_vec());
     doc.sources.fonts.insert(".hidden.ttf".into(), b"evil".to_vec());
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     assert_that!(r.dir.join(DECK_DIR).join("assets").join("x").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("x").exists()).is_false();
     assert_that!(r.dir.parent().unwrap().join("x").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("fonts").join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.parent().unwrap().join("evil.ttf").exists()).is_false();
-    let back = r.read_doc(DECK_DIR, 10).unwrap();
+    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
     assert_that!(back.sources.assets.contains_key("sha256:../x")).is_false();
     assert_that!(back.sources.fonts.contains_key("evil.ttf")).is_false();
     assert_that!(back.sources.fonts.contains_key(".hidden.ttf")).is_false();
@@ -163,8 +170,8 @@ fn read_doc_with_stored_path_not_oku_slides_drops_path() {
     let r = resume();
     let mut doc = document();
     doc.path = Some(PathBuf::from("/tmp/notes.txt"));
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().path).is_none();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().path).is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -173,8 +180,8 @@ fn read_doc_with_stored_relative_path_drops_path() {
     let r = resume();
     let mut doc = document();
     doc.path = Some(PathBuf::from("essai.oku-slides.pdf"));
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().path).is_none();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().path).is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -183,8 +190,8 @@ fn write_snapshot_then_read_doc_keeps_the_blank_flag() {
     let r = resume();
     let mut doc = document();
     doc.blank = true;
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_true();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().blank).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -193,8 +200,8 @@ fn write_snapshot_then_read_doc_keeps_a_non_blank_flag() {
     let r = resume();
     let doc = document();
     assert_that!(doc.blank).is_false();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new())).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().blank).is_false();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().blank).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

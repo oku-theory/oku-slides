@@ -5,7 +5,6 @@ op-index-out-of-range = 位置が範囲外です
 op-not-a-group = { $subject } はグループではありません
 op-no-text = { $subject } にはテキストがありません
 op-invalid-value = { $subject } の値が無効です
-op-inconsistent = 履歴がプレゼンテーションと一致しなくなりました
 transaction-refused = 操作 { $index } が拒否されました：{ $reason }
 
 sources-unreadable = ソースを読み込めません
@@ -13,6 +12,7 @@ sources-not-sources = Oku Slides のソースアーカイブではありませ�
 sources-unsupported-version = このソースは新しいバージョンの Oku Slides で書き込まれています
 sources-bad-name = ソース内のファイル名が拒否されました
 sources-missing-deck = ソースにプレゼンテーションがありません
+sources-too-large = このファイルのソースは大きすぎて開けません
 
 issue-empty-slide-id = スライドの識別子が空です
 issue-duplicate-slide-id = スライドの識別子が重複しています
@@ -26,5 +26,13 @@ issue-free-without-frame = 自由配置の要素にフレームがありませ�
 issue-missing-asset = アセットがありません：{ $asset }
 issue-unsupported-link = サポートされていないリンク：{ $link }
 issue-highlight-zero = ハイライトの色番号は 1 から始まります
+issue-unreadable-element = 読み取れない要素を除外しました
+issue-unreadable-slide = 読み取れないスライドを除外しました
+issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 op-not-a-chart = { $subject } はグラフではありません
 op-invalid-chart = グラフ { $subject }：{ $reason }
+
+replica-corrupted = このファイル内のプレゼンテーション履歴が破損しています
+replica-too-large = このファイル内のプレゼンテーション履歴は大きすぎて開けません
+replica-write = プレゼンテーション履歴を更新できませんでした
+replica-unrelated = この2つのプレゼンテーションには共通の起源がありません

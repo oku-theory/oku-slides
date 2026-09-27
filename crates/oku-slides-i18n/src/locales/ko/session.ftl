@@ -28,6 +28,7 @@ template-default-name = 템플릿
 notice-modified-elsewhere = 이 PDF는 Oku Slides 이후 다른 도구에서 수정되었습니다. 소스가 PDF 뷰어에 표시되는 내용과 일치하지 않을 수 있습니다.
 notice-open-failed = { $path }을(를) 열 수 없습니다: { $reason }
 notice-tab-resume-failed = 이 탭의 상태를 복원하지 못했습니다. 상태는 따로 보관되었고, 탭은 빈 프레젠테이션으로 다시 시작합니다.
+notice-unreadable-parts = 이 프레젠테이션의 일부를 읽을 수 없어 따로 두었습니다({ $count }).
 
 log-document-opened = 문서를 열었습니다
 log-document-saved = 문서를 저장했습니다

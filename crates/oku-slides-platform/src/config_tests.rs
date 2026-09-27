@@ -28,6 +28,27 @@ fn defaults_embedded_file_gives_documented_values() {
 }
 
 #[test]
+fn defaults_sources_max_replica_is_32_mib_in_bytes() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.sources.max_replica_mib).is_equal_to(32);
+    assert_that!(s.sources.max_replica_bytes()).is_equal_to(32 * 1024 * 1024);
+}
+
+#[test]
+fn defaults_sources_max_sources_is_256_mib_in_bytes() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.sources.max_sources_mib).is_equal_to(256);
+    assert_that!(s.sources.max_sources_bytes()).is_equal_to(256 * 1024 * 1024);
+}
+
+#[test]
+fn max_sources_bytes_saturates_instead_of_overflowing() {
+    let mut s = Settings::defaults().unwrap();
+    s.sources.max_sources_mib = usize::MAX;
+    assert_that!(s.sources.max_sources_bytes()).is_equal_to(usize::MAX);
+}
+
+#[test]
 fn from_sources_nested_env_var_overrides_default() {
     let s = Settings::from_sources(
         None,

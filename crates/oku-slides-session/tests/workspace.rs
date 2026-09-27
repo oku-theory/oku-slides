@@ -107,9 +107,10 @@ fn first_launch_writes_layout_and_tab_folder() {
 }
 
 /// Deux fenêtres, trois onglets dont un en édition de modèles, onglet actif,
-/// fenêtre active non dernière, historique : tout revient.
+/// fenêtre active non dernière, deck : tout revient sauf la pile
+/// d'annulation (perdue au relancement, t-188 / ADR-0002).
 #[test]
-fn resume_restores_windows_tabs_focus_mode_and_history() {
+fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     let data = Data::new();
     let a = resumed(&data);
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
@@ -125,8 +126,10 @@ fn resume_restores_windows_tabs_focus_mode_and_history() {
     assert_that!(after.focused).is_equal_to(&before.focused);
     assert_that!(after.windows).is_equal_to(&before.windows);
     assert_that!(view(&b).windows[1].tabs[0].info.editing_templates).is_true();
+    // Le deck revient tel quel ; la pile d'annulation ne survit pas au relancement.
     let snap = tab(&b, "t-2", json!({"cmd": "undo"}));
-    assert_that!(snap["theme"]).is_equal_to(json!("papier"));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["can_undo"]).is_equal_to(json!(false));
 }
 
 #[test]

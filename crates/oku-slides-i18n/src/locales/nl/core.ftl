@@ -5,7 +5,6 @@ op-index-out-of-range = Positie buiten bereik
 op-not-a-group = { $subject } is geen groep
 op-no-text = { $subject } heeft geen tekst
 op-invalid-value = Ongeldige waarde voor { $subject }
-op-inconsistent = De geschiedenis komt niet meer overeen met de presentatie
 transaction-refused = Bewerking { $index } geweigerd: { $reason }
 
 sources-unreadable = Onleesbare bronnen
@@ -13,6 +12,7 @@ sources-not-sources = Dit is geen Oku Slides-bronarchief
 sources-unsupported-version = Deze bronnen zijn gemaakt met een nieuwere versie van Oku Slides
 sources-bad-name = Geweigerde bestandsnaam in de bronnen
 sources-missing-deck = De presentatie ontbreekt in de bronnen
+sources-too-large = De bronnen in dit bestand zijn te groot om te openen
 
 issue-empty-slide-id = lege dia-id
 issue-duplicate-slide-id = dubbele dia-id
@@ -26,5 +26,13 @@ issue-free-without-frame = vrij element zonder kader
 issue-missing-asset = ontbrekende bron: { $asset }
 issue-unsupported-link = niet-ondersteunde link: { $link }
 issue-highlight-zero = markeerkleuren worden genummerd vanaf 1
+issue-unreadable-element = onleesbaar element, apart gezet
+issue-unreadable-slide = onleesbare dia, apart gezet
+issue-unreadable-field = onleesbaar deckveld { $field }, hersteld
 op-not-a-chart = { $subject } is geen grafiek
 op-invalid-chart = Grafiek { $subject }: { $reason }
+
+replica-corrupted = De geschiedenis van de presentatie in dit bestand is beschadigd
+replica-too-large = De geschiedenis van de presentatie in dit bestand is te groot om te openen
+replica-write = De geschiedenis van de presentatie kon niet worden bijgewerkt
+replica-unrelated = Deze twee presentaties hebben geen gemeenschappelijke oorsprong

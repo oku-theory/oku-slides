@@ -6,8 +6,8 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 
 ## Types clés
 
-- `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son historique, son
-  mode modèles, sa reprise (`resume.rs`, écrite par un fil dédié : `resume_writer.rs`).
+- `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son replica Loro (annulation par
+  `UndoManager`, non persistée), ses modèles, sa reprise (`resume.rs`, fil `resume_writer.rs`).
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`,
   onglets `t-<n>`, onglet/fenêtre actifs ; `TabInfo` (`views.rs`) : ce que montre la barre.
 - `Slot` (`workspace_slot.rs`) : session d'un onglet, `Ready`, `Dormant` ou `Closed`.
@@ -32,6 +32,7 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 ```
 workspace.json   structure (version 2), compteurs, `kept`, `info` par onglet
 tabs/t-<n>/      state.json, deck/, templates/   (écrit par sa session seule)
+deck/            deck.loro, document.json { path, dirty, saved_hash, blank }, assets/, fonts/
 ```
 
 - Création : dossier de l'onglet d'abord, `workspace.json` ensuite ;
@@ -45,5 +46,5 @@ tabs/t-<n>/      state.json, deck/, templates/   (écrit par sa session seule)
 
 ## Dépendances
 
-`oku-slides-core` (deck, historique), `oku-slides-render` (Typst), `oku-slides-pdf`,
+`oku-slides-core` (deck, replica Loro), `oku-slides-render` (Typst), `oku-slides-pdf`,
 `oku-slides-platform` (stockage, réglages), `oku-slides-i18n`, `oku-slides-chart`, `oku-slides-a2ui`.

@@ -1,4 +1,5 @@
-//! Erreurs du cœur : opérations refusées, transactions, zip des sources.
+//! Erreurs du cœur : opérations refusées, transactions, zip des sources,
+//! replica Loro.
 //!
 //! Chaque erreur publique est opaque ; [`OpError::kind`] et
 //! [`SourcesError::kind`] disent de quoi il s'agit sans exposer les détails.
@@ -24,8 +25,6 @@ pub enum OpErrorKind {
     NotAChart,
     /// Options ou données de graphique refusées par `oku-slides-chart`.
     InvalidChart,
-    /// Un annuler n'a pas pu défaire une op : l'historique ne correspond plus au deck.
-    Inconsistent,
 }
 
 #[derive(Debug, Snafu)]
@@ -51,8 +50,6 @@ pub(crate) enum OpInner {
     NotAChart { element: String, backtrace: Backtrace },
     #[snafu(display("chart {element} refused the change"))]
     Chart { element: String, source: oku_slides_chart::ChartError, backtrace: Backtrace },
-    #[snafu(display("history does not match the deck"))]
-    Inconsistent { source: Box<OpError>, backtrace: Backtrace },
 }
 
 impl OpError {
@@ -67,7 +64,6 @@ impl OpError {
             OpInner::InvalidValue { .. } | OpInner::ParseValue { .. } => OpErrorKind::InvalidValue,
             OpInner::NotAChart { .. } => OpErrorKind::NotAChart,
             OpInner::Chart { .. } => OpErrorKind::InvalidChart,
-            OpInner::Inconsistent { .. } => OpErrorKind::Inconsistent,
         }
     }
 
@@ -82,7 +78,7 @@ impl OpError {
             | OpInner::Chart { element, .. } => Some(element),
             OpInner::DuplicateId { id, .. } => Some(id),
             OpInner::InvalidValue { field, .. } | OpInner::ParseValue { field, .. } => Some(field),
-            OpInner::IndexOutOfRange { .. } | OpInner::Inconsistent { .. } => None,
+            OpInner::IndexOutOfRange { .. } => None,
         }
     }
 }
@@ -123,7 +119,12 @@ pub enum SourcesErrorKind {
     UnsupportedVersion,
     /// Nom de fichier refusé (chemin, fichier caché).
     BadName,
+    /// `deck.loro` manque.
     MissingDeck,
+    /// Le zip décompressé dépasse la taille permise.
+    TooLarge,
+    /// Le replica (`deck.loro`) est illisible, trop gros, ou ne s'écrit pas.
+    Replica(ReplicaErrorKind),
 }
 
 #[derive(Debug, Snafu)]
@@ -141,8 +142,18 @@ pub(crate) enum SourcesInner {
     UnsupportedVersion { version: u32, backtrace: Backtrace },
     #[snafu(display("rejected file name: {name}"))]
     BadName { name: String, backtrace: Backtrace },
-    #[snafu(display("deck.json is missing"))]
+    #[snafu(display("deck.loro is missing"))]
     MissingDeck { backtrace: Backtrace },
+    #[snafu(display("sources too large once decompressed (max {max} bytes)"))]
+    TotalTooLarge { max: usize, backtrace: Backtrace },
+    /// En boîte : l'erreur de replica porte déjà sa trace, et gonflerait
+    /// chaque `Result` du zip.
+    #[snafu(display("unusable deck.loro"))]
+    Replica {
+        #[snafu(source(from(ReplicaError, Box::new)))]
+        source: Box<ReplicaError>,
+        backtrace: Backtrace,
+    },
 }
 
 impl SourcesError {
@@ -155,6 +166,8 @@ impl SourcesError {
             SourcesInner::UnsupportedVersion { .. } => SourcesErrorKind::UnsupportedVersion,
             SourcesInner::BadName { .. } => SourcesErrorKind::BadName,
             SourcesInner::MissingDeck { .. } => SourcesErrorKind::MissingDeck,
+            SourcesInner::TotalTooLarge { .. } => SourcesErrorKind::TooLarge,
+            SourcesInner::Replica { ref source, .. } => SourcesErrorKind::Replica(source.kind()),
         }
     }
 }
@@ -177,7 +190,6 @@ impl Localize for OpError {
             OpErrorKind::InvalidValue => "op-invalid-value",
             OpErrorKind::NotAChart => "op-not-a-chart",
             OpErrorKind::InvalidChart => "op-invalid-chart",
-            OpErrorKind::Inconsistent => "op-inconsistent",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }
@@ -191,12 +203,86 @@ impl Localize for TransactionError {
 
 impl Localize for SourcesError {
     fn localize(&self, l: &Localizer) -> String {
+        if let SourcesInner::Replica { source, .. } = &self.0 {
+            return source.localize(l);
+        }
         l.tr(match self.kind() {
             SourcesErrorKind::Unreadable => "sources-unreadable",
             SourcesErrorKind::NotSources => "sources-not-sources",
             SourcesErrorKind::UnsupportedVersion => "sources-unsupported-version",
             SourcesErrorKind::BadName => "sources-bad-name",
             SourcesErrorKind::MissingDeck => "sources-missing-deck",
+            SourcesErrorKind::TooLarge => "sources-too-large",
+            // Traité plus haut : l'erreur de replica se localise elle-même.
+            SourcesErrorKind::Replica(_) => "sources-unreadable",
+        })
+    }
+}
+
+/// Le replica Loro du deck ne se lit pas, ou ne s'écrit pas.
+#[derive(Debug, Snafu)]
+pub struct ReplicaError(ReplicaInner);
+
+/// Nature d'une [`ReplicaError`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ReplicaErrorKind {
+    /// Snapshot illisible, ou qui n'est pas un deck Oku Slides.
+    Corrupted,
+    /// Snapshot au-delà de la taille permise.
+    TooLarge,
+    /// Écriture refusée par Loro.
+    Write,
+    /// Deux replicas sans origine commune.
+    Unrelated,
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub(crate) enum ReplicaInner {
+    #[snafu(display("unreadable replica snapshot"))]
+    Import { source: loro::LoroError, backtrace: Backtrace },
+    #[snafu(display("the replica snapshot is not an Oku Slides deck: {what}"))]
+    NotADeck { what: &'static str, backtrace: Backtrace },
+    #[snafu(display("replica import panicked"))]
+    ImportPanicked { backtrace: Backtrace },
+    #[snafu(display("replica snapshot too large: {size} bytes (max {max})"))]
+    TooLarge { size: usize, max: usize, backtrace: Backtrace },
+    #[snafu(display("replica write failed"))]
+    Loro { source: loro::LoroError, backtrace: Backtrace },
+    #[snafu(display("replica text update timed out"))]
+    TextUpdate { source: loro::UpdateTimeoutError, backtrace: Backtrace },
+    #[snafu(display("replica export failed"))]
+    Export { source: loro::LoroEncodeError, backtrace: Backtrace },
+    #[snafu(display("deck (de)serialization failed"))]
+    DeckJson { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("the two replicas have no common origin"))]
+    Unrelated { backtrace: Backtrace },
+}
+
+impl ReplicaError {
+    pub fn kind(&self) -> ReplicaErrorKind {
+        match self.0 {
+            ReplicaInner::Import { .. } | ReplicaInner::NotADeck { .. } | ReplicaInner::ImportPanicked { .. } => {
+                ReplicaErrorKind::Corrupted
+            }
+            ReplicaInner::TooLarge { .. } => ReplicaErrorKind::TooLarge,
+            ReplicaInner::Unrelated { .. } => ReplicaErrorKind::Unrelated,
+            ReplicaInner::Loro { .. }
+            | ReplicaInner::TextUpdate { .. }
+            | ReplicaInner::Export { .. }
+            | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
+        }
+    }
+}
+
+impl Localize for ReplicaError {
+    fn localize(&self, l: &Localizer) -> String {
+        l.tr(match self.kind() {
+            ReplicaErrorKind::Corrupted => "replica-corrupted",
+            ReplicaErrorKind::TooLarge => "replica-too-large",
+            ReplicaErrorKind::Write => "replica-write",
+            ReplicaErrorKind::Unrelated => "replica-unrelated",
         })
     }
 }

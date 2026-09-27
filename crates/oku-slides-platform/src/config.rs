@@ -32,6 +32,7 @@ pub struct Settings {
     pub paths: PathSettings,
     pub history: HistorySettings,
     pub resume: ResumeSettings,
+    pub sources: SourcesSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub stt: SttSettings,
@@ -61,6 +62,29 @@ pub struct HistorySettings {
 pub struct ResumeSettings {
     /// Reprises mises de côté (`*.failed-*`) gardées au lancement, par dossier.
     pub keep_failed: usize,
+}
+
+/// Sources du deck (replica Loro).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct SourcesSettings {
+    /// Taille maximale d'un historique lu dans un PDF ou dans la reprise (Mio).
+    pub max_replica_mib: usize,
+    /// Taille décompressée maximale du zip des sources lu dans un PDF (Mio) :
+    /// historique, assets et polices compris.
+    pub max_sources_mib: usize,
+}
+
+impl SourcesSettings {
+    /// [`Self::max_replica_mib`] en octets.
+    pub fn max_replica_bytes(&self) -> usize {
+        self.max_replica_mib.saturating_mul(1024 * 1024)
+    }
+
+    /// [`Self::max_sources_mib`] en octets.
+    pub fn max_sources_bytes(&self) -> usize {
+        self.max_sources_mib.saturating_mul(1024 * 1024)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

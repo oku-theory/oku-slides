@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use oku_slides_core::{Deck, Op, SourceBundle};
+use oku_slides_core::{Deck, SourceBundle};
 use speculoos::prelude::*;
 
 use super::*;
@@ -24,8 +24,10 @@ fn resume(dir: &std::path::Path) -> Resume {
 
 fn document(theme: &str) -> Document {
     let deck = Deck::from_json(r#"{"theme":"papier","slides":[]}"#).unwrap();
-    let mut doc = Document::new(SourceBundle::new(deck), None, 10);
-    doc.history.commit(&mut doc.sources.deck, "Thème", vec![Op::SetTheme { theme: Some(theme.into()) }]).unwrap();
+    let mut doc = Document::new(SourceBundle::new(deck.clone()).unwrap(), None, 10);
+    let mut next = deck;
+    next.theme = Some(theme.into());
+    doc.sources.apply(next, "Thème").unwrap();
     doc
 }
 
@@ -34,7 +36,7 @@ fn state(slide: &str) -> State {
 }
 
 fn job(theme: Option<&str>, slide: &str) -> Job {
-    let docs = theme.map(|t| vec![(DECK_DIR, DocSnapshot::of(&document(t), &mut Vec::new()))]);
+    let docs = theme.map(|t| vec![(DECK_DIR, DocSnapshot::of(&document(t), &mut Vec::new()).unwrap())]);
     Job { docs: docs.unwrap_or_default(), state: state(slide) }
 }
 
@@ -45,8 +47,8 @@ fn writer_flush_waits_for_the_sent_job() {
     let w = Writer::new(resume(&dir));
     w.send(job(Some("pro"), "s-1"));
     w.flush();
-    let doc = resume(&dir).read_doc(DECK_DIR, 10).unwrap();
-    assert_that!(doc.sources.deck.theme.as_deref()).is_equal_to(Some("pro"));
+    let doc = resume(&dir).read_doc(DECK_DIR, 10, 1 << 24).unwrap();
+    assert_that!(doc.sources.deck().theme.as_deref()).is_equal_to(Some("pro"));
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -63,7 +65,7 @@ fn writer_merged_jobs_keep_the_latest_documents_and_state() {
     w.send(job(None, "s-2"));
     w.flush();
     let r = resume(&dir);
-    assert_that!(r.read_doc(DECK_DIR, 10).unwrap().sources.deck.theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(r.read_doc(DECK_DIR, 10, 1 << 24).unwrap().sources.deck().theme.as_deref()).is_equal_to(Some("pro"));
     assert_that!(r.read_state().unwrap().unwrap().ui.slide.as_deref()).is_equal_to(Some("s-2"));
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -88,11 +90,40 @@ fn doc_snapshot_shares_unchanged_blobs_and_copies_changed_fonts() {
     doc.sources.add_asset(vec![1; 1000]);
     doc.sources.fonts.insert("A.ttf".into(), vec![2; 1000]);
     let mut cache = Vec::new();
-    let first = DocSnapshot::of(&doc, &mut cache);
-    let second = DocSnapshot::of(&doc, &mut cache);
+    let first = DocSnapshot::of(&doc, &mut cache).unwrap();
+    let second = DocSnapshot::of(&doc, &mut cache).unwrap();
     assert_that!(std::sync::Arc::ptr_eq(first.blobs(), second.blobs())).is_true();
     doc.sources.fonts.insert("A.ttf".into(), vec![3; 1000]);
-    let third = DocSnapshot::of(&doc, &mut cache);
+    let third = DocSnapshot::of(&doc, &mut cache).unwrap();
     assert_that!(std::sync::Arc::ptr_eq(second.blobs(), third.blobs())).is_false();
     assert_that!(third.blobs().fonts["A.ttf"][0]).is_equal_to(3);
+}
+
+/// La reprise garde le deck et son identité, pas la pile d'annulation.
+#[test]
+fn read_doc_after_write_keeps_deck_and_uid_but_not_undo() {
+    let dir = temp_dir();
+    let r = resume(&dir);
+    let doc = document("pro");
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let back = r.read_doc(DECK_DIR, 10, 1 << 24).unwrap();
+    assert_that!(back.sources.deck()).is_equal_to(doc.sources.deck());
+    assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
+    assert_that!(back.sources.replica().can_undo()).is_false();
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Un document de reprise à l'ancien format (sans `deck.loro`) ne se relit pas.
+#[test]
+fn read_doc_without_deck_loro_returns_error() {
+    let dir = temp_dir();
+    let sub = dir.join(DECK_DIR);
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::write(
+        sub.join("document.json"),
+        r#"{"path":null,"dirty":false,"saved_hash":null,"blank":false,"deck":{"slides":[]},"history":{}}"#,
+    )
+    .unwrap();
+    assert_that!(resume(&dir).read_doc(DECK_DIR, 10, 1 << 24).is_err()).is_true();
+    std::fs::remove_dir_all(&dir).ok();
 }

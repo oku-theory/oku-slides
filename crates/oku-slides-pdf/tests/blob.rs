@@ -29,7 +29,7 @@ fn embed_sources_then_extract_sources_returns_same_blob() {
     let out = oku_slides_pdf::embed_sources(&pdf, &blob).unwrap();
     let s = oku_slides_pdf::extract_sources(&out).unwrap().unwrap();
     assert_that!(s.zip).is_equal_to(&blob);
-    assert_that!(s.version).is_equal_to(1);
+    assert_that!(s.version).is_equal_to(2);
     assert_that!(s.modified_elsewhere()).is_false();
 }
 
@@ -72,4 +72,33 @@ fn extract_sources_blob_under_other_key_returns_none() {
     let mut legacy = Vec::new();
     doc.save_to(&mut legacy).unwrap();
     assert_that!(oku_slides_pdf::extract_sources(&legacy).unwrap()).is_none();
+}
+
+/// Le même PDF, avec `/Version` réécrit dans l'enveloppe.
+fn with_version(pdf: &[u8], version: i64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut doc = Document::load_mem(pdf)?;
+    let root = doc.trailer.get(b"Root")?.as_reference()?;
+    let mut piece = doc.get_object(root)?.as_dict()?.get(b"PieceInfo")?.as_dict()?.clone();
+    let mut oku = piece.get(b"OkuSlides")?.as_dict()?.clone();
+    let mut private = oku.get(b"Private")?.as_dict()?.clone();
+    private.set("Version", Object::Integer(version));
+    oku.set("Private", Object::Dictionary(private));
+    piece.set("OkuSlides", Object::Dictionary(oku));
+    doc.get_object_mut(root)?.as_dict_mut()?.set("PieceInfo", Object::Dictionary(piece));
+    let mut out = Vec::new();
+    doc.save_to(&mut out)?;
+    Ok(out)
+}
+
+#[test]
+fn extract_sources_version_1_returns_none() {
+    let out = with_version(&oku_slides_pdf::embed_sources(&minimal_pdf(), b"zip").unwrap(), 1).unwrap();
+    assert_that!(oku_slides_pdf::extract_sources(&out).unwrap()).is_none();
+}
+
+#[test]
+fn extract_sources_version_3_returns_unsupported_version() {
+    let out = with_version(&oku_slides_pdf::embed_sources(&minimal_pdf(), b"zip").unwrap(), 3).unwrap();
+    assert_that!(oku_slides_pdf::extract_sources(&out).unwrap_err().kind())
+        .is_equal_to(oku_slides_pdf::PdfErrorKind::UnsupportedVersion);
 }

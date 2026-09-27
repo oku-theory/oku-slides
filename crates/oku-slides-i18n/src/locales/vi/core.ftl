@@ -5,7 +5,6 @@ op-index-out-of-range = Vị trí nằm ngoài phạm vi
 op-not-a-group = { $subject } không phải là nhóm
 op-no-text = { $subject } không có văn bản
 op-invalid-value = Giá trị không hợp lệ cho { $subject }
-op-inconsistent = Lịch sử không còn khớp với bản trình bày
 transaction-refused = Thao tác { $index } bị từ chối: { $reason }
 
 sources-unreadable = Không đọc được nguồn
@@ -13,6 +12,7 @@ sources-not-sources = Đây không phải là kho nguồn Oku Slides
 sources-unsupported-version = Nguồn này được tạo bởi phiên bản Oku Slides mới hơn
 sources-bad-name = Tên tệp trong nguồn bị từ chối
 sources-missing-deck = Nguồn không chứa bản trình bày
+sources-too-large = Nguồn trong tệp này quá lớn để mở
 
 issue-empty-slide-id = mã trang chiếu trống
 issue-duplicate-slide-id = mã trang chiếu bị trùng
@@ -26,5 +26,13 @@ issue-free-without-frame = phần tử tự do không có khung
 issue-missing-asset = thiếu tài nguyên: { $asset }
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 issue-highlight-zero = màu tô sáng được đánh số từ 1
+issue-unreadable-element = phần tử không đọc được, đã để riêng
+issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
+issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 op-not-a-chart = { $subject } không phải là biểu đồ
 op-invalid-chart = Biểu đồ { $subject }: { $reason }
+
+replica-corrupted = Lịch sử bản trình bày trong tệp này bị hỏng
+replica-too-large = Lịch sử bản trình bày trong tệp này quá lớn để mở
+replica-write = Không thể cập nhật lịch sử bản trình bày
+replica-unrelated = Hai bản trình bày này không có chung nguồn gốc

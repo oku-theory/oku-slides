@@ -21,6 +21,13 @@ limit = 500
 # (0 : aucune ; celles de ce lancement restent jusqu'au suivant).
 keep_failed = 3
 
+[sources]
+# Taille maximale de l'historique d'un deck lu dans un PDF ou dans la reprise (Mio).
+max_replica_mib = 32
+# Taille maximale, une fois décompressées, des sources lues dans un PDF :
+# historique, images et polices compris (Mio).
+max_sources_mib = 256
+
 [serve]
 # Serveur de développement (`oku-slides serve`).
 host = "127.0.0.1"

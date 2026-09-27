@@ -5,7 +5,6 @@ op-index-out-of-range = الموضع خارج النطاق
 op-not-a-group = { $subject } ليس مجموعة
 op-no-text = { $subject } لا يحتوي على نص
 op-invalid-value = قيمة غير صالحة لـ { $subject }
-op-inconsistent = لم يعد السجل مطابقًا للعرض التقديمي
 transaction-refused = رُفضت العملية { $index }: { $reason }
 
 sources-unreadable = تعذّرت قراءة المصادر
@@ -13,6 +12,7 @@ sources-not-sources = هذا ليس أرشيف مصادر Oku Slides
 sources-unsupported-version = كُتبت هذه المصادر بإصدار أحدث من Oku Slides
 sources-bad-name = اسم ملف مرفوض في المصادر
 sources-missing-deck = العرض التقديمي غير موجود في المصادر
+sources-too-large = مصادر هذا الملف أكبر من أن تُفتح
 
 issue-empty-slide-id = معرّف شريحة فارغ
 issue-duplicate-slide-id = معرّف شريحة مكرر
@@ -26,5 +26,13 @@ issue-free-without-frame = عنصر حر بلا إطار
 issue-missing-asset = مورد مفقود: { $asset }
 issue-unsupported-link = رابط غير مدعوم: { $link }
 issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
+issue-unreadable-element = عنصر غير مقروء، نُحّي جانبًا
+issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
+issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
 op-not-a-chart = { $subject } ليس مخططًا
 op-invalid-chart = المخطط { $subject }: { $reason }
+
+replica-corrupted = سجل العرض التقديمي في هذا الملف تالف
+replica-too-large = سجل العرض التقديمي في هذا الملف أكبر من أن يُفتح
+replica-write = تعذّر تحديث سجل العرض التقديمي
+replica-unrelated = لا يشترك هذان العرضان التقديميان في أصل واحد

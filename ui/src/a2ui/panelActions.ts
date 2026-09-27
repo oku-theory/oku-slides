@@ -22,7 +22,7 @@ export function panelActionOps(
 ): { label: string; ops: Op[] } | null {
   const ctx = action.context ?? {};
   if (ctx.slide !== slide.id) return null;
-  const text = () => String(ctx.value ?? "").trim() || null;
+  const text = () => String(ctx.value ?? "");
   switch (action.name) {
     case "rename_template":
       return { label: t("ui-undo-rename-template"), ops: [{ op: "set_slide_field", slide: slide.id, field: "name", value: text() }] };

@@ -1,4 +1,4 @@
-//! Les graphiques dans le deck : ajout, options, données, et leurs inverses.
+//! Les graphiques dans le deck : ajout, options, données.
 
 use oku_slides_chart::{Cell, ChartDataOp};
 use oku_slides_core::*;
@@ -44,14 +44,11 @@ fn chart_element_round_trips_through_json() {
 }
 
 #[test]
-fn set_chart_option_then_inverse_restores_the_chart() {
+fn set_chart_option_sets_title_and_legend() {
     let mut deck = deck_with_chart();
-    let before = deck.clone();
     let patch = json!({ "title": { "text": "Ventes" }, "legend": { "show": false } });
-    let inverse = Op::SetChartOption { slide: "s".into(), element: "g".into(), patch }.apply(&mut deck).unwrap();
+    Op::SetChartOption { slide: "s".into(), element: "g".into(), patch }.apply(&mut deck).unwrap();
     assert_that!(option(&deck).title.as_ref().and_then(|t| t.text.as_deref())).is_equal_to(Some("Ventes"));
-    inverse.apply(&mut deck).unwrap();
-    assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
@@ -66,33 +63,25 @@ fn set_chart_option_touching_dataset_is_refused_and_deck_unchanged() {
 }
 
 #[test]
-fn set_chart_data_cell_then_inverse_restores_the_value() {
+fn set_chart_data_cell_sets_the_value() {
     let mut deck = deck_with_chart();
-    let before = deck.clone();
-    let inverse = data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) }).apply(&mut deck).unwrap();
+    data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) }).apply(&mut deck).unwrap();
     let source = &option(&deck).dataset.as_ref().unwrap().source;
     assert_that!(source[1][1]).is_equal_to(Cell::Number(99.0));
-    inverse.apply(&mut deck).unwrap();
-    assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
-fn set_chart_data_column_ops_resize_series_and_undo_exactly() {
+fn set_chart_data_column_ops_resize_series() {
     let mut deck = deck_with_chart();
-    let before = deck.clone();
-    let removed = data(ChartDataOp::RemoveColumn { at: 2 }).apply(&mut deck).unwrap();
+    data(ChartDataOp::RemoveColumn { at: 2 }).apply(&mut deck).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(1);
-    let added = data(ChartDataOp::InsertColumn {
+    data(ChartDataOp::InsertColumn {
         at: 2,
         cells: vec![Cell::Text("Marge".into()), Cell::Number(1.0), Cell::Number(2.0)],
     })
     .apply(&mut deck)
     .unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(2);
-    added.apply(&mut deck).unwrap();
-    // La série « ligne » retirée revient telle quelle, pas copiée sur la barre.
-    removed.apply(&mut deck).unwrap();
-    assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
@@ -158,17 +147,14 @@ fn add_element_with_inconsistent_chart_built_in_rust_is_refused() {
 }
 
 #[test]
-fn set_chart_data_cell_that_adds_series_undoes_them_too() {
+fn set_chart_data_cell_that_adds_a_column_aligns_the_series() {
     // Deux colonnes de valeurs, une seule série : la modification aligne les séries.
     let mut deck = deck_with_chart();
     Op::SetChartOption { slide: "s".into(), element: "g".into(), patch: json!({ "series": [{ "type": "bar" }] }) }
         .apply(&mut deck)
         .unwrap();
-    let before = deck.clone();
-    let inverse = data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(5.0) }).apply(&mut deck).unwrap();
+    data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(5.0) }).apply(&mut deck).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(2);
-    inverse.apply(&mut deck).unwrap();
-    assert_that!(deck).is_equal_to(before);
 }
 
 #[test]

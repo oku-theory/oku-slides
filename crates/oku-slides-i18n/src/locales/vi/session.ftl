@@ -28,6 +28,7 @@ template-default-name = Mẫu
 notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau Oku Slides: nguồn có thể không còn khớp với nội dung trình đọc PDF hiển thị.
 notice-open-failed = Không thể mở { $path }: { $reason }
 notice-tab-resume-failed = Không thể khôi phục trạng thái của thẻ này: trạng thái đã được để riêng, và thẻ bắt đầu lại với một bản trình bày trống.
+notice-unreadable-parts = Một số phần của bản trình bày này không đọc được và đã được để riêng ({ $count }).
 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu

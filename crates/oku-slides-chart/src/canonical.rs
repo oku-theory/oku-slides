@@ -1,4 +1,4 @@
-//! Forme canonique stockée dans `deck.json` : toutes les données dans
+//! Forme canonique stockée dans le deck (replica `deck.loro`) : toutes les données dans
 //! `dataset`, pour que la grille puisse les éditer.
 //!
 //! Le LLM peut écrire des données en ligne (`xAxis.data`, `series.data`),

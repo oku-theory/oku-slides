@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use color_eyre::eyre::{ContextCompat, Result, bail};
-use oku_slides_core::{Deck, Op, Paragraph, SourceBundle};
+use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits};
 use oku_slides_render::{Fonts, Renderer};
 
 use crate::out::Out;
@@ -18,7 +18,7 @@ fn median(mut v: Vec<Duration>) -> Duration {
     v.get(v.len() / 2).copied().unwrap_or_default()
 }
 
-pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize) -> Result<()> {
+pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: SourceLimits) -> Result<()> {
     let l = out.localizer();
     if n == 0 {
         bail!(l.tr("cli-iterations"));
@@ -74,15 +74,17 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize) -> Resul
     let pdf = doc.pdf()?;
     out.line("cli-bench-pdf", &[("time", ms(t.elapsed()).into()), ("size", (pdf.len() / 1024).into())])?;
 
-    let zip = SourceBundle::new(deck.clone()).to_zip()?;
+    let zip = SourceBundle::new(deck.clone())?.to_zip()?;
     let t = Instant::now();
     let embedded = oku_slides_pdf::embed_sources(&pdf, &zip)?;
     out.line("cli-bench-embed", &[("time", ms(t.elapsed()).into())])?;
     let t = Instant::now();
     let back = oku_slides_pdf::extract_sources(&embedded)?.with_context(|| l.tr("cli-blob-missing"))?;
-    let bundle = SourceBundle::from_zip(&back.zip)?;
+    let (bundle, _) = SourceBundle::from_zip(&back.zip, limits)?;
     out.line("cli-bench-extract", &[("time", ms(t.elapsed()).into())])?;
-    if bundle.deck != deck {
+    // La vue relue est canonique : on compare à la forme canonique du deck.
+    oku_slides_core::canonicalize(&mut deck);
+    if *bundle.deck() != deck {
         bail!(l.tr("cli-roundtrip-mismatch"));
     }
     out.line("cli-bench-roundtrip", &[])?;

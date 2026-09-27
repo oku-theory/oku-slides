@@ -5,7 +5,6 @@ op-index-out-of-range = 位置超出范围
 op-not-a-group = { $subject } 不是组合
 op-no-text = { $subject } 没有文本
 op-invalid-value = { $subject } 的值无效
-op-inconsistent = 历史记录与演示文稿不再一致
 transaction-refused = 操作 { $index } 被拒绝：{ $reason }
 
 sources-unreadable = 源文件无法读取
@@ -13,6 +12,7 @@ sources-not-sources = 这不是 Oku Slides 源文件归档
 sources-unsupported-version = 这些源文件由更新版本的 Oku Slides 写入
 sources-bad-name = 源文件中的文件名被拒绝
 sources-missing-deck = 源文件中缺少演示文稿
+sources-too-large = 此文件中的源文件过大，无法打开
 
 issue-empty-slide-id = 幻灯片标识符为空
 issue-duplicate-slide-id = 幻灯片标识符重复
@@ -26,5 +26,13 @@ issue-free-without-frame = 自由元素缺少框架
 issue-missing-asset = 缺少资源：{ $asset }
 issue-unsupported-link = 不支持的链接：{ $link }
 issue-highlight-zero = 高亮颜色从 1 开始编号
+issue-unreadable-element = 无法读取的元素，已移出
+issue-unreadable-slide = 无法读取的幻灯片，已移出
+issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
 op-not-a-chart = { $subject } 不是图表
 op-invalid-chart = 图表 { $subject }：{ $reason }
+
+replica-corrupted = 此文件中的演示文稿历史已损坏
+replica-too-large = 此文件中的演示文稿历史过大，无法打开
+replica-write = 无法更新演示文稿历史
+replica-unrelated = 这两个演示文稿没有共同的来源

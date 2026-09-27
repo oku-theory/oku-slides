@@ -10,10 +10,22 @@
 //!       ├─ /LastModified (D:…)
 //!       └─ /Private
 //!          ├─ /Format (oku-slides-sources)
-//!          ├─ /Version 1
+//!          ├─ /Version 2
 //!          ├─ /SHA256 (hex du zip)
 //!          └─ /Sources → flux = zip des sources
 //! ```
+//!
+//! Le zip des sources (version 2) :
+//!
+//! ```text
+//! manifest.json    { format: "oku-slides-sources", version: 2 }
+//! deck.loro        snapshot complet du replica Loro du deck
+//! assets/<hex>     tels quels
+//! fonts/<nom>      tels quels
+//! ```
+//!
+//! Une enveloppe plus ancienne (`/Version 1`, `deck.json`) est ignorée :
+//! [`extract_sources`] renvoie `Ok(None)`, comme pour un PDF d'ailleurs.
 //!
 //! Il n'apparaît pas dans le panneau des pièces jointes des lecteurs PDF.
 
@@ -24,7 +36,7 @@ use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 pub const PIECE_KEY: &[u8] = b"OkuSlides";
 pub const FORMAT: &str = "oku-slides-sources";
-pub const VERSION: i64 = 1;
+pub const VERSION: i64 = 2;
 
 /// Un PDF illisible, ou des sources Oku Slides abîmées.
 #[derive(Debug, Snafu)]
@@ -177,7 +189,8 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     Ok(out)
 }
 
-/// Lit le blob des sources. `Ok(None)` : ce PDF n'a pas été créé par Oku Slides.
+/// Lit le blob des sources. `Ok(None)` : ce PDF n'a pas été créé par Oku Slides,
+/// ou ses sources sont d'un format plus ancien, qui ne se lit plus.
 pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
     let doc = Document::load_mem(pdf).context(ParseSnafu)?;
     let root = catalog_id(&doc)?;
@@ -192,7 +205,11 @@ pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
         .context(StructureSnafu { what: "invalid /Private" })?;
 
     let version = private.get(b"Version").and_then(Object::as_i64).unwrap_or(0);
-    ensure!((1..=VERSION).contains(&version), UnsupportedVersionSnafu { version });
+    // Plus ancien : format ignoré (pas de conversion, spec t-188).
+    if version < VERSION {
+        return Ok(None);
+    }
+    ensure!(version == VERSION, UnsupportedVersionSnafu { version });
     let stream = resolve(&doc, private.get(b"Sources").context(StructureSnafu { what: "missing /Sources" })?)?
         .as_stream()
         .context(StructureSnafu { what: "/Sources is not a stream" })?;

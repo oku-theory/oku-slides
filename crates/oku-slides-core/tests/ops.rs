@@ -1,4 +1,5 @@
 use oku_slides_core::*;
+use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -55,18 +56,15 @@ fn sample_ops() -> Vec<Op> {
 }
 
 #[test]
-fn apply_all_set_grid_and_set_cell_then_inverses_restore_deck() {
+fn apply_all_set_grid_and_set_cell_places_the_element() {
     let mut deck = fixture();
-    let before = deck.clone();
     let grid = Op::SetGrid { slide: "s-libre".into(), grid: Some(Grid { columns: 12, rows: 6, gap: None }) };
     let cell = Cell { col: 0, row: 0, cols: 8, rows: 4 };
     let ops = vec![grid, Op::SetCell { slide: "s-libre".into(), element: "e-texte".into(), cell: Some(cell) }];
-    let inverses = apply_all(&mut deck, ops).unwrap();
+    apply_all(&mut deck, ops).unwrap();
     let placed = deck.slide("s-libre").unwrap().elements.iter().find(|e| e.id == "e-texte").unwrap().cell;
     assert_that!(placed).is_equal_to(Some(cell));
     assert_that!(validate(&deck, None)).is_empty();
-    apply_all(&mut deck, inverses).unwrap();
-    assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
@@ -102,75 +100,26 @@ fn set_cell_without_explicit_grid_uses_default_grid() {
 }
 
 #[test]
-fn apply_each_op_then_inverse_restores_deck() {
+fn apply_each_op_changes_the_deck() {
     for op in sample_ops() {
         let mut deck = fixture();
         let before = deck.clone();
-        let inv = op.clone().apply(&mut deck).unwrap_or_else(|e| panic!("{op:?} : {e}"));
+        op.clone().apply(&mut deck).unwrap_or_else(|e| panic!("{op:?} : {e}"));
         asserting(&format!("l'op {op:?} n'a rien changé")).that(&deck).is_not_equal_to(&before);
-        inv.apply(&mut deck).unwrap();
-        asserting(&format!("inverse incorrect pour {op:?}")).that(&deck).is_equal_to(&before);
     }
 }
 
 #[test]
-fn history_commit_then_undo_redo_restores_each_state() {
-    let mut deck = fixture();
-    let before = deck.clone();
-    let mut h = History::new(500);
-    h.commit(&mut deck, "Tout", sample_ops()).unwrap();
-    assert_that!(deck).is_not_equal_to(&before);
-    let after = deck.clone();
-    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
-    assert_that!(deck).is_equal_to(&before);
-    assert_that!(h.redo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
-    assert_that!(deck).is_equal_to(&after);
-    // Les deux sens restent symétriques après un aller-retour.
-    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Tout"));
-    assert_that!(deck).is_equal_to(&before);
-    assert_that!(h.undo(&mut deck).unwrap()).is_none();
-    assert_that!(h.redo_label()).is_equal_to(Some("Tout"));
-}
-
-#[test]
-fn history_commit_with_failing_op_rolls_back_whole_transaction() {
+fn apply_all_with_a_failing_op_rolls_back_whole_transaction() {
     let mut deck = fixture();
     let before = deck.clone();
     let mut ops = sample_ops();
     ops.push(Op::SetText { slide: "s-constat".into(), element: "inexistant".into(), text: vec![] });
-    let mut h = History::new(500);
-    let err = h.commit(&mut deck, "Échec", ops).unwrap_err();
-    assert_that!(err.index()).is_equal_to(sample_ops().len());
+    let ops_len = ops.len();
+    let err = apply_all(&mut deck, ops).unwrap_err();
+    assert_that!(err.index()).is_equal_to(ops_len - 1);
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::ElementNotFound);
     assert_that!(deck).is_equal_to(before);
-    assert_that!(h.can_undo()).is_false();
-}
-
-#[test]
-fn history_serde_round_trip_keeps_undo_and_redo() {
-    let mut deck = fixture();
-    let before = deck.clone();
-    let mut h = History::new(500);
-    h.commit(&mut deck, "Tout", sample_ops()).unwrap();
-    h.commit(&mut deck, "Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
-    h.undo(&mut deck).unwrap();
-    let json = serde_json::to_string(&h).unwrap();
-    let mut back: History = serde_json::from_str(&json).unwrap();
-    assert_that!(back.undo_label()).is_equal_to(Some("Tout"));
-    assert_that!(back.redo_label()).is_equal_to(Some("Thème"));
-    back.undo(&mut deck).unwrap();
-    assert_that!(deck).is_equal_to(&before);
-}
-
-#[test]
-fn history_set_limit_drops_oldest_transactions() {
-    let mut deck = fixture();
-    let mut h = History::new(500);
-    h.commit(&mut deck, "Un", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
-    h.commit(&mut deck, "Deux", vec![Op::SetTheme { theme: Some("papier".into()) }]).unwrap();
-    h.set_limit(1);
-    assert_that!(h.undo(&mut deck).unwrap()).is_equal_to(Some("Deux"));
-    assert_that!(h.undo(&mut deck).unwrap()).is_none();
 }
 
 #[test]
@@ -199,12 +148,13 @@ fn deck_to_json_then_from_json_returns_equal_valid_deck() {
 
 #[test]
 fn source_bundle_to_zip_then_from_zip_returns_equal_bundle() {
-    let mut b = SourceBundle::new(fixture());
+    let mut b = SourceBundle::new(fixture()).unwrap();
     let id = b.add_asset(vec![1, 2, 3, 4]);
     assert_that!(id.as_str()).starts_with("sha256:");
     b.fonts.insert("Inter.ttf".into(), vec![9; 16]);
     let zip = b.to_zip().unwrap();
-    let back = SourceBundle::from_zip(&zip).unwrap();
+    let (back, _) =
+        SourceBundle::from_zip(&zip, SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 }).unwrap();
     assert_that!(b).is_equal_to(back);
 }
 
@@ -265,6 +215,53 @@ fn op_errors_localize_with_their_subject() {
         let err = op.apply(&mut deck).unwrap_err();
         asserting(expected).that(&err.localize(&fr)).is_equal_to(expected.to_owned());
     }
+}
+
+#[rstest]
+#[case("")]
+#[case("   ")]
+fn set_slide_field_blank_title_stores_none(#[case] blank: &str) {
+    let mut deck = fixture();
+    let id = deck.slides[2].id.clone();
+    apply_all(&mut deck, vec![Op::SetSlideField { slide: id.clone(), field: SlideField::Title, value: json!(blank) }])
+        .unwrap();
+    assert_that!(deck.slide(&id).unwrap().title).is_none();
+}
+
+#[test]
+fn set_slide_field_padded_title_stores_it_trimmed() {
+    let mut deck = fixture();
+    let id = deck.slides[2].id.clone();
+    apply_all(
+        &mut deck,
+        vec![Op::SetSlideField { slide: id.clone(), field: SlideField::Title, value: json!("  Deux colonnes ") }],
+    )
+    .unwrap();
+    assert_that!(deck.slide(&id).unwrap().title).is_equal_to(Some("Deux colonnes".to_owned()));
+}
+
+#[rstest]
+#[case("")]
+#[case("   ")]
+fn set_param_blank_author_stores_none(#[case] blank: &str) {
+    let mut deck = fixture();
+    apply_all(&mut deck, vec![Op::SetParam { key: "author".into(), value: json!(blank) }]).unwrap();
+    assert_that!(deck.params.author).is_none();
+}
+
+#[test]
+fn apply_all_add_slide_with_blank_prose_returns_canonical_deck() {
+    let mut deck = fixture();
+    let mut slide = Slide::new("s-neuve", SlideKind::Content);
+    slide.title = Some(" ".into());
+    slide.notes = "\n".into();
+    apply_all(&mut deck, vec![Op::AddSlide { index: None, slide }]).unwrap();
+    let added = deck.slide("s-neuve").unwrap();
+    assert_that!(added.title).is_none();
+    assert_that!(added.notes).is_empty();
+    let mut canonical = deck.clone();
+    canonicalize(&mut canonical);
+    assert_that!(deck).is_equal_to(canonical);
 }
 
 #[test]

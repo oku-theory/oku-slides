@@ -2,9 +2,10 @@
 //! Écrit à chaque modification dans son dossier, relu au lancement suivant.
 //!
 //! `state.json` dit le mode et l'état de l'interface ; chaque document
-//! (`deck/`, `templates/`) tient dans un `document.json` (deck, historique,
-//! fichier) écrit d'un coup, plus ses assets et polices, écrits une fois par
-//! nom.
+//! (`deck/`, `templates/`) tient dans un `deck.loro` (le replica : deck,
+//! identité et historique complet ; pas la pile d'annulation) et un
+//! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets
+//! et polices, écrits une fois par nom.
 //!
 //! Un seul écrivain par dossier : la session de l'onglet. L'espace de travail
 //! (`workspace.rs`) écrit seul `workspace.json`, au-dessus.
@@ -17,7 +18,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use oku_slides_core::{Deck, History, SourceBundle};
+use oku_slides_core::{DeckReplica, ReplicaError, SourceBundle};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
@@ -42,6 +43,13 @@ pub(crate) enum ResumeError {
     Version { version: u32, backtrace: Backtrace },
     #[snafu(display("cannot restore the session"))]
     Session { source: SessionError, backtrace: Backtrace },
+    #[snafu(display("unreadable replica {}", path.display()))]
+    Replica {
+        path: PathBuf,
+        #[snafu(source(from(ReplicaError, Box::new)))]
+        source: Box<ReplicaError>,
+        backtrace: Backtrace,
+    },
 }
 
 type Result<T, E = ResumeError> = std::result::Result<T, E>;
@@ -81,8 +89,8 @@ impl Blobs {
 
 /// Un document à écrire hors du verrou de la session (fil de reprise).
 pub(crate) struct DocSnapshot {
-    deck: Deck,
-    history: History,
+    /// Snapshot Loro du replica (`deck.loro`).
+    replica: Vec<u8>,
     path: Option<PathBuf>,
     dirty: bool,
     saved_hash: Option<String>,
@@ -98,7 +106,9 @@ impl DocSnapshot {
 
     /// L'instantané de `doc` ; ses octets viennent de `cache` s'ils n'ont pas
     /// changé depuis un envoi précédent, sinon ils y entrent (copiés une fois).
-    pub(crate) fn of(doc: &Document, cache: &mut Vec<Arc<Blobs>>) -> Self {
+    /// Échoue si le replica ne s'exporte pas : l'appelant n'écrit alors rien.
+    pub(crate) fn of(doc: &Document, cache: &mut Vec<Arc<Blobs>>) -> Result<Self, ReplicaError> {
+        let replica = doc.sources.replica().snapshot()?;
         let blobs = match cache.iter().find(|b| b.matches(&doc.sources)) {
             Some(b) => Arc::clone(b),
             None => {
@@ -111,15 +121,14 @@ impl DocSnapshot {
                 b
             }
         };
-        Self {
-            deck: doc.sources.deck.clone(),
-            history: doc.history.clone(),
+        Ok(Self {
+            replica,
             path: doc.path.clone(),
             dirty: doc.dirty,
             saved_hash: doc.saved_hash.clone(),
             blank: doc.blank,
             blobs,
-        }
+        })
     }
 }
 
@@ -136,8 +145,6 @@ struct DocOut<'a> {
     path: Option<&'a Path>,
     dirty: bool,
     saved_hash: Option<&'a str>,
-    deck: &'a Deck,
-    history: &'a History,
     blank: bool,
 }
 
@@ -149,10 +156,6 @@ struct DocIn {
     dirty: bool,
     #[serde(default)]
     saved_hash: Option<String>,
-    deck: Deck,
-    /// Lu à part : un historique illisible ne coûte pas le deck.
-    #[serde(default)]
-    history: serde_json::Value,
     #[serde(default)]
     blank: bool,
 }
@@ -216,17 +219,15 @@ impl Resume {
     }
 
     /// Écrit un document : assets et polices d'abord (le deck les cite), puis
-    /// `document.json` d'un coup, et enfin les fichiers orphelins retirés —
-    /// dans cet ordre, un fichier cité par `document.json` a toujours été
-    /// écrit avant, et on ne perd jamais un fichier encore cité si on
-    /// s'interrompt entre les deux étapes.
+    /// `deck.loro` et `document.json`, chacun d'un coup, et enfin les
+    /// fichiers orphelins retirés — dans cet ordre, un fichier cité par le
+    /// deck a toujours été écrit avant, et on ne perd jamais un fichier encore
+    /// cité si on s'interrompt entre deux étapes.
     pub(crate) fn write_snapshot(&self, sub: &str, doc: &DocSnapshot) -> Result<()> {
         let out = DocOut {
             path: doc.path.as_deref(),
             dirty: doc.dirty,
             saved_hash: doc.saved_hash.as_deref(),
-            deck: &doc.deck,
-            history: &doc.history,
             blank: doc.blank,
         };
         let (assets, fonts) = (&doc.blobs.assets, &doc.blobs.fonts);
@@ -258,6 +259,7 @@ impl Resume {
         });
         let keep_fonts = self.write_missing(&dir.join("fonts"), fonts)?;
 
+        self.put(&dir.join("deck.loro"), doc.replica.clone())?;
         let path = dir.join("document.json");
         let bytes = serde_json::to_vec(&out).context(JsonSnafu { path: &path })?;
         self.put(&path, bytes)?;
@@ -362,16 +364,19 @@ impl Resume {
         }
     }
 
-    /// Relit un document ; son historique garde au plus `history_limit` transactions.
-    pub fn read_doc(&self, sub: &str, history_limit: usize) -> Result<Document> {
+    /// Relit un document : son replica (`deck.loro`, au plus
+    /// `max_replica_bytes`), avec une pile d'annulation neuve d'au plus
+    /// `undo_limit` étapes. Sans `deck.loro` (ancien format), illisible.
+    pub fn read_doc(&self, sub: &str, undo_limit: usize, max_replica_bytes: usize) -> Result<Document> {
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
         let raw: DocIn = serde_json::from_slice(&self.get(&path)?).context(JsonSnafu { path: &path })?;
-        let mut history = serde_json::from_value::<History>(raw.history).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "historique de reprise illisible");
-            History::new(history_limit)
-        });
-        history.set_limit(history_limit);
+        let loro = dir.join("deck.loro");
+        // Borné à la lecture : un fichier démesuré n'est pas chargé en mémoire.
+        let max = u64::try_from(max_replica_bytes).unwrap_or(u64::MAX);
+        let bytes = self.storage.read_limited(&loro, max).context(AccessSnafu { path: &loro })?;
+        let (replica, read) =
+            DeckReplica::from_snapshot(&bytes, max_replica_bytes).context(ReplicaSnafu { path: &loro })?;
         let assets =
             self.read_files(&dir.join("assets"))?.into_iter().map(|(n, b)| (format!("sha256:{n}"), b)).collect();
         // Le nom sur disque est `<hex>-<nom>` (adressage par contenu) : on ne
@@ -400,15 +405,15 @@ impl Resume {
             }
             None => None,
         };
-        Ok(Document {
-            sources: SourceBundle { deck: raw.deck, assets, fonts },
-            history,
-            path,
-            dirty: raw.dirty,
-            notice: None,
-            saved_hash: raw.saved_hash,
-            blank: raw.blank,
-        })
+        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts);
+        for issue in &issues {
+            tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
+        }
+        let mut doc = Document::new(sources, path, undo_limit);
+        doc.dirty = raw.dirty;
+        doc.saved_hash = raw.saved_hash;
+        doc.blank = raw.blank;
+        Ok(doc)
     }
 }
 
@@ -517,10 +522,11 @@ impl Session {
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
-        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, self.history_limit)?);
+        let (limit, max) = (self.history_limit, self.source_limits.replica_bytes);
+        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, limit, max)?);
         let templates = match state.mode {
             SavedMode::Deck => None,
-            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, self.history_limit) {
+            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, limit, max) {
                 Ok(doc) => Some((doc, edit)),
                 Err(e) => {
                     tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "modèles de reprise illisibles");
@@ -542,11 +548,12 @@ impl Session {
     /// le disque, sans historique ; absent ou illisible, la copie de travail reste.
     fn fresh_from_disk(&self, saved: Document) -> Document {
         let Some(path) = saved.path.as_ref().filter(|_| !saved.dirty) else { return saved };
-        match read_document(&self.storage, path) {
+        match read_document(&self.storage, path, self.source_limits) {
             Ok(opened) if saved.saved_hash.as_deref() != Some(opened.hash.as_str()) => {
+                let notice = opened.notice(&self.localizer);
                 let mut doc = Document::new(opened.sources, Some(path.clone()), self.history_limit);
                 doc.saved_hash = Some(opened.hash);
-                doc.notice = opened.modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
+                doc.notice = notice;
                 doc
             }
             Ok(_) => saved,
@@ -559,9 +566,10 @@ impl Session {
 
     /// Envoie l'état à écrire pour la reprise ; `documents` : aussi les documents.
     ///
-    /// Ne bloque pas : le fil de reprise écrit (voir `resume_writer`). Seuls
-    /// le deck et l'historique sont copiés ; images et polices inchangées
-    /// sont partagées avec l'envoi précédent.
+    /// Ne bloque pas : le fil de reprise écrit (voir `resume_writer`). Seul
+    /// le snapshot du replica est copié ; images et polices inchangées sont
+    /// partagées avec l'envoi précédent. Un replica qui ne s'exporte pas est
+    /// journalisé, et ce document n'est pas écrit.
     pub(crate) fn persist(&mut self, documents: bool) {
         let Some(writer) = &self.resume else { return };
         let (deck, mode) = match &self.mode {
@@ -570,9 +578,16 @@ impl Session {
         };
         let mut docs = Vec::new();
         if documents {
-            docs.push((DECK_DIR, DocSnapshot::of(deck, &mut self.sent_blobs)));
-            if matches!(self.mode, Mode::Templates { .. }) {
-                docs.push((TEMPLATES_DIR, DocSnapshot::of(&self.doc, &mut self.sent_blobs)));
+            let templates = matches!(self.mode, Mode::Templates { .. }).then_some((TEMPLATES_DIR, &self.doc));
+            for (sub, doc) in std::iter::once((DECK_DIR, deck)).chain(templates) {
+                match DocSnapshot::of(doc, &mut self.sent_blobs) {
+                    Ok(snapshot) => docs.push((sub, snapshot)),
+                    Err(e) => tracing::warn!(
+                        sub,
+                        error = %oku_slides_platform::errors::one_line(&e),
+                        "replica non exporté : document de reprise non écrit"
+                    ),
+                }
             }
         }
         writer.send(Job { docs, state: State { version: VERSION, mode, ui: self.ui.clone() } });

@@ -6,8 +6,8 @@
 //! dédié écrit ; un dépôt fait pendant une écriture remplace le précédent
 //! (le plus récent seul est écrit). Mémoire bornée : un état en attente et
 //! un en cours d'écriture, au plus. L'ordre sûr en cas d'arrêt brutal ne
-//! change pas : [`Resume::write_snapshot`] (fichiers, puis `document.json`,
-//! puis orphelins), puis `state.json`.
+//! change pas : [`Resume::write_snapshot`] (fichiers, puis `deck.loro`, puis
+//! `document.json`, puis orphelins), puis `state.json`.
 //!
 //! Un seul écrivain par dossier : le fil. Le rendre (fin de session, onglet
 //! fermé) écrit d'abord ce qui reste, et plus rien ensuite.

@@ -114,8 +114,8 @@ Chaque champ du modèle relève d'une catégorie :
 
 - **`oku-slides-core::replica`** (`replica.rs`, tests `replica_tests.rs`) :
   `DeckReplica`, enveloppe d'un `LoroDoc`.
-  - `DeckReplica::new(deck)` (nouveau `deck_uid`), `from_snapshot(bytes)`,
-    `snapshot()`.
+  - `DeckReplica::new(deck)` (nouveau `deck_uid`), `from_snapshot(bytes)`
+    (rend aussi la première lecture, faite sous garde), `snapshot()`.
   - `reconcile(&Deck)` puis `commit(label)`.
   - `deck() -> (Deck, Vec<Issue>)` : **lecture totale**.
   - `merge(&DeckReplica)` : vérifie `deck_uid`, importe.
@@ -123,6 +123,21 @@ Chaque champ du modèle relève d'une catégorie :
     fusion), `deck_at(index)`, `restore(index)`.
 - **`SourceBundle`** gagne `replica: DeckReplica`. `deck` reste une vue
   matérialisée utilisée par le rendu, `validate`, `locate` et les ops.
+  **Invariant : la vue est égale à la relecture du replica**
+  (`replica().deck().0 == *deck()`). La relecture étant canonique, la vue
+  doit l'être : `oku_slides_core::canonicalize(&mut Deck)` (`canonical.rs`)
+  est appelé en fin d'`apply_all` et dans `SourceBundle::new`. Règles :
+  runs vides retirés, runs voisins de même format fusionnés, `U+2029` dans
+  le texte d'un run remplacé par `\n` (le contenu est gardé, sans nouveau
+  paragraphe) ; prose facultative faite d'espaces → `None`, autre prose
+  rognée (règle d'`opt_string`) ; notes faites d'espaces → `""` ; entier
+  JSON au-delà d'`i64` (`vars`, extras de `params`, `tokens`) → flottant,
+  comme Loro le stocke ; `tokens` vide → `null`. `SourceBundle::apply`
+  attend un deck canonique et le vérifie par `debug_assert!` (builds de
+  débogage). Une propriété (`canonical_tests.rs`, proptest) le garantit :
+  pour tout deck canonique `d`, `DeckReplica::new(&d).deck().0 == d`.
+  Reste hors de l'invariant : une valeur imbriquée au-delà de
+  `MAX_DEPTH` (64) dans `vars`, `tokens` ou `params`, tronquée à la lecture.
 - **`oku-slides-core` supprime** `History` (`history.rs`) et les inverses :
   `apply_all` applique atomiquement et ne renvoie rien.
 - Dépendance nouvelle : `loro` (espace de travail). Dev : `proptest`.
@@ -132,7 +147,7 @@ Chaque champ du modèle relève d'une catégorie :
 `Session::apply` :
 
 1. `canonicalize_charts(ops)`.
-2. `deck' = apply_all(clone(deck), ops)` ; erreur → rien n'a bougé.
+2. `deck' = apply_all(clone(deck), ops)` (forme canonique) ; erreur → rien n'a bougé.
 3. Rendu de `deck'` ; erreur → rien n'a bougé.
 4. `replica.reconcile(&deck')`, `commit(label)`, `deck = deck'`.
 
@@ -186,8 +201,21 @@ fonts/<nom>      tels quels
 - Plus de `deck.json` : le deck se reconstruit depuis `deck.loro`.
 - **Assets et polices en ajout seul** : jamais retirés, une ancienne
   version doit se rendre. Fusion = union.
-- **Blob non fiable** : import sous `catch_unwind` et taille maximale
-  (réglage) ; panique ou octets refusés → `Corrupted`.
+- **Blob non fiable** : import **et première lecture complète**
+  (`deck_uid`, tout l'arbre `deck`) sous `catch_unwind`, car Loro ne
+  décode l'état d'un conteneur qu'au premier accès (`from_snapshot` rend
+  cette lecture, que `SourceBundle::from_replica` reprend sans relire) ;
+  taille maximale de `deck.loro` (`[sources] max_replica_mib = 32`) ;
+  panique ou octets refusés → `Corrupted`. Après une panique, le doc
+  (verrous empoisonnés) est abandonné sans drop. `merge` essaie l'import et
+  la relecture sous garde sur une copie avant d'importer. Restent hors garde
+  les conteneurs que la première lecture n'atteint pas (hors `deck`/`meta`,
+  au-delà de `MAX_DEPTH`).
+- **Zip non fiable** : chaque entrée est lue avec une capacité initiale
+  plafonnée (1 Mio, la taille annoncée n'est qu'indicative) et une lecture
+  bornée (`take`) ; le total décompressé est borné par `[sources]
+  max_sources_mib = 256` (anti-bombe), dépassement → `SourcesErrorKind::TooLarge`
+  (`sources-too-large`). Les entrées inconnues ne sont pas lues.
 - **Lecture totale, trois niveaux** : un élément illisible est écarté
   (`issue-unreadable-element`), puis une slide (`issue-unreadable-slide`),
   puis un champ de haut niveau du deck (`theme`, `params`, `vars`,
@@ -243,7 +271,7 @@ s'affiche en lecture seule.
 
 | Où | Type | `kind` |
 |---|---|---|
-| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge` ; `Unrelated` avec la fusion |
+| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Write` ; `Unrelated` avec la fusion |
 | `oku-slides-core::sources` | `SourcesError` | existants ; `MissingDeck` couvre l'absence de `deck.loro` |
 | `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen`, `DiskReplaced` |
 
@@ -289,7 +317,27 @@ Les scénarios du spike sont les premiers tests rouges.
   insertion : doublon possible en concurrence (non testé au spike).
 - Texte inséré au bord d'une marque : il en hérite.
 - Le PDF ne maigrit jamais (historique et assets en ajout seul).
+- **Confidentialité** : chaque PDF partagé porte tout le contenu passé du
+  deck (slides, éléments et textes supprimés, anciennes versions des
+  textes, assets retirés) et l'horodatage de chaque modification ; les
+  noms d'auteur viendront avec le plan 2. Tout destinataire peut le relire.
+  Accepté par conception (pas d'aplatissement de l'historique).
+  Atténuation : l'export sans sources, `oku-slides strip <entrée> <sortie>`
+  (`oku_slides_pdf::strip_sources`), pour l'instant en ligne de commande
+  seulement.
 - La pile d'annulation est perdue au relancement (recul sur t-145).
 - Les PDF v1 ne s'ouvrent plus.
+- Le décodeur de Loro lui-même peut faire déborder la pile sur un snapshot
+  forgé, avec une valeur plate imbriquée sur des dizaines de milliers de
+  niveaux (quelques Kio compressés) : Loro la décode récursivement au
+  premier accès et la libère au drop, pas à l'`import`, hors de notre code,
+  hors de portée de `catch_unwind` et du plafond d'octets. Déni de service
+  local à l'ouverture d'un PDF forgé. Suivi comme un correctif à part
+  (piste : accéder et libérer dans un fil à grosse pile, ou correctif
+  amont Loro).
+- La reprise écrit `deck.loro` puis `document.json` : un arrêt brutal entre
+  les deux peut laisser un replica neuf à côté d'un `document.json`
+  d'avant (`dirty` / `saved_hash` périmés). L'ancien format n'écrivait
+  qu'un seul fichier.
 
-Les trois derniers points sont des reculs assumés, à consigner dans un ADR.
+Les trois premiers points sont des reculs assumés, à consigner dans un ADR.

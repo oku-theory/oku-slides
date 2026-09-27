@@ -18,16 +18,16 @@ const grid = { columns: 12, rows: 6 };
 const action = (name: string, context: Record<string, unknown>) => ({ name, context });
 
 describe("panelActionOps", () => {
-  test("rename_template renomme la slide du contexte, sans espaces autour", () => {
+  test("rename_template renomme la slide du contexte, valeur transmise telle quelle", () => {
     expect(panelActionOps(action("rename_template", { slide: "t-1", value: "  Deux colonnes " }), slide, grid)).toEqual({
       label: t("ui-undo-rename-template"),
-      ops: [{ op: "set_slide_field", slide: "t-1", field: "name", value: "Deux colonnes" }],
+      ops: [{ op: "set_slide_field", slide: "t-1", field: "name", value: "  Deux colonnes " }],
     });
   });
 
-  test("describe_template vide efface la description", () => {
+  test("describe_template blanche transmise telle quelle", () => {
     expect(panelActionOps(action("describe_template", { slide: "t-1", value: "  " }), slide, grid)?.ops).toEqual([
-      { op: "set_slide_field", slide: "t-1", field: "description", value: null },
+      { op: "set_slide_field", slide: "t-1", field: "description", value: "  " },
     ]);
   });
 

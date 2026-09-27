@@ -15,7 +15,7 @@ use std::time::Instant;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{Deck, SourceBundle, validate};
+use oku_slides_core::{Deck, SourceBundle, SourceLimits, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::{Fonts, Renderer};
@@ -132,12 +132,16 @@ fn read_deck(storage: &Storage, l: &Localizer, path: &Path) -> Result<Deck> {
     serde_json::from_slice(&bytes).wrap_err_with(|| l.tr_with("cli-invalid-deck", &[("path", shown().into())]))
 }
 
-/// Charge un deck depuis un JSON ou un .oku-slides.pdf.
-fn load_bundle(storage: &Storage, l: &Localizer, path: &Path) -> Result<SourceBundle> {
-    let opened = read_document(storage, path)
+/// Charge un deck depuis un JSON ou un .oku-slides.pdf ; `limits` borne les
+/// sources lues dans le PDF.
+fn load_bundle(storage: &Storage, l: &Localizer, path: &Path, limits: SourceLimits) -> Result<SourceBundle> {
+    let opened = read_document(storage, path, limits)
         .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))?;
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
+    }
+    for issue in &opened.issues {
+        tracing::warn!("{}", l.tr_with("cli-deck-issue", &[("issue", issue.localize(l).into())]));
     }
     Ok(opened.sources)
 }
@@ -177,6 +181,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         None => BTreeMap::new(),
     };
     let app_fonts = Fonts::new(fonts.values().cloned());
+    let limits = SourceLimits {
+        replica_bytes: platform.settings.sources.max_replica_bytes(),
+        total_bytes: platform.settings.sources.max_sources_bytes(),
+    };
 
     match cli.cmd {
         Cmd::Check { deck } => {
@@ -186,13 +194,14 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             }
         }
         Cmd::Render { input, out: dir, theme } => {
-            let mut bundle = load_bundle(storage, l, &input)?;
+            let bundle = load_bundle(storage, l, &input, limits)?;
+            let mut deck = bundle.deck().clone();
             if theme.is_some() {
-                bundle.deck.theme = theme;
+                deck.theme = theme;
             }
             let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()))?;
             r.set_language(l)?;
-            r.set_deck(&bundle.deck, &bundle.assets)?;
+            r.set_deck(&deck, &bundle.assets)?;
             let t = Instant::now();
             let doc = r.compile()?;
             let compile = t.elapsed();
@@ -220,7 +229,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             if theme.is_some() {
                 deck.theme = theme;
             }
-            let mut bundle = SourceBundle::new(deck);
+            let mut bundle = SourceBundle::new(deck)?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
                     let id = bundle.add_asset(storage.read(&path)?);
@@ -230,10 +239,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             if embed_fonts {
                 bundle.fonts = fonts;
             }
-            report_issues(l, &bundle.deck, &bundle.assets);
+            report_issues(l, bundle.deck(), &bundle.assets);
             let mut r = Renderer::new(app_fonts)?;
             r.set_language(l)?;
-            r.set_deck(&bundle.deck, &bundle.assets)?;
+            r.set_deck(bundle.deck(), &bundle.assets)?;
             let doc = r.compile()?;
             let pdf = doc.pdf()?;
             let zip = bundle.to_zip()?;
@@ -251,8 +260,8 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             )?;
         }
         Cmd::Open { input, out: extract } => {
-            let bundle = load_bundle(storage, l, &input)?;
-            let deck = &bundle.deck;
+            let bundle = load_bundle(storage, l, &input, limits)?;
+            let deck = bundle.deck();
             out.line(
                 "cli-opened",
                 &[
@@ -278,7 +287,9 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             storage.write_atomic(&output, oku_slides_pdf::strip_sources(&pdf)?)?;
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
         }
-        Cmd::Bench { deck, iterations } => bench::bench(out, read_deck(storage, l, &deck)?, app_fonts, iterations)?,
+        Cmd::Bench { deck, iterations } => {
+            bench::bench(out, read_deck(storage, l, &deck)?, app_fonts, iterations, limits)?
+        }
         Cmd::Schema => out.data(&serde_json::to_string_pretty(&oku_slides_core::ops_schema()?)?)?,
         Cmd::Serve { input, port, ui } => serve::serve(out, input, port, &ui, app_fonts, platform)?,
     }

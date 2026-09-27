@@ -28,6 +28,7 @@ template-default-name = Шаблон
 notice-modified-elsewhere = Цей PDF змінено іншою програмою після Oku Slides: його вихідні дані можуть не збігатися з тим, що показує програма перегляду PDF.
 notice-open-failed = Не вдалося відкрити { $path }: { $reason }
 notice-tab-resume-failed = Не вдалося відновити стан цієї вкладки: його відкладено, а вкладка починається з порожньої презентації.
+notice-unreadable-parts = Деякі частини цієї презентації не вдалося прочитати, їх відкладено ({ $count }).
 
 log-document-opened = Документ відкрито
 log-document-saved = Документ збережено

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Element, Paragraph, SlideView } from "./api";
+import type { Element, Paragraph, SlideView, Target } from "./api";
 import {
   gridPlacement,
   instantiate,
@@ -10,6 +10,7 @@ import {
   restoredGrid,
   slideToFetch,
   textChanged,
+  textOps,
   textToParagraphs,
 } from "./deck";
 
@@ -81,6 +82,16 @@ function view(slide: Partial<SlideView["slide"]>, targets: SlideView["targets"] 
 
 const box = (id: string, x: number, y: number, w: number, h: number) => ({
   id, target: "element" as const, kind: "text", free: false, text: "", x, y, w, h, ax: x, aw: w, style: null,
+});
+
+describe("textOps", () => {
+  test("un champ passe tel quel, sans normalisation côté UI", () => {
+    const v = view({ kind: "content" });
+    const t: Target = {
+      id: "s", target: "field", kind: "title", free: false, text: "Titre", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+    };
+    expect(textOps(v, t, "   ")).toEqual([{ op: "set_slide_field", slide: "s", field: "title", value: "   " }]);
+  });
 });
 
 describe("textChanged", () => {

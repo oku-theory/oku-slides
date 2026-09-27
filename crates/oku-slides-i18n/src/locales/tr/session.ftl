@@ -28,6 +28,7 @@ template-default-name = Şablon
 notice-modified-elsewhere = Bu PDF, Oku Slides'dan sonra başka bir araçla değiştirilmiş: kaynakları artık bir PDF okuyucunun gösterdiğiyle eşleşmeyebilir.
 notice-open-failed = { $path } açılamadı: { $reason }
 notice-tab-resume-failed = Bu sekmenin durumu geri yüklenemedi: kenara ayrıldı ve sekme boş bir sunumla yeniden başlıyor.
+notice-unreadable-parts = Bu sunumun bazı bölümleri okunamadı ve bir kenara ayrıldı ({ $count }).
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi

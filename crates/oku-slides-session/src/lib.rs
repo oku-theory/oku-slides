@@ -20,7 +20,7 @@ use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_chart::ChartLabels;
-use oku_slides_core::{Deck, Element, History, Op, Paragraph, Params, Slide, SlideKind, SourceBundle};
+use oku_slides_core::{Deck, Element, Op, Paragraph, Params, Slide, SlideKind, SourceBundle, SourceLimits};
 pub use oku_slides_i18n::{Localize, Localizer};
 pub use oku_slides_platform::Platform;
 pub use oku_slides_platform::config::Settings;
@@ -58,14 +58,13 @@ pub use views::{
 };
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
-/// Un document ouvert : ses sources (deck, assets, polices), son historique
-/// et son fichier.
+/// Un document ouvert : ses sources (deck et son historique, assets,
+/// polices) et son fichier.
 struct Document {
     sources: SourceBundle,
-    history: History,
     path: Option<PathBuf>,
     dirty: bool,
-    /// Signalé à l'ouverture : le PDF a été modifié par un autre outil.
+    /// Signalé à l'ouverture : PDF modifié par un autre outil, parties illisibles.
     notice: Option<String>,
     /// Empreinte du fichier à l'ouverture ou au dernier enregistrement : la
     /// reprise voit ainsi s'il a changé depuis.
@@ -76,16 +75,10 @@ struct Document {
 }
 
 impl Document {
-    fn new(sources: SourceBundle, path: Option<PathBuf>, history_limit: usize) -> Self {
-        Self {
-            sources,
-            history: History::new(history_limit),
-            path,
-            dirty: false,
-            notice: None,
-            saved_hash: None,
-            blank: false,
-        }
+    /// `undo_limit` : étapes d'annulation gardées (réglage `history.limit`).
+    fn new(mut sources: SourceBundle, path: Option<PathBuf>, undo_limit: usize) -> Self {
+        sources.set_undo_limit(undo_limit);
+        Self { sources, path, dirty: false, notice: None, saved_hash: None, blank: false }
     }
 }
 
@@ -170,8 +163,10 @@ pub struct Session {
     localizer: Arc<Localizer>,
     /// En-têtes des graphiques reçus, dans la langue de l'utilisateur.
     chart_labels: ChartLabels,
-    /// Transactions gardées pour annuler, dans chaque document.
+    /// Étapes d'annulation gardées, dans chaque document (`history.limit`).
     history_limit: usize,
+    /// Plafonds des sources lues dans un PDF ou dans la reprise (`[sources]`).
+    source_limits: SourceLimits,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<Previews>,
@@ -254,7 +249,7 @@ impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
             .field("path", &self.doc.path)
-            .field("slides", &self.doc.sources.deck.slides.len())
+            .field("slides", &self.doc.sources.deck().slides.len())
             .field("dirty", &self.doc.dirty)
             .field("editing", &self.editing())
             .finish_non_exhaustive()
@@ -270,12 +265,16 @@ impl Session {
         let mut s = Self {
             doc: Document {
                 blank: true,
-                ..Document::new(SourceBundle::new(blank_deck(l)), None, settings.history.limit)
+                ..Document::new(SourceBundle::new(blank_deck(l)).context(SourcesSnafu)?, None, settings.history.limit)
             },
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
             storage,
             history_limit: settings.history.limit,
+            source_limits: SourceLimits {
+                replica_bytes: settings.sources.max_replica_bytes(),
+                total_bytes: settings.sources.max_sources_bytes(),
+            },
             renderer: new_renderer(app_fonts.clone(), l)?,
             localizer: l.clone(),
             chart_labels: ChartLabels::new(l),
@@ -295,14 +294,14 @@ impl Session {
     }
 
     pub fn deck(&self) -> &Deck {
-        &self.doc.sources.deck
+        self.doc.sources.deck()
     }
 
     /// Le deck de l'utilisateur, même pendant l'édition des modèles.
     fn user_deck(&self) -> &Deck {
         match &self.mode {
-            Mode::Deck => &self.doc.sources.deck,
-            Mode::Templates { stash, .. } => &stash.sources.deck,
+            Mode::Deck => self.doc.sources.deck(),
+            Mode::Templates { stash, .. } => stash.sources.deck(),
         }
     }
 
@@ -320,7 +319,7 @@ impl Session {
 
     /// Nom d'un document : son fichier, sinon le titre de son deck.
     fn document_name(&self, doc: &Document) -> String {
-        let deck = &doc.sources.deck;
+        let deck = doc.sources.deck();
         doc.path
             .as_ref()
             .and_then(|p| p.file_name())
@@ -347,8 +346,8 @@ impl Session {
                 && deck.blank
                 && deck.path.is_none()
                 && !deck.dirty
-                && !deck.history.can_undo()
-                && !deck.history.can_redo(),
+                && !deck.sources.replica().can_undo()
+                && !deck.sources.replica().can_redo(),
         }
     }
 
@@ -406,7 +405,7 @@ impl Session {
         let mut deck = styled_like(self.user_deck(), slides);
         deck.params.title = Some(set.name.clone());
         deck.templates = Some(set.id.clone());
-        let templates = Document::new(SourceBundle::new(deck), None, self.history_limit);
+        let templates = Document::new(SourceBundle::new(deck).context(SourcesSnafu)?, None, self.history_limit);
         let edit = TemplateMode { set: set.id, name: set.name, builtin };
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
             // Déjà en édition : on change d'ensemble, le deck reste de côté.
@@ -421,9 +420,8 @@ impl Session {
         Ok(())
     }
 
-    /// L'ensemble tel qu'il est en cours d'édition.
-    fn edited_set(&self, id: String) -> TemplateSet {
-        let deck = &self.doc.sources.deck;
+    /// L'ensemble tel que le montre `deck`, le deck des modèles en cours d'édition.
+    fn edited_set(&self, deck: &Deck, id: String) -> TemplateSet {
         let name = deck
             .params
             .title
@@ -459,16 +457,19 @@ impl Session {
             return NotEditingTemplatesSnafu.fail()?;
         };
         let copy = as_new || mode.builtin;
-        let deck = &mut self.doc.sources.deck;
+        // Le deck modifié (titre de la copie, ensemble) remplace la vue d'un
+        // coup, sans étape d'annulation : ce n'est pas une édition.
+        let mut deck = self.doc.sources.deck().clone();
         let mut name = deck.params.title.clone().unwrap_or_default();
         if copy && name == mode.name {
             name = self.localizer.tr_with("templates-copy-name", &[("name", name.as_str().into())]);
             deck.params.title = Some(name.clone());
         }
         let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
-        let set = self.edited_set(id.clone());
+        let set = self.edited_set(&deck, id.clone());
         self.library.save(&set)?;
-        self.doc.sources.deck.templates = Some(id);
+        deck.templates = Some(id);
+        self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         self.doc.dirty = false;
         if let Mode::Templates { edit, .. } = &mut self.mode {
             *edit = TemplateMode { set: set.id, name: set.name, builtin: false };
@@ -539,7 +540,7 @@ impl Session {
     }
 
     pub fn new_deck(&mut self) -> Result<()> {
-        self.load(SourceBundle::new(blank_deck(&self.localizer)), None)?;
+        self.load(SourceBundle::new(blank_deck(&self.localizer)).context(SourcesSnafu)?, None)?;
         self.doc.blank = true;
         Ok(())
     }
@@ -552,7 +553,12 @@ impl Session {
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
     /// pour que la grille puisse éditer leurs données.
     fn load_document(&mut self, mut doc: Document) -> Result<()> {
-        charts::canonicalize_deck(&mut doc.sources.deck, &self.chart_labels);
+        let mut deck = doc.sources.deck().clone();
+        charts::canonicalize_deck(&mut deck, &self.chart_labels);
+        if deck != *doc.sources.deck() {
+            // Forme canonique des graphiques : pas une action de l'utilisateur.
+            doc.sources.apply_silent(deck).context(SourcesSnafu)?;
+        }
         if doc.sources.fonts != self.doc.sources.fonts {
             // Nouvelles polices : nouveau monde Typst. Les fichiers restent aussi
             // dans les sources (ils sont enregistrés avec le deck), d'où la copie.
@@ -569,12 +575,14 @@ impl Session {
 
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let Opened { sources, pdf, modified_elsewhere, hash } = read_document(&self.storage, path)?;
+        let opened = read_document(&self.storage, path, self.source_limits)?;
+        let (pdf, modified_elsewhere) = (opened.pdf, opened.modified_elsewhere);
+        let notice = opened.notice(&self.localizer);
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
-        self.load(sources, pdf.then(|| path.to_owned()))?;
+        self.load(opened.sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
-        self.doc.notice = modified_elsewhere.then(|| self.localizer.tr("notice-modified-elsewhere"));
-        self.doc.saved_hash = pdf.then_some(hash);
+        self.doc.notice = notice;
+        self.doc.saved_hash = pdf.then_some(opened.hash);
         Ok(())
     }
 
@@ -603,31 +611,33 @@ impl Session {
         Ok(())
     }
 
-    fn rerender(&mut self) -> Result<()> {
-        let started = std::time::Instant::now();
-        let compiled = self.renderer.render(&self.doc.sources.deck, &self.doc.sources.assets).context(RenderSnafu)?;
-        tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
-        // Le cache ne garde que les pages encore présentes.
+    /// Installe un rendu : le cache ne garde que les pages encore présentes.
+    fn install(&mut self, compiled: Compiled) {
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
         self.svg_cache.retain(|h, _| live.contains(h));
         self.appearance = compiled.layout().tokens.as_ref().map(appearance).unwrap_or_default();
         self.compiled = Some(compiled);
+    }
+
+    fn rerender(&mut self) -> Result<()> {
+        let started = std::time::Instant::now();
+        let compiled = self.renderer.render(self.doc.sources.deck(), &self.doc.sources.assets).context(RenderSnafu)?;
+        tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
+        self.install(compiled);
         Ok(())
     }
 
-    /// Applique une transaction ; si le rendu échoue ensuite, elle est annulée.
+    /// Applique une transaction : rendue d'abord, validée ensuite. L'historique
+    /// du replica est définitif ; un rendu raté n'y laisse aucune trace.
     /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
     /// dans `dataset`, en-têtes traduits).
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>) -> Result<()> {
         charts::canonicalize_charts(&mut ops, &self.chart_labels);
-        let doc = &mut self.doc;
-        doc.history.commit(&mut doc.sources.deck, label, ops).context(OpSnafu)?;
-        if let Err(e) = self.rerender() {
-            let doc = &mut self.doc;
-            doc.history.undo(&mut doc.sources.deck).ok();
-            self.rerender().ok();
-            return Err(e);
-        }
+        let mut next = self.doc.sources.deck().clone();
+        oku_slides_core::apply_all(&mut next, ops).context(OpSnafu)?;
+        let compiled = self.renderer.render(&next, &self.doc.sources.assets).context(RenderSnafu)?;
+        self.doc.sources.apply(next, label).context(SourcesSnafu)?;
+        self.install(compiled);
         self.doc.dirty = true;
         Ok(())
     }
@@ -642,7 +652,7 @@ impl Session {
         element: &str,
         kind: oku_slides_chart::SeriesType,
     ) -> Result<()> {
-        let deck = &self.doc.sources.deck;
+        let deck = self.doc.sources.deck();
         let located = deck.slide(&slide).context(NoSlideSnafu { id: &slide })?.locate(element);
         let mut chart = located.map(|l| l.element.clone()).context(NoChartSnafu { id: element })?;
         let oku_slides_core::ElementBody::Chart { option } = &mut chart.body else {
@@ -652,18 +662,18 @@ impl Session {
         self.apply(label, vec![Op::ReplaceElement { slide, element: chart }])
     }
 
+    /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn undo(&mut self) -> Result<()> {
-        let doc = &mut self.doc;
-        if doc.history.undo(&mut doc.sources.deck).context(OpSnafu)?.is_some() {
+        if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.rerender()?;
         }
         Ok(())
     }
 
+    /// Rétablit par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn redo(&mut self) -> Result<()> {
-        let doc = &mut self.doc;
-        if doc.history.redo(&mut doc.sources.deck).context(OpSnafu)?.is_some() {
+        if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.rerender()?;
         }
@@ -676,7 +686,7 @@ impl Session {
 
     pub fn snapshot(&self) -> Snapshot<'_> {
         let compiled = self.compiled.as_ref();
-        let (deck, doc) = (&self.doc.sources.deck, &self.doc);
+        let (deck, doc) = (self.doc.sources.deck(), &self.doc);
         let pages = compiled.map(|c| c.layout().slides.as_slice()).unwrap_or_default();
         let slides = deck
             .slides
@@ -709,10 +719,10 @@ impl Session {
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
             title_source: deck.params.title.as_deref(),
             slides,
-            can_undo: doc.history.can_undo(),
-            undo_label: doc.history.undo_label(),
-            can_redo: doc.history.can_redo(),
-            redo_label: doc.history.redo_label(),
+            can_undo: doc.sources.replica().can_undo(),
+            undo_label: doc.sources.replica().undo_label(),
+            can_redo: doc.sources.replica().can_redo(),
+            redo_label: doc.sources.replica().redo_label(),
             warnings: compiled
                 .map(|c| c.warnings.iter().map(|w| w.localize(&self.localizer)).collect())
                 .unwrap_or_default(),
@@ -780,7 +790,7 @@ impl Session {
 
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
-        let deck = &self.doc.sources.deck;
+        let deck = self.doc.sources.deck();
         let slide = deck.slide(id).ok_or_else(no_slide)?;
         let compiled = self.compiled.as_ref().ok_or_else(no_slide)?;
         let layout = compiled.layout();
@@ -821,3 +831,7 @@ impl Session {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod lib_tests;

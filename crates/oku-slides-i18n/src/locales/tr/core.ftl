@@ -5,7 +5,6 @@ op-index-out-of-range = Konum aralık dışında
 op-not-a-group = { $subject } bir grup değil
 op-no-text = { $subject } metin içermiyor
 op-invalid-value = { $subject } için geçersiz değer
-op-inconsistent = Geçmiş artık sunuyla eşleşmiyor
 transaction-refused = { $index }. işlem reddedildi: { $reason }
 
 sources-unreadable = Kaynaklar okunamıyor
@@ -13,6 +12,7 @@ sources-not-sources = Bu bir Oku Slides kaynak arşivi değil
 sources-unsupported-version = Bu kaynaklar Oku Slides'ın daha yeni bir sürümüyle yazılmış
 sources-bad-name = Kaynaklarda reddedilen dosya adı
 sources-missing-deck = Kaynaklarda sunu eksik
+sources-too-large = Bu dosyadaki kaynaklar açılamayacak kadar büyük
 
 issue-empty-slide-id = boş slayt tanımlayıcısı
 issue-duplicate-slide-id = yinelenen slayt tanımlayıcısı
@@ -26,5 +26,13 @@ issue-free-without-frame = çerçevesiz serbest öğe
 issue-missing-asset = eksik varlık: { $asset }
 issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 issue-highlight-zero = vurgu renkleri 1'den başlayarak numaralanır
+issue-unreadable-element = okunamayan öğe, bir kenara ayrıldı
+issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
+issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 op-not-a-chart = { $subject } bir grafik değil
 op-invalid-chart = { $subject } grafiği: { $reason }
+
+replica-corrupted = Bu dosyadaki sunum geçmişi bozuk
+replica-too-large = Bu dosyadaki sunum geçmişi açılamayacak kadar büyük
+replica-write = Sunum geçmişi güncellenemedi
+replica-unrelated = Bu iki sunumun ortak bir kökeni yok

@@ -28,6 +28,7 @@ template-default-name = Vorlage
 notice-modified-elsewhere = Dieses PDF wurde nach Oku Slides mit einem anderen Programm geändert: Seine Quellen stimmen möglicherweise nicht mehr mit der Anzeige im PDF-Reader überein.
 notice-open-failed = { $path } konnte nicht geöffnet werden: { $reason }
 notice-tab-resume-failed = Der Zustand dieses Tabs konnte nicht wiederhergestellt werden: Er wurde beiseitegelegt, und der Tab beginnt mit einer leeren Präsentation neu.
+notice-unreadable-parts = Teile dieser Präsentation konnten nicht gelesen werden und wurden beiseitegelegt ({ $count }).
 
 log-document-opened = Dokument geöffnet
 log-document-saved = Dokument gespeichert

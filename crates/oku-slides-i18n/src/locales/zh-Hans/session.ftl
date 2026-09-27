@@ -28,6 +28,7 @@ template-default-name = 模板
 notice-modified-elsewhere = 此 PDF 在 Oku Slides 之后被其他工具修改过：其源文件可能与 PDF 阅读器中显示的内容不再一致。
 notice-open-failed = 无法打开 { $path }：{ $reason }
 notice-tab-resume-failed = 无法恢复此标签页的状态：该状态已另行保存，标签页从空白演示文稿重新开始。
+notice-unreadable-parts = 此演示文稿的部分内容无法读取，已移出（{ $count }）。
 
 log-document-opened = 文档已打开
 log-document-saved = 文档已保存

@@ -5,7 +5,6 @@ op-index-out-of-range = Posizione fuori intervallo
 op-not-a-group = { $subject } non è un gruppo
 op-no-text = { $subject } non ha testo
 op-invalid-value = Valore non valido per { $subject }
-op-inconsistent = La cronologia non corrisponde più alla presentazione
 transaction-refused = Operazione { $index } rifiutata: { $reason }
 
 sources-unreadable = Sorgenti illeggibili
@@ -13,6 +12,7 @@ sources-not-sources = Questo non è un archivio di sorgenti di Oku Slides
 sources-unsupported-version = Queste sorgenti sono state scritte da una versione più recente di Oku Slides
 sources-bad-name = Nome di file rifiutato nelle sorgenti
 sources-missing-deck = Nelle sorgenti manca la presentazione
+sources-too-large = Le sorgenti di questo file sono troppo grandi per essere aperte
 
 issue-empty-slide-id = identificatore di diapositiva vuoto
 issue-duplicate-slide-id = identificatore di diapositiva duplicato
@@ -26,5 +26,13 @@ issue-free-without-frame = elemento libero senza riquadro
 issue-missing-asset = risorsa mancante: { $asset }
 issue-unsupported-link = link non supportato: { $link }
 issue-highlight-zero = i colori di evidenziazione si numerano da 1
+issue-unreadable-element = elemento illeggibile, messo da parte
+issue-unreadable-slide = diapositiva illeggibile, messa da parte
+issue-unreadable-field = campo { $field } del deck illeggibile, reimpostato
 op-not-a-chart = { $subject } non è un grafico
 op-invalid-chart = Grafico { $subject }: { $reason }
+
+replica-corrupted = La cronologia della presentazione in questo file è danneggiata
+replica-too-large = La cronologia della presentazione in questo file è troppo grande per essere aperta
+replica-write = Impossibile aggiornare la cronologia della presentazione
+replica-unrelated = Queste due presentazioni non hanno un'origine comune

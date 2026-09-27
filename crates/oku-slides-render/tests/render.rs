@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Deck, Op, Paragraph, SourceBundle};
+use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits};
 use oku_slides_render::{Fonts, Renderer};
 use speculoos::prelude::*;
 
@@ -150,7 +150,7 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
 #[test]
 fn embed_sources_then_extract_gives_back_same_bundle() {
     let deck = fixture();
-    let mut bundle = SourceBundle::new(deck.clone());
+    let mut bundle = SourceBundle::new(deck.clone()).unwrap();
     bundle.add_asset(vec![0u8; 64]);
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_deck(&deck, &bundle.assets).unwrap();
@@ -159,7 +159,9 @@ fn embed_sources_then_extract_gives_back_same_bundle() {
     let saved = oku_slides_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap()).unwrap();
     let found = oku_slides_pdf::extract_sources(&saved).unwrap().expect("blob présent");
     assert_that!(found.modified_elsewhere()).is_false();
-    let back = SourceBundle::from_zip(&found.zip).unwrap();
+    let (back, issues) =
+        SourceBundle::from_zip(&found.zip, SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 }).unwrap();
+    assert_that!(issues).is_empty();
     assert_that!(back).is_equal_to(&bundle);
 
     // Réenregistrer remplace le blob, sans en accumuler.

@@ -79,12 +79,11 @@ export function textOps(view: SlideView, t: Target, value: string): Op[] {
     return [{ op: "set_text", slide: slide.id, element: t.id, text: textToParagraphs(value, previous) }];
   }
   const field = t.kind;
-  const v = value.trim() === "" ? null : value;
   // Sur la couverture, titre et sous-titre viennent des paramètres du deck.
   if (slide.kind === "title" && (field === "title" || field === "subtitle") && slide[field] === undefined) {
-    return [{ op: "set_param", key: field, value: v }];
+    return [{ op: "set_param", key: field, value }];
   }
-  return [{ op: "set_slide_field", slide: slide.id, field, value: v }];
+  return [{ op: "set_slide_field", slide: slide.id, field, value }];
 }
 
 // --- Sur la grille -----------------------------------------------------------

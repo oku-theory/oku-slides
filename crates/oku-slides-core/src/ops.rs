@@ -1,5 +1,5 @@
 //! Opérations sur le deck. Toute modification, qu'elle vienne de la souris ou
-//! d'une dictée, passe par une `Op`. Chaque op appliquée renvoie son inverse.
+//! d'une dictée, passe par une `Op`.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -12,9 +12,8 @@ use snafu::{IntoError, OptionExt, ResultExt};
 use oku_slides_chart::{ChartDataOp, ChartLabels, apply_option_patch, normalize, sync_series_with_columns};
 
 use crate::error::{
-    ChartSnafu, DuplicateIdSnafu, ElementNotFoundSnafu, InconsistentSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu,
-    NoTextSnafu, NotAChartSnafu, NotAGroupSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu, TransactionError,
-    TransactionSnafu,
+    ChartSnafu, DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, NoTextSnafu,
+    NotAChartSnafu, NotAGroupSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu,
 };
 use crate::locate::Walk;
 use crate::model::{
@@ -251,35 +250,29 @@ fn check_charts(element: &Element) -> Result<(), OpError> {
     Ok(())
 }
 
-/// `set_chart_data` sur l'élément `e`. Si les séries suivent un changement
-/// de colonnes, l'inverse rend l'élément entier : annuler restaure alors les
-/// séries retirées telles quelles.
-fn set_chart_data(e: &mut Element, slide: String, change: ChartDataOp) -> Result<Op, OpError> {
+/// `set_chart_data` sur l'élément `e`.
+fn set_chart_data(e: &mut Element, change: ChartDataOp) -> Result<(), OpError> {
     let element = e.id.clone();
     let before = e.clone();
     let ElementBody::Chart { option } = &mut e.body else {
         return Err(NotAChartSnafu { element }.build().into());
     };
-    let applied = (|| -> Result<ChartDataOp, OpError> {
+    let applied = (|| -> Result<(), OpError> {
         let dataset = option
             .dataset
             .as_mut()
             .context(InvalidValueSnafu { field: "dataset", reason: "the chart has no dataset" })?;
-        let inverse = change.apply(dataset).context(ChartSnafu { element: &element })?;
+        change.apply(dataset).context(ChartSnafu { element: &element })?;
         sync_series_with_columns(option);
         normalize(option, ChartLabels::english()).context(ChartSnafu { element: &element })?;
-        Ok(inverse)
+        Ok(())
     })();
-    let series_changed = matches!(&before.body, ElementBody::Chart { option: old } if old.series != option.series);
-    match applied {
-        Err(err) => {
-            // Le deck reste intact.
-            *e = before;
-            Err(err)
-        }
-        Ok(_) if series_changed => Ok(Op::ReplaceElement { slide, element: before }),
-        Ok(inverse) => Ok(Op::SetChartData { slide, element, change: inverse }),
+    if let Err(err) = applied {
+        // Le deck reste intact.
+        *e = before;
+        return Err(err);
     }
+    Ok(())
 }
 
 fn slide_mut<'a>(deck: &'a mut Deck, id: &str) -> Result<&'a mut Slide, OpError> {
@@ -293,7 +286,10 @@ fn not_found(slide: &str, element: &str) -> OpError {
 fn opt_string(field: &str, v: Value) -> Result<Option<String>, OpError> {
     match v {
         Value::Null => Ok(None),
-        Value::String(s) => Ok(Some(s)),
+        // Vide = absent : une prose vide ne s'affiche pas, et le replica
+        // relit un texte vide en `None`. Bords rognés : même règle que l'UI.
+        Value::String(s) if s.trim().is_empty() => Ok(None),
+        Value::String(s) => Ok(Some(s.trim().to_owned())),
         _ => Err(InvalidValueSnafu { field, reason: "expected a string or null" }.build().into()),
     }
 }
@@ -302,15 +298,9 @@ fn typed<T: DeserializeOwned>(field: &str, v: Value) -> Result<T, OpError> {
     Ok(serde_json::from_value(v).context(ParseValueSnafu { field })?)
 }
 
-fn to_value<T: Serialize>(field: &str, v: &T) -> Result<Value, OpError> {
-    Ok(serde_json::to_value(v).context(ParseValueSnafu { field })?)
-}
-
 impl Op {
-    /// Applique l'op et renvoie son inverse. L'op se consomme : son contenu
-    /// entre dans le deck, ce qu'il remplace part dans l'inverse. En cas
-    /// d'erreur, le deck est intact.
-    pub fn apply(self, deck: &mut Deck) -> Result<Op, OpError> {
+    /// Applique l'op au deck. En cas d'erreur, le deck est intact.
+    pub fn apply(self, deck: &mut Deck) -> Result<(), OpError> {
         match self {
             Op::SetText { slide, element, text } => {
                 let s = slide_mut(deck, &slide)?;
@@ -319,8 +309,8 @@ impl Op {
                     ElementBody::Text { text } | ElementBody::Card { text, .. } => text,
                     _ => return Err(NoTextSnafu { element }.build().into()),
                 };
-                let old = std::mem::replace(target, text);
-                Ok(Op::SetText { slide, element, text: old })
+                *target = text;
+                Ok(())
             }
             Op::SetChartOption { slide, element, patch } => {
                 let s = slide_mut(deck, &slide)?;
@@ -328,28 +318,26 @@ impl Op {
                 let ElementBody::Chart { option } = &mut e.body else {
                     return Err(NotAChartSnafu { element }.build().into());
                 };
-                let (next, inverse) = apply_option_patch(option, &patch).context(ChartSnafu { element: &element })?;
+                let (next, _) = apply_option_patch(option, &patch).context(ChartSnafu { element: &element })?;
                 **option = next;
-                Ok(Op::SetChartOption { slide, element, patch: inverse })
+                Ok(())
             }
             Op::SetChartData { slide, element, change } => {
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                set_chart_data(e, slide, change)
+                set_chart_data(e, change)
             }
             Op::SetStyle { slide, element, style } => {
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                // L'inverse remplace tout le style : il faut l'état d'avant la fusion.
-                let old = e.style.clone();
                 e.style.merge(style);
-                Ok(Op::ReplaceStyle { slide, element, style: old })
+                Ok(())
             }
             Op::ReplaceStyle { slide, element, style } => {
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                let old = std::mem::replace(&mut e.style, style);
-                Ok(Op::ReplaceStyle { slide, element, style: old })
+                e.style = style;
+                Ok(())
             }
             Op::SetFrame { slide, element, frame } => {
                 if let Some(f) = frame
@@ -359,8 +347,8 @@ impl Op {
                 }
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                let old = std::mem::replace(&mut e.frame, frame);
-                Ok(Op::SetFrame { slide, element, frame: old })
+                e.frame = frame;
+                Ok(())
             }
             Op::SetCell { slide, element, cell } => {
                 let s = slide_mut(deck, &slide)?;
@@ -371,8 +359,8 @@ impl Op {
                     }
                 }
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                let old = std::mem::replace(&mut e.cell, cell);
-                Ok(Op::SetCell { slide, element, cell: old })
+                e.cell = cell;
+                Ok(())
             }
             Op::SetGrid { slide, grid } => {
                 if let Some(g) = &grid
@@ -381,26 +369,26 @@ impl Op {
                     return Err(InvalidValueSnafu { field: "grid", reason: "1 to 24 columns and rows" }.build().into());
                 }
                 let s = slide_mut(deck, &slide)?;
-                let old = std::mem::replace(&mut s.grid, grid);
-                Ok(Op::SetGrid { slide, grid: old })
+                s.grid = grid;
+                Ok(())
             }
             Op::ReplaceElement { slide, element } => {
                 check_charts(&element)?;
                 let s = slide_mut(deck, &slide)?;
                 // Les enfants d'un groupe remplacé ne doivent pas entrer en collision.
-                let old = s.locate(&element.id).ok_or_else(|| not_found(&slide, &element.id))?.element;
-                let old_ids: HashSet<&str> =
-                    Walk::over(old.children(), Zone::Blocks).map(|l| l.element.id.as_str()).collect();
+                let previous = s.locate(&element.id).ok_or_else(|| not_found(&slide, &element.id))?.element;
+                let previous_ids: HashSet<&str> =
+                    Walk::over(previous.children(), Zone::Blocks).map(|l| l.element.id.as_str()).collect();
                 let existing: HashSet<&str> = s.element_ids().collect();
                 if let Some(dup) = Walk::over(element.children(), Zone::Blocks)
                     .map(|l| l.element.id.as_str())
-                    .find(|id| existing.contains(id) && !old_ids.contains(id))
+                    .find(|id| existing.contains(id) && !previous_ids.contains(id))
                 {
                     return Err(DuplicateIdSnafu { id: dup }.build().into());
                 }
                 let e = element_mut(s, &element.id).ok_or_else(|| not_found(&slide, &element.id))?;
-                let old = std::mem::replace(e, element);
-                Ok(Op::ReplaceElement { slide, element: old })
+                *e = element;
+                Ok(())
             }
             Op::AddElement { slide, zone, parent, index, element } => {
                 check_charts(&element)?;
@@ -416,10 +404,8 @@ impl Op {
                 if at > list.len() {
                     return Err(IndexOutOfRangeSnafu { index: at, len: list.len() }.build().into());
                 }
-                // L'élément entre dans le deck ; l'inverse n'en garde que l'identifiant.
-                let id = element.id.clone();
                 list.insert(at, element);
-                Ok(Op::RemoveElement { slide, element: id })
+                Ok(())
             }
             Op::RemoveElement { slide, element } => {
                 let s = slide_mut(deck, &slide)?;
@@ -428,36 +414,22 @@ impl Op {
                     .map(|l| (l.zone, l.parent.map(str::to_owned), l.index))
                     .ok_or_else(|| not_found(&slide, &element))?;
                 let list = container_mut(s, zone, parent.as_deref(), &slide)?;
-                let removed = list.remove(index);
-                Ok(Op::AddElement { slide, zone, parent, index: Some(index), element: removed })
+                list.remove(index);
+                Ok(())
             }
             Op::SetSlideField { slide, field, value } => {
                 let s = slide_mut(deck, &slide)?;
-                let old = match field {
-                    SlideField::Kind => {
-                        to_value("kind", &std::mem::replace(&mut s.kind, typed::<SlideKind>("kind", value)?))?
-                    }
-                    SlideField::Layout => to_value(
-                        "layout",
-                        &std::mem::replace(&mut s.layout, typed::<Option<SlideLayout>>("layout", value)?),
-                    )?,
-                    SlideField::Title => {
-                        to_value("title", &std::mem::replace(&mut s.title, opt_string("title", value)?))?
-                    }
-                    SlideField::Subtitle => {
-                        to_value("subtitle", &std::mem::replace(&mut s.subtitle, opt_string("subtitle", value)?))?
-                    }
-                    SlideField::Kicker => {
-                        to_value("kicker", &std::mem::replace(&mut s.kicker, opt_string("kicker", value)?))?
-                    }
-                    SlideField::Text => to_value("text", &std::mem::replace(&mut s.text, opt_string("text", value)?))?,
-                    SlideField::Name => to_value("name", &std::mem::replace(&mut s.name, opt_string("name", value)?))?,
-                    SlideField::Description => to_value(
-                        "description",
-                        &std::mem::replace(&mut s.description, opt_string("description", value)?),
-                    )?,
-                };
-                Ok(Op::SetSlideField { slide, field, value: old })
+                match field {
+                    SlideField::Kind => s.kind = typed::<SlideKind>("kind", value)?,
+                    SlideField::Layout => s.layout = typed::<Option<SlideLayout>>("layout", value)?,
+                    SlideField::Title => s.title = opt_string("title", value)?,
+                    SlideField::Subtitle => s.subtitle = opt_string("subtitle", value)?,
+                    SlideField::Kicker => s.kicker = opt_string("kicker", value)?,
+                    SlideField::Text => s.text = opt_string("text", value)?,
+                    SlideField::Name => s.name = opt_string("name", value)?,
+                    SlideField::Description => s.description = opt_string("description", value)?,
+                }
+                Ok(())
             }
             Op::AddSlide { index, slide } => {
                 if deck.slide(&slide.id).is_some() {
@@ -467,17 +439,15 @@ impl Op {
                 if at > deck.slides.len() {
                     return Err(IndexOutOfRangeSnafu { index: at, len: deck.slides.len() }.build().into());
                 }
-                // La slide entre dans le deck ; l'inverse n'en garde que l'identifiant.
-                let id = slide.id.clone();
                 deck.slides.insert(at, slide);
-                Ok(Op::RemoveSlide { slide: id })
+                Ok(())
             }
             Op::RemoveSlide { slide } => {
                 let Some(i) = deck.slide_index(&slide) else {
                     return Err(SlideNotFoundSnafu { slide }.build().into());
                 };
-                let removed = deck.slides.remove(i);
-                Ok(Op::AddSlide { index: Some(i), slide: removed })
+                deck.slides.remove(i);
+                Ok(())
             }
             Op::MoveSlide { slide, index } => {
                 let len = deck.slides.len();
@@ -487,78 +457,69 @@ impl Op {
                 }
                 let s = deck.slides.remove(i);
                 deck.slides.insert(index, s);
-                Ok(Op::MoveSlide { slide, index: i })
+                Ok(())
             }
             Op::SetNotes { slide, notes } => {
                 let s = slide_mut(deck, &slide)?;
-                let old = std::mem::replace(&mut s.notes, notes);
-                Ok(Op::SetNotes { slide, notes: old })
+                s.notes = notes;
+                Ok(())
             }
-            Op::SetTheme { theme } => Ok(Op::SetTheme { theme: std::mem::replace(&mut deck.theme, theme) }),
+            Op::SetTheme { theme } => {
+                deck.theme = theme;
+                Ok(())
+            }
             Op::SetTemplates { templates } => {
-                Ok(Op::SetTemplates { templates: std::mem::replace(&mut deck.templates, templates) })
+                deck.templates = templates;
+                Ok(())
             }
             Op::SetToken { path, value } => {
                 if path.is_empty() {
                     return Err(InvalidValueSnafu { field: "path", reason: "empty path" }.build().into());
                 }
-                let old = if value.is_null() {
-                    let removed = remove_path(&mut deck.tokens, &path);
+                if value.is_null() {
+                    remove_path(&mut deck.tokens, &path);
                     if deck.tokens.as_object().is_some_and(Map::is_empty) {
                         deck.tokens = Value::Null;
                     }
-                    removed
                 } else {
-                    set_path(&mut deck.tokens, &path, value)
-                };
-                Ok(Op::SetToken { path, value: old.unwrap_or(Value::Null) })
+                    set_path(&mut deck.tokens, &path, value);
+                }
+                Ok(())
             }
             Op::SetParam { key, value } => {
                 let p = &mut deck.params;
-                let old = match key.as_str() {
-                    "title" => to_value(&key, &std::mem::replace(&mut p.title, opt_string(&key, value)?))?,
-                    "subtitle" => to_value(&key, &std::mem::replace(&mut p.subtitle, opt_string(&key, value)?))?,
-                    "author" => to_value(&key, &std::mem::replace(&mut p.author, opt_string(&key, value)?))?,
-                    "date" => to_value(&key, &std::mem::replace(&mut p.date, opt_string(&key, value)?))?,
-                    "organization" => {
-                        to_value(&key, &std::mem::replace(&mut p.organization, opt_string(&key, value)?))?
+                match key.as_str() {
+                    "title" => p.title = opt_string(&key, value)?,
+                    "subtitle" => p.subtitle = opt_string(&key, value)?,
+                    "author" => p.author = opt_string(&key, value)?,
+                    "date" => p.date = opt_string(&key, value)?,
+                    "organization" => p.organization = opt_string(&key, value)?,
+                    "lang" => p.lang = opt_string(&key, value)?,
+                    _ => {
+                        set_or_remove_map(&mut p.extra, &key, value);
                     }
-                    "lang" => to_value(&key, &std::mem::replace(&mut p.lang, opt_string(&key, value)?))?,
-                    _ => set_or_remove_map(&mut p.extra, &key, value),
-                };
-                Ok(Op::SetParam { key, value: old })
+                }
+                Ok(())
             }
             Op::SetVar { key, value } => {
-                let old = set_or_remove_map(&mut deck.vars, &key, value);
-                Ok(Op::SetVar { key, value: old })
+                set_or_remove_map(&mut deck.vars, &key, value);
+                Ok(())
             }
         }
     }
 }
 
-/// Applique une suite d'ops de façon atomique : en cas d'erreur, les ops
-/// déjà appliquées sont annulées. Renvoie les inverses, dans l'ordre où il
-/// faut les appliquer pour tout défaire.
-pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<Vec<Op>, TransactionError> {
-    let mut inverses: Vec<Op> = Vec::with_capacity(ops.len());
+/// Applique une suite d'ops de façon atomique : en cas d'erreur, le deck
+/// n'a pas changé. Le deck obtenu est sous forme canonique
+/// ([`canonicalize`](crate::canonicalize)) : celle que relit le replica.
+pub fn apply_all(deck: &mut Deck, ops: Vec<Op>) -> Result<(), TransactionError> {
+    let mut next = deck.clone();
     for (index, op) in ops.into_iter().enumerate() {
-        match op.apply(deck) {
-            Ok(inv) => inverses.push(inv),
-            Err(source) => {
-                for inv in inverses.into_iter().rev() {
-                    // L'inverse d'une op appliquée s'applique toujours ; sinon le
-                    // deck a changé hors de l'historique.
-                    if let Err(e) = inv.apply(deck) {
-                        let inconsistent: OpError = InconsistentSnafu.into_error(Box::new(e)).into();
-                        return Err(TransactionSnafu { index }.into_error(inconsistent));
-                    }
-                }
-                return Err(TransactionSnafu { index }.into_error(source));
-            }
-        }
+        op.apply(&mut next).map_err(|source| TransactionSnafu { index }.into_error(source))?;
     }
-    inverses.reverse();
-    Ok(inverses)
+    crate::canonicalize(&mut next);
+    *deck = next;
+    Ok(())
 }
 
 /// Schéma JSON d'une liste d'ops, pour la sortie structurée des LLM.

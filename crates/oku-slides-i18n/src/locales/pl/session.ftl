@@ -28,6 +28,7 @@ template-default-name = Szablon
 notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po zapisaniu w Oku Slides: jego źródła mogą już nie odpowiadać temu, co pokazuje czytnik PDF.
 notice-open-failed = Nie udało się otworzyć { $path }: { $reason }
 notice-tab-resume-failed = Nie udało się przywrócić stanu tej karty: został odłożony na bok, a karta zaczyna od pustej prezentacji.
+notice-unreadable-parts = Części tej prezentacji nie udało się odczytać i zostały odłożone ({ $count }).
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany

@@ -28,6 +28,7 @@ template-default-name = टेम्पलेट
 notice-modified-elsewhere = Oku Slides के बाद इस PDF को किसी अन्य टूल ने बदला है: हो सकता है इसके स्रोत PDF रीडर में दिखने वाली सामग्री से मेल न खाएँ।
 notice-open-failed = { $path } नहीं खुल सका: { $reason }
 notice-tab-resume-failed = इस टैब की स्थिति बहाल नहीं की जा सकी: उसे अलग रख दिया गया है, और टैब एक खाली प्रस्तुति से फिर शुरू होता है।
+notice-unreadable-parts = इस प्रस्तुति के कुछ हिस्से पढ़े नहीं जा सके और अलग रखे गए ({ $count })।
 
 log-document-opened = दस्तावेज़ खोला गया
 log-document-saved = दस्तावेज़ सहेजा गया

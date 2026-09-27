@@ -5,7 +5,6 @@ op-index-out-of-range = 位置超出範圍
 op-not-a-group = { $subject } 不是群組
 op-no-text = { $subject } 沒有文字
 op-invalid-value = { $subject } 的值無效
-op-inconsistent = 歷程記錄與簡報不再一致
 transaction-refused = 操作 { $index } 遭拒：{ $reason }
 
 sources-unreadable = 無法讀取原始檔
@@ -13,6 +12,7 @@ sources-not-sources = 這不是 Oku Slides 原始檔封存
 sources-unsupported-version = 這些原始檔由較新版本的 Oku Slides 寫入
 sources-bad-name = 原始檔中的檔名遭拒
 sources-missing-deck = 原始檔中缺少簡報
+sources-too-large = 此檔案中的原始檔過大，無法開啟
 
 issue-empty-slide-id = 投影片識別碼為空
 issue-duplicate-slide-id = 投影片識別碼重複
@@ -26,5 +26,13 @@ issue-free-without-frame = 自由元素缺少框架
 issue-missing-asset = 缺少資源：{ $asset }
 issue-unsupported-link = 不支援的連結：{ $link }
 issue-highlight-zero = 醒目提示顏色從 1 開始編號
+issue-unreadable-element = 無法讀取的元素，已移出
+issue-unreadable-slide = 無法讀取的投影片，已移出
+issue-unreadable-field = 無法讀取的簡報欄位 { $field }，已重設
 op-not-a-chart = { $subject } 不是圖表
 op-invalid-chart = 圖表 { $subject }：{ $reason }
+
+replica-corrupted = 此檔案中的簡報歷程已損毀
+replica-too-large = 此檔案中的簡報歷程過大，無法開啟
+replica-write = 無法更新簡報歷程
+replica-unrelated = 這兩份簡報沒有共同的來源

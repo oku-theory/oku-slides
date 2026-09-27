@@ -93,7 +93,7 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     let snap = s.snapshot();
     assert_that!(snap.dirty).is_true();
     assert_that!(snap.can_undo).is_true();
-    assert_that!(snap.undo_label).is_equal_to(Some("Déplacer"));
+    assert_that!(snap.undo_label.as_deref()).is_equal_to(Some("Déplacer"));
     let moved = s.slide("s-libre").unwrap();
     assert_that!(moved.hash).is_not_equal_to(before_hash);
     let t2 = moved.targets.iter().find(|t| t.id == "e-texte").unwrap();
@@ -423,17 +423,20 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid() {
 }
 
 #[test]
-fn resume_after_edits_restores_deck_history_and_ui() {
+fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
     a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
-    let before = snapshot_json(&mut a);
+    let mut before = snapshot_json(&mut a);
     drop(a);
     let mut b = resumed(&data);
+    // La pile d'annulation ne survit pas au relancement ; tout le reste, si.
+    before["can_undo"] = json!(false);
+    before["undo_label"] = json!(null);
     assert_that!(snapshot_json(&mut b)).is_equal_to(&before);
     b.undo().unwrap();
-    assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("pro"));
 }
 
 #[test]
@@ -748,6 +751,6 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
     assert_that!(snap["theme"]).is_equal_to(json!("pro"));
-    assert_that!(snap["can_undo"]).is_equal_to(json!(true));
+    assert_that!(snap["dirty"]).is_equal_to(json!(false));
     assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
 }

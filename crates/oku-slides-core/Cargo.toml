@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-core"
-description = "Modèle de deck Oku Slides : slides, éléments, opérations, historique, sources."
+description = "Modèle de deck Oku Slides : slides, éléments, opérations, replica, sources."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,9 +17,15 @@ snafu.workspace = true
 zip.workspace = true
 sha2.workspace = true
 hex.workspace = true
+loro.workspace = true
 
 [dev-dependencies]
 speculoos.workspace = true
+rstest.workspace = true
+proptest.workspace = true
+xxhash-rust.workspace = true
+loro-kv-store.workspace = true
+bytes.workspace = true
 
 [lints]
 workspace = true
