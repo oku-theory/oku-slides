@@ -18,6 +18,8 @@ session-single-document = Une seule présentation peut être ouverte ici.
 session-last-window = La dernière fenêtre reste ouverte : quittez l'application.
 session-unsaved = « { $title } » a des modifications non enregistrées.
 session-bad-request = Requête invalide : { $reason }
+session-history-not-open = L'historique n'est pas ouvert
+session-in-history = Fermez l'historique avant de modifier la présentation
 session-agent-form = La demande de l'agent est invalide : { $reason }
 
 deck-untitled = Sans titre
@@ -27,6 +29,7 @@ deck-new-slide-text = Dites ce que vous voulez montrer.
 templates-default-name = Mes modèles
 templates-copy-name = { $name } (copie)
 template-default-name = Modèle
+history-restore-label = Restaurer la version du { $date }
 notice-merged = Fusionné avec { $file } — modifications importées : { $count } ({ $authors }).
 notice-merged-anonymous = Fusionné avec { $file } — modifications importées : { $count }.
 notice-same-deck-open = Cette présentation est déjà ouverte dans l'onglet « { $title } ». Pour réunir les deux, utilisez « Fusionner avec un PDF… » dans cet onglet.

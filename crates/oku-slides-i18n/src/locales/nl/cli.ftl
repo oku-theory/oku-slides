@@ -23,6 +23,7 @@ cli-bench-pdf = pdf-export                       { $time }  ({ $size } KB)
 cli-bench-embed = bronnenblob insluiten            { $time }
 cli-bench-extract = blob teruglezen                  { $time }
 cli-bench-roundtrip = heen-en-terug presentatie        identiek
+cli-bench-history = stap in de geschiedenis          { $mean } ms gemiddeld, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) op http://{ $host }:{ $port }
 cli-models-dir = dicteermodellen: { $dir }
 cli-stopped = server gestopt

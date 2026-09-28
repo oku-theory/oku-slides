@@ -23,6 +23,7 @@ cli-bench-pdf = التصدير إلى PDF                     { $time }  ({ $siz
 cli-bench-embed = تضمين كتلة المصادر                { $time }
 cli-bench-extract = إعادة قراءة الكتلة              { $time }
 cli-bench-roundtrip = دورة العرض التقديمي الكاملة     مطابق
+cli-bench-history = خطوة في السجل                    { $mean } ms بالمتوسط، p50 { $p50 } ms
 cli-serving = Oku Slides (تطوير) على http://{ $host }:{ $port }
 cli-models-dir = نماذج الإملاء: { $dir }
 cli-stopped = توقف الخادم

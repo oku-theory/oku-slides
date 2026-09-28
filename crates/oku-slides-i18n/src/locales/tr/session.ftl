@@ -18,6 +18,8 @@ session-single-document = Burada yalnızca bir sunu açık olabilir.
 session-last-window = Son pencere açık kalır: bunun yerine uygulamadan çıkın.
 session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }
+session-history-not-open = Geçmiş açık değil
+session-in-history = Sunumu değiştirmeden önce geçmişi kapatın
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 
 deck-untitled = Adsız
@@ -27,6 +29,7 @@ deck-new-slide-text = Ne göstermek istediğinizi anlatın.
 templates-default-name = Şablonlarım
 templates-copy-name = { $name } (kopya)
 template-default-name = Şablon
+history-restore-label = { $date } sürümünü geri yükle
 notice-merged = { $file } ile birleştirildi — içe aktarılan değişiklik: { $count } ({ $authors }).
 notice-merged-anonymous = { $file } ile birleştirildi — içe aktarılan değişiklik: { $count }.
 notice-same-deck-open = Bu sunum zaten “{ $title }” sekmesinde açık. İkisini birleştirmek için o sekmede “PDF ile birleştir…” komutunu kullanın.

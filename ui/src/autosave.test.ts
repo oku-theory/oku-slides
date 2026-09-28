@@ -22,6 +22,11 @@ describe("enregistrement automatique", () => {
     expect(wantsAutosave(deck, true)).toBe(false);
   });
 
+  test("wantsAutosave historique ouvert : non (la version montrée ne s'écrit jamais ; le deck, à la fermeture)", () => {
+    expect(wantsAutosave({ ...deck, history: { index: 0 } }, false)).toBe(false);
+    expect(wantsAutosave({ ...deck, history: null }, false)).toBe(true);
+  });
+
   test("wantsAutosave modèles modifiés : oui ; modèles intégrés : non (il faut une copie)", () => {
     expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: false } }, false)).toBe(true);
     expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: true } }, false)).toBe(false);

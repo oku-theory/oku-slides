@@ -18,6 +18,8 @@ session-single-document = يمكن فتح عرض تقديمي واحد فقط ه
 session-last-window = تبقى النافذة الأخيرة مفتوحة: أغلق التطبيق بدلًا من ذلك.
 session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }
+session-history-not-open = السجل غير مفتوح
+session-in-history = أغلق السجل قبل تعديل العرض التقديمي
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 
 deck-untitled = بلا عنوان
@@ -27,6 +29,7 @@ deck-new-slide-text = قل ما تريد عرضه.
 templates-default-name = قوالبي
 templates-copy-name = { $name } (نسخة)
 template-default-name = قالب
+history-restore-label = استعادة نسخة { $date }
 notice-merged = تم الدمج مع { $file } — التغييرات المستوردة: { $count } ({ $authors }).
 notice-merged-anonymous = تم الدمج مع { $file } — التغييرات المستوردة: { $count }.
 notice-same-deck-open = هذا العرض التقديمي مفتوح بالفعل في علامة التبويب «{ $title }». لدمجهما، استخدم «دمج مع ملف PDF…» هناك.

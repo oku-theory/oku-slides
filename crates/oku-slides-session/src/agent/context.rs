@@ -43,10 +43,10 @@ impl Session {
         self.doc.sources.begin_group(&label);
     }
 
-    /// Ferme le groupe du tour, y compris sur le deck mis de côté par les modèles.
+    /// Ferme le groupe du tour, y compris sur le deck mis de côté (modèles, historique).
     pub fn end_turn(&mut self) {
         self.doc.sources.end_group();
-        if let Mode::Templates { stash, .. } = &mut self.mode {
+        if let Mode::Templates { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
             stash.sources.end_group();
         }
     }
@@ -68,6 +68,10 @@ impl Session {
         let mode = match &self.mode {
             Mode::Deck => "deck".to_owned(),
             Mode::Templates { edit, .. } => format!("templates(set={})", edit.set),
+            Mode::History { history, .. } => {
+                let view = history.view();
+                format!("history(read_only, version={}/{})", view.index + 1, view.count)
+            }
         };
         let _ = writeln!(out, "mode: {mode}");
         let _ = writeln!(

@@ -37,12 +37,14 @@ mod charts;
 mod deck_file;
 mod error;
 mod files;
+mod history;
 mod inline;
 mod merge;
 mod panel;
 mod resume;
 mod resume_writer;
 pub mod templates;
+mod templates_mode;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod text;
@@ -51,9 +53,8 @@ mod workspace;
 
 pub use appearance::{Appearance, appearance};
 use error::{
-    BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, NoChartSnafu, NoSlideSnafu, NoTemplateSetSnafu,
-    NotEditingTemplatesSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu,
-    WriteSnafu,
+    BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, InHistorySnafu, NoChartSnafu, NoSlideSnafu,
+    NoTemplateSetSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu, WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
@@ -62,7 +63,7 @@ pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TargetKind, TemplateMode, TemplateView,
+    HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TargetKind, TemplateMode, TemplateView,
     TemplatesView, UiState,
 };
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
@@ -107,13 +108,19 @@ struct DocDefaults {
 }
 
 /// Ce que la session édite : le deck, ou un ensemble de modèles pendant que
-/// le deck attend de côté.
+/// le deck attend de côté ; ou ce qu'elle montre : une version du deck, en
+/// lecture seule, le deck de côté aussi.
 pub(crate) enum Mode {
     Deck,
     Templates {
         /// Le deck mis de côté, retrouvé tel quel à la fin.
         stash: Box<Document>,
         edit: TemplateMode,
+    },
+    History {
+        /// Le deck mis de côté ; ses images et polices sont prêtées à l'aperçu.
+        stash: Box<Document>,
+        history: history::HistoryMode,
     },
 }
 
@@ -184,6 +191,18 @@ pub enum Request {
     Merge {
         path: PathBuf,
     },
+    /// Ouvre l'historique sur la dernière version (le deck est mis de côté).
+    HistoryOpen,
+    /// Montre une version de l'historique (bornée à la dernière).
+    HistorySeek {
+        index: usize,
+    },
+    /// Ramène le deck à la version montrée (annulable) et ferme l'historique.
+    HistoryRestore,
+    /// Ferme l'historique et retrouve le deck.
+    HistoryClose,
+    /// Les versions du deck, dans l'ordre (tableau de `Version`).
+    HistoryVersions,
     /// Déplace le fichier du deck : écrit à `path`, supprime l'ancien.
     Move {
         path: PathBuf,
@@ -198,6 +217,7 @@ impl Request {
     /// Vrai si la requête peut changer le deck (slides ajoutées ou retirées).
     ///
     /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
+    /// L'historique (sauf la liste des versions) : le deck montré change.
     /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
     pub fn changes_deck(&self) -> bool {
         match self {
@@ -209,6 +229,10 @@ impl Request {
             | Self::EditTemplates { .. }
             | Self::CloseTemplates
             | Self::Merge { .. }
+            | Self::HistoryOpen
+            | Self::HistorySeek { .. }
+            | Self::HistoryRestore
+            | Self::HistoryClose
             | Self::Move { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
@@ -220,7 +244,8 @@ impl Request {
             | Self::SaveTemplates { .. }
             | Self::DeleteTemplateSet { .. }
             | Self::SaveCopy { .. }
-            | Self::Ui(_) => false,
+            | Self::Ui(_)
+            | Self::HistoryVersions => false,
         }
     }
 }
@@ -243,7 +268,7 @@ pub struct Session {
     source_limits: SourceLimits,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
-    template_cache: Option<Previews>,
+    template_cache: Option<templates_mode::Previews>,
     /// Rendu des variantes proposées par l'agent, séparé du deck.
     variant_renderer: Option<Renderer>,
     renderer: Renderer,
@@ -267,33 +292,6 @@ pub struct Session {
     sent_blobs: Vec<Arc<resume::Blobs>>,
     /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
     agent_notes: Vec<String>,
-}
-
-/// Aperçus de modèles en cache, avec ce dont ils dépendent : l'ensemble et
-/// le style du deck (le deck d'aperçu les porte).
-struct Previews {
-    set: TemplateSet,
-    deck: Deck,
-    views: Arc<[TemplateView]>,
-}
-
-/// Un deck qui a le style de `base` (thème, jetons, paramètres, variables,
-/// ensemble de modèles) et ces slides.
-fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
-    Deck {
-        version: base.version,
-        theme: base.theme.clone(),
-        params: base.params.clone(),
-        vars: base.vars.clone(),
-        tokens: base.tokens.clone(),
-        templates: base.templates.clone(),
-        slides,
-    }
-}
-
-/// Même style : même thème, mêmes jetons, paramètres et variables.
-fn same_style(a: &Deck, b: &Deck) -> bool {
-    a.theme == b.theme && a.tokens == b.tokens && a.params == b.params && a.vars == b.vars
 }
 
 /// Un rendu prêt pour de nouvelles polices, pas encore installé.
@@ -399,20 +397,25 @@ impl Session {
     fn user_deck(&self) -> &Deck {
         match &self.mode {
             Mode::Deck => self.doc.sources.deck(),
-            Mode::Templates { stash, .. } => stash.sources.deck(),
+            Mode::Templates { stash, .. } | Mode::History { stash, .. } => stash.sources.deck(),
         }
     }
 
     fn editing(&self) -> Option<&TemplateMode> {
         match &self.mode {
-            Mode::Deck => None,
+            Mode::Deck | Mode::History { .. } => None,
             Mode::Templates { edit, .. } => Some(edit),
         }
     }
 
-    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
+    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours
+    /// (pas l'aperçu de l'historique).
     fn unsaved(&self) -> bool {
-        self.doc.dirty || matches!(&self.mode, Mode::Templates { stash, .. } if stash.dirty)
+        match &self.mode {
+            Mode::Deck => self.doc.dirty,
+            Mode::Templates { stash, .. } => self.doc.dirty || stash.dirty,
+            Mode::History { stash, .. } => stash.dirty,
+        }
     }
 
     /// Nom d'un document : son fichier, sinon le titre de son deck.
@@ -428,12 +431,12 @@ impl Session {
 
     /// Ce que la barre d'onglets montre de cette session.
     ///
-    /// Pendant l'édition des modèles, le titre et le fichier restent ceux du
-    /// deck mis de côté.
+    /// Pendant l'édition des modèles ou l'historique, le titre et le fichier
+    /// restent ceux du deck mis de côté.
     pub fn tab_info(&self) -> TabInfo {
         let deck = match &self.mode {
             Mode::Deck => &self.doc,
-            Mode::Templates { stash, .. } => stash,
+            Mode::Templates { stash, .. } | Mode::History { stash, .. } => stash,
         };
         TabInfo {
             title: self.document_name(deck),
@@ -493,111 +496,6 @@ impl Session {
         Ok(self.library.get(id).context(NoTemplateSetSnafu { id })?)
     }
 
-    /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
-    /// Le deck garde son thème, ses jetons et ses variables ; les modèles ne
-    /// portent pas d'assets (un ensemble n'en enregistre pas).
-    pub fn edit_templates(&mut self, id: &str) -> Result<()> {
-        let (set, builtin) = self.get_set(id)?;
-        let set = set.into_owned();
-        let slides = set
-            .templates
-            .into_iter()
-            .map(|t| {
-                let mut s = t.slide;
-                s.id = t.id;
-                s.name = Some(t.name);
-                s.description = (!t.description.is_empty()).then_some(t.description);
-                s
-            })
-            .collect();
-        let mut deck = styled_like(self.user_deck(), slides);
-        deck.params.title = Some(set.name.clone());
-        deck.templates = Some(set.id.clone());
-        let templates = Document::new(SourceBundle::new(deck).context(SourcesSnafu)?, None, &self.doc_defaults);
-        let edit = TemplateMode { set: set.id, name: set.name, builtin };
-        self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
-            // Déjà en édition : on change d'ensemble, le deck reste de côté.
-            Mode::Templates { stash, .. } => {
-                self.doc = templates;
-                Mode::Templates { stash, edit }
-            }
-            Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
-        };
-        self.ui.slide = None;
-        self.rerender()?;
-        Ok(())
-    }
-
-    /// L'ensemble tel que le montre `deck`, le deck des modèles en cours d'édition.
-    fn edited_set(&self, deck: &Deck, id: String) -> TemplateSet {
-        let name = deck
-            .params
-            .title
-            .clone()
-            .filter(|n| !n.trim().is_empty())
-            .unwrap_or_else(|| self.localizer.tr("templates-default-name"));
-        let description = self
-            .editing()
-            .and_then(|m| self.library.get(&m.set))
-            .map(|(s, _)| s.into_owned().description)
-            .unwrap_or_default();
-        let templates = deck
-            .slides
-            .iter()
-            .map(|s| {
-                let mut slide = s.clone();
-                let name = slide
-                    .name
-                    .take()
-                    .or_else(|| slide.title.clone())
-                    .unwrap_or_else(|| self.localizer.tr("template-default-name"));
-                let description = slide.description.take().unwrap_or_default();
-                slide.id = format!("tpl-{}", s.id);
-                Template { id: s.id.clone(), name, description, slide }
-            })
-            .collect();
-        TemplateSet { id, name, description, templates }
-    }
-
-    /// Enregistre l'ensemble édité dans la bibliothèque de l'utilisateur.
-    pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
-        let Mode::Templates { edit: mode, .. } = &self.mode else {
-            return NotEditingTemplatesSnafu.fail()?;
-        };
-        let copy = as_new || mode.builtin;
-        // Le deck modifié (titre de la copie, ensemble) remplace la vue d'un
-        // coup, sans étape d'annulation : ce n'est pas une édition.
-        let mut deck = self.doc.sources.deck().clone();
-        let mut name = deck.params.title.clone().unwrap_or_default();
-        if copy && name == mode.name {
-            name = self.localizer.tr_with("templates-copy-name", &[("name", name.as_str().into())]);
-            deck.params.title = Some(name.clone());
-        }
-        let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
-        let set = self.edited_set(&deck, id.clone());
-        self.library.save(&set)?;
-        deck.templates = Some(id);
-        self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
-        self.doc.dirty = false;
-        if let Mode::Templates { edit, .. } = &mut self.mode {
-            *edit = TemplateMode { set: set.id, name: set.name, builtin: false };
-        }
-        self.template_cache = None;
-        self.rerender()?;
-        Ok(())
-    }
-
-    /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
-    pub fn close_templates(&mut self) -> Result<()> {
-        if let Mode::Templates { stash, .. } = std::mem::replace(&mut self.mode, Mode::Deck) {
-            self.doc = *stash;
-        }
-        self.template_cache = None;
-        self.ui.slide = None;
-        self.rerender()?;
-        Ok(())
-    }
-
     /// Traite une requête de l'interface et renvoie la réponse, en JSON.
     pub fn handle(&mut self, req: Request) -> Result<String> {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
@@ -611,14 +509,25 @@ impl Session {
         {
             return EditingTemplatesSnafu.fail()?;
         }
+        if matches!(self.mode, Mode::History { .. }) && Self::edits(&req) {
+            return InHistorySnafu.fail()?;
+        }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
         // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux
         // documents ; `apply` écrit déjà son propre état de reprise (l'agent
         // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
+        // L'historique ne change pas le deck mis de côté, sauf `HistoryRestore`.
         let (changes, documents) = (
             !matches!(req, Request::Snapshot | Request::Apply { .. }),
-            !matches!(req, Request::Snapshot | Request::Ui(_)),
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Ui(_)
+                    | Request::HistoryOpen
+                    | Request::HistorySeek { .. }
+                    | Request::HistoryClose
+            ),
         );
         match req {
             Request::Snapshot => {}
@@ -650,6 +559,11 @@ impl Session {
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
             Request::Ui(ui) => self.ui = ui,
+            Request::HistoryOpen => self.history_open()?,
+            Request::HistorySeek { index } => self.history_seek(index)?,
+            Request::HistoryRestore => self.history_restore()?,
+            Request::HistoryClose => self.history_close()?,
+            Request::HistoryVersions => return json(self.history_versions()?),
         }
         if changes {
             self.persist(documents);
@@ -664,6 +578,26 @@ impl Session {
         Ok(out)
     }
 
+    /// Requêtes refusées pendant l'historique : elles modifieraient le deck,
+    /// l'enregistreraient, ou passeraient aux modèles.
+    fn edits(req: &Request) -> bool {
+        matches!(
+            req,
+            Request::Apply { .. }
+                | Request::Undo
+                | Request::Redo
+                | Request::Save { .. }
+                | Request::Merge { .. }
+                | Request::Move { .. }
+                | Request::SaveCopy { .. }
+                | Request::ChartKind { .. }
+                | Request::EditTemplates { .. }
+                | Request::SaveTemplates { .. }
+                | Request::CloseTemplates
+                | Request::DeleteTemplateSet { .. }
+        )
+    }
+
     pub fn new_deck(&mut self) -> Result<()> {
         self.load(SourceBundle::new(blank_deck(&self.localizer)).context(SourcesSnafu)?, None)?;
         self.doc.blank = true;
@@ -673,6 +607,7 @@ impl Session {
 
     /// Charge un document (déjà lu) dans la session.
     pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
+        self.ensure_not_in_history()?;
         self.load_document(Document::new(sources, path, &self.doc_defaults))
     }
 
@@ -786,6 +721,7 @@ impl Session {
     /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
     /// dans `dataset`, en-têtes traduits).
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>) -> Result<()> {
+        self.ensure_not_in_history()?;
         charts::canonicalize_charts(&mut ops, &self.chart_labels);
         let mut next = self.doc.sources.deck().clone();
         oku_slides_core::apply_all(&mut next, ops).context(OpSnafu)?;
@@ -819,6 +755,7 @@ impl Session {
 
     /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn undo(&mut self) -> Result<()> {
+        self.ensure_not_in_history()?;
         if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.rerender()?;
@@ -828,6 +765,7 @@ impl Session {
 
     /// Rétablit par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn redo(&mut self) -> Result<()> {
+        self.ensure_not_in_history()?;
         if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.rerender()?;
@@ -887,40 +825,11 @@ impl Session {
             templates: self.deck_set(),
             editing: self.editing(),
             ui: &self.ui,
+            history: match &self.mode {
+                Mode::History { history, .. } => Some(history.view()),
+                _ => None,
+            },
         }
-    }
-
-    /// Aperçus d'un ensemble de modèles, rendus avec le thème, les jetons, les
-    /// paramètres et les variables du deck. En cache tant que rien ne change.
-    pub fn templates_view(&mut self, set: Option<String>) -> Result<TemplatesView> {
-        let id = set.unwrap_or_else(|| self.deck_set().to_owned());
-        // Un ensemble disparu (supprimé, ou d'une autre machine) : celui par défaut.
-        let (set, builtin) = self.get_set(&id).or_else(|_| self.get_set(DEFAULT_SET))?;
-        let base = self.user_deck();
-        let views = match &self.template_cache {
-            Some(p) if p.set == *set && same_style(&p.deck, base) => p.views.clone(),
-            _ => {
-                let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
-                let renderer = match &mut self.template_renderer {
-                    Some(r) => r,
-                    None => self.template_renderer.insert(new_renderer(self.render_fonts.clone(), &self.localizer)?),
-                };
-                let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
-                let layout = compiled.layout();
-                let views = set
-                    .templates
-                    .iter()
-                    .map(|t| {
-                        let page = layout.page_of(&t.slide.id).unwrap_or(1);
-                        let svg = compiled.svg(page - 1).context(RenderSnafu)?;
-                        Ok(TemplateView { template: t.clone(), svg: svg.into() })
-                    })
-                    .collect::<Result<Arc<[TemplateView]>>>()?;
-                self.template_cache = Some(Previews { set: set.clone().into_owned(), deck, views: views.clone() });
-                views
-            }
-        };
-        Ok(TemplatesView { set: set.info(builtin), sets: self.library.list(), templates: views })
     }
 
     /// SVG d'une slide, mis en cache par empreinte de page.

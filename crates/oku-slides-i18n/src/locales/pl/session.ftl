@@ -18,6 +18,8 @@ session-single-document = Tutaj można otworzyć tylko jedną prezentację.
 session-last-window = Ostatnie okno pozostaje otwarte: zamiast tego zamknij aplikację.
 session-unsaved = „{ $title }” ma niezapisane zmiany.
 session-bad-request = Nieprawidłowe żądanie: { $reason }
+session-history-not-open = Historia nie jest otwarta
+session-in-history = Zamknij historię przed zmianą prezentacji
 session-agent-form = Żądanie agenta jest nieprawidłowe: { $reason }
 
 deck-untitled = Bez tytułu
@@ -27,6 +29,7 @@ deck-new-slide-text = Powiedz, co chcesz pokazać.
 templates-default-name = Moje szablony
 templates-copy-name = { $name } (kopia)
 template-default-name = Szablon
+history-restore-label = Przywróć wersję z { $date }
 notice-merged = Scalono z { $file } — zaimportowane zmiany: { $count } ({ $authors }).
 notice-merged-anonymous = Scalono z { $file } — zaimportowane zmiany: { $count }.
 notice-same-deck-open = Ta prezentacja jest już otwarta na karcie „{ $title }”. Aby je połączyć, użyj tam „Scal z plikiem PDF…”.

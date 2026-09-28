@@ -320,29 +320,68 @@ fonts/<nom>      tels quels
 
 ## Mode historique
 
-`Mode::History { stash, preview, order }`, sur le patron de
-`Mode::Templates` : le deck courant attend de côté, la version choisie
-s'affiche en lecture seule.
+`Mode::History { stash, history }`, sur le patron de `Mode::Templates` : le
+deck courant attend de côté, la version choisie s'affiche en lecture seule
+(`history` porte les versions et la coupe montrée, `HistoryMode`).
 
 - **Ordre** : tri topologique des changements (Lamport, puis pair). Tout
-  préfixe est une coupe causale valide : chaque cran du curseur est un
-  état cohérent. L'heure est affichée, jamais utilisée pour trier
+  préfixe est une coupe causale valide (`vv_to_frontiers` du vecteur de
+  versions du préfixe, pas seulement l'histoire causale du dernier
+  changement) : chaque cran du curseur est un état cohérent, y compris une
+  branche concurrente plus ancienne dans l'ordre — écart à la conception
+  initiale (couper l'histoire causale seule l'aurait fait disparaître d'un
+  cran à l'autre). L'heure est affichée, jamais utilisée pour trier
   (horloges divergentes).
-- **Curseur** : un cran par commit ; repères au début de chaque session
-  (un pair = une session d'édition) et à chaque fusion. ←/→ : un commit ;
-  ⇧←/⇧→ : une session. Bulle : auteur, heure, libellé.
+- **Session d'édition** : le premier commit d'un pair dans l'ordre — sa
+  création du deck comme sa première édition — porte le repère de début de
+  session ; création puis éditions du même replica ne comptent que pour
+  une session.
+- **Curseur** : un cran par édition (application, restauration, commit
+  silencieux) : les commits intermédiaires `oku-part:` d'une édition qui
+  déplace des slides n'ont pas de cran, celui de son commit final les
+  contient. Repères au début de chaque session et à chaque fusion (une
+  édition dont un commit réunit des branches). ←/→ : un cran ; ⇧←/⇧→ : une
+  session. Pas de bulle
+  sur le pouce du curseur : l'étiquette du bandeau suit le curseur pendant
+  le glissement (auteur, heure, libellé) et en tient lieu.
 - **Bandeau** : « Version du … · auteur · libellé », **Restaurer**,
   **Revenir**.
 - **Pile** : slides ajoutées, supprimées, modifiées par rapport au deck
-  courant (`doc.diff`, conteneur modifié → sa slide).
-- **Rendu** : `preview` est un fork fait à l'entrée ; `checkout` d'un cran
-  à l'autre. Pendant le glissement, seul le dernier cran demandé est rendu
-  (patron de `ui/src/latest.ts`) ; le cache SVG par empreinte évite de
-  redessiner les pages inchangées.
-- **Restaurer** : `revert_to(frontiers)`, un **nouveau** commit « Restaurer
-  la version du … », annulable.
+  courant — comparaison des slides par `id` entre la version montrée et le
+  deck courant (`slide_changes`, tous deux déjà lus), pas `doc.diff` : même
+  résultat, sans remonter des conteneurs Loro aux slides.
+- **Rendu** : l'aperçu (`HistoryPreview`) est un fork fait à l'entrée ;
+  `checkout` d'un cran à l'autre. Pendant le glissement, seul le dernier
+  cran demandé est rendu (patron de `ui/src/latest.ts`) ; le cache SVG par
+  empreinte évite de redessiner les pages inchangées. Mesuré (tâche 3,
+  `oku-slides bench fixtures/roadmap.json --iterations 20`, 50 modifications
+  de titre, lecture + rendu par cran) : 5,3 ms en moyenne, p50 5,3 ms — sous
+  le seuil de ~100 ms, le rendu se fait donc pendant le glissement, sans
+  vignette basse résolution.
+- **Restaurer** : le deck de la version (`deck_at`, celui que l'aperçu
+  montre) est appliqué comme toute édition — inscription de l'auteur, puis
+  `apply(deck, « Restaurer la version du … »)` : une seule nouvelle étape
+  annulable (un seul cran, même à travers un réordonnancement), dont le
+  résultat est exactement cette version.
+  Écart à la conception initiale (`revert_to(frontiers)`) : sur la liste
+  `slides` (`LoroMovableList`, dont les slides sont déplacées par `mov`),
+  `revert_to` perdait des slides ou échouait (`ContainerDeleted`) dès
+  qu'un déplacement suivait la version visée. La réconciliation n'écrit que
+  la racine `deck` : la map `peers` n'est pas touchée, les noms des
+  sessions plus récentes restent. Tout ou rien : Loro n'annule pas un
+  commit, et `apply`, qui committe avant chaque `mov`, n'est pas atomique ;
+  la réconciliation est donc d'abord essayée sous garde sur une copie ; un échec laisse le replica égal à sa vue, rien en
+  attente. Une version lue en partie est restaurée telle que lue (comme à
+  l'ouverture ou à la fusion), ses parties illisibles journalisées. Restaurer
+  la version courante ne fait aucun commit. `$date` est le timestamp de la
+  version restaurée, à l'heure locale (repli UTC), AAAA-MM-JJ HH:MM.
 - **Requêtes** : `HistoryOpen`, `HistorySeek { index }`, `HistoryRestore`,
-  `HistoryClose`.
+  `HistoryClose`, `HistoryVersions` (la liste complète des versions part une
+  fois ; le snapshot d'un cran ne porte que son index, sa version et ses
+  changements de slides).
+- **Dictée** : reste montée pendant l'historique ; un texte dicté suit le
+  chemin normal d'écriture et reçoit le refus `InHistory` de la session,
+  affiché (pas de perte silencieuse, micro visible et arrêtable).
 
 ## Erreurs
 
@@ -350,11 +389,24 @@ s'affiche en lecture seule.
 |---|---|---|
 | `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Write` ; `Unrelated` avec la fusion |
 | `oku-slides-core::sources` | `SourcesError` | existants ; `MissingDeck` couvre l'absence de `deck.loro` |
-| `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen` (mode historique, plan 3) |
+| `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen`, `InHistory` (mode historique, plan 3) |
 
 - **`MergeUnrelated`** reprend le message existant `replica-unrelated`
   (« ces deux présentations n'ont pas d'origine commune ») : pas de nouvelle
   clé Fluent.
+- **`HistoryNotOpen`** : une requête d'historique (`HistorySeek`,
+  `HistoryRestore`, `HistoryClose`, `HistoryVersions`) hors du mode
+  historique. **`InHistory`** : modifier, enregistrer ou fusionner pendant
+  que l'historique est ouvert.
+- **Lire une version** (`HistoryPreview::deck_at`) peut échouer
+  (`ReplicaError`) ; côté session, cette variante interne se mappe sur le
+  `kind` existant `InvalidDocument`, sans nouveau `kind` ni nouvelle clé
+  Fluent — même famille d'erreurs que « sources ou deck illisibles ».
+  Le retour à la version (`checkout`) et sa lecture sont gardés
+  (`catch_unwind`) ; après une panique, l'aperçu est empoisonné et toute
+  lecture suivante échoue. Un parcours ou une restauration qui échoue
+  laisse l'historique ouvert, le deck mis de côté intact, images et polices
+  dans l'aperçu.
 - **`DiskReplaced` n'est pas une erreur.** Les erreurs de session n'arrivent
   à l'UI que sous forme de texte déjà traduit (`state.refuse` → `localize`),
   qui ne se distingue pas d'un autre message ; or l'UI doit réagir
@@ -386,15 +438,54 @@ Les scénarios du spike sont les premiers tests rouges.
   `Corrupted` / `TooLarge`, jamais de panique.
 - **`oku-slides-pdf`** : aller-retour v2 ; blob v1 → `Ok(None)` ; v3 →
   `UnsupportedVersion`.
+- **`replica/history_tests.rs`** (cœur) : ordre (création, puis un cran par
+  édition, libellé et auteur) ; un réordonnancement de plusieurs slides
+  (plusieurs *changes*) fait un seul cran, à l'état d'après ; début de session au premier cran d'un pair,
+  création comprise (ruling 1) ; `deck_at` lit l'état après chaque version ;
+  une fusion marque son cran et chaque préfixe avant elle garde les deux
+  branches concurrentes (pas seulement les ancêtres du dernier changement) ;
+  restaurer = un nouveau commit annulable (`undo` ramène l'ancien titre) ;
+  restaurer garde les auteurs des sessions plus récentes ; restaurer sans
+  édition préalable ne laisse pas de cran parasite sans libellé ;
+  restaurer rend exactement `deck_at(i)` (nombre de slides compris), sous
+  le libellé donné, `undo` revenant au deck d'avant — après un déplacement
+  de slide, après suppression puis déplacement (chaque version antérieure),
+  après un aller-retour par le zip ; après suppression puis échange de deux
+  slides, chaque version antérieure est rendue exactement ; restaurer à
+  travers un échange de slides s'annule sans perte et fait un seul cran ; un aperçu
+  empoisonné fait échouer la restauration sans rien laisser en attente ;
+  `slide_changes` compare des slides par `id` (ajoutée, supprimée,
+  modifiée).
 - **Session** : rendu raté → replica intact ; libellés d'annulation ;
   reprise sans pile d'annulation ; fusion à l'ouverture et à
   l'enregistrement (fichier remplacé : `Saved::DiskReplaced`, indicateur
-  `disk_replaced`) ; mode historique (ouvrir, `seek`, restaurer = nouveau
-  commit, fermer).
-- **UI (Bun)** : ordre et repères du curseur ; rendu du dernier cran
-  pendant le glissement.
-- **Mesure au plan** : coût d'un rendu en mode historique ; au-delà de
-  ~100 ms, vignette basse résolution pendant le glissement.
+  `disk_replaced`) ; mode historique — `tests/history.rs` : ouvrir montre la
+  dernière version en lecture seule et refuse une édition (`InHistory`) ;
+  `seek` montre une version antérieure, borne au-delà de la dernière, marque
+  les slides ajoutées depuis la première version ; fermer revient au deck
+  courant intact (thème, `dirty`, pile d'annulation) ; restaurer = un
+  nouveau commit annulable, `undo` y revient ; les requêtes d'historique
+  hors du mode renvoient `HistoryNotOpen` ; dans le mode, éditer,
+  enregistrer, fusionner, ouvrir ou éditer les modèles renvoient `InHistory`
+  sans rien changer ; `history_versions` liste les libellés dans l'ordre ;
+  images et polices traversent ouvrir/parcourir/fermer et
+  ouvrir/parcourir/restaurer sans perte ; la barre de l'onglet ne change pas
+  pendant l'historique ; `history_tests.rs` : un parcours vers une version
+  dont le rendu échoue (`Render`) garde la version montrée, images et
+  polices dans l'aperçu ; une restauration qui échoue (aperçu empoisonné,
+  `InvalidDocument`) garde l'historique ouvert et le deck mis de côté égal
+  à la relecture de son replica.
+- **UI (Bun, `history.test.ts`)** : `markers` place un repère à chaque début
+  de session et à chaque fusion ; `step` avance d'un cran (borné) ou, avec
+  ⇧, jusqu'au début de session précédent ou suivant ; `pileMarks` marque les
+  slides supprimées et modifiées, pas les ajoutées ; `Seeker` n'affiche que
+  la réponse du cran demandé en dernier (les réponses dépassées, arrivées
+  après, sont ignorées) et `cancel` fait qu'une réponse encore en vol ne
+  s'affiche plus après coup (Revenir, Restaurer).
+- **Mesure au plan (tâche 3)** : coût d'un rendu en mode historique — lu en
+  tâche 3 (`oku-slides bench`, 50 modifications de titre) à 5,3 ms en
+  moyenne, p50 5,3 ms, sous le seuil de ~100 ms : décision et détail en
+  « Mode historique ».
 
 ## Limites connues
 
@@ -418,6 +509,12 @@ Les scénarios du spike sont les premiers tests rouges.
   (`oku_slides_pdf::strip_sources`), pour l'instant en ligne de commande
   seulement.
 - La pile d'annulation est perdue au relancement (recul sur t-145).
+- Les commits silencieux (canonicalisation au chargement, enregistrement
+  de modèles) apparaissent dans l'historique comme des crans sans libellé.
+- Mode historique : un cran d'un autre pair, concurrent d'un
+  réordonnancement et classé (Lamport, pair) entre ses commits
+  intermédiaires, montre ce réordonnancement à moitié fait. Le cran de
+  l'édition elle-même, et tous ceux d'après, sont complets.
 - Les PDF v1 ne s'ouvrent plus.
 - Le décodeur de Loro lui-même peut faire déborder la pile sur un snapshot
   forgé, avec une valeur plate imbriquée sur des dizaines de milliers de
@@ -431,5 +528,11 @@ Les scénarios du spike sont les premiers tests rouges.
   les deux peut laisser un replica neuf à côté d'un `document.json`
   d'avant (`dirty` / `saved_hash` périmés). L'ancien format n'écrivait
   qu'un seul fichier.
+- Un pair qui annule sa première édition apparaît anonyme dans l'historique
+  (son seul commit, celui qui portait son nom dans `peers`, disparaît).
+- L'heure affichée dans l'historique est celle de la machine de l'auteur,
+  jamais recalée : deux pairs aux horloges décalées peuvent voir des heures
+  qui ne concordent pas avec l'ordre des versions (l'ordre lui-même reste
+  correct, voir « Mode historique »).
 
 Les trois premiers points sont des reculs assumés, à consigner dans un ADR.

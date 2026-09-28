@@ -18,6 +18,8 @@ session-single-document = Ở đây chỉ có thể mở một bản trình bày
 session-last-window = Cửa sổ cuối cùng vẫn được giữ mở: thay vào đó, hãy thoát ứng dụng.
 session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }
+session-history-not-open = Lịch sử chưa được mở
+session-in-history = Hãy đóng lịch sử trước khi thay đổi bản trình bày
 session-agent-form = Yêu cầu của tác nhân không hợp lệ: { $reason }
 
 deck-untitled = Không có tiêu đề
@@ -27,6 +29,7 @@ deck-new-slide-text = Hãy nói điều bạn muốn trình bày.
 templates-default-name = Mẫu của tôi
 templates-copy-name = { $name } (bản sao)
 template-default-name = Mẫu
+history-restore-label = Khôi phục phiên bản lúc { $date }
 notice-merged = Đã hợp nhất với { $file } — số thay đổi đã nhập: { $count } ({ $authors }).
 notice-merged-anonymous = Đã hợp nhất với { $file } — số thay đổi đã nhập: { $count }.
 notice-same-deck-open = Bản trình bày này đã mở trong thẻ “{ $title }”. Để gộp hai bản, hãy dùng “Hợp nhất với PDF…” trong thẻ đó.

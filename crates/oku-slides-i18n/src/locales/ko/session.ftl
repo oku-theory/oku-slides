@@ -18,6 +18,8 @@ session-single-document = 여기서는 프레젠테이션을 하나만 열 수 �
 session-last-window = 마지막 창은 열린 상태로 유지됩니다. 대신 앱을 종료하세요.
 session-unsaved = “{ $title }”에 저장하지 않은 변경 사항이 있습니다.
 session-bad-request = 잘못된 요청입니다: { $reason }
+session-history-not-open = 기록이 열려 있지 않습니다
+session-in-history = 프레젠테이션을 변경하기 전에 기록을 닫으세요
 session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
 
 deck-untitled = 제목 없음
@@ -27,6 +29,7 @@ deck-new-slide-text = 보여 주고 싶은 내용을 입력하세요.
 templates-default-name = 내 템플릿
 templates-copy-name = { $name } (사본)
 template-default-name = 템플릿
+history-restore-label = { $date } 버전 복원
 notice-merged = { $file }과(와) 병합했습니다 — 가져온 변경: { $count }({ $authors }).
 notice-merged-anonymous = { $file }과(와) 병합했습니다 — 가져온 변경: { $count }.
 notice-same-deck-open = 이 프레젠테이션은 이미 “{ $title }” 탭에 열려 있습니다. 합치려면 그 탭에서 “PDF와 병합…”을 사용하세요.

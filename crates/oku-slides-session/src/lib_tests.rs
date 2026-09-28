@@ -169,6 +169,7 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "ui", "slide": null, "grid": false }),
         json!({ "cmd": "save_templates" }),
         json!({ "cmd": "delete_template_set", "set": "x" }),
+        json!({ "cmd": "history_versions" }),
     ];
     let changing: Vec<_> = reads
         .into_iter()
@@ -188,6 +189,10 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "edit_templates", "set": "x" }),
         json!({ "cmd": "close_templates" }),
         json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
+        json!({ "cmd": "history_open" }),
+        json!({ "cmd": "history_seek", "index": 0 }),
+        json!({ "cmd": "history_restore" }),
+        json!({ "cmd": "history_close" }),
     ];
     let kept: Vec<_> = edits
         .into_iter()

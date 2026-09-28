@@ -623,3 +623,40 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .tab-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }
 .tab-menu button:hover:not(:disabled) { background: var(--shade); }
 .tab-menu button:disabled { color: var(--ink-muted); }
+
+/* ---- Historique : bandeau, curseur des versions, marques de la pile ---- */
+.history-bar {
+  grid-row: 1; grid-column: 1 / -1; align-self: center; position: relative; z-index: 2; margin-inline: var(--space-6);
+  display: grid; grid-template-columns: minmax(180px, auto) minmax(200px, 1fr) auto; align-items: center; gap: var(--space-6);
+  padding: 10px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
+  box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
+}
+.history-version { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.history-title { font: 500 16px/22px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-version .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-actions { display: flex; gap: var(--space-2); }
+.history-track { --thumb: 16px; position: relative; padding-top: 12px; }
+.history-marks { position: absolute; inset: 0 0 auto; height: 12px; pointer-events: none; }
+.history-mark { position: absolute; top: 2px; left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at)); transform: translateX(-50%); }
+.history-mark.session { width: 1px; height: 9px; background: var(--ink-muted); }
+.history-mark.merge { top: 1px; width: 7px; height: 7px; background: var(--accent-fill); transform: translateX(-50%) rotate(45deg); border-radius: 1px; }
+.history-range { display: block; width: 100%; height: var(--thumb); margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.history-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--rule); }
+.history-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--rule); }
+.history-range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: var(--thumb); height: var(--thumb); margin-top: calc(2px - var(--thumb) / 2); border-radius: 50%;
+  background: var(--accent-fill); border: 2px solid var(--paper-200); box-shadow: var(--shadow-object);
+}
+.history-range::-moz-range-thumb {
+  width: var(--thumb); height: var(--thumb); border-radius: 50%; box-sizing: border-box;
+  background: var(--accent-fill); border: 2px solid var(--paper-200); box-shadow: var(--shadow-object);
+}
+.history-range:focus-visible { outline: none; }
+.history-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent); }
+.history-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent); }
+/* Lecture seule : la scène ne se sélectionne ni ne s'édite. */
+.sheet-area.read-only .overlay { pointer-events: none; }
+.thumb-body { position: relative; }
+.thumb-mark { position: absolute; top: 6px; inset-inline-end: 6px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--paper-200); }
+.thumb-mark.removed { background: var(--danger); }
+.thumb-mark.changed { background: var(--accent-fill); }

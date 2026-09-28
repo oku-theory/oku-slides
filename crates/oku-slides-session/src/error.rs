@@ -58,6 +58,10 @@ pub enum SessionErrorKind {
     Unsaved,
     /// Fusion refusée : ce PDF est une autre présentation.
     MergeUnrelated,
+    /// Requête qui demande l'historique ouvert.
+    HistoryNotOpen,
+    /// Modifier, enregistrer ou fusionner pendant que l'historique est ouvert.
+    InHistory,
 }
 
 #[derive(Debug, Snafu)]
@@ -115,6 +119,12 @@ pub(crate) enum SessionInner {
     Unsaved { title: String, backtrace: Backtrace },
     #[snafu(display("cannot merge another presentation"))]
     MergeUnrelated { source: oku_slides_core::SourcesError, backtrace: Backtrace },
+    #[snafu(display("the history is not open"))]
+    HistoryNotOpen { backtrace: Backtrace },
+    #[snafu(display("close the history first"))]
+    InHistory { backtrace: Backtrace },
+    #[snafu(display("unreadable version"))]
+    Version { source: oku_slides_core::ReplicaError, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -123,7 +133,9 @@ impl SessionError {
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
-            Pdf { .. } | Sources { .. } | DeckJson { .. } | TemplateJson { .. } => SessionErrorKind::InvalidDocument,
+            Pdf { .. } | Sources { .. } | DeckJson { .. } | TemplateJson { .. } | Version { .. } => {
+                SessionErrorKind::InvalidDocument
+            }
             Op { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
@@ -142,6 +154,8 @@ impl SessionError {
             SingleDocument { .. } => SessionErrorKind::SingleDocument,
             Unsaved { .. } => SessionErrorKind::Unsaved,
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
+            HistoryNotOpen { .. } => SessionErrorKind::HistoryNotOpen,
+            InHistory { .. } => SessionErrorKind::InHistory,
         }
     }
 
@@ -205,6 +219,9 @@ impl Localize for SessionError {
             SingleDocument { .. } => l.tr("session-single-document"),
             Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),
             MergeUnrelated { .. } => l.tr("replica-unrelated"),
+            HistoryNotOpen { .. } => l.tr("session-history-not-open"),
+            InHistory { .. } => l.tr("session-in-history"),
+            Version { source, .. } => source.localize(l),
         }
     }
 }

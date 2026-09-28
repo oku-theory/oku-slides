@@ -23,6 +23,7 @@ cli-bench-pdf = PDF 导出                  { $time }  ({ $size } KB)
 cli-bench-embed = 嵌入源文件数据块          { $time }
 cli-bench-extract = 读回数据块                { $time }
 cli-bench-roundtrip = 演示文稿往返              一致
+cli-bench-history = 历史步骤                  平均 { $mean } ms，p50 { $p50 } ms
 cli-serving = Oku Slides（开发）运行于 http://{ $host }:{ $port }
 cli-models-dir = 听写模型：{ $dir }
 cli-stopped = 服务器已停止

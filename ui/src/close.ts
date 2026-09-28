@@ -7,12 +7,14 @@ import { type AskReplaced, type PickSavePath, saveGuarded } from "./merge";
 /**
  * Enregistre un onglet avant de le fermer ; `false` : renoncé.
  *
- * L'ensemble de modèles en cours d'abord (puis le deck retrouvé), le deck
- * ensuite ; seul un fichier remplacé par un autre deck pose une question
+ * L'historique se ferme d'abord (la version montrée ne s'écrit jamais) ;
+ * l'ensemble de modèles en cours ensuite (puis le deck retrouvé), le deck
+ * enfin ; seul un fichier remplacé par un autre deck pose une question
  * (`ask` et `pick`, injectables pour les tests).
  */
 export async function saveForClose(api: TabApi, pick: PickSavePath = pickSavePath, ask?: AskReplaced): Promise<boolean> {
   let s = await api.snapshot();
+  if (s.history && s.dirty) s = await api.historyClose();
   if (s.editing) {
     if (s.dirty) s = await api.saveTemplates(false);
     s = await api.closeTemplates();

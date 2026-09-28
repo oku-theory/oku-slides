@@ -18,6 +18,8 @@ session-single-document = Qui può essere aperta una sola presentazione.
 session-last-window = L'ultima finestra resta aperta: esci invece dall'applicazione.
 session-unsaved = «{ $title }» ha modifiche non salvate.
 session-bad-request = Richiesta non valida: { $reason }
+session-history-not-open = La cronologia non è aperta
+session-in-history = Chiudi la cronologia prima di modificare la presentazione
 session-agent-form = La richiesta dell'agente non è valida: { $reason }
 
 deck-untitled = Senza titolo
@@ -27,6 +29,7 @@ deck-new-slide-text = Di’ cosa vuoi mostrare.
 templates-default-name = I miei modelli
 templates-copy-name = { $name } (copia)
 template-default-name = Modello
+history-restore-label = Ripristina la versione del { $date }
 notice-merged = Unito con { $file } — modifiche importate: { $count } ({ $authors }).
 notice-merged-anonymous = Unito con { $file } — modifiche importate: { $count }.
 notice-same-deck-open = Questa presentazione è già aperta nella scheda «{ $title }». Per unirle, usa «Unisci con un PDF…» in quella scheda.

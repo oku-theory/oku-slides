@@ -33,6 +33,8 @@ import { useQuickKeys } from "./agent/useQuickKeys";
 import { EMPTY_THREAD, threadReducer } from "./agent/thread";
 import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
+import HistoryBar, { useHistoryCursor } from "./HistoryBar";
+import { pileMarks } from "./history";
 
 const Icon = {
   undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
@@ -184,6 +186,19 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     if (notice) say(notice, true);
   }, [notice]);
 
+  // --- Historique (lecture seule) -------------------------------------------
+  // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
+  const cursor = useHistoryCursor(api, snap?.history ?? null, (s) => run(Promise.resolve(s)), (e) => say(errorText(e), true));
+  const openHistory = async () => {
+    // Ce qui attend s'enregistre avant : l'historique refuse d'écrire, le deck
+    // mis de côté ne repart au fichier qu'à sa fermeture.
+    await autosave.flush();
+    if (await run(api.historyOpen())) {
+      setSelected(null);
+      setEditing(null);
+    }
+  };
+
   // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
   // (fichier reçu qui n'a pas pu s'ouvrir) n'attend pas la prochaine édition.
   useEffect(() => {
@@ -233,7 +248,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   const clip = useRef<{ element: Element; text: string } | null>(null);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || !view || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
+    const skip = (e: ClipboardEvent) => editing || picking || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected || selected.startsWith("@")) return false;
       const element = findElement(view.slide, selected);
@@ -514,6 +529,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
       if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
       const mod = e.metaKey || e.ctrlKey;
+      if (snap?.history) {
+        // Lecture seule : ← / → (⇧ : par session) parcourent les versions ;
+        // les raccourcis d'édition, qui prennent aussi les flèches, sont inertes.
+        if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !mod && !e.altKey) {
+          e.preventDefault();
+          cursor.arrow(e.key, e.shiftKey);
+        }
+        return;
+      }
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         run(e.shiftKey ? api.redo() : api.undo());
@@ -691,6 +715,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
         { kind: "item", label: t("ui-toolbar-templates"), onSelect: editTemplates },
+        { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         gridEntry,
         { kind: "separator" },
@@ -698,9 +723,20 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       ];
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
+  // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
+  const history = snap.history;
+  const noop = () => {};
 
   return (
     <div className="table">
+      {history ? (
+        <HistoryBar
+          history={history}
+          cursor={cursor}
+          onRestore={() => { cursor.cancel(); run(api.historyRestore()); }}
+          onBack={() => { cursor.cancel(); run(api.historyClose()); }}
+        />
+      ) : (<>
       {/* Étiquette du document, posée sur la table. */}
       <header className={`label object${snap.editing ? " editing-templates" : ""}`}>
         <span className="brand">{t(snap.editing ? "ui-brand-templates" : "ui-brand")}</span>
@@ -741,6 +777,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         {snap.editing && <button className="object btn" onClick={finishTemplates}>{t("ui-toolbar-finish")}</button>}
         <ActionMenu label={t("ui-menu")} entries={menuEntries} />
       </div>
+      </>)}
 
       {/* Pile de slides, à gauche. */}
       <SlidePile
@@ -750,25 +787,26 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         names={snap.editing ? templateNames : undefined}
         label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
         addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
+        marks={history ? pileMarks(history.changes) : undefined}
         onSelect={(id) => { setCurrent(id); setSelected(null); setEditing(null); }}
-        onMove={moveSlide}
-        onAdd={addSlide}
+        onMove={history ? undefined : moveSlide}
+        onAdd={history ? undefined : addSlide}
         removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
         canRemove={canRemoveSlide(snap.slides.length)}
-        onRemove={removeSlide}
+        onRemove={history ? undefined : removeSlide}
       />
 
       {/* La feuille, posée au centre. */}
-      <main className="sheet-area">
+      <main className={`sheet-area${history ? " read-only" : ""}`}>
         {view && view.slide.id === current ? (
           <Stage
             view={view}
             svgUrl={cur ? svg(cur.id, cur.hash) : null}
-            selected={selected}
-            editing={editing}
-            onSelect={setSelected}
-            onEdit={setEditing}
-            onApply={apply}
+            selected={history ? null : selected}
+            editing={history ? null : editing}
+            onSelect={history ? noop : setSelected}
+            onEdit={history ? noop : setEditing}
+            onApply={history ? noop : apply}
             dictated={dictated}
             showGridAlways={gridAlways}
             overlay={
@@ -788,7 +826,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {view && selectedElement?.kind === "chart" && (
+        {view && !history && selectedElement?.kind === "chart" && (
           <ChartPanel
             slide={view.slide.id}
             element={selectedElement}
@@ -831,6 +869,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </aside>
 
       {/* Appareil de dictée, posé devant la feuille. */}
+      {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}
       <Dictation
         destination={destination}
         prompt={whisperPrompt}

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{Slide, SlideKind};
+use oku_slides_core::{Slide, SlideChanges, SlideKind, Version};
 use oku_slides_render::{ElementBox, TextStyle, ZoneBox};
 
 use crate::appearance::Appearance;
@@ -71,6 +71,20 @@ pub struct Snapshot<'a> {
     pub editing: Option<&'a TemplateMode>,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
+    /// Historique ouvert : la version montrée, en lecture seule.
+    pub history: Option<HistoryView<'a>>,
+}
+
+/// La version que montre l'historique, et ce qui a changé depuis.
+#[derive(Debug, Serialize)]
+pub struct HistoryView<'a> {
+    /// Cran montré, de `0` à `count - 1` (la version la plus récente).
+    pub index: usize,
+    /// Nombre de versions (la liste complète : `history_versions`).
+    pub count: usize,
+    pub version: &'a Version,
+    /// Slides de cette version comparées au deck courant.
+    pub changes: &'a SlideChanges,
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante et grille.

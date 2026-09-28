@@ -23,6 +23,7 @@ cli-bench-pdf = PDF dışa aktarımı                { $time }  ({ $size } KB)
 cli-bench-embed = kaynak blob'unu gömme           { $time }
 cli-bench-extract = blob'u geri okuma               { $time }
 cli-bench-roundtrip = sunu gidiş-dönüşü              aynı
+cli-bench-history = geçmiş adımı                  ortalama { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) adresi: http://{ $host }:{ $port }
 cli-models-dir = dikte modelleri: { $dir }
 cli-stopped = sunucu durduruldu

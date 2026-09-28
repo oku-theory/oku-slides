@@ -18,6 +18,8 @@ session-single-document = 此處只能開啟一個簡報。
 session-last-window = 最後一個視窗會保持開啟：請改為結束應用程式。
 session-unsaved = 「{ $title }」有未儲存的變更。
 session-bad-request = 要求無效：{ $reason }
+session-history-not-open = 歷程記錄未開啟
+session-in-history = 請先關閉歷程記錄再修改簡報
 session-agent-form = 代理的請求無效：{ $reason }
 
 deck-untitled = 未命名
@@ -27,6 +29,7 @@ deck-new-slide-text = 寫下你想呈現的內容。
 templates-default-name = 我的範本
 templates-copy-name = { $name }（副本）
 template-default-name = 範本
+history-restore-label = 還原 { $date } 的版本
 notice-merged = 已與 { $file } 合併 — 匯入的變更：{ $count }（{ $authors }）。
 notice-merged-anonymous = 已與 { $file } 合併 — 匯入的變更：{ $count }。
 notice-same-deck-open = 此簡報已在分頁「{ $title }」中開啟。若要合併，請在該分頁使用「與 PDF 合併…」。

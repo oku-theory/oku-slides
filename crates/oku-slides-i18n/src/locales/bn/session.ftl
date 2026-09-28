@@ -18,6 +18,8 @@ session-single-document = এখানে কেবল একটি উপস্
 session-last-window = শেষ উইন্ডোটি খোলা থাকে: এর বদলে অ্যাপটি বন্ধ করুন।
 session-unsaved = “{ $title }”-এ অসংরক্ষিত পরিবর্তন আছে।
 session-bad-request = অবৈধ অনুরোধ: { $reason }
+session-history-not-open = ইতিহাস খোলা নেই
+session-in-history = উপস্থাপনা পরিবর্তনের আগে ইতিহাস বন্ধ করুন
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 
 deck-untitled = শিরোনামহীন
@@ -27,6 +29,7 @@ deck-new-slide-text = আপনি কী দেখাতে চান তা �
 templates-default-name = আমার টেমপ্লেট
 templates-copy-name = { $name } (কপি)
 template-default-name = টেমপ্লেট
+history-restore-label = { $date }-এর সংস্করণ পুনরুদ্ধার করুন
 notice-merged = { $file }-এর সঙ্গে একত্র করা হয়েছে — আমদানি করা পরিবর্তন: { $count } ({ $authors })।
 notice-merged-anonymous = { $file }-এর সঙ্গে একত্র করা হয়েছে — আমদানি করা পরিবর্তন: { $count }।
 notice-same-deck-open = এই উপস্থাপনাটি ইতিমধ্যে “{ $title }” ট্যাবে খোলা আছে। দুটি একত্র করতে সেখানে “PDF-এর সঙ্গে একত্র করুন…” ব্যবহার করুন।

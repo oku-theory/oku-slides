@@ -18,6 +18,8 @@ session-single-document = Hier kann nur eine Präsentation geöffnet sein.
 session-last-window = Das letzte Fenster bleibt geöffnet: Beenden Sie stattdessen die App.
 session-unsaved = „{ $title }“ hat nicht gespeicherte Änderungen.
 session-bad-request = Ungültige Anfrage: { $reason }
+session-history-not-open = Der Verlauf ist nicht geöffnet
+session-in-history = Schließen Sie den Verlauf, bevor Sie die Präsentation ändern
 session-agent-form = Die Anfrage des Agenten ist ungültig: { $reason }
 
 deck-untitled = Ohne Titel
@@ -27,6 +29,7 @@ deck-new-slide-text = Beschreiben, was gezeigt werden soll.
 templates-default-name = Meine Vorlagen
 templates-copy-name = { $name } (Kopie)
 template-default-name = Vorlage
+history-restore-label = Version vom { $date } wiederherstellen
 notice-merged = Mit { $file } zusammengeführt – übernommene Änderungen: { $count } ({ $authors }).
 notice-merged-anonymous = Mit { $file } zusammengeführt – übernommene Änderungen: { $count }.
 notice-same-deck-open = Diese Präsentation ist bereits im Tab „{ $title }“ geöffnet. Um beide zu vereinen, verwenden Sie dort „Mit PDF zusammenführen…“.

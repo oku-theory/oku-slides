@@ -18,6 +18,8 @@ session-single-document = यहाँ केवल एक प्रस्तु
 session-last-window = आख़िरी विंडो खुली रहती है: इसके बजाय ऐप बंद करें।
 session-unsaved = “{ $title }” में बिना सहेजे बदलाव हैं।
 session-bad-request = अमान्य अनुरोध: { $reason }
+session-history-not-open = इतिहास खुला नहीं है
+session-in-history = प्रस्तुति बदलने से पहले इतिहास बंद करें
 session-agent-form = एजेंट का अनुरोध अमान्य है: { $reason }
 
 deck-untitled = बिना शीर्षक
@@ -27,6 +29,7 @@ deck-new-slide-text = बताइए कि आप क्या दिखान
 templates-default-name = मेरे टेम्पलेट
 templates-copy-name = { $name } (कॉपी)
 template-default-name = टेम्पलेट
+history-restore-label = { $date } का संस्करण पुनर्स्थापित करें
 notice-merged = { $file } के साथ मिलाया गया — आयात किए गए बदलाव: { $count } ({ $authors })।
 notice-merged-anonymous = { $file } के साथ मिलाया गया — आयात किए गए बदलाव: { $count }।
 notice-same-deck-open = यह प्रस्तुति पहले से टैब “{ $title }” में खुली है। दोनों को मिलाने के लिए वहाँ “PDF के साथ मिलाएँ…” का उपयोग करें।

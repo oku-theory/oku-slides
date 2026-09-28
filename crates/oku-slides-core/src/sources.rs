@@ -24,7 +24,7 @@ use crate::error::{
     SourcesInner, TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
 };
 use crate::model::Deck;
-use crate::replica::{DeckRead, DeckReplica};
+use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
 use crate::validate::Issue;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
@@ -57,7 +57,7 @@ pub fn asset_id(bytes: &[u8]) -> String {
 pub struct SourceBundle {
     replica: DeckReplica,
     /// Vue matérialisée du replica, égale à sa relecture : jamais modifiée hors
-    /// de `apply`, `apply_silent`, `undo`, `redo`.
+    /// de `apply`, `apply_silent`, `undo`, `redo`, `restore`, `merge`.
     deck: Deck,
     /// Assets par identifiant (`sha256:…`), en ajout seul.
     pub assets: BTreeMap<String, Vec<u8>>,
@@ -227,6 +227,30 @@ impl SourceBundle {
     /// Nombre maximal d'étapes d'annulation conservées ; `0` vaut `1`.
     pub fn set_undo_limit(&mut self, steps: usize) {
         self.replica.set_undo_limit(steps);
+    }
+
+    /// Les versions du deck, lisibles sur une copie.
+    pub fn history(&self) -> HistoryPreview {
+        self.replica.history()
+    }
+
+    /// Ramène le deck à la version `index` de `preview` (bornée à la
+    /// dernière), par un nouveau commit annulable `label` : le deck devient
+    /// exactement `preview.deck_at(index)`. Un historique vide ne change rien.
+    ///
+    /// Comme à l'ouverture ou à la fusion, une version lue en partie est
+    /// restaurée telle qu'elle a été lue (celle que l'aperçu a montrée) ; ce
+    /// qui n'a pas pu être lu est rendu. En cas d'échec, le replica et la vue
+    /// sont intacts, sans rien en attente ([`DeckReplica::restore`]).
+    pub fn restore(&mut self, preview: &HistoryPreview, index: usize, label: &str) -> Result<Vec<Issue>, SourcesError> {
+        if preview.is_empty() {
+            return Ok(Vec::new());
+        }
+        let (deck, issues) = preview.deck_at(index).context(ReplicaSnafu)?;
+        self.replica.restore(&deck, label).context(ReplicaSnafu)?;
+        self.deck = deck;
+        self.debug_assert_view_matches_replica();
+        Ok(issues)
     }
 
     /// Fusionne `other` : son historique, puis ses assets et polices (à nom égal,

@@ -8,6 +8,9 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
 
 - `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son replica Loro (annulation par
   `UndoManager`, non persistée), ses modèles, sa reprise (`resume.rs`, fil `resume_writer.rs`).
+  `Mode::{Templates, History}` mettent le deck de côté (`stash`), même patron : `templates_mode.rs`,
+  `history.rs` (`HistoryOpen/Seek/Restore/Close/Versions` sur un `HistoryPreview` du cœur ;
+  restaurer = un commit annulable ; refus `HistoryNotOpen` / `InHistory`, dictée et agent compris).
 - `merge.rs` : fusion d'un autre PDF du même deck (`merge_file`) et enregistrement gardé
   (`save_checked`) : même deck changé sur disque → fusion puis écriture, autre deck → refusé.
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`,
@@ -18,10 +21,8 @@ serveur de développement (`oku-slides-cli`, `serve`) exposent la même API.
   (`TabInfo.deck_uid`) ; `post_notice` y pose l'avis d'un fichier ouvert à part par l'OS.
 - `paragraphs_to_text` (`text.rs`, inline dans `inline.rs`) : markdown d'édition
   relu par `@lezer/markdown` ; contrat `fixtures/markdown.json` et `-corpus.json` (`UPDATE_CORPUS=1`).
-- `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; l'espace de travail
-  l'implémente par `Workspace::with_session`, `open_elsewhere` et `open_beside`
-  (`workspace_agent.rs` : `impl Sessions for Mutex<Workspace>`).
-  Un tour de l'agent est un groupe d'annulation du replica (`begin_turn` / `end_turn`).
+- `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente
+  (`with_session`, `open_elsewhere`, `open_beside`). Un tour = un groupe d'annulation (`begin_turn`).
 
 ## Verrous
 
@@ -39,9 +40,8 @@ tabs/t-<n>/      state.json, deck/, templates/   (écrit par sa session seule)
 deck/            deck.loro, document.json { path, dirty, saved_hash, blank }, assets/, fonts/
 ```
 
-- Création : dossier de l'onglet d'abord, `workspace.json` ensuite ; fermeture : l'inverse. Un orphelin est supprimé au lancement suivant.
-- `workspace.json` n'est pas digne de confiance : identifiants validés, infos lues entrée par entrée, compteurs bornés. Illisible : tout `resume/` mis
-  de côté (`resume.failed-…`) ; un onglet illisible : son dossier seul (`t-<n>.failed-…`). Au lancement, seuls les `resume.keep_failed` plus récents restent.
+- Création : dossier de l'onglet d'abord, `workspace.json` ensuite ; fermeture : l'inverse (orphelin supprimé au lancement suivant).
+- `workspace.json` n'est pas digne de confiance : identifiants validés, infos lues entrée par entrée, compteurs bornés. Illisible : tout `resume/` mis de côté (`resume.failed-…`) ; un onglet illisible : son dossier seul (`t-<n>.failed-…`). Au lancement, seuls les `resume.keep_failed` plus récents restent.
 - Restauration paresseuse : la barre vient de `info`, une session n'est relue qu'à la première requête de son onglet (ADR-0001).
 
 ## Dépendances

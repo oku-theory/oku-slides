@@ -18,6 +18,8 @@ session-single-document = Тут можна відкрити лише одну �
 session-last-window = Останнє вікно залишається відкритим: натомість закрийте застосунок.
 session-unsaved = У «{ $title }» є незбережені зміни.
 session-bad-request = Недопустимий запит: { $reason }
+session-history-not-open = Історію не відкрито
+session-in-history = Закрийте історію, перш ніж змінювати презентацію
 session-agent-form = Запит агента недійсний: { $reason }
 
 deck-untitled = Без назви
@@ -27,6 +29,7 @@ deck-new-slide-text = Розкажіть, що хочете показати.
 templates-default-name = Мої шаблони
 templates-copy-name = { $name } (копія)
 template-default-name = Шаблон
+history-restore-label = Відновити версію від { $date }
 notice-merged = Об’єднано з { $file } — імпортовано змін: { $count } ({ $authors }).
 notice-merged-anonymous = Об’єднано з { $file } — імпортовано змін: { $count }.
 notice-same-deck-open = Ця презентація вже відкрита у вкладці «{ $title }». Щоб об’єднати їх, скористайтеся там «Об’єднати з PDF…».

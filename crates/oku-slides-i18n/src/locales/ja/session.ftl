@@ -18,6 +18,8 @@ session-single-document = ここで開けるプレゼンテーションは1つ�
 session-last-window = 最後のウィンドウは開いたままになります。代わりにアプリを終了してください。
 session-unsaved = 「{ $title }」に未保存の変更があります。
 session-bad-request = 無効なリクエスト：{ $reason }
+session-history-not-open = 履歴が開いていません
+session-in-history = プレゼンテーションを変更する前に履歴を閉じてください
 session-agent-form = エージェントのリクエストが無効です：{ $reason }
 
 deck-untitled = 無題
@@ -27,6 +29,7 @@ deck-new-slide-text = 伝えたいことを書きましょう。
 templates-default-name = マイテンプレート
 templates-copy-name = { $name }（コピー）
 template-default-name = テンプレート
+history-restore-label = { $date } のバージョンを復元
 notice-merged = { $file } と統合しました — 取り込んだ変更: { $count }（{ $authors }）。
 notice-merged-anonymous = { $file } と統合しました — 取り込んだ変更: { $count }。
 notice-same-deck-open = このプレゼンテーションはタブ「{ $title }」ですでに開いています。統合するには、そのタブで「PDF と統合…」を使ってください。

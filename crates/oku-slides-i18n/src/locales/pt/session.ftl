@@ -18,6 +18,8 @@ session-single-document = Aqui só pode estar aberta uma apresentação.
 session-last-window = A última janela permanece aberta: em vez disso, saia do aplicativo.
 session-unsaved = “{ $title }” tem alterações não salvas.
 session-bad-request = Solicitação inválida: { $reason }
+session-history-not-open = O histórico não está aberto
+session-in-history = Feche o histórico antes de alterar a apresentação
 session-agent-form = O pedido do agente é inválido: { $reason }
 
 deck-untitled = Sem título
@@ -27,6 +29,7 @@ deck-new-slide-text = Diga o que você quer mostrar.
 templates-default-name = Meus modelos
 templates-copy-name = { $name } (cópia)
 template-default-name = Modelo
+history-restore-label = Restaurar a versão de { $date }
 notice-merged = Mesclado com { $file } — alterações importadas: { $count } ({ $authors }).
 notice-merged-anonymous = Mesclado com { $file } — alterações importadas: { $count }.
 notice-same-deck-open = Esta apresentação já está aberta na guia “{ $title }”. Para juntá-las, use “Mesclar com um PDF…” nessa guia.

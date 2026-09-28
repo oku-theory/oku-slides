@@ -23,6 +23,7 @@ cli-bench-pdf = xuất PDF                        { $time }  ({ $size } KB)
 cli-bench-embed = nhúng blob nguồn                { $time }
 cli-bench-extract = đọc lại blob                    { $time }
 cli-bench-roundtrip = khứ hồi bản trình bày           giống hệt
+cli-bench-history = bước lịch sử                   trung bình { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) tại http://{ $host }:{ $port }
 cli-models-dir = mô hình đọc chính tả: { $dir }
 cli-stopped = đã dừng máy chủ

@@ -23,6 +23,7 @@ cli-bench-pdf = PDF এক্সপোর্ট                      { $time }  
 cli-bench-embed = উৎস ব্লব এম্বেড করা               { $time }
 cli-bench-extract = ব্লব আবার পড়া                    { $time }
 cli-bench-roundtrip = প্রেজেন্টেশনের রাউন্ড ট্রিপ        অভিন্ন
+cli-bench-history = ইতিহাসের ধাপ                    গড়ে { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) চলছে http://{ $host }:{ $port }-এ
 cli-models-dir = ডিক্টেশন মডেল: { $dir }
 cli-stopped = সার্ভার বন্ধ হয়েছে

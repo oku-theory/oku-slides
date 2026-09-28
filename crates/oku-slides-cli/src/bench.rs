@@ -88,5 +88,32 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
         bail!(l.tr("cli-roundtrip-mismatch"));
     }
     out.line("cli-bench-roundtrip", &[])?;
+
+    // Coût d'un cran d'historique : lecture + rendu, pour décider si le
+    // rendu se fait pendant le glissement du curseur ou à son relâchement.
+    let mut bundle = SourceBundle::new(deck.clone())?;
+    for i in 0..50 {
+        let mut edited = bundle.deck().clone();
+        let title = (i + 1).to_string();
+        if let Some(slide) = edited.slides.get_mut(2) {
+            slide.title = Some(title.clone());
+        }
+        oku_slides_core::canonicalize(&mut edited);
+        bundle.apply(edited, &title)?;
+    }
+    let history = bundle.history();
+    let mut steps = Vec::new();
+    for i in 1..history.len() {
+        let t = Instant::now();
+        let (deck, _issues) = history.deck_at(i)?;
+        r.set_deck(&deck, &assets)?;
+        r.compile()?;
+        steps.push(t.elapsed());
+    }
+    let sum: Duration = steps.iter().sum();
+    let mean = steps.len().try_into().map(|n: u32| sum / n).unwrap_or_default();
+    let ms_value = |d: Duration| format!("{:.1}", d.as_secs_f64() * 1000.0);
+    out.line("cli-bench-history", &[("mean", ms_value(mean).into()), ("p50", ms_value(median(steps)).into())])?;
+
     Ok(())
 }

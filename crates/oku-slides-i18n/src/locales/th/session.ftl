@@ -18,6 +18,8 @@ session-single-document = ที่นี่เปิดงานนำเสน
 session-last-window = หน้าต่างสุดท้ายจะยังคงเปิดอยู่ ให้ออกจากแอปแทน
 session-unsaved = “{ $title }” มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }
+session-history-not-open = ไม่ได้เปิดประวัติ
+session-in-history = ปิดประวัติก่อนแก้ไขงานนำเสนอ
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 
 deck-untitled = ไม่มีชื่อ
@@ -27,6 +29,7 @@ deck-new-slide-text = บอกสิ่งที่คุณอยากนำ�
 templates-default-name = เทมเพลตของฉัน
 templates-copy-name = { $name } (สำเนา)
 template-default-name = เทมเพลต
+history-restore-label = กู้คืนเวอร์ชันของ { $date }
 notice-merged = รวมกับ { $file } แล้ว — การเปลี่ยนแปลงที่นำเข้า: { $count } ({ $authors })
 notice-merged-anonymous = รวมกับ { $file } แล้ว — การเปลี่ยนแปลงที่นำเข้า: { $count }
 notice-same-deck-open = งานนำเสนอนี้เปิดอยู่แล้วในแท็บ “{ $title }” หากต้องการรวม ให้ใช้ “รวมกับ PDF…” ในแท็บนั้น

@@ -25,7 +25,11 @@ impl Tools {
                     })
                     .collect();
                 Ok(json!({
-                    "mode": if snap.editing.is_some() { "templates" } else { "deck" },
+                    "mode": match (&snap.history, &snap.editing) {
+                        (Some(_), _) => "history",
+                        (None, Some(_)) => "templates",
+                        (None, None) => "deck",
+                    },
                     "theme": snap.theme,
                     "themes": snap.themes,
                     "template_set": snap.templates,

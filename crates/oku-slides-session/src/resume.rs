@@ -107,12 +107,23 @@ impl DocSnapshot {
     /// L'instantané de `doc` ; ses octets viennent de `cache` s'ils n'ont pas
     /// changé depuis un envoi précédent, sinon ils y entrent (copiés une fois).
     /// Échoue si le replica ne s'exporte pas : l'appelant n'écrit alors rien.
+    #[cfg(test)]
     pub(crate) fn of(doc: &Document, cache: &mut Vec<Arc<Blobs>>) -> Result<Self, ReplicaError> {
+        Self::with_blobs(doc, &doc.sources, cache)
+    }
+
+    /// Comme `of`, les images et polices prises à `sources` (celles du deck
+    /// prêtées à l'aperçu de l'historique).
+    pub(crate) fn with_blobs(
+        doc: &Document,
+        sources: &SourceBundle,
+        cache: &mut Vec<Arc<Blobs>>,
+    ) -> Result<Self, ReplicaError> {
         let replica = doc.sources.replica().snapshot()?;
-        let blobs = match cache.iter().find(|b| b.matches(&doc.sources)) {
+        let blobs = match cache.iter().find(|b| b.matches(sources)) {
             Some(b) => Arc::clone(b),
             None => {
-                let b = Arc::new(Blobs { assets: doc.sources.assets.clone(), fonts: doc.sources.fonts.clone() });
+                let b = Arc::new(Blobs { assets: sources.assets.clone(), fonts: sources.fonts.clone() });
                 // Deck et ensemble de modèles : deux documents au plus.
                 if cache.len() >= 2 {
                     cache.remove(0);
@@ -572,15 +583,20 @@ impl Session {
     /// journalisé, et ce document n'est pas écrit.
     pub(crate) fn persist(&mut self, documents: bool) {
         let Some(writer) = &self.resume else { return };
-        let (deck, mode) = match &self.mode {
-            Mode::Deck => (&self.doc, SavedMode::Deck),
-            Mode::Templates { stash, edit } => (&**stash, SavedMode::Templates(edit.clone())),
+        // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
+        // onglet rouvert n'y revient pas), avec les images et polices prêtées
+        // à l'aperçu.
+        let (deck, blobs, mode) = match &self.mode {
+            Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck),
+            Mode::Templates { stash, edit } => (&**stash, &**stash, SavedMode::Templates(edit.clone())),
+            Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck),
         };
         let mut docs = Vec::new();
         if documents {
-            let templates = matches!(self.mode, Mode::Templates { .. }).then_some((TEMPLATES_DIR, &self.doc));
-            for (sub, doc) in std::iter::once((DECK_DIR, deck)).chain(templates) {
-                match DocSnapshot::of(doc, &mut self.sent_blobs) {
+            let templates =
+                matches!(self.mode, Mode::Templates { .. }).then_some((TEMPLATES_DIR, &self.doc, &self.doc));
+            for (sub, doc, blobs) in std::iter::once((DECK_DIR, deck, blobs)).chain(templates) {
+                match DocSnapshot::with_blobs(doc, &blobs.sources, &mut self.sent_blobs) {
                     Ok(snapshot) => docs.push((sub, snapshot)),
                     Err(e) => tracing::warn!(
                         sub,

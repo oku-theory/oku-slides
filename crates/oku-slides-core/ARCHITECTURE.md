@@ -19,22 +19,24 @@ sources. Aucune dépendance à Typst ni à Tauri.
   l'agent = une étape. `merge` réconcilie deux replicas de même
   `deck_uid`, rend un `MergeReport` (`authors.rs`) ; racine `peers` : nom de chaque pair,
   inscrit à sa première édition (réglage `[author] name`, sinon utilisateur système).
-  Modules : `schema` (catégories de champs), `read`/`write` (aller-retour `Deck` ↔ `LoroDoc`),
-  `rich` (texte à marques), `undo`, `authors`.
+  `history` (`replica/history.rs`) : un `Version` par édition, commits triés (Lamport, pair),
+  les intermédiaires `oku-part:` sans cran propre ; `deck_at`
+  lit un préfixe causal (`vv_to_frontiers`) sur un fork ; `slide_changes` compare deux decks par
+  `id`. `restore` : `apply` de `deck_at` en une étape, d'abord essayée sur un fork ; pas de `revert_to` (perd les `mov`).
+  Modules : `schema`, `read`/`write` (aller-retour `Deck` ↔ `LoroDoc`), `rich` (texte à marques),
+  `undo`, `authors`, `history`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'est qu'une
   **vue** matérialisée tenue à jour par `apply` — utilisée par le rendu,
   `validate`, `locate`. Zip des sources (`to_zip` / `from_zip`) : replica en
   snapshot Loro, assets en ajout seul.
-- `validate` (`validate.rs`) : cohérence du deck (styles, graphiques,
-  identifiants), signale plutôt qu'il n'échoue quand c'est possible.
-- `locate` (`locate.rs`) : chemin d'un élément dans le deck (édition ciblée,
-  agent vocal).
+- `validate` (`validate.rs`) : cohérence du deck (styles, graphiques, identifiants), signale
+  plutôt qu'il n'échoue quand c'est possible.
+- `locate` (`locate.rs`) : chemin d'un élément dans le deck (édition ciblée, agent vocal).
 
 ## Erreurs
 
-`error.rs` : `OpError`, `ReplicaError` (`Corrupted`, `TooLarge`, `Write`,
-`Unrelated`), `SourcesError`, `TransactionError` — Snafu, `Localize`,
-messages Fluent.
+`error.rs` : `OpError`, `ReplicaError` (`Corrupted`, `TooLarge`, `Write`, `Unrelated`),
+`SourcesError`, `TransactionError` — Snafu, `Localize`, messages Fluent.
 
 ## Points d'extension
 

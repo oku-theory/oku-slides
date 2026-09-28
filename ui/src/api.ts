@@ -54,7 +54,36 @@ export interface Snapshot {
   templates: string;
   /** Édition d'un ensemble de modèles en cours. */
   editing: TemplateMode | null;
+  /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
+  history: HistoryView | null;
   ui: UiState;
+}
+
+/** Une version du deck (un commit), de la plus ancienne à la plus récente. */
+export interface Version {
+  /** Nom de la session qui l'a faite ; `null` : anonyme. */
+  author: string | null;
+  /** Secondes Unix. */
+  timestamp: number;
+  label: string | null;
+  /** Première version d'une session. */
+  session_start: boolean;
+  merge: boolean;
+}
+
+/** Slides du deck courant comparées à la version montrée (identifiants). */
+export interface SlideChanges {
+  added_since: string[];
+  removed_since: string[];
+  changed_since: string[];
+}
+
+/** Le cran montré : `index` de 0 à `count - 1` (la plus récente). */
+export interface HistoryView {
+  index: number;
+  count: number;
+  version: Version;
+  changes: SlideChanges;
 }
 
 /** Slide courante et grille, gardées par l'hôte d'un lancement à l'autre. */
@@ -259,7 +288,12 @@ type Request =
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "panel"; slide: string }
-  | { cmd: "ui"; slide: string | null; grid: boolean };
+  | { cmd: "ui"; slide: string | null; grid: boolean }
+  | { cmd: "history_open" }
+  | { cmd: "history_seek"; index: number }
+  | { cmd: "history_restore" }
+  | { cmd: "history_close" }
+  | { cmd: "history_versions" };
 
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
@@ -420,6 +454,14 @@ export function tabApi(tab: string) {
     closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
     deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
     ui: (slide: string | null, grid: boolean) => call<Snapshot>({ cmd: "ui", slide, grid }),
+    /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
+    historyOpen: () => call<Snapshot>({ cmd: "history_open" }),
+    historySeek: (index: number) => call<Snapshot>({ cmd: "history_seek", index }),
+    /** Restaure la version montrée : nouveau commit, annulable, retour au deck. */
+    historyRestore: () => call<Snapshot>({ cmd: "history_restore" }),
+    /** Referme l'historique : le deck courant, intact. */
+    historyClose: () => call<Snapshot>({ cmd: "history_close" }),
+    historyVersions: () => call<Version[]>({ cmd: "history_versions" }),
   };
 }
 

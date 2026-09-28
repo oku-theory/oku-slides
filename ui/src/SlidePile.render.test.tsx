@@ -21,7 +21,7 @@ afterEach(async () => {
 
 const slide = (id: string) => ({ id, hash: id, title: id }) as unknown as SlideSummary;
 
-async function mount({ canRemove = true } = {}) {
+async function mount({ canRemove = true, readOnly = false } = {}) {
   const removed: string[] = [];
   const selected: string[] = [];
   const host = document.createElement("div");
@@ -39,14 +39,14 @@ async function mount({ canRemove = true } = {}) {
         removeLabel: "Supprimer la slide",
         canRemove,
         onSelect: (id: string) => selected.push(id),
-        onMove: () => {},
-        onAdd: () => {},
-        onRemove: (id: string) => removed.push(id),
+        onMove: readOnly ? undefined : () => {},
+        onAdd: readOnly ? undefined : () => {},
+        onRemove: readOnly ? undefined : (id: string) => removed.push(id),
       }),
     );
   });
   const removes = () => [...host.querySelectorAll(".thumb-remove")] as HTMLButtonElement[];
-  return { removes, removed, selected };
+  return { removes, removed, selected, host };
 }
 
 describe("pile des miniatures", () => {
@@ -66,5 +66,11 @@ describe("pile des miniatures", () => {
   test("SlidePile dernière slide : suppression impossible", async () => {
     const { removes } = await mount({ canRemove: false });
     expect(removes().every((b) => b.disabled)).toBe(true);
+  });
+
+  test("SlidePile lecture seule (historique) : ni suppression, ni ajout", async () => {
+    const { removes, host } = await mount({ readOnly: true });
+    expect(removes().length).toBe(0);
+    expect(host.querySelector(".add-slide")).toBeNull();
   });
 });

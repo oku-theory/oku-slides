@@ -23,6 +23,7 @@ cli-bench-pdf = eksport PDF                     { $time }  ({ $size } KB)
 cli-bench-embed = osadzanie bloba źródeł          { $time }
 cli-bench-extract = ponowny odczyt bloba            { $time }
 cli-bench-roundtrip = pełny obieg prezentacji         identyczna
+cli-bench-history = krok historii                    { $mean } ms średnio, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) pod adresem http://{ $host }:{ $port }
 cli-models-dir = modele dyktowania: { $dir }
 cli-stopped = serwer zatrzymany

@@ -2,7 +2,8 @@
 
 - **Statut :** accepté
 - **Date :** 2026-09-27
-- **Tâches :** t-198 … t-207 (plan 1 : fondation)
+- **Tâches :** t-198 … t-207 (plan 1 : fondation) ; t-243 … t-248 (plan 3 :
+  mode historique)
 - **Spec :** [sources-loro-design.md](../superpowers/specs/2026-09-27-sources-loro-design.md)
 
 ## Contexte
@@ -72,6 +73,16 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   comme absente par `extract_sources` (`Ok(None)`), jamais convertie. Le
   format du zip passe à la version 2 (`manifest.json`, `deck.loro` en
   remplacement de `deck.json`, `assets/`, `fonts/`).
+- **Mode historique livré (plan 3).** L'historique complet du replica se
+  parcourt et se restaure directement, sans conversion : chaque cran du
+  curseur est un préfixe causal (`vv_to_frontiers` du vecteur de versions,
+  pas seulement l'histoire causale du dernier changement, sinon une branche
+  concurrente plus ancienne dans l'ordre disparaîtrait d'un cran à l'autre) ;
+  restaurer une version fait une **seule** nouvelle étape annulable (un
+  cran), en réconciliant le deck de cette version comme toute édition (la map
+  `peers` n'est pas touchée). Pas de `revert_to` : il perdait des slides
+  déplacées dans la `LoroMovableList` (`mov`), ou échouait. Détail dans la
+  spec, section « Mode historique ».
 
 ## Conséquences
 

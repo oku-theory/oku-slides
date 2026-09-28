@@ -5,6 +5,7 @@
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
 
 mod authors;
+mod history;
 mod read;
 mod rich;
 mod schema;
@@ -12,6 +13,7 @@ mod undo;
 mod write;
 
 pub use authors::MergeReport;
+pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -293,6 +295,34 @@ impl DeckReplica {
     /// Nombre d'ops de l'historique (tests, mesures).
     pub fn len_ops(&self) -> usize {
         self.doc.len_ops()
+    }
+
+    /// Les versions du deck, lisibles sur une copie.
+    pub fn history(&self) -> HistoryPreview {
+        history::build(&self.doc)
+    }
+
+    /// Amène le replica à `deck` (une version relue par
+    /// [`HistoryPreview::deck_at`]) en une étape annulable `label`, par le
+    /// même chemin que toute édition : inscription de l'auteur, puis
+    /// [`Self::apply`]. Les noms d'auteurs plus récents restent : seule la
+    /// racine `deck` est écrite.
+    ///
+    /// Pas de `revert_to` : sur la liste `slides` (`LoroMovableList`, dont
+    /// les slides sont déplacées par `mov`), il perd des slides ou échoue
+    /// (`ContainerDeleted`) dès qu'un déplacement suit la version visée.
+    ///
+    /// Tout ou rien, contrairement à `apply` : Loro n'a pas d'annulation d'un
+    /// commit, et une réconciliation qui échoue en route laisserait des
+    /// changements dans le doc. Elle est donc d'abord essayée sous garde sur
+    /// une copie ; `self` n'est écrit qu'ensuite, par la même réconciliation,
+    /// déterministe.
+    pub fn restore(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
+        let trial = self.doc.fork();
+        configure(&trial);
+        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &|| doc.commit()))?;
+        self.claim_author()?;
+        self.apply(deck, label)
     }
 
     /// Fusionne `other` dans `self` : seuls les changements que `self` n'a pas

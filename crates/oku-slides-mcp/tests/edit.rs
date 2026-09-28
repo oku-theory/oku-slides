@@ -80,3 +80,18 @@ async fn edit_then_close_templates_round_trips_mode() {
     call(&c, "close_templates", json!({})).await;
     assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn in_history_outline_says_history_and_apply_is_refused() {
+    let h = start().await;
+    let theme = h.session.lock().unwrap().deck().theme.clone();
+    h.session.lock().unwrap().handle(oku_slides_session::Request::HistoryOpen).unwrap();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    assert_that!(outline["mode"].as_str()).is_equal_to(Some("history"));
+    let r = call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": "pro" }] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let mut s = h.session.lock().unwrap();
+    s.handle(oku_slides_session::Request::HistoryClose).unwrap();
+    assert_that!(s.deck().theme.clone()).is_equal_to(theme);
+}

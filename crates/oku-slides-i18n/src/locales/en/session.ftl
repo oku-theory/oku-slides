@@ -18,6 +18,8 @@ session-single-document = Only one presentation can be open here.
 session-last-window = The last window stays open: quit the app instead.
 session-unsaved = “{ $title }” has unsaved changes.
 session-bad-request = Invalid request: { $reason }
+session-history-not-open = The history is not open
+session-in-history = Close the history before changing the presentation
 session-agent-form = The agent's request is invalid: { $reason }
 
 deck-untitled = Untitled
@@ -27,6 +29,7 @@ deck-new-slide-text = Say what you want to show.
 templates-default-name = My templates
 templates-copy-name = { $name } (copy)
 template-default-name = Template
+history-restore-label = Restore the version of { $date }
 notice-merged = Merged with { $file } — changes imported: { $count } ({ $authors }).
 notice-merged-anonymous = Merged with { $file } — changes imported: { $count }.
 notice-same-deck-open = This presentation is already open in the tab “{ $title }”. To combine the two, use “Merge with a PDF…” there.

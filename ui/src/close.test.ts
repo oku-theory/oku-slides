@@ -31,6 +31,18 @@ describe("fermeture d'un onglet modifié", () => {
     expect(calls).toEqual(["saveTemplates", "closeTemplates"]);
   });
 
+  test("saveForClose : historique ouvert, fermé d'abord : c'est le deck retrouvé qui s'enregistre", async () => {
+    const calls: string[] = [];
+    const history = { index: 0 } as unknown as Snapshot["history"];
+    const api = {
+      snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf", history }),
+      historyClose: async () => (calls.push("historyClose"), snap({ dirty: true, path: "/x.oku-slides.pdf", history: null })),
+      save: async () => (calls.push("save"), snap({ path: "/x.oku-slides.pdf" })),
+    } as unknown as TabApi;
+    expect(await saveForClose(api)).toBe(true);
+    expect(calls).toEqual(["historyClose", "save"]);
+  });
+
   test("saveForClose : modèles fermés mais deck resté modifié, l'enregistrement a lieu", async () => {
     const calls: string[] = [];
     const api = {

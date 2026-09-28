@@ -23,6 +23,7 @@ cli-bench-pdf = PDF 書き出し              { $time }  ({ $size } KB)
 cli-bench-embed = ソース blob の埋め込み    { $time }
 cli-bench-extract = blob の読み戻し           { $time }
 cli-bench-roundtrip = プレゼンテーション往復    一致
+cli-bench-history = 履歴ステップ            平均 { $mean } ms、p50 { $p50 } ms
 cli-serving = Oku Slides（開発）：http://{ $host }:{ $port }
 cli-models-dir = 音声入力モデル：{ $dir }
 cli-stopped = サーバーを停止しました

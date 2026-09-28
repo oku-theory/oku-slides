@@ -18,6 +18,8 @@ session-single-document = 此处只能打开一个演示文稿。
 session-last-window = 最后一个窗口会保持打开：请改为退出应用。
 session-unsaved = “{ $title }”有未保存的更改。
 session-bad-request = 请求无效：{ $reason }
+session-history-not-open = 历史记录未打开
+session-in-history = 请先关闭历史记录再修改演示文稿
 session-agent-form = 代理的请求无效：{ $reason }
 
 deck-untitled = 未命名
@@ -27,6 +29,7 @@ deck-new-slide-text = 写下你想展示的内容。
 templates-default-name = 我的模板
 templates-copy-name = { $name }（副本）
 template-default-name = 模板
+history-restore-label = 恢复 { $date } 的版本
 notice-merged = 已与 { $file } 合并 — 导入的更改：{ $count }（{ $authors }）。
 notice-merged-anonymous = 已与 { $file } 合并 — 导入的更改：{ $count }。
 notice-same-deck-open = 此演示文稿已在标签页“{ $title }”中打开。如需合并，请在该标签页中使用“与 PDF 合并…”。

@@ -20,6 +20,11 @@ hex.workspace = true
 loro.workspace = true
 tracing.workspace = true
 
+[features]
+# Crochets de test pour les crates qui dépendent du cœur (en dev-dependencies
+# seulement, jamais dans l'app).
+test-support = []
+
 [dev-dependencies]
 speculoos.workspace = true
 rstest.workspace = true

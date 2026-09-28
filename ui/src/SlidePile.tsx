@@ -18,16 +18,22 @@ interface Props {
   names?: Record<string, string>;
   label: string;
   addLabel: string;
+  /** Historique : slide supprimée ou modifiée depuis la version montrée. */
+  marks?: Record<string, "removed" | "changed">;
   onSelect: (id: string) => void;
-  /** Déplace la slide à la place `slot` (0 = avant la première). */
-  onMove: (id: string, slot: number) => void;
-  onAdd: () => void;
+  /** Déplace la slide à la place `slot` (0 = avant la première) ; absent : pile en lecture seule. */
+  onMove?: (id: string, slot: number) => void;
+  /** Absent : pas de bouton d'ajout (lecture seule). */
+  onAdd?: () => void;
   /** Nom du bouton de suppression d'une miniature. */
   removeLabel: string;
   /** Faux s'il ne reste qu'une slide : on ne la supprime pas. */
   canRemove: boolean;
-  onRemove: (id: string) => void;
+  /** Absent : pas de bouton de suppression (lecture seule). */
+  onRemove?: (id: string) => void;
 }
+
+const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-changed-since" } as const;
 
 interface Drag {
   id: string;
@@ -55,7 +61,7 @@ const RemoveIcon = (
 const THRESHOLD = 5;
 
 export default function SlidePile({
-  slides, current, svg, names, label, addLabel, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove,
+  slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove,
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -116,7 +122,7 @@ export default function SlidePile({
 
   const move = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = dragRef.current;
-    if (!d || d.pointer !== e.pointerId) return;
+    if (!d || d.pointer !== e.pointerId || !onMove) return;
     const moved = d.moved || Math.abs(e.clientY - d.startY) > THRESHOLD;
     setDrag({ ...d, y: e.clientY, moved, slot: moved ? slotAt(e.clientY) : -1 });
   };
@@ -131,7 +137,7 @@ export default function SlidePile({
     }
     const from = slides.findIndex((s) => s.id === d.id);
     // Déposer juste avant ou juste après soi-même ne change rien.
-    if (d.slot !== from && d.slot !== from + 1) onMove(d.id, d.slot);
+    if (d.slot !== from && d.slot !== from + 1) onMove?.(d.id, d.slot);
   };
 
   const dragged = drag?.moved ? slides.find((s) => s.id === drag.id) : undefined;
@@ -143,13 +149,14 @@ export default function SlidePile({
         const url = svg(s.id, s.hash);
         const name = names?.[s.id];
         const lifted = drag?.moved && drag.id === s.id;
+        const mark = marks?.[s.id];
         return (
           <div key={s.id} className="thumb-slot">
             {drag?.moved && drag.slot === i && <span className="drop-line" aria-hidden />}
             <button
               className={`thumb${lifted ? " lifted" : ""}`}
               aria-current={s.id === current}
-              title={t("ui-pile-drag-hint")}
+              title={onMove ? t("ui-pile-drag-hint") : undefined}
               onPointerDown={(e) => down(e, s.id)}
               onPointerMove={move}
               onPointerUp={up}
@@ -165,10 +172,11 @@ export default function SlidePile({
               <span className="thumb-body">
                 {url ? <img className="thumb-img" src={url} alt={s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />}
                 {name && <span className="thumb-name">{name}</span>}
+                {mark && <span className={`thumb-mark ${mark}`} role="img" title={t(MARK_TITLE[mark])} aria-label={t(MARK_TITLE[mark])} />}
               </span>
             </button>
             {/* À côté de la miniature, pas dedans : un bouton ne peut pas en contenir un autre. */}
-            {!drag?.moved && (
+            {onRemove && !drag?.moved && (
               <button
                 className="object token thumb-remove"
                 aria-label={removeLabel}
@@ -183,7 +191,7 @@ export default function SlidePile({
         );
       })}
       {drag?.moved && drag.slot === slides.length && <span className="drop-line end" aria-hidden />}
-      <button className="object btn add-slide" onClick={onAdd}>{addLabel}</button>
+      {onAdd && <button className="object btn add-slide" onClick={onAdd}>{addLabel}</button>}
 
       {/* La miniature suit le pointeur, soulevée de la pile. */}
       {drag?.moved && (

@@ -18,6 +18,8 @@ session-single-document = Hier kan maar één presentatie open zijn.
 session-last-window = Het laatste venster blijft open: sluit in plaats daarvan de app af.
 session-unsaved = ‘{ $title }’ heeft niet-opgeslagen wijzigingen.
 session-bad-request = Ongeldig verzoek: { $reason }
+session-history-not-open = De geschiedenis is niet geopend
+session-in-history = Sluit de geschiedenis voordat u de presentatie wijzigt
 session-agent-form = Het verzoek van de agent is ongeldig: { $reason }
 
 deck-untitled = Naamloos
@@ -27,6 +29,7 @@ deck-new-slide-text = Zeg wat je wilt laten zien.
 templates-default-name = Mijn sjablonen
 templates-copy-name = { $name } (kopie)
 template-default-name = Sjabloon
+history-restore-label = Versie van { $date } herstellen
 notice-merged = Samengevoegd met { $file } — geïmporteerde wijzigingen: { $count } ({ $authors }).
 notice-merged-anonymous = Samengevoegd met { $file } — geïmporteerde wijzigingen: { $count }.
 notice-same-deck-open = Deze presentatie is al geopend in het tabblad ‘{ $title }’. Gebruik daar ‘Samenvoegen met een pdf…’ om ze te combineren.

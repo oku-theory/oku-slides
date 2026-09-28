@@ -23,6 +23,7 @@ cli-bench-pdf = ส่งออก PDF                        { $time }  ({ $siz
 cli-bench-embed = ฝัง blob ซอร์ส                    { $time }
 cli-bench-extract = อ่าน blob กลับมา                  { $time }
 cli-bench-roundtrip = วนรอบงานนำเสนอ                    เหมือนเดิม
+cli-bench-history = ขั้นตอนประวัติ                  เฉลี่ย { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) ที่ http://{ $host }:{ $port }
 cli-models-dir = โมเดลการพิมพ์ด้วยเสียง: { $dir }
 cli-stopped = หยุดเซิร์ฟเวอร์แล้ว

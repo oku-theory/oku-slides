@@ -23,6 +23,7 @@ cli-bench-pdf = PDF 내보내기                    { $time }  ({ $size } KB)
 cli-bench-embed = 소스 블롭 포함                  { $time }
 cli-bench-extract = 블롭 다시 읽기                  { $time }
 cli-bench-roundtrip = 프레젠테이션 왕복               동일
+cli-bench-history = 기록 단계                   평균 { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (개발) 주소: http://{ $host }:{ $port }
 cli-models-dir = 받아쓰기 모델: { $dir }
 cli-stopped = 서버가 중지되었습니다
