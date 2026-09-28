@@ -21,7 +21,7 @@ const STATUS_CLASS = new Set(["pending", "in_progress", "completed", "failed"]);
 const statusClass = (status: string) => (STATUS_CLASS.has(status) ? status : "other");
 
 /** Places rendues dans le fil ; une autre place ne donne pas sa valeur en classe. */
-const PLACE_CLASS = new Set<Place>(["thread", "postit"]);
+const PLACE_CLASS = new Set<Place>(["thread", "postit", "suggestions"]);
 
 /** Une fin de tour dite dans la langue de l'utilisateur ; une raison inconnue est citée telle quelle. */
 function stopText(stop: StopReason): string {

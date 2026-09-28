@@ -204,6 +204,7 @@ pub(crate) fn list() -> Vec<Tool> {
             tool::<oku_slides_session::agent::AskRewrite>("ask_rewrite", "Propose 2-3 rewordings of a text element or slide field (@title, @subtitle, @kicker, @text). Blocks; the chosen text is applied by Oku Slides; returns {kept, text}."),
             tool::<oku_slides_session::agent::ShowParams>("show_params", "Show a panel of live settings; each field applies op_template with \"$value\" replaced. Returns at once; later changes are reported in the next context."),
             tool::<oku_slides_session::agent::ShowVariants>("show_variants", "Show 2-4 rendered variants of a slide; the user's pick is applied. Returns at once; the pick is reported in the next context."),
+            tool::<oku_slides_session::agent::SuggestNext>("suggest_next", "Offer 1-4 next steps as buttons under your reply, most likely first; a click sends its prompt to you as the user's next message. Call it last in a turn, when there are useful next steps. Returns at once; the buttons close at the next turn."),
             tool::<crate::guarded_tools::SaveArgs>("save", "Save the deck as .oku-slides.pdf (not a file open in another tab). The user confirms first."),
             tool::<crate::guarded_tools::OpenArgs>("open", "Open a .oku-slides.pdf (absolute path) in a new tab, or show the tab that has it; returns {tab}. The user confirms first. You stay in this tab: its deck is unchanged and your tools keep acting on it."),
             tool::<NoArgs>("new", "Start a new blank deck. The user confirms first."),

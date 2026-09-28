@@ -6,7 +6,8 @@ use serde_json::json;
 
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, Variant, choice, confirm, params, permission, rewrite, variants,
+    ShowParams, ShowVariants, Suggestion, SuggestNext, Variant, choice, confirm, params, permission, rewrite,
+    suggestions, variants,
 };
 
 fn fr() -> Localizer {
@@ -97,6 +98,35 @@ fn title_of(s: &super::Surface) -> String {
         .and_then(|c| c["text"].as_str())
         .unwrap_or_default()
         .to_owned()
+}
+
+fn suggest_next() -> SuggestNext {
+    SuggestNext {
+        suggestions: vec![
+            Suggestion { label: "Mettre en barres".into(), prompt: Some("Affiche la moyenne en barres.".into()) },
+            Suggestion { label: "Ajouter une légende".into(), prompt: None },
+        ],
+    }
+}
+
+#[test]
+fn suggestions_have_their_own_place_and_one_button_each() {
+    let s = suggestions("show-7", &suggest_next());
+    assert_that!(s.place).is_equal_to(Place::Suggestions);
+    let labels: Vec<String> = buttons(&s).into_iter().map(|b| b.label).collect();
+    assert_that!(labels).is_equal_to(vec!["Mettre en barres".to_owned(), "Ajouter une légende".to_owned()]);
+}
+
+#[test]
+fn suggestion_button_sends_its_prompt_or_its_label() {
+    let json = serde_json::to_value(suggestions("show-7", &suggest_next())).unwrap();
+    let components = json["messages"][1]["updateComponents"]["components"].as_array().unwrap().clone();
+    let prompts: Vec<serde_json::Value> = components
+        .iter()
+        .filter(|c| c["component"] == "Button")
+        .map(|c| c["action"]["event"]["context"]["prompt"].clone())
+        .collect();
+    assert_that!(prompts).is_equal_to(vec![json!("Affiche la moyenne en barres."), json!("Ajouter une légende")]);
 }
 
 #[test]
@@ -238,6 +268,7 @@ fn every_form() -> Vec<super::Surface> {
         ),
         params("show-5", &show, &["#c2573a".into(), "#1f4e79".into()], &l),
         variants("show-6", &variants_spec, &svgs, &l),
+        suggestions("show-7", &suggest_next()),
     ]
 }
 

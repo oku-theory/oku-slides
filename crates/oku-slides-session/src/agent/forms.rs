@@ -3,8 +3,8 @@
 //!
 //! Actions renvoyées par l'interface : `choose {choice}`, `confirm
 //! {confirmed}`, `permission {index}`, `rewrite {kept, text}`, `param
-//! {field, value}`, `variant {index}`, `dismiss`, `answer {text}` (réponse
-//! dictée à une question en attente).
+//! {field, value}`, `variant {index}`, `suggest {prompt}`, `dismiss`, `answer
+//! {text}` (réponse dictée à une question en attente).
 
 use oku_slides_a2ui::{
     Action, ChoiceOption, Component, ComponentKind, Dynamic, ServerBody, ServerMessage, TextVariant,
@@ -29,6 +29,8 @@ pub enum Place {
     Postit,
     /// Fenêtre modale (confirmation, permission).
     Modal,
+    /// Boutons de suite sous la dernière réponse, dans le fil ; pas une question.
+    Suggestions,
 }
 
 /// Une surface prête à afficher : ses messages A2UI et sa place.
@@ -152,11 +154,29 @@ pub struct ShowVariants {
     pub variants: Vec<Variant>,
 }
 
+/// Une suite possible : un bouton, et la consigne qu'il envoie à l'agent.
+#[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
+pub struct Suggestion {
+    /// Libellé du bouton, 2 à 5 mots, dans la langue de l'utilisateur.
+    pub label: String,
+    /// Consigne envoyée à l'agent au clic ; le libellé si absente.
+    #[serde(default)]
+    pub prompt: Option<String>,
+}
+
+/// `suggest_next` : les suites qu'un clic lance, sous la réponse.
+#[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
+pub struct SuggestNext {
+    /// 1 à 4 suites, la plus probable d'abord.
+    pub suggestions: Vec<Suggestion>,
+}
+
 /// Bornes du nombre d'options, de propositions, de variantes et de champs.
 pub const CHOICES: (usize, usize) = (2, 6);
 pub const PROPOSALS: (usize, usize) = (2, 3);
 pub const VARIANTS: (usize, usize) = (2, 4);
 pub const FIELDS: (usize, usize) = (1, 8);
+pub const SUGGESTIONS: (usize, usize) = (1, 4);
 /// Bornes du nombre d'opérations d'une variante (contre un lot démesuré venant de l'agent).
 pub const OPS: (usize, usize) = (1, 50);
 /// Bornes par défaut d'un `Slider` sans `min`/`max`. Partagées avec
@@ -411,6 +431,20 @@ pub(crate) fn variants(id: &str, spec: &ShowVariants, svgs: &[std::sync::Arc<str
         ));
     }
     surface(id, Place::Drawer, None, components, json!({}))
+}
+
+/// `suggest_next` : une rangée de boutons ; `suggest {prompt}` au clic.
+pub fn suggestions(id: &str, spec: &SuggestNext) -> Surface {
+    let ids: Vec<String> = (0..spec.suggestions.len()).map(|i| format!("s{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let mut components = vec![Component::row("buttons", &refs)];
+    for (sid, s) in ids.iter().zip(&spec.suggestions) {
+        let prompt = s.prompt.clone().unwrap_or_else(|| s.label.clone());
+        let action = Action::event("suggest", [("prompt", lit(json!(prompt)))]);
+        components.push(Component::button(sid, s.label.clone(), false, action));
+    }
+    components.insert(0, Component::column("root", &["buttons"]));
+    surface(id, Place::Suggestions, None, components, json!({}))
 }
 
 #[cfg(test)]

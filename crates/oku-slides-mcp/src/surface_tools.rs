@@ -1,7 +1,9 @@
 //! Outils de surface : `ask_*` attend l'utilisateur, `show_*` rend la main tout de suite.
 
 use oku_slides_core::Paragraph;
-use oku_slides_session::agent::{AskChoice, AskConfirm, AskRewrite, ShowParams, ShowVariants, check_len, forms};
+use oku_slides_session::agent::{
+    AskChoice, AskConfirm, AskRewrite, ShowParams, ShowVariants, SuggestNext, check_len, forms,
+};
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
 
@@ -131,5 +133,18 @@ impl Tools {
             }
             Err(e) => fail(e),
         }
+    }
+
+    pub(crate) async fn suggest_next(&self, args: Value) -> CallToolResult {
+        let spec: SuggestNext = match parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        if let Err(e) = check_len("suggestions", spec.suggestions.len(), forms::SUGGESTIONS) {
+            return fail(e.one_line());
+        }
+        let id = self.hub.next_id("show");
+        self.hub.show_suggestions(forms::suggestions(&id, &spec));
+        json_result(&json!({ "shown": id }))
     }
 }

@@ -57,6 +57,7 @@ impl Tools {
             "ask_rewrite" => self.ask_rewrite(args).await,
             "show_params" => self.show_params(args).await,
             "show_variants" => self.show_variants(args).await,
+            "suggest_next" => self.suggest_next(args).await,
             "save" => self.save(args).await,
             "open" => self.open(args).await,
             "new" => self.new_deck().await,

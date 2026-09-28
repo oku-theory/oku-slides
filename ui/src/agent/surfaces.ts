@@ -1,6 +1,7 @@
 // Surfaces ouvertes par l'agent, dans l'ordre d'arrivée.
 
 import type { AgentState, McpEvent, Place, Surface } from "../api";
+import type { QuickAction } from "./quick";
 
 /**
  * Applique un évènement des outils aux surfaces.
@@ -42,7 +43,7 @@ export interface Routed {
   drawer?: Surface;
   /** Fenêtre de confirmation (la plus ancienne : une question en attente n'est jamais remplacée sous le curseur). */
   modal?: Surface;
-  /** Fil de l'agent, dans l'ordre d'arrivée : questions sans ancre, post-its, fiches hors de la scène. */
+  /** Fil de l'agent, dans l'ordre d'arrivée : questions sans ancre, post-its, fiches hors de la scène, suites. */
   thread: Surface[];
 }
 
@@ -57,6 +58,14 @@ export function routeSurfaces(list: Surface[], shown: { slide: string; targets: 
     stage,
     drawer: byPlace(list, "drawer").at(-1),
     modal: byPlace(list, "modal")[0],
-    thread: list.filter((s) => s.place === "thread" || s.place === "postit" || (s.place === "sheet" && s !== stage)),
+    thread: list.filter(
+      (s) => s.place === "thread" || s.place === "postit" || s.place === "suggestions" || (s.place === "sheet" && s !== stage),
+    ),
   };
+}
+
+/** La consigne d'une suite cliquée (`suggest {prompt}`), à envoyer à l'agent ; sinon `null`. */
+export function suggestedPrompt(a: QuickAction): string | null {
+  const prompt = a.name === "suggest" ? a.context.prompt : undefined;
+  return typeof prompt === "string" && prompt.trim() ? prompt : null;
 }

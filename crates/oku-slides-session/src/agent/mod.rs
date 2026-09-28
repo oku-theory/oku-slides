@@ -12,7 +12,7 @@ pub mod variants;
 pub use context::AgentUi;
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, Surface, Variant,
+    ShowParams, ShowVariants, SuggestNext, Suggestion, Surface, Variant,
 };
 pub use tabs::{Sessions, TabSession};
 

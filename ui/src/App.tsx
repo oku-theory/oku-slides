@@ -28,7 +28,7 @@ import type { DictationMode } from "./agent/keys";
 import { escapeAction } from "./agent/keys";
 import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
-import { agentBusy, routeSurfaces, surfacesReducer } from "./agent/surfaces";
+import { agentBusy, routeSurfaces, suggestedPrompt, surfacesReducer } from "./agent/surfaces";
 import { withRewriteParagraphs } from "./agent/rewrite";
 import { useQuickKeys } from "./agent/useQuickKeys";
 import { EMPTY_THREAD, threadReducer } from "./agent/thread";
@@ -461,7 +461,16 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     const action = withRewriteParagraphs(s, a);
     agent.surfaceAction(s.id, action.name, action.context).catch((err) => say(String(err), true));
   };
-  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => sendAction(s, fromA2ui(a));
+  /** Une consigne pour l'agent, avec ce que voit l'utilisateur. */
+  const promptAgent = (text: string) =>
+    agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
+  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
+    const action = fromA2ui(a);
+    sendAction(s, action);
+    // Une suite cliquée part vers l'agent comme une consigne dictée.
+    const prompt = suggestedPrompt(action);
+    if (prompt) promptAgent(prompt);
+  };
   useQuickKeys(
     modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
     !editing && !picking,
@@ -625,7 +634,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const closeDraft = () => setDraft((d) => ({ ...d, text: null }));
   const sendDraft = (text: string) => {
     closeDraft();
-    agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
+    promptAgent(text);
   };
   const insertDraft = (text: string) => {
     closeDraft();

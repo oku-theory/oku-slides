@@ -11,6 +11,7 @@ import type { Thread } from "./thread";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { AgentThread } = await import("./AgentThread");
+const { realSurface } = await import("../a2ui/fixtures/agentSurfaces");
 const { expectIconOnly } = await import("../test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
@@ -190,5 +191,13 @@ describe("fil de l'agent", () => {
   test("un post-it est rendu dans le fil, à sa place", async () => {
     const { host } = await mount({ state: "idle", entries: [] }, [surface("show-1", "postit")]);
     expect(host.querySelector(".agent-surface.postit button")?.textContent).toBe("Valider");
+  });
+
+  test("les suites de la réponse sont des boutons du fil ; un clic envoie suggest", async () => {
+    const { host, actions } = await mount({ state: "idle", entries: [{ kind: "agent", text: "Fait." }] }, [realSurface("show-7")]);
+    const buttons = [...host.querySelectorAll(".agent-surface.suggestions button")] as HTMLElement[];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Mettre en barres", "Ajouter une légende"]);
+    await act(async () => buttons[0].click());
+    expect(actions).toEqual([["show-7", "suggest"]]);
   });
 });

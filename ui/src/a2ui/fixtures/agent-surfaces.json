@@ -734,5 +734,74 @@
         }
       }
     ]
+  },
+  {
+    "id": "show-7",
+    "place": "suggestions",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "show-7",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "show-7",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "buttons"
+              ]
+            },
+            {
+              "id": "buttons",
+              "component": "Row",
+              "children": [
+                "s0",
+                "s1"
+              ]
+            },
+            {
+              "id": "s0",
+              "component": "Button",
+              "label": "Mettre en barres",
+              "action": {
+                "event": {
+                  "name": "suggest",
+                  "context": {
+                    "prompt": "Affiche la moyenne en barres."
+                  }
+                }
+              }
+            },
+            {
+              "id": "s1",
+              "component": "Button",
+              "label": "Ajouter une légende",
+              "action": {
+                "event": {
+                  "name": "suggest",
+                  "context": {
+                    "prompt": "Ajouter une légende"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "show-7",
+          "value": {}
+        }
+      }
+    ]
   }
 ]

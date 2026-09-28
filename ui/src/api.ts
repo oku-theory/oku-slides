@@ -351,7 +351,7 @@ export type AgentEvent =
   | { kind: "thread"; entries: AgentEvent[] };
 
 /** Où s'affiche une surface : fiche, fil, tiroir, post-it ou fenêtre. */
-export type Place = "sheet" | "thread" | "drawer" | "postit" | "modal";
+export type Place = "sheet" | "thread" | "drawer" | "postit" | "modal" | "suggestions";
 
 /** Une surface de l'agent : ses messages A2UI et sa place (session, `agent::Surface`). */
 export interface Surface {

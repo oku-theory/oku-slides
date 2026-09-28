@@ -3,7 +3,9 @@
 //! Deux familles de surfaces : les questions `ask_*` (oneshot, une réponse
 //! puis fermeture) et les surfaces persistantes `show_*` (post-its de
 //! paramètres, tiroir de variantes) qui restent ouvertes et appliquent leurs
-//! actions directement.
+//! actions directement. Les suites (`suggest_next`) sont persistantes aussi,
+//! jusqu'au clic ou au tour suivant (`clear_suggestions`) ; l'interface
+//! envoie elle-même la consigne choisie à l'agent.
 //!
 //! Ordre des verrous : jamais `state` tenu pendant un `.await`, ni en même
 //! temps que la session. `prune` prend la session puis `state` ; `act`
@@ -87,6 +89,8 @@ impl Drop for CloseOnDrop<'_> {
 enum Shown {
     Params(ShowParams),
     Variants(ShowVariants),
+    /// Les suites proposées ; rien à appliquer, le clic part vers l'agent.
+    Suggestions,
 }
 
 #[derive(Debug, Default)]
@@ -215,24 +219,39 @@ impl SurfaceHub {
 
     /// Tiroir de variantes ; remplace le précédent.
     pub fn show_variants(&self, surface: Surface, spec: ShowVariants) {
-        let old: Vec<String> = {
-            let mut state = self.state();
-            let old = state
-                .shows
-                .iter()
-                .filter(|(_, s)| matches!(s, Shown::Variants(_)))
-                .map(|(id, _)| id.clone())
-                .collect::<Vec<_>>();
-            for id in &old {
-                state.shows.remove(id);
-            }
-            state.shows.insert(surface.id.clone(), Shown::Variants(spec));
-            old
-        };
+        self.show_alone(surface, Shown::Variants(spec), |s| matches!(s, Shown::Variants(_)));
+    }
+
+    /// Suites de la réponse ; remplacent les précédentes.
+    pub fn show_suggestions(&self, surface: Surface) {
+        self.show_alone(surface, Shown::Suggestions, |s| matches!(s, Shown::Suggestions));
+    }
+
+    /// Ferme les suites proposées : un nouveau tour les rend caduques.
+    pub fn clear_suggestions(&self) {
+        for id in self.take_shown(|s| matches!(s, Shown::Suggestions)) {
+            self.emit(McpEvent::CloseSurface { id });
+        }
+    }
+
+    /// Affiche `surface` à la place des surfaces de la même famille (`same`).
+    fn show_alone(&self, surface: Surface, shown: Shown, same: impl Fn(&Shown) -> bool) {
+        let old = self.take_shown(same);
+        self.state().shows.insert(surface.id.clone(), shown);
         for id in old {
             self.emit(McpEvent::CloseSurface { id });
         }
         self.emit(McpEvent::Surface { surface });
+    }
+
+    /// Retire des surfaces persistantes celles que `which` désigne ; rend leurs identifiants.
+    fn take_shown(&self, which: impl Fn(&Shown) -> bool) -> Vec<String> {
+        let mut state = self.state();
+        let ids: Vec<String> = state.shows.iter().filter(|(_, s)| which(s)).map(|(id, _)| id.clone()).collect();
+        for id in &ids {
+            state.shows.remove(id);
+        }
+        ids
     }
 
     pub fn has_pending_ask(&self) -> bool {
@@ -300,6 +319,7 @@ impl SurfaceHub {
             (_, "dismiss") => Ok(false),
             (Shown::Params(spec), "param") => self.apply_param(&action.surface, spec, &action.context).map(|()| true),
             (Shown::Variants(spec), "variant") => self.apply_variant(spec, &action.context).map(|()| false),
+            (Shown::Suggestions, "suggest") => Ok(false),
             (_, other) => Err(format!("unexpected action {other}")),
         };
         match result {
@@ -378,6 +398,7 @@ impl SurfaceHub {
                     let slide = match shown {
                         Shown::Params(p) => &p.slide,
                         Shown::Variants(v) => &v.slide,
+                        Shown::Suggestions => return false,
                     };
                     deck.slide(slide).is_none()
                 })

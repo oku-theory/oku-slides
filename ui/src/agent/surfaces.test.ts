@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { agentBusy, byPlace, isAsking, routeSurfaces, surfacesReducer } from "./surfaces";
+import { agentBusy, byPlace, isAsking, routeSurfaces, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { Surface } from "../api";
 
 const s = (id: string, place: Surface["place"]): Surface => ({ id, place, messages: [] });
@@ -96,5 +96,24 @@ describe("surfaces de l'agent", () => {
     const r = routeSurfaces([s("d1", "drawer"), s("t", "thread"), s("p", "postit"), s("d2", "drawer")], shown);
     expect(r.drawer?.id).toBe("d2");
     expect(r.thread.map((x) => x.id)).toEqual(["t", "p"]);
+  });
+
+  test("isAsking : des suites proposées ne sont pas une question", () => {
+    expect(isAsking([s("n", "suggestions")])).toBe(false);
+  });
+
+  test("routeSurfaces : les suites vont au fil, à leur place d'arrivée", () => {
+    const r = routeSurfaces([s("p", "postit"), s("n", "suggestions")], shown);
+    expect(r.thread.map((x) => x.id)).toEqual(["p", "n"]);
+  });
+
+  test("suggestedPrompt : la consigne d'une suite cliquée", () => {
+    expect(suggestedPrompt({ name: "suggest", context: { prompt: "En barres" } })).toBe("En barres");
+  });
+
+  test("suggestedPrompt : rien pour une autre action ou une consigne vide", () => {
+    expect(suggestedPrompt({ name: "choose", context: { prompt: "x" } })).toBeNull();
+    expect(suggestedPrompt({ name: "suggest", context: { prompt: "  " } })).toBeNull();
+    expect(suggestedPrompt({ name: "suggest", context: {} })).toBeNull();
   });
 });

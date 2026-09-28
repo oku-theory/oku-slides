@@ -471,3 +471,59 @@ async fn prune_without_post_it_does_not_wait_for_the_session() {
     .unwrap();
     assert_that!(done).is_true();
 }
+
+fn suggest_args(labels: &[&str]) -> Value {
+    json!({ "suggestions": labels.iter().map(|l| json!({ "label": l })).collect::<Vec<_>>() })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn suggest_next_returns_at_once_with_suggestion_buttons() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "suggest_next", suggest_args(&["Mettre en barres"])).await;
+    let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
+    let surface = next_surface(&mut rx).await;
+    assert_that!(surface.id.as_str()).is_equal_to(id.as_str());
+    assert_that!(surface.place).is_equal_to(oku_slides_session::agent::Place::Suggestions);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn suggest_next_replaces_the_previous_suggestions() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "suggest_next", suggest_args(&["Un"])).await;
+    let second = json_of(&call(&c, "suggest_next", suggest_args(&["Deux"])).await)["shown"].as_str().unwrap().to_owned();
+    assert_that!(open_ids(&h)).is_equal_to(vec![second]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn suggest_next_with_five_suggestions_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "suggest_next", suggest_args(&["a", "b", "c", "d", "e"])).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(open_ids(&h)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clicked_suggestion_closes_its_surface() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let id = json_of(&call(&c, "suggest_next", suggest_args(&["Un"])).await)["shown"].as_str().unwrap().to_owned();
+    h.hub.act(action(&id, "suggest", json!({ "prompt": "Un" }))).unwrap();
+    assert_that!(open_ids(&h)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clear_suggestions_closes_them_and_keeps_other_surfaces() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let params = json!({ "title": "x", "slide": "s-libre", "fields": [
+        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" } }
+    ] });
+    let shown = json_of(&call(&c, "show_params", params).await)["shown"].as_str().unwrap().to_owned();
+    call(&c, "suggest_next", suggest_args(&["Un"])).await;
+    h.hub.clear_suggestions();
+    assert_that!(open_ids(&h)).is_equal_to(vec![shown]);
+}
