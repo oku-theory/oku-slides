@@ -217,9 +217,8 @@ pub struct Slide   { id: String, kind: String, params: Params,
 pub struct Element { id: String, kind: String, frame: Option<Frame>, cell: Option<Cell>,
                      style: Style, params: Params }
 pub struct Params(BTreeMap<String, ParamValue>);
-pub enum   ParamValue { Plain(String), Rich(Vec<Paragraph>), Scalar(Value),
-                        Slot(Vec<Element>), Host(HostValue) }
-pub enum   HostValue  { Chart(Box<oku_slides_chart::ChartOption>) }
+pub enum   ParamValue { Text(String), Rich(Vec<Paragraph>), Slot(Vec<Element>), Value(Value) }
+pub struct DeckParams { title, subtitle, author, date, organization, lang, extra }  // ex-`Params` du deck
 ```
 
 JSON :
@@ -230,9 +229,15 @@ JSON :
               "body": [ { "list": "bullet", "runs": [ { "t": "Diviser par deux les incidents" } ] } ] } }
 ```
 
-- **Désérialisation guidée par le schéma** (`DeserializeSeed` portant
-  `&WidgetRegistry`) : le schéma dit que `body` est `Rich`, `children`
-  `Slot`, `option` `Host(Chart)` (validé par `oku_slides_chart::normalize`).
+- **Désérialisation sans registre, par la forme du JSON.** Les ops arrivent
+  désérialisées par serde aux frontières Tauri (`Request::Apply`) et MCP
+  (`apply`), où aucun registre ne peut être injecté. `ParamValue` se déduit
+  donc de la forme : chaîne → `Text` ; tableau non vide d'objets portant
+  tous `id` et `kind` → `Slot` ; autre tableau d'objets (vide compris) →
+  `Rich` ; le reste → `Value`. Le schéma s'applique ensuite : `validate`,
+  les ops (`&WidgetRegistry`) et `reconcile` normalisent selon le type
+  déclaré (un `[]` déclaré `slot` devient `Slot` vide ; un `host("chart")`
+  est vérifié par `oku_slides_chart::normalize`).
 - **Rien ne se perd.** Un paramètre absent du schéma, ou tout le `params`
   d'un `kind` inconnu, est conservé en `ParamValue::Scalar` et ressort à
   l'identique. `validate` le signale ; le rendu l'ignore ou affiche
@@ -254,14 +259,17 @@ JSON :
 
 - `Ctx::Slide` et `Ctx::Element` ne couvrent plus que les attributs communs
   (`id`, `kind`, `frame`, `cell`, `style`, `name`, `description`, `notes`).
-  Leur clé `params` est une `LoroMap` de contexte `Ctx::Params(&WidgetSchema)`.
-- Dans `Ctx::Params`, le type d'une clé vient du schéma : `Plain` → `Prose`,
-  `Rich` → `Rich`, `Slot` → `Collection(Element)`, `Host` et scalaires →
-  `Atom`. Clé inconnue → `Atom`.
-- Créés dès la création de l'objet (parade t-188) : tous les paramètres
-  `plain`, `rich` et `slot` du schéma.
-- `reconcile` et la lecture `Deck ← LoroDoc` prennent `&WidgetRegistry` ;
-  `merge` non (fusion au niveau Loro), la relecture qui suit si.
+  Leur clé `params` est une `LoroMap` de contexte `Ctx::Params`.
+- **Écriture** : le type d'un paramètre vient de sa valeur (`Text` →
+  `Prose`, `Rich` → `LoroMap { rich: LoroText à marques }`, `Slot` →
+  `Collection(Element)`, `Value` → `Atom`). `reconcile(deck, &registry)`
+  crée d'avance (parade t-188) tous les paramètres `plain`, `rich` et
+  `slot` déclarés par le schéma du widget.
+- **Lecture sans registre** : `LoroText` → texte, `LoroMap` à clé unique
+  `rich` → paragraphes, `LoroMovableList` → slot, valeur → `Value`. Un
+  texte vide se relit absent. L'historique, la fusion et l'aperçu d'une
+  version passée ne dépendent donc pas du pack installé.
+- `SOURCES_VERSION` passe à 3 : des sources plus anciennes ne sont pas lues.
 - `SetKind` concurrent d'une édition de paramètre : le paramètre survit,
   inconnu du nouveau widget, conservé et signalé.
 
@@ -344,6 +352,11 @@ une valeur mal typée.
   `ChoiceOutOfRange`, `WrongCategory`.
 - Snafu avec backtrace, messages en minuscules, localisés via Fluent.
 
+## Hors plan 2
+
+- Les libellés localisés des widgets et des paramètres (clés Fluent) :
+  aucun écran ne les consomme avant t-271.
+
 ## Plans
 
 Deux plans, une seule branche :
@@ -355,7 +368,9 @@ Deux plans, une seule branche :
 2. **Plan 2, bascule v2** : modèle, Loro, ops, validation, rendu générique,
    puis session, MCP, agent, UI, packs au format dossier, fixtures, i18n.
    Seul le crate en cours est vert à chaque tâche ; le workspace l'est à la
-   fin.
+   fin. Le test doré reste en place : ses decks sont convertis en v2 et le
+   rendu reste identique (écart d'antialiasing borné toléré, comme en
+   plan 1).
 
 ## Tests
 
