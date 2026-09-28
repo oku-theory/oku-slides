@@ -1,7 +1,7 @@
 // Une surface A2UI (panneau de droite ou agent), rendue avec le catalogue Papier.
 // Chaque nouvelle liste de messages recrée la surface ; l'ancienne est libérée.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { A2uiSurface } from "@a2ui/react/v0_9";
 import type { A2uiClientAction, A2uiMessage, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
@@ -44,19 +44,20 @@ export function SurfaceView({
   // Les gestionnaires changent à chaque rendu ; la surface, seulement avec les messages.
   const handlers = useRef({ onAction, onError });
   handlers.current = { onAction, onError };
-  const built = useMemo(
-    () => buildSurface(messages, surfaceId, (action) => handlers.current.onAction(action)),
-    [messages, surfaceId],
-  );
-  // Signalée après le rendu : le parent peut mettre son état à jour sans avertissement de React.
+  // Construite et libérée par le même effet : un remontage (StrictMode) en
+  // reconstruit une, au lieu de réafficher celle que le démontage a vidée.
+  const [surface, setSurface] = useState<SurfaceModel<never> | null>(null);
   useEffect(() => {
+    const built = buildSurface(messages, surfaceId, (action) => handlers.current.onAction(action));
+    // Signalée après le rendu : le parent peut mettre son état à jour sans avertissement de React.
     if (built.error) handlers.current.onError(built.error);
-  }, [built]);
-  useEffect(() => () => built.surface?.dispose(), [built]);
+    setSurface(built.surface);
+    return () => built.surface?.dispose();
+  }, [messages, surfaceId]);
   // `.a2ui-surface` : les raccourcis de l'app ignorent les touches tapées dans une surface.
-  return built.surface ? (
+  return surface ? (
     <div className="a2ui-surface">
-      <A2uiSurface surface={built.surface} />
+      <A2uiSurface surface={surface} />
     </div>
   ) : null;
 }
