@@ -33,6 +33,7 @@ ureq.workspace = true
 tiny_http.workspace = true
 speculoos.workspace = true
 hound.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

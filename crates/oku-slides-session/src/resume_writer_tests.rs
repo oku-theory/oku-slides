@@ -15,13 +15,7 @@ fn defaults() -> DocDefaults {
 }
 
 fn temp_dir() -> PathBuf {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    std::env::temp_dir().join(format!(
-        "oku-slides-writer-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ))
+    crate::test_support::fresh_dir("oku-slides-writer-").keep()
 }
 
 fn resume(dir: &std::path::Path) -> Resume {

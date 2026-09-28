@@ -5,3 +5,4 @@
 mod common;
 
 mod issue_0181_serve_obeys_foreign_origins;
+mod issue_0273_stale_test_dirs;

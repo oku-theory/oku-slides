@@ -1,39 +1,35 @@
 //! Aides partagées par les tests d'intégration de `oku-slides-session`
-//! (`session.rs` et `merge.rs`).
+//! (`session.rs`, `merge.rs`, `agent.rs`, `errors.rs`, `regressions/`).
 
 use oku_slides_session::{Fonts, Platform, Request, Session, Settings};
 use serde_json::json;
 
 /// Un dossier de données neuf, supprimé à la fin du test (t-145).
-pub struct Data(std::path::PathBuf);
+///
+/// Créé atomiquement sous un nom aléatoire (t-264) : jamais celui d'un
+/// lancement précédent, même quand macOS recycle le PID.
+#[derive(Debug)]
+pub struct Data(tempfile::TempDir);
 
 impl std::ops::Deref for Data {
     type Target = std::path::Path;
     fn deref(&self) -> &std::path::Path {
-        &self.0
+        self.0.path()
     }
 }
 
 impl AsRef<std::path::Path> for Data {
     fn as_ref(&self) -> &std::path::Path {
-        &self.0
+        self.0.path()
     }
-}
-
-impl Drop for Data {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).ok();
-    }
-}
-
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
 pub fn data_dir() -> Data {
-    Data(std::env::temp_dir().join(format!("oku-slides-session-{}-{}", std::process::id(), unique())))
+    let dir = tempfile::Builder::new()
+        .prefix("oku-slides-session-")
+        .tempdir()
+        .unwrap_or_else(|e| panic!("dossier de données impossible : {e}"));
+    Data(dir)
 }
 
 /// Une session sur le dossier de données `data`.
@@ -54,9 +50,39 @@ pub fn session_with_settings(data: &std::path::Path, mut settings: Settings) -> 
     Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
 }
 
+/// Une session isolée : son propre dossier de données, vide, qui vit autant
+/// qu'elle (t-264).
+pub struct Isolated {
+    // Déclarée avant `data` : la session se ferme avant que son dossier soit supprimé.
+    session: Session,
+    data: Data,
+}
+
+impl Isolated {
+    /// Le dossier de données de la session.
+    #[allow(dead_code, reason = "lu par les tests de non-régression seulement")]
+    pub fn data(&self) -> &std::path::Path {
+        &self.data
+    }
+}
+
+impl std::ops::Deref for Isolated {
+    type Target = Session;
+    fn deref(&self) -> &Session {
+        &self.session
+    }
+}
+
+impl std::ops::DerefMut for Isolated {
+    fn deref_mut(&mut self) -> &mut Session {
+        &mut self.session
+    }
+}
+
 /// Une session isolée : son propre dossier de données, vide.
-pub fn session() -> Session {
-    session_in(&data_dir())
+pub fn session() -> Isolated {
+    let data = data_dir();
+    Isolated { session: session_in(&data), data }
 }
 
 pub fn set_theme(theme: &str) -> Request {

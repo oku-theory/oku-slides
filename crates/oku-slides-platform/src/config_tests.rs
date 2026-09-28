@@ -71,13 +71,11 @@ fn from_sources_invalid_env_value_returns_error() {
 
 #[test]
 fn from_sources_missing_file_is_ignored_and_present_file_overrides() {
-    let dir = std::env::temp_dir().join(format!("oku-slides-config-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let file = dir.join("config.toml");
+    let dir = crate::test_support::fresh_dir("oku-slides-config-");
+    let file = dir.path().join("config.toml");
     assert_that!(Settings::from_sources(Some(&file), env(&[])).unwrap().history.limit).is_equal_to(500);
     std::fs::write(&file, "[history]\nlimit = 20\n").unwrap();
     assert_that!(Settings::from_sources(Some(&file), env(&[])).unwrap().history.limit).is_equal_to(20);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

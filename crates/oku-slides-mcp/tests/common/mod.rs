@@ -16,16 +16,24 @@ use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
 use serde_json::{Map, Value};
 use tokio_util::sync::CancellationToken;
 
-pub fn platform() -> Platform {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
+/// Un dossier neuf, supprimé au `drop`.
+///
+/// Créé atomiquement sous un nom aléatoire (t-273) : jamais celui d'un
+/// lancement précédent, même quand macOS recycle le PID.
+pub fn temp_dir(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test impossible : {e}"))
+}
+
+/// Une plateforme de test (locale `fr`) et son dossier de données, à garder
+/// vivant autant qu'elle.
+pub fn platform() -> (Platform, tempfile::TempDir) {
+    let data = temp_dir("oku-slides-mcp-");
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    settings.paths.data = Some(std::env::temp_dir().join(format!("oku-slides-mcp-{}-{n}", std::process::id())));
+    settings.paths.data = Some(data.path().to_owned());
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
-    Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme de test : {e}"))
+    (Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme de test : {e}")), data)
 }
 
 pub fn fixture_path() -> std::path::PathBuf {
@@ -58,27 +66,40 @@ pub struct Harness {
     pub settings: Arc<MemorySettings>,
     pub cancel: CancellationToken,
     pub localizer: Arc<oku_slides_i18n::Localizer>,
+    /// Le dossier de données : dernier champ, supprimé après la session.
+    data: tempfile::TempDir,
+}
+
+impl Harness {
+    /// Le dossier de données de la session.
+    pub fn data(&self) -> &std::path::Path {
+        self.data.path()
+    }
 }
 
 /// `Platform` et une session de test, ouverte sur `fixtures/roadmap.json`,
 /// hors du fil async (voir `start`).
-async fn prepared() -> (Platform, Session) {
+async fn prepared() -> (Platform, Session, tempfile::TempDir) {
     // `Storage` bloque sur son propre runtime (OpenDAL) : l'ouvrir depuis le
     // fil async du test (déjà dans le runtime de `#[tokio::test]`) paniquerait
     // ("Cannot start a runtime from within a runtime"), comme le fait
     // `Tools::with_session` pour les outils.
     tokio::task::spawn_blocking(|| {
-        let platform = platform();
+        let (platform, data) = platform();
         let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session de test : {e}"));
         session.open(&fixture_path()).unwrap_or_else(|e| panic!("ouverture de la fixture : {e}"));
-        (platform, session)
+        (platform, session, data)
     })
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante de préparation : {e}"))
 }
 
 /// Démarre le serveur pour un onglet dont les sessions sont fournies par `sessions`.
-async fn start_with(platform: Platform, sessions: Arc<dyn Sessions>, session: Arc<Mutex<Session>>) -> Harness {
+async fn start_with(
+    (platform, data): (Platform, tempfile::TempDir),
+    sessions: Arc<dyn Sessions>,
+    session: Arc<Mutex<Session>>,
+) -> Harness {
     let localizer = platform.localizer.clone();
     let tab = TabSession::new("t-1", sessions);
     let hub = SurfaceHub::new(tab.clone(), localizer.clone());
@@ -86,13 +107,13 @@ async fn start_with(platform: Platform, sessions: Arc<dyn Sessions>, session: Ar
     let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform);
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, session, tab, settings, cancel, localizer }
+    Harness { server, hub, session, tab, settings, cancel, localizer, data }
 }
 
 pub async fn start() -> Harness {
-    let (platform, session) = prepared().await;
+    let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
-    start_with(platform, session.clone(), session).await
+    start_with((platform, data), session.clone(), session).await
 }
 
 /// Un `Sessions` qui refuse toujours l'onglet : simule un onglet fermé côté hôte.
@@ -137,19 +158,19 @@ impl Sessions for OtherTabs {
 
 /// Un serveur parmi d'autres onglets (voir [`OtherTabs`]).
 pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
-    let (platform, session) = prepared().await;
+    let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
     let tabs = Arc::new(OtherTabs { session: session.clone(), opened: Mutex::default() });
-    let h = start_with(platform, tabs.clone(), session).await;
+    let h = start_with((platform, data), tabs.clone(), session).await;
     (h, tabs)
 }
 
 /// Un serveur dont l'onglet est fermé : tout outil sur la session échoue.
 pub async fn start_closed() -> Harness {
-    let (platform, session) = prepared().await;
+    let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
     let sessions: Arc<dyn Sessions> = Arc::new(ClosedTabs(session.clone()));
-    start_with(platform, sessions, session).await
+    start_with((platform, data), sessions, session).await
 }
 
 struct Noop;

@@ -14,6 +14,8 @@ pub mod config;
 pub mod config_write;
 pub mod errors;
 pub mod storage;
+#[cfg(test)]
+mod test_support;
 
 use std::sync::Arc;
 

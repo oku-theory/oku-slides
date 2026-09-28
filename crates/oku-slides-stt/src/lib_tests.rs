@@ -42,18 +42,17 @@ fn resampler_chunked_input_matches_whole_resample() {
 
 #[test]
 fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
-    let dir = std::env::temp_dir().join(format!("oku-slides-stt-{}", std::process::id()));
-    let stt = Stt::new(&platform(&dir));
+    let dir = crate::test_support::fresh_dir("oku-slides-stt-");
+    let stt = Stt::new(&platform(dir.path()));
     let s = stt.status();
     assert_that!(s.config.model).is_equal_to(Model::Turbo);
     assert_that!(s.config.language).is_none();
     assert_that!(s.config.auto_stop).is_true();
     assert_that!(s.models).has_length(3);
     stt.configure(Config { model: Model::Large, language: Some("fr".into()), auto_stop: false, silence: 2.0 });
-    let back = Stt::new(&platform(&dir)).status().config;
+    let back = Stt::new(&platform(dir.path())).status().config;
     assert_that!(back.model).is_equal_to(Model::Large);
     assert_that!(back.auto_stop).is_false();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

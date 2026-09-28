@@ -26,6 +26,7 @@ schemars.workspace = true
 oku-slides-pdf.workspace = true
 speculoos.workspace = true
 insta.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

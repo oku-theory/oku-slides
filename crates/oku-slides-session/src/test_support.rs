@@ -2,19 +2,21 @@
 
 use crate::{Fonts, Platform, Session, Settings};
 
-/// Un identifiant unique par appel, pour isoler les dossiers de données des tests.
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    NEXT.fetch_add(1, Ordering::Relaxed)
+/// Un dossier neuf, créé atomiquement sous un nom aléatoire (t-264).
+///
+/// Jamais celui d'un lancement précédent, même quand macOS recycle le PID
+/// (nextest lance un processus par test). Supprimé au `drop`, sauf `keep()`.
+pub(crate) fn fresh_dir(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test impossible : {e}"))
 }
 
 /// Une session isolée, en français, ouverte sur `fixtures/roadmap.json`.
 pub(crate) fn session() -> Session {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    let data =
-        std::env::temp_dir().join(format!("oku-slides-session-test-support-{}-{}", std::process::id(), unique()));
-    settings.paths.data = Some(data);
+    // Sans reprise activée, la session n'écrit rien dans son dossier de
+    // données : il peut disparaître une fois la session construite.
+    let data = fresh_dir("oku-slides-session-test-support-");
+    settings.paths.data = Some(data.path().to_owned());
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());

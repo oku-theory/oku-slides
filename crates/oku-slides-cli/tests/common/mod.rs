@@ -6,20 +6,39 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 pub const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
 
-/// Un dossier de travail neuf pour un test.
-pub fn workdir(name: &str) -> PathBuf {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("oku-slides-cli-{name}-{}-{n}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
-    dir
+/// Un dossier de travail neuf, supprimé à la fin du test.
+///
+/// Créé atomiquement sous un nom aléatoire (t-273) : jamais celui d'un
+/// lancement précédent, même quand macOS recycle le PID. À déclarer avant le
+/// [`Server`] qui l'utilise : il est supprimé une fois le serveur arrêté.
+#[derive(Debug)]
+pub struct Workdir(tempfile::TempDir);
+
+impl std::ops::Deref for Workdir {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+impl AsRef<Path> for Workdir {
+    fn as_ref(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+pub fn workdir(name: &str) -> Workdir {
+    let dir = tempfile::Builder::new()
+        .prefix(&format!("oku-slides-cli-{name}-"))
+        .tempdir()
+        .unwrap_or_else(|e| panic!("dossier de test : {e}"));
+    Workdir(dir)
 }
 
 /// La CLI de test, avec son dossier de données et sa langue.

@@ -16,10 +16,7 @@ impl Drop for Data {
 }
 
 fn data_dir() -> Data {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    Data(std::env::temp_dir().join(format!("oku-slides-lib-{}-{n}", std::process::id())))
+    Data(crate::test_support::fresh_dir("oku-slides-lib-").keep())
 }
 
 fn session_in(data: &Path) -> Session {

@@ -5,39 +5,40 @@ use speculoos::prelude::*;
 
 use super::*;
 
-fn temp_dir(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("oku-slides-storage-{name}-{}", std::process::id()))
+fn temp_dir(name: &str) -> tempfile::TempDir {
+    crate::test_support::fresh_dir(&format!("oku-slides-storage-{name}-"))
 }
 
 #[test]
 fn write_then_read_returns_the_bytes_and_creates_parents() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("rw");
+    let tmp = temp_dir("rw");
+    let dir = tmp.path();
     let file = dir.join("a/b/c.bin");
     s.write(&file, vec![1, 2, 3]).unwrap();
     assert_that!(s.read(&file).unwrap()).is_equal_to(vec![1, 2, 3]);
     assert_that!(s.len(&file).unwrap()).is_equal_to(Some(3));
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_missing_file_returns_not_found() {
     let s = Storage::local().unwrap();
-    let err = s.read(&temp_dir("absent").join("x")).unwrap_err();
+    let tmp = temp_dir("absent");
+    let err = s.read(&tmp.path().join("x")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
-    assert_that!(s.len(&temp_dir("absent").join("x")).unwrap()).is_none();
+    assert_that!(s.len(&tmp.path().join("x")).unwrap()).is_none();
 }
 
 #[test]
 fn write_atomic_replaces_content_and_leaves_no_temp_file() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("atomic");
+    let tmp = temp_dir("atomic");
+    let dir = tmp.path();
     let file = dir.join("deck.oku-slides.pdf");
     s.write_atomic(&file, b"v1".to_vec()).unwrap();
     s.write_atomic(&file, b"v2".to_vec()).unwrap();
     assert_that!(s.read(&file).unwrap()).is_equal_to(b"v2".to_vec());
-    assert_that!(s.list_files(&dir).unwrap()).is_equal_to(vec![file.clone()]);
-    std::fs::remove_dir_all(&dir).ok();
+    assert_that!(s.list_files(dir).unwrap()).is_equal_to(vec![file.clone()]);
 }
 
 /// Deux écritures simultanées du même fichier (deux onglets qui enregistrent
@@ -45,7 +46,8 @@ fn write_atomic_replaces_content_and_leaves_no_temp_file() {
 #[test]
 fn write_atomic_concurrent_writes_both_succeed() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("atomic-race");
+    let tmp = temp_dir("atomic-race");
+    let dir = tmp.path();
     let path = dir.join("set.json");
     let writers: Vec<_> = (0..8u8)
         .map(|n| {
@@ -57,19 +59,18 @@ fn write_atomic_concurrent_writes_both_succeed() {
         assert_that!(w.join().unwrap()).is_ok();
     }
     assert_that!(s.read(&path).unwrap().len()).is_equal_to(4096);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn delete_dir_removes_the_tree_and_ignores_missing_dirs() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("rmdir");
+    let tmp = temp_dir("rmdir");
+    let dir = tmp.path();
     s.write(&dir.join("t-1/deck/document.json"), vec![1]).unwrap();
     s.delete_dir(&dir.join("t-1")).unwrap();
     assert_that!(dir.join("t-1").exists()).is_false();
     assert_that!(dir.exists()).is_true();
     assert_that!(s.delete_dir(&dir.join("absent"))).is_ok();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 /// Un lien dans l'arbre est retiré, jamais suivi : sa cible reste.
@@ -77,7 +78,8 @@ fn delete_dir_removes_the_tree_and_ignores_missing_dirs() {
 #[test]
 fn delete_dir_nested_symlink_removes_the_link_not_its_target() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("rmdir-nested-link");
+    let tmp = temp_dir("rmdir-nested-link");
+    let dir = tmp.path();
     let victim = dir.join("victim");
     s.write(&victim.join("precious.txt"), b"keep".to_vec()).unwrap();
     s.write(&dir.join("t-1/deck/document.json"), vec![1]).unwrap();
@@ -85,7 +87,6 @@ fn delete_dir_nested_symlink_removes_the_link_not_its_target() {
     s.delete_dir(&dir.join("t-1")).unwrap();
     assert_that!(dir.join("t-1").exists()).is_false();
     assert_that!(s.read(&victim.join("precious.txt")).unwrap()).is_equal_to(b"keep".to_vec());
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 /// Un lien vers un fichier n'est pas un dossier : seul le lien part.
@@ -93,93 +94,95 @@ fn delete_dir_nested_symlink_removes_the_link_not_its_target() {
 #[test]
 fn delete_dir_symlink_to_file_removes_only_the_link() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("rmdir-file-link");
+    let tmp = temp_dir("rmdir-file-link");
+    let dir = tmp.path();
     s.write(&dir.join("target.txt"), b"keep".to_vec()).unwrap();
     std::os::unix::fs::symlink(dir.join("target.txt"), dir.join("t-2")).unwrap();
     s.delete_dir(&dir.join("t-2")).unwrap();
     assert_that!(dir.join("t-2").symlink_metadata().is_err()).is_true();
     assert_that!(s.read(&dir.join("target.txt")).unwrap()).is_equal_to(b"keep".to_vec());
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_limited_within_the_limit_returns_the_bytes() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("limited");
+    let tmp = temp_dir("limited");
+    let dir = tmp.path();
     let file = dir.join("state.json");
     s.write(&file, b"{}".to_vec()).unwrap();
     assert_that!(s.read_limited(&file, 2).unwrap()).is_equal_to(b"{}".to_vec());
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_limited_empty_file_returns_no_bytes() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("limited-empty");
+    let tmp = temp_dir("limited-empty");
+    let dir = tmp.path();
     let file = dir.join("state.json");
     s.write(&file, Vec::new()).unwrap();
     assert_that!(s.read_limited(&file, 10).unwrap()).is_empty();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_limited_one_byte_over_returns_too_large() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("limited-over");
+    let tmp = temp_dir("limited-over");
+    let dir = tmp.path();
     let file = dir.join("state.json");
     s.write(&file, b"{ }".to_vec()).unwrap();
     assert_that!(s.read_limited(&file, 2).unwrap_err().kind()).is_equal_to(StorageErrorKind::TooLarge);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_limited_missing_file_returns_not_found() {
     let s = Storage::local().unwrap();
-    let err = s.read_limited(&temp_dir("limited-absent").join("x"), 10).unwrap_err();
+    let tmp = temp_dir("limited-absent");
+    let err = s.read_limited(&tmp.path().join("x"), 10).unwrap_err();
     assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
 }
 
 #[test]
 fn list_files_missing_dir_returns_empty_and_skips_subdirs() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("list");
-    assert_that!(s.list_files(&dir).unwrap()).is_empty();
+    let tmp = temp_dir("list");
+    let dir = tmp.path();
+    assert_that!(s.list_files(dir).unwrap()).is_empty();
     s.write(&dir.join("x.json"), b"{}".to_vec()).unwrap();
     s.create_dir_all(&dir.join("sub")).unwrap();
-    assert_that!(s.list_files(&dir).unwrap()).is_equal_to(vec![dir.join("x.json")]);
-    std::fs::remove_dir_all(&dir).ok();
+    assert_that!(s.list_files(dir).unwrap()).is_equal_to(vec![dir.join("x.json")]);
 }
 
 #[test]
 fn list_dirs_returns_only_subdirectories() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("dirs");
+    let tmp = temp_dir("dirs");
+    let dir = tmp.path();
     s.write(&dir.join("a/x.bin"), vec![1]).unwrap();
     s.write(&dir.join("b/y.bin"), vec![1]).unwrap();
     s.write(&dir.join("z.bin"), vec![1]).unwrap();
     let mut names: Vec<String> =
-        s.list_dirs(&dir).unwrap().iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        s.list_dirs(dir).unwrap().iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
     names.sort();
     assert_that!(names).is_equal_to(vec!["a".to_owned(), "b".to_owned()]);
     assert_that!(s.list_dirs(&dir.join("absent")).unwrap()).is_empty();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_fonts_keeps_only_font_files() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("fonts");
+    let tmp = temp_dir("fonts");
+    let dir = tmp.path();
     s.write(&dir.join("Inter.TTF"), vec![0; 4]).unwrap();
     s.write(&dir.join("notes.txt"), vec![0; 4]).unwrap();
-    let fonts = s.read_fonts(&dir).unwrap();
+    let fonts = s.read_fonts(dir).unwrap();
     assert_that!(fonts.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["Inter.TTF"]);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn writer_streams_chunks_then_rename_and_delete_work() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("stream");
+    let tmp = temp_dir("stream");
+    let dir = tmp.path();
     let part = dir.join("model.bin.part");
     let mut w = s.writer(&part).unwrap();
     w.write_all(b"ab").unwrap();
@@ -192,16 +195,15 @@ fn writer_streams_chunks_then_rename_and_delete_work() {
     s.delete(&done).unwrap();
     assert_that!(s.exists(&done).unwrap()).is_false();
     s.delete(&done).unwrap();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
 fn read_path_with_parent_components_resolves_them() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("dotdot");
+    let tmp = temp_dir("dotdot");
+    let dir = tmp.path();
     s.write(&dir.join("x/file"), b"ok".to_vec()).unwrap();
     assert_that!(s.read(&dir.join("x/../x/./file")).unwrap()).is_equal_to(b"ok".to_vec());
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -245,11 +247,11 @@ fn at_same_root_reuses_one_operator() {
 #[test]
 fn read_fonts_skips_git_lfs_pointers() {
     let s = Storage::local().unwrap();
-    let dir = temp_dir("fonts-lfs");
+    let tmp = temp_dir("fonts-lfs");
+    let dir = tmp.path();
     let pointer = b"version https://git-lfs.github.com/spec/v1\noid sha256:5d3c\nsize 66592\n".to_vec();
     s.write(&dir.join("inter-400.ttf"), pointer).unwrap();
     s.write(&dir.join("noto.otf"), vec![0; 4]).unwrap();
-    let fonts = s.read_fonts(&dir).unwrap();
+    let fonts = s.read_fonts(dir).unwrap();
     assert_that!(fonts.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["noto.otf"]);
-    std::fs::remove_dir_all(&dir).ok();
 }

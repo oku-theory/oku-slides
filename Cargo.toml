@@ -82,6 +82,8 @@ tauri-runtime = "2.12"
 hound = "3"
 speculoos = "0.13"
 insta = { version = "1", features = ["json"] }
+# Dossiers de test créés atomiquement, nom aléatoire (t-264).
+tempfile = "3"
 rstest = "0.26"
 proptest = "1"
 # Somme de contrôle des snapshots Loro : forger un snapshot malformé mais accepté.

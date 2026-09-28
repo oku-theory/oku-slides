@@ -17,10 +17,7 @@ fn retitle_third_slide(title: &str) -> Request {
 
 /// Le deck de la fixture enregistré dans `dir/deck.oku-slides.pdf` par une
 /// session, puis une autre copie, `dir/<other>`, où le thème est passé à `pro`.
-fn saved_deck_and_modified_copy(
-    dir: &std::path::Path,
-    other: &str,
-) -> (oku_slides_session::Session, std::path::PathBuf) {
+fn saved_deck_and_modified_copy(dir: &std::path::Path, other: &str) -> (common::Isolated, std::path::PathBuf) {
     fn ok<T>(r: oku_slides_session::Result<T>) -> T {
         r.unwrap_or_else(|e| panic!("préparation impossible : {}", e.one_line()))
     }

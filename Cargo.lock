@@ -5319,6 +5319,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "tempfile",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5341,6 +5342,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-window-state",
  "tauri-runtime",
+ "tempfile",
  "tracing",
 ]
 
@@ -5377,6 +5379,7 @@ dependencies = [
  "serde",
  "serde_json",
  "speculoos",
+ "tempfile",
  "tiny_http",
  "tokio",
  "tracing",
@@ -5436,6 +5439,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "tempfile",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5465,6 +5469,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "tempfile",
  "tokio",
  "toml_edit 0.25.15+spec-1.1.0",
  "tracing",
@@ -5511,6 +5516,7 @@ dependencies = [
  "similar 3.2.0",
  "snafu",
  "speculoos",
+ "tempfile",
  "tracing",
 ]
 
@@ -5530,6 +5536,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "tempfile",
  "tiny_http",
  "tokenizers",
  "tracing",

@@ -15,14 +15,14 @@ use speculoos::prelude::*;
 struct Data(PathBuf);
 
 impl Data {
+    /// Créé atomiquement sous un nom aléatoire (t-264) : jamais le dossier
+    /// d'un lancement précédent, même quand macOS recycle le PID.
     fn new() -> Self {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        Self(std::env::temp_dir().join(format!(
-            "oku-slides-issue-0224-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )))
+        let dir = tempfile::Builder::new()
+            .prefix("oku-slides-issue-0224-")
+            .tempdir()
+            .unwrap_or_else(|e| panic!("dossier de données impossible : {e}"));
+        Self(dir.keep())
     }
 
     fn resume(&self) -> PathBuf {

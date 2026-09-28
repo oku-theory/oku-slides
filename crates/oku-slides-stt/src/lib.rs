@@ -15,6 +15,8 @@
 mod audio;
 mod error;
 mod models;
+#[cfg(test)]
+mod test_support;
 mod vad;
 mod whisper;
 

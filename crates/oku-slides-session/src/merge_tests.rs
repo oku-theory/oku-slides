@@ -46,10 +46,7 @@ impl Drop for Dir {
 }
 
 fn dir() -> Dir {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    Dir(std::env::temp_dir().join(format!("oku-slides-merge-{}-{n}", std::process::id())))
+    Dir(crate::test_support::fresh_dir("oku-slides-merge-").keep())
 }
 
 /// Une session sur la fixture, enregistrée dans `dir/deck.oku-slides.pdf`.

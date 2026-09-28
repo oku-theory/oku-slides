@@ -195,18 +195,19 @@ fn transcriber_real_model_transcribes_without_error() {
     }
 }
 
-fn model_dir(name: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("oku-slides-whisper-{name}-{}", std::process::id()))
+fn model_dir() -> tempfile::TempDir {
+    crate::test_support::fresh_dir("oku-slides-whisper-")
 }
 
 #[test]
 fn read_model_lists_visible_files_through_storage() {
     let storage = Storage::local().unwrap();
-    let dir = model_dir("read");
+    let tmp = model_dir();
+    let dir = tmp.path();
     storage.write(&dir.join("model.bin"), b"poids".to_vec()).unwrap();
     storage.write(&dir.join("config.json"), b"{}".to_vec()).unwrap();
     storage.write(&dir.join(".complete"), Vec::new()).unwrap();
-    let mut names: Vec<String> = super::read_model(&storage, &dir).unwrap().into_iter().map(|(n, _)| n).collect();
+    let mut names: Vec<String> = super::read_model(&storage, dir).unwrap().into_iter().map(|(n, _)| n).collect();
     names.sort();
     assert_that!(names).is_equal_to(vec!["config.json".to_owned(), "model.bin".to_owned()]);
 }
@@ -214,16 +215,18 @@ fn read_model_lists_visible_files_through_storage() {
 #[test]
 fn read_model_without_files_returns_model_error() {
     let storage = Storage::local().unwrap();
-    let err = super::read_model(&storage, &model_dir("absent")).unwrap_err();
+    let tmp = model_dir();
+    let err = super::read_model(&storage, &tmp.path().join("absent")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
 }
 
 #[test]
 fn load_without_tokenizer_returns_model_error() {
     let storage = Storage::local().unwrap();
-    let dir = model_dir("no-tokenizer");
+    let tmp = model_dir();
+    let dir = tmp.path();
     storage.write(&dir.join("model.bin"), b"poids".to_vec()).unwrap();
-    let err = super::Transcriber::load(&dir, &storage).unwrap_err();
+    let err = super::Transcriber::load(dir, &storage).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
     assert_that!(err.to_string()).contains("tokenizer.json");
 }

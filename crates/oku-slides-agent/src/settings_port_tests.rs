@@ -7,20 +7,20 @@ use speculoos::prelude::*;
 
 use super::AppSettings;
 
-fn platform() -> Platform {
+/// Une plateforme sur un dossier de données neuf (t-273), à garder vivant
+/// autant qu'elle.
+fn platform() -> (Platform, tempfile::TempDir) {
     let mut settings = Settings::defaults().unwrap();
-    let dir = std::env::temp_dir().join(format!("oku-slides-settings-port-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::remove_file(dir.join("config.toml")).ok();
-    settings.paths.data = Some(dir);
+    let dir = tempfile::Builder::new().prefix("oku-slides-settings-port-").tempdir().unwrap();
+    settings.paths.data = Some(dir.path().to_owned());
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
-    Platform::with_settings(settings).unwrap()
+    (Platform::with_settings(settings).unwrap(), dir)
 }
 
 #[test]
 fn read_exposes_history_limit_and_vad_keys() {
-    let p = platform();
+    let (p, _dir) = platform();
     let port = AppSettings::new(&p, None);
     let v = port.read();
     assert_that!(v.get("history.limit").cloned()).is_equal_to(Some(json!(500)));
@@ -29,7 +29,7 @@ fn read_exposes_history_limit_and_vad_keys() {
 
 #[test]
 fn write_config_key_goes_to_config_toml_for_next_launch() {
-    let p = platform();
+    let (p, _dir) = platform();
     let port = AppSettings::new(&p, None);
     assert_that!(port.write("history.limit", &json!(42))).is_equal_to(Ok(Applied::NextLaunch));
     let text = std::fs::read_to_string(p.settings.config_file()).unwrap();
@@ -38,7 +38,7 @@ fn write_config_key_goes_to_config_toml_for_next_launch() {
 
 #[test]
 fn write_dictation_key_without_dictation_is_an_error() {
-    let p = platform();
+    let (p, _dir) = platform();
     let port = Arc::new(AppSettings::new(&p, None));
     assert_that!(port.write("dictation.model", &json!("base"))).is_err();
 }

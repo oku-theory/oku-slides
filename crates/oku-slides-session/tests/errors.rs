@@ -1,20 +1,17 @@
 //! Chaque erreur de la session, provoquée pour de vrai, avec son message
 //! dans la langue de l'utilisateur.
 
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use oku_slides_session::{
     Fonts, Localize, Localizer, Platform, Request, Session, SessionError, SessionErrorKind, Settings,
 };
 use speculoos::prelude::*;
 
-fn workdir() -> PathBuf {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("oku-slides-session-errors-{}-{n}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
-    dir
+#[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
+mod common;
+
+/// Un dossier de travail neuf, supprimé à la fin du test (t-264).
+fn workdir() -> common::Data {
+    common::data_dir()
 }
 
 fn session(dir: &std::path::Path) -> Session {

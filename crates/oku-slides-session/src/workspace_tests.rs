@@ -12,13 +12,7 @@ struct Data(PathBuf);
 
 impl Data {
     fn new() -> Self {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        Self(std::env::temp_dir().join(format!(
-            "oku-slides-workspace-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )))
+        Self(crate::test_support::fresh_dir("oku-slides-workspace-").keep())
     }
 }
 

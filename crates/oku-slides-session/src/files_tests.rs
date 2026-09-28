@@ -41,8 +41,7 @@ fn notice_modified_elsewhere_with_unreadable_parts_joins_both_lines() {
 
 #[test]
 fn deck_uid_of_a_json_deck_is_none() {
-    let dir = std::env::temp_dir().join(format!("oku-slides-files-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = crate::test_support::fresh_dir("oku-slides-files-").keep();
     let path = dir.join("deck.json");
     std::fs::write(&path, r#"{"slides":[]}"#).unwrap();
     let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20 };

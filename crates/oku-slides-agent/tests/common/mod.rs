@@ -42,6 +42,8 @@ pub struct Harness {
     pub link: Link,
     pub log: PathBuf,
     pub cancel: CancellationToken,
+    /// Scénario, journal et données : dernier champ, supprimé après les onglets.
+    dir: tempfile::TempDir,
 }
 
 impl Harness {
@@ -60,13 +62,12 @@ impl Drop for Harness {
     }
 }
 
-/// Un nom de dossier jamais repris : un numéro de processus réutilisé
-/// retrouverait sinon le journal d'un test précédent (ouvert en ajout).
-fn unique() -> String {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
-    format!("{}-{now}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed))
+/// Un dossier neuf, supprimé au `drop` (t-273).
+///
+/// Créé atomiquement sous un nom aléatoire : jamais celui d'un test
+/// précédent, dont le journal (ouvert en ajout) serait sinon relu.
+fn test_dir(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test : {e}"))
 }
 
 /// Une session sur la fixture `roadmap.json`, et la plateforme (locale `fr`).
@@ -109,9 +110,8 @@ async fn start_tabs_ready_within(
     command: Option<&str>,
     ready_within: Duration,
 ) -> Harness {
-    let dir = std::env::temp_dir().join(format!("oku-slides-agent-{}", unique()));
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
-    let (script_path, log) = (dir.join("script.json"), dir.join("log.jsonl"));
+    let dir = test_dir("oku-slides-agent-");
+    let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
     let launch = Launch {
         command: command.unwrap_or(env!("CARGO_BIN_EXE_oku-slides-fake-agent")).to_owned(),
@@ -121,14 +121,14 @@ async fn start_tabs_ready_within(
             "--log".into(),
             log.to_string_lossy().into_owned(),
         ],
-        fallback_cwd: dir.clone(),
+        fallback_cwd: dir.path().to_owned(),
         ready_within,
     };
     let link = Link::new(launch);
     let cancel = CancellationToken::new();
     let mut started = Vec::with_capacity(tabs.len());
     for name in tabs {
-        let (session, platform) = session(dir.clone()).await;
+        let (session, platform) = session(dir.path().to_owned()).await;
         let session = Arc::new(Mutex::new(session));
         let tab = TabSession::new(*name, session.clone());
         let hub = SurfaceHub::new(tab.clone(), platform.localizer.clone());
@@ -139,7 +139,7 @@ async fn start_tabs_ready_within(
         let events = tokio::sync::Mutex::new(agent.subscribe());
         started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, events });
     }
-    Harness { tabs: started, link, log, cancel }
+    Harness { tabs: started, link, log, cancel, dir }
 }
 
 pub async fn start_tabs(script: Value, tabs: &[&str]) -> Harness {
@@ -248,12 +248,27 @@ impl oku_slides_session::agent::Sessions for TabSessions {
 /// Ce que `Stack::forward` a relayé : `(canal, JSON lu)`.
 pub type Relayed = Arc<Mutex<Vec<(&'static str, Value)>>>;
 
+/// Une pile de test et son dossier (scénario, journal, données), supprimé
+/// après elle.
+pub struct TestStack {
+    // Déclarée avant `dir` : la pile s'arrête avant que son dossier soit supprimé.
+    stack: oku_slides_agent::Stack,
+    dir: tempfile::TempDir,
+}
+
+impl std::ops::Deref for TestStack {
+    type Target = oku_slides_agent::Stack;
+    fn deref(&self) -> &oku_slides_agent::Stack {
+        &self.stack
+    }
+}
+
 /// Une pile sur le faux agent (`script`), une session par onglet de `tabs`,
 /// relayée dans une liste ; et le journal du faux agent.
-pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (oku_slides_agent::Stack, Relayed, PathBuf) {
-    let dir = std::env::temp_dir().join(format!("oku-slides-stack-{}", unique()));
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("dossier de test : {e}"));
-    let (script_path, log) = (dir.join("script.json"), dir.join("log.jsonl"));
+pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (TestStack, Relayed, PathBuf) {
+    let dir = test_dir("oku-slides-stack-");
+    let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
+    let data = dir.path().to_owned();
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
     let args = vec![
         "--script".into(),
@@ -264,7 +279,7 @@ pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (oku_slide
     let names: Vec<String> = tabs.iter().map(|t| (*t).to_owned()).collect();
     let (sessions, platform) = tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-        settings.paths.data = Some(dir);
+        settings.paths.data = Some(data);
         // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
@@ -292,10 +307,10 @@ pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (oku_slide
         let value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("JSON relayé : {e}"));
         sink.lock().unwrap_or_else(|e| panic!("relais : {e}")).push((channel, value));
     });
-    (stack, seen, log)
+    (TestStack { stack, dir }, seen, log)
 }
 
-pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (oku_slides_agent::Stack, Relayed) {
+pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (TestStack, Relayed) {
     let (stack, seen, _) = stack_with_sink_and_log(script, tabs).await;
     (stack, seen)
 }

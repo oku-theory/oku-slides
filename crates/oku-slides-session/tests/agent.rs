@@ -1,32 +1,14 @@
 use oku_slides_core::{Op, Paragraph, Run};
+use oku_slides_session::SessionErrorKind;
 use oku_slides_session::agent::{
     AgentUi, AskRewrite, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface, Variant,
 };
-use oku_slides_session::{Fonts, Platform, Session, SessionErrorKind, Settings};
 use serde_json::json;
 use speculoos::prelude::*;
 
-/// Une session isolée, en français (comme `tests/session.rs`).
-fn session() -> Session {
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    let data = std::env::temp_dir().join(format!("oku-slides-agent-session-{}-{}", std::process::id(), unique()));
-    settings.paths.data = Some(data);
-    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
-    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
-    settings.i18n.locale = Some("fr".into());
-    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
-    Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session impossible : {}", e.one_line()))
-}
-
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    NEXT.fetch_add(1, Ordering::Relaxed)
-}
-
-fn fixture_path() -> std::path::PathBuf {
-    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
-}
+#[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
+mod common;
+use common::{fixture_path, session};
 
 #[test]
 fn png_of_slide_returns_png_bytes() {

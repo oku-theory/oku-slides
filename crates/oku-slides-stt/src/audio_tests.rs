@@ -55,9 +55,9 @@ fn parse_wav_without_data_chunk_returns_audio_file_error() {
 
 #[test]
 fn recorder_fake_mic_replays_the_file_then_silence() {
-    let dir = std::env::temp_dir().join(format!("oku-slides-fake-mic-{}", std::process::id()));
+    let dir = crate::test_support::fresh_dir("oku-slides-fake-mic-");
     let storage = Storage::local().unwrap();
-    let file = dir.join("voix.wav");
+    let file = dir.path().join("voix.wav");
     storage.write(&file, wav(16_000, 1, &vec![8192; 1600])).unwrap();
     let mut recorder = Recorder::start(Some(&file), &storage).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(300));
@@ -66,7 +66,6 @@ fn recorder_fake_mic_replays_the_file_then_silence() {
     assert_that!(rate).is_equal_to(16_000);
     assert_that!(samples.len()).is_greater_than(0);
     assert_that!(recorder.level()).is_greater_than_or_equal_to(0.0);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

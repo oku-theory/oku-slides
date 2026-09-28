@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use oku_slides_platform::Platform;
@@ -12,11 +12,8 @@ use oku_slides_platform::storage::Storage;
 use oku_slides_stt::{Model, State, Status, Stt, SttErrorKind, SttRequest};
 use speculoos::prelude::*;
 
-fn workdir(name: &str) -> PathBuf {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!("oku-slides-dictation-{name}-{}-{n}", std::process::id()))
-}
+mod common;
+use common::workdir;
 
 /// Un serveur de modèles : chaque fichier vaut `body` ; les `fail_first`
 /// premières requêtes répondent `status`.
@@ -106,7 +103,6 @@ fn download_serves_every_file_and_marks_the_model_installed() {
     assert_that!(Model::Base.is_installed(&p.storage, &dir)).is_true();
     assert_that!(p.storage.read(&dest.join("model.bin")).unwrap()).is_equal_to(b"poids".to_vec());
     assert_that!(last.0).is_equal_to(last.1);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -114,7 +110,6 @@ fn download_busy_hub_is_retried_until_it_answers() {
     let dir = workdir("retry");
     let p = platform(&dir, &hub(503, 2, b"x"), None);
     assert_that!(oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |_, _| true)).is_ok();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -124,7 +119,6 @@ fn download_missing_file_returns_download_error() {
     let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |_, _| true).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Download);
     assert_that!(Model::Base.is_installed(&p.storage, &dir)).is_false();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -135,7 +129,6 @@ fn download_cancelled_by_progress_leaves_no_partial_file() {
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Cancelled);
     let files = p.storage.list_files(&Model::Base.path(&dir)).unwrap();
     assert_that!(files.iter().any(|f| f.extension().is_some_and(|e| e == "part"))).is_false();
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -159,7 +152,6 @@ fn start_with_unreadable_model_reports_a_localized_error_and_goes_idle() {
     let failed = wait_until(&stt, "erreur du modèle", |s| s.error.is_some());
     assert_that!(failed.error.as_deref()).is_equal_to(Some("Modèle de dictée illisible"));
     wait_until(&stt, "retour au repos", |s| s.state == State::Idle);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -179,7 +171,6 @@ fn start_without_model_downloads_it_then_starts_listening() {
     let failed = wait_until(&stt, "téléchargement puis erreur", |s| s.error.is_some());
     let base = failed.models.iter().find(|m| m.id == Model::Base).map(|m| m.installed);
     assert_that!(base).is_equal_to(Some(true));
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -197,7 +188,6 @@ fn cancel_during_recording_returns_to_idle() {
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", Some(wav)));
     stt.handle(SttRequest::Start { prompt: None });
     assert_that!(stt.handle(SttRequest::Cancel).state).is_equal_to(State::Idle);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]
@@ -207,5 +197,4 @@ fn transcribe_samples_with_unreadable_model_returns_model_error() {
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", None));
     let err = stt.transcribe_samples(&[0.0; 1600]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
-    std::fs::remove_dir_all(&dir).ok();
 }

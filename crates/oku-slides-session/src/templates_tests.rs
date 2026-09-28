@@ -34,7 +34,7 @@ fn slug_accented_or_blank_name_gives_file_friendly_id() {
 
 #[test]
 fn library_save_list_get_delete_round_trips_user_set() {
-    let dir = std::env::temp_dir().join(format!("oku-slides-templates-{}", std::process::id()));
+    let dir = crate::test_support::fresh_dir("oku-slides-templates-").keep();
     let lib = Library::new(Some(dir.clone()), Storage::local().unwrap());
     let mut set = builtin_sets()[0].clone();
     set.id = lib.free_id("Mon ensemble");

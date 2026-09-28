@@ -33,8 +33,8 @@ async fn guarded(
 #[tokio::test(flavor = "multi_thread")]
 async fn save_denied_writes_nothing() {
     let h = start().await;
-    let path = std::env::temp_dir().join(format!("oku-slides-guarded-{}.oku-slides.pdf", std::process::id()));
-    std::fs::remove_file(&path).ok();
+    let dir = temp_dir("oku-slides-guarded-");
+    let path = dir.path().join("deck.oku-slides.pdf");
     let r = guarded(&h, "save", json!({ "path": path.to_string_lossy() }), false).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r).as_str()).is_equal_to("denied by user");
@@ -44,7 +44,8 @@ async fn save_denied_writes_nothing() {
 #[tokio::test(flavor = "multi_thread")]
 async fn save_confirmed_writes_file() {
     let h = start().await;
-    let path = std::env::temp_dir().join(format!("oku-slides-guarded-ok-{}.oku-slides.pdf", std::process::id()));
+    let dir = temp_dir("oku-slides-guarded-ok-");
+    let path = dir.path().join("deck.oku-slides.pdf");
     let r = guarded(&h, "save", json!({ "path": path.to_string_lossy() }), true).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(path.exists()).is_true();
@@ -101,8 +102,8 @@ async fn open_on_a_single_document_host_fails_and_keeps_this_deck() {
 #[tokio::test(flavor = "multi_thread")]
 async fn save_to_a_file_open_in_another_tab_is_refused_without_asking() {
     let (h, _) = start_other_tabs().await;
-    let path = std::env::temp_dir().join(format!("oku-slides-pris-{}.oku-slides.pdf", std::process::id()));
-    std::fs::remove_file(&path).ok();
+    let dir = temp_dir("oku-slides-pris-");
+    let path = dir.path().join("deck.oku-slides.pdf");
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "save", json!({ "path": path.to_string_lossy() })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
