@@ -20,6 +20,10 @@ use crate::model::{
     Cell, Deck, Element, ElementBody, Frame, Grid, Paragraph, Slide, SlideKind, SlideLayout, Style, Zone,
 };
 
+/// Refus de `set_grid` / `set_cell` sur des blocs : dit comment les passer sur la grille.
+const BLOCKS_OFF_GRID: &str = "blocks follow the slide layout and a grid hides them; \
+    move each block to the elements zone first (remove_element, then add_element with zone \"elements\" and a cell)";
+
 /// Champ simple d'une slide, modifiable par `set_slide_field`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -63,13 +67,15 @@ pub enum Op {
         element: String,
         frame: Option<Frame>,
     },
-    /// Accroche un élément à la grille de la slide ; `null` le décroche.
+    /// Accroche un élément libre (zone `elements`) à la grille ; `null` le décroche.
+    /// Refusé sur un bloc : le passer d'abord en élément libre.
     SetCell {
         slide: String,
         element: String,
         cell: Option<Cell>,
     },
     /// Grille de la slide ; `null` la retire.
+    /// Refusé tant que la slide a des blocs : une grille ne place que les éléments libres.
     SetGrid {
         slide: String,
         grid: Option<Grid>,
@@ -353,6 +359,10 @@ impl Op {
             Op::SetCell { slide, element, cell } => {
                 let s = slide_mut(deck, &slide)?;
                 if let Some(c) = cell {
+                    // Un bloc suit le layout : la grille ne place que les éléments libres.
+                    if s.locate(&element).is_some_and(|l| l.zone == Zone::Blocks) {
+                        return Err(InvalidValueSnafu { field: "cell", reason: BLOCKS_OFF_GRID }.build().into());
+                    }
                     let grid = s.effective_grid();
                     if !c.fits(grid) {
                         return Err(InvalidValueSnafu { field: "cell", reason: "outside the grid" }.build().into());
@@ -369,6 +379,10 @@ impl Op {
                     return Err(InvalidValueSnafu { field: "grid", reason: "1 to 24 columns and rows" }.build().into());
                 }
                 let s = slide_mut(deck, &slide)?;
+                // Avec une grille, la slide ne dessine plus ses blocs.
+                if grid.is_some() && !s.blocks.is_empty() {
+                    return Err(InvalidValueSnafu { field: "grid", reason: BLOCKS_OFF_GRID }.build().into());
+                }
                 s.grid = grid;
                 Ok(())
             }

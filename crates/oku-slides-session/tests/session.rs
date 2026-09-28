@@ -327,6 +327,17 @@ fn panel_while_editing_templates_binds_grid_steppers() {
 }
 
 #[test]
+fn panel_of_template_with_blocks_has_no_grid_steppers() {
+    // Une grille cacherait les blocs : `set_grid` y est refusé, le panneau ne le propose pas.
+    let mut s = session();
+    s.edit_templates("essentiel").unwrap();
+    let cards = s.deck().slides.iter().find(|sl| !sl.blocks.is_empty()).map(|sl| sl.id.clone()).unwrap();
+    let msgs = panel(&mut s, &cards);
+    assert_that!(component(&msgs, "template-name")).is_some();
+    assert_that!(component(&msgs, "grid-columns")).is_none();
+}
+
+#[test]
 fn appearance_carries_the_chart_palette_of_the_deck_theme() {
     let mut s = session();
     s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()]).unwrap();

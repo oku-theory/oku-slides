@@ -31,7 +31,8 @@ pub(crate) fn panel(slide: &Slide, grid: Option<&GridBox>, editing: bool, l: &Lo
             "description": slide.description.as_deref().unwrap_or_default(),
         }
     });
-    if let Some(grid) = grid {
+    // Une slide à blocs n'a pas de grille réglable : elle cacherait ses blocs.
+    if let Some(grid) = grid.filter(|_| slide.blocks.is_empty()) {
         cards.push("grid".to_owned());
         components.extend(grid_card(slide, l));
         data["grid"] = json!({ "columns": grid.columns, "rows": grid.rows });
