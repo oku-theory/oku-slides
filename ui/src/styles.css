@@ -599,8 +599,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .tab-close:disabled { opacity: 0; pointer-events: none; }
 .tab-new { margin-top: 4px; }
 .tab-close:hover, .tab-new:hover { background: var(--paper-200); }
-/* Le menu « ⋯ » en haut à droite : ce qui sert rarement, hors de la vue. */
+/* Le menu burger en haut à droite : ce qui sert rarement, hors de la vue. */
 .action-menu { position: relative; }
+/* Le z-index de la liste reste prisonnier du contexte du tray (2) : menu ouvert, on hisse le tray
+   au-dessus du fil de l'agent et de la feuille a2ui (3 à 6), sous les voiles modaux (20). */
+.tray:has(.action-menu-trigger[aria-expanded="true"]) { z-index: 10; }
 .action-menu-trigger { width: 40px; height: 40px; opacity: 0.7; }
 .action-menu-trigger:hover, .action-menu-trigger[aria-expanded="true"] { opacity: 1; }
 .action-menu-list {
