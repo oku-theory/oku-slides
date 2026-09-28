@@ -53,6 +53,12 @@ describe("menu d'actions", () => {
     expect(trigger().getAttribute("aria-expanded")).toBe("false");
   });
 
+  test("ActionMenu bouton dessine un burger de trois traits", async () => {
+    const { trigger } = await mount();
+    expect(trigger().querySelectorAll("svg line").length).toBe(3);
+    expect(trigger().querySelectorAll("svg circle").length).toBe(0);
+  });
+
   test("ActionMenu clic sur le bouton l'ouvre, avec ses entrées", async () => {
     const { trigger, items, host } = await mount();
     await act(async () => trigger().click());

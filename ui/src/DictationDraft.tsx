@@ -102,6 +102,8 @@ export function DictationDraft({
       <div className="draft-actions">
         <button type="button" className="token ghost draft-discard" aria-label={t("ui-draft-discard")} title={t("ui-draft-discard")} onClick={onDiscard}>{Icon.trash}</button>
         <span className="draft-exits">
+          {/* Où ira le texte, juste avant le bouton qui l'y insère. */}
+          <span className="caption draft-insert-to">→ {insertTo ?? t("ui-dictation-select-zone")}</span>
           <button type="button" className="token ghost draft-insert" disabled={!canInsert} aria-label={t("ui-draft-insert")} title={t("ui-draft-insert-title")} onClick={insert}>
             {Icon.insert}
           </button>
@@ -110,7 +112,6 @@ export function DictationDraft({
           </button>
         </span>
       </div>
-      <span className="caption draft-insert-to">→ {insertTo ?? t("ui-dictation-select-zone")}</span>
     </section>
   );
 }

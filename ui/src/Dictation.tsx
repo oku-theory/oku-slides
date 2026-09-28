@@ -227,10 +227,18 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
     const toDownload = model && !model.installed;
     body = (agentBusy || toDownload) && (
       <div className="dictation-body">
-        <div className="dictation-line">
-          {agentBusy && <span className="dictation-state">{t("ui-dictation-agent-working")}</span>}
-          {toDownload && <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>}
-        </div>
+        {agentBusy && (
+          // L'état en clair, le raccourci pour l'arrêter en dessous, en petit.
+          <div className="dictation-agent">
+            <span className="dictation-state">{t("ui-dictation-agent-working")}</span>
+            <span className="caption dictation-hint">{t("ui-dictation-agent-working-hint")}</span>
+          </div>
+        )}
+        {toDownload && (
+          <div className="dictation-line">
+            <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>
+          </div>
+        )}
       </div>
     );
   }

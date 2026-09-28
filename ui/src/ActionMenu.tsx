@@ -1,4 +1,4 @@
-// Un menu d'actions derrière un bouton « ⋯ » : ce qui sert rarement se fait
+// Un menu d'actions derrière un bouton burger : ce qui sert rarement se fait
 // oublier. Fermé par Échap, par un clic ailleurs ou après un choix.
 
 import { useEffect, useRef, useState } from "react";
@@ -10,13 +10,13 @@ export type MenuEntry =
   | { kind: "separator" }
   | { kind: "custom"; node: ReactNode };
 
-const DOTS = (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+const BURGER = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+    <line x1="5" y1="7" x2="19" y2="7" /><line x1="5" y1="12" x2="19" y2="12" /><line x1="5" y1="17" x2="19" y2="17" />
   </svg>
 );
 
-/** Le bouton « ⋯ » et son menu. */
+/** Le bouton burger et son menu. */
 export function ActionMenu({ label, entries }: { label: string; entries: MenuEntry[] }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -65,7 +65,7 @@ export function ActionMenu({ label, entries }: { label: string; entries: MenuEnt
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {DOTS}
+        {BURGER}
       </button>
       {open && (
         <div className="action-menu-list object" role="menu" aria-label={label} onKeyDown={onKey}>

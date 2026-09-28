@@ -738,9 +738,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onBack={() => { cursor.cancel(); run(api.historyClose()); }}
         />
       ) : (<>
-      {/* Étiquette du document, posée sur la table. */}
-      <header className={`label object${snap.editing ? " editing-templates" : ""}`}>
-        <span className="brand">{t(snap.editing ? "ui-brand-templates" : "ui-brand")}</span>
+      {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition des modèles. */}
+      <header className={`label${snap.editing ? " editing-templates" : ""}`}>
+        {snap.editing && <span className="brand">{t("ui-brand-templates")}</span>}
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}

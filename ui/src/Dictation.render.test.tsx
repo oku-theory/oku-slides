@@ -194,4 +194,11 @@ describe("dictée en deux modes", () => {
     await act(async () => agentButton(host).click());
     expect(cancels()).toBe(1);
   });
+
+  test("Dictation agent busy shows the state and the stop hint on two lines", async () => {
+    const { host, rerender } = await mount();
+    await rerender(true);
+    expect(host.querySelector(".dictation-state")?.textContent).toBe("ui-dictation-agent-working");
+    expect(host.querySelector(".dictation-hint")?.textContent).toBe("ui-dictation-agent-working-hint");
+  });
 });

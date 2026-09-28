@@ -103,7 +103,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr) clamp(300px, 26vw, 460px);
   grid-template-rows: 104px minmax(0, 1fr) 104px;
-  grid-template-areas: "label tray tray" "pile sheet notes" "pile tools device";
+  grid-template-areas: ". label tray" "pile sheet notes" "pile tools device";
   background:
     radial-gradient(ellipse 80% 70% at 50% 45%, color-mix(in oklab, var(--paper-000) 92%, white) 0%, transparent 70%),
     radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, color-mix(in oklab, var(--paper-000) 88%, black) 100%),
@@ -125,17 +125,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .object:disabled svg { opacity: 0.6; }
 
 /* ---- Étiquette du document ---- */
+/* Au-dessus de la feuille, centré sur elle : rien à soulever, juste un titre. */
 .label {
-  grid-area: label; align-self: center; position: relative; z-index: 2; margin-inline-start: var(--space-6); padding: 10px 18px 12px;
-  display: flex; flex-direction: column; gap: 1px; min-width: 0; width: fit-content; max-width: min(420px, 40vw);
-  transform: rotate(-0.8deg); cursor: default;
+  grid-area: label; justify-self: center; align-self: center; position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; max-width: min(480px, 50vw);
+  text-align: center; cursor: default;
 }
-.label:hover { transform: rotate(-0.8deg); box-shadow: var(--edge-light), var(--shadow-object); }
-/* Fenêtre étroite : la barre d'outils occupe toute sa zone, l'étiquette reste dans sa colonne. */
-@media (max-width: 1365px) { .label { max-width: calc(100% - var(--space-6)); } }
-.label { cursor: default; }
-.brand { font: 500 13px/16px var(--serif); color: var(--accent); letter-spacing: 0.02em; }
-.doc-name { font: 500 18px/24px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.brand { font: 600 11px/14px var(--sans); color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+.doc-name { font: 500 15px/20px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .doc-name-button {
   display: block; max-width: 100%; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--radius-sm);
   background: transparent; text-align: start; cursor: text; transition: var(--theme-fade);
@@ -147,7 +144,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
   user-select: text;
 }
 .caption { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
-.label .caption { white-space: nowrap; }
+.label .caption { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; line-height: 14px; }
+/* Sans la marge négative du champ : centré, elle rognerait le titre de sa largeur. */
+.label .doc-name-button, .label .doc-name-input { margin: 0; text-align: center; }
 
 /* ---- Outils en haut à droite ---- */
 .tray { grid-area: tray; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-inline-end: var(--space-6); }
@@ -198,7 +197,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* ---- La feuille ---- */
 .sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-6) 40px 56px; display: flex; }
-.stage-wrap { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* `min-width: 0` : sinon la scène déjà dessinée fixe la largeur mesurée, et déborde sur le fil. */
+.stage-wrap { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
 /* Même taille que la scène, sans la rogner : ce qui déborde (fiche de l'agent) s'y pose. */
 .stage-frame { position: relative; }
 .stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet); overflow: hidden; }
@@ -377,6 +377,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { .picker-scrim, .picker { animation: none; } }
 @keyframes pulse { 50% { opacity: 0.35; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---- Grille de mise en page : points sur les nœuds ---- */
 .grid-layer { position: absolute; z-index: 1; pointer-events: none; overflow: visible; animation: fade-in 140ms ease-out; }
@@ -485,8 +486,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .chip:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* --- Fil de l'agent ------------------------------------------------------- */
-/* Même couche que les post-its : la feuille peut déborder sur la colonne des notes. */
-.agent-thread { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; overflow: auto; background: var(--paper-000); border-radius: var(--radius-sm); padding: var(--space-1); }
+/* Même couche que les post-its : la feuille peut déborder sur la colonne des notes.
+   Sans fond, posé sur la table ; la marge intérieure laisse la place aux ombres des
+   post-its, que le défilement rognerait sinon au bord de la boîte. */
+.agent-thread { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; overflow: auto; padding: var(--space-1) var(--space-4) var(--space-6); }
 .agent-thread-head { display: flex; justify-content: space-between; align-items: center; }
 .agent-thread-head .token.ghost { width: 28px; height: 28px; }
 .agent-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
@@ -527,22 +530,61 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Les surfaces du fil (questions de l'agent) : un post-it vert sur toute la largeur. */
 .agent-surface .postit { width: auto; margin-inline-end: 12%; }
 .agent-surface .chip { text-align: start; }
+/* Les suites de la réponse : des pastilles discrètes sous la carte de l'agent, alignées sur elle. */
+.agent-surface.suggestions { margin-inline-end: 12%; margin-top: var(--space-1); }
+.agent-surface.suggestions .a2ui-row { gap: 6px; }
+.agent-surface.suggestions .btn {
+  height: auto; min-height: 32px; padding: 6px 14px; border-radius: 999px; font: 500 13px/18px var(--sans); text-align: start;
+  background: color-mix(in oklab, var(--postit) 55%, var(--paper-100)); color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+.agent-surface.suggestions .btn:hover:not(:disabled) { background: var(--postit); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-rest); }
 .agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
 .agent-entry .plan { list-style: none; padding: 0; margin: 0; }
 .agent-entry .error { color: var(--danger); }
 /* Brouillon des dictées : relu, retouché, puis inséré ou envoyé à l'agent. */
 /* Le brouillon : un grand post-it, lu par défaut ; un clic l'ouvre en édition. */
-.draft.postit { position: relative; z-index: 3; width: auto; margin-inline-start: 18%; background: var(--postit-you); color: var(--postit-you-ink); min-height: 0; justify-content: flex-start; gap: var(--space-2); cursor: default; --tilt: -0.8deg; }
+.draft.postit { position: relative; z-index: 3; width: auto; margin-inline-start: 18%; padding: 16px 16px 12px; background: var(--postit-you); color: var(--postit-you-ink); min-height: 0; justify-content: flex-start; gap: var(--space-4); cursor: default; --tilt: -0.8deg; }
 .draft.postit:hover { transform: rotate(var(--tilt)); box-shadow: var(--edge-light), var(--shadow-note); }
-.draft-note { font: 500 15px/21px var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; min-height: 3lh; cursor: text; border-radius: var(--radius-sm); margin: -4px -6px; padding: 4px 6px; }
+/* Lu ou édité, le texte garde la même place : même marge intérieure, pas de saut au clic. */
+.draft-note, .draft-text { font: 500 15px/22px var(--sans); min-height: 3lh; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); }
+.draft-note { white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; transition: background 120ms ease-out; }
 .draft-note:hover { background: color-mix(in oklab, var(--postit-you) 94%, var(--postit-you-ink)); }
-.draft-text { resize: vertical; min-height: 3lh; font: 500 15px/21px var(--sans); color: inherit; background: color-mix(in oklab, var(--postit-you) 96%, var(--postit-you-ink)); border: 0; border-radius: var(--radius-sm); margin: -4px -6px; padding: 4px 6px; }
-.draft-text:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
-.draft-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-1); }
-.draft-exits { display: flex; gap: var(--space-1); }
+.draft-text {
+  display: block; width: 100%; resize: none; field-sizing: content; max-height: 12lh; color: inherit; border: 0;
+  background: color-mix(in oklab, var(--postit-you) 90%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--postit-you-ink) 14%, transparent);
+  transition: box-shadow 120ms ease-out;
+}
+/* Un anneau intérieur plutôt qu'un contour : il ne touche pas le bord du post-it. */
+.draft-text:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--accent-fill); }
+/* Les actions sous un filet, séparées du texte. */
+.draft-actions {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-2);
+  padding-top: var(--space-2); border-top: 1px solid color-mix(in oklab, var(--postit-you-ink) 12%, transparent);
+}
+.draft-exits { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .draft-actions .token { width: 36px; height: 36px; }
+.draft-actions .token.ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--postit-you) 88%, var(--postit-you-ink)); }
+.draft-insert-to { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: color-mix(in oklab, var(--postit-you-ink) 65%, var(--postit-you)); }
 /* Couleur d'accent du brouillon (⌘⇧D), sauf pendant l'écoute (`.live` garde son rouge). */
-.device.dictation.draft .mic:not(.live), .mic.agent-mic { background: var(--accent-fill); color: var(--on-accent); }
+.device.dictation.draft .mic:not(.live) { background: var(--accent-fill); color: var(--on-accent); }
+/* Arrêter l'agent : plus discret que le micro, un anneau qui tourne dit qu'il travaille. */
+.mic.agent-mic {
+  width: 40px; height: 40px; background: var(--paper-100); color: var(--accent-text, var(--accent)); box-shadow: none;
+}
+.mic.agent-mic > svg { width: 14px; height: 14px; }
+/* Collé au micro : les deux boutons vont ensemble. */
+.mic + .mic.agent-mic { margin-inline-start: calc(-1 * var(--space-2)); }
+.mic.agent-mic::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--accent) 22%, transparent); border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .mic.agent-mic::before { animation-duration: 3s; } }
+.dictation-agent { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dictation-agent .dictation-state { overflow: hidden; text-overflow: ellipsis; }
+.dictation-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* --- Fiche, tiroir et fenêtre de l'agent ---------------------------------- */
 .agent-sheet { position: absolute; z-index: 6; width: min(320px, 60%); }
