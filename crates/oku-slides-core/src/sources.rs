@@ -160,15 +160,13 @@ impl SourceBundle {
     /// Remplace le deck par `deck` (canonique : voir l'invariant du module),
     /// en une étape d'annulation `label`.
     pub fn apply(&mut self, deck: Deck, label: &str) -> Result<(), SourcesError> {
-        // Non atomique : si la réconciliation échoue en cours de route, les
-        // changements déjà faits restent en attente dans le doc, sans commit.
-        // Le prochain commit, ou le prochain export (dont le snapshot de
-        // reprise), les valide implicitement.
+        // Non atomique (voir `DeckReplica::apply`) : les changements déjà
+        // faits restent dans le doc ; le prochain commit, ou le prochain
+        // export (dont le snapshot de reprise), valide ceux en attente.
         // Avant la réconciliation : la première édition de ce pair inscrit
         // son auteur dans le même commit.
         self.replica.claim_author().context(ReplicaSnafu)?;
-        self.replica.reconcile(&deck).context(ReplicaSnafu)?;
-        self.replica.commit(label);
+        self.replica.apply(&deck, label).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();
         Ok(())
@@ -177,8 +175,7 @@ impl SourceBundle {
     /// Remplace le deck par `deck` (canonique), sans étape d'annulation.
     pub fn apply_silent(&mut self, deck: Deck) -> Result<(), SourcesError> {
         // Même non-atomicité que `apply`.
-        self.replica.reconcile(&deck).context(ReplicaSnafu)?;
-        self.replica.commit_silent();
+        self.replica.apply_silent(&deck).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();
         Ok(())

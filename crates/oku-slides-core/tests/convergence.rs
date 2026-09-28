@@ -75,8 +75,7 @@ proptest! {
             let (mut d, mut n) = (replica.deck().0, 0);
             for e in list {
                 apply(&mut d, e, p, &mut n);
-                replica.reconcile(&d).unwrap();
-                replica.commit("edit");
+                replica.apply(&d, "edit").unwrap();
             }
         }
         // Échanges dans un ordre pseudo-aléatoire, jusqu'à ce que chacun ait tout.

@@ -154,7 +154,7 @@ Chaque champ du modèle relève d'une catégorie :
 1. `canonicalize_charts(ops)`.
 2. `deck' = apply_all(clone(deck), ops)` (forme canonique) ; erreur → rien n'a bougé.
 3. Rendu de `deck'` ; erreur → rien n'a bougé.
-4. `replica.reconcile(&deck')`, `commit(label)`, `deck = deck'`.
+4. `replica.apply(&deck', label)`, `deck = deck'`.
 
 Le rendu passe **avant** le commit : l'historique Loro est définitif, un
 rendu raté ne doit pas y laisser de trace.
@@ -163,18 +163,30 @@ rendu raté ne doit pas y laisser de trace.
   la fusion automatique des commits locaux d'une fenêtre de temps (1000 s par
   défaut) ; sans elle, Loro regrouperait plusieurs commits en un seul
   *change* et « N modifications » (fusion, curseur du mode historique) ne
-  voudrait plus rien dire. Le libellé du commit (`commit(label)`) est aussi
-  posé comme message du *change* (`set_next_commit_message`), pour qu'un
-  outil externe qui lit l'historique Loro retrouve l'intention de chaque
-  étape sans passer par l'app.
+  voudrait plus rien dire. Le libellé de l'application (`apply(deck, label)`)
+  est aussi posé comme message du *change* (`set_next_commit_message`), pour
+  qu'un outil externe qui lit l'historique Loro retrouve l'intention de
+  chaque étape sans passer par l'app.
+- **Un `mov` par commit** (t-263). Loro 1.16.2 défait mal un item
+  d'annulation qui porte plusieurs `mov` sur une liste de conteneurs : un
+  élément est supprimé (durablement, dans l'oplog), ou Loro panique. La
+  réconciliation committe donc juste avant chaque `mov` ; une application
+  qui réordonne `k` fois fait `k + 1` *changes*. Les commits
+  intermédiaires portent le message `oku-part:<libellé>` : l'état qui les
+  suit n'est pas une version du deck (le mode historique les saute).
 - **Pair** : `PeerID` aléatoire à chaque chargement (ouverture, reprise,
   nouvel onglet), jamais persisté. Deux écrivains d'un même pair
   corrompraient le document.
 - **Horodatage** : `set_record_timestamp(true)`.
 - **Annuler / rétablir** : un `UndoManager` par session, `merge_interval
-  = 0` (un apply = une étape), `set_max_undo_steps(settings.history.limit)`.
-  Le libellé de transaction va dans les métadonnées (`on_push`) et remonte
-  par `top_undo_meta` / `top_redo_meta` vers `undo_label` / `redo_label`.
+  = 0`, sous une pile d'**étapes** à nous (`undo.rs`) : une étape = une
+  application (ou un groupe), faite des items Loro de ses commits (comptés
+  par `on_push`), défaits ou rétablis tous ensemble. Libellés, groupes (un
+  tour de l'agent) et limite (`settings.history.limit` étapes) vivent dans
+  cette pile ; jamais de `group_start` de Loro, qui fusionnerait les items
+  d'un groupe en un seul et ramènerait le bogue des `mov`. Loro garde au
+  plus 64 items par étape de la limite ; une étape qu'il a en partie
+  écartée n'est plus annulable (jamais défaite à moitié).
   Après un undo ou un redo : relecture du deck, rendu ; un rendu raté garde
   l'état et remonte l'erreur.
 - **Mode modèles** : même `SourceBundle`, replica jamais enregistré en PDF.

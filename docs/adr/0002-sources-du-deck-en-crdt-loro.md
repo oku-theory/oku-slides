@@ -59,8 +59,10 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   conteneur, et un seul survivrait — silencieusement.
 - **Annulation par l'`UndoManager` de Loro**, un par session, jamais
   persisté : la pile repart de zéro à chaque ouverture (recul assumé, voir
-  Conséquences). Le libellé de chaque étape voyage dans les métadonnées de
-  transaction Loro.
+  Conséquences). Une étape d'annulation (une application, ou un tour de
+  l'agent) regroupe plusieurs items Loro dans une pile à nous, avec son
+  libellé : Loro 1.16.2 défait mal un item qui porte plusieurs `mov`, d'où
+  un commit par `mov` (t-263).
 - **Lecture totale.** `DeckReplica::deck()` ne renvoie jamais d'erreur : un
   sous-arbre illisible (élément, slide, champ de haut niveau) est écarté et
   signalé par un `Issue`, remis à sa valeur par défaut si nécessaire. Un

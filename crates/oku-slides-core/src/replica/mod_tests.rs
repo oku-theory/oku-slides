@@ -17,12 +17,11 @@ fn new_then_deck_returns_same_deck() {
 }
 
 #[test]
-fn reconcile_same_deck_adds_no_op() {
+fn apply_same_deck_adds_no_op() {
     let deck = roadmap();
     let mut r = DeckReplica::new(&deck).unwrap();
     let before = r.len_ops();
-    r.reconcile(&deck).unwrap();
-    r.commit("rien");
+    r.apply(&deck, "rien").unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -35,7 +34,7 @@ fn snapshot_then_from_snapshot_returns_same_deck_and_uid() {
 }
 
 #[test]
-fn reconcile_after_op_changes_deck() {
+fn apply_after_op_changes_deck() {
     let mut deck = roadmap();
     let mut r = DeckReplica::new(&deck).unwrap();
     let id = deck.slides[2].id.clone();
@@ -44,8 +43,7 @@ fn reconcile_after_op_changes_deck() {
         vec![Op::SetSlideField { slide: id, field: SlideField::Title, value: serde_json::json!("Nouveau") }],
     )
     .unwrap();
-    r.reconcile(&deck).unwrap();
-    r.commit("Titre");
+    r.apply(&deck, "Titre").unwrap();
     assert_that!(r.deck().0).is_equal_to(&deck);
 }
 
@@ -59,10 +57,8 @@ fn concurrent_title_edits_merge_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[2].title = Some("Contexte (révisé)".into());
     db.slides[2].title = Some("Brouillon : Contexte".into());
-    a.reconcile(&da).unwrap();
-    a.commit("A");
-    b.reconcile(&db).unwrap();
-    b.commit("B");
+    a.apply(&da, "A").unwrap();
+    b.apply(&db, "B").unwrap();
     a.merge(&b).unwrap();
     assert_that!(a.deck().0.slides[2].title.as_deref()).is_equal_to(Some("Brouillon : Contexte (révisé)"));
 }
@@ -80,10 +76,8 @@ fn concurrent_first_element_on_empty_slide_keeps_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[empty].elements.push(crate::Element { id: "e-a".into(), ..donor.clone() });
     db.slides[empty].elements.push(crate::Element { id: "e-b".into(), ..donor });
-    a.reconcile(&da).unwrap();
-    a.commit("A");
-    b.reconcile(&db).unwrap();
-    b.commit("B");
+    a.apply(&da, "A").unwrap();
+    b.apply(&db, "B").unwrap();
     a.merge(&b).unwrap();
     assert_that!(a.deck().0.slides[empty].elements).has_length(2);
 }
@@ -99,10 +93,8 @@ fn concurrent_first_title_on_untitled_slide_keeps_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[untitled].title = Some("A".into());
     db.slides[untitled].title = Some("B".into());
-    a.reconcile(&da).unwrap();
-    a.commit("A");
-    b.reconcile(&db).unwrap();
-    b.commit("B");
+    a.apply(&da, "A").unwrap();
+    b.apply(&db, "B").unwrap();
     a.merge(&b).unwrap();
     let title = a.deck().0.slides[untitled].title.clone().unwrap();
     assert_that!(title.contains('A') && title.contains('B')).is_true();
@@ -113,8 +105,7 @@ fn blank_title_reads_as_none() {
     let mut deck = roadmap();
     let mut r = DeckReplica::new(&deck).unwrap();
     deck.slides[2].title = None;
-    r.reconcile(&deck).unwrap();
-    r.commit("Sans titre");
+    r.apply(&deck, "Sans titre").unwrap();
     assert_that!(r.deck().0.slides[2].title).is_none();
 }
 
@@ -157,8 +148,7 @@ fn shrinking_from_duplicate_ids_keeps_only_the_remaining_id() {
     ];
     let mut r = DeckReplica::new(&deck).unwrap();
     deck.slides[idx].elements = vec![crate::Element { id: "x".into(), ..donor }];
-    r.reconcile(&deck).unwrap();
-    r.commit("réduire");
+    r.apply(&deck, "réduire").unwrap();
     let got = r.deck().0;
     assert_that!(got.slides[idx].elements).has_length(1);
     assert_that!(got.slides[idx].elements[0].id.as_str()).is_equal_to("x");
@@ -182,8 +172,7 @@ fn moving_first_slide_to_last_and_last_to_first_round_trips() {
     let mut moved = deck.clone();
     let n = moved.slides.len();
     moved.slides.swap(0, n - 1);
-    r.reconcile(&moved).unwrap();
-    r.commit("réordonner");
+    r.apply(&moved, "réordonner").unwrap();
     assert_that!(r.deck().0).is_equal_to(&moved);
 }
 
@@ -193,8 +182,7 @@ fn deleting_a_slide_round_trips() {
     let mut r = DeckReplica::new(&deck).unwrap();
     let mut trimmed = deck.clone();
     trimmed.slides.remove(3);
-    r.reconcile(&trimmed).unwrap();
-    r.commit("supprimer une slide");
+    r.apply(&trimmed, "supprimer une slide").unwrap();
     assert_that!(r.deck().0).is_equal_to(&trimmed);
 }
 
@@ -205,8 +193,7 @@ fn deleting_an_element_round_trips() {
     let mut trimmed = deck.clone();
     let idx = trimmed.slides.iter().position(|s| !s.elements.is_empty()).unwrap();
     trimmed.slides[idx].elements.remove(0);
-    r.reconcile(&trimmed).unwrap();
-    r.commit("supprimer un élément");
+    r.apply(&trimmed, "supprimer un élément").unwrap();
     assert_that!(r.deck().0).is_equal_to(&trimmed);
 }
 
@@ -219,8 +206,7 @@ fn removing_frame_and_style_round_trips() {
     let el = slide.elements.iter_mut().find(|e| e.id == "e-fond").unwrap();
     el.frame = None;
     el.style = crate::Style::default();
-    r.reconcile(&edited).unwrap();
-    r.commit("retirer cadre et style");
+    r.apply(&edited, "retirer cadre et style").unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
 }
 
@@ -233,8 +219,7 @@ fn changing_element_kind_from_card_to_text_loses_title_and_kicker() {
     let el = slide.blocks.iter_mut().find(|e| e.id == "c1").unwrap();
     let paragraphs = el.body.text().unwrap().to_vec();
     el.body = crate::ElementBody::Text { text: paragraphs };
-    r.reconcile(&edited).unwrap();
-    r.commit("carte en texte");
+    r.apply(&edited, "carte en texte").unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
 }
 
@@ -250,10 +235,8 @@ fn concurrent_first_paragraph_on_empty_text_keeps_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[idx].elements[0] = crate::Element::text("e-vide", vec![crate::Paragraph::plain("Alpha")]);
     db.slides[idx].elements[0] = crate::Element::text("e-vide", vec![crate::Paragraph::plain("Bravo")]);
-    a.reconcile(&da).unwrap();
-    a.commit("A");
-    b.reconcile(&db).unwrap();
-    b.commit("B");
+    a.apply(&da, "A").unwrap();
+    b.apply(&db, "B").unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let all: String = merged.slides[idx].elements[0]
@@ -267,7 +250,7 @@ fn concurrent_first_paragraph_on_empty_text_keeps_both() {
 }
 
 #[test]
-fn reconcile_same_deck_with_marked_runs_adds_no_op() {
+fn apply_same_deck_with_marked_runs_adds_no_op() {
     let mut deck = roadmap();
     let idx = empty_slide_index(&deck);
     let runs = vec![
@@ -285,8 +268,7 @@ fn reconcile_same_deck_with_marked_runs_adds_no_op() {
     let mut r = DeckReplica::new(&deck).unwrap();
     assert_that!(r.deck().0).is_equal_to(&deck);
     let before = r.len_ops();
-    r.reconcile(&deck).unwrap();
-    r.commit("rien");
+    r.apply(&deck, "rien").unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -300,13 +282,11 @@ fn removing_card_text_empties_it_and_round_trips() {
     if let crate::ElementBody::Card { text, .. } = &mut el.body {
         text.clear();
     }
-    r.reconcile(&edited).unwrap();
-    r.commit("vider la carte");
+    r.apply(&edited, "vider la carte").unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
     // Vider n'a pas retiré la clé : une seconde réconciliation n'ajoute rien.
     let before = r.len_ops();
-    r.reconcile(&edited).unwrap();
-    r.commit("rien");
+    r.apply(&edited, "rien").unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -405,4 +385,29 @@ fn deck_on_deeply_nested_plain_value_tokens_stops_at_the_depth_bound() {
     let bytes = r.snapshot().unwrap();
     let depth = read_tokens_depth_in_small_stack(bytes).expect("la lecture n'a pas dû paniquer ni déborder");
     assert_that!(depth).is_less_than_or_equal_to(super::read::MAX_DEPTH as usize);
+}
+
+/// Messages des changes Loro, du plus ancien au plus récent.
+fn messages(r: &DeckReplica) -> Vec<String> {
+    let heads: Vec<loro::ID> = r.doc.oplog_frontiers().iter().collect();
+    let mut all = Vec::new();
+    let _ = r.doc.travel_change_ancestors(&heads, &mut |m| {
+        all.push((m.lamport, m.message.map(|s| s.to_string()).unwrap_or_default()));
+        std::ops::ControlFlow::Continue(())
+    });
+    all.sort();
+    all.into_iter().map(|(_, m)| m).collect()
+}
+
+#[test]
+fn apply_reorder_marks_intermediate_commits_as_parts() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck).unwrap();
+    let before = messages(&r).len();
+    let mut swapped = deck.clone();
+    swapped.slides.swap(0, 3);
+    r.apply(&swapped, "Échanger").unwrap();
+    let got = messages(&r).split_off(before);
+    // Trois `mov` (0↔3 déplace aussi les voisines) : deux commits intermédiaires, puis le dernier.
+    assert_that!(got).is_equal_to(vec![format!("{PART}Échanger"), format!("{PART}Échanger"), "Échanger".to_owned()]);
 }

@@ -1,21 +1,44 @@
-//! Annuler / rétablir : l'`UndoManager` de Loro, qui ne défait que les
-//! changements de ce pair, avec le libellé de chaque transaction.
+//! Annuler / rétablir : des étapes à nous, chacune faite de plusieurs items
+//! de l'`UndoManager` de Loro, qui ne défait que les changements de ce pair.
+//!
+//! Loro 1.16.2 défait mal un item qui porte plusieurs `mov` sur une liste de
+//! conteneurs (élément perdu, voire panique ; t-263). La réconciliation
+//! committe donc avant chaque `mov` : une application est une étape, faite
+//! d'un item par commit, défaits ou rétablis tous ensemble. Pour la même
+//! raison, les groupes (un tour de l'agent) sont des étapes à nous, jamais
+//! un `group_start` de Loro, qui fusionnerait leurs items en un seul.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use loro::{LoroDoc, LoroValue, UndoItemMeta, UndoManager, UndoOrRedo};
+use loro::{LoroDoc, LoroResult, UndoItemMeta, UndoManager, UndoOrRedo};
 
 /// Origine des commits non annulables.
 pub(super) const SILENT: &str = "oku-silent";
 
-pub(super) struct Undo {
-    manager: UndoManager,
-    /// Libellé du prochain commit local.
-    next: Arc<Mutex<Option<String>>>,
+/// Étapes gardées tant que [`Undo::set_limit`] n'a pas été appelé.
+const DEFAULT_LIMIT: usize = 100;
+
+/// Items Loro gardés par étape, en moyenne : au-delà, Loro écarte les plus
+/// anciens. Borne la mémoire des items d'étapes déjà écartées par la limite.
+const ITEMS_PER_STEP: usize = 64;
+
+/// Une étape d'annulation : `items` items Loro consécutifs, sous un libellé.
+#[derive(Debug)]
+struct Step {
+    label: String,
+    items: usize,
 }
 
-fn take<T>(m: &Mutex<Option<T>>) -> Option<T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner).take()
+pub(super) struct Undo {
+    manager: UndoManager,
+    /// Items empilés par des commits locaux, pas encore rangés dans une étape.
+    pushed: Arc<AtomicUsize>,
+    undo: Vec<Step>,
+    redo: Vec<Step>,
+    /// Libellé du groupe ouvert, et si l'étape du sommet lui appartient déjà.
+    group: Option<(String, bool)>,
+    limit: usize,
 }
 
 impl Undo {
@@ -25,58 +48,132 @@ impl Undo {
         // rapprochés, quel que soit le défaut de Loro.
         manager.set_merge_interval(0);
         manager.add_exclude_origin_prefix(SILENT);
-        let next: Arc<Mutex<Option<String>>> = Arc::default();
-        // `on_pop` précède le `on_push` de l'autre pile : le libellé passe de l'une à l'autre.
-        let popped: Arc<Mutex<Option<LoroValue>>> = Arc::default();
-        let (n, p) = (Arc::clone(&next), Arc::clone(&popped));
+        let pushed: Arc<AtomicUsize> = Arc::default();
+        let p = Arc::clone(&pushed);
         manager.set_on_push(Some(Box::new(move |kind, _span, _event| {
-            let value = match kind {
-                UndoOrRedo::Undo => take(&n).map(LoroValue::from).or_else(|| take(&p)),
-                UndoOrRedo::Redo => take(&p),
-            };
-            UndoItemMeta { value: value.unwrap_or(LoroValue::Null), cursors: Vec::new() }
+            if kind == UndoOrRedo::Undo {
+                p.fetch_add(1, Ordering::Relaxed);
+            }
+            UndoItemMeta::new()
         })));
-        let p = Arc::clone(&popped);
-        manager.set_on_pop(Some(Box::new(move |_kind, _span, meta| {
-            *p.lock().unwrap_or_else(PoisonError::into_inner) = Some(meta.value);
-        })));
-        Self { manager, next }
+        let mut undo = Self { manager, pushed, undo: Vec::new(), redo: Vec::new(), group: None, limit: 0 };
+        undo.set_limit(DEFAULT_LIMIT);
+        undo
     }
 
-    pub(super) fn label_next(&self, label: &str) {
-        *self.next.lock().unwrap_or_else(PoisonError::into_inner) = Some(label.to_owned());
+    /// Range les items des derniers commits dans une étape `label` (ou dans celle du groupe ouvert).
+    pub(super) fn close_step(&mut self, label: &str) {
+        let items = self.pushed.swap(0, Ordering::Relaxed);
+        // Un commit vide n'a rien empilé : pas d'étape, et le rétablir reste possible.
+        if items == 0 {
+            return;
+        }
+        // Loro vide sa pile de rétablissement à chaque item local : la nôtre suit.
+        self.redo.clear();
+        match &mut self.group {
+            Some((_, true)) => {
+                if let Some(top) = self.undo.last_mut() {
+                    top.items += items;
+                }
+            }
+            Some((group, open)) => {
+                self.undo.push(Step { label: group.clone(), items });
+                *open = true;
+            }
+            None => self.undo.push(Step { label: label.to_owned(), items }),
+        }
+        self.trim();
     }
 
-    /// Après un commit : un commit vide n'a rien empilé, son libellé ne doit pas fuir.
-    pub(super) fn clear_next(&self) {
-        take(&self.next);
-    }
-
-    pub(super) fn manager(&mut self) -> &mut UndoManager {
-        &mut self.manager
-    }
-
-    pub(super) fn label(v: Option<LoroValue>) -> Option<String> {
-        match v {
-            Some(LoroValue::String(s)) => Some(s.to_string()),
-            _ => None,
+    /// Écarte les étapes les plus anciennes : au-delà de la limite, ou déjà
+    /// entamées par Loro (une étape en partie écartée ne se défait plus).
+    fn trim(&mut self) {
+        let over = self.undo.len().saturating_sub(self.limit);
+        self.undo.drain(..over);
+        let mut kept = self.manager.undo_count();
+        let first = self.undo.iter().rev().position(|s| match kept.checked_sub(s.items) {
+            Some(rest) => {
+                kept = rest;
+                false
+            }
+            None => true,
+        });
+        if let Some(from_top) = first {
+            self.undo.drain(..self.undo.len() - from_top);
         }
     }
 
+    pub(super) fn begin_group(&mut self, label: &str) {
+        self.group = Some((label.to_owned(), false));
+    }
+
+    pub(super) fn end_group(&mut self) {
+        self.group = None;
+    }
+
+    pub(super) fn in_group(&self) -> bool {
+        self.group.is_some()
+    }
+
+    /// Défait la dernière étape ; `false` s'il n'y en avait pas.
+    pub(super) fn undo(&mut self) -> LoroResult<bool> {
+        self.end_group();
+        let Some(step) = self.undo.pop() else { return Ok(false) };
+        let (done, r) = self.replay(step.items, UndoManager::undo);
+        self.redo.push(Step { label: step.label, items: done });
+        r.map(|()| true)
+    }
+
+    /// Rétablit la dernière étape défaite ; `false` s'il n'y en avait pas.
+    pub(super) fn redo(&mut self) -> LoroResult<bool> {
+        self.end_group();
+        let Some(step) = self.redo.pop() else { return Ok(false) };
+        let (done, r) = self.replay(step.items, UndoManager::redo);
+        self.undo.push(Step { label: step.label, items: done });
+        r.map(|()| true)
+    }
+
+    /// Joue `items` fois `f` ; renvoie le nombre d'items joués, qui passent d'une pile à l'autre.
+    fn replay(&mut self, items: usize, f: fn(&mut UndoManager) -> LoroResult<bool>) -> (usize, LoroResult<()>) {
+        // Rétablir empile des items d'annulation : ce ne sont pas des commits locaux.
+        let pushed = self.pushed.load(Ordering::Relaxed);
+        let mut done = 0;
+        let mut r = Ok(());
+        while done < items {
+            match f(&mut self.manager) {
+                Ok(true) => done += 1,
+                Ok(false) => break,
+                Err(e) => {
+                    r = Err(e);
+                    break;
+                }
+            }
+        }
+        self.pushed.store(pushed, Ordering::Relaxed);
+        (done, r)
+    }
+
+    /// Nombre maximal d'étapes gardées ; `0` vaut `1`.
+    pub(super) fn set_limit(&mut self, steps: usize) {
+        self.limit = steps.max(1);
+        self.manager.set_max_undo_steps(self.limit.saturating_mul(ITEMS_PER_STEP));
+        self.trim();
+    }
+
     pub(super) fn top_undo(&self) -> Option<String> {
-        Self::label(self.manager.top_undo_value())
+        self.undo.last().map(|s| s.label.clone())
     }
 
     pub(super) fn top_redo(&self) -> Option<String> {
-        Self::label(self.manager.top_redo_value())
+        self.redo.last().map(|s| s.label.clone())
     }
 
     pub(super) fn can_undo(&self) -> bool {
-        self.manager.can_undo()
+        !self.undo.is_empty()
     }
 
     pub(super) fn can_redo(&self) -> bool {
-        self.manager.can_redo()
+        !self.redo.is_empty()
     }
 }
 

@@ -1,7 +1,7 @@
 //! Le deck dans un document Loro (CRDT) : historique complet et fusion.
 //!
 //! - [`DeckReplica`] : création, snapshot, lecture ([`DeckReplica::deck`]),
-//!   réconciliation avec un `Deck` modifié, commit.
+//!   application d'un `Deck` modifié ([`DeckReplica::apply`]), annuler.
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
 
 mod authors;
@@ -31,12 +31,18 @@ const ROOT: &str = "deck";
 const META: &str = "meta";
 const DECK_UID: &str = "deck_uid";
 
+/// Préfixe du message d'un commit intermédiaire d'une application (avant
+/// un `mov`) : l'état qui suit n'est pas une version du deck.
+pub(crate) const PART: &str = "oku-part:";
+
+fn part_message(label: &str) -> String {
+    format!("{PART}{label}")
+}
+
 /// Le deck, son historique complet, et son identité (`deck_uid`).
 pub struct DeckReplica {
     doc: LoroDoc,
     undo: Undo,
-    /// Libellé du groupe d'annulation ouvert (un tour de l'agent) ; non persisté.
-    group: Option<String>,
     /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
     author: Option<String>,
 }
@@ -115,11 +121,12 @@ impl DeckReplica {
         // Le pair créateur est tiré au hasard sur 64 bits : un identifiant suffisant.
         let uid = format!("{:016x}", doc.peer_id());
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
-        Self::reconcile_doc(&doc, deck)?;
+        // Des insertions seulement : aucun `mov`, rien à découper.
+        Self::reconcile_doc(&doc, deck, &|| ())?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
-        Ok(Self { doc, undo, group: None, author: None })
+        Ok(Self { doc, undo, author: None })
     }
 
     /// Relit un snapshot. Les octets viennent d'un fichier : non fiables.
@@ -142,7 +149,7 @@ impl DeckReplica {
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
-        Ok((Self { doc, undo, group: None, author: None }, read))
+        Ok((Self { doc, undo, author: None }, read))
     }
 
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
@@ -186,16 +193,42 @@ impl DeckReplica {
         }
     }
 
-    /// Amène le replica à l'état de `deck` (sans committer).
-    pub fn reconcile(&self, deck: &Deck) -> Result<(), ReplicaError> {
-        Ok(self.reconcile_inner(deck)?)
+    /// Amène le replica à l'état de `deck`, en une étape d'annulation `label`.
+    /// Dans un groupe, le libellé du groupe l'emporte.
+    ///
+    /// Non atomique : si la réconciliation échoue en cours de route, les
+    /// changements déjà faits restent dans le doc ; ceux qui ne sont pas encore
+    /// committés rejoignent le prochain commit, et son étape.
+    pub fn apply(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
+        let doc = &self.doc;
+        let split = || {
+            doc.set_next_commit_message(&part_message(label));
+            doc.commit();
+        };
+        Self::reconcile_doc(doc, deck, &split)?;
+        // Le libellé est aussi le message du change Loro : avec
+        // `set_change_merge_interval(-1)`, un commit fait un change.
+        self.doc.set_next_commit_message(label);
+        self.doc.commit();
+        // Un tour de l'agent (groupe ouvert) est une étape sous le libellé du
+        // groupe ; chaque change Loro garde le libellé de l'opération.
+        self.undo.close_step(label);
+        Ok(())
     }
 
-    fn reconcile_inner(&self, deck: &Deck) -> Result<(), ReplicaInner> {
-        Self::reconcile_doc(&self.doc, deck)
+    /// Amène le replica à l'état de `deck`, sans étape d'annulation.
+    pub fn apply_silent(&mut self, deck: &Deck) -> Result<(), ReplicaError> {
+        let doc = &self.doc;
+        let commit = || {
+            doc.set_next_commit_origin(undo::SILENT);
+            doc.commit();
+        };
+        Self::reconcile_doc(doc, deck, &commit)?;
+        commit();
+        Ok(())
     }
 
-    fn reconcile_doc(doc: &LoroDoc, deck: &Deck) -> Result<(), ReplicaInner> {
+    fn reconcile_doc(doc: &LoroDoc, deck: &Deck, split: write::Split<'_>) -> Result<(), ReplicaInner> {
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
         // `Deck` sérialise toujours en objet ; un autre cas serait un bogue de
         // `Serialize`, jamais un deck vide à réconcilier en silence.
@@ -203,66 +236,34 @@ impl DeckReplica {
             serde_json::Value::Object(o) => o,
             _ => return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail(),
         };
-        write::sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck)
+        write::sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck, split)
     }
 
-    /// Valide les changements en cours comme une étape d'annulation portant `label`.
-    /// Dans un groupe, le libellé du groupe l'emporte.
-    pub fn commit(&mut self, label: &str) {
-        // Un tour de l'agent (groupe ouvert) est une étape d'annulation sous
-        // le libellé du groupe ; le change Loro garde le libellé de l'opération.
-        self.undo.label_next(self.group.as_deref().unwrap_or(label));
-        // Le libellé est aussi le message du change Loro : avec
-        // `set_change_merge_interval(-1)`, un commit fait un change.
-        self.doc.set_next_commit_message(label);
-        self.doc.commit();
-        // Un commit sans changement n'a rien empilé : le libellé ne doit pas fuir au suivant.
-        self.undo.clear_next();
-    }
-
-    /// Valide les changements en cours sans les rendre annulables (canonicalisation
-    /// au chargement, enregistrement de modèles).
-    pub fn commit_silent(&mut self) {
-        self.doc.set_next_commit_origin(undo::SILENT);
-        self.doc.commit();
-    }
-
-    /// Ouvre un groupe : les commits qui suivent forment une seule étape
+    /// Ouvre un groupe : les applications qui suivent forment une seule étape
     /// d'annulation, portant `label`. Un groupe encore ouvert est d'abord fermé.
     pub fn begin_group(&mut self, label: &str) {
-        self.end_group();
-        // L'`UndoManager` est prêt dès sa construction et aucun groupe n'est
-        // ouvert : l'échec n'arrive pas. S'il arrivait, les commits resteraient
-        // des étapes séparées, sous le libellé du groupe.
-        if let Err(e) = self.undo.manager().group_start() {
-            tracing::warn!(error = %e, "groupe d'annulation non ouvert : étapes séparées");
-        }
-        self.group = Some(label.to_owned());
+        self.undo.begin_group(label);
     }
 
     /// Ferme le groupe ouvert (sans effet s'il n'y en a pas).
     pub fn end_group(&mut self) {
-        if self.group.take().is_some() {
-            self.undo.manager().group_end();
-        }
+        self.undo.end_group();
     }
 
     pub fn in_group(&self) -> bool {
-        self.group.is_some()
+        self.undo.in_group()
     }
 
     /// Défait la dernière étape locale ; `false` s'il n'y en avait pas.
     /// Ferme d'abord le groupe ouvert.
     pub fn undo(&mut self) -> Result<bool, ReplicaError> {
-        self.end_group();
-        Ok(self.undo.manager().undo().context(LoroSnafu)?)
+        Ok(self.undo.undo().context(LoroSnafu)?)
     }
 
     /// Rétablit la dernière étape locale défaite ; `false` s'il n'y en avait pas.
     /// Ferme d'abord le groupe ouvert.
     pub fn redo(&mut self) -> Result<bool, ReplicaError> {
-        self.end_group();
-        Ok(self.undo.manager().redo().context(LoroSnafu)?)
+        Ok(self.undo.redo().context(LoroSnafu)?)
     }
 
     pub fn can_undo(&self) -> bool {
@@ -286,7 +287,7 @@ impl DeckReplica {
     /// Nombre maximal d'étapes d'annulation conservées (les plus anciennes sont
     /// perdues). `0` vaut `1` : une étape au moins reste annulable.
     pub fn set_undo_limit(&mut self, steps: usize) {
-        self.undo.manager().set_max_undo_steps(steps.max(1));
+        self.undo.set_limit(steps);
     }
 
     /// Nombre d'ops de l'historique (tests, mesures).

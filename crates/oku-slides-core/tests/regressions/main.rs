@@ -3,3 +3,4 @@
 
 mod issue_0001_asset_id_escaping_or_injecting;
 mod issue_0164_chart_body_bloats_element_enum;
+mod issue_0263_undo_reorder_loses_slides;

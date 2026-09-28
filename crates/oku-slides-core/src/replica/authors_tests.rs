@@ -18,8 +18,7 @@ fn each_commit_is_its_own_change() {
     let mut r = DeckReplica::new(&deck).unwrap();
     let before = r.len_changes();
     for t in ["Un", "Deux", "Trois"] {
-        r.reconcile(&titled(&deck, t)).unwrap();
-        r.commit(t);
+        r.apply(&titled(&deck, t), t).unwrap();
     }
     assert_that!(r.len_changes()).is_equal_to(before + 3);
 }

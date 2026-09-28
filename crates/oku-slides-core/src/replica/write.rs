@@ -62,8 +62,11 @@ pub(super) fn sync_text(t: &LoroText, s: &str) -> Res {
     Ok(())
 }
 
+/// Committe les changements en cours ; appelé avant chaque `mov` (voir [`sync_list`]).
+pub(super) type Split<'a> = &'a dyn Fn();
+
 /// Amène `map` à l'état de `obj`.
-pub(super) fn sync_map(map: &LoroMap, obj: &Map<String, Value>, ctx: Ctx) -> Res {
+pub(super) fn sync_map(map: &LoroMap, obj: &Map<String, Value>, ctx: Ctx, split: Split<'_>) -> Res {
     // Structure toujours présente : jamais de création concurrente d'une même clé.
     for key in ctx.texts() {
         text_at(map, key)?;
@@ -91,11 +94,11 @@ pub(super) fn sync_map(map: &LoroMap, obj: &Map<String, Value>, ctx: Ctx) -> Res
             Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
             Kind::Rich => super::rich::sync(&text_at(map, key)?, value)?,
             Kind::Collection(child) => {
-                sync_list(&list_at(map, key)?, value.as_array().map(Vec::as_slice).unwrap_or_default(), child)?
+                sync_list(&list_at(map, key)?, value.as_array().map(Vec::as_slice).unwrap_or_default(), child, split)?
             }
             Kind::Atom => set_value(map, key, json_to_loro(value))?,
             Kind::Nested(child) => match value {
-                Value::Object(o) => sync_map(&map_at(map, key)?, o, child)?,
+                Value::Object(o) => sync_map(&map_at(map, key)?, o, child, split)?,
                 v => set_value(map, key, json_to_loro(v))?,
             },
         }
@@ -132,7 +135,11 @@ fn keyed(ids: &[String]) -> Vec<(String, usize)> {
 }
 
 /// Réconcilie une collection à `id` : suppressions, puis insertions et déplacements.
-fn sync_list(list: &LoroMovableList, items: &[Value], ctx: Ctx) -> Res {
+///
+/// Chaque `mov` part dans son propre commit (`split` juste avant) : Loro
+/// 1.16.2 défait mal un item d'annulation qui en porte plusieurs sur une
+/// liste de conteneurs (élément perdu, voire panique ; t-263).
+fn sync_list(list: &LoroMovableList, items: &[Value], ctx: Ctx, split: Split<'_>) -> Res {
     let id_of = |v: &Value| v.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
     let wanted: Vec<String> = items.iter().map(id_of).collect();
     let wanted_keys = keyed(&wanted);
@@ -148,6 +155,7 @@ fn sync_list(list: &LoroMovableList, items: &[Value], ctx: Ctx) -> Res {
         match keys.iter().position(|k| k == key) {
             Some(pos) if pos == target => {}
             Some(pos) => {
+                split();
                 list.mov(pos, target).context(LoroSnafu)?;
                 let moved = keys.remove(pos);
                 keys.insert(target, moved);
@@ -159,7 +167,7 @@ fn sync_list(list: &LoroMovableList, items: &[Value], ctx: Ctx) -> Res {
         }
         if let (Some(ValueOrContainer::Container(Container::Map(m))), Some(obj)) = (list.get(target), item.as_object())
         {
-            sync_map(&m, obj, ctx)?;
+            sync_map(&m, obj, ctx, split)?;
         }
     }
     // Défense en profondeur : l'appariement par occurrence ci-dessus ne
