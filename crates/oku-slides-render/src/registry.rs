@@ -2,7 +2,7 @@
 //! widgets de base et, s'il y en a, de ceux d'un pack.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::Value as Json;
 use sha2::{Digest, Sha256};
@@ -18,6 +18,12 @@ use crate::error::{BadPackIdSnafu, MissingSnafu, RegistryCompileSnafu, RegistryE
 use crate::fonts::Fonts;
 use crate::world::OkuSlidesWorld;
 
+/// Un identifiant de pack utilisable comme nom de dossier et de chemin :
+/// lettres minuscules ASCII, chiffres, `-` et `_`. Jamais `..` ni un chemin.
+pub fn is_pack_id(id: &str) -> bool {
+    !id.is_empty() && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+}
+
 /// Les widgets d'un pack de modèles : son identifiant et son `widgets.typ`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackWidgets {
@@ -26,12 +32,10 @@ pub struct PackWidgets {
 }
 
 impl PackWidgets {
-    /// `id` : lettres minuscules ASCII, chiffres, `-` et `_` ; il devient un chemin.
+    /// `id` : voir [`is_pack_id`] ; il devient un chemin.
     pub fn new(id: impl Into<String>, source: impl Into<String>) -> Result<Self, RegistryError> {
         let id = id.into();
-        let ok = !id.is_empty()
-            && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_');
-        if !ok {
+        if !is_pack_id(&id) {
             return Err(BadPackIdSnafu { id }.build().into());
         }
         Ok(Self { id, source: source.into() })
@@ -45,7 +49,7 @@ impl PackWidgets {
         &self.source
     }
 
-    fn path(&self) -> String {
+    pub(crate) fn path(&self) -> String {
         format!("/packs/{}/widgets.typ", self.id)
     }
 }
@@ -82,6 +86,21 @@ pub fn load_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<Widget
     Ok(WidgetRegistry::from_probe(value).map_err(Box::new).context(SchemaSnafu)?)
 }
 
+/// Registre de base, lu une fois par processus : la bibliothèque est dans
+/// le binaire, et les polices n'entrent pas dans les schémas.
+static BASE: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
+
+/// Le registre des widgets de base (sonde compilée au premier appel).
+pub(crate) fn base_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
+    let mut base = BASE.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(r) = base.as_ref() {
+        return Ok(r.clone());
+    }
+    let r = Arc::new(load_registry(fonts, None)?);
+    *base = Some(r.clone());
+    Ok(r)
+}
+
 /// Sépare « la sonde n'a émis aucune métadonnée » (`Missing`) de « la
 /// métadonnée existe mais ne se convertit pas en JSON » (`Schema`, avec un
 /// [`oku_slides_core::WidgetError`] `Unreadable`).
@@ -108,8 +127,12 @@ impl Registries {
         Self { fonts, cache: HashMap::new() }
     }
 
-    /// Le registre de la base, surchargé par `pack`.
+    /// Le registre de la base, surchargé par `pack`. Sans pack : celui de
+    /// la base, lu une fois par processus (le même que [`crate::Renderer::new`]).
     pub fn get(&mut self, pack: Option<&PackWidgets>) -> Result<Arc<WidgetRegistry>, RegistryError> {
+        if pack.is_none() {
+            return base_registry(&self.fonts);
+        }
         let key = pack.map(|p| {
             let mut h = Sha256::new();
             h.update(p.id().as_bytes());

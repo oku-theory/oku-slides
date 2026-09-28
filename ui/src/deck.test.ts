@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Element, Paragraph, SlideView, Target } from "./api";
+import type { EditTarget, Element, Paragraph, SlideView } from "./api";
 import {
   gridPlacement,
   instantiate,
@@ -8,7 +8,9 @@ import {
   pickSlide,
   placeOnGridOps,
   restoredGrid,
+  rich,
   slideToFetch,
+  slot,
   textChanged,
   textOps,
   textToParagraphs,
@@ -58,19 +60,24 @@ describe("textToParagraphs", () => {
   });
 });
 
-test("instantiate renouvelle les identifiants de la slide et des éléments", () => {
-  const template = { id: "t", kind: "content" as const, elements: [{ id: "a", kind: "group" as const, children: [{ id: "b", kind: "text" as const }] }] };
+test("instantiate renouvelle les identifiants de la slide et des éléments, dans tous leurs slots", () => {
+  const template = {
+    id: "t",
+    kind: "content",
+    params: { elements: [{ id: "a", kind: "canvas", params: { children: [{ id: "b", kind: "text" }] } }] },
+  };
   const copy = instantiate(template);
   expect(copy.id).not.toBe("t");
-  expect(copy.elements?.[0].id).not.toBe("a");
-  expect(copy.elements?.[0].children?.[0].id).not.toBe("b");
-  expect(template.elements[0].id).toBe("a");
+  const els = slot(copy, "elements");
+  expect(els[0].id).not.toBe("a");
+  expect(slot(els[0], "children")[0].id).not.toBe("b");
+  expect((template.params.elements[0] as { id: string }).id).toBe("a");
 });
 
 /** Une slide 1000 × 600 pt, grille 4 × 3 sans gouttière : des cases de 250 × 200. */
-function view(slide: Partial<SlideView["slide"]>, targets: SlideView["targets"] = []): SlideView {
+function view(params: Record<string, unknown>, targets: SlideView["targets"] = []): SlideView {
   return {
-    slide: { id: "s", kind: "content", ...slide },
+    slide: { id: "s", kind: "content", params },
     page: 1,
     hash: "",
     width: 1920,
@@ -86,11 +93,52 @@ const box = (id: string, x: number, y: number, w: number, h: number) => ({
 
 describe("textOps", () => {
   test("un champ passe tel quel, sans normalisation côté UI", () => {
-    const v = view({ kind: "content" });
-    const t: Target = {
-      id: "s", target: "field", kind: "title", free: false, text: "Titre", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+    const v = view({});
+    const t: EditTarget = {
+      id: "@title", target: "field", kind: "title", free: false, text: "Titre", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
     };
-    expect(textOps(v, t, "   ")).toEqual([{ op: "set_slide_field", slide: "s", field: "title", value: "   " }]);
+    expect(textOps(v, t, "   ")).toEqual([{ op: "set_param", target: { slide: "s" }, param: "title", value: "   " }]);
+  });
+
+  test("un élément sans paramètre riche n'est pas éditable : aucune op", () => {
+    const v = view({});
+    const t: EditTarget = {
+      id: "e", target: "element", kind: "shape", free: true, text: null, x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+    };
+    expect(textOps(v, t, "x")).toEqual([]);
+  });
+
+  test("un élément à paramètre riche écrit set_param avec les paragraphes édités", () => {
+    const v = view({ elements: [{ id: "e", kind: "text", params: { body: [{ runs: [{ t: "Avant" }] }] } }] });
+    const t: EditTarget = {
+      id: "e", target: "element", kind: "text", param: "body", free: true, text: "Avant", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+    };
+    expect(textOps(v, t, "Titre\n- Point")).toEqual([
+      {
+        op: "set_param",
+        target: { slide: "s", element: "e" },
+        param: "body",
+        value: [{ runs: [{ t: "Titre" }] }, { runs: [{ t: "Point" }], list: "bullet" }],
+      },
+    ]);
+  });
+});
+
+describe("rich", () => {
+  test("un tableau de paragraphes est rendu tel quel", () => {
+    const e = { id: "e", kind: "text", params: { body: [{ runs: [{ t: "a" }] }] } };
+    expect(rich(e, "body")).toEqual([{ runs: [{ t: "a" }] }]);
+  });
+
+  test("un tableau qui a la forme d'un slot (items avec id et kind) est refusé, symétrique de slot()", () => {
+    const e = { id: "e", kind: "card", params: { body: [{ id: "c", kind: "text" }] } };
+    expect(rich(e, "body")).toBeUndefined();
+  });
+
+  test("un paramètre absent ou non tableau rend undefined", () => {
+    const e = { id: "e", kind: "text", params: { title: "x" } };
+    expect(rich(e, "body")).toBeUndefined();
+    expect(rich(e, "title")).toBeUndefined();
   });
 });
 
@@ -134,12 +182,12 @@ describe("gridPlacement et placeOnGridOps", () => {
     expect(p).toMatchObject({ cell: { col: 0, row: 0, cols: 2, rows: 1 }, block: true });
     const ops = placeOnGridOps(v, "a", { col: 2, row: 0, cols: 2, rows: 1 });
     expect(ops.map((o) => o.op)).toEqual(["remove_element", "remove_element", "add_element", "add_element"]);
-    expect(ops[2]).toMatchObject({ zone: "elements", element: { id: "a", cell: { col: 2, row: 0 } } });
+    expect(ops[2]).toMatchObject({ slot: { owner: { slide: "s" }, param: "elements" }, element: { id: "a", cell: { col: 2, row: 0 } } });
     expect(ops[3]).toMatchObject({ element: { id: "b", cell: { col: 0, row: 1, cols: 4, rows: 2 } } });
   });
 
   test("un élément d'un groupe ou sans place ne se pose pas sur la grille", () => {
-    const v = view({ elements: [{ id: "g", kind: "group", children: [{ id: "c", kind: "text", cell: { col: 0, row: 0 } }] }] });
+    const v = view({ elements: [{ id: "g", kind: "canvas", params: { children: [{ id: "c", kind: "text", cell: { col: 0, row: 0 } }] } }] });
     expect(gridPlacement(v, "c")).toBeNull();
     expect(gridPlacement(v, "g")).toBeNull();
   });
@@ -147,38 +195,38 @@ describe("gridPlacement et placeOnGridOps", () => {
 
 describe("pasteOps", () => {
   test("une copie sur la grille prend de nouveaux identifiants et la première ligne libre, même étendue", () => {
-    const source = { id: "e", kind: "group" as const, cell: { col: 2, row: 0, cols: 2, rows: 1 }, children: [{ id: "c", kind: "text" as const }] };
+    const source = { id: "e", kind: "canvas", cell: { col: 2, row: 0, cols: 2, rows: 1 }, params: { children: [{ id: "c", kind: "text" }] } };
     const v = view({ elements: [source, { id: "f", kind: "text", cell: { col: 0, row: 1 } }] });
     const { id, ops } = pasteOps(v, source);
     expect(ops).toHaveLength(1);
-    expect(ops[0]).toMatchObject({ op: "add_element", slide: "s", zone: "elements", element: { id, cell: { col: 0, row: 2, cols: 2, rows: 1 } } });
+    expect(ops[0]).toMatchObject({ op: "add_element", slot: { owner: { slide: "s" }, param: "elements" }, element: { id, cell: { col: 0, row: 2, cols: 2, rows: 1 } } });
     const el = ops[0].element as Element;
     expect(id).not.toBe("e");
-    expect(el.children?.[0].id).not.toBe("c");
+    expect((el.params?.children as Element[])[0].id).not.toBe("c");
     expect(source.id).toBe("e");
   });
 
   test("une grille pleine reçoit la copie sur sa première ligne", () => {
-    const source = { id: "e", kind: "text" as const, cell: { col: 0, row: 0, cols: 4, rows: 3 } };
+    const source = { id: "e", kind: "text", cell: { col: 0, row: 0, cols: 4, rows: 3 } };
     const { ops } = pasteOps(view({ elements: [source] }), source);
     expect(ops[0]).toMatchObject({ element: { cell: { col: 0, row: 0, cols: 4, rows: 3 } } });
   });
 
   test("un bloc collé sur une grille prend la moitié gauche de la ligne libre", () => {
     const { ops } = pasteOps(view({ elements: [] }), { id: "b", kind: "text" });
-    expect(ops[0]).toMatchObject({ zone: "elements", element: { cell: { col: 0, row: 0, cols: 2, rows: 1 } } });
+    expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "elements" }, element: { cell: { col: 0, row: 0, cols: 2, rows: 1 } } });
   });
 
   test("sans grille, un élément à cadre se colle décalé", () => {
     const v = { ...view({ elements: [] }), zone: null };
     const { ops } = pasteOps(v, { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } });
-    expect(ops[0]).toMatchObject({ zone: "elements", element: { frame: { x: 22, y: 32, w: 100, h: 50 } } });
+    expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "elements" }, element: { frame: { x: 22, y: 32, w: 100, h: 50 } } });
   });
 
   test("une slide à blocs reçoit un bloc de plus, sans case ni cadre", () => {
     const v = view({ blocks: [{ id: "a", kind: "text" }] });
     const { ops } = pasteOps(v, { id: "e", kind: "text", cell: { col: 1, row: 1 } });
-    expect(ops[0]).toMatchObject({ zone: "blocks" });
+    expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "blocks" } });
     expect((ops[0].element as Element).cell).toBeUndefined();
   });
 });

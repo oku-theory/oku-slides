@@ -90,7 +90,7 @@ impl Session {
             let op = parse_op(&field.op_template, &field.value)
                 .map_err(|e| AgentFormSnafu { reason: format!("fields[{i}]: op_template: {e}") }.build())?;
             let mut deck = self.deck().clone();
-            apply_all(&mut deck, vec![op])
+            apply_all(&mut deck, vec![op], &self.registry)
                 .map_err(|e| AgentFormSnafu { reason: format!("fields[{i}]: {e}") }.build())?;
         }
         let palette: Vec<String> = self.appearance.slide.values().cloned().collect();
@@ -104,7 +104,12 @@ impl Session {
         self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
-            None => self.variant_renderer.insert(new_renderer(self.render_fonts.clone(), &self.localizer)?),
+            None => self.variant_renderer.insert(new_renderer(
+                self.render_fonts.clone(),
+                &self.localizer,
+                self.pack.as_ref(),
+                &self.registry,
+            )?),
         };
         let mut svgs: Vec<Arc<str>> = Vec::with_capacity(spec.variants.len());
         for (i, variant) in spec.variants.iter().enumerate() {
@@ -116,7 +121,7 @@ impl Session {
                 }
             );
             let mut deck = self.doc.sources.deck().clone();
-            apply_all(&mut deck, variant.ops.clone())
+            apply_all(&mut deck, variant.ops.clone(), &self.registry)
                 .map_err(|e| AgentFormSnafu { reason: format!("variants[{i}]: {e}") }.build())?;
             let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
             let page = compiled

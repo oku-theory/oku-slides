@@ -1,53 +1,497 @@
 {
-  "params": { "title": "Référence", "subtitle": "Tous les widgets", "author": "Oku", "date": "2026-09-27", "organization": "Oku Theory" },
-  "vars": { "client": "Acme" },
+  "params": {
+    "title": "Référence",
+    "subtitle": "Tous les widgets",
+    "author": "Oku",
+    "date": "2026-09-27",
+    "organization": "Oku Theory"
+  },
+  "vars": {
+    "client": "Acme"
+  },
   "slides": [
-    { "id": "s-titre", "kind": "title" },
-    { "id": "s-sommaire", "kind": "toc" },
-    { "id": "s-chap", "kind": "chapter", "title": "Chapitre {{client}}", "subtitle": "Sous-titre" },
-    { "id": "s-flux", "kind": "content", "kicker": "Surtitre", "title": "Flux",
-      "blocks": [
-        { "id": "t1", "kind": "text", "style": { "size": "subtitle", "color": "accent", "align": "center", "leading": "tight" },
-          "text": [ { "runs": [ { "t": "Texte " }, { "t": "gras", "bold": true }, { "t": " et " }, { "t": "pastille", "highlight": 2 } ] } ] },
-        { "id": "c1", "kind": "card", "kicker": "Blague", "title": "Toto et la géographie",
-          "text": [ { "runs": [ { "t": "La maîtresse : « Où se trouve la Seine ? »" } ] }, { "list": "bullet", "runs": [ { "t": "Dans son lit !" } ] } ] },
-        { "id": "g1", "kind": "chart", "option": {
-          "dataset": { "source": [["Mois", "Ventes"], ["Jan", 3], ["Fév", 5]] },
-          "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } }
-      ] },
-    { "id": "s-colonnes", "kind": "content", "title": "Colonnes", "layout": "columns",
-      "blocks": [
-        { "id": "c2", "kind": "card", "highlight": true, "title": "Mise en avant", "text": [ { "list": "number", "runs": [ { "t": "Un" } ] }, { "list": "number", "runs": [ { "t": "Deux" } ] } ] },
-        { "id": "c3", "kind": "card", "kicker": "Sans corps", "title": "Carte vide" }
-      ] },
-    { "id": "s-split", "kind": "content", "title": "Split", "layout": "split",
-      "blocks": [ { "id": "t2", "kind": "text", "text": [ { "runs": [ { "t": "Gauche" } ] } ] },
-                  { "id": "i1", "kind": "image", "asset": "sha256:00", "fit": "contain" } ] },
-    { "id": "s-centre", "kind": "content", "title": "Centre", "layout": "center",
-      "blocks": [ { "id": "t3", "kind": "text", "text": [ { "runs": [ { "t": "Au centre" } ] } ] } ] },
-    { "id": "s-citation", "kind": "content", "layout": "quote",
-      "blocks": [ { "id": "t4", "kind": "text", "text": [ { "runs": [ { "t": "Une citation", "italic": true } ] } ] } ] },
-    { "id": "s-groupes", "kind": "content", "title": "Groupes",
-      "blocks": [
-        { "id": "grp-col", "kind": "group", "layout": { "type": "columns", "count": 3, "gap": "md" }, "children": [
-          { "id": "gc1", "kind": "card", "title": "A" }, { "id": "gc2", "kind": "card", "title": "B" }, { "id": "gc3", "kind": "card", "title": "C" } ] },
-        { "id": "grp-rows", "kind": "group", "layout": { "type": "rows", "gap": "sm" }, "children": [
-          { "id": "gr1", "kind": "text", "text": [ { "runs": [ { "t": "Ligne 1" } ] } ] },
-          { "id": "gr2", "kind": "text", "text": [ { "runs": [ { "t": "Ligne 2" } ] } ] } ] },
-        { "id": "grp-grid", "kind": "group", "layout": { "type": "grid", "count": 2 }, "children": [
-          { "id": "gg1", "kind": "shape", "shape": "rect", "style": { "fill": "accent", "radius": "sm" } },
-          { "id": "gg2", "kind": "shape", "shape": "ellipse", "style": { "fill": "surface", "stroke": "rule" } } ] }
-      ] },
-    { "id": "s-grille", "kind": "content", "title": "Grille", "grid": { "columns": 12, "rows": 6, "gap": "md" },
-      "elements": [
-        { "id": "e-cell", "kind": "card", "title": "Case", "cell": { "col": 0, "row": 0, "cols": 6, "rows": 3 } },
-        { "id": "e-frame", "kind": "shape", "shape": "line", "frame": { "x": 900, "y": 500, "w": 600, "h": 10 } },
-        { "id": "e-libre", "kind": "group", "layout": { "type": "free" }, "frame": { "x": 800, "y": 0, "w": 800, "h": 400 }, "children": [
-          { "id": "el1", "kind": "text", "frame": { "x": 20, "y": 20, "w": 300, "h": 100 }, "text": [ { "runs": [ { "t": "Libre" } ] } ] },
-          { "id": "el2", "kind": "shape", "frame": { "x": 400, "y": 50, "w": 200, "h": 200 }, "style": { "fill": "accent" } } ] }
-      ] },
-    { "id": "s-nue", "kind": "blank",
-      "elements": [ { "id": "b-texte", "kind": "text", "frame": { "x": 100, "y": 100, "w": 800, "h": 200 }, "style": { "size": "title" }, "text": [ { "runs": [ { "t": "Slide nue" } ] } ] } ] },
-    { "id": "s-fin", "kind": "end", "text": "Merci {{client}}" }
-  ]
+    {
+      "id": "s-titre",
+      "kind": "title"
+    },
+    {
+      "id": "s-sommaire",
+      "kind": "toc"
+    },
+    {
+      "id": "s-chap",
+      "kind": "chapter",
+      "params": {
+        "title": "Chapitre {{client}}",
+        "subtitle": "Sous-titre"
+      }
+    },
+    {
+      "id": "s-flux",
+      "kind": "content",
+      "params": {
+        "title": "Flux",
+        "kicker": "Surtitre",
+        "blocks": [
+          {
+            "id": "t1",
+            "style": {
+              "size": "subtitle",
+              "color": "accent",
+              "align": "center",
+              "leading": "tight"
+            },
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Texte "
+                    },
+                    {
+                      "t": "gras",
+                      "bold": true
+                    },
+                    {
+                      "t": " et "
+                    },
+                    {
+                      "t": "pastille",
+                      "highlight": 2
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "c1",
+            "kind": "card",
+            "params": {
+              "kicker": "Blague",
+              "title": "Toto et la géographie",
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "La maîtresse : « Où se trouve la Seine ? »"
+                    }
+                  ]
+                },
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Dans son lit !"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "g1",
+            "kind": "chart",
+            "params": {
+              "option": {
+                "dataset": {
+                  "source": [
+                    [
+                      "Mois",
+                      "Ventes"
+                    ],
+                    [
+                      "Jan",
+                      3
+                    ],
+                    [
+                      "Fév",
+                      5
+                    ]
+                  ]
+                },
+                "xAxis": {
+                  "type": "category"
+                },
+                "series": [
+                  {
+                    "type": "bar"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-colonnes",
+      "kind": "content",
+      "params": {
+        "title": "Colonnes",
+        "layout": "columns",
+        "blocks": [
+          {
+            "id": "c2",
+            "kind": "card",
+            "params": {
+              "title": "Mise en avant",
+              "highlight": true,
+              "body": [
+                {
+                  "list": "number",
+                  "runs": [
+                    {
+                      "t": "Un"
+                    }
+                  ]
+                },
+                {
+                  "list": "number",
+                  "runs": [
+                    {
+                      "t": "Deux"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "c3",
+            "kind": "card",
+            "params": {
+              "kicker": "Sans corps",
+              "title": "Carte vide"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-split",
+      "kind": "content",
+      "params": {
+        "title": "Split",
+        "layout": "split",
+        "blocks": [
+          {
+            "id": "t2",
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Gauche"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "i1",
+            "kind": "image",
+            "params": {
+              "asset": "sha256:00",
+              "fit": "contain"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-centre",
+      "kind": "content",
+      "params": {
+        "title": "Centre",
+        "layout": "center",
+        "blocks": [
+          {
+            "id": "t3",
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Au centre"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-citation",
+      "kind": "content",
+      "params": {
+        "layout": "quote",
+        "blocks": [
+          {
+            "id": "t4",
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Une citation",
+                      "italic": true
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-groupes",
+      "kind": "content",
+      "params": {
+        "title": "Groupes",
+        "blocks": [
+          {
+            "id": "grp-col",
+            "kind": "stack",
+            "params": {
+              "layout": "columns",
+              "count": 3,
+              "gap": "md",
+              "children": [
+                {
+                  "id": "gc1",
+                  "kind": "card",
+                  "params": {
+                    "title": "A"
+                  }
+                },
+                {
+                  "id": "gc2",
+                  "kind": "card",
+                  "params": {
+                    "title": "B"
+                  }
+                },
+                {
+                  "id": "gc3",
+                  "kind": "card",
+                  "params": {
+                    "title": "C"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "grp-rows",
+            "kind": "stack",
+            "params": {
+              "layout": "rows",
+              "gap": "sm",
+              "children": [
+                {
+                  "id": "gr1",
+                  "kind": "text",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Ligne 1"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "gr2",
+                  "kind": "text",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Ligne 2"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "grp-grid",
+            "kind": "stack",
+            "params": {
+              "layout": "grid",
+              "count": 2,
+              "children": [
+                {
+                  "id": "gg1",
+                  "style": {
+                    "fill": "accent",
+                    "radius": "sm"
+                  },
+                  "kind": "shape",
+                  "params": {
+                    "shape": "rect"
+                  }
+                },
+                {
+                  "id": "gg2",
+                  "style": {
+                    "fill": "surface",
+                    "stroke": "rule"
+                  },
+                  "kind": "shape",
+                  "params": {
+                    "shape": "ellipse"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-grille",
+      "kind": "content",
+      "params": {
+        "title": "Grille",
+        "grid": {
+          "columns": 12,
+          "rows": 6,
+          "gap": "md"
+        },
+        "elements": [
+          {
+            "id": "e-cell",
+            "cell": {
+              "col": 0,
+              "row": 0,
+              "cols": 6,
+              "rows": 3
+            },
+            "kind": "card",
+            "params": {
+              "title": "Case"
+            }
+          },
+          {
+            "id": "e-frame",
+            "frame": {
+              "x": 900,
+              "y": 500,
+              "w": 600,
+              "h": 10
+            },
+            "kind": "shape",
+            "params": {
+              "shape": "line"
+            }
+          },
+          {
+            "id": "e-libre",
+            "frame": {
+              "x": 800,
+              "y": 0,
+              "w": 800,
+              "h": 400
+            },
+            "kind": "canvas",
+            "params": {
+              "children": [
+                {
+                  "id": "el1",
+                  "frame": {
+                    "x": 20,
+                    "y": 20,
+                    "w": 300,
+                    "h": 100
+                  },
+                  "kind": "text",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Libre"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "el2",
+                  "frame": {
+                    "x": 400,
+                    "y": 50,
+                    "w": 200,
+                    "h": 200
+                  },
+                  "style": {
+                    "fill": "accent"
+                  },
+                  "kind": "shape"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-nue",
+      "kind": "blank",
+      "params": {
+        "elements": [
+          {
+            "id": "b-texte",
+            "frame": {
+              "x": 100,
+              "y": 100,
+              "w": 800,
+              "h": 200
+            },
+            "style": {
+              "size": "title"
+            },
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Slide nue"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-fin",
+      "kind": "end",
+      "params": {
+        "text": "Merci {{client}}"
+      }
+    }
+  ],
+  "version": 2
 }

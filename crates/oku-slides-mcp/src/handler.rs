@@ -43,6 +43,7 @@ impl Tools {
     pub(crate) async fn call(&self, name: &str, args: Value) -> CallToolResult {
         match name {
             "deck_outline" => self.deck_outline().await,
+            "widgets" => self.widgets().await,
             "slide" => self.slide(args).await,
             "render_slide" => self.render_slide(args).await,
             "templates" => self.templates().await,

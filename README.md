@@ -88,7 +88,7 @@ just          # toutes les commandes
   façon. La géométrie est calculée à l'identique par `ui/src/grid.ts`
   (édition) et `grid-frame` dans `data.typ` (rendu).
 - **Ensembles de modèles** : les modèles de « Nouvelle slide » sont groupés en
-  ensembles (`templates/*.json` intégrés : Essentiel, Grilles ; ceux de
+  ensembles (`templates/<id>/pack.json` intégrés : Essentiel, Grilles ; ceux de
   l'utilisateur dans le dossier de données de l'app). Un ensemble ne dépend
   pas du thème : le deck choisit son ensemble et son thème séparément.
 - **Édition des modèles** (bouton « Modèles ») : chaque modèle devient une

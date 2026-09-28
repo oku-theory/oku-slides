@@ -16,11 +16,11 @@ pub use forms::{
 };
 pub use tabs::{Sessions, TabSession};
 
-use oku_slides_core::{Op, Paragraph, SlideField};
+use oku_slides_core::{Op, Paragraph, ParamType, Target, apply_all};
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 
-use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
+use crate::error::{AgentFormSnafu, NoSlideSnafu, OpSnafu, RenderSnafu, ResponseSnafu};
 use crate::text::paragraphs_to_text;
 use crate::{Result, Session};
 
@@ -45,27 +45,41 @@ pub fn check_len(what: &str, len: usize, (min, max): (usize, usize)) -> Result<(
     Ok(())
 }
 
-/// Champ de slide visé par `@title`, `@subtitle`, `@kicker`, `@text`.
-fn slide_field(element: &str) -> Option<SlideField> {
-    match element {
-        "@title" => Some(SlideField::Title),
-        "@subtitle" => Some(SlideField::Subtitle),
-        "@kicker" => Some(SlideField::Kicker),
-        "@text" => Some(SlideField::Text),
-        _ => None,
-    }
-}
-
 impl Session {
-    /// Texte actuel d'un élément ou d'un champ, pour une reformulation.
+    /// Premier paramètre `rich` du schéma du widget `kind`, s'il en a un.
+    fn rich_param(&self, kind: &str) -> Option<&str> {
+        self.registry.get(kind)?.params.iter().find(|p| p.ty == ParamType::Rich).map(|p| p.name.as_str())
+    }
+
+    /// Refuse `@field` s'il n'est pas déclaré par le schéma du widget de la
+    /// slide, par le chemin d'une op refusée aujourd'hui (`SessionError::Op`,
+    /// `OpErrorKind::UnknownParam`) : un `set_param` sonde (sur un clone du
+    /// deck, jamais appliqué pour de vrai) porte le refus du cœur.
+    fn check_field(&self, slide: &str, field: &str) -> Result<()> {
+        let mut probe = self.deck().clone();
+        let op = Op::SetParam {
+            target: Target { slide: slide.to_owned(), element: None },
+            param: field.to_owned(),
+            value: Value::Null,
+        };
+        apply_all(&mut probe, vec![op], &self.registry).context(OpSnafu)?;
+        Ok(())
+    }
+
+    /// Texte actuel d'un champ `@<paramètre>` de la slide, ou du premier
+    /// paramètre `rich` d'un élément, pour une reformulation.
     fn text_of(&self, slide: &str, element: &str) -> Result<String> {
-        let sl = self.deck().slide(slide).context(NoSlideSnafu { id: slide })?;
-        let text = match slide_field(element) {
-            Some(SlideField::Title) => sl.title.clone(),
-            Some(SlideField::Subtitle) => sl.subtitle.clone(),
-            Some(SlideField::Kicker) => sl.kicker.clone(),
-            Some(_) => sl.text.clone(),
-            None => sl.locate(element).and_then(|l| l.element.body.text().map(paragraphs_to_text)),
+        let deck = self.deck();
+        let sl = deck.slide(slide).context(NoSlideSnafu { id: slide })?;
+        let text = match element.strip_prefix('@') {
+            Some(field) => {
+                self.check_field(slide, field)?;
+                self.field_text(deck, sl, field).map(str::to_owned)
+            }
+            None => sl
+                .locate(element)
+                .and_then(|l| self.rich_param(&l.element.kind).and_then(|p| l.element.params.rich(p)))
+                .map(paragraphs_to_text),
         };
         Ok(text.context(AgentFormSnafu { reason: format!("{slide}/{element}: no text to rewrite") })?)
     }
@@ -77,20 +91,32 @@ impl Session {
         Ok(forms::rewrite(id, spec, &original, &self.localizer))
     }
 
-    /// Ops qui remplacent le texte visé par `text` (champ) ou `paragraphs` (élément).
+    /// Ops qui remplacent le texte visé par `text` (champ `@<paramètre>`) ou
+    /// `paragraphs` (élément, sur son premier paramètre `rich`).
     ///
     /// Un champ n'a pas de paragraphes : `text` suffit. Un élément est du
     /// markdown lu par l'interface (`textToParagraphs`, `ui/src/deck.ts`) ;
     /// `paragraphs` en porte le résultat, absent seulement en cas d'erreur.
     pub fn rewrite_ops(&self, spec: &AskRewrite, text: &str, paragraphs: Option<Vec<Paragraph>>) -> Result<Vec<Op>> {
         self.text_of(&spec.slide, &spec.element)?;
-        Ok(vec![match slide_field(&spec.element) {
-            Some(field) => {
-                Op::SetSlideField { slide: spec.slide.clone(), field, value: Value::String(text.to_owned()) }
-            }
+        let no_text = || AgentFormSnafu { reason: format!("{}/{}: no text to rewrite", spec.slide, spec.element) };
+        Ok(vec![match spec.element.strip_prefix('@') {
+            Some(field) => Op::SetParam {
+                target: Target { slide: spec.slide.clone(), element: None },
+                param: field.to_owned(),
+                value: Value::String(text.to_owned()),
+            },
             None => {
+                let sl = self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;
+                let kind = sl.locate(&spec.element).map(|l| l.element.kind.clone()).context(no_text())?;
+                let param = self.rich_param(&kind).context(no_text())?.to_owned();
                 let paragraphs = paragraphs.context(AgentFormSnafu { reason: "paragraphs missing" })?;
-                Op::SetText { slide: spec.slide.clone(), element: spec.element.clone(), text: paragraphs }
+                let value = serde_json::to_value(paragraphs).context(ResponseSnafu)?;
+                Op::SetParam {
+                    target: Target { slide: spec.slide.clone(), element: Some(spec.element.clone()) },
+                    param,
+                    value,
+                }
             }
         }])
     }

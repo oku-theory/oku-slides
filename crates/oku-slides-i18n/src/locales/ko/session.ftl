@@ -6,6 +6,7 @@ session-invalid-template-set = 템플릿 세트가 올바르지 않습니다: { 
 session-not-rendered = 프레젠테이션이 아직 렌더링되지 않았습니다
 session-no-path = 아직 파일이 없습니다. 저장할 위치를 선택하세요
 session-no-slide = 슬라이드를 찾을 수 없습니다: { $id }
+session-no-chart = 여기에 차트가 없습니다: { $subject }
 session-no-template-set = 템플릿 세트를 찾을 수 없습니다: { $id }
 session-builtin-template-set = 기본 제공 템플릿 세트는 삭제할 수 없습니다
 session-no-templates-dir = 내 템플릿을 저장할 폴더가 없습니다

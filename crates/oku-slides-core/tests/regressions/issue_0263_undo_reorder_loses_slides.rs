@@ -3,7 +3,7 @@
 //! durable dans l'oplog), voire panique. Échanger deux slides non voisines
 //! suffisait : 42 échanges sur 56 perdaient une slide du fixture.
 
-use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_core::{Deck, ParamValue, SourceBundle};
 use speculoos::prelude::*;
 
 fn roadmap() -> Deck {
@@ -11,7 +11,7 @@ fn roadmap() -> Deck {
 }
 
 fn bundle(deck: &Deck) -> SourceBundle {
-    SourceBundle::new(deck.clone()).unwrap_or_else(|e| panic!("bundle : {e}"))
+    SourceBundle::new(deck.clone(), crate::common::shared()).unwrap_or_else(|e| panic!("bundle : {e}"))
 }
 
 /// Générateur congruentiel : des permutations reproductibles sans dépendance.
@@ -42,7 +42,7 @@ fn edited(deck: &Deck, rng: &mut Lcg, round: usize) -> Deck {
         d.slides.insert(at, copy);
     }
     let t = rng.below(d.slides.len());
-    d.slides[t].title = Some(format!("Titre {round}"));
+    d.slides[t].params.set("title", ParamValue::Text(format!("Titre {round}")));
     d
 }
 

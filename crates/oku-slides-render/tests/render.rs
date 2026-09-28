@@ -1,8 +1,19 @@
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits};
+use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits, Target};
 use oku_slides_render::{Fonts, Renderer};
 use speculoos::prelude::*;
+
+/// Remplace le corps de `b-points` (slide `s-constat`) par `text`.
+fn set_points(deck: &mut Deck, r: &Renderer, text: Vec<Paragraph>) {
+    Op::SetParam {
+        target: Target { slide: "s-constat".into(), element: Some("b-points".into()) },
+        param: "body".into(),
+        value: serde_json::to_value(text).unwrap_or_else(|e| panic!("{e}")),
+    }
+    .apply(deck, r.registry())
+    .unwrap_or_else(|e| panic!("{e}"));
+}
 
 fn fixture() -> Deck {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
@@ -56,9 +67,7 @@ fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
     let h4 = before.page_hash(3).unwrap();
     let h1 = before.page_hash(0).unwrap();
 
-    Op::SetText { slide: "s-constat".into(), element: "b-points".into(), text: vec![Paragraph::plain("Autre")] }
-        .apply(&mut deck)
-        .unwrap();
+    set_points(&mut deck, &r, vec![Paragraph::plain("Autre")]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let after = r.compile().unwrap();
     asserting("la slide modifiée doit changer").that(&after.page_hash(3).unwrap()).is_not_equal_to(h4);
@@ -72,14 +81,8 @@ fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
 #[test]
 fn compile_dictated_text_with_typst_markup_renders_it_verbatim() {
     let mut deck = fixture();
-    Op::SetText {
-        slide: "s-constat".into(),
-        element: "b-points".into(),
-        text: vec![Paragraph::plain("#panic(\"x\") ] ) } #read(\"/etc/passwd\") $x$ <lbl> @ref")],
-    }
-    .apply(&mut deck)
-    .unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    set_points(&mut deck, &r, vec![Paragraph::plain("#panic(\"x\") ] ) } #read(\"/etc/passwd\") $x$ <lbl> @ref")]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     // Le texte est rendu tel quel.
     assert_that!(r.compile()).is_ok();
@@ -90,14 +93,8 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
     let mut deck = fixture();
     let run =
         oku_slides_core::Run { link: Some("https://example.com/oku".into()), ..oku_slides_core::Run::plain("site") };
-    Op::SetText {
-        slide: "s-constat".into(),
-        element: "b-points".into(),
-        text: vec![Paragraph { runs: vec![run], list: None }],
-    }
-    .apply(&mut deck)
-    .unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
     let url = b"https://example.com/oku";
@@ -108,14 +105,8 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
 fn compile_run_with_a_non_web_link_renders_plain_text_without_a_pdf_link() {
     let mut deck = fixture();
     let run = oku_slides_core::Run { link: Some("javascript:alert(1)".into()), ..oku_slides_core::Run::plain("site") };
-    Op::SetText {
-        slide: "s-constat".into(),
-        element: "b-points".into(),
-        text: vec![Paragraph { runs: vec![run], list: None }],
-    }
-    .apply(&mut deck)
-    .unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
     let scheme = b"javascript:";
@@ -127,14 +118,8 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
     // SVG de la page de `s-constat` après avoir remplacé ses puces par `runs`.
     let constat_svg = |runs: Vec<oku_slides_core::Run>| {
         let mut deck = fixture();
-        Op::SetText {
-            slide: "s-constat".into(),
-            element: "b-points".into(),
-            text: vec![Paragraph { runs, list: None }],
-        }
-        .apply(&mut deck)
-        .unwrap();
         let mut r = Renderer::new(Fonts::default()).unwrap();
+        set_points(&mut deck, &r, vec![Paragraph { runs, list: None }]);
         r.set_deck(&deck, &BTreeMap::new()).unwrap();
         let doc = r.compile().unwrap();
         let page = doc.layout().page_of("s-constat").unwrap();
@@ -150,17 +135,21 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
 #[test]
 fn embed_sources_then_extract_gives_back_same_bundle() {
     let deck = fixture();
-    let mut bundle = SourceBundle::new(deck.clone()).unwrap();
-    bundle.add_asset(vec![0u8; 64]);
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut bundle = SourceBundle::new(deck.clone(), r.registry().clone()).unwrap();
+    bundle.add_asset(vec![0u8; 64]);
     r.set_deck(&deck, &bundle.assets).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
 
     let saved = oku_slides_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap()).unwrap();
     let found = oku_slides_pdf::extract_sources(&saved).unwrap().expect("blob présent");
     assert_that!(found.modified_elsewhere()).is_false();
-    let (back, issues) =
-        SourceBundle::from_zip(&found.zip, SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 }).unwrap();
+    let (back, issues) = SourceBundle::from_zip(
+        &found.zip,
+        SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 },
+        r.registry().clone(),
+    )
+    .unwrap();
     assert_that!(issues).is_empty();
     assert_that!(back).is_equal_to(&bundle);
 
@@ -224,14 +213,14 @@ fn chart_deck() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }]
     });
-    serde_json::from_value(serde_json::json!({ "slides": [
-        { "id": "flux", "kind": "content", "title": "Ventes",
-          "blocks": [{ "id": "g1", "kind": "chart", "option": option }] },
-        { "id": "libre", "kind": "blank",
-          "elements": [{ "id": "g2", "kind": "chart", "option": option,
-                         "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] }
-    ] }))
-    .unwrap_or_else(|e| panic!("{e}"))
+    let json = serde_json::json!({ "version": 2, "slides": [
+        { "id": "flux", "kind": "content", "params": { "title": "Ventes",
+          "blocks": [{ "id": "g1", "kind": "chart", "params": { "option": option } }] } },
+        { "id": "libre", "kind": "blank", "params": {
+          "elements": [{ "id": "g2", "kind": "chart", "params": { "option": option },
+                         "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
+    ] });
+    Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 #[test]
@@ -253,9 +242,10 @@ fn compile_deck_with_charts_places_them_and_exports_pdf() {
 fn compile_invalid_token_returns_localized_compile_error_with_diagnostics() {
     use oku_slides_i18n::{Localize, Localizer};
     use oku_slides_render::{RenderErrorKind, Severity};
-    let deck: Deck =
-        serde_json::from_str(r#"{"tokens":{"color":{"accent":5}},"slides":[{"id":"s","kind":"content","title":"x"}]}"#)
-            .unwrap();
+    let deck: Deck = serde_json::from_str(
+        r#"{"tokens":{"color":{"accent":5}},"slides":[{"id":"s","kind":"content","params":{"title":"x"}}]}"#,
+    )
+    .unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let err = r.compile().unwrap_err();

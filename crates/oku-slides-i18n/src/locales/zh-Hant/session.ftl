@@ -6,6 +6,7 @@ session-invalid-template-set = 範本集無效：{ $path }
 session-not-rendered = 簡報尚未渲染
 session-no-path = 尚無檔案：請選擇儲存位置
 session-no-slide = 找不到投影片：{ $id }
+session-no-chart = 這裡沒有圖表：{ $subject }
 session-no-template-set = 找不到範本集：{ $id }
 session-builtin-template-set = 無法刪除內建範本集
 session-no-templates-dir = 沒有存放你的範本的資料夾

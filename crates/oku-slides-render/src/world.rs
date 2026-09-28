@@ -10,7 +10,7 @@ use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World, WorldExt};
 
-use oku_slides_core::Deck;
+use oku_slides_core::{Deck, WidgetRegistry};
 
 use snafu::ResultExt;
 
@@ -22,6 +22,7 @@ use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD};
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
+use crate::registry::PackWidgets;
 
 macro_rules! lib_files {
     ($($path:literal),* $(,)?) => {
@@ -50,10 +51,16 @@ pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
     Ok(FileId::new(RootedPath::new(VirtualRoot::Project, vpath)))
 }
 
-/// Source principale : importe la bibliothèque et rend `/deck.json`.
+/// Source principale : importe la bibliothèque et les widgets (base, puis
+/// ceux du pack s'il y en a un), et rend `/deck.json`.
 /// `assets` : empreintes (hex) des assets disponibles.
 /// `labels` : textes des cadres de repli (échappés ici, pas du code).
-fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, labels: &Labels) -> String {
+fn main_source<'a>(
+    theme: Option<&str>,
+    pack: Option<&PackWidgets>,
+    assets: impl Iterator<Item = &'a str>,
+    labels: &Labels,
+) -> String {
     let theme = match theme {
         Some(t) if THEMES.contains(&t) => t,
         _ => "none",
@@ -68,13 +75,20 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, l
     available.push(')');
     let missing = typst_string(&labels.missing_image);
     let chart_failed = typst_string(&labels.chart_failed);
+    // L'identifiant d'un pack est contrôlé (`PackWidgets::new`) : il peut
+    // entrer dans un chemin.
+    let (pack_import, pack_registry) = match pack {
+        Some(p) => (format!("#import \"{}\": registry as pack-registry\n", p.path()), " + pack-registry"),
+        None => (String::new(), ""),
+    };
     format!(
         r#"#import "/oku-slides/lib.typ": *
-#let available = {available}
+#import "/oku-slides/src/widgets.typ": registry as base-registry
+{pack_import}#let available = {available}
 #let fallback(label) = rect(width: 100%, height: 100%, fill: luma(230),
   align(center + horizon, text(size: 20pt, fill: luma(90), label)))
-#let load-image(e) = {{
-  if e.kind == "chart" {{
+#let load-image(e, asset: none, fit: "cover", chart: false) = {{
+  if chart {{
     if "{svg_field}" not in e {{ fallback({chart_failed}) }}
     else if "frame" in e {{
       image("/charts/" + e.at("{svg_field}") + ".svg", width: 100%, height: 100%, fit: "contain")
@@ -87,13 +101,14 @@ fn main_source<'a>(theme: Option<&str>, assets: impl Iterator<Item = &'a str>, l
       }})
     }}
   }} else {{
-    let hex = e.asset.trim("sha256:", at: start)
+    let hex = if asset == none {{ "" }} else {{ asset.trim("sha256:", at: start) }}
     if hex in available {{
-      image("/assets/" + hex, width: 100%, height: 100%, fit: e.at("fit", default: "cover"))
+      image("/assets/" + hex, width: 100%, height: 100%, fit: fit)
     }} else {{ fallback({missing}) }}
   }}
 }}
-#render-deck(json("/deck.json"), theme: {theme}, image-loader: load-image)
+#render-deck(json("/deck.json"), theme: {theme}, image-loader: load-image,
+  widgets: by-name(base-registry{pack_registry}))
 "#,
         svg_field = SVG_FIELD,
         aspect = DEFAULT_SIZE.height / DEFAULT_SIZE.width,
@@ -150,6 +165,8 @@ pub(crate) struct OkuSlidesWorld {
     theme: Option<String>,
     hexes: Vec<String>,
     labels: Labels,
+    /// Widgets du pack de modèles, servis sous `/packs/<id>/widgets.typ`.
+    pack: Option<PackWidgets>,
     charts: Charts,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
@@ -167,13 +184,14 @@ impl OkuSlidesWorld {
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main: Source::new(main_id, main_source(None, std::iter::empty(), &Labels::default())),
+            main: Source::new(main_id, main_source(None, None, std::iter::empty(), &Labels::default())),
             sources,
             deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
             theme: None,
             hexes: Vec::new(),
             labels: Labels::default(),
+            pack: None,
             charts: Charts::default(),
             assets: HashMap::new(),
         })
@@ -181,7 +199,12 @@ impl OkuSlidesWorld {
 
     /// Remplace le deck et les assets. La bibliothèque et les assets déjà
     /// chargés restent en place ; un identifiant d'asset invalide est ignoré.
-    pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
+    pub fn set_deck(
+        &mut self,
+        deck: &Deck,
+        assets: &BTreeMap<String, Vec<u8>>,
+        registry: &WidgetRegistry,
+    ) -> Result<(), RenderError> {
         let mut hexes = Vec::with_capacity(assets.len());
         let mut wanted: HashMap<FileId, &Vec<u8>> = HashMap::with_capacity(assets.len());
         for (id, bytes) in assets {
@@ -197,7 +220,7 @@ impl OkuSlidesWorld {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
         let mut json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
-        self.charts.attach(&mut json, deck.theme.as_deref(), &self.fonts)?;
+        self.charts.attach(&mut json, deck.theme.as_deref(), &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
 
         self.theme.clone_from(&deck.theme);
@@ -208,11 +231,34 @@ impl OkuSlidesWorld {
 
     /// Textes des cadres de repli et libellés des graphiques ; les
     /// graphiques du deck courant sont redessinés.
-    pub fn set_language(&mut self, l: &Localizer) -> Result<(), RenderError> {
+    pub fn set_language(&mut self, l: &Localizer, registry: &WidgetRegistry) -> Result<(), RenderError> {
         self.labels = Labels { missing_image: l.tr("render-missing-image"), chart_failed: l.tr("render-chart-failed") };
         self.charts.set_labels(ChartLabels::new(l));
+        self.redraw_charts(registry)
+    }
+
+    /// Widgets du pack (ou aucun) : sa source est servie, la source
+    /// principale l'importe, et les graphiques du deck courant sont
+    /// redessinés selon `registry`.
+    pub(crate) fn set_pack(
+        &mut self,
+        pack: Option<&PackWidgets>,
+        registry: &WidgetRegistry,
+    ) -> Result<(), RenderError> {
+        if let Some(old) = self.pack.take() {
+            self.sources.remove(&file_id(&old.path())?);
+        }
+        if let Some(p) = pack {
+            self.add_source(&p.path(), p.source().to_owned())?;
+        }
+        self.pack = pack.cloned();
+        self.redraw_charts(registry)
+    }
+
+    /// Redessine les graphiques du deck courant et refait la source principale.
+    fn redraw_charts(&mut self, registry: &WidgetRegistry) -> Result<(), RenderError> {
         let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
-        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts)?;
+        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
         self.refresh_main();
         Ok(())
@@ -220,14 +266,15 @@ impl OkuSlidesWorld {
 
     /// Palette des graphiques (jetons du thème) ; s'ils changent, les
     /// graphiques du deck courant sont redessinés. `true` si elle a changé.
-    pub(crate) fn set_chart_palette(&mut self, palette: Vec<String>) -> Result<bool, RenderError> {
+    pub(crate) fn set_chart_palette(
+        &mut self,
+        palette: Vec<String>,
+        registry: &WidgetRegistry,
+    ) -> Result<bool, RenderError> {
         if !self.charts.set_palette(palette) {
             return Ok(false);
         }
-        let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
-        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts)?;
-        self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
-        self.refresh_main();
+        self.redraw_charts(registry)?;
         Ok(true)
     }
 
@@ -237,7 +284,8 @@ impl OkuSlidesWorld {
 
     /// Refait la source principale si elle a changé (Typst garde son cache sinon).
     fn refresh_main(&mut self) {
-        let text = main_source(self.theme.as_deref(), self.hexes.iter().map(String::as_str), &self.labels);
+        let text =
+            main_source(self.theme.as_deref(), self.pack.as_ref(), self.hexes.iter().map(String::as_str), &self.labels);
         if self.main.text() != text {
             self.main.replace(&text);
         }

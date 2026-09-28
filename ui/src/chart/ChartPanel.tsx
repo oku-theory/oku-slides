@@ -39,7 +39,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
   const stacked = isStacked(element);
   const toggleStack = () =>
     onApply(t("ui-undo-chart-stack", { stacked: stacked ? "no" : "yes" }), [
-      { op: "set_chart_option", slide, element: element.id, patch: stackPatch(element, !stacked) },
+      { op: "set_chart_option", target: { slide, element: element.id }, param: "option", patch: stackPatch(element, !stacked) },
     ]);
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
@@ -61,7 +61,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
         element={element}
         colors={paletteOf(palette)}
         onColor={(index, color) =>
-          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", slide, element: element.id, patch: colorPatch(element, index, color) }])
+          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", target: { slide, element: element.id }, param: "option", patch: colorPatch(element, index, color) }])
         }
       />
       {current === "waterfall" && <p className="postit-hint">{t("ui-chart-waterfall-hint")}</p>}
@@ -69,7 +69,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
         <ChartDataGrid
           source={source}
           checkboxColumns={checkboxColumns(element)}
-          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", slide, element: element.id, change }])}
+          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", target: { slide, element: element.id }, param: "option", change }])}
         />
       ) : (
         <p className="postit-hint">{t("ui-chart-no-data")}</p>

@@ -91,7 +91,7 @@ fn handle_json_requests_returns_expected_json() {
     assert_that!(v["slides"].as_array().unwrap().len()).is_equal_to(2);
     let req: Request = serde_json::from_value(json!({
         "cmd": "apply", "label": "Titre",
-        "ops": [{"op": "set_slide_field", "slide": "s-1", "field": "title", "value": "Nouveau"}]
+        "ops": [{"op": "set_param", "target": {"slide": "s-1"}, "param": "title", "value": "Nouveau"}]
     }))
     .unwrap();
     let v: serde_json::Value = serde_json::from_str(&s.handle(req).unwrap()).unwrap();
@@ -107,6 +107,11 @@ fn handle_json_requests_returns_expected_json() {
     let title = view["targets"].as_array().unwrap().iter().find(|t| t["id"] == "@title").unwrap();
     assert_that!(title["target"]).is_equal_to(json!("field"));
     assert_that!(title["kind"]).is_equal_to(json!("title"));
+    assert_that!(title["param"]).is_equal_to(json!("title"));
+    let text = view["targets"].as_array().unwrap().iter().find(|t| t["id"] == "b-1").unwrap();
+    assert_that!(text["target"]).is_equal_to(json!("element"));
+    assert_that!(text["kind"]).is_equal_to(json!("text"));
+    assert_that!(text["param"]).is_equal_to(json!("body"));
 }
 
 #[test]
@@ -228,7 +233,7 @@ fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
     let mode = s.snapshot().editing.unwrap();
     assert_that!(mode.builtin).is_false();
     assert_that!(mode.set.as_str()).is_equal_to("grilles-copie");
-    assert_that!(dir.join("grilles-copie.json").exists()).is_true();
+    assert_that!(dir.join("grilles-copie").join("pack.json").exists()).is_true();
 
     s.close_templates().unwrap();
     assert_that!(s.snapshot().editing).is_none();
@@ -329,9 +334,25 @@ fn panel_while_editing_templates_binds_grid_steppers() {
 #[test]
 fn panel_of_template_with_blocks_has_no_grid_steppers() {
     // Une grille cacherait les blocs : `set_grid` y est refusé, le panneau ne le propose pas.
+    // Un ensemble de l'utilisateur : un dossier avec son `pack.json`.
+    let dir = data_dir();
+    let set = json!({ "id": "a-blocs", "name": "À blocs", "templates": [{
+        "id": "cartes", "name": "Cartes", "slide": { "id": "cartes", "kind": "content", "params": {
+            "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
+        } }
+    }] });
+    std::fs::create_dir_all(dir.join("a-blocs")).unwrap();
+    std::fs::write(dir.join("a-blocs").join("pack.json"), set.to_string()).unwrap();
     let mut s = session();
-    s.edit_templates("essentiel").unwrap();
-    let cards = s.deck().slides.iter().find(|sl| !sl.blocks.is_empty()).map(|sl| sl.id.clone()).unwrap();
+    s.set_templates_dir(&*dir);
+    s.edit_templates("a-blocs").unwrap();
+    let cards = s
+        .deck()
+        .slides
+        .iter()
+        .find(|sl| sl.params.slot("blocks").is_some_and(|b| !b.is_empty()))
+        .map(|sl| sl.id.clone())
+        .unwrap();
     let msgs = panel(&mut s, &cards);
     assert_that!(component(&msgs, "template-name")).is_some();
     assert_that!(component(&msgs, "grid-columns")).is_none();

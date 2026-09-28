@@ -4,10 +4,16 @@
 //! description). Il est indépendant du thème : n'importe quel ensemble se rend
 //! avec n'importe quel thème, puisque les modèles ne parlent qu'en jetons.
 //!
-//! - Ensembles intégrés : `templates/*.json` du dépôt, embarqués dans l'app,
-//!   en lecture seule (les modifier en enregistre une copie).
-//! - Ensembles de l'utilisateur : fichiers JSON dans le dossier de données de
-//!   l'app (`templates/`), créés et modifiés par le mode d'édition des modèles.
+//! Un ensemble est un pack : un dossier `<id>/` qui contient `pack.json`
+//! (l'ensemble) et, s'il en déclare, `widgets.typ` (ses widgets, qui
+//! surchargent ceux de base pour les decks qui choisissent ce pack).
+//!
+//! - Ensembles intégrés : `templates/<id>/pack.json` du dépôt, embarqués dans
+//!   l'app, en lecture seule (les modifier en enregistre une copie). Ils
+//!   n'ont pas de widgets.
+//! - Ensembles de l'utilisateur : dossiers dans le dossier de données de
+//!   l'app (`templates/`), créés et modifiés par le mode d'édition des
+//!   modèles. Un ancien fichier `<id>.json` n'est pas lu.
 
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -19,16 +25,17 @@ use snafu::{OptionExt, ResultExt};
 use oku_slides_platform::storage::Storage;
 
 use crate::Result;
-use crate::error::{NoTemplatesDirSnafu, TemplateJsonSnafu, WriteSnafu};
+use crate::error::{NoTemplateSetSnafu, NoTemplatesDirSnafu, TemplateJsonSnafu, WriteSnafu};
 
 use oku_slides_core::Slide;
+use oku_slides_render::is_pack_id;
 
 /// Ensemble proposé par défaut.
 pub const DEFAULT_SET: &str = "essentiel";
 
 /// Ensembles intégrés, lus une fois par processus.
 static BUILTIN: LazyLock<Vec<TemplateSet>> = LazyLock::new(|| {
-    [include_str!("../../../templates/essentiel.json"), include_str!("../../../templates/grilles.json")]
+    [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
         .iter()
         .filter_map(|s| match serde_json::from_str(s) {
             Ok(set) => Some(set),
@@ -112,6 +119,11 @@ pub fn slug(name: &str) -> String {
     if out.is_empty() { "modeles".into() } else { out }
 }
 
+/// Fichier de l'ensemble, dans le dossier d'un pack.
+const PACK_FILE: &str = "pack.json";
+/// Widgets d'un pack, dans son dossier (facultatif).
+const WIDGETS_FILE: &str = "widgets.typ";
+
 /// Bibliothèque : ensembles intégrés + ensembles de l'utilisateur.
 #[derive(Debug, Clone)]
 pub struct Library {
@@ -125,28 +137,64 @@ impl Library {
         Self { dir, storage }
     }
 
-    /// Ensembles de l'utilisateur, par nom. Un fichier illisible est signalé
-    /// dans les journaux et ignoré : il ne doit pas cacher les autres.
+    /// Dossier du pack `id` de l'utilisateur ; `None` sans dossier des
+    /// modèles ou pour un identifiant qui n'est pas un nom de dossier.
+    fn pack_dir(&self, id: &str) -> Option<PathBuf> {
+        let dir = self.dir.as_ref()?;
+        is_pack_id(id).then(|| dir.join(id))
+    }
+
+    /// Ensembles de l'utilisateur, par nom : un dossier par pack, son
+    /// identifiant est le nom du dossier. Un pack illisible est signalé dans
+    /// les journaux et ignoré : il ne doit pas cacher les autres.
     fn user_sets(&self) -> Vec<TemplateSet> {
         let Some(dir) = &self.dir else { return Vec::new() };
-        let files = self.storage.list_files(dir).unwrap_or_else(|e| {
+        let folders = self.storage.list_dirs(dir).unwrap_or_else(|e| {
             tracing::warn!(dir = %dir.display(), error = %oku_slides_platform::errors::one_line(&e), "modèles");
             Vec::new()
         });
-        let mut sets: Vec<TemplateSet> = files
+        let mut sets: Vec<TemplateSet> = folders
             .iter()
-            .filter(|p| p.extension().is_some_and(|x| x == "json"))
-            .filter_map(|p| {
+            .filter_map(|folder| {
+                let id = folder.file_name()?.to_str().filter(|id| is_pack_id(id))?.to_owned();
+                let path = folder.join(PACK_FILE);
                 let parsed = self
                     .storage
-                    .read(p)
+                    .read(&path)
                     .map_err(|e| oku_slides_platform::errors::one_line(&e))
-                    .and_then(|b| serde_json::from_slice(&b).map_err(|e| e.to_string()));
-                parsed.inspect_err(|e| tracing::warn!(path = %p.display(), error = %e, "ensemble illisible")).ok()
+                    .and_then(|b| serde_json::from_slice::<TemplateSet>(&b).map_err(|e| e.to_string()));
+                let mut set = parsed
+                    .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "pack illisible"))
+                    .ok()?;
+                // Le dossier fait foi : un pack copié sous un autre nom est ce nom.
+                set.id = id;
+                Some(set)
             })
             .collect();
         sets.sort_by_key(|s| s.name.to_lowercase());
         sets
+    }
+
+    /// Source des widgets du pack `id` (`widgets.typ` de son dossier) ;
+    /// `None` pour un pack sans widgets (dont les intégrés). Un fichier
+    /// présent mais illisible est signalé dans les journaux : le pack se
+    /// rend alors avec les widgets de base.
+    pub fn widgets(&self, id: &str) -> Option<String> {
+        let path = self.pack_dir(id)?.join(WIDGETS_FILE);
+        match self.storage.len(&path) {
+            Ok(Some(_)) => {}
+            Ok(None) => return None,
+            Err(e) => {
+                tracing::warn!(path = %path.display(), error = %oku_slides_platform::errors::one_line(&e), "widgets du pack");
+                return None;
+            }
+        }
+        let read = self
+            .storage
+            .read(&path)
+            .map_err(|e| oku_slides_platform::errors::one_line(&e))
+            .and_then(|b| String::from_utf8(b).map_err(|e| e.to_string()));
+        read.inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "widgets du pack illisibles")).ok()
     }
 
     pub fn is_builtin(id: &str) -> bool {
@@ -186,20 +234,31 @@ impl Library {
         }
     }
 
-    /// Enregistre un ensemble de l'utilisateur (écriture atomique).
+    /// Enregistre un ensemble de l'utilisateur : `pack.json` dans le dossier
+    /// de son pack, créé au besoin (écriture atomique). Ses widgets, s'il en
+    /// a, restent.
     pub fn save(&self, set: &TemplateSet) -> Result<PathBuf> {
-        let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
-        let path = dir.join(format!("{}.json", set.id));
+        self.dir.as_ref().context(NoTemplatesDirSnafu)?;
+        let path = self.pack_dir(&set.id).context(NoTemplateSetSnafu { id: &set.id })?.join(PACK_FILE);
         let json = serde_json::to_vec_pretty(set).context(TemplateJsonSnafu { path: &path })?;
         self.storage.write_atomic(&path, json).context(WriteSnafu { path: &path })?;
         Ok(path)
     }
 
-    /// Supprime un ensemble de l'utilisateur.
+    /// Écrit `source` pour les widgets du pack `id` de l'utilisateur
+    /// (`widgets.typ` de son dossier, écriture atomique).
+    pub fn save_widgets(&self, id: &str, source: &str) -> Result<PathBuf> {
+        self.dir.as_ref().context(NoTemplatesDirSnafu)?;
+        let path = self.pack_dir(id).context(NoTemplateSetSnafu { id })?.join(WIDGETS_FILE);
+        self.storage.write_atomic(&path, source.as_bytes()).context(WriteSnafu { path: &path })?;
+        Ok(path)
+    }
+
+    /// Supprime un ensemble de l'utilisateur : le dossier de son pack.
     pub fn delete(&self, id: &str) -> Result<()> {
-        let dir = self.dir.as_ref().context(NoTemplatesDirSnafu)?;
-        let path = dir.join(format!("{id}.json"));
-        self.storage.delete(&path).context(WriteSnafu { path })?;
+        self.dir.as_ref().context(NoTemplatesDirSnafu)?;
+        let path = self.pack_dir(id).context(NoTemplateSetSnafu { id })?;
+        self.storage.delete_dir(&path).context(WriteSnafu { path })?;
         Ok(())
     }
 }

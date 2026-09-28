@@ -6,6 +6,7 @@ session-invalid-template-set = Недопустимий набір шаблон�
 session-not-rendered = Презентацію ще не відтворено
 session-no-path = Файлу ще немає: виберіть, куди зберегти
 session-no-slide = Слайд не знайдено: { $id }
+session-no-chart = Тут немає діаграми: { $subject }
 session-no-template-set = Набір шаблонів не знайдено: { $id }
 session-builtin-template-set = Вбудований набір шаблонів не можна видалити
 session-no-templates-dir = Немає теки для ваших шаблонів

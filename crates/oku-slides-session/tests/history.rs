@@ -23,7 +23,7 @@ fn edited_session() -> Isolated {
 /// Comme `edited_session`, avec une image dans les sources.
 fn edited_session_with_asset() -> Isolated {
     let deck: oku_slides_core::Deck = ok(serde_json::from_str(&ok(std::fs::read_to_string(fixture_path()))));
-    let mut sources = ok(oku_slides_core::SourceBundle::new(deck));
+    let mut sources = ok(oku_slides_core::SourceBundle::new(deck, common::registry()));
     sources.add_asset(b"image".to_vec());
     let mut s = session();
     ok(s.load(sources, None));

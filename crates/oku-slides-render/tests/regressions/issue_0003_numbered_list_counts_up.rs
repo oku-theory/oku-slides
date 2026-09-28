@@ -13,9 +13,9 @@ use speculoos::prelude::*;
 /// Une slide avec `n` paragraphes numérotés, tous « a ».
 fn numbered(n: usize) -> Deck {
     let text: Vec<_> = (0..n).map(|_| json!({ "list": "number", "runs": [{ "t": "a" }] })).collect();
-    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "elements": [{
-        "id": "e", "kind": "text", "frame": { "x": 0, "y": 0, "w": 800, "h": 400 }, "text": text
-    }] }] }))
+    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
+        "id": "e", "kind": "text", "frame": { "x": 0, "y": 0, "w": 800, "h": 400 }, "params": { "body": text }
+    }] } }] }))
     .unwrap_or_else(|e| panic!("{e}"))
 }
 

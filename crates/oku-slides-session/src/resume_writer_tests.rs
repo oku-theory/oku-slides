@@ -7,6 +7,7 @@ use super::*;
 use crate::DocDefaults;
 use crate::Document;
 use crate::resume::{DECK_DIR, DocSnapshot, SavedMode, State, VERSION};
+use crate::test_support::registry;
 use crate::views::UiState;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
@@ -24,7 +25,7 @@ fn resume(dir: &std::path::Path) -> Resume {
 
 fn document(theme: &str) -> Document {
     let deck = Deck::from_json(r#"{"theme":"papier","slides":[]}"#).unwrap();
-    let mut doc = Document::new(SourceBundle::new(deck.clone()).unwrap(), None, &defaults());
+    let mut doc = Document::new(SourceBundle::new(deck.clone(), registry()).unwrap(), None, &defaults());
     let mut next = deck;
     next.theme = Some(theme.into());
     doc.sources.apply(next, "Thème").unwrap();
@@ -47,7 +48,7 @@ fn writer_flush_waits_for_the_sent_job() {
     let w = Writer::new(resume(&dir));
     w.send(job(Some("pro"), "s-1"));
     w.flush();
-    let doc = resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap();
+    let doc = resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
     assert_that!(doc.sources.deck().theme.as_deref()).is_equal_to(Some("pro"));
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -65,7 +66,7 @@ fn writer_merged_jobs_keep_the_latest_documents_and_state() {
     w.send(job(None, "s-2"));
     w.flush();
     let r = resume(&dir);
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap().sources.deck().theme.as_deref())
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap().sources.deck().theme.as_deref())
         .is_equal_to(Some("pro"));
     assert_that!(r.read_state().unwrap().unwrap().ui.slide.as_deref()).is_equal_to(Some("s-2"));
     std::fs::remove_dir_all(&dir).ok();
@@ -107,7 +108,7 @@ fn read_doc_after_write_keeps_deck_and_uid_but_not_undo() {
     let r = resume(&dir);
     let doc = document("pro");
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
     assert_that!(back.sources.deck()).is_equal_to(doc.sources.deck());
     assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
     assert_that!(back.sources.replica().can_undo()).is_false();
@@ -125,6 +126,6 @@ fn read_doc_without_deck_loro_returns_error() {
         r#"{"path":null,"dirty":false,"saved_hash":null,"blank":false,"deck":{"slides":[]},"history":{}}"#,
     )
     .unwrap();
-    assert_that!(resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24).is_err()).is_true();
+    assert_that!(resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).is_err()).is_true();
     std::fs::remove_dir_all(&dir).ok();
 }

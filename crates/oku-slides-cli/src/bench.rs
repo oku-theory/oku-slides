@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use color_eyre::eyre::{ContextCompat, Result, bail};
-use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits};
+use oku_slides_core::{Deck, Op, Paragraph, ParamValue, SourceBundle, SourceLimits, Target};
 use oku_slides_render::{Fonts, Renderer};
 
 use crate::out::Out;
@@ -26,6 +26,7 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
     let assets = BTreeMap::new();
     let t = Instant::now();
     let mut r = Renderer::new(fonts)?;
+    let registry = r.registry().clone();
     out.line("cli-bench-world", &[("time", ms(t.elapsed()).into())])?;
 
     r.set_deck(&deck, &assets)?;
@@ -46,14 +47,19 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
     let (slide, element) = deck
         .slides
         .iter()
-        .find_map(|s| s.blocks.first().map(|b| (s.id.clone(), b.id.clone())))
+        .find_map(|s| s.params.slot("blocks").and_then(<[_]>::first).map(|e| (s.id.clone(), e.id.clone())))
         .with_context(|| l.tr("cli-no-block"))?;
     let mut edits = Vec::new();
     let mut last = None;
     for i in 0..n {
         let text = l.tr_with("cli-bench-edited-text", &[("n", i.into())]);
-        let op = Op::SetText { slide: slide.clone(), element: element.clone(), text: vec![Paragraph::plain(text)] };
-        op.apply(&mut deck)?;
+        let value = serde_json::to_value(vec![Paragraph::plain(text)])?;
+        let op = Op::SetParam {
+            target: Target { slide: slide.clone(), element: Some(element.clone()) },
+            param: "body".into(),
+            value,
+        };
+        op.apply(&mut deck, &registry)?;
         r.set_deck(&deck, &assets)?;
         let t = Instant::now();
         last = Some(r.compile()?);
@@ -74,13 +80,13 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
     let pdf = doc.pdf()?;
     out.line("cli-bench-pdf", &[("time", ms(t.elapsed()).into()), ("size", (pdf.len() / 1024).into())])?;
 
-    let zip = SourceBundle::new(deck.clone())?.to_zip()?;
+    let zip = SourceBundle::new(deck.clone(), registry.clone())?.to_zip()?;
     let t = Instant::now();
     let embedded = oku_slides_pdf::embed_sources(&pdf, &zip)?;
     out.line("cli-bench-embed", &[("time", ms(t.elapsed()).into())])?;
     let t = Instant::now();
     let back = oku_slides_pdf::extract_sources(&embedded)?.with_context(|| l.tr("cli-blob-missing"))?;
-    let (bundle, _) = SourceBundle::from_zip(&back.zip, limits)?;
+    let (bundle, _) = SourceBundle::from_zip(&back.zip, limits, registry.clone())?;
     out.line("cli-bench-extract", &[("time", ms(t.elapsed()).into())])?;
     // La vue relue est canonique : on compare à la forme canonique du deck.
     oku_slides_core::canonicalize(&mut deck);
@@ -91,12 +97,12 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
 
     // Coût d'un cran d'historique : lecture + rendu, pour décider si le
     // rendu se fait pendant le glissement du curseur ou à son relâchement.
-    let mut bundle = SourceBundle::new(deck.clone())?;
+    let mut bundle = SourceBundle::new(deck.clone(), registry.clone())?;
     for i in 0..50 {
         let mut edited = bundle.deck().clone();
         let title = (i + 1).to_string();
         if let Some(slide) = edited.slides.get_mut(2) {
-            slide.title = Some(title.clone());
+            slide.params.set("title", ParamValue::Text(title.clone()));
         }
         oku_slides_core::canonicalize(&mut edited);
         bundle.apply(edited, &title)?;

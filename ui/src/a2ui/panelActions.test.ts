@@ -8,11 +8,13 @@ type Slide = SlideView["slide"];
 const slide: Slide = {
   id: "t-1",
   kind: "content",
-  grid: { columns: 12, rows: 6 },
-  elements: [
-    { id: "a", kind: "text", cell: { col: 6, row: 3, cols: 6, rows: 3 } },
-    { id: "b", kind: "text", frame: { x: 0, y: 0, w: 10, h: 10 } },
-  ],
+  params: {
+    grid: { columns: 12, rows: 6 },
+    elements: [
+      { id: "a", kind: "text", cell: { col: 6, row: 3, cols: 6, rows: 3 } },
+      { id: "b", kind: "text", frame: { x: 0, y: 0, w: 10, h: 10 } },
+    ],
+  },
 };
 const grid = { columns: 12, rows: 6 };
 const action = (name: string, context: Record<string, unknown>) => ({ name, context });
@@ -36,7 +38,7 @@ describe("panelActionOps", () => {
     expect(result).toEqual({
       label: t("ui-undo-grid", { columns: 6, rows: 6 }),
       ops: [
-        { op: "set_grid", slide: "t-1", grid: { columns: 6, rows: 6 } },
+        { op: "set_param", target: { slide: "t-1" }, param: "grid", value: { columns: 6, rows: 6 } },
         { op: "set_cell", slide: "t-1", element: "a", cell: { col: 3, row: 3, cols: 3, rows: 3 } },
       ],
     });

@@ -6,6 +6,7 @@ session-invalid-template-set = Ungültiges Vorlagenset: { $path }
 session-not-rendered = Die Präsentation wurde noch nicht gerendert
 session-no-path = Noch keine Datei: Speicherort wählen
 session-no-slide = Folie nicht gefunden: { $id }
+session-no-chart = Hier ist kein Diagramm: { $subject }
 session-no-template-set = Vorlagenset nicht gefunden: { $id }
 session-builtin-template-set = Ein integriertes Vorlagenset kann nicht gelöscht werden
 session-no-templates-dir = Kein Ordner für eigene Vorlagen

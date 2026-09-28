@@ -1,7 +1,7 @@
 // Le deck vu de l'interface : retrouver un élément, convertir le texte, et
 // fabriquer les ops que la session applique.
 
-import type { Element, Op, Paragraph, Slide, SlideView, Target } from "./api";
+import type { Element, EditTarget, Op, Params, Paragraph, Slide, SlideView } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
 import { listPrefix, markdownToRuns } from "./markdown";
@@ -12,17 +12,44 @@ export function newId(prefix: string): string {
   return `${prefix}-${r[0].toString(36)}${r[1].toString(36).slice(0, 3)}`;
 }
 
-/** Élément par id, dans les blocs, les éléments libres et les groupes. */
+/** `v` a la forme d'un slot : un tableau (vide compris) d'objets avec `id` et `kind`. */
+function isElementArray(v: unknown): v is Element[] {
+  return Array.isArray(v) && v.every((x) => x !== null && typeof x === "object" && typeof (x as Element).id === "string" && typeof (x as Element).kind === "string");
+}
+
+/** Éléments du paramètre `name` de `owner` (slot), ou un tableau vide. */
+export function slot(owner: { params?: Params }, name: string): Element[] {
+  const v = owner.params?.[name];
+  return isElementArray(v) ? v : [];
+}
+
+/** Paragraphes du paramètre riche `name` de l'élément `e` (un tableau qui n'a pas la forme d'un slot), ou `undefined`. */
+export function rich(e: Element, name: string): Paragraph[] | undefined {
+  const v = e.params?.[name];
+  return Array.isArray(v) && !isElementArray(v) ? (v as Paragraph[]) : undefined;
+}
+
+/** Élément par id, dans tous les slots de la slide (au premier niveau et dans ceux des éléments). */
 export function findElement(slide: Slide, id: string): Element | undefined {
-  const walk = (list: Element[] | undefined): Element | undefined => {
-    for (const e of list ?? []) {
+  const walk = (list: Element[]): Element | undefined => {
+    for (const e of list) {
       if (e.id === id) return e;
-      const found = walk(e.children);
-      if (found) return found;
+      for (const v of Object.values(e.params ?? {})) {
+        if (isElementArray(v)) {
+          const found = walk(v);
+          if (found) return found;
+        }
+      }
     }
     return undefined;
   };
-  return walk(slide.blocks) ?? walk(slide.elements);
+  for (const v of Object.values(slide.params ?? {})) {
+    if (isElementArray(v)) {
+      const found = walk(v);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -46,50 +73,54 @@ export function textToParagraphs(text: string, previous?: { paragraphs: Paragrap
   });
 }
 
-/** Donne de nouveaux identifiants aux éléments et à leurs enfants (sur place). */
-function renewIds(list?: Element[]) {
-  for (const e of list ?? []) {
+/** Donne de nouveaux identifiants aux éléments et à leurs enfants, dans tous leurs slots (sur place). */
+function renewIds(list: Element[]) {
+  for (const e of list) {
     e.id = newId("e");
-    renewIds(e.children);
+    for (const v of Object.values(e.params ?? {})) {
+      if (isElementArray(v)) renewIds(v);
+    }
   }
 }
 
-/** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments). */
+/** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments, dans tous leurs slots). */
 export function instantiate(template: Slide): Slide {
   const copy: Slide = structuredClone(template);
   copy.id = newId("s");
-  renewIds(copy.blocks);
-  renewIds(copy.elements);
+  for (const v of Object.values(copy.params ?? {})) {
+    if (isElementArray(v)) renewIds(v);
+  }
   return copy;
 }
 
 /** Le texte validé diffère-t-il de celui de la cible ? Un champ s'édite sur
  *  une ligne : ses retours à la ligne, aplatis par l'éditeur, ne comptent pas. */
-export function textChanged(t: Pick<Target, "target" | "text">, text: string): boolean {
+export function textChanged(t: Pick<EditTarget, "target" | "text">, text: string): boolean {
   const before = t.text ?? "";
   return text !== (t.target === "field" ? before.replaceAll("\n", " ") : before);
 }
 
-/** Ops pour remplacer le texte d'une cible. */
-export function textOps(view: SlideView, t: Target, value: string): Op[] {
+/**
+ * Ops pour remplacer le texte d'une cible, en `set_param` : un élément écrit
+ * son paramètre riche (`t.param`) en paragraphes ; un champ écrit son
+ * paramètre (`t.kind`) tel quel. Une cible d'élément sans paramètre riche
+ * n'est pas éditable : aucune op.
+ */
+export function textOps(view: SlideView, t: EditTarget, value: string): Op[] {
   const slide = view.slide;
   if (t.target === "element") {
+    if (!t.param) return [];
     const e = findElement(slide, t.id);
-    const previous = { paragraphs: e?.text ?? [], text: t.text ?? "" };
-    return [{ op: "set_text", slide: slide.id, element: t.id, text: textToParagraphs(value, previous) }];
+    const previous = { paragraphs: (e && rich(e, t.param)) ?? [], text: t.text ?? "" };
+    return [{ op: "set_param", target: { slide: slide.id, element: t.id }, param: t.param, value: textToParagraphs(value, previous) }];
   }
-  const field = t.kind;
-  // Sur la couverture, titre et sous-titre viennent des paramètres du deck.
-  if (slide.kind === "title" && (field === "title" || field === "subtitle") && slide[field] === undefined) {
-    return [{ op: "set_param", key: field, value }];
-  }
-  return [{ op: "set_slide_field", slide: slide.id, field, value }];
+  return [{ op: "set_param", target: { slide: slide.id }, param: t.kind, value }];
 }
 
 // --- Sur la grille -----------------------------------------------------------
 
 /** Bloc mis en page par le layout (au premier niveau de la slide) ? */
-export const isBlock = (view: SlideView, id: string) => (view.slide.blocks ?? []).some((b) => b.id === id);
+export const isBlock = (view: SlideView, id: string) => slot(view.slide, "blocks").some((b) => b.id === id);
 
 /**
  * Fait passer une slide à blocs sur sa grille : chaque bloc devient un élément
@@ -99,7 +130,7 @@ export const isBlock = (view: SlideView, id: string) => (view.slide.blocks ?? []
 export function blocksToGridOps(view: SlideView, cells: Record<string, Cell> = {}): Op[] {
   const zone = view.zone;
   const g = zone?.grid;
-  const blocks = view.slide.blocks ?? [];
+  const blocks = slot(view.slide, "blocks");
   if (!zone || !g || blocks.length === 0) return [];
   const ops: Op[] = blocks.map((b) => ({ op: "remove_element", slide: view.slide.id, element: b.id }));
   for (const b of blocks) {
@@ -107,7 +138,7 @@ export function blocksToGridOps(view: SlideView, cells: Record<string, Cell> = {
     const cell =
       cells[b.id] ??
       (t ? snapRect(zone, g, { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h }) : { col: 0, row: 0, cols: g.columns, rows: 1 });
-    ops.push({ op: "add_element", slide: view.slide.id, zone: "elements", element: { ...b, frame: undefined, cell } });
+    ops.push({ op: "add_element", slot: { owner: { slide: view.slide.id }, param: "elements" }, element: { ...b, frame: undefined, cell } });
   }
   return ops;
 }
@@ -140,7 +171,7 @@ export function gridPlacement(view: SlideView, id: string): GridPlacement | null
     const frame = { x: t.x - zone.x, y: t.y - zone.y, w: t.w, h: t.h };
     return { zone, grid, cell: snapRect(zone, grid, frame), frame, block: true, onCell: false };
   }
-  const el = (view.slide.elements ?? []).find((x) => x.id === id);
+  const el = slot(view.slide, "elements").find((x) => x.id === id);
   if (el?.cell) return { zone, grid, cell: el.cell, frame: cellRect(zone, grid, el.cell), block: false, onCell: true };
   if (el?.frame) return { zone, grid, cell: snapRect(zone, grid, el.frame), frame: el.frame, block: false, onCell: false };
   return null;
@@ -160,7 +191,7 @@ export function placeOnGridOps(view: SlideView, id: string, cell: Cell): Op[] {
  * Par défaut, la moitié de la largeur sur une ligne.
  */
 export function freeCell(slide: Slide, grid: GridSpec, span: { cols?: number; rows?: number } = {}): Cell {
-  const placed = (slide.elements ?? []).flatMap((e) => (e.cell ? [e.cell] : []));
+  const placed = slot(slide, "elements").flatMap((e) => (e.cell ? [e.cell] : []));
   const below = placed.reduce((m, c) => Math.max(m, c.row + (c.rows ?? 1)), 0);
   const row = below < grid.rows ? below : 0;
   return { col: 0, row, cols: span.cols ?? Math.max(1, Math.round(grid.columns / 2)), rows: span.rows ?? 1 };
@@ -182,16 +213,16 @@ export function pasteOps(view: SlideView, source: Element): { id: string; ops: O
   const grid = view.zone?.grid;
   const { frame, cell, ...body } = copy;
   let element: Element;
-  let zone: "blocks" | "elements" = "elements";
-  if ((slide.blocks?.length ?? 0) > 0 || (!grid && !frame)) {
+  let param: "blocks" | "elements" = "elements";
+  if (slot(slide, "blocks").length > 0 || (!grid && !frame)) {
     element = body;
-    zone = "blocks";
+    param = "blocks";
   } else if (grid) {
     element = { ...body, cell: freeCell(slide, grid, cell ? { cols: cell.cols ?? 1, rows: cell.rows ?? 1 } : {}) };
   } else {
     element = { ...body, frame: frame && { ...frame, x: frame.x + PASTE_OFFSET, y: frame.y + PASTE_OFFSET } };
   }
-  return { id: copy.id, ops: [{ op: "add_element", slide: slide.id, zone, element }] };
+  return { id: copy.id, ops: [{ op: "add_element", slot: { owner: { slide: slide.id }, param }, element }] };
 }
 
 /** Slide à montrer après avoir retiré `removed` : la suivante, sinon la précédente. */

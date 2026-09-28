@@ -5,6 +5,7 @@
 // dans le contexte. Changer la grille déplace aussi les éléments accrochés.
 
 import type { Op, SlideView } from "../api";
+import { slot } from "../deck";
 import { rescaleCell } from "../grid";
 import { t } from "../i18n";
 
@@ -35,10 +36,10 @@ export function panelActionOps(
       if (!grid) return null;
       const columns = Number(ctx.columns);
       const rows = Number(ctx.rows);
-      const next = { ...(slide.grid ?? {}), columns, rows };
-      const ops: Op[] = [{ op: "set_grid", slide: slide.id, grid: next }];
+      const next = { ...(slide.params?.grid as object | undefined ?? {}), columns, rows };
+      const ops: Op[] = [{ op: "set_param", target: { slide: slide.id }, param: "grid", value: next }];
       // Les éléments gardent leurs proportions sur la nouvelle grille.
-      for (const e of slide.elements ?? []) {
+      for (const e of slot(slide, "elements")) {
         if (e.cell) ops.push({ op: "set_cell", slide: slide.id, element: e.id, cell: rescaleCell(e.cell, grid, next) });
       }
       return { label: t("ui-undo-grid", { columns, rows }), ops };

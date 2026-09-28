@@ -9,7 +9,8 @@
 // `show(frame)` rendant l'enfant.
 // ctx : id (élément ou slide), tokens, vars, style (style de l'élément),
 // framed (l'élément a un cadre), load (chargeur d'image ou de graphique de
-// l'hôte, fonction sans argument, ou none).
+// l'hôte, ou none) : `(ctx.load)(asset: …, fit: …)` pour une image,
+// `(ctx.load)(chart: true)` pour un graphique dessiné par l'hôte.
 
 #import "core.typ": _measured
 

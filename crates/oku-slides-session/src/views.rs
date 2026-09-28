@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{Slide, SlideChanges, SlideKind, Version};
-use oku_slides_render::{ElementBox, TextStyle, ZoneBox};
+use oku_slides_core::{Slide, SlideChanges, Version};
+use oku_slides_render::{ElementBox, FieldBox, TextStyle, ZoneBox};
 
 use crate::appearance::Appearance;
 use crate::templates::{SetInfo, Template};
@@ -30,7 +30,10 @@ impl Serialize for PageHash {
 #[derive(Debug, Serialize)]
 pub struct SlideSummary<'a> {
     pub id: &'a str,
-    pub kind: SlideKind,
+    /// Widget de la slide (`title`, `content`…).
+    pub kind: &'a str,
+    /// Son paramètre `title`, sinon (paramètre lié) le titre du deck ;
+    /// variables remplacées.
     pub title: Option<String>,
     /// Nom de la slide quand elle sert de modèle.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,22 +157,27 @@ pub struct TemplatesView {
     pub templates: Arc<[TemplateView]>,
 }
 
-/// Ce que désigne une boîte : un élément (et son type) ou un champ de slide.
+/// Ce que désigne une boîte : un élément (et son widget) ou un champ de slide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "target", content = "kind", rename_all = "lowercase")]
 pub enum TargetKind<'a> {
-    /// Type d'élément : `text`, `card`, `image`…
-    Element(&'static str),
-    /// Champ de la slide : `title`, `subtitle`, `kicker`, `text`.
+    /// Widget de l'élément : `text`, `card`, `image`…
+    Element(&'a str),
+    /// Paramètre de la slide : `title`, `subtitle`, `kicker`, `text`…
     Field(&'a str),
 }
 
 /// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
 #[derive(Debug, Serialize)]
 pub struct Target<'a> {
-    pub id: &'a str,
+    /// Id de l'élément, ou `@<paramètre>` pour un champ de la slide.
+    pub id: Cow<'a, str>,
     #[serde(flatten)]
     pub kind: TargetKind<'a>,
+    /// Paramètre édité en place : pour un élément, son premier paramètre
+    /// `rich` (ordre du schéma) ; pour un champ, son nom. Absent : la boîte
+    /// n'est pas éditable en place (`shape`, `image`…).
+    pub param: Option<&'a str>,
     /// Placé librement (déplaçable, redimensionnable).
     pub free: bool,
     /// Texte éditable, un paragraphe par ligne (`- ` en tête pour une puce).
@@ -186,11 +194,18 @@ pub struct Target<'a> {
 }
 
 impl<'a> Target<'a> {
-    /// La cible d'une boîte mesurée par le rendu.
-    pub(crate) fn at(b: &'a ElementBox, kind: TargetKind<'a>, free: bool, text: Option<Cow<'a, str>>) -> Self {
+    /// La cible d'un élément, d'après sa boîte mesurée par le rendu.
+    pub(crate) fn element(
+        b: &'a ElementBox,
+        kind: &'a str,
+        param: Option<&'a str>,
+        free: bool,
+        text: Option<Cow<'a, str>>,
+    ) -> Self {
         Self {
-            id: &b.id,
-            kind,
+            id: Cow::Borrowed(&b.id),
+            kind: TargetKind::Element(kind),
+            param,
             free,
             text,
             x: b.x,
@@ -200,6 +215,24 @@ impl<'a> Target<'a> {
             ax: b.ax.unwrap_or(b.x).min(b.x),
             aw: b.aw.unwrap_or(b.w).max(b.w),
             style: b.style.as_ref(),
+        }
+    }
+
+    /// La cible d'un champ de la slide (id `@<paramètre>`), d'après sa boîte.
+    pub(crate) fn field(f: &'a FieldBox, text: Cow<'a, str>) -> Self {
+        Self {
+            id: Cow::Owned(format!("@{}", f.field)),
+            kind: TargetKind::Field(&f.field),
+            param: Some(&f.field),
+            free: false,
+            text: Some(text),
+            x: f.x,
+            y: f.y,
+            w: f.w,
+            h: f.h,
+            ax: f.ax.unwrap_or(f.x).min(f.x),
+            aw: f.aw.unwrap_or(f.w).max(f.w),
+            style: f.style.as_ref(),
         }
     }
 }

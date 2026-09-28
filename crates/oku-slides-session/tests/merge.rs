@@ -9,7 +9,7 @@ use common::{data_dir, fixture_path, req, session, set_theme, snapshot_json};
 fn retitle_third_slide(title: &str) -> Request {
     req(json!({
         "cmd": "apply", "label": "Titre",
-        "ops": [{"op": "set_slide_field", "slide": "s-ch1", "field": "title", "value": title}]
+        "ops": [{"op": "set_param", "target": {"slide": "s-ch1"}, "param": "title", "value": title}]
     }))
 }
 
@@ -122,7 +122,7 @@ fn save_over_a_file_changed_by_another_copy_merges_first() {
     let mut c = session();
     c.open(&path).unwrap();
     assert_that!(c.deck().theme.as_deref()).is_equal_to(Some("pro"));
-    assert_that!(c.deck().slides[2].title.as_deref()).is_equal_to(Some("Contexte (A)"));
+    assert_that!(c.deck().slides[2].params.text("title")).is_equal_to(Some("Contexte (A)"));
 }
 
 #[test]

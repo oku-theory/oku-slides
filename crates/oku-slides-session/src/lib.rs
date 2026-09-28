@@ -23,24 +23,28 @@ use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_chart::ChartLabels;
-use oku_slides_core::{Deck, Element, Op, Paragraph, Params, Slide, SlideKind, SourceBundle, SourceLimits};
+use oku_slides_core::{
+    Deck, DeckParams, Element, Op, Paragraph, ParamType, ParamValue, Slide, SourceBundle, SourceLimits, WidgetRegistry,
+};
 pub use oku_slides_i18n::{Localize, Localizer};
 pub use oku_slides_platform::Platform;
 pub use oku_slides_platform::config::Settings;
 pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
-use oku_slides_render::{Compiled, Renderer};
+use oku_slides_render::{Compiled, PackWidgets, Registries, Renderer};
 
 pub mod agent;
 mod appearance;
 mod charts;
 mod deck_file;
+mod deck_widgets;
 mod error;
 mod files;
 mod history;
 mod inline;
 mod merge;
 mod panel;
+mod render_fonts;
 mod resume;
 mod resume_writer;
 pub mod templates;
@@ -54,7 +58,8 @@ mod workspace;
 pub use appearance::{Appearance, appearance};
 use error::{
     BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, InHistorySnafu, NoChartSnafu, NoSlideSnafu,
-    NoTemplateSetSnafu, NotRenderedSnafu, OpSnafu, PdfSnafu, RenderSnafu, ResponseSnafu, SourcesSnafu, WriteSnafu,
+    NoTemplateSetSnafu, NotRenderedSnafu, PdfSnafu, RegistrySnafu, RenderSnafu, ResponseSnafu, SourcesSnafu,
+    WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
@@ -152,6 +157,8 @@ pub enum Request {
     Undo,
     Redo,
     Schema,
+    /// Registre des widgets du deck ouvert (base, surchargée par son pack).
+    Widgets,
     /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
     Panel {
         slide: String,
@@ -238,6 +245,7 @@ impl Request {
             | Self::Slide { .. }
             | Self::Svg { .. }
             | Self::Schema
+            | Self::Widgets
             | Self::Panel { .. }
             | Self::Templates { .. }
             | Self::TemplateSets
@@ -266,6 +274,16 @@ pub struct Session {
     doc_defaults: DocDefaults,
     /// Plafonds des sources lues dans un PDF ou dans la reprise (`[sources]`).
     source_limits: SourceLimits,
+    /// Registres des widgets déjà lus, par pack.
+    registries: Registries,
+    /// Registre des widgets du document ouvert : les ops et le rendu s'en
+    /// servent (voir `deck_widgets` pour l'invariant).
+    registry: Arc<WidgetRegistry>,
+    /// Pack dont les widgets surchargent la base ; `None` : la base seule.
+    pack: Option<PackWidgets>,
+    /// Ensemble de modèles (`deck.templates`) pour lequel `registry` et
+    /// `pack` ont été résolus.
+    widgets_templates: Option<String>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<Renderer>,
     template_cache: Option<templates_mode::Previews>,
@@ -292,34 +310,35 @@ pub struct Session {
     sent_blobs: Vec<Arc<resume::Blobs>>,
     /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
     agent_notes: Vec<String>,
+    #[cfg(test)]
+    failpoints: deck_widgets::Failpoints,
 }
 
-/// Un rendu prêt pour de nouvelles polices, pas encore installé.
-struct FontsRenderer {
-    /// Polices de l'app et du deck.
+/// Un rendu des widgets de `pack` (de registre `registry`), dont l'image
+/// absente se dit dans la langue de l'utilisateur.
+pub(crate) fn new_renderer(
     fonts: Fonts,
-    renderer: Renderer,
-    /// Nombre de polices du deck parmi elles.
-    deck_fonts: usize,
-}
-
-/// Un rendu dont l'image absente se dit dans la langue de l'utilisateur.
-pub(crate) fn new_renderer(fonts: Fonts, l: &Localizer) -> Result<Renderer> {
+    l: &Localizer,
+    pack: Option<&PackWidgets>,
+    registry: &Arc<WidgetRegistry>,
+) -> Result<Renderer> {
     let mut renderer = Renderer::new(fonts).context(RenderSnafu)?;
+    renderer.set_widgets(pack, registry.clone()).context(RenderSnafu)?;
     renderer.set_language(l).context(RenderSnafu)?;
     Ok(renderer)
 }
 
-/// Deck vide : une couverture et une slide de contenu, dans la langue de
-/// l'utilisateur.
+/// Deck vide : une couverture (`title`) et une slide de contenu (`content`)
+/// avec un `text`, dans la langue de l'utilisateur.
 pub fn blank_deck(l: &Localizer) -> Deck {
-    let mut content = Slide::new("s-1", SlideKind::Content);
-    content.title = Some(l.tr("deck-new-slide-title"));
-    content.blocks.push(Element::text("b-1", vec![Paragraph::plain(l.tr("deck-new-slide-text"))]));
+    let mut content = Slide::new("s-1", "content");
+    content.params.set("title", ParamValue::Text(l.tr("deck-new-slide-title")));
+    let text = Element::text("b-1", vec![Paragraph::plain(l.tr("deck-new-slide-text"))]);
+    content.params.set("blocks", ParamValue::Slot(vec![text]));
     Deck {
         version: oku_slides_core::DECK_VERSION,
         theme: Some("papier".into()),
-        params: Params {
+        params: DeckParams {
             title: Some(l.tr("deck-new-title")),
             // Code de langue seul (`zh-Hant` → `zh`) : Typst en déduit la
             // direction du texte (droite à gauche en arabe) et les césures.
@@ -329,7 +348,7 @@ pub fn blank_deck(l: &Localizer) -> Deck {
         vars: BTreeMap::new(),
         tokens: Value::Null,
         templates: None,
-        slides: vec![Slide::new("s-titre", SlideKind::Title), content],
+        slides: vec![Slide::new("s-titre", "title"), content],
     }
 }
 
@@ -351,18 +370,22 @@ impl Session {
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
+        let mut registries = Registries::new(app_fonts.clone());
+        let registry = registries.get(None).context(RegistrySnafu)?;
+        let blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
         let mut s = Self {
-            doc: Document {
-                blank: true,
-                ..Document::new(SourceBundle::new(blank_deck(l)).context(SourcesSnafu)?, None, &doc_defaults)
-            },
+            doc: Document { blank: true, ..Document::new(blank, None, &doc_defaults) },
             mode: Mode::Deck,
             library: Library::new(Some(settings.paths.templates()), storage.clone()),
             decks_dir: None,
             storage,
             doc_defaults,
             source_limits: files::source_limits(settings),
-            renderer: new_renderer(app_fonts.clone(), l)?,
+            renderer: new_renderer(app_fonts.clone(), l, None, &registry)?,
+            registries,
+            registry,
+            pack: None,
+            widgets_templates: None,
             localizer: l.clone(),
             chart_labels: ChartLabels::new(l),
             render_fonts: app_fonts.clone(),
@@ -378,6 +401,8 @@ impl Session {
             resume: None,
             agent_notes: Vec::new(),
             sent_blobs: Vec::new(),
+            #[cfg(test)]
+            failpoints: Default::default(),
         };
         s.rerender()?;
         Ok(s)
@@ -535,6 +560,7 @@ impl Session {
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::Panel { slide } => return json(&self.panel(&slide)?),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
+            Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.list()),
             Request::DeleteTemplateSet { set } => {
@@ -599,7 +625,8 @@ impl Session {
     }
 
     pub fn new_deck(&mut self) -> Result<()> {
-        self.load(SourceBundle::new(blank_deck(&self.localizer)).context(SourcesSnafu)?, None)?;
+        let sources = SourceBundle::new(blank_deck(&self.localizer), self.registry.clone()).context(SourcesSnafu)?;
+        self.load(sources, None)?;
         self.doc.blank = true;
         self.persist(true);
         Ok(())
@@ -612,66 +639,50 @@ impl Session {
     }
 
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
-    /// pour que la grille puisse éditer leurs données.
+    /// pour que la grille puisse éditer leurs données. Il se lit et se rend
+    /// avec les widgets du pack de ses modèles.
     fn load_document(&mut self, mut doc: Document) -> Result<()> {
+        let (widgets, notice) = self.resolve_widgets(doc.sources.deck().templates.as_deref())?;
+        doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
-        charts::canonicalize_deck(&mut deck, &self.chart_labels);
+        charts::canonicalize_deck(&mut deck, &self.chart_labels, &widgets.registry);
+        // Les options réécrites reprennent la forme canonique (clés triées),
+        // celle que relit le replica.
+        oku_slides_core::canonicalize(&mut deck);
         if deck != *doc.sources.deck() {
             // Forme canonique des graphiques : pas une action de l'utilisateur.
             doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         }
-        // Le rendu des nouvelles polices est prêt avant de remplacer le
-        // document : s'il échoue, l'ancien document et son rendu restent.
+        // Le rendu des nouvelles polices (avec les nouveaux widgets) et les
+        // widgets sont prêts avant de remplacer le document : si l'un
+        // échoue, l'ancien document, son registre et son rendu restent.
         let fonts = (doc.sources.fonts != self.doc.sources.fonts)
-            .then(|| self.fonts_renderer(&doc.sources.fonts))
+            .then(|| self.fonts_renderer(&doc.sources.fonts, widgets.pack.as_ref(), &widgets.registry))
             .transpose()?;
+        self.install_widgets(widgets)?;
         self.doc = doc;
         if let Some(fonts) = fonts {
             self.install_fonts(fonts);
+        }
+        if let Some(notice) = notice {
+            self.set_notice(notice);
         }
         self.ui.slide = None;
         self.rerender()
     }
 
-    /// Nouvelles polices dans les sources : nouveau monde Typst. À l'appelant
-    /// de dire si elles ont changé : comparer les polices coûte, reconstruire
-    /// le rendu plus encore.
-    fn refresh_fonts(&mut self) -> Result<()> {
-        let fonts = self.fonts_renderer(&self.doc.sources.fonts)?;
-        self.install_fonts(fonts);
-        Ok(())
-    }
-
-    /// Les polices du rendu (app + `fonts` du deck) et leur rendu, sans rien
-    /// installer. Les fichiers restent aussi dans les sources (ils sont
-    /// enregistrés avec le deck), d'où la copie.
-    fn fonts_renderer(&self, fonts: &BTreeMap<String, Vec<u8>>) -> Result<FontsRenderer> {
-        let render_fonts = self.app_fonts.with(fonts.values().cloned());
-        let renderer = new_renderer(render_fonts.clone(), &self.localizer)?;
-        Ok(FontsRenderer { fonts: render_fonts, renderer, deck_fonts: fonts.len() })
-    }
-
-    /// Installe des polices et leur rendu (voir `fonts_renderer`) ; les
-    /// aperçus et SVG en cache, faits avec les anciennes, sont oubliés.
-    fn install_fonts(&mut self, built: FontsRenderer) {
-        self.render_fonts = built.fonts;
-        self.renderer = built.renderer;
-        self.render_deck_fonts = built.deck_fonts;
-        self.template_renderer = None;
-        self.variant_renderer = None;
-        self.template_cache = None;
-        self.svg_cache.clear();
-    }
-
     /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let opened = read_document(&self.storage, path, self.source_limits)?;
+        let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         let (pdf, modified_elsewhere) = (opened.pdf, opened.modified_elsewhere);
         let notice = opened.notice(&self.localizer);
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(opened.sources, pdf.then(|| path.to_owned()))?;
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
-        self.doc.notice = notice;
+        // Après l'avis d'un pack cassé, s'il y en a un.
+        if let Some(notice) = notice {
+            self.set_notice(notice);
+        }
         self.doc.saved_hash = pdf.then_some(opened.hash);
         self.persist(true);
         Ok(())
@@ -716,23 +727,6 @@ impl Session {
         Ok(())
     }
 
-    /// Applique une transaction : rendue d'abord, validée ensuite. L'historique
-    /// du replica est définitif ; un rendu raté n'y laisse aucune trace.
-    /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
-    /// dans `dataset`, en-têtes traduits).
-    pub fn apply(&mut self, label: &str, mut ops: Vec<Op>) -> Result<()> {
-        self.ensure_not_in_history()?;
-        charts::canonicalize_charts(&mut ops, &self.chart_labels);
-        let mut next = self.doc.sources.deck().clone();
-        oku_slides_core::apply_all(&mut next, ops).context(OpSnafu)?;
-        let compiled = self.renderer.render(&next, &self.doc.sources.assets).context(RenderSnafu)?;
-        self.doc.sources.apply(next, label).context(SourcesSnafu)?;
-        self.install(compiled);
-        self.doc.dirty = true;
-        self.persist(true);
-        Ok(())
-    }
-
     /// Redessine le graphique `element` en `kind` : ses données sont
     /// converties (en-têtes dans la langue de l'utilisateur), l'élément
     /// remplacé en une transaction.
@@ -746,10 +740,16 @@ impl Session {
         let deck = self.doc.sources.deck();
         let located = deck.slide(&slide).context(NoSlideSnafu { id: &slide })?.locate(element);
         let mut chart = located.map(|l| l.element.clone()).context(NoChartSnafu { id: element })?;
-        let oku_slides_core::ElementBody::Chart { option } = &mut chart.body else {
+        // L'option est le paramètre `host(chart)` du widget.
+        let param = charts::chart_param(&self.registry, &chart.kind).context(NoChartSnafu { id: element })?;
+        let Some(ParamValue::Value(value)) = chart.params.get(param) else {
             return Err(NoChartSnafu { id: element }.build().into());
         };
-        **option = oku_slides_chart::convert(option, kind, &self.chart_labels).context(ChartSnafu)?;
+        let option: oku_slides_chart::ChartOption =
+            serde_json::from_value(value.clone()).ok().context(NoChartSnafu { id: element })?;
+        let option = oku_slides_chart::convert(&option, kind, &self.chart_labels).context(ChartSnafu)?;
+        let value = serde_json::to_value(option).context(ResponseSnafu)?;
+        chart.params.set(param.to_owned(), ParamValue::Value(value));
         self.apply(label, vec![Op::ReplaceElement { slide, element: chart }])
     }
 
@@ -758,6 +758,7 @@ impl Session {
         self.ensure_not_in_history()?;
         if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
+            self.sync_widgets()?;
             self.rerender()?;
         }
         Ok(())
@@ -768,6 +769,7 @@ impl Session {
         self.ensure_not_in_history()?;
         if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;
+            self.sync_widgets()?;
             self.rerender()?;
         }
         Ok(())
@@ -794,8 +796,8 @@ impl Session {
                     .map_or(0, |p| p.page);
                 SlideSummary {
                     id: &s.id,
-                    kind: s.kind,
-                    title: s.title.as_deref().map(|t| interp(t, &deck.vars)),
+                    kind: &s.kind,
+                    title: self.field_text(deck, s, "title").map(|t| interp(t, &deck.vars)),
                     name: s.name.as_deref(),
                     page,
                     hash: PageHash(compiled.and_then(|c| c.page_hash(page.checked_sub(1)?))),
@@ -853,6 +855,17 @@ impl Session {
         Ok(panel::panel(view.slide, view.zone.and_then(|z| z.grid.as_ref()), editing, &self.localizer))
     }
 
+    /// Texte du paramètre `field` de `slide`, tel que saisi : si le widget
+    /// le lie au deck (`bind`), la valeur liée, qui l'emporte comme au rendu
+    /// (`_args`) ; sinon le sien.
+    fn field_text<'d>(&self, deck: &'d Deck, slide: &'d Slide, field: &str) -> Option<&'d str> {
+        let bind = self.registry.get(&slide.kind).and_then(|w| w.param(field)).and_then(|p| p.bind.as_deref());
+        match bind {
+            Some(key) => deck.params.field(key),
+            None => slide.params.text(field),
+        }
+    }
+
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = self.doc.sources.deck();
@@ -860,31 +873,20 @@ impl Session {
         let compiled = self.compiled.as_ref().ok_or_else(no_slide)?;
         let layout = compiled.layout();
         let page = layout.page_of(id).ok_or_else(no_slide)?;
-        // Sur la couverture, titre et sous-titre viennent des paramètres du deck.
-        let cover = slide.kind == SlideKind::Title;
-        let targets = layout
-            .boxes_on(page)
-            .iter()
-            .filter_map(|b| {
-                if let Some(field) = b.id.strip_prefix('@') {
-                    let text = match field {
-                        "title" => slide.title.as_deref().or(cover.then_some(deck.params.title.as_deref()).flatten()),
-                        "subtitle" => {
-                            slide.subtitle.as_deref().or(cover.then_some(deck.params.subtitle.as_deref()).flatten())
-                        }
-                        "kicker" => slide.kicker.as_deref(),
-                        "text" => slide.text.as_deref(),
-                        _ => None,
-                    };
-                    let text = Cow::Borrowed(text.unwrap_or_default());
-                    Some(Target::at(b, TargetKind::Field(field), false, Some(text)))
-                } else {
-                    let l = slide.locate(&b.id)?;
-                    let text = l.element.body.text().map(|t| Cow::Owned(paragraphs_to_text(t)));
-                    Some(Target::at(b, TargetKind::Element(l.element.body.kind_name()), l.is_free(), text))
-                }
-            })
-            .collect();
+        // Les champs de la slide (id `@<paramètre>`), puis ses éléments.
+        let fields = layout.fields_on(page).iter().filter(|f| f.owner == slide.id).map(|f| {
+            let text = self.field_text(deck, slide, &f.field).unwrap_or_default();
+            Target::field(f, Cow::Borrowed(text))
+        });
+        let elements = layout.boxes_on(page).iter().filter_map(|b| {
+            let l = slide.locate(&b.id)?;
+            let e = l.element;
+            let param = self.registry.get(&e.kind).and_then(|w| w.params.iter().find(|p| p.ty == ParamType::Rich));
+            let param = param.map(|p| p.name.as_str());
+            let text = param.map(|p| Cow::Owned(paragraphs_to_text(e.params.rich(p).unwrap_or_default())));
+            Some(Target::element(b, &e.kind, param, l.is_free(), text))
+        });
+        let targets = fields.chain(elements).collect();
         Ok(SlideView {
             slide,
             page,

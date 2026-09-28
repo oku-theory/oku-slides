@@ -141,7 +141,7 @@ async fn ask_rewrite_paragraphs_answer_carries_a_bold_run() {
     pending.await.unwrap();
     let s = h.session.lock().unwrap();
     let located = s.deck().slide("s-libre").unwrap().locate("e-texte").unwrap();
-    let run = &located.element.body.text().unwrap()[0].runs[0];
+    let run = &located.element.params.rich("body").unwrap()[0].runs[0];
     assert_that!(run.bold).is_true();
     assert_that!(run.t.as_str()).is_equal_to("Gras");
 }
@@ -184,7 +184,7 @@ async fn show_variants_returns_at_once_and_pick_applies_with_own_undo_and_note()
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": t }] }] }] });
+    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": t }] }] }] });
     let r =
         call(&c, "show_variants", json!({ "slide": "s-libre", "variants": [variant("Un"), variant("Deux")] })).await;
     let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
@@ -217,7 +217,7 @@ async fn act_keeps_surface_on_apply_error_so_it_can_still_be_dismissed() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": t }] }] }] });
+    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": t }] }] }] });
     let r =
         call(&c, "show_variants", json!({ "slide": "s-libre", "variants": [variant("Un"), variant("Deux")] })).await;
     let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
@@ -472,6 +472,18 @@ async fn prune_without_post_it_does_not_wait_for_the_session() {
     assert_that!(done).is_true();
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn widgets_tool_lists_card_with_its_params() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let widgets = json_of(&call(&c, "widgets", json!({})).await);
+    let card = &widgets["widgets"]["card"];
+    assert_that!(card["category"].as_str()).is_equal_to(Some("element"));
+    let params: Vec<&str> = card["params"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
+    assert_that!(params).is_equal_to(vec!["kicker", "title", "body", "highlight"]);
+    assert_that!(card["params"][2]["type"].as_str()).is_equal_to(Some("rich"));
+}
+
 fn suggest_args(labels: &[&str]) -> Value {
     json!({ "suggestions": labels.iter().map(|l| json!({ "label": l })).collect::<Vec<_>>() })
 }
@@ -493,7 +505,8 @@ async fn suggest_next_replaces_the_previous_suggestions() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "suggest_next", suggest_args(&["Un"])).await;
-    let second = json_of(&call(&c, "suggest_next", suggest_args(&["Deux"])).await)["shown"].as_str().unwrap().to_owned();
+    let second =
+        json_of(&call(&c, "suggest_next", suggest_args(&["Deux"])).await)["shown"].as_str().unwrap().to_owned();
     assert_that!(open_ids(&h)).is_equal_to(vec![second]);
 }
 

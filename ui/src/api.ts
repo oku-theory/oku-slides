@@ -6,7 +6,7 @@ import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Cell, ZoneView } from "./grid";
 import { t } from "./i18n";
 
-export type SlideKind = "title" | "toc" | "chapter" | "content" | "end" | "blank";
+export type SlideKind = string;
 
 export interface SlideSummary {
   id: string;
@@ -138,32 +138,26 @@ export interface Paragraph {
   list?: "bullet" | "number";
 }
 
+/** Paramètres d'une slide ou d'un élément : texte, slots d'éléments, valeurs, selon le widget. */
+export type Params = Record<string, unknown>;
+
 export interface Element {
   id: string;
-  kind: "text" | "image" | "shape" | "card" | "group" | "chart";
+  kind: string;
   frame?: Frame;
   /** Accroche à la grille de la slide (prioritaire sur `frame`). */
   cell?: Cell;
-  text?: Paragraph[];
-  children?: Element[];
-  [key: string]: unknown;
+  style?: Record<string, unknown>;
+  params?: Params;
 }
 
 export interface Slide {
   id: string;
   kind: SlideKind;
+  params?: Params;
   /** Nom et description d'une slide modèle. */
   name?: string;
   description?: string;
-  title?: string;
-  subtitle?: string;
-  kicker?: string;
-  layout?: string;
-  text?: string;
-  blocks?: Element[];
-  elements?: Element[];
-  /** Grille de la zone de corps ; gouttière : jeton ou pt. */
-  grid?: { columns: number; rows: number; gap?: string | number };
   notes?: string;
 }
 
@@ -180,10 +174,13 @@ export interface TextStyle {
   bg: string | null;
 }
 
-export interface Target {
+/** Cible éditable de la vue (case de sélection à l'écran) ; nom distinct de `Target` (adressage des ops). */
+export interface EditTarget {
   id: string;
   target: "element" | "field";
   kind: string;
+  /** Premier paramètre riche du widget (élément) ; absent : pas éditable en place. */
+  param?: string;
   free: boolean;
   text: string | null;
   x: number;
@@ -202,9 +199,21 @@ export interface SlideView {
   hash: string;
   width: number;
   height: number;
-  targets: Target[];
+  targets: EditTarget[];
   /** Zone des éléments libres (pt, page) et sa grille résolue. */
   zone: ZoneView | null;
+}
+
+/** Adressage d'une slide ou d'un élément par les ops. */
+export interface Target {
+  slide: string;
+  element?: string;
+}
+
+/** Adressage d'un slot (paramètre qui contient des éléments) par les ops. */
+export interface SlotRef {
+  owner: Target;
+  param: string;
 }
 
 export interface TemplateView {

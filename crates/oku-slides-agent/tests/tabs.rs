@@ -73,13 +73,18 @@ async fn tool_calls_act_on_their_own_tab() {
     // Le tour appelle `apply` sur la slide `s-libre` : seule la session de t-2 change.
     let h = start_tabs(
         json!({ "turns": [{ "mcp": [{ "tool": "apply", "args": { "label": "x", "ops": [
-        { "op": "set_slide_field", "slide": "s-libre", "field": "title", "value": "Changé" } ] } }] }] }),
+        { "op": "set_param", "target": { "slide": "s-libre" }, "param": "title", "value": "Changé" } ] } }] }] }),
         &["t-1", "t-2"],
     )
     .await;
     h.tab("t-2").agent.prompt("change".into(), AgentUi::default());
     wait_turn_ended(h.tab("t-2")).await;
-    let title = |t: &str| h.session(t).lock().map(|s| s.deck().slide("s-libre").and_then(|s| s.title.clone())).unwrap();
+    let title = |t: &str| {
+        h.session(t)
+            .lock()
+            .map(|s| s.deck().slide("s-libre").and_then(|s| s.params.text("title").map(str::to_owned)))
+            .unwrap()
+    };
     assert_that!(title("t-2")).is_equal_to(Some("Changé".to_owned()));
     assert_that!(title("t-1")).is_not_equal_to(Some("Changé".to_owned()));
 }

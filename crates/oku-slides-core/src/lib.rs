@@ -1,7 +1,8 @@
 //! Cœur d'Oku Slides : modèle du deck, opérations, replica Loro,
 //! validation et zip des sources. Aucune dépendance à Typst ni à Tauri.
 //!
-//! - [`Deck`] et son schéma JSON : slides, éléments, opérations ([`Op`],
+//! - [`Deck`] et son schéma JSON : slides et éléments génériques
+//!   (`{id, kind, params}`, [`Params`]), opérations ([`Op`],
 //!   [`apply_all`]), validation ([`validate`]).
 //! - [`DeckReplica`] : le deck dans un document Loro (CRDT), réconcilié par
 //!   diff depuis un `Deck` et relu ; annuler et rétablir passent par son
@@ -21,8 +22,11 @@ pub mod error;
 pub mod locate;
 pub mod model;
 pub mod ops;
+pub mod params;
 pub mod replica;
 pub mod sources;
+#[cfg(test)]
+pub(crate) mod test_registry;
 pub mod validate;
 pub mod widget;
 
@@ -31,9 +35,10 @@ pub use error::{
     OpError, OpErrorKind, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind,
     TransactionError, WidgetError, WidgetErrorKind,
 };
-pub use locate::{Located, Walk};
+pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
-pub use ops::{Op, SlideField, apply_all, ops_schema};
+pub use ops::{Op, SlideField, SlotRef, Target, apply_all, ops_schema, param_value};
+pub use params::{ParamValue, Params};
 pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};

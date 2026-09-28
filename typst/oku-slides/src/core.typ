@@ -19,8 +19,6 @@
 
 // ---- Boîtes pour l'app --------------------------------------------------------
 
-// Émet la boîte réelle d'un contenu (page, position, taille) sous l'étiquette
-// <oku-slides-box>. Les champs de slide utilisent un id « @champ ».
 // Typographie effective d'une boîte (contexte + surcharges), pour que l'éditeur
 // de l'app reprenne exactement la taille, la police et l'interlignage du rendu.
 // À appeler dans un `context`.
@@ -74,8 +72,6 @@
   }
   body
 })
-
-#let tracked(id, body, style: (:)) = _measured((id: id), "oku-slides-box", body, style)
 
 // ---- Variables ---------------------------------------------------------------
 

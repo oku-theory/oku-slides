@@ -6,6 +6,7 @@ session-invalid-template-set = Ongeldige sjabloonset: { $path }
 session-not-rendered = De presentatie is nog niet weergegeven
 session-no-path = Nog geen bestand: kies waar je wilt opslaan
 session-no-slide = Dia niet gevonden: { $id }
+session-no-chart = Hier staat geen grafiek: { $subject }
 session-no-template-set = Sjabloonset niet gevonden: { $id }
 session-builtin-template-set = Een ingebouwde sjabloonset kan niet worden verwijderd
 session-no-templates-dir = Geen map voor je sjablonen

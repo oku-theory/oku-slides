@@ -6,6 +6,7 @@ session-invalid-template-set = Geçersiz şablon seti: { $path }
 session-not-rendered = Sunu henüz oluşturulmadı
 session-no-path = Henüz dosya yok: nereye kaydedileceğini seçin
 session-no-slide = Slayt bulunamadı: { $id }
+session-no-chart = Burada grafik yok: { $subject }
 session-no-template-set = Şablon seti bulunamadı: { $id }
 session-builtin-template-set = Yerleşik bir şablon seti silinemez
 session-no-templates-dir = Şablonlarınız için klasör yok

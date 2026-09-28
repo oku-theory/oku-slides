@@ -11,20 +11,19 @@ export const CHART_KINDS: readonly ChartKind[] = ["bar", "line", "pie", "scatter
 type Series = { type: string; [key: string]: unknown };
 type Option = { dataset?: { source: Cell[][] }; series?: Series[]; [key: string]: unknown };
 
-const optionOf = (el: Element): Option | null =>
-  el.kind === "chart" && typeof el.option === "object" && el.option !== null ? (el.option as Option) : null;
+const optionOf = (el: Element): Option | null => {
+  const option = el.params?.option;
+  return el.kind === "chart" && typeof option === "object" && option !== null ? (option as Option) : null;
+};
 
 /**
- * Corps d'un nouveau graphique : données en ligne, sans noms. La session les
+ * Option d'un nouveau graphique : données en ligne, sans noms. La session les
  * range dans `dataset` avec des en-têtes dans la langue de l'utilisateur.
  */
 export function starterChart() {
   return {
-    kind: "chart" as const,
-    option: {
-      xAxis: { type: "category", data: ["1", "2", "3"] },
-      series: [{ type: "bar", data: [3, 5, 2] }],
-    },
+    xAxis: { type: "category", data: ["1", "2", "3"] },
+    series: [{ type: "bar", data: [3, 5, 2] }],
   };
 }
 

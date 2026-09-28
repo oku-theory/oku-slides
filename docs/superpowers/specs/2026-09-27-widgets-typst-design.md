@@ -233,13 +233,17 @@ JSON :
   désérialisées par serde aux frontières Tauri (`Request::Apply`) et MCP
   (`apply`), où aucun registre ne peut être injecté. `ParamValue` se déduit
   donc de la forme : chaîne → `Text` ; tableau non vide d'objets portant
-  tous `id` et `kind` → `Slot` ; autre tableau d'objets (vide compris) →
-  `Rich` ; le reste → `Value`. Le schéma s'applique ensuite : `validate`,
+  tous `id` et `kind` en chaîne → `Slot` ; tableau dont chaque objet n'a
+  que les clés d'un paragraphe (`runs`, `list`) et chaque run que celles
+  d'un `Run` (`t`, `bold`, `italic`, `color`, `size`, `link`,
+  `highlight`), vide compris → `Rich` ; le reste, y compris un tableau
+  mêlant des objets à `id`/`kind` partiels ou d'autres clés → `Value`
+  (jamais d'erreur : rien ne se perd). Le schéma s'applique ensuite : `validate`,
   les ops (`&WidgetRegistry`) et `reconcile` normalisent selon le type
   déclaré (un `[]` déclaré `slot` devient `Slot` vide ; un `host("chart")`
   est vérifié par `oku_slides_chart::normalize`).
 - **Rien ne se perd.** Un paramètre absent du schéma, ou tout le `params`
-  d'un `kind` inconnu, est conservé en `ParamValue::Scalar` et ressort à
+  d'un `kind` inconnu, est conservé en `ParamValue::Value` et ressort à
   l'identique. `validate` le signale ; le rendu l'ignore ou affiche
   l'encart d'erreur.
 - Disparaissent : `ElementBody`, `SlideKind`, `SlideLayout`, `GroupLayout`,
@@ -260,18 +264,43 @@ JSON :
 - `Ctx::Slide` et `Ctx::Element` ne couvrent plus que les attributs communs
   (`id`, `kind`, `frame`, `cell`, `style`, `name`, `description`, `notes`).
   Leur clé `params` est une `LoroMap` de contexte `Ctx::Params`.
-- **Écriture** : le type d'un paramètre vient de sa valeur (`Text` →
-  `Prose`, `Rich` → `LoroMap { rich: LoroText à marques }`, `Slot` →
-  `Collection(Element)`, `Value` → `Atom`). `reconcile(deck, &registry)`
+- **Écriture** : le type d'un paramètre vient de son type déclaré par le
+  registre (`declared_kind`) quand il y en a un (`Plain` → `Prose`, `Rich` →
+  `LoroMap { rich: LoroText à marques }`, `Slot` → `Collection(Element)`,
+  tout le reste, y compris `Choice` et `Asset`, → `Atom` : bien qu'ils
+  s'écrivent comme du texte côté `ParamValue::Text`, ils sont écrits et
+  fusionnés d'un bloc, jamais par caractère — fusionner deux valeurs de
+  `choice` au caractère en donnerait une invalide). Sans type déclaré
+  (paramètre inconnu du widget), le type se lit dans la forme de la valeur
+  JSON (`shape_kind`), même classement que `ParamValue` : chaîne → `Prose`,
+  tableau d'objets `{id, kind}` → `Collection(Element)`, tableau de
+  paragraphes → `Rich`, le reste → `Atom`.
+  `reconcile(deck, &registry)`
   crée d'avance (parade t-188) tous les paramètres `plain`, `rich` et
   `slot` déclarés par le schéma du widget.
 - **Lecture sans registre** : `LoroText` → texte, `LoroMap` à clé unique
   `rich` → paragraphes, `LoroMovableList` → slot, valeur → `Value`. Un
   texte vide se relit absent. L'historique, la fusion et l'aperçu d'une
-  version passée ne dépendent donc pas du pack installé.
+  version passée ne dépendent donc pas du pack installé. `MAX_SLOT_DEPTH`
+  (16) borne aussi la lecture : un slot imbriqué plus profond par un pair
+  hostile est coupé et signalé (`issue-slot-too-deep`) plutôt que de
+  planter (`MAX_DEPTH` du parcours de conteneurs, 64, fixé par la pile).
+  La forme canonique d'un deck (`canonicalize`, dans `canonical.rs`, appelée
+  par `SourceBundle::new` et par `apply_all` avant d'écrire dans le replica)
+  trie les clés des objets JSON et retire les slots vides (vide = absent).
+  La lecture du replica (`replica/read.rs`) ne rappelle pas `canonicalize` :
+  elle trie ses propres clés indépendamment, à l'identique.
 - `SOURCES_VERSION` passe à 3 : des sources plus anciennes ne sont pas lues.
 - `SetKind` concurrent d'une édition de paramètre : le paramètre survit,
   inconnu du nouveau widget, conservé et signalé.
+- `SourceBundle::merge` et `SourceBundle::restore` (`sources.rs`) relisent le
+  deck reconstruit puis passent la vue à `validate`, avec le registre et les
+  ids d'assets du bundle : leur `Vec<Issue>` rendu est donc les problèmes du
+  chemin de lecture (sous-arbres illisibles) suivis de ceux que signale
+  `validate`, sans doublon (`merge` rend en plus le `MergeReport` de son
+  replica, séparément). `DeckReplica` lui-même (`replica/mod.rs`) ne valide
+  pas : son `merge` rend un `MergeReport` sans `Issue`, et son `restore` ne
+  rend rien.
 
 ### Ops
 
@@ -288,7 +317,9 @@ JSON :
 `Target` : `Slide(id)` ou `Element { slide, element }`. `locate` devient un
 parcours générique des slots.
 
-`Op::apply` prend `&WidgetRegistry`.
+`Op::apply(self, &mut Deck, &WidgetRegistry) -> Result<(), OpError>` : même
+forme qu'avant plus le registre (le retour était déjà `()`, pas de valeur).
+`apply_all(&mut Deck, Vec<Op>, &WidgetRegistry) -> Result<(), TransactionError>`.
 
 ### Validation
 

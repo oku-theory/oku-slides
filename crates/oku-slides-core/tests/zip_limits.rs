@@ -2,6 +2,8 @@
 //! annoncée d'une entrée ni un contenu qui se décompresse en masse ne doivent
 //! faire allouer sans borne.
 
+mod common;
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -45,13 +47,13 @@ type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn sources_zip(assets: &[(&str, Vec<u8>)], method: zip::CompressionMethod) -> Res<Vec<u8>> {
     let deck = Deck::from_json(r#"{"slides":[]}"#)?;
-    let loro = oku_slides_core::DeckReplica::new(&deck)?.snapshot()?;
+    let loro = oku_slides_core::DeckReplica::new(&deck, common::shared())?.snapshot()?;
     let mut buf = std::io::Cursor::new(Vec::new());
     {
         let mut zw = zip::ZipWriter::new(&mut buf);
         let opts = SimpleFileOptions::default().compression_method(method);
         zw.start_file("manifest.json", opts)?;
-        zw.write_all(br#"{"format":"oku-slides-sources","version":2}"#)?;
+        zw.write_all(br#"{"format":"oku-slides-sources","version":3}"#)?;
         zw.start_file("deck.loro", opts)?;
         zw.write_all(&loro)?;
         for (name, data) in assets {
@@ -89,7 +91,11 @@ fn from_zip_entry_announcing_huge_size_reads_without_huge_allocation() {
     let mut zip = sources_zip(&[("ab", vec![7; 1000])], zip::CompressionMethod::Deflated).unwrap();
     lie_about_asset_sizes(&mut zip, u32::MAX);
     LARGEST.store(0, Ordering::Relaxed);
-    let read = SourceBundle::from_zip(&zip, SourceLimits { replica_bytes: 32 * MIB, total_bytes: 256 * MIB });
+    let read = SourceBundle::from_zip(
+        &zip,
+        SourceLimits { replica_bytes: 32 * MIB, total_bytes: 256 * MIB },
+        common::shared(),
+    );
     let largest = LARGEST.load(Ordering::Relaxed);
     assert_that!(largest).is_less_than(16 * MIB);
     let (b, _) = read.unwrap();

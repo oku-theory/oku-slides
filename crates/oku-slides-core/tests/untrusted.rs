@@ -2,34 +2,36 @@
 //! refuser proprement le tronqué, l'aléatoire, le trop gros et le document
 //! Loro d'un autre projet — jamais paniquer.
 
+mod common;
+
 use oku_slides_core::{Deck, DeckReplica, ReplicaErrorKind};
 use speculoos::prelude::*;
 
 fn snapshot() -> Vec<u8> {
     let deck = Deck::from_json(include_str!("../../../fixtures/roadmap.json"))
         .unwrap_or_else(|e| panic!("fixture invalide : {e}"));
-    let replica = DeckReplica::new(&deck).unwrap_or_else(|e| panic!("création du replica : {e}"));
+    let replica = DeckReplica::new(&deck, common::shared()).unwrap_or_else(|e| panic!("création du replica : {e}"));
     replica.snapshot().unwrap_or_else(|e| panic!("snapshot : {e}"))
 }
 
 #[test]
 fn from_snapshot_truncated_returns_corrupted() {
     let s = snapshot();
-    let err = DeckReplica::from_snapshot(&s[..s.len() / 2], 1 << 20).unwrap_err();
+    let err = DeckReplica::from_snapshot(&s[..s.len() / 2], 1 << 20, common::shared()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
 }
 
 #[test]
 fn from_snapshot_random_bytes_returns_corrupted() {
     let bytes: Vec<u8> = (0..4096u32).map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8).collect();
-    let err = DeckReplica::from_snapshot(&bytes, 1 << 20).unwrap_err();
+    let err = DeckReplica::from_snapshot(&bytes, 1 << 20, common::shared()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
 }
 
 #[test]
 fn from_snapshot_over_limit_returns_too_large() {
     let s = snapshot();
-    let err = DeckReplica::from_snapshot(&s, s.len() - 1).unwrap_err();
+    let err = DeckReplica::from_snapshot(&s, s.len() - 1, common::shared()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReplicaErrorKind::TooLarge);
 }
 
@@ -80,7 +82,8 @@ fn from_snapshot_with_malformed_container_state_returns_corrupted() {
         let mut kv = store();
         kv.set(key, value.slice(..value.len() / 2));
         let forged = assemble(&s, oplog, &kv.export_all(), shallow);
-        let read = std::panic::catch_unwind(|| DeckReplica::from_snapshot(&forged, 1 << 20).map(|_| ()));
+        let read =
+            std::panic::catch_unwind(|| DeckReplica::from_snapshot(&forged, 1 << 20, common::shared()).map(|_| ()));
         match read {
             Ok(Ok(())) => {}
             Ok(Err(e)) => {
@@ -100,6 +103,6 @@ fn from_snapshot_of_foreign_loro_doc_returns_corrupted() {
     doc.get_map("autre").insert("k", 1).unwrap();
     doc.commit();
     let bytes = doc.export(loro::ExportMode::Snapshot).unwrap();
-    let err = DeckReplica::from_snapshot(&bytes, 1 << 20).unwrap_err();
+    let err = DeckReplica::from_snapshot(&bytes, 1 << 20, common::shared()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
 }

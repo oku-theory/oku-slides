@@ -16,15 +16,17 @@ pub use authors::MergeReport;
 pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
 
 use loro::{ExportMode, LoroDoc, LoroValue, ValueOrContainer};
 use snafu::{ResultExt, ensure};
 
 use crate::error::{
     DeckJsonSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, NotADeckSnafu, ReplicaError, ReplicaInner,
-    TooLargeSnafu, UnrelatedSnafu,
+    TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu,
 };
-use crate::model::Deck;
+use crate::model::{DECK_VERSION, Deck};
+use crate::widget::WidgetRegistry;
 pub(crate) use rich::SEP as PARAGRAPH_SEPARATOR;
 use schema::Ctx;
 use undo::Undo;
@@ -42,9 +44,13 @@ fn part_message(label: &str) -> String {
 }
 
 /// Le deck, son historique complet, et son identité (`deck_uid`).
+///
+/// Le registre des widgets sert à l'écriture : type de chaque paramètre et
+/// paramètres créés d'avance. La lecture s'en passe.
 pub struct DeckReplica {
     doc: LoroDoc,
     undo: Undo,
+    registry: Arc<WidgetRegistry>,
     /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
     author: Option<String>,
 }
@@ -78,8 +84,8 @@ fn uid_of(doc: &LoroDoc) -> String {
     }
 }
 
-fn read_deck(doc: &LoroDoc) -> DeckRead {
-    read::materialize(read::read_map(&doc.get_map(ROOT), Ctx::Deck))
+fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
+    read::deck(&doc.get_map(ROOT))
 }
 
 /// Exécute `f` (import d'octets non fiables, puis première lecture) sous
@@ -113,22 +119,22 @@ fn guarded<T>(doc: LoroDoc, f: impl FnOnce(&LoroDoc) -> Result<T, ReplicaInner>)
 
 impl DeckReplica {
     /// Nouveau replica, avec un nouveau `deck_uid`.
-    pub fn new(deck: &Deck) -> Result<Self, ReplicaError> {
-        Ok(Self::create(deck)?)
+    pub fn new(deck: &Deck, registry: Arc<WidgetRegistry>) -> Result<Self, ReplicaError> {
+        Ok(Self::create(deck, registry)?)
     }
 
-    fn create(deck: &Deck) -> Result<Self, ReplicaInner> {
+    fn create(deck: &Deck, registry: Arc<WidgetRegistry>) -> Result<Self, ReplicaInner> {
         let doc = LoroDoc::new();
         configure(&doc);
         // Le pair créateur est tiré au hasard sur 64 bits : un identifiant suffisant.
         let uid = format!("{:016x}", doc.peer_id());
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
         // Des insertions seulement : aucun `mov`, rien à découper.
-        Self::reconcile_doc(&doc, deck, &|| ())?;
+        Self::reconcile_doc(&doc, deck, &registry, &|| ())?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
-        Ok(Self { doc, undo, author: None })
+        Ok(Self { doc, undo, registry, author: None })
     }
 
     /// Relit un snapshot. Les octets viennent d'un fichier : non fiables.
@@ -136,22 +142,41 @@ impl DeckReplica {
     /// Renvoie aussi la première lecture complète du deck (celle de
     /// [`Self::deck`]), faite sous garde : Loro ne décode l'état d'un conteneur
     /// qu'au premier accès, et panique (`unwrap`) sur un état malformé.
-    pub fn from_snapshot(bytes: &[u8], max_bytes: usize) -> Result<(Self, DeckRead), ReplicaError> {
-        Ok(Self::import_snapshot(bytes, max_bytes)?)
+    /// Un deck d'une autre version que [`DECK_VERSION`] est refusé.
+    pub fn from_snapshot(
+        bytes: &[u8],
+        max_bytes: usize,
+        registry: Arc<WidgetRegistry>,
+    ) -> Result<(Self, DeckRead), ReplicaError> {
+        Ok(Self::import_snapshot(bytes, max_bytes, registry)?)
     }
 
-    fn import_snapshot(bytes: &[u8], max: usize) -> Result<(Self, DeckRead), ReplicaInner> {
+    fn import_snapshot(
+        bytes: &[u8],
+        max: usize,
+        registry: Arc<WidgetRegistry>,
+    ) -> Result<(Self, DeckRead), ReplicaInner> {
         ensure!(bytes.len() <= max, TooLargeSnafu { size: bytes.len(), max });
         let doc = LoroDoc::new();
         configure(&doc);
         let (doc, read) = guarded(doc, |doc| {
             doc.import(bytes).context(ImportSnafu)?;
             ensure!(!uid_of(doc).is_empty(), NotADeckSnafu { what: "no deck_uid" });
-            Ok(read_deck(doc))
+            read_deck(doc)
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
-        Ok((Self { doc, undo, author: None }, read))
+        Ok((Self { doc, undo, registry, author: None }, read))
+    }
+
+    /// Remplace le registre des widgets (pack installé ou retiré). Les
+    /// paramètres nouvellement déclarés sont créés à la prochaine application.
+    pub fn set_registry(&mut self, registry: Arc<WidgetRegistry>) {
+        self.registry = registry;
+    }
+
+    pub fn registry(&self) -> &WidgetRegistry {
+        &self.registry
     }
 
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
@@ -163,8 +188,19 @@ impl DeckReplica {
     }
 
     /// Le deck relu depuis le replica, et ce qui n'a pas pu être lu.
+    ///
+    /// Tout replica ouvert ou fusionné a été relu et accepté, et toute
+    /// écriture refuse un deck d'une autre version : la version se lit donc
+    /// toujours. Sinon, le deck rendu est vide et la version signalée.
     pub fn deck(&self) -> DeckRead {
-        read_deck(&self.doc)
+        read_deck(&self.doc).unwrap_or_else(|_| {
+            let issue = crate::Issue {
+                slide: None,
+                element: None,
+                message: oku_slides_i18n::Message::new("issue-unreadable-field").arg("field", "version"),
+            };
+            (Deck::empty(), vec![issue])
+        })
     }
 
     /// Identifiant de ce pair (session d'édition).
@@ -207,7 +243,7 @@ impl DeckReplica {
             doc.set_next_commit_message(&part_message(label));
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &split)?;
+        Self::reconcile_doc(doc, deck, &self.registry, &split)?;
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -225,12 +261,19 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &commit)?;
+        Self::reconcile_doc(doc, deck, &self.registry, &commit)?;
         commit();
         Ok(())
     }
 
-    fn reconcile_doc(doc: &LoroDoc, deck: &Deck, split: write::Split<'_>) -> Result<(), ReplicaInner> {
+    /// Refuse un deck d'une autre version que [`DECK_VERSION`].
+    fn reconcile_doc(
+        doc: &LoroDoc,
+        deck: &Deck,
+        registry: &WidgetRegistry,
+        split: write::Split<'_>,
+    ) -> Result<(), ReplicaInner> {
+        ensure!(deck.version == DECK_VERSION, UnsupportedDeckVersionSnafu { found: deck.version.to_string() });
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
         // `Deck` sérialise toujours en objet ; un autre cas serait un bogue de
         // `Serialize`, jamais un deck vide à réconcilier en silence.
@@ -238,7 +281,7 @@ impl DeckReplica {
             serde_json::Value::Object(o) => o,
             _ => return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail(),
         };
-        write::sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck, split)
+        write::Writer { registry, split }.sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck)
     }
 
     /// Ouvre un groupe : les applications qui suivent forment une seule étape
@@ -320,7 +363,7 @@ impl DeckReplica {
     pub fn restore(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
         let trial = self.doc.fork();
         configure(&trial);
-        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &|| doc.commit()))?;
+        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit()))?;
         self.claim_author()?;
         self.apply(deck, label)
     }
@@ -345,7 +388,7 @@ impl DeckReplica {
         configure(&trial);
         guarded(trial, |doc| {
             doc.import(&updates).context(ImportSnafu)?;
-            Ok(read_deck(doc))
+            read_deck(doc)
         })?;
         self.doc.import(&updates).context(ImportSnafu)?;
         Ok(authors::report_since(&self.doc, &before))

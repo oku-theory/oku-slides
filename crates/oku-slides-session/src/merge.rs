@@ -4,14 +4,14 @@
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::{MergeReport, SourceBundle};
-use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_i18n::Localizer;
 use snafu::ensure;
 
 use crate::error::{EditingTemplatesSnafu, NoPathSnafu, NotOkuSlidesSnafu, merge_error};
 use oku_slides_platform::storage::StorageErrorKind;
 
 use crate::deck_file::{free_path, safe_stem};
-use crate::files::{EXTENSION, parse_document, read_document};
+use crate::files::{EXTENSION, IssuesAt, log_issues, parse_document, read_document};
 use crate::{Mode, Result, Session};
 
 /// Issue d'un enregistrement.
@@ -57,7 +57,7 @@ impl Session {
     /// avec le prochain snapshot. Refusée pendant l'édition des modèles.
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
         ensure!(matches!(self.mode, Mode::Deck), EditingTemplatesSnafu);
-        let opened = read_document(&self.storage, path, self.source_limits)?;
+        let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);
         self.absorb(opened.sources, &file_name(path), false)
     }
@@ -71,9 +71,9 @@ impl Session {
     fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
         let before = (self.doc.sources.fonts.len(), self.doc.sources.assets.len());
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;
-        for issue in &issues {
-            tracing::warn!(issue = %issue.localize(&self.localizer), "partie illisible après fusion");
-        }
+        // Parties illisibles journalisées comme avant ; les constats de
+        // validation ne sont pas des pertes.
+        log_issues(&issues, &self.localizer, IssuesAt::Merge);
         // La fusion n'ajoute que des polices et des assets (à nom égal, on garde les nôtres).
         let (fonts, assets) = (self.doc.sources.fonts.len(), self.doc.sources.assets.len());
         if report.changes > 0 || fonts != before.0 || assets != before.1 {
@@ -83,6 +83,9 @@ impl Session {
         if report.changes > 0 || !on_save {
             self.set_notice(merge_notice(&self.localizer, file, &report));
         }
+        // La fusion peut apporter un autre ensemble de modèles : ses widgets
+        // servent aussi aux polices refaites ci-dessous.
+        self.sync_widgets()?;
         // Comparé au rendu en place, pas à l'avant-fusion : une reconstruction
         // ratée (polices déjà fusionnées) est retentée à la fusion suivante.
         if fonts != self.render_deck_fonts {
@@ -112,7 +115,7 @@ impl Session {
             return OnDisk::Unchanged;
         }
         // Changé : décodé seulement maintenant, pour savoir de quel deck il s'agit.
-        match parse_document(&bytes, hash, self.source_limits) {
+        match parse_document(&bytes, hash, self.source_limits, &self.registry) {
             Ok(o) if o.pdf && o.sources.replica().deck_uid() == self.doc.sources.replica().deck_uid() => {
                 OnDisk::SameDeck(Box::new(o.sources))
             }

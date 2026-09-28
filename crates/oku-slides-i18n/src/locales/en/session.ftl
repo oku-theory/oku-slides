@@ -6,6 +6,7 @@ session-invalid-template-set = Invalid template set: { $path }
 session-not-rendered = The deck has not been rendered yet
 session-no-path = No file yet: choose where to save
 session-no-slide = Slide not found: { $id }
+session-no-chart = No chart here: { $subject }
 session-no-template-set = Template set not found: { $id }
 session-builtin-template-set = A built-in template set cannot be deleted
 session-no-templates-dir = No folder for your templates

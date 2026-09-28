@@ -6,6 +6,7 @@ session-invalid-template-set = अमान्य टेम्पलेट स�
 session-not-rendered = प्रेज़ेंटेशन अभी रेंडर नहीं हुआ है
 session-no-path = अभी कोई फ़ाइल नहीं: सहेजने की जगह चुनें
 session-no-slide = स्लाइड नहीं मिली: { $id }
+session-no-chart = यहाँ कोई चार्ट नहीं है: { $subject }
 session-no-template-set = टेम्पलेट सेट नहीं मिला: { $id }
 session-builtin-template-set = बिल्ट-इन टेम्पलेट सेट हटाया नहीं जा सकता
 session-no-templates-dir = आपके टेम्पलेट के लिए कोई फ़ोल्डर नहीं

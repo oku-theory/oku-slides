@@ -43,6 +43,8 @@ pub(crate) enum RenderInner {
     Path { path: String, source: typst::syntax::PathError, backtrace: Backtrace },
     #[snafu(display("the deck could not be written as JSON"))]
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("the base widget registry could not be read"))]
+    BaseRegistry { source: Box<RegistryError>, backtrace: Backtrace },
 }
 
 impl RenderError {
@@ -52,7 +54,9 @@ impl RenderError {
             RenderInner::Pdf { .. } => RenderErrorKind::Pdf,
             RenderInner::NoPage { .. } => RenderErrorKind::NoPage,
             RenderInner::Image { .. } => RenderErrorKind::Image,
-            RenderInner::Path { .. } | RenderInner::DeckJson { .. } => RenderErrorKind::Setup,
+            RenderInner::Path { .. } | RenderInner::DeckJson { .. } | RenderInner::BaseRegistry { .. } => {
+                RenderErrorKind::Setup
+            }
         }
     }
 
@@ -68,6 +72,9 @@ impl RenderError {
 impl Localize for RenderError {
     /// Le message, puis ceux de Typst, un par ligne.
     fn localize(&self, l: &Localizer) -> String {
+        if let RenderInner::BaseRegistry { source, .. } = &self.0 {
+            return source.localize(l);
+        }
         let mut out = l.tr(match self.kind() {
             RenderErrorKind::Compile => "render-compile",
             RenderErrorKind::Pdf => "render-pdf",

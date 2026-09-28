@@ -85,6 +85,8 @@ pub(crate) enum SessionInner {
     Op { source: oku_slides_core::TransactionError, backtrace: Backtrace },
     #[snafu(display("rendering failed"))]
     Render { source: oku_slides_render::RenderError, backtrace: Backtrace },
+    #[snafu(display("widgets unavailable"))]
+    Registry { source: oku_slides_render::RegistryError, backtrace: Backtrace },
     #[snafu(display("rendering unavailable"))]
     NotRendered { backtrace: Backtrace },
     #[snafu(display("no file: choose where to save"))]
@@ -137,7 +139,7 @@ impl SessionError {
                 SessionErrorKind::InvalidDocument
             }
             Op { .. } => SessionErrorKind::Op,
-            Render { .. } | NotRendered { .. } => SessionErrorKind::Render,
+            Render { .. } | NotRendered { .. } | Registry { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
             NoChart { .. } => SessionErrorKind::NoChart,
@@ -202,10 +204,11 @@ impl Localize for SessionError {
             TemplateJson { path, .. } => l.tr_with("session-invalid-template-set", &path_arg(path)),
             Op { source, .. } => source.localize(l),
             Render { source, .. } => source.localize(l),
+            Registry { source, .. } => source.localize(l),
             NotRendered { .. } => l.tr("session-not-rendered"),
             NoPath { .. } => l.tr("session-no-path"),
             NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
-            NoChart { id, .. } => l.tr_with("op-not-a-chart", &[("subject", id.as_str().into())]),
+            NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
             Chart { source, .. } => source.localize(l),
             NoTemplateSet { id, .. } => l.tr_with("session-no-template-set", &[("id", id.as_str().into())]),
             BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),

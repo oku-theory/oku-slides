@@ -18,7 +18,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use oku_slides_core::{DeckReplica, ReplicaError, SourceBundle};
+use oku_slides_core::{DeckReplica, ReplicaError, SourceBundle, WidgetRegistry};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
@@ -377,8 +377,15 @@ impl Resume {
 
     /// Relit un document : son replica (`deck.loro`, au plus
     /// `max_replica_bytes`), avec une pile d'annulation neuve et l'auteur de
-    /// `defaults`. Sans `deck.loro` (ancien format), illisible.
-    pub fn read_doc(&self, sub: &str, defaults: &DocDefaults, max_replica_bytes: usize) -> Result<Document> {
+    /// `defaults`, écrit ensuite avec les widgets de `registry`. Sans
+    /// `deck.loro` (ancien format), illisible.
+    pub fn read_doc(
+        &self,
+        sub: &str,
+        defaults: &DocDefaults,
+        max_replica_bytes: usize,
+        registry: &Arc<WidgetRegistry>,
+    ) -> Result<Document> {
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
         let raw: DocIn = serde_json::from_slice(&self.get(&path)?).context(JsonSnafu { path: &path })?;
@@ -386,8 +393,8 @@ impl Resume {
         // Borné à la lecture : un fichier démesuré n'est pas chargé en mémoire.
         let max = u64::try_from(max_replica_bytes).unwrap_or(u64::MAX);
         let bytes = self.storage.read_limited(&loro, max).context(AccessSnafu { path: &loro })?;
-        let (replica, read) =
-            DeckReplica::from_snapshot(&bytes, max_replica_bytes).context(ReplicaSnafu { path: &loro })?;
+        let (replica, read) = DeckReplica::from_snapshot(&bytes, max_replica_bytes, registry.clone())
+            .context(ReplicaSnafu { path: &loro })?;
         let assets =
             self.read_files(&dir.join("assets"))?.into_iter().map(|(n, b)| (format!("sha256:{n}"), b)).collect();
         // Le nom sur disque est `<hex>-<nom>` (adressage par contenu) : on ne
@@ -534,10 +541,11 @@ impl Session {
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
         let max = self.source_limits.replica_bytes;
-        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max)?);
+        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
         let templates = match state.mode {
             SavedMode::Deck => None,
-            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, &self.doc_defaults, max) {
+            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, &self.doc_defaults, max, &self.registry)
+            {
                 Ok(doc) => Some((doc, edit)),
                 Err(e) => {
                     tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "modèles de reprise illisibles");
@@ -549,6 +557,7 @@ impl Session {
         if let Some((doc, edit)) = templates {
             let stash = std::mem::replace(&mut self.doc, doc);
             self.mode = Mode::Templates { stash: Box::new(stash), edit };
+            self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }
         self.ui = state.ui;
@@ -559,7 +568,7 @@ impl Session {
     /// le disque, sans historique ; absent ou illisible, la copie de travail reste.
     fn fresh_from_disk(&self, saved: Document) -> Document {
         let Some(path) = saved.path.as_ref().filter(|_| !saved.dirty) else { return saved };
-        match read_document(&self.storage, path, self.source_limits) {
+        match read_document(&self.storage, path, self.source_limits, &self.registry) {
             Ok(opened) if saved.saved_hash.as_deref() != Some(opened.hash.as_str()) => {
                 let notice = opened.notice(&self.localizer);
                 let mut doc = Document::new(opened.sources, Some(path.clone()), &self.doc_defaults);

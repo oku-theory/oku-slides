@@ -13,8 +13,8 @@
     {
       "mcp": [
         { "tool": "show_variants", "args": { "slide": "s-libre", "variants": [
-          { "label": "Un", "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": "Variante un" }] }] }] },
-          { "label": "Deux", "ops": [{ "op": "set_text", "slide": "s-libre", "element": "e-texte", "text": [{ "runs": [{ "t": "Variante deux" }] }] }] }
+          { "label": "Un", "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": "Variante un" }] }] }] },
+          { "label": "Deux", "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": "Variante deux" }] }] }] }
         ] } }
       ],
       "chunks": ["Voici deux variantes."]
@@ -32,7 +32,7 @@
       {
         "mcp": [
           { "tool": "apply", "args": { "label": "Titre : second onglet", "ops": [
-            { "op": "set_slide_field", "slide": "s-1", "field": "title", "value": "Second onglet, bonjour" }
+            { "op": "set_param", "target": { "slide": "s-1" }, "param": "title", "value": "Second onglet, bonjour" }
           ] } }
         ],
         "chunks": ["Titre changé."]

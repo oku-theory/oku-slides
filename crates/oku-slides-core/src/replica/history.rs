@@ -20,7 +20,7 @@ use snafu::ResultExt;
 
 use super::{DeckRead, PART, authors, configure, read_deck};
 use crate::error::{ImportPanickedSnafu, LoroSnafu, ReplicaError};
-use crate::model::{DECK_VERSION, Deck};
+use crate::model::Deck;
 
 /// Une version : l'état juste après une édition (son dernier commit).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -116,19 +116,6 @@ pub(super) fn build(doc: &LoroDoc) -> HistoryPreview {
     HistoryPreview { doc: Some(copy), poisoned: Cell::new(false), versions, cuts }
 }
 
-/// Le deck vide : version par défaut, aucune slide.
-fn empty_deck() -> Deck {
-    Deck {
-        version: DECK_VERSION,
-        theme: None,
-        params: Default::default(),
-        vars: Default::default(),
-        tokens: serde_json::Value::Null,
-        templates: None,
-        slides: Vec::new(),
-    }
-}
-
 impl HistoryPreview {
     pub fn versions(&self) -> &[Version] {
         &self.versions
@@ -162,13 +149,13 @@ impl HistoryPreview {
     /// empoisonnée : toute lecture suivante échoue sans la toucher.
     pub fn deck_at(&self, index: usize) -> Result<DeckRead, ReplicaError> {
         let (Some(doc), Some(cut)) = (self.doc.as_ref(), self.cut(index)) else {
-            return Ok((empty_deck(), Vec::new()));
+            return Ok((Deck::empty(), Vec::new()));
         };
         if self.poisoned.get() {
             return Err(ImportPanickedSnafu.build().into());
         }
-        match catch_unwind(AssertUnwindSafe(|| doc.checkout(cut).map(|()| read_deck(doc)))) {
-            Ok(read) => Ok(read.context(LoroSnafu)?),
+        match catch_unwind(AssertUnwindSafe(|| doc.checkout(cut).context(LoroSnafu).and_then(|()| read_deck(doc)))) {
+            Ok(read) => Ok(read?),
             Err(_) => {
                 self.poisoned.set(true);
                 Err(ImportPanickedSnafu.build().into())

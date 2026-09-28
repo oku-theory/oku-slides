@@ -1,4 +1,4 @@
-//! Le zip des sources (format `oku-slides-sources`, version 2) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 3) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine et les polices. C'est ce
 //! blob qui est stocké dans le PDF.
 //!
@@ -10,10 +10,15 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip de version 1 (`deck.json`) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 : deck v1 dans le
+//! replica) n'est plus lu.
+//!
+//! Le bundle porte le registre des widgets, que son replica utilise à
+//! l'écriture ; la fusion et la restauration le passent à `validate`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::{Cursor, Read, Write};
+use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 use snafu::{OptionExt, ResultExt, ensure};
@@ -21,14 +26,16 @@ use zip::write::SimpleFileOptions;
 
 use crate::error::{
     BadNameSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, ReplicaError, ReplicaSnafu, SourcesError,
-    SourcesInner, TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
+    SourcesInner, TooDeepSnafu, TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
 };
+use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
-use crate::validate::Issue;
+use crate::validate::{Issue, validate};
+use crate::widget::WidgetRegistry;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 2;
+pub const SOURCES_VERSION: u32 = 3;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
@@ -125,10 +132,14 @@ fn read_entry(
 
 impl SourceBundle {
     /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset ni police.
-    /// Le deck est d'abord mis sous forme canonique.
-    pub fn new(mut deck: Deck) -> Result<Self, SourcesError> {
+    /// Le deck est d'abord mis sous forme canonique. Un deck dont un élément
+    /// dépasse [`MAX_SLOT_DEPTH`] est refusé : la relecture du replica
+    /// l'arrêterait à cette borne, et la vue en différerait.
+    pub fn new(mut deck: Deck, registry: Arc<WidgetRegistry>) -> Result<Self, SourcesError> {
+        let too_deep = deck.slides.iter().flat_map(|s| s.walk()).any(|l| l.depth >= MAX_SLOT_DEPTH);
+        ensure!(!too_deep, TooDeepSnafu { max: MAX_SLOT_DEPTH });
         crate::canonicalize(&mut deck);
-        let replica = DeckReplica::new(&deck).context(ReplicaSnafu)?;
+        let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
         Ok(Self { replica, deck, assets: BTreeMap::new(), fonts: BTreeMap::new() })
     }
 
@@ -150,6 +161,16 @@ impl SourceBundle {
 
     pub fn replica(&self) -> &DeckReplica {
         &self.replica
+    }
+
+    /// Le registre des widgets du replica.
+    pub fn registry(&self) -> &WidgetRegistry {
+        self.replica.registry()
+    }
+
+    /// Remplace le registre des widgets (voir [`DeckReplica::set_registry`]).
+    pub fn set_registry(&mut self, registry: Arc<WidgetRegistry>) {
+        self.replica.set_registry(registry);
     }
 
     /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
@@ -241,7 +262,8 @@ impl SourceBundle {
     /// Comme à l'ouverture ou à la fusion, une version lue en partie est
     /// restaurée telle qu'elle a été lue (celle que l'aperçu a montrée) ; ce
     /// qui n'a pas pu être lu est rendu. En cas d'échec, le replica et la vue
-    /// sont intacts, sans rien en attente ([`DeckReplica::restore`]).
+    /// sont intacts, sans rien en attente ([`DeckReplica::restore`]). Les
+    /// problèmes rendus comprennent ceux que signale `validate`.
     pub fn restore(&mut self, preview: &HistoryPreview, index: usize, label: &str) -> Result<Vec<Issue>, SourcesError> {
         if preview.is_empty() {
             return Ok(Vec::new());
@@ -250,11 +272,12 @@ impl SourceBundle {
         self.replica.restore(&deck, label).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();
-        Ok(issues)
+        Ok(self.with_validation(issues))
     }
 
     /// Fusionne `other` : son historique, puis ses assets et polices (à nom égal,
-    /// on garde les nôtres). La vue est relue ; ses parties illisibles sont rendues.
+    /// on garde les nôtres). La vue est relue ; ses parties illisibles sont
+    /// rendues, suivies de ce que signale `validate` (registre du bundle).
     pub fn merge(&mut self, other: SourceBundle) -> Result<(crate::MergeReport, Vec<Issue>), SourcesError> {
         let report = self.replica.merge(&other.replica).context(ReplicaSnafu)?;
         for (id, bytes) in other.assets {
@@ -265,7 +288,21 @@ impl SourceBundle {
         }
         let (deck, issues) = self.replica.deck();
         self.deck = deck;
-        Ok((report, issues))
+        Ok((report, self.with_validation(issues)))
+    }
+
+    /// `issues` (ce que la relecture n'a pas pu lire), puis ce que
+    /// [`validate`] signale sur la vue avec le registre et les assets du
+    /// bundle : un paramètre gardé par un `SetKind` concurrent, un asset
+    /// manquant… Un problème déjà signalé ne l'est pas deux fois.
+    fn with_validation(&self, mut issues: Vec<Issue>) -> Vec<Issue> {
+        let assets: HashSet<String> = self.assets.keys().cloned().collect();
+        for issue in validate(&self.deck, self.registry(), Some(&assets)) {
+            if !issues.contains(&issue) {
+                issues.push(issue);
+            }
+        }
+        issues
     }
 
     /// Ajoute un asset et renvoie son identifiant.
@@ -314,11 +351,19 @@ impl SourceBundle {
     /// `deck.loro` n'est lu que s'il tient dans `limits.replica_bytes`, et le
     /// tout décompressé dans `limits.total_bytes`. Renvoie aussi ce que la
     /// relecture du replica n'a pas pu lire.
-    pub fn from_zip(bytes: &[u8], limits: SourceLimits) -> Result<(Self, Vec<Issue>), SourcesError> {
-        Ok(Self::read_zip(bytes, limits)?)
+    pub fn from_zip(
+        bytes: &[u8],
+        limits: SourceLimits,
+        registry: Arc<WidgetRegistry>,
+    ) -> Result<(Self, Vec<Issue>), SourcesError> {
+        Ok(Self::read_zip(bytes, limits, registry)?)
     }
 
-    fn read_zip(bytes: &[u8], limits: SourceLimits) -> Result<(Self, Vec<Issue>), SourcesInner> {
+    fn read_zip(
+        bytes: &[u8],
+        limits: SourceLimits,
+        registry: Arc<WidgetRegistry>,
+    ) -> Result<(Self, Vec<Issue>), SourcesInner> {
         let max = limits.replica_bytes;
         let mut za = zip::ZipArchive::new(Cursor::new(bytes)).context(ZipSnafu)?;
         let mut manifest: Option<Manifest> = None;
@@ -366,7 +411,7 @@ impl SourceBundle {
         ensure!(manifest.version >= SOURCES_VERSION, NotSourcesSnafu);
         ensure!(manifest.version == SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
         let (replica, read) = match snapshot.context(MissingDeckSnafu)? {
-            Snapshot::Bytes(data) => DeckReplica::from_snapshot(&data, max).context(ReplicaSnafu)?,
+            Snapshot::Bytes(data) => DeckReplica::from_snapshot(&data, max, registry).context(ReplicaSnafu)?,
             Snapshot::TooLarge(size) => {
                 return Err(ReplicaError::from(TooLargeSnafu { size, max }.build())).context(ReplicaSnafu);
             }

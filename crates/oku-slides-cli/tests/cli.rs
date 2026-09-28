@@ -106,7 +106,7 @@ fn schema_prints_json_even_into_a_closed_pipe() {
     let dir = workdir("schema");
     let out = run(oku_slides(&dir, "en").arg("schema"));
     let schema: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_that!(schema.to_string()).contains("set_text");
+    assert_that!(schema.to_string()).contains("set_param");
 
     // Le lecteur ferme le tube tout de suite : pas de panique, pas d'erreur.
     let mut child = oku_slides(&dir, "en").arg("schema").stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();

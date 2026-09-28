@@ -6,7 +6,8 @@ import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
-import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, textOps, textToParagraphs } from "./deck";
+import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, slot, textOps, textToParagraphs } from "./deck";
+import { newElement } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import Stage, { fieldLabel } from "./Stage";
@@ -16,7 +17,6 @@ import { DictationDraft } from "./DictationDraft";
 import { appendDraft, dictationRoute } from "./draft";
 import { ChartPanel } from "./chart/ChartPanel";
 import { Icon } from "./icons";
-import { starterChart } from "./chart/chartDeck";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
@@ -356,23 +356,17 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     const id = newId(kind[0]);
     const zone = view.zone;
     const g = zone?.grid;
-    const body: Record<string, unknown> =
-      kind === "card"
-        ? { kind, title: t("ui-new-card-title"), text: [{ runs: [{ t: t("ui-new-card-detail") }] }] }
-        : kind === "shape"
-          ? { kind, style: { fill: "surface", radius: "md" } }
-          : kind === "chart"
-            ? starterChart()
-            : { kind, text: text ?? [{ runs: [{ t: t("ui-new-text") }] }] };
+    const element = newElement(kind, id);
+    if (kind === "text" && text) element.params = { ...element.params, body: text };
     label ??= t("ui-undo-add", { kind });
     let ops: Op[];
-    const hasBlocks = (slide.blocks?.length ?? 0) > 0;
+    const hasBlocks = slot(slide, "blocks").length > 0;
     if (zone && g && !hasBlocks) {
       // Sur la grille : le nouvel élément prend la moitié gauche de la première
       // ligne libre sous les autres. (Une slide à blocs reçoit un bloc de plus.)
-      ops = [{ op: "add_element", slide: slide.id, zone: "elements", element: { id, ...body, cell: freeCell(slide, g) } }];
+      ops = [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "elements" }, element: { ...element, cell: freeCell(slide, g) } }];
     } else {
-      ops = [{ op: "add_element", slide: slide.id, zone: "blocks", element: { id, ...body } }];
+      ops = [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "blocks" }, element }];
     }
     apply(label, ops).then(() => {
       setSelected(id);
@@ -744,7 +738,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}
-          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-set" : "ui-undo-rename-deck"), [{ op: "set_param", key: "title", value: v }])}
+          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-set" : "ui-undo-rename-deck"), [{ op: "set_deck_param", key: "title", value: v }])}
         />
         <span className="caption" role="status">
           {snap.editing

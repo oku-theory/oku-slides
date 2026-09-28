@@ -5,15 +5,14 @@ import { CHART_KINDS, chartKind, checkboxColumns, chartSource, colorPatch, hexCo
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
   kind: "chart",
-  option: { dataset: { source }, xAxis: { type: "category" }, series },
+  params: { option: { dataset: { source }, xAxis: { type: "category" }, series } },
 });
 
 describe("starterChart", () => {
   test("des barres aux catégories neutres, à mettre en forme par la session", () => {
-    const body = starterChart();
-    expect(body.kind).toBe("chart");
-    expect(body.option.series).toEqual([{ type: "bar", data: [3, 5, 2] }]);
-    expect(body.option.xAxis).toEqual({ type: "category", data: ["1", "2", "3"] });
+    const option = starterChart();
+    expect(option.series).toEqual([{ type: "bar", data: [3, 5, 2] }]);
+    expect(option.xAxis).toEqual({ type: "category", data: ["1", "2", "3"] });
   });
 });
 
@@ -87,7 +86,7 @@ describe("couleurs des séries", () => {
 
   test("nuage : une série par paire de colonnes, nommée par la colonne des y", () => {
     const el = canonical([{ type: "scatter" }], [["x de A", "A", "x de B", "B"], [1, 2, 3, 4]]);
-    expect(seriesNames({ ...el, option: { ...(el.option as object), series: [{ type: "scatter" }, { type: "scatter" }] } })).toEqual(["A", "B"]);
+    expect(seriesNames({ ...el, params: { option: { ...(el.params?.option as object), series: [{ type: "scatter" }, { type: "scatter" }] } } })).toEqual(["A", "B"]);
   });
 
   test("secteurs, radar et cascade suivent la palette : aucune série à colorer", () => {

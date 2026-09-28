@@ -139,7 +139,7 @@ fn with_an_unrenderable_version(s: &mut Session) -> usize {
     let mut bad = good.clone();
     // Un jeton de couleur qui n'est pas une couleur fait échouer le rendu Typst.
     let token = Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!(5) };
-    oku_slides_core::apply_all(&mut bad, vec![token]).unwrap();
+    oku_slides_core::apply_all(&mut bad, vec![token], &crate::test_support::registry()).unwrap();
     s.doc.sources.apply(bad, "Mauvais").unwrap();
     s.doc.sources.apply(good, "Réparer").unwrap();
     s.doc.sources.history().len() - 2

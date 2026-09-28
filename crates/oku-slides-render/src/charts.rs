@@ -1,5 +1,6 @@
-//! Graphiques du deck : chaque élément `chart` est rendu en SVG par
-//! `oku-slides-chart` et servi à Typst sous `/charts/<empreinte>.svg`.
+//! Graphiques du deck : chaque élément dont le widget a un paramètre
+//! `host("chart")` est rendu en SVG par `oku-slides-chart` et servi à Typst
+//! sous `/charts/<empreinte>.svg`.
 //!
 //! L'empreinte couvre les options, la taille, la police, la palette et les libellés : un
 //! graphique inchangé n'est pas redessiné d'un rendu à l'autre.
@@ -11,6 +12,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Mutex, PoisonError};
 
 use oku_slides_chart::{ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, Size};
+use oku_slides_core::{HostType, ParamType, WidgetRegistry};
 use serde_json::{Map, Value as Json};
 use typst::foundations::Bytes;
 use typst::syntax::FileId;
@@ -80,9 +82,17 @@ impl Charts {
     }
 
     /// Rend les graphiques de `deck` (JSON) et note l'empreinte de chacun
-    /// dans l'élément. Un graphique qui ne se dessine pas n'en a pas : Typst
-    /// affiche alors un cadre à la place.
-    pub(crate) fn attach(&mut self, deck: &mut Json, theme: Option<&str>, fonts: &Fonts) -> Result<(), RenderError> {
+    /// dans l'élément. Un élément porte un graphique si son widget (dans
+    /// `registry`) a un paramètre `host("chart")` : l'option est la valeur
+    /// de ce paramètre. Un graphique qui ne se dessine pas n'a pas
+    /// d'empreinte : Typst affiche alors un cadre à la place.
+    pub(crate) fn attach(
+        &mut self,
+        deck: &mut Json,
+        theme: Option<&str>,
+        fonts: &Fonts,
+        registry: &WidgetRegistry,
+    ) -> Result<(), RenderError> {
         let family = register_font(fonts, body_font(theme));
         let renderer = ChartsRsRenderer {
             theme: if self.palette.is_empty() {
@@ -95,12 +105,12 @@ impl Charts {
         let mut wanted = HashSet::new();
         let mut failure = None;
         for_each_element(deck, &mut |e| {
-            if e.get("kind").and_then(Json::as_str) != Some("chart") {
-                return;
-            }
             // Une empreinte d'un rendu précédent ne vaut plus rien.
             e.remove(SVG_FIELD);
-            let Some(option) = e.get("option") else { return };
+            let Some(param) = e.get("kind").and_then(Json::as_str).and_then(|k| chart_param(registry, k)) else {
+                return;
+            };
+            let Some(option) = e.get("params").and_then(|p| p.get(param)) else { return };
             let size = frame_size(e).unwrap_or(DEFAULT_SIZE);
             let key = fingerprint(option, size, &renderer);
             let id = match file_id(&format!("/charts/{key}.svg")) {
@@ -198,21 +208,37 @@ fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String
     format!("{:016x}", h.finish())
 }
 
-/// Chaque élément du deck (blocs, éléments libres, enfants de groupes).
+/// Nom du paramètre `host("chart")` du widget `kind`, s'il en a un.
+fn chart_param<'r>(registry: &'r WidgetRegistry, kind: &str) -> Option<&'r str> {
+    registry
+        .get(kind)?
+        .params
+        .iter()
+        .find(|p| matches!(p.ty, ParamType::Host { host: HostType::Chart }))
+        .map(|p| p.name.as_str())
+}
+
+/// Chaque élément du deck : tout objet d'un tableau des `params` d'une
+/// slide ou d'un élément qui a un `id` et un `kind`, à toute profondeur de
+/// slot.
 fn for_each_element(deck: &mut Json, f: &mut impl FnMut(&mut Map<String, Json>)) {
-    fn visit(list: Option<&mut Json>, f: &mut impl FnMut(&mut Map<String, Json>)) {
-        let Some(Json::Array(items)) = list else { return };
-        for item in items {
-            if let Json::Object(e) = item {
-                f(e);
-                visit(e.get_mut("children"), f);
+    fn visit(params: Option<&mut Json>, f: &mut impl FnMut(&mut Map<String, Json>)) {
+        let Some(Json::Object(params)) = params else { return };
+        for value in params.values_mut() {
+            let Json::Array(items) = value else { continue };
+            for item in items {
+                let Json::Object(e) = item else { continue };
+                let element = e.get("id").is_some_and(Json::is_string) && e.get("kind").is_some_and(Json::is_string);
+                if element {
+                    f(e);
+                    visit(e.get_mut("params"), f);
+                }
             }
         }
     }
     let Some(Json::Array(slides)) = deck.get_mut("slides") else { return };
     for slide in slides {
-        visit(slide.get_mut("blocks"), f);
-        visit(slide.get_mut("elements"), f);
+        visit(slide.get_mut("params"), f);
     }
 }
 

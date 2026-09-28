@@ -43,11 +43,12 @@
 
 #let _image = widget("image",
   params: (asset: p.asset(), fit: p.choice("cover", "contain", "stretch")),
-  (args, ctx) => if ctx.load != none { (ctx.load)() } else { _image-placeholder(ctx.tokens, args.asset) })
+  (args, ctx) => if ctx.load != none { (ctx.load)(asset: args.asset, fit: args.fit) }
+    else { _image-placeholder(ctx.tokens, args.asset) })
 
 // Rendu en SVG par l'hôte, chargé comme une image.
 #let _chart = widget("chart", params: (option: p.host("chart")),
-  (args, ctx) => if ctx.load != none { (ctx.load)() } else { _chart-placeholder(ctx.tokens) })
+  (args, ctx) => if ctx.load != none { (ctx.load)(chart: true) } else { _chart-placeholder(ctx.tokens) })
 
 #let _shape = widget("shape", params: (shape: p.choice("rect", "ellipse", "line")), (args, ctx) => {
   let t = ctx.tokens
@@ -86,6 +87,9 @@
   }
 })
 
+// Champs d'une slide : `wrap` des fonctions de slide, posé par le widget.
+#let _fields(ctx) = (name, body, style) => field(ctx, name, body, style: style)
+
 #let _title = widget("title", category: "slide",
   params: (
     title: p.plain(bind: "title"),
@@ -95,13 +99,14 @@
     kicker: p.plain(bind: "organization"),
   ),
   (args, ctx) => title-slide(title: args.title, subtitle: args.subtitle, author: args.author,
-    date: args.date, kicker: args.kicker, id: ctx.id))
+    date: args.date, kicker: args.kicker, id: ctx.id, wrap: _fields(ctx)))
 
 #let _toc = widget("toc", category: "slide", params: (title: p.plain()),
-  (args, ctx) => toc(title: args.title, id: ctx.id))
+  (args, ctx) => toc(title: if args.title == none { auto } else { args.title }, id: ctx.id, wrap: _fields(ctx)))
 
 #let _chapter = widget("chapter", category: "slide", params: (title: p.plain(), subtitle: p.plain()),
-  (args, ctx) => chapter(args.title, subtitle: args.subtitle, id: ctx.id))
+  (args, ctx) => chapter(if args.title == none { "" } else { args.title }, subtitle: args.subtitle, id: ctx.id,
+    wrap: _fields(ctx)))
 
 #let _content = widget("content", category: "slide",
   params: (
@@ -120,7 +125,7 @@
       // Slide à blocs : la grille existe aussi (l'app y accroche un bloc
       // dès qu'on le déplace, et la slide passe alors sur la grille).
       zone: if free { none } else { zone-marker(t, args.grid) },
-      title: args.title, kicker: args.kicker, layout: args.layout, id: ctx.id,
+      title: args.title, kicker: args.kicker, layout: args.layout, id: ctx.id, wrap: _fields(ctx),
       // Un graphique dans les blocs occupe la place qui reste sous les autres.
       grow: if free { () } else { args.blocks.map(b => b.kind == "chart") },
       ..if free { (free-area(t, args.elements, grid: args.grid),) } else { args.blocks.map(b => b.body) },
@@ -128,7 +133,7 @@
   })
 
 #let _end = widget("end", category: "slide", params: (text: p.plain()),
-  (args, ctx) => end-slide(args.text, id: ctx.id))
+  (args, ctx) => end-slide(if args.text == none { "" } else { args.text }, id: ctx.id, wrap: _fields(ctx)))
 
 #let _blank = widget("blank", category: "slide",
   params: (grid: p.grid(default: default-grid), elements: p.slot(mode: "free")),

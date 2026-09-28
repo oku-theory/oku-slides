@@ -28,7 +28,7 @@ passe par des **jetons** ; le contenu peut être écrit en Typst ou fourni en
 ```
 
 Depuis un JSON : `#render-deck(json("deck.json"), theme: papier)`
-(voir `examples/deck.json`).
+(voir `examples/deck.json` et [Deck JSON](#deck-json-v2)).
 
 ## Types de slides
 
@@ -100,11 +100,62 @@ Tout composant de texte accepte `size`, `color`, `weight`, `font`,
   bande, surtitres en capitales, pied « n · titre » et « CONFIDENTIAL »).
   Voir `examples/pro.typ`.
 
+## Deck JSON (v2)
+
+Chaque slide et chaque élément nomment leur widget (`kind`) et portent ses
+paramètres (`params`), décrits par son schéma (voir [Widgets](#widgets)).
+Un slot (`blocks`, `elements`, `children`) est un tableau d'éléments ; un
+élément d'un slot libre a un `frame` `{ x, y, w, h }` (pt, relatif à la
+zone de corps) ou une `cell` de la grille de la slide.
+
+```json
+{
+  "version": 2,
+  "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
+  "vars": { "client": "Acme" },
+  "slides": [
+    { "id": "s1", "kind": "title" },
+    { "id": "s2", "kind": "chapter", "params": { "title": "Contexte" } },
+    { "id": "s3", "kind": "content", "params": { "title": "Trois priorités", "layout": "columns",
+      "blocks": [
+        { "id": "c1", "kind": "card", "params": { "title": "Fiabilité",
+          "body": [ { "runs": [ { "t": "Diviser par deux les incidents" } ] } ] } }
+      ] } },
+    { "id": "s4", "kind": "blank", "params": { "elements": [
+      { "id": "e1", "kind": "text", "frame": { "x": 40, "y": 40, "w": 600, "h": 200 },
+        "params": { "body": [ { "runs": [ { "t": "Posé à 40 pt du coin" } ] } ] } }
+    ] } },
+    { "id": "s5", "kind": "end", "params": { "text": "Merci {{client}}" } }
+  ]
+}
+```
+
+Les paramètres liés (`bind`, comme le titre et le sous-titre de la slide
+`title`) se lisent dans `params` du deck, pas dans ceux de la slide.
+
+`render-deck(data, theme: none, image-loader: none, widgets: none)` :
+
+- `image-loader` : fonction `(élément, asset: none, fit: "cover", chart: false)
+  => contenu`, fournie par l'hôte pour les images (`asset`, `fit`) et les
+  graphiques qu'il dessine (`chart: true`) ; sans elle, un cadre gris.
+- `widgets` : dictionnaire nom → widget, typiquement
+  `by-name(base + pack)` ; `none` rend avec les widgets de base. Un `kind`
+  sans widget de la bonne catégorie donne un encart « élément inconnu »
+  (élément) ou une page « slide inconnue » (slide).
+
 ## Introspection
 
 Chaque élément JSON avec un `id` est étiqueté `<e-ID>` :
 `query(<e-c1>).first().location().position()` donne sa position réelle, pour
-la couche de sélection de l'app.
+la couche de sélection de l'app. Sa boîte est émise sous `<oku-slides-box>`.
+
+Les textes éditables sont émis sous `<oku-slides-field>` par `field()`
+(voir plus bas), avec `owner` (id de l'élément ou de la slide) et `field`
+(nom du paramètre). Les slides aussi : `title` et `subtitle` pour la slide
+de titre et les chapitres, `kicker` et `title` pour les slides de contenu
+et le sommaire, `text` pour la slide de fin. Les fonctions de slide
+(`slide`, `title-slide`, `chapter`, `toc`, `end-slide`) prennent pour cela un
+`wrap: (nom, contenu, style) => contenu`, comme `card`.
 
 ## Widgets
 
@@ -156,8 +207,8 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
   `(kind, id, frame, cell, show)`, où `show(frame)` rend l'enfant.
 - `ctx` : `id` (l'élément ou la slide), `tokens`, `vars`, `style` (la
   typographie effective de l'élément), `framed` (l'élément a un cadre),
-  `load` (chargeur d'image ou de graphique fourni par l'hôte, fonction sans
-  argument, ou `none`).
+  `load` (chargeur de l'hôte, ou `none`) : `(ctx.load)(asset: …, fit: …)`
+  pour une image, `(ctx.load)(chart: true)` pour un graphique.
 
 `category` vaut `"element"` (widget de corps de slide) ou `"slide"`.
 

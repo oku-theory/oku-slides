@@ -6,6 +6,7 @@ session-invalid-template-set = Nieprawidłowy zestaw szablonów: { $path }
 session-not-rendered = Prezentacja nie została jeszcze wyrenderowana
 session-no-path = Brak pliku: wybierz miejsce zapisu
 session-no-slide = Nie znaleziono slajdu: { $id }
+session-no-chart = Brak wykresu: { $subject }
 session-no-template-set = Nie znaleziono zestawu szablonów: { $id }
 session-builtin-template-set = Nie można usunąć wbudowanego zestawu szablonów
 session-no-templates-dir = Brak folderu na własne szablony

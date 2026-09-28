@@ -10,8 +10,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::params::{ParamValue, Params};
+
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 1;
+pub const DECK_VERSION: u32 = 2;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -22,7 +24,7 @@ pub struct Deck {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
     #[serde(default)]
-    pub params: Params,
+    pub params: DeckParams,
     /// Variables utilisables dans les textes : `{{client}}`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub vars: BTreeMap<String, Value>,
@@ -49,7 +51,7 @@ fn is_empty_object(v: &Value) -> bool {
 
 /// Paramètres du deck, transmis tels quels à `deck.with(..)`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct Params {
+pub struct DeckParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -67,83 +69,86 @@ pub struct Params {
     pub extra: BTreeMap<String, Value>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum SlideKind {
-    Title,
-    Toc,
-    Chapter,
-    #[default]
-    Content,
-    End,
-    Blank,
+impl DeckParams {
+    /// Champs nommés, les autres clés vont dans `extra`.
+    const FIELDS: [&'static str; 6] = ["title", "subtitle", "author", "date", "organization", "lang"];
+
+    /// `key` est-il un champ nommé (et non une clé de `extra`) ?
+    pub fn is_field(key: &str) -> bool {
+        Self::FIELDS.contains(&key)
+    }
+
+    /// Texte du paramètre `key` : un champ nommé, sinon une chaîne de
+    /// `extra`. Seul accès par nom, pour les ops, `validate` et la session.
+    pub fn field(&self, key: &str) -> Option<&str> {
+        match key {
+            "title" => self.title.as_deref(),
+            "subtitle" => self.subtitle.as_deref(),
+            "author" => self.author.as_deref(),
+            "date" => self.date.as_deref(),
+            "organization" => self.organization.as_deref(),
+            "lang" => self.lang.as_deref(),
+            _ => self.extra.get(key).and_then(Value::as_str),
+        }
+    }
+
+    /// Pose (`Some`) ou retire (`None`) le texte du paramètre `key`.
+    pub fn set_field(&mut self, key: &str, text: Option<String>) {
+        let slot = match key {
+            "title" => &mut self.title,
+            "subtitle" => &mut self.subtitle,
+            "author" => &mut self.author,
+            "date" => &mut self.date,
+            "organization" => &mut self.organization,
+            "lang" => &mut self.lang,
+            _ => {
+                match text {
+                    Some(t) => self.extra.insert(key.to_owned(), Value::String(t)),
+                    None => self.extra.remove(key),
+                };
+                return;
+            }
+        };
+        *slot = text;
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum SlideLayout {
-    #[default]
-    Default,
-    Columns,
-    Split,
-    Center,
-    Quote,
-}
-
-/// Une slide. Son type fixe sa structure ; seuls les champs utiles à ce type
-/// sont lus par le rendu.
+/// Une slide : un widget de catégorie `slide` et ses paramètres.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Slide {
     pub id: String,
-    #[serde(default)]
-    pub kind: SlideKind,
+    /// Widget de slide (`title`, `content`…).
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Params::is_empty")]
+    pub params: Params,
     /// Nom et description, pour une slide qui sert de modèle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subtitle: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kicker: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub layout: Option<SlideLayout>,
-    /// Texte de la slide de fin.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    /// Blocs mis en page par le layout de la slide.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blocks: Vec<Element>,
-    /// Éléments placés librement (cadres relatifs à la zone de corps), ou
-    /// accrochés à la grille de la slide.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub elements: Vec<Element>,
-    /// Grille de mise en page de la zone de corps.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grid: Option<Grid>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
 }
 
 impl Slide {
-    pub fn new(id: impl Into<String>, kind: SlideKind) -> Self {
+    pub fn new(id: impl Into<String>, kind: &str) -> Self {
         Self {
             id: id.into(),
-            kind,
+            kind: kind.to_owned(),
+            params: Params::default(),
             name: None,
             description: None,
-            title: None,
-            subtitle: None,
-            kicker: None,
-            layout: None,
-            text: None,
-            blocks: Vec::new(),
-            elements: Vec::new(),
-            grid: None,
             notes: String::new(),
         }
+    }
+
+    /// La grille de la slide : son paramètre `grid`, sinon celle par défaut.
+    /// Toute slide en a une ; les éléments libres s'y accrochent.
+    pub fn grid(&self) -> Grid {
+        self.params
+            .value("grid")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_else(|| DEFAULT_GRID.clone())
     }
 }
 
@@ -185,14 +190,6 @@ fn one() -> u32 {
 
 /// Grille de toute slide qui n'en précise pas : 12 colonnes × 6 lignes.
 static DEFAULT_GRID: Grid = Grid { columns: 12, rows: 6, gap: None };
-
-impl Slide {
-    /// La grille de la slide : la sienne, sinon celle par défaut. Toute slide
-    /// en a une ; les éléments libres s'y accrochent.
-    pub fn effective_grid(&self) -> &Grid {
-        self.grid.as_ref().unwrap_or(&DEFAULT_GRID)
-    }
-}
 
 impl Cell {
     /// La cellule tient-elle dans la grille ?
@@ -296,50 +293,11 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum GroupLayoutKind {
-    #[default]
-    Free,
-    Columns,
-    Rows,
-    Grid,
-}
-
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-pub struct GroupLayout {
-    #[serde(rename = "type", default)]
-    pub kind: GroupLayoutKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub count: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gap: Option<TokenValue>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum ShapeKind {
-    #[default]
-    Rect,
-    Ellipse,
-    Line,
-}
-
-/// Zone d'une slide de contenu qui contient des éléments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum Zone {
-    /// Blocs mis en page par le layout de la slide.
-    #[default]
-    Blocks,
-    /// Éléments placés librement avec un cadre.
-    Elements,
-}
-
-/// Un élément de slide, identifié par un `id` stable.
+/// Un élément : un widget de catégorie `element`, placé et stylé.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Element {
     pub id: String,
+    pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame: Option<Frame>,
     /// Accroche à la grille de la slide ; prioritaire sur `frame`.
@@ -347,114 +305,48 @@ pub struct Element {
     pub cell: Option<Cell>,
     #[serde(default, skip_serializing_if = "is_default_style")]
     pub style: Style,
-    #[serde(flatten)]
-    pub body: ElementBody,
+    #[serde(default, skip_serializing_if = "Params::is_empty")]
+    pub params: Params,
 }
 
 fn is_default_style(s: &Style) -> bool {
     *s == Style::default()
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum ElementBody {
-    Text {
-        #[serde(default)]
-        text: Vec<Paragraph>,
-    },
-    Image {
-        /// Identifiant de l'asset (`sha256:…`) dans les sources.
-        asset: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        fit: Option<String>,
-    },
-    Shape {
-        #[serde(default)]
-        shape: ShapeKind,
-    },
-    Card {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        title: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        kicker: Option<String>,
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-        highlight: bool,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        text: Vec<Paragraph>,
-    },
-    Group {
-        #[serde(default)]
-        layout: GroupLayout,
-        #[serde(default)]
-        children: Vec<Element>,
-    },
-    /// Graphique : options ECharts (sous-ensemble de `oku-slides-chart`), données
-    /// dans `dataset` une fois canonicalisées. En `Box` : en ligne, les options
-    /// feraient peser chaque élément, texte ou image, près de 300 octets.
-    Chart {
-        /// Des options incohérentes ne se désérialisent pas : un deck ne
-        /// contient que des graphiques qui se dessinent.
-        #[serde(deserialize_with = "consistent_chart")]
-        option: Box<oku_slides_chart::ChartOption>,
-    },
-}
-
-fn consistent_chart<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Box<oku_slides_chart::ChartOption>, D::Error> {
-    let option = Box::<oku_slides_chart::ChartOption>::deserialize(d)?;
-    oku_slides_chart::normalize(&option, oku_slides_chart::ChartLabels::english())
-        .map_err(|e| serde::de::Error::custom(oku_slides_i18n::Localize::localize(&e, oku_slides_i18n::english())))?;
-    Ok(option)
-}
-
-impl ElementBody {
-    /// Nom du type, tel qu'il s'écrit dans le JSON (`text`, `card`…).
-    pub fn kind_name(&self) -> &'static str {
-        match self {
-            ElementBody::Text { .. } => "text",
-            ElementBody::Image { .. } => "image",
-            ElementBody::Shape { .. } => "shape",
-            ElementBody::Card { .. } => "card",
-            ElementBody::Group { .. } => "group",
-            ElementBody::Chart { .. } => "chart",
-        }
-    }
-
-    /// Paragraphes d'un texte ou d'une carte.
-    pub fn text(&self) -> Option<&[Paragraph]> {
-        match self {
-            ElementBody::Text { text } | ElementBody::Card { text, .. } => Some(text),
-            _ => None,
-        }
-    }
-}
-
 impl Element {
-    pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
+    pub fn new(id: impl Into<String>, kind: &str) -> Self {
         Self {
             id: id.into(),
+            kind: kind.to_owned(),
             frame: None,
             cell: None,
             style: Style::default(),
-            body: ElementBody::Text { text: paragraphs },
+            params: Params::default(),
         }
     }
 
-    pub fn children(&self) -> &[Element] {
-        match &self.body {
-            ElementBody::Group { children, .. } => children,
-            _ => &[],
-        }
-    }
-
-    pub fn children_mut(&mut self) -> Option<&mut Vec<Element>> {
-        match &mut self.body {
-            ElementBody::Group { children, .. } => Some(children),
-            _ => None,
-        }
+    /// Un élément `text` dont le corps (`body`) est `paragraphs`.
+    pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
+        let mut e = Self::new(id, "text");
+        e.params.set("body", ParamValue::Rich(paragraphs));
+        e
     }
 }
 
 impl Deck {
+    /// Deck vide de la version courante : aucune slide.
+    pub fn empty() -> Self {
+        Self {
+            version: DECK_VERSION,
+            theme: None,
+            params: DeckParams::default(),
+            vars: BTreeMap::new(),
+            tokens: Value::Null,
+            templates: None,
+            slides: Vec::new(),
+        }
+    }
+
     pub fn slide(&self, id: &str) -> Option<&Slide> {
         self.slides.iter().find(|s| s.id == id)
     }
@@ -467,8 +359,17 @@ impl Deck {
         self.slides.iter().position(|s| s.id == id)
     }
 
+    /// Lit un deck JSON. Refuse un deck d'une autre version que
+    /// [`DECK_VERSION`] : relu comme un v2, il perdrait des champs en silence.
     pub fn from_json(s: &str) -> serde_json::Result<Self> {
-        serde_json::from_str(s)
+        let deck: Self = serde_json::from_str(s)?;
+        if deck.version != DECK_VERSION {
+            return Err(serde::de::Error::custom(format!(
+                "unsupported deck version {} (expected {DECK_VERSION})",
+                deck.version
+            )));
+        }
+        Ok(deck)
     }
 
     /// JSON lisible (indenté), tel qu'il est enregistré dans les sources.
@@ -476,3 +377,7 @@ impl Deck {
         serde_json::to_string_pretty(self)
     }
 }
+
+#[cfg(test)]
+#[path = "model_tests.rs"]
+mod model_tests;

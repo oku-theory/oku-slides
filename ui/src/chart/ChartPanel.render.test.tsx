@@ -30,7 +30,7 @@ async function mount(series: Series[] = [{ type: "bar" }]) {
   const element = {
     id: "c1",
     kind: "chart" as const,
-    option: { dataset: { source: [["Catégorie", "Série 1", "Série 2"], ["1", 3, 4]] }, series },
+    params: { option: { dataset: { source: [["Catégorie", "Série 1", "Série 2"], ["1", 3, 4]] }, series } },
   };
   await act(async () => {
     root.render(createElement(ChartPanel, { slide: "s1", element, palette: ["#0077b6"], onApply: () => {}, onKind: () => {} }));

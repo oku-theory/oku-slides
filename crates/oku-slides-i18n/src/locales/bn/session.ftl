@@ -6,6 +6,7 @@ session-invalid-template-set = অবৈধ টেমপ্লেট সেট: 
 session-not-rendered = প্রেজেন্টেশনটি এখনও রেন্ডার হয়নি
 session-no-path = এখনও কোনো ফাইল নেই: কোথায় সংরক্ষণ করবেন বেছে নিন
 session-no-slide = স্লাইড পাওয়া যায়নি: { $id }
+session-no-chart = এখানে কোনো চার্ট নেই: { $subject }
 session-no-template-set = টেমপ্লেট সেট পাওয়া যায়নি: { $id }
 session-builtin-template-set = বিল্ট-ইন টেমপ্লেট সেট মোছা যায় না
 session-no-templates-dir = আপনার টেমপ্লেটের জন্য কোনো ফোল্ডার নেই

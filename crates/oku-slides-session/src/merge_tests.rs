@@ -121,7 +121,7 @@ fn blank_in(dir: &Dir) -> Session {
 
 /// Renomme le deck, comme le titre modifié dans l'interface.
 fn titled(s: &mut Session, title: &str) {
-    let op = oku_slides_core::Op::SetParam { key: "title".into(), value: title.into() };
+    let op = oku_slides_core::Op::SetDeckParam { key: "title".into(), value: title.into() };
     s.apply("titre", vec![op]).unwrap();
 }
 

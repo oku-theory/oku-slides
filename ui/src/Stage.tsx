@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { Frame, Op, SlideView, Target } from "./api";
+import type { EditTarget, Frame, Op, SlideView } from "./api";
 import { fontStack } from "./appearance";
 import { editorBackground } from "./color";
 import type { GridPlacement } from "./deck";
@@ -114,7 +114,7 @@ function textWidth(text: string, font: string, tracking: number): number {
  * Un champ (titre…) épouse son texte et s'élargit en tapant, jusqu'à sa zone ;
  * un bloc garde la largeur de sa boîte, où le texte revient à la ligne.
  */
-function editorGeometry(t: Target, draft: string, scale: number) {
+function editorGeometry(t: EditTarget, draft: string, scale: number) {
   const st = t.style;
   const pad = 5; // marge intérieure (px écran) : le cadre ne colle pas aux lettres
   if (!st) {
@@ -224,7 +224,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictated?.seq]);
 
-  const startDrag = (e: React.PointerEvent, t: Target, mode: Mode) => {
+  const startDrag = (e: React.PointerEvent, t: EditTarget, mode: Mode) => {
     e.stopPropagation();
     onSelect(t.id);
     if (editing) return;
@@ -275,7 +275,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     onEdit(null);
   };
 
-  const box = (t: Target) => {
+  const box = (t: EditTarget) => {
     let { x, y, w, h } = t;
     if (drag && drag.id === t.id) {
       const f = dragged(drag);
@@ -297,7 +297,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const liveCell = drag ? draggedCell(drag) : null;
   // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
   const showGrid = !!grid && (showGridAlways || !!liveCell);
-  const tagFor = (t: Target, label: string) => {
+  const tagFor = (t: EditTarget, label: string) => {
     const el = t.target === "element" ? findElement(view.slide, t.id) : undefined;
     const cell = drag?.id === t.id && liveCell ? liveCell : el?.cell;
     return cell && grid ? `${label} · ${cellLabel(cell)}` : label;
@@ -330,7 +330,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
                   aria-label={label}
                   aria-selected={sel}
                   onPointerDown={(e) => startDrag(e, tg, "move")}
-                  onDoubleClick={() => tg.text !== null && onEdit(tg.id)}
+                  onDoubleClick={() => tg.text !== null && (tg.target === "field" || tg.param !== undefined) && onEdit(tg.id)}
                 >
                   {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
                   {sel && (tg.free || (!!grid && isBlock(view, tg.id))) &&

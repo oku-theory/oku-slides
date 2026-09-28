@@ -9,17 +9,21 @@
 
 use serde_json::{Number, Value};
 
-use crate::model::{Deck, Element, ElementBody, Paragraph, Run};
+use crate::model::{Deck, Paragraph, Run};
+use crate::params::{ParamValue, Params};
 use crate::replica::PARAGRAPH_SEPARATOR;
 
 /// Met `deck` sous forme canonique :
 ///
 /// - prose facultative faite d'espaces → `None`, autre prose rognée (même
-///   règle que les ops `set_slide_field` et `set_param`) ;
+///   règle que les ops `set_slide_field` et `set_deck_param`) ;
+/// - paramètres des slides et des éléments : texte simple rogné (vide →
+///   retiré), texte riche et slot vides retirés, `null` retiré ;
 /// - notes faites d'espaces → `""` (les autres gardent leurs bords) ;
 /// - prose riche : `U+2029` dans un run → `\n` (le contenu est gardé, sans
 ///   nouveau paragraphe), runs vides retirés, runs voisins de même format fusionnés ;
-/// - entier JSON au-delà d'`i64` (`vars`, extras de `params`, `tokens`) →
+/// - entier JSON au-delà d'`i64` (`vars`, extras de `params`, `tokens`,
+///   valeurs des paramètres) →
 ///   flottant, comme le stocke Loro ; `tokens` objet vide → `null`.
 pub fn canonicalize(deck: &mut Deck) {
     let p = &mut deck.params;
@@ -33,13 +37,13 @@ pub fn canonicalize(deck: &mut Deck) {
         deck.tokens = Value::Null;
     }
     for s in &mut deck.slides {
-        for field in [&mut s.name, &mut s.description, &mut s.title, &mut s.subtitle, &mut s.kicker, &mut s.text] {
+        for field in [&mut s.name, &mut s.description] {
             prose(field);
         }
         if s.notes.trim().is_empty() {
             s.notes.clear();
         }
-        s.blocks.iter_mut().chain(&mut s.elements).for_each(element);
+        params(&mut s.params);
     }
 }
 
@@ -48,17 +52,35 @@ fn prose(field: &mut Option<String>) {
     *field = field.take().map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
 }
 
-fn element(e: &mut Element) {
-    match &mut e.body {
-        ElementBody::Text { text } => paragraphs(text),
-        ElementBody::Card { title, kicker, text, .. } => {
-            prose(title);
-            prose(kicker);
-            paragraphs(text);
+/// Forme canonique des paramètres : textes rognés (vides retirés), textes
+/// riches canoniques (vides retirés), slots parcourus (vides retirés),
+/// nombres canoniques (`null` retiré).
+///
+/// Un slot vide est retiré comme un texte riche vide : en JSON, les deux
+/// s'écrivent `[]` et se relisent en `Rich` vide, et le replica relit une
+/// liste vide comme absente. [`Params::slot_mut`] recrée un slot absent.
+fn params(p: &mut Params) {
+    p.0.retain(|_, v| match v {
+        ParamValue::Text(s) => {
+            let t = s.trim();
+            if t.len() != s.len() {
+                *s = t.to_owned();
+            }
+            !s.is_empty()
         }
-        ElementBody::Group { children, .. } => children.iter_mut().for_each(element),
-        ElementBody::Image { .. } | ElementBody::Shape { .. } | ElementBody::Chart { .. } => {}
-    }
+        ParamValue::Rich(ps) => {
+            paragraphs(ps);
+            !ps.is_empty()
+        }
+        ParamValue::Slot(list) => {
+            list.iter_mut().for_each(|e| params(&mut e.params));
+            !list.is_empty()
+        }
+        ParamValue::Value(v) => {
+            numbers(v);
+            !v.is_null()
+        }
+    });
 }
 
 fn paragraphs(text: &mut [Paragraph]) {
@@ -89,7 +111,8 @@ fn same_format(a: &Run, b: &Run) -> bool {
         && a.highlight == b.highlight
 }
 
-/// Un entier hors d'`i64` devient flottant, récursivement.
+/// Un entier hors d'`i64` devient flottant, et les clés des objets sont
+/// triées, récursivement.
 fn numbers(v: &mut Value) {
     match v {
         Value::Number(n) if n.as_i64().is_none() && n.is_u64() => {
@@ -98,7 +121,12 @@ fn numbers(v: &mut Value) {
             }
         }
         Value::Array(items) => items.iter_mut().for_each(numbers),
-        Value::Object(map) => map.values_mut().for_each(numbers),
+        Value::Object(map) => {
+            // Clés triées : la relecture du replica les rend dans cet ordre,
+            // et le JSON d'un paramètre (haché au rendu) ne change pas.
+            map.sort_keys();
+            map.values_mut().for_each(numbers);
+        }
         _ => {}
     }
 }

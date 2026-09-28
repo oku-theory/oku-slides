@@ -10,8 +10,23 @@ fn typst_string_escapes_quotes_backslashes_and_newlines() {
 #[test]
 fn main_source_quotes_labels_instead_of_running_them() {
     let labels = Labels { missing_image: "#panic()".into(), chart_failed: "\") #panic() (\"".into() };
-    let source = main_source(Some("pro"), ["ab12"].into_iter(), &labels);
+    let source = main_source(Some("pro"), None, ["ab12"].into_iter(), &labels);
     assert_that!(source).contains(r##"fallback("#panic()")"##);
     assert_that!(source).contains(r##"fallback("\") #panic() (\"")"##);
     assert_that!(source).contains(r#"#let available = ("ab12",)"#);
+}
+
+#[test]
+fn main_source_with_pack_imports_its_widgets_after_the_base() {
+    let pack = crate::PackWidgets::new("citations", "").unwrap();
+    let source = main_source(None, Some(&pack), std::iter::empty(), &Labels::default());
+    assert_that!(source).contains(r#"#import "/packs/citations/widgets.typ": registry as pack-registry"#);
+    assert_that!(source).contains("widgets: by-name(base-registry + pack-registry)");
+}
+
+#[test]
+fn main_source_without_pack_renders_the_base_widgets() {
+    let source = main_source(None, None, std::iter::empty(), &Labels::default());
+    assert_that!(source).does_not_contain("/packs/");
+    assert_that!(source).contains("widgets: by-name(base-registry)");
 }

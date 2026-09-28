@@ -6,7 +6,7 @@ use serde_json::json;
 
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, Suggestion, SuggestNext, Variant, choice, confirm, params, permission, rewrite,
+    ShowParams, ShowVariants, SuggestNext, Suggestion, Variant, choice, confirm, params, permission, rewrite,
     suggestions, variants,
 };
 

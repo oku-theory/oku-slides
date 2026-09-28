@@ -1,6 +1,8 @@
 //! Propriété : des pairs qui éditent en parallèle puis échangent tout convergent.
 
-use oku_slides_core::{Deck, DeckReplica, ElementBody, Slide, SlideKind, validate};
+mod common;
+
+use oku_slides_core::{Deck, DeckReplica, ParamValue, Params, Slide, validate};
 use proptest::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -26,16 +28,45 @@ fn edit() -> impl Strategy<Value = Edit> {
     ]
 }
 
+/// Bascule le gras du premier run du premier `text` de `params` (slots
+/// parcourus en profondeur) ; `true` si un run a été trouvé.
+fn toggle_bold(params: &mut Params) -> bool {
+    for (_, list) in params.slots_mut() {
+        for el in list.iter_mut() {
+            if el.kind == "text"
+                && let Some(ParamValue::Rich(body)) = el.params.0.get_mut("body")
+                && let Some(run) = body.first_mut().and_then(|p| p.runs.first_mut())
+            {
+                run.bold = !run.bold;
+                return true;
+            }
+            if toggle_bold(&mut el.params) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
     let len = deck.slides.len();
     match e {
         Edit::Add(i) => {
             *n += 1;
-            let s = Slide::new(format!("p{peer}-{n}"), SlideKind::Content);
+            let s = Slide::new(format!("p{peer}-{n}"), "content");
             deck.slides.insert(if len == 0 { 0 } else { i % (len + 1) }, s);
         }
         _ if len == 0 => {}
-        Edit::Title(i, s) => deck.slides[i % len].title = (!s.trim().is_empty()).then(|| s.clone()),
+        Edit::Title(i, s) => {
+            let contents: Vec<usize> = (0..len).filter(|&k| deck.slides[k].kind == "content").collect();
+            if let Some(&k) = contents.get(i % contents.len().max(1)) {
+                let params = &mut deck.slides[k].params;
+                match s.trim() {
+                    "" => params.remove("title"),
+                    t => params.set("title", ParamValue::Text(t.to_owned())),
+                };
+            }
+        }
         Edit::Notes(i, s) => deck.slides[i % len].notes.push_str(s),
         Edit::Move(a, b) => {
             let s = deck.slides.remove(a % len);
@@ -46,15 +77,7 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
         }
         Edit::Theme(t) => deck.theme = t.clone(),
         Edit::Bold(i) => {
-            let slide = &mut deck.slides[i % len];
-            for el in slide.elements.iter_mut().chain(slide.blocks.iter_mut()) {
-                if let ElementBody::Text { text } = &mut el.body
-                    && let Some(run) = text.first_mut().and_then(|p| p.runs.first_mut())
-                {
-                    run.bold = !run.bold;
-                    return;
-                }
-            }
+            toggle_bold(&mut deck.slides[i % len].params);
         }
     }
 }
@@ -68,9 +91,9 @@ proptest! {
         seed in any::<u64>(),
     ) {
         let deck = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
-        let snap = DeckReplica::new(&deck).unwrap().snapshot().unwrap();
+        let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
         let mut peers: Vec<DeckReplica> =
-            edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24).unwrap().0).collect();
+            edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
         for (p, (replica, list)) in peers.iter_mut().zip(&edits).enumerate() {
             let (mut d, mut n) = (replica.deck().0, 0);
             for e in list {
@@ -88,7 +111,7 @@ proptest! {
         }
         for _ in 0..2 {
             for &(a, b) in &order {
-                let src = DeckReplica::from_snapshot(&peers[b].snapshot().unwrap(), 1 << 24).unwrap().0;
+                let src = DeckReplica::from_snapshot(&peers[b].snapshot().unwrap(), 1 << 24, common::shared()).unwrap().0;
                 peers[a].merge(&src).unwrap();
             }
         }
@@ -97,6 +120,6 @@ proptest! {
         for p in &peers[1..] {
             prop_assert_eq!(&p.deck().0, &first);
         }
-        prop_assert!(validate(&first, None).iter().all(|i| i.message.id() != "issue-duplicate-slide-id"));
+        prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| i.message.id() != "issue-duplicate-slide-id"));
     }
 }

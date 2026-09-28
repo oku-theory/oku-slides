@@ -84,15 +84,14 @@ impl Session {
         if let Some((i, slide)) =
             ui.slide.as_deref().and_then(|id| deck.slides.iter().enumerate().find(|(_, s)| s.id == id))
         {
-            let kind =
-                serde_json::to_value(slide.kind).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default();
             let _ = writeln!(
                 out,
-                "slide: {} ({}/{}) kind={kind} title={:?}",
+                "slide: {} ({}/{}) kind={} title={:?}",
                 slide.id,
                 i + 1,
                 deck.slides.len(),
-                slide.title.as_deref().unwrap_or("")
+                slide.kind,
+                slide.params.text("title").unwrap_or("")
             );
         }
         if ui.element.is_some() || ui.field.is_some() {

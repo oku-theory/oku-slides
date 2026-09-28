@@ -12,7 +12,6 @@ use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
 use oku_slides_core::{HistoryPreview, SlideChanges, SourceBundle, Version, slide_changes};
-use oku_slides_i18n::Localize;
 use oku_slides_render::Compiled;
 
 use crate::error::{
@@ -84,7 +83,7 @@ impl Session {
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let sources = SourceBundle::new(deck).context(SourcesSnafu)?;
+        let sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
         let compiled = self.renderer.render(sources.deck(), &self.doc.sources.assets).context(RenderSnafu)?;
         let mut doc = Document::new(sources, self.doc.path.clone(), &self.doc_defaults);
         doc.dirty = self.doc.dirty;
@@ -173,11 +172,13 @@ impl Session {
             }
         };
         // Comme à la fusion : la version est restaurée telle que l'aperçu l'a lue.
-        for issue in &issues {
-            tracing::warn!(issue = %issue.localize(&self.localizer), "partie illisible de la version restaurée");
-        }
+        // Parties illisibles journalisées comme avant ; les constats de
+        // validation ne sont pas des pertes.
+        crate::files::log_issues(&issues, &self.localizer, crate::files::IssuesAt::Restore);
         stash.dirty = true;
         self.back_to_deck(stash);
+        // La version restaurée peut avoir un autre ensemble de modèles.
+        self.sync_widgets()?;
         self.rerender()
     }
 

@@ -1,4 +1,4 @@
-use oku_slides_core::{Op, Paragraph, Run};
+use oku_slides_core::{Op, OpErrorKind, Paragraph, Run, Target};
 use oku_slides_session::SessionErrorKind;
 use oku_slides_session::agent::{
     AgentUi, AskRewrite, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface, Variant,
@@ -44,7 +44,7 @@ fn rewrite_surface_of_text_element_diffs_each_proposal() {
 fn rewrite_surface_of_title_field_reads_slide_title() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let title = s.deck().slide("s-constat").and_then(|sl| sl.title.clone()).unwrap();
+    let title = s.deck().slide("s-constat").and_then(|sl| sl.params.text("title").map(str::to_owned)).unwrap();
     let spec =
         AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
     let json = serde_json::to_string(&s.rewrite_surface("ask-10", &spec).unwrap()).unwrap();
@@ -70,7 +70,7 @@ fn rewrite_ops_of_element_with_paragraphs_carries_their_runs() {
     s.apply("Reformulation", ops).unwrap();
     let deck = s.deck();
     let located = deck.slide("s-libre").unwrap().locate("e-texte").unwrap();
-    let run = &located.element.body.text().unwrap()[0].runs[0];
+    let run = &located.element.params.rich("body").unwrap()[0].runs[0];
     assert_that!(run.bold).is_true();
     assert_that!(run.t.as_str()).is_equal_to("Gras");
 }
@@ -85,6 +85,32 @@ fn rewrite_ops_of_element_without_paragraphs_returns_agent_form_error() {
 }
 
 #[test]
+fn agent_rewrite_of_at_title_sets_the_slide_title_param() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec =
+        AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
+    let ops = s.rewrite_ops(&spec, "Nouveau titre", None).unwrap();
+    assert_that!(ops).is_equal_to(vec![Op::SetParam {
+        target: Target { slide: "s-constat".into(), element: None },
+        param: "title".into(),
+        value: json!("Nouveau titre"),
+    }]);
+}
+
+#[test]
+fn rewrite_surface_of_at_nope_returns_op_unknown_param() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec =
+        AskRewrite { slide: "s-constat".into(), element: "@nope".into(), proposals: vec!["A".into(), "B".into()] };
+    let err = s.rewrite_surface("ask-nope", &spec).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::Op);
+    let op_kind = err.transaction().map(|t| t.op_error().kind());
+    assert_that!(op_kind).is_equal_to(Some(OpErrorKind::UnknownParam));
+}
+
+#[test]
 fn rewrite_ops_of_field_ignores_missing_paragraphs() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
@@ -92,7 +118,7 @@ fn rewrite_ops_of_field_ignores_missing_paragraphs() {
         AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
     let ops = s.rewrite_ops(&spec, "Nouveau titre", None).unwrap();
     s.apply("Reformulation", ops).unwrap();
-    assert_that!(s.deck().slide("s-constat").unwrap().title.as_deref()).is_equal_to(Some("Nouveau titre"));
+    assert_that!(s.deck().slide("s-constat").unwrap().params.text("title")).is_equal_to(Some("Nouveau titre"));
 }
 
 fn theme_field(template: serde_json::Value) -> ParamField {
@@ -248,8 +274,8 @@ fn params_surface_template_that_is_not_an_op_returns_agent_form() {
 fn params_surface_template_on_missing_element_returns_agent_form() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let t =
-        json!({ "op": "set_text", "slide": "s-libre", "element": "absent", "text": [{ "runs": [{ "t": "$value" }] }] });
+    let t = json!({ "op": "set_param", "target": { "slide": "s-libre", "element": "absent" }, "param": "body",
+                "value": [{ "runs": [{ "t": "$value" }] }] });
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![theme_field(t)] };
     assert_that!(s.params_surface("show-3", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::AgentForm);
 }
@@ -262,7 +288,11 @@ fn param_op_fills_template_with_chosen_value() {
 }
 
 fn retitle(title: &str) -> Vec<Op> {
-    vec![Op::SetText { slide: "s-libre".into(), element: "e-texte".into(), text: vec![Paragraph::plain(title)] }]
+    vec![Op::SetParam {
+        target: Target { slide: "s-libre".into(), element: Some("e-texte".into()) },
+        param: "body".into(),
+        value: json!([{ "runs": [{ "t": title }] }]),
+    }]
 }
 
 #[test]
@@ -353,7 +383,11 @@ fn variants_surface_variant_with_too_many_ops_returns_agent_form() {
 fn variants_surface_with_invalid_ops_fails_whole_call() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let bad = vec![Op::SetText { slide: "s-libre".into(), element: "absent".into(), text: vec![] }];
+    let bad = vec![Op::SetParam {
+        target: Target { slide: "s-libre".into(), element: Some("absent".into()) },
+        param: "body".into(),
+        value: serde_json::json!([]),
+    }];
     let spec = ShowVariants {
         slide: "s-libre".into(),
         variants: vec![

@@ -3,7 +3,8 @@
 //! En édition des modèles, le panneau montre le nom et la description du
 //! modèle, et sa grille. L'interface rend la surface et renvoie ses actions :
 //! `rename_template` et `describe_template` (contexte `slide`, `value`),
-//! `set_grid` (contexte `slide`, `columns`, `rows`).
+//! `set_grid` (contexte `slide`, `columns`, `rows`) ; l'interface en fait un
+//! `set_param` du paramètre `grid` de la slide (l'action garde son nom).
 
 use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, ServerMessage, TextVariant};
 use oku_slides_core::Slide;
@@ -32,7 +33,8 @@ pub(crate) fn panel(slide: &Slide, grid: Option<&GridBox>, editing: bool, l: &Lo
         }
     });
     // Une slide à blocs n'a pas de grille réglable : elle cacherait ses blocs.
-    if let Some(grid) = grid.filter(|_| slide.blocks.is_empty()) {
+    let has_blocks = slide.params.slot("blocks").is_some_and(|b| !b.is_empty());
+    if let Some(grid) = grid.filter(|_| !has_blocks) {
         cards.push("grid".to_owned());
         components.extend(grid_card(slide, l));
         data["grid"] = json!({ "columns": grid.columns, "rows": grid.rows });

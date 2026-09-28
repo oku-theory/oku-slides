@@ -7,7 +7,15 @@
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
 //!
-//! Le registre des widgets ([`load_registry`]) se lit par une sonde Typst.
+//! - [`Renderer`] : garde un monde Typst vivant entre deux rendus
+//!   ([`Renderer::render`], [`Renderer::set_deck`]) ; ses widgets ([`Renderer::set_widgets`],
+//!   [`Renderer::registry`]) sont ceux de base, surchargés par un [`PackWidgets`] ; rend un
+//!   [`Compiled`] (SVG, PNG, PDF, [`Layout`]).
+//! - [`Layout`] : ce que le rendu dit du document — [`SlidePage`], [`ElementBox`],
+//!   [`FieldBox`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
+//!   compilé.
+//! - Le registre des widgets ([`load_registry`], [`Registries`]) se lit par une sonde
+//!   Typst, éventuellement surchargée par un [`PackWidgets`].
 
 mod charts;
 mod diagnostic;
@@ -19,22 +27,23 @@ mod world;
 
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use serde_json::Value as Json;
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 use typst::foundations::{Label, Selector};
 use typst::introspection::Introspector;
 use typst::utils::PicoStr;
 use typst_layout::PagedDocument;
 
-use oku_slides_core::Deck;
+use oku_slides_core::{Deck, WidgetRegistry};
 
 pub use diagnostic::{Diagnostic, Severity};
-use error::{CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
+use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
-pub use registry::{PackWidgets, Registries, load_registry};
+pub use registry::{PackWidgets, Registries, is_pack_id, load_registry};
 use world::OkuSlidesWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
@@ -132,9 +141,13 @@ pub struct SlidePage {
 }
 
 /// Un rendu : garde un monde Typst vivant pour profiter de la compilation
-/// incrémentale entre deux versions du deck.
+/// incrémentale entre deux versions du deck. Les slides et les éléments sont
+/// rendus par les widgets de base, surchargés par ceux d'un pack
+/// ([`Renderer::set_widgets`]).
 pub struct Renderer {
     world: OkuSlidesWorld,
+    /// Registre des widgets rendus (base, surchargée par le pack).
+    registry: Arc<WidgetRegistry>,
 }
 
 impl std::fmt::Debug for Renderer {
@@ -144,13 +157,33 @@ impl std::fmt::Debug for Renderer {
 }
 
 impl Renderer {
+    /// Un rendu avec les widgets de base.
     pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
-        Ok(Self { world: OkuSlidesWorld::new(fonts)? })
+        let registry = registry::base_registry(&fonts).map_err(Box::new).context(BaseRegistrySnafu)?;
+        Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry })
+    }
+
+    /// Widgets rendus : ceux de base, surchargés par `pack` (ou seuls, sans
+    /// pack). `registry` est le registre de ce pack ([`Registries::get`]) ;
+    /// il dit aussi quels éléments portent un graphique, redessinés ici.
+    pub fn set_widgets(
+        &mut self,
+        pack: Option<&PackWidgets>,
+        registry: Arc<WidgetRegistry>,
+    ) -> Result<(), RenderError> {
+        self.world.set_pack(pack, &registry)?;
+        self.registry = registry;
+        Ok(())
+    }
+
+    /// Registre des widgets rendus.
+    pub fn registry(&self) -> &Arc<WidgetRegistry> {
+        &self.registry
     }
 
     /// Remplace le deck et les assets à rendre.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
-        self.world.set_deck(deck, assets)
+        self.world.set_deck(deck, assets, &self.registry)
     }
 
     /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette
@@ -161,7 +194,7 @@ impl Renderer {
         self.set_deck(deck, assets)?;
         let compiled = self.compile()?;
         let palette = compiled.layout().tokens.as_ref().map(chart_palette).unwrap_or_default();
-        if self.world.set_chart_palette(palette)? {
+        if self.world.set_chart_palette(palette, &self.registry)? {
             return self.compile();
         }
         Ok(compiled)
@@ -189,7 +222,7 @@ impl Renderer {
     /// des libellés par défaut des graphiques ; les graphiques du deck
     /// courant sont redessinés.
     pub fn set_language(&mut self, l: &oku_slides_i18n::Localizer) -> Result<(), RenderError> {
-        self.world.set_language(l)
+        self.world.set_language(l, &self.registry)
     }
 }
 

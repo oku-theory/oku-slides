@@ -12,15 +12,16 @@ impl Tools {
             .with_session(|s| {
                 let snap = s.snapshot();
                 let deck = s.deck();
-                let slides: Vec<Value> = deck
+                let slides: Vec<Value> = snap
                     .slides
                     .iter()
                     .map(|sl| {
+                        let elements = deck.slide(sl.id).map(|sl| sl.element_ids().count()).unwrap_or(0);
                         json!({
                             "id": sl.id,
                             "kind": sl.kind,
                             "title": sl.title,
-                            "elements": sl.element_ids().count(),
+                            "elements": elements,
                         })
                     })
                     .collect();
@@ -62,6 +63,13 @@ impl Tools {
         };
         match self.with_session(move |s| s.png(&id).map_err(|e| e.one_line())).await {
             Ok(bytes) => png(&bytes),
+            Err(e) => fail(e),
+        }
+    }
+
+    pub(crate) async fn widgets(&self) -> CallToolResult {
+        match self.with_session(|s| s.handle(Request::Widgets).map_err(|e| e.one_line())).await {
+            Ok(json) => text(json),
             Err(e) => fail(e),
         }
     }

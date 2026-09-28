@@ -8,7 +8,7 @@ const slide = (p) => p.evaluate(() =>
   fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'slide', id: 's-constat' } }) })
     .then((r) => r.json())
     .then((s) => s.slide));
-const points = async (p) => (await slide(p)).blocks.find((e) => e.id === 'b-points').text;
+const points = async (p) => (await slide(p)).params.blocks.find((e) => e.id === 'b-points').params.body;
 const undoLabel = (p) => p.evaluate(() => document.querySelector('[aria-label^="Annuler"]')?.getAttribute('aria-label'));
 const text = (p) => p.locator('.editor .cm-content').innerText();
 const image = (p) => p.locator('.stage img').getAttribute('src');
@@ -148,7 +148,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await closed(p);
 
   // 8. Champ : texte brut sur une ligne ; collage multiligne aplati ; Maj+Entrée et Entrée valident.
-  const title = (await slide(p)).title;
+  const title = (await slide(p)).params.title;
   await open(p, 'Titre');
   await p.keyboard.press('ControlOrMeta+a');
   await paste(p, 'a\nb');
@@ -158,12 +158,12 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.type('Constat');
   await commitWith(p, () => p.keyboard.press('Shift+Enter'));
-  assert.equal((await slide(p)).title, 'Constat');
+  assert.equal((await slide(p)).params.title, 'Constat');
   await open(p, 'Titre');
   await p.keyboard.type(' **2**');
   assert.equal(await p.locator('.editor .cm-md-bold').count(), 0);
   await commitWith(p, () => p.keyboard.press('Enter'));
-  assert.equal((await slide(p)).title, 'Constat **2**');
+  assert.equal((await slide(p)).params.title, 'Constat **2**');
 
   // L'hôte garde la slide courante (t-87) : rendre la slide 1 pour que les scripts suivants
   // (toolbar.cjs, panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.

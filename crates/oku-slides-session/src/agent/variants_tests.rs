@@ -5,9 +5,10 @@ use super::{MAX_TEMPLATE_DEPTH, fill_template};
 
 #[test]
 fn fill_template_replaces_every_value_marker() {
-    let t = json!({ "op": "set_grid", "slide": "s-1", "grid": { "columns": "$value", "rows": 6 }, "tags": ["$value"] });
-    assert_that!(fill_template(&t, &json!(8)))
-        .is_equal_to(json!({ "op": "set_grid", "slide": "s-1", "grid": { "columns": 8, "rows": 6 }, "tags": [8] }));
+    let t = json!({ "op": "set_param", "target": { "slide": "s-1" }, "param": "grid",
+        "value": { "columns": "$value", "rows": 6 }, "tags": ["$value"] });
+    assert_that!(fill_template(&t, &json!(8))).is_equal_to(json!({ "op": "set_param", "target": { "slide": "s-1" },
+        "param": "grid", "value": { "columns": 8, "rows": 6 }, "tags": [8] }));
 }
 
 #[test]

@@ -6,6 +6,7 @@ session-invalid-template-set = Ensemble de modèles invalide : { $path }
 session-not-rendered = Le deck n'est pas encore rendu
 session-no-path = Aucun fichier : choisissez où enregistrer
 session-no-slide = Slide introuvable : { $id }
+session-no-chart = Pas de graphique ici : { $subject }
 session-no-template-set = Ensemble de modèles introuvable : { $id }
 session-builtin-template-set = Un ensemble intégré ne se supprime pas
 session-no-templates-dir = Pas de dossier pour vos modèles

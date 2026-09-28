@@ -1,24 +1,25 @@
 {
-  "params": { "title": "Feuille de route {{annee}}", "author": "Matthieu", "date": "1er octobre 2026", "organization": "Darticorp" },
+  "version": 2,
+  "params": { "title": "Feuille de route {{annee}}", "subtitle": "Préparé pour {{client}}", "author": "Matthieu", "date": "1er octobre 2026", "organization": "Darticorp" },
   "vars": { "client": "Acme", "annee": 2027 },
   "tokens": { "color": { "accent": "#8a5a1c" } },
   "slides": [
-    { "kind": "title", "subtitle": "Préparé pour {{client}}" },
-    { "kind": "toc" },
-    { "kind": "chapter", "title": "Priorités" },
-    { "kind": "content", "title": "Trois chantiers pour l'année", "layout": "columns", "blocks": [
-      { "id": "c1", "text": [ { "runs": [ { "t": "Fiabilité", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Diviser par deux les incidents." } ] } ] },
-      { "id": "c2", "text": [ { "runs": [ { "t": "Vitesse", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Livrer chaque semaine." } ] } ] },
-      { "id": "c3", "text": [ { "runs": [ { "t": "Clients", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Un interlocuteur unique pour {{client}}." } ] } ] }
-    ] },
-    { "kind": "content", "title": "Placement libre", "elements": [
+    { "id": "s1", "kind": "title" },
+    { "id": "s2", "kind": "toc" },
+    { "id": "s3", "kind": "chapter", "params": { "title": "Priorités" } },
+    { "id": "s4", "kind": "content", "params": { "title": "Trois chantiers pour l'année", "layout": "columns", "blocks": [
+      { "id": "c1", "kind": "text", "params": { "body": [ { "runs": [ { "t": "Fiabilité", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Diviser par deux les incidents." } ] } ] } },
+      { "id": "c2", "kind": "text", "params": { "body": [ { "runs": [ { "t": "Vitesse", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Livrer chaque semaine." } ] } ] } },
+      { "id": "c3", "kind": "text", "params": { "body": [ { "runs": [ { "t": "Clients", "bold": true, "color": "accent" } ] }, { "runs": [ { "t": "Un interlocuteur unique pour {{client}}." } ] } ] } }
+    ] } },
+    { "id": "s5", "kind": "content", "params": { "title": "Placement libre", "elements": [
       { "id": "e1", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 800, "h": 500 }, "style": { "fill": "surface", "radius": "md" } },
       { "id": "e2", "kind": "text", "frame": { "x": 40, "y": 40, "w": 720, "h": 200 }, "style": { "size": "lead", "font": "display" },
-        "text": [ { "runs": [ { "t": "Un bloc posé à 40 pt du coin" } ] } ] },
-      { "id": "e3", "kind": "image", "asset": "sha256:ab12", "frame": { "x": 880, "y": 0, "w": 800, "h": 500 } },
+        "params": { "body": [ { "runs": [ { "t": "Un bloc posé à 40 pt du coin" } ] } ] } },
+      { "id": "e3", "kind": "image", "frame": { "x": 880, "y": 0, "w": 800, "h": 500 }, "params": { "asset": "sha256:ab12" } },
       { "id": "e4", "kind": "text", "frame": { "x": 0, "y": 560, "w": 1680, "h": 120 },
-        "text": [ { "list": "bullet", "runs": [ { "t": "Liste à puces " }, { "t": "avec du gras", "bold": true } ] }, { "list": "bullet", "runs": [ { "t": "Deuxième point" } ] } ] }
-    ] },
-    { "kind": "end", "text": "Merci {{client}}" }
+        "params": { "body": [ { "list": "bullet", "runs": [ { "t": "Liste à puces " }, { "t": "avec du gras", "bold": true } ] }, { "list": "bullet", "runs": [ { "t": "Deuxième point" } ] } ] } }
+    ] } },
+    { "id": "s6", "kind": "end", "params": { "text": "Merci {{client}}" } }
   ]
 }

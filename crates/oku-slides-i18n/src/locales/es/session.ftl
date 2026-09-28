@@ -6,6 +6,7 @@ session-invalid-template-set = Conjunto de plantillas no válido: { $path }
 session-not-rendered = La presentación aún no se ha generado
 session-no-path = Todavía no hay archivo: elige dónde guardarlo
 session-no-slide = Diapositiva no encontrada: { $id }
+session-no-chart = No hay ningún gráfico aquí: { $subject }
 session-no-template-set = Conjunto de plantillas no encontrado: { $id }
 session-builtin-template-set = Un conjunto de plantillas integrado no se puede eliminar
 session-no-templates-dir = No hay carpeta para tus plantillas

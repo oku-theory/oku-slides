@@ -6,6 +6,7 @@ session-invalid-template-set = Bộ mẫu không hợp lệ: { $path }
 session-not-rendered = Bản trình bày chưa được kết xuất
 session-no-path = Chưa có tệp: hãy chọn nơi lưu
 session-no-slide = Không tìm thấy trang chiếu: { $id }
+session-no-chart = Không có biểu đồ ở đây: { $subject }
 session-no-template-set = Không tìm thấy bộ mẫu: { $id }
 session-builtin-template-set = Không thể xóa bộ mẫu có sẵn
 session-no-templates-dir = Không có thư mục cho mẫu của bạn

@@ -40,10 +40,15 @@ fn same_style(a: &Deck, b: &Deck) -> bool {
 }
 
 impl Session {
-    /// Passe en édition d'un ensemble : ses modèles deviennent les slides.
-    /// Le deck garde son thème, ses jetons et ses variables ; les modèles ne
-    /// portent pas d'assets (un ensemble n'en enregistre pas).
+    /// Passe en édition d'un ensemble : ses modèles deviennent les slides,
+    /// lus et rendus avec les widgets de son pack. Le deck garde son thème,
+    /// ses jetons et ses variables ; les modèles ne portent pas d'assets (un
+    /// ensemble n'en enregistre pas).
     pub fn edit_templates(&mut self, id: &str) -> Result<()> {
+        if matches!(self.mode, Mode::History { .. }) {
+            // L'historique ouvert se ferme d'abord (`handle` refuse avant d'arriver ici).
+            return InHistorySnafu.fail()?;
+        }
         let (set, builtin) = self.get_set(id)?;
         let set = set.into_owned();
         let slides = set
@@ -60,8 +65,13 @@ impl Session {
         let mut deck = styled_like(self.user_deck(), slides);
         deck.params.title = Some(set.name.clone());
         deck.templates = Some(set.id.clone());
-        let templates = Document::new(SourceBundle::new(deck).context(SourcesSnafu)?, None, &self.doc_defaults);
+        let (widgets, notice) = self.resolve_widgets(Some(&set.id))?;
+        let sources = SourceBundle::new(deck, widgets.registry.clone()).context(SourcesSnafu)?;
+        let templates = Document::new(sources, None, &self.doc_defaults);
         let edit = TemplateMode { set: set.id, name: set.name, builtin };
+        // Les widgets du pack s'installent avant de changer de document : en
+        // cas d'échec, rien ne change.
+        self.install_widgets(widgets)?;
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
             // Déjà en édition : on change d'ensemble, le deck reste de côté.
             Mode::Templates { stash, .. } => {
@@ -75,6 +85,9 @@ impl Session {
                 return InHistorySnafu.fail()?;
             }
         };
+        if let Some(notice) = notice {
+            self.set_notice(notice);
+        }
         self.ui.slide = None;
         self.rerender()?;
         Ok(())
@@ -101,7 +114,7 @@ impl Session {
                 let name = slide
                     .name
                     .take()
-                    .or_else(|| slide.title.clone())
+                    .or_else(|| slide.params.text("title").map(str::to_owned))
                     .unwrap_or_else(|| self.localizer.tr("template-default-name"));
                 let description = slide.description.take().unwrap_or_default();
                 slide.id = format!("tpl-{}", s.id);
@@ -128,8 +141,13 @@ impl Session {
         let id = if copy { self.library.free_id(&name) } else { mode.set.clone() };
         let set = self.edited_set(&deck, id.clone());
         self.library.save(&set)?;
+        // Une copie emporte les widgets du pack copié.
+        if copy && let Some(source) = self.library.widgets(&mode.set) {
+            self.library.save_widgets(&id, &source)?;
+        }
         deck.templates = Some(id);
         self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
+        self.sync_widgets()?;
         self.doc.dirty = false;
         if let Mode::Templates { edit, .. } = &mut self.mode {
             *edit = TemplateMode { set: set.id, name: set.name, builtin: false };
@@ -142,7 +160,10 @@ impl Session {
     /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
     pub fn close_templates(&mut self) -> Result<()> {
         match std::mem::replace(&mut self.mode, Mode::Deck) {
-            Mode::Templates { stash, .. } => self.doc = *stash,
+            Mode::Templates { stash, .. } => {
+                self.doc = *stash;
+                self.sync_widgets()?;
+            }
             Mode::Deck => {}
             // Le deck est de côté pour l'historique : il n'est pas perdu ici.
             history @ Mode::History { .. } => {
@@ -169,7 +190,12 @@ impl Session {
                 let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
                 let renderer = match &mut self.template_renderer {
                     Some(r) => r,
-                    None => self.template_renderer.insert(new_renderer(self.render_fonts.clone(), &self.localizer)?),
+                    None => self.template_renderer.insert(new_renderer(
+                        self.render_fonts.clone(),
+                        &self.localizer,
+                        self.pack.as_ref(),
+                        &self.registry,
+                    )?),
                 };
                 let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
                 let layout = compiled.layout();

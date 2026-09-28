@@ -13,10 +13,10 @@ use speculoos::prelude::*;
 fn deck_with(frame: serde_json::Value, rows: usize) -> Deck {
     let mut source = vec![json!(["Mois", "Ventes"])];
     source.extend((0..rows).map(|i| json!([format!("m{i}"), i])));
-    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "elements": [{
-        "id": "g", "kind": "chart", "frame": frame,
-        "option": { "dataset": { "source": source }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] }
-    }] }] }))
+    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
+        "id": "g", "kind": "chart", "frame": frame, "params": {
+        "option": { "dataset": { "source": source }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } }
+    }] } }] }))
     .unwrap_or_else(|e| panic!("{e}"))
 }
 

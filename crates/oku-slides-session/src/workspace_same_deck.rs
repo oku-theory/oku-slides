@@ -9,10 +9,10 @@ use std::sync::{Arc, Mutex};
 
 use snafu::ResultExt;
 
-use oku_slides_core::SourceLimits;
+use oku_slides_core::{SourceLimits, WidgetRegistry};
 use oku_slides_platform::storage::{Storage, resolve};
 
-use crate::error::{ResponseSnafu, Result};
+use crate::error::{RegistrySnafu, ResponseSnafu, Result};
 use crate::files::{deck_uid_of, source_limits};
 
 use super::{Slot, Workspace, WorkspaceOutcome, number, relock};
@@ -26,10 +26,10 @@ impl Workspace {
     /// erreur (l'interface l'affiche et n'ouvre rien).
     pub(super) fn same_deck(ws: &Mutex<Self>, path: &Path) -> Result<WorkspaceOutcome> {
         let path = resolve(path);
-        let found = match Self::reader(ws, &path) {
-            Some((storage, limits)) => {
+        let found = match Self::reader(ws, &path)? {
+            Some((storage, limits, registry)) => {
                 // Hors de tout verrou : lecture et décodage du fichier.
-                let uid = deck_uid_of(&storage, &path, limits)?;
+                let uid = deck_uid_of(&storage, &path, limits, &registry)?;
                 uid.and_then(|uid| Self::lock(ws).tab_of_deck(&uid, &path))
             }
             None => None,
@@ -41,9 +41,14 @@ impl Workspace {
 
     /// De quoi lire `path` hors du verrou ; `None` : déjà ouvert tel quel,
     /// rien à lire.
-    fn reader(ws: &Mutex<Self>, path: &Path) -> Option<(Storage, SourceLimits)> {
-        let w = Self::lock(ws);
-        w.tab_with_path(path).is_none().then(|| (w.platform.storage.clone(), source_limits(&w.platform.settings)))
+    /// Le registre de base suffit : seule l'identité du deck est lue.
+    fn reader(ws: &Mutex<Self>, path: &Path) -> Result<Option<(Storage, SourceLimits, Arc<WidgetRegistry>)>> {
+        let mut w = Self::lock(ws);
+        if w.tab_with_path(path).is_some() {
+            return Ok(None);
+        }
+        let registry = w.registries.get(None).context(RegistrySnafu)?;
+        Ok(Some((w.platform.storage.clone(), source_limits(&w.platform.settings), registry)))
     }
 
     /// L'onglet non vierge qui tient le deck `uid` sous un autre fichier que

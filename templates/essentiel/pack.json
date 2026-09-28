@@ -1,0 +1,362 @@
+{
+  "id": "essentiel",
+  "name": "Essentiel",
+  "description": "Les mises en page de base : texte, cartes, colonnes, chapitres.",
+  "templates": [
+    {
+      "id": "texte",
+      "name": "Texte",
+      "description": "Un titre et une liste de points",
+      "slide": {
+        "id": "tpl-texte",
+        "kind": "content",
+        "params": {
+          "title": "Titre de la slide",
+          "kicker": "Surtitre",
+          "blocks": [
+            {
+              "id": "b",
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Premier point"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Deuxième point"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Troisième point"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cartes",
+      "name": "Trois cartes",
+      "description": "Trois idées côte à côte, la dernière mise en avant",
+      "slide": {
+        "id": "tpl-cartes",
+        "kind": "content",
+        "params": {
+          "title": "Trois idées",
+          "kicker": "Surtitre",
+          "layout": "columns",
+          "blocks": [
+            {
+              "id": "c1",
+              "kind": "card",
+              "params": {
+                "kicker": "Un",
+                "title": "Première",
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c2",
+              "kind": "card",
+              "params": {
+                "kicker": "Deux",
+                "title": "Deuxième",
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c3",
+              "kind": "card",
+              "params": {
+                "kicker": "Trois",
+                "title": "Troisième",
+                "highlight": true,
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "colonnes",
+      "name": "Deux colonnes",
+      "description": "Comparer deux choses, ou un texte et son illustration",
+      "slide": {
+        "id": "tpl-colonnes",
+        "kind": "content",
+        "params": {
+          "title": "Avant, après",
+          "layout": "split",
+          "blocks": [
+            {
+              "id": "g",
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Avant"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Ce qui était"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Ce qui gênait"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d",
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Après"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Ce qui change"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Ce qu'on y gagne"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "citation",
+      "name": "Citation",
+      "description": "Une phrase forte, mise en valeur",
+      "slide": {
+        "id": "tpl-citation",
+        "kind": "content",
+        "params": {
+          "title": "Ce qu'il faut retenir",
+          "layout": "quote",
+          "blocks": [
+            {
+              "id": "q",
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "« Une idée par slide. »"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "message",
+      "name": "Message central",
+      "description": "Un seul message, au centre",
+      "slide": {
+        "id": "tpl-message",
+        "kind": "content",
+        "params": {
+          "layout": "center",
+          "blocks": [
+            {
+              "id": "m",
+              "style": {
+                "size": "subtitle",
+                "font": "display",
+                "align": "center"
+              },
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Le message principal"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "libre",
+      "name": "Libre",
+      "description": "Des éléments à placer où vous voulez",
+      "slide": {
+        "id": "tpl-libre",
+        "kind": "content",
+        "params": {
+          "title": "Composition libre",
+          "elements": [
+            {
+              "id": "f",
+              "frame": {
+                "x": 0,
+                "y": 0,
+                "w": 800,
+                "h": 460
+              },
+              "style": {
+                "fill": "surface",
+                "radius": "md"
+              },
+              "kind": "shape"
+            },
+            {
+              "id": "t",
+              "frame": {
+                "x": 40,
+                "y": 40,
+                "w": 720,
+                "h": 160
+              },
+              "style": {
+                "size": "lead",
+                "font": "display"
+              },
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Un texte placé librement"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chapitre",
+      "name": "Chapitre",
+      "description": "Ouvre une partie, apparaît dans le sommaire",
+      "slide": {
+        "id": "tpl-chapitre",
+        "kind": "chapter",
+        "params": {
+          "title": "Nouvelle partie",
+          "subtitle": "En une phrase"
+        }
+      }
+    },
+    {
+      "id": "sommaire",
+      "name": "Sommaire",
+      "description": "La liste des chapitres, mise à jour seule",
+      "slide": {
+        "id": "tpl-sommaire",
+        "kind": "toc"
+      }
+    },
+    {
+      "id": "couverture",
+      "name": "Couverture",
+      "description": "Titre, sous-titre, auteur et date du deck",
+      "slide": {
+        "id": "tpl-couverture",
+        "kind": "title"
+      }
+    },
+    {
+      "id": "fin",
+      "name": "Fin",
+      "description": "La dernière slide",
+      "slide": {
+        "id": "tpl-fin",
+        "kind": "end",
+        "params": {
+          "text": "Merci"
+        }
+      }
+    }
+  ]
+}

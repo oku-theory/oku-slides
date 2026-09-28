@@ -6,6 +6,7 @@ session-invalid-template-set = مجموعة قوالب غير صالحة: { $pat
 session-not-rendered = لم يُعرض العرض التقديمي بعد
 session-no-path = لا يوجد ملف بعد: اختر مكان الحفظ
 session-no-slide = لم يُعثر على الشريحة: { $id }
+session-no-chart = لا يوجد مخطط هنا: { $subject }
 session-no-template-set = لم يُعثر على مجموعة القوالب: { $id }
 session-builtin-template-set = لا يمكن حذف مجموعة قوالب مدمجة
 session-no-templates-dir = لا يوجد مجلد لقوالبك

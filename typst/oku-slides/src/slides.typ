@@ -2,7 +2,7 @@
 // contenu, slide de fin. Chaque slide est une page.
 
 #import "tokens.typ": *
-#import "core.typ": _cfg, config, chrome, format-date, interp, chapter-number, chapter-counter, fill-template, template-fields, tracked
+#import "core.typ": _cfg, config, chrome, format-date, interp, chapter-number, chapter-counter, fill-template, template-fields
 
 // ---- Deck --------------------------------------------------------------------
 
@@ -84,19 +84,20 @@
 }
 
 // Titre de slide (heading de niveau 2) précédé d'un surtitre et d'un filet optionnels.
-#let _slide-title(t, title, kicker-body) = {
+// wrap : (nom, contenu, style) => contenu ; le widget y pose ses champs.
+#let _slide-title(t, title, kicker-body, wrap) = {
   let c = t.component.title
   let items = ()
-  if kicker-body != none { items.push(tracked("@kicker", styled(t, t.component.kicker, kicker-body),
-    style: text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none)))) }
+  if kicker-body != none { items.push(wrap("kicker", styled(t, t.component.kicker, kicker-body),
+    text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none)))) }
   let r = c.at("rule", default: none)
   if r != none {
     items.push(rect(width: r.width * 1pt, height: r.height * 1pt, fill: color-of(t, r.color)))
   }
-  items.push(tracked("@title", {
+  items.push(wrap("title", {
     set par(leading: leading-of(t, c.at("leading", default: "tight")))
     _heading(2, title, ..text-style(t, c))
-  }, style: text-style(t, c) + (leading: leading-of(t, c.at("leading", default: "tight")))))
+  }, text-style(t, c) + (leading: leading-of(t, c.at("leading", default: "tight")))))
   stack(spacing: space-of(t, "sm"), ..items)
 }
 
@@ -134,7 +135,9 @@
 /// layout : "default" | "columns" | "split" | "center" | "quote".
 /// zone : contenu posé en haut à gauche de la zone de corps (repère pour l'app).
 /// grow : corps qui prennent la hauteur restante (voir `_layout`).
-#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, zone: none, grow: (), ..bodies) = context {
+/// wrap : (nom, contenu, style) => contenu ; le widget y pose ses champs.
+#let slide(title: none, kicker: none, layout: "default", ratio: none, id: none, zone: none, grow: (),
+  wrap: (name, body, style) => body, ..bodies) = context {
   let c = config()
   let t = c.tokens
   let title = interp(title, c.vars)
@@ -143,7 +146,7 @@
     grid(
       rows: if title != none { (auto, 1fr) } else { (1fr,) },
       row-gutter: space-of(t, t.component.title.gap),
-      ..if title != none { (_slide-title(t, title, kicker),) },
+      ..if title != none { (_slide-title(t, title, kicker, wrap),) },
       block(width: 100%, height: 100%, {
         if zone != none { place(top + left, zone) }
         _layout(t, layout, bodies.pos(), ratio: ratio, grow: grow)
@@ -154,7 +157,8 @@
 
 /// Slide de titre du deck. Les valeurs par défaut viennent des paramètres du deck.
 /// Deux mises en page, choisies par le jeton component.title-slide.layout.
-#let title-slide(title: auto, subtitle: auto, author: auto, date: auto, kicker: auto, body: none, id: none) = context {
+#let title-slide(title: auto, subtitle: auto, author: auto, date: auto, kicker: auto, body: none, id: none,
+  wrap: (name, body, style) => body) = context {
   let c = config()
   let t = c.tokens
   let p = c.params
@@ -172,17 +176,17 @@
   let bar = if k.bar {
     rect(width: k.bar-width * 1pt, height: k.bar-height * 1pt, fill: color-of(t, k.bar-color))
   }
-  let title-block = tracked("@title", {
+  let title-block = wrap("title", {
     set par(leading: leading-of(t, "tight"))
     text(size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
       tracking: k.title-tracking * 1pt, title)
-  }, style: (size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
+  }, (size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
       tracking: k.title-tracking * 1pt, leading: leading-of(t, "tight")) + under)
   let sub = if subtitle != none {
-    tracked("@subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle),
-      style: (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")) + under)
+    wrap("subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle),
+      (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")) + under)
   }
   let meta-line = if meta.len() > 0 {
     text(size: size-of(t, k.meta-size), fill: col("meta-color", "band-meta-color"), meta.join[ · ])
@@ -238,7 +242,7 @@
 }
 
 /// Slide de chapitre : ouvre une section, alimente le sommaire et l'en-tête.
-#let chapter(title, subtitle: none, id: none) = context {
+#let chapter(title, subtitle: none, id: none, wrap: (name, body, style) => body) = context {
   let c = config()
   let t = c.tokens
   let k = t.component.chapter
@@ -257,19 +261,19 @@
           weight: weight-of(t, "display"),
           fill: color-of(t, k.at("number-color", default: k.ink)).transparentize(100% - k.number-opacity * 100%), numbering(pattern, chapter-counter.get().first() + 1)),)
       },
-      tracked("@title", {
+      wrap("title", {
         set par(leading: leading-of(t, "tight"))
         _heading(1, title, size: size-of(t, k.title-size), font: font-of(t, "display"),
           weight: weight-of(t, "display"), fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt)
-      }, style: (size: size-of(t, k.title-size), font: font-of(t, "display"), weight: weight-of(t, "display"),
+      }, (size: size-of(t, k.title-size), font: font-of(t, "display"), weight: weight-of(t, "display"),
         fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt, leading: leading-of(t, "tight"))),
-      ..if subtitle != none { (tracked("@subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)), style: (size: size-of(t, k.subtitle-size))),) },
+      ..if subtitle != none { (wrap("subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)), (size: size-of(t, k.subtitle-size))),) },
     ))
   })
 }
 
 /// Sommaire : la liste des chapitres, avec leur numéro et leur page.
-#let toc(title: auto, pages: true, id: none) = context {
+#let toc(title: auto, pages: true, id: none, wrap: (name, body, style) => body) = context {
   let c = config()
   let t = c.tokens
   let k = t.component.toc
@@ -282,7 +286,7 @@
       if pages { text(fill: color-of(t, k.page-color), str(counter(page).at(loc).first())) },
     )
   })
-  slide(title: if title == auto { c.params.toc-title } else { title }, id: id, {
+  slide(title: if title == auto { c.params.toc-title } else { title }, id: id, wrap: wrap, {
     set text(size: size-of(t, k.size))
     grid(
       columns: (auto, 1fr, auto),
@@ -294,15 +298,15 @@
 }
 
 /// Slide de fin, sans chrome.
-#let end-slide(body, id: none) = context {
+#let end-slide(body, id: none, wrap: (name, body, style) => body) = context {
   let t = config().tokens
   let k = t.component.end-slide
   page(fill: color-of(t, k.bg), foreground: none, {
     _mark(id)
-    align(center + horizon, tracked("@text", text(
+    align(center + horizon, wrap("text", text(
       size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
       weight: weight-of(t, "display"), body,
-    ), style: (size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
+    ), (size: size-of(t, k.size), fill: color-of(t, k.color), font: font-of(t, "display"),
       weight: weight-of(t, "display"))))
   })
 }

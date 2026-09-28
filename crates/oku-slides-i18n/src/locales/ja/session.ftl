@@ -6,6 +6,7 @@ session-invalid-template-set = テンプレートセットが無効です：{ $p
 session-not-rendered = プレゼンテーションはまだレンダリングされていません
 session-no-path = まだファイルがありません：保存先を選択してください
 session-no-slide = スライドが見つかりません：{ $id }
+session-no-chart = ここにグラフはありません：{ $subject }
 session-no-template-set = テンプレートセットが見つかりません：{ $id }
 session-builtin-template-set = 組み込みのテンプレートセットは削除できません
 session-no-templates-dir = テンプレート用のフォルダがありません

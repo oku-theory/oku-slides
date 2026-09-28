@@ -1,49 +1,62 @@
-//! Parcours des éléments d'une slide : blocs, éléments libres et groupes,
-//! avec la place de chacun. Une seule traversée sert aux opérations, à la
-//! validation et à la session.
+//! Parcours des éléments d'une slide à travers ses slots, parents avant
+//! enfants. Une seule traversée sert aux opérations, à la validation et à la
+//! session.
 
-use crate::model::{Element, ElementBody, GroupLayoutKind, Slide, Zone};
+use crate::model::{Element, Slide};
+use crate::params::Params;
 
-/// Un élément et sa place dans la slide.
+/// Un élément et sa place.
 #[derive(Debug, Clone, Copy)]
 pub struct Located<'a> {
     pub element: &'a Element,
-    /// Zone de premier niveau qui le contient.
-    pub zone: Zone,
-    /// Groupe parent, s'il y en a un.
-    pub parent: Option<&'a str>,
-    /// Position dans sa liste.
+    /// Élément qui porte le slot, ou `None` pour un slot de la slide.
+    pub owner: Option<&'a str>,
+    /// Nom du slot.
+    pub slot: &'a str,
     pub index: usize,
-    /// Son conteneur place ses éléments librement (zone des éléments libres,
-    /// ou groupe de layout `free`).
-    pub in_free_layout: bool,
+    /// 0 pour un enfant direct d'un slot de la slide.
+    pub depth: usize,
+}
+
+/// Profondeur maximale d'imbrication des slots (voir « Décisions »).
+pub const MAX_SLOT_DEPTH: usize = 16;
+
+/// Profondeur des descendants d'un élément : 0 s'il n'a pas d'enfant.
+/// Itérative : un deck non fiable ne peut pas épuiser la pile.
+pub fn slot_depth(e: &Element) -> usize {
+    let mut max = 0;
+    let mut stack = vec![(e, 0usize)];
+    while let Some((e, d)) = stack.pop() {
+        max = max.max(d);
+        for (_, children) in e.params.slots() {
+            stack.extend(children.iter().map(|c| (c, d + 1)));
+        }
+    }
+    max
 }
 
 impl Located<'_> {
-    /// Placé librement : dans un conteneur libre, avec un cadre ou une cellule.
+    /// Placé librement : avec un cadre ou une cellule.
     pub fn is_free(&self) -> bool {
-        self.in_free_layout && (self.element.frame.is_some() || self.element.cell.is_some())
+        self.element.frame.is_some() || self.element.cell.is_some()
     }
 }
 
-/// Parcours en profondeur, parents avant enfants, blocs avant éléments libres.
+/// Un slot en cours de parcours : propriétaire, nom, profondeur, éléments restants.
+type Level<'a> = (Option<&'a str>, &'a str, usize, std::iter::Enumerate<std::slice::Iter<'a, Element>>);
+
+/// Parcours en profondeur des slots, dans l'ordre des noms de paramètres.
 #[derive(Debug)]
 pub struct Walk<'a> {
     stack: Vec<Level<'a>>,
 }
 
-#[derive(Debug)]
-struct Level<'a> {
-    list: std::iter::Enumerate<std::slice::Iter<'a, Element>>,
-    zone: Zone,
-    parent: Option<&'a str>,
-    free: bool,
-}
-
 impl<'a> Walk<'a> {
-    /// Parcourt `list` (et ses groupes) comme le contenu de `zone`.
-    pub(crate) fn over(list: &'a [Element], zone: Zone) -> Self {
-        Self { stack: vec![Level { list: list.iter().enumerate(), zone, parent: None, free: zone == Zone::Elements }] }
+    /// Parcourt les slots de `params`, portés par `owner`.
+    pub fn over(params: &'a Params, owner: Option<&'a str>) -> Self {
+        let mut stack: Vec<_> = params.slots().map(|(name, list)| (owner, name, 0, list.iter().enumerate())).collect();
+        stack.reverse();
+        Self { stack }
     }
 }
 
@@ -52,40 +65,33 @@ impl<'a> Iterator for Walk<'a> {
 
     fn next(&mut self) -> Option<Located<'a>> {
         loop {
-            let level = self.stack.last_mut()?;
-            let Some((index, element)) = level.list.next() else {
+            let (owner, slot, depth, list) = self.stack.last_mut()?;
+            let (owner, slot, depth) = (*owner, *slot, *depth);
+            let Some((index, element)) = list.next() else {
                 self.stack.pop();
                 continue;
             };
-            let located =
-                Located { element, zone: level.zone, parent: level.parent, index, in_free_layout: level.free };
-            if let ElementBody::Group { layout, children } = &element.body {
-                self.stack.push(Level {
-                    list: children.iter().enumerate(),
-                    zone: located.zone,
-                    parent: Some(&element.id),
-                    free: layout.kind == GroupLayoutKind::Free,
-                });
-            }
-            return Some(located);
+            let mut children: Vec<_> = element
+                .params
+                .slots()
+                .map(|(name, l)| (Some(element.id.as_str()), name, depth + 1, l.iter().enumerate()))
+                .collect();
+            children.reverse();
+            self.stack.extend(children);
+            return Some(Located { element, owner, slot, index, depth });
         }
     }
 }
 
 impl Slide {
-    /// Tous les éléments de la slide, blocs d'abord, groupes compris.
     pub fn walk(&self) -> Walk<'_> {
-        let mut walk = Walk::over(&self.elements, Zone::Elements);
-        walk.stack.extend(Walk::over(&self.blocks, Zone::Blocks).stack);
-        walk
+        Walk::over(&self.params, None)
     }
 
-    /// Un élément par son identifiant, avec sa place.
     pub fn locate(&self, id: &str) -> Option<Located<'_>> {
         self.walk().find(|l| l.element.id == id)
     }
 
-    /// Identifiants de tous les éléments de la slide.
     pub fn element_ids(&self) -> impl Iterator<Item = &str> {
         self.walk().map(|l| l.element.id.as_str())
     }

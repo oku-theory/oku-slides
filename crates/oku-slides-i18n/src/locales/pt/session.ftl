@@ -6,6 +6,7 @@ session-invalid-template-set = Conjunto de modelos inválido: { $path }
 session-not-rendered = A apresentação ainda não foi renderizada
 session-no-path = Ainda não há arquivo: escolha onde salvar
 session-no-slide = Slide não encontrado: { $id }
+session-no-chart = Nenhum gráfico aqui: { $subject }
 session-no-template-set = Conjunto de modelos não encontrado: { $id }
 session-builtin-template-set = Um conjunto de modelos integrado não pode ser excluído
 session-no-templates-dir = Nenhuma pasta para seus modelos

@@ -17,7 +17,7 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
   (`nest_schema` adapte JSON Schema à MCP 1.x).
 - `read_tools` : les outils de lecture (`deck_outline`, `slide`,
-  `render_slide`, `templates`, `settings`).
+  `render_slide`, `templates`, `widgets` — genres et paramètres du deck —, `settings`).
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).

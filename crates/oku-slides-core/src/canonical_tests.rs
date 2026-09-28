@@ -4,6 +4,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::model::*;
+use crate::params::{ParamValue, Params};
 use crate::{DeckReplica, SourceBundle};
 
 fn run(t: &str) -> Run {
@@ -15,12 +16,12 @@ fn bold(t: &str) -> Run {
 }
 
 fn deck_with(elements: Vec<Element>) -> Deck {
-    let mut slide = Slide::new("s", SlideKind::Content);
-    slide.blocks = elements;
+    let mut slide = Slide::new("s", "content");
+    slide.params.set("blocks", ParamValue::Slot(elements));
     Deck {
         version: DECK_VERSION,
         theme: None,
-        params: Params::default(),
+        params: DeckParams::default(),
         vars: Default::default(),
         tokens: Value::Null,
         templates: None,
@@ -32,11 +33,13 @@ fn text(runs: Vec<Run>) -> Deck {
     deck_with(vec![Element::text("e", vec![Paragraph { runs, list: None }])])
 }
 
+fn blocks(deck: &Deck) -> &[Element] {
+    deck.slides[0].params.slot("blocks").unwrap_or_default()
+}
+
 fn runs(deck: &Deck) -> &[Run] {
-    match &deck.slides[0].blocks[0].body {
-        ElementBody::Text { text } => &text[0].runs,
-        other => panic!("pas un texte : {other:?}"),
-    }
+    let body = blocks(deck).first().and_then(|e| e.params.rich("body"));
+    body.and_then(<[Paragraph]>::first).map(|p| p.runs.as_slice()).unwrap_or_default()
 }
 
 fn canonical(mut deck: Deck) -> Deck {
@@ -64,26 +67,59 @@ fn canonicalize_paragraph_separator_in_run_becomes_newline() {
 
 #[test]
 fn canonicalize_blank_prose_becomes_none_and_other_prose_is_trimmed() {
-    let card = Element {
-        id: "c".into(),
-        frame: None,
-        cell: None,
-        style: Style::default(),
-        body: ElementBody::Card { title: Some(" ".into()), kicker: Some(" k ".into()), highlight: false, text: vec![] },
-    };
+    let card: Element = serde_json::from_value(json!({
+        "id": "c", "kind": "card", "params": { "title": " ", "kicker": " k " }
+    }))
+    .unwrap();
     let mut d = deck_with(vec![card]);
     d.params.author = Some("\n ".into());
     d.params.title = Some(" Titre ".into());
-    d.slides[0].title = Some("\t".into());
+    d.slides[0].params.set("title", ParamValue::Text("\t".into()));
     d.slides[0].name = Some(" nom".into());
     let d = canonical(d);
     assert_that!(d.params.author).is_none();
     assert_that!(d.params.title).is_equal_to(Some("Titre".to_owned()));
-    assert_that!(d.slides[0].title).is_none();
+    assert_that!(d.slides[0].params.get("title")).is_none();
     assert_that!(d.slides[0].name).is_equal_to(Some("nom".to_owned()));
-    let ElementBody::Card { title, kicker, .. } = d.slides[0].blocks[0].body.clone() else { panic!("pas une carte") };
-    assert_that!(title).is_none();
-    assert_that!(kicker).is_equal_to(Some("k".to_owned()));
+    let card = &blocks(&d)[0];
+    assert_that!(card.params.get("title")).is_none();
+    assert_that!(card.params.text("kicker")).is_equal_to(Some("k"));
+}
+
+#[test]
+fn canonicalize_empty_rich_text_and_null_param_are_dropped() {
+    let card: Element = serde_json::from_value(json!({
+        "id": "c", "kind": "card", "params": { "body": [], "highlight": null }
+    }))
+    .unwrap();
+    let d = canonical(deck_with(vec![card]));
+    assert_that!(blocks(&d)[0].params.is_empty()).is_true();
+}
+
+#[test]
+fn canonicalize_empty_slot_is_dropped() {
+    let mut d = deck_with(vec![]);
+    d.slides[0].params.set("elements", ParamValue::Slot(vec![]));
+    assert_that!(canonical(d).slides[0].params.is_empty()).is_true();
+}
+
+#[test]
+fn canonicalize_unknown_param_is_kept() {
+    let mut d = text(vec![run("a")]);
+    d.slides[0].params.set("inconnu", ParamValue::Value(json!({ "x": 1 })));
+    let d = canonical(d);
+    assert_that!(d.slides[0].params.value("inconnu")).is_equal_to(Some(&json!({ "x": 1 })));
+}
+
+#[test]
+fn canonicalize_chart_option_numbers_beyond_i64_become_float() {
+    let chart: Element = serde_json::from_value(json!({
+        "id": "g", "kind": "chart", "params": { "option": { "series": [], "n": u64::MAX } }
+    }))
+    .unwrap();
+    let d = canonical(deck_with(vec![chart]));
+    let option = blocks(&d)[0].params.value("option").cloned();
+    assert_that!(option).is_equal_to(Some(json!({ "series": [], "n": u64::MAX as f64 })));
 }
 
 #[test]
@@ -118,24 +154,20 @@ fn canonicalize_empty_tokens_object_becomes_null() {
 }
 
 #[test]
-fn canonicalize_group_children_are_canonicalized() {
+fn canonicalize_slot_children_are_canonicalized() {
     let child = Element::text("t", vec![Paragraph { runs: vec![run("a"), run("b")], list: None }]);
-    let group = Element {
-        id: "g".into(),
-        frame: None,
-        cell: None,
-        style: Style::default(),
-        body: ElementBody::Group { layout: GroupLayout::default(), children: vec![child] },
-    };
+    let mut group = Element::new("g", "canvas");
+    group.params.set("children", ParamValue::Slot(vec![child]));
     let d = canonical(deck_with(vec![group]));
-    let ElementBody::Text { text } = &d.slides[0].blocks[0].children()[0].body else { panic!("pas un texte") };
-    assert_that!(text[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
+    let children = blocks(&d)[0].params.slot("children").unwrap_or_default();
+    let body = children[0].params.rich("body").unwrap_or_default();
+    assert_that!(body[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
 }
 
 /// Cas de l'UI : une ligne vide de l'éditeur donne `[{t:""}]`.
 #[test]
 fn source_bundle_new_with_empty_run_view_equals_replica_read() {
-    let b = SourceBundle::new(text(vec![run("")])).unwrap();
+    let b = SourceBundle::new(text(vec![run("")]), crate::test_registry::shared()).unwrap();
     assert_that!(b.replica().deck().0).is_equal_to(b.deck());
     assert_that!(runs(b.deck()).to_vec()).is_empty();
 }
@@ -175,26 +207,46 @@ fn paragraphs() -> impl Strategy<Value = Vec<Paragraph>> {
     )
 }
 
-fn leaf() -> impl Strategy<Value = ElementBody> {
+fn text_param() -> impl Strategy<Value = Option<ParamValue>> {
+    prose().prop_map(|p| p.map(ParamValue::Text))
+}
+
+fn with(kind: &str, params: Vec<(&str, Option<ParamValue>)>) -> Element {
+    let mut e = Element::new("", kind);
+    e.frame = Some(Frame { x: 1.5, y: 2.0, w: 300.0, h: 40.25 });
+    for (name, value) in params {
+        if let Some(v) = value {
+            e.params.set(name, v);
+        }
+    }
+    e
+}
+
+fn leaf() -> impl Strategy<Value = Element> {
     prop_oneof![
-        paragraphs().prop_map(|text| ElementBody::Text { text }),
-        (prose(), prose(), any::<bool>(), paragraphs())
-            .prop_map(|(title, kicker, highlight, text)| ElementBody::Card { title, kicker, highlight, text }),
-        Just(ElementBody::Shape { shape: ShapeKind::Ellipse }),
-        Just(ElementBody::Image { asset: "sha256:00".into(), fit: None }),
+        paragraphs().prop_map(|p| with("text", vec![("body", Some(ParamValue::Rich(p)))])),
+        (text_param(), text_param(), any::<bool>(), paragraphs()).prop_map(|(title, kicker, highlight, body)| {
+            let highlight = highlight.then(|| ParamValue::Value(Value::Bool(true)));
+            with(
+                "card",
+                vec![
+                    ("title", title),
+                    ("kicker", kicker),
+                    ("highlight", highlight),
+                    ("body", Some(ParamValue::Rich(body))),
+                ],
+            )
+        }),
+        Just(with("shape", vec![("shape", Some(ParamValue::Text("ellipse".into())))])),
+        Just(with("image", vec![("asset", Some(ParamValue::Text("sha256:00".into())))])),
     ]
 }
 
-fn element(body: ElementBody) -> Element {
-    let frame = Some(Frame { x: 1.5, y: 2.0, w: 300.0, h: 40.25 });
-    Element { id: String::new(), frame, cell: None, style: Style::default(), body }
-}
-
-fn body() -> impl Strategy<Value = ElementBody> {
+fn element() -> impl Strategy<Value = Element> {
     prop_oneof![
         3 => leaf(),
-        1 => proptest::collection::vec(leaf().prop_map(element), 0..3)
-            .prop_map(|children| ElementBody::Group { layout: GroupLayout::default(), children }),
+        1 => proptest::collection::vec(leaf(), 0..3)
+            .prop_map(|children| with("canvas", vec![("children", Some(ParamValue::Slot(children)))])),
     ]
 }
 
@@ -217,30 +269,29 @@ fn json_value() -> impl Strategy<Value = Value> {
 
 fn slide() -> impl Strategy<Value = Slide> {
     (
-        (prose(), prose(), prose(), prose(), prose(), prose()),
+        (prose(), prose(), text_param(), text_param(), text_param()),
         "[ a\n]{0,3}",
-        proptest::collection::vec(body().prop_map(element), 0..3),
+        proptest::collection::vec(element(), 0..3),
     )
-        .prop_map(|((name, description, title, subtitle, kicker, text), notes, blocks)| Slide {
-            name,
-            description,
-            title,
-            subtitle,
-            kicker,
-            text,
-            notes,
-            blocks,
-            ..Slide::new("", SlideKind::Content)
+        .prop_map(|((name, description, title, subtitle, kicker), notes, blocks)| {
+            let mut s = Slide { name, description, notes, ..Slide::new("", "content") };
+            for (k, v) in [("title", title), ("subtitle", subtitle), ("kicker", kicker)] {
+                if let Some(v) = v {
+                    s.params.set(k, v);
+                }
+            }
+            s.params.set("blocks", ParamValue::Slot(blocks));
+            s
         })
 }
 
 /// Ids uniques, dans l'ordre de parcours.
-fn number(elements: &mut [Element], next: &mut usize) {
-    for e in elements {
-        e.id = format!("e{next}");
-        *next += 1;
-        if let Some(children) = e.children_mut() {
-            number(children, next);
+fn number(params: &mut Params, next: &mut usize) {
+    for (_, list) in params.slots_mut() {
+        for e in list {
+            e.id = format!("e{next}");
+            *next += 1;
+            number(&mut e.params, next);
         }
     }
 }
@@ -256,9 +307,9 @@ fn deck() -> impl Strategy<Value = Deck> {
             let mut next = 0;
             for (i, s) in slides.iter_mut().enumerate() {
                 s.id = format!("s{i}");
-                number(&mut s.blocks, &mut next);
+                number(&mut s.params, &mut next);
             }
-            let params = Params { title, author, date, ..Default::default() };
+            let params = DeckParams { title, author, date, ..Default::default() };
             Deck { version: DECK_VERSION, theme: None, params, vars, tokens, templates: None, slides }
         })
 }
@@ -269,7 +320,7 @@ proptest! {
     #[test]
     fn canonical_deck_reads_back_unchanged(d in deck()) {
         let d = canonical(d);
-        let (back, issues) = DeckReplica::new(&d).unwrap().deck();
+        let (back, issues) = DeckReplica::new(&d, crate::test_registry::shared()).unwrap().deck();
         prop_assert!(issues.is_empty());
         prop_assert_eq!(back, d);
     }
@@ -284,7 +335,7 @@ proptest! {
     #[test]
     fn canonical_deck_reconciled_over_another_reads_back_unchanged(a in deck(), b in deck()) {
         let (a, b) = (canonical(a), canonical(b));
-        let mut bundle = SourceBundle::new(a).unwrap();
+        let mut bundle = SourceBundle::new(a, crate::test_registry::shared()).unwrap();
         bundle.apply(b.clone(), "test").unwrap();
         prop_assert_eq!(bundle.replica().deck().0, b);
     }

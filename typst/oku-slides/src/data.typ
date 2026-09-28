@@ -1,70 +1,101 @@
-// Rendu d'un deck décrit en JSON (le modèle de données de l'app Oku Slides).
+// Rendu d'un deck JSON v2 (le modèle de données de l'app Oku Slides).
 //
 // {
+//   "version": 2,
 //   "params": { "title": "…", "author": "…", "date": "…" },
 //   "vars":   { "client": "Acme" },
 //   "tokens": { "color": { "accent": "#8a5a1c" } },
 //   "slides": [
-//     { "kind": "title" },
-//     { "kind": "toc" },
-//     { "kind": "chapter", "title": "Contexte" },
-//     { "kind": "content", "title": "…", "layout": "columns", "blocks": [ … ] },
-//     { "kind": "content", "title": "…", "elements": [ { "frame": {…}, … } ] },
-//     { "kind": "end", "text": "Merci" }
+//     { "id": "s1", "kind": "title" },
+//     { "id": "s2", "kind": "chapter", "params": { "title": "Contexte" } },
+//     { "id": "s3", "kind": "content", "params": { "title": "…", "layout": "columns",
+//       "blocks": [ { "id": "e1", "kind": "text", "params": { "body": [ … ] } } ] } },
+//     { "id": "s4", "kind": "end", "params": { "text": "Merci" } }
 //   ]
 // }
 //
-// Deux façons de remplir une slide de contenu :
-// - "blocks" : une liste d'éléments mis en page par le layout de la slide ;
-// - "elements" : des éléments placés librement, chacun avec un "frame"
-//   { x, y, w, h } en pt, relatif à la zone de corps (sous le titre).
+// Chaque slide et chaque élément sont rendus par le widget de leur `kind`,
+// avec les arguments tirés de leur `params` selon le schéma du widget
+// (`_args`). Un élément d'un slot libre porte un "frame" { x, y, w, h } en
+// pt, relatif à la zone de corps, ou une "cell" de la grille.
 // Chaque élément porte un "id" ; il est étiqueté <e-ID> pour l'introspection.
 
 #import "tokens.typ": *
 #import "core.typ": config, interp, text-probe
-#import "slides.typ": deck
+#import "slides.typ": deck, blank-slide
 #import "content.typ": _text-over, _paragraphs
 #import "zone.typ": default-grid
 #import "widgets.typ": registry
 #import "widget.typ": by-name
 
-#let _widgets = by-name(registry)
+// Widgets de base, par nom : ceux du rendu quand `widgets` vaut none.
+#let _base = by-name(registry)
 
-// Arguments d'un élément v1 pour son widget. MVP: t-270, plan 2 — remplacé
-// par le rendu générique du modèle v2.
-#let _element-args(t, e, vars, image-loader, render) = {
-  let kind = e.at("kind", default: "text")
-  let body = if "text" in e { _paragraphs(t, e.text, vars) } else { [] }
-  if kind == "text" { (body: body) }
-  else if kind == "card" { (
-    kicker: interp(e.at("kicker", default: none), vars),
-    title: interp(e.at("title", default: none), vars),
-    highlight: e.at("highlight", default: false),
-    body: body,
-  ) }
-  else if kind == "image" { (asset: e.at("asset", default: none), fit: e.at("fit", default: "cover")) }
-  else if kind == "chart" { (option: e.at("option", default: none)) }
-  else if kind == "shape" { (shape: e.at("shape", default: "rect")) }
-  else if kind == "group" {
-    let children = e.at("children", default: ())
-    let lay = e.at("layout", default: (type: "free"))
-    if lay.type == "free" {
-      (children: children.map(c => (kind: c.at("kind", default: "text"), id: c.at("id", default: none),
-        frame: c.frame, cell: none, "show": f => render(t, c, vars, image-loader: image-loader))))
-    } else {
-      (layout: lay.type, count: lay.at("count", default: none), gap: lay.at("gap", default: "lg"),
-        children: children.map(c => (kind: c.at("kind", default: "text"), id: c.at("id", default: none),
-          body: render(t, c, vars, image-loader: image-loader))))
-    }
+// Entrées de slot : (kind, id, body) dans le flux ; (kind, id, frame, cell,
+// show) en placement libre. `render` rend un élément (Typst ne connaît pas
+// les fonctions déclarées plus bas : `render-element` est passé ici).
+#let _flow(t, list, vars, image-loader, widgets, deck-params, render) = list.map(b => (
+  kind: b.at("kind", default: none), id: b.at("id", default: none),
+  body: render(t, b, vars, image-loader: image-loader, widgets: widgets, deck-params: deck-params)))
+#let _placed(t, list, vars, image-loader, widgets, deck-params, render) = list.map(e => (
+  kind: e.at("kind", default: none), id: e.at("id", default: none),
+  frame: e.at("frame", default: none), cell: e.at("cell", default: none),
+  "show": f => render(t, e + (frame: f), vars, image-loader: image-loader, widgets: widgets, deck-params: deck-params)))
+
+// Un run de paragraphe (côté Typst) : un objet dont, s'il est présent, `t`
+// est une chaîne. Mirroir de `RUN_KEYS`/`is_paragraphs` côté Rust
+// (crates/oku-slides-core/src/params.rs).
+#let _is-run(r) = type(r) == dictionary and (r.at("t", default: none) == none or type(r.at("t", default: none)) == str)
+
+// Paragraphes (côté Typst) : chaque objet n'a que des clés `runs`/`list`, et
+// ses `runs`, quand présents, sont un tableau de runs valides. Mirroir de
+// `is_paragraphs` côté Rust.
+#let _is-paragraphs(v) = type(v) == array and v.all(x => {
+  type(x) == dictionary and x.keys().all(k => k in ("runs", "list")) and {
+    let runs = x.at("runs", default: none)
+    runs == none or (type(runs) == array and runs.all(_is-run))
   }
-  else { (:) }
+})
+
+// La valeur `v` (non none) a-t-elle le type Typst du descripteur `d` ?
+// Un deck incohérent s'ouvre et se rend : `validate` signale la valeur.
+#let _fits(d, v) = {
+  let ty = d.type
+  if ty == "plain" or ty == "asset" { type(v) == str }
+  else if ty == "rich" { _is-paragraphs(v) }
+  else if ty == "slot" { type(v) == array and v.all(x => type(x) == dictionary) }
+  else if ty == "flag" { type(v) == bool }
+  else if ty == "number" { type(v) == int or type(v) == float }
+  else if ty == "choice" { type(v) == str and v in d.values }
+  else if ty == "grid" { type(v) == dictionary }
+  else { true }
 }
 
-// Widget qui rend un élément v1 : le groupe se scinde en canvas et stack.
-#let _widget-of(e) = {
-  let kind = e.at("kind", default: "text")
-  if kind != "group" { kind }
-  else if e.at("layout", default: (type: "free")).type == "free" { "canvas" } else { "stack" }
+// Arguments d'un widget depuis son schéma : défauts, liens au deck, textes
+// interpolés, paragraphes rendus, slots rendus en entrées. Une valeur d'un
+// autre type que celui déclaré est remplacée par le défaut.
+#let _args(t, schema, params, vars, deck-params, image-loader, widgets, render) = {
+  let out = (:)
+  for d in schema.params {
+    let bind = d.at("bind", default: none)
+    let v = if bind != none { deck-params.at(bind, default: none) } else { params.at(d.name, default: d.default) }
+    let v = if v == none or _fits(d, v) { v } else { d.default }
+    out.insert(d.name, if d.type == "plain" { interp(v, vars) }
+      else if d.type == "rich" { if v == none or v == () { [] } else { _paragraphs(t, v, vars) } }
+      else if d.type == "slot" {
+        let list = if v == none { () } else { v }
+        let entries = if d.mode == "free" { _placed } else { _flow }
+        entries(t, list, vars, image-loader, widgets, deck-params, render)
+      }
+      else { v })
+  }
+  out
+}
+
+// Le widget `name` s'il est de catégorie `category`, sinon none.
+#let _widget(widgets, name, category) = {
+  let w = widgets.at(if type(name) == str { name } else { "" }, default: none)
+  if w != none and w.schema.category == category { w } else { none }
 }
 
 // Taille de la zone de corps d'une slide de contenu avec titre.
@@ -75,17 +106,22 @@
   (width: w, height: h)
 }
 
-#let render-element(t, e, vars, image-loader: none) = {
-  let kind = e.at("kind", default: "text")
+/// Rend un élément avec le widget de son `kind` (catégorie "element") ;
+/// sans widget, un encart « élément inconnu ». widgets : dictionnaire nom →
+/// widget (none : ceux de base). deck-params : paramètres du deck, pour les
+/// paramètres liés (`bind`).
+#let render-element(t, e, vars, image-loader: none, widgets: none, deck-params: (:)) = {
+  let widgets = if widgets == none { _base } else { widgets }
+  let kind = e.at("kind", default: none)
   let style = e.at("style", default: (:))
   let ctx = (id: e.at("id", default: none), tokens: t, vars: vars, style: style, framed: "frame" in e,
-    load: if image-loader != none { () => image-loader(e) } else { none })
-  let w0 = _widgets.at(_widget-of(e), default: none)
+    load: if image-loader != none { (..a) => image-loader(e, ..a) } else { none })
   // Un widget existant mais qui n'est pas de catégorie "element" (p. ex.
   // une slide comme "title") ne rend pas ici : boîte d'élément inconnu.
-  let w = if w0 != none and w0.schema.category == "element" { w0 } else { none }
+  let w = _widget(widgets, kind, "element")
   let el = if w == none { text(fill: red)[oku-slides : élément inconnu « #kind »] }
-    else { (w.render)(_element-args(t, e, vars, image-loader, render-element), ctx) }
+    else { (w.render)(_args(t, w.schema, e.at("params", default: (:)), vars, deck-params, image-loader, widgets,
+      render-element), ctx) }
   let fixed = "frame" in e
   let (w, h) = if fixed { (e.frame.w * 1pt, e.frame.h * 1pt) } else { (100%, auto) }
   if "id" not in e { return block(width: w, height: h, el) }
@@ -106,49 +142,27 @@
   [#sized#label("e-" + str(e.id))]
 }
 
-// Entrées de slot d'une liste d'éléments v1.
-#let _flow(t, list, vars, image-loader) = list.map(b => (kind: b.at("kind", default: "text"),
-  id: b.at("id", default: none), body: render-element(t, b, vars, image-loader: image-loader)))
-#let _placed(t, list, vars, image-loader) = list.map(e => (kind: e.at("kind", default: "text"),
-  id: e.at("id", default: none), frame: e.at("frame", default: none), cell: e.at("cell", default: none),
-  "show": f => render-element(t, e + (frame: f), vars, image-loader: image-loader)))
-
-// Arguments d'une slide v1 pour son widget. MVP: t-270, plan 2 — remplacé
-// par le rendu générique du modèle v2.
-#let _slide-args(t, s, vars, image-loader) = {
-  let kind = s.at("kind", default: "content")
-  let opt(key) = s.at(key, default: auto)
-  if kind == "title" { (title: opt("title"), subtitle: opt("subtitle"), author: opt("author"), date: opt("date"), kicker: auto) }
-  else if kind == "chapter" { (title: s.title, subtitle: s.at("subtitle", default: none)) }
-  else if kind == "toc" { (title: opt("title")) }
-  else if kind == "end" { (text: interp(s.at("text", default: ""), vars)) }
-  else if kind == "blank" {
-    (grid: s.at("grid", default: default-grid), elements: _placed(t, s.at("elements", default: ()), vars, image-loader))
-  } else {
-    let free = "elements" in s or "grid" in s or s.at("blocks", default: ()).len() == 0
-    (
-      kicker: s.at("kicker", default: none),
-      title: s.at("title", default: none),
-      layout: s.at("layout", default: "default"),
-      grid: s.at("grid", default: default-grid),
-      blocks: if free { () } else { _flow(t, s.at("blocks", default: ()), vars, image-loader) },
-      elements: if free { _placed(t, s.at("elements", default: ()), vars, image-loader) } else { () },
-    )
-  }
-}
-
-#let render-slide(s, image-loader: none) = context {
+/// Rend une slide avec le widget de son `kind` (catégorie "slide") ; sans
+/// widget, une page qui le signale.
+#let render-slide(s, image-loader: none, widgets: none) = context {
   let c = config()
   let t = c.tokens
-  let kind = s.at("kind", default: "content")
-  let name = if kind in ("title", "chapter", "toc", "end", "blank") { kind } else { "content" }
-  let ctx = (id: s.at("id", default: none), tokens: t, vars: c.vars, style: (:), framed: false, load: none)
-  (_widgets.at(name).render)(_slide-args(t, s, c.vars, image-loader), ctx)
+  let widgets = if widgets == none { _base } else { widgets }
+  let kind = s.at("kind", default: none)
+  let id = s.at("id", default: none)
+  let w = _widget(widgets, kind, "slide")
+  if w == none { return blank-slide(text(fill: red)[oku-slides : slide inconnue « #kind »], id: id) }
+  let ctx = (id: id, tokens: t, vars: c.vars, style: (:), framed: false, load: none)
+  (w.render)(_args(t, w.schema, s.at("params", default: (:)), c.vars, c.params, image-loader, widgets,
+    render-element), ctx)
 }
 
 /// Rend un deck JSON complet : `#render-deck(json("deck.json"))`.
-/// image-loader : fonction (élément) => contenu, pour les images et les graphiques.
-#let render-deck(data, theme: none, image-loader: none) = {
+/// image-loader : fonction (élément, asset: none, fit: "cover", chart: false)
+/// => contenu, pour les images et les graphiques.
+/// widgets : dictionnaire nom → widget (`by-name(registre)`) ; none : ceux de base.
+#let render-deck(data, theme: none, image-loader: none, widgets: none) = {
+  let widgets = if widgets == none { _base } else { widgets }
   let params = data.at("params", default: (:))
   show: deck.with(
     theme: theme,
@@ -156,5 +170,5 @@
     vars: data.at("vars", default: (:)),
     ..params,
   )
-  for s in data.at("slides", default: ()) { render-slide(s, image-loader: image-loader) }
+  for s in data.at("slides", default: ()) { render-slide(s, image-loader: image-loader, widgets: widgets) }
 }

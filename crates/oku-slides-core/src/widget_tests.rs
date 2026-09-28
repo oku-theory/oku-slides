@@ -255,18 +255,18 @@ fn localize_incompatible_override_names_widget_and_param() {
     assert_that!(text).contains("kicker");
 }
 
-// Preuve pour la revue finale (t-270, correctif 5) : le filtre par
-// catégorie dans `data.typ` (un widget "element" existant mais d'une autre
-// catégorie, p. ex. "title", ne doit pas rendre un élément) ne peut pas être
-// exercé via `Renderer::render(&Deck, ..)`, parce que le modèle v1 refuse un
-// tel élément avant même d'atteindre le rendu Typst.
+// Un widget de slide utilisé comme élément (p. ex. "title") : le modèle v2
+// le garde (rien ne se perd), `validate` le signale, et le rendu le filtre
+// par catégorie (`data.typ`).
 #[test]
-fn element_kind_title_is_rejected_by_the_v1_model() {
+fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let json = serde_json::json!({
-        "params": {}, "vars": {}, "tokens": {},
-        "slides": [{ "kind": "content", "title": "t",
-            "elements": [{ "id": "e1", "kind": "title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] }]
+        "version": 2,
+        "slides": [{ "id": "s", "kind": "content", "params": {
+            "elements": [{ "id": "e1", "kind": "title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
     });
-    let err = crate::Deck::from_json(&json.to_string());
-    assert!(err.is_err(), "expected kind \"title\" on an element to be rejected by ElementBody");
+    let deck = crate::Deck::from_json(&json.to_string()).unwrap();
+    let issues = crate::validate(&deck, &crate::test_registry::registry(), None);
+    let ids: Vec<_> = issues.iter().map(|i| i.message.id()).collect();
+    assert_that!(ids).is_equal_to(vec!["issue-wrong-category"]);
 }

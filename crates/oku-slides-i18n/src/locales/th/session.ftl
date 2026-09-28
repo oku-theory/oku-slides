@@ -6,6 +6,7 @@ session-invalid-template-set = ชุดเทมเพลตไม่ถูก�
 session-not-rendered = งานนำเสนอยังไม่ได้เรนเดอร์
 session-no-path = ยังไม่มีไฟล์: เลือกตำแหน่งที่จะบันทึก
 session-no-slide = ไม่พบสไลด์: { $id }
+session-no-chart = ไม่มีแผนภูมิที่นี่: { $subject }
 session-no-template-set = ไม่พบชุดเทมเพลต: { $id }
 session-builtin-template-set = ลบชุดเทมเพลตในตัวไม่ได้
 session-no-templates-dir = ไม่มีโฟลเดอร์สำหรับเทมเพลตของคุณ

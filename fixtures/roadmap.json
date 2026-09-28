@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "theme": "papier",
   "params": {
     "title": "Feuille de route {{annee}}",
@@ -8,42 +8,211 @@
     "date": "1er octobre 2026",
     "organization": "Darticorp"
   },
-  "vars": { "client": "Acme", "annee": 2027, "confidential": "CONFIDENTIAL" },
+  "vars": {
+    "client": "Acme",
+    "annee": 2027,
+    "confidential": "CONFIDENTIAL"
+  },
   "slides": [
-    { "id": "s-title", "kind": "title" },
-    { "id": "s-toc", "kind": "toc" },
-    { "id": "s-ch1", "kind": "chapter", "title": "Contexte", "subtitle": "Où en est {{client}} aujourd'hui" },
     {
-      "id": "s-constat", "kind": "content", "title": "Ce qui a changé en {{annee}}", "kicker": "Constat",
-      "blocks": [
-        { "id": "b-points", "kind": "text", "text": [
-          { "list": "bullet", "runs": [ { "t": "Le marché a doublé en deux ans." } ] },
-          { "list": "bullet", "runs": [ { "t": "Les clients attendent des réponses en temps réel." } ] },
-          { "list": "bullet", "runs": [ { "t": "Notre socle technique date de 2019." } ] }
-        ] }
-      ]
+      "id": "s-title",
+      "kind": "title"
     },
     {
-      "id": "s-priorites", "kind": "content", "title": "Trois priorités", "kicker": "Organisation", "layout": "columns",
-      "blocks": [
-        { "id": "c1", "kind": "card", "kicker": "Pilier 1", "title": "Fiabilité",
-          "text": [ { "list": "bullet", "runs": [ { "t": "Diviser par deux les incidents" } ] } ] },
-        { "id": "c2", "kind": "card", "kicker": "Pilier 2", "title": "Vitesse",
-          "text": [ { "list": "bullet", "runs": [ { "t": "Livrer chaque semaine" } ] } ] },
-        { "id": "c3", "kind": "card", "kicker": "Pilier 3", "title": "Clients", "highlight": true,
-          "text": [ { "list": "bullet", "runs": [ { "t": "Un interlocuteur unique pour {{client}}" } ] } ] }
-      ]
+      "id": "s-toc",
+      "kind": "toc"
     },
-    { "id": "s-ch2", "kind": "chapter", "title": "Plan d'action" },
     {
-      "id": "s-libre", "kind": "content", "title": "Placement libre", "kicker": "Exemple",
-      "elements": [
-        { "id": "e-fond", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 800, "h": 480 }, "style": { "fill": "surface", "radius": "md" } },
-        { "id": "e-texte", "kind": "text", "frame": { "x": 40, "y": 40, "w": 720, "h": 200 }, "style": { "size": "lead", "font": "display" },
-          "text": [ { "runs": [ { "t": "Un bloc posé à 40 pt du coin" } ] } ] },
-        { "id": "e-image", "kind": "image", "asset": "sha256:0000", "frame": { "x": 880, "y": 0, "w": 800, "h": 480 } }
-      ]
+      "id": "s-ch1",
+      "kind": "chapter",
+      "params": {
+        "title": "Contexte",
+        "subtitle": "Où en est {{client}} aujourd'hui"
+      }
     },
-    { "id": "s-fin", "kind": "end", "text": "Merci {{client}}" }
+    {
+      "id": "s-constat",
+      "kind": "content",
+      "params": {
+        "title": "Ce qui a changé en {{annee}}",
+        "kicker": "Constat",
+        "blocks": [
+          {
+            "id": "b-points",
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Le marché a doublé en deux ans."
+                    }
+                  ]
+                },
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Les clients attendent des réponses en temps réel."
+                    }
+                  ]
+                },
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Notre socle technique date de 2019."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-priorites",
+      "kind": "content",
+      "params": {
+        "title": "Trois priorités",
+        "kicker": "Organisation",
+        "layout": "columns",
+        "blocks": [
+          {
+            "id": "c1",
+            "kind": "card",
+            "params": {
+              "kicker": "Pilier 1",
+              "title": "Fiabilité",
+              "body": [
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Diviser par deux les incidents"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "c2",
+            "kind": "card",
+            "params": {
+              "kicker": "Pilier 2",
+              "title": "Vitesse",
+              "body": [
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Livrer chaque semaine"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "c3",
+            "kind": "card",
+            "params": {
+              "kicker": "Pilier 3",
+              "title": "Clients",
+              "highlight": true,
+              "body": [
+                {
+                  "list": "bullet",
+                  "runs": [
+                    {
+                      "t": "Un interlocuteur unique pour {{client}}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-ch2",
+      "kind": "chapter",
+      "params": {
+        "title": "Plan d'action"
+      }
+    },
+    {
+      "id": "s-libre",
+      "kind": "content",
+      "params": {
+        "title": "Placement libre",
+        "kicker": "Exemple",
+        "elements": [
+          {
+            "id": "e-fond",
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 800,
+              "h": 480
+            },
+            "style": {
+              "fill": "surface",
+              "radius": "md"
+            },
+            "kind": "shape"
+          },
+          {
+            "id": "e-texte",
+            "frame": {
+              "x": 40,
+              "y": 40,
+              "w": 720,
+              "h": 200
+            },
+            "style": {
+              "size": "lead",
+              "font": "display"
+            },
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Un bloc posé à 40 pt du coin"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "e-image",
+            "frame": {
+              "x": 880,
+              "y": 0,
+              "w": 800,
+              "h": 480
+            },
+            "kind": "image",
+            "params": {
+              "asset": "sha256:0000"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s-fin",
+      "kind": "end",
+      "params": {
+        "text": "Merci {{client}}"
+      }
+    }
   ]
 }

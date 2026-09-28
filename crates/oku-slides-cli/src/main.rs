@@ -12,12 +12,13 @@ mod sse;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{Deck, SourceBundle, SourceLimits, validate};
+use oku_slides_core::{Deck, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::{Fonts, Renderer};
@@ -136,8 +137,14 @@ fn read_deck(storage: &Storage, l: &Localizer, path: &Path) -> Result<Deck> {
 
 /// Charge un deck depuis un JSON ou un .oku-slides.pdf ; `limits` borne les
 /// sources lues dans le PDF.
-fn load_bundle(storage: &Storage, l: &Localizer, path: &Path, limits: SourceLimits) -> Result<SourceBundle> {
-    let opened = read_document(storage, path, limits)
+fn load_bundle(
+    storage: &Storage,
+    l: &Localizer,
+    path: &Path,
+    limits: SourceLimits,
+    registry: &Arc<WidgetRegistry>,
+) -> Result<SourceBundle> {
+    let opened = read_document(storage, path, limits, registry)
         .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))?;
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
@@ -149,13 +156,19 @@ fn load_bundle(storage: &Storage, l: &Localizer, path: &Path, limits: SourceLimi
 }
 
 /// Signale les problèmes du deck ; vrai s'il n'y en a pas.
-fn report_issues(l: &Localizer, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> bool {
+fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: &BTreeMap<String, Vec<u8>>) -> bool {
     let ids = assets.keys().cloned().collect();
-    let issues = validate(deck, Some(&ids));
+    let issues = validate(deck, registry, Some(&ids));
     for issue in &issues {
         tracing::warn!("{}", l.tr_with("cli-deck-issue", &[("issue", issue.localize(l).into())]));
     }
     issues.is_empty()
+}
+
+/// Registre de base des widgets, compilé depuis Typst une fois par processus
+/// et partagé avec [`Renderer::new`] ; pas de pack de thème pour la CLI.
+fn registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>> {
+    Ok(oku_slides_render::Registries::new(fonts.clone()).get(None)?)
 }
 
 fn main() -> Result<()> {
@@ -190,13 +203,15 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
 
     match cli.cmd {
         Cmd::Check { deck } => {
+            let registry = registry(&app_fonts)?;
             let deck = read_deck(storage, l, &deck)?;
-            if report_issues(l, &deck, &BTreeMap::new()) {
+            if report_issues(l, &deck, &registry, &BTreeMap::new()) {
                 out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
             }
         }
         Cmd::Render { input, out: dir, theme } => {
-            let bundle = load_bundle(storage, l, &input, limits)?;
+            let registry = registry(&app_fonts)?;
+            let bundle = load_bundle(storage, l, &input, limits, &registry)?;
             let mut deck = bundle.deck().clone();
             if theme.is_some() {
                 deck.theme = theme;
@@ -227,11 +242,13 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             )?;
         }
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
+            let mut r = Renderer::new(app_fonts)?;
+            let registry = r.registry().clone();
             let mut deck = read_deck(storage, l, &deck)?;
             if theme.is_some() {
                 deck.theme = theme;
             }
-            let mut bundle = SourceBundle::new(deck)?;
+            let mut bundle = SourceBundle::new(deck, registry.clone())?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
                     let id = bundle.add_asset(storage.read(&path)?);
@@ -241,8 +258,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             if embed_fonts {
                 bundle.fonts = fonts;
             }
-            report_issues(l, bundle.deck(), &bundle.assets);
-            let mut r = Renderer::new(app_fonts)?;
+            report_issues(l, bundle.deck(), &registry, &bundle.assets);
             r.set_language(l)?;
             r.set_deck(bundle.deck(), &bundle.assets)?;
             let doc = r.compile()?;
@@ -262,7 +278,8 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             )?;
         }
         Cmd::Open { input, out: extract } => {
-            let bundle = load_bundle(storage, l, &input, limits)?;
+            let registry = registry(&app_fonts)?;
+            let bundle = load_bundle(storage, l, &input, limits, &registry)?;
             let deck = bundle.deck();
             out.line(
                 "cli-opened",

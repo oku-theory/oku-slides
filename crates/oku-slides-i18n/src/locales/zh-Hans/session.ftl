@@ -6,6 +6,7 @@ session-invalid-template-set = 模板集无效：{ $path }
 session-not-rendered = 演示文稿尚未渲染
 session-no-path = 尚无文件：请选择保存位置
 session-no-slide = 找不到幻灯片：{ $id }
+session-no-chart = 这里没有图表：{ $subject }
 session-no-template-set = 找不到模板集：{ $id }
 session-builtin-template-set = 无法删除内置模板集
 session-no-templates-dir = 没有用于存放你的模板的文件夹

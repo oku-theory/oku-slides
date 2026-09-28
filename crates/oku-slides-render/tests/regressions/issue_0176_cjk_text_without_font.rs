@@ -25,9 +25,9 @@ fn app_fonts() -> Fonts {
 fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme, "params": { "lang": lang },
-        "slides": [{ "id": "s", "kind": "content", "title": text, "blocks": [
-            { "id": "b", "kind": "text", "text": [{ "runs": [{ "t": text }] }] }
-        ] }]
+        "slides": [{ "id": "s", "kind": "content", "params": { "title": text, "blocks": [
+            { "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": text }] }] } }
+        ] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
@@ -96,9 +96,9 @@ fn devanagari_bengali_and_thai_in_every_theme_are_drawn_with_their_fonts() {
 fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme, "params": { "lang": lang },
-        "slides": [{ "id": "s", "kind": "content", "title": title, "blocks": [
-            { "id": "b", "kind": "text", "text": [{ "runs": [{ "t": body }] }] }
-        ] }]
+        "slides": [{ "id": "s", "kind": "content", "params": { "title": title, "blocks": [
+            { "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": body }] }] } }
+        ] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
@@ -135,7 +135,7 @@ fn unknown_script_style_fails_to_compile() {
     let deck: Deck = serde_json::from_value(json!({
         "theme": "papier", "params": { "lang": "ja" },
         "tokens": { "script-style": { "display": "serf" } },
-        "slides": [{ "id": "s", "kind": "content", "title": "題名", "blocks": [] }]
+        "slides": [{ "id": "s", "kind": "content", "params": { "title": "題名", "blocks": [] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));

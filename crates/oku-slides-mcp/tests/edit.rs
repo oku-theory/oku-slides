@@ -36,7 +36,7 @@ async fn apply_invalid_op_returns_error_with_path() {
     let r = call(
         &c,
         "apply",
-        json!({ "ops": [{ "op": "set_text", "slide": "s-libre", "element": "absent", "text": [] }] }),
+        json!({ "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "absent" }, "param": "body", "value": [] }] }),
     )
     .await;
     assert_that!(r.is_error).is_equal_to(Some(true));
@@ -50,9 +50,23 @@ async fn apply_schema_accepts_every_op_kind_in_tool_list() {
     let tools = c.request_tool_list(None).await.unwrap().tools;
     let apply = tools.into_iter().find(|t| t.name == "apply").unwrap();
     let schema = serde_json::to_string(&apply.input_schema).unwrap();
-    for op in ["set_text", "set_chart_option", "add_slide", "set_theme"] {
+    for op in ["set_param", "set_chart_option", "add_slide", "set_theme"] {
         assert_that!(schema.contains(op)).named(op).is_true();
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_set_param_through_mcp_changes_the_slide() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let ops = json!([{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body",
+        "value": [{ "runs": [{ "t": "Changé par MCP" }] }] }]);
+    let r = call(&c, "apply", json!({ "ops": ops })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let s = h.session.lock().unwrap();
+    let located = s.deck().slide("s-libre").unwrap().locate("e-texte").unwrap();
+    let text = located.element.params.rich("body").unwrap()[0].runs[0].t.as_str();
+    assert_that!(text).is_equal_to("Changé par MCP");
 }
 
 #[tokio::test(flavor = "multi_thread")]

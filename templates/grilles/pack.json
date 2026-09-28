@@ -1,0 +1,500 @@
+{
+  "id": "grilles",
+  "name": "Grilles",
+  "description": "Des slides construites sur une grille : chaque bloc s'accroche à des cases.",
+  "templates": [
+    {
+      "id": "grille-vide",
+      "name": "Grille vide",
+      "description": "Grille 12 × 6, à remplir",
+      "slide": {
+        "id": "tpl-grille-vide",
+        "kind": "content",
+        "params": {
+          "title": "Titre de la slide",
+          "grid": {
+            "columns": 12,
+            "rows": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "grille-deux-tiers",
+      "name": "Deux tiers, un tiers",
+      "description": "Un texte large et une carte à côté",
+      "slide": {
+        "id": "tpl-grille-deux-tiers",
+        "kind": "content",
+        "params": {
+          "title": "Le point principal",
+          "kicker": "Surtitre",
+          "grid": {
+            "columns": 12,
+            "rows": 6
+          },
+          "elements": [
+            {
+              "id": "t",
+              "cell": {
+                "col": 0,
+                "row": 0,
+                "cols": 8,
+                "rows": 6
+              },
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Premier point"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Deuxième point"
+                      }
+                    ]
+                  },
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Troisième point"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c",
+              "cell": {
+                "col": 8,
+                "row": 0,
+                "cols": 4,
+                "rows": 6
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "À retenir",
+                "title": "Une idée",
+                "highlight": true,
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "En une phrase."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "grille-quatre",
+      "name": "Quatre cases",
+      "description": "Quatre idées de même poids",
+      "slide": {
+        "id": "tpl-grille-quatre",
+        "kind": "content",
+        "params": {
+          "title": "Quatre idées",
+          "grid": {
+            "columns": 2,
+            "rows": 2
+          },
+          "elements": [
+            {
+              "id": "c1",
+              "cell": {
+                "col": 0,
+                "row": 0
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "1",
+                "title": "Première",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c2",
+              "cell": {
+                "col": 1,
+                "row": 0
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "2",
+                "title": "Deuxième",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c3",
+              "cell": {
+                "col": 0,
+                "row": 1
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "3",
+                "title": "Troisième",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c4",
+              "cell": {
+                "col": 1,
+                "row": 1
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "4",
+                "title": "Quatrième",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "grille-bandeau",
+      "name": "Bandeau et trois colonnes",
+      "description": "Une phrase d'accroche au-dessus de trois cartes",
+      "slide": {
+        "id": "tpl-grille-bandeau",
+        "kind": "content",
+        "params": {
+          "title": "Titre de la slide",
+          "grid": {
+            "columns": 3,
+            "rows": 3
+          },
+          "elements": [
+            {
+              "id": "a",
+              "cell": {
+                "col": 0,
+                "row": 0,
+                "cols": 3,
+                "rows": 1
+              },
+              "style": {
+                "size": "lead",
+                "font": "display"
+              },
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Une phrase qui résume la slide."
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c1",
+              "cell": {
+                "col": 0,
+                "row": 1,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "title": "Un",
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c2",
+              "cell": {
+                "col": 1,
+                "row": 1,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "title": "Deux",
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c3",
+              "cell": {
+                "col": 2,
+                "row": 1,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "title": "Trois",
+                "body": [
+                  {
+                    "list": "bullet",
+                    "runs": [
+                      {
+                        "t": "Détail"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "grille-mosaique",
+      "name": "Mosaïque",
+      "description": "Une grande case et deux petites",
+      "slide": {
+        "id": "tpl-grille-mosaique",
+        "kind": "content",
+        "params": {
+          "title": "Vue d'ensemble",
+          "grid": {
+            "columns": 12,
+            "rows": 6
+          },
+          "elements": [
+            {
+              "id": "f",
+              "cell": {
+                "col": 0,
+                "row": 0,
+                "cols": 7,
+                "rows": 6
+              },
+              "style": {
+                "fill": "surface",
+                "radius": "md"
+              },
+              "kind": "shape"
+            },
+            {
+              "id": "t",
+              "cell": {
+                "col": 0,
+                "row": 0,
+                "cols": 7,
+                "rows": 3
+              },
+              "style": {
+                "size": "lead",
+                "font": "display"
+              },
+              "kind": "text",
+              "params": {
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Le sujet principal"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c1",
+              "cell": {
+                "col": 7,
+                "row": 0,
+                "cols": 5,
+                "rows": 3
+              },
+              "kind": "card",
+              "params": {
+                "title": "Un détail",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Explication"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "c2",
+              "cell": {
+                "col": 7,
+                "row": 3,
+                "cols": 5,
+                "rows": 3
+              },
+              "kind": "card",
+              "params": {
+                "title": "Un autre",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Explication"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "grille-chiffres",
+      "name": "Trois chiffres",
+      "description": "Trois chiffres clés sur une grille 3 × 2",
+      "slide": {
+        "id": "tpl-grille-chiffres",
+        "kind": "content",
+        "params": {
+          "title": "En chiffres",
+          "grid": {
+            "columns": 3,
+            "rows": 2
+          },
+          "elements": [
+            {
+              "id": "n1",
+              "cell": {
+                "col": 0,
+                "row": 0,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "Clients",
+                "title": "1 200",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Ce que ce chiffre veut dire"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "n2",
+              "cell": {
+                "col": 1,
+                "row": 0,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "Croissance",
+                "title": "+ 38 %",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Ce que ce chiffre veut dire"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "n3",
+              "cell": {
+                "col": 2,
+                "row": 0,
+                "rows": 2
+              },
+              "kind": "card",
+              "params": {
+                "kicker": "Délai",
+                "title": "48 h",
+                "body": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Ce que ce chiffre veut dire"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

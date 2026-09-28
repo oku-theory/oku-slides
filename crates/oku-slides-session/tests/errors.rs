@@ -141,7 +141,7 @@ fn handle_queries_answer_in_json() {
     let dir = workdir();
     let mut s = session(&dir);
     let schema = request(&mut s, serde_json::json!({"cmd": "schema"})).unwrap();
-    assert_that!(schema).contains("set_text");
+    assert_that!(schema).contains("set_param");
     let sets = request(&mut s, serde_json::json!({"cmd": "template_sets"})).unwrap();
     assert_that!(sets).contains("\"default\":true");
     let templates = request(&mut s, serde_json::json!({"cmd": "templates", "set": "grilles"})).unwrap();
@@ -169,10 +169,10 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
     s.new_deck().unwrap();
     let slide = s.snapshot().slides[1].id.to_string();
     let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
-        "op": "add_element", "slide": slide, "zone": "blocks",
-        "element": { "id": "g", "kind": "chart", "option": {
+        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+        "element": { "id": "g", "kind": "chart", "params": { "option": {
             "xAxis": { "type": "category", "data": ["1", "2"] },
-            "series": [{ "type": "bar", "data": [3, 5] }] } } }] });
+            "series": [{ "type": "bar", "data": [3, 5] }] } } } }] });
     request(&mut s, add).unwrap();
     let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
     assert_that!(json).contains(r#"["Catégorie","Série 1"]"#);
@@ -190,15 +190,15 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
 fn open_deck_with_inline_chart_makes_its_data_editable() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "blocks": [{
-        "id": "g", "kind": "chart", "option": {
+    let deck = serde_json::json!({ "version": 2, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
+        "id": "g", "kind": "chart", "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
-            "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } }] }] });
+            "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });
     std::fs::write(&file, deck.to_string()).unwrap();
     let mut s = session(&dir);
     s.open(&file).unwrap();
     let edit = serde_json::json!({ "cmd": "apply", "label": "cellule", "ops": [{
-        "op": "set_chart_data", "slide": "s", "element": "g",
+        "op": "set_chart_data", "target": { "slide": "s", "element": "g" }, "param": "option",
         "change": { "op": "set_cell", "row": 1, "col": 1, "value": 7 } }] });
     request(&mut s, edit).unwrap();
     let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": "s" })).unwrap();
@@ -212,10 +212,10 @@ fn chart_kind_converts_the_data_and_undoes_in_one_step() {
     s.new_deck().unwrap();
     let slide = s.snapshot().slides[1].id.to_string();
     let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
-        "op": "add_element", "slide": slide, "zone": "blocks",
-        "element": { "id": "g", "kind": "chart", "option": {
+        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+        "element": { "id": "g", "kind": "chart", "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
-            "series": [{ "type": "bar", "data": [3, 5] }] } } }] });
+            "series": [{ "type": "bar", "data": [3, 5] }] } } } }] });
     request(&mut s, add).unwrap();
     let before = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
     let to_scatter =
@@ -239,7 +239,7 @@ fn chart_kind_on_a_text_or_missing_slide_is_refused() {
         serde_json::json!({ "cmd": "chart_kind", "label": "x", "slide": slide, "element": "b-1", "kind": "pie" });
     let err = request(&mut s, text).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NoChart);
-    assert_that!(french(&err)).is_equal_to("b-1 n'est pas un graphique".to_owned());
+    assert_that!(french(&err)).is_equal_to("Pas de graphique ici : b-1".to_owned());
     let missing =
         serde_json::json!({ "cmd": "chart_kind", "label": "x", "slide": "absente", "element": "g", "kind": "pie" });
     assert_that!(request(&mut s, missing).unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);

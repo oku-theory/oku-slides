@@ -19,12 +19,21 @@ pub enum OpErrorKind {
     ElementNotFound,
     DuplicateId,
     IndexOutOfRange,
-    NotAGroup,
-    NoText,
     InvalidValue,
-    NotAChart,
     /// Options ou données de graphique refusées par `oku-slides-chart`.
     InvalidChart,
+    /// `kind` absent du registre des widgets.
+    UnknownWidget,
+    /// Paramètre non déclaré par le widget.
+    UnknownParam,
+    /// Valeur d'un autre type que celui du paramètre.
+    ParamType,
+    /// Valeur hors de la liste d'un `choice`.
+    ChoiceOutOfRange,
+    /// Le slot n'accepte pas ce widget (`accepts`).
+    SlotRejects,
+    /// Widget d'une autre catégorie (slide au lieu d'élément, ou l'inverse).
+    WrongCategory,
 }
 
 #[derive(Debug, Snafu)]
@@ -38,18 +47,26 @@ pub(crate) enum OpInner {
     DuplicateId { id: String, backtrace: Backtrace },
     #[snafu(display("index out of range: {index} (length {len})"))]
     IndexOutOfRange { index: usize, len: usize, backtrace: Backtrace },
-    #[snafu(display("element {element} is not a group"))]
-    NotAGroup { element: String, backtrace: Backtrace },
-    #[snafu(display("element {element} has no text"))]
-    NoText { element: String, backtrace: Backtrace },
     #[snafu(display("invalid value for {field}: {reason}"))]
     InvalidValue { field: String, reason: &'static str, backtrace: Backtrace },
     #[snafu(display("invalid value for {field}"))]
     ParseValue { field: String, source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("element {element} is not a chart"))]
-    NotAChart { element: String, backtrace: Backtrace },
-    #[snafu(display("chart {element} refused the change"))]
-    Chart { element: String, source: oku_slides_chart::ChartError, backtrace: Backtrace },
+    /// `subject` : l'élément du graphique, ou le paramètre quand l'élément
+    /// n'est pas connu (conversion d'une valeur).
+    #[snafu(display("chart {subject} refused the change"))]
+    Chart { subject: String, source: oku_slides_chart::ChartError, backtrace: Backtrace },
+    #[snafu(display("unknown widget: {kind}"))]
+    UnknownWidget { kind: String, backtrace: Backtrace },
+    #[snafu(display("{widget} has no parameter {param}"))]
+    UnknownParam { widget: String, param: String, backtrace: Backtrace },
+    #[snafu(display("{param} expects {expected}"))]
+    ParamType { param: String, expected: &'static str, backtrace: Backtrace },
+    #[snafu(display("{slot} does not accept {kind}"))]
+    SlotRejects { slot: String, kind: String, backtrace: Backtrace },
+    #[snafu(display("{kind} cannot be used here"))]
+    WrongCategory { kind: String, backtrace: Backtrace },
+    #[snafu(display("{value} is not allowed for {param}"))]
+    ChoiceOutOfRange { param: String, value: String, backtrace: Backtrace },
 }
 
 impl OpError {
@@ -59,25 +76,32 @@ impl OpError {
             OpInner::ElementNotFound { .. } => OpErrorKind::ElementNotFound,
             OpInner::DuplicateId { .. } => OpErrorKind::DuplicateId,
             OpInner::IndexOutOfRange { .. } => OpErrorKind::IndexOutOfRange,
-            OpInner::NotAGroup { .. } => OpErrorKind::NotAGroup,
-            OpInner::NoText { .. } => OpErrorKind::NoText,
             OpInner::InvalidValue { .. } | OpInner::ParseValue { .. } => OpErrorKind::InvalidValue,
-            OpInner::NotAChart { .. } => OpErrorKind::NotAChart,
             OpInner::Chart { .. } => OpErrorKind::InvalidChart,
+            OpInner::UnknownWidget { .. } => OpErrorKind::UnknownWidget,
+            OpInner::UnknownParam { .. } => OpErrorKind::UnknownParam,
+            OpInner::ParamType { .. } => OpErrorKind::ParamType,
+            OpInner::ChoiceOutOfRange { .. } => OpErrorKind::ChoiceOutOfRange,
+            OpInner::SlotRejects { .. } => OpErrorKind::SlotRejects,
+            OpInner::WrongCategory { .. } => OpErrorKind::WrongCategory,
         }
     }
 
-    /// Ce que l'erreur désigne (slide, élément, identifiant ou champ), s'il y en a un.
+    /// Ce que l'erreur désigne (slide, élément, identifiant, champ, widget
+    /// ou paramètre), s'il y en a un.
     pub fn subject(&self) -> Option<&str> {
         match &*self.0 {
             OpInner::SlideNotFound { slide, .. } => Some(slide),
-            OpInner::ElementNotFound { element, .. }
-            | OpInner::NotAGroup { element, .. }
-            | OpInner::NoText { element, .. }
-            | OpInner::NotAChart { element, .. }
-            | OpInner::Chart { element, .. } => Some(element),
+            OpInner::ElementNotFound { element, .. } => Some(element),
+            OpInner::Chart { subject, .. } => Some(subject),
             OpInner::DuplicateId { id, .. } => Some(id),
             OpInner::InvalidValue { field, .. } | OpInner::ParseValue { field, .. } => Some(field),
+            OpInner::UnknownWidget { kind, .. }
+            | OpInner::SlotRejects { kind, .. }
+            | OpInner::WrongCategory { kind, .. } => Some(kind),
+            OpInner::UnknownParam { param, .. }
+            | OpInner::ParamType { param, .. }
+            | OpInner::ChoiceOutOfRange { param, .. } => Some(param),
             OpInner::IndexOutOfRange { .. } => None,
         }
     }
@@ -123,6 +147,8 @@ pub enum SourcesErrorKind {
     MissingDeck,
     /// Le zip décompressé dépasse la taille permise.
     TooLarge,
+    /// Des éléments s'imbriquent au-delà de [`MAX_SLOT_DEPTH`](crate::MAX_SLOT_DEPTH).
+    TooDeep,
     /// Le replica (`deck.loro`) est illisible, trop gros, ou ne s'écrit pas.
     Replica(ReplicaErrorKind),
 }
@@ -146,6 +172,8 @@ pub(crate) enum SourcesInner {
     MissingDeck { backtrace: Backtrace },
     #[snafu(display("sources too large once decompressed (max {max} bytes)"))]
     TotalTooLarge { max: usize, backtrace: Backtrace },
+    #[snafu(display("elements nest deeper than {max} slots"))]
+    TooDeep { max: usize, backtrace: Backtrace },
     /// En boîte : l'erreur de replica porte déjà sa trace, et gonflerait
     /// chaque `Result` du zip.
     #[snafu(display("unusable deck.loro"))]
@@ -167,6 +195,7 @@ impl SourcesError {
             SourcesInner::BadName { .. } => SourcesErrorKind::BadName,
             SourcesInner::MissingDeck { .. } => SourcesErrorKind::MissingDeck,
             SourcesInner::TotalTooLarge { .. } => SourcesErrorKind::TooLarge,
+            SourcesInner::TooDeep { .. } => SourcesErrorKind::TooDeep,
             SourcesInner::Replica { ref source, .. } => SourcesErrorKind::Replica(source.kind()),
         }
     }
@@ -174,10 +203,10 @@ impl SourcesError {
 
 impl Localize for OpError {
     fn localize(&self, l: &Localizer) -> String {
-        if let OpInner::Chart { element, source, .. } = &*self.0 {
+        if let OpInner::Chart { subject, source, .. } = &*self.0 {
             return l.tr_with(
                 "op-invalid-chart",
-                &[("subject", element.as_str().into()), ("reason", source.localize(l).into())],
+                &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())],
             );
         }
         let id = match self.kind() {
@@ -185,11 +214,14 @@ impl Localize for OpError {
             OpErrorKind::ElementNotFound => "op-element-not-found",
             OpErrorKind::DuplicateId => "op-duplicate-id",
             OpErrorKind::IndexOutOfRange => "op-index-out-of-range",
-            OpErrorKind::NotAGroup => "op-not-a-group",
-            OpErrorKind::NoText => "op-no-text",
             OpErrorKind::InvalidValue => "op-invalid-value",
-            OpErrorKind::NotAChart => "op-not-a-chart",
             OpErrorKind::InvalidChart => "op-invalid-chart",
+            OpErrorKind::UnknownWidget => "op-unknown-widget",
+            OpErrorKind::UnknownParam => "op-unknown-param",
+            OpErrorKind::ParamType => "op-param-type",
+            OpErrorKind::ChoiceOutOfRange => "op-choice-out-of-range",
+            OpErrorKind::SlotRejects => "op-slot-rejects",
+            OpErrorKind::WrongCategory => "op-wrong-category",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }
@@ -213,6 +245,7 @@ impl Localize for SourcesError {
             SourcesErrorKind::BadName => "sources-bad-name",
             SourcesErrorKind::MissingDeck => "sources-missing-deck",
             SourcesErrorKind::TooLarge => "sources-too-large",
+            SourcesErrorKind::TooDeep => "sources-too-deep",
             // Traité plus haut : l'erreur de replica se localise elle-même.
             SourcesErrorKind::Replica(_) => "sources-unreadable",
         })
@@ -235,6 +268,8 @@ pub enum ReplicaErrorKind {
     Write,
     /// Deux replicas sans origine commune.
     Unrelated,
+    /// Deck d'une autre version du format (`DECK_VERSION`).
+    UnsupportedVersion,
 }
 
 #[derive(Debug, Snafu)]
@@ -258,6 +293,8 @@ pub(crate) enum ReplicaInner {
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("the two replicas have no common origin"))]
     Unrelated { backtrace: Backtrace },
+    #[snafu(display("unsupported deck version: {found}"))]
+    UnsupportedDeckVersion { found: String, backtrace: Backtrace },
 }
 
 impl ReplicaError {
@@ -268,6 +305,7 @@ impl ReplicaError {
             }
             ReplicaInner::TooLarge { .. } => ReplicaErrorKind::TooLarge,
             ReplicaInner::Unrelated { .. } => ReplicaErrorKind::Unrelated,
+            ReplicaInner::UnsupportedDeckVersion { .. } => ReplicaErrorKind::UnsupportedVersion,
             ReplicaInner::Loro { .. }
             | ReplicaInner::TextUpdate { .. }
             | ReplicaInner::Export { .. }
@@ -283,6 +321,7 @@ impl Localize for ReplicaError {
             ReplicaErrorKind::TooLarge => "replica-too-large",
             ReplicaErrorKind::Write => "replica-write",
             ReplicaErrorKind::Unrelated => "replica-unrelated",
+            ReplicaErrorKind::UnsupportedVersion => "replica-unsupported-version",
         })
     }
 }

@@ -1,6 +1,18 @@
 //! Fabrique de session pour les tests, ouverte sur `fixtures/roadmap.json`.
 
+use std::sync::Arc;
+
+use oku_slides_core::WidgetRegistry;
+
 use crate::{Fonts, Platform, Session, Settings};
+
+/// Le registre de base figé (`fixtures/widgets/base-registry.json`).
+pub(crate) fn registry() -> Arc<WidgetRegistry> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}")))
+}
 
 /// Un dossier neuf, créé atomiquement sous un nom aléatoire (t-264).
 ///
