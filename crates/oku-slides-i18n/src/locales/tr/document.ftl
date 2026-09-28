@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = ipucu: { $hint }
 render-chart-failed = grafik çizilemedi
+
+registry-bad-pack-id = Geçersiz şablon paketi tanımlayıcısı: { $id }
+registry-compile = Şablon paketinin widget'ları derlenemedi
+registry-missing = Şablon paketi widget'larını bildirmiyor

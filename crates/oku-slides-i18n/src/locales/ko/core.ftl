@@ -36,3 +36,15 @@ replica-corrupted = 이 파일의 프레젠테이션 기록이 손상되었습�
 replica-too-large = 이 파일의 프레젠테이션 기록이 너무 커서 열 수 없습니다
 replica-write = 프레젠테이션 기록을 업데이트할 수 없습니다
 replica-unrelated = 이 두 프레젠테이션은 공통된 출처가 없습니다
+
+widget-unreadable = 위젯 선언을 읽을 수 없습니다
+widget-fault-empty-name = 위젯 { $widget }: 위젯 또는 매개변수에 이름이 없습니다
+widget-fault-duplicate-widget = 위젯 { $widget }이(가) 두 번 선언되었습니다
+widget-fault-duplicate-param = 위젯 { $widget }이(가) 동일한 매개변수를 두 번 선언합니다
+widget-fault-empty-choice = 위젯 { $widget }: 선택 항목에 값이 없습니다
+widget-fault-default-not-in-choice = 위젯 { $widget }: 선택 항목의 기본값이 값 목록에 없습니다
+widget-fault-default-wrong-type = 위젯 { $widget }: 기본값이 매개변수의 타입과 일치하지 않습니다
+widget-fault-bind-not-plain = 위젯 { $widget }: 일반 텍스트 매개변수만 프레젠테이션에 바인딩할 수 있습니다
+widget-fault-unknown-slot-kind = 위젯 { $widget }: 슬롯이 알 수 없는 요소 위젯을 허용합니다
+widget-incompatible-override = 위젯 { $widget }이(가) 기본 위젯을 대체하지만 매개변수 { $param }을(를) 변경하거나 제거합니다
+widget-incompatible-category = 위젯 { $widget }이(가) 기본 위젯을 다른 범주로 대체합니다

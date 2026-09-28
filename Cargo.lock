@@ -5480,12 +5480,15 @@ dependencies = [
 name = "oku-slides-render"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "insta",
  "oku-slides-chart",
  "oku-slides-core",
  "oku-slides-i18n",
  "oku-slides-pdf",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "snafu",
  "speculoos",
  "time",

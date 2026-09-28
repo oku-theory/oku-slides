@@ -36,3 +36,15 @@ replica-corrupted = इस फ़ाइल में प्रस्तुति
 replica-too-large = इस फ़ाइल में प्रस्तुति का इतिहास खोलने के लिए बहुत बड़ा है
 replica-write = प्रस्तुति का इतिहास अपडेट नहीं हो सका
 replica-unrelated = इन दोनों प्रस्तुतियों का कोई साझा मूल नहीं है
+
+widget-unreadable = विजेट घोषणाएँ पढ़ी नहीं जा सकीं
+widget-fault-empty-name = विजेट { $widget }: किसी विजेट या पैरामीटर का कोई नाम नहीं है
+widget-fault-duplicate-widget = विजेट { $widget } दो बार घोषित किया गया है
+widget-fault-duplicate-param = विजेट { $widget } एक ही पैरामीटर को दो बार घोषित करता है
+widget-fault-empty-choice = विजेट { $widget }: किसी चॉइस का कोई मान नहीं है
+widget-fault-default-not-in-choice = विजेट { $widget }: चॉइस का डिफ़ॉल्ट मान उसके मानों में शामिल नहीं है
+widget-fault-default-wrong-type = विजेट { $widget }: डिफ़ॉल्ट मान उसके पैरामीटर के प्रकार से मेल नहीं खाता
+widget-fault-bind-not-plain = विजेट { $widget }: केवल सादा टेक्स्ट पैरामीटर को प्रस्तुति से जोड़ा जा सकता है
+widget-fault-unknown-slot-kind = विजेट { $widget }: एक स्लॉट अज्ञात एलिमेंट विजेट स्वीकार करता है
+widget-incompatible-override = विजेट { $widget } मूल विजेट को बदलता है लेकिन उसके पैरामीटर { $param } को बदलता या हटाता है
+widget-incompatible-category = विजेट { $widget } मूल विजेट को एक अलग श्रेणी से बदलता है

@@ -198,9 +198,16 @@ range les registres par empreinte (sha-256 de la bibliothèque et de
 `widgets.typ`) ; l'empreinte n'est pas dans `WidgetRegistry`.
 
 **Surcharge.** Un pack peut redéfinir un widget de base si chaque paramètre
-de base existe avec le même type ; les ajouts sont permis. Sinon le pack ne
-se charge pas (`IncompatibleOverride`). Un deck reste ainsi valide quel que
-soit le pack.
+de base existe avec un type et un `bind` compatibles ; les ajouts sont
+permis. Compatible veut dire : toute valeur valide pour le paramètre de
+base reste valide pour celui du pack — un `number` du pack couvre
+l'intervalle du `number` de base (bornes égales ou plus larges), un `slot`
+garde le même mode et son `accepts` couvre celui de la base (superset, ou
+`none` pour « tout accepter »), un `choice` du pack couvre les `values` de
+la base (superset), `bind` est identique, les autres types sont identiques.
+Sinon le pack ne se charge pas (`IncompatibleOverride`) ; une `category`
+différente ne se charge pas non plus (`IncompatibleCategory`). Un deck
+reste ainsi valide quel que soit le pack.
 
 ### Modèle
 
@@ -329,9 +336,9 @@ une valeur mal typée.
 
 ## Erreurs
 
-- `RegistryError` (render) : `Compile { diagnostics }`, `MissingRegistry`,
-  `BadSchema { widget, reason }`,
-  `IncompatibleOverride { widget, param, expected, found }`.
+- `RegistryError` (render) : `BadPackId { id }`, `RegistryCompile { diagnostics }`,
+  `Missing`, `Schema { source: WidgetError }` (défaut de déclaration ou
+  surcharge incompatible, détaillé par `WidgetErrorKind`), `Setup`.
 - `OpError` étendu : `UnknownWidget`, `UnknownParam`,
   `ParamType { param, expected }`, `SlotRejects { slot, kind }`,
   `ChoiceOutOfRange`, `WrongCategory`.

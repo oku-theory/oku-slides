@@ -15,3 +15,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = hint: { $hint }
 render-chart-failed = chart could not be drawn
+
+registry-bad-pack-id = Invalid template pack identifier: { $id }
+registry-compile = The widgets of the template pack could not be compiled
+registry-missing = The template pack does not declare its widgets

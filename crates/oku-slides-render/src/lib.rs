@@ -6,12 +6,15 @@
 //!
 //! Le même document compilé donne le SVG de chaque slide (affichage) et le PDF
 //! (enregistrement) : ce qu'on voit est ce qui sort.
+//!
+//! Le registre des widgets ([`load_registry`]) se lit par une sonde Typst.
 
 mod charts;
 mod diagnostic;
 mod error;
 mod fonts;
 mod palette;
+mod registry;
 mod world;
 
 use std::cell::OnceCell;
@@ -19,8 +22,6 @@ use std::collections::BTreeMap;
 
 use serde_json::Value as Json;
 use snafu::OptionExt;
-use typst::WorldExt;
-use typst::diag::SourceDiagnostic;
 use typst::foundations::{Label, Selector};
 use typst::introspection::Introspector;
 use typst::utils::PicoStr;
@@ -30,9 +31,10 @@ use oku_slides_core::Deck;
 
 pub use diagnostic::{Diagnostic, Severity};
 use error::{CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
-pub use error::{RenderError, RenderErrorKind};
+pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
+pub use registry::{PackWidgets, Registries, load_registry};
 use world::OkuSlidesWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
@@ -55,6 +57,26 @@ pub struct ElementBox {
     #[serde(default)]
     pub ax: Option<f64>,
     /// Typographie effective : l'éditeur de l'app la reprend telle quelle.
+    #[serde(default)]
+    pub style: Option<TextStyle>,
+}
+
+/// Boîte d'un champ éditable : un paramètre texte d'un élément ou d'une slide.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FieldBox {
+    /// Id de l'élément ou de la slide.
+    pub owner: String,
+    /// Nom du paramètre.
+    pub field: String,
+    pub page: usize,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    #[serde(default)]
+    pub ax: Option<f64>,
+    #[serde(default)]
+    pub aw: Option<f64>,
     #[serde(default)]
     pub style: Option<TextStyle>,
 }
@@ -152,11 +174,11 @@ impl Renderer {
 
     pub fn compile(&self) -> Result<Compiled, RenderError> {
         let result = typst::compile::<PagedDocument>(&self.world);
-        let warnings = result.warnings.iter().map(|d| self.diagnostic(d)).collect();
+        let warnings = result.warnings.iter().map(|d| self.world.diagnostic(d)).collect();
         match result.output {
             Ok(doc) => Ok(Compiled { doc, warnings, layout: OnceCell::new() }),
             Err(errors) => {
-                Err(CompileSnafu { diagnostics: errors.iter().map(|d| self.diagnostic(d)).collect::<Vec<_>>() }
+                Err(CompileSnafu { diagnostics: errors.iter().map(|d| self.world.diagnostic(d)).collect::<Vec<_>>() }
                     .build()
                     .into())
             }
@@ -169,24 +191,6 @@ impl Renderer {
     pub fn set_language(&mut self, l: &oku_slides_i18n::Localizer) -> Result<(), RenderError> {
         self.world.set_language(l)
     }
-
-    fn diagnostic(&self, d: &SourceDiagnostic) -> Diagnostic {
-        let place = d.span.id().and_then(|id| {
-            let range = self.world.range(d.span)?;
-            let source = self.world.source_of(id)?;
-            let line = source.lines().byte_to_line(range.start)? + 1;
-            Some(format!("{}:{line}", id.vpath().get_without_slash()))
-        });
-        Diagnostic {
-            severity: match d.severity {
-                typst::diag::Severity::Error => Severity::Error,
-                typst::diag::Severity::Warning => Severity::Warning,
-            },
-            place,
-            message: d.message.to_string(),
-            hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
-        }
-    }
 }
 
 /// Ce que le rendu dit du document : page de chaque slide, boîtes des
@@ -198,6 +202,8 @@ pub struct Layout {
     pub slides: Vec<SlidePage>,
     /// Boîtes réelles des éléments, pour la couche de sélection.
     pub boxes: Vec<ElementBox>,
+    /// Champs éditables, pour l'édition en place.
+    pub fields: Vec<FieldBox>,
     /// Zones des éléments libres (une par slide qui en a), avec leur grille.
     pub zones: Vec<ZoneBox>,
     /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
@@ -221,6 +227,13 @@ impl Layout {
     /// Zone des éléments libres d'une page.
     pub fn zone_on(&self, page: usize) -> Option<&ZoneBox> {
         self.zones.iter().find(|z| z.page == page)
+    }
+
+    /// Champs éditables d'une page.
+    pub fn fields_on(&self, page: usize) -> &[FieldBox] {
+        let start = self.fields.partition_point(|f| f.page < page);
+        let end = self.fields.partition_point(|f| f.page <= page);
+        &self.fields[start..end]
     }
 }
 
@@ -321,9 +334,11 @@ impl Compiled {
                 .collect();
             let mut boxes: Vec<ElementBox> = parsed(values("oku-slides-box"));
             boxes.sort_by_key(|b| b.page);
+            let mut fields: Vec<FieldBox> = parsed(values("oku-slides-field"));
+            fields.sort_by_key(|f| f.page);
             let zones = parsed(values("oku-slides-zone"));
             let tokens = values("oku-slides-tokens").into_iter().next();
-            Layout { slides, boxes, zones, tokens }
+            Layout { slides, boxes, fields, zones, tokens }
         })
     }
 }

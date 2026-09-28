@@ -36,3 +36,15 @@ replica-corrupted = История презентации в этом файле
 replica-too-large = История презентации в этом файле слишком велика для открытия
 replica-write = Не удалось обновить историю презентации
 replica-unrelated = У этих двух презентаций нет общего происхождения
+
+widget-unreadable = Не удалось прочитать объявления виджетов
+widget-fault-empty-name = Виджет { $widget }: у виджета или параметра нет имени
+widget-fault-duplicate-widget = Виджет { $widget } объявлен дважды
+widget-fault-duplicate-param = Виджет { $widget } дважды объявляет один и тот же параметр
+widget-fault-empty-choice = Виджет { $widget }: у варианта выбора нет значений
+widget-fault-default-not-in-choice = Виджет { $widget }: значение по умолчанию для выбора не входит в его значения
+widget-fault-default-wrong-type = Виджет { $widget }: значение по умолчанию не соответствует типу своего параметра
+widget-fault-bind-not-plain = Виджет { $widget }: только параметры простого текста можно привязать к презентации
+widget-fault-unknown-slot-kind = Виджет { $widget }: слот принимает неизвестный виджет элемента
+widget-incompatible-override = Виджет { $widget } заменяет встроенный виджет, но изменяет или удаляет его параметр { $param }
+widget-incompatible-category = Виджет { $widget } заменяет встроенный виджет виджетом другой категории

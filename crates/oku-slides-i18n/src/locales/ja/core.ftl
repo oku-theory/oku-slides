@@ -36,3 +36,15 @@ replica-corrupted = このファイル内のプレゼンテーション履歴が
 replica-too-large = このファイル内のプレゼンテーション履歴は大きすぎて開けません
 replica-write = プレゼンテーション履歴を更新できませんでした
 replica-unrelated = この2つのプレゼンテーションには共通の起源がありません
+
+widget-unreadable = ウィジェットの宣言を読み取れませんでした
+widget-fault-empty-name = ウィジェット { $widget }：ウィジェットまたはパラメーターに名前がありません
+widget-fault-duplicate-widget = ウィジェット { $widget } が二重に宣言されています
+widget-fault-duplicate-param = ウィジェット { $widget } が同じパラメーターを二重に宣言しています
+widget-fault-empty-choice = ウィジェット { $widget }：選択肢に値がありません
+widget-fault-default-not-in-choice = ウィジェット { $widget }：選択肢の既定値がその値に含まれていません
+widget-fault-default-wrong-type = ウィジェット { $widget }：既定値がパラメーターの型と一致していません
+widget-fault-bind-not-plain = ウィジェット { $widget }：プレーンテキストのパラメーターのみプレゼンテーションに紐付けできます
+widget-fault-unknown-slot-kind = ウィジェット { $widget }：スロットが未知の要素ウィジェットを受け入れています
+widget-incompatible-override = ウィジェット { $widget } は組み込みのものを置き換えますが、パラメーター { $param } を変更または削除しています
+widget-incompatible-category = ウィジェット { $widget } は組み込みのものを異なるカテゴリで置き換えています

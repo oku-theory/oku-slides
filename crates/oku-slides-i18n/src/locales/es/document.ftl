@@ -15,3 +15,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = sugerencia: { $hint }
 render-chart-failed = no se pudo dibujar el gráfico
+
+registry-bad-pack-id = Identificador de paquete de plantillas no válido: { $id }
+registry-compile = No se pudieron compilar los widgets del paquete de plantillas
+registry-missing = El paquete de plantillas no declara sus widgets

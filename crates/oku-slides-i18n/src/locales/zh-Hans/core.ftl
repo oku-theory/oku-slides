@@ -36,3 +36,15 @@ replica-corrupted = 此文件中的演示文稿历史已损坏
 replica-too-large = 此文件中的演示文稿历史过大，无法打开
 replica-write = 无法更新演示文稿历史
 replica-unrelated = 这两个演示文稿没有共同的来源
+
+widget-unreadable = 无法读取小组件声明
+widget-fault-empty-name = 小组件 { $widget }：某个小组件或参数没有名称
+widget-fault-duplicate-widget = 小组件 { $widget } 被声明了两次
+widget-fault-duplicate-param = 小组件 { $widget } 两次声明了同一个参数
+widget-fault-empty-choice = 小组件 { $widget }：某个选项没有任何值
+widget-fault-default-not-in-choice = 小组件 { $widget }：选项的默认值不在其取值范围内
+widget-fault-default-wrong-type = 小组件 { $widget }：默认值与其参数类型不匹配
+widget-fault-bind-not-plain = 小组件 { $widget }：只有纯文本参数才能绑定到演示文稿
+widget-fault-unknown-slot-kind = 小组件 { $widget }：插槽接受了未知的元素小组件
+widget-incompatible-override = 小组件 { $widget } 替换了内置小组件，但更改或删除了其参数 { $param }
+widget-incompatible-category = 小组件 { $widget } 以不同的类别替换了内置小组件

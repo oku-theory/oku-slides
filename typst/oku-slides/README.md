@@ -106,6 +106,94 @@ Chaque élément JSON avec un `id` est étiqueté `<e-ID>` :
 `query(<e-c1>).first().location().position()` donne sa position réelle, pour
 la couche de sélection de l'app.
 
+## Widgets
+
+Un **widget** est un composant déclaré avec le schéma de ses paramètres ; le
+registre de base (13 widgets : `text`, `card`, `image`, `shape`, `chart`,
+`stack`, `canvas`, `title`, `toc`, `chapter`, `content`, `end`, `blank`) est
+lu par l'hôte (sonde `<oku-widgets>`) et sert au rendu du deck JSON.
+
+Un **pack de modèles** peut ajouter ses propres widgets, ou surcharger ceux
+de la base, avec un fichier `widgets.typ` qui expose un tableau `registry` :
+
+```typ
+#import "/oku-slides/lib.typ": widget, field, params as p
+
+#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
+  (args, ctx) => field(ctx, "body", emph(args.body)))
+
+#let registry = (quote,)
+```
+
+`lib.typ` exporte tout ce dont un pack a besoin : `widget`, `field`,
+`by-name`, le module `params` (à importer `as p`), `free-area`,
+`zone-marker`, `grid-frame`, `default-grid`, `_paragraphs`, `_text-args`,
+`_text-over`.
+
+### Descripteurs de paramètres (`p.*`)
+
+Chaque paramètre d'un widget se déclare avec un descripteur `p.*`, importé
+depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
+
+| Descripteur | Rôle |
+| --- | --- |
+| `p.plain(label:, default:, bind:)` | Texte sur une ligne ; `bind` lie le paramètre à une clé de `deck.params` |
+| `p.rich(label:)` | Paragraphes à runs |
+| `p.flag(label:, default:)` | Booléen |
+| `p.number(label:, default:, min:, max:)` | Nombre borné |
+| `p.choice(..values, label:, default:)` | Une valeur parmi `values` ; par défaut la première |
+| `p.asset(label:)` | Identifiant d'asset `sha256:…` |
+| `p.slot(label:, mode:, accepts:)` | Éléments enfants ; `mode` : `"flow"` ou `"free"` ; `accepts` : noms de widgets admis, ou `none` |
+| `p.grid(label:, default:)` | Grille `(columns:, rows:, gap:)` |
+| `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`) |
+
+### `widget(name, label:, category:, params:, render)`
+
+`render` est une fonction `(args, ctx) => contenu` :
+
+- `args` : les valeurs des paramètres, prêtes à rendre. Une entrée de slot
+  `flow` porte `(kind, id, body)` ; une entrée de slot `free` porte
+  `(kind, id, frame, cell, show)`, où `show(frame)` rend l'enfant.
+- `ctx` : `id` (l'élément ou la slide), `tokens`, `vars`, `style` (la
+  typographie effective de l'élément), `framed` (l'élément a un cadre),
+  `load` (chargeur d'image ou de graphique fourni par l'hôte, fonction sans
+  argument, ou `none`).
+
+`category` vaut `"element"` (widget de corps de slide) ou `"slide"`.
+
+### `field(ctx, name, body, style:)`
+
+Émet la boîte éditable de `body` pour le paramètre `name` de l'objet
+`ctx.id`, étiquetée `<oku-slides-field>` : c'est ce qui rend un texte de
+widget éditable en place dans l'app. `ctx.id` vaut `none` pour un objet
+(élément ou slide) sans `id` ; `field` rend alors `body` tel quel. La sonde
+de schéma n'appelle jamais `render` : `ctx.id` n'a rien à voir avec elle.
+
+### Surcharger un widget de base
+
+Un widget d'un pack peut remplacer un widget de base s'il déclare le même
+`name`, garde sa `category`, et chacun de ses paramètres reste, avec un
+type et un `bind` compatibles : toute valeur valide pour le paramètre de
+base doit rester valide pour celui du pack.
+
+- `p.number()` : l'intervalle du pack doit contenir celui de la base (son
+  `min` est `none`, ou inférieur ou égal à celui de la base si la base en a
+  un ; sans `min` à la base, le pack ne peut pas en ajouter — symétrique
+  pour `max`).
+- `p.slot()` : même `mode`, et `accepts` du pack est `none` (tout admis) ou
+  sur-ensemble de celui de la base ; sans `accepts` à la base (tout admis),
+  le pack ne peut pas le restreindre.
+- `bind` : identique à celui du paramètre de base (`none` inclus).
+- `p.choice()` : `values` du pack doit contenir celui de la base
+  (sur-ensemble).
+- Les autres types (`plain`, `rich`, `flag`, `asset`, `grid`, `host`)
+  doivent être identiques.
+
+Une `category` différente fait échouer le chargement du registre avec une
+erreur `Schema` (`WidgetErrorKind::IncompatibleCategory`). Un paramètre de
+base absent, ou incompatible, fait échouer le chargement du registre avec
+une erreur `Schema` (`WidgetErrorKind::IncompatibleOverride`).
+
 ## Compiler les exemples
 
 ```sh

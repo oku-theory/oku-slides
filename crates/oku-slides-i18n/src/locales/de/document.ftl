@@ -15,3 +15,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = Hinweis: { $hint }
 render-chart-failed = Diagramm konnte nicht gezeichnet werden
+
+registry-bad-pack-id = Ungültige Vorlagenpaket-Kennung: { $id }
+registry-compile = Die Widgets des Vorlagenpakets konnten nicht kompiliert werden
+registry-missing = Das Vorlagenpaket deklariert keine Widgets

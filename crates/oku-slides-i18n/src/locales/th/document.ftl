@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = คำแนะนำ: { $hint }
 render-chart-failed = วาดแผนภูมิไม่ได้
+
+registry-bad-pack-id = รหัสชุดเทมเพลตไม่ถูกต้อง: { $id }
+registry-compile = คอมไพล์วิดเจ็ตของชุดเทมเพลตไม่ได้
+registry-missing = ชุดเทมเพลตไม่ได้ประกาศวิดเจ็ตของตน

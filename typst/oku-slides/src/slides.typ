@@ -315,7 +315,8 @@
 /// Carte : surtitre, titre et corps, avec filet d'accent en haut.
 /// highlight: true passe la carte sur le fond sombre du thème.
 /// fill : `auto` suit le jeton card.height ; `true` remplit la hauteur (case de grille, cadre).
-#let card(title: none, kicker: none, highlight: false, fill: auto, body) = context {
+/// wrap : (nom, contenu, style) => contenu ; le widget y pose ses champs.
+#let card(title: none, kicker: none, highlight: false, fill: auto, wrap: (name, body, style) => body, body) = context {
   let t = config().tokens
   let k = t.component.card
   let bg = color-of(t, if highlight { k.highlight-bg } else { k.bg })
@@ -330,15 +331,15 @@
       block(inset: (x: space-of(t, k.padding-x), y: space-of(t, k.padding-y)), {
         if ink != none { set text(fill: ink) }
         set list(marker: text(fill: color-of(t, if highlight { k.highlight-kicker } else { t.component.list.marker-color }), t.component.list.marker))
+        let kicker-c = t.component.kicker + if highlight { (color: k.highlight-kicker) } else { (:) }
+        let title-style = (size: size-of(t, k.title-size), weight: weight-of(t, k.title-weight),
+          fill: color-of(t, if highlight { k.highlight-title } else { k.title-color }))
         stack(spacing: space-of(t, k.gap),
           ..if kicker != none {
-            (styled(t, t.component.kicker + if highlight { (color: k.highlight-kicker) } else { (:) }, kicker),)
+            (wrap("kicker", styled(t, kicker-c, kicker), text-style(t, kicker-c) + (case: kicker-c.at("case", default: none))),)
           },
-          ..if title != none {
-            (text(size: size-of(t, k.title-size), weight: weight-of(t, k.title-weight),
-              fill: color-of(t, if highlight { k.highlight-title } else { k.title-color }), title),)
-          },
-          if ink != none { text(fill: ink, body) } else { body },
+          ..if title != none { (wrap("title", text(..title-style, title), title-style),) },
+          wrap("body", if ink != none { text(fill: ink, body) } else { body }, if ink != none { (fill: ink) } else { (:) }),
         )
       })
     },

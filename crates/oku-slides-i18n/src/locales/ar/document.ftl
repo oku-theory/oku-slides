@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = تلميح: { $hint }
 render-chart-failed = تعذّر رسم المخطط
+
+registry-bad-pack-id = معرّف حزمة القوالب غير صالح: { $id }
+registry-compile = تعذّر ترجمة عناصر واجهة حزمة القوالب
+registry-missing = حزمة القوالب لا تُعلن عن عناصر واجهتها

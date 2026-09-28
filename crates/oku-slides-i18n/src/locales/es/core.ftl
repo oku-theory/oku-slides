@@ -36,3 +36,15 @@ replica-corrupted = El historial de la presentación en este archivo está daña
 replica-too-large = El historial de la presentación en este archivo es demasiado grande para abrirlo
 replica-write = No se pudo actualizar el historial de la presentación
 replica-unrelated = Estas dos presentaciones no tienen un origen común
+
+widget-unreadable = No se pudieron leer las declaraciones de widgets
+widget-fault-empty-name = Widget { $widget }: un widget o parámetro no tiene nombre
+widget-fault-duplicate-widget = El widget { $widget } está declarado dos veces
+widget-fault-duplicate-param = El widget { $widget } declara el mismo parámetro dos veces
+widget-fault-empty-choice = Widget { $widget }: una opción no tiene valores
+widget-fault-default-not-in-choice = Widget { $widget }: el valor predeterminado de una opción no está entre sus valores
+widget-fault-default-wrong-type = Widget { $widget }: un valor predeterminado no coincide con el tipo de su parámetro
+widget-fault-bind-not-plain = Widget { $widget }: solo los parámetros de texto simple pueden vincularse a la presentación
+widget-fault-unknown-slot-kind = Widget { $widget }: un slot acepta un widget de elemento desconocido
+widget-incompatible-override = El widget { $widget } reemplaza al widget base pero cambia o elimina su parámetro { $param }
+widget-incompatible-category = El widget { $widget } reemplaza al widget base con una categoría diferente

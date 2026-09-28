@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = ইঙ্গিত: { $hint }
 render-chart-failed = চার্ট আঁকা যায়নি
+
+registry-bad-pack-id = অবৈধ টেমপ্লেট প্যাক শনাক্তকারী: { $id }
+registry-compile = টেমপ্লেট প্যাকের উইজেটগুলি কম্পাইল করা যায়নি
+registry-missing = টেমপ্লেট প্যাক তার উইজেটগুলি ঘোষণা করে না

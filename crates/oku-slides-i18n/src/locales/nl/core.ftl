@@ -36,3 +36,15 @@ replica-corrupted = De geschiedenis van de presentatie in dit bestand is beschad
 replica-too-large = De geschiedenis van de presentatie in dit bestand is te groot om te openen
 replica-write = De geschiedenis van de presentatie kon niet worden bijgewerkt
 replica-unrelated = Deze twee presentaties hebben geen gemeenschappelijke oorsprong
+
+widget-unreadable = De widgetdeclaraties konden niet worden gelezen
+widget-fault-empty-name = Widget { $widget }: een widget of parameter heeft geen naam
+widget-fault-duplicate-widget = Widget { $widget } is twee keer gedeclareerd
+widget-fault-duplicate-param = Widget { $widget } declareert dezelfde parameter twee keer
+widget-fault-empty-choice = Widget { $widget }: een keuze heeft geen waarden
+widget-fault-default-not-in-choice = Widget { $widget }: de standaardwaarde van een keuze maakt geen deel uit van de waarden
+widget-fault-default-wrong-type = Widget { $widget }: een standaardwaarde komt niet overeen met het type van zijn parameter
+widget-fault-bind-not-plain = Widget { $widget }: alleen platte tekstparameters kunnen aan de presentatie worden gekoppeld
+widget-fault-unknown-slot-kind = Widget { $widget }: een slot accepteert een onbekende elementwidget
+widget-incompatible-override = Widget { $widget } vervangt de ingebouwde widget maar wijzigt of verwijdert de parameter { $param }
+widget-incompatible-category = Widget { $widget } vervangt de ingebouwde widget met een andere categorie

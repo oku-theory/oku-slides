@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = gợi ý: { $hint }
 render-chart-failed = không thể vẽ biểu đồ
+
+registry-bad-pack-id = Định danh gói mẫu không hợp lệ: { $id }
+registry-compile = Không thể biên dịch các widget của gói mẫu
+registry-missing = Gói mẫu không khai báo widget của nó

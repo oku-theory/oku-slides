@@ -3,12 +3,12 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use typst::diag::{FileError, FileResult};
+use typst::diag::{FileError, FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Duration};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, LibraryExt, World};
+use typst::{Library, LibraryExt, World, WorldExt};
 
 use oku_slides_core::Deck;
 
@@ -19,6 +19,7 @@ use oku_slides_i18n::Localizer;
 
 use crate::THEMES;
 use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD};
+use crate::diagnostic::{Diagnostic, Severity};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
 
@@ -34,6 +35,11 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "src/tokens.typ",
     "src/core.typ",
     "src/slides.typ",
+    "src/content.typ",
+    "src/zone.typ",
+    "src/params.typ",
+    "src/widget.typ",
+    "src/widgets.typ",
     "src/data.typ",
     "themes/papier.typ",
     "themes/pro.typ",
@@ -239,6 +245,39 @@ impl OkuSlidesWorld {
 
     pub(crate) fn source_of(&self, id: FileId) -> Option<&Source> {
         if id == self.main.id() { Some(&self.main) } else { self.sources.get(&id) }
+    }
+
+    /// Remplace la source principale (sonde du registre).
+    pub(crate) fn set_main_text(&mut self, text: &str) {
+        if self.main.text() != text {
+            self.main.replace(text);
+        }
+    }
+
+    /// Ajoute une source Typst au système de fichiers virtuel.
+    pub(crate) fn add_source(&mut self, path: &str, text: String) -> Result<(), RenderError> {
+        let id = file_id(path)?;
+        self.sources.insert(id, Source::new(id, text));
+        Ok(())
+    }
+
+    /// Un message de Typst, avec sa place (`fichier:ligne`).
+    pub(crate) fn diagnostic(&self, d: &SourceDiagnostic) -> Diagnostic {
+        let place = d.span.id().and_then(|id| {
+            let range = self.range(d.span)?;
+            let source = self.source_of(id)?;
+            let line = source.lines().byte_to_line(range.start)? + 1;
+            Some(format!("{}:{line}", id.vpath().get_without_slash()))
+        });
+        Diagnostic {
+            severity: match d.severity {
+                typst::diag::Severity::Error => Severity::Error,
+                typst::diag::Severity::Warning => Severity::Warning,
+            },
+            place,
+            message: d.message.to_string(),
+            hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
+        }
     }
 }
 

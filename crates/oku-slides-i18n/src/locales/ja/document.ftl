@@ -15,3 +15,7 @@ diagnostic = { $level }（{ $place }）：{ $message }
 diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = ヒント：{ $hint }
 render-chart-failed = グラフを描画できませんでした
+
+registry-bad-pack-id = テンプレートパックの識別子が無効です: { $id }
+registry-compile = テンプレートパックのウィジェットをコンパイルできませんでした
+registry-missing = テンプレートパックがウィジェットを宣言していません

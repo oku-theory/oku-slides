@@ -82,3 +82,84 @@ impl Localize for RenderError {
         out
     }
 }
+
+/// Le registre des widgets n'a pas pu être lu.
+#[derive(Debug, Snafu)]
+pub struct RegistryError(pub(crate) RegistryInner);
+
+/// Nature d'une [`RegistryError`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RegistryErrorKind {
+    /// Identifiant de pack refusé (il deviendrait un chemin).
+    BadPackId,
+    /// Les widgets ne compilent pas (voir [`RegistryError::diagnostics`]).
+    Compile,
+    /// La sonde n'a pas émis de registre.
+    Missing,
+    /// Un widget est mal déclaré ou remplace mal un widget de base.
+    Schema,
+    Setup,
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub(crate) enum RegistryInner {
+    #[snafu(display("invalid template pack identifier: {id}"))]
+    BadPackId { id: String, backtrace: Backtrace },
+    #[snafu(display("widget compilation failed:\n{}", lines(diagnostics)))]
+    RegistryCompile { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
+    #[snafu(display("the widget probe emitted no registry"))]
+    Missing { backtrace: Backtrace },
+    #[snafu(display("invalid widget registry"))]
+    Schema { source: Box<oku_slides_core::WidgetError>, backtrace: Backtrace },
+    #[snafu(display("the widget probe could not start"))]
+    Setup { source: Box<RenderError>, backtrace: Backtrace },
+}
+
+impl RegistryError {
+    pub fn kind(&self) -> RegistryErrorKind {
+        match self.0 {
+            RegistryInner::BadPackId { .. } => RegistryErrorKind::BadPackId,
+            RegistryInner::RegistryCompile { .. } => RegistryErrorKind::Compile,
+            RegistryInner::Missing { .. } => RegistryErrorKind::Missing,
+            RegistryInner::Schema { .. } => RegistryErrorKind::Schema,
+            RegistryInner::Setup { .. } => RegistryErrorKind::Setup,
+        }
+    }
+
+    /// Messages de Typst, un par problème, si les widgets ne compilent pas.
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        match &self.0 {
+            RegistryInner::RegistryCompile { diagnostics, .. } => diagnostics,
+            _ => &[],
+        }
+    }
+
+    /// Le défaut de déclaration, si un widget est mal déclaré.
+    pub fn widget_error(&self) -> Option<&oku_slides_core::WidgetError> {
+        match &self.0 {
+            RegistryInner::Schema { source, .. } => Some(source.as_ref()),
+            _ => None,
+        }
+    }
+}
+
+impl Localize for RegistryError {
+    fn localize(&self, l: &Localizer) -> String {
+        match &self.0 {
+            RegistryInner::BadPackId { id, .. } => l.tr_with("registry-bad-pack-id", &[("id", id.as_str().into())]),
+            RegistryInner::RegistryCompile { diagnostics, .. } => {
+                let mut out = l.tr("registry-compile");
+                for d in diagnostics {
+                    out.push('\n');
+                    out.push_str(&d.localize(l));
+                }
+                out
+            }
+            RegistryInner::Missing { .. } => l.tr("registry-missing"),
+            RegistryInner::Schema { source, .. } => source.localize(l),
+            RegistryInner::Setup { source, .. } => source.localize(l),
+        }
+    }
+}

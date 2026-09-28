@@ -36,3 +36,15 @@ replica-corrupted = Der Verlauf der Präsentation in dieser Datei ist beschädig
 replica-too-large = Der Verlauf der Präsentation in dieser Datei ist zu groß zum Öffnen
 replica-write = Der Verlauf der Präsentation konnte nicht aktualisiert werden
 replica-unrelated = Diese beiden Präsentationen haben keinen gemeinsamen Ursprung
+
+widget-unreadable = Die Widget-Deklarationen konnten nicht gelesen werden
+widget-fault-empty-name = Widget { $widget }: Ein Widget oder Parameter hat keinen Namen
+widget-fault-duplicate-widget = Widget { $widget } ist doppelt deklariert
+widget-fault-duplicate-param = Widget { $widget } deklariert denselben Parameter zweimal
+widget-fault-empty-choice = Widget { $widget }: Eine Auswahl hat keine Werte
+widget-fault-default-not-in-choice = Widget { $widget }: Der Standardwert einer Auswahl gehört nicht zu ihren Werten
+widget-fault-default-wrong-type = Widget { $widget }: Ein Standardwert entspricht nicht dem Typ seines Parameters
+widget-fault-bind-not-plain = Widget { $widget }: Nur einfache Textparameter können an die Präsentation gebunden werden
+widget-fault-unknown-slot-kind = Widget { $widget }: Ein Slot akzeptiert ein unbekanntes Element-Widget
+widget-incompatible-override = Widget { $widget } ersetzt das eingebaute Widget, ändert oder entfernt aber dessen Parameter { $param }
+widget-incompatible-category = Widget { $widget } ersetzt das eingebaute Widget mit einer anderen Kategorie

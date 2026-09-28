@@ -36,3 +36,15 @@ replica-corrupted = এই ফাইলে উপস্থাপনার ইত
 replica-too-large = এই ফাইলে উপস্থাপনার ইতিহাস খোলার জন্য খুব বড়
 replica-write = উপস্থাপনার ইতিহাস হালনাগাদ করা যায়নি
 replica-unrelated = এই দুটি উপস্থাপনার কোনো সাধারণ উৎস নেই
+
+widget-unreadable = উইজেট ঘোষণাগুলি পড়া যায়নি
+widget-fault-empty-name = উইজেট { $widget }: একটি উইজেট বা প্যারামিটারের কোনো নাম নেই
+widget-fault-duplicate-widget = উইজেট { $widget } দুবার ঘোষণা করা হয়েছে
+widget-fault-duplicate-param = উইজেট { $widget } একই প্যারামিটার দুবার ঘোষণা করে
+widget-fault-empty-choice = উইজেট { $widget }: একটি চয়েসের কোনো মান নেই
+widget-fault-default-not-in-choice = উইজেট { $widget }: চয়েসের ডিফল্ট মান তার মানগুলির মধ্যে নেই
+widget-fault-default-wrong-type = উইজেট { $widget }: ডিফল্ট মান তার প্যারামিটারের ধরনের সাথে মেলে না
+widget-fault-bind-not-plain = উইজেট { $widget }: শুধুমাত্র সাধারণ টেক্সট প্যারামিটার প্রেজেন্টেশনের সাথে যুক্ত করা যায়
+widget-fault-unknown-slot-kind = উইজেট { $widget }: একটি স্লট অজানা এলিমেন্ট উইজেট গ্রহণ করে
+widget-incompatible-override = উইজেট { $widget } মূল উইজেটটি প্রতিস্থাপন করে কিন্তু এর { $param } প্যারামিটার পরিবর্তন বা বাদ দেয়
+widget-incompatible-category = উইজেট { $widget } মূল উইজেটটিকে ভিন্ন শ্রেণির উইজেট দিয়ে প্রতিস্থাপন করে

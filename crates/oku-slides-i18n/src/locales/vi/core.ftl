@@ -36,3 +36,15 @@ replica-corrupted = Lịch sử bản trình bày trong tệp này bị hỏng
 replica-too-large = Lịch sử bản trình bày trong tệp này quá lớn để mở
 replica-write = Không thể cập nhật lịch sử bản trình bày
 replica-unrelated = Hai bản trình bày này không có chung nguồn gốc
+
+widget-unreadable = Không thể đọc khai báo widget
+widget-fault-empty-name = Widget { $widget }: một widget hoặc tham số không có tên
+widget-fault-duplicate-widget = Widget { $widget } được khai báo hai lần
+widget-fault-duplicate-param = Widget { $widget } khai báo cùng một tham số hai lần
+widget-fault-empty-choice = Widget { $widget }: một lựa chọn không có giá trị
+widget-fault-default-not-in-choice = Widget { $widget }: giá trị mặc định của lựa chọn không nằm trong các giá trị của nó
+widget-fault-default-wrong-type = Widget { $widget }: một giá trị mặc định không khớp với kiểu của tham số của nó
+widget-fault-bind-not-plain = Widget { $widget }: chỉ tham số văn bản thuần mới có thể liên kết với bản trình bày
+widget-fault-unknown-slot-kind = Widget { $widget }: một slot chấp nhận widget phần tử không xác định
+widget-incompatible-override = Widget { $widget } thay thế widget có sẵn nhưng thay đổi hoặc bỏ tham số { $param }
+widget-incompatible-category = Widget { $widget } thay thế widget có sẵn bằng một danh mục khác

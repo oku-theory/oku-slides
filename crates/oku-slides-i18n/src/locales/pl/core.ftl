@@ -36,3 +36,15 @@ replica-corrupted = Historia prezentacji w tym pliku jest uszkodzona
 replica-too-large = Historia prezentacji w tym pliku jest zbyt duża, aby ją otworzyć
 replica-write = Nie udało się zaktualizować historii prezentacji
 replica-unrelated = Te dwie prezentacje nie mają wspólnego pochodzenia
+
+widget-unreadable = Nie udało się odczytać deklaracji widżetów
+widget-fault-empty-name = Widżet { $widget }: widżet lub parametr nie ma nazwy
+widget-fault-duplicate-widget = Widżet { $widget } jest zadeklarowany dwukrotnie
+widget-fault-duplicate-param = Widżet { $widget } deklaruje ten sam parametr dwukrotnie
+widget-fault-empty-choice = Widżet { $widget }: wybór nie ma żadnych wartości
+widget-fault-default-not-in-choice = Widżet { $widget }: domyślna wartość wyboru nie należy do jego wartości
+widget-fault-default-wrong-type = Widżet { $widget }: wartość domyślna nie odpowiada typowi swojego parametru
+widget-fault-bind-not-plain = Widżet { $widget }: tylko parametry zwykłego tekstu mogą być powiązane z prezentacją
+widget-fault-unknown-slot-kind = Widżet { $widget }: slot akceptuje nieznany widżet elementu
+widget-incompatible-override = Widżet { $widget } zastępuje wbudowany widżet, ale zmienia lub usuwa jego parametr { $param }
+widget-incompatible-category = Widżet { $widget } zastępuje wbudowany widżet inną kategorią

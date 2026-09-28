@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = संकेत: { $hint }
 render-chart-failed = चार्ट बनाया नहीं जा सका
+
+registry-bad-pack-id = अमान्य टेम्पलेट पैक पहचानकर्ता: { $id }
+registry-compile = टेम्पलेट पैक के विजेट कंपाइल नहीं हो सके
+registry-missing = टेम्पलेट पैक अपने विजेट घोषित नहीं करता

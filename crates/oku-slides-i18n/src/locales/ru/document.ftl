@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = подсказка: { $hint }
 render-chart-failed = не удалось построить диаграмму
+
+registry-bad-pack-id = Недопустимый идентификатор пакета шаблонов: { $id }
+registry-compile = Не удалось скомпилировать виджеты пакета шаблонов
+registry-missing = Пакет шаблонов не объявляет свои виджеты

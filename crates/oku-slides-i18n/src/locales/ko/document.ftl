@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = 힌트: { $hint }
 render-chart-failed = 차트를 그릴 수 없음
+
+registry-bad-pack-id = 잘못된 템플릿 팩 식별자: { $id }
+registry-compile = 템플릿 팩의 위젯을 컴파일할 수 없습니다
+registry-missing = 템플릿 팩이 위젯을 선언하지 않았습니다

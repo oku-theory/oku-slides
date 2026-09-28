@@ -36,3 +36,15 @@ replica-corrupted = Bu dosyadaki sunum geçmişi bozuk
 replica-too-large = Bu dosyadaki sunum geçmişi açılamayacak kadar büyük
 replica-write = Sunum geçmişi güncellenemedi
 replica-unrelated = Bu iki sunumun ortak bir kökeni yok
+
+widget-unreadable = Widget bildirimleri okunamadı
+widget-fault-empty-name = Widget { $widget }: bir widget veya parametrenin adı yok
+widget-fault-duplicate-widget = { $widget } widget'ı iki kez bildirildi
+widget-fault-duplicate-param = { $widget } widget'ı aynı parametreyi iki kez bildiriyor
+widget-fault-empty-choice = Widget { $widget }: bir seçimin değeri yok
+widget-fault-default-not-in-choice = Widget { $widget }: bir seçimin varsayılan değeri kendi değerleri arasında değil
+widget-fault-default-wrong-type = Widget { $widget }: bir varsayılan değer, parametresinin türüyle eşleşmiyor
+widget-fault-bind-not-plain = Widget { $widget }: yalnızca düz metin parametreleri sunuma bağlanabilir
+widget-fault-unknown-slot-kind = Widget { $widget }: bir slot bilinmeyen bir öğe widget'ını kabul ediyor
+widget-incompatible-override = { $widget } widget'ı yerleşik widget'ı değiştiriyor ancak { $param } parametresini değiştiriyor veya kaldırıyor
+widget-incompatible-category = { $widget } widget'ı yerleşik widget'ı farklı bir kategoriyle değiştiriyor

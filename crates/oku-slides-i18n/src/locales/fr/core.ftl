@@ -36,3 +36,15 @@ replica-corrupted = L'historique de la présentation dans ce fichier est abîmé
 replica-too-large = L'historique de la présentation dans ce fichier est trop volumineux pour être ouvert
 replica-write = L'historique de la présentation n'a pas pu être mis à jour
 replica-unrelated = Ces deux présentations n'ont pas d'origine commune
+
+widget-unreadable = Les déclarations de widgets sont illisibles
+widget-fault-empty-name = Widget { $widget } : un widget ou un paramètre n'a pas de nom
+widget-fault-duplicate-widget = Le widget { $widget } est déclaré deux fois
+widget-fault-duplicate-param = Le widget { $widget } déclare deux fois le même paramètre
+widget-fault-empty-choice = Widget { $widget } : un choix n'a aucune valeur
+widget-fault-default-not-in-choice = Widget { $widget } : la valeur par défaut d'un choix n'en fait pas partie
+widget-fault-default-wrong-type = Widget { $widget } : une valeur par défaut ne correspond pas au type de son paramètre
+widget-fault-bind-not-plain = Widget { $widget } : seul un texte simple peut être lié au deck
+widget-fault-unknown-slot-kind = Widget { $widget } : un slot accepte un widget d'élément inconnu
+widget-incompatible-override = Le widget { $widget } remplace celui de base mais modifie ou retire son paramètre { $param }
+widget-incompatible-category = Le widget { $widget } remplace celui de base avec une autre catégorie

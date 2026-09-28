@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = tip: { $hint }
 render-chart-failed = grafiek kon niet worden getekend
+
+registry-bad-pack-id = Ongeldige id van sjabloonpakket: { $id }
+registry-compile = De widgets van het sjabloonpakket konden niet worden gecompileerd
+registry-missing = Het sjabloonpakket declareert geen widgets

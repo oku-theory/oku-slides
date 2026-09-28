@@ -36,3 +36,15 @@ replica-corrupted = The presentation history in this file is damaged
 replica-too-large = The presentation history in this file is too large to open
 replica-write = The presentation history could not be updated
 replica-unrelated = These two presentations do not share a common origin
+
+widget-unreadable = The widget declarations could not be read
+widget-fault-empty-name = Widget { $widget }: a widget or parameter has no name
+widget-fault-duplicate-widget = Widget { $widget } is declared twice
+widget-fault-duplicate-param = Widget { $widget } declares the same parameter twice
+widget-fault-empty-choice = Widget { $widget }: a choice has no values
+widget-fault-default-not-in-choice = Widget { $widget }: a choice default is not one of its values
+widget-fault-default-wrong-type = Widget { $widget }: a default value does not match its parameter type
+widget-fault-bind-not-plain = Widget { $widget }: only plain text parameters can be bound to the deck
+widget-fault-unknown-slot-kind = Widget { $widget }: a slot accepts an unknown element widget
+widget-incompatible-override = Widget { $widget } replaces the built-in one but changes or drops its parameter { $param }
+widget-incompatible-category = Widget { $widget } replaces the built-in one with a different category

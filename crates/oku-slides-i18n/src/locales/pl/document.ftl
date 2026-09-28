@@ -16,3 +16,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = wskazówka: { $hint }
 render-chart-failed = nie udało się narysować wykresu
+
+registry-bad-pack-id = Nieprawidłowy identyfikator pakietu szablonów: { $id }
+registry-compile = Nie udało się skompilować widżetów pakietu szablonów
+registry-missing = Pakiet szablonów nie deklaruje swoich widżetów

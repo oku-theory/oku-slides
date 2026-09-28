@@ -36,3 +36,15 @@ replica-corrupted = سجل العرض التقديمي في هذا الملف ت
 replica-too-large = سجل العرض التقديمي في هذا الملف أكبر من أن يُفتح
 replica-write = تعذّر تحديث سجل العرض التقديمي
 replica-unrelated = لا يشترك هذان العرضان التقديميان في أصل واحد
+
+widget-unreadable = تعذّرت قراءة تعريفات الودجات
+widget-fault-empty-name = الودجة { $widget }: ودجة أو معلمة بلا اسم
+widget-fault-duplicate-widget = الودجة { $widget } معرَّفة مرتين
+widget-fault-duplicate-param = الودجة { $widget } تعرّف نفس المعلمة مرتين
+widget-fault-empty-choice = الودجة { $widget }: خيار بلا قيم
+widget-fault-default-not-in-choice = الودجة { $widget }: القيمة الافتراضية للخيار ليست ضمن قيمه
+widget-fault-default-wrong-type = الودجة { $widget }: القيمة الافتراضية لا تطابق نوع مُعامِلها
+widget-fault-bind-not-plain = الودجة { $widget }: فقط معلمات النص البسيط يمكن ربطها بالعرض التقديمي
+widget-fault-unknown-slot-kind = الودجة { $widget }: تقبل الفتحة ودجة عنصر غير معروفة
+widget-incompatible-override = الودجة { $widget } تستبدل الودجة الأساسية لكنها تغيّر أو تحذف المعلمة { $param }
+widget-incompatible-category = الودجة { $widget } تستبدل الودجة الأساسية بفئة مختلفة

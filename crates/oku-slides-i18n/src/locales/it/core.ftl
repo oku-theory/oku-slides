@@ -36,3 +36,15 @@ replica-corrupted = La cronologia della presentazione in questo file è danneggi
 replica-too-large = La cronologia della presentazione in questo file è troppo grande per essere aperta
 replica-write = Impossibile aggiornare la cronologia della presentazione
 replica-unrelated = Queste due presentazioni non hanno un'origine comune
+
+widget-unreadable = Impossibile leggere le dichiarazioni dei widget
+widget-fault-empty-name = Widget { $widget }: un widget o parametro non ha nome
+widget-fault-duplicate-widget = Il widget { $widget } è dichiarato due volte
+widget-fault-duplicate-param = Il widget { $widget } dichiara lo stesso parametro due volte
+widget-fault-empty-choice = Widget { $widget }: una scelta non ha valori
+widget-fault-default-not-in-choice = Widget { $widget }: il valore predefinito di una scelta non è tra i suoi valori
+widget-fault-default-wrong-type = Widget { $widget }: un valore predefinito non corrisponde al tipo del suo parametro
+widget-fault-bind-not-plain = Widget { $widget }: solo i parametri di testo semplice possono essere collegati alla presentazione
+widget-fault-unknown-slot-kind = Widget { $widget }: uno slot accetta un widget elemento sconosciuto
+widget-incompatible-override = Il widget { $widget } sostituisce quello base ma modifica o rimuove il suo parametro { $param }
+widget-incompatible-category = Il widget { $widget } sostituisce quello base con una categoria diversa

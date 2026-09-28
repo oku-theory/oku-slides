@@ -15,3 +15,7 @@ diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = suggerimento: { $hint }
 render-chart-failed = impossibile disegnare il grafico
+
+registry-bad-pack-id = Identificatore del pacchetto di modelli non valido: { $id }
+registry-compile = Impossibile compilare i widget del pacchetto di modelli
+registry-missing = Il pacchetto di modelli non dichiara i propri widget

@@ -1,0 +1,138 @@
+// Widgets de base d'Oku Slides : éléments et slides. `registry` est lu par
+// l'hôte (sonde <oku-widgets>) et par le rendu du deck.
+
+#import "tokens.typ": *
+#import "params.typ" as p
+#import "widget.typ": widget, field
+#import "content.typ": _text-args, _text-over
+#import "slides.typ": card, slide, title-slide, chapter, toc, end-slide, blank-slide
+#import "zone.typ": free-area, zone-marker, default-grid
+
+#let _text = widget("text", params: (body: p.rich()), (args, ctx) => {
+  let t = ctx.tokens
+  let style = ctx.style
+  set text(.._text-args(t, style))
+  if "leading" in style { set par(leading: leading-of(t, style.leading)) }
+  // Sans alignement choisi, le texte part du début de la ligne : à gauche,
+  // ou à droite dans une langue écrite de droite à gauche.
+  let al = style.at("align", default: "start")
+  field(ctx, "body", style: _text-over(t, style),
+    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body))
+})
+
+#let _card = widget("card",
+  params: (kicker: p.plain(), title: p.plain(), body: p.rich(), highlight: p.flag()),
+  (args, ctx) => card(
+    title: args.title, kicker: args.kicker, highlight: args.highlight,
+    // Dans un cadre (placement libre ou case de grille), la carte remplit sa place.
+    fill: if ctx.framed { true } else { auto },
+    wrap: (name, body, style) => field(ctx, name, body, style: style),
+    args.body,
+  ))
+
+#let _image-placeholder(t, asset) = rect(
+  width: 100%, height: 100%, fill: color-of(t, "surface"), radius: radius-of(t, "sm"),
+  align(center + horizon, text(size: size-of(t, "caption"), fill: color-of(t, "ink-muted"),
+    "image : " + if asset == none { "?" } else { asset })),
+)
+
+#let _chart-placeholder(t) = rect(
+  width: 100%, height: 100%, fill: color-of(t, "surface"), radius: radius-of(t, "sm"),
+  align(center + horizon, text(size: size-of(t, "caption"), fill: color-of(t, "ink-muted"), "chart")),
+)
+
+#let _image = widget("image",
+  params: (asset: p.asset(), fit: p.choice("cover", "contain", "stretch")),
+  (args, ctx) => if ctx.load != none { (ctx.load)() } else { _image-placeholder(ctx.tokens, args.asset) })
+
+// Rendu en SVG par l'hôte, chargé comme une image.
+#let _chart = widget("chart", params: (option: p.host("chart")),
+  (args, ctx) => if ctx.load != none { (ctx.load)() } else { _chart-placeholder(ctx.tokens) })
+
+#let _shape = widget("shape", params: (shape: p.choice("rect", "ellipse", "line")), (args, ctx) => {
+  let t = ctx.tokens
+  let style = ctx.style
+  let fill = color-of(t, style.at("fill", default: none))
+  let stroke = if "stroke" in style { stroke-of(t, style.at("stroke-width", default: "rule")) + color-of(t, style.stroke) }
+  if args.shape == "ellipse" { ellipse(width: 100%, height: 100%, fill: fill, stroke: stroke) }
+  else if args.shape == "line" { line(length: 100%, stroke: if stroke != none { stroke } else { stroke-of(t, "rule") + color-of(t, "rule") }) }
+  else { rect(width: 100%, height: 100%, fill: fill, stroke: stroke, radius: radius-of(t, style.at("radius", default: "flat"))) }
+})
+
+#let _stack = widget("stack",
+  params: (
+    layout: p.choice("rows", "columns", "grid"),
+    count: p.number(min: 1),
+    gap: p.choice("xs", "sm", "md", "lg", "xl", "xxl", default: "lg"),
+    children: p.slot(mode: "flow"),
+  ),
+  (args, ctx) => {
+    let t = ctx.tokens
+    let gap = space-of(t, args.gap)
+    let bodies = args.children.map(c => c.body)
+    if args.layout == "columns" or args.layout == "grid" {
+      let n = if args.count == none { bodies.len() } else { args.count }
+      grid(columns: (1fr,) * n, column-gutter: gap, row-gutter: gap, ..bodies)
+    } else {
+      stack(spacing: gap, ..bodies)
+    }
+  })
+
+// Enfants placés sur leur cadre, relatif au canevas.
+#let _canvas = widget("canvas", params: (children: p.slot(mode: "free")), (args, ctx) => {
+  for c in args.children {
+    let f = c.frame
+    place(top + left, dx: f.x * 1pt, dy: f.y * 1pt, block(width: f.w * 1pt, height: f.h * 1pt, (c.show)(f)))
+  }
+})
+
+#let _title = widget("title", category: "slide",
+  params: (
+    title: p.plain(bind: "title"),
+    subtitle: p.plain(bind: "subtitle"),
+    author: p.plain(bind: "author"),
+    date: p.plain(bind: "date"),
+    kicker: p.plain(bind: "organization"),
+  ),
+  (args, ctx) => title-slide(title: args.title, subtitle: args.subtitle, author: args.author,
+    date: args.date, kicker: args.kicker, id: ctx.id))
+
+#let _toc = widget("toc", category: "slide", params: (title: p.plain()),
+  (args, ctx) => toc(title: args.title, id: ctx.id))
+
+#let _chapter = widget("chapter", category: "slide", params: (title: p.plain(), subtitle: p.plain()),
+  (args, ctx) => chapter(args.title, subtitle: args.subtitle, id: ctx.id))
+
+#let _content = widget("content", category: "slide",
+  params: (
+    kicker: p.plain(),
+    title: p.plain(),
+    layout: p.choice("default", "columns", "split", "center", "quote"),
+    grid: p.grid(default: default-grid),
+    blocks: p.slot(mode: "flow"),
+    elements: p.slot(mode: "free"),
+  ),
+  (args, ctx) => {
+    let t = ctx.tokens
+    // Sans blocs mis en page, la zone de corps est libre, sur sa grille.
+    let free = args.blocks.len() == 0
+    slide(
+      // Slide à blocs : la grille existe aussi (l'app y accroche un bloc
+      // dès qu'on le déplace, et la slide passe alors sur la grille).
+      zone: if free { none } else { zone-marker(t, args.grid) },
+      title: args.title, kicker: args.kicker, layout: args.layout, id: ctx.id,
+      // Un graphique dans les blocs occupe la place qui reste sous les autres.
+      grow: if free { () } else { args.blocks.map(b => b.kind == "chart") },
+      ..if free { (free-area(t, args.elements, grid: args.grid),) } else { args.blocks.map(b => b.body) },
+    )
+  })
+
+#let _end = widget("end", category: "slide", params: (text: p.plain()),
+  (args, ctx) => end-slide(args.text, id: ctx.id))
+
+#let _blank = widget("blank", category: "slide",
+  params: (grid: p.grid(default: default-grid), elements: p.slot(mode: "free")),
+  (args, ctx) => blank-slide(free-area(ctx.tokens, args.elements, grid: args.grid), id: ctx.id))
+
+#let registry = (_text, _card, _image, _shape, _chart, _stack, _canvas,
+  _title, _toc, _chapter, _content, _end, _blank)

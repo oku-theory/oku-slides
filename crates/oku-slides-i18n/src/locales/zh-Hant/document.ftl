@@ -16,3 +16,7 @@ diagnostic = { $level }（{ $place }）：{ $message }
 diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 無法繪製圖表
+
+registry-bad-pack-id = 範本包識別碼無效: { $id }
+registry-compile = 無法編譯範本包的元件
+registry-missing = 範本包未宣告其元件

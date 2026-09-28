@@ -36,3 +36,15 @@ replica-corrupted = ประวัติงานนำเสนอในไฟ
 replica-too-large = ประวัติงานนำเสนอในไฟล์นี้มีขนาดใหญ่เกินกว่าจะเปิดได้
 replica-write = ไม่สามารถอัปเดตประวัติงานนำเสนอได้
 replica-unrelated = งานนำเสนอทั้งสองนี้ไม่มีต้นกำเนิดร่วมกัน
+
+widget-unreadable = ไม่สามารถอ่านการประกาศวิดเจ็ตได้
+widget-fault-empty-name = วิดเจ็ต { $widget }: วิดเจ็ตหรือพารามิเตอร์ไม่มีชื่อ
+widget-fault-duplicate-widget = วิดเจ็ต { $widget } ถูกประกาศสองครั้ง
+widget-fault-duplicate-param = วิดเจ็ต { $widget } ประกาศพารามิเตอร์เดียวกันสองครั้ง
+widget-fault-empty-choice = วิดเจ็ต { $widget }: ตัวเลือกไม่มีค่า
+widget-fault-default-not-in-choice = วิดเจ็ต { $widget }: ค่าเริ่มต้นของตัวเลือกไม่ได้อยู่ในค่าที่กำหนด
+widget-fault-default-wrong-type = วิดเจ็ต { $widget }: ค่าเริ่มต้นไม่ตรงกับชนิดของพารามิเตอร์
+widget-fault-bind-not-plain = วิดเจ็ต { $widget }: มีเพียงพารามิเตอร์ข้อความธรรมดาเท่านั้นที่ผูกกับงานนำเสนอได้
+widget-fault-unknown-slot-kind = วิดเจ็ต { $widget }: สล็อตยอมรับวิดเจ็ตองค์ประกอบที่ไม่รู้จัก
+widget-incompatible-override = วิดเจ็ต { $widget } แทนที่วิดเจ็ตพื้นฐาน แต่เปลี่ยนแปลงหรือลบพารามิเตอร์ { $param }
+widget-incompatible-category = วิดเจ็ต { $widget } แทนที่วิดเจ็ตพื้นฐานด้วยหมวดหมู่ที่ต่างออกไป

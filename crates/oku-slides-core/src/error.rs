@@ -5,7 +5,7 @@
 //! [`SourcesError::kind`] disent de quoi il s'agit sans exposer les détails.
 
 use oku_slides_i18n::{Localize, Localizer};
-use snafu::{Backtrace, Snafu};
+use snafu::{Backtrace, IntoError, Snafu};
 
 /// Une opération refusée. Le deck n'a pas changé.
 #[derive(Debug, Snafu)]
@@ -284,5 +284,118 @@ impl Localize for ReplicaError {
             ReplicaErrorKind::Write => "replica-write",
             ReplicaErrorKind::Unrelated => "replica-unrelated",
         })
+    }
+}
+
+/// Le registre des widgets est mal déclaré.
+#[derive(Debug, Snafu)]
+pub struct WidgetError(WidgetInner);
+
+/// Défaut d'une déclaration de widget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SchemaFault {
+    EmptyName,
+    DuplicateWidget,
+    DuplicateParam,
+    EmptyChoice,
+    DefaultNotInChoice,
+    /// La valeur par défaut d'un paramètre ne correspond pas à son type
+    /// (ou, pour un nombre, sort de `min`/`max`).
+    DefaultWrongType,
+    /// Seul un paramètre `plain` se lie à `deck.params`.
+    BindNotPlain,
+    /// Un slot accepte un widget absent, ou qui n'est pas un élément.
+    UnknownSlotKind,
+}
+
+impl std::fmt::Display for SchemaFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SchemaFault::EmptyName => "empty name",
+            SchemaFault::DuplicateWidget => "duplicate widget",
+            SchemaFault::DuplicateParam => "duplicate parameter",
+            SchemaFault::EmptyChoice => "empty choice",
+            SchemaFault::DefaultNotInChoice => "default not in choice",
+            SchemaFault::DefaultWrongType => "default wrong type",
+            SchemaFault::BindNotPlain => "bind not plain",
+            SchemaFault::UnknownSlotKind => "unknown slot kind",
+        })
+    }
+}
+
+impl SchemaFault {
+    fn message_id(self) -> &'static str {
+        match self {
+            SchemaFault::EmptyName => "widget-fault-empty-name",
+            SchemaFault::DuplicateWidget => "widget-fault-duplicate-widget",
+            SchemaFault::DuplicateParam => "widget-fault-duplicate-param",
+            SchemaFault::EmptyChoice => "widget-fault-empty-choice",
+            SchemaFault::DefaultNotInChoice => "widget-fault-default-not-in-choice",
+            SchemaFault::DefaultWrongType => "widget-fault-default-wrong-type",
+            SchemaFault::BindNotPlain => "widget-fault-bind-not-plain",
+            SchemaFault::UnknownSlotKind => "widget-fault-unknown-slot-kind",
+        }
+    }
+}
+
+/// Nature d'une [`WidgetError`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WidgetErrorKind {
+    Unreadable,
+    BadSchema(SchemaFault),
+    /// Un pack remplace un widget de base en retirant ou retypant un paramètre.
+    IncompatibleOverride,
+    /// Un pack remplace un widget de base par un widget d'une autre catégorie.
+    IncompatibleCategory,
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub(crate) enum WidgetInner {
+    #[snafu(display("unreadable widget registry"))]
+    Unreadable { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("widget {widget}: {fault}"))]
+    BadSchema { widget: String, fault: SchemaFault, backtrace: Backtrace },
+    #[snafu(display("widget {widget} overrides parameter {param} incompatibly"))]
+    IncompatibleOverride { widget: String, param: String, backtrace: Backtrace },
+    #[snafu(display("widget {widget} overrides the base widget with another category"))]
+    IncompatibleCategory { widget: String, backtrace: Backtrace },
+}
+
+impl WidgetError {
+    /// Construit une [`WidgetError::kind`] `Unreadable` à partir d'une défaillance
+    /// JSON survenue hors du cœur (p. ex. la sonde de rendu ne peut pas
+    /// convertir la valeur Typst en JSON).
+    pub fn unreadable(source: serde_json::Error) -> Self {
+        UnreadableSnafu.into_error(source).into()
+    }
+
+    pub fn kind(&self) -> WidgetErrorKind {
+        match &self.0 {
+            WidgetInner::Unreadable { .. } => WidgetErrorKind::Unreadable,
+            WidgetInner::BadSchema { fault, .. } => WidgetErrorKind::BadSchema(*fault),
+            WidgetInner::IncompatibleOverride { .. } => WidgetErrorKind::IncompatibleOverride,
+            WidgetInner::IncompatibleCategory { .. } => WidgetErrorKind::IncompatibleCategory,
+        }
+    }
+}
+
+impl Localize for WidgetError {
+    fn localize(&self, l: &Localizer) -> String {
+        match &self.0 {
+            WidgetInner::Unreadable { .. } => l.tr("widget-unreadable"),
+            WidgetInner::BadSchema { widget, fault, .. } => {
+                l.tr_with(fault.message_id(), &[("widget", widget.as_str().into())])
+            }
+            WidgetInner::IncompatibleOverride { widget, param, .. } => l.tr_with(
+                "widget-incompatible-override",
+                &[("widget", widget.as_str().into()), ("param", param.as_str().into())],
+            ),
+            WidgetInner::IncompatibleCategory { widget, .. } => {
+                l.tr_with("widget-incompatible-category", &[("widget", widget.as_str().into())])
+            }
+        }
     }
 }

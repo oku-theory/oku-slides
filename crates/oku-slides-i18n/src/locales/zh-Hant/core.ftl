@@ -36,3 +36,15 @@ replica-corrupted = 此檔案中的簡報歷程已損毀
 replica-too-large = 此檔案中的簡報歷程過大，無法開啟
 replica-write = 無法更新簡報歷程
 replica-unrelated = 這兩份簡報沒有共同的來源
+
+widget-unreadable = 無法讀取小工具宣告
+widget-fault-empty-name = 小工具 { $widget }：某個小工具或參數沒有名稱
+widget-fault-duplicate-widget = 小工具 { $widget } 被宣告了兩次
+widget-fault-duplicate-param = 小工具 { $widget } 兩次宣告了同一個參數
+widget-fault-empty-choice = 小工具 { $widget }：某個選項沒有任何值
+widget-fault-default-not-in-choice = 小工具 { $widget }：選項的預設值不在其取值範圍內
+widget-fault-default-wrong-type = 小工具 { $widget }：預設值與其參數類型不符
+widget-fault-bind-not-plain = 小工具 { $widget }：只有純文字參數才能綁定到簡報
+widget-fault-unknown-slot-kind = 小工具 { $widget }：插槽接受了未知的元素小工具
+widget-incompatible-override = 小工具 { $widget } 取代了內建小工具，但更改或移除了其參數 { $param }
+widget-incompatible-category = 小工具 { $widget } 以不同的類別取代了內建小工具

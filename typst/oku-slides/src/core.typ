@@ -59,19 +59,23 @@
   )
 }
 
-#let tracked(id, body, style: (:)) = layout(sz => {
+// Émet la boîte réelle d'un contenu (page, position, taille) et sa
+// typographie sous l'étiquette `label-name`, avec les clés de `meta`.
+// La boîte suit le texte, alignée dans la zone disponible.
+#let _measured(meta, label-name, body, style) = layout(sz => {
   let m = measure(body, width: sz.width)
   context {
     let p = here().position()
     let st = text-probe(style)
-    // Le texte est aligné dans la zone : la boîte suit le texte, pas la zone.
     let free = sz.width - m.width
     let dx = if st.align == "center" { free / 2 } else if st.align == "right" { free } else { 0pt }
-    [#metadata((id: id, page: p.page, x: (p.x + dx) / 1pt, y: p.y / 1pt, w: m.width / 1pt, h: m.height / 1pt,
-      ax: p.x / 1pt, aw: sz.width / 1pt, style: st))<oku-slides-box>]
+    [#metadata(meta + (page: p.page, x: (p.x + dx) / 1pt, y: p.y / 1pt, w: m.width / 1pt, h: m.height / 1pt,
+      ax: p.x / 1pt, aw: sz.width / 1pt, style: st))#label(label-name)]
   }
   body
 })
+
+#let tracked(id, body, style: (:)) = _measured((id: id), "oku-slides-box", body, style)
 
 // ---- Variables ---------------------------------------------------------------
 
