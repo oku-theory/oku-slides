@@ -1,6 +1,8 @@
 // Panneau d'un graphique sélectionné : son type et la grille de ses données.
 // Chaque modification part en op vers le cœur, qui redessine le graphique.
 
+import type React from "react";
+
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { ChartDataGrid } from "./ChartDataGrid";
@@ -8,6 +10,22 @@ import { CHART_KINDS, type ChartKind, chartKind, chartSource, checkboxColumns, c
 import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
+
+const svg = (children: React.ReactNode) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    {children}
+  </svg>
+);
+
+/** Pictogramme de chaque type ; le nom reste en `aria-label` et en infobulle. */
+const KIND_ICON: Record<ChartKind, React.ReactNode> = {
+  bar: svg(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>),
+  line: svg(<><path d="M4 20h16" /><path d="M4 15l5-5 4 3 7-7" /></>),
+  pie: svg(<><circle cx="12" cy="12" r="8" /><path d="M12 4v8l6 5" /></>),
+  scatter: svg(<><path d="M4 20h16M4 20V4" /><circle cx="9" cy="14" r="1.2" /><circle cx="13" cy="9" r="1.2" /><circle cx="17" cy="12" r="1.2" /><circle cx="16" cy="6" r="1.2" /></>),
+  radar: svg(<><path d="M12 3l8.5 6.2-3.3 10H6.8L3.5 9.2z" /><path d="M12 7.5l4.3 3.2-2 5H9.6l-2-5z" /></>),
+  waterfall: svg(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
+};
 
 export function ChartPanel({ slide, element, palette, onApply, onKind }: {
   slide: string;
@@ -32,8 +50,8 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
       <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
         {CHART_KINDS.map((k) => (
-          <button key={k} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
-            {kindLabel(k)}
+          <button key={k} aria-label={kindLabel(k)} title={kindLabel(k)} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
+            {KIND_ICON[k]}
           </button>
         ))}
       </div>

@@ -460,7 +460,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 [dir="rtl"] .select { background-position: left 9px center, left 14px center; }
 [dir="rtl"] .toggle.on .toggle-thumb { transform: translateX(-12px); }
 [dir="rtl"] .postit { border-radius: 3px 3px 3px var(--radius-md); }
-[dir="rtl"] .chart-panel { right: auto; left: var(--space-6, 24px); }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
 

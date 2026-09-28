@@ -826,15 +826,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {view && !history && selectedElement?.kind === "chart" && (
-          <ChartPanel
-            slide={view.slide.id}
-            element={selectedElement}
-            palette={snap.appearance.chart_palette}
-            onApply={apply}
-            onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
-          />
-        )}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />
@@ -844,6 +835,16 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
       {/* Post-it à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
+        {/* Données du graphique sélectionné : hors de la feuille, pour ne rien masquer. */}
+        {view && !history && selectedElement?.kind === "chart" && (
+          <ChartPanel
+            slide={view.slide.id}
+            element={selectedElement}
+            palette={snap.appearance.chart_palette}
+            onApply={apply}
+            onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+          />
+        )}
         <AgentThread
           thread={thread}
           surfaces={threadSurfaces}
