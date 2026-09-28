@@ -160,7 +160,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn svg { width: 18px; height: 18px; flex: none; }
 .token { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; color: var(--ink); }
 .token svg { width: 18px; height: 18px; }
-.btn.primary { background: var(--accent-fill); color: var(--on-accent); }
+.btn.primary, .token.primary { background: var(--accent-fill); color: var(--on-accent); }
 /* Une action qui engage (non annulable, permission durable) : cernée de rouge ; pleine si c'est aussi le bouton principal.
    Texte blanc comme `.mic.live` : `--on-accent` suit l'accent du thème, pas le rouge. */
 .btn.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
@@ -266,6 +266,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   border-radius: calc(var(--radius-lg) + 8px); cursor: default;
 }
 .device:hover { transform: none; box-shadow: var(--edge-light), var(--shadow-object); }
+/* Au repos sans rien à dire : micro et réglages seuls, la pastille se resserre à droite. */
+.device.idle:not(:has(.dictation-body)) { justify-self: end; }
 .device.recording, .device.transcribing { box-shadow: var(--edge-light), var(--shadow-floating); }
 .mic {
   position: relative; flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer;
@@ -462,6 +464,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 [dir="rtl"] .postit { border-radius: 3px 3px 3px var(--radius-md); }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
+/* Retour et envoi suivent aussi le sens de lecture. */
+[dir="rtl"] .history-back svg, [dir="rtl"] .draft-send svg { transform: scaleX(-1); }
 
 /* --- Surfaces de l'agent (catalogue v2) --------------------------------- */
 .a2ui-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: stretch; }
@@ -483,7 +487,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* --- Fil de l'agent ------------------------------------------------------- */
 /* Même couche que les post-its : la feuille peut déborder sur la colonne des notes. */
 .agent-thread { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; overflow: auto; background: var(--paper-000); border-radius: var(--radius-sm); padding: var(--space-1); }
-.agent-thread-head { display: flex; justify-content: space-between; align-items: baseline; }
+.agent-thread-head { display: flex; justify-content: space-between; align-items: center; }
+.agent-thread-head .token.ghost { width: 28px; height: 28px; }
 .agent-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 /* Une conversation : mes post-its couleur de slide, décalés à droite ; ceux de l'agent en vert, à gauche. */
 .agent-entries { padding: var(--space-1) var(--space-1) var(--space-2); }
@@ -535,6 +540,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .draft-text:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 .draft-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-1); }
 .draft-exits { display: flex; gap: var(--space-1); }
+.draft-actions .token { width: 36px; height: 36px; }
 /* Couleur d'accent du brouillon (⌘⇧D), sauf pendant l'écoute (`.live` garde son rouge). */
 .device.dictation.draft .mic:not(.live), .mic.agent-mic { background: var(--accent-fill); color: var(--on-accent); }
 

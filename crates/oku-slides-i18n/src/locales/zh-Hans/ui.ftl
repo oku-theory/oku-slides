@@ -247,8 +247,8 @@ ui-chart-column-name = 第 { $col } 列的名称
 ui-chart-remove-column = 删除列
 ui-chart-cell = 第 { $row } 行，第 { $col } 列
 ui-chart-remove-row = 删除行
-ui-chart-add-row = + 行
-ui-chart-add-column = + 列
+ui-chart-add-row = 行
+ui-chart-add-column = 列
 ui-chart-series = 系列 { $n }
 
 ## 文件

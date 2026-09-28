@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryView, Snapshot, TabApi, Version } from "./api";
 import { markers, RENDER_WHILE_DRAGGING, Seeker, step } from "./history";
 import { locale, t } from "./i18n";
+import { Icon } from "./icons";
 
 export interface HistoryCursor {
   /** Toutes les versions, lues une fois à l'ouverture (vide avant). */
@@ -163,8 +164,8 @@ export default function HistoryBar({ history, cursor, onRestore, onBack }: {
         />
       </div>
       <div className="history-actions">
-        <button className="object btn primary" onClick={onRestore}>{t("ui-history-restore")}</button>
-        <button className="object btn" onClick={onBack}>{t("ui-history-back")}</button>
+        <button className="object token primary" aria-label={t("ui-history-restore")} title={t("ui-history-restore")} onClick={onRestore}>{Icon.restore}</button>
+        <button className="object token history-back" aria-label={t("ui-history-back")} title={t("ui-history-back")} onClick={onBack}>{Icon.back}</button>
       </div>
     </section>
   );

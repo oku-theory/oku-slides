@@ -247,8 +247,8 @@ ui-chart-column-name = { $col }. sütunun adı
 ui-chart-remove-column = Sütunu sil
 ui-chart-cell = Satır { $row }, sütun { $col }
 ui-chart-remove-row = Satırı sil
-ui-chart-add-row = + Satır
-ui-chart-add-column = + Sütun
+ui-chart-add-row = Satır
+ui-chart-add-column = Sütun
 ui-chart-series = Seri { $n }
 
 ## Dosyalar

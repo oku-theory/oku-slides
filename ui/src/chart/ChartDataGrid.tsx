@@ -10,6 +10,7 @@
 import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { locale, t } from "../i18n";
+import { Icon } from "../icons";
 import type { Cell, ChartDataOp } from "./chartTypes";
 import "./ChartDataGrid.css";
 
@@ -148,11 +149,11 @@ export function ChartDataGrid({
         </table>
       </div>
       <div className="cdg-actions">
-        <button onClick={() => onOp({ op: "insert_row", at: source.length, cells: [] })}>
-          {t("ui-chart-add-row")}
+        <button aria-label={t("ui-chart-add-row")} title={t("ui-chart-add-row")} onClick={() => onOp({ op: "insert_row", at: source.length, cells: [] })}>
+          {Icon.addRow}
         </button>
-        <button onClick={() => onOp({ op: "insert_column", at: width, cells: [t("ui-chart-series", { n: width })] })}>
-          {t("ui-chart-add-column")}
+        <button aria-label={t("ui-chart-add-column")} title={t("ui-chart-add-column")} onClick={() => onOp({ op: "insert_column", at: width, cells: [t("ui-chart-series", { n: width })] })}>
+          {Icon.addColumn}
         </button>
       </div>
     </div>

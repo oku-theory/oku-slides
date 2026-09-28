@@ -250,8 +250,8 @@ ui-chart-column-name = Naam van kolom { $col }
 ui-chart-remove-column = Kolom verwijderen
 ui-chart-cell = Rij { $row }, kolom { $col }
 ui-chart-remove-row = Rij verwijderen
-ui-chart-add-row = + Rij
-ui-chart-add-column = + Kolom
+ui-chart-add-row = Rij
+ui-chart-add-column = Kolom
 ui-chart-series = Reeks { $n }
 
 ## Bestanden

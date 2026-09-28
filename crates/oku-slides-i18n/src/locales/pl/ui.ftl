@@ -255,8 +255,8 @@ ui-chart-column-name = Nazwa kolumny { $col }
 ui-chart-remove-column = Usuń kolumnę
 ui-chart-cell = Wiersz { $row }, kolumna { $col }
 ui-chart-remove-row = Usuń wiersz
-ui-chart-add-row = + Wiersz
-ui-chart-add-column = + Kolumna
+ui-chart-add-row = Wiersz
+ui-chart-add-column = Kolumna
 ui-chart-series = Seria { $n }
 
 ## Pliki

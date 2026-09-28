@@ -250,8 +250,8 @@ ui-chart-column-name = Nome da coluna { $col }
 ui-chart-remove-column = Excluir a coluna
 ui-chart-cell = Linha { $row }, coluna { $col }
 ui-chart-remove-row = Excluir a linha
-ui-chart-add-row = + Linha
-ui-chart-add-column = + Coluna
+ui-chart-add-row = Linha
+ui-chart-add-column = Coluna
 ui-chart-series = Série { $n }
 
 ## Arquivos

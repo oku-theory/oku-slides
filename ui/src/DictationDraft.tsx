@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
+import { Icon } from "./icons";
 
 /** Le brouillon et ses trois actions ; rien sans brouillon ouvert. */
 export function DictationDraft({
@@ -99,13 +100,13 @@ export function DictationDraft({
         </div>
       )}
       <div className="draft-actions">
-        <button type="button" className="linkish draft-discard" onClick={onDiscard}>{t("ui-draft-discard")}</button>
+        <button type="button" className="token ghost draft-discard" aria-label={t("ui-draft-discard")} title={t("ui-draft-discard")} onClick={onDiscard}>{Icon.trash}</button>
         <span className="draft-exits">
-          <button type="button" className="btn ghost draft-insert" disabled={!canInsert} title={t("ui-draft-insert-title")} onClick={insert}>
-            {t("ui-draft-insert")}
+          <button type="button" className="token ghost draft-insert" disabled={!canInsert} aria-label={t("ui-draft-insert")} title={t("ui-draft-insert-title")} onClick={insert}>
+            {Icon.insert}
           </button>
-          <button type="button" className="object btn primary draft-send" disabled={!canSend} title={t("ui-draft-send-title")} onClick={send}>
-            {t("ui-draft-send")}
+          <button type="button" className="object token primary draft-send" disabled={!canSend} aria-label={t("ui-draft-send")} title={t("ui-draft-send-title")} onClick={send}>
+            {Icon.send}
           </button>
         </span>
       </div>

@@ -247,8 +247,8 @@ ui-chart-column-name = কলাম { $col }-এর নাম
 ui-chart-remove-column = কলাম মুছুন
 ui-chart-cell = সারি { $row }, কলাম { $col }
 ui-chart-remove-row = সারি মুছুন
-ui-chart-add-row = + সারি
-ui-chart-add-column = + কলাম
+ui-chart-add-row = সারি
+ui-chart-add-column = কলাম
 ui-chart-series = সিরিজ { $n }
 
 ## ফাইল

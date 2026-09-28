@@ -11,6 +11,7 @@ import type { Thread } from "./thread";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { AgentThread } = await import("./AgentThread");
+const { expectIconOnly } = await import("../test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -65,6 +66,11 @@ describe("fil de l'agent", () => {
   test("un fil vide sans surface ne montre rien", async () => {
     const { host } = await mount({ state: "idle", entries: [] });
     expect(host.querySelector(".agent-thread")).toBeNull();
+  });
+
+  test("AgentThread new conversation button shows an icon only", async () => {
+    const { host } = await mount({ state: "idle", entries: [{ kind: "user", text: "plus court" }] });
+    expectIconOnly(host.querySelector(".agent-new"));
   });
 
   test("chaque ligne du fil a sa forme", async () => {

@@ -7,6 +7,7 @@ import "./test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { DictationDraft } = await import("./DictationDraft");
+const { expectIconOnly } = await import("./test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -55,6 +56,13 @@ describe("brouillon de dictée", () => {
   test("DictationDraft sans brouillon ne montre rien", async () => {
     const { host } = await mount(null);
     expect(host.querySelector(".draft")).toBeNull();
+  });
+
+  test("DictationDraft actions show icons only", async () => {
+    const { host, send, insert } = await mount("plus court");
+    expectIconOnly(send());
+    expectIconOnly(insert());
+    expectIconOnly(host.querySelector(".draft-discard"));
   });
 
   test("DictationDraft avec une dictée la montre sur un post-it, sans champ", async () => {

@@ -15,6 +15,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { appendDraft, dictationRoute } from "./draft";
 import { ChartPanel } from "./chart/ChartPanel";
+import { Icon } from "./icons";
 import { starterChart } from "./chart/chartDeck";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
@@ -36,15 +37,6 @@ import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import { pileMarks } from "./history";
 
-const Icon = {
-  undo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>,
-  redo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></svg>,
-  // Ce qu'on ajoute à la slide, dans l'ordre d'ADD_KINDS.
-  text: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" /></svg>,
-  card: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="M7 10h10M7 14h6" /></svg>,
-  shape: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></svg>,
-  chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></svg>,
-};
 
 // @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
 const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ default: m.PanelSurface })));
@@ -774,7 +766,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
       {/* En haut à droite, tout ce qui sert rarement : un seul menu. */}
       <div className="tray">
-        {snap.editing && <button className="object btn" onClick={finishTemplates}>{t("ui-toolbar-finish")}</button>}
+        {snap.editing && <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishTemplates}>{Icon.check}</button>}
         <ActionMenu label={t("ui-menu")} entries={menuEntries} />
       </div>
       </>)}

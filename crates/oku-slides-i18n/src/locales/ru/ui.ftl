@@ -255,8 +255,8 @@ ui-chart-column-name = Название столбца { $col }
 ui-chart-remove-column = Удалить столбец
 ui-chart-cell = Строка { $row }, столбец { $col }
 ui-chart-remove-row = Удалить строку
-ui-chart-add-row = + Строка
-ui-chart-add-column = + Столбец
+ui-chart-add-row = Строка
+ui-chart-add-column = Столбец
 ui-chart-series = Ряд { $n }
 
 ## Файлы

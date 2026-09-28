@@ -255,8 +255,8 @@ ui-chart-column-name = اسم العمود { $col }
 ui-chart-remove-column = حذف العمود
 ui-chart-cell = الصف { $row }، العمود { $col }
 ui-chart-remove-row = حذف الصف
-ui-chart-add-row = + صف
-ui-chart-add-column = + عمود
+ui-chart-add-row = صف
+ui-chart-add-column = عمود
 ui-chart-series = السلسلة { $n }
 
 ## الملفات

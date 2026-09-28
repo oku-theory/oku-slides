@@ -13,15 +13,15 @@
 .cdg-remove { border: 0; background: transparent; color: var(--papier-text-muted, #6b665e); cursor: pointer; padding: 4px 8px; opacity: 0; }
 tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { opacity: 1; }
 .cdg-actions { display: flex; gap: 8px; }
-.cdg-actions button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: var(--papier-surface, #fff); border-radius: var(--papier-radius, 6px); padding: 4px 10px; cursor: pointer; }
+.cdg-actions button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; color: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: var(--papier-surface, #fff); border-radius: var(--papier-radius, 6px); cursor: pointer; }
+.cdg-actions button svg, .chart-options button svg { width: 20px; height: 20px; }
 
 /* Panneau du graphique sélectionné, en tête de la colonne des notes. */
 .chart-panel { position: relative; flex: none; max-height: 60%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper, #fff); border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-note, 0 6px 24px rgb(0 0 0 / 0.12)); z-index: 5; }
 .chart-kinds, .chart-options { display: flex; flex-wrap: wrap; gap: 6px; }
-.chart-kinds button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; color: inherit; cursor: pointer; }
+.chart-kinds button, .chart-options button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; color: inherit; cursor: pointer; }
 .chart-kinds button svg { width: 20px; height: 20px; }
 .chart-kinds button:disabled { opacity: 0.4; cursor: default; }
-.chart-options button { font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
 .chart-kinds button.on, .chart-options button.on { background: var(--papier-accent, #2f5d8a); border-color: transparent; color: #fff; }
 .series-colors { display: flex; flex-wrap: wrap; gap: 6px; }
 .series-color { display: flex; flex-direction: column; gap: 4px; }

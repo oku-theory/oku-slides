@@ -245,8 +245,8 @@ ui-chart-column-name = ชื่อคอลัมน์ { $col }
 ui-chart-remove-column = ลบคอลัมน์
 ui-chart-cell = แถว { $row }, คอลัมน์ { $col }
 ui-chart-remove-row = ลบแถว
-ui-chart-add-row = + แถว
-ui-chart-add-column = + คอลัมน์
+ui-chart-add-row = แถว
+ui-chart-add-column = คอลัมน์
 ui-chart-series = ชุดข้อมูล { $n }
 
 ## ไฟล์

@@ -245,8 +245,8 @@ ui-chart-column-name = Tên cột { $col }
 ui-chart-remove-column = Xóa cột
 ui-chart-cell = Hàng { $row }, cột { $col }
 ui-chart-remove-row = Xóa hàng
-ui-chart-add-row = + Hàng
-ui-chart-add-column = + Cột
+ui-chart-add-row = Hàng
+ui-chart-add-column = Cột
 ui-chart-series = Chuỗi { $n }
 
 ## Tệp

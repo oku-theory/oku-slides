@@ -247,8 +247,8 @@ ui-chart-column-name = कॉलम { $col } का नाम
 ui-chart-remove-column = कॉलम हटाएँ
 ui-chart-cell = पंक्ति { $row }, कॉलम { $col }
 ui-chart-remove-row = पंक्ति हटाएँ
-ui-chart-add-row = + पंक्ति
-ui-chart-add-column = + कॉलम
+ui-chart-add-row = पंक्ति
+ui-chart-add-column = कॉलम
 ui-chart-series = सीरीज़ { $n }
 
 ## फ़ाइलें

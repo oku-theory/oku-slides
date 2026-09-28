@@ -5,6 +5,7 @@ import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { lazy, Suspense } from "react";
 import type { AgentState, Place, StopReason, Surface } from "../api";
 import { t } from "../i18n";
+import { Icon } from "../icons";
 import type { Thread } from "./thread";
 import { Markdown } from "./Markdown";
 import { threadItems } from "./thread";
@@ -64,7 +65,7 @@ export function AgentThread({
     <section className="agent-thread" aria-label={t("ui-agent-thread")}>
       <header className="agent-thread-head">
         <span className="caption">{t(STATE_KEY[thread.state])}</span>
-        <button type="button" className="linkish" onClick={onNewConversation}>{t("ui-agent-new-conversation")}</button>
+        <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>
       </header>
       <ol className="agent-entries" aria-live="polite">
         {threadItems(thread.entries).map((e) => (

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SttConfig, SttModel, SttStatus } from "./api";
 import { stt } from "./api";
 import { t } from "./i18n";
+import { Icon } from "./icons";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut } from "./agent/keys";
 
@@ -165,6 +166,8 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
   const shownMode = state === "idle" ? "auto" : mode;
 
   let body: React.ReactNode;
+  // Détail du repos (destination, modèle, arrêt auto), porté par l'infobulle du micro.
+  let idleDetails = "";
   if (state === "downloading" && status.download) {
     const d = status.download;
     const pct = Math.min(100, Math.floor((d.received / Math.max(1, d.total)) * 100));
@@ -214,18 +217,19 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
       </div>
     );
   } else {
-    // Au repos, rien que « Dicter » : où va le texte et les réglages sont dans
-    // l'info-bulle ; seul un modèle à télécharger se signale (sans lui, rien ne marche).
-    const details = [
+    // Au repos, rien que le micro : où va le texte et les réglages sont dans son
+    // infobulle ; seuls l'agent au travail et un modèle à télécharger s'écrivent.
+    idleDetails = [
       `→ ${destination}`,
       [model?.label.split(" (")[0], language].filter(Boolean).join(" · "),
       status.config.auto_stop ? t("ui-dictation-auto-stop", { duration: secs(status.config.silence) }) : "",
     ].filter(Boolean).join("\n");
-    body = (
+    const toDownload = model && !model.installed;
+    body = (agentBusy || toDownload) && (
       <div className="dictation-body">
-        <div className="dictation-line" title={details}>
-          <span className="dictation-state">{agentBusy ? t("ui-dictation-agent-working") : t("ui-dictation-start")}</span>
-          {model && !model.installed && <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>}
+        <div className="dictation-line">
+          {agentBusy && <span className="dictation-state">{t("ui-dictation-agent-working")}</span>}
+          {toDownload && <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>}
         </div>
       </div>
     );
@@ -236,7 +240,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
       <button
         className={`mic${state === "recording" ? " live" : ""}`}
         aria-label={t(state === "recording" ? "ui-dictation-finish" : "ui-dictation-start")}
-        title={t(state === "recording" ? "ui-dictation-finish-title" : "ui-dictation-start-title")}
+        title={state === "recording" ? t("ui-dictation-finish-title") : [t("ui-dictation-start-title"), idleDetails].filter(Boolean).join("\n")}
         disabled={state === "downloading" || state === "transcribing"}
         // Ne pas voler le focus : un texte en cours d'édition reste ouvert.
         onMouseDown={(e) => e.preventDefault()}
@@ -260,7 +264,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
       )}
       {body}
       {state === "recording" || state === "downloading" ? (
-        <button className="btn ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{t("ui-dictation-cancel")}</button>
+        <button className="token ghost dictation-cancel" aria-label={t("ui-dictation-cancel")} title={t("ui-dictation-cancel")} onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{Icon.close}</button>
       ) : (
         <button
           className="token ghost"

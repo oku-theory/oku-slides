@@ -245,8 +245,8 @@ ui-chart-column-name = { $col }열 이름
 ui-chart-remove-column = 열 삭제
 ui-chart-cell = { $row }행, { $col }열
 ui-chart-remove-row = 행 삭제
-ui-chart-add-row = + 행
-ui-chart-add-column = + 열
+ui-chart-add-row = 행
+ui-chart-add-column = 열
 ui-chart-series = 계열 { $n }
 
 ## 파일

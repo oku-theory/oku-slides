@@ -10,6 +10,7 @@ import type { DictationMode } from "./agent/keys";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: Dictation } = await import("./Dictation");
+const { expectIconOnly } = await import("./test/iconOnly");
 
 /** Un faux moteur : `start` écoute, `stop` rend `heard` (seq + 1), `cancel` revient au repos. */
 function fakeStt(heard = "bonjour") {
@@ -113,11 +114,17 @@ async function press(key: string, mods: { meta?: boolean; shift?: boolean } = {}
 const agentButton = (host: HTMLElement) => host.querySelector(".agent-mic") as HTMLButtonElement;
 
 describe("dictée au repos", () => {
-  test("Dictation au repos ne montre que « Dicter » ; le détail passe dans l'info-bulle", async () => {
+  test("Dictation idle shows only the mic, details in its tooltip", async () => {
     const { host } = await mount();
-    const line = host.querySelector(".dictation-line") as HTMLElement;
-    expect(line.textContent).toBe("ui-dictation-start");
-    expect(line.getAttribute("title")).toContain("le titre");
+    expect(host.querySelector(".dictation-line")).toBeNull();
+    expectIconOnly(host.querySelector(".mic"));
+    expect(host.querySelector(".mic")?.getAttribute("title")).toContain("le titre");
+  });
+
+  test("Dictation cancel button while recording shows an icon only", async () => {
+    const { host } = await mount();
+    await press("d", { meta: true });
+    expectIconOnly(host.querySelector(".dictation-cancel"));
   });
 });
 
@@ -149,7 +156,7 @@ describe("dictée en deux modes", () => {
     await press("d", { meta: true, shift: true });
     await press("d", { meta: true, shift: true });
     expect(host.querySelector(".device")?.classList.contains("draft")).toBe(false);
-    expect(host.querySelector(".dictation-line")?.getAttribute("title")).toContain("le titre");
+    expect(host.querySelector(".mic")?.getAttribute("title")).toContain("le titre");
   });
 
   test("⌘⇧D pendant un tour arrête l'agent sans écouter", async () => {
