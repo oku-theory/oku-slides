@@ -35,7 +35,7 @@
 - **Chargeur d'images** : `load-image(e, asset: none, fit: "cover", chart: false)`. Le widget `image` appelle `(ctx.load)(asset: args.asset, fit: args.fit)`, le widget `chart` `(ctx.load)(chart: true)`. Le rendu Rust pose `chart-svg` sur chaque élément dont un paramètre est `host("chart")`.
 - **Champs de slide** : les fonctions de slide (`slide`, `title-slide`, `chapter`, `end-slide`) prennent un `wrap` comme `card`. Les widgets de slide y passent `field(ctx, …)` ; `tracked()` disparaît. Côté session, les champs d'une slide gardent l'id de cible `@<param>` (l'UI s'appuie dessus) ; les champs des éléments restent pour t-271.
 - **Libellés localisés des widgets** : hors plan (spec, « Hors plan 2 »).
-- **Profondeur des slots bornée** : `MAX_SLOT_DEPTH = 16` (`locate.rs`). `Located` porte sa `depth` (0 pour un enfant direct d'un slot de la slide). `AddElement`, `ReplaceElement` et `AddSlide` refusent un élément dont un descendant dépasserait la borne (`InvalidValue`, raison « elements nest too deeply ») ; `validate` signale `issue-slot-too-deep` ; la lecture Loro descend au plus `MAX_DEPTH` (64) niveaux de conteneurs, ce qui couvre 16 niveaux de slots (un slot = 3 conteneurs : liste, carte d'élément, carte `params`). L'analyse d'un texte JSON est déjà bornée par `serde_json` (128). Les fonctions récursives (`find_mut`, `canonical::params`) ne voient donc jamais plus de 16 niveaux.
+- **Profondeur des slots bornée** : `MAX_SLOT_DEPTH = 16` (`locate.rs`). `Located` porte sa `depth` (0 pour un enfant direct d'un slot de la slide). `AddElement`, `ReplaceElement` et `AddSlide` refusent un élément dont un descendant dépasserait la borne (`InvalidValue`, raison « elements nest too deeply ») ; `validate` signale `issue-slot-too-deep` ; la lecture Loro descend au plus `MAX_DEPTH` (64) niveaux : le lecteur actuel compte deux niveaux par slot (entrée dans la liste, puis dans la carte `params` de l'élément ; la carte de l'élément ne compte pas), donc 16 slots = 32 niveaux, sous la borne. Le test hostile `read_deeply_nested_slots_stops_at_the_depth_bound` (tâche 3) fait foi, pas ce calcul. L'analyse d'un texte JSON est déjà bornée par `serde_json` (128). Les fonctions récursives (`find_mut`, `canonical::params`) ne voient donc jamais plus de 16 niveaux.
 - **`choice` et `asset` sont atomiques dans Loro** (dernière écriture gagnante) : fusionner « cover » et « contain » caractère par caractère donnerait une valeur invalide. Seul `plain` est une prose fusionnée au caractère ; seuls `plain`, `rich` et `slot` sont créés d'avance.
 - **`ChoiceOutOfRange`** : erreur d'op distincte, comme la spec l'écrit (`op-choice-out-of-range`).
 - **Paramètres liés** : un `bind` n'existe que sur un `plain` ; `SetParam` le convertit par `param_value` (→ `Text` ou `None`) puis écrit le texte (ou `None`) dans le champ `DeckParams` de même nom (`title`, `subtitle`, `author`, `date`, `organization`), sinon dans `DeckParams.extra[bind]` en chaîne JSON. `DeckParams` garde ses `Option<String>`.
@@ -520,6 +520,8 @@ impl Params {
         }
         match value {
             ParamValue::Slot(list) => Some(list),
+            // Impossible : la valeur vient d'être posée en `Slot`. Branche
+            // gardée pour ne pas paniquer (pas d'`unreachable!` hors tests).
             _ => None,
         }
     }
