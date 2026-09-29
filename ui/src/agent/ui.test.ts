@@ -1,28 +1,30 @@
 import { describe, expect, test } from "bun:test";
+import type { FieldView } from "../api";
 import { agentUi } from "./ui";
 
-describe("contexte de la consigne", () => {
-  test("un champ sélectionné (@title) devient field", () => {
-    expect(agentUi("s-1", "@title", null)).toEqual({ slide: "s-1", element: null, field: "title", editing: false });
+const field = (owner: string, owner_kind: "slide" | "element", name: string): FieldView => ({
+  owner, owner_kind, widget: "card", field: name, kind: "plain", label: null, text: "", empty: false, side: null,
+  x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+});
+
+describe("agentUi", () => {
+  test("agentUi with a slide field in edition gives the field without element", () => {
+    expect(agentUi("s-1", null, field("s-1", "slide", "title"))).toEqual({ slide: "s-1", element: null, field: "title", editing: true });
   });
 
-  test("un élément en édition", () => {
-    expect(agentUi("s-1", "e-2", "e-2")).toEqual({ slide: "s-1", element: "e-2", field: null, editing: true });
+  test("agentUi with a card field in edition gives the card and the field", () => {
+    expect(agentUi("s-1", "c1", field("c1", "element", "body"))).toEqual({ slide: "s-1", element: "c1", field: "body", editing: true });
   });
 
-  test("un champ en édition", () => {
-    expect(agentUi("s-1", "@title", "@title")).toEqual({ slide: "s-1", element: null, field: "title", editing: true });
+  test("agentUi with a field in edition follows the field, not the selection", () => {
+    expect(agentUi("s-1", "e-9", field("c1", "element", "body")).element).toBe("c1");
   });
 
-  test("une édition ailleurs que la sélection n'est pas l'édition en cours", () => {
-    expect(agentUi("s-1", "e-2", "e-3").editing).toBe(false);
+  test("agentUi with a selection only gives the element", () => {
+    expect(agentUi("s-1", "c1", null)).toEqual({ slide: "s-1", element: "c1", field: null, editing: false });
   });
 
-  test("un @ seul n'est ni un champ ni un élément", () => {
-    expect(agentUi("s-1", "@", null)).toEqual({ slide: "s-1", element: null, field: null, editing: false });
-  });
-
-  test("rien de sélectionné", () => {
+  test("agentUi with nothing selected gives the slide only", () => {
     expect(agentUi(null, null, null)).toEqual({ slide: null, element: null, field: null, editing: false });
   });
 });

@@ -29,6 +29,7 @@ ui-toast-templates-saved = টেমপ্লেট সংরক্ষিত: { 
 ui-toast-moved = উপস্থাপনা সরানো হয়েছে
 ui-toast-copied = অনুলিপি সংরক্ষিত
 ui-toast-select-zone = বসানোর জন্য একটি এলাকা বেছে নিন: “{ $text }”
+ui-toast-field-gone = আপনি যে ঘরটি সম্পাদনা করছিলেন সেটি আর নেই: আপনার লেখা হারিয়ে গেছে।
 
 ## টুলবার
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = গ্রিডে আকার বদলান
 ui-undo-change-anchor = অ্যাঙ্করিং বদলান
 ui-undo-move = সরান
 ui-undo-resize = আকার বদলান
-ui-undo-edit-text = টেক্সট সম্পাদনা করুন
+ui-undo-edit-slide = স্লাইড সম্পাদনা করুন
 ui-undo-dictation = ডিক্টেশন
 ui-undo-rename-set = সেটের নাম বদলান
 ui-undo-rename-deck = প্রেজেন্টেশনের নাম বদলান
@@ -118,14 +119,19 @@ ui-slide-alt = স্লাইড { $n }
 
 ui-stage-rendering = রেন্ডার হচ্ছে…
 ui-stage-elements = স্লাইডের উপাদান
+ui-stage-fields = স্লাইডের ঘর
 ui-stage-edit-text = টেক্সট সম্পাদনা করুন
-ui-stage-hint-field = নিশ্চিত করতে Enter · বাতিল করতে Esc
-ui-stage-hint-block = নিশ্চিত করতে ⌘ Enter · প্রতি অনুচ্ছেদে এক লাইন, বুলেটের জন্য “- ” · ⌘B বোল্ড, ⌘I ইটালিক, ⌘K লিঙ্ক
+ui-stage-hint-plain = পরেরটিতে যেতে Enter বা Tab · বাতিল করতে Esc
+ui-stage-hint-rich = পরেরটিতে যেতে Tab · নিশ্চিত করতে ⌘ Enter · বুলেটের জন্য “- ” · ⌘B বোল্ড, ⌘I ইটালিক, ⌘K লিঙ্ক
 ui-field = { $kind ->
     [title] শিরোনাম
     [subtitle] উপশিরোনাম
     [kicker] কিকার
     [text] টেক্সট
+    [body] মূল অংশ
+    [author] লেখক
+    [date] তারিখ
+    [organization] প্রতিষ্ঠান
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

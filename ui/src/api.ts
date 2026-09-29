@@ -174,15 +174,35 @@ export interface TextStyle {
   bg: string | null;
 }
 
-/** Cible éditable de la vue (case de sélection à l'écran) ; nom distinct de `Target` (adressage des ops). */
-export interface EditTarget {
+/** Objet sélectionnable de la vue (élément à l'écran) ; nom distinct de `Target` (adressage des ops). */
+export interface ObjectTarget {
   id: string;
-  target: "element" | "field";
   kind: string;
-  /** Premier paramètre riche du widget (élément) ; absent : pas éditable en place. */
-  param?: string;
   free: boolean;
-  text: string | null;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Champ de texte éditable en place : paramètre d'une slide ou d'un élément, avec sa boîte rendue. */
+export interface FieldView {
+  /** Id de la slide ou de l'élément qui porte le champ. */
+  owner: string;
+  owner_kind: "slide" | "element";
+  /** Widget de l'objet. */
+  widget: string;
+  /** Nom du paramètre. */
+  field: string;
+  kind: "plain" | "rich";
+  /** Libellé du paramètre dans le schéma du widget. */
+  label: string | null;
+  /** Texte tel que saisi ; markdown, un paragraphe par ligne, pour `rich`. */
+  text: string;
+  /** Sans texte rendu : placeholder à dessiner. */
+  empty: boolean;
+  /** Champ vide sans place au rendu : dessiné avant ou après son ancre (`y`). */
+  side: "before" | "after" | null;
   x: number;
   y: number;
   w: number;
@@ -199,7 +219,9 @@ export interface SlideView {
   hash: string;
   width: number;
   height: number;
-  targets: EditTarget[];
+  targets: ObjectTarget[];
+  /** Champs éditables, dans l'ordre de Tab. */
+  fields: FieldView[];
   /** Zone des éléments libres (pt, page) et sa grille résolue. */
   zone: ZoneView | null;
 }
@@ -286,7 +308,7 @@ type Request =
   | { cmd: "save_copy"; path: string }
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
-  | { cmd: "apply"; label: string; ops: Op[] }
+  | { cmd: "apply"; label: string; ops: Op[]; merge: string | null }
   | { cmd: "undo" }
   | { cmd: "redo" }
   | { cmd: "templates"; set?: string | null }
@@ -453,7 +475,8 @@ export function tabApi(tab: string) {
     svg: (id: string) => call<string>({ cmd: "svg", id }),
     /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
     panel: (slide: string) => call<A2uiMessage[]>({ cmd: "panel", slide }),
-    apply: (label: string, ops: Op[]) => call<Snapshot>({ cmd: "apply", label, ops }),
+    apply: (label: string, ops: Op[], merge?: string) =>
+      call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),
     redo: () => call<Snapshot>({ cmd: "redo" }),
     templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),

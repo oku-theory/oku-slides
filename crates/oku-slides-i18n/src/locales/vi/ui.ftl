@@ -27,6 +27,7 @@ ui-toast-templates-saved = Đã lưu mẫu: { $name }
 ui-toast-moved = Đã di chuyển bản trình bày
 ui-toast-copied = Đã lưu bản sao
 ui-toast-select-zone = Chọn vùng để đặt: “{ $text }”
+ui-toast-field-gone = Trường bạn đang sửa không còn nữa: nội dung đã nhập bị mất.
 
 ## Thanh công cụ
 
@@ -82,7 +83,7 @@ ui-undo-resize-on-grid = Đổi kích thước trên lưới
 ui-undo-change-anchor = Đổi điểm neo
 ui-undo-move = Di chuyển
 ui-undo-resize = Đổi kích thước
-ui-undo-edit-text = Sửa văn bản
+ui-undo-edit-slide = Sửa trang chiếu
 ui-undo-dictation = Đọc chính tả
 ui-undo-rename-set = Đổi tên bộ mẫu
 ui-undo-rename-deck = Đổi tên bản trình bày
@@ -116,14 +117,19 @@ ui-slide-alt = Trang chiếu { $n }
 
 ui-stage-rendering = Đang kết xuất…
 ui-stage-elements = Các phần tử của trang chiếu
+ui-stage-fields = Các trường của trang chiếu
 ui-stage-edit-text = Sửa văn bản
-ui-stage-hint-field = Enter để xác nhận · Esc để hủy
-ui-stage-hint-block = ⌘ Enter để xác nhận · mỗi đoạn một dòng, “- ” cho gạch đầu dòng · ⌘B đậm, ⌘I nghiêng, ⌘K liên kết
+ui-stage-hint-plain = Enter hoặc Tab để sang mục tiếp · Esc để hủy
+ui-stage-hint-rich = Tab để sang mục tiếp · ⌘ Enter để xác nhận · “- ” cho gạch đầu dòng · ⌘B đậm, ⌘I nghiêng, ⌘K liên kết
 ui-field = { $kind ->
     [title] Tiêu đề
     [subtitle] Phụ đề
     [kicker] Dòng dẫn
     [text] Văn bản
+    [body] Nội dung
+    [author] Tác giả
+    [date] Ngày
+    [organization] Tổ chức
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

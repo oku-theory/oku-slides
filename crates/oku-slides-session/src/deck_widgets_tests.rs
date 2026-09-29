@@ -98,7 +98,7 @@ fn session_with_pack_widgets_uses_the_pack_registry() {
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
     assert_that!(widgets_have_quote(&mut s)).is_false();
-    s.apply("Pack", vec![set_templates(Some("citations"))]).unwrap();
+    s.apply("Pack", vec![set_templates(Some("citations"))], None).unwrap();
     assert_that!(widgets_have_quote(&mut s)).is_true();
     assert_registry_agrees(&s);
 }
@@ -108,7 +108,7 @@ fn apply_set_templates_then_pack_element_in_one_transaction_succeeds() {
     let data = data_dir();
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
-    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()]).unwrap();
+    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()], None).unwrap();
     assert_that!(has_quote(&s)).is_true();
     let page = s.slide("s-constat").unwrap();
     assert_that!(page.targets.iter().any(|t| t.id == "q")).is_true();
@@ -120,7 +120,7 @@ fn apply_pack_element_without_its_pack_is_refused() {
     let data = data_dir();
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
-    let err = s.apply("Citation", vec![add_quote()]).unwrap_err();
+    let err = s.apply("Citation", vec![add_quote()], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Op);
     assert_that!(has_quote(&s)).is_false();
 }
@@ -132,7 +132,7 @@ fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
     let mut s = session_in(&data.0);
     let base = s.registry.clone();
     let bad = op(json!({ "op": "set_token", "path": ["color", "accent"], "value": 5 }));
-    let err = s.apply("Pack", vec![set_templates(Some("citations")), bad]).unwrap_err();
+    let err = s.apply("Pack", vec![set_templates(Some("citations")), bad], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Render);
     assert_that!(s.deck().templates).is_none();
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
@@ -146,7 +146,7 @@ fn apply_set_templates_with_sources_failure_keeps_the_previous_registry() {
     let mut s = session_in(&data.0);
     let base = s.registry.clone();
     s.failpoints.sources_apply = true;
-    assert_that!(s.apply("Pack", vec![set_templates(Some("citations"))]).is_err()).is_true();
+    assert_that!(s.apply("Pack", vec![set_templates(Some("citations"))], None).is_err()).is_true();
     assert_that!(s.deck().templates).is_none();
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
     assert_that!(widgets_have_quote(&mut s)).is_false();
@@ -158,7 +158,7 @@ fn undo_and_redo_of_set_templates_follow_the_deck_pack() {
     let data = data_dir();
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
-    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()]).unwrap();
+    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()], None).unwrap();
     s.undo().unwrap();
     assert_that!(s.deck().templates).is_none();
     assert_that!(widgets_have_quote(&mut s)).is_false();
@@ -179,7 +179,7 @@ fn merge_file_that_brings_a_pack_uses_its_registry() {
     // Un autre pair du même deck choisit le pack et y ajoute une citation.
     let mut other = session_in(&data.0);
     other.open(&ours).unwrap();
-    other.apply("Citation", vec![set_templates(Some("citations")), add_quote()]).unwrap();
+    other.apply("Citation", vec![set_templates(Some("citations")), add_quote()], None).unwrap();
     let theirs = data.0.join("eux.oku-slides.pdf");
     other.save(Some(&theirs)).unwrap();
     s.merge_file(&theirs).unwrap();
@@ -194,7 +194,7 @@ fn history_restore_before_set_templates_returns_to_the_base_registry() {
     let data = data_dir();
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
-    s.apply("Pack", vec![set_templates(Some("citations"))]).unwrap();
+    s.apply("Pack", vec![set_templates(Some("citations"))], None).unwrap();
     s.history_open().unwrap();
     let before = s.history_versions().unwrap().len() - 2;
     s.history_seek(before).unwrap();
@@ -228,7 +228,7 @@ fn apply_set_templates_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notic
     write_pack(&data.0, "casse", BROKEN);
     let mut s = session_in(&data.0);
     let base = s.registry.clone();
-    s.apply("Pack", vec![set_templates(Some("casse"))]).unwrap();
+    s.apply("Pack", vec![set_templates(Some("casse"))], None).unwrap();
     assert_that!(s.deck().templates.as_deref()).is_equal_to(Some("casse"));
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
     assert_that!(s.doc.notice.is_some()).is_true();
@@ -240,7 +240,7 @@ fn load_with_a_failed_registry_install_keeps_the_previous_document() {
     let data = data_dir();
     write_pack(&data.0, "citations", QUOTE);
     let mut s = session_in(&data.0);
-    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()]).unwrap();
+    s.apply("Citation", vec![set_templates(Some("citations")), add_quote()], None).unwrap();
     let before = s.deck().clone();
     s.failpoints.install_widgets = true;
     // La fixture n'a pas de pack : son registre, la base, ne s'installe pas.

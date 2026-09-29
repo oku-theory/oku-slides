@@ -171,12 +171,12 @@ fn compile_fields_on_page_keep_only_that_page() {
 }
 
 #[test]
-fn compile_title_slide_emits_title_and_subtitle_fields_owned_by_the_slide() {
+fn compile_title_slide_emits_kicker_title_and_subtitle_fields_owned_by_the_slide() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let fields: Vec<&str> = layout.fields.iter().filter(|f| f.owner == "s-title").map(|f| f.field.as_str()).collect();
-    assert_that!(fields).is_equal_to(vec!["title", "subtitle"]);
+    assert_that!(fields).is_equal_to(vec!["kicker", "title", "subtitle"]);
     let page = layout.page_of("s-title").unwrap();
     assert_that!(layout.fields.iter().filter(|f| f.owner == "s-title").all(|f| f.page == page)).is_true();
     // Les anciennes boîtes « @champ » ont disparu.

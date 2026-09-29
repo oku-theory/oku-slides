@@ -209,8 +209,16 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .target:hover { outline: 1px dashed var(--accent); outline-offset: 3px; }
 .target.free { cursor: move; }
 .target.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Champs : zones de clic transparentes au-dessus des objets. */
+.fields { position: absolute; inset: 0; pointer-events: none; }
+.field { position: absolute; pointer-events: auto; }
+/* Champ de l'objet sélectionné ou en édition : on y écrit. */
+.field.hot { cursor: text; }
+.field.hot.empty:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 4px; }
+.field-placeholder { position: absolute; inset: 0; opacity: 0.45; white-space: nowrap; pointer-events: none; }
+/* Au-dessus de la couche des champs : toute la poignée redimensionne. */
 .handle {
-  position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--paper-200);
+  position: absolute; z-index: 1; width: 14px; height: 14px; border-radius: 50%; background: var(--paper-200);
   border: 2px solid var(--accent); transform: translate(-50%, -50%); box-shadow: var(--shadow-rest);
 }
 .handle.nw { left: -3px; top: -3px; cursor: nwse-resize; }

@@ -59,7 +59,7 @@ impl Tools {
             Err(r) => return r,
         };
         let label = label.unwrap_or_else(|| self.localizer.tr("agent-undo-apply"));
-        self.change(Request::Apply { label, ops }).await
+        self.change(Request::Apply { label, ops, merge: None }).await
     }
 
     pub(crate) async fn chart_kind(&self, args: Value) -> CallToolResult {

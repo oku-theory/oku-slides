@@ -27,6 +27,7 @@ ui-toast-templates-saved = 템플릿을 저장했습니다: { $name }
 ui-toast-moved = 프레젠테이션을 이동했습니다
 ui-toast-copied = 사본을 저장했습니다
 ui-toast-select-zone = 배치할 영역을 선택하세요: “{ $text }”
+ui-toast-field-gone = 편집하던 필드가 더 이상 없습니다: 입력한 내용이 사라졌습니다.
 
 ## 도구 모음
 
@@ -82,7 +83,7 @@ ui-undo-resize-on-grid = 그리드에서 크기 조정
 ui-undo-change-anchor = 고정 위치 변경
 ui-undo-move = 이동
 ui-undo-resize = 크기 조정
-ui-undo-edit-text = 텍스트 편집
+ui-undo-edit-slide = 슬라이드 편집
 ui-undo-dictation = 받아쓰기
 ui-undo-rename-set = 세트 이름 바꾸기
 ui-undo-rename-deck = 프레젠테이션 이름 바꾸기
@@ -116,14 +117,19 @@ ui-slide-alt = 슬라이드 { $n }
 
 ui-stage-rendering = 렌더링 중…
 ui-stage-elements = 슬라이드 요소
+ui-stage-fields = 슬라이드 필드
 ui-stage-edit-text = 텍스트 편집
-ui-stage-hint-field = Enter로 확인 · Esc로 취소
-ui-stage-hint-block = ⌘ Enter로 확인 · 단락마다 한 줄, 글머리 기호는 “- ” · ⌘B 굵게, ⌘I 기울임, ⌘K 링크
+ui-stage-hint-plain = Enter 또는 Tab으로 다음 · Esc로 취소
+ui-stage-hint-rich = Tab으로 다음 · ⌘ Enter로 확인 · 글머리 기호는 “- ” · ⌘B 굵게, ⌘I 기울임, ⌘K 링크
 ui-field = { $kind ->
     [title] 제목
     [subtitle] 부제목
     [kicker] 머리말
     [text] 텍스트
+    [body] 본문
+    [author] 작성자
+    [date] 날짜
+    [organization] 조직
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

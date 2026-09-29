@@ -27,6 +27,7 @@ ui-toast-templates-saved = บันทึกเทมเพลตแล้ว: 
 ui-toast-moved = ย้ายงานนำเสนอแล้ว
 ui-toast-copied = บันทึกสำเนาแล้ว
 ui-toast-select-zone = เลือกพื้นที่สำหรับวาง: “{ $text }”
+ui-toast-field-gone = ช่องที่คุณกำลังแก้ไขไม่มีอยู่แล้ว: ข้อความที่พิมพ์สูญหาย
 
 ## แถบเครื่องมือ
 
@@ -82,7 +83,7 @@ ui-undo-resize-on-grid = ปรับขนาดบนเส้นตารา�
 ui-undo-change-anchor = เปลี่ยนจุดยึด
 ui-undo-move = ย้าย
 ui-undo-resize = ปรับขนาด
-ui-undo-edit-text = แก้ไขข้อความ
+ui-undo-edit-slide = แก้ไขสไลด์
 ui-undo-dictation = พิมพ์ด้วยเสียง
 ui-undo-rename-set = เปลี่ยนชื่อชุด
 ui-undo-rename-deck = เปลี่ยนชื่องานนำเสนอ
@@ -116,14 +117,19 @@ ui-slide-alt = สไลด์ { $n }
 
 ui-stage-rendering = กำลังเรนเดอร์…
 ui-stage-elements = องค์ประกอบของสไลด์
+ui-stage-fields = ช่องของสไลด์
 ui-stage-edit-text = แก้ไขข้อความ
-ui-stage-hint-field = Enter เพื่อยืนยัน · Esc เพื่อยกเลิก
-ui-stage-hint-block = ⌘ Enter เพื่อยืนยัน · หนึ่งบรรทัดต่อย่อหน้า ใช้ “- ” สำหรับหัวข้อย่อย · ⌘B ตัวหนา ⌘I ตัวเอียง ⌘K ลิงก์
+ui-stage-hint-plain = Enter หรือ Tab เพื่อไปช่องถัดไป · Esc เพื่อยกเลิก
+ui-stage-hint-rich = Tab เพื่อไปช่องถัดไป · ⌘ Enter เพื่อยืนยัน · ใช้ “- ” สำหรับหัวข้อย่อย · ⌘B ตัวหนา ⌘I ตัวเอียง ⌘K ลิงก์
 ui-field = { $kind ->
     [title] ชื่อเรื่อง
     [subtitle] ชื่อรอง
     [kicker] คำนำ
     [text] ข้อความ
+    [body] เนื้อหา
+    [author] ผู้เขียน
+    [date] วันที่
+    [organization] องค์กร
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

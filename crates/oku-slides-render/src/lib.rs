@@ -12,7 +12,7 @@
 //!   [`Renderer::registry`]) sont ceux de base, surchargés par un [`PackWidgets`] ; rend un
 //!   [`Compiled`] (SVG, PNG, PDF, [`Layout`]).
 //! - [`Layout`] : ce que le rendu dit du document — [`SlidePage`], [`ElementBox`],
-//!   [`FieldBox`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
+//!   [`FieldBox`], [`FieldSide`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
 //!   compilé.
 //! - Le registre des widgets ([`load_registry`], [`Registries`]) se lit par une sonde
 //!   Typst, éventuellement surchargée par un [`PackWidgets`].
@@ -88,6 +88,22 @@ pub struct FieldBox {
     pub aw: Option<f64>,
     #[serde(default)]
     pub style: Option<TextStyle>,
+    /// Champ sans texte : placeholder à dessiner par l'interface.
+    #[serde(default)]
+    pub empty: bool,
+    /// Champ vide sans place au rendu : dessiné avant ou après son ancre (`y`).
+    #[serde(default)]
+    pub side: Option<FieldSide>,
+}
+
+/// Où se dessine un champ vide sans place au rendu, par rapport à son ancre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FieldSide {
+    /// Au-dessus : l'ancre est le haut de l'item suivant.
+    Before,
+    /// Au-dessous : l'ancre est le bas de l'item précédent.
+    After,
 }
 
 /// Zone des éléments libres d'une page (pt), et sa grille éventuelle.

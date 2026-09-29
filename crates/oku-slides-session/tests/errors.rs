@@ -257,7 +257,7 @@ fn new_deck_in_arabic_is_written_right_to_left() {
     assert_that!(view["slide"].is_object()).is_true();
     assert_that!(s.deck().params.lang.as_deref()).is_equal_to(Some("ar"));
     let aligns: Vec<&str> =
-        view["targets"].as_array().unwrap().iter().filter_map(|t| t["style"]["align"].as_str()).collect();
+        view["fields"].as_array().unwrap().iter().filter_map(|f| f["style"]["align"].as_str()).collect();
     assert_that!(aligns.is_empty()).is_false();
     assert_that!(aligns.iter().all(|a| *a == "right")).is_true();
 }

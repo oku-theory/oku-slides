@@ -33,6 +33,7 @@ ui-toast-templates-saved = Szablony zapisane: { $name }
 ui-toast-moved = Prezentacja przeniesiona
 ui-toast-copied = Kopia zapisana
 ui-toast-select-zone = Zaznacz obszar, aby umieścić: „{ $text }”
+ui-toast-field-gone = Edytowane pole już nie istnieje: wpisany tekst został utracony.
 
 ## Pasek narzędzi
 
@@ -88,7 +89,7 @@ ui-undo-resize-on-grid = Zmień rozmiar na siatce
 ui-undo-change-anchor = Zmień zakotwiczenie
 ui-undo-move = Przenieś
 ui-undo-resize = Zmień rozmiar
-ui-undo-edit-text = Edytuj tekst
+ui-undo-edit-slide = Edytuj slajd
 ui-undo-dictation = Dyktowanie
 ui-undo-rename-set = Zmień nazwę zestawu
 ui-undo-rename-deck = Zmień nazwę prezentacji
@@ -122,14 +123,19 @@ ui-slide-alt = Slajd { $n }
 
 ui-stage-rendering = Renderowanie…
 ui-stage-elements = Elementy slajdu
+ui-stage-fields = Pola slajdu
 ui-stage-edit-text = Edytuj tekst
-ui-stage-hint-field = Enter, aby zatwierdzić · Esc, aby anulować
-ui-stage-hint-block = ⌘ Enter, aby zatwierdzić · jeden wiersz na akapit, „- ” dla punktu listy · ⌘B pogrubienie, ⌘I kursywa, ⌘K link
+ui-stage-hint-plain = Enter lub Tab, aby przejść dalej · Esc, aby anulować
+ui-stage-hint-rich = Tab, aby przejść dalej · ⌘ Enter, aby zatwierdzić · „- ” dla punktu listy · ⌘B pogrubienie, ⌘I kursywa, ⌘K link
 ui-field = { $kind ->
     [title] Tytuł
     [subtitle] Podtytuł
     [kicker] Nadtytuł
     [text] Tekst
+    [body] Treść
+    [author] Autor
+    [date] Data
+    [organization] Organizacja
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

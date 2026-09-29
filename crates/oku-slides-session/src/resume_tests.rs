@@ -29,7 +29,7 @@ fn document() -> Document {
     let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), &defaults());
     let mut next = doc.sources.deck().clone();
     next.theme = Some("pro".into());
-    doc.sources.apply(next, "Thème").unwrap();
+    doc.sources.apply(next, "Thème", None).unwrap();
     doc.dirty = true;
     doc.saved_hash = Some("sha256:00".into());
     doc
@@ -260,7 +260,7 @@ fn apply_without_handle_writes_the_op_for_resume() {
     let dir = temp_dir();
     let mut s = crate::test_support::session();
     assert_that!(s.resume(dir.clone())).is_true();
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
     s.flush_resume();
     let mut back = crate::test_support::session();
     assert_that!(back.resume(dir.clone())).is_true();

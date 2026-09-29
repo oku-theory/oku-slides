@@ -20,6 +20,7 @@ relancement. L'app Tauri (`src-tauri`) et le serveur de développement (`oku-sli
 - `Slot` (`workspace_slot.rs`) : session d'un onglet (`Ready`, `Dormant`, `Closed`) ; `workspace_resume.rs` : `workspace.json`, orphelins, `open_files`.
 - `workspace_same_deck.rs` : `SameDeck`, l'onglet qui tient déjà une autre copie d'un deck
   (`TabInfo.deck_uid`) ; `post_notice` y pose l'avis d'un fichier ouvert à part par l'OS.
+- `SlideView.fields` (`fields.rs`) : champs éditables dans l'ordre de Tab ; `targets` : boîtes d'éléments.
 - `paragraphs_to_text` (`text.rs`, inline dans `inline.rs`) : markdown d'édition
   relu par `@lezer/markdown` ; contrat `fixtures/markdown.json` et `-corpus.json` (`UPDATE_CORPUS=1`).
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente

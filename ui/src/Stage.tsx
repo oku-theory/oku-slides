@@ -1,18 +1,21 @@
-// La scène : le SVG rendu par Typst, et par-dessus la couche de sélection.
+// La scène : le SVG rendu par Typst, et par-dessus la couche des objets
+// (sélection, glisser) et celle des champs (édition en place).
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { EditTarget, Frame, Op, SlideView } from "./api";
-import { fontStack } from "./appearance";
+import type { FieldView, Frame, ObjectTarget, Op, SlideView } from "./api";
 import { editorBackground } from "./color";
 import type { GridPlacement } from "./deck";
-import { findElement, gridPlacement, isBlock, placeOnGridOps, textChanged, textOps } from "./deck";
+import { fieldChanged, fieldOps, findElement, gridPlacement, isBlock, placeOnGridOps } from "./deck";
+import { editorGeometry, placeholderStyle } from "./editorGeometry";
 import type { Cell, GridSpec, ZoneView } from "./grid";
 import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
 import { sheetPosition } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
+import type { FieldKey } from "./stageFields";
+import { fieldHitBox, fieldKey, fieldLabel, findField, nextField, primaryFieldOf } from "./stageFields";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -35,26 +38,39 @@ function draggedCell(d: Drag): Cell | null {
   return d.mode === "move" ? moveCell(zone, grid, cell, d.dx, d.dy) : resizeCell(zone, grid, cell, d.mode, d.dx, d.dy);
 }
 
+/** Ce que l'application peut demander à la scène. */
+export interface StageHandle {
+  /** Enregistre la saisie ouverte (dans sa session) et ferme l'éditeur ; avant de quitter la slide. */
+  commitEditing(): void;
+}
+
 interface Props {
+  /** Poignée de l'application : valider la saisie avant de changer de slide. */
+  ref?: React.Ref<StageHandle>;
   view: SlideView;
   svgUrl: string | null;
   selected: string | null;
-  editing: string | null;
+  /** Champ en édition. */
+  editing: FieldKey | null;
   onSelect: (id: string | null) => void;
-  onEdit: (id: string | null) => void;
-  onApply: (label: string, ops: Op[]) => void;
+  onEdit: (key: FieldKey | null) => void;
+  /** `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation. */
+  onApply: (label: string, ops: Op[], merge?: string) => void;
   /** Texte dicté à insérer au curseur de l'éditeur ouvert. */
   dictated?: { seq: number; text: string } | null;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
-  /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide. */
+  /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide ; `@param` : sous ce champ de la slide. */
   overlay?: { target: string; node: ReactNode };
   /** Couleurs des pastilles dans l'éditeur (palette des graphiques du thème). */
   palette: string[];
+  /** Lecture seule (historique) : pas de couche des champs. */
+  readOnly?: boolean;
+  /** Mode modèles : les placeholders de tous les champs vides se voient. */
+  templates?: boolean;
+  /** Message pour l'utilisateur (le champ en édition a disparu). */
+  onNotice?: (msg: string) => void;
 }
-
-/** Nom d'un champ de slide (titre, sous-titre…) ; un champ inconnu garde son identifiant. */
-export const fieldLabel = (kind: string) => t("ui-field", { kind });
 
 /** Nom d'une sorte d'élément (texte, carte…) ; une sorte inconnue garde son identifiant. */
 const kindLabel = (kind: string) => t("ui-element-kind", { kind });
@@ -94,86 +110,6 @@ function dragged(d: Drag): Frame {
   return { x: Math.round(f.x), y: Math.round(f.y), w: Math.round(f.w), h: Math.round(f.h) };
 }
 
-const WEIGHTS: Record<string, number> = {
-  thin: 100, extralight: 200, light: 300, regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800, black: 900,
-};
-
-let measureCtx: CanvasRenderingContext2D | null = null;
-
-/** Largeur (px) de la plus longue ligne, dans la police donnée. */
-function textWidth(text: string, font: string, tracking: number): number {
-  measureCtx ??= document.createElement("canvas").getContext("2d");
-  if (!measureCtx) return 0;
-  measureCtx.font = font;
-  return Math.max(0, ...text.split("\n").map((l) => measureCtx!.measureText(l).width + tracking * l.length));
-}
-
-/**
- * Éditeur posé exactement sur le texte rendu : même police, taille, graisse,
- * couleur, interlignage et alignement, première ligne sur la même ligne de base.
- * Un champ (titre…) épouse son texte et s'élargit en tapant, jusqu'à sa zone ;
- * un bloc garde la largeur de sa boîte, où le texte revient à la ligne.
- */
-function editorGeometry(t: EditTarget, draft: string, scale: number) {
-  const st = t.style;
-  const pad = 5; // marge intérieure (px écran) : le cadre ne colle pas aux lettres
-  if (!st) {
-    const left = t.x * scale - pad;
-    return {
-      left,
-      style: { left, top: t.y * scale - pad, width: Math.max(t.w * scale, 240) + 2 * pad, minHeight: t.h * scale + 2 * pad, padding: pad } as React.CSSProperties,
-    };
-  }
-  const size = st.size * scale;
-  // Typst : interligne = hauteur de capitale + espacement ; en CSS, hauteur de ligne.
-  const line = Math.max(st.size * 0.7 + st.leading, st.size * 1.05) * scale;
-  // Ligne de base de la première ligne : Typst la place à y + hauteur de capitale ;
-  // CSS à mi-interligne + (ascendante − descendante) / 2.
-  const top = t.y * scale + size * 0.7 - line / 2 - size * 0.325;
-  const weight = typeof st.weight === "number" ? st.weight : WEIGHTS[String(st.weight).replace(/[^a-z]/g, "")] ?? 400;
-  const family = fontStack(st.font, "serif");
-  const tracking = st.tracking * scale;
-  const align = st.align ?? "left";
-
-  let width: number;
-  if (t.target === "element") {
-    width = t.w * scale;
-  } else {
-    const shown = st.case === "upper" ? draft.toUpperCase() : st.case === "lower" ? draft.toLowerCase() : draft;
-    const natural = textWidth(shown, `${weight} ${size}px ${family}`, tracking) + size * 0.35; // place du curseur
-    width = Math.min(Math.max(natural, size * 3), t.aw * scale);
-  }
-  const zoneLeft = t.ax * scale;
-  const zoneWidth = t.aw * scale;
-  const x = t.target === "element"
-    ? t.x * scale
-    : align === "center"
-      ? zoneLeft + (zoneWidth - width) / 2
-      : align === "right"
-        ? zoneLeft + zoneWidth - width
-        : t.x * scale;
-  const left = x - pad;
-  return {
-    left,
-    style: {
-      left,
-      top: top - pad,
-      width: width + 2 * pad,
-      minHeight: line + 2 * pad,
-      padding: pad,
-      fontFamily: family,
-      fontSize: size,
-      fontWeight: weight,
-      lineHeight: `${line}px`,
-      letterSpacing: tracking || undefined,
-      color: st.fill ?? undefined,
-      background: editorBackground(st.fill, st.bg),
-      textAlign: align,
-      textTransform: st.case === "upper" ? "uppercase" : st.case === "lower" ? "lowercase" : undefined,
-    } as React.CSSProperties,
-  };
-}
-
 /** La grille : un petit point sur chaque nœud (coins des cases), et la place visée. */
 function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSpec; scale: number; target: Cell | null }) {
   const t = tracks(zone, grid);
@@ -190,12 +126,27 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
   );
 }
 
-export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette }: Props) {
+export default function Stage({
+  ref, view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette,
+  readOnly = false, templates = false, onNotice,
+}: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const editor = useRef<TextEditorHandle>(null);
   const [scale, setScale] = useState(0.5);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [draft, setDraft] = useState("");
+  // Une police qui finit de charger change les métriques de l'éditeur (mesurées
+  // jusque-là sur la police de repli) : la scène se redessine.
+  const [, setFontsLoaded] = useState(0);
+  useEffect(() => {
+    const fonts = typeof document === "undefined" ? undefined : document.fonts;
+    if (!fonts?.addEventListener) return;
+    const relayout = () => setFontsLoaded((n) => n + 1);
+    fonts.addEventListener("loadingdone", relayout);
+    return () => fonts.removeEventListener("loadingdone", relayout);
+  }, []);
+  // Clé de la session de saisie : de l'entrée en édition à la sortie, d'un champ à l'autre.
+  const session = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -210,13 +161,30 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     return () => ro.disconnect();
   }, [view.width, view.height]);
 
-  const editTarget = view.targets.find((t) => t.id === editing) ?? null;
+  // Relu à chaque vue : quand le rendu arrive, l'éditeur se recale sur le champ.
+  const editField = readOnly ? null : findField(view, editing);
   // Brouillon à l'ouverture, avant l'affichage : il ne sert qu'à la largeur d'un champ.
   // Il ne suit pas le serveur pendant l'édition : CodeMirror est la source de vérité.
   useLayoutEffect(() => {
-    setDraft(editTarget?.text ?? "");
+    setDraft(editField?.text ?? "");
+    if (editing === null) session.current = null;
+    else session.current ??= crypto.randomUUID();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
+
+  // Avant de quitter la slide (focus de l'agent, vignette…), l'éditeur valide
+  // sa saisie : sinon la nouvelle vue n'a plus le champ, et la saisie se perd.
+  useImperativeHandle(ref, () => ({ commitEditing: () => editor.current?.commit() }), []);
+
+  // Le champ en édition n'est plus dans la vue de la même slide (objet ou
+  // paramètre supprimé) : la saisie ne peut plus s'écrire nulle part.
+  const gone = editing !== null && editField === null && !readOnly;
+  useEffect(() => {
+    if (!gone) return;
+    onNotice?.(t("ui-toast-field-gone"));
+    onEdit(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gone]);
 
   // La dictée s'insère au curseur de l'éditeur ouvert.
   useEffect(() => {
@@ -224,7 +192,7 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dictated?.seq]);
 
-  const startDrag = (e: React.PointerEvent, t: EditTarget, mode: Mode) => {
+  const startDrag = (e: React.PointerEvent, t: ObjectTarget, mode: Mode) => {
     e.stopPropagation();
     onSelect(t.id);
     if (editing) return;
@@ -267,15 +235,32 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     }
   };
 
+  /** Écrit le brouillon d'un champ s'il a changé, dans la session de saisie. */
+  const save = (f: FieldView, text: string) => {
+    if (fieldChanged(f, text)) onApply(t("ui-undo-edit-slide"), fieldOps(view, f, text), session.current ?? undefined);
+  };
   const commit = (text: string) => {
-    if (!editTarget) return;
-    if (textChanged(editTarget, text)) {
-      onApply(t("ui-undo-edit-text"), textOps(view, editTarget, text));
-    }
+    if (editField) save(editField, text);
     onEdit(null);
   };
+  /** Passe au champ `f` ; la sélection suit s'il est d'un autre élément. */
+  const editNext = (f: FieldView | null) => {
+    if (f?.owner_kind === "element" && f.owner !== selected) onSelect(f.owner);
+    onEdit(f ? fieldKey(f) : null);
+  };
+  const next = (text: string, dir: 1 | -1) => {
+    if (!editField || editing === null) return onEdit(null);
+    save(editField, text);
+    editNext(nextField(view, editing, dir));
+  };
+  /** En édition, un clic sur un autre champ valide le courant et y passe. */
+  const switchTo = (f: FieldView) => {
+    const text = editor.current?.text();
+    if (editField && text !== undefined) save(editField, text);
+    editNext(f);
+  };
 
-  const box = (t: EditTarget) => {
+  const box = (t: ObjectTarget) => {
     let { x, y, w, h } = t;
     if (drag && drag.id === t.id) {
       const f = dragged(drag);
@@ -287,9 +272,6 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
     return { left: x * scale, top: y * scale, width: Math.max(w * scale, 8), height: Math.max(h * scale, 8) };
   };
 
-  // Les petites boîtes au-dessus des grandes, pour pouvoir les atteindre.
-  const ordered = [...view.targets].sort((a, b) => b.w * b.h - a.w * a.h);
-
   // La grille se montre quand on travaille avec : élément accroché choisi, ou glisser en cours.
   const zone = view.zone;
   const grid = zone?.grid ?? null;
@@ -297,8 +279,8 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   const liveCell = drag ? draggedCell(drag) : null;
   // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
   const showGrid = !!grid && (showGridAlways || !!liveCell);
-  const tagFor = (t: EditTarget, label: string) => {
-    const el = t.target === "element" ? findElement(view.slide, t.id) : undefined;
+  const tagFor = (t: ObjectTarget, label: string) => {
+    const el = findElement(view.slide, t.id);
     const cell = drag?.id === t.id && liveCell ? liveCell : el?.cell;
     return cell && grid ? `${label} · ${cellLabel(cell)}` : label;
   };
@@ -319,21 +301,25 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
           {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
           {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
           <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
-            {ordered.map((tg) => {
+            {view.targets.map((tg) => {
               const sel = tg.id === selected;
-              const label = tg.target === "field" ? fieldLabel(tg.kind) : kindLabel(tg.kind);
+              const label = kindLabel(tg.kind);
+              const movable = tg.free || (!!grid && isBlock(view, tg.id));
               return (
                 <div
                   key={tg.id}
-                  className={`target${tg.free || (!!grid && isBlock(view, tg.id)) ? " free" : ""}${sel ? " selected" : ""}`}
+                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}`}
                   style={box(tg)}
                   aria-label={label}
                   aria-selected={sel}
                   onPointerDown={(e) => startDrag(e, tg, "move")}
-                  onDoubleClick={() => tg.text !== null && (tg.target === "field" || tg.param !== undefined) && onEdit(tg.id)}
+                  onDoubleClick={() => {
+                    const f = primaryFieldOf(view, tg.id);
+                    if (f) onEdit(fieldKey(f));
+                  }}
                 >
                   {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
-                  {sel && (tg.free || (!!grid && isBlock(view, tg.id))) &&
+                  {sel && movable &&
                     (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                       <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
                     ))}
@@ -341,29 +327,64 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
               );
             })}
           </div>
-          {editTarget && (() => {
-            const g = editorGeometry(editTarget, draft, scale);
+          {!readOnly && (
+            <div className="fields" role="group" aria-label={t("ui-stage-fields")}>
+              {view.fields.map((f) => {
+                const key = fieldKey(f);
+                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles.
+                const hot = templates || f.owner === selected || editField?.owner === f.owner;
+                const ghost = f.empty && key !== editing && hot;
+                return (
+                  <div
+                    key={key}
+                    className={`field${f.empty ? " empty" : ""}${hot ? " hot" : ""}`}
+                    style={fieldHitBox(f, scale, view.fields)}
+                    aria-label={fieldLabel(f)}
+                    onPointerDown={(e) => {
+                      if (editing) {
+                        e.stopPropagation();
+                        if (key !== editing) switchTo(f);
+                        return;
+                      }
+                      // Hors édition, un clic sélectionne l'objet (un champ de slide : rien).
+                      const owner = f.owner_kind === "element" ? view.targets.find((x) => x.id === f.owner) : undefined;
+                      if (owner) startDrag(e, owner, "move");
+                    }}
+                    // En édition, le clic ne prend pas le focus : l'éditeur qui s'ouvre le garde.
+                    onMouseDown={(e) => editing && e.preventDefault()}
+                    onDoubleClick={() => onEdit(key)}
+                  >
+                    {/* Un champ vide qui garde un texte (surtitre sans titre) le montre grisé. */}
+                    {ghost && <span className="field-placeholder" style={placeholderStyle(f, scale)}>{f.text || fieldLabel(f)}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {editField && (() => {
+            const hit = fieldHitBox(editField, scale, view.fields);
             return (
               <>
                 {/* Cache le texte rendu dessous : seul le brouillon se voit. */}
                 <span
                   className="editor-mask"
-                  style={{ left: editTarget.x * scale - 2, top: editTarget.y * scale - 2, width: editTarget.w * scale + 4, height: editTarget.h * scale + 4, background: editorBackground(editTarget.style?.fill ?? null, editTarget.style?.bg ?? null) }}
+                  style={{ left: hit.left - 2, top: hit.top - 2, width: hit.width + 4, height: hit.height + 4, background: editorBackground(editField.style?.fill ?? null, editField.style?.bg ?? null) }}
                 />
                 <TextEditor
-                  key={editTarget.id}
+                  key={fieldKey(editField)}
                   ref={editor}
-                  initial={editTarget.text ?? ""}
-                  field={editTarget.target === "field"}
+                  initial={editField.text}
+                  plain={editField.kind === "plain"}
                   palette={palette}
                   label={t("ui-stage-edit-text")}
-                  style={g.style}
+                  style={editorGeometry(editField, draft, scale, view.fields)}
                   onChange={setDraft}
                   onCommit={commit}
+                  onNext={next}
                   onCancel={() => onEdit(null)}
                 />
                 <span className="editor-hint">
-                  {t(editTarget.target === "field" ? "ui-stage-hint-field" : "ui-stage-hint-block")}
+                  {t(editField.kind === "plain" ? "ui-stage-hint-plain" : "ui-stage-hint-rich")}
                 </span>
               </>
             );
@@ -375,13 +396,24 @@ export default function Stage({ view, svgUrl, selected, editing, onSelect, onEdi
   );
 }
 
+/** Boîte (pt) où poser la fiche : un élément, ou `@param` pour un champ de la slide. */
+function sheetAnchor(view: SlideView, target: string): { x: number; y: number; w: number; h: number } | null {
+  if (target.startsWith("@")) {
+    const f = view.fields.find((x) => x.owner_kind === "slide" && x.field === target.slice(1));
+    if (!f) return null;
+    const b = fieldHitBox(f, 1, view.fields);
+    return { x: b.left, y: b.top, w: b.width, h: b.height };
+  }
+  return view.targets.find((x) => x.id === target) ?? null;
+}
+
 /** La fiche de l'agent, posée sous son élément ; rien si l'élément n'est pas sur la slide. */
 function SheetOverlay({ view, scale, overlay }: { view: SlideView; scale: number; overlay: { target: string; node: ReactNode } }) {
-  const tg = view.targets.find((x) => x.id === overlay.target);
-  if (!tg) return null;
+  const anchor = sheetAnchor(view, overlay.target);
+  if (!anchor) return null;
   // L'interface peut être en arabe même si la slide reste de gauche à droite.
   const rtl = document.documentElement.dir === "rtl";
-  const pos = sheetPosition(tg, scale, rtl);
+  const pos = sheetPosition(anchor, scale, rtl);
   return (
     <div className={`agent-sheet${rtl ? " rtl" : ""}`} dir={rtl ? "rtl" : "ltr"} style={{ left: pos.left, top: pos.top }}>
       {overlay.node}

@@ -16,6 +16,9 @@ le même document compilé donne SVG, PNG et PDF.
 - `Layout` (`lib.rs`) : ce que le rendu dit du document — `SlidePage` (page de chaque slide),
   `ElementBox` (boîte réelle), `FieldBox` (champ éditable), `ZoneBox`/`GridBox` (zone libre et
   sa grille), `TextStyle` (typographie mesurée) — rangés par page.
+- Champs (`typst/oku-slides`) : `field()` émet une boîte par champ, même vide ; `fields-stack`
+  colle le marqueur d'un champ vide à l'item voisin, sans occuper de place ni recevoir
+  d'espacement (`FieldBox.empty`, `side`).
 - `load_registry` + `Registries` (`registry.rs`) : le `WidgetRegistry` (`oku-slides-core`) lu
   par une sonde Typst qui importe `widgets.typ`, base et pack (`PackWidgets`) ; `Registries`
   mémoïse par pack pour éviter de recompiler la sonde à chaque rendu.

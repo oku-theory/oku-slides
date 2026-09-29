@@ -26,6 +26,8 @@ sources. Aucune dépendance à Typst ni à Tauri.
   `restore` passent `validate` avec le registre du bundle. Zip : snapshot Loro, assets en ajout seul.
 - `validate` (`validate.rs`) : cohérence du deck (styles, graphiques, identifiants) contre le
   `WidgetRegistry`, signale plutôt qu'il n'échoue quand c'est possible.
+- `Slide::text_fields` (`fields.rs`) : champs texte dans l'ordre de lecture ; `DeckReplica::apply(…, merge)`
+  fusionne les étapes d'annulation de même clé.
 - `locate` (`locate.rs`) : chemin d'un élément dans le deck (édition ciblée, agent vocal).
 - `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides
   supprimés) pour comparer deux decks ou stabiliser un rendu.

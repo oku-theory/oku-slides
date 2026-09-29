@@ -1,7 +1,7 @@
 // Le deck vu de l'interface : retrouver un élément, convertir le texte, et
 // fabriquer les ops que la session applique.
 
-import type { Element, EditTarget, Op, Params, Paragraph, Slide, SlideView } from "./api";
+import type { Element, FieldView, Op, Params, Paragraph, Slide, SlideView } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
 import { listPrefix, markdownToRuns } from "./markdown";
@@ -23,8 +23,8 @@ export function slot(owner: { params?: Params }, name: string): Element[] {
   return isElementArray(v) ? v : [];
 }
 
-/** Paragraphes du paramètre riche `name` de l'élément `e` (un tableau qui n'a pas la forme d'un slot), ou `undefined`. */
-export function rich(e: Element, name: string): Paragraph[] | undefined {
+/** Paragraphes du paramètre riche `name` d'une slide ou d'un élément (un tableau qui n'a pas la forme d'un slot), ou `undefined`. */
+export function rich(e: { params?: Params }, name: string): Paragraph[] | undefined {
   const v = e.params?.[name];
   return Array.isArray(v) && !isElementArray(v) ? (v as Paragraph[]) : undefined;
 }
@@ -93,28 +93,23 @@ export function instantiate(template: Slide): Slide {
   return copy;
 }
 
-/** Le texte validé diffère-t-il de celui de la cible ? Un champ s'édite sur
- *  une ligne : ses retours à la ligne, aplatis par l'éditeur, ne comptent pas. */
-export function textChanged(t: Pick<EditTarget, "target" | "text">, text: string): boolean {
-  const before = t.text ?? "";
-  return text !== (t.target === "field" ? before.replaceAll("\n", " ") : before);
+/** Le brouillon change-t-il le champ ? Un champ `plain` compare ses retours à la ligne en espaces. */
+export function fieldChanged(f: Pick<FieldView, "kind" | "text">, text: string): boolean {
+  return text !== (f.kind === "plain" ? f.text.replaceAll("\n", " ") : f.text);
 }
 
 /**
- * Ops pour remplacer le texte d'une cible, en `set_param` : un élément écrit
- * son paramètre riche (`t.param`) en paragraphes ; un champ écrit son
- * paramètre (`t.kind`) tel quel. Une cible d'élément sans paramètre riche
- * n'est pas éditable : aucune op.
+ * Ops pour écrire le brouillon d'un champ : `set_param`, en paragraphes pour
+ * un champ `rich` (les lignes inchangées gardent leurs runs, lus dans les
+ * paramètres de la slide ou de l'élément).
  */
-export function textOps(view: SlideView, t: EditTarget, value: string): Op[] {
+export function fieldOps(view: SlideView, f: FieldView, value: string): Op[] {
   const slide = view.slide;
-  if (t.target === "element") {
-    if (!t.param) return [];
-    const e = findElement(slide, t.id);
-    const previous = { paragraphs: (e && rich(e, t.param)) ?? [], text: t.text ?? "" };
-    return [{ op: "set_param", target: { slide: slide.id, element: t.id }, param: t.param, value: textToParagraphs(value, previous) }];
-  }
-  return [{ op: "set_param", target: { slide: slide.id }, param: t.kind, value }];
+  const target = f.owner_kind === "slide" ? { slide: slide.id } : { slide: slide.id, element: f.owner };
+  if (f.kind === "plain") return [{ op: "set_param", target, param: f.field, value }];
+  const owner = f.owner_kind === "slide" ? slide : findElement(slide, f.owner);
+  const previous = { paragraphs: (owner && rich(owner, f.field)) ?? [], text: f.text };
+  return [{ op: "set_param", target, param: f.field, value: textToParagraphs(value, previous) }];
 }
 
 // --- Sur la grille -----------------------------------------------------------

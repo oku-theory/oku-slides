@@ -162,7 +162,7 @@ async fn crash_mid_turn_reports_stopped_and_closes_group() {
     };
     assert_that!(message.as_str()).is_equal_to("L'agent s'est arrêté.");
     let mut s = t.session.lock().unwrap();
-    s.apply("Après", vec![oku_slides_core::Op::SetTheme { theme: Some("papier".into()) }]).unwrap();
+    s.apply("Après", vec![oku_slides_core::Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Après"));
 }
 

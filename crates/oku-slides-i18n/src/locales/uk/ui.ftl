@@ -33,6 +33,7 @@ ui-toast-templates-saved = Шаблони збережено: { $name }
 ui-toast-moved = Презентацію переміщено
 ui-toast-copied = Копію збережено
 ui-toast-select-zone = Виділіть область, щоб розмістити: «{ $text }»
+ui-toast-field-gone = Поля, яке ви редагували, більше немає: введений текст втрачено.
 
 ## Панель інструментів
 
@@ -88,7 +89,7 @@ ui-undo-resize-on-grid = Змінити розмір по сітці
 ui-undo-change-anchor = Змінити прив’язку
 ui-undo-move = Перемістити
 ui-undo-resize = Змінити розмір
-ui-undo-edit-text = Змінити текст
+ui-undo-edit-slide = Змінити слайд
 ui-undo-dictation = Диктування
 ui-undo-rename-set = Перейменувати набір
 ui-undo-rename-deck = Перейменувати презентацію
@@ -122,14 +123,19 @@ ui-slide-alt = Слайд { $n }
 
 ui-stage-rendering = Відтворення…
 ui-stage-elements = Елементи слайда
+ui-stage-fields = Поля слайда
 ui-stage-edit-text = Змінити текст
-ui-stage-hint-field = Enter — підтвердити · Esc — скасувати
-ui-stage-hint-block = ⌘ Enter — підтвердити · один рядок на абзац, «- » для пункту списку · ⌘B жирний, ⌘I курсив, ⌘K посилання
+ui-stage-hint-plain = Enter або Tab — до наступного · Esc — скасувати
+ui-stage-hint-rich = Tab — до наступного · ⌘ Enter — підтвердити · «- » для пункту списку · ⌘B жирний, ⌘I курсив, ⌘K посилання
 ui-field = { $kind ->
     [title] Заголовок
     [subtitle] Підзаголовок
     [kicker] Надзаголовок
     [text] Текст
+    [body] Основний текст
+    [author] Автор
+    [date] Дата
+    [organization] Організація
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

@@ -29,6 +29,7 @@ ui-toast-templates-saved = Vorlagen gespeichert: { $name }
 ui-toast-moved = Präsentation verschoben
 ui-toast-copied = Kopie gespeichert
 ui-toast-select-zone = Bereich auswählen, um „{ $text }“ zu platzieren
+ui-toast-field-gone = Das bearbeitete Feld existiert nicht mehr: Die Eingabe ist verloren.
 
 ## Werkzeugleiste
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = Im Raster skalieren
 ui-undo-change-anchor = Verankerung ändern
 ui-undo-move = Verschieben
 ui-undo-resize = Größe ändern
-ui-undo-edit-text = Text bearbeiten
+ui-undo-edit-slide = Folie bearbeiten
 ui-undo-dictation = Diktat
 ui-undo-rename-set = Set umbenennen
 ui-undo-rename-deck = Präsentation umbenennen
@@ -118,14 +119,19 @@ ui-slide-alt = Folie { $n }
 
 ui-stage-rendering = Wird gerendert…
 ui-stage-elements = Folienelemente
+ui-stage-fields = Folienfelder
 ui-stage-edit-text = Text bearbeiten
-ui-stage-hint-field = Enter zum Bestätigen · Esc zum Abbrechen
-ui-stage-hint-block = ⌘ Enter zum Bestätigen · eine Zeile pro Absatz, „- “ für einen Aufzählungspunkt · ⌘B fett, ⌘I kursiv, ⌘K Link
+ui-stage-hint-plain = Enter oder Tab zum nächsten · Esc zum Abbrechen
+ui-stage-hint-rich = Tab zum nächsten · ⌘ Enter zum Bestätigen · „- “ für einen Aufzählungspunkt · ⌘B fett, ⌘I kursiv, ⌘K Link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Untertitel
     [kicker] Dachzeile
     [text] Text
+    [body] Textkörper
+    [author] Autor
+    [date] Datum
+    [organization] Organisation
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

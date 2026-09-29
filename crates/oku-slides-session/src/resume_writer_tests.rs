@@ -28,7 +28,7 @@ fn document(theme: &str) -> Document {
     let mut doc = Document::new(SourceBundle::new(deck.clone(), registry()).unwrap(), None, &defaults());
     let mut next = deck;
     next.theme = Some(theme.into());
-    doc.sources.apply(next, "Thème").unwrap();
+    doc.sources.apply(next, "Thème", None).unwrap();
     doc
 }
 

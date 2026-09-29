@@ -4,12 +4,14 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const state = (p) => p.evaluate(() => ({
+// Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
+const LIBRE = 5;
+const state = (p) => p.evaluate((LIBRE) => ({
   cards: document.querySelectorAll('.notes .panel-card').length,
   name: document.querySelector('.notes input')?.value,
   grid: [...document.querySelectorAll('.notes .stepper-value')].map((e) => Number(e.textContent)),
-  thumb: document.querySelector('.thumb')?.parentElement?.innerText,
-}));
+  thumb: document.querySelectorAll('.thumb')[LIBRE]?.parentElement?.innerText,
+}), LIBRE);
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
@@ -20,8 +22,12 @@ const state = (p) => p.evaluate(() => ({
   await p.waitForSelector('.stage img');
   // Hors des modèles, le panneau est vide.
   assert.equal((await state(p)).cards, 0);
-  await p.getByRole('button', { name: 'Modèles', exact: true }).click();
+  // Les modèles s'ouvrent depuis le menu ⋯.
+  await p.getByRole('button', { name: 'Menu' }).click();
+  await p.getByRole('menuitem', { name: 'Modèles' }).click();
   await p.waitForSelector('.notes .panel-card');
+  await p.click(`.thumb >> nth=${LIBRE}`);
+  await p.waitForSelector('.notes .panel-card >> nth=1');
   const before = await state(p);
   assert.equal(before.cards, 2);
   // Renommer : la vignette suit, l'annulation porte le libellé.

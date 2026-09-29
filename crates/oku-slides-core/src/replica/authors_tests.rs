@@ -18,7 +18,7 @@ fn each_commit_is_its_own_change() {
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     let before = r.len_changes();
     for t in ["Un", "Deux", "Trois"] {
-        r.apply(&titled(&deck, t), t).unwrap();
+        r.apply(&titled(&deck, t), t, None).unwrap();
     }
     assert_that!(r.len_changes()).is_equal_to(before + 3);
 }
@@ -28,7 +28,7 @@ fn first_edit_records_author_for_this_peer() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     b.set_author(Some("Julie".into()));
-    b.apply(titled(&deck, "Un"), "Renommer").unwrap();
+    b.apply(titled(&deck, "Un"), "Renommer", None).unwrap();
     let peer = b.replica().peer_id();
     assert_that!(b.replica().author_of(peer)).is_equal_to(Some("Julie".to_owned()));
 }
@@ -38,7 +38,7 @@ fn blank_author_records_nothing() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     b.set_author(Some("   ".into()));
-    b.apply(titled(&deck, "Un"), "Renommer").unwrap();
+    b.apply(titled(&deck, "Un"), "Renommer", None).unwrap();
     let peer = b.replica().peer_id();
     assert_that!(b.replica().author_of(peer)).is_none();
 }
@@ -60,7 +60,7 @@ fn undoing_the_first_edit_removes_the_author_entry() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     b.set_author(Some("Julie".into()));
-    b.apply(titled(&deck, "Un"), "Renommer").unwrap();
+    b.apply(titled(&deck, "Un"), "Renommer", None).unwrap();
     assert_that!(b.undo().unwrap()).is_true();
     let peer = b.replica().peer_id();
     assert_that!(b.replica().author_of(peer)).is_none();
@@ -80,10 +80,10 @@ fn merge_reports_imported_changes_and_authors() {
     let snap = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().replica().snapshot().unwrap();
     let mut a = peer(&deck, &snap, "Matthieu");
     let mut b = peer(&deck, &snap, "Julie");
-    b.apply(titled(&deck, "Un"), "Un").unwrap();
+    b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let mut d = titled(&deck, "Un");
     d.theme = Some("pro".into());
-    b.apply(d, "Thème").unwrap();
+    b.apply(d, "Thème", None).unwrap();
     let (report, issues) = a.merge(b).unwrap();
     // Seul `validate` signale quelque chose : l'image de `roadmap.json` n'a
     // pas son asset dans le bundle. Rien d'illisible.
@@ -100,7 +100,7 @@ fn merge_twice_imports_nothing_the_second_time() {
     let snap = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().replica().snapshot().unwrap();
     let mut a = peer(&deck, &snap, "Matthieu");
     let mut b = peer(&deck, &snap, "Julie");
-    b.apply(titled(&deck, "Un"), "Un").unwrap();
+    b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let again = SourceBundle::from_zip(
         &b.to_zip().unwrap(),
         crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 },
@@ -120,7 +120,7 @@ fn merge_counts_nameless_peers_as_anonymous() {
     let mut a = peer(&deck, &snap, "Matthieu");
     let (replica, read) = DeckReplica::from_snapshot(&snap, 1 << 24, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_replica(replica, read, Default::default(), Default::default());
-    b.apply(titled(&deck, "Un"), "Un").unwrap();
+    b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let (report, _) = a.merge(b).unwrap();
     assert_that!(report.authors).is_empty();
     assert_that!(report.anonymous).is_equal_to(1);

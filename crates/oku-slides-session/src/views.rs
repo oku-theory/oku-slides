@@ -1,16 +1,16 @@
 //! Vues envoyées à l'interface. Elles empruntent la session : sérialisées
 //! aussitôt, elles ne copient ni le deck ni le rendu.
 
-use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
 use oku_slides_core::{Slide, SlideChanges, Version};
-use oku_slides_render::{ElementBox, FieldBox, TextStyle, ZoneBox};
+use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
+use crate::fields::FieldView;
 use crate::templates::{SetInfo, Template};
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
@@ -157,83 +157,24 @@ pub struct TemplatesView {
     pub templates: Arc<[TemplateView]>,
 }
 
-/// Ce que désigne une boîte : un élément (et son widget) ou un champ de slide.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(tag = "target", content = "kind", rename_all = "lowercase")]
-pub enum TargetKind<'a> {
-    /// Widget de l'élément : `text`, `card`, `image`…
-    Element(&'a str),
-    /// Paramètre de la slide : `title`, `subtitle`, `kicker`, `text`…
-    Field(&'a str),
-}
-
-/// Boîte sélectionnable : un élément du deck ou un champ de slide (`@title`…).
+/// Boîte d'un élément du deck, sélectionnable.
 #[derive(Debug, Serialize)]
 pub struct Target<'a> {
-    /// Id de l'élément, ou `@<paramètre>` pour un champ de la slide.
-    pub id: Cow<'a, str>,
-    #[serde(flatten)]
-    pub kind: TargetKind<'a>,
-    /// Paramètre édité en place : pour un élément, son premier paramètre
-    /// `rich` (ordre du schéma) ; pour un champ, son nom. Absent : la boîte
-    /// n'est pas éditable en place (`shape`, `image`…).
-    pub param: Option<&'a str>,
+    pub id: &'a str,
+    /// Widget de l'élément : `text`, `card`, `image`…
+    pub kind: &'a str,
     /// Placé librement (déplaçable, redimensionnable).
     pub free: bool,
-    /// Texte éditable, un paragraphe par ligne (`- ` en tête pour une puce).
-    pub text: Option<Cow<'a, str>>,
     pub x: f64,
     pub y: f64,
     pub w: f64,
     pub h: f64,
-    /// Zone disponible pour le texte : début et largeur (contient la boîte).
-    pub ax: f64,
-    pub aw: f64,
-    /// Typographie du rendu, pour un éditeur calé sur le texte.
-    pub style: Option<&'a TextStyle>,
 }
 
 impl<'a> Target<'a> {
     /// La cible d'un élément, d'après sa boîte mesurée par le rendu.
-    pub(crate) fn element(
-        b: &'a ElementBox,
-        kind: &'a str,
-        param: Option<&'a str>,
-        free: bool,
-        text: Option<Cow<'a, str>>,
-    ) -> Self {
-        Self {
-            id: Cow::Borrowed(&b.id),
-            kind: TargetKind::Element(kind),
-            param,
-            free,
-            text,
-            x: b.x,
-            y: b.y,
-            w: b.w,
-            h: b.h,
-            ax: b.ax.unwrap_or(b.x).min(b.x),
-            aw: b.aw.unwrap_or(b.w).max(b.w),
-            style: b.style.as_ref(),
-        }
-    }
-
-    /// La cible d'un champ de la slide (id `@<paramètre>`), d'après sa boîte.
-    pub(crate) fn field(f: &'a FieldBox, text: Cow<'a, str>) -> Self {
-        Self {
-            id: Cow::Owned(format!("@{}", f.field)),
-            kind: TargetKind::Field(&f.field),
-            param: Some(&f.field),
-            free: false,
-            text: Some(text),
-            x: f.x,
-            y: f.y,
-            w: f.w,
-            h: f.h,
-            ax: f.ax.unwrap_or(f.x).min(f.x),
-            aw: f.aw.unwrap_or(f.w).max(f.w),
-            style: f.style.as_ref(),
-        }
+    pub(crate) fn element(b: &'a ElementBox, kind: &'a str, free: bool) -> Self {
+        Self { id: &b.id, kind, free, x: b.x, y: b.y, w: b.w, h: b.h }
     }
 }
 
@@ -245,6 +186,8 @@ pub struct SlideView<'a> {
     pub width: f64,
     pub height: f64,
     pub targets: Vec<Target<'a>>,
+    /// Champs éditables, dans l'ordre de Tab.
+    pub fields: Vec<FieldView<'a>>,
     /// Zone des éléments libres (pt, page), avec la grille résolue.
     pub zone: Option<&'a ZoneBox>,
 }

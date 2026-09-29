@@ -1,10 +1,10 @@
-// Onglets : nouvel onglet, bascule, fermeture, question pour un onglet modifié,
-// contre `oku-slides serve fixtures/roadmap.json`.
+// Onglets : nouvel onglet, bascule, fermeture sans question (un onglet modifié
+// s'enregistre en se fermant, t-257), contre `oku-slides serve fixtures/roadmap.json`.
 // Passe après toolbar.cjs et panel.cjs sur le même serveur : le premier onglet
 // (le fichier) a déjà été modifié ; ce script ne ferme que ses propres onglets.
-// Il laisse un onglet modifié ouvert : relancé à la main, il lui faut un
-// serveur neuf. Lancer : just e2e. À la main : bun e2e/tabs.cjs, E2E_URL =
-// adresse d'un serveur tout juste démarré.
+// L'onglet modifié qu'il ferme est enregistré dans `paths.decks`.
+// Lancer : just e2e. À la main : bun e2e/tabs.cjs, E2E_URL = adresse d'un serveur
+// tout juste démarré.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -31,24 +31,24 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await tabs.nth(0).click();
   await selected(0);
   await thumbs(slides);
-  // Nouvel onglet B, modifié : sa fermeture pose la question ; refuser le garde.
+  // Nouvel onglet B, modifié : sa fermeture l'enregistre sans question (t-257).
   await p.getByRole('button', { name: 'Nouvel onglet' }).click();
   await count(3);
   await selected(2);
   await thumbs(2);
-  await p.getByRole('button', { name: 'Supprimer la slide' }).click();
+  await p.getByRole('button', { name: 'Supprimer la slide' }).first().click(); // au coin de la 1re miniature
   await tabs.nth(2).locator('.tab-dirty').waitFor();
-  const dialog = p.waitForEvent('dialog');
+  const asked = [];
+  p.on('dialog', (d) => {
+    asked.push(d.message());
+    d.dismiss();
+  });
   await tabs.nth(2).locator('.tab-close').click();
-  await (await dialog).dismiss();
-  // Refus : aucune requête de fermeture ; la vue relue montre toujours B.
-  await p.evaluate(() => fetch('/api/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'view' }) }));
-  await tabs.nth(2).locator('.tab-dirty').waitFor();
-  assert.equal(await tabs.count(), 3);
-  assert.equal(await tabs.nth(2).getAttribute('aria-selected'), 'true');
-  // A, non modifié, se ferme sans question.
-  await tabs.nth(1).locator('.tab-close').click();
   await count(2);
+  // A, non modifié, se ferme aussi sans question.
+  await tabs.nth(1).locator('.tab-close').click();
+  await count(1);
+  assert.deepEqual(asked, []);
   assert.deepEqual(errors, []);
   await b.close();
   console.log('tabs: ok');

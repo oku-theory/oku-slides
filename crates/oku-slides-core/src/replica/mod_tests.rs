@@ -83,7 +83,7 @@ fn apply_same_deck_adds_no_op() {
     let deck = roadmap();
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     let before = r.len_ops();
-    r.apply(&deck, "rien").unwrap();
+    r.apply(&deck, "rien", None).unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -103,7 +103,7 @@ fn apply_after_op_changes_deck() {
     let target = Target { slide: id, element: None };
     let op = Op::SetParam { target, param: "title".into(), value: serde_json::json!("Nouveau") };
     apply_all(&mut deck, vec![op], &crate::test_registry::registry()).unwrap();
-    r.apply(&deck, "Titre").unwrap();
+    r.apply(&deck, "Titre", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&deck);
 }
 
@@ -119,8 +119,8 @@ fn concurrent_title_edits_merge_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[2].params.set("title", crate::ParamValue::Text("Contexte (révisé)".into()));
     db.slides[2].params.set("title", crate::ParamValue::Text("Brouillon : Contexte".into()));
-    a.apply(&da, "A").unwrap();
-    b.apply(&db, "B").unwrap();
+    a.apply(&da, "A", None).unwrap();
+    b.apply(&db, "B", None).unwrap();
     a.merge(&b).unwrap();
     assert_that!(a.deck().0.slides[2].params.text("title")).is_equal_to(Some("Brouillon : Contexte (révisé)"));
 }
@@ -136,8 +136,8 @@ fn concurrent_first_element_on_empty_slide_keeps_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     slot_mut(&mut da.slides[empty], "elements").push(crate::Element { id: "e-a".into(), ..donor.clone() });
     slot_mut(&mut db.slides[empty], "elements").push(crate::Element { id: "e-b".into(), ..donor });
-    a.apply(&da, "A").unwrap();
-    b.apply(&db, "B").unwrap();
+    a.apply(&da, "A", None).unwrap();
+    b.apply(&db, "B", None).unwrap();
     a.merge(&b).unwrap();
     assert_that!(slot(&a.deck().0.slides[empty], "elements").len()).is_equal_to(2);
 }
@@ -155,8 +155,8 @@ fn concurrent_first_title_on_untitled_slide_keeps_both() {
     let (mut da, mut db) = (deck.clone(), deck.clone());
     da.slides[untitled].params.set("title", crate::ParamValue::Text("A".into()));
     db.slides[untitled].params.set("title", crate::ParamValue::Text("B".into()));
-    a.apply(&da, "A").unwrap();
-    b.apply(&db, "B").unwrap();
+    a.apply(&da, "A", None).unwrap();
+    b.apply(&db, "B", None).unwrap();
     a.merge(&b).unwrap();
     let title = a.deck().0.slides[untitled].params.text("title").unwrap().to_owned();
     assert_that!(title.contains('A') && title.contains('B')).is_true();
@@ -167,7 +167,7 @@ fn blank_title_reads_as_none() {
     let mut deck = roadmap();
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     deck.slides[2].params.remove("title");
-    r.apply(&deck, "Sans titre").unwrap();
+    r.apply(&deck, "Sans titre", None).unwrap();
     assert_that!(r.deck().0.slides[2].params.get("title")).is_none();
 }
 
@@ -210,7 +210,7 @@ fn shrinking_from_duplicate_ids_keeps_only_the_remaining_id() {
     ];
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     *slot_mut(&mut deck.slides[idx], "elements") = vec![crate::Element { id: "x".into(), ..donor }];
-    r.apply(&deck, "réduire").unwrap();
+    r.apply(&deck, "réduire", None).unwrap();
     let got = r.deck().0;
     assert_that!(slot(&got.slides[idx], "elements").len()).is_equal_to(1);
     assert_that!(slot(&got.slides[idx], "elements")[0].id.as_str()).is_equal_to("x");
@@ -234,7 +234,7 @@ fn moving_first_slide_to_last_and_last_to_first_round_trips() {
     let mut moved = deck.clone();
     let n = moved.slides.len();
     moved.slides.swap(0, n - 1);
-    r.apply(&moved, "réordonner").unwrap();
+    r.apply(&moved, "réordonner", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&moved);
 }
 
@@ -244,7 +244,7 @@ fn deleting_a_slide_round_trips() {
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     let mut trimmed = deck.clone();
     trimmed.slides.remove(3);
-    r.apply(&trimmed, "supprimer une slide").unwrap();
+    r.apply(&trimmed, "supprimer une slide", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&trimmed);
 }
 
@@ -255,7 +255,7 @@ fn deleting_an_element_round_trips() {
     let mut trimmed = deck.clone();
     let idx = trimmed.slides.iter().position(|s| !slot(s, "elements").is_empty()).unwrap();
     slot_mut(&mut trimmed.slides[idx], "elements").remove(0);
-    r.apply(&trimmed, "supprimer un élément").unwrap();
+    r.apply(&trimmed, "supprimer un élément", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&trimmed);
 }
 
@@ -268,7 +268,7 @@ fn removing_frame_and_style_round_trips() {
     let el = slot_mut(slide, "elements").iter_mut().find(|e| e.id == "e-fond").unwrap();
     el.frame = None;
     el.style = crate::Style::default();
-    r.apply(&edited, "retirer cadre et style").unwrap();
+    r.apply(&edited, "retirer cadre et style", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
 }
 
@@ -282,7 +282,7 @@ fn changing_element_kind_from_card_to_text_loses_title_and_kicker() {
     el.kind = "text".into();
     el.params.remove("title");
     el.params.remove("kicker");
-    r.apply(&edited, "carte en texte").unwrap();
+    r.apply(&edited, "carte en texte", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
 }
 
@@ -302,8 +302,8 @@ fn concurrent_first_paragraph_on_empty_text_keeps_both() {
         crate::Element::text("e-vide", vec![crate::Paragraph::plain("Alpha")]);
     slot_mut(&mut db.slides[idx], "elements")[0] =
         crate::Element::text("e-vide", vec![crate::Paragraph::plain("Bravo")]);
-    a.apply(&da, "A").unwrap();
-    b.apply(&db, "B").unwrap();
+    a.apply(&da, "A", None).unwrap();
+    b.apply(&db, "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let all: String = slot(&merged.slides[idx], "elements")[0]
@@ -335,7 +335,7 @@ fn apply_same_deck_with_marked_runs_adds_no_op() {
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     assert_that!(r.deck().0).is_equal_to(&deck);
     let before = r.len_ops();
-    r.apply(&deck, "rien").unwrap();
+    r.apply(&deck, "rien", None).unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -347,11 +347,11 @@ fn removing_card_text_empties_it_and_round_trips() {
     let slide = edited.slides.iter_mut().find(|s| s.id == "s-priorites").unwrap();
     let el = slot_mut(slide, "blocks").iter_mut().find(|e| e.id == "c1").unwrap();
     el.params.remove("body");
-    r.apply(&edited, "vider la carte").unwrap();
+    r.apply(&edited, "vider la carte", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
     // Vider n'a pas retiré la clé : une seconde réconciliation n'ajoute rien.
     let before = r.len_ops();
-    r.apply(&edited, "rien").unwrap();
+    r.apply(&edited, "rien", None).unwrap();
     assert_that!(r.len_ops()).is_equal_to(before);
 }
 
@@ -485,7 +485,7 @@ fn apply_reorder_marks_intermediate_commits_as_parts() {
     let before = messages(&r).len();
     let mut swapped = deck.clone();
     swapped.slides.swap(0, 3);
-    r.apply(&swapped, "Échanger").unwrap();
+    r.apply(&swapped, "Échanger", None).unwrap();
     let got = messages(&r).split_off(before);
     // Trois `mov` (0↔3 déplace aussi les voisines) : deux commits intermédiaires, puis le dernier.
     assert_that!(got).is_equal_to(vec![format!("{PART}Échanger"), format!("{PART}Échanger"), "Échanger".to_owned()]);
@@ -520,8 +520,8 @@ fn reconcile_new_card_creates_its_text_params_before_any_value() {
 fn concurrent_first_edit_of_card_title_merges_both() {
     let deck = roadmap_with_block(Element::new("carte", "card"));
     let (mut a, mut b) = peers(&deck);
-    a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Alpha"))]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Bravo"))]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Alpha"))]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Bravo"))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let title = block(&a.deck().0, "carte").params.text("title").unwrap().to_owned();
     assert_that!(title.contains("Alpha") && title.contains("Bravo")).is_true();
@@ -532,8 +532,8 @@ fn concurrent_edit_of_title_and_body_of_one_card_keeps_both() {
     let deck = roadmap_with_block(Element::new("carte", "card"));
     let (mut a, mut b) = peers(&deck);
     let body = json!([{ "runs": [{ "t": "Corps" }] }]);
-    a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "body", body)]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "body", body)]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let card = block(&merged, "carte");
@@ -562,8 +562,9 @@ fn concurrent_set_kind_and_param_edit_keep_the_param() {
     let deck = roadmap_with_block(card);
     let (mut a, mut b) = peers(&deck);
     let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: "text".into() };
-    a.apply(&with_ops(&deck, vec![to_text]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre révisé"))]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![to_text]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre révisé"))]), "B", None)
+        .unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let el = block(&merged, "carte");
@@ -580,8 +581,8 @@ fn concurrent_set_kind_and_first_param_edit_keep_the_param() {
     let deck = roadmap_with_block(Element::new("carte", "card"));
     let (mut a, mut b) = peers(&deck);
     let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: "text".into() };
-    a.apply(&with_ops(&deck, vec![to_text]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![to_text]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     assert_that!(block(&merged, "carte").kind.as_str()).is_equal_to("text");
@@ -604,8 +605,8 @@ fn concurrent_edit_of_image_fit_keeps_one_whole_value() {
     image.params.set("fit", ParamValue::Text("cover".into()));
     let deck = roadmap_with_block(image);
     let (mut a, mut b) = peers(&deck);
-    a.apply(&with_ops(&deck, vec![set_param("s-constat", "img", "fit", json!("contain"))]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![set_param("s-constat", "img", "fit", json!("stretch"))]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![set_param("s-constat", "img", "fit", json!("contain"))]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![set_param("s-constat", "img", "fit", json!("stretch"))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     b.merge(&a).unwrap();
     let fit = block(&a.deck().0, "img").params.text("fit").unwrap().to_owned();
@@ -621,8 +622,8 @@ fn concurrent_add_element_into_one_slot_keeps_both() {
         let slot = SlotRef { owner: Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
         Op::AddElement { slot, index: None, element: Element::text(id, vec![crate::Paragraph::plain(id)]) }
     };
-    a.apply(&with_ops(&deck, vec![add("de-a")]), "A").unwrap();
-    b.apply(&with_ops(&deck, vec![add("de-b")]), "B").unwrap();
+    a.apply(&with_ops(&deck, vec![add("de-a")]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![add("de-b")]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let ids: Vec<&str> = merged.slide("s-constat").unwrap().element_ids().collect();
@@ -635,9 +636,9 @@ fn concurrent_add_element_and_set_kind_of_owner_keeps_the_child() {
     let (mut a, mut b) = peers(&deck);
     let slot = SlotRef { owner: target("s-constat", "pile"), param: "children".into() };
     let add = Op::AddElement { slot, index: None, element: Element::text("enfant", vec![]) };
-    a.apply(&with_ops(&deck, vec![add]), "A").unwrap();
+    a.apply(&with_ops(&deck, vec![add]), "A", None).unwrap();
     let to_canvas = Op::SetKind { target: target("s-constat", "pile"), kind: "canvas".into() };
-    b.apply(&with_ops(&deck, vec![to_canvas]), "B").unwrap();
+    b.apply(&with_ops(&deck, vec![to_canvas]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let pile = block(&merged, "pile");

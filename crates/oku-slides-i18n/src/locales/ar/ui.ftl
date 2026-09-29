@@ -37,6 +37,7 @@ ui-toast-templates-saved = حُفظت القوالب: { $name }
 ui-toast-moved = تم نقل العرض التقديمي
 ui-toast-copied = تم حفظ نسخة
 ui-toast-select-zone = حدّد منطقة لوضع: «{ $text }»
+ui-toast-field-gone = الحقل الذي كنت تعدّله لم يعد موجودًا: فُقد ما أدخلته.
 
 ## شريط الأدوات
 
@@ -92,7 +93,7 @@ ui-undo-resize-on-grid = تغيير الحجم على الشبكة
 ui-undo-change-anchor = تغيير التثبيت
 ui-undo-move = نقل
 ui-undo-resize = تغيير الحجم
-ui-undo-edit-text = تعديل النص
+ui-undo-edit-slide = تعديل الشريحة
 ui-undo-dictation = الإملاء
 ui-undo-rename-set = إعادة تسمية المجموعة
 ui-undo-rename-deck = إعادة تسمية العرض التقديمي
@@ -126,14 +127,19 @@ ui-slide-alt = الشريحة { $n }
 
 ui-stage-rendering = جارٍ العرض…
 ui-stage-elements = عناصر الشريحة
+ui-stage-fields = حقول الشريحة
 ui-stage-edit-text = تعديل النص
-ui-stage-hint-field = Enter للتأكيد · Esc للإلغاء
-ui-stage-hint-block = ⌘ Enter للتأكيد · سطر لكل فقرة، و«- » لنقطة تعداد · ⌘B عريض، ⌘I مائل، ⌘K رابط
+ui-stage-hint-plain = Enter أو Tab للانتقال إلى التالي · Esc للإلغاء
+ui-stage-hint-rich = Tab للانتقال إلى التالي · ⌘ Enter للتأكيد · «- » لنقطة تعداد · ⌘B عريض، ⌘I مائل، ⌘K رابط
 ui-field = { $kind ->
     [title] العنوان
     [subtitle] العنوان الفرعي
     [kicker] العنوان التمهيدي
     [text] النص
+    [body] المتن
+    [author] المؤلف
+    [date] التاريخ
+    [organization] المؤسسة
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

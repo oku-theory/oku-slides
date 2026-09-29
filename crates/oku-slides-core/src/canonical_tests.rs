@@ -336,7 +336,7 @@ proptest! {
     fn canonical_deck_reconciled_over_another_reads_back_unchanged(a in deck(), b in deck()) {
         let (a, b) = (canonical(a), canonical(b));
         let mut bundle = SourceBundle::new(a, crate::test_registry::shared()).unwrap();
-        bundle.apply(b.clone(), "test").unwrap();
+        bundle.apply(b.clone(), "test", None).unwrap();
         prop_assert_eq!(bundle.replica().deck().0, b);
     }
 }

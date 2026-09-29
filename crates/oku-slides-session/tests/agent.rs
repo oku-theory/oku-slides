@@ -67,7 +67,7 @@ fn rewrite_ops_of_element_with_paragraphs_carries_their_runs() {
         AskRewrite { slide: "s-libre".into(), element: "e-texte".into(), proposals: vec!["a".into(), "b".into()] };
     let bold = Paragraph { runs: vec![Run { bold: true, ..Run::plain("Gras") }], list: None };
     let ops = s.rewrite_ops(&spec, "**Gras**", Some(vec![bold])).unwrap();
-    s.apply("Reformulation", ops).unwrap();
+    s.apply("Reformulation", ops, None).unwrap();
     let deck = s.deck();
     let located = deck.slide("s-libre").unwrap().locate("e-texte").unwrap();
     let run = &located.element.params.rich("body").unwrap()[0].runs[0];
@@ -117,7 +117,7 @@ fn rewrite_ops_of_field_ignores_missing_paragraphs() {
     let spec =
         AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
     let ops = s.rewrite_ops(&spec, "Nouveau titre", None).unwrap();
-    s.apply("Reformulation", ops).unwrap();
+    s.apply("Reformulation", ops, None).unwrap();
     assert_that!(s.deck().slide("s-constat").unwrap().params.text("title")).is_equal_to(Some("Nouveau titre"));
 }
 
@@ -502,8 +502,8 @@ fn turn_groups_every_apply_into_one_undo() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn("titre plus percutant");
-    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
-    s.apply("b", vec![Op::SetTheme { theme: Some("papier".into()) }]).unwrap();
+    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("b", vec![Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
     s.end_turn();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : titre plus percutant"));
     s.undo().unwrap();
@@ -515,11 +515,11 @@ fn end_turn_after_edit_templates_closes_stashed_group_too() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn("modèles");
-    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
     s.edit_templates(oku_slides_session::DEFAULT_SET).unwrap();
     s.end_turn();
     s.close_templates().unwrap();
-    s.apply("Seul", vec![Op::SetTheme { theme: Some("papier".into()) }]).unwrap();
+    s.apply("Seul", vec![Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Seul"));
 }
 

@@ -29,6 +29,7 @@ ui-toast-templates-saved = Şablonlar kaydedildi: { $name }
 ui-toast-moved = Sunu taşındı
 ui-toast-copied = Kopya kaydedildi
 ui-toast-select-zone = Yerleştirmek için bir alan seçin: “{ $text }”
+ui-toast-field-gone = Düzenlediğiniz alan artık yok: girdiğiniz metin kayboldu.
 
 ## Araç çubuğu
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = Izgarada yeniden boyutlandır
 ui-undo-change-anchor = Sabitlemeyi değiştir
 ui-undo-move = Taşı
 ui-undo-resize = Yeniden boyutlandır
-ui-undo-edit-text = Metni düzenle
+ui-undo-edit-slide = Slaytı düzenle
 ui-undo-dictation = Dikte
 ui-undo-rename-set = Seti yeniden adlandır
 ui-undo-rename-deck = Sunuyu yeniden adlandır
@@ -118,14 +119,19 @@ ui-slide-alt = Slayt { $n }
 
 ui-stage-rendering = Oluşturuluyor…
 ui-stage-elements = Slayt öğeleri
+ui-stage-fields = Slayt alanları
 ui-stage-edit-text = Metni düzenle
-ui-stage-hint-field = Onaylamak için Enter · iptal için Esc
-ui-stage-hint-block = Onaylamak için ⌘ Enter · paragraf başına bir satır, madde işareti için “- ” · ⌘B kalın, ⌘I italik, ⌘K bağlantı
+ui-stage-hint-plain = Sonrakine geçmek için Enter veya Tab · iptal için Esc
+ui-stage-hint-rich = Sonrakine geçmek için Tab · onaylamak için ⌘ Enter · madde işareti için “- ” · ⌘B kalın, ⌘I italik, ⌘K bağlantı
 ui-field = { $kind ->
     [title] Başlık
     [subtitle] Alt başlık
     [kicker] Üst başlık
     [text] Metin
+    [body] Gövde
+    [author] Yazar
+    [date] Tarih
+    [organization] Kuruluş
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

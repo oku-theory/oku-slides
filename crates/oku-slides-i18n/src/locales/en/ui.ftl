@@ -29,6 +29,7 @@ ui-toast-templates-saved = Templates saved: { $name }
 ui-toast-moved = Presentation moved
 ui-toast-copied = Copy saved
 ui-toast-select-zone = Select an area to place: “{ $text }”
+ui-toast-field-gone = The field you were editing no longer exists: your input is lost.
 
 ## Toolbar
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = Resize on the grid
 ui-undo-change-anchor = Change the anchoring
 ui-undo-move = Move
 ui-undo-resize = Resize
-ui-undo-edit-text = Edit the text
+ui-undo-edit-slide = Edit slide
 ui-undo-dictation = Dictation
 ui-undo-rename-set = Rename the set
 ui-undo-rename-deck = Rename the presentation
@@ -118,14 +119,19 @@ ui-slide-alt = Slide { $n }
 
 ui-stage-rendering = Rendering…
 ui-stage-elements = Slide elements
+ui-stage-fields = Slide fields
 ui-stage-edit-text = Edit the text
-ui-stage-hint-field = Enter to confirm · Esc to cancel
-ui-stage-hint-block = ⌘ Enter to confirm · one line per paragraph, “- ” for a bullet · ⌘B bold, ⌘I italic, ⌘K link
+ui-stage-hint-plain = Enter or Tab for next · Esc to cancel
+ui-stage-hint-rich = Tab for next · ⌘ Enter to confirm · “- ” for a bullet · ⌘B bold, ⌘I italic, ⌘K link
 ui-field = { $kind ->
     [title] Title
     [subtitle] Subtitle
     [kicker] Kicker
     [text] Text
+    [body] Body
+    [author] Author
+    [date] Date
+    [organization] Organization
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

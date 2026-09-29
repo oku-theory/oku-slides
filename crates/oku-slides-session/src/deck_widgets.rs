@@ -106,7 +106,7 @@ impl Session {
     /// valide avec les widgets du nouveau pack, résolus avant ses ops : elle
     /// peut ajouter un de ses widgets. Le dernier `set_templates` l'emporte,
     /// comme dans le deck obtenu. En cas d'échec, le registre d'avant revient.
-    pub fn apply(&mut self, label: &str, mut ops: Vec<Op>) -> Result<()> {
+    pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         self.ensure_not_in_history()?;
         let templates = ops.iter().rev().find_map(|op| match op {
             Op::SetTemplates { templates } => Some(templates.clone()),
@@ -125,7 +125,7 @@ impl Session {
         oku_slides_core::apply_all(&mut next, ops, &registry).context(OpSnafu)?;
         let previous = widgets.map(|w| self.install_widgets(w)).transpose()?;
         self.doc.sources.set_registry(registry);
-        let compiled = match self.commit(next, label) {
+        let compiled = match self.commit(next, label, merge) {
             Ok(compiled) => compiled,
             Err(e) => {
                 // Rien n'est appliqué : le registre d'avant revient aussi.
@@ -148,13 +148,13 @@ impl Session {
     }
 
     /// Rend `next`, puis l'inscrit dans les sources sous `label`.
-    fn commit(&mut self, next: Deck, label: &str) -> Result<Compiled> {
+    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>) -> Result<Compiled> {
         let compiled = self.renderer.render(&next, &self.doc.sources.assets).context(RenderSnafu)?;
         #[cfg(test)]
         if std::mem::take(&mut self.failpoints.sources_apply) {
             return crate::error::NotRenderedSnafu.fail()?;
         }
-        self.doc.sources.apply(next, label).context(SourcesSnafu)?;
+        self.doc.sources.apply(next, label, merge).context(SourcesSnafu)?;
         Ok(compiled)
     }
 

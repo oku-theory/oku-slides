@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { EditTarget, Element, Paragraph, SlideView } from "./api";
+import type { Element, FieldView, Paragraph, SlideView } from "./api";
 import {
+  fieldChanged,
+  fieldOps,
   gridPlacement,
   instantiate,
   neighbourSlide,
@@ -11,8 +13,6 @@ import {
   rich,
   slideToFetch,
   slot,
-  textChanged,
-  textOps,
   textToParagraphs,
 } from "./deck";
 
@@ -88,39 +88,55 @@ function view(params: Record<string, unknown>, targets: SlideView["targets"] = [
 }
 
 const box = (id: string, x: number, y: number, w: number, h: number) => ({
-  id, target: "element" as const, kind: "text", free: false, text: "", x, y, w, h, ax: x, aw: w, style: null,
+  id, kind: "text", free: false, x, y, w, h,
 });
 
-describe("textOps", () => {
-  test("un champ passe tel quel, sans normalisation côté UI", () => {
-    const v = view({});
-    const t: EditTarget = {
-      id: "@title", target: "field", kind: "title", free: false, text: "Titre", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
-    };
-    expect(textOps(v, t, "   ")).toEqual([{ op: "set_param", target: { slide: "s" }, param: "title", value: "   " }]);
+const fv: FieldView = {
+  owner: "s", owner_kind: "slide", widget: "content", field: "title", kind: "plain", label: null,
+  text: "Titre", empty: false, side: null, x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+};
+
+describe("fieldOps", () => {
+  test("fieldOps of a slide field sets the slide param as text", () => {
+    const ops = fieldOps(view({}), { ...fv, owner: "s", owner_kind: "slide", field: "title", kind: "plain" }, "Nouveau");
+    expect(ops).toEqual([{ op: "set_param", target: { slide: "s" }, param: "title", value: "Nouveau" }]);
   });
 
-  test("un élément sans paramètre riche n'est pas éditable : aucune op", () => {
-    const v = view({});
-    const t: EditTarget = {
-      id: "e", target: "element", kind: "shape", free: true, text: null, x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
-    };
-    expect(textOps(v, t, "x")).toEqual([]);
+  test("fieldOps of a plain field passes the text as is, without normalisation", () => {
+    expect(fieldOps(view({}), fv, "   ")).toEqual([{ op: "set_param", target: { slide: "s" }, param: "title", value: "   " }]);
   });
 
-  test("un élément à paramètre riche écrit set_param avec les paragraphes édités", () => {
-    const v = view({ elements: [{ id: "e", kind: "text", params: { body: [{ runs: [{ t: "Avant" }] }] } }] });
-    const t: EditTarget = {
-      id: "e", target: "element", kind: "text", param: "body", free: true, text: "Avant", x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
-    };
-    expect(textOps(v, t, "Titre\n- Point")).toEqual([
+  test("fieldOps of an element rich field sets paragraphs", () => {
+    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [{ runs: [{ t: "Avant" }] }] } }] });
+    const ops = fieldOps(v, { ...fv, owner: "c1", owner_kind: "element", field: "body", kind: "rich", text: "Avant" }, "Titre\n- Point");
+    expect(ops).toEqual([
       {
         op: "set_param",
-        target: { slide: "s", element: "e" },
+        target: { slide: "s", element: "c1" },
         param: "body",
         value: [{ runs: [{ t: "Titre" }] }, { runs: [{ t: "Point" }], list: "bullet" }],
       },
     ]);
+  });
+
+  test("fieldOps of an element rich field keeps the runs of an unchanged line", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [colored] } }] });
+    const ops = fieldOps(v, { ...fv, owner: "c1", owner_kind: "element", field: "body", kind: "rich", text: "Rouge" }, "Rouge\nB");
+    expect((ops[0] as { value: Paragraph[] }).value[0]).toEqual(colored);
+  });
+
+  test("fieldOps of a slide rich field keeps the runs from the slide params", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const v = view({ body: [colored] });
+    const ops = fieldOps(v, { ...fv, field: "body", kind: "rich", text: "Rouge" }, "Rouge\nB");
+    expect(ops[0]).toMatchObject({ op: "set_param", target: { slide: "s" }, param: "body" });
+    expect((ops[0] as { value: Paragraph[] }).value).toEqual([colored, { runs: [{ t: "B" }] }]);
+  });
+
+  test("fieldOps of an element plain field sets its text", () => {
+    const ops = fieldOps(view({}), { ...fv, owner: "c1", owner_kind: "element", field: "title", kind: "plain" }, "T");
+    expect(ops).toEqual([{ op: "set_param", target: { slide: "s", element: "c1" }, param: "title", value: "T" }]);
   });
 });
 
@@ -142,16 +158,16 @@ describe("rich", () => {
   });
 });
 
-describe("textChanged", () => {
-  test("champ : le retour à la ligne aplati par l'éditeur ne compte pas comme une modification", () => {
-    expect(textChanged({ target: "field", text: "a\nb" }, "a b")).toBe(false);
-    expect(textChanged({ target: "field", text: "a\nb" }, "a c")).toBe(true);
-    expect(textChanged({ target: "field", text: null }, "")).toBe(false);
+describe("fieldChanged", () => {
+  test("fieldChanged of a plain field ignores newlines turned into spaces", () => {
+    expect(fieldChanged({ kind: "plain", text: "a\nb" }, "a b")).toBe(false);
+    expect(fieldChanged({ kind: "plain", text: "a\nb" }, "a c")).toBe(true);
+    expect(fieldChanged({ kind: "plain", text: "" }, "")).toBe(false);
   });
 
-  test("bloc : le retour à la ligne est du contenu", () => {
-    expect(textChanged({ target: "element", text: "a\nb" }, "a b")).toBe(true);
-    expect(textChanged({ target: "element", text: "a\nb" }, "a\nb")).toBe(false);
+  test("fieldChanged of a rich field counts newlines as content", () => {
+    expect(fieldChanged({ kind: "rich", text: "a\nb" }, "a b")).toBe(true);
+    expect(fieldChanged({ kind: "rich", text: "a\nb" }, "a\nb")).toBe(false);
   });
 });
 

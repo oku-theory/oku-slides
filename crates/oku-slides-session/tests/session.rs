@@ -1,5 +1,5 @@
 use oku_slides_core::{Deck, Frame, Op, Paragraph};
-use oku_slides_session::{Request, Session, Settings, TargetKind, paragraphs_to_text};
+use oku_slides_session::{FieldKind, OwnerKind, Request, Session, Settings, paragraphs_to_text};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -24,9 +24,12 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
     let view = s.slide("s-libre").unwrap();
     let texte = view.targets.iter().find(|t| t.id == "e-texte").unwrap();
     assert_that!(texte.free).is_true();
-    assert_that!(texte.text.as_deref()).is_equal_to(Some("Un bloc posé à 40 pt du coin"));
-    assert_that!(view.targets.iter().any(|t| t.id == "@title" && t.kind == TargetKind::Field("title"))).is_true();
-    assert_that!(texte.kind).is_equal_to(TargetKind::Element("text"));
+    assert_that!(texte.kind).is_equal_to("text");
+    let body = view.fields.iter().find(|f| f.owner == "e-texte" && f.field == "body").unwrap();
+    assert_that!(body.text.as_ref()).is_equal_to("Un bloc posé à 40 pt du coin");
+    assert_that!(body.kind).is_equal_to(FieldKind::Rich);
+    let title = view.fields.iter().find(|f| f.owner == "s-libre" && f.field == "title").unwrap();
+    assert_that!(title.owner_kind).is_equal_to(OwnerKind::Slide);
     let (before_hash, texte_x) = (view.hash, texte.x);
 
     s.apply(
@@ -36,6 +39,7 @@ fn open_edit_undo_save_reopen_round_trips_deck() {
             element: "e-texte".into(),
             frame: Some(Frame { x: 100.0, y: 60.0, w: 720.0, h: 200.0 }),
         }],
+        None,
     )
     .unwrap();
     let snap = s.snapshot();
@@ -77,6 +81,7 @@ fn apply_invalid_transaction_leaves_deck_unchanged() {
                 Op::SetNotes { slide: "s-fin".into(), notes: "x".into() },
                 Op::RemoveElement { slide: "s-fin".into(), element: "absent".into() },
             ],
+            None,
         )
         .unwrap_err();
     assert_that!(err.transaction().map(oku_slides_core::TransactionError::index)).is_equal_to(Some(1));
@@ -100,18 +105,22 @@ fn handle_json_requests_returns_expected_json() {
     let svg = s.handle(serde_json::from_value(json!({"cmd": "svg", "id": "s-1"})).unwrap()).unwrap();
     let svg: String = serde_json::from_str(&svg).unwrap();
     assert_that!(svg.as_str()).starts_with("<svg");
-    // Une cible garde sa forme JSON : { "target": "field", "kind": "title", … }.
+    // Forme JSON : une cible est une boîte d'élément, un champ porte son objet.
     let view: serde_json::Value =
         serde_json::from_str(&s.handle(serde_json::from_value(json!({"cmd": "slide", "id": "s-1"})).unwrap()).unwrap())
             .unwrap();
-    let title = view["targets"].as_array().unwrap().iter().find(|t| t["id"] == "@title").unwrap();
-    assert_that!(title["target"]).is_equal_to(json!("field"));
-    assert_that!(title["kind"]).is_equal_to(json!("title"));
-    assert_that!(title["param"]).is_equal_to(json!("title"));
     let text = view["targets"].as_array().unwrap().iter().find(|t| t["id"] == "b-1").unwrap();
-    assert_that!(text["target"]).is_equal_to(json!("element"));
     assert_that!(text["kind"]).is_equal_to(json!("text"));
-    assert_that!(text["param"]).is_equal_to(json!("body"));
+    let fields = view["fields"].as_array().unwrap();
+    let title = fields.iter().find(|f| f["owner"] == "s-1" && f["field"] == "title").unwrap();
+    assert_that!(title["owner_kind"]).is_equal_to(json!("slide"));
+    assert_that!(title["kind"]).is_equal_to(json!("plain"));
+    assert_that!(title["text"]).is_equal_to(json!("Nouveau"));
+    let body = fields.iter().find(|f| f["owner"] == "b-1").unwrap();
+    assert_that!(body["owner_kind"]).is_equal_to(json!("element"));
+    assert_that!(body["widget"]).is_equal_to(json!("text"));
+    assert_that!(body["field"]).is_equal_to(json!("body"));
+    assert_that!(body["kind"]).is_equal_to(json!("rich"));
 }
 
 #[test]
@@ -137,7 +146,7 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     asserting("les références par nom sont résolues").that(&papier.app["ink"].as_str()).is_equal_to("#2e2b26");
     assert_that!(papier.font_display.first().map(String::as_str)).is_equal_to(Some("Newsreader"));
 
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
     let pro = s.snapshot().appearance;
     assert_that!(pro.scheme.as_str()).is_equal_to("light");
     assert_that!(pro.app["desk"].as_str()).is_equal_to("#e1e5ea");
@@ -159,7 +168,7 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     assert_that!(pro.metrics["elevation"]).is_close_to(1.5, f64::EPSILON);
 
     // Sans thème, l'interface dérive ses couleurs : aucune couleur d'app imposée.
-    s.apply("Sans thème", vec![Op::SetTheme { theme: None }]).unwrap();
+    s.apply("Sans thème", vec![Op::SetTheme { theme: None }], None).unwrap();
     let plain = s.snapshot().appearance;
     assert_that!(plain.app.is_empty()).is_true();
     asserting("les formes par défaut restent définies")
@@ -174,6 +183,7 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
             Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
             Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
         ],
+        None,
     )
     .unwrap();
     let snap = s.snapshot();
@@ -195,7 +205,7 @@ fn templates_view_renders_previews_in_deck_theme() {
     assert_that!(papier.iter().all(|t| t.svg.starts_with("<svg"))).is_true();
     assert_that!(papier.iter().any(|t| t.template.id == "cartes")).is_true();
 
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
     let pro = s.templates_view(None).unwrap().templates;
     asserting("l'aperçu suit le thème").that(&papier[0].svg).is_not_equal_to(&pro[0].svg);
 
@@ -203,7 +213,7 @@ fn templates_view_renders_previews_in_deck_theme() {
     for (i, t) in pro.iter().enumerate() {
         let mut slide = t.template.slide.clone();
         slide.id = format!("nouvelle-{i}");
-        assert_that!(s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, slide }])).is_ok();
+        assert_that!(s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, slide }], None)).is_ok();
     }
 }
 
@@ -226,6 +236,7 @@ fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
             { "op": "set_slide_field", "slide": first, "field": "name", "value": "Ma grille" }
         ]))
         .unwrap(),
+        None,
     )
     .unwrap();
     // Intégré : l'enregistrement crée une copie.
@@ -247,7 +258,7 @@ fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
 fn edit_templates_switching_set_keeps_deck_and_history_aside() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }]).unwrap();
+    s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }], None).unwrap();
     let before = s.deck().clone();
 
     s.edit_templates("grilles").unwrap();
@@ -270,7 +281,7 @@ fn errors_localize_in_the_configured_language() {
     s.open(&fixture_path()).unwrap();
     let fr = Localizer::new(Some("fr"));
     assert_that!(s.slide("absente").unwrap_err().localize(&fr)).is_equal_to("Slide introuvable : absente".to_owned());
-    let refused = s.apply("Mauvais", vec![Op::RemoveElement { slide: "s-fin".into(), element: "absent".into() }]);
+    let refused = s.apply("Mauvais", vec![Op::RemoveElement { slide: "s-fin".into(), element: "absent".into() }], None);
     assert_that!(refused.unwrap_err().localize(&fr))
         .is_equal_to("Opération 0 refusée : Élément introuvable : absent".to_owned());
     let en = Localizer::new(Some("en"));
@@ -361,9 +372,11 @@ fn panel_of_template_with_blocks_has_no_grid_steppers() {
 #[test]
 fn appearance_carries_the_chart_palette_of_the_deck_theme() {
     let mut s = session();
-    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()]).unwrap();
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()], None)
+        .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#3f6b5e"));
-    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "pro" })).unwrap()]).unwrap();
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "pro" })).unwrap()], None)
+        .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#0072b0"));
 }
 
@@ -446,7 +459,7 @@ fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     // Un autre lancement (sans reprise) change le fichier.
     let mut other = session();
     other.open(&file).unwrap();
-    other.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }]).unwrap();
+    other.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
     other.save(Some(&file)).unwrap();
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
@@ -594,7 +607,7 @@ fn templates_view_after_other_session_saves_the_set_shows_the_new_templates() {
     let mut b = session_in(&data);
     let before = b.templates_view(Some(id.clone())).unwrap().templates.len();
     let first = a.deck().slides[0].id.clone();
-    a.apply("Retirer", vec![Op::RemoveSlide { slide: first }]).unwrap();
+    a.apply("Retirer", vec![Op::RemoveSlide { slide: first }], None).unwrap();
     a.save_templates(false).unwrap();
     let after = b.templates_view(Some(id)).unwrap().templates.len();
     assert_that!(after).is_equal_to(before - 1);

@@ -2,6 +2,7 @@
 // contenu, slide de fin. Chaque slide est une page.
 
 #import "tokens.typ": *
+#import "widget.typ": fields-stack, _is-empty
 #import "core.typ": _cfg, config, chrome, format-date, interp, chapter-number, chapter-counter, fill-template, template-fields
 
 // ---- Deck --------------------------------------------------------------------
@@ -88,8 +89,8 @@
 #let _slide-title(t, title, kicker-body, wrap) = {
   let c = t.component.title
   let items = ()
-  if kicker-body != none { items.push(wrap("kicker", styled(t, t.component.kicker, kicker-body),
-    text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none)))) }
+  items.push(wrap("kicker", if not _is-empty(kicker-body) { styled(t, t.component.kicker, kicker-body) },
+    text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none))))
   let r = c.at("rule", default: none)
   if r != none {
     items.push(rect(width: r.width * 1pt, height: r.height * 1pt, fill: color-of(t, r.color)))
@@ -98,7 +99,7 @@
     set par(leading: leading-of(t, c.at("leading", default: "tight")))
     _heading(2, title, ..text-style(t, c))
   }, text-style(t, c) + (leading: leading-of(t, c.at("leading", default: "tight")))))
-  stack(spacing: space-of(t, "sm"), ..items)
+  fields-stack(spacing: space-of(t, "sm"), ..items)
 }
 
 // Mise en page du corps : "default", "columns", "split", "center", "quote".
@@ -140,7 +141,8 @@
   wrap: (name, body, style) => body, ..bodies) = context {
   let c = config()
   let t = c.tokens
-  let title = interp(title, c.vars)
+  // Titre vide comme absent : pas de ligne de titre.
+  let title = if _is-empty(title) { none } else { interp(title, c.vars) }
   page({
     _mark(id)
     grid(
@@ -149,6 +151,18 @@
       ..if title != none { (_slide-title(t, title, kicker, wrap),) },
       block(width: 100%, height: 100%, {
         if zone != none { place(top + left, zone) }
+        // Sans titre, surtitre et titre restent atteignables : marqueurs hors flux.
+        // `place(top + left, …)` impose `left` à son contenu : l'alignement du
+        // flux (`start`, à droite en RTL) est passé dans le style des champs.
+        if title == none {
+          let here-align = (align: align.alignment)
+          let marks = fields-stack(
+            wrap("kicker", none, here-align + text-style(t, t.component.kicker)
+              + (case: t.component.kicker.at("case", default: none))),
+            wrap("title", none, here-align + text-style(t, t.component.title)
+              + (leading: leading-of(t, t.component.title.at("leading", default: "tight")))))
+          if marks != none { place(top + left, marks) }
+        }
         _layout(t, layout, bodies.pos(), ratio: ratio, grow: grow)
       }),
     )
@@ -176,7 +190,7 @@
   let bar = if k.bar {
     rect(width: k.bar-width * 1pt, height: k.bar-height * 1pt, fill: color-of(t, k.bar-color))
   }
-  let title-block = wrap("title", {
+  let title-block = wrap("title", if not _is-empty(title) {
     set par(leading: leading-of(t, "tight"))
     text(size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
@@ -184,10 +198,9 @@
   }, (size: size-of(t, k.title-size), fill: col("title-color", "band-title-color"),
       font: font-of(t, "display"), weight: weight-of(t, "display"),
       tracking: k.title-tracking * 1pt, leading: leading-of(t, "tight")) + under)
-  let sub = if subtitle != none {
-    wrap("subtitle", text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle),
-      (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")) + under)
-  }
+  let sub = wrap("subtitle", if not _is-empty(subtitle) {
+      text(size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color"), subtitle)
+    }, (size: size-of(t, k.subtitle-size), fill: col("subtitle-color", "band-subtitle-color")) + under)
   let meta-line = if meta.len() > 0 {
     text(size: size-of(t, k.meta-size), fill: col("meta-color", "band-meta-color"), meta.join[ · ])
   }
@@ -195,13 +208,18 @@
   if not band {
     page(fill: color-of(t, k.bg), foreground: none, {
       _mark(id)
+      // Colonne pleine largeur (et non `auto`, taillée sur le plus large) : la
+      // zone des champs (`aw`) est celle où le titre peut s'étendre en tapant.
       grid(
+        columns: (100%,),
         rows: (1fr, auto),
         row-gutter: space-of(t, "xl"),
-        align(bottom + start, stack(
+        align(bottom + start, fields-stack(
           spacing: space-of(t, "md"),
-          ..(bar, if kick != none { styled(t, t.component.kicker, kick) }, title-block, sub, body)
-            .filter(x => x != none),
+          bar,
+          wrap("kicker", if not _is-empty(kick) { styled(t, t.component.kicker, kick) },
+            text-style(t, t.component.kicker) + (case: t.component.kicker.at("case", default: none)) + under),
+          title-block, sub, body,
         )),
         meta-line,
       )
@@ -235,8 +253,8 @@
         rect(width: 100%, height: k.top-rule-width * 1pt, fill: color-of(t, k.top-rule-color)))
       // Bande basse.
       block(width: 100%, height: 1fr, fill: color-of(t, k.band-bg), inset: (x: mx, y: space-of(t, "xl")),
-        align(horizon, stack(spacing: space-of(t, "md"),
-          ..(bar, title-block, sub, meta-line, body).filter(x => x != none))))
+        align(horizon, fields-stack(spacing: space-of(t, "md"),
+          bar, title-block, sub, meta-line, body)))
     })
   }
 }
@@ -253,7 +271,7 @@
   page(fill: color-of(t, k.bg), foreground: none, {
     _mark(id)
     set text(fill: ink)
-    align(start + horizon, stack(
+    align(start + horizon, fields-stack(
       spacing: space-of(t, "lg"),
       chapter-counter.step(),
       ..if pattern != none {
@@ -267,7 +285,8 @@
           weight: weight-of(t, "display"), fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt)
       }, (size: size-of(t, k.title-size), font: font-of(t, "display"), weight: weight-of(t, "display"),
         fill: ink, tracking: k.at("title-tracking", default: 0) * 1pt, leading: leading-of(t, "tight"))),
-      ..if subtitle != none { (wrap("subtitle", text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)), (size: size-of(t, k.subtitle-size))),) },
+      wrap("subtitle", if not _is-empty(subtitle) { text(size: size-of(t, k.subtitle-size), interp(subtitle, c.vars)) },
+        (size: size-of(t, k.subtitle-size))),
     ))
   })
 }
@@ -338,11 +357,10 @@
         let kicker-c = t.component.kicker + if highlight { (color: k.highlight-kicker) } else { (:) }
         let title-style = (size: size-of(t, k.title-size), weight: weight-of(t, k.title-weight),
           fill: color-of(t, if highlight { k.highlight-title } else { k.title-color }))
-        stack(spacing: space-of(t, k.gap),
-          ..if kicker != none {
-            (wrap("kicker", styled(t, kicker-c, kicker), text-style(t, kicker-c) + (case: kicker-c.at("case", default: none))),)
-          },
-          ..if title != none { (wrap("title", text(..title-style, title), title-style),) },
+        fields-stack(spacing: space-of(t, k.gap),
+          wrap("kicker", if not _is-empty(kicker) { styled(t, kicker-c, kicker) },
+            text-style(t, kicker-c) + (case: kicker-c.at("case", default: none))),
+          wrap("title", if not _is-empty(title) { text(..title-style, title) }, title-style),
           wrap("body", if ink != none { text(fill: ink, body) } else { body }, if ink != none { (fill: ink) } else { (:) }),
         )
       })

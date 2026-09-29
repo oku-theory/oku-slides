@@ -57,7 +57,7 @@ fn undo_swap_of_any_two_slides_restores_the_deck() {
             let mut b = bundle(&deck);
             let mut swapped = deck.clone();
             swapped.slides.swap(i, j);
-            b.apply(swapped.clone(), "Échanger").unwrap_or_else(|e| panic!("apply : {e}"));
+            b.apply(swapped.clone(), "Échanger", None).unwrap_or_else(|e| panic!("apply : {e}"));
             assert_that!(b.undo().unwrap_or_else(|e| panic!("undo : {e}"))).is_true();
             assert_that!(b.replica().deck().0).named(&format!("annuler {i}↔{j}")).is_equal_to(&deck);
             assert_that!(b.redo().unwrap_or_else(|e| panic!("redo : {e}"))).is_true();
@@ -74,7 +74,7 @@ fn undo_and_redo_random_edit_sequences_walk_back_and_forth_exactly() {
         let mut states = vec![roadmap()];
         for round in 0..6 {
             let next = edited(states.last().unwrap_or_else(|| unreachable!()), &mut rng, round);
-            b.apply(next.clone(), &format!("Étape {round}")).unwrap_or_else(|e| panic!("apply : {e}"));
+            b.apply(next.clone(), &format!("Étape {round}"), None).unwrap_or_else(|e| panic!("apply : {e}"));
             states.push(next);
         }
         for (k, want) in states.iter().enumerate().rev().skip(1) {
@@ -98,7 +98,7 @@ fn undo_group_of_several_reorders_restores_the_deck_in_one_step() {
     let mut d = deck.clone();
     for (i, j) in [(0, 5), (1, 7), (2, 4)] {
         d.slides.swap(i, j);
-        b.apply(d.clone(), "Échanger").unwrap_or_else(|e| panic!("apply : {e}"));
+        b.apply(d.clone(), "Échanger", None).unwrap_or_else(|e| panic!("apply : {e}"));
     }
     b.end_group();
     assert_that!(b.replica().undo_label()).is_equal_to(Some("Agent".to_owned()));
@@ -116,10 +116,10 @@ fn undo_limit_counts_a_reorder_as_one_step() {
     b.set_undo_limit(2);
     let mut reversed = deck.clone();
     reversed.slides.reverse();
-    b.apply(reversed.clone(), "Inverser").unwrap_or_else(|e| panic!("apply : {e}"));
+    b.apply(reversed.clone(), "Inverser", None).unwrap_or_else(|e| panic!("apply : {e}"));
     let mut back = reversed.clone();
     back.slides.reverse();
-    b.apply(back.clone(), "Remettre").unwrap_or_else(|e| panic!("apply : {e}"));
+    b.apply(back.clone(), "Remettre", None).unwrap_or_else(|e| panic!("apply : {e}"));
     assert_that!(b.undo().unwrap_or_else(|e| panic!("undo : {e}"))).is_true();
     assert_that!(b.undo().unwrap_or_else(|e| panic!("undo : {e}"))).is_true();
     assert_that!(b.replica().deck().0).is_equal_to(&deck);

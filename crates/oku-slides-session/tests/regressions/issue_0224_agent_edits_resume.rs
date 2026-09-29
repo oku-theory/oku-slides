@@ -60,7 +60,7 @@ fn agent_apply_outside_handle_is_written_for_resume() {
 
     // L'agent modifie la session directement, sans passer par `handle`.
     let (applied, _) = Workspace::with_session(&ws, &tab_id, |s: &mut Session| {
-        s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }])
+        s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None)
     });
     let applied = applied.unwrap_or_else(|e| panic!("onglet inconnu : {}", e.one_line()));
     assert_that!(applied.map(|_| ())).is_ok();
@@ -106,7 +106,7 @@ fn agent_new_deck_outside_handle_is_written_for_resume() {
 
     // Un document modifié, puis remplacé par un deck vierge par l'agent.
     let (applied, _) = Workspace::with_session(&ws, &tab_id, |s: &mut Session| {
-        s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }])
+        s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None)
     });
     let applied = applied.unwrap_or_else(|e| panic!("onglet inconnu : {}", e.one_line()));
     assert_that!(applied.map(|_| ())).is_ok();

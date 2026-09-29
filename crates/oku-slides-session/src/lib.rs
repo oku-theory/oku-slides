@@ -24,7 +24,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_chart::ChartLabels;
 use oku_slides_core::{
-    Deck, DeckParams, Element, Op, Paragraph, ParamType, ParamValue, Slide, SourceBundle, SourceLimits, WidgetRegistry,
+    Deck, DeckParams, Element, Op, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits, WidgetRegistry,
 };
 pub use oku_slides_i18n::{Localize, Localizer};
 pub use oku_slides_platform::Platform;
@@ -39,9 +39,12 @@ mod charts;
 mod deck_file;
 mod deck_widgets;
 mod error;
+mod fields;
 mod files;
 mod history;
 mod inline;
+#[cfg(test)]
+pub(crate) mod lib_tests_support;
 mod merge;
 mod panel;
 mod render_fonts;
@@ -62,13 +65,14 @@ use error::{
     WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
+pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use merge::Saved;
 pub use panel::PANEL_SURFACE;
 pub use templates::{DEFAULT_SET, Library, SetInfo, Template, TemplateSet};
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TargetKind, TemplateMode, TemplateView,
+    HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
     TemplatesView, UiState,
 };
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
@@ -153,6 +157,10 @@ pub enum Request {
     Apply {
         label: String,
         ops: Vec<Op>,
+        /// Clé de session de saisie : les `Apply` consécutifs de même clé
+        /// forment une étape d'annulation.
+        #[serde(default)]
+        merge: Option<String>,
     },
     Undo,
     Redo,
@@ -577,7 +585,7 @@ impl Session {
             Request::Merge { path } => {
                 self.merge_file(&path)?;
             }
-            Request::Apply { label, ops } => self.apply(&label, ops)?,
+            Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
@@ -750,7 +758,7 @@ impl Session {
         let option = oku_slides_chart::convert(&option, kind, &self.chart_labels).context(ChartSnafu)?;
         let value = serde_json::to_value(option).context(ResponseSnafu)?;
         chart.params.set(param.to_owned(), ParamValue::Value(value));
-        self.apply(label, vec![Op::ReplaceElement { slide, element: chart }])
+        self.apply(label, vec![Op::ReplaceElement { slide, element: chart }], None)
     }
 
     /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
@@ -797,7 +805,7 @@ impl Session {
                 SlideSummary {
                     id: &s.id,
                     kind: &s.kind,
-                    title: self.field_text(deck, s, "title").map(|t| interp(t, &deck.vars)),
+                    title: fields::slide_text(deck, s, &self.registry, "title").map(|t| interp(t, &deck.vars)),
                     name: s.name.as_deref(),
                     page,
                     hash: PageHash(compiled.and_then(|c| c.page_hash(page.checked_sub(1)?))),
@@ -855,17 +863,6 @@ impl Session {
         Ok(panel::panel(view.slide, view.zone.and_then(|z| z.grid.as_ref()), editing, &self.localizer))
     }
 
-    /// Texte du paramètre `field` de `slide`, tel que saisi : si le widget
-    /// le lie au deck (`bind`), la valeur liée, qui l'emporte comme au rendu
-    /// (`_args`) ; sinon le sien.
-    fn field_text<'d>(&self, deck: &'d Deck, slide: &'d Slide, field: &str) -> Option<&'d str> {
-        let bind = self.registry.get(&slide.kind).and_then(|w| w.param(field)).and_then(|p| p.bind.as_deref());
-        match bind {
-            Some(key) => deck.params.field(key),
-            None => slide.params.text(field),
-        }
-    }
-
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = self.doc.sources.deck();
@@ -873,20 +870,15 @@ impl Session {
         let compiled = self.compiled.as_ref().ok_or_else(no_slide)?;
         let layout = compiled.layout();
         let page = layout.page_of(id).ok_or_else(no_slide)?;
-        // Les champs de la slide (id `@<paramètre>`), puis ses éléments.
-        let fields = layout.fields_on(page).iter().filter(|f| f.owner == slide.id).map(|f| {
-            let text = self.field_text(deck, slide, &f.field).unwrap_or_default();
-            Target::field(f, Cow::Borrowed(text))
-        });
-        let elements = layout.boxes_on(page).iter().filter_map(|b| {
-            let l = slide.locate(&b.id)?;
-            let e = l.element;
-            let param = self.registry.get(&e.kind).and_then(|w| w.params.iter().find(|p| p.ty == ParamType::Rich));
-            let param = param.map(|p| p.name.as_str());
-            let text = param.map(|p| Cow::Owned(paragraphs_to_text(e.params.rich(p).unwrap_or_default())));
-            Some(Target::element(b, &e.kind, param, l.is_free(), text))
-        });
-        let targets = fields.chain(elements).collect();
+        let targets = layout
+            .boxes_on(page)
+            .iter()
+            .filter_map(|b| {
+                let l = slide.locate(&b.id)?;
+                Some(Target::element(b, &l.element.kind, l.is_free()))
+            })
+            .collect();
+        let fields = fields::field_views(deck, slide, &self.registry, layout.fields_on(page));
         Ok(SlideView {
             slide,
             page,
@@ -894,6 +886,7 @@ impl Session {
             width: 1920.0,
             height: 1080.0,
             targets,
+            fields,
             zone: layout.zone_on(page),
         })
     }

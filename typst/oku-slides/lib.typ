@@ -7,8 +7,8 @@
 #import "themes/papier.typ": papier
 #import "themes/pro.typ": pro
 
-// Widgets : pour déclarer ceux d'un pack (`#import "/oku-slides/lib.typ": widget, field, params as p`).
+// Widgets : pour déclarer ceux d'un pack (`#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p`).
 #import "src/params.typ" as params
-#import "src/widget.typ": widget, field, by-name
+#import "src/widget.typ": widget, field, fields-stack, by-name
 #import "src/zone.typ": free-area, zone-marker, grid-frame, default-grid
 #import "src/content.typ": _paragraphs, _text-args, _text-over

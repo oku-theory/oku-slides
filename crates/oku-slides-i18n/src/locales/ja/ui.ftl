@@ -29,6 +29,7 @@ ui-toast-templates-saved = テンプレートを保存しました：{ $name }
 ui-toast-moved = プレゼンテーションを移動しました
 ui-toast-copied = コピーを保存しました
 ui-toast-select-zone = 配置する領域を選択してください：「{ $text }」
+ui-toast-field-gone = 編集中のフィールドはもう存在しません。入力内容は失われました。
 
 ## ツールバー
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = グリッド上でサイズ変更
 ui-undo-change-anchor = アンカーを変更
 ui-undo-move = 移動
 ui-undo-resize = サイズ変更
-ui-undo-edit-text = テキストを編集
+ui-undo-edit-slide = スライドを編集
 ui-undo-dictation = 音声入力
 ui-undo-rename-set = セット名を変更
 ui-undo-rename-deck = プレゼンテーション名を変更
@@ -118,14 +119,19 @@ ui-slide-alt = スライド { $n }
 
 ui-stage-rendering = レンダリング中…
 ui-stage-elements = スライドの要素
+ui-stage-fields = スライドのフィールド
 ui-stage-edit-text = テキストを編集
-ui-stage-hint-field = Enter で確定 · Esc でキャンセル
-ui-stage-hint-block = ⌘ Enter で確定 · 1 行に 1 段落、「- 」で箇条書き · ⌘B 太字、⌘I 斜体、⌘K リンク
+ui-stage-hint-plain = Enter または Tab で次へ · Esc でキャンセル
+ui-stage-hint-rich = Tab で次へ · ⌘ Enter で確定 · 「- 」で箇条書き · ⌘B 太字、⌘I 斜体、⌘K リンク
 ui-field = { $kind ->
     [title] タイトル
     [subtitle] サブタイトル
     [kicker] キッカー
     [text] テキスト
+    [body] 本文
+    [author] 著者
+    [date] 日付
+    [organization] 組織
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

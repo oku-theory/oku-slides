@@ -74,7 +74,7 @@ impl Session {
         let text = match element.strip_prefix('@') {
             Some(field) => {
                 self.check_field(slide, field)?;
-                self.field_text(deck, sl, field).map(str::to_owned)
+                crate::fields::slide_text(deck, sl, &self.registry, field).map(str::to_owned)
             }
             None => sl
                 .locate(element)

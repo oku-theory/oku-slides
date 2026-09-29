@@ -22,7 +22,7 @@ const until = async (read, ok, what) => {
   throw new Error(`délai dépassé : ${what}`);
 };
 const open = async (p, label) => {
-  await p.dblclick(`.target[aria-label="${label}"] >> nth=0`);
+  await p.dblclick(`.field[aria-label="${label}"] >> nth=0`);
   await p.waitForSelector('.editor .cm-editor.cm-focused');
 };
 const closed = (p) => until(() => p.locator('.editor').count(), (n) => n === 0, 'éditeur fermé');
@@ -32,6 +32,15 @@ const commitWith = async (p, act) => {
   await act();
   await closed(p);
   await until(() => image(p), (src) => src !== before, 'slide redessinée');
+};
+/** Valide le titre par `act` : le titre devient `title`, l'éditeur passe au champ suivant ; Échap le ferme. */
+const nextWith = async (p, act, title) => {
+  await act();
+  await until(async () => (await slide(p)).params.title, (t) => t === title, `titre « ${title} »`);
+  await p.waitForSelector('.editor .cm-editor.cm-focused');
+  assert.notEqual(await text(p), title); // un autre champ
+  await p.keyboard.press('Escape');
+  await closed(p);
 };
 /** Collage synthétique : `plain` en text/plain, `html` en text/html. */
 const paste = (p, plain, html) => p.evaluate(([plain, html]) => {
@@ -52,10 +61,10 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.waitForSelector('.stage img');
   // Slide 4 : le bloc de puces.
   await p.click('.thumb >> nth=3');
-  await p.waitForSelector('.target[aria-label="Texte"]');
+  await p.waitForSelector('.field[aria-label="Corps"]');
 
   // 1. Géométrie héritée, markdown mis en forme pendant la saisie, première validation.
-  await open(p, 'Texte');
+  await open(p, 'Corps');
   const fit = await p.evaluate(() => {
     const host = getComputedStyle(document.querySelector('.editor'));
     const content = getComputedStyle(document.querySelector('.editor .cm-content'));
@@ -79,10 +88,10 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await commitWith(p, () => p.keyboard.press('ControlOrMeta+Enter'));
   assert.deepEqual(await points(p), [{ runs: RUNS }]);
   const undo1 = await undoLabel(p);
-  assert.equal(undo1, 'Annuler : Modifier le texte');
+  assert.equal(undo1, 'Annuler : Modifier la slide');
 
   // 2. Rouvrir redonne le même markdown ; Échap ferme sans rien changer.
-  await open(p, 'Texte');
+  await open(p, 'Corps');
   assert.equal(await text(p), BASE);
   await p.keyboard.type('x');
   await p.keyboard.press('Escape');
@@ -91,9 +100,10 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   assert.deepEqual(await points(p), [{ runs: RUNS }]);
 
   // 3. Un clic dans la marge de l'éditeur ne le ferme pas.
-  await open(p, 'Texte');
+  await open(p, 'Corps');
   const bb = await p.locator('.editor').boundingBox();
-  const [x, y] = [bb.x + 2, bb.y + bb.height - 2];
+  // Au milieu du bord bas : les coins arrondis ne sont pas à l'éditeur.
+  const [x, y] = [bb.x + bb.width / 2, bb.y + bb.height - 2];
   // Le point visé est bien hors du texte (sinon le test ne prouverait rien).
   assert.equal(await p.evaluate(([x, y]) => !document.elementFromPoint(x, y)?.closest('.cm-content'), [x, y]), true);
   await p.mouse.click(x, y);
@@ -142,12 +152,13 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   // 7. La perte du focus valide, avec le texte affiché ; rouvrir le redonne.
   await commitWith(p, () => p.locator('.editor .cm-content').evaluate((el) => el.blur()));
   assert.deepEqual(await points(p), [{ runs: RUNS }, { runs: [{ t: 'deux' }], list: 'bullet' }]);
-  await open(p, 'Texte');
+  await open(p, 'Corps');
   assert.equal(await text(p), `${BASE}\n- deux`);
   await p.keyboard.press('Escape');
   await closed(p);
 
-  // 8. Champ : texte brut sur une ligne ; collage multiligne aplati ; Maj+Entrée et Entrée valident.
+  // 8. Champ : texte brut sur une ligne ; collage multiligne aplati ; Maj+Entrée et Entrée
+  //    valident et passent au champ suivant (l'éditeur reste ouvert, Échap le ferme).
   const title = (await slide(p)).params.title;
   await open(p, 'Titre');
   await p.keyboard.press('ControlOrMeta+a');
@@ -157,13 +168,11 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   assert.equal(await text(p), title);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.type('Constat');
-  await commitWith(p, () => p.keyboard.press('Shift+Enter'));
-  assert.equal((await slide(p)).params.title, 'Constat');
+  await nextWith(p, () => p.keyboard.press('Shift+Enter'), 'Constat');
   await open(p, 'Titre');
   await p.keyboard.type(' **2**');
   assert.equal(await p.locator('.editor .cm-md-bold').count(), 0);
-  await commitWith(p, () => p.keyboard.press('Enter'));
-  assert.equal((await slide(p)).params.title, 'Constat **2**');
+  await nextWith(p, () => p.keyboard.press('Enter'), 'Constat **2**');
 
   // L'hôte garde la slide courante (t-87) : rendre la slide 1 pour que les scripts suivants
   // (toolbar.cjs, panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.

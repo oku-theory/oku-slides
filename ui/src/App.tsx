@@ -6,11 +6,13 @@ import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
-import { findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, slot, textOps, textToParagraphs } from "./deck";
+import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, slot, textToParagraphs } from "./deck";
 import { newElement } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
-import Stage, { fieldLabel } from "./Stage";
+import Stage from "./Stage";
+import { anchorIds, fieldKey, fieldLabel, primaryFieldOf } from "./stageFields";
+import { useFieldEditing } from "./useFieldEditing";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
@@ -143,7 +145,12 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
+  const { editing, editField, setEditing, editWhenShown, stage, leaveSlide } = useFieldEditing(view);
+  /** Change de slide ; la saisie ouverte s'enregistre d'abord. */
+  const showSlide = (id: string) => {
+    leaveSlide(id);
+    setCurrent(id);
+  };
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
   const svg = useSvgCache(api);
 
@@ -242,10 +249,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   useEffect(() => {
     const skip = (e: ClipboardEvent) => editing || picking || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
-      if (skip(e) || !view || !selected || selected.startsWith("@")) return false;
+      if (skip(e) || !view || !selected) return false;
       const element = findElement(view.slide, selected);
       if (!element) return false;
-      const text = view.targets.find((x) => x.id === selected)?.text || element.kind;
+      const text = primaryFieldOf(view, selected)?.text || element.kind;
       e.preventDefault();
       e.clipboardData?.setData("text/plain", text);
       clip.current = { element, text };
@@ -281,8 +288,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   });
 
   const apply = useCallback(
-    async (label: string, ops: Op[]) => {
-      await run(api.apply(label, ops));
+    async (label: string, ops: Op[], merge?: string) => {
+      await run(api.apply(label, ops, merge));
     },
     [run],
   );
@@ -370,7 +377,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     }
     apply(label, ops).then(() => {
       setSelected(id);
-      if (kind === "text" && !text) setEditing(id);
+      if (kind === "text" && !text) editWhenShown(id);
     });
   };
 
@@ -420,7 +427,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     () =>
       routeSurfaces(
         surfaces,
-        view && view.slide.id === current ? { slide: view.slide.id, targets: view.targets.map((x) => x.id) } : null,
+        view && view.slide.id === current ? { slide: view.slide.id, targets: anchorIds(view) } : null,
       ),
     [surfaces, view, current],
   );
@@ -434,7 +441,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onSurfaceEvent(e);
           if (e.kind === "changed") run(api.snapshot());
           if (e.kind === "focus") {
-            setCurrent(e.slide);
+            showSlide(e.slide);
             setSelected(e.element);
           }
         },
@@ -457,7 +464,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur. */
   const promptAgent = (text: string) =>
-    agent.prompt(text, agentUi(current, selected, editing)).catch((err) => say(String(err), true));
+    agent.prompt(text, agentUi(current, selected, editField)).catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
     const action = fromA2ui(a);
     sendAction(s, action);
@@ -562,12 +569,12 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       } else if (!view || !selected) {
         return;
       } else if (e.key === "Enter") {
-        const tg = view.targets.find((x) => x.id === selected);
-        if (tg?.text !== null && tg?.text !== undefined) {
+        const f = primaryFieldOf(view, selected);
+        if (f) {
           e.preventDefault();
-          setEditing(selected);
+          setEditing(fieldKey(f));
         }
-      } else if ((e.key === "Delete" || e.key === "Backspace") && !selected.startsWith("@")) {
+      } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         apply(t("ui-undo-remove"), [{ op: "remove_element", slide: view.slide.id, element: selected }]);
         setSelected(null);
@@ -603,15 +610,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
   // --- Dictée : où va le texte ----------------------------------------------
   const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
-  const target = view && selected ? view.targets.find((x) => x.id === selected) : undefined;
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  const writable = target && target.text !== null ? target : undefined;
+  // Hors édition, la dictée écrit dans le premier champ de l'élément sélectionné.
+  const writable = view && selected ? primaryFieldOf(view, selected) : null;
   // Où « Insérer » écrit le brouillon ; `null` : aucune zone où écrire.
   const insertTo = editing
     ? t("ui-dictation-to-cursor")
     : writable
-      ? writable.target === "field"
-        ? t("ui-dictation-to-field", { field: fieldLabel(writable.kind).toLowerCase() })
+      ? writable.kind === "plain"
+        ? t("ui-dictation-to-field", { field: fieldLabel(writable).toLowerCase() })
         : t("ui-dictation-to-block")
       : view?.slide.kind === "content"
         ? t("ui-dictation-new-block")
@@ -648,9 +655,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     }
     if (!view) return;
     if (writable) {
-      const previous = writable.text ?? "";
-      const keep = writable.target === "element" && previous.trim() !== "" && previous !== t("ui-new-text");
-      apply(t("ui-undo-dictation"), textOps(view, writable, keep ? `${previous}\n${text}` : text));
+      const previous = writable.text;
+      const keep = writable.kind === "rich" && previous.trim() !== "" && previous !== t("ui-new-text");
+      apply(t("ui-undo-dictation"), fieldOps(view, writable, keep ? `${previous}\n${text}` : text));
       return;
     }
     if (view.slide.kind === "content") {
@@ -783,7 +790,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
         addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
         marks={history ? pileMarks(history.changes) : undefined}
-        onSelect={(id) => { setCurrent(id); setSelected(null); setEditing(null); }}
+        onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); }}
         onMove={history ? undefined : moveSlide}
         onAdd={history ? undefined : addSlide}
         removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
@@ -795,6 +802,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       <main className={`sheet-area${history ? " read-only" : ""}`}>
         {view && view.slide.id === current ? (
           <Stage
+            ref={stage}
             view={view}
             svgUrl={cur ? svg(cur.id, cur.hash) : null}
             selected={history ? null : selected}
@@ -802,6 +810,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onSelect={history ? noop : setSelected}
             onEdit={history ? noop : setEditing}
             onApply={history ? noop : apply}
+            readOnly={!!history}
+            templates={!!snap.editing}
+            onNotice={(m) => say(m, true)}
             dictated={dictated}
             showGridAlways={gridAlways}
             overlay={

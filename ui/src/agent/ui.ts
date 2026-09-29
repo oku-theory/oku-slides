@@ -1,15 +1,9 @@
-// Le contexte d'une consigne : slide, élément ou champ sélectionné, édition en cours.
+// Le contexte d'une consigne : slide, élément sélectionné ou en édition, champ en édition.
 
-import type { AgentUi } from "../api";
+import type { AgentUi, FieldView } from "../api";
 
-/** Le bloc de contexte d'une consigne ; un `@nom` sélectionné est un champ. */
-export function agentUi(current: string | null, selected: string | null, editing: string | null): AgentUi {
-  // `undefined` : pas un champ ; `""` (un `@` seul) : un champ sans nom, ignoré.
-  const name = selected?.startsWith("@") ? selected.slice(1) : undefined;
-  return {
-    slide: current,
-    element: selected && name === undefined ? selected : null,
-    field: name || null,
-    editing: editing !== null && editing === selected,
-  };
+/** Ce que voit l'agent : slide, élément sélectionné ou en édition, champ en édition. */
+export function agentUi(current: string | null, selected: string | null, editing: FieldView | null): AgentUi {
+  const element = editing ? (editing.owner_kind === "element" ? editing.owner : null) : selected;
+  return { slide: current, element, field: editing?.field ?? null, editing: editing !== null };
 }

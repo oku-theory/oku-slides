@@ -29,6 +29,7 @@ ui-toast-templates-saved = 範本已儲存：{ $name }
 ui-toast-moved = 簡報已移動
 ui-toast-copied = 副本已儲存
 ui-toast-select-zone = 請選取要放置的區域：「{ $text }」
+ui-toast-field-gone = 正在編輯的欄位已不存在：輸入的內容已遺失。
 
 ## 工具列
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = 在格線上調整大小
 ui-undo-change-anchor = 變更錨定
 ui-undo-move = 移動
 ui-undo-resize = 調整大小
-ui-undo-edit-text = 編輯文字
+ui-undo-edit-slide = 編輯投影片
 ui-undo-dictation = 聽寫
 ui-undo-rename-set = 重新命名範本集
 ui-undo-rename-deck = 重新命名簡報
@@ -118,14 +119,19 @@ ui-slide-alt = 投影片 { $n }
 
 ui-stage-rendering = 渲染中…
 ui-stage-elements = 投影片元素
+ui-stage-fields = 投影片欄位
 ui-stage-edit-text = 編輯文字
-ui-stage-hint-field = Enter 確認 · Esc 取消
-ui-stage-hint-block = ⌘ Enter 確認 · 每段一行，「- 」表示項目符號 · ⌘B 粗體，⌘I 斜體，⌘K 連結
+ui-stage-hint-plain = Enter 或 Tab 前往下一個 · Esc 取消
+ui-stage-hint-rich = Tab 前往下一個 · ⌘ Enter 確認 · 「- 」表示項目符號 · ⌘B 粗體，⌘I 斜體，⌘K 連結
 ui-field = { $kind ->
     [title] 標題
     [subtitle] 副標題
     [kicker] 眉標
     [text] 文字
+    [body] 正文
+    [author] 作者
+    [date] 日期
+    [organization] 組織
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

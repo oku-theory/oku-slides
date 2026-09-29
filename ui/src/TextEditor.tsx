@@ -1,8 +1,9 @@
 /**
  * Éditeur de texte CodeMirror posé sur la slide.
  *
- * Bloc : le markdown se met en forme pendant la saisie. Champ : texte brut
- * sur une seule ligne. Le texte validé est celui que montre CodeMirror.
+ * Champ `rich` : le markdown se met en forme pendant la saisie. Champ
+ * `plain` : texte brut sur une seule ligne. Tab (⇧Tab) passe au champ
+ * suivant (précédent). Le texte validé est celui que montre CodeMirror.
  */
 import { useEffectEvent, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { history, historyKeymap, insertNewline, isolateHistory, standardKeymap } from "@codemirror/commands";
@@ -18,13 +19,17 @@ import { insertDictated, insertLink, minimalChange, toggleEmphasis } from "./tex
 export interface TextEditorHandle {
   /** Insère un texte dicté à la sélection, avec les espaces qu'il faut. */
   insertAtCursor(text: string): void;
+  /** Texte affiché. */
+  text(): string;
+  /** Valide comme Entrée ou la perte du focus (une seule fin par ouverture). */
+  commit(): void;
 }
 
 interface TextEditorProps {
   /** Texte à l'ouverture (lu une seule fois). */
   initial: string;
-  /** Champ (titre…) : texte brut sur une ligne, Entrée valide. Sinon bloc markdown. */
-  field: boolean;
+  /** Champ `plain` (titre…) : texte brut sur une ligne, Entrée passe au suivant. Sinon markdown. */
+  plain: boolean;
   /** Couleurs des pastilles (palette des graphiques du thème), lue à l'ouverture. */
   palette: string[];
   /** Nom accessible de la zone éditable. */
@@ -37,7 +42,9 @@ interface TextEditorProps {
   onCommit: (text: string) => void;
   /** Abandon (Échap). */
   onCancel: () => void;
-  /** Poignée de la scène : insertion de la dictée. */
+  /** Validation puis champ suivant (`1`) ou précédent (`-1`), avec le texte affiché. */
+  onNext: (text: string, dir: 1 | -1) => void;
+  /** Poignée de la scène : insertion de la dictée, texte affiché, validation. */
   ref?: React.Ref<TextEditorHandle>;
 }
 
@@ -100,14 +107,17 @@ const nothing = () => true;
 export default function TextEditor({ ref, ...props }: TextEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Validation de l'ouverture en cours, gardée par sa fin unique.
+  const validate = useRef<(() => void) | null>(null);
   const change = useEffectEvent((text: string) => props.onChange(text));
   const commit = useEffectEvent((text: string) => props.onCommit(text));
   const cancel = useEffectEvent(() => props.onCancel());
+  const advance = useEffectEvent((text: string, dir: 1 | -1) => props.onNext(text, dir));
 
   useLayoutEffect(() => {
     const parent = host.current;
     if (!parent) return;
-    const { initial, field, palette, label } = props;
+    const { initial, plain, palette, label } = props;
     // Une seule fin par montage ; StrictMode monte deux fois, l'état reste local à l'effet.
     let done = false;
     const finish = (view: EditorView, validate: boolean) => {
@@ -115,6 +125,12 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
       done = true;
       if (validate) commit(view.state.doc.toString());
       else cancel();
+      return true;
+    };
+    const next = (view: EditorView, dir: 1 | -1) => {
+      if (done) return true;
+      done = true;
+      advance(view.state.doc.toString(), dir);
       return true;
     };
     const format = (edit: (value: string, start: number, end: number) => Edit) => (view: EditorView) =>
@@ -125,9 +141,10 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
       { key: "Escape", run: (view) => finish(view, false) },
       { key: "Mod-Enter", run: (view) => finish(view, true) },
       { key: "Mod-u", run: nothing },
-      ...(field
+      { key: "Tab", run: (view) => next(view, 1), shift: (view) => next(view, -1) },
+      ...(plain
         ? [
-            { key: "Enter", run: (view: EditorView) => finish(view, true), shift: (view: EditorView) => finish(view, true) },
+            { key: "Enter", run: (view: EditorView) => next(view, 1), shift: (view: EditorView) => next(view, 1) },
             { key: "Mod-b", run: nothing },
             { key: "Mod-i", run: nothing },
             { key: "Mod-k", run: nothing },
@@ -139,7 +156,7 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
             { key: "Mod-k", run: format(insertLink) },
           ]),
     ];
-    const doc = field ? initial.replaceAll("\n", " ") : initial;
+    const doc = plain ? initial.replaceAll("\n", " ") : initial;
     // Pas de limite de hauteur : l'éditeur grandit avec le texte (overflow visible).
     // Collage : CodeMirror ne lit que text/plain.
     const view = new EditorView({
@@ -157,7 +174,7 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
           EditorView.perLineTextDirection.of(true),
           EditorView.contentAttributes.of({
             "aria-label": label,
-            "aria-multiline": field ? "false" : "true",
+            "aria-multiline": plain ? "false" : "true",
             spellcheck: "true",
             autocorrect: "on",
           }),
@@ -169,15 +186,17 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
               finish(target, true);
             },
           }),
-          field ? singleLine : markdownDecorations(palette),
+          plain ? singleLine : markdownDecorations(palette),
         ],
       }),
     });
     viewRef.current = view;
+    validate.current = () => finish(view, true);
     view.focus();
     return () => {
       done = true;
       viewRef.current = null;
+      validate.current = null;
       view.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- monté une fois par cible (la scène donne une `key`)
@@ -189,6 +208,12 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
       if (!view) return;
       applyEdit(view, (s, a, b) => insertDictated(s, a, b, text), "input.dictation");
       view.focus();
+    },
+    text() {
+      return viewRef.current?.state.doc.toString() ?? "";
+    },
+    commit() {
+      validate.current?.();
     },
   }), []);
 

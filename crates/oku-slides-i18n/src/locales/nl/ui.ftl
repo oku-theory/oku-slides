@@ -29,6 +29,7 @@ ui-toast-templates-saved = Sjablonen opgeslagen: { $name }
 ui-toast-moved = Presentatie verplaatst
 ui-toast-copied = Kopie opgeslagen
 ui-toast-select-zone = Selecteer een gebied om te plaatsen: ‘{ $text }’
+ui-toast-field-gone = Het veld dat je bewerkte bestaat niet meer: je invoer is verloren.
 
 ## Werkbalk
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = Formaat op het raster wijzigen
 ui-undo-change-anchor = Verankering wijzigen
 ui-undo-move = Verplaatsen
 ui-undo-resize = Formaat wijzigen
-ui-undo-edit-text = Tekst bewerken
+ui-undo-edit-slide = Dia bewerken
 ui-undo-dictation = Dicteren
 ui-undo-rename-set = Set hernoemen
 ui-undo-rename-deck = Presentatie hernoemen
@@ -118,14 +119,19 @@ ui-slide-alt = Dia { $n }
 
 ui-stage-rendering = Weergeven…
 ui-stage-elements = Dia-elementen
+ui-stage-fields = Diavelden
 ui-stage-edit-text = Tekst bewerken
-ui-stage-hint-field = Enter om te bevestigen · Esc om te annuleren
-ui-stage-hint-block = ⌘ Enter om te bevestigen · één regel per alinea, ‘- ’ voor een opsommingsteken · ⌘B vet, ⌘I cursief, ⌘K link
+ui-stage-hint-plain = Enter of Tab voor het volgende · Esc om te annuleren
+ui-stage-hint-rich = Tab voor het volgende · ⌘ Enter om te bevestigen · ‘- ’ voor een opsommingsteken · ⌘B vet, ⌘I cursief, ⌘K link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Ondertitel
     [kicker] Bovenregel
     [text] Tekst
+    [body] Hoofdtekst
+    [author] Auteur
+    [date] Datum
+    [organization] Organisatie
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

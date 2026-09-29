@@ -29,6 +29,7 @@ ui-toast-templates-saved = Modelli salvati: { $name }
 ui-toast-moved = Presentazione spostata
 ui-toast-copied = Copia salvata
 ui-toast-select-zone = Seleziona un’area in cui posizionare: «{ $text }»
+ui-toast-field-gone = Il campo che stavi modificando non esiste più: il testo inserito è perso.
 
 ## Barra degli strumenti
 
@@ -84,7 +85,7 @@ ui-undo-resize-on-grid = Ridimensiona sulla griglia
 ui-undo-change-anchor = Cambia l’ancoraggio
 ui-undo-move = Sposta
 ui-undo-resize = Ridimensiona
-ui-undo-edit-text = Modifica il testo
+ui-undo-edit-slide = Modifica la diapositiva
 ui-undo-dictation = Dettatura
 ui-undo-rename-set = Rinomina il set
 ui-undo-rename-deck = Rinomina la presentazione
@@ -118,14 +119,19 @@ ui-slide-alt = Diapositiva { $n }
 
 ui-stage-rendering = Rendering…
 ui-stage-elements = Elementi della diapositiva
+ui-stage-fields = Campi della diapositiva
 ui-stage-edit-text = Modifica il testo
-ui-stage-hint-field = Invio per confermare · Esc per annullare
-ui-stage-hint-block = ⌘ Invio per confermare · una riga per paragrafo, «- » per un punto elenco · ⌘B grassetto, ⌘I corsivo, ⌘K link
+ui-stage-hint-plain = Invio o Tab per passare al successivo · Esc per annullare
+ui-stage-hint-rich = Tab per passare al successivo · ⌘ Invio per confermare · «- » per un punto elenco · ⌘B grassetto, ⌘I corsivo, ⌘K link
 ui-field = { $kind ->
     [title] Titolo
     [subtitle] Sottotitolo
     [kicker] Occhiello
     [text] Testo
+    [body] Corpo
+    [author] Autore
+    [date] Data
+    [organization] Organizzazione
    *[other] { $kind }
 }
 ui-element-kind = { $kind ->

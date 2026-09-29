@@ -179,7 +179,7 @@ fn apply_then_undo_restores_view() {
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut next = deck.clone();
     next.theme = Some("pro".into());
-    b.apply(next, "Thème").unwrap();
+    b.apply(next, "Thème", None).unwrap();
     assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("pro"));
     assert_that!(b.undo().unwrap()).is_true();
     assert_that!(b.deck()).is_equal_to(&deck);
@@ -202,7 +202,7 @@ fn undo_then_redo_restores_applied_view() {
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut next = deck;
     next.theme = Some("pro".into());
-    b.apply(next.clone(), "Thème").unwrap();
+    b.apply(next.clone(), "Thème", None).unwrap();
     b.undo().unwrap();
     assert_that!(b.redo().unwrap()).is_true();
     assert_that!(b.deck()).is_equal_to(&next);
@@ -330,9 +330,9 @@ fn merge_of_concurrent_set_kind_and_param_edit_returns_unknown_param() {
     let zip = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let (mut a, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
-    a.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "A").unwrap();
+    a.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "A", None).unwrap();
     let edit = crate::Op::SetParam { target: card(), param: "title".into(), value: serde_json::json!("Révisé") };
-    b.apply(with_op(&deck, edit), "B").unwrap();
+    b.apply(with_op(&deck, edit), "B", None).unwrap();
     let (_, issues) = a.merge(b).unwrap();
     assert_that!(ids_of(&issues, "carte")).is_equal_to(vec!["issue-unknown-param"]);
 }
@@ -342,8 +342,8 @@ fn restore_of_a_version_with_an_unknown_param_returns_it() {
     let deck = roadmap_with_card();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     // `SetKind` garde le titre, inconnu du widget `text`.
-    b.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "texte").unwrap();
-    b.apply(deck.clone(), "carte").unwrap();
+    b.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "texte", None).unwrap();
+    b.apply(deck.clone(), "carte", None).unwrap();
     let preview = b.history();
     let issues = b.restore(&preview, 1, "restaurer").unwrap();
     assert_that!(ids_of(&issues, "carte")).is_equal_to(vec!["issue-unknown-param"]);
@@ -358,7 +358,7 @@ fn restore_of_a_version_with_a_missing_asset_returns_it() {
         crate::SlotRef { owner: crate::Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
     let with_image = with_op(&deck, crate::Op::AddElement { slot, index: None, element: image });
     let mut b = SourceBundle::new(deck, crate::test_registry::shared()).unwrap();
-    b.apply(with_image, "image").unwrap();
+    b.apply(with_image, "image", None).unwrap();
     let preview = b.history();
     let issues = b.restore(&preview, 1, "restaurer").unwrap();
     assert_that!(ids_of(&issues, "img")).is_equal_to(vec!["issue-missing-asset"]);
@@ -379,11 +379,11 @@ fn undo_rereads_value_params_with_the_same_json_as_the_view() {
     slide.params.slot_mut("blocks").unwrap().push(chart);
     crate::canonicalize(&mut deck);
     let mut sources = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
-    sources.apply(deck, "graphique").unwrap();
+    sources.apply(deck, "graphique", None).unwrap();
     let before = sources.deck().to_json().unwrap();
     let mut other = sources.deck().clone();
     other.theme = Some("pro".into());
-    sources.apply(other, "thème").unwrap();
+    sources.apply(other, "thème", None).unwrap();
     sources.undo().unwrap();
     assert_that!(sources.deck().to_json().unwrap()).is_equal_to(before);
 }

@@ -14,7 +14,7 @@ const post = (p, endpoint, req) =>
   );
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
 const prompt = (p, text, tab = 't-1') => post(p, '/api/agent', { cmd: 'prompt', tab, text, ui: {} });
-const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).targets.find((t) => t.id === 'e-texte').text;
+const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fields.find((f) => f.owner === 'e-texte').text;
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });

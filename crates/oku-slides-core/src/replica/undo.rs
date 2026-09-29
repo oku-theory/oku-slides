@@ -7,6 +7,17 @@
 //! d'un item par commit, défaits ou rétablis tous ensemble. Pour la même
 //! raison, les groupes (un tour de l'agent) sont des étapes à nous, jamais
 //! un `group_start` de Loro, qui fusionnerait leurs items en un seul.
+//!
+//! Une application peut aussi porter une clé de fusion : elle rejoint l'étape
+//! du sommet si celle-ci porte la même clé (une séance de frappe sur plusieurs
+//! champs = un seul annuler), et l'étape garde le libellé de sa première
+//! application. Un groupe ouvert l'emporte sur la clé ; `undo` et `redo`
+//! effacent la clé des étapes déplacées, qui n'absorbent plus rien.
+//!
+//! Une étape fusionnée grandit avec sa séance, de ses items à chaque application.
+//! Loro ne garde que `limite × 64` items ; une étape dont il a écarté des
+//! items part tout entière (voir `trim`). Une séance de frappe très longue
+//! peut donc perdre son annuler, d'un bloc, jamais à moitié.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -28,6 +39,8 @@ const ITEMS_PER_STEP: usize = 64;
 struct Step {
     label: String,
     items: usize,
+    /// Clé de fusion : une application de même clé rejoint l'étape.
+    merge: Option<String>,
 }
 
 pub(super) struct Undo {
@@ -62,7 +75,8 @@ impl Undo {
     }
 
     /// Range les items des derniers commits dans une étape `label` (ou dans celle du groupe ouvert).
-    pub(super) fn close_step(&mut self, label: &str) {
+    /// Avec `merge`, ils rejoignent plutôt l'étape du sommet de même clé.
+    pub(super) fn close_step(&mut self, label: &str, merge: Option<&str>) {
         let items = self.pushed.swap(0, Ordering::Relaxed);
         // Un commit vide n'a rien empilé : pas d'étape, et le rétablir reste possible.
         if items == 0 {
@@ -77,10 +91,13 @@ impl Undo {
                 }
             }
             Some((group, open)) => {
-                self.undo.push(Step { label: group.clone(), items });
+                self.undo.push(Step { label: group.clone(), items, merge: None });
                 *open = true;
             }
-            None => self.undo.push(Step { label: label.to_owned(), items }),
+            None => match (merge, self.undo.last_mut()) {
+                (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => top.items += items,
+                _ => self.undo.push(Step { label: label.to_owned(), items, merge: merge.map(str::to_owned) }),
+            },
         }
         self.trim();
     }
@@ -115,12 +132,21 @@ impl Undo {
         self.group.is_some()
     }
 
+    /// Une annulation ou un rétablissement coupe la fusion : l'étape restée au
+    /// sommet n'absorbe plus de clé, un autre événement l'a suivie.
+    fn cut_merge(&mut self) {
+        if let Some(top) = self.undo.last_mut() {
+            top.merge = None;
+        }
+    }
+
     /// Défait la dernière étape ; `false` s'il n'y en avait pas.
     pub(super) fn undo(&mut self) -> LoroResult<bool> {
         self.end_group();
         let Some(step) = self.undo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::undo);
-        self.redo.push(Step { label: step.label, items: done });
+        self.redo.push(Step { label: step.label, items: done, merge: None });
+        self.cut_merge();
         r.map(|()| true)
     }
 
@@ -129,7 +155,8 @@ impl Undo {
         self.end_group();
         let Some(step) = self.redo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::redo);
-        self.undo.push(Step { label: step.label, items: done });
+        self.undo.push(Step { label: step.label, items: done, merge: None });
+        self.cut_merge();
         r.map(|()| true)
     }
 

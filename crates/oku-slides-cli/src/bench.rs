@@ -105,7 +105,7 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
             slide.params.set("title", ParamValue::Text(title.clone()));
         }
         oku_slides_core::canonicalize(&mut edited);
-        bundle.apply(edited, &title)?;
+        bundle.apply(edited, &title, None)?;
     }
     let history = bundle.history();
     let mut steps = Vec::new();

@@ -234,10 +234,15 @@ impl DeckReplica {
     /// Amène le replica à l'état de `deck`, en une étape d'annulation `label`.
     /// Dans un groupe, le libellé du groupe l'emporte.
     ///
+    /// Avec `merge`, l'application rejoint l'étape du sommet si elle porte la
+    /// même clé (une séance de frappe = un ⌘Z) et garde le libellé de sa
+    /// première application ; sans clé, ou avec une autre, c'est une nouvelle
+    /// étape. Un groupe ouvert l'emporte sur la clé (voir `undo.rs`).
+    ///
     /// Non atomique : si la réconciliation échoue en cours de route, les
     /// changements déjà faits restent dans le doc ; ceux qui ne sont pas encore
     /// committés rejoignent le prochain commit, et son étape.
-    pub fn apply(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
+    pub fn apply(&mut self, deck: &Deck, label: &str, merge: Option<&str>) -> Result<(), ReplicaError> {
         let doc = &self.doc;
         let split = || {
             doc.set_next_commit_message(&part_message(label));
@@ -250,7 +255,7 @@ impl DeckReplica {
         self.doc.commit();
         // Un tour de l'agent (groupe ouvert) est une étape sous le libellé du
         // groupe ; chaque change Loro garde le libellé de l'opération.
-        self.undo.close_step(label);
+        self.undo.close_step(label, merge);
         Ok(())
     }
 
@@ -365,7 +370,7 @@ impl DeckReplica {
         configure(&trial);
         guarded(trial, |doc| Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit()))?;
         self.claim_author()?;
-        self.apply(deck, label)
+        self.apply(deck, label, None)
     }
 
     /// Fusionne `other` dans `self` : seuls les changements que `self` n'a pas

@@ -119,8 +119,9 @@ async fn ask_rewrite_applies_chosen_proposal() {
         .unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "kept": 1, "text": "Second" }));
     let s = h.session.lock().unwrap();
-    let text = s.slide("s-libre").unwrap().targets.iter().find(|t| t.id == "e-texte").and_then(|t| t.text.clone());
-    assert_that!(text.as_deref()).is_equal_to(Some("Second"));
+    let view = s.slide("s-libre").unwrap();
+    let text = view.fields.iter().find(|f| f.owner == "e-texte" && f.field == "body").map(|f| f.text.as_ref());
+    assert_that!(text).is_equal_to(Some("Second"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

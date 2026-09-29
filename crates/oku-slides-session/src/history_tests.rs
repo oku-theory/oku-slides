@@ -140,8 +140,8 @@ fn with_an_unrenderable_version(s: &mut Session) -> usize {
     // Un jeton de couleur qui n'est pas une couleur fait échouer le rendu Typst.
     let token = Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!(5) };
     oku_slides_core::apply_all(&mut bad, vec![token], &crate::test_support::registry()).unwrap();
-    s.doc.sources.apply(bad, "Mauvais").unwrap();
-    s.doc.sources.apply(good, "Réparer").unwrap();
+    s.doc.sources.apply(bad, "Mauvais", None).unwrap();
+    s.doc.sources.apply(good, "Réparer", None).unwrap();
     s.doc.sources.history().len() - 2
 }
 
@@ -207,7 +207,7 @@ fn history_agent_apply_is_refused_and_leaves_the_stash_and_the_preview_untouched
     let (shown, changes) = (s.deck().clone(), s.doc.sources.replica().len_changes());
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(s)));
     let op = Op::SetTheme { theme: Some("pro".into()) };
-    let err = tab.with(|s| s.apply("Agent", vec![op])).unwrap().unwrap_err();
+    let err = tab.with(|s| s.apply("Agent", vec![op], None)).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);
     let err = tab.with(Session::new_deck).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);

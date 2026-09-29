@@ -15,10 +15,13 @@
 //! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
 //!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
 //!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
+//! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
+//!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu.
 
 mod canonical;
 pub mod error;
+mod fields;
 pub mod locate;
 pub mod model;
 pub mod ops;
@@ -35,6 +38,7 @@ pub use error::{
     OpError, OpErrorKind, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind,
     TransactionError, WidgetError, WidgetErrorKind,
 };
+pub use fields::{FieldOwner, TextField};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
 pub use ops::{Op, SlideField, SlotRef, Target, apply_all, ops_schema, param_value};

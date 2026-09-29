@@ -179,15 +179,16 @@ impl SourceBundle {
     }
 
     /// Remplace le deck par `deck` (canonique : voir l'invariant du module),
-    /// en une étape d'annulation `label`.
-    pub fn apply(&mut self, deck: Deck, label: &str) -> Result<(), SourcesError> {
+    /// en une étape d'annulation `label`. Avec `merge`, l'application rejoint
+    /// l'étape du sommet de même clé (voir `DeckReplica::apply`).
+    pub fn apply(&mut self, deck: Deck, label: &str, merge: Option<&str>) -> Result<(), SourcesError> {
         // Non atomique (voir `DeckReplica::apply`) : les changements déjà
         // faits restent dans le doc ; le prochain commit, ou le prochain
         // export (dont le snapshot de reprise), valide ceux en attente.
         // Avant la réconciliation : la première édition de ce pair inscrit
         // son auteur dans le même commit.
         self.replica.claim_author().context(ReplicaSnafu)?;
-        self.replica.apply(&deck, label).context(ReplicaSnafu)?;
+        self.replica.apply(&deck, label, merge).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();
         Ok(())

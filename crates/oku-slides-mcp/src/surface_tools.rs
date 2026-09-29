@@ -86,7 +86,7 @@ impl Tools {
             let done = self
                 .with_session(move |s| {
                     let ops = s.rewrite_ops(&spec, &t, p).map_err(|e| e.one_line())?;
-                    s.apply(&label, ops).map_err(|e| e.one_line())
+                    s.apply(&label, ops, None).map_err(|e| e.one_line())
                 })
                 .await;
             if let Err(e) = done {

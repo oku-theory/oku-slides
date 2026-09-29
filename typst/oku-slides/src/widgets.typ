@@ -3,7 +3,7 @@
 
 #import "tokens.typ": *
 #import "params.typ" as p
-#import "widget.typ": widget, field
+#import "widget.typ": widget, field, _is-empty
 #import "content.typ": _text-args, _text-over
 #import "slides.typ": card, slide, title-slide, chapter, toc, end-slide, blank-slide
 #import "zone.typ": free-area, zone-marker, default-grid
@@ -16,7 +16,7 @@
   // Sans alignement choisi, le texte part du début de la ligne : à gauche,
   // ou à droite dans une langue écrite de droite à gauche.
   let al = style.at("align", default: "start")
-  field(ctx, "body", style: _text-over(t, style),
+  field(ctx, "body", style: _text-over(t, style), empty: args.body == [],
     align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body))
 })
 
@@ -26,7 +26,8 @@
     title: args.title, kicker: args.kicker, highlight: args.highlight,
     // Dans un cadre (placement libre ou case de grille), la carte remplit sa place.
     fill: if ctx.framed { true } else { auto },
-    wrap: (name, body, style) => field(ctx, name, body, style: style),
+    wrap: (name, body, style) => field(ctx, name, body, style: style,
+      empty: if name == "body" { args.body == [] } else { auto }),
     args.body,
   ))
 
@@ -102,11 +103,15 @@
     date: args.date, kicker: args.kicker, id: ctx.id, wrap: _fields(ctx)))
 
 #let _toc = widget("toc", category: "slide", params: (title: p.plain()),
-  (args, ctx) => toc(title: if args.title == none { auto } else { args.title }, id: ctx.id, wrap: _fields(ctx)))
+  // Seul `title` est un paramètre : pas de champ pour le surtitre de `slide`.
+  (args, ctx) => toc(title: if args.title == none { auto } else { args.title }, id: ctx.id,
+    wrap: (name, body, style) => if name == "title" { field(ctx, name, body, style: style) } else { body }))
 
 #let _chapter = widget("chapter", category: "slide", params: (title: p.plain(), subtitle: p.plain()),
   (args, ctx) => chapter(if args.title == none { "" } else { args.title }, subtitle: args.subtitle, id: ctx.id,
-    wrap: _fields(ctx)))
+    // Un titre vide rend un en-tête vide (le sommaire en dépend) : champ mesuré, vide.
+    wrap: (name, body, style) => field(ctx, name, body, style: style,
+      empty: if name == "title" { _is-empty(args.title) } else { auto })))
 
 #let _content = widget("content", category: "slide",
   params: (
@@ -133,7 +138,8 @@
   })
 
 #let _end = widget("end", category: "slide", params: (text: p.plain()),
-  (args, ctx) => end-slide(if args.text == none { "" } else { args.text }, id: ctx.id, wrap: _fields(ctx)))
+  (args, ctx) => end-slide(if args.text == none { "" } else { args.text }, id: ctx.id,
+    wrap: (name, body, style) => field(ctx, name, body, style: style, empty: _is-empty(args.text))))
 
 #let _blank = widget("blank", category: "slide",
   params: (grid: p.grid(default: default-grid), elements: p.slot(mode: "free")),

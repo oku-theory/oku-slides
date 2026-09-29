@@ -19,7 +19,7 @@ fn edited(labels: &[&str]) -> (Deck, SourceBundle) {
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     b.set_author(Some("Julie".into()));
     for l in labels {
-        b.apply(titled(&deck, l), l).unwrap();
+        b.apply(titled(&deck, l), l, None).unwrap();
     }
     (deck, b)
 }
@@ -57,14 +57,14 @@ fn history_marks_the_merge_and_keeps_concurrent_branches_in_each_prefix() {
     let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 };
     let (mut a, _) = SourceBundle::from_zip(&zip, limits, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_zip(&zip, limits, crate::test_registry::shared()).unwrap();
-    a.apply(titled(&deck, "de A"), "A").unwrap();
+    a.apply(titled(&deck, "de A"), "A", None).unwrap();
     let mut d = deck.clone();
     d.theme = Some("pro".into());
-    b.apply(d, "B").unwrap();
+    b.apply(d, "B", None).unwrap();
     a.merge(b).unwrap();
     let mut after = a.deck().clone();
     after.slides[3].params.set("title", crate::ParamValue::Text("après".into()));
-    a.apply(after, "Après").unwrap();
+    a.apply(after, "Après", None).unwrap();
     let h = a.history();
     let last = h.len() - 1;
     assert_that!(h.versions()[last].merge).is_true();
@@ -92,7 +92,7 @@ fn restore_keeps_authors_of_later_sessions() {
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let old = b.history();
     b.set_author(Some("Julie".into()));
-    b.apply(titled(&deck, "Un"), "Un").unwrap();
+    b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let julie = b.replica().peer_id();
     b.restore(&old, 0, "Restaurer").unwrap();
     assert_that!(b.replica().author_of(julie)).is_equal_to(Some("Julie".to_owned()));
@@ -160,7 +160,7 @@ fn without(deck: &Deck, i: usize) -> Deck {
 fn restore_across_a_slide_move_brings_back_every_slide() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
-    b.apply(moved(&deck, 3, 0), "Déplacer").unwrap();
+    b.apply(moved(&deck, 3, 0), "Déplacer", None).unwrap();
     let h = b.history();
     restore_and_undo(&mut b, &h, 0);
 }
@@ -170,8 +170,8 @@ fn restore_across_a_delete_then_a_move_brings_back_each_earlier_version() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let fewer = without(&deck, 2);
-    b.apply(fewer.clone(), "Supprimer").unwrap();
-    b.apply(moved(&fewer, 4, 1), "Déplacer").unwrap();
+    b.apply(fewer.clone(), "Supprimer", None).unwrap();
+    b.apply(moved(&fewer, 4, 1), "Déplacer", None).unwrap();
     let h = b.history();
     for i in 0..h.len() - 1 {
         restore_and_undo(&mut b, &h, i);
@@ -183,8 +183,8 @@ fn restore_after_a_zip_round_trip_brings_back_each_earlier_version() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let fewer = without(&deck, 5);
-    b.apply(fewer.clone(), "Supprimer").unwrap();
-    b.apply(moved(&fewer, 0, 4), "Déplacer").unwrap();
+    b.apply(fewer.clone(), "Supprimer", None).unwrap();
+    b.apply(moved(&fewer, 0, 4), "Déplacer", None).unwrap();
     let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 };
     let (mut b, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), limits, crate::test_registry::shared()).unwrap();
     let h = b.history();
@@ -201,8 +201,8 @@ fn restore_across_a_delete_then_a_swap_brings_back_each_earlier_version() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let fewer = without(&deck, 2);
-    b.apply(fewer.clone(), "Supprimer").unwrap();
-    b.apply(swapped(&fewer, 0, 3), "Échanger").unwrap();
+    b.apply(fewer.clone(), "Supprimer", None).unwrap();
+    b.apply(swapped(&fewer, 0, 3), "Échanger", None).unwrap();
     let h = b.history();
     for i in 0..h.len() - 1 {
         restore_exactly(&mut b, &h, i);
@@ -215,7 +215,7 @@ fn restore_across_a_delete_then_a_swap_brings_back_each_earlier_version() {
 fn restore_across_a_swap_can_be_undone() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
-    b.apply(swapped(&deck, 0, 3), "Échanger").unwrap();
+    b.apply(swapped(&deck, 0, 3), "Échanger", None).unwrap();
     let h = b.history();
     restore_and_undo(&mut b, &h, 0);
 }
@@ -228,7 +228,7 @@ fn a_reorder_of_several_slides_is_one_version() {
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut reordered = deck.clone();
     reordered.slides.reverse();
-    b.apply(reordered.clone(), "Réordonner").unwrap();
+    b.apply(reordered.clone(), "Réordonner", None).unwrap();
     assert_that!(b.replica().len_changes()).is_greater_than(2);
     let h = b.history();
     assert_that!(h.len()).is_equal_to(2);
@@ -240,7 +240,7 @@ fn a_reorder_of_several_slides_is_one_version() {
 fn restore_across_a_reorder_is_one_version() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
-    b.apply(swapped(&deck, 0, 3), "Échanger").unwrap();
+    b.apply(swapped(&deck, 0, 3), "Échanger", None).unwrap();
     let h = b.history();
     let before = h.len();
     restore_exactly(&mut b, &h, 0);

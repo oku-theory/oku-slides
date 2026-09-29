@@ -354,7 +354,7 @@ impl SurfaceHub {
             .with(|s| -> Result<(), String> {
                 let op = s.param_op(field, &value).map_err(|e| e.one_line())?;
                 let label = self.localizer.tr_with("agent-undo-param", &[("label", field.label.as_str().into())]);
-                s.apply(&label, vec![op]).map_err(|e| e.one_line())?;
+                s.apply(&label, vec![op], None).map_err(|e| e.one_line())?;
                 s.note(format!("parameter: {:?} = {value} ({})", field.label, spec.slide));
                 Ok(())
             })
@@ -373,7 +373,7 @@ impl SurfaceHub {
         self.session
             .with(|s| -> Result<(), String> {
                 let label = self.localizer.tr_with("agent-undo-variant", &[("label", variant.label.as_str().into())]);
-                s.apply(&label, variant.ops.clone()).map_err(|e| e.one_line())?;
+                s.apply(&label, variant.ops.clone(), None).map_err(|e| e.one_line())?;
                 s.note(format!("variant picked: {:?} ({})", variant.label, spec.slide));
                 Ok(())
             })

@@ -151,11 +151,15 @@ la couche de sélection de l'app. Sa boîte est émise sous `<oku-slides-box>`.
 
 Les textes éditables sont émis sous `<oku-slides-field>` par `field()`
 (voir plus bas), avec `owner` (id de l'élément ou de la slide) et `field`
-(nom du paramètre). Les slides aussi : `title` et `subtitle` pour la slide
-de titre et les chapitres, `kicker` et `title` pour les slides de contenu
-et le sommaire, `text` pour la slide de fin. Les fonctions de slide
+(nom du paramètre). Les slides aussi, un champ par paramètre `plain`
+affiché, vide ou non : `kicker` (mise en page `plain` seulement), `title` et
+`subtitle` pour la slide de titre, `title` et `subtitle` pour les chapitres,
+`kicker` et `title` pour les slides de contenu, `title` pour le sommaire,
+`text` pour la slide de fin. Les fonctions de slide
 (`slide`, `title-slide`, `chapter`, `toc`, `end-slide`) prennent pour cela un
-`wrap: (nom, contenu, style) => contenu`, comme `card`.
+`wrap: (nom, contenu, style) => contenu`, comme `card`. Un widget de pack
+qui passe `wrap` à `slide()` reçoit ainsi les champs `kicker` et `title` ; le
+`_toc` de base filtre `kicker`, qui n'est pas un de ses paramètres.
 
 ## Widgets
 
@@ -219,6 +223,15 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 widget éditable en place dans l'app. `ctx.id` vaut `none` pour un objet
 (élément ou slide) sans `id` ; `field` rend alors `body` tel quel. La sonde
 de schéma n'appelle jamais `render` : `ctx.id` n'a rien à voir avec elle.
+
+### Champs vides
+
+`field()` d'une valeur absente (`none` ou `""`) ne rend rien : il rend un
+marqueur sans place, pour que le champ reste atteignable dans l'app sans
+changer la mise en page. Pour empiler des champs, utiliser
+`fields-stack(spacing: …, ..items)` au lieu de `stack` : il pose la boîte du
+champ vide au haut de l'item suivant (ou au bas du dernier). Avec `stack`, le
+marqueur reçoit l'espacement et le champ vide n'a pas d'ancre.
 
 ### Surcharger un widget de base
 
