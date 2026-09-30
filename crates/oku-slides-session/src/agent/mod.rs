@@ -20,7 +20,7 @@ use oku_slides_core::{Op, Paragraph, ParamType, Target, apply_all};
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 
-use crate::error::{AgentFormSnafu, NoSlideSnafu, OpSnafu, RenderSnafu, ResponseSnafu};
+use crate::error::{AgentFormSnafu, NoSlideSnafu, OpSnafu, ResponseSnafu};
 use crate::text::paragraphs_to_text;
 use crate::{Result, Session};
 
@@ -29,10 +29,9 @@ const AGENT_PIXEL_PER_PT: f32 = 0.5;
 
 impl Session {
     /// Image PNG de la slide `id`, pour que l'agent voie le rendu.
-    pub fn png(&self, id: &str) -> Result<Vec<u8>> {
-        let compiled = self.compiled.as_ref().context(NoSlideSnafu { id })?;
-        let page = compiled.layout().page_of(id).context(NoSlideSnafu { id })?;
-        Ok(compiled.png(page - 1, AGENT_PIXEL_PER_PT).context(RenderSnafu)?)
+    pub fn png(&mut self, id: &str) -> Result<Vec<u8>> {
+        let page = self.page_of(id).context(NoSlideSnafu { id })?;
+        self.with_compiled(|c| c.png(page - 1, AGENT_PIXEL_PER_PT))
     }
 }
 

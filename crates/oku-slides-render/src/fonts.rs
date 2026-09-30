@@ -17,23 +17,35 @@ pub struct Fonts(Arc<Inner>);
 
 struct Inner {
     fonts: Vec<Font>,
+    /// Fichiers fournis (hors polices intégrées), même s'ils ne sont pas des polices.
+    files: Vec<Bytes>,
     book: LazyHash<FontBook>,
 }
 
 impl Fonts {
     /// Polices de Typst, plus les fichiers `data` (TTF, OTF, TTC).
     pub fn new(data: impl IntoIterator<Item = Vec<u8>>) -> Self {
-        Self::from_fonts(BUILTIN.iter().cloned().chain(parse(data)).collect())
+        let files: Vec<Bytes> = data.into_iter().map(Bytes::new).collect();
+        let fonts = BUILTIN.iter().cloned().chain(parse(&files)).collect();
+        Self::from_fonts(fonts, files)
     }
 
     /// Ce jeu, plus d'autres fichiers de police (celles d'un deck).
     pub fn with(&self, data: impl IntoIterator<Item = Vec<u8>>) -> Self {
-        Self::from_fonts(self.0.fonts.iter().cloned().chain(parse(data)).collect())
+        let added: Vec<Bytes> = data.into_iter().map(Bytes::new).collect();
+        let fonts = self.0.fonts.iter().cloned().chain(parse(&added)).collect();
+        let files = self.0.files.iter().cloned().chain(added).collect();
+        Self::from_fonts(fonts, files)
     }
 
-    fn from_fonts(fonts: Vec<Font>) -> Self {
+    /// Les fichiers fournis (hors polices de Typst), dans l'ordre d'ajout.
+    pub fn files(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.files.iter().map(Bytes::as_slice)
+    }
+
+    fn from_fonts(fonts: Vec<Font>, files: Vec<Bytes>) -> Self {
         let book = LazyHash::new(FontBook::from_fonts(&fonts));
-        Self(Arc::new(Inner { fonts, book }))
+        Self(Arc::new(Inner { fonts, files, book }))
     }
 
     pub(crate) fn get(&self, index: usize) -> Option<Font> {
@@ -70,6 +82,10 @@ impl std::fmt::Debug for Fonts {
     }
 }
 
-fn parse(data: impl IntoIterator<Item = Vec<u8>>) -> impl Iterator<Item = Font> {
-    data.into_iter().flat_map(|bytes| Font::iter(Bytes::new(bytes)))
+fn parse(files: &[Bytes]) -> impl Iterator<Item = Font> + '_ {
+    files.iter().flat_map(|bytes| Font::iter(bytes.clone()))
 }
+
+#[cfg(test)]
+#[path = "fonts_tests.rs"]
+mod fonts_tests;

@@ -31,6 +31,15 @@ max_replica_mib = 32
 # historique, images et polices compris (Mio).
 max_sources_mib = 256
 
+[render]
+# Durée maximale d'une compilation ou d'un export Typst (ms) ; au-delà, le
+# processus de rendu est relancé et le deck se rend avec les widgets de base.
+timeout_ms = 10000
+# Mémoire maximale du processus de rendu (Mio).
+memory_mib = 2048
+# Taille maximale d'un message échangé avec le processus de rendu (Mio).
+max_frame_mib = 512
+
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.
 # Il ne répond qu'aux requêtes adressées à la boucle locale (localhost,

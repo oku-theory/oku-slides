@@ -12,11 +12,9 @@ use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
 use oku_slides_core::{HistoryPreview, SlideChanges, SourceBundle, Version, slide_changes};
-use oku_slides_render::Compiled;
+use oku_slides_render_worker::RemoteCompiled;
 
-use crate::error::{
-    EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, RenderSnafu, SourcesSnafu, VersionSnafu,
-};
+use crate::error::{EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, SourcesSnafu, VersionSnafu};
 use crate::views::HistoryView;
 use crate::{Document, Mode, Result, Session};
 
@@ -78,13 +76,15 @@ impl Session {
     /// Le document d'aperçu de la version `index`, et son rendu. Il prend les
     /// images et polices de `self.doc` une fois tout le reste réussi : en cas
     /// d'échec, `self.doc` les garde.
-    fn version_document(&mut self, preview: &HistoryPreview, index: usize) -> Result<(Document, Compiled)> {
+    fn version_document(&mut self, preview: &HistoryPreview, index: usize) -> Result<(Document, RemoteCompiled)> {
         let (deck, issues) = preview.deck_at(index).context(VersionSnafu)?;
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
-        let compiled = self.renderer.render(sources.deck(), &self.doc.sources.assets).context(RenderSnafu)?;
+        let mut sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
+        let compiled = self.render_deck(&sources.deck().clone())?;
+        // Un pack écarté pendant ce rendu : la base, pour ces sources aussi.
+        sources.set_registry(self.registry.clone());
         let mut doc = Document::new(sources, self.doc.path.clone(), &self.doc_defaults);
         doc.dirty = self.doc.dirty;
         put_blobs(&mut doc, take_blobs(&mut self.doc));
@@ -109,6 +109,8 @@ impl Session {
         put_blobs(&mut stash, take_blobs(&mut self.doc));
         let notice = self.doc.notice.take();
         self.doc = *stash;
+        // Un pack écarté pendant l'historique : le deck mis de côté suit.
+        self.doc.sources.set_registry(self.registry.clone());
         if let Some(notice) = notice {
             self.set_notice(notice);
         }

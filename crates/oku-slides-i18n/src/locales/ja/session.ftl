@@ -4,6 +4,7 @@ session-not-oku-slides = この PDF は Oku Slides で作成されたもので�
 session-invalid-deck = プレゼンテーションの JSON が無効です
 session-invalid-template-set = テンプレートセットが無効です：{ $path }
 session-not-rendered = プレゼンテーションはまだレンダリングされていません
+session-pack-disabled = パック「{ $pack }」のウィジェットはこのセッションでは無効になりました：{ $reason }。プレゼンテーションは基本ウィジェットで表示されます。
 session-no-path = まだファイルがありません：保存先を選択してください
 session-no-slide = スライドが見つかりません：{ $id }
 session-no-chart = ここにグラフはありません：{ $subject }

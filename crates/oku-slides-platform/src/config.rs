@@ -33,6 +33,7 @@ pub struct Settings {
     pub history: HistorySettings,
     pub resume: ResumeSettings,
     pub sources: SourcesSettings,
+    pub render: RenderSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub stt: SttSettings,
@@ -81,6 +82,17 @@ pub struct SourcesSettings {
     pub max_sources_mib: usize,
 }
 
+/// Bornes du processus de rendu.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct RenderSettings {
+    /// Durée maximale d'une compilation ou d'un export Typst (ms).
+    pub timeout_ms: u64,
+    /// Mémoire maximale du processus de rendu (Mio).
+    pub memory_mib: u64,
+    /// Taille maximale d'un message échangé avec le processus de rendu (Mio).
+    pub max_frame_mib: u64,
+}
+
 impl SourcesSettings {
     /// [`Self::max_replica_mib`] en octets.
     pub fn max_replica_bytes(&self) -> usize {
@@ -90,6 +102,23 @@ impl SourcesSettings {
     /// [`Self::max_sources_mib`] en octets.
     pub fn max_sources_bytes(&self) -> usize {
         self.max_sources_mib.saturating_mul(1024 * 1024)
+    }
+}
+
+impl RenderSettings {
+    /// [`Self::timeout_ms`] en [`std::time::Duration`].
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_ms)
+    }
+
+    /// [`Self::memory_mib`] en octets.
+    pub fn memory_bytes(&self) -> u64 {
+        self.memory_mib.saturating_mul(1024 * 1024)
+    }
+
+    /// [`Self::max_frame_mib`] en octets.
+    pub fn max_frame_bytes(&self) -> usize {
+        (self.max_frame_mib as usize).saturating_mul(1024 * 1024)
     }
 }
 

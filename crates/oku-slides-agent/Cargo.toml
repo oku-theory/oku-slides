@@ -30,6 +30,8 @@ tracing.workspace = true
 
 [dev-dependencies]
 oku-slides-core.workspace = true
+# `examples/smoke.rs` : le binaire sert aussi de processus de rendu.
+oku-slides-render-worker.workspace = true
 speculoos.workspace = true
 insta.workspace = true
 color-eyre.workspace = true

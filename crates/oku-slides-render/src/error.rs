@@ -1,7 +1,7 @@
 //! Erreurs du rendu : compilation Typst, export PDF, page absente.
 
 use oku_slides_i18n::{Localize, Localizer};
-use snafu::{Backtrace, Snafu};
+use snafu::{Backtrace, IntoError, Snafu};
 
 use crate::diagnostic::Diagnostic;
 
@@ -26,6 +26,26 @@ pub enum RenderErrorKind {
     Setup,
     /// L'export d'une image a échoué.
     Image,
+    /// Le rendu a dépassé `render.timeout_ms`.
+    Timeout,
+    /// Le processus de rendu a dépassé `render.memory_mib`.
+    OutOfMemory,
+    /// Le processus de rendu s'est arrêté (plantage, panique de Typst).
+    WorkerLost,
+    /// Un message du processus de rendu est illisible ou trop grand.
+    Frame,
+    /// Le rendu demandé a été remplacé (processus relancé).
+    Stale,
+    /// Les widgets de ce pack ont déjà fait échouer le rendu : ils ne sont plus exécutés.
+    PackDisabled,
+}
+
+impl RenderErrorKind {
+    /// Un échec du processus de rendu (délai, mémoire, arrêt, pack écarté) :
+    /// la session se replie sur les widgets de base.
+    pub fn is_bounded(self) -> bool {
+        matches!(self, Self::Timeout | Self::OutOfMemory | Self::WorkerLost | Self::PackDisabled)
+    }
 }
 
 #[derive(Debug, Snafu)]
@@ -45,6 +65,20 @@ pub(crate) enum RenderInner {
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("the base widget registry could not be read"))]
     BaseRegistry { source: Box<RegistryError>, backtrace: Backtrace },
+    #[snafu(display("rendering took more than {ms} ms"))]
+    Timeout { ms: u64, backtrace: Backtrace },
+    #[snafu(display("rendering used more than {mib} MiB"))]
+    OutOfMemory { mib: u64, backtrace: Backtrace },
+    #[snafu(display("the rendering process stopped: {message}"))]
+    WorkerLost { message: String, backtrace: Backtrace },
+    #[snafu(display("unreadable message from the rendering process: {message}"))]
+    Frame { message: String, backtrace: Backtrace },
+    #[snafu(display("the render was replaced"))]
+    Stale { backtrace: Backtrace },
+    #[snafu(display("the widgets of pack {pack} are disabled"))]
+    PackDisabled { pack: String, backtrace: Backtrace },
+    #[snafu(display("rendering failed: {message}"))]
+    Remote { message: String, backtrace: Backtrace },
 }
 
 impl RenderError {
@@ -54,10 +88,47 @@ impl RenderError {
             RenderInner::Pdf { .. } => RenderErrorKind::Pdf,
             RenderInner::NoPage { .. } => RenderErrorKind::NoPage,
             RenderInner::Image { .. } => RenderErrorKind::Image,
-            RenderInner::Path { .. } | RenderInner::DeckJson { .. } | RenderInner::BaseRegistry { .. } => {
-                RenderErrorKind::Setup
-            }
+            RenderInner::Timeout { .. } => RenderErrorKind::Timeout,
+            RenderInner::OutOfMemory { .. } => RenderErrorKind::OutOfMemory,
+            RenderInner::WorkerLost { .. } => RenderErrorKind::WorkerLost,
+            RenderInner::Frame { .. } => RenderErrorKind::Frame,
+            RenderInner::Stale { .. } => RenderErrorKind::Stale,
+            RenderInner::PackDisabled { .. } => RenderErrorKind::PackDisabled,
+            RenderInner::Path { .. }
+            | RenderInner::DeckJson { .. }
+            | RenderInner::BaseRegistry { .. }
+            | RenderInner::Remote { .. } => RenderErrorKind::Setup,
         }
+    }
+
+    /// Le rendu a dépassé son délai.
+    pub fn timeout(ms: u64) -> Self {
+        TimeoutSnafu { ms }.build().into()
+    }
+
+    /// Le processus de rendu a dépassé sa mémoire.
+    pub fn out_of_memory(mib: u64) -> Self {
+        OutOfMemorySnafu { mib }.build().into()
+    }
+
+    /// Le processus de rendu s'est arrêté.
+    pub fn worker_lost(message: impl Into<String>) -> Self {
+        WorkerLostSnafu { message: message.into() }.build().into()
+    }
+
+    /// Un message du processus de rendu est illisible.
+    pub fn frame(message: impl Into<String>) -> Self {
+        FrameSnafu { message: message.into() }.build().into()
+    }
+
+    /// Le rendu demandé a été remplacé.
+    pub fn stale() -> Self {
+        StaleSnafu.build().into()
+    }
+
+    /// Les widgets de ce pack sont écartés.
+    pub fn pack_disabled(pack: impl Into<String>) -> Self {
+        PackDisabledSnafu { pack: pack.into() }.build().into()
     }
 
     /// Messages de Typst (compilation ou export), un par problème.
@@ -75,7 +146,24 @@ impl Localize for RenderError {
         if let RenderInner::BaseRegistry { source, .. } = &self.0 {
             return source.localize(l);
         }
+        match &self.0 {
+            RenderInner::Timeout { ms, .. } => {
+                let seconds = (ms / 1000).max(1);
+                return l.tr_with("render-timeout", &[("seconds", seconds.into())]);
+            }
+            RenderInner::OutOfMemory { mib, .. } => {
+                return l.tr_with("render-out-of-memory", &[("mib", (*mib).into())]);
+            }
+            RenderInner::PackDisabled { pack, .. } => {
+                return l.tr_with("render-pack-disabled", &[("pack", pack.as_str().into())]);
+            }
+            _ => {}
+        }
         let mut out = l.tr(match self.kind() {
+            RenderErrorKind::Timeout | RenderErrorKind::OutOfMemory | RenderErrorKind::PackDisabled => "render-setup",
+            RenderErrorKind::WorkerLost => "render-worker-lost",
+            RenderErrorKind::Frame => "render-frame",
+            RenderErrorKind::Stale => "render-stale",
             RenderErrorKind::Compile => "render-compile",
             RenderErrorKind::Pdf => "render-pdf",
             RenderErrorKind::NoPage => "render-no-page",
@@ -122,6 +210,10 @@ pub(crate) enum RegistryInner {
     Schema { source: Box<oku_slides_core::WidgetError>, backtrace: Backtrace },
     #[snafu(display("the widget probe could not start"))]
     Setup { source: Box<RenderError>, backtrace: Backtrace },
+    #[snafu(display("the widget probe failed"))]
+    Worker { source: Box<RenderError>, backtrace: Backtrace },
+    #[snafu(display("invalid widget registry: {message}"))]
+    RemoteSchema { message: String, backtrace: Backtrace },
 }
 
 impl RegistryError {
@@ -130,8 +222,21 @@ impl RegistryError {
             RegistryInner::BadPackId { .. } => RegistryErrorKind::BadPackId,
             RegistryInner::RegistryCompile { .. } => RegistryErrorKind::Compile,
             RegistryInner::Missing { .. } => RegistryErrorKind::Missing,
-            RegistryInner::Schema { .. } => RegistryErrorKind::Schema,
-            RegistryInner::Setup { .. } => RegistryErrorKind::Setup,
+            RegistryInner::Schema { .. } | RegistryInner::RemoteSchema { .. } => RegistryErrorKind::Schema,
+            RegistryInner::Setup { .. } | RegistryInner::Worker { .. } => RegistryErrorKind::Setup,
+        }
+    }
+
+    /// La sonde n'a pas abouti dans le processus de rendu.
+    pub fn worker(source: RenderError) -> Self {
+        WorkerSnafu.into_error(Box::new(source)).into()
+    }
+
+    /// L'erreur de rendu à l'origine de celle-ci (délai, mémoire, arrêt).
+    pub fn render_error(&self) -> Option<&RenderError> {
+        match &self.0 {
+            RegistryInner::Worker { source, .. } => Some(source),
+            _ => None,
         }
     }
 
@@ -166,7 +271,10 @@ impl Localize for RegistryError {
             }
             RegistryInner::Missing { .. } => l.tr("registry-missing"),
             RegistryInner::Schema { source, .. } => source.localize(l),
-            RegistryInner::Setup { source, .. } => source.localize(l),
+            RegistryInner::Setup { source, .. } | RegistryInner::Worker { source, .. } => source.localize(l),
+            RegistryInner::RemoteSchema { message, .. } => {
+                l.tr_with("registry-schema-remote", &[("message", message.as_str().into())])
+            }
         }
     }
 }

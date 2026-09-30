@@ -169,6 +169,15 @@ impl SessionError {
         }
     }
 
+    /// L'erreur de rendu d'en dessous, s'il y en a une (sonde des widgets comprise).
+    pub(crate) fn render_error(&self) -> Option<&oku_slides_render::RenderError> {
+        match &*self.0 {
+            SessionInner::Render { source, .. } => Some(source),
+            SessionInner::Registry { source, .. } => source.render_error(),
+            _ => None,
+        }
+    }
+
     /// L'erreur et ses causes, sur une ligne.
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)

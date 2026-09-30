@@ -4,6 +4,7 @@ session-not-oku-slides = لم يُنشأ ملف PDF هذا بواسطة Oku Slid
 session-invalid-deck = JSON العرض التقديمي غير صالح
 session-invalid-template-set = مجموعة قوالب غير صالحة: { $path }
 session-not-rendered = لم يُعرض العرض التقديمي بعد
+session-pack-disabled = عُطّلت عناصر واجهة الحزمة «{ $pack }» في هذه الجلسة: { $reason }. يُعرض العرض التقديمي بعناصر الواجهة الأساسية.
 session-no-path = لا يوجد ملف بعد: اختر مكان الحفظ
 session-no-slide = لم يُعثر على الشريحة: { $id }
 session-no-chart = لا يوجد مخطط هنا: { $subject }

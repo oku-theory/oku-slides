@@ -169,7 +169,7 @@ impl Session {
 
     /// Écrit une copie à `path` ; le document garde son fichier et ses
     /// modifications à enregistrer.
-    pub fn save_copy(&self, path: &Path) -> Result<()> {
+    pub fn save_copy(&mut self, path: &Path) -> Result<()> {
         self.ensure_not_in_history()?;
         let path = self.save_path(Some(path))?;
         self.write_file(&path).map(|_| ())

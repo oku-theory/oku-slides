@@ -45,8 +45,18 @@ impl PackWidgets {
         &self.id
     }
 
-    pub(crate) fn source(&self) -> &str {
+    /// La source du `widgets.typ` du pack.
+    pub fn source(&self) -> &str {
         &self.source
+    }
+
+    /// Empreinte du pack (identifiant et source) : clé des caches de registre.
+    pub fn fingerprint(&self) -> [u8; 32] {
+        let mut h = Sha256::new();
+        h.update(self.id.as_bytes());
+        h.update([0]);
+        h.update(self.source.as_bytes());
+        h.finalize().into()
     }
 
     pub(crate) fn path(&self) -> String {
@@ -68,8 +78,8 @@ fn probe_source(pack: Option<&PackWidgets>) -> String {
     s
 }
 
-/// Compile la sonde et lit le registre (base, surchargée par le pack).
-pub fn load_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<WidgetRegistry, RegistryError> {
+/// Compile la sonde et rend son JSON brut (schémas de la base et du pack).
+pub fn probe_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<Json, RegistryError> {
     let mut world = OkuSlidesWorld::new(fonts.clone()).map_err(Box::new).context(SetupSnafu)?;
     if let Some(p) = pack {
         world.add_source(&p.path(), p.source().to_owned()).map_err(Box::new).context(SetupSnafu)?;
@@ -82,8 +92,17 @@ pub fn load_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<Widget
     let label = Label::new(PicoStr::intern("oku-widgets")).context(MissingSnafu)?;
     let found = doc.introspector().query(&Selector::Label(label));
     let metadata = found.first().and_then(|c| c.get_by_name("value").ok());
-    let value = probe_json(metadata.map(|v| serde_json::to_value(&v)))?;
-    Ok(WidgetRegistry::from_probe(value).map_err(Box::new).context(SchemaSnafu)?)
+    probe_json(metadata.map(|v| serde_json::to_value(&v)))
+}
+
+/// Le registre (base surchargée par le pack) décrit par le JSON d'une sonde.
+pub fn registry_from_probe(json: Json) -> Result<WidgetRegistry, RegistryError> {
+    Ok(WidgetRegistry::from_probe(json).map_err(Box::new).context(SchemaSnafu)?)
+}
+
+/// Compile la sonde et lit le registre (base, surchargée par le pack).
+pub fn load_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<WidgetRegistry, RegistryError> {
+    registry_from_probe(probe_registry(fonts, pack)?)
 }
 
 /// Registre de base, lu une fois par processus : la bibliothèque est dans
@@ -91,7 +110,7 @@ pub fn load_registry(fonts: &Fonts, pack: Option<&PackWidgets>) -> Result<Widget
 static BASE: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
 
 /// Le registre des widgets de base (sonde compilée au premier appel).
-pub(crate) fn base_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
+pub fn base_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
     let mut base = BASE.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(r) = base.as_ref() {
         return Ok(r.clone());
@@ -109,11 +128,11 @@ fn probe_json(metadata: Option<Result<Json, serde_json::Error>>) -> Result<Json,
     result.map_err(oku_slides_core::WidgetError::unreadable).map_err(Box::new).context(SchemaSnafu).map_err(Into::into)
 }
 
-/// Registres déjà lus, par pack : une sonde ne compile qu'une fois par
-/// source de pack. La bibliothèque est dans le binaire : constante.
+/// Sondes et registres déjà lus, par pack : une sonde ne compile qu'une
+/// fois par source de pack. La bibliothèque est dans le binaire : constante.
 pub struct Registries {
     fonts: Fonts,
-    cache: HashMap<Option<[u8; 32]>, Arc<WidgetRegistry>>,
+    cache: HashMap<[u8; 32], (Arc<Json>, Arc<WidgetRegistry>)>,
 }
 
 impl std::fmt::Debug for Registries {
@@ -130,22 +149,25 @@ impl Registries {
     /// Le registre de la base, surchargé par `pack`. Sans pack : celui de
     /// la base, lu une fois par processus (le même que [`crate::Renderer::new`]).
     pub fn get(&mut self, pack: Option<&PackWidgets>) -> Result<Arc<WidgetRegistry>, RegistryError> {
-        if pack.is_none() {
-            return base_registry(&self.fonts);
+        match pack {
+            None => base_registry(&self.fonts),
+            Some(p) => Ok(self.entry(p)?.1.clone()),
         }
-        let key = pack.map(|p| {
-            let mut h = Sha256::new();
-            h.update(p.id().as_bytes());
-            h.update([0]);
-            h.update(p.source().as_bytes());
-            <[u8; 32]>::from(h.finalize())
-        });
-        if let Some(r) = self.cache.get(&key) {
-            return Ok(r.clone());
+    }
+
+    /// Le JSON brut de la sonde de `pack`, partagé avec [`Registries::get`].
+    pub fn probe(&mut self, pack: &PackWidgets) -> Result<Arc<Json>, RegistryError> {
+        Ok(self.entry(pack)?.0.clone())
+    }
+
+    fn entry(&mut self, pack: &PackWidgets) -> Result<&(Arc<Json>, Arc<WidgetRegistry>), RegistryError> {
+        let key = pack.fingerprint();
+        if !self.cache.contains_key(&key) {
+            let json = probe_registry(&self.fonts, Some(pack))?;
+            let registry = registry_from_probe(json.clone())?;
+            self.cache.insert(key, (Arc::new(json), Arc::new(registry)));
         }
-        let r = Arc::new(load_registry(&self.fonts, pack)?);
-        self.cache.insert(key, r.clone());
-        Ok(r)
+        self.cache.get(&key).ok_or_else(|| MissingSnafu.build().into())
     }
 }
 

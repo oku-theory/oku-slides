@@ -4,6 +4,7 @@ session-not-oku-slides = এই PDF Oku Slides দিয়ে তৈরি হ�
 session-invalid-deck = প্রেজেন্টেশনের JSON অবৈধ
 session-invalid-template-set = অবৈধ টেমপ্লেট সেট: { $path }
 session-not-rendered = প্রেজেন্টেশনটি এখনও রেন্ডার হয়নি
+session-pack-disabled = প্যাক “{ $pack }”-এর উইজেটগুলো এই সেশনের জন্য বন্ধ করা হয়েছে: { $reason }। প্রেজেন্টেশনটি মূল উইজেট দিয়ে দেখানো হচ্ছে।
 session-no-path = এখনও কোনো ফাইল নেই: কোথায় সংরক্ষণ করবেন বেছে নিন
 session-no-slide = স্লাইড পাওয়া যায়নি: { $id }
 session-no-chart = এখানে কোনো চার্ট নেই: { $subject }

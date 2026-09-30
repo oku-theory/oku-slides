@@ -138,3 +138,63 @@ fn blank_author_name_falls_back_to_system_user() {
 fn default_settings_have_no_author_name() {
     assert_that!(Settings::defaults().unwrap().author.name).is_none();
 }
+
+#[test]
+fn settings_default_render_limits_match_config_defaults() {
+    let s = Settings::defaults().unwrap();
+    assert_that!((s.render.timeout_ms, s.render.memory_mib, s.render.max_frame_mib)).is_equal_to((10_000, 2048, 512));
+}
+
+#[test]
+fn render_settings_memory_bytes_converts_mib() {
+    let r = RenderSettings { timeout_ms: 1, memory_mib: 3, max_frame_mib: 1 };
+    assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
+}
+
+#[test]
+fn render_settings_timeout_is_in_milliseconds() {
+    let r = RenderSettings { timeout_ms: 1500, memory_mib: 1, max_frame_mib: 1 };
+    assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
+}
+
+#[test]
+fn render_settings_max_frame_bytes_converts_mib() {
+    let r = RenderSettings { timeout_ms: 1, memory_mib: 1, max_frame_mib: 512 };
+    assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
+}
+
+#[test]
+fn platform_with_settings_renders_in_process() {
+    let p = crate::Platform::with_settings(Settings::defaults().unwrap()).unwrap();
+    assert_that!(p.render_launch).is_equal_to(crate::RenderLaunch::InProcess);
+}
+
+#[test]
+fn platform_with_render_launch_replaces_the_launch() {
+    let program = std::path::PathBuf::from("/bin/x");
+    let p = crate::Platform::with_settings(Settings::defaults().unwrap())
+        .unwrap()
+        .with_render_launch(crate::RenderLaunch::Process { program: program.clone() });
+    assert_that!(p.render_launch).is_equal_to(crate::RenderLaunch::Process { program });
+}
+
+#[test]
+fn render_timeout_env_override_changes_the_setting() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_RENDER__TIMEOUT_MS", "5000")])).unwrap();
+    assert_that!(s.render.timeout_ms).is_equal_to(5000);
+}
+
+#[test]
+fn render_launch_for_a_worker_process_is_in_process() {
+    let program = PathBuf::from("/bin/x");
+    assert_that!(crate::render_launch_for(program.clone(), false))
+        .is_equal_to(crate::RenderLaunch::Process { program: program.clone() });
+    // Un travailleur qui n'a pas appelé `exit_if_worker` ne relance jamais de fils.
+    assert_that!(crate::render_launch_for(program, true)).is_equal_to(crate::RenderLaunch::InProcess);
+}
+
+#[test]
+fn render_worker_env_variable_does_not_break_settings() {
+    let s = Settings::from_sources(None, env(&[(crate::RENDER_WORKER_ENV, "1")]));
+    assert_that!(s.is_ok()).is_true();
+}

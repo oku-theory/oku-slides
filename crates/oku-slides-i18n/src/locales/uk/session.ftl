@@ -4,6 +4,7 @@ session-not-oku-slides = Цей PDF створено не в Oku Slides: йог�
 session-invalid-deck = Недопустимий JSON презентації
 session-invalid-template-set = Недопустимий набір шаблонів: { $path }
 session-not-rendered = Презентацію ще не відтворено
+session-pack-disabled = Віджети пакета «{ $pack }» вимкнено в цьому сеансі: { $reason }. Презентацію показано з базовими віджетами.
 session-no-path = Файлу ще немає: виберіть, куди зберегти
 session-no-slide = Слайд не знайдено: { $id }
 session-no-chart = Тут немає діаграми: { $subject }

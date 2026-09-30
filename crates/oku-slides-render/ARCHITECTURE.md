@@ -19,19 +19,26 @@ le même document compilé donne SVG, PNG et PDF.
 - Champs (`typst/oku-slides`) : `field()` émet une boîte par champ, même vide ; `fields-stack`
   colle le marqueur d'un champ vide à l'item voisin, sans occuper de place ni recevoir
   d'espacement (`FieldBox.empty`, `side`).
-- `load_registry` + `Registries` (`registry.rs`) : le `WidgetRegistry` (`oku-slides-core`) lu
-  par une sonde Typst qui importe `widgets.typ`, base et pack (`PackWidgets`) ; `Registries`
-  mémoïse par pack pour éviter de recompiler la sonde à chaque rendu.
+- `probe_registry` / `registry_from_probe` / `load_registry` + `Registries` (`registry.rs`) : le
+  `WidgetRegistry` (`oku-slides-core`) lu par une sonde Typst qui importe `widgets.typ`, base et
+  pack (`PackWidgets`). La sonde brute (JSON) se sépare de sa lecture : le travailleur exécute
+  l'une, l'hôte lit l'autre. `Registries` mémoïse par pack (`probe`, `get`) ; `base_registry`
+  (public) donne la base sans pack ; `PackWidgets::fingerprint` clé les packs.
+- Erreurs bornées (`error.rs`) : `RenderErrorKind` compte `Timeout`, `OutOfMemory`, `WorkerLost`,
+  `Frame`, `Stale`, `PackDisabled` en plus des échecs Typst ; `is_bounded` dit lesquels
+  (hors `Frame`, `Stale`) font replier la session sur les widgets de base.
+- `wire` (`wire.rs`) : `WireError` : forme sérialisable (sans backtrace) de
+  `RenderError`/`RegistryError`, pour le tube du travailleur ; `Layout` est aussi sérialisable ; `Fonts::files` expose
+  les octets des polices pour les empreintes et le rejeu.
 - `OkuSlidesWorld` (`world.rs`, privé) : système de fichiers virtuel (bibliothèque embarquée,
   deck, assets, pack) et polices (`Fonts`, `fonts.rs`) sans police système.
 - `charts` (privé) : élément à `host("chart")` → SVG rendu par `oku-slides-chart`, servi sous
   `/charts/<empreinte>.svg` ; l'empreinte couvre options, taille, police, palette, libellés.
-- `diagnostic` : messages Typst (erreurs, avertissements) localisés.
-- `palette` : résolution d'un nom de couleur en hex, palette des graphiques du thème.
+- `diagnostic` : messages Typst localisés ; `palette` : couleurs nommées, palette des graphiques.
 
 ## Points d'extension
 
-- Un nouveau format de sortie d'une page : une méthode sur `Compiled` (voir `svg`/`png`/`pdf`).
+- Nouveau format de sortie d'une page : une méthode sur `Compiled`.
 - Une nouvelle métadonnée lue dans le document : une étiquette Typst (`oku-slides-*`) côté
   bibliothèque, un champ de `Layout` et une entrée dans `Layout::layout()` côté Rust.
 

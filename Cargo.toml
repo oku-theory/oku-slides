@@ -22,6 +22,7 @@ oku-slides-platform = { path = "crates/oku-slides-platform" }
 oku-slides-i18n = { path = "crates/oku-slides-i18n" }
 oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
+oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
 # Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
 rust-mcp-sdk = "=1.1.0"
 rust-mcp-axum = "=1.0.2"
@@ -52,6 +53,8 @@ config = { version = "0.15", default-features = false, features = ["toml"] }
 opendal = { version = "0.59", default-features = false, features = ["services-fs", "blocking"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 ctrlc = { version = "3.5", features = ["termination"] }
+# Mémoire du processus de rendu (limite en RAM, t-327).
+sysinfo = { version = "0.37", default-features = false, features = ["system"] }
 fluent-bundle = "0.16"
 unic-langid = "0.9"
 sys-locale = "0.3"

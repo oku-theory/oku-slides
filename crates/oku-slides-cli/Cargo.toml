@@ -16,6 +16,7 @@ oku-slides-core.workspace = true
 oku-slides-render.workspace = true
 oku-slides-pdf.workspace = true
 oku-slides-session.workspace = true
+oku-slides-render-worker.workspace = true
 oku-slides-stt.workspace = true
 oku-slides-agent.workspace = true
 tiny_http.workspace = true

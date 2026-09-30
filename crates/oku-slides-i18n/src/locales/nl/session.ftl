@@ -4,6 +4,7 @@ session-not-oku-slides = Deze pdf is niet gemaakt met Oku Slides: hij kan niet w
 session-invalid-deck = Ongeldige presentatie-JSON
 session-invalid-template-set = Ongeldige sjabloonset: { $path }
 session-not-rendered = De presentatie is nog niet weergegeven
+session-pack-disabled = De widgets van pakket “{ $pack }” zijn voor deze sessie uitgeschakeld: { $reason }. De presentatie wordt getoond met de basiswidgets.
 session-no-path = Nog geen bestand: kies waar je wilt opslaan
 session-no-slide = Dia niet gevonden: { $id }
 session-no-chart = Hier staat geen grafiek: { $subject }

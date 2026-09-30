@@ -21,6 +21,8 @@ const TAB: &str = "t-1";
 /// hors d'un contexte async si c'est sa dernière copie (`Storage` possède un
 /// runtime tokio ; le lâcher depuis l'intérieur ferait paniquer Tokio).
 fn main() -> color_eyre::Result<()> {
+    // Relancé en processus de rendu par `Platform::load` : sert, puis sort.
+    oku_slides_render_worker::exit_if_worker();
     color_eyre::install()?;
     oku_slides_platform::telemetry::init();
     let mut args = std::env::args().skip(1);

@@ -4,6 +4,7 @@ session-not-oku-slides = PDF นี้ไม่ได้สร้างด้ว
 session-invalid-deck = JSON ของงานนำเสนอไม่ถูกต้อง
 session-invalid-template-set = ชุดเทมเพลตไม่ถูกต้อง: { $path }
 session-not-rendered = งานนำเสนอยังไม่ได้เรนเดอร์
+session-pack-disabled = วิดเจ็ตของแพ็ก “{ $pack }” ถูกปิดใช้งานในเซสชันนี้: { $reason } งานนำเสนอแสดงด้วยวิดเจ็ตพื้นฐาน
 session-no-path = ยังไม่มีไฟล์: เลือกตำแหน่งที่จะบันทึก
 session-no-slide = ไม่พบสไลด์: { $id }
 session-no-chart = ไม่มีแผนภูมิที่นี่: { $subject }

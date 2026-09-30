@@ -124,7 +124,7 @@ impl Sessions for ClosedTabs {
     /// Onglet toujours fermé : `f` n'est jamais appelée, l'erreur vient
     /// d'un rendu sur une slide qui n'existe pas.
     fn with(&self, _tab: &str, _f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        let s = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut s = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match s.png("closed-tab-has-no-slide") {
             Ok(_) => panic!("cette slide ne devrait pas exister dans la fixture de test"),
             Err(e) => Err(e),

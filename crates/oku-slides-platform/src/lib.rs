@@ -17,6 +17,7 @@ pub mod storage;
 #[cfg(test)]
 mod test_support;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use oku_slides_i18n::Localizer;
@@ -25,6 +26,34 @@ use snafu::{Backtrace, ResultExt, Snafu};
 use crate::config::{ConfigError, Settings};
 use crate::storage::{Storage, StorageError};
 
+/// Où tourne le rendu Typst.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenderLaunch {
+    /// Sur un fil du processus : aucune borne appliquée (tests, outils).
+    InProcess,
+    /// Dans un sous-processus `program --render-worker`, borné par `[render]`.
+    Process { program: PathBuf },
+}
+
+/// Variable posée par l'hôte dans l'environnement de son processus de rendu.
+///
+/// Un processus qui la porte ne lance jamais de travailleur : un binaire qui
+/// aurait oublié `exit_if_worker` ne se relance pas en chaîne.
+pub const RENDER_WORKER_ENV: &str = "OKU_SLIDES_RENDER_WORKER";
+
+/// Le lancement du rendu d'un binaire `program` ; `in_worker` : ce processus
+/// est lui-même un travailleur (voir [`RENDER_WORKER_ENV`]), il rend sur un fil.
+pub(crate) fn render_launch_for(program: PathBuf, in_worker: bool) -> RenderLaunch {
+    if in_worker {
+        tracing::warn!(
+            program = %program.display(),
+            "processus de rendu sans exit_if_worker : rendu sur un fil, sans relance"
+        );
+        return RenderLaunch::InProcess;
+    }
+    RenderLaunch::Process { program }
+}
+
 /// Ce dont l'app a besoin de son environnement : réglages, fichiers et
 /// langue. Se crée une fois au démarrage ; se clone sans rien recréer.
 #[derive(Debug, Clone)]
@@ -32,6 +61,7 @@ pub struct Platform {
     pub settings: Arc<Settings>,
     pub storage: Storage,
     pub localizer: Arc<Localizer>,
+    pub render_launch: RenderLaunch,
 }
 
 /// Démarrage impossible : réglages ou fichiers.
@@ -41,14 +71,20 @@ pub enum PlatformError {
     Settings { source: ConfigError, backtrace: Backtrace },
     #[snafu(display("storage could not start"))]
     Storage { source: StorageError, backtrace: Backtrace },
+    #[snafu(display("the executable path could not be read"))]
+    CurrentExe { source: std::io::Error, backtrace: Backtrace },
 }
 
 impl Platform {
     /// Réglages (défauts, `config.toml`, environnement), fichiers locaux et
     /// langue des réglages (sinon celle du système). À appeler après
-    /// [`telemetry::init`].
+    /// [`telemetry::init`]. Le rendu se lance en sous-processus de ce
+    /// binaire, sauf dans un processus de rendu (voir [`RENDER_WORKER_ENV`]).
     pub fn load() -> Result<Self, PlatformError> {
-        Self::with_settings(Settings::load().context(SettingsSnafu)?)
+        let program = std::env::current_exe().context(CurrentExeSnafu)?;
+        let in_worker = std::env::var_os(RENDER_WORKER_ENV).is_some();
+        Ok(Self::with_settings(Settings::load().context(SettingsSnafu)?)?
+            .with_render_launch(render_launch_for(program, in_worker)))
     }
 
     /// La plateforme de ces réglages (tests, outils).
@@ -58,7 +94,14 @@ impl Platform {
             settings: Arc::new(settings),
             storage: Storage::local().context(StorageSnafu)?,
             localizer: Arc::new(localizer),
+            render_launch: RenderLaunch::InProcess,
         })
+    }
+
+    /// Cette plateforme, avec le rendu lancé par `launch`.
+    pub fn with_render_launch(mut self, launch: RenderLaunch) -> Self {
+        self.render_launch = launch;
+        self
     }
 }
 pub mod telemetry;

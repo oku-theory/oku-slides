@@ -20,7 +20,7 @@ fn png_of_slide_returns_png_bytes() {
 
 #[test]
 fn png_of_unknown_slide_returns_no_slide() {
-    let s = session();
+    let mut s = session();
     assert_that!(s.png("inconnue").unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
 }
 

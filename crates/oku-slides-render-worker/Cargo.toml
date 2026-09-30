@@ -1,0 +1,35 @@
+[package]
+name = "oku-slides-render-worker"
+description = "Rendu Typst dans un processus de travail, borné en temps et en mémoire."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+# Réservé aux tests du crate : jamais empaqueté (les binaires se relancent eux-mêmes).
+name = "oku-slides-render-worker"
+test = false
+doc = false
+
+[dependencies]
+oku-slides-core.workspace = true
+oku-slides-i18n.workspace = true
+oku-slides-platform.workspace = true
+oku-slides-render.workspace = true
+serde.workspace = true
+# `float_roundtrip` : les coordonnées de la mise en page traversent le tube au bit près.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2.workspace = true
+hex.workspace = true
+snafu.workspace = true
+sysinfo.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+speculoos.workspace = true
+rstest.workspace = true
+
+[lints]
+workspace = true

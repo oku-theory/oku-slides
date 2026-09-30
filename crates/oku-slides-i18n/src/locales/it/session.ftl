@@ -4,6 +4,7 @@ session-not-oku-slides = Questo PDF non è stato creato da Oku Slides: non può 
 session-invalid-deck = JSON della presentazione non valido
 session-invalid-template-set = Set di modelli non valido: { $path }
 session-not-rendered = La presentazione non è ancora stata generata
+session-pack-disabled = I widget del pacchetto «{ $pack }» sono stati disattivati per questa sessione: { $reason }. La presentazione è mostrata con i widget di base.
 session-no-path = Ancora nessun file: scegli dove salvare
 session-no-slide = Diapositiva non trovata: { $id }
 session-no-chart = Nessun grafico qui: { $subject }

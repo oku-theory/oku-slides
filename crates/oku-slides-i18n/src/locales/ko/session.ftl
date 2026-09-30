@@ -4,6 +4,7 @@ session-not-oku-slides = Oku Slides로 만든 PDF가 아니므로 편집할 수 
 session-invalid-deck = 프레젠테이션 JSON이 올바르지 않습니다
 session-invalid-template-set = 템플릿 세트가 올바르지 않습니다: { $path }
 session-not-rendered = 프레젠테이션이 아직 렌더링되지 않았습니다
+session-pack-disabled = '{ $pack }' 팩의 위젯이 이 세션에서 비활성화되었습니다: { $reason }. 프레젠테이션은 기본 위젯으로 표시됩니다.
 session-no-path = 아직 파일이 없습니다. 저장할 위치를 선택하세요
 session-no-slide = 슬라이드를 찾을 수 없습니다: { $id }
 session-no-chart = 여기에 차트가 없습니다: { $subject }

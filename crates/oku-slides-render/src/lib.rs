@@ -23,6 +23,7 @@ mod error;
 mod fonts;
 mod palette;
 mod registry;
+mod wire;
 mod world;
 
 use std::cell::OnceCell;
@@ -43,7 +44,10 @@ use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
-pub use registry::{PackWidgets, Registries, is_pack_id, load_registry};
+pub use registry::{
+    PackWidgets, Registries, base_registry, is_pack_id, load_registry, probe_registry, registry_from_probe,
+};
+pub use wire::WireError;
 use world::OkuSlidesWorld;
 
 /// Thèmes fournis par la bibliothèque Typst.
@@ -245,7 +249,7 @@ impl Renderer {
 /// Ce que le rendu dit du document : page de chaque slide, boîtes des
 /// éléments, zones libres et jetons effectifs. Boîtes et zones sont rangées
 /// par page.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Layout {
     /// Page de chaque slide, dans l'ordre du document.
     pub slides: Vec<SlidePage>,

@@ -4,6 +4,7 @@ session-not-oku-slides = 此 PDF 並非由 Oku Slides 建立，無法編輯
 session-invalid-deck = 簡報 JSON 無效
 session-invalid-template-set = 範本集無效：{ $path }
 session-not-rendered = 簡報尚未渲染
+session-pack-disabled = 「{ $pack }」套件的小工具已在本次工作階段中停用：{ $reason }。簡報以基本小工具顯示。
 session-no-path = 尚無檔案：請選擇儲存位置
 session-no-slide = 找不到投影片：{ $id }
 session-no-chart = 這裡沒有圖表：{ $subject }

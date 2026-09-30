@@ -327,8 +327,6 @@ impl Pending {
 /// Les fenêtres, leurs onglets et une session par onglet.
 pub struct Workspace {
     fonts: Fonts,
-    /// Registres des widgets, pour lire un fichier hors des sessions.
-    registries: oku_slides_render::Registries,
     platform: Platform,
     layout: Layout,
     /// Fenêtres, de la moins à la plus récemment active.
@@ -367,7 +365,6 @@ impl Workspace {
 
     fn empty(fonts: Fonts, platform: &Platform, dir: Option<PathBuf>) -> Self {
         Self {
-            registries: oku_slides_render::Registries::new(fonts.clone()),
             fonts,
             platform: platform.clone(),
             layout: Layout::new(),

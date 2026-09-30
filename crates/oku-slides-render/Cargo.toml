@@ -29,6 +29,7 @@ speculoos.workspace = true
 oku-slides-pdf.workspace = true
 insta.workspace = true
 hex.workspace = true
+rstest.workspace = true
 
 [lints]
 workspace = true

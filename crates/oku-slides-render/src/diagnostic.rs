@@ -4,14 +4,14 @@
 use oku_slides_i18n::{Localize, Localizer};
 
 /// Gravité d'un message de Typst.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Severity {
     Error,
     Warning,
 }
 
 /// Un message de Typst.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
     pub severity: Severity,
     /// Fichier et ligne (`oku-slides/src/data.typ:12`), s'ils sont connus.

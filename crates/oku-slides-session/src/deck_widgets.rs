@@ -7,6 +7,11 @@
 //! de l'ensemble `Session::widgets_templates`, qui est celui du deck ouvert.
 //! Tout ce qui change `deck.templates` (ops, annuler, rétablir, fusion,
 //! restauration, autre document) passe par ici.
+//!
+//! Repli : un pack qui fait échouer un rendu (délai, mémoire, arrêt du
+//! processus de rendu), celui du deck ou d'un autre emplacement (aperçus,
+//! variantes, polices), est écarté pour la session (`fall_back_to_base`) ;
+//! la base le remplace, sans changer `deck.templates` ni l'ensemble suivi.
 
 use std::sync::Arc;
 
@@ -14,7 +19,8 @@ use snafu::ResultExt;
 
 use oku_slides_core::{Deck, Op, WidgetRegistry};
 use oku_slides_i18n::Localize;
-use oku_slides_render::{Compiled, PackWidgets};
+use oku_slides_render::{PackWidgets, RenderError};
+use oku_slides_render_worker::RemoteCompiled;
 
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 use crate::{DEFAULT_SET, Result, Session, charts};
@@ -43,15 +49,15 @@ impl Session {
     /// Les widgets de l'ensemble `templates` : la base, surchargée par le
     /// `widgets.typ` de son pack s'il en a un.
     ///
-    /// Un pack cassé (Typst qui ne compile pas, schéma refusé) n'est pas
-    /// une erreur : il est journalisé, la base sert, et l'avis rendu (le
+    /// Un pack cassé (Typst qui ne compile pas, schéma refusé, sonde qui
+    /// dépasse ses bornes ou pack déjà écarté) n'est pas une erreur : il est journalisé, la base sert, et l'avis rendu (le
     /// message de l'erreur, localisé comme une erreur de rendu) est à
     /// montrer. Seule la base qui ne se lit pas est une erreur.
     pub(crate) fn resolve_widgets(&mut self, templates: Option<&str>) -> Result<(DeckWidgets, Option<String>)> {
         let id = templates.unwrap_or(DEFAULT_SET);
         let mut notice = None;
         if let Some(source) = self.library.widgets(id) {
-            let loaded = PackWidgets::new(id, source).and_then(|pack| Ok((self.registries.get(Some(&pack))?, pack)));
+            let loaded = PackWidgets::new(id, source).and_then(|pack| Ok((self.worker.probe(&pack)?, pack)));
             match loaded {
                 Ok((registry, pack)) => {
                     let templates = templates.map(str::to_owned);
@@ -63,7 +69,7 @@ impl Session {
                 }
             }
         }
-        let registry = self.registries.get(None).context(RegistrySnafu)?;
+        let registry = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
         Ok((DeckWidgets { templates: templates.map(str::to_owned), pack: None, registry }, notice))
     }
 
@@ -148,14 +154,77 @@ impl Session {
     }
 
     /// Rend `next`, puis l'inscrit dans les sources sous `label`.
-    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>) -> Result<Compiled> {
-        let compiled = self.renderer.render(&next, &self.doc.sources.assets).context(RenderSnafu)?;
+    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>) -> Result<RemoteCompiled> {
+        let compiled = self.render_deck(&next)?;
         #[cfg(test)]
         if std::mem::take(&mut self.failpoints.sources_apply) {
             return crate::error::NotRenderedSnafu.fail()?;
         }
         self.doc.sources.apply(next, label, merge).context(SourcesSnafu)?;
         Ok(compiled)
+    }
+
+    /// Rend `deck` avec les widgets installés. Si leur pack a fait échouer
+    /// le rendu (délai, mémoire, arrêt du processus de rendu), les widgets de
+    /// base les remplacent (voir `fall_back_to_base`) et le rendu est refait une fois.
+    pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
+        let e = match self.renderer.render(deck, &self.doc.sources.assets) {
+            Ok(compiled) => return Ok(compiled),
+            Err(e) => e,
+        };
+        if !self.fall_back_to_base(&e)? {
+            return Err(e).context(RenderSnafu)?;
+        }
+        Ok(self.renderer.render(deck, &self.doc.sources.assets).context(RenderSnafu)?)
+    }
+
+    /// Repli : si `e` est un échec borné et le pack installé fautif, les
+    /// widgets de base le remplacent (rendu du deck, session, sources) et un
+    /// avis nomme le pack et la cause. Vrai si le repli a eu lieu.
+    ///
+    /// Tout emplacement y passe : deck, aperçus de modèles, variantes, polices.
+    pub(crate) fn fall_back_to_base(&mut self, e: &RenderError) -> Result<bool> {
+        let faulty = self.pack.as_ref().is_some_and(|p| self.worker.is_faulty(p));
+        if !(e.kind().is_bounded() && faulty) {
+            return Ok(false);
+        }
+        let pack = self.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default();
+        tracing::warn!(pack, error = %oku_slides_platform::errors::one_line(e), "pack de widgets écarté : widgets de base");
+        let notice = self.localizer.tr_with(
+            "session-pack-disabled",
+            &[("pack", pack.as_str().into()), ("reason", e.localize(&self.localizer).into())],
+        );
+        let base = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
+        self.install_widgets(DeckWidgets { templates: self.widgets_templates.clone(), pack: None, registry: base })?;
+        self.doc.sources.set_registry(self.registry.clone());
+        self.set_notice(notice);
+        Ok(true)
+    }
+
+    /// Le pack installé, sauf s'il est devenu fautif ailleurs : le repli sur
+    /// la base est fait d'abord, et `None` rendu.
+    pub(crate) fn usable_pack(&mut self) -> Result<Option<PackWidgets>> {
+        if let Some(pack) = &self.pack
+            && self.worker.is_faulty(pack)
+        {
+            let e = RenderError::pack_disabled(pack.id());
+            self.fall_back_to_base(&e)?;
+        }
+        Ok(self.pack.clone())
+    }
+
+    /// `attempt`, refait une fois après le repli sur la base si le pack
+    /// installé l'a fait échouer (voir `fall_back_to_base`).
+    pub(crate) fn with_fallback<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
+        let e = match attempt(self) {
+            Ok(v) => return Ok(v),
+            Err(e) => e,
+        };
+        let fell_back = match e.render_error() {
+            Some(re) => self.fall_back_to_base(re)?,
+            None => false,
+        };
+        if fell_back { attempt(self) } else { Err(e) }
     }
 
     /// Le registre suit l'ensemble du document ouvert : s'il a changé

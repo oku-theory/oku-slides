@@ -4,6 +4,7 @@ session-not-oku-slides = यह PDF Oku Slides से नहीं बनाय�
 session-invalid-deck = प्रेज़ेंटेशन का JSON अमान्य है
 session-invalid-template-set = अमान्य टेम्पलेट सेट: { $path }
 session-not-rendered = प्रेज़ेंटेशन अभी रेंडर नहीं हुआ है
+session-pack-disabled = पैक “{ $pack }” के विजेट इस सत्र के लिए बंद कर दिए गए: { $reason }। प्रेज़ेंटेशन मूल विजेट के साथ दिखाया गया है।
 session-no-path = अभी कोई फ़ाइल नहीं: सहेजने की जगह चुनें
 session-no-slide = स्लाइड नहीं मिली: { $id }
 session-no-chart = यहाँ कोई चार्ट नहीं है: { $subject }

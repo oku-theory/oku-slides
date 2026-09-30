@@ -190,7 +190,7 @@ fn move_to_without_a_file_just_writes_there() {
 #[test]
 fn save_copy_writes_a_copy_and_keeps_the_document_file() {
     let d = dir();
-    let (s, path) = saved(&d);
+    let (mut s, path) = saved(&d);
     let copy = d.0.join("copie.oku-slides.pdf");
     s.save_copy(&copy).unwrap();
     assert_that!(copy.exists()).is_true();

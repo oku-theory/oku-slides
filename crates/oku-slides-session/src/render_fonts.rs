@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_core::WidgetRegistry;
-use oku_slides_render::{Fonts, PackWidgets, Renderer};
+use oku_slides_render::{Fonts, PackWidgets};
+use oku_slides_render_worker::RenderSlot;
 
 use crate::{Result, Session, new_renderer};
 
@@ -13,7 +14,7 @@ use crate::{Result, Session, new_renderer};
 pub(crate) struct FontsRenderer {
     /// Polices de l'app et du deck.
     fonts: Fonts,
-    renderer: Renderer,
+    renderer: RenderSlot,
     /// Nombre de polices du deck parmi elles.
     deck_fonts: usize,
 }
@@ -22,8 +23,11 @@ impl Session {
     /// Nouvelles polices dans les sources : nouveau monde Typst. À l'appelant
     /// de dire si elles ont changé : comparer les polices coûte, reconstruire
     /// le rendu plus encore.
+    ///
+    /// Un pack devenu fautif ailleurs : repli sur la base d'abord.
     pub(crate) fn refresh_fonts(&mut self) -> Result<()> {
-        let fonts = self.fonts_renderer(&self.doc.sources.fonts, self.pack.as_ref(), &self.registry)?;
+        let pack = self.usable_pack()?;
+        let fonts = self.fonts_renderer(&self.doc.sources.fonts, pack.as_ref(), &self.registry)?;
         self.install_fonts(fonts);
         Ok(())
     }
@@ -39,7 +43,7 @@ impl Session {
         registry: &Arc<WidgetRegistry>,
     ) -> Result<FontsRenderer> {
         let render_fonts = self.app_fonts.with(fonts.values().cloned());
-        let renderer = new_renderer(render_fonts.clone(), &self.localizer, pack, registry)?;
+        let renderer = new_renderer(&self.worker, render_fonts.clone(), &self.localizer, pack, registry)?;
         Ok(FontsRenderer { fonts: render_fonts, renderer, deck_fonts: fonts.len() })
     }
 

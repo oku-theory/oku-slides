@@ -4,6 +4,7 @@ session-not-oku-slides = 此 PDF 并非由 Oku Slides 创建，无法编辑
 session-invalid-deck = 演示文稿 JSON 无效
 session-invalid-template-set = 模板集无效：{ $path }
 session-not-rendered = 演示文稿尚未渲染
+session-pack-disabled = “{ $pack }”包的小组件已在本次会话中停用：{ $reason }。演示文稿以基础小组件显示。
 session-no-path = 尚无文件：请选择保存位置
 session-no-slide = 找不到幻灯片：{ $id }
 session-no-chart = 这里没有图表：{ $subject }

@@ -1,0 +1,155 @@
+use std::time::Instant;
+
+use oku_slides_platform::RenderLaunch;
+use oku_slides_platform::config::RenderSettings;
+use oku_slides_render::{PackWidgets, RenderErrorKind};
+use speculoos::prelude::*;
+
+use super::*;
+use crate::protocol::{Request, Response};
+use crate::test_packs::{LOOP_ON_IMPORT, tiny_deck};
+
+fn settings(timeout_ms: u64) -> RenderSettings {
+    RenderSettings { timeout_ms, memory_mib: 4096, max_frame_mib: 64 }
+}
+
+fn looping_probe() -> Request {
+    Request::Probe { pack: WirePack { id: "boucle".into(), source: LOOP_ON_IMPORT.into() } }
+}
+
+#[test]
+fn link_in_process_answers_open_slot() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    let (resp, _) = link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    assert_that!(matches!(resp, Response::Ok)).is_true();
+    assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn link_in_process_probe_that_loops_times_out_and_restarts() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(300));
+    let started = Instant::now();
+    let err = link.call(&looping_probe(), &[]).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
+    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_secs(2));
+    // La requête suivante relance un travailleur neuf.
+    link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    assert_that!(link.restarts).is_equal_to(1);
+}
+
+#[test]
+fn link_replays_open_slots_after_restart() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(300));
+    link.call(&Request::OpenSlot { slot: 7, fonts: vec![] }, &[]).unwrap();
+    link.state.slots.insert(7, SlotState { fonts: vec![], pack: None, last_assets: vec![] });
+    let _ = link.call(&looping_probe(), &[]);
+    // Marge : seul le rejeu est testé ici, pas la durée du rendu.
+    link.settings.timeout_ms = 30_000;
+    let deck = Box::new(tiny_deck());
+    let (resp, _) = link.call(&Request::Render { slot: 7, deck, assets: vec![] }, &[]).unwrap();
+    assert_that!(matches!(resp, Response::Compiled(_))).is_true();
+    assert_that!(link.restarts).is_equal_to(1);
+}
+
+#[test]
+fn link_replay_skips_a_faulty_pack() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    let pack = WirePack { id: "boucle".into(), source: LOOP_ON_IMPORT.into() };
+    link.faulty_packs.insert(fingerprint_hex(&pack.id, &pack.source));
+    link.state.slots.insert(3, SlotState { fonts: vec![], pack: Some(pack), last_assets: vec![] });
+    // Sans l'exclusion, le rejeu du pack qui boucle dépasserait le délai.
+    let (resp, _) = link.call(&Request::CloseSlot { slot: 3 }, &[]).unwrap();
+    assert_that!(matches!(resp, Response::Ok)).is_true();
+}
+
+#[test]
+fn link_first_launch_replays_language_and_fonts() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    link.state.locale = Some("fr".into());
+    link.state.fonts.insert("f1".into(), Arc::from(b"not a font".to_vec()));
+    link.state.slots.insert(2, SlotState { fonts: vec!["f1".into()], pack: None, last_assets: vec![] });
+    link.call(&Request::Release { slot: 2, generations: vec![] }, &[]).unwrap();
+    assert_that!(link.sent_fonts.contains("f1")).is_true();
+    assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn link_error_response_is_not_a_link_failure() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    let (resp, _) = link.call(&Request::OpenSlot { slot: 1, fonts: vec!["inconnue".into()] }, &[]).unwrap();
+    assert_that!(matches!(resp, Response::Error { .. })).is_true();
+    link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn fingerprint_hex_matches_pack_fingerprint() {
+    let pack = PackWidgets::new("p", "#let registry = ()").unwrap();
+    assert_that!(fingerprint_hex("p", "#let registry = ()")).is_equal_to(hex::encode(pack.fingerprint()));
+}
+
+#[test]
+fn link_replay_with_missing_font_fails_then_reconnects() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    link.state.slots.insert(4, SlotState { fonts: vec!["absente".into()], pack: None, last_assets: vec![] });
+    let err = link.call(&Request::Release { slot: 4, generations: vec![] }, &[]).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
+    link.state.slots.remove(&4);
+    link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    assert_that!(link.restarts).is_equal_to(1);
+}
+
+#[test]
+fn link_replay_refused_by_worker_drops_the_half_replayed_worker() {
+    let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
+    let bad = WirePack { id: "pas un id/".into(), source: "#let registry = ()".into() };
+    link.state.slots.insert(5, SlotState { fonts: vec![], pack: Some(bad), last_assets: vec![] });
+    assert_that!(link.call(&Request::Release { slot: 5, generations: vec![] }, &[])).is_err();
+    link.state.slots.get_mut(&5).unwrap().pack = None;
+    // Un travailleur neuf : l'emplacement 5 y est rejoué, donc rendable.
+    let deck = Box::new(tiny_deck());
+    let (resp, _) = link.call(&Request::Render { slot: 5, deck, assets: vec![] }, &[]).unwrap();
+    assert_that!(matches!(resp, Response::Compiled(_))).is_true();
+    assert_that!(link.restarts).is_equal_to(1);
+}
+
+#[test]
+fn frame_failure_of_dead_worker_is_worker_lost_and_bad_frame_is_frame() {
+    use snafu::ResultExt;
+
+    use crate::error::{IoSnafu, TooLargeSnafu, TruncatedSnafu};
+    let io = Err::<(), _>(std::io::Error::other("rompu")).context(IoSnafu).unwrap_err();
+    assert_that!(frame_failure(io).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(TruncatedSnafu.build()).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(TooLargeSnafu { len: 2usize, max: 1usize }.build()).kind())
+        .is_equal_to(RenderErrorKind::Frame);
+}
+
+#[test]
+fn link_outgoing_frame_over_max_is_refused_as_frame_and_keeps_the_worker() {
+    let mut link =
+        Link::new(RenderLaunch::InProcess, RenderSettings { timeout_ms: 10_000, memory_mib: 4096, max_frame_mib: 1 });
+    link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    let big = vec![0u8; 1024 * 1024 + 1];
+    let err = link.call(&Request::PutFont { id: "grosse".into() }, &big).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
+    // Rien n'a été écrit : le même travailleur répond encore.
+    assert_that!(link.connected()).is_true();
+    link.call(&Request::OpenSlot { slot: 2, fonts: vec![] }, &[]).unwrap();
+    assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
+    let s = RenderSettings { timeout_ms: 1_500, memory_mib: 2, max_frame_mib: 1 };
+    let cmd = worker_command(std::path::Path::new("/bin/app"), &s);
+    let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+    assert_that!(args).is_equal_to(
+        ["--render-worker", "--max-frame-bytes", "1048576", "--timeout-ms", "1500", "--memory-bytes", "2097152"]
+            .map(str::to_owned)
+            .to_vec(),
+    );
+    let env: Vec<_> = cmd.get_envs().collect();
+    assert_that!(env)
+        .contains((std::ffi::OsStr::new(oku_slides_platform::RENDER_WORKER_ENV), Some(std::ffi::OsStr::new("1"))));
+}

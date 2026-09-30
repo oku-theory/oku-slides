@@ -31,7 +31,8 @@ pub use oku_slides_platform::Platform;
 pub use oku_slides_platform::config::Settings;
 pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
-use oku_slides_render::{Compiled, PackWidgets, Registries, Renderer};
+use oku_slides_render::{PackWidgets, RenderError, RenderErrorKind};
+use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 
 pub mod agent;
 mod appearance;
@@ -282,8 +283,9 @@ pub struct Session {
     doc_defaults: DocDefaults,
     /// Plafonds des sources lues dans un PDF ou dans la reprise (`[sources]`).
     source_limits: SourceLimits,
-    /// Registres des widgets déjà lus, par pack.
-    registries: Registries,
+    /// Processus de rendu partagé par les rendus de la session : sondes des
+    /// packs, packs fautifs.
+    worker: RenderWorker,
     /// Registre des widgets du document ouvert : les ops et le rendu s'en
     /// servent (voir `deck_widgets` pour l'invariant).
     registry: Arc<WidgetRegistry>,
@@ -293,11 +295,11 @@ pub struct Session {
     /// `pack` ont été résolus.
     widgets_templates: Option<String>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
-    template_renderer: Option<Renderer>,
+    template_renderer: Option<RenderSlot>,
     template_cache: Option<templates_mode::Previews>,
     /// Rendu des variantes proposées par l'agent, séparé du deck.
-    variant_renderer: Option<Renderer>,
-    renderer: Renderer,
+    variant_renderer: Option<RenderSlot>,
+    renderer: RenderSlot,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
     render_fonts: Fonts,
@@ -306,7 +308,7 @@ pub struct Session {
     render_deck_fonts: usize,
     /// Apparence tirée du dernier rendu.
     appearance: Appearance,
-    compiled: Option<Compiled>,
+    compiled: Option<RemoteCompiled>,
     svg_cache: HashMap<u128, Arc<str>>,
     /// Slide courante et grille de l'interface, gardées pour la reprise.
     ui: UiState,
@@ -322,18 +324,25 @@ pub struct Session {
     failpoints: deck_widgets::Failpoints,
 }
 
-/// Un rendu des widgets de `pack` (de registre `registry`), dont l'image
-/// absente se dit dans la langue de l'utilisateur.
+/// Un emplacement de `worker` avec les widgets de `pack` (de registre
+/// `registry`), dont l'image absente se dit dans la langue de l'utilisateur.
+///
+/// Un pack fautif n'est pas posé : la base reste. À l'appelant de s'être
+/// replié d'abord (`Session::usable_pack`), pour que la session suive.
 pub(crate) fn new_renderer(
+    worker: &RenderWorker,
     fonts: Fonts,
     l: &Localizer,
     pack: Option<&PackWidgets>,
     registry: &Arc<WidgetRegistry>,
-) -> Result<Renderer> {
-    let mut renderer = Renderer::new(fonts).context(RenderSnafu)?;
-    renderer.set_widgets(pack, registry.clone()).context(RenderSnafu)?;
-    renderer.set_language(l).context(RenderSnafu)?;
-    Ok(renderer)
+) -> Result<RenderSlot> {
+    let base = oku_slides_render::base_registry(&fonts).context(RegistrySnafu)?;
+    let mut slot = worker.slot(&fonts, l, base).context(RenderSnafu)?;
+    let pack = pack.filter(|p| !worker.is_faulty(p));
+    if pack.is_some() {
+        slot.set_widgets(pack, registry.clone()).context(RenderSnafu)?;
+    }
+    Ok(slot)
 }
 
 /// Deck vide : une couverture (`title`) et une slide de contenu (`content`)
@@ -378,8 +387,8 @@ impl Session {
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
-        let mut registries = Registries::new(app_fonts.clone());
-        let registry = registries.get(None).context(RegistrySnafu)?;
+        let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
+        let registry = oku_slides_render::base_registry(&app_fonts).context(RegistrySnafu)?;
         let blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
         let mut s = Self {
             doc: Document { blank: true, ..Document::new(blank, None, &doc_defaults) },
@@ -389,8 +398,8 @@ impl Session {
             storage,
             doc_defaults,
             source_limits: files::source_limits(settings),
-            renderer: new_renderer(app_fonts.clone(), l, None, &registry)?,
-            registries,
+            renderer: new_renderer(&worker, app_fonts.clone(), l, None, &registry)?,
+            worker,
             registry,
             pack: None,
             widgets_templates: None,
@@ -707,9 +716,8 @@ impl Session {
     }
 
     /// Écrit le document (PDF et sources) dans `path` ; son empreinte.
-    pub(crate) fn write_file(&self, path: &Path) -> Result<String> {
-        let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
-        let pdf = compiled.pdf().context(RenderSnafu)?;
+    pub(crate) fn write_file(&mut self, path: &Path) -> Result<String> {
+        let pdf = self.with_compiled(RemoteCompiled::pdf)?;
         let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
         let out = oku_slides_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
@@ -720,16 +728,35 @@ impl Session {
     }
 
     /// Installe un rendu : le cache ne garde que les pages encore présentes.
-    fn install(&mut self, compiled: Compiled) {
+    fn install(&mut self, compiled: RemoteCompiled) {
         let live: HashSet<u128> = (0..compiled.page_count()).filter_map(|i| compiled.page_hash(i)).collect();
         self.svg_cache.retain(|h, _| live.contains(h));
         self.appearance = compiled.layout().tokens.as_ref().map(appearance).unwrap_or_default();
         self.compiled = Some(compiled);
     }
 
-    fn rerender(&mut self) -> Result<()> {
+    /// `export` sur le rendu installé. Une poignée périmée (processus de
+    /// rendu relancé depuis) : le document est re-rendu une fois et `export`
+    /// refait ; seul l'échec de ce re-rendu ou de ce second essai remonte.
+    pub(crate) fn with_compiled<T>(
+        &mut self,
+        export: impl Fn(&RemoteCompiled) -> std::result::Result<T, RenderError>,
+    ) -> Result<T> {
+        let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
+        match export(compiled) {
+            Err(e) if e.kind() == RenderErrorKind::Stale => {
+                tracing::debug!("rendu périmé (processus de rendu relancé) : re-rendu");
+                self.rerender()?;
+                let compiled = self.compiled.as_ref().context(NotRenderedSnafu)?;
+                Ok(export(compiled).context(RenderSnafu)?)
+            }
+            other => Ok(other.context(RenderSnafu)?),
+        }
+    }
+
+    pub(crate) fn rerender(&mut self) -> Result<()> {
         let started = std::time::Instant::now();
-        let compiled = self.renderer.render(self.doc.sources.deck(), &self.doc.sources.assets).context(RenderSnafu)?;
+        let compiled = self.render_deck(&self.doc.sources.deck().clone())?;
         tracing::debug!(pages = compiled.page_count(), ms = started.elapsed().as_millis(), "rendu");
         self.install(compiled);
         Ok(())
@@ -845,13 +872,13 @@ impl Session {
     /// SVG d'une slide, mis en cache par empreinte de page.
     pub fn svg(&mut self, id: &str) -> Result<Arc<str>> {
         let page = self.page_of(id).context(NoSlideSnafu { id })?;
-        let compiled = self.compiled.as_ref().context(NoSlideSnafu { id })?;
-        let hash = compiled.page_hash(page - 1).unwrap_or_default();
-        if let Some(svg) = self.svg_cache.get(&hash) {
+        let hash = |s: &Self| s.compiled.as_ref().and_then(|c| c.page_hash(page - 1)).unwrap_or_default();
+        if let Some(svg) = self.svg_cache.get(&hash(self)) {
             return Ok(svg.clone());
         }
-        let svg: Arc<str> = compiled.svg(page - 1).context(RenderSnafu)?.into();
-        self.svg_cache.insert(hash, svg.clone());
+        let svg: Arc<str> = self.with_compiled(|c| c.svg(page - 1))?.into();
+        // Empreinte du rendu installé : un re-rendu (poignée périmée) a pu le remplacer.
+        self.svg_cache.insert(hash(self), svg.clone());
         Ok(svg)
     }
 

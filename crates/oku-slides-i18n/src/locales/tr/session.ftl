@@ -4,6 +4,7 @@ session-not-oku-slides = Bu PDF Oku Slides ile oluşturulmamış: düzenlenemez
 session-invalid-deck = Geçersiz sunu JSON'u
 session-invalid-template-set = Geçersiz şablon seti: { $path }
 session-not-rendered = Sunu henüz oluşturulmadı
+session-pack-disabled = “{ $pack }” paketinin widget'ları bu oturum için devre dışı bırakıldı: { $reason }. Sunu temel widget'larla gösteriliyor.
 session-no-path = Henüz dosya yok: nereye kaydedileceğini seçin
 session-no-slide = Slayt bulunamadı: { $id }
 session-no-chart = Burada grafik yok: { $subject }

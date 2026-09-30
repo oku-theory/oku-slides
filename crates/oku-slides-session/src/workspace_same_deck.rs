@@ -43,11 +43,11 @@ impl Workspace {
     /// rien à lire.
     /// Le registre de base suffit : seule l'identité du deck est lue.
     fn reader(ws: &Mutex<Self>, path: &Path) -> Result<Option<(Storage, SourceLimits, Arc<WidgetRegistry>)>> {
-        let mut w = Self::lock(ws);
+        let w = Self::lock(ws);
         if w.tab_with_path(path).is_some() {
             return Ok(None);
         }
-        let registry = w.registries.get(None).context(RegistrySnafu)?;
+        let registry = oku_slides_render::base_registry(&w.fonts).context(RegistrySnafu)?;
         Ok(Some((w.platform.storage.clone(), source_limits(&w.platform.settings), registry)))
     }
 

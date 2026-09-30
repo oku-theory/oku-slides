@@ -15,6 +15,7 @@ oku-slides-core.workspace = true
 oku-slides-chart.workspace = true
 oku-slides-a2ui.workspace = true
 oku-slides-render.workspace = true
+oku-slides-render-worker.workspace = true
 oku-slides-pdf.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -32,3 +33,9 @@ tempfile.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+# Binaire à main propre : il sert aussi de travailleur (`--render-worker`).
+name = "issue_0327_pack_qui_boucle"
+path = "tests/regressions/issue_0327_pack_qui_boucle.rs"
+harness = false

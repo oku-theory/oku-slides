@@ -99,15 +99,26 @@ impl Session {
 
     /// Surface `show_variants` : chaque variante appliquée à un clone, rendue,
     /// puis jetée. Une variante invalide fait échouer tout l'appel.
+    ///
+    /// Un pack qui fait échouer un rendu (délai, mémoire, arrêt) : repli sur
+    /// la base, avec son avis, et variantes refaites une fois.
     pub fn variants_surface(&mut self, id: &str, spec: &ShowVariants) -> Result<Surface> {
         check_len("variants", spec.variants.len(), forms::VARIANTS)?;
         self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;
+        let svgs = self.with_fallback(|s| s.render_variants(spec))?;
+        Ok(forms::variants(id, spec, &svgs, &self.localizer))
+    }
+
+    /// SVG de la slide de `spec` dans chaque variante, rendue dans son emplacement.
+    fn render_variants(&mut self, spec: &ShowVariants) -> Result<Vec<Arc<str>>> {
+        let pack = self.usable_pack()?;
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
             None => self.variant_renderer.insert(new_renderer(
+                &self.worker,
                 self.render_fonts.clone(),
                 &self.localizer,
-                self.pack.as_ref(),
+                pack.as_ref(),
                 &self.registry,
             )?),
         };
@@ -130,7 +141,7 @@ impl Session {
                 .context(AgentFormSnafu { reason: format!("variants[{i}]: slide {} removed", spec.slide) })?;
             svgs.push(compiled.svg(page - 1).context(RenderSnafu)?.into());
         }
-        Ok(forms::variants(id, spec, &svgs, &self.localizer))
+        Ok(svgs)
     }
 }
 

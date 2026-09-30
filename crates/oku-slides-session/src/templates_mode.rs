@@ -179,39 +179,51 @@ impl Session {
 
     /// Aperçus d'un ensemble de modèles, rendus avec le thème, les jetons, les
     /// paramètres et les variables du deck. En cache tant que rien ne change.
+    ///
+    /// Un pack qui fait échouer l'aperçu (délai, mémoire, arrêt) : repli sur
+    /// la base, avec son avis, et aperçu refait une fois.
     pub fn templates_view(&mut self, set: Option<String>) -> Result<TemplatesView> {
         let id = set.unwrap_or_else(|| self.deck_set().to_owned());
         // Un ensemble disparu (supprimé, ou d'une autre machine) : celui par défaut.
         let (set, builtin) = self.get_set(&id).or_else(|_| self.get_set(DEFAULT_SET))?;
-        let base = self.user_deck();
-        let views = match &self.template_cache {
-            Some(p) if p.set == *set && same_style(&p.deck, base) => p.views.clone(),
-            _ => {
-                let deck = styled_like(base, set.templates.iter().map(|t| t.slide.clone()).collect());
-                let renderer = match &mut self.template_renderer {
-                    Some(r) => r,
-                    None => self.template_renderer.insert(new_renderer(
-                        self.render_fonts.clone(),
-                        &self.localizer,
-                        self.pack.as_ref(),
-                        &self.registry,
-                    )?),
-                };
-                let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
-                let layout = compiled.layout();
-                let views = set
-                    .templates
-                    .iter()
-                    .map(|t| {
-                        let page = layout.page_of(&t.slide.id).unwrap_or(1);
-                        let svg = compiled.svg(page - 1).context(RenderSnafu)?;
-                        Ok(TemplateView { template: t.clone(), svg: svg.into() })
-                    })
-                    .collect::<Result<Arc<[TemplateView]>>>()?;
+        let cached = match &self.template_cache {
+            Some(p) if p.set == *set && same_style(&p.deck, self.user_deck()) => Some(p.views.clone()),
+            _ => None,
+        };
+        let views = match cached {
+            Some(views) => views,
+            None => {
+                let deck = styled_like(self.user_deck(), set.templates.iter().map(|t| t.slide.clone()).collect());
+                let views = self.with_fallback(|s| s.render_previews(&deck, &set))?;
                 self.template_cache = Some(Previews { set: set.clone().into_owned(), deck, views: views.clone() });
                 views
             }
         };
         Ok(TemplatesView { set: set.info(builtin), sets: self.library.list(), templates: views })
+    }
+
+    /// Rend `deck`, les modèles de `set` au style du deck, dans l'emplacement des aperçus.
+    fn render_previews(&mut self, deck: &Deck, set: &TemplateSet) -> Result<Arc<[TemplateView]>> {
+        let pack = self.usable_pack()?;
+        let renderer = match &mut self.template_renderer {
+            Some(r) => r,
+            None => self.template_renderer.insert(new_renderer(
+                &self.worker,
+                self.render_fonts.clone(),
+                &self.localizer,
+                pack.as_ref(),
+                &self.registry,
+            )?),
+        };
+        let compiled = renderer.render(deck, &self.doc.sources.assets).context(RenderSnafu)?;
+        let layout = compiled.layout();
+        set.templates
+            .iter()
+            .map(|t| {
+                let page = layout.page_of(&t.slide.id).unwrap_or(1);
+                let svg = compiled.svg(page - 1).context(RenderSnafu)?;
+                Ok(TemplateView { template: t.clone(), svg: svg.into() })
+            })
+            .collect()
     }
 }

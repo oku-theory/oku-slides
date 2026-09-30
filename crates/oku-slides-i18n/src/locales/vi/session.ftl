@@ -4,6 +4,7 @@ session-not-oku-slides = PDF này không được tạo bằng Oku Slides: khôn
 session-invalid-deck = JSON bản trình bày không hợp lệ
 session-invalid-template-set = Bộ mẫu không hợp lệ: { $path }
 session-not-rendered = Bản trình bày chưa được kết xuất
+session-pack-disabled = Các widget của gói “{ $pack }” đã bị tắt trong phiên này: { $reason }. Bản trình bày được hiển thị với các widget cơ bản.
 session-no-path = Chưa có tệp: hãy chọn nơi lưu
 session-no-slide = Không tìm thấy trang chiếu: { $id }
 session-no-chart = Không có biểu đồ ở đây: { $subject }
