@@ -1,7 +1,8 @@
 /**
- * Police CSS d'un style Typst et ses métriques verticales, mesurées dans le
- * DOM : elles dépendent de la police (Newsreader et Instrument Sans n'ont ni la
- * même capitale ni les mêmes ascendante et descendante). Sans mise en page
+ * Police CSS d'un style Typst et ses métriques, mesurées dans le DOM : elles
+ * dépendent de la police (Newsreader et Instrument Sans n'ont ni la même
+ * capitale ni les mêmes ascendante et descendante) et de sa taille optique,
+ * qu'un `canvas` ignore. Sans mise en page
  * (tests), les mesures valent `null` et l'appelant garde une valeur par défaut.
  */
 import type { TextStyle } from "./api";
@@ -22,6 +23,18 @@ export interface Font {
   family: string;
   /** Taille (px). */
   size: number;
+  /** Taille optique (axe `opsz`) ; sans elle, celle du navigateur (la taille en px). */
+  opsz?: number;
+}
+
+/** Typographie d'une sonde de mesure. */
+function applyFont(el: HTMLElement, font: Font) {
+  Object.assign(el.style, {
+    fontFamily: font.family,
+    fontSize: `${font.size}px`,
+    fontWeight: String(font.weight),
+    fontVariationSettings: font.opsz === undefined ? "" : `'opsz' ${font.opsz}`,
+  });
 }
 
 const cache = new Map<string, number>();
@@ -32,13 +45,13 @@ const cache = new Map<string, number>();
  */
 function measure(font: Font, key: string, build: (probe: HTMLElement) => () => number): number | null {
   const shorthand = `${font.weight} ${font.size}px ${font.family}`;
-  const id = `${shorthand}/${key}`;
+  const id = `${shorthand}/${font.opsz ?? "auto"}/${key}`;
   const known = cache.get(id);
   if (known !== undefined) return known;
   if (typeof document === "undefined" || !document.body) return null;
   const probe = document.createElement("div");
   probe.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;white-space:pre;pointer-events:none";
-  Object.assign(probe.style, { fontFamily: font.family, fontSize: `${font.size}px`, fontWeight: String(font.weight) });
+  applyFont(probe, font);
   const read = build(probe);
   document.body.append(probe);
   const value = read();
@@ -70,4 +83,28 @@ export function baselineIn(font: Font, line: number): number | null {
     probe.append(row);
     return () => mark.getBoundingClientRect().top - row.getBoundingClientRect().top;
   });
+}
+
+let widthProbe: HTMLElement | null = null;
+
+/**
+ * Largeur (px) de la plus longue ligne de `text`, `tracking` px entre les
+ * lettres. Mesurée à chaque appel (le texte change à chaque frappe), sur une
+ * sonde gardée dans le document.
+ */
+export function textWidth(font: Font, text: string, tracking: number): number | null {
+  if (typeof document === "undefined" || !document.body) return null;
+  if (!widthProbe?.isConnected) {
+    widthProbe = document.createElement("span");
+    widthProbe.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;white-space:pre;pointer-events:none";
+    document.body.append(widthProbe);
+  }
+  applyFont(widthProbe, font);
+  widthProbe.style.letterSpacing = tracking ? `${tracking}px` : "";
+  let widest = 0;
+  for (const line of text.split("\n")) {
+    widthProbe.textContent = line;
+    widest = Math.max(widest, widthProbe.getBoundingClientRect().width);
+  }
+  return widest > 0 ? widest : null;
 }

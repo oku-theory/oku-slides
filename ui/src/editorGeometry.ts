@@ -6,21 +6,11 @@
 import type { CSSProperties } from "react";
 import type { FieldView, TextStyle } from "./api";
 import { editorBackground } from "./color";
-import { baselineIn, capHeight, cssFont } from "./fontMetrics";
+import { baselineIn, capHeight, cssFont, textWidth } from "./fontMetrics";
 import { fieldHitBox, lineHeight, unplaced } from "./stageFields";
 
-/** Marge intérieure de l'éditeur (px écran) : le cadre ne colle pas aux lettres. */
+/** Marge intérieure de l'éditeur (px écran) : le curseur et la sélection ne collent pas au bord. */
 const PAD = 5;
-
-let measureCtx: CanvasRenderingContext2D | null = null;
-
-/** Largeur (px) de la plus longue ligne, dans la police donnée. */
-function textWidth(text: string, font: string, tracking: number): number {
-  measureCtx ??= document.createElement("canvas").getContext("2d");
-  if (!measureCtx) return 0;
-  measureCtx.font = font;
-  return Math.max(0, ...text.split("\n").map((l) => measureCtx!.measureText(l).width + tracking * l.length));
-}
 
 /** Typographie CSS d'un style Typst à l'échelle de la scène. */
 export function typography(st: TextStyle, scale: number) {
@@ -42,6 +32,9 @@ export function typography(st: TextStyle, scale: number) {
       fontWeight: weight,
       lineHeight: `${line}px`,
       letterSpacing: tracking || undefined,
+      // Typst règle la taille optique sur la taille en pt ; CSS (auto) sur les px
+      // à l'écran : sans cela, une scène réduite prend une autre coupe de la police.
+      fontVariationSettings: `'opsz' ${st.size}`,
       textAlign: align,
       textTransform: st.case === "upper" ? "uppercase" : st.case === "lower" ? "lowercase" : undefined,
     } satisfies CSSProperties,
@@ -73,7 +66,7 @@ export function editorGeometry(f: FieldView, draft: string, scale: number, field
   // Ligne de base de la première ligne : Typst la place à y + hauteur de capitale ;
   // CSS à mi-interligne + (ascendante − descendante) / 2, arrondis du moteur compris.
   // Mesurées pour la police ; sans mise en page, une police à capitale de 0,7 em.
-  const font = { weight: ty.weight, family: ty.family, size: ty.size };
+  const font = { weight: ty.weight, family: ty.family, size: ty.size, opsz: st.size };
   const cap = capHeight(font) ?? ty.size * 0.7;
   const top = y + cap - (baselineIn(font, ty.line) ?? ty.line / 2 + ty.size * 0.325);
   const zoneLeft = f.ax * scale;
@@ -87,7 +80,7 @@ export function editorGeometry(f: FieldView, draft: string, scale: number, field
     x = zoneLeft;
   } else {
     const shown = st.case === "upper" ? draft.toUpperCase() : st.case === "lower" ? draft.toLowerCase() : draft;
-    const natural = textWidth(shown, `${ty.weight} ${ty.size}px ${ty.family}`, ty.tracking) + ty.size * 0.35; // place du curseur
+    const natural = (textWidth(font, shown, ty.tracking) ?? 0) + ty.size * 0.35; // place du curseur
     width = Math.min(Math.max(natural, ty.size * 3), zoneWidth);
     x = ty.align === "center"
       ? zoneLeft + (zoneWidth - width) / 2
@@ -103,6 +96,9 @@ export function editorGeometry(f: FieldView, draft: string, scale: number, field
     minHeight: ty.line + 2 * PAD,
     padding: PAD,
     color: st.fill ?? undefined,
-    background: editorBackground(st.fill, st.bg),
+    // Le fond cache le texte rendu sous le brouillon, sur ses lignes seulement :
+    // la marge déborderait sur les champs voisins (le titre sous son surtitre).
+    backgroundColor: editorBackground(st.fill, st.bg),
+    backgroundClip: "content-box",
   };
 }

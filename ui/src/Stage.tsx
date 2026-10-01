@@ -275,7 +275,6 @@ export default function Stage({
   // La grille se montre quand on travaille avec : élément accroché choisi, ou glisser en cours.
   const zone = view.zone;
   const grid = zone?.grid ?? null;
-  const selectedEl = selected ? findElement(view.slide, selected) : undefined;
   const liveCell = drag ? draggedCell(drag) : null;
   // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
   const showGrid = !!grid && (showGridAlways || !!liveCell);
@@ -299,7 +298,7 @@ export default function Stage({
           onPointerCancel={() => setDrag(null)}
         >
           {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
-          {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell ?? selectedEl?.cell ?? null} />}
+          {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
           <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
             {view.targets.map((tg) => {
               const sel = tg.id === selected;
@@ -308,7 +307,7 @@ export default function Stage({
               return (
                 <div
                   key={tg.id}
-                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}`}
+                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}${editField?.owner === tg.id ? " editing" : ""}`}
                   style={box(tg)}
                   aria-label={label}
                   aria-selected={sel}
@@ -319,7 +318,7 @@ export default function Stage({
                   }}
                 >
                   {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
-                  {sel && movable &&
+                  {sel && movable && !editing &&
                     (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                       <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
                     ))}

@@ -26,3 +26,15 @@ test("editorGeometry of a rich field spans its zone, where Typst wraps", () => {
   expect(css.left).toBe(160 - 5);
   expect(css.width).toBe(720 + 2 * 5);
 });
+
+test("editorGeometry paints its background on the text lines only, not its padding", () => {
+  const f = field();
+  const css = editorGeometry(f, "Un bloc", 1, [f]);
+  expect(css.backgroundClip).toBe("content-box");
+});
+
+test("editorGeometry sets the optical size to the Typst size in pt, not the screen size", () => {
+  const f = field();
+  const css = editorGeometry(f, "Un bloc", 0.5, [f]);
+  expect(css.fontVariationSettings).toBe("'opsz' 40");
+});
