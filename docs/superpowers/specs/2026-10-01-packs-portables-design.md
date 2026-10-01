@@ -135,7 +135,14 @@ packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
   version (`parent` = l'ancienne courante, `created` = maintenant), la rend
   courante, l'ajoute au bundle du deck mis de côté, qui y passe
   (`SetTemplates`).
-- « Enregistrer comme copie » : un nouvel id, sans `parent`.
+- **Une version par session d'édition.** Le premier enregistrement (manuel
+  ou automatique) d'une session du mode modèles crée la version (`parent` =
+  la courante au début de la session) et la rend courante ; chaque
+  enregistrement suivant de la même session la **remplace** (même `parent`) :
+  la version intermédiaire est supprimée de la bibliothèque (le bundle du deck
+  reste en ajout seul), jusqu'à la sortie du mode modèles.
+- « Enregistrer comme copie » : un nouvel id, sans `parent` ; la session
+  continue sur la version de la copie.
 - Modifier un pack intégré crée la version de l'utilisateur sous l'id du
   pack intégré (plus de copie séparée).
 
