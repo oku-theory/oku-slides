@@ -13,6 +13,42 @@ fn sample(at: Instant) -> Sample {
     Sample { at, busy_for: None, rss: None, parent_gone: false }
 }
 
+/// Un relevé pendant une requête courte, sans mesure, à `at`.
+fn busy(at: Instant) -> Sample {
+    Sample { busy_for: Some(Duration::from_millis(10)), ..sample(at) }
+}
+
+#[test]
+fn guard_memory_over_the_limit_at_rest_never_stops() {
+    // L'allocateur garde les pages d'une grosse requête : au repos, la RSS
+    // reste haute sans que rien ne tourne (t-340).
+    let t0 = Instant::now();
+    let mut guard = Guard::new(limits());
+    for dt in [Duration::ZERO, MEMORY_GRACE, MEMORY_GRACE * 3] {
+        assert_that!(guard.check(&Sample { rss: Some(1_001), ..sample(t0 + dt) })).is_none();
+    }
+}
+
+#[test]
+fn guard_memory_grace_restarts_after_a_rest() {
+    let t0 = Instant::now();
+    let mut guard = Guard::new(limits());
+    assert_that!(guard.check(&Sample { rss: Some(1_001), ..busy(t0) })).is_none();
+    assert_that!(guard.check(&Sample { rss: Some(1_001), ..sample(t0 + MEMORY_GRACE / 2) })).is_none();
+    // Nouvelle requête : le dépassement compte à partir d'elle.
+    assert_that!(guard.check(&Sample { rss: Some(1_001), ..busy(t0 + MEMORY_GRACE) })).is_none();
+}
+
+#[rstest::rstest]
+#[case(500, 500, false)]
+#[case(500, 1, true)]
+#[case(500, 700, true)]
+#[case(1, 1, false)]
+fn parent_changed_compares_with_the_parent_at_launch(#[case] at_launch: u32, #[case] now: u32, #[case] changed: bool) {
+    // Un hôte PID 1 (conteneur) n'est pas un parent disparu (t-340).
+    assert_that!(parent_changed(at_launch, now)).is_equal_to(changed);
+}
+
 #[test]
 fn limits_from_host_double_the_timeout() {
     assert_that!(limits().request).is_equal_to(Some(Duration::from_millis(2_000)));
@@ -38,7 +74,7 @@ fn guard_request_over_twice_the_timeout_stops() {
 #[test]
 fn guard_memory_over_the_limit_stops_after_the_grace_only() {
     let t0 = Instant::now();
-    let over = |dt: Duration| Sample { rss: Some(1_001), ..sample(t0 + dt) };
+    let over = |dt: Duration| Sample { rss: Some(1_001), ..busy(t0 + dt) };
     let mut guard = Guard::new(limits());
     // L'hôte vivant a d'abord le temps de tuer le travailleur lui-même.
     assert_that!(guard.check(&over(Duration::ZERO))).is_none();
@@ -50,9 +86,9 @@ fn guard_memory_over_the_limit_stops_after_the_grace_only() {
 fn guard_memory_back_under_the_limit_restarts_the_grace() {
     let t0 = Instant::now();
     let mut guard = Guard::new(limits());
-    assert_that!(guard.check(&Sample { rss: Some(1_001), ..sample(t0) })).is_none();
-    assert_that!(guard.check(&Sample { rss: Some(10), ..sample(t0 + MEMORY_GRACE / 2) })).is_none();
-    assert_that!(guard.check(&Sample { rss: Some(1_001), ..sample(t0 + MEMORY_GRACE) })).is_none();
+    assert_that!(guard.check(&Sample { rss: Some(1_001), ..busy(t0) })).is_none();
+    assert_that!(guard.check(&Sample { rss: Some(10), ..busy(t0 + MEMORY_GRACE / 2) })).is_none();
+    assert_that!(guard.check(&Sample { rss: Some(1_001), ..busy(t0 + MEMORY_GRACE) })).is_none();
 }
 
 #[test]

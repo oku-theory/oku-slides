@@ -60,12 +60,26 @@ fn process_probe_that_allocates_is_stopped_out_of_memory() {
 }
 
 #[test]
-fn process_killed_from_outside_is_reported_lost_then_restarted() {
+fn process_killed_at_rest_is_restarted_without_error() {
     let w = worker(30_000, 4096);
     let l = Localizer::new(Some("fr"));
     let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
     s.render(&roadmap(), &BTreeMap::new()).unwrap();
     w.kill_for_test();
-    assert_that!(s.render(&roadmap(), &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    // Mort au repos : la requête suivante relance un travailleur, sans erreur (t-340).
     assert_that!(s.render(&roadmap(), &BTreeMap::new()).map(|c| c.page_count()).unwrap()).is_greater_than(0);
+}
+
+#[test]
+fn process_killed_at_rest_does_not_blame_the_slot_pack() {
+    let w = worker(30_000, 4096);
+    let l = Localizer::new(Some("fr"));
+    let pack = PackWidgets::new("vide", "#let registry = ()").unwrap();
+    let registry = w.probe(&pack).unwrap();
+    let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
+    s.set_widgets(Some(&pack), registry).unwrap();
+    s.render(&roadmap(), &BTreeMap::new()).unwrap();
+    w.kill_for_test();
+    s.render(&roadmap(), &BTreeMap::new()).unwrap();
+    assert_that!(w.is_faulty(&pack)).is_false();
 }

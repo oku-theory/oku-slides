@@ -75,7 +75,8 @@ fn serve_watched(
         };
         busy.end();
         // Pas de borne à l'écriture : l'hôte refuse à la lecture une réponse
-        // trop grande (`Frame`), sans que le travailleur s'arrête.
+        // trop grande (`Frame`, non bornée : aucun pack accusé) et, le tube
+        // désynchronisé, relance le travailleur.
         write_frame(&mut output, &reply, &payload, usize::MAX).map_err(ServeError)?;
     }
     Ok(())

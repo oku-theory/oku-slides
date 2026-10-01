@@ -5,11 +5,11 @@
 //! pendant une requête, personne ne le fera. Un fil du travailleur termine
 //! donc le processus (code [`EXIT_CODE`], raison sur stderr) si :
 //! - la requête en cours dure plus de deux fois le délai de l'hôte ;
-//! - sa mémoire résidente dépasse la limite de l'hôte depuis plus de
-//!   [`MEMORY_GRACE`] (l'hôte, qui relève toutes les 100 ms, l'arrête d'abord
-//!   en `OutOfMemory` s'il est là) ;
-//! - son parent a disparu (Unix : `getppid` change ou vaut 1 ; ailleurs,
-//!   le processus parent n'existe plus).
+//! - pendant une requête, sa mémoire résidente dépasse la limite de l'hôte
+//!   depuis plus de [`MEMORY_GRACE`] (l'hôte, qui relève toutes les 100 ms,
+//!   l'arrête d'abord en `OutOfMemory` s'il est là) ;
+//! - son parent a disparu (Unix : `getppid` change ; ailleurs, le processus
+//!   parent n'existe plus).
 //!
 //! Le fil ne sert qu'en sous-processus (`exit_if_worker`), jamais en
 //! `InProcess` : il arrêterait tout le processus hôte.
@@ -104,8 +104,10 @@ impl Guard {
         {
             return Some(format!("request running for {} ms, over {} ms", busy.as_millis(), max.as_millis()));
         }
-        match (sample.rss, self.limits.memory) {
-            (Some(rss), Some(max)) if rss > max => {
+        // Au repos, la mémoire ne compte pas : l'allocateur garde les pages
+        // d'une grosse requête, et rien ne tourne (t-340).
+        match (sample.busy_for, sample.rss, self.limits.memory) {
+            (Some(_), Some(rss), Some(max)) if rss > max => {
                 let since = *self.memory_over_since.get_or_insert(sample.at);
                 let over = sample.at.saturating_duration_since(since);
                 (over >= MEMORY_GRACE)
@@ -128,6 +130,13 @@ pub(crate) fn watch(limits: Limits, tick: Duration, mut sample: impl FnMut() -> 
         }
         std::thread::sleep(tick);
     }
+}
+
+/// Le parent `now` n'est plus celui du lancement, `at_launch`.
+pub(crate) fn parent_changed(at_launch: u32, now: u32) -> bool {
+    // Rattaché à un autre processus (init ou un sous-moissonneur) : le parent
+    // a disparu. Un hôte qui est lui-même PID 1 (conteneur) reste à 1.
+    now != at_launch
 }
 
 /// Le parent du processus tel qu'il était au lancement.
@@ -155,8 +164,7 @@ impl Parent {
     fn gone(&self, _sys: &mut System) -> bool {
         #[cfg(unix)]
         {
-            let now = std::os::unix::process::parent_id();
-            now != self.pid || now == 1
+            parent_changed(self.pid, std::os::unix::process::parent_id())
         }
         #[cfg(not(unix))]
         {

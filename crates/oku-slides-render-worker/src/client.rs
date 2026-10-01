@@ -144,6 +144,7 @@ impl RenderWorker {
         if closed {
             evict_assets(link);
         }
+        link.drop_if_dead();
         if link.connected() {
             let current = link.restarts;
             for d in deferred {

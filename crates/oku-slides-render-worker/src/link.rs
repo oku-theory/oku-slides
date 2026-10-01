@@ -149,6 +149,21 @@ impl Link {
         self.raw_call(req, payload)
     }
 
+    /// Oublie la connexion d'un travailleur mort au repos (tué par l'OS, son
+    /// chien de garde) : la requête suivante en relance un sans échouer, et
+    /// n'accuse donc aucun pack (t-340). Seul un sous-processus se vérifie.
+    pub(crate) fn drop_if_dead(&mut self) {
+        let dead = self
+            .conn
+            .as_mut()
+            .and_then(|c| c.child.as_mut())
+            .is_some_and(|child| !matches!(child.try_wait(), Ok(None)));
+        if dead {
+            tracing::warn!("processus de rendu arrêté au repos : relancé à la prochaine requête");
+            self.conn = None;
+        }
+    }
+
     /// Une connexion est ouverte (le travailleur peut être mort sans le savoir).
     pub(crate) fn connected(&self) -> bool {
         self.conn.is_some()
@@ -159,6 +174,7 @@ impl Link {
     /// À appeler avant de lire `sent_fonts` ou `sent_assets` : la relance les
     /// vide, et ils ne disent vrai que du travailleur connecté.
     pub(crate) fn ensure_connected(&mut self) -> Result<(), RenderError> {
+        self.drop_if_dead();
         if self.conn.is_none() {
             self.connect()?;
         }
