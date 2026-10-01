@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oku-slides-serve",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": [
+        "run",
+        "-q",
+        "-p",
+        "oku-slides-cli",
+        "--",
+        "--fonts",
+        "assets/fonts",
+        "serve",
+        "fixtures/roadmap.json",
+        "--port",
+        "4871"
+      ],
+      "port": 4871
+    }
+  ]
+}
