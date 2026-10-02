@@ -31,6 +31,8 @@ tokio-util = { version = "0.7", features = ["compat", "rt"] }
 async-trait = "0.1"
 base64 = "0.22"
 getrandom = { version = "0.3", features = ["std"] }
+# Identité des packs de modèles (t-328) : UUID v4.
+uuid = { version = "1", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"

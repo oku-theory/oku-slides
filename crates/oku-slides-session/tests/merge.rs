@@ -83,7 +83,7 @@ fn merge_request_while_editing_templates_is_refused() {
     let path = dir.join("deck.oku-slides.pdf");
     let mut a = session();
     a.save(Some(&path)).unwrap();
-    a.edit_templates("grilles").unwrap();
+    a.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     let err = a.handle(req(json!({"cmd": "merge", "path": path}))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::EditingTemplates);
 }

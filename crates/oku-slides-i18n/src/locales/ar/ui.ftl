@@ -10,7 +10,6 @@ ui-title-field = عنوان العرض التقديمي
 ui-status-unsaved = تغييرات غير محفوظة
 ui-status-saved = محفوظ
 ui-status-never-saved = لم يُحفظ بعد
-ui-status-builtin = مدمج: الحفظ ينشئ نسخة
 ui-caption-templates = { $count ->
     [zero] لا قوالب
     [one] قالب واحد
@@ -297,3 +296,4 @@ ui-history-slider = نسخ العرض التقديمي
 ui-history-removed-since = حُذفت منذ ذلك الحين
 ui-history-changed-since = عُدّلت منذ ذلك الحين
 ui-history-added-since = الشرائح المضافة منذ ذلك الحين: { $count }
+ui-pack-notice-close = إغلاق

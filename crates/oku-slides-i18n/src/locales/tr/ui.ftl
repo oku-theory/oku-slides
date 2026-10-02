@@ -10,7 +10,6 @@ ui-title-field = Sunu başlığı
 ui-status-unsaved = kaydedilmemiş değişiklikler
 ui-status-saved = kaydedildi
 ui-status-never-saved = henüz kaydedilmedi
-ui-status-builtin = yerleşik: kaydetmek bir kopya oluşturur
 ui-caption-templates = { $count ->
     [one] { $count } şablon
    *[other] { $count } şablon
@@ -289,3 +288,4 @@ ui-history-slider = Sunumun sürümleri
 ui-history-removed-since = o zamandan beri silindi
 ui-history-changed-since = o zamandan beri değişti
 ui-history-added-since = o zamandan beri eklenen slaytlar: { $count }
+ui-pack-notice-close = Kapat

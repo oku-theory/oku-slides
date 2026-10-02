@@ -697,6 +697,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .history-title { font: 500 16px/22px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-version .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-actions { display: flex; gap: var(--space-2); }
+.pack-notice { display: flex; align-items: center; gap: var(--space-2); }
+.pack-notice-text { flex: 1; }
+.pack-notice-actions { display: flex; gap: var(--space-2); }
 .history-track { --thumb: 16px; position: relative; padding-top: 12px; }
 .history-marks { position: absolute; inset: 0 0 auto; height: 12px; pointer-events: none; }
 .history-mark { position: absolute; top: 2px; left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at)); transform: translateX(-50%); }

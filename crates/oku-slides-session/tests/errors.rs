@@ -102,11 +102,12 @@ fn svg_of_missing_slide_returns_no_slide() {
 }
 
 #[test]
-fn edit_unknown_template_set_returns_no_template_set() {
+fn edit_unknown_template_pack_returns_unknown_pack() {
     let dir = workdir();
-    let err = session(&dir).edit_templates("inconnu").unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NoTemplateSet);
-    assert_that!(french(&err)).is_equal_to("Ensemble de modèles introuvable : inconnu".to_owned());
+    let id = uuid::Uuid::new_v4();
+    let err = session(&dir).edit_templates(id).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownPack);
+    assert_that!(french(&err)).is_equal_to(format!("Pack de modèles introuvable : {id}"));
 }
 
 #[test]
@@ -120,8 +121,11 @@ fn save_templates_while_not_editing_returns_not_editing() {
 #[test]
 fn delete_builtin_template_set_is_refused() {
     let dir = workdir();
-    let err =
-        request(&mut session(&dir), serde_json::json!({"cmd": "delete_template_set", "set": "essentiel"})).unwrap_err();
+    let err = request(
+        &mut session(&dir),
+        serde_json::json!({"cmd": "delete_template_set", "set": oku_slides_session::DEFAULT_PACK}),
+    )
+    .unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::BuiltinTemplateSet);
     assert_that!(french(&err)).is_equal_to("Un ensemble intégré ne se supprime pas".to_owned());
 }
@@ -130,7 +134,7 @@ fn delete_builtin_template_set_is_refused() {
 fn save_while_editing_templates_is_refused() {
     let dir = workdir();
     let mut s = session(&dir);
-    s.edit_templates("essentiel").unwrap();
+    s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     let err = request(&mut s, serde_json::json!({"cmd": "save", "path": null})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
     assert_that!(french(&err)).is_equal_to("Terminez d'abord l'édition des modèles".to_owned());
@@ -144,7 +148,9 @@ fn handle_queries_answer_in_json() {
     assert_that!(schema).contains("set_param");
     let sets = request(&mut s, serde_json::json!({"cmd": "template_sets"})).unwrap();
     assert_that!(sets).contains("\"default\":true");
-    let templates = request(&mut s, serde_json::json!({"cmd": "templates", "set": "grilles"})).unwrap();
+    let templates =
+        request(&mut s, serde_json::json!({"cmd": "templates", "set": oku_slides_session::GRID_PACK.to_string()}))
+            .unwrap();
     assert_that!(templates).contains("\"svg\":\"<svg");
     let undone = request(&mut s, serde_json::json!({"cmd": "undo"})).unwrap();
     assert_that!(undone).contains("\"can_undo\":false");
@@ -190,7 +196,7 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
 fn open_deck_with_inline_chart_makes_its_data_editable() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 2, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
+    let deck = serde_json::json!({ "version": 3, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
         "id": "g", "kind": "chart", "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });

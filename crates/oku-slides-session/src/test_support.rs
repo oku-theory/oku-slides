@@ -39,3 +39,46 @@ pub(crate) fn session() -> Session {
     s.open(&fixture).unwrap_or_else(|e| panic!("ouverture du fixture impossible : {}", e.one_line()));
     s
 }
+
+/// Un `pack.json` sans modèles : pack `id`, nom `name`, parente `parent`, créé à `created`.
+pub(crate) fn manifest(
+    id: uuid::Uuid,
+    name: &str,
+    parent: Option<&oku_slides_core::PackVersion>,
+    created: &str,
+) -> crate::pack::PackManifest {
+    crate::pack::PackManifest {
+        id,
+        name: name.into(),
+        description: String::new(),
+        parent: parent.cloned(),
+        created: created.into(),
+        templates: Vec::new(),
+    }
+}
+
+/// Ajoute `manifest` (et `widgets`) à `library` ; sa référence.
+pub(crate) fn add_version(
+    library: &crate::library::Library,
+    manifest: &crate::pack::PackManifest,
+    widgets: Option<&str>,
+) -> oku_slides_core::PackRef {
+    let files = manifest.to_files(widgets.map(str::to_owned)).unwrap_or_else(|e| panic!("pack.json : {e}"));
+    library.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("version : {}", e.one_line()));
+    oku_slides_core::PackRef { id: manifest.id, version: files.version() }
+}
+
+/// Une session isolée sur `data`, en français, sans deck ouvert.
+pub(crate) fn session_on(data: &std::path::Path) -> Session {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
+    settings.paths.data = Some(data.to_owned());
+    settings.paths.decks = Some(data.join("decks"));
+    settings.i18n.locale = Some("fr".into());
+    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
+    Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {}", e.one_line()))
+}
+
+/// La bibliothèque de la session `s`.
+pub(crate) fn library_of(s: &Session) -> &crate::library::Library {
+    &s.library
+}

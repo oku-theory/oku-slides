@@ -120,7 +120,7 @@ fn fields_stack_with_empty_markers_keeps_the_stack_height() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_widgets(Some(&pack), registry).unwrap();
     let deck = json!({
-        "version": 2, "params": { "title": "T" },
+        "version": 3, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "d", "kind": "duo", "params": { "b": "Texte" } },
             { "id": "o", "kind": "solo", "params": { "b": "Texte" } }

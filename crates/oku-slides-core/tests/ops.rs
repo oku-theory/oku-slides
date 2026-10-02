@@ -90,7 +90,12 @@ fn sample_ops() -> Vec<Op> {
         Op::SetDeckParam { key: "numbering".into(), value: json!("{n}") },
         Op::SetVar { key: "client".into(), value: json!("Globex") },
         Op::SetVar { key: "confidential".into(), value: json!(null) },
-        Op::SetTemplates { templates: Some("grilles".into()) },
+        Op::SetTemplates {
+            templates: Some(PackRef {
+                id: uuid::Uuid::from_u128(7),
+                version: PackVersion::from_hex(&"c".repeat(64)).unwrap_or_else(|| panic!("hex invalide")),
+            }),
+        },
         Op::SetSlideField { slide: "s-constat".into(), field: SlideField::Name, value: json!("Constat") },
         Op::SetCell {
             slide: "s-libre".into(),

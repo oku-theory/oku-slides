@@ -79,7 +79,7 @@ impl Session {
             "locale: {} · theme: {} · template_set: {}",
             self.localizer.locale(),
             deck.theme.as_deref().unwrap_or("none"),
-            self.deck_set()
+            self.deck_pack().map_or_else(|| "none".to_owned(), |r| r.id.to_string())
         );
         if let Some((i, slide)) =
             ui.slide.as_deref().and_then(|id| deck.slides.iter().enumerate().find(|(_, s)| s.id == id))

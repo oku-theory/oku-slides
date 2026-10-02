@@ -5,6 +5,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::MAX_SLOT_DEPTH;
 use crate::error::{ReplicaErrorKind, SourcesErrorKind};
+use crate::{PackFiles, PackRef};
 use oku_slides_i18n::Localize;
 
 const MAX: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 };
@@ -23,7 +24,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":3}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":4}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -74,10 +75,10 @@ fn from_zip_newer_version_returns_unsupported_version() {
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::UnsupportedVersion);
 }
 
-/// Sources v2 : un replica de deck v1, qui ne se relit pas en v2.
+/// Sources v3 : un replica de deck v2, qui ne se relit pas en v3.
 #[test]
-fn from_zip_with_sources_version_2_returns_not_sources() {
-    let manifest = br#"{"format":"oku-slides-sources","version":2}"#;
+fn from_zip_with_sources_version_3_returns_not_sources() {
+    let manifest = br#"{"format":"oku-slides-sources","version":3}"#;
     let err = SourceBundle::from_zip(
         &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
         MAX,
@@ -415,4 +416,143 @@ fn new_with_elements_nested_to_the_slot_bound_opens() {
     let deck = canvas_chain(MAX_SLOT_DEPTH);
     let bundle = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     assert_that!(bundle.deck().slides[0].walk().count()).is_equal_to(MAX_SLOT_DEPTH);
+}
+
+/// Un pack de test : `pack.json` minimal, `widgets` facultatif.
+fn pack(name: &str, widgets: Option<&str>) -> PackFiles {
+    let manifest = serde_json::json!({ "id": "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10", "name": name });
+    PackFiles::new(manifest.as_object().cloned().unwrap(), widgets.map(str::to_owned))
+}
+
+/// `roadmap` qui référence `files`, et son bundle qui l'embarque.
+fn bundle_with(files: &PackFiles) -> SourceBundle {
+    let mut deck = roadmap();
+    deck.templates = Some(PackRef { id: uuid::Uuid::from_u128(1), version: files.version() });
+    let mut b = SourceBundle::new(deck, crate::test_registry::shared()).unwrap();
+    b.add_pack(files.clone());
+    b
+}
+
+#[test]
+fn to_zip_then_from_zip_keeps_packs_and_their_widgets() {
+    let files = pack("P", Some("#let registry = ()\n"));
+    let b = bundle_with(&files);
+    let zip = b.to_zip().unwrap();
+    let za = zip::ZipArchive::new(Cursor::new(zip.clone())).unwrap();
+    let hex = files.version().hex().to_owned();
+    assert_that!(za.file_names().any(|n| n == format!("packs/{hex}/pack.json"))).is_true();
+    assert_that!(za.file_names().any(|n| n == format!("packs/{hex}/widgets.typ"))).is_true();
+    let (back, issues) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issues).is_empty();
+    assert_that!(back.packs.get(&files.version())).is_equal_to(Some(&files));
+}
+
+#[test]
+fn to_zip_of_a_pack_without_widgets_writes_no_widgets_file() {
+    let files = pack("P", None);
+    let zip = bundle_with(&files).to_zip().unwrap();
+    let za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
+    assert_that!(za.file_names().any(|n| n.ends_with("widgets.typ"))).is_false();
+}
+
+#[test]
+fn from_zip_pack_whose_content_differs_from_its_hash_is_discarded_and_reported() {
+    let loro = deck_loro();
+    let forged = "f".repeat(64);
+    let name = format!("packs/{forged}/pack.json");
+    let entries: &[(&str, &[u8])] =
+        &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name.as_str(), br#"{"name":"P"}"#)];
+    let (b, issues) = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(b.packs.is_empty()).is_true();
+    let ids: Vec<&str> = issues.iter().map(|i| i.message.id()).collect();
+    assert_that!(ids).is_equal_to(vec!["issue-pack-version-mismatch"]);
+}
+
+#[rstest::rstest]
+#[case("packs/abc/pack.json")]
+#[case("packs/FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/pack.json")]
+#[case("packs/../pack.json")]
+fn from_zip_pack_with_an_invalid_path_returns_bad_name(#[case] name: &str) {
+    let loro = deck_loro();
+    let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name, b"{}")];
+    let err = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::BadName);
+}
+
+#[test]
+fn from_zip_deck_referencing_an_absent_pack_reports_it() {
+    let files = pack("P", None);
+    let mut b = bundle_with(&files);
+    b.packs.clear();
+    let (_, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    let ids: Vec<&str> = issues.iter().map(|i| i.message.id()).collect();
+    assert_that!(ids).is_equal_to(vec!["issue-pack-version-missing"]);
+}
+
+#[test]
+fn from_zip_packs_count_in_the_total_limit() {
+    let loro = deck_loro();
+    let files = pack(&"x".repeat(4096), None);
+    let name = format!("packs/{}/pack.json", files.version().hex());
+    let json = files.pack_json().unwrap();
+    let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name.as_str(), &json)];
+    let limits = SourceLimits { total_bytes: MANIFEST.len() + loro.len() + 100, ..MAX };
+    let err = SourceBundle::from_zip(&zip(entries), limits, crate::test_registry::shared()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::TooLarge);
+}
+
+#[test]
+fn merge_unions_the_packs_of_both_bundles() {
+    let (p, q) = (pack("P", None), pack("Q", Some("#let registry = ()")));
+    let mut a = bundle_with(&p);
+    let mut b = SourceBundle::from_zip(&a.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap().0;
+    b.add_pack(q.clone());
+    a.merge(b).unwrap();
+    assert_that!(a.packs.keys().cloned().collect::<Vec<_>>()).is_equal_to({
+        let mut v = vec![p.version(), q.version()];
+        v.sort();
+        v
+    });
+}
+
+/// Le mode historique restaure aussi le pack d'une version passée : toute
+/// version que le replica a référencée reste dans le fichier.
+#[test]
+fn versions_referenced_by_the_history_are_kept_on_save() {
+    let (p, q) = (pack("P", None), pack("Q", None));
+    let mut b = bundle_with(&p);
+    b.add_pack(q.clone());
+    let mut next = b.deck().clone();
+    next.templates = Some(PackRef { id: uuid::Uuid::from_u128(1), version: q.version() });
+    b.apply(next, "pack", None).unwrap();
+    let (back, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(back.packs.contains_key(&p.version()) && back.packs.contains_key(&q.version())).is_true();
+    let preview = back.history();
+    let mut restored = back;
+    restored.restore(&preview, 0, "restaurer").unwrap();
+    assert_that!(restored.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(p.version()));
+}
+
+#[test]
+fn from_zip_pack_with_widgets_but_no_pack_json_is_discarded_and_reported() {
+    let loro = deck_loro();
+    let name = format!("packs/{}/widgets.typ", "a".repeat(64));
+    let entries: &[(&str, &[u8])] =
+        &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name.as_str(), b"#let registry = ()")];
+    let (b, issues) = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(b.packs.is_empty()).is_true();
+    let ids: Vec<&str> = issues.iter().map(|i| i.message.id()).collect();
+    assert_that!(ids).is_equal_to(vec!["issue-pack-version-mismatch"]);
+}
+
+/// t-328 : les entrées de répertoire `packs/` et `packs/<hex>/` sont ignorées.
+#[rstest::rstest]
+#[case("packs/")]
+#[case(&format!("packs/{}/", "a".repeat(64)))]
+fn from_zip_bare_packs_directory_entries_are_ignored(#[case] name: &str) {
+    let loro = deck_loro();
+    let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name, b"")];
+    let (b, issues) = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(b.packs.is_empty()).is_true();
+    assert_that!(issues.is_empty()).is_true();
 }

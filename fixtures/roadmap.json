@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "theme": "papier",
   "params": {
     "title": "Feuille de route {{annee}}",

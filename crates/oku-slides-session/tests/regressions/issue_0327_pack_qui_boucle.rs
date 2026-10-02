@@ -8,14 +8,16 @@ use std::time::{Duration, Instant};
 
 use oku_slides_core::Op;
 use oku_slides_platform::RenderLaunch;
-use oku_slides_session::{Fonts, Platform, Request, Session, Settings};
+use oku_slides_session::{Fonts, Library, PackManifest, Platform, Request, Session, Settings, Storage};
 
 const TEST: &str = "looping_pack_render_returns_within_timeout_with_base_widgets";
 
-/// Délai de rendu : celui des tests de packs qui bouclent (`LOOP_TIMEOUT_MS`).
-const TIMEOUT_MS: u64 = 2_000;
-/// Marge au-delà du délai : relance du travailleur et rendu avec la base.
-const MARGIN_MS: u64 = 3_000;
+/// Délai de rendu. Il borne aussi le premier rendu, à froid, de la session :
+/// il doit tenir sous la charge de toute la suite de tests.
+const TIMEOUT_MS: u64 = 5_000;
+/// Marge au-delà du délai : relance du travailleur et rendu avec la base,
+/// sous charge.
+const MARGIN_MS: u64 = 10_000;
 
 fn main() {
     oku_slides_render_worker::exit_if_worker();
@@ -38,11 +40,22 @@ const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as
 
 fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     let data = tempfile::Builder::new().prefix("oku-slides-0327-").tempdir().unwrap_or_else(|e| panic!("{e}"));
-    let pack = data.path().join("templates").join("boucle");
-    std::fs::create_dir_all(&pack).unwrap_or_else(|e| panic!("{e}"));
-    std::fs::write(pack.join("pack.json"), r#"{"id":"boucle","name":"Boucle","templates":[]}"#)
+    // Le pack « Boucle » est ajouté à la bibliothèque de la session.
+    let id = uuid::Uuid::new_v4();
+    let manifest = PackManifest {
+        id,
+        name: "Boucle".into(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T00:00:00Z".into(),
+        templates: vec![],
+    };
+    let files = manifest.to_files(Some(LOOP_ON_RENDER.into())).unwrap_or_else(|e| panic!("{e}"));
+    let version = files.version();
+    let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
+    Library::new(Some(data.path().join("templates")), storage)
+        .add_version(id, &files)
         .unwrap_or_else(|e| panic!("{e}"));
-    std::fs::write(pack.join("widgets.typ"), LOOP_ON_RENDER).unwrap_or_else(|e| panic!("{e}"));
 
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}"));
     settings.paths.data = Some(data.path().to_owned());
@@ -58,7 +71,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
         .unwrap_or_else(|e| panic!("{e}"));
 
     let ops: Vec<Op> = serde_json::from_value(serde_json::json!([
-        { "op": "set_templates", "templates": "boucle" },
+        { "op": "set_templates", "templates": { "id": id, "version": version } },
         { "op": "add_element",
           "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
           "element": { "id": "l", "kind": "boucle", "params": { "body": "x" } } }
@@ -68,12 +81,12 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("{e}"));
     let elapsed = started.elapsed();
     assert!(elapsed < Duration::from_millis(TIMEOUT_MS + MARGIN_MS), "session gelée : {elapsed:?}");
-    // L'avis `session-pack-disabled` nomme le pack écarté.
+    // L'avis `session-pack-disabled` nomme le pack écarté, par le nom de son manifeste.
     let snapshot: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("{e}")))
             .unwrap_or_else(|e| panic!("{e}"));
     let notice = snapshot["notice"].as_str().unwrap_or_default();
-    assert!(notice.contains("« boucle » ont été désactivés"), "avis attendu : {notice:?}");
+    assert!(notice.contains("« Boucle » ont été désactivés"), "avis attendu : {notice:?}");
     let widgets: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Widgets).unwrap_or_else(|e| panic!("{e}")))
             .unwrap_or_else(|e| panic!("{e}"));

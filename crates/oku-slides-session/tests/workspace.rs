@@ -118,7 +118,7 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
     tab(&a, "t-2", set_theme("pro"));
     send(&a, json!({"cmd": "new_window"}));
-    tab(&a, "t-3", json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}));
+    tab(&a, "t-3", json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
     send(&a, json!({"cmd": "activate", "tab": "t-1"}));
     let before = view(&a);
     assert_that!(before.focused.as_str()).is_equal_to("w-1");
@@ -668,7 +668,7 @@ fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
     let a = resumed(&data);
     send(&a, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
     let id = view(&a).windows[0].active.clone();
-    tab(&a, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}));
+    tab(&a, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
     drop(a);
     // Relancé : l'onglet dort (t-158), reconnu d'après ses infos enregistrées.
@@ -678,7 +678,7 @@ fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
     assert_that!(v.windows[0].tabs).has_length(2);
     assert_that!(v.windows[0].active.as_str()).is_equal_to(id.as_str());
     assert_that!(tab(&b, &id, json!({"cmd": "snapshot"}))["editing"]["set"])
-        .is_equal_to(json!(oku_slides_session::DEFAULT_SET));
+        .is_equal_to(json!(oku_slides_session::DEFAULT_PACK));
 }
 
 /// Un `OpenTab` de `path` dans la première fenêtre de la vue.
@@ -839,7 +839,7 @@ fn same_deck_skips_a_tab_editing_templates() {
     let original = saved_pdf(&data, "deck");
     open_in_first_window(&ws, &original);
     let id = view(&ws).windows[0].active.clone();
-    tab(&ws, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}));
+    tab(&ws, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
     assert_that!(same_deck(&ws, &copy_of(&data, &original))["tab"].is_null()).is_true();
 }
 

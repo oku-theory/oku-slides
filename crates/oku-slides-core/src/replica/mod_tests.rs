@@ -744,3 +744,28 @@ fn unsupported_version_error_localizes_with_its_own_message() {
     let text = oku_slides_i18n::Localize::localize(&err, oku_slides_i18n::english());
     assert_that!(text).contains("deck format");
 }
+
+/// Deux pairs changent chacun un champ différent du pack : la fusion garde
+/// une référence entière, jamais l'id de l'un et la version de l'autre.
+#[test]
+fn merge_of_concurrent_templates_keeps_one_whole_pack_ref() {
+    use crate::{PackRef, PackVersion};
+    let v = |c: &str| PackVersion::from_hex(&c.repeat(64)).unwrap();
+    let (id1, id2) = (uuid::Uuid::from_u128(1), uuid::Uuid::from_u128(2));
+    let mut base = Deck::empty();
+    base.templates = Some(PackRef { id: id1, version: v("a") });
+    let snap = DeckReplica::new(&base, crate::test_registry::shared()).unwrap().snapshot().unwrap();
+    let open = || DeckReplica::from_snapshot(&snap, 1 << 24, crate::test_registry::shared()).unwrap().0;
+    let (mut a, mut b) = (open(), open());
+    let only_version = PackRef { id: id1, version: v("b") };
+    let only_id = PackRef { id: id2, version: v("a") };
+    let mut da = base.clone();
+    da.templates = Some(only_version.clone());
+    a.apply(&da, "A", None).unwrap();
+    let mut db = base.clone();
+    db.templates = Some(only_id.clone());
+    b.apply(&db, "B", None).unwrap();
+    a.merge(&b).unwrap();
+    let merged = a.deck().0.templates;
+    assert_that!(merged == Some(only_version) || merged == Some(only_id)).is_true();
+}

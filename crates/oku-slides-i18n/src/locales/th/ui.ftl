@@ -10,7 +10,6 @@ ui-title-field = ชื่องานนำเสนอ
 ui-status-unsaved = มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 ui-status-saved = บันทึกแล้ว
 ui-status-never-saved = ยังไม่ได้บันทึก
-ui-status-builtin = ในตัว: การบันทึกจะสร้างสำเนา
 ui-caption-templates = { $count ->
    *[other] { $count } เทมเพลต
 } · { $status }
@@ -287,3 +286,4 @@ ui-history-slider = เวอร์ชันของงานนำเสนอ
 ui-history-removed-since = ถูกลบตั้งแต่นั้น
 ui-history-changed-since = ถูกแก้ไขตั้งแต่นั้น
 ui-history-added-since = สไลด์ที่เพิ่มตั้งแต่นั้น: { $count }
+ui-pack-notice-close = ปิด

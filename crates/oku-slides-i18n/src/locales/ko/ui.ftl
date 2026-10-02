@@ -10,7 +10,6 @@ ui-title-field = 프레젠테이션 제목
 ui-status-unsaved = 저장되지 않은 변경 사항
 ui-status-saved = 저장됨
 ui-status-never-saved = 아직 저장되지 않음
-ui-status-builtin = 기본 제공: 저장하면 사본이 만들어집니다
 ui-caption-templates = { $count ->
    *[other] 템플릿 { $count }개
 } · { $status }
@@ -287,3 +286,4 @@ ui-history-slider = 프레젠테이션 버전
 ui-history-removed-since = 이후 삭제됨
 ui-history-changed-since = 이후 변경됨
 ui-history-added-since = 이후 추가된 슬라이드: { $count }
+ui-pack-notice-close = 닫기

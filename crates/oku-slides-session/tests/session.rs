@@ -218,16 +218,16 @@ fn templates_view_renders_previews_in_deck_theme() {
 }
 
 #[test]
-fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
+fn edit_builtin_templates_then_save_as_copy_creates_a_new_pack_and_close_restores_deck() {
     use serde_json::json;
     let dir = data_dir();
     let mut s = session();
     s.set_templates_dir(&*dir);
     let before = s.deck().clone();
 
-    s.edit_templates("grilles").unwrap();
+    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     let snap = s.snapshot();
-    assert_that!(snap.editing.unwrap().set.as_str()).is_equal_to("grilles");
+    assert_that!(snap.editing.unwrap().set).is_equal_to(oku_slides_session::GRID_PACK);
     assert_that!(snap.editing.unwrap().builtin).is_true();
     let first = snap.slides[0].id.to_owned();
     s.apply(
@@ -239,19 +239,24 @@ fn edit_builtin_templates_then_save_creates_copy_and_close_restores_deck() {
         None,
     )
     .unwrap();
-    // Intégré : l'enregistrement crée une copie.
-    s.save_templates(false).unwrap();
-    let mode = s.snapshot().editing.unwrap();
+    // Comme copie : un nouveau pack, sur lequel l'édition continue.
+    s.save_templates(true).unwrap();
+    let mode = s.snapshot().editing.cloned().unwrap();
     assert_that!(mode.builtin).is_false();
-    assert_that!(mode.set.as_str()).is_equal_to("grilles-copie");
-    assert_that!(dir.join("grilles-copie").join("pack.json").exists()).is_true();
+    assert_that!(mode.set).is_not_equal_to(oku_slides_session::GRID_PACK);
+    assert_that!(mode.name.ends_with("(copie)")).is_true();
+    let version = mode.session_version.clone().unwrap();
+    let file = dir.join(mode.set.to_string()).join("versions").join(version.hex()).join("pack.json");
+    assert_that!(file.exists()).is_true();
 
     s.close_templates().unwrap();
     assert_that!(s.snapshot().editing).is_none();
-    assert_that!(s.deck()).is_equal_to(&before);
-    let view = s.templates_view(Some("grilles-copie".into())).unwrap();
+    // Le deck retrouve ses slides, et passe à la copie.
+    assert_that!(s.deck().slides).is_equal_to(&before.slides);
+    assert_that!(s.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(mode.set));
+    let view = s.templates_view(Some(mode.set)).unwrap();
     assert_that!(view.templates[0].template.name.as_str()).is_equal_to("Ma grille");
-    assert_that!(view.sets.iter().any(|x| x.id == "grilles-copie" && !x.builtin)).is_true();
+    assert_that!(view.sets.iter().any(|x| x.id == mode.set && !x.builtin)).is_true();
 }
 
 #[test]
@@ -261,10 +266,10 @@ fn edit_templates_switching_set_keeps_deck_and_history_aside() {
     s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }], None).unwrap();
     let before = s.deck().clone();
 
-    s.edit_templates("grilles").unwrap();
-    s.edit_templates("essentiel").unwrap();
+    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
+    s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     let snap = s.snapshot();
-    assert_that!(snap.editing.unwrap().set.as_str()).is_equal_to("essentiel");
+    assert_that!(snap.editing.unwrap().set).is_equal_to(oku_slides_session::DEFAULT_PACK);
     asserting("l'édition des modèles a son propre historique").that(&snap.can_undo).is_false();
 
     s.close_templates().unwrap();
@@ -311,7 +316,7 @@ fn panel_outside_template_editing_is_empty() {
 #[test]
 fn panel_while_editing_templates_binds_name_and_description() {
     let mut s = session();
-    s.edit_templates("grilles").unwrap();
+    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     let first = s.snapshot().slides[0].id.to_owned();
     let name = s.deck().slides[0].name.clone();
     let msgs = panel(&mut s, &first);
@@ -330,7 +335,7 @@ fn panel_while_editing_templates_binds_name_and_description() {
 #[test]
 fn panel_while_editing_templates_binds_grid_steppers() {
     let mut s = session();
-    s.edit_templates("grilles").unwrap();
+    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     let first = s.snapshot().slides[0].id.to_owned();
     let columns = s.slide(&first).unwrap().zone.and_then(|z| z.grid.as_ref()).map(|g| g.columns);
     let msgs = panel(&mut s, &first);
@@ -345,18 +350,21 @@ fn panel_while_editing_templates_binds_grid_steppers() {
 #[test]
 fn panel_of_template_with_blocks_has_no_grid_steppers() {
     // Une grille cacherait les blocs : `set_grid` y est refusé, le panneau ne le propose pas.
-    // Un ensemble de l'utilisateur : un dossier avec son `pack.json`.
+    // Un pack de l'utilisateur, ajouté à sa bibliothèque.
     let dir = data_dir();
-    let set = json!({ "id": "a-blocs", "name": "À blocs", "templates": [{
+    let id = uuid::Uuid::new_v4();
+    let pack = json!({ "id": id, "name": "À blocs", "created": "2026-10-01T00:00:00Z", "templates": [{
         "id": "cartes", "name": "Cartes", "slide": { "id": "cartes", "kind": "content", "params": {
             "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
         } }
     }] });
-    std::fs::create_dir_all(dir.join("a-blocs")).unwrap();
-    std::fs::write(dir.join("a-blocs").join("pack.json"), set.to_string()).unwrap();
+    let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), None).unwrap();
+    let library =
+        oku_slides_session::Library::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
+    library.add_version(id, &files).unwrap();
     let mut s = session();
     s.set_templates_dir(&*dir);
-    s.edit_templates("a-blocs").unwrap();
+    s.edit_templates(id).unwrap();
     let cards = s
         .deck()
         .slides
@@ -439,10 +447,10 @@ fn resume_while_editing_templates_restores_mode_and_stashed_deck() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
     drop(a);
     let mut b = resumed(&data);
-    assert_that!(snapshot_json(&mut b)["editing"]["set"]).is_equal_to(json!(oku_slides_session::DEFAULT_SET));
+    assert_that!(snapshot_json(&mut b)["editing"]["set"]).is_equal_to(json!(oku_slides_session::DEFAULT_PACK));
     b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
     let snap = snapshot_json(&mut b);
     assert_that!(snap["theme"]).is_equal_to(json!("pro"));
@@ -560,7 +568,7 @@ fn tab_info_after_save_has_file_name_as_title_and_resolved_path() {
 fn tab_info_editing_templates_keeps_deck_title_and_reports_mode() {
     let mut s = session();
     let title = s.tab_info().title;
-    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
     let info = s.tab_info();
     assert_that!(info.editing_templates).is_true();
     assert_that!(info.title).is_equal_to(title);
@@ -572,7 +580,7 @@ fn tab_info_editing_templates_keeps_deck_title_and_reports_mode() {
 #[test]
 fn tab_info_editing_templates_with_a_clean_stashed_deck_is_not_dirty() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
     assert_that!(s.tab_info().dirty).is_false();
 }
 
@@ -582,7 +590,7 @@ fn tab_info_editing_templates_with_a_clean_stashed_deck_is_not_dirty() {
 fn tab_info_editing_templates_reports_dirty_from_the_stashed_deck() {
     let mut s = session();
     s.handle(set_theme("pro")).unwrap();
-    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
     assert_that!(s.tab_info().dirty).is_true();
 }
 
@@ -601,11 +609,11 @@ fn set_notice_is_shown_once_in_the_snapshot() {
 fn templates_view_after_other_session_saves_the_set_shows_the_new_templates() {
     let data = data_dir();
     let mut a = session_in(&data);
-    a.edit_templates(oku_slides_session::DEFAULT_SET).unwrap();
+    a.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     a.save_templates(true).unwrap();
-    let id = snapshot_json(&mut a)["editing"]["set"].as_str().unwrap().to_owned();
+    let id: uuid::Uuid = snapshot_json(&mut a)["editing"]["set"].as_str().unwrap().parse().unwrap();
     let mut b = session_in(&data);
-    let before = b.templates_view(Some(id.clone())).unwrap().templates.len();
+    let before = b.templates_view(Some(id)).unwrap().templates.len();
     let first = a.deck().slides[0].id.clone();
     a.apply("Retirer", vec![Op::RemoveSlide { slide: first }], None).unwrap();
     a.save_templates(false).unwrap();
@@ -699,7 +707,7 @@ fn resume_with_unreadable_templates_returns_to_the_deck_without_loss() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_SET}))).unwrap();
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
     drop(a);
     let templates = data.join("resume/templates/document.json");
     assert_that!(templates.exists()).is_true();

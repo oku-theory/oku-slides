@@ -89,11 +89,19 @@ fn read_state_missing_returns_none() {
 #[test]
 fn write_state_then_read_state_round_trips_mode_and_ui() {
     let r = resume();
-    let edit = TemplateMode { set: "essentiel".into(), name: "Essentiel".into(), builtin: true };
+    let v = crate::library::builtin_versions()[0].version.clone();
+    let edit = TemplateMode {
+        set: crate::DEFAULT_PACK,
+        name: "Essentiel".into(),
+        builtin: true,
+        base: v.clone(),
+        parent: Some(v),
+        session_version: None,
+    };
     let ui = UiState { slide: Some("s-1".into()), grid: false };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
     let back = r.read_state().unwrap().unwrap();
-    assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == "essentiel")).is_true();
+    assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -281,4 +289,52 @@ fn new_deck_without_handle_resumes_to_a_blank_deck() {
     assert_that!(back.resume(dir.clone())).is_true();
     assert_that!(back.tab_info().pristine).is_true();
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Un pack de l'utilisateur, `widgets` pour `widgets.typ`.
+fn pack_files(name: &str, widgets: Option<&str>) -> oku_slides_core::PackFiles {
+    let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
+    m.to_files(widgets.map(str::to_owned)).unwrap()
+}
+
+#[test]
+fn write_snapshot_then_read_doc_keeps_the_packs_and_their_widgets() {
+    let r = resume();
+    let mut doc = document();
+    let with = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
+    let without = doc.sources.add_pack(pack_files("Sans", None));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let packs = r.dir.join(DECK_DIR).join("packs");
+    assert_that!(packs.join(format!("{}.typ", with.hex())).exists()).is_true();
+    assert_that!(packs.join(format!("{}.typ", without.hex())).exists()).is_false();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.packs == doc.sources.packs).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn read_doc_ignores_a_pack_whose_content_differs_from_its_name() {
+    let r = resume();
+    let mut doc = document();
+    let v = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let typ = r.dir.join(DECK_DIR).join("packs").join(format!("{}.typ", v.hex()));
+    std::fs::write(&typ, "#let registry = (1,)\n").unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.packs.is_empty()).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_snapshot_removes_orphan_packs() {
+    let r = resume();
+    let mut doc = document();
+    let v = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    doc.sources.packs.clear();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    let packs = r.dir.join(DECK_DIR).join("packs");
+    assert_that!(packs.join(format!("{}.json", v.hex())).exists()).is_false();
+    assert_that!(packs.join(format!("{}.typ", v.hex())).exists()).is_false();
+    std::fs::remove_dir_all(&r.dir).ok();
 }

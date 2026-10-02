@@ -5405,6 +5405,7 @@ dependencies = [
  "tiny_http",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -5426,6 +5427,7 @@ dependencies = [
  "snafu",
  "speculoos",
  "tracing",
+ "uuid",
  "xxhash-rust",
  "zip 8.6.0",
 ]
@@ -5465,6 +5467,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -5556,6 +5559,7 @@ dependencies = [
  "oku-slides-platform",
  "oku-slides-render",
  "oku-slides-render-worker",
+ "rstest",
  "schemars 1.2.2",
  "serde",
  "serde_json",
@@ -5565,6 +5569,7 @@ dependencies = [
  "tempfile",
  "time",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -24,7 +24,7 @@ fn opened(modified_elsewhere: bool, issues: usize) -> Opened {
 }
 
 fn with_issues(modified_elsewhere: bool, issues: Vec<Issue>) -> Opened {
-    let deck = Deck::from_json(r#"{"version":2,"slides":[]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version":3,"slides":[]}"#).unwrap();
     Opened {
         sources: SourceBundle::new(deck, registry()).unwrap(),
         issues,
@@ -87,7 +87,7 @@ fn log_issues_counts_the_unreadable_parts_only() {
 fn deck_uid_of_a_json_deck_is_none() {
     let dir = crate::test_support::fresh_dir("oku-slides-files-").keep();
     let path = dir.join("deck.json");
-    std::fs::write(&path, r#"{"version":2,"slides":[]}"#).unwrap();
+    std::fs::write(&path, r#"{"version":3,"slides":[]}"#).unwrap();
     let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20 };
     let uid = deck_uid_of(&Storage::local().unwrap(), &path, limits, &registry());
     std::fs::remove_dir_all(&dir).ok();
@@ -111,4 +111,11 @@ fn is_unreadable_counts_a_slot_too_deep_as_a_read_loss() {
 fn notice_with_a_slot_too_deep_counts_it_as_an_unreadable_part() {
     let notice = with_issues(false, vec![finding(), too_deep()]).notice(&Localizer::new(Some("fr")));
     assert_that!(notice.unwrap()).ends_with("(1).");
+}
+
+#[test]
+fn is_unreadable_counts_a_discarded_pack_version_but_not_a_missing_one() {
+    let version = oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap();
+    assert_that!(is_unreadable(&oku_slides_core::Issue::pack_version_mismatch(version.hex()))).is_true();
+    assert_that!(is_unreadable(&oku_slides_core::Issue::pack_version_missing(&version))).is_false();
 }

@@ -88,10 +88,19 @@ async fn focus_emits_focus_event_without_changing_deck() {
 async fn edit_then_close_templates_round_trips_mode() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let set = oku_slides_session::DEFAULT_SET;
+    let set = oku_slides_session::DEFAULT_PACK;
     call(&c, "edit_templates", json!({ "set": set })).await;
     assert_that!(h.session.lock().unwrap().snapshot().editing.is_some()).is_true();
     call(&c, "close_templates", json!({})).await;
+    assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_templates_with_a_slug_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "edit_templates", json!({ "set": "essentiel" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
 }
 

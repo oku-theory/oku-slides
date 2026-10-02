@@ -1,35 +1,37 @@
-//! Widgets du deck : la base, surchargée par le `widgets.typ` du pack de
-//! ses modèles (`deck.templates`, l'ensemble par défaut s'il n'en choisit
-//! pas).
+//! Widgets du deck : la base, surchargée par le `widgets.typ` de la version
+//! de pack qu'il embarque (`deck.templates`, cherchée dans
+//! `SourceBundle.packs`, jamais dans la bibliothèque).
 //!
 //! Invariant : le registre de la session (`Session::registry`), celui des
 //! sources du document ouvert et celui du rendu du deck sont le même, celui
-//! de l'ensemble `Session::widgets_templates`, qui est celui du deck ouvert.
+//! du pack `Session::widgets_templates`, qui est celui du deck ouvert.
 //! Tout ce qui change `deck.templates` (ops, annuler, rétablir, fusion,
 //! restauration, autre document) passe par ici.
 //!
 //! Repli : un pack qui fait échouer un rendu (délai, mémoire, arrêt du
 //! processus de rendu), celui du deck ou d'un autre emplacement (aperçus,
 //! variantes, polices), est écarté pour la session (`fall_back_to_base`) ;
-//! la base le remplace, sans changer `deck.templates` ni l'ensemble suivi.
+//! la base le remplace, sans changer `deck.templates` ni le pack suivi.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 
-use oku_slides_core::{Deck, Op, WidgetRegistry};
+use oku_slides_core::{Deck, Op, PackFiles, PackRef, PackVersion, WidgetRegistry};
 use oku_slides_i18n::Localize;
 use oku_slides_render::{PackWidgets, RenderError};
 use oku_slides_render_worker::RemoteCompiled;
 
-use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
-use crate::{DEFAULT_SET, Result, Session, charts};
+use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
+use crate::pack::DEFAULT_PACK;
+use crate::{Result, Session, charts};
 
-/// Les widgets résolus pour un ensemble de modèles.
+/// Les widgets résolus pour un pack de modèles.
 #[derive(Debug, Clone)]
 pub(crate) struct DeckWidgets {
-    /// L'ensemble (`deck.templates`) dont ils viennent.
-    pub(crate) templates: Option<String>,
+    /// La référence de pack dont ils viennent.
+    pub(crate) templates: Option<PackRef>,
     /// Le pack qui surcharge la base ; `None` : la base seule.
     pub(crate) pack: Option<PackWidgets>,
     pub(crate) registry: Arc<WidgetRegistry>,
@@ -46,31 +48,37 @@ pub(crate) struct Failpoints {
 }
 
 impl Session {
-    /// Les widgets de l'ensemble `templates` : la base, surchargée par le
-    /// `widgets.typ` de son pack s'il en a un.
+    /// Les widgets de la version de pack `templates`, lue dans `packs` (les
+    /// sources du document) : la base, surchargée par son `widgets.typ`.
     ///
-    /// Un pack cassé (Typst qui ne compile pas, schéma refusé, sonde qui
-    /// dépasse ses bornes ou pack déjà écarté) n'est pas une erreur : il est journalisé, la base sert, et l'avis rendu (le
-    /// message de l'erreur, localisé comme une erreur de rendu) est à
-    /// montrer. Seule la base qui ne se lit pas est une erreur.
-    pub(crate) fn resolve_widgets(&mut self, templates: Option<&str>) -> Result<(DeckWidgets, Option<String>)> {
-        let id = templates.unwrap_or(DEFAULT_SET);
-        let mut notice = None;
-        if let Some(source) = self.library.widgets(id) {
-            let loaded = PackWidgets::new(id, source).and_then(|pack| Ok((self.worker.probe(&pack)?, pack)));
-            match loaded {
-                Ok((registry, pack)) => {
-                    let templates = templates.map(str::to_owned);
-                    return Ok((DeckWidgets { templates, pack: Some(pack), registry }, None));
-                }
-                Err(e) => {
-                    tracing::warn!(pack = id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets cassé : widgets de base");
-                    notice = Some(e.localize(&self.localizer));
-                }
+    /// Version absente des sources : la base, et l'avis `session-pack-missing`.
+    /// Pas de `widgets.typ` : la base, sans avis. Un pack cassé (Typst qui ne
+    /// compile pas, schéma refusé, sonde hors de ses bornes, pack écarté) :
+    /// journalisé, la base, et l'avis de son erreur. Seule la base qui ne se
+    /// lit pas est une erreur.
+    pub(crate) fn resolve_widgets(
+        &self,
+        templates: Option<&PackRef>,
+        packs: &BTreeMap<PackVersion, PackFiles>,
+    ) -> Result<(DeckWidgets, Option<String>)> {
+        let base = |notice| -> Result<(DeckWidgets, Option<String>)> {
+            let registry = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
+            Ok((DeckWidgets { templates: templates.cloned(), pack: None, registry }, notice))
+        };
+        let Some(r) = templates else { return base(None) };
+        let Some(files) = packs.get(&r.version) else {
+            tracing::warn!(pack = %r.id, version = %r.version, "version du pack absente des sources : widgets de base");
+            return base(Some(self.localizer.tr("session-pack-missing")));
+        };
+        let Some(source) = files.widgets() else { return base(None) };
+        let loaded = PackWidgets::new(r.version.hex(), source).and_then(|pack| Ok((self.worker.probe(&pack)?, pack)));
+        match loaded {
+            Ok((registry, pack)) => Ok((DeckWidgets { templates: Some(r.clone()), pack: Some(pack), registry }, None)),
+            Err(e) => {
+                tracing::warn!(pack = %r.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets cassé : widgets de base");
+                base(Some(e.localize(&self.localizer)))
             }
         }
-        let registry = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
-        Ok((DeckWidgets { templates: templates.map(str::to_owned), pack: None, registry }, notice))
     }
 
     /// Installe `widgets` dans le rendu du deck et la session ; les aperçus
@@ -108,19 +116,30 @@ impl Session {
     /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
     /// dans `dataset`, en-têtes traduits).
     ///
-    /// Une transaction qui change d'ensemble de modèles (`set_templates`) se
+    /// Une transaction qui change de pack de modèles (`set_templates`) se
     /// valide avec les widgets du nouveau pack, résolus avant ses ops : elle
     /// peut ajouter un de ses widgets. Le dernier `set_templates` l'emporte,
     /// comme dans le deck obtenu. En cas d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         self.ensure_not_in_history()?;
+        // `set_templates` à `null` : le pack par défaut, référencé dans sa version courante.
+        for op in &mut ops {
+            if let Op::SetTemplates { templates: t @ None } = op {
+                let version = self.library.current(DEFAULT_PACK).context(UnknownPackSnafu { id: DEFAULT_PACK })?;
+                *t = Some(PackRef { id: DEFAULT_PACK, version });
+            }
+        }
         let templates = ops.iter().rev().find_map(|op| match op {
             Op::SetTemplates { templates } => Some(templates.clone()),
             _ => None,
         });
         let (widgets, notice) = match templates {
             Some(t) if t != self.widgets_templates => {
-                let (widgets, notice) = self.resolve_widgets(t.as_deref())?;
+                // La version voulue entre dans les sources avant d'être lue (en ajout seul).
+                if let Some(r) = &t {
+                    self.embed_from_library(r)?;
+                }
+                let (widgets, notice) = self.resolve_widgets(t.as_ref(), &self.doc.sources.packs)?;
                 (Some(widgets), notice)
             }
             _ => (None, None),
@@ -188,7 +207,8 @@ impl Session {
         if !(e.kind().is_bounded() && faulty) {
             return Ok(false);
         }
-        let pack = self.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default();
+        let pack =
+            self.pack_name().unwrap_or_else(|| self.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default());
         tracing::warn!(pack, error = %oku_slides_platform::errors::one_line(e), "pack de widgets écarté : widgets de base");
         let notice = self.localizer.tr_with(
             "session-pack-disabled",
@@ -227,14 +247,14 @@ impl Session {
         if fell_back { attempt(self) } else { Err(e) }
     }
 
-    /// Le registre suit l'ensemble du document ouvert : s'il a changé
+    /// Le registre suit le pack du document ouvert : s'il a changé
     /// (annuler, rétablir, fusion, restauration, modèles), ses widgets sont
     /// résolus et installés, et les sources les reçoivent. Un pack cassé
     /// laisse la base et pose son avis.
     pub(crate) fn sync_widgets(&mut self) -> Result<()> {
         let templates = self.doc.sources.deck().templates.clone();
         if templates != self.widgets_templates {
-            let (widgets, notice) = self.resolve_widgets(templates.as_deref())?;
+            let (widgets, notice) = self.resolve_widgets(templates.as_ref(), &self.doc.sources.packs)?;
             self.install_widgets(widgets)?;
             if let Some(notice) = notice {
                 self.set_notice(notice);

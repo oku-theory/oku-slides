@@ -30,8 +30,9 @@ pub(crate) struct ChartKindArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetArgs {
-    /// Identifiant d'un ensemble de modèles (voir `templates`).
-    pub set: String,
+    /// Id d'un pack de modèles (UUID, voir `templates`).
+    #[schemars(with = "String")]
+    pub set: uuid::Uuid,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

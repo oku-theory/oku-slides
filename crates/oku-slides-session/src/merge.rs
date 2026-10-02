@@ -69,26 +69,28 @@ impl Session {
     /// un rendu raté ne laisse pas un contenu fusionné passer pour enregistré.
     /// `on_save` : une fusion qui n'importe rien ne pose pas d'avis.
     fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
-        let before = (self.doc.sources.fonts.len(), self.doc.sources.assets.len());
+        let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len());
+        let before = count(&self.doc.sources);
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;
         // Parties illisibles journalisées comme avant ; les constats de
         // validation ne sont pas des pertes.
         log_issues(&issues, &self.localizer, IssuesAt::Merge);
-        // La fusion n'ajoute que des polices et des assets (à nom égal, on garde les nôtres).
-        let (fonts, assets) = (self.doc.sources.fonts.len(), self.doc.sources.assets.len());
-        if report.changes > 0 || fonts != before.0 || assets != before.1 {
+        // Les versions d'un fichier fusionné entrent aussi en silence, sans bandeau.
+        self.receive_packs();
+        // La fusion n'ajoute que des polices, des assets et des packs (à nom égal, on garde les nôtres).
+        if report.changes > 0 || count(&self.doc.sources) != before {
             self.doc.dirty = true;
         }
         // À l'enregistrement, une fusion vide n'a rien à dire (« Enregistré » suffit).
         if report.changes > 0 || !on_save {
             self.set_notice(merge_notice(&self.localizer, file, &report));
         }
-        // La fusion peut apporter un autre ensemble de modèles : ses widgets
+        // La fusion peut apporter un autre pack de modèles : ses widgets
         // servent aussi aux polices refaites ci-dessous.
         self.sync_widgets()?;
         // Comparé au rendu en place, pas à l'avant-fusion : une reconstruction
         // ratée (polices déjà fusionnées) est retentée à la fusion suivante.
-        if fonts != self.render_deck_fonts {
+        if self.doc.sources.fonts.len() != self.render_deck_fonts {
             self.refresh_fonts()?;
         }
         self.rerender()?;

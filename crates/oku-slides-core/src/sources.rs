@@ -1,6 +1,7 @@
-//! Le zip des sources (format `oku-slides-sources`, version 3) : le replica
-//! Loro du deck (`deck.loro`), les assets d'origine et les polices. C'est ce
-//! blob qui est stocké dans le PDF.
+//! Le zip des sources (format `oku-slides-sources`, version 4) : le replica
+//! Loro du deck (`deck.loro`), les assets d'origine, les polices et les
+//! versions de packs de modèles (`packs/<hex>/`). C'est ce blob qui est
+//! stocké dans le PDF.
 //!
 //! [`SourceBundle`] détient le replica ; le [`Deck`] n'en est qu'une vue,
 //! remplacée par [`SourceBundle::apply`], [`SourceBundle::undo`] et
@@ -10,8 +11,8 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 : deck v1 dans le
-//! replica) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 et 3 : deck v1 ou
+//! v2) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -30,15 +31,19 @@ use crate::error::{
 };
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
+use crate::pack::{PackFiles, PackVersion};
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 3;
+pub const SOURCES_VERSION: u32 = 4;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
+
+/// Dossier des versions de packs dans le zip.
+const PACKS_DIR: &str = "packs/";
 
 /// Capacité initiale maximale d'une entrée lue : la taille annoncée par
 /// l'en-tête du zip n'est qu'une indication, non fiable.
@@ -50,7 +55,7 @@ pub struct SourceLimits {
     /// Taille maximale de `deck.loro` (réglage `[sources] max_replica_mib`).
     pub replica_bytes: usize,
     /// Taille décompressée maximale de tout ce qui est lu du zip : manifeste,
-    /// `deck.loro`, assets, polices (réglage `[sources] max_sources_mib`).
+    /// `deck.loro`, assets, polices, packs (réglage `[sources] max_sources_mib`).
     pub total_bytes: usize,
 }
 
@@ -70,13 +75,16 @@ pub struct SourceBundle {
     pub assets: BTreeMap<String, Vec<u8>>,
     /// Polices par nom de fichier, en ajout seul.
     pub fonts: BTreeMap<String, Vec<u8>>,
+    /// Versions de packs de modèles par empreinte, en ajout seul : celle du
+    /// deck et toutes celles que son historique a référencées.
+    pub packs: BTreeMap<PackVersion, PackFiles>,
 }
 
-/// Deux bundles sont égaux s'ils montrent le même deck, les mêmes assets et
-/// les mêmes polices ; l'historique du replica n'entre pas en compte.
+/// Deux bundles sont égaux s'ils montrent le même deck, les mêmes assets,
+/// polices et packs ; l'historique du replica n'entre pas en compte.
 impl PartialEq for SourceBundle {
     fn eq(&self, other: &Self) -> bool {
-        self.deck == other.deck && self.assets == other.assets && self.fonts == other.fonts
+        self.deck == other.deck && self.assets == other.assets && self.fonts == other.fonts && self.packs == other.packs
     }
 }
 
@@ -111,6 +119,22 @@ fn asset_name(id: &str) -> Result<&str, SourcesInner> {
     Ok(hex)
 }
 
+/// Fichiers d'une version de pack lus du zip, avant vérification.
+#[derive(Default)]
+struct RawPack {
+    pack_json: Option<Vec<u8>>,
+    widgets: Option<Vec<u8>>,
+}
+
+/// `packs/<hex>/<fichier>` : l'empreinte (64 hex minuscules, sinon refusée)
+/// et le fichier (`pack.json`, `widgets.typ` ; autre nom : ignoré).
+fn pack_entry(name: &str) -> Result<(&str, &str), SourcesInner> {
+    let rest = name.strip_prefix(PACKS_DIR).unwrap_or(name);
+    let (hex, file) = rest.split_once('/').unwrap_or((rest, ""));
+    ensure!(PackVersion::from_hex(hex).is_some() && !file.contains('/'), BadNameSnafu { name });
+    Ok((hex, file))
+}
+
 /// Lit une entrée du zip : au plus `cap` octets pour elle, et au plus ce qui
 /// reste de `budget` (décompressé, tout le zip compris). La taille annoncée
 /// `announced` ne sert qu'à la capacité initiale, plafonnée. Dépasser le
@@ -131,7 +155,7 @@ fn read_entry(
 }
 
 impl SourceBundle {
-    /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset ni police.
+    /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset, police ni pack.
     /// Le deck est d'abord mis sous forme canonique. Un deck dont un élément
     /// dépasse [`MAX_SLOT_DEPTH`] est refusé : la relecture du replica
     /// l'arrêterait à cette borne, et la vue en différerait.
@@ -140,19 +164,38 @@ impl SourceBundle {
         ensure!(!too_deep, TooDeepSnafu { max: MAX_SLOT_DEPTH });
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
-        Ok(Self { replica, deck, assets: BTreeMap::new(), fonts: BTreeMap::new() })
+        Ok(Self { replica, deck, assets: BTreeMap::new(), fonts: BTreeMap::new(), packs: BTreeMap::new() })
     }
 
     /// Un bundle autour d'un replica relu par [`DeckReplica::from_snapshot`],
     /// avec la première lecture qu'il a rendue (faite sous garde : elle n'est
-    /// pas refaite ici). Renvoie aussi ce que cette lecture n'a pas pu lire.
+    /// pas refaite ici). Renvoie aussi ce que cette lecture n'a pas pu lire,
+    /// et la version de pack du deck si elle manque dans `packs`.
     pub fn from_replica(
         replica: DeckReplica,
-        (deck, issues): DeckRead,
+        (deck, mut issues): DeckRead,
         assets: BTreeMap<String, Vec<u8>>,
         fonts: BTreeMap<String, Vec<u8>>,
+        packs: BTreeMap<PackVersion, PackFiles>,
     ) -> (Self, Vec<Issue>) {
-        (Self { replica, deck, assets, fonts }, issues)
+        let bundle = Self { replica, deck, assets, fonts, packs };
+        issues.extend(bundle.pack_issues());
+        (bundle, issues)
+    }
+
+    /// La version de pack du deck manque-t-elle dans les sources ?
+    fn pack_issues(&self) -> Vec<Issue> {
+        match &self.deck.templates {
+            Some(r) if !self.packs.contains_key(&r.version) => vec![Issue::pack_version_missing(&r.version)],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Ajoute une version de pack et renvoie son empreinte.
+    pub fn add_pack(&mut self, files: PackFiles) -> PackVersion {
+        let version = files.version();
+        self.packs.entry(version.clone()).or_insert(files);
+        version
     }
 
     pub fn deck(&self) -> &Deck {
@@ -276,8 +319,8 @@ impl SourceBundle {
         Ok(self.with_validation(issues))
     }
 
-    /// Fusionne `other` : son historique, puis ses assets et polices (à nom égal,
-    /// on garde les nôtres). La vue est relue ; ses parties illisibles sont
+    /// Fusionne `other` : son historique, puis ses assets, polices et packs (à
+    /// nom égal, on garde les nôtres). La vue est relue ; ses parties illisibles sont
     /// rendues, suivies de ce que signale `validate` (registre du bundle).
     pub fn merge(&mut self, other: SourceBundle) -> Result<(crate::MergeReport, Vec<Issue>), SourcesError> {
         let report = self.replica.merge(&other.replica).context(ReplicaSnafu)?;
@@ -287,6 +330,9 @@ impl SourceBundle {
         for (name, bytes) in other.fonts {
             self.fonts.entry(name).or_insert(bytes);
         }
+        for (version, files) in other.packs {
+            self.packs.entry(version).or_insert(files);
+        }
         let (deck, issues) = self.replica.deck();
         self.deck = deck;
         Ok((report, self.with_validation(issues)))
@@ -295,10 +341,16 @@ impl SourceBundle {
     /// `issues` (ce que la relecture n'a pas pu lire), puis ce que
     /// [`validate`] signale sur la vue avec le registre et les assets du
     /// bundle : un paramètre gardé par un `SetKind` concurrent, un asset
-    /// manquant… Un problème déjà signalé ne l'est pas deux fois.
+    /// manquant… ; enfin la version de pack du deck, si elle manque. Un
+    /// problème déjà signalé ne l'est pas deux fois.
     fn with_validation(&self, mut issues: Vec<Issue>) -> Vec<Issue> {
         let assets: HashSet<String> = self.assets.keys().cloned().collect();
         for issue in validate(&self.deck, self.registry(), Some(&assets)) {
+            if !issues.contains(&issue) {
+                issues.push(issue);
+            }
+        }
+        for issue in self.pack_issues() {
             if !issues.contains(&issue) {
                 issues.push(issue);
             }
@@ -343,6 +395,15 @@ impl SourceBundle {
                 zw.start_file(format!("fonts/{}", safe_name(name)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
             }
+            for (version, files) in &self.packs {
+                let dir = format!("{PACKS_DIR}{}", version.hex());
+                zw.start_file(format!("{dir}/pack.json"), deflate).context(ZipSnafu)?;
+                zw.write_all(&files.pack_json().context(JsonSnafu { file: "pack.json" })?).context(IoSnafu)?;
+                if let Some(source) = files.widgets() {
+                    zw.start_file(format!("{dir}/widgets.typ"), deflate).context(ZipSnafu)?;
+                    zw.write_all(source.as_bytes()).context(IoSnafu)?;
+                }
+            }
             zw.finish().context(ZipSnafu)?;
         }
         Ok(buf.into_inner())
@@ -351,7 +412,8 @@ impl SourceBundle {
     /// Relit un zip de sources. Les octets viennent d'un fichier : non fiables ;
     /// `deck.loro` n'est lu que s'il tient dans `limits.replica_bytes`, et le
     /// tout décompressé dans `limits.total_bytes`. Renvoie aussi ce que la
-    /// relecture du replica n'a pas pu lire.
+    /// relecture du replica n'a pas pu lire, et les versions de packs
+    /// écartées (contenu qui ne donne pas son empreinte) ou manquantes.
     pub fn from_zip(
         bytes: &[u8],
         limits: SourceLimits,
@@ -370,6 +432,7 @@ impl SourceBundle {
         let mut manifest: Option<Manifest> = None;
         let mut snapshot: Option<Snapshot> = None;
         let (mut assets, mut fonts) = (BTreeMap::new(), BTreeMap::new());
+        let mut raw_packs: BTreeMap<String, RawPack> = BTreeMap::new();
         // Octets décompressés encore permis (anti-bombe de décompression).
         let mut budget = limits.total_bytes;
         for i in 0..za.len() {
@@ -384,6 +447,23 @@ impl SourceBundle {
                 } else {
                     Snapshot::Bytes(read_entry(f, size, max.saturating_add(1), &mut budget, limits.total_bytes)?)
                 });
+                continue;
+            }
+            if name == PACKS_DIR {
+                continue; // Entrée de répertoire nue, comme `packs/<hex>/`.
+            }
+            if name.starts_with(PACKS_DIR) {
+                let (hex, file) = pack_entry(&name)?;
+                if file != "pack.json" && file != "widgets.typ" {
+                    continue; // Dossier ou fichier inconnu : ni lu, ni compté.
+                }
+                let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
+                let slot = raw_packs.entry(hex.to_owned()).or_default();
+                if file == "pack.json" {
+                    slot.pack_json = Some(data);
+                } else {
+                    slot.widgets = Some(data);
+                }
                 continue;
             }
             let known = name == "manifest.json" || name.starts_with("assets/") || name.starts_with("fonts/");
@@ -417,7 +497,25 @@ impl SourceBundle {
                 return Err(ReplicaError::from(TooLargeSnafu { size, max }.build())).context(ReplicaSnafu);
             }
         };
-        Ok(Self::from_replica(replica, read, assets, fonts))
+        let mut packs = BTreeMap::new();
+        let mut mismatched = Vec::new();
+        for (hex, RawPack { pack_json, widgets }) in raw_packs {
+            // `pack_entry` a déjà validé l'empreinte : `claimed` est toujours là.
+            let claimed = PackVersion::from_hex(&hex);
+            let files = pack_json.and_then(|p| PackFiles::from_bytes(&p, widgets.as_deref()));
+            match (claimed, files) {
+                (Some(claimed), Some(files)) if files.matches(&claimed) => {
+                    packs.insert(claimed, files);
+                }
+                _ => {
+                    tracing::warn!(version = %hex, "version de pack altérée écartée");
+                    mismatched.push(Issue::pack_version_mismatch(&hex));
+                }
+            }
+        }
+        let (bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs);
+        issues.extend(mismatched);
+        Ok((bundle, issues))
     }
 }
 

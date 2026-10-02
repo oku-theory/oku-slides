@@ -4,8 +4,8 @@
 //! `state.json` dit le mode et l'état de l'interface ; chaque document
 //! (`deck/`, `templates/`) tient dans un `deck.loro` (le replica : deck,
 //! identité et historique complet ; pas la pile d'annulation) et un
-//! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets
-//! et polices, écrits une fois par nom.
+//! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets,
+//! polices et packs, écrits une fois par nom.
 //!
 //! Un seul écrivain par dossier : la session de l'onglet. L'espace de travail
 //! (`workspace.rs`) écrit seul `workspace.json`, au-dessus.
@@ -18,7 +18,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use oku_slides_core::{DeckReplica, ReplicaError, SourceBundle, WidgetRegistry};
+use oku_slides_core::{DeckReplica, PackFiles, PackVersion, ReplicaError, SourceBundle, WidgetRegistry};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
@@ -70,20 +70,23 @@ pub(crate) struct State {
     pub ui: UiState,
 }
 
-/// Octets d'un document (images, polices), partagés d'un envoi au suivant
-/// tant qu'ils ne changent pas : une commande ne les recopie pas.
+/// Octets d'un document (images, polices, packs), partagés d'un envoi au
+/// suivant tant qu'ils ne changent pas : une commande ne les recopie pas.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct Blobs {
     pub assets: BTreeMap<String, Vec<u8>>,
     pub fonts: BTreeMap<String, Vec<u8>>,
+    pub packs: BTreeMap<PackVersion, PackFiles>,
 }
 
 impl Blobs {
-    /// Mêmes octets que `sources` ? Un asset est nommé par son empreinte :
-    /// ses clés suffisent. Une police est nommée par son fichier : ses octets
-    /// comptent aussi.
+    /// Mêmes octets que `sources` ? Un asset ou un pack est nommé par son
+    /// empreinte : ses clés suffisent. Une police est nommée par son
+    /// fichier : ses octets comptent aussi.
     fn matches(&self, sources: &SourceBundle) -> bool {
-        self.assets.keys().eq(sources.assets.keys()) && self.fonts == sources.fonts
+        self.assets.keys().eq(sources.assets.keys())
+            && self.fonts == sources.fonts
+            && self.packs.keys().eq(sources.packs.keys())
     }
 }
 
@@ -123,7 +126,11 @@ impl DocSnapshot {
         let blobs = match cache.iter().find(|b| b.matches(sources)) {
             Some(b) => Arc::clone(b),
             None => {
-                let b = Arc::new(Blobs { assets: sources.assets.clone(), fonts: sources.fonts.clone() });
+                let b = Arc::new(Blobs {
+                    assets: sources.assets.clone(),
+                    fonts: sources.fonts.clone(),
+                    packs: sources.packs.clone(),
+                });
                 // Deck et ensemble de modèles : deux documents au plus.
                 if cache.len() >= 2 {
                     cache.remove(0);
@@ -270,6 +277,24 @@ impl Resume {
         });
         let keep_fonts = self.write_missing(&dir.join("fonts"), fonts)?;
 
+        // Les packs sont adressés par contenu : `<hex>.json` et `<hex>.typ`.
+        let packs_dir = dir.join("packs");
+        let mut keep_packs = BTreeSet::new();
+        for (version, files) in &doc.blobs.packs {
+            let json = packs_dir.join(format!("{}.json", version.hex()));
+            if !self.storage.exists(&json).context(AccessSnafu { path: &json })? {
+                // `<hex>.typ` d'abord : un `<hex>.json` présent dit le pack complet.
+                if let Some(source) = files.widgets() {
+                    self.put(&packs_dir.join(format!("{}.typ", version.hex())), source.as_bytes().to_vec())?;
+                }
+                self.put(&json, files.pack_json().context(JsonSnafu { path: &json })?)?;
+            }
+            keep_packs.insert(format!("{}.json", version.hex()));
+            if files.widgets().is_some() {
+                keep_packs.insert(format!("{}.typ", version.hex()));
+            }
+        }
+
         self.put(&dir.join("deck.loro"), doc.replica.clone())?;
         let path = dir.join("document.json");
         let bytes = serde_json::to_vec(&out).context(JsonSnafu { path: &path })?;
@@ -277,6 +302,7 @@ impl Resume {
 
         self.prune(&dir.join("assets"), &keep_assets)?;
         self.prune(&dir.join("fonts"), &keep_fonts)?;
+        self.prune(&packs_dir, &keep_packs)?;
         Ok(())
     }
 
@@ -423,7 +449,22 @@ impl Resume {
             }
             None => None,
         };
-        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts);
+        let raw_packs = self.read_files(&dir.join("packs"))?;
+        let mut packs = BTreeMap::new();
+        for (name, bytes) in &raw_packs {
+            let Some(hex) = name.strip_suffix(".json") else { continue };
+            let widgets = raw_packs.get(&format!("{hex}.typ")).map(Vec::as_slice);
+            // Vérifiée par son empreinte : un pack altéré est ignoré.
+            let checked = PackVersion::from_hex(hex)
+                .and_then(|v| PackFiles::from_bytes(bytes, widgets).filter(|f| f.matches(&v)).map(|f| (v, f)));
+            match checked {
+                Some((version, files)) => {
+                    packs.insert(version, files);
+                }
+                None => tracing::warn!(version = hex, "pack de reprise altéré ignoré"),
+            }
+        }
+        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs);
         for issue in &issues {
             tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
         }

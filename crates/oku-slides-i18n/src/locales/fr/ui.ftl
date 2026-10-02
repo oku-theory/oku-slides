@@ -10,7 +10,6 @@ ui-title-field = Titre de la présentation
 ui-status-unsaved = modifications non enregistrées
 ui-status-saved = enregistré
 ui-status-never-saved = pas encore enregistré
-ui-status-builtin = intégré : l'enregistrer crée une copie
 ui-caption-templates = { $count ->
     [one] { $count } modèle
    *[other] { $count } modèles
@@ -292,3 +291,4 @@ ui-history-slider = Versions de la présentation
 ui-history-removed-since = supprimée depuis
 ui-history-changed-since = modifiée depuis
 ui-history-added-since = slides ajoutées depuis : { $count }
+ui-pack-notice-close = Fermer

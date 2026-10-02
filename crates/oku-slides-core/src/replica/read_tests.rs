@@ -101,7 +101,7 @@ fn read_deck_of_version_1_returns_unsupported_version() {
 
 #[test]
 fn read_deck_of_a_newer_version_returns_unsupported_version() {
-    let err = read(json!({ "version": 3, "slides": [] })).unwrap_err();
+    let err = read(json!({ "version": 4, "slides": [] })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::ReplicaErrorKind::UnsupportedVersion);
 }
 

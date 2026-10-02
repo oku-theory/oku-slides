@@ -46,9 +46,9 @@ pub struct PackVersion(String);   // "sha256:<hex>", contenu canonique
 pub struct Deck { …, pub templates: Option<PackRef>, … }
 ```
 
-- `templates: None` : le pack par défaut (`essentiel`, id constant), dans
-  la version courante de la bibliothèque à la création du deck, puis
-  embarquée et référencée explicitement au premier enregistrement.
+- `templates: None` : le pack par défaut (`essentiel`, id constant). Au
+  chargement, la version courante de la bibliothèque est embarquée dans le
+  bundle et référencée explicitement (sans étape d'annulation).
 - **Contenu canonique** d'une version : `pack.json` sérialisé en JSON à
   clés triées, un octet `0`, puis `widgets.typ` tel quel (vide s'il est
   absent). `PackVersion` est son sha-256. Nom et description sont dans
@@ -74,10 +74,13 @@ packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
 - À l'enregistrement, le bundle garde toute version référencée par le deck
   courant ou par l'historique du replica (le mode historique restaure aussi
   le pack d'une version passée).
-- À la lecture, une version dont le hash ne correspond pas au contenu, ou
-  dont le chemin n'est pas `<hex>` de 64 caractères, est écartée et
-  signalée (`Issue::PackVersionMismatch`). Les packs comptent dans
-  `max_sources_mib`.
+- À la lecture, une version dont le hash ne correspond pas au contenu est
+  seule écartée et signalée (`Issue::PackVersionMismatch`) ; le reste du
+  fichier s'ouvre. Un chemin `packs/` invalide (dossier autre que `<hex>`
+  de 64 chiffres hexadécimaux minuscules, sous-dossier) refuse tout le zip
+  (`SourcesErrorKind::BadName`). Les entrées de répertoire `packs/` et
+  `packs/<hex>/`, et les fichiers inconnus d'un dossier de version, sont
+  ignorés. Les packs comptent dans `max_sources_mib`.
 
 ## Bibliothèque (session)
 
@@ -127,6 +130,9 @@ packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
    - **Passer à ma version** : `SetTemplates` vers la version courante,
      dans une transaction annulable ; la version est ajoutée au bundle.
    - **Faire de la sienne ma version courante** : `Library::set_current`.
+     Proposée seulement si la bibliothèque a la version du deck (sinon,
+     copie embarquée écartée ou ajout échoué : `make_current` est `null`
+     et le bouton masqué).
    Le bandeau se ferme pour la session ; il ne bloque jamais l'ouverture.
 
 ### Mode modèles
@@ -141,6 +147,9 @@ packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
   enregistrement suivant de la même session la **remplace** (même `parent`) :
   la version intermédiaire est supprimée de la bibliothèque (le bundle du deck
   reste en ajout seul), jusqu'à la sortie du mode modèles.
+- `PackMakeCurrent` et `PackUseMine` sont refusés pendant le mode modèles.
+  La clé de fusion d'annulation donne une seule étape d'annulation par
+  session d'édition.
 - « Enregistrer comme copie » : un nouvel id, sans `parent` ; la session
   continue sur la version de la copie.
 - Modifier un pack intégré crée la version de l'utilisateur sous l'id du
@@ -148,14 +157,19 @@ packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
 
 ### Nouveau deck
 
-Il prend la version courante du pack par défaut, l'ajoute à son bundle et
-la référence.
+Comme tout deck sans `templates` : la version courante du pack par défaut
+est ajoutée à son bundle et référencée dès le chargement.
 
 ### CLI
 
 `render` et `save` d'un deck dont le pack a des widgets passent par le
 processus de rendu (`RenderWorker`) : le code d'un pack reçu y est isolé
 (spec t-327). Sans widgets de pack, le `Renderer` en mémoire reste.
+
+`open --out` extrait aussi `packs/<hex>/{pack.json,widgets.typ}`. `save`
+prend la version référencée d'abord dans `<dossier du deck>/packs/<hex>`
+(vérifiée par `PackFiles::matches`), puis dans la bibliothèque ;
+introuvable partout : `save` échoue (`session-pack-version-missing`).
 
 ### MCP et agent
 
@@ -164,11 +178,12 @@ outil.
 
 ## Erreurs
 
-- core : `Issue::PackVersionMismatch { version }`,
-  `Issue::PackVersionMissing { version }` ; erreur de lecture du zip
-  existante pour un chemin invalide.
-- session : `UnknownPack { id }`, `PackVersionMissing { id, version }`
-  (Snafu, backtrace, minuscules).
+- core : `Issue::PackVersionMismatch { version }` (hash faux : la version
+  seule est écartée), `Issue::PackVersionMissing { version }` ; chemin
+  `packs/` invalide : tout le zip est refusé (`SourcesErrorKind::BadName`).
+- session : `UnknownPack { id }`, `PackVersionMissing { id, version }`,
+  `PackIdMismatch { id, found }` (`SetTemplates` vers une version d'un
+  autre pack que `id`, refusé) (Snafu, backtrace, minuscules).
 - Clés Fluent, 20 langues : erreurs ci-dessus, `session-pack-missing`,
   bandeau (`pack-notice-older`, `pack-notice-newer`, `pack-notice-parallel`,
   `pack-notice-use-mine`, `pack-notice-make-current`).

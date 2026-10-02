@@ -71,7 +71,7 @@ fn restore_label_uses_the_fluent_message() {
 #[test]
 fn history_open_in_templates_mode_returns_editing_templates() {
     let mut s = session_in(data_dir().path());
-    s.handle(req(json!({ "cmd": "edit_templates", "set": crate::DEFAULT_SET }))).unwrap();
+    s.handle(req(json!({ "cmd": "edit_templates", "set": crate::DEFAULT_PACK }))).unwrap();
     let err = s.handle(req(json!({ "cmd": "history_open" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
     assert_that!(matches!(s.mode, Mode::Templates { .. })).is_true();

@@ -23,6 +23,7 @@ snafu.workspace = true
 time.workspace = true
 similar.workspace = true
 schemars.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 oku-slides-core = { workspace = true, features = ["test-support"] }
@@ -30,6 +31,7 @@ oku-slides-pdf.workspace = true
 speculoos.workspace = true
 insta.workspace = true
 tempfile.workspace = true
+rstest.workspace = true
 
 [lints]
 workspace = true

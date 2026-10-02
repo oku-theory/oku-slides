@@ -144,10 +144,10 @@ fn history_mode_refuses_edits_saves_merges_and_templates() {
         json!({ "cmd": "save", "path": null }),
         json!({ "cmd": "merge", "path": "/nulle/part.oku-slides.pdf" }),
         json!({ "cmd": "chart_kind", "label": "x", "slide": "s", "element": "e", "kind": "bar" }),
-        json!({ "cmd": "edit_templates", "set": "oku" }),
+        json!({ "cmd": "edit_templates", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "save_templates" }),
         json!({ "cmd": "close_templates" }),
-        json!({ "cmd": "delete_template_set", "set": "mine" }),
+        json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
     ] {
         let err = s.handle(req(cmd.clone())).unwrap_err();
         assert_that!(err.kind()).named(&cmd.to_string()).is_equal_to(SessionErrorKind::InHistory);

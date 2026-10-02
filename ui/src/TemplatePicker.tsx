@@ -1,18 +1,18 @@
 // Carrousel des modèles de slides, posé sur la table au-dessus de la feuille.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { errorText, type SetInfo, type TabApi, type TemplateView } from "./api";
+import { errorText, type PackInfo, type TabApi, type TemplateView } from "./api";
 import { t } from "./i18n";
 
 interface Props {
   /** Change quand le thème ou les jetons changent : les aperçus sont rechargés. */
   themeKey: string;
-  /** Ensemble montré à l'ouverture. */
-  initialSet: string;
+  /** Pack montré à l'ouverture ; `null` : celui du deck. */
+  initialSet: string | null;
   title?: string;
   onPick: (t: TemplateView) => void;
   /** Autre ensemble choisi dans la liste (le deck l'adopte). */
-  onSetChange?: (set: SetInfo) => void;
+  onSetChange?: (set: PackInfo) => void;
   onClose: () => void;
   /** Requêtes de l'onglet du picker. */
   api: TabApi;
@@ -20,8 +20,9 @@ interface Props {
 
 export default function TemplatePicker({ themeKey, initialSet, title, onPick, onSetChange, onClose, api }: Props) {
   const [items, setItems] = useState<TemplateView[] | null>(null);
-  const [sets, setSets] = useState<SetInfo[]>([]);
-  const [set, setSet] = useState(initialSet);
+  const [shown, setShown] = useState<string>("");
+  const [sets, setSets] = useState<PackInfo[]>([]);
+  const [set, setSet] = useState<string | null>(initialSet);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
@@ -35,6 +36,7 @@ export default function TemplatePicker({ themeKey, initialSet, title, onPick, on
         if (!alive) return;
         setItems(v.templates);
         setSets(v.sets);
+        setShown(v.set.id);
         setFocus(0);
       })
       .catch((e) => alive && setError(errorText(e)));
@@ -82,7 +84,7 @@ export default function TemplatePicker({ themeKey, initialSet, title, onPick, on
           <h2 id="picker-title">{title ?? t("ui-picker-new-slide")}</h2>
           <label className="picker-set">
             <span className="caption">{t("ui-picker-set")}</span>
-            <select className="select" value={set} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
+            <select className="select" value={set ?? shown} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
               {sets.map((x) => (
                 <option key={x.id} value={x.id}>{x.builtin ? x.name : t("ui-picker-set-mine", { name: x.name })}</option>
               ))}

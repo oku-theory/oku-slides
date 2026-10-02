@@ -288,7 +288,7 @@ fn close_edited_tab_without_discard_returns_unsaved_and_keeps_it() {
 fn close_tab_with_only_edited_templates_returns_unsaved() {
     let data = Data::new();
     let ws = workspace_in(&data);
-    let edit: Request = serde_json::from_value(json!({"cmd": "edit_templates", "set": crate::DEFAULT_SET})).unwrap();
+    let edit: Request = serde_json::from_value(json!({"cmd": "edit_templates", "set": crate::DEFAULT_PACK})).unwrap();
     Workspace::request(&ws, "t-1", edit).0.unwrap();
     let first =
         Workspace::lock(&ws).session("t-1").unwrap().lock().unwrap().ready().unwrap().deck().slides[0].id.clone();

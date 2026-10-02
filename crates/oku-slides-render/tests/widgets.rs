@@ -192,9 +192,9 @@ fn compile_content_slide_emits_kicker_and_title_fields() {
     assert_that!(fields).is_equal_to(vec!["kicker", "title"]);
 }
 
-/// Deck v2 d'une slide libre avec un seul élément `kind`, sur un cadre.
+/// Deck v3 d'une slide libre avec un seul élément `kind`, sur un cadre.
 fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
-    let json = serde_json::json!({ "version": 2, "slides": [{ "id": "s", "kind": "blank", "params": {
+    let json = serde_json::json!({ "version": 3, "slides": [{ "id": "s", "kind": "blank", "params": {
         "elements": [{ "id": "e", "kind": kind, "frame": { "x": 40, "y": 40, "w": 600, "h": 300 }, "params": params }]
     } }] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
@@ -273,7 +273,7 @@ fn set_widgets_back_to_the_base_drops_the_pack_override() {
 
 #[test]
 fn compile_unknown_slide_kind_renders_a_page_marked_with_the_slide() {
-    let json = serde_json::json!({ "version": 2, "slides": [{ "id": "s", "kind": "nope" }] });
+    let json = serde_json::json!({ "version": 3, "slides": [{ "id": "s", "kind": "nope" }] });
     let deck = Deck::from_json(&json.to_string()).unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
@@ -290,7 +290,7 @@ fn framed(id: &str, kind: &str, params: serde_json::Value) -> serde_json::Value 
 fn compile_deck_with_wrong_typed_params_renders_every_page() {
     // Un deck incohérent (écrit sans passer par les ops) s'ouvre et se rend :
     // chaque valeur qui n'a pas le type déclaré retombe sur le défaut.
-    let json = serde_json::json!({ "version": 2, "slides": [
+    let json = serde_json::json!({ "version": 3, "slides": [
         { "id": "s-blank", "kind": "blank", "params": { "grid": "x", "elements": [
             framed("card", "card", serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })),
             framed("stack", "stack", serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })),

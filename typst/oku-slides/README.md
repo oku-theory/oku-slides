@@ -28,7 +28,7 @@ passe par des **jetons** ; le contenu peut être écrit en Typst ou fourni en
 ```
 
 Depuis un JSON : `#render-deck(json("deck.json"), theme: papier)`
-(voir `examples/deck.json` et [Deck JSON](#deck-json-v2)).
+(voir `examples/deck.json` et [Deck JSON](#deck-json-v3)).
 
 ## Types de slides
 
@@ -100,7 +100,7 @@ Tout composant de texte accepte `size`, `color`, `weight`, `font`,
   bande, surtitres en capitales, pied « n · titre » et « CONFIDENTIAL »).
   Voir `examples/pro.typ`.
 
-## Deck JSON (v2)
+## Deck JSON (v3)
 
 Chaque slide et chaque élément nomment leur widget (`kind`) et portent ses
 paramètres (`params`), décrits par son schéma (voir [Widgets](#widgets)).
@@ -110,7 +110,7 @@ zone de corps) ou une `cell` de la grille de la slide.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [

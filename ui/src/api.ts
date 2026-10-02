@@ -50,10 +50,12 @@ export interface Snapshot {
   /** Le dernier enregistrement n'a rien écrit : le fichier est devenu un autre deck (vrai une fois). */
   disk_replaced: boolean;
   appearance: Appearance;
-  /** Ensemble de modèles du deck. */
-  templates: string;
-  /** Édition d'un ensemble de modèles en cours. */
+  /** Pack de modèles du deck : id et version embarquée. */
+  templates: PackRef | null;
+  /** Édition d'un pack de modèles en cours. */
   editing: TemplateMode | null;
+  /** Le deck embarque une autre version de son pack que ma version courante. */
+  pack_notice: PackNotice | null;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   ui: UiState;
@@ -92,26 +94,53 @@ export interface UiState {
   grid: boolean;
 }
 
+/** Un pack de modèles à une version donnée. */
+export interface PackRef {
+  id: string;
+  version: string;
+}
+
+/** Version embarquée par le deck, comparée à ma version courante. */
+export type PackRelation = "ancestor" | "descendant" | "sibling";
+
+/** Bandeau du pack : textes et libellés localisés par la session. */
+export interface PackNotice {
+  pack: string;
+  name: string;
+  relation: PackRelation;
+  message: string;
+  use_mine: string;
+  /** `null` : la bibliothèque n'a pas la version du deck, l'action est masquée. */
+  make_current: string | null;
+}
+
 export interface TemplateMode {
   set: string;
   name: string;
-  /** Ensemble intégré : l'enregistrer en crée une copie. */
+  /** Pack intégré : l'enregistrer crée ma version sous son id. */
   builtin: boolean;
+  /** Version dont viennent widgets et description. */
+  base: string;
+  /** Parente des versions de la session. */
+  parent: string | null;
+  /** Version de cette session d'édition, une fois enregistrée. */
+  session_version: string | null;
 }
 
-export interface SetInfo {
+export interface PackInfo {
   id: string;
+  version: string;
   name: string;
   description: string;
   builtin: boolean;
-  /** L'ensemble d'un deck qui n'en choisit pas. */
+  /** Le pack d'un deck qui n'en choisit pas. */
   default: boolean;
   count: number;
 }
 
 export interface TemplatesView {
-  set: SetInfo;
-  sets: SetInfo[];
+  set: PackInfo;
+  sets: PackInfo[];
   templates: TemplateView[];
 }
 
@@ -317,6 +346,9 @@ type Request =
   | { cmd: "save_templates"; as_new: boolean }
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
+  | { cmd: "pack_use_mine" }
+  | { cmd: "pack_make_current" }
+  | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "panel"; slide: string }
   | { cmd: "ui"; slide: string | null; grid: boolean }
@@ -480,11 +512,16 @@ export function tabApi(tab: string) {
     undo: () => call<Snapshot>({ cmd: "undo" }),
     redo: () => call<Snapshot>({ cmd: "redo" }),
     templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
-    templateSets: () => call<SetInfo[]>({ cmd: "template_sets" }),
+    templateSets: () => call<PackInfo[]>({ cmd: "template_sets" }),
     editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
     saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
     closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
-    deleteTemplateSet: (set: string) => call<SetInfo[]>({ cmd: "delete_template_set", set }),
+    deleteTemplateSet: (set: string) => call<PackInfo[]>({ cmd: "delete_template_set", set }),
+    /** Bandeau du pack : le deck passe à ma version courante (annulable). */
+    packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
+    /** Bandeau du pack : sa version devient ma version courante. */
+    packMakeCurrent: () => call<Snapshot>({ cmd: "pack_make_current" }),
+    packNoticeClose: () => call<Snapshot>({ cmd: "pack_notice_close" }),
     ui: (slide: string | null, grid: boolean) => call<Snapshot>({ cmd: "ui", slide, grid }),
     /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
     historyOpen: () => call<Snapshot>({ cmd: "history_open" }),

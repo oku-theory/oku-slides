@@ -52,7 +52,8 @@ impl Opened {
 
 /// Une partie mise de côté à la lecture : une perte. Soit illisible
 /// (`issue-unreadable-*`), soit un slot trop profond (`issue-slot-too-deep`)
-/// dont la relecture a écarté les éléments. Tout autre problème est un
+/// dont la relecture a écarté les éléments, soit une version de pack
+/// écartée (`issue-pack-version-mismatch`). Tout autre problème est un
 /// constat de `validate` (paramètre inconnu, asset manquant…), que la fusion
 /// et la restauration rendent aussi : le deck est lu en entier.
 ///
@@ -61,7 +62,7 @@ impl Opened {
 /// Ici, il vient donc toujours de la lecture.
 pub(crate) fn is_unreadable(issue: &Issue) -> bool {
     let id = issue.message.id();
-    id.starts_with("issue-unreadable-") || id == "issue-slot-too-deep"
+    id.starts_with("issue-unreadable-") || id == "issue-slot-too-deep" || id == "issue-pack-version-mismatch"
 }
 
 /// Où des problèmes de lecture ont été rendus (message du journal).

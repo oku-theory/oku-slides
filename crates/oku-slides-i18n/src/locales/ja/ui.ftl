@@ -10,7 +10,6 @@ ui-title-field = プレゼンテーションのタイトル
 ui-status-unsaved = 未保存の変更あり
 ui-status-saved = 保存済み
 ui-status-never-saved = 未保存
-ui-status-builtin = 組み込み：保存するとコピーが作成されます
 ui-caption-templates = { $count ->
     [one] テンプレート { $count } 個
    *[other] テンプレート { $count } 個
@@ -289,3 +288,4 @@ ui-history-slider = プレゼンテーションのバージョン
 ui-history-removed-since = その後削除
 ui-history-changed-since = その後変更
 ui-history-added-since = その後追加されたスライド: { $count }
+ui-pack-notice-close = 閉じる

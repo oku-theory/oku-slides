@@ -10,7 +10,6 @@ ui-title-field = 簡報標題
 ui-status-unsaved = 有未儲存的變更
 ui-status-saved = 已儲存
 ui-status-never-saved = 尚未儲存
-ui-status-builtin = 內建：儲存時會建立副本
 ui-caption-templates = { $count ->
     [one] { $count } 個範本
    *[other] { $count } 個範本
@@ -289,3 +288,4 @@ ui-history-slider = 簡報的版本
 ui-history-removed-since = 此後已刪除
 ui-history-changed-since = 此後已修改
 ui-history-added-since = 此後新增的投影片：{ $count }
+ui-pack-notice-close = 關閉

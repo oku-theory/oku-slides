@@ -1,5 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { Element, McpEvent, Op, Paragraph, SetInfo, SlideView, Snapshot, Surface, TabApi, TemplateView } from "./api";
+import PackNoticeBar from "./PackNoticeBar";
+import { setTemplatesOp } from "./packOps";
+import type { Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TabApi, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -480,8 +482,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
   // --- Édition des modèles ------------------------------------------------
   const editTemplates = async () => {
-    if (!snap) return;
-    if (await run(api.editTemplates(snap.templates))) {
+    if (!snap?.templates) return;
+    if (await run(api.editTemplates(snap.templates.id))) {
       setCurrent(null);
       setSelected(null);
     }
@@ -489,7 +491,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const finishTemplates = async () => {
     if (!snap?.editing) return;
     await autosave.flush();
-    // Seuls des modèles intégrés modifiés restent à enregistrer (en copie).
+    // Un enregistrement refusé laisse des modèles non enregistrés.
     if (snapRef.current?.dirty && !window.confirm(t("ui-confirm-quit-templates"))) return;
     if (await run(api.closeTemplates())) {
       setCurrent(null);
@@ -500,9 +502,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     const s = await run(api.saveTemplates(asNew));
     if (s?.editing) say(t("ui-toast-templates-saved", { name: s.editing.name }));
   };
-  const adoptSet = (set: SetInfo) => {
-    if (!snap || snap.editing || set.id === snap.templates) return;
-    apply(t("ui-undo-templates", { name: set.name }), [{ op: "set_templates", templates: set.default ? null : set.id }]);
+  const adoptSet = (set: PackInfo) => {
+    if (!snap || snap.editing || set.id === snap.templates?.id) return;
+    apply(t("ui-undo-templates", { name: set.name }), [setTemplatesOp(set)]);
   };
 
   // --- Réarranger les slides par glisser-déposer -----------------------------
@@ -700,9 +702,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   const menuEntries: MenuEntry[] = snap.editing
     ? [
-        ...(snap.editing.builtin
-          ? [{ kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) }]
-          : []),
+        { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
         { kind: "separator" },
         { kind: "custom", node: themePicker },
         gridEntry,
@@ -739,6 +739,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onBack={() => { cursor.cancel(); run(api.historyClose()); }}
         />
       ) : (<>
+      {snap.pack_notice && (
+        <PackNoticeBar
+          notice={snap.pack_notice}
+          onUseMine={() => run(api.packUseMine())}
+          onMakeCurrent={() => run(api.packMakeCurrent())}
+          onClose={() => run(api.packNoticeClose())}
+        />
+      )}
       {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition des modèles. */}
       <header className={`label${snap.editing ? " editing-templates" : ""}`}>
         {snap.editing && <span className="brand">{t("ui-brand-templates")}</span>}
@@ -751,7 +759,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           {snap.editing
             ? t("ui-caption-templates", {
                 count: snap.slides.length,
-                status: t(snap.editing.builtin ? "ui-status-builtin" : snap.dirty ? "ui-status-unsaved" : "ui-status-saved"),
+                status: t(snap.dirty ? "ui-status-unsaved" : "ui-status-saved"),
               })
             : <>{snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
         </span>
@@ -889,7 +897,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       {picking && (
         <TemplatePicker
           themeKey={appearanceKey}
-          initialSet={snap.editing ? snap.editing.set : snap.templates}
+          initialSet={snap.editing ? snap.editing.set : snap.templates?.id ?? null}
           title={t(snap.editing ? "ui-picker-new-template" : "ui-picker-new-slide")}
           onPick={insertTemplate}
           onSetChange={adoptSet}

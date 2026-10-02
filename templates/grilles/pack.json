@@ -1,7 +1,9 @@
 {
-  "id": "grilles",
+  "id": "b8e2d4f6-1a3c-4e5b-8d7f-9c0a2e4b6d81",
   "name": "Grilles",
   "description": "Des slides construites sur une grille : chaque bloc s'accroche à des cases.",
+  "parent": null,
+  "created": "2026-10-01T00:00:00Z",
   "templates": [
     {
       "id": "grille-vide",

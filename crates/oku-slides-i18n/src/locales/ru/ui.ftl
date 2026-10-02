@@ -10,7 +10,6 @@ ui-title-field = Название презентации
 ui-status-unsaved = есть несохранённые изменения
 ui-status-saved = сохранено
 ui-status-never-saved = ещё не сохранено
-ui-status-builtin = встроенный: при сохранении создаётся копия
 ui-caption-templates = { $count ->
     [one] { $count } шаблон
     [few] { $count } шаблона
@@ -297,3 +296,4 @@ ui-history-slider = Версии презентации
 ui-history-removed-since = удалён с тех пор
 ui-history-changed-since = изменён с тех пор
 ui-history-added-since = слайдов добавлено с тех пор: { $count }
+ui-pack-notice-close = Закрыть

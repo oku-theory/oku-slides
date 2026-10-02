@@ -10,7 +10,6 @@ ui-title-field = प्रेज़ेंटेशन का शीर्षक
 ui-status-unsaved = बिना सहेजे बदलाव
 ui-status-saved = सहेजा गया
 ui-status-never-saved = अभी सहेजा नहीं गया
-ui-status-builtin = बिल्ट-इन: सहेजने पर एक कॉपी बनेगी
 ui-caption-templates = { $count ->
     [one] { $count } टेम्पलेट
    *[other] { $count } टेम्पलेट
@@ -289,3 +288,4 @@ ui-history-slider = प्रस्तुति के संस्करण
 ui-history-removed-since = तब से हटाई गई
 ui-history-changed-since = तब से बदली गई
 ui-history-added-since = तब से जोड़ी गई स्लाइडें: { $count }
+ui-pack-notice-close = बंद करें

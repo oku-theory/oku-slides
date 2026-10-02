@@ -4,10 +4,14 @@
 mod common;
 
 use std::io::Read;
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use common::{FIXTURE, Server, free_port, http, oku_slides, request, workdir};
+use oku_slides_core::{Deck, PackFiles, PackRef, SourceBundle, SourceLimits, WidgetRegistry};
+use oku_slides_session::{Library, PackManifest, Storage};
 use speculoos::prelude::*;
 
 fn run(cmd: &mut Command) -> Output {
@@ -360,4 +364,213 @@ fn serve_stops_cleanly_on_sigterm() {
     server.stdout.take().unwrap().read_to_string(&mut printed).unwrap();
     assert_that!(exit.success()).is_true();
     assert_that!(printed).ends_with("server stopped\n");
+}
+
+const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 };
+
+/// Le pack `quote` du plan 1.
+const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
+  (args, ctx) => field(ctx, "body", emph(args.body)))
+#let registry = (quote,)
+"#;
+
+/// Un widget `boucle` qui boucle au rendu, hors des gardes de Typst.
+const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let boucle = widget("boucle", params: (body: p.plain()),
+  (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
+#let registry = (boucle,)
+"#;
+
+fn base_registry() -> Arc<WidgetRegistry> {
+    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/base-registry.json"))
+        .unwrap_or_else(|e| panic!("registre de base : {e}"));
+    Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre de base : {e}")))
+}
+
+/// Une première version du pack `id`, avec `widgets` pour `widgets.typ`.
+fn pack_files(id: uuid::Uuid, widgets: &str) -> PackFiles {
+    let manifest = PackManifest {
+        id,
+        name: "Pack".to_owned(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T00:00:00Z".to_owned(),
+        templates: Vec::new(),
+    };
+    manifest.to_files(Some(widgets.to_owned())).unwrap_or_else(|e| panic!("pack.json : {e}"))
+}
+
+/// Ajoute un pack de l'utilisateur à la bibliothèque de `dir` ; sa référence.
+fn user_pack(dir: &Path, widgets: &str) -> PackRef {
+    let id = uuid::Uuid::new_v4();
+    let files = pack_files(id, widgets);
+    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let library = Library::new(Some(dir.join("data").join("templates")), storage);
+    library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
+    PackRef { id, version: files.version() }
+}
+
+fn sources_of(pdf: &Path) -> SourceBundle {
+    let bytes = std::fs::read(pdf).unwrap_or_else(|e| panic!("lecture du PDF : {e}"));
+    let found = oku_slides_pdf::extract_sources(&bytes)
+        .unwrap_or_else(|e| panic!("sources du PDF : {e}"))
+        .unwrap_or_else(|| panic!("PDF sans sources"));
+    SourceBundle::from_zip(&found.zip, LIMITS, base_registry()).unwrap_or_else(|e| panic!("sources : {e}")).0
+}
+
+#[test]
+fn save_of_a_deck_without_templates_embeds_the_default_pack() {
+    let dir = workdir("pack-default");
+    let pdf = dir.join("deck.oku-slides.pdf");
+    assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf)).status.success()).is_true();
+    let bundle = sources_of(&pdf);
+    let r = bundle.deck().templates.clone().unwrap();
+    assert_that!(r.id).is_equal_to(oku_slides_session::DEFAULT_PACK);
+    assert_that!(bundle.packs.contains_key(&r.version)).is_true();
+}
+
+#[test]
+fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
+    let dir = workdir("pack-quote");
+    let r = user_pack(&dir, QUOTE);
+    let deck = dir.join("deck.json");
+    std::fs::write(
+        &deck,
+        serde_json::to_vec(&serde_json::json!({ "version": 3, "templates": r,
+        "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+            { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
+        ] } }] }))
+        .unwrap(),
+    )
+    .unwrap();
+    let pdf = dir.join("deck.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "en").arg("save").arg(&deck).arg(&pdf));
+    assert_that!(saved.status.success()).is_true();
+    assert_that!(stdout(&saved)).contains(": 1 pages, PDF");
+    assert_that!(sources_of(&pdf).packs.contains_key(&r.version)).is_true();
+    let out = dir.join("out");
+    assert_that!(run(oku_slides(&dir, "en").arg("render").arg(&pdf).arg("--out").arg(&out)).status.success()).is_true();
+}
+
+/// Un PDF reçu dont le pack boucle : la CLI s'arrête au délai, sans geler.
+#[test]
+fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
+    let dir = workdir("pack-loop");
+    let base = dir.join("base.oku-slides.pdf");
+    assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&base)).status.success()).is_true();
+    let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
+    let id = uuid::Uuid::new_v4();
+    let files = pack_files(id, LOOP_ON_RENDER);
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3,
+        "templates": { "id": id, "version": files.version() },
+        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+            { "id": "l", "kind": "boucle", "params": { "body": "x" } }] } }] }))
+    .unwrap();
+    let mut bundle = SourceBundle::new(deck, base_registry()).unwrap();
+    bundle.add_pack(files);
+    let looping = dir.join("boucle.oku-slides.pdf");
+    std::fs::write(&looping, oku_slides_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap()).unwrap()).unwrap();
+
+    let started = Instant::now();
+    let mut child = oku_slides(&dir, "en")
+        .env("OKU_SLIDES_RENDER__TIMEOUT_MS", "1000")
+        .arg("render")
+        .arg(&looping)
+        .arg("--out")
+        .arg(dir.join("out"))
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if started.elapsed() > Duration::from_secs(30) {
+            let _ = child.kill();
+            panic!("la CLI est gelée par le pack qui boucle");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_that!(status.success()).is_false();
+    let mut err = String::new();
+    child.stderr.take().unwrap().read_to_string(&mut err).unwrap();
+    assert_that!(err).contains("1000 ms");
+}
+
+/// Un deck JSON n'embarque pas son pack : signalé, rendu avec la base.
+#[test]
+fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
+    let dir = workdir("pack-json");
+    let r = user_pack(&dir, QUOTE);
+    let deck = dir.join("deck.json");
+    let json = serde_json::json!({ "version": 3, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
+    std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
+    let rendered = run(oku_slides(&dir, "en").arg("render").arg(&deck).arg("--out").arg(dir.join("out")));
+    assert_that!(rendered.status.success()).is_true();
+    assert_that!(stderr(&rendered)).contains("missing from the file");
+}
+
+/// Un PDF reçu dont le pack `quote` n'est pas dans la bibliothèque de `dir`.
+fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackRef) {
+    let base = dir.join("base.oku-slides.pdf");
+    assert_that!(run(oku_slides(dir, "en").args(["save", FIXTURE]).arg(&base)).status.success()).is_true();
+    let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap_or_else(|e| panic!("{e}")))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let id = uuid::Uuid::new_v4();
+    let files = pack_files(id, QUOTE);
+    let r = PackRef { id, version: files.version() };
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3, "templates": r,
+        "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+            { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
+        ] } }] }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let mut bundle = SourceBundle::new(deck, base_registry()).unwrap_or_else(|e| panic!("{e}"));
+    bundle.add_pack(files);
+    let received = dir.join("recu.oku-slides.pdf");
+    std::fs::write(
+        &received,
+        oku_slides_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap_or_else(|e| panic!("{e}")))
+            .unwrap_or_else(|e| panic!("{e}")),
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    (received, r)
+}
+
+/// t-328 : `open --out` extrait le pack, que `save` réembarque sans la bibliothèque.
+#[test]
+fn open_out_then_save_keeps_a_received_pack_missing_from_the_library() {
+    let dir = workdir("pack-recu");
+    let (received, r) = received_quote_pdf(&dir);
+    let extract = dir.join("extract");
+    let opened = run(oku_slides(&dir, "en").arg("open").arg(&received).arg("--out").arg(&extract));
+    assert_that!(opened.status.success()).is_true();
+    let pack_dir = extract.join("packs").join(r.version.hex());
+    assert_that!(pack_dir.join("pack.json").exists()).is_true();
+    assert_that!(pack_dir.join("widgets.typ").exists()).is_true();
+
+    let pdf = dir.join("again.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "en").arg("save").arg(extract.join("deck.json")).arg(&pdf));
+    assert_that!(saved.status.success()).is_true();
+    let bundle = sources_of(&pdf);
+    assert_that!(bundle.deck().templates.as_ref()).is_equal_to(Some(&r));
+    assert_that!(bundle.packs.contains_key(&r.version)).is_true();
+}
+
+/// t-328 : une version introuvable partout (ou altérée à côté du deck) arrête `save`.
+#[test]
+fn save_of_a_deck_whose_pack_is_found_nowhere_fails_with_a_localized_error() {
+    let dir = workdir("pack-introuvable");
+    let (received, r) = received_quote_pdf(&dir);
+    let extract = dir.join("extract");
+    assert_that!(run(oku_slides(&dir, "en").arg("open").arg(&received).arg("--out").arg(&extract)).status.success())
+        .is_true();
+    // Le pack à côté du deck est altéré : sa version ne correspond plus.
+    let widgets = extract.join("packs").join(r.version.hex()).join("widgets.typ");
+    std::fs::write(&widgets, format!("{QUOTE}\n// altéré\n")).unwrap();
+    let pdf = dir.join("again.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "fr").arg("save").arg(extract.join("deck.json")).arg(&pdf));
+    assert_that!(saved.status.success()).is_false();
+    assert_that!(stderr(&saved)).contains("est introuvable");
+    assert_that!(pdf.exists()).is_false();
 }

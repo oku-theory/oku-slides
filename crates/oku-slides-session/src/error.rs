@@ -34,12 +34,14 @@ pub enum SessionErrorKind {
     NoChart,
     /// Le graphique n'a pas pu changer de type.
     Chart,
-    /// Ensemble de modèles introuvable.
-    NoTemplateSet,
-    /// Un ensemble intégré ne se supprime pas.
+    /// Un pack intégré ne se supprime pas.
     BuiltinTemplateSet,
     /// Pas de dossier pour les modèles de l'utilisateur.
     NoTemplatesDir,
+    /// Pack de modèles inconnu.
+    UnknownPack,
+    /// Version de pack introuvable.
+    PackVersionMissing,
     /// Requête impossible pendant l'édition des modèles.
     EditingTemplates,
     /// Requête qui demande l'édition des modèles.
@@ -79,8 +81,6 @@ pub(crate) enum SessionInner {
     Sources { source: oku_slides_core::SourcesError, backtrace: Backtrace },
     #[snafu(display("invalid deck JSON"))]
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("invalid template set {}", path.display()))]
-    TemplateJson { path: PathBuf, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("transaction refused"))]
     Op { source: oku_slides_core::TransactionError, backtrace: Backtrace },
     #[snafu(display("rendering failed"))]
@@ -97,12 +97,18 @@ pub(crate) enum SessionInner {
     NoChart { id: String, backtrace: Backtrace },
     #[snafu(display("chart conversion failed"))]
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
-    #[snafu(display("template set not found: {id}"))]
-    NoTemplateSet { id: String, backtrace: Backtrace },
     #[snafu(display("built-in template set {id} cannot be deleted"))]
     BuiltinTemplateSet { id: String, backtrace: Backtrace },
     #[snafu(display("no folder for user templates"))]
     NoTemplatesDir { backtrace: Backtrace },
+    #[snafu(display("template pack not found: {id}"))]
+    UnknownPack { id: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("version {version} of template pack {id} not found"))]
+    PackVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
+    #[snafu(display("invalid pack.json for template pack {id}"))]
+    PackJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("pack.json of template pack {found} given for template pack {id}"))]
+    PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("finish editing the templates first"))]
     EditingTemplates { backtrace: Backtrace },
     #[snafu(display("no template set is being edited"))]
@@ -135,18 +141,22 @@ impl SessionError {
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
-            Pdf { .. } | Sources { .. } | DeckJson { .. } | TemplateJson { .. } | Version { .. } => {
-                SessionErrorKind::InvalidDocument
-            }
+            Pdf { .. }
+            | Sources { .. }
+            | DeckJson { .. }
+            | PackJson { .. }
+            | PackIdMismatch { .. }
+            | Version { .. } => SessionErrorKind::InvalidDocument,
             Op { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } | Registry { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
             NoChart { .. } => SessionErrorKind::NoChart,
             Chart { .. } => SessionErrorKind::Chart,
-            NoTemplateSet { .. } => SessionErrorKind::NoTemplateSet,
             BuiltinTemplateSet { .. } => SessionErrorKind::BuiltinTemplateSet,
             NoTemplatesDir { .. } => SessionErrorKind::NoTemplatesDir,
+            UnknownPack { .. } => SessionErrorKind::UnknownPack,
+            PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
             Response { .. } => SessionErrorKind::Response,
@@ -210,7 +220,6 @@ impl Localize for SessionError {
             Pdf { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),
             DeckJson { .. } => l.tr("session-invalid-deck"),
-            TemplateJson { path, .. } => l.tr_with("session-invalid-template-set", &path_arg(path)),
             Op { source, .. } => source.localize(l),
             Render { source, .. } => source.localize(l),
             Registry { source, .. } => source.localize(l),
@@ -219,9 +228,18 @@ impl Localize for SessionError {
             NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
             NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
             Chart { source, .. } => source.localize(l),
-            NoTemplateSet { id, .. } => l.tr_with("session-no-template-set", &[("id", id.as_str().into())]),
             BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
             NoTemplatesDir { .. } => l.tr("session-no-templates-dir"),
+            UnknownPack { id, .. } => l.tr_with("session-unknown-pack", &[("id", id.to_string().into())]),
+            PackVersionMissing { id, version, .. } => l.tr_with(
+                "session-pack-version-missing",
+                &[("id", id.to_string().into()), ("version", version.as_str().into())],
+            ),
+            PackJson { id, .. } => l.tr_with("session-invalid-pack", &[("id", id.to_string().into())]),
+            PackIdMismatch { id, found, .. } => l.tr_with(
+                "session-pack-id-mismatch",
+                &[("id", id.to_string().into()), ("found", found.to_string().into())],
+            ),
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
             Response { .. } => l.tr("session-response"),

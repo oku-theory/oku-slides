@@ -438,3 +438,11 @@ impl Localize for WidgetError {
         }
     }
 }
+
+/// Une chaîne qui n'est pas une [`PackVersion`](crate::PackVersion).
+#[derive(Debug, Snafu)]
+#[snafu(display("invalid pack version: {value}"), visibility(pub(crate)))]
+pub struct PackVersionError {
+    value: String,
+    backtrace: Backtrace,
+}

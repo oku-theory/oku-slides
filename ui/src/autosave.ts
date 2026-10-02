@@ -11,21 +11,22 @@ export const AUTOSAVE_DELAY_MS = 1500;
 interface Saveable {
   dirty: boolean;
   path: string | null;
-  editing: { builtin: boolean } | null;
+  /** Modèles en cours d'édition : enregistrer crée la version de la session, puis la remplace. */
+  editing: unknown;
   /** Historique ouvert : la version montrée n'est qu'un aperçu. */
   history?: unknown;
 }
 
 /**
  * Faut-il enregistrer ? Un deck modifié, avec ou sans fichier (il ira au
- * dossier par défaut) ; des modèles modifiés, sauf intégrés (il faut une
- * copie). `paused` : un enregistrement a été refusé (fichier remplacé).
- * Jamais pendant l'historique (la session le refuserait) : le deck mis de
- * côté s'enregistre à sa fermeture.
+ * dossier par défaut) ; des modèles modifiés, intégrés compris : une version
+ * par session d'édition, créée au premier enregistrement puis remplacée.
+ * `paused` : un enregistrement a été refusé (fichier remplacé). Jamais
+ * pendant l'historique (la session le refuserait) : le deck mis de côté
+ * s'enregistre à sa fermeture.
  */
 export function wantsAutosave(s: Saveable, paused: boolean): boolean {
-  if (paused || !s.dirty || s.history) return false;
-  return s.editing ? !s.editing.builtin : true;
+  return !paused && s.dirty && !s.history;
 }
 
 /** Enregistrements différés : `schedule` à chaque modification, `flush` avant de partir. */

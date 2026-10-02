@@ -10,7 +10,6 @@ ui-title-field = Tytuł prezentacji
 ui-status-unsaved = niezapisane zmiany
 ui-status-saved = zapisano
 ui-status-never-saved = jeszcze nie zapisano
-ui-status-builtin = wbudowany: zapisanie utworzy kopię
 ui-caption-templates = { $count ->
     [one] { $count } szablon
     [few] { $count } szablony
@@ -297,3 +296,4 @@ ui-history-slider = Wersje prezentacji
 ui-history-removed-since = usunięty od tego czasu
 ui-history-changed-since = zmieniony od tego czasu
 ui-history-added-since = slajdy dodane od tego czasu: { $count }
+ui-pack-notice-close = Zamknij

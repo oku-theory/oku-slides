@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "params": { "title": "Feuille de route {{annee}}", "subtitle": "Préparé pour {{client}}", "author": "Matthieu", "date": "1er octobre 2026", "organization": "Darticorp" },
   "vars": { "client": "Acme", "annee": 2027 },
   "tokens": { "color": { "accent": "#8a5a1c" } },

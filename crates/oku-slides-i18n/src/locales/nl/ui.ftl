@@ -10,7 +10,6 @@ ui-title-field = Titel van de presentatie
 ui-status-unsaved = niet-opgeslagen wijzigingen
 ui-status-saved = opgeslagen
 ui-status-never-saved = nog niet opgeslagen
-ui-status-builtin = ingebouwd: opslaan maakt een kopie
 ui-caption-templates = { $count ->
     [one] { $count } sjabloon
    *[other] { $count } sjablonen
@@ -292,3 +291,4 @@ ui-history-slider = Versies van de presentatie
 ui-history-removed-since = sindsdien verwijderd
 ui-history-changed-since = sindsdien gewijzigd
 ui-history-added-since = sindsdien toegevoegde dia's: { $count }
+ui-pack-notice-close = Sluiten

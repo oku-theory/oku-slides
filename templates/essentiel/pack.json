@@ -1,7 +1,9 @@
 {
-  "id": "essentiel",
+  "id": "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10",
   "name": "Essentiel",
   "description": "Les mises en page de base : texte, cartes, colonnes, chapitres.",
+  "parent": null,
+  "created": "2026-10-01T00:00:00Z",
   "templates": [
     {
       "id": "texte",

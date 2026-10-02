@@ -7,6 +7,7 @@
 mod bench;
 mod guard;
 mod out;
+mod pack_render;
 mod serve;
 mod sse;
 
@@ -18,11 +19,11 @@ use std::time::Instant;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{Deck, SourceBundle, SourceLimits, WidgetRegistry, validate};
+use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
-use oku_slides_render::{Fonts, Renderer};
-use oku_slides_session::{Storage, read_document};
+use oku_slides_render::Fonts;
+use oku_slides_session::{Library, Storage, adopt_default_pack, read_document};
 
 use crate::bench::ms;
 use crate::out::Out;
@@ -165,8 +166,55 @@ fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: 
     issues.is_empty()
 }
 
+/// Le pack que `bundle` embarque : la version que son deck référence, ou
+/// la courante du pack par défaut (alors référencée).
+///
+/// La version vient d'abord de `<deck_dir>/packs/<hex>` (extrait par
+/// `open --out`, vérifié), puis de la bibliothèque ; introuvable : erreur.
+fn embed_pack(
+    storage: &Storage,
+    library: &Library,
+    l: &Localizer,
+    deck_dir: &Path,
+    bundle: &mut SourceBundle,
+) -> Result<()> {
+    let Some(r) = bundle.deck().templates.clone() else {
+        return adopt_default_pack(library, bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)));
+    };
+    let files = beside_deck(storage, deck_dir, &r.version).or_else(|| library.version(r.id, &r.version));
+    let Some(files) = files else {
+        let args = [("id", r.id.to_string().into()), ("version", r.version.as_str().into())];
+        return Err(color_eyre::eyre::eyre!(l.tr_with("session-pack-version-missing", &args)));
+    };
+    bundle.add_pack(files);
+    Ok(())
+}
+
+/// La version `v` extraite à côté du deck, si elle s'y trouve intacte.
+fn beside_deck(storage: &Storage, deck_dir: &Path, v: &PackVersion) -> Option<PackFiles> {
+    let dir = deck_dir.join("packs").join(v.hex());
+    let read = |name: &str| -> Option<Vec<u8>> {
+        let path = dir.join(name);
+        match storage.len(&path) {
+            Ok(Some(_)) => storage
+                .read(&path)
+                .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "fichier du pack illisible"))
+                .ok(),
+            _ => None,
+        }
+    };
+    let files = PackFiles::from_bytes(&read("pack.json")?, read("widgets.typ").as_deref())?;
+    if files.matches(v) {
+        Some(files)
+    } else {
+        tracing::warn!(dir = %dir.display(), "pack altéré à côté du deck : ignoré");
+        None
+    }
+}
+
 /// Registre de base des widgets, compilé depuis Typst une fois par processus
-/// et partagé avec [`Renderer::new`] ; pas de pack de thème pour la CLI.
+/// et partagé avec le rendu en mémoire ; le pack d'un deck passe par
+/// [`pack_render`].
 fn registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>> {
     Ok(oku_slides_render::Registries::new(fonts.clone()).get(None)?)
 }
@@ -218,13 +266,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             if theme.is_some() {
                 deck.theme = theme;
             }
-            let mut r = Renderer::new(app_fonts.with(bundle.fonts.values().cloned()))?;
-            r.set_language(l)?;
-            r.set_deck(&deck, &bundle.assets)?;
             let t = Instant::now();
-            let doc = r.compile()?;
+            let doc = pack_render::render(platform, l, app_fonts.with(bundle.fonts.values().cloned()), &bundle, &deck)?;
             let compile = t.elapsed();
-            for w in &doc.warnings {
+            for w in doc.warnings() {
                 tracing::warn!("{}", w.localize(l));
             }
             let t = Instant::now();
@@ -244,13 +289,15 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             )?;
         }
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
-            let mut r = Renderer::new(app_fonts)?;
-            let registry = r.registry().clone();
+            let registry = registry(&app_fonts)?;
+            let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let mut deck = read_deck(storage, l, &deck)?;
             if theme.is_some() {
                 deck.theme = theme;
             }
             let mut bundle = SourceBundle::new(deck, registry.clone())?;
+            let library = Library::new(Some(platform.settings.paths.templates()), storage.clone());
+            embed_pack(storage, &library, l, &deck_dir, &mut bundle)?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
                     let id = bundle.add_asset(storage.read(&path)?);
@@ -261,9 +308,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 bundle.fonts = fonts;
             }
             report_issues(l, bundle.deck(), &registry, &bundle.assets);
-            r.set_language(l)?;
-            r.set_deck(bundle.deck(), &bundle.assets)?;
-            let doc = r.compile()?;
+            let doc = pack_render::render(platform, l, app_fonts.clone(), &bundle, bundle.deck())?;
             let pdf = doc.pdf()?;
             let zip = bundle.to_zip()?;
             let written = oku_slides_pdf::embed_sources(&pdf, &zip)?;
@@ -299,6 +344,13 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 }
                 for (name, bytes) in &bundle.fonts {
                     storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
+                }
+                for (version, files) in &bundle.packs {
+                    let at = dir.join("packs").join(version.hex());
+                    storage.write(&at.join("pack.json"), files.pack_json()?)?;
+                    if let Some(source) = files.widgets() {
+                        storage.write(&at.join("widgets.typ"), source.as_bytes())?;
+                    }
                 }
                 out.line("cli-extracted", &[("dir", dir.display().to_string().into())])?;
             }

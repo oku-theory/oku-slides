@@ -516,7 +516,7 @@ fn end_turn_after_edit_templates_closes_stashed_group_too() {
     s.open(&fixture_path()).unwrap();
     s.begin_turn("modèles");
     s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
-    s.edit_templates(oku_slides_session::DEFAULT_SET).unwrap();
+    s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     s.end_turn();
     s.close_templates().unwrap();
     s.apply("Seul", vec![Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();

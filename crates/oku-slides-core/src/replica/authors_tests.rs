@@ -68,7 +68,8 @@ fn undoing_the_first_edit_removes_the_author_entry() {
 
 fn peer(deck: &Deck, snap: &[u8], author: &str) -> SourceBundle {
     let (replica, read) = DeckReplica::from_snapshot(snap, 1 << 24, crate::test_registry::shared()).unwrap();
-    let (mut b, _) = SourceBundle::from_replica(replica, read, Default::default(), Default::default());
+    let (mut b, _) =
+        SourceBundle::from_replica(replica, read, Default::default(), Default::default(), Default::default());
     b.set_author(Some(author.into()));
     let _ = deck;
     b
@@ -119,7 +120,8 @@ fn merge_counts_nameless_peers_as_anonymous() {
     let snap = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().replica().snapshot().unwrap();
     let mut a = peer(&deck, &snap, "Matthieu");
     let (replica, read) = DeckReplica::from_snapshot(&snap, 1 << 24, crate::test_registry::shared()).unwrap();
-    let (mut b, _) = SourceBundle::from_replica(replica, read, Default::default(), Default::default());
+    let (mut b, _) =
+        SourceBundle::from_replica(replica, read, Default::default(), Default::default(), Default::default());
     b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let (report, _) = a.merge(b).unwrap();
     assert_that!(report.authors).is_empty();

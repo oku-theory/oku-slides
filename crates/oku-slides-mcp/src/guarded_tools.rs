@@ -187,7 +187,14 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let message = self.localizer.tr_with("agent-confirm-delete-set", &[("name", set.as_str().into())]);
+        // Le nom du pack dans sa version courante ; inconnu : son id.
+        let name = self
+            .with_session(move |s| Ok(s.library_pack_name(set)))
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| set.to_string());
+        let message = self.localizer.tr_with("agent-confirm-delete-set", &[("name", name.into())]);
         self.guarded(message, true, Request::DeleteTemplateSet { set }).await
     }
 

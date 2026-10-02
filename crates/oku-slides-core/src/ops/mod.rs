@@ -26,6 +26,7 @@ use crate::error::{
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
+use crate::pack::PackRef;
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
@@ -174,9 +175,9 @@ pub enum Op {
     SetTheme {
         theme: Option<String>,
     },
-    /// Ensemble de modèles de slides du deck ; `null` : l'ensemble par défaut.
+    /// Pack de modèles du deck (id et version) ; `null` : le pack par défaut.
     SetTemplates {
-        templates: Option<String>,
+        templates: Option<PackRef>,
     },
     /// Jeton de design au chemin donné (`["color", "accent"]`) ; `null` le retire.
     SetToken {

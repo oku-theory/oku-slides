@@ -6,7 +6,8 @@ sources. Aucune dépendance à Typst ni à Tauri.
 ## Types clés
 
 - `Deck` (`model.rs`) : slides et éléments génériques `{id, kind, params}`
-  (`Params`/`ParamValue`, `params.rs`), thème, `vars`, `templates` ; schéma JSON (`schemars`).
+  (`Params`/`ParamValue`, `params.rs`), thème, `vars`, `templates` (`PackRef` : id et version
+  embarquée, atome du replica) ; schéma JSON (`schemars`).
 - `WidgetRegistry` (`widget.rs`) : le schéma des widgets (`WidgetSchema`, `ParamSchema`,
   `ParamType`, `Category`, `HostType`, `SlotMode`) déclarés côté Typst, lu par le rendu ; les
   ops et `validate` s'y réfèrent pour ce qu'un `kind` accepte.
@@ -21,30 +22,28 @@ sources. Aucune dépendance à Typst ni à Tauri.
   racine `peers` : nom de chaque pair, inscrit à sa première édition. `history` : un `Version`
   par édition ; `restore` = `apply` de `deck_at`, pas de `revert_to` (perd les `mov`).
   Modules : `schema`, `read`/`write` (clés triées), `rich`, `undo`, `authors`, `history`.
+- `PackVersion`/`PackRef`/`PackFiles` (`pack.rs`) : version adressée par contenu (sha-256 de
+  `pack.json` à clés triées, `0`, `widgets.typ`).
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
-  `validate`, `locate`) ; `new` refuse un deck plus profond que `MAX_SLOT_DEPTH`, `merge` et
-  `restore` passent `validate` avec le registre du bundle. Zip : snapshot Loro, assets en ajout seul.
-- `validate` (`validate.rs`) : cohérence du deck (styles, graphiques, identifiants) contre le
-  `WidgetRegistry`, signale plutôt qu'il n'échoue quand c'est possible.
-- `Slide::text_fields` (`fields.rs`) : champs texte dans l'ordre de lecture ; `DeckReplica::apply(…, merge)`
-  fusionne les étapes d'annulation de même clé.
-- `locate` (`locate.rs`) : chemin d'un élément dans le deck (édition ciblée, agent vocal).
-- `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides
-  supprimés) pour comparer deux decks ou stabiliser un rendu.
+  `validate`, `locate`) ; `new` refuse un deck trop profond, `merge` et `restore` passent `validate`.
+  Zip v4 : snapshot Loro, assets, polices, `packs/<hex>/` en ajout seul, vérifiés à la lecture
+  (`issue-pack-version-mismatch`), unis à la fusion.
+- `validate` (`validate.rs`) : cohérence du deck contre le `WidgetRegistry` ; signale plutôt qu'il n'échoue.
+- `Slide::text_fields` (`fields.rs`) : champs texte ; `locate` (`locate.rs`) : chemin d'un élément ;
+  `apply(…, merge)` fusionne les étapes d'annulation de même clé.
+- `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides supprimés).
 
 ## Erreurs
 
-`error.rs` : `OpError`, `ReplicaError` (`Corrupted`, `TooLarge`, `Write`, `Unrelated`),
-`SourcesError`, `TransactionError` — Snafu, `Localize`, messages Fluent.
+`error.rs` : `OpError`, `ReplicaError`, `SourcesError`, `TransactionError` — Snafu, `Localize`, Fluent.
 
 ## Points d'extension
 
-- Un nouveau champ du modèle : `model.rs`, classé dans une catégorie du replica
-  (`schema.rs`), couvert dans `replica/read_tests.rs` / `mod_tests.rs`.
-- Une nouvelle opération : `Op` (`ops/mod.rs`) + `ops_schema`, appliquée sur `Deck`
-  (jamais directement sur le replica, `apply` s'en charge).
+- Un nouveau champ du modèle : `model.rs`, classé dans le replica (`schema.rs`), couvert
+  dans `replica/read_tests.rs` / `mod_tests.rs`.
+- Une nouvelle opération : `Op` (`ops/mod.rs`) + `ops_schema`, appliquée sur `Deck` (jamais sur le replica).
 
 ## Dépendances
 
-`oku-slides-i18n`, `oku-slides-chart` (schéma des graphiques), `loro`, `zip`,
-`sha2`/`hex` (identité des assets) ; dev : `speculoos`, `rstest`, `proptest`.
+`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`,
+`sha2`/`hex` (assets, packs), `uuid` ; dev : `speculoos`, `rstest`, `proptest`.

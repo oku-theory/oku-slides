@@ -10,7 +10,6 @@ ui-title-field = Tiêu đề bản trình bày
 ui-status-unsaved = có thay đổi chưa lưu
 ui-status-saved = đã lưu
 ui-status-never-saved = chưa lưu
-ui-status-builtin = có sẵn: lưu sẽ tạo một bản sao
 ui-caption-templates = { $count ->
    *[other] { $count } mẫu
 } · { $status }
@@ -287,3 +286,4 @@ ui-history-slider = Các phiên bản của bản trình bày
 ui-history-removed-since = đã xóa từ đó
 ui-history-changed-since = đã thay đổi từ đó
 ui-history-added-since = số trang chiếu thêm từ đó: { $count }
+ui-pack-notice-close = Đóng

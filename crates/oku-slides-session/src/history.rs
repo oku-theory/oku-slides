@@ -1,8 +1,8 @@
 //! Historique du deck : lire, parcourir et restaurer une version.
 //!
 //! Comme pendant l'édition des modèles, le deck attend de côté (`stash`) ;
-//! un document d'aperçu montre la version, en lecture seule. Images et
-//! polices passent d'un document à l'autre sans copie : chaque étape qui
+//! un document d'aperçu montre la version, en lecture seule. Images, polices
+//! et packs passent d'un document à l'autre sans copie : chaque étape qui
 //! peut échouer se fait avant de les déplacer, rien ne les perd.
 
 use std::collections::BTreeMap;
@@ -11,7 +11,7 @@ use snafu::ResultExt;
 use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
-use oku_slides_core::{HistoryPreview, SlideChanges, SourceBundle, Version, slide_changes};
+use oku_slides_core::{HistoryPreview, PackFiles, PackVersion, SlideChanges, SourceBundle, Version, slide_changes};
 use oku_slides_render_worker::RemoteCompiled;
 
 use crate::error::{EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, SourcesSnafu, VersionSnafu};
@@ -33,16 +33,18 @@ impl HistoryMode {
     }
 }
 
-/// Images et polices d'un document.
-type Blobs = (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>);
+/// Images, polices et packs d'un document.
+type Blobs = (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>, BTreeMap<PackVersion, PackFiles>);
 
 fn take_blobs(from: &mut Document) -> Blobs {
-    (std::mem::take(&mut from.sources.assets), std::mem::take(&mut from.sources.fonts))
+    let s = &mut from.sources;
+    (std::mem::take(&mut s.assets), std::mem::take(&mut s.fonts), std::mem::take(&mut s.packs))
 }
 
-fn put_blobs(to: &mut Document, (assets, fonts): Blobs) {
+fn put_blobs(to: &mut Document, (assets, fonts, packs): Blobs) {
     to.sources.assets = assets;
     to.sources.fonts = fonts;
+    to.sources.packs = packs;
 }
 
 /// La version `index` de `preview` ; une version vide si la liste l'est.

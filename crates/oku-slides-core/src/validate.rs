@@ -8,6 +8,7 @@ use oku_slides_i18n::{Localize, Localizer, Message};
 
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{Deck, DeckParams, Grid, Paragraph};
+use crate::pack::PackVersion;
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
@@ -33,6 +34,19 @@ impl Localize for Issue {
 impl std::fmt::Display for Issue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.localize(oku_slides_i18n::english()))
+    }
+}
+
+impl Issue {
+    /// Une version de pack écartée : son contenu ne donne pas son empreinte.
+    pub fn pack_version_mismatch(hex: &str) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-pack-version-mismatch").arg("version", hex) }
+    }
+
+    /// La version de pack du deck manque dans ses sources.
+    pub fn pack_version_missing(version: &PackVersion) -> Self {
+        let message = Message::new("issue-pack-version-missing").arg("version", version.as_str());
+        Self { slide: None, element: None, message }
     }
 }
 

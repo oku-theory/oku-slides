@@ -10,7 +10,6 @@ ui-title-field = 演示文稿标题
 ui-status-unsaved = 有未保存的更改
 ui-status-saved = 已保存
 ui-status-never-saved = 尚未保存
-ui-status-builtin = 内置：保存时将创建副本
 ui-caption-templates = { $count ->
     [one] { $count } 个模板
    *[other] { $count } 个模板
@@ -289,3 +288,4 @@ ui-history-slider = 演示文稿的版本
 ui-history-removed-since = 此后已删除
 ui-history-changed-since = 此后已修改
 ui-history-added-since = 此后新增的幻灯片：{ $count }
+ui-pack-notice-close = 关闭

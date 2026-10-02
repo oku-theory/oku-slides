@@ -10,7 +10,6 @@ ui-title-field = Presentation title
 ui-status-unsaved = unsaved changes
 ui-status-saved = saved
 ui-status-never-saved = not saved yet
-ui-status-builtin = built-in: saving it creates a copy
 ui-caption-templates = { $count ->
     [one] { $count } template
    *[other] { $count } templates
@@ -292,3 +291,4 @@ ui-history-slider = Versions of the presentation
 ui-history-removed-since = deleted since
 ui-history-changed-since = changed since
 ui-history-added-since = slides added since: { $count }
+ui-pack-notice-close = Close

@@ -128,3 +128,34 @@ async fn set_setting_confirmed_writes_through_port() {
     assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "now" }));
     assert_that!(h.settings.read().get("dictation.language").cloned()).is_equal_to(Some(json!("fr")));
 }
+
+/// La confirmation de `delete_template_set`, sérialisée ; l'utilisateur refuse.
+async fn delete_confirmation(h: &Harness, set: &str) -> String {
+    let mut rx = h.hub.subscribe();
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let args = json!({ "set": set });
+    let pending = tokio::spawn(async move { call(&c, "delete_template_set", args).await });
+    let surface = next_surface(&mut rx).await;
+    let json = serde_json::to_string(&surface).unwrap_or_else(|e| panic!("sérialisation de la surface : {e}"));
+    answer(h, &surface.id, false);
+    pending.await.unwrap_or_else(|e| panic!("tâche de l'outil : {e}"));
+    json
+}
+
+/// t-328 : la confirmation nomme le pack, pas son UUID.
+#[tokio::test(flavor = "multi_thread")]
+async fn delete_template_set_confirmation_names_the_pack() {
+    let h = start().await;
+    let json = delete_confirmation(&h, "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10").await;
+    assert_that!(json.contains("Essentiel")).is_true();
+    assert_that!(json.contains("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10")).is_false();
+}
+
+/// t-328 : un id inconnu de la bibliothèque est montré tel quel.
+#[tokio::test(flavor = "multi_thread")]
+async fn delete_template_set_confirmation_of_unknown_pack_shows_its_id() {
+    let h = start().await;
+    let json = delete_confirmation(&h, "00000000-0000-4000-8000-000000000001").await;
+    assert_that!(json.contains("00000000-0000-4000-8000-000000000001")).is_true();
+}

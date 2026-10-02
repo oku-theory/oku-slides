@@ -6,12 +6,12 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{Slide, SlideChanges, Version};
+use oku_slides_core::{PackRef, PackVersion, Slide, SlideChanges, Version};
 use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
 use crate::fields::FieldView;
-use crate::templates::{SetInfo, Template};
+use crate::pack::{PackInfo, Template};
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
 /// la page manque.
@@ -68,10 +68,12 @@ pub struct Snapshot<'a> {
     pub disk_replaced: bool,
     /// L'interface prend les couleurs et les polices du thème des slides.
     pub appearance: &'a Appearance,
-    /// Ensemble de modèles du deck.
-    pub templates: &'a str,
-    /// Mode d'édition des modèles : l'ensemble en cours de modification.
+    /// Pack de modèles du deck (id et version embarquée).
+    pub templates: Option<&'a PackRef>,
+    /// Mode d'édition des modèles : le pack en cours de modification.
     pub editing: Option<&'a TemplateMode>,
+    /// Bandeau du pack : le deck embarque une autre version que ma version courante.
+    pub pack_notice: Option<crate::PackNoticeView>,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.
@@ -132,13 +134,23 @@ pub struct TabInfo {
     pub deck_uid: Option<String>,
 }
 
-/// Édition d'un ensemble de modèles : chaque slide est un modèle.
+/// Édition d'un pack de modèles : chaque slide est un modèle.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateMode {
-    pub set: String,
+    pub set: uuid::Uuid,
     pub name: String,
-    /// Ensemble intégré : l'enregistrer en crée une copie.
+    /// Pack intégré : l'enregistrer crée la version de l'utilisateur sous son id.
     pub builtin: bool,
+    /// Version d'où viennent widgets et description : la dernière enregistrée.
+    pub base: PackVersion,
+    /// Parente des versions de la session : la courante à son début.
+    ///
+    /// `None` pour une copie.
+    pub parent: Option<PackVersion>,
+    /// La version de cette session, une fois enregistrée.
+    ///
+    /// Les enregistrements suivants la remplacent.
+    pub session_version: Option<PackVersion>,
 }
 
 /// Un modèle avec son aperçu (SVG) dans le thème courant.
@@ -149,11 +161,11 @@ pub struct TemplateView {
     pub svg: Arc<str>,
 }
 
-/// Aperçus d'un ensemble de modèles, et la liste des ensembles.
+/// Aperçus d'un pack de modèles, et la liste des packs.
 #[derive(Debug, Serialize)]
 pub struct TemplatesView {
-    pub set: SetInfo,
-    pub sets: Vec<SetInfo>,
+    pub set: PackInfo,
+    pub sets: Vec<PackInfo>,
     pub templates: Arc<[TemplateView]>,
 }
 

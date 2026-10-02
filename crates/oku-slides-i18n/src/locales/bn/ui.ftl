@@ -10,7 +10,6 @@ ui-title-field = প্রেজেন্টেশনের শিরোনা�
 ui-status-unsaved = অসংরক্ষিত পরিবর্তন
 ui-status-saved = সংরক্ষিত
 ui-status-never-saved = এখনও সংরক্ষিত হয়নি
-ui-status-builtin = বিল্ট-ইন: সংরক্ষণ করলে একটি কপি তৈরি হবে
 ui-caption-templates = { $count ->
     [one] { $count }টি টেমপ্লেট
    *[other] { $count }টি টেমপ্লেট
@@ -289,3 +288,4 @@ ui-history-slider = উপস্থাপনার সংস্করণ
 ui-history-removed-since = তারপর থেকে মুছে ফেলা হয়েছে
 ui-history-changed-since = তারপর থেকে পরিবর্তিত
 ui-history-added-since = তারপর থেকে যোগ করা স্লাইড: { $count }
+ui-pack-notice-close = বন্ধ করুন

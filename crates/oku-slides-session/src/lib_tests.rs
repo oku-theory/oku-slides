@@ -145,7 +145,7 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "template_sets" }),
         json!({ "cmd": "ui", "slide": null, "grid": false }),
         json!({ "cmd": "save_templates" }),
-        json!({ "cmd": "delete_template_set", "set": "x" }),
+        json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "history_versions" }),
     ];
     let changing: Vec<_> = reads
@@ -163,7 +163,7 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "undo" }),
         json!({ "cmd": "redo" }),
         json!({ "cmd": "save", "path": null }),
-        json!({ "cmd": "edit_templates", "set": "x" }),
+        json!({ "cmd": "edit_templates", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "close_templates" }),
         json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
         json!({ "cmd": "history_open" }),
