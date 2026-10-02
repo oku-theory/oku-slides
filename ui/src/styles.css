@@ -101,7 +101,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .table {
   height: 100%;
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) clamp(300px, 26vw, 460px);
+  /* Pile, feuille, puis le fil de l'agent et ses surfaces a2ui : une large part de la table. */
+  grid-template-columns: 236px minmax(0, 1fr) clamp(420px, 40vw, 760px);
   grid-template-rows: 104px minmax(0, 1fr) 104px;
   grid-template-areas: ". label tray" "pile sheet notes" "pile tools device";
   background:
