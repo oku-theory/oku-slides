@@ -181,7 +181,7 @@ describe("fil de l'agent", () => {
 
   test("une surface du fil est rendue, même sans ligne, et ses actions nomment la surface", async () => {
     const { host, actions } = await mount({ state: "working", entries: [] }, [surface("ask-1")]);
-    const button = host.querySelector(".agent-surface.thread button") as HTMLElement;
+    const button = host.querySelector(".agent-surface.place-thread button") as HTMLElement;
     expect(button).not.toBeNull();
     expect(button.textContent).toBe("Valider");
     await act(async () => button.click());
@@ -190,12 +190,18 @@ describe("fil de l'agent", () => {
 
   test("un post-it est rendu dans le fil, à sa place", async () => {
     const { host } = await mount({ state: "idle", entries: [] }, [surface("show-1", "postit")]);
-    expect(host.querySelector(".agent-surface.postit button")?.textContent).toBe("Valider");
+    expect(host.querySelector(".agent-surface.place-postit button")?.textContent).toBe("Valider");
+  });
+
+  test("le cadre d'un post-it du fil ne prend pas la classe postit des notes", async () => {
+    // Régression : `.postit` (132px, min-height 96px) rétrécissait le cadre, le contenu débordait.
+    const { host } = await mount({ state: "idle", entries: [] }, [surface("show-1", "postit")]);
+    expect(host.querySelector(".agent-surface")?.classList.contains("postit")).toBe(false);
   });
 
   test("les suites de la réponse sont des boutons du fil ; un clic envoie suggest", async () => {
     const { host, actions } = await mount({ state: "idle", entries: [{ kind: "agent", text: "Fait." }] }, [realSurface("show-7")]);
-    const buttons = [...host.querySelectorAll(".agent-surface.suggestions button")] as HTMLElement[];
+    const buttons = [...host.querySelectorAll(".agent-surface.place-suggestions button")] as HTMLElement[];
     expect(buttons.map((b) => b.textContent)).toEqual(["Mettre en barres", "Ajouter une légende"]);
     await act(async () => buttons[0].click());
     expect(actions).toEqual([["show-7", "suggest"]]);

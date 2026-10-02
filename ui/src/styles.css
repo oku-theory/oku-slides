@@ -486,7 +486,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .chip { border: 1px solid var(--accent-fill); color: var(--accent); background: transparent; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
 .chip.on { background: var(--accent-fill); color: var(--on-accent); }
 .chip-key { opacity: .6; font-variant-numeric: tabular-nums; }
-.swatches { display: flex; gap: var(--space-1); align-items: center; }
+.swatches { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
 .swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--ink-muted); cursor: pointer; }
 .swatch.on { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 .slide-thumb { display: flex; flex-direction: column; gap: var(--space-1); border: 0; background: none; cursor: pointer; padding: 0; }
@@ -543,14 +543,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .agent-surface .postit { width: auto; margin-inline-end: 12%; }
 .agent-surface .chip { text-align: start; }
 /* Les suites de la réponse : des pastilles discrètes sous la carte de l'agent, alignées sur elle. */
-.agent-surface.suggestions { margin-inline-end: 12%; margin-top: var(--space-1); }
-.agent-surface.suggestions .a2ui-row { gap: 6px; }
-.agent-surface.suggestions .btn {
+.agent-surface.place-suggestions { margin-inline-end: 12%; margin-top: var(--space-1); }
+.agent-surface.place-suggestions .a2ui-row { gap: 6px; }
+.agent-surface.place-suggestions .btn {
   height: auto; min-height: 32px; padding: 6px 14px; border-radius: 999px; font: 500 13px/18px var(--sans); text-align: start;
   background: color-mix(in oklab, var(--postit) 55%, var(--paper-100)); color: var(--ink);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
 }
-.agent-surface.suggestions .btn:hover:not(:disabled) { background: var(--postit); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-rest); }
+.agent-surface.place-suggestions .btn:hover:not(:disabled) { background: var(--postit); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-rest); }
 .agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
 .agent-entry .plan { list-style: none; padding: 0; margin: 0; }
 .agent-entry .error { color: var(--danger); }

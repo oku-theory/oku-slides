@@ -20,7 +20,8 @@ const TOOL_MARK: Record<string, string> = { pending: "☐", in_progress: "◌", 
 const STATUS_CLASS = new Set(["pending", "in_progress", "completed", "failed"]);
 const statusClass = (status: string) => (STATUS_CLASS.has(status) ? status : "other");
 
-/** Places rendues dans le fil ; une autre place ne donne pas sa valeur en classe. */
+/** Places rendues dans le fil ; une autre place ne donne pas sa valeur en classe.
+ * Préfixée (`place-postit`) : nue, `postit` prendrait le style des post-its des notes. */
 const PLACE_CLASS = new Set<Place>(["thread", "postit", "suggestions"]);
 
 /** Une fin de tour dite dans la langue de l'utilisateur ; une raison inconnue est citée telle quelle. */
@@ -95,7 +96,7 @@ export function AgentThread({
       </ol>
       <Suspense fallback={null}>
         {surfaces.map((s) => (
-          <div key={s.id} className={`agent-surface${PLACE_CLASS.has(s.place) ? ` ${s.place}` : ""}`}>
+          <div key={s.id} className={`agent-surface${PLACE_CLASS.has(s.place) ? ` place-${s.place}` : ""}`}>
             <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
           </div>
         ))}
