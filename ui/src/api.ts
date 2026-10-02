@@ -88,7 +88,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante et grille, gardées par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille et fantômes, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
