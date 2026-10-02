@@ -212,7 +212,7 @@ pub enum Request {
     DeleteTemplateSet {
         set: Uuid,
     },
-    /// Slide courante et grille de l'interface (gardées pour la reprise).
+    /// Slide courante, grille et fantômes de l'interface (gardés pour la reprise).
     Ui(UiState),
     /// Fusionne un autre `.oku-slides.pdf` du même deck. Non annulable.
     Merge {

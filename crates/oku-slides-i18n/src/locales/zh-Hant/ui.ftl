@@ -38,6 +38,8 @@ ui-toolbar-redo = 重做
 ui-toolbar-redo-label = 重做：{ $label }
 ui-toolbar-grid-hide = 隱藏格線
 ui-toolbar-grid-show = 顯示格線
+ui-toolbar-ghosts-hide = 隱藏虛影
+ui-toolbar-ghosts-show = 顯示虛影
 ui-toolbar-theme = 主題
 ui-toolbar-theme-default = 預設
 ui-toolbar-save-copy = 儲存副本
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = 欄 { $cols } · 列 { $rows }
+ui-ghost-zone = 區域
 
 ## 投影片備註
 

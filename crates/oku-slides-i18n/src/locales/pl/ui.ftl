@@ -42,6 +42,8 @@ ui-toolbar-redo = Ponów
 ui-toolbar-redo-label = Ponów: { $label }
 ui-toolbar-grid-hide = Ukryj siatkę
 ui-toolbar-grid-show = Pokaż siatkę
+ui-toolbar-ghosts-hide = Ukryj duchy
+ui-toolbar-ghosts-show = Pokaż duchy
 ui-toolbar-theme = Motyw
 ui-toolbar-theme-default = Domyślny
 ui-toolbar-save-copy = Zapisz kopię
@@ -146,6 +148,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = kol. { $cols } · wiersz { $rows }
+ui-ghost-zone = Strefa
 
 ## Notatki slajdu
 

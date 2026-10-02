@@ -38,6 +38,8 @@ ui-toolbar-redo = আবার করুন
 ui-toolbar-redo-label = আবার করুন: { $label }
 ui-toolbar-grid-hide = গ্রিড লুকান
 ui-toolbar-grid-show = গ্রিড দেখান
+ui-toolbar-ghosts-hide = ঘোস্ট লুকান
+ui-toolbar-ghosts-show = ঘোস্ট দেখান
 ui-toolbar-theme = থিম
 ui-toolbar-theme-default = ডিফল্ট
 ui-toolbar-save-copy = একটি কপি সংরক্ষণ করুন
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = কলাম { $cols } · সারি { $rows }
+ui-ghost-zone = অঞ্চল
 
 ## স্লাইড নোট
 

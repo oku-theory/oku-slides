@@ -38,6 +38,8 @@ ui-toolbar-redo = Wiederholen
 ui-toolbar-redo-label = Wiederholen: { $label }
 ui-toolbar-grid-hide = Raster ausblenden
 ui-toolbar-grid-show = Raster einblenden
+ui-toolbar-ghosts-hide = Geister ausblenden
+ui-toolbar-ghosts-show = Geister einblenden
 ui-toolbar-theme = Design
 ui-toolbar-theme-default = Standard
 ui-toolbar-save-copy = Kopie speichern
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = Sp. { $cols } · Zeile { $rows }
+ui-ghost-zone = Bereich
 
 ## Foliennotizen
 

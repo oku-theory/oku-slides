@@ -92,7 +92,7 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// Ce que l'interface fait garder à l'hôte : slide courante et grille.
+/// Ce que l'interface fait garder à l'hôte : slide courante, grille et fantômes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -100,6 +100,9 @@ pub struct UiState {
     /// Grille de la slide toujours visible.
     #[serde(default = "shown")]
     pub grid: bool,
+    /// Fantômes visibles : zone, widgets et champs annotés.
+    #[serde(default)]
+    pub ghosts: bool,
 }
 
 fn shown() -> bool {
@@ -108,7 +111,7 @@ fn shown() -> bool {
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { slide: None, grid: true }
+        Self { slide: None, grid: true, ghosts: false }
     }
 }
 

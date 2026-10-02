@@ -36,6 +36,8 @@ ui-toolbar-redo = Làm lại
 ui-toolbar-redo-label = Làm lại: { $label }
 ui-toolbar-grid-hide = Ẩn lưới
 ui-toolbar-grid-show = Hiện lưới
+ui-toolbar-ghosts-hide = Ẩn bóng mờ
+ui-toolbar-ghosts-show = Hiện bóng mờ
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-default = Mặc định
 ui-toolbar-save-copy = Lưu bản sao
@@ -140,6 +142,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = cột { $cols } · hàng { $rows }
+ui-ghost-zone = Vùng
 
 ## Ghi chú trang chiếu
 

@@ -38,6 +38,8 @@ ui-toolbar-redo = Opnieuw
 ui-toolbar-redo-label = Opnieuw: { $label }
 ui-toolbar-grid-hide = Raster verbergen
 ui-toolbar-grid-show = Raster tonen
+ui-toolbar-ghosts-hide = Geesten verbergen
+ui-toolbar-ghosts-show = Geesten tonen
 ui-toolbar-theme = Thema
 ui-toolbar-theme-default = Standaard
 ui-toolbar-save-copy = Kopie opslaan
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = kol. { $cols } · rij { $rows }
+ui-ghost-zone = Zone
 
 ## Dianotities
 

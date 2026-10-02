@@ -38,6 +38,8 @@ ui-toolbar-redo = 重做
 ui-toolbar-redo-label = 重做：{ $label }
 ui-toolbar-grid-hide = 隐藏网格
 ui-toolbar-grid-show = 显示网格
+ui-toolbar-ghosts-hide = 隐藏虚影
+ui-toolbar-ghosts-show = 显示虚影
 ui-toolbar-theme = 主题
 ui-toolbar-theme-default = 默认
 ui-toolbar-save-copy = 保存副本
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = 列 { $cols } · 行 { $rows }
+ui-ghost-zone = 区域
 
 ## 幻灯片备注
 

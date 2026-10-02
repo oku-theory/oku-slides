@@ -36,6 +36,8 @@ ui-toolbar-redo = 다시 실행
 ui-toolbar-redo-label = 다시 실행: { $label }
 ui-toolbar-grid-hide = 그리드 숨기기
 ui-toolbar-grid-show = 그리드 표시
+ui-toolbar-ghosts-hide = 고스트 숨기기
+ui-toolbar-ghosts-show = 고스트 표시
 ui-toolbar-theme = 테마
 ui-toolbar-theme-default = 기본값
 ui-toolbar-save-copy = 사본 저장
@@ -140,6 +142,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = { $cols }열 · { $rows }행
+ui-ghost-zone = 영역
 
 ## 슬라이드 노트
 

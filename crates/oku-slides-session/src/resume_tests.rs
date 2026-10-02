@@ -98,11 +98,23 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         parent: Some(v),
         session_version: None,
     };
-    let ui = UiState { slide: Some("s-1".into()), grid: false };
+    let ui = UiState { slide: Some("s-1".into()), grid: false, ghosts: true };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
     let back = r.read_state().unwrap().unwrap();
     assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Un `state.json` écrit avant les fantômes se relit, fantômes masqués.
+#[test]
+fn read_state_without_ghosts_returns_them_hidden() {
+    let r = resume();
+    std::fs::create_dir_all(&r.dir).unwrap();
+    let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{{"slide":"s-1","grid":false}}}}"#);
+    std::fs::write(r.dir.join("state.json"), state).unwrap();
+    let back = r.read_state().unwrap().unwrap();
+    assert_that!(back.ui).is_equal_to(UiState { slide: Some("s-1".into()), grid: false, ghosts: false });
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

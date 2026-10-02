@@ -391,6 +391,24 @@ button, select, input, textarea { font: inherit; color: inherit; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---- Fantômes : contours annotés de la zone, des objets et des champs ---- */
+/* Sans z-index : l'ordre du DOM la pose sur le rendu, sous les objets, les champs et la sélection ; les clics passent au travers. */
+.stage-ghost-layer { position: absolute; inset: 0; pointer-events: none; animation: fade-in 140ms ease-out; }
+.stage-ghost { position: absolute; border-radius: var(--radius-sm); }
+.stage-ghost-zone { outline: 1px dashed color-mix(in oklab, var(--ink-muted) 60%, transparent); outline-offset: 2px; }
+.stage-ghost-target { outline: 1px solid color-mix(in oklab, var(--accent) 55%, transparent); outline-offset: 3px; }
+.stage-ghost-field { outline: 1px dotted color-mix(in oklab, var(--accent) 45%, transparent); }
+.stage-ghost-tag {
+  position: absolute; left: 0; bottom: 100%; margin-bottom: 4px; padding: 0 6px; height: 16px; display: flex; align-items: center;
+  border-radius: var(--radius-sm); font: 600 10px/1 var(--sans); white-space: nowrap;
+  background: color-mix(in oklab, var(--accent-fill) 92%, transparent); color: var(--on-accent);
+}
+/* La zone s'annote sous son coin bas ; un champ, en petit, au-dessus de son coin droit. */
+.stage-ghost-zone > .stage-ghost-tag { top: 100%; bottom: auto; margin: 4px 0 0; background: color-mix(in oklab, var(--ink-muted) 92%, transparent); color: var(--paper-100); }
+.stage-ghost-field > .stage-ghost-tag { right: 0; left: auto; bottom: 100%; margin: 0; height: 14px; font-size: 9px; }
+/* Au bord de la slide, l'étiquette rentre dans sa boîte : la scène rogne ce qui dépasse. */
+.stage-ghost-in > .stage-ghost-tag { top: 2px; bottom: auto; margin: 0 2px; }
+
 /* ---- Grille de mise en page : points sur les nœuds ---- */
 .grid-layer { position: absolute; z-index: 1; pointer-events: none; overflow: visible; animation: fade-in 140ms ease-out; }
 .grid-node { fill: color-mix(in oklab, var(--accent) 70%, transparent); }

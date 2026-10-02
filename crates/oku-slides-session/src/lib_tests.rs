@@ -143,7 +143,7 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "panel", "slide": "s-1" }),
         json!({ "cmd": "templates" }),
         json!({ "cmd": "template_sets" }),
-        json!({ "cmd": "ui", "slide": null, "grid": false }),
+        json!({ "cmd": "ui", "slide": null, "grid": false, "ghosts": true }),
         json!({ "cmd": "save_templates" }),
         json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "history_versions" }),

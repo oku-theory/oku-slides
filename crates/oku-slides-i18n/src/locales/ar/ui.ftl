@@ -46,6 +46,8 @@ ui-toolbar-redo = إعادة
 ui-toolbar-redo-label = إعادة: { $label }
 ui-toolbar-grid-hide = إخفاء الشبكة
 ui-toolbar-grid-show = إظهار الشبكة
+ui-toolbar-ghosts-hide = إخفاء الأشباح
+ui-toolbar-ghosts-show = إظهار الأشباح
 ui-toolbar-theme = السمة
 ui-toolbar-theme-default = الافتراضية
 ui-toolbar-save-copy = حفظ نسخة
@@ -150,6 +152,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = عمود { $cols } · صف { $rows }
+ui-ghost-zone = المنطقة
 
 ## ملاحظات الشريحة
 

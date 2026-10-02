@@ -147,6 +147,89 @@ test("Stage empty field that keeps a text shows that text ghosted", async () => 
   expect(host.querySelector(".field-placeholder")?.textContent).toBe("Chapitre 2");
 });
 
+test("Stage without ghosts draws no ghost layer", async () => {
+  const { host } = await mount();
+  expect(host.querySelector(".stage-ghost-layer")).toBeNull();
+});
+
+test("Stage with ghosts outlines each element with its kind", async () => {
+  const { host } = await mount({ showGhosts: true });
+  const tags = [...host.querySelectorAll(".stage-ghost-target .stage-ghost-tag")].map((e) => e.textContent);
+  expect(tags).toEqual(["Carte"]);
+});
+
+test("Stage with ghosts outlines each field with its parameter name", async () => {
+  const { host } = await mount({ showGhosts: true });
+  const tags = [...host.querySelectorAll(".stage-ghost-field .stage-ghost-tag")].map((e) => e.textContent);
+  expect(tags).toEqual(["Surtitre", "Titre"]);
+});
+
+test("Stage with ghosts shows placeholders of empty fields without selection", async () => {
+  const empty = { ...fv("c1", "kicker", "", 60), empty: true, side: "before" as const, h: 0, w: 0 };
+  const v = { ...view, fields: [empty, fv("c1", "title", "Titre", 60)] } as SlideView;
+  const { host } = await mount({ view: v, showGhosts: true });
+  expect(host.querySelector(".field-placeholder")?.textContent).toBe("Surtitre");
+});
+
+test("Stage with ghosts outlines the body zone and tags gridded elements with their cell", async () => {
+  const v = {
+    ...view,
+    slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "text", cell: { col: 1, row: 0, cols: 2 } }] } },
+    zone: { page: 1, x: 100, y: 100, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
+    targets: [{ id: "t1", kind: "text", free: true, x: 350, y: 100, w: 500, h: 200 }],
+    fields: [],
+  } as unknown as SlideView;
+  const { host } = await mount({ view: v, showGhosts: true });
+  expect(host.querySelector(".stage-ghost-zone .stage-ghost-tag")?.textContent).toBe("Zone");
+  expect(host.querySelector(".stage-ghost-target .stage-ghost-tag")?.textContent).toBe("Texte · col. 2–3 · lig. 1");
+});
+
+test("Stage read only with ghosts outlines elements and fields but shows no field layer", async () => {
+  const { host } = await mount({ readOnly: true, showGhosts: true });
+  expect(host.querySelectorAll(".stage-ghost-target").length).toBe(1);
+  expect(host.querySelectorAll(".stage-ghost-field").length).toBe(2);
+  expect(host.querySelector(".fields")).toBeNull();
+});
+
+/** Slide 1000 × 600 pt, grille 4 × 3 : un texte libre accroché en col. 2–3, lig. 1, au bord haut. */
+const gridded = {
+  ...view,
+  width: 1000, height: 600,
+  slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "text", cell: { col: 1, row: 0, cols: 2 } }] } },
+  zone: { page: 1, x: 0, y: 0, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
+  targets: [{ id: "t1", kind: "text", free: true, x: 250, y: 0, w: 500, h: 200 }],
+  fields: [],
+} as unknown as SlideView;
+
+test("Stage selected element on the grid is tagged with its kind and cell", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  expect(host.querySelector(".target.selected .tag")?.textContent).toBe("Texte · col. 2–3 · lig. 1");
+});
+
+test("Stage with ghosts puts the tags of boxes at the slide edges inside them", async () => {
+  const { host } = await mount({ view: gridded, showGhosts: true });
+  expect(host.querySelector(".stage-ghost-target")?.classList.contains("stage-ghost-in")).toBe(true);
+  expect(host.querySelector(".stage-ghost-zone")?.classList.contains("stage-ghost-in")).toBe(true);
+});
+
+test("Stage with ghosts keeps the tags of boxes away from the edges outside them", async () => {
+  // Scène non mesurée (happy-dom) : échelle 0,1 ; 500 pt font 50 px du bord.
+  const v = { ...view, fields: [fv("c1", "title", "Titre", 500)] } as SlideView;
+  const { host } = await mount({ view: v, showGhosts: true });
+  expect(host.querySelector(".stage-ghost-field")?.classList.contains("stage-ghost-in")).toBe(false);
+});
+
+test("Stage with ghosts hides the ghost of the element being dragged", async () => {
+  const { host } = await mount({ view: gridded, showGhosts: true, selected: "t1" });
+  await act(async () => {
+    host.querySelector(".target")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+  });
+  await act(async () => {
+    host.querySelector(".stage")!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: 200, clientY: 10 }));
+  });
+  expect(host.querySelector(".stage-ghost-target")).toBeNull();
+});
+
 test("Stage read only shows no field layer", async () => {
   const { host } = await mount({ readOnly: true });
   expect(host.querySelector(".fields")).toBeNull();

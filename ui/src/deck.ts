@@ -232,11 +232,18 @@ export function slideToFetch(slides: { id: string }[], current: string | null): 
 }
 
 /**
- * Grille à montrer : au premier snapshot, celle que l'hôte a gardée pour la
- * reprise ; ensuite, le choix courant de l'utilisateur.
+ * Choix d'affichage (grille, fantômes) : au premier snapshot, celui que l'hôte
+ * a gardé pour la reprise ; ensuite, le choix courant de l'utilisateur.
  */
-export function restoredGrid(first: boolean, ui: { grid: boolean }, current: boolean): boolean {
-  return first ? ui.grid : current;
+export function restoredChoice(first: boolean, kept: boolean, current: boolean): boolean {
+  return first ? kept : current;
+}
+
+/** Option d'affichage qu'une touche bascule : ⌘' la grille, ⌘⇧G les fantômes. */
+export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): "grid" | "ghosts" | null {
+  if (!e.metaKey && !e.ctrlKey) return null;
+  if (e.key === "'") return "grid";
+  return e.shiftKey && e.key.toLowerCase() === "g" ? "ghosts" : null;
 }
 
 /** Slide à montrer : la courante si elle existe encore, sinon celle retenue par l'hôte, sinon la première. */

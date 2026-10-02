@@ -36,6 +36,8 @@ ui-toolbar-redo = ทำซ้ำ
 ui-toolbar-redo-label = ทำซ้ำ: { $label }
 ui-toolbar-grid-hide = ซ่อนเส้นตาราง
 ui-toolbar-grid-show = แสดงเส้นตาราง
+ui-toolbar-ghosts-hide = ซ่อนโครงร่าง
+ui-toolbar-ghosts-show = แสดงโครงร่าง
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-default = ค่าเริ่มต้น
 ui-toolbar-save-copy = บันทึกสำเนา
@@ -140,6 +142,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = คอลัมน์ { $cols } · แถว { $rows }
+ui-ghost-zone = โซน
 
 ## บันทึกของสไลด์
 

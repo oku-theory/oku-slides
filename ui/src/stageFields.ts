@@ -1,9 +1,12 @@
 /**
  * Champs de la scène : clé stable, navigation au clavier, libellé du
- * placeholder et boîte cliquable (un champ vide a une ligne de haut).
+ * placeholder et boîte cliquable (un champ vide a une ligne de haut) ;
+ * étiquette d'un objet (sorte et case de grille).
  */
 import type { FieldView, SlideView, TextStyle } from "./api";
 import { capHeight, cssFont } from "./fontMetrics";
+import type { Cell } from "./grid";
+import { cellLabel } from "./grid";
 import { t } from "./i18n";
 
 export type FieldKey = string;
@@ -33,6 +36,13 @@ export function primaryFieldOf(view: SlideView, owner: string): FieldView | null
   const own = view.fields.filter((f) => f.owner === owner);
   return own.find((f) => !f.empty) ?? own.find((f) => f.kind === "rich") ?? own[0] ?? null;
 }
+
+/** Nom d'une sorte d'élément (texte, carte…) ; une sorte inconnue garde son identifiant. */
+export const kindLabel = (kind: string) => t("ui-element-kind", { kind });
+
+/** Étiquette d'un objet : sa sorte, et sa case s'il est sur la grille. */
+export const elementTag = (kind: string, cell: Cell | null | undefined) =>
+  cell ? `${kindLabel(kind)} · ${cellLabel(cell)}` : kindLabel(kind);
 
 /** Libellé du placeholder : traduction du nom, sinon libellé du schéma, sinon le nom. */
 export function fieldLabel(f: Pick<FieldView, "field" | "label">): string {

@@ -38,6 +38,8 @@ ui-toolbar-redo = Ripeti
 ui-toolbar-redo-label = Ripeti: { $label }
 ui-toolbar-grid-hide = Nascondi la griglia
 ui-toolbar-grid-show = Mostra la griglia
+ui-toolbar-ghosts-hide = Nascondi i fantasmi
+ui-toolbar-ghosts-show = Mostra i fantasmi
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Predefinito
 ui-toolbar-save-copy = Salva una copia
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = col. { $cols } · riga { $rows }
+ui-ghost-zone = Zona
 
 ## Note della diapositiva
 

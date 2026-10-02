@@ -9,7 +9,8 @@ import {
   pasteOps,
   pickSlide,
   placeOnGridOps,
-  restoredGrid,
+  restoredChoice,
+  viewToggle,
   rich,
   slideToFetch,
   slot,
@@ -289,12 +290,29 @@ describe("pickSlide", () => {
   });
 });
 
-describe("restoredGrid", () => {
-  test("restoredGrid premier snapshot reprend la grille gardée par l'hôte", () => {
-    expect(restoredGrid(true, { slide: null, grid: false }, true)).toBe(false);
+describe("viewToggle", () => {
+  const key = (k: string, more: { meta?: boolean; ctrl?: boolean; shift?: boolean } = {}) =>
+    ({ key: k, metaKey: !!more.meta, ctrlKey: !!more.ctrl, shiftKey: !!more.shift });
+
+  test("viewToggle cmd quote toggles the grid", () => {
+    expect(viewToggle(key("'", { meta: true }))).toBe("grid");
   });
 
-  test("restoredGrid snapshot suivant garde le choix de l'utilisateur", () => {
-    expect(restoredGrid(false, { slide: null, grid: false }, true)).toBe(true);
+  test("viewToggle cmd shift G toggles the ghosts, whatever the case WebKit reports", () => {
+    expect([viewToggle(key("G", { meta: true, shift: true })), viewToggle(key("g", { ctrl: true, shift: true }))]).toEqual(["ghosts", "ghosts"]);
+  });
+
+  test("viewToggle G without shift or without modifier toggles nothing", () => {
+    expect([viewToggle(key("g", { meta: true })), viewToggle(key("G", { shift: true }))]).toEqual([null, null]);
+  });
+});
+
+describe("restoredChoice", () => {
+  test("restoredChoice premier snapshot reprend le choix gardé par l'hôte", () => {
+    expect(restoredChoice(true, false, true)).toBe(false);
+  });
+
+  test("restoredChoice snapshot suivant garde le choix de l'utilisateur", () => {
+    expect(restoredChoice(false, false, true)).toBe(true);
   });
 });

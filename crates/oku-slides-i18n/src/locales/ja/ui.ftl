@@ -38,6 +38,8 @@ ui-toolbar-redo = やり直す
 ui-toolbar-redo-label = やり直す：{ $label }
 ui-toolbar-grid-hide = グリッドを隠す
 ui-toolbar-grid-show = グリッドを表示
+ui-toolbar-ghosts-hide = ゴーストを隠す
+ui-toolbar-ghosts-show = ゴーストを表示
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-default = デフォルト
 ui-toolbar-save-copy = コピーを保存
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = 列 { $cols } · 行 { $rows }
+ui-ghost-zone = ゾーン
 
 ## スライドノート
 

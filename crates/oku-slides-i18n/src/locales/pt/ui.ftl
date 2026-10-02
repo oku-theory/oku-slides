@@ -38,6 +38,8 @@ ui-toolbar-redo = Refazer
 ui-toolbar-redo-label = Refazer: { $label }
 ui-toolbar-grid-hide = Ocultar a grade
 ui-toolbar-grid-show = Mostrar a grade
+ui-toolbar-ghosts-hide = Ocultar os fantasmas
+ui-toolbar-ghosts-show = Mostrar os fantasmas
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Padrão
 ui-toolbar-save-copy = Salvar uma cópia
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = col. { $cols } · linha { $rows }
+ui-ghost-zone = Zona
 
 ## Notas do slide
 

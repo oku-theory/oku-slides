@@ -42,6 +42,8 @@ ui-toolbar-redo = Повторить
 ui-toolbar-redo-label = Повторить: { $label }
 ui-toolbar-grid-hide = Скрыть сетку
 ui-toolbar-grid-show = Показать сетку
+ui-toolbar-ghosts-hide = Скрыть призраков
+ui-toolbar-ghosts-show = Показать призраков
 ui-toolbar-theme = Тема
 ui-toolbar-theme-default = По умолчанию
 ui-toolbar-save-copy = Сохранить копию
@@ -146,6 +148,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = стб. { $cols } · стр. { $rows }
+ui-ghost-zone = Зона
 
 ## Заметки к слайду
 

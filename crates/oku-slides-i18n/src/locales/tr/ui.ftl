@@ -38,6 +38,8 @@ ui-toolbar-redo = Yinele
 ui-toolbar-redo-label = Yinele: { $label }
 ui-toolbar-grid-hide = Izgarayı gizle
 ui-toolbar-grid-show = Izgarayı göster
+ui-toolbar-ghosts-hide = Hayaletleri gizle
+ui-toolbar-ghosts-show = Hayaletleri göster
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Varsayılan
 ui-toolbar-save-copy = Kopyasını kaydet
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = süt. { $cols } · satır { $rows }
+ui-ghost-zone = Bölge
 
 ## Slayt notları
 

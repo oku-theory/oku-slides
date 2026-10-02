@@ -38,6 +38,8 @@ ui-toolbar-redo = Rehacer
 ui-toolbar-redo-label = Rehacer: { $label }
 ui-toolbar-grid-hide = Ocultar la cuadrícula
 ui-toolbar-grid-show = Mostrar la cuadrícula
+ui-toolbar-ghosts-hide = Ocultar los fantasmas
+ui-toolbar-ghosts-show = Mostrar los fantasmas
 ui-toolbar-theme = Tema
 ui-toolbar-theme-default = Predeterminado
 ui-toolbar-save-copy = Guardar una copia
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = col. { $cols } · fila { $rows }
+ui-ghost-zone = Zona
 
 ## Notas de la diapositiva
 

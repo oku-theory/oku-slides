@@ -407,22 +407,30 @@ fn edit_records_the_configured_author() {
 #[test]
 fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true}));
+}
+
+/// Une interface d'avant les fantômes n'envoie pas `ghosts` : ils restent masqués.
+#[test]
+fn ui_request_without_ghosts_keeps_them_hidden() {
+    let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": "s-1", "grid": false}));
+    assert_that!(snapshot_json(&mut s)["ui"]["ghosts"]).is_equal_to(json!(false));
 }
 
 #[test]
-fn snapshot_ui_defaults_to_grid_shown_and_no_slide() {
+fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": true}));
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": true, "ghosts": false}));
 }
 
 #[test]
-fn new_deck_forgets_the_remembered_slide_but_keeps_grid() {
+fn new_deck_forgets_the_remembered_slide_but_keeps_grid_and_ghosts() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     s.new_deck().unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false}));
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false, "ghosts": true}));
 }
 
 #[test]
@@ -430,7 +438,7 @@ fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     let mut before = snapshot_json(&mut a);
     drop(a);
     let mut b = resumed(&data);

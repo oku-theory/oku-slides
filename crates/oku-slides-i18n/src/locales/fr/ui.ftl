@@ -38,6 +38,8 @@ ui-toolbar-redo = Rétablir
 ui-toolbar-redo-label = Rétablir : { $label }
 ui-toolbar-grid-hide = Masquer la grille
 ui-toolbar-grid-show = Afficher la grille
+ui-toolbar-ghosts-hide = Masquer les fantômes
+ui-toolbar-ghosts-show = Afficher les fantômes
 ui-toolbar-theme = Thème
 ui-toolbar-theme-default = Par défaut
 ui-toolbar-save-copy = Enregistrer une copie
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = col. { $cols } · lig. { $rows }
+ui-ghost-zone = Zone
 
 ## Slide notes
 

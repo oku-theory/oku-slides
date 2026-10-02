@@ -33,7 +33,11 @@ fn document(theme: &str) -> Document {
 }
 
 fn state(slide: &str) -> State {
-    State { version: VERSION, mode: SavedMode::Deck, ui: UiState { slide: Some(slide.into()), grid: true } }
+    State {
+        version: VERSION,
+        mode: SavedMode::Deck,
+        ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false },
+    }
 }
 
 fn job(theme: Option<&str>, slide: &str) -> Job {

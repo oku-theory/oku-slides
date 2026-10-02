@@ -38,6 +38,8 @@ ui-toolbar-redo = फिर से करें
 ui-toolbar-redo-label = फिर से करें: { $label }
 ui-toolbar-grid-hide = ग्रिड छिपाएँ
 ui-toolbar-grid-show = ग्रिड दिखाएँ
+ui-toolbar-ghosts-hide = घोस्ट छिपाएँ
+ui-toolbar-ghosts-show = घोस्ट दिखाएँ
 ui-toolbar-theme = थीम
 ui-toolbar-theme-default = डिफ़ॉल्ट
 ui-toolbar-save-copy = कॉपी सहेजें
@@ -142,6 +144,7 @@ ui-element-kind = { $kind ->
    *[other] { $kind }
 }
 ui-grid-cell = कॉलम { $cols } · पंक्ति { $rows }
+ui-ghost-zone = क्षेत्र
 
 ## स्लाइड नोट्स
 

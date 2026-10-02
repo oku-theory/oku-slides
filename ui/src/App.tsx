@@ -8,7 +8,7 @@ import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
-import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredGrid, slideToFetch, slot, textToParagraphs } from "./deck";
+import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, restoredChoice, slideToFetch, viewToggle, slot, textToParagraphs } from "./deck";
 import { newElement } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
@@ -213,28 +213,30 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appearanceKey]);
 
-  // --- Grille de la slide -------------------------------------------------
+  // --- Grille et fantômes de la slide --------------------------------------
   const [gridAlways, setGridAlways] = useState(true);
+  const [ghosts, setGhosts] = useState(false);
 
-  // Au premier snapshot, l'interface reprend la slide et la grille gardées par
-  // l'hôte ; ensuite, la slide courante, ou la première si elle a disparu.
+  // Au premier snapshot, l'interface reprend la slide, la grille et les fantômes
+  // gardés par l'hôte ; ensuite, la slide courante, ou la première si elle a disparu.
   const restored = useRef(false);
   useEffect(() => {
     if (!snap) return;
     const first = !restored.current;
     restored.current = true;
-    setGridAlways((g) => restoredGrid(first, snap.ui, g));
+    setGridAlways((g) => restoredChoice(first, snap.ui.grid, g));
+    setGhosts((g) => restoredChoice(first, snap.ui.ghosts, g));
     const next = pickSlide(snap.slides, current, snap.ui.slide);
     if (next !== current) setCurrent(next);
   }, [snap, current]);
 
-  // Slide courante et grille : l'hôte les garde pour le prochain lancement.
+  // Slide courante, grille et fantômes : l'hôte les garde pour le prochain lancement.
   useEffect(() => {
     if (!restored.current) return;
-    api.ui(current, gridAlways).catch(() => {
+    api.ui(current, gridAlways, ghosts).catch(() => {
       /* reprise facultative : l'édition continue */
     });
-  }, [current, gridAlways]);
+  }, [current, gridAlways, ghosts]);
 
   // Jamais la vue d'une slide que le snapshot n'a plus (elle vient d'être supprimée).
   const fetchId = snap ? slideToFetch(snap.slides, current) : null;
@@ -533,6 +535,13 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
       if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
       const mod = e.metaKey || e.ctrlKey;
+      // Grille et fantômes se basculent partout, historique compris.
+      const toggle = viewToggle(e);
+      if (toggle) {
+        e.preventDefault();
+        (toggle === "grid" ? setGridAlways : setGhosts)((v) => !v);
+        return;
+      }
       if (snap?.history) {
         // Lecture seule : ← / → (⇧ : par session) parcourent les versions ;
         // les raccourcis d'édition, qui prennent aussi les flèches, sont inertes.
@@ -553,9 +562,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         open();
-      } else if (mod && e.key === "'") {
-        e.preventDefault();
-        setGridAlways((v) => !v);
       } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current) {
         e.preventDefault();
         const i = snap.slides.findIndex((s) => s.id === current);
@@ -700,12 +706,19 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     shortcut: "⌘'",
     onSelect: () => setGridAlways((v) => !v),
   };
+  const ghostsEntry: MenuEntry = {
+    kind: "item",
+    label: t(ghosts ? "ui-toolbar-ghosts-hide" : "ui-toolbar-ghosts-show"),
+    shortcut: "⌘⇧G",
+    onSelect: () => setGhosts((v) => !v),
+  };
   const menuEntries: MenuEntry[] = snap.editing
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
         { kind: "separator" },
         { kind: "custom", node: themePicker },
         gridEntry,
+        ghostsEntry,
         { kind: "separator" },
         { kind: "custom", node: languagePicker },
       ]
@@ -720,6 +733,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         gridEntry,
+        ghostsEntry,
         { kind: "separator" },
         { kind: "custom", node: languagePicker },
       ];
@@ -823,6 +837,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onNotice={(m) => say(m, true)}
             dictated={dictated}
             showGridAlways={gridAlways}
+            showGhosts={ghosts}
             overlay={
               sheet?.anchor
                 ? {

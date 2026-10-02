@@ -9,13 +9,14 @@ import type { GridPlacement } from "./deck";
 import { fieldChanged, fieldOps, findElement, gridPlacement, isBlock, placeOnGridOps } from "./deck";
 import { editorGeometry, placeholderStyle } from "./editorGeometry";
 import type { Cell, GridSpec, ZoneView } from "./grid";
-import { cellLabel, cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
+import { cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
 import { t } from "./i18n";
 import { sheetPosition } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
-import { fieldHitBox, fieldKey, fieldLabel, findField, nextField, primaryFieldOf } from "./stageFields";
+import { elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
+import GhostLayer from "./GhostLayer";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -68,12 +69,11 @@ interface Props {
   readOnly?: boolean;
   /** Mode modèles : les placeholders de tous les champs vides se voient. */
   templates?: boolean;
+  /** Fantômes : zone, objets et champs annotés ; placeholders de tous les champs vides. */
+  showGhosts?: boolean;
   /** Message pour l'utilisateur (le champ en édition a disparu). */
   onNotice?: (msg: string) => void;
 }
-
-/** Nom d'une sorte d'élément (texte, carte…) ; une sorte inconnue garde son identifiant. */
-const kindLabel = (kind: string) => t("ui-element-kind", { kind });
 
 /** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
 function dragged(d: Drag): Frame {
@@ -128,7 +128,7 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
 
 export default function Stage({
   ref, view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette,
-  readOnly = false, templates = false, onNotice,
+  readOnly = false, templates = false, showGhosts = false, onNotice,
 }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const editor = useRef<TextEditorHandle>(null);
@@ -278,10 +278,9 @@ export default function Stage({
   const liveCell = drag ? draggedCell(drag) : null;
   // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
   const showGrid = !!grid && (showGridAlways || !!liveCell);
-  const tagFor = (t: ObjectTarget, label: string) => {
-    const el = findElement(view.slide, t.id);
-    const cell = drag?.id === t.id && liveCell ? liveCell : el?.cell;
-    return cell && grid ? `${label} · ${cellLabel(cell)}` : label;
+  const tagFor = (t: ObjectTarget) => {
+    const cell = drag?.id === t.id && liveCell ? liveCell : findElement(view.slide, t.id)?.cell;
+    return elementTag(t.kind, grid ? cell : null);
   };
 
   const size = { width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) };
@@ -299,6 +298,7 @@ export default function Stage({
         >
           {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
           {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
+          {showGhosts && <GhostLayer view={view} scale={scale} hidden={drag?.id ?? null} />}
           <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
             {view.targets.map((tg) => {
               const sel = tg.id === selected;
@@ -317,7 +317,7 @@ export default function Stage({
                     if (f) onEdit(fieldKey(f));
                   }}
                 >
-                  {sel && !editing && <span className="tag">{tagFor(tg, label)}</span>}
+                  {sel && !editing && <span className="tag">{tagFor(tg)}</span>}
                   {sel && movable && !editing &&
                     (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                       <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />
@@ -330,8 +330,8 @@ export default function Stage({
             <div className="fields" role="group" aria-label={t("ui-stage-fields")}>
               {view.fields.map((f) => {
                 const key = fieldKey(f);
-                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles.
-                const hot = templates || f.owner === selected || editField?.owner === f.owner;
+                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles ou fantômes.
+                const hot = templates || showGhosts || f.owner === selected || editField?.owner === f.owner;
                 const ghost = f.empty && key !== editing && hot;
                 return (
                   <div
