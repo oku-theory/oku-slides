@@ -1,5 +1,5 @@
 /**
- * Sous-onglet d'un fichier de widget : éditeur, aperçu et diagnostics.
+ * Sous-onglet d'un fichier de widget : aperçu et diagnostics en haut, éditeur dessous.
  *
  * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
@@ -119,21 +119,6 @@ export default function WidgetTab({ api, files, id, name, revision, active, onOp
       id={`widget-panel-${id}`}
       aria-labelledby={`widget-tab-${id}`}
     >
-      <div className="widget-tab-editor">
-        {source !== null && (
-          <TypstEditor
-            key={editorKey}
-            text={source}
-            rewrite={files.rewrites.get(name) ?? null}
-            diagnostics={diagnostics}
-            diagnosticsFor={files.checked.get(name) ?? null}
-            label={widgetLabel(name)}
-            onChange={(text) => files.edit(name, text)}
-            onCommands={onCommands}
-            onHistory={onHistory}
-          />
-        )}
-      </div>
       <aside className="widget-tab-side" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
         {name === COMMON ? (
           <div className="widget-tab-broken">
@@ -169,6 +154,21 @@ export default function WidgetTab({ api, files, id, name, revision, active, onOp
           })}
         </ul>
       </aside>
+      <div className="widget-tab-editor">
+        {source !== null && (
+          <TypstEditor
+            key={editorKey}
+            text={source}
+            rewrite={files.rewrites.get(name) ?? null}
+            diagnostics={diagnostics}
+            diagnosticsFor={files.checked.get(name) ?? null}
+            label={widgetLabel(name)}
+            onChange={(text) => files.edit(name, text)}
+            onCommands={onCommands}
+            onHistory={onHistory}
+          />
+        )}
+      </div>
     </section>
   );
 }

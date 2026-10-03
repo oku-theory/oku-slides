@@ -281,3 +281,20 @@ describe("WidgetTab, Commun", () => {
     expect(m.host.querySelector(".widget-tab-broken .caption")?.textContent).toBe("ui-widgets-none-in-error");
   });
 });
+
+describe("WidgetTab, disposition", () => {
+  const order = (host: HTMLElement) =>
+    [...host.querySelectorAll(".widget-tab > *")].map((el) => el.className);
+
+  test("un widget : l'aperçu en haut, le code dessous", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi" });
+    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-editor"]);
+  });
+
+  test("Commun : les widgets en erreur en haut, le code dessous", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun" });
+    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-editor"]);
+  });
+});
