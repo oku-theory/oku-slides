@@ -67,6 +67,25 @@ jobs:
         with:
           tool: tauri-cli@2.11.5
 
+      # CTranslate2 choisit ses noyaux selon CMAKE_SYSTEM_PROCESSOR : un cmake lancé en x86_64
+      # (Rosetta) sur le runner Apple Silicon compile les noyaux AVX pour arm64 et échoue. Le cmake
+      # de Homebrew (/opt/homebrew, arm64 seulement) s'exécute toujours en natif ; le crate cmake
+      # de ct2rs le prend via `CMAKE`.
+      - name: CMake natif (macOS Apple Silicon)
+        if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        run: |
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          for c in $(which -a cmake) /opt/homebrew/bin/cmake; do file "$c"; done
+          echo "uname -m : $(uname -m) ; rustc : $(rustc -vV | grep host)" || true
+          echo "CMAKE=/opt/homebrew/bin/cmake" >> "$GITHUB_ENV"
+
+      # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
+      # objets précompilés le remplacent.
+      - name: Objets NASM précompilés (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
