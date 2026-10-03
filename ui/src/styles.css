@@ -859,7 +859,10 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .pile-widgets-file[aria-current="true"] { background: var(--accent-soft); }
 .pile-widgets-remove { opacity: 0; }
 .pile-widgets-row:hover .pile-widgets-remove, .pile-widgets-row:focus-within .pile-widgets-remove { opacity: 1; }
+/* Champ texte : la largeur de la colonne, sans le chevron ni le curseur d'une liste déroulante. */
+.pile-widgets-name input { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: 10px; background-image: none; cursor: text; }
 .pile-widgets-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+.pile-widgets-issue { margin: var(--space-1) 0 0; font-size: 12px; line-height: 16px; color: var(--danger); }
 .unsaved-dot { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
 
 .template-tabs { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }

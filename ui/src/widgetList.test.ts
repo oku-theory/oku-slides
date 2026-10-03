@@ -1,11 +1,59 @@
 import { describe, expect, test } from "bun:test";
 import type { WidgetStatus } from "./api";
-import { COMMON, diagnosticPlace, fileDiagnostics, isWidgetName, listedDiagnostics, merged, nameAvailable, ordered, skeleton, stateOf, withTrial } from "./widgetList";
+import { COMMON, diagnosticPlace, fileDiagnostics, isWidgetName, listedDiagnostics, merged, nameAvailable, nameIssue, ordered, skeleton, stateOf, widgetSlug, withTrial } from "./widgetList";
 
 const status = (name: string, error = false): WidgetStatus => ({
   name,
   schema: null,
   diagnostics: error ? [{ file: name, line: 1, column: 1, error: true, message: "x" }] : [],
+});
+
+describe("widgetSlug", () => {
+  test("widgetSlug avec majuscules rend des minuscules", () => {
+    expect(widgetSlug("Carte")).toBe("carte");
+  });
+
+  test("widgetSlug avec accents et espaces rend des tirets sans accent", () => {
+    expect(widgetSlug("Météo du jour")).toBe("meteo-du-jour");
+  });
+
+  test("widgetSlug avec caractères interdits successifs rend un seul tiret", () => {
+    expect(widgetSlug("a  _b!c")).toBe("a-b-c");
+  });
+
+  test("widgetSlug pendant la frappe garde le tiret final", () => {
+    expect(widgetSlug("meteo ")).toBe("meteo-");
+  });
+
+  test("widgetSlug garde le souligné initial de _commun", () => {
+    expect(widgetSlug("_Commun")).toBe(COMMON);
+  });
+
+  test("widgetSlug trop long est coupé à 64 caractères", () => {
+    expect(widgetSlug("a".repeat(80))).toHaveLength(64);
+  });
+});
+
+describe("nameIssue", () => {
+  const list = [status(COMMON), status("kpi")];
+
+  test("nameIssue avec un nom libre ou vide ne rend rien", () => {
+    expect(nameIssue(list, "quote", null)).toBeNull();
+    expect(nameIssue(list, "", null)).toBeNull();
+  });
+
+  test("nameIssue avec un nom pris rend le message du nom pris", () => {
+    expect(nameIssue(list, "kpi", null)).toBe("ui-widgets-name-taken");
+  });
+
+  test("nameIssue avec un nom qui ne commence pas par une lettre rend le message de la lettre", () => {
+    expect(nameIssue(list, "2d", null)).toBe("ui-widgets-name-letter");
+    expect(nameIssue(list, "-x", null)).toBe("ui-widgets-name-letter");
+  });
+
+  test("nameIssue avant la liste connue ne rend rien", () => {
+    expect(nameIssue(null, "kpi", null)).toBeNull();
+  });
 });
 
 describe("widgetList", () => {

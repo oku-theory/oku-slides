@@ -22,6 +22,36 @@ export function nameAvailable(list: WidgetStatus[] | null, value: string, from: 
   return !list.some((s) => s.name === value && s.name !== from);
 }
 
+/** Longueur maximale d'un nom (celle qu'admet la session). */
+const MAX_NAME = 64;
+
+/**
+ * Le texte tapé, ramené à la forme d'un nom : minuscules, accents retirés,
+ * tout autre caractère remplacé par un tiret (sans doublon). Un tiret final
+ * reste, pour qu'un espace tapé avant le mot suivant ne disparaisse pas ; le
+ * souligné initial de `_commun` aussi.
+ */
+export function widgetSlug(text: string): string {
+  const lead = text.startsWith("_") ? "_" : "";
+  const rest = text
+    .slice(lead.length)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-");
+  return (lead + rest).slice(0, MAX_NAME);
+}
+
+/**
+ * Ce qui empêche de prendre le nom saisi, en clé de message ; `null` s'il
+ * est admis, vide, ou tant que la liste est inconnue.
+ */
+export function nameIssue(list: WidgetStatus[] | null, value: string, from: string | null): string | null {
+  if (list === null || value === "" || nameAvailable(list, value, from)) return null;
+  return isWidgetName(value) ? "ui-widgets-name-taken" : "ui-widgets-name-letter";
+}
+
 /** Libellé d'un fichier : « Commun » pour `_commun`. */
 export function widgetLabel(name: string): string {
   return name === COMMON ? t("ui-widgets-common") : name;

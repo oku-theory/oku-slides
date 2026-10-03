@@ -1,9 +1,9 @@
 /** Section « Widgets » de la pile : ouvrir, créer, renommer, supprimer. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import type { WidgetFiles } from "./useWidgetFiles";
-import { COMMON, nameAvailable, stateOf, widgetLabel } from "./widgetList";
+import { COMMON, nameAvailable, nameIssue, stateOf, widgetLabel, widgetSlug } from "./widgetList";
 
 export interface PileWidgetsProps {
   files: WidgetFiles;
@@ -21,6 +21,7 @@ export interface PileWidgetsProps {
 export default function PileWidgets({ files, current, onOpen, onRemoved, focus, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
   const [naming, setNaming] = useState<{ from: string | null; value: string } | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
+  const issueId = useId();
   const rows = useRef(new Map<string, HTMLButtonElement>());
   /** Ligne à refocaliser après le champ du nom. */
   const refocus = useRef<string | null>(null);
@@ -63,6 +64,7 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
     if (name !== COMMON) setNaming({ from: name, value: name });
   };
 
+  const issue = naming && nameIssue(files.statuses, naming.value, naming.from);
   const field = naming && (
     <form className="pile-widgets-name" onSubmit={(e) => { e.preventDefault(); commit(); }}>
       <input
@@ -70,14 +72,17 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
         autoFocus
         aria-label={t("ui-widgets-name")}
         aria-invalid={naming.value !== "" && !ok(naming)}
+        aria-describedby={issue ? issueId : undefined}
         value={naming.value}
-        onChange={(e) => setNaming({ ...naming, value: e.target.value })}
+        // Ramené à la forme d'un nom à la frappe : « Carte » devient `carte`.
+        onChange={(e) => setNaming({ ...naming, value: widgetSlug(e.target.value) })}
         onKeyDown={(e) => {
           if (e.key !== "Escape") return;
           e.stopPropagation();
           close(naming.from);
         }}
       />
+      {issue && <p id={issueId} className="pile-widgets-issue" role="status">{t(issue)}</p>}
     </form>
   );
 
@@ -127,7 +132,7 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
           );
         })}
       </ul>
-      {files.statuses?.length === 0 && <p className="caption">{t("ui-widgets-empty")}</p>}
+      {files.statuses?.length === 0 && !naming && <p className="caption">{t("ui-widgets-empty")}</p>}
     </section>
   );
 }

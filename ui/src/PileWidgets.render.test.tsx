@@ -289,3 +289,75 @@ describe("PileWidgets", () => {
     expect(button.getAttribute("tabindex")).toBeNull();
   });
 });
+
+/** Saisit `value` dans le champ du nom, comme une frappe, sans valider. */
+async function typeName(host: HTMLElement, value: string) {
+  const input = nameInput(host);
+  await act(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    set?.call(input, value);
+    input?.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  return nameInput(host) as HTMLInputElement;
+}
+
+/** Le message relié au champ par `aria-describedby`, s'il y en a un. */
+const issue = (host: HTMLElement) => {
+  const id = nameInput(host)?.getAttribute("aria-describedby");
+  return id ? host.querySelector(`#${CSS.escape(id)}`)?.textContent ?? null : null;
+};
+
+describe("PileWidgets, nom saisi", () => {
+  test("une majuscule tapée devient une minuscule, sans message", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => add(host).click());
+    const input = await typeName(host, "Carte");
+    expect(input.value).toBe("carte");
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+    expect(issue(host)).toBeNull();
+  });
+
+  test("accents et espaces deviennent un nom valide, créé sous ce nom", async () => {
+    const { fake, log } = memory({ kpi: "k" });
+    const { host, opened } = await mount(fake);
+    await act(async () => add(host).click());
+    await submitName(host, "Météo du jour");
+    await wait(10);
+    expect(log).toEqual([`set meteo-du-jour:${skeleton("meteo-du-jour")}`]);
+    expect(opened).toEqual(["meteo-du-jour"]);
+  });
+
+  test("un nom pris affiche son message, relié au champ", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => add(host).click());
+    const input = await typeName(host, "Kpi");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(issue(host)).toBe("ui-widgets-name-taken");
+  });
+
+  test("un nom qui ne commence pas par une lettre affiche son message", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => add(host).click());
+    await typeName(host, "2d");
+    expect(issue(host)).toBe("ui-widgets-name-letter");
+  });
+
+  test("renommer normalise aussi la saisie", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => row(host, "kpi").dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
+    const input = await typeName(host, "Grand KPI");
+    expect(input.value).toBe("grand-kpi");
+  });
+
+  test("pack vide : le texte du pack vide est masqué pendant la saisie d'un nom", async () => {
+    const { fake } = memory({});
+    const { host } = await mount(fake);
+    expect(host.textContent).toContain("ui-widgets-empty");
+    await act(async () => add(host).click());
+    expect(host.textContent).not.toContain("ui-widgets-empty");
+  });
+});
