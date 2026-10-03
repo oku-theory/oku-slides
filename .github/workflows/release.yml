@@ -75,8 +75,14 @@ jobs:
       # et ruy compilerait ses noyaux AVX) et le .dmg serait nommé _x64. Compilé ici en natif.
       - name: tauri-cli natif (macOS Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        # Le cache de rust-cache (~/.cargo/bin) peut restaurer un cargo-tauri x86_64, que
+        # `cargo install` garderait (« already installed ») : réinstallation forcée dans ce cas.
         run: |
-          cargo install tauri-cli --locked --version "$TAURI_CLI_VERSION"
+          bin="$HOME/.cargo/bin/cargo-tauri"
+          if ! { [ -x "$bin" ] && file "$bin" | grep -q arm64 \
+                 && "$bin" tauri --version | grep -qF "$TAURI_CLI_VERSION"; }; then
+            cargo install tauri-cli --locked --force --version "$TAURI_CLI_VERSION"
+          fi
           file "$(command -v cargo-tauri)" | grep -q arm64 || { echo "::error::cargo-tauri n'est pas arm64"; exit 1; }
 
       # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
