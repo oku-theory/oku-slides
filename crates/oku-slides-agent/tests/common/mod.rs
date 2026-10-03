@@ -315,6 +315,28 @@ pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (TestStack, Relaye
     (stack, seen)
 }
 
+/// Le tour `n` de l'onglet `tab` est fini : sa surface (canal `mcp`) est repliée.
+pub async fn wait_turn_done(rx: &Relayed, tab: &str, n: u32) -> (&'static str, Value) {
+    let id = format!("turn-{n}");
+    wait_for(rx, |(ch, v)| {
+        *ch == "mcp"
+            && v["tab"] == tab
+            && v["event"]["kind"] == "surface_patch"
+            && v["event"]["id"] == id.as_str()
+            && v["event"]["messages"].as_array().is_some_and(|ms| {
+                ms.iter().any(|m| m["updateDataModel"]["path"] == "/collapsed" && m["updateDataModel"]["value"] == true)
+            })
+    })
+    .await
+}
+
+/// Une surface d'outil (`ask-…`, `show-…`, `report-…`) relayée pour `tab` ; ignore les surfaces de tour.
+pub fn is_tool_surface(v: &Value, tab: &str, prefix: &str) -> bool {
+    v["tab"] == tab
+        && v["event"]["kind"] == "surface"
+        && v["event"]["surface"]["id"].as_str().is_some_and(|i| i.starts_with(prefix))
+}
+
 /// Le premier relais qui vérifie `pred` (sondé toutes les 20 ms, 10 s au plus).
 pub async fn wait_for(rx: &Relayed, pred: impl Fn(&(&'static str, Value)) -> bool) -> (&'static str, Value) {
     for _ in 0..500 {

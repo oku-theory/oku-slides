@@ -6,12 +6,13 @@
       "slide": "s-4",
       "element": "e-2"
     },
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-1",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -94,12 +95,13 @@
   {
     "id": "ask-2",
     "place": "modal",
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-2",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -177,12 +179,13 @@
   {
     "id": "perm-3",
     "place": "modal",
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "perm-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -278,12 +281,13 @@
       "slide": "s-4",
       "element": "@title"
     },
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-4",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -465,13 +469,14 @@
   },
   {
     "id": "show-5",
-    "place": "postit",
+    "place": "thread",
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-5",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -649,12 +654,13 @@
   {
     "id": "show-6",
     "place": "drawer",
+    "live": true,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-6",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
@@ -736,58 +742,375 @@
     ]
   },
   {
-    "id": "show-7",
-    "place": "suggestions",
+    "id": "turn-3",
+    "place": "thread",
+    "turn": 3,
+    "live": false,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
-          "surfaceId": "show-7",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+          "surfaceId": "turn-3",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
         }
       },
       {
         "version": "v0.9",
         "updateComponents": {
-          "surfaceId": "show-7",
+          "surfaceId": "turn-3",
           "components": [
             {
               "id": "root",
               "component": "Column",
               "children": [
-                "buttons"
+                "prompt",
+                "timeline",
+                "narration",
+                "outcome"
               ]
             },
             {
-              "id": "buttons",
-              "component": "Row",
+              "id": "prompt",
+              "component": "Prompt",
+              "text": "Change le fond de la slide quatre."
+            },
+            {
+              "id": "timeline",
+              "component": "Timeline",
+              "steps": {
+                "path": "/steps"
+              },
+              "collapsed": {
+                "path": "/collapsed"
+              },
+              "summary": {
+                "path": "/summary"
+              }
+            },
+            {
+              "id": "narration",
+              "component": "Text",
+              "text": {
+                "path": "/narration"
+              },
+              "variant": "note"
+            },
+            {
+              "id": "outcome",
+              "component": "Text",
+              "text": {
+                "path": "/outcome"
+              },
+              "variant": "note"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "turn-3",
+          "value": {
+            "steps": [
+              {
+                "label": "Bleu nuit choisi",
+                "status": "completed"
+              },
+              {
+                "label": "apply",
+                "status": "completed",
+                "count": 6
+              }
+            ],
+            "collapsed": true,
+            "summary": "6 outils · 1 note · 38 s",
+            "narration": "",
+            "outcome": ""
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "ask-7",
+    "place": "thread",
+    "turn": 3,
+    "live": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "ask-7",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "ask-7",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
               "children": [
-                "s0",
-                "s1"
+                "question",
+                "answer"
               ]
             },
             {
-              "id": "s0",
-              "component": "Button",
-              "label": "Mettre en barres",
+              "id": "question",
+              "component": "Text",
+              "text": "Quelle mise en page ?",
+              "variant": "caption"
+            },
+            {
+              "id": "answer",
+              "component": "Text",
+              "text": "✓ Deux colonnes",
+              "variant": "body"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "ask-7",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "id": "ask-8",
+    "place": "thread",
+    "turn": 3,
+    "live": true,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "ask-8",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "ask-8",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "question",
+                "options",
+                "cancel"
+              ]
+            },
+            {
+              "id": "question",
+              "component": "Text",
+              "text": "Quelle couleur ?",
+              "variant": "h4"
+            },
+            {
+              "id": "options",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "a",
+                  "label": "Deux colonnes"
+                },
+                {
+                  "id": "b",
+                  "label": "Citation",
+                  "hint": "sobre"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              },
               "action": {
                 "event": {
-                  "name": "suggest",
+                  "name": "choose",
                   "context": {
-                    "prompt": "Affiche la moyenne en barres."
+                    "choice": {
+                      "path": "/choice"
+                    }
                   }
                 }
               }
             },
             {
-              "id": "s1",
+              "id": "cancel",
               "component": "Button",
-              "label": "Ajouter une légende",
+              "label": "Annuler",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "ask-8",
+          "value": {
+            "choice": ""
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "report-8",
+    "place": "thread",
+    "turn": 3,
+    "live": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "report-8",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "report-8",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "card",
+                "why",
+                "next"
+              ]
+            },
+            {
+              "id": "card",
+              "component": "Receipt",
+              "title": "Slide 4 : fond bleu nuit",
+              "facts": [
+                "titre en blanc",
+                "surtitre bleu clair"
+              ],
+              "thumb": "<svg/>",
+              "swatch": "#00154e"
+            },
+            {
+              "id": "why",
+              "component": "Disclosure",
+              "summary": "Pourquoi",
+              "child": "why-text"
+            },
+            {
+              "id": "why-text",
+              "component": "Markdown",
+              "text": "Le modèle `content` n'a pas de fond : rectangle pleine page ajouté."
+            },
+            {
+              "id": "next-0",
+              "component": "Button",
+              "label": "Autre couleur",
               "action": {
                 "event": {
                   "name": "suggest",
                   "context": {
-                    "prompt": "Ajouter une légende"
+                    "prompt": "Essaie un vert sapin"
+                  }
+                }
+              }
+            },
+            {
+              "id": "next",
+              "component": "Row",
+              "children": [
+                "next-0"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "report-8",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "id": "render-9",
+    "place": "thread",
+    "turn": 3,
+    "live": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "render-9",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "render-9",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "col",
+              "tone": "accent"
+            },
+            {
+              "id": "col",
+              "component": "Column",
+              "children": [
+                "t",
+                "b",
+                "go"
+              ]
+            },
+            {
+              "id": "t",
+              "component": "Text",
+              "text": "Trois palettes possibles",
+              "variant": "h4"
+            },
+            {
+              "id": "b",
+              "component": "Badge",
+              "text": "nouveau",
+              "tone": "accent"
+            },
+            {
+              "id": "go",
+              "component": "Button",
+              "label": "Essaie la deuxième",
+              "action": {
+                "event": {
+                  "name": "suggest",
+                  "context": {
+                    "prompt": "Essaie la deuxième"
                   }
                 }
               }
@@ -798,7 +1121,7 @@
       {
         "version": "v0.9",
         "updateDataModel": {
-          "surfaceId": "show-7",
+          "surfaceId": "render-9",
           "value": {}
         }
       }

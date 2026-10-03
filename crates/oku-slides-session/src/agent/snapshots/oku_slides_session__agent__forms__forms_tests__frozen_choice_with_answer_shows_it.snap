@@ -1,0 +1,58 @@
+---
+source: crates/oku-slides-session/src/agent/forms_tests.rs
+expression: s
+---
+{
+  "id": "ask-2",
+  "place": "thread",
+  "live": false,
+  "messages": [
+    {
+      "version": "v0.9",
+      "createSurface": {
+        "surfaceId": "ask-2",
+        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "ask-2",
+        "components": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "body"
+          },
+          {
+            "id": "body",
+            "component": "Column",
+            "children": [
+              "question",
+              "answer"
+            ]
+          },
+          {
+            "id": "question",
+            "component": "Text",
+            "text": "Laquelle ?",
+            "variant": "caption"
+          },
+          {
+            "id": "answer",
+            "component": "Text",
+            "text": "✓ Bleu nuit",
+            "variant": "body"
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateDataModel": {
+        "surfaceId": "ask-2",
+        "value": {}
+      }
+    }
+  ]
+}

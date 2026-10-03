@@ -264,7 +264,7 @@ Précisées par le plan (`docs/superpowers/plans/2026-10-03-agent-a2ui.md`) et s
 - **Hub** : la gestion des tours est dans `hub_turns.rs` ; `hub.rs` garde les questions, les actions et les réglages.
 - **Nouvelle conversation** : l'acteur de l'onglet vide le fil lui-même (`clear_thread`), de façon synchrone, avant toute consigne suivante ; le relais n'y touche plus.
 - **Hors d'un tour ouvert** (entre deux tours, tour annulé), `render` et `report` sont refusés : un appel tardif ne s'affiche dans aucun tour.
-- **`render` sans modèle de données** : valeurs littérales seulement (ni `{path}` ni `data`), seul un bouton porte une action ; `Receipt` et `SlideThumb` sont réservés à l'hôte (via `report`) ; un `Badge` `danger` aussi ; les textes de l'agent ne contiennent ni contrôle bidirectionnel ni caractère invisible.
+- **`render` sans modèle de données** : valeurs littérales seulement (ni `{path}` ni `data`), seul un bouton porte une action ; les composants de champ (`TextField`, `Stepper`, `Slider`, `ColorField`, `Select`, `ChoiceChips`) sont refusés (les réglages passent par `show_params`) ; `Receipt` et `SlideThumb` sont réservés à l'hôte (via `report`) ; un `Badge` `danger` aussi ; les textes de l'agent ne contiennent ni contrôle bidirectionnel ni caractère invisible.
 - **Expiration des suites** : celles d'une carte `render` expirent au tour suivant, comme celles d'un reçu.
 - **Question figée** : elle montre la question (en légende) et la réponse (« ✓ … »), pas la réponse seule ; elle garde sa place dans le fil.
 - **Mises à jour du tour** : une écriture par clé du modèle qui change (`/narration` pendant que l'agent écrit) ; narration gardée bornée à 4000 caractères, 60 étapes au plus par tour.

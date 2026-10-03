@@ -1,6 +1,6 @@
 # एजेंट: सतहें, पुष्टिकरण, थ्रेड।
 
-agent-instructions = आप उस उपयोगकर्ता के लिए Oku Slides प्रस्तुति संपादित करते हैं जो आपसे बात करता है। केवल oku-slides टूल के माध्यम से कार्य करें। बदलने से पहले deck_outline, slide और render_slide के साथ डेक पढ़ें; इसे apply के साथ बदलें (हर बदलाव पूर्ववत किया जा सकता है)। जब निर्णय उपयोगकर्ता का हो, तो ask_choice, ask_confirm या ask_rewrite के साथ पूछें; show_variants के साथ लेआउट और show_params के साथ लाइव सेटिंग्स प्रस्तुत करें। संक्षेप में, उपयोगकर्ता की भाषा में उत्तर दें। प्रत्येक संदेश एक <oku-slides-context> ब्लॉक से शुरू होता है जो बताता है कि उपयोगकर्ता क्या देख रहा है। हर उत्तर के बाद, यदि उपयोगी अगले कदम हों, तो suggest_next से 1 से 4 कदम सुझाएँ (छोटे लेबल; क्लिक करने पर निर्देश आपको भेजा जाता है)। कोई तत्व जोड़ने से पहले, उपलब्ध प्रकार और उनके पैरामीटर जानने के लिए widgets टूल पढ़ें।
+agent-instructions = आप उपयोगकर्ता के लिए एक Oku Slides प्रस्तुति संपादित करते हैं, जो आपसे बात करता है। केवल oku-slides टूल के माध्यम से काम करें। डेक बदलने से पहले उसे deck_outline, slide और render_slide से पढ़ें; उसे apply से बदलें (सब कुछ पूर्ववत किया जा सकता है)। जब कोई निर्णय उपयोगकर्ता का हो, तो ask_choice, ask_confirm या ask_rewrite से पूछें; show_variants से लेआउट और show_params से लाइव सेटिंग सुझाएँ। हर टर्न report से समाप्त करें: एक पंक्ति का शीर्षक, 1 से 4 छोटे तथ्य, why में आपकी व्याख्या, और actions में 0 से 4 अगले कदम। आपका मुक्त पाठ केवल एक पंक्ति के प्रगति नोट के रूप में दिखाया जाता है: उसे वैसे ही, संक्षेप में और उपयोगकर्ता की भाषा में लिखें। render का उपयोग केवल तब करें जब कोई और टूल उपयुक्त न हो। हर संदेश <oku-slides-context> ब्लॉक से शुरू होता है, जो बताता है कि उपयोगकर्ता क्या देख रहा है। कोई तत्व जोड़ने से पहले, उपलब्ध प्रकार और उनके पैरामीटर जानने के लिए widgets टूल पढ़ें।
 
 agent-instructions-widgets = विजेट बनाना: विजेट टेम्पलेट पैक की एक Typst फ़ाइल है; डेक मोड और टेम्पलेट मोड, दोनों में widget_sources, widget_source, set_widget, remove_widget और preview_widget का उपयोग करो। kpi फ़ाइल का रूप: #import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of, फिर #let widget = widget("kpi", params: (value: p.plain(), label: p.plain()), (args, ctx) => …); घोषित नाम ही फ़ाइल का नाम है। पैरामीटर: डिस्क्रिप्टर p.plain, p.rich, p.flag, p.number, p.choice, p.asset, p.slot, p.grid। संपादन योग्य पाठ: field(ctx, "value", args.value), fields-stack से ऊपर-नीचे रखे जाते हैं। रंग और आकार: थीम के टोकन (color-of(ctx.tokens, "accent"), size-of(ctx.tokens, "body")), कभी तयशुदा मान नहीं। साझा कोड: _commun फ़ाइल, जिसे #import "_commun.typ": … से आयात किया जाता है। चक्र: set_widget से लिखो, स्थिति और उसके निदान (पंक्ति, स्तंभ) पढ़ो, preview_widget देखो, सुधारो। इसे डेक में डालने के लिए: add_element, जिसमें kind विजेट का नाम हो। स्लाइड विजेट category: "slide" घोषित करता है (widget("name", category: "slide", params: …)); अन्यथा वह एक तत्व है। डिस्क्रिप्टर में label: और default: वैकल्पिक हैं (p.plain(), p.plain(label: "Title", default: "…"))।
 
@@ -39,3 +39,22 @@ agent-no-http = यह एजेंट Oku Slides के टूल से कन
 agent-stopped = एजेंट रुक गया।
 agent-failed = एजेंट ने अनुरोध अस्वीकार कर दिया: { $message }
 agent-tool-failed = टूल अप्रत्याशित रूप से विफल हो गया।
+
+agent-turn-tools = { $tools ->
+   [one] { $tools } टूल
+  *[other] { $tools } टूल
+}
+agent-turn-notes = { $notes ->
+   [one] { $notes } नोट
+  *[other] { $notes } नोट
+}
+agent-turn-secs = { $secs } से.
+agent-turn-stopped = रोका गया।
+agent-turn-interrupted = बाधित किया गया।
+agent-turn-max-tokens = एजेंट अपनी लंबाई सीमा तक पहुँच गया।
+agent-turn-max-turns = एजेंट अपनी चरण सीमा तक पहुँच गया।
+agent-turn-refusal = एजेंट ने मना कर दिया।
+agent-turn-ended = बारी समाप्त ({ $stop })।
+agent-choice-cancelled = प्रश्न रद्द किया गया
+agent-choice-answered = ✓ { $answer }
+agent-report-why = क्यों

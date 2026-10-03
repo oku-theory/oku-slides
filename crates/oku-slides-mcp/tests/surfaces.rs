@@ -2,6 +2,7 @@ mod common;
 
 use common::*;
 use oku_slides_mcp::{McpEvent, SurfaceAction};
+use oku_slides_session::agent::receipt::{NextStep, ReceiptSurfaces, Report, receipt};
 use oku_slides_session::agent::{AskChoice, forms};
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
@@ -45,8 +46,9 @@ async fn ask_choice_blocks_until_user_chooses_while_session_stays_free() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn ask_choice_dismissed_returns_cancelled_and_closes_surface() {
+async fn ask_choice_dismissed_returns_cancelled_and_freezes_the_question() {
     let h = start().await;
+    h.hub.begin_turn();
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let pending = tokio::spawn({
@@ -54,14 +56,18 @@ async fn ask_choice_dismissed_returns_cancelled_and_closes_surface() {
         async move { call(&c, "ask_choice", choice_args()).await }
     });
     let surface = next_surface(&mut rx).await;
+    let surface_id = surface.id.clone();
     h.hub.act(action(&surface.id, "dismiss", json!({}))).unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "cancelled": true }));
-    let closed = loop {
-        if let McpEvent::CloseSurface { id } = rx.recv().await.unwrap() {
-            break id;
+    let frozen = loop {
+        if let McpEvent::Surface { surface } = rx.recv().await.unwrap()
+            && surface.id == surface_id
+            && !surface.live
+        {
+            break surface;
         }
     };
-    assert_that!(closed).is_equal_to(surface.id);
+    assert_that!(serde_json::to_string(&frozen).unwrap()).contains("Question annulée");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -453,9 +459,9 @@ async fn ask_after_close_is_cancelled_without_opening_a_surface() {
     assert_that!(h.hub.has_pending_ask()).is_false();
 }
 
-/// t-249 : sans post-it, `prune` ne prend pas la session (un rendu en cours ne la bloque pas).
+/// t-249 : sans surface, `prune` ne prend pas la session (un rendu en cours ne la bloque pas).
 #[tokio::test(flavor = "multi_thread")]
-async fn prune_without_post_it_does_not_wait_for_the_session() {
+async fn prune_without_live_settings_does_not_wait_for_the_session() {
     let h = start().await;
     let (session, hub) = (h.session.clone(), h.hub.clone());
     // Session tenue pendant tout l'essai ; `prune` tourne à côté.
@@ -473,6 +479,29 @@ async fn prune_without_post_it_does_not_wait_for_the_session() {
     assert_that!(done).is_true();
 }
 
+/// Les surfaces statiques (`render`, reçus) ne dépendent d'aucune slide : `prune` n'attend pas la session.
+#[tokio::test(flavor = "multi_thread")]
+async fn prune_with_only_static_surfaces_does_not_wait_for_the_session() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let id = json_of(&call(&c, "render", render_args()).await)["shown"].as_str().unwrap().to_owned();
+    let (session, hub) = (h.session.clone(), h.hub.clone());
+    let done = tokio::task::spawn_blocking(move || {
+        let _held = session.lock().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            hub.prune();
+            let _ = tx.send(());
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(2)).is_ok()
+    })
+    .await
+    .unwrap();
+    assert_that!(done).is_true();
+    assert_that!(open_ids(&h)).contains(id);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn widgets_tool_lists_card_with_its_params() {
     let h = start().await;
@@ -485,59 +514,443 @@ async fn widgets_tool_lists_card_with_its_params() {
     assert_that!(card["params"][2]["type"].as_str()).is_equal_to(Some("rich"));
 }
 
-fn suggest_args(labels: &[&str]) -> Value {
-    json!({ "suggestions": labels.iter().map(|l| json!({ "label": l })).collect::<Vec<_>>() })
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_surface_patch_updates_the_open_copy_sent_on_resync() {
+    let h = start().await;
+    let s = forms::confirm(
+        "ask-1",
+        &oku_slides_session::agent::AskConfirm { message: "Ok ?".into(), danger: false },
+        &h.localizer,
+    );
+    h.hub.emit(McpEvent::Surface { surface: s });
+    h.hub.emit(McpEvent::SurfacePatch {
+        id: "ask-1".into(),
+        messages: vec![oku_slides_a2ui::ServerMessage::set_data_model("ask-1", json!({"x": 1}))],
+    });
+    let json = serde_json::to_value(&h.hub.surfaces()[0]).unwrap();
+    let model = json["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap();
+    assert_that!(model["value"].clone()).is_equal_to(json!({"x": 1}));
+}
+
+fn thread_choice(h: &Harness, id: &str) -> oku_slides_session::agent::Surface {
+    let spec: AskChoice = serde_json::from_value(json!({
+        "question": "Laquelle ?", "options": [{ "id": "a", "label": "Bleu" }, { "id": "b", "label": "Vert" }]
+    }))
+    .unwrap_or_else(|e| panic!("AskChoice de test : {e}"));
+    forms::choice(id, &spec, &h.localizer)
+}
+
+/// Le `Freeze` de `ask_choice` sans ancre, comme dans `surface_tools.rs` (étiquette de l'option choisie).
+fn freeze_choice(h: &Harness, id: &str) -> oku_slides_mcp::Freeze {
+    let (id, l) = (id.to_owned(), h.localizer.clone());
+    Box::new(move |a| {
+        let label = match a {
+            oku_slides_mcp::Answer::Action { context, .. } => match context.get("choice").and_then(Value::as_str) {
+                Some("a") => Some("Bleu"),
+                Some("b") => Some("Vert"),
+                _ => None,
+            },
+            oku_slides_mcp::Answer::Cancelled => None,
+        };
+        forms::frozen_choice(&id, "Laquelle ?", label, &l)
+    })
+}
+
+fn params_args() -> Value {
+    json!({ "title": "Apparence", "slide": "s-libre", "fields": [
+        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" },
+          "options": [{ "id": "papier", "label": "Papier" }, { "id": "pro", "label": "Pro" }] }
+    ] })
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn suggest_next_returns_at_once_with_suggestion_buttons() {
+async fn hub_show_static_during_a_turn_carries_it() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.show_static(forms::frozen_choice("x-1", "Q", Some("A"), &h.localizer));
+    assert_that!(h.hub.surfaces()[0].turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_answered_thread_question_is_frozen_with_the_chosen_label() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let r = call(&c, "suggest_next", suggest_args(&["Mettre en barres"])).await;
-    let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
-    let surface = next_surface(&mut rx).await;
-    assert_that!(surface.id.as_str()).is_equal_to(id.as_str());
-    assert_that!(surface.place).is_equal_to(oku_slides_session::agent::Place::Suggestions);
+    let n = h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.act(action("ask-1", "choose", json!({ "choice": "b" }))).unwrap();
+    asking.await.unwrap();
+    let open = h.hub.surfaces();
+    assert_that!(open).has_length(1);
+    assert_that!(open[0].live).is_false();
+    assert_that!(open[0].turn).is_equal_to(Some(n));
+    let json = serde_json::to_string(&open[0]).unwrap();
+    assert_that!(json).contains("✓ Vert");
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn suggest_next_replaces_the_previous_suggestions() {
+async fn hub_cancelled_thread_question_is_frozen_as_cancelled() {
     let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "suggest_next", suggest_args(&["Un"])).await;
-    let second =
-        json_of(&call(&c, "suggest_next", suggest_args(&["Deux"])).await)["shown"].as_str().unwrap().to_owned();
-    assert_that!(open_ids(&h)).is_equal_to(vec![second]);
+    let mut rx = h.hub.subscribe();
+    h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.cancel_asks();
+    asking.await.unwrap();
+    let json = serde_json::to_string(&h.hub.surfaces()).unwrap();
+    assert_that!(json).contains("Question annulée");
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn suggest_next_with_five_suggestions_is_refused() {
+async fn hub_question_cancelled_after_clear_thread_leaves_no_ghost() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    // Nouvelle conversation : `clear_thread` relâche lui-même la question, après avoir effacé les tours.
+    h.hub.clear_thread();
+    asking.await.unwrap();
+    assert_that!(h.hub.surfaces()).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_question_cancelled_after_close_leaves_no_ghost() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.close();
+    asking.await.unwrap();
+    assert_that!(h.hub.surfaces()).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_question_of_an_evicted_turn_leaves_no_ghost() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let n = h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.close_turn(n);
+    h.hub.cancel_asks();
+    asking.await.unwrap();
+    assert_that!(h.hub.surfaces()).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_new_params_freeze_the_previous_ones() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let r = call(&c, "suggest_next", suggest_args(&["a", "b", "c", "d", "e"])).await;
+    h.hub.begin_turn();
+    let first = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    let second = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    let open = h.hub.surfaces();
+    assert_that!(open.iter().find(|s| s.id == first).unwrap().live).is_false();
+    assert_that!(open.iter().find(|s| s.id == second).unwrap().live).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_dismissed_params_are_frozen_not_closed() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
+    let open = h.hub.surfaces();
+    assert_that!(open).has_length(1);
+    assert_that!(open[0].live).is_false();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_static_surfaces_are_capped_per_turn() {
+    let h = start().await;
+    h.hub.begin_turn();
+    for i in 0..(oku_slides_mcp::STATIC_PER_TURN + 2) {
+        h.hub.show_static(forms::frozen_choice(&format!("x-{i}"), "Q", Some("A"), &h.localizer));
+    }
+    let expected: Vec<String> = (2..oku_slides_mcp::STATIC_PER_TURN + 2).map(|i| format!("x-{i}")).collect();
+    assert_that!(open_ids(&h)).is_equal_to(expected);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_dismissed_params_lose_their_actions() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
+    assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("\"action\"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_show_static_without_an_open_turn_is_refused() {
+    let h = start().await;
+    let shown = h.hub.show_static(forms::frozen_choice("x", "Q", Some("A"), &h.localizer));
+    assert_that!(shown).is_false();
+    assert_that!(open_ids(&h)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_answered_question_keeps_its_place_in_the_list() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    h.hub.begin_turn();
+    let asking = tokio::spawn({
+        let (hub, surface, freeze) = (h.hub.clone(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
+        async move { hub.ask_then(surface, freeze).await }
+    });
+    next_surface(&mut rx).await;
+    h.hub.show_static(forms::frozen_choice("after", "Q", Some("A"), &h.localizer));
+    h.hub.act(action("ask-1", "choose", json!({ "choice": "a" }))).unwrap();
+    asking.await.unwrap();
+    assert_that!(open_ids(&h)).is_equal_to(vec!["ask-1".to_owned(), "after".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_surface_of_a_cleared_turn_is_ignored() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.clear_thread();
+    // Le relais, en retard, émet encore la surface du tour effacé.
+    let mut late = forms::frozen_choice("turn-late", "Q", Some("A"), &h.localizer);
+    late.turn = Some(n);
+    h.hub.emit(McpEvent::Surface { surface: late });
+    assert_that!(open_ids(&h)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_close_turn_closes_only_that_turn() {
+    let h = start().await;
+    let one = h.hub.begin_turn();
+    h.hub.show_static(forms::frozen_choice("a", "Q", Some("A"), &h.localizer));
+    h.hub.begin_turn();
+    h.hub.show_static(forms::frozen_choice("b", "Q", Some("A"), &h.localizer));
+    h.hub.close_turn(one);
+    assert_that!(open_ids(&h)).is_equal_to(vec!["b".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_clear_thread_keeps_surfaces_outside_turns() {
+    let h = start().await;
+    let confirm = forms::confirm(
+        "c",
+        &oku_slides_session::agent::AskConfirm { message: "Ok ?".into(), danger: false },
+        &h.localizer,
+    );
+    h.hub.emit(McpEvent::Surface { surface: confirm });
+    h.hub.begin_turn();
+    h.hub.show_static(forms::frozen_choice("a", "Q", Some("A"), &h.localizer));
+    h.hub.clear_thread();
+    assert_that!(open_ids(&h)).is_equal_to(vec!["c".to_owned()]);
+}
+
+fn report_spec(title: &str, actions: &[&str]) -> Report {
+    Report {
+        title: title.into(),
+        facts: vec!["x".into()],
+        slide: None,
+        swatch: None,
+        why: None,
+        actions: actions.iter().map(|a| NextStep { label: (*a).into(), prompt: None }).collect(),
+    }
+}
+
+/// Le reçu et sa version sans actions, comme `Session::report_surface` sans miniature.
+fn receipt_of(h: &Harness, id: &str, spec: &Report) -> ReceiptSurfaces {
+    let plain = (!spec.actions.is_empty())
+        .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, None, &h.localizer));
+    ReceiptSurfaces { surface: receipt(id, spec, None, &h.localizer), plain }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_with_five_facts_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let r = call(&c, "report", json!({ "title": "x", "facts": ["a", "b", "c", "d", "e"] })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).contains("facts");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_with_a_blank_title_or_no_facts_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let r = call(&c, "report", json!({ "title": "  ", "facts": ["a"] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).contains("title");
+    let r = call(&c, "report", json!({ "title": "Fait", "facts": [] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).contains("facts");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_with_five_actions_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let actions: Vec<_> = (0..5).map(|i| json!({ "label": format!("Suite {i}") })).collect();
+    let r = call(&c, "report", json!({ "title": "x", "facts": ["a"], "actions": actions })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_on_an_unknown_slide_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let r = call(&c, "report", json!({ "title": "x", "facts": ["a"], "slide": "s-nulle-part" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_with_a_slide_shows_its_thumbnail() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    h.hub.begin_turn();
+    let r = call(&c, "report", json!({ "title": "Fait", "facts": ["a"], "slide": "s-libre" })).await;
+    let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
+    let json = serde_json::to_string(h.hub.surfaces().iter().find(|s| s.id == id).unwrap()).unwrap();
+    assert_that!(json).contains("\"thumb\":\"<svg");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn report_tool_outside_a_turn_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "report", json!({ "title": "x", "facts": ["a"] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).contains("no turn in progress");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_second_report_replaces_the_first_of_the_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.show_report(receipt_of(&h, "r-1", &report_spec("un", &[])));
+    h.hub.show_report(receipt_of(&h, "r-2", &report_spec("deux", &[])));
+    assert_that!(open_ids(&h)).is_equal_to(vec!["r-2".to_owned()]);
+    assert_that!(h.hub.has_report(n)).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_end_turn_without_report_shows_a_fallback_titled_by_the_narration() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "Fond posé. Titre en blanc.");
+    assert_that!(h.hub.has_report(n)).is_true();
+    let json = serde_json::to_string(&h.hub.surfaces()).unwrap();
+    assert_that!(json).contains("\"title\":\"Fond posé.\"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_end_turn_after_a_report_adds_nothing() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.show_report(receipt_of(&h, "r-1", &report_spec("Fait", &[])));
+    h.hub.end_turn(n, "Fond posé.");
+    assert_that!(open_ids(&h)).is_equal_to(vec!["r-1".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_report_action_of_the_last_turn_keeps_the_receipt() {
+    let h = start().await;
+    h.hub.begin_turn();
+    h.hub.show_report(receipt_of(&h, "r-1", &report_spec("Fait", &["Encore"])));
+    h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" }))).unwrap();
+    assert_that!(open_ids(&h)).is_equal_to(vec!["r-1".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_stale_end_turn_does_not_close_the_next_turn() {
+    // Ordre réel d'un tour interrompu : le tour 2 s'ouvre avant que le relais ne clôture le tour 1.
+    let h = start().await;
+    let one = h.hub.begin_turn();
+    h.hub.begin_turn();
+    h.hub.end_turn(one, "");
+    assert_that!(h.hub.show_static(forms::frozen_choice("x", "Q", Some("A"), &h.localizer))).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_show_static_after_end_turn_is_refused() {
+    // Un outil tardif d'un tour terminé n'est rangé dans aucun tour.
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    assert_that!(h.hub.show_static(forms::frozen_choice("late", "Q", Some("A"), &h.localizer))).is_false();
     assert_that!(open_ids(&h)).is_empty();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn clicked_suggestion_closes_its_surface() {
+async fn report_tool_actions_expire_through_its_plain_version() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let id = json_of(&call(&c, "suggest_next", suggest_args(&["Un"])).await)["shown"].as_str().unwrap().to_owned();
-    h.hub.act(action(&id, "suggest", json!({ "prompt": "Un" }))).unwrap();
-    assert_that!(open_ids(&h)).is_empty();
+    h.hub.begin_turn();
+    let r = call(&c, "report", json!({ "title": "Fait", "facts": ["a"], "actions": [{ "label": "Encore" }] })).await;
+    let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
+    h.hub.begin_turn();
+    assert_that!(open_ids(&h)).contains(id);
+    assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("Encore");
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn clear_suggestions_closes_them_and_keeps_other_surfaces() {
+async fn hub_report_actions_expire_when_the_next_turn_begins() {
+    let h = start().await;
+    h.hub.begin_turn();
+    h.hub.show_report(receipt_of(&h, "r-1", &report_spec("Fait", &["Encore"])));
+    h.hub.begin_turn();
+    // Toujours affiché (pas fermé) :
+    assert_that!(open_ids(&h)).contains("r-1".to_owned());
+    // La version sans actions remplace le reçu, au même identifiant…
+    let json = serde_json::to_string(&h.hub.surfaces()).unwrap();
+    assert_that!(json).does_not_contain("Encore");
+    // …et une action envoyée par une interface en retard est refusée.
+    assert_that!(h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" })))).is_err();
+}
+
+fn render_args() -> Value {
+    json!({ "components": [
+        { "id": "root", "component": "Button", "label": "Encore", "action": { "event": { "name": "suggest", "context": { "prompt": "Encore" } } } }
+    ] })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn render_tool_actions_expire_when_the_next_turn_begins() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let params = json!({ "title": "x", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" } }
-    ] });
-    let shown = json_of(&call(&c, "show_params", params).await)["shown"].as_str().unwrap().to_owned();
-    call(&c, "suggest_next", suggest_args(&["Un"])).await;
-    h.hub.clear_suggestions();
-    assert_that!(open_ids(&h)).is_equal_to(vec![shown]);
+    h.hub.begin_turn();
+    let id = json_of(&call(&c, "render", render_args()).await)["shown"].as_str().unwrap().to_owned();
+    assert_that!(h.hub.act(action(&id, "suggest", json!({ "prompt": "Encore" })))).is_ok();
+    h.hub.begin_turn();
+    assert_that!(h.hub.act(action(&id, "suggest", json!({ "prompt": "Encore" })))).is_err();
+    // Toujours affichée, sans ses actions :
+    assert_that!(open_ids(&h)).contains(id.clone());
+    assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("\"action\"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn render_tool_outside_a_turn_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "render", render_args()).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).contains("no turn in progress");
 }

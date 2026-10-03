@@ -6,21 +6,22 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 ## Modules
 
 - `error` : `McpError`, opaque, `Localize` → `agent-tools-unavailable`.
-- `settings` : `SettingsPort` (lu/écrit par l'hôte), `Applied`, la liste
-  blanche des clés écrites par l'agent.
+- `settings` : `SettingsPort` (hôte), `Applied`, liste blanche des clés écrites par l'agent.
 - `hub` : `SurfaceHub` (surfaces ouvertes, identifiants, évènements vers
   l'interface via `McpEvent`). La liste des surfaces ouvertes n'est changée
   que par `emit` (et par `act`, qui en retire une question répondue ou y
   recopie un réglage) ; `resync` la renvoie entière (`McpEvent::Surfaces`),
   remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
   questions en attente et rend `Cancelled` à toute question ultérieure.
+- `hub_turns` : les tours du fil (numéros, rangement, gel des questions répondues, éviction,
+  `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à jour une surface ouverte.
+- `surface_tools` : `report` (fin de tour, reçu ; hors tour : refusé) et `render` (composition A2UI
+  libre, validée par `oku-slides-session`) avec les outils `ask_*` et `show_*`.
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
   (`nest_schema` adapte JSON Schema à MCP 1.x).
-- `read_tools` : les outils de lecture (`deck_outline`, `slide`,
-  `render_slide`, `templates`, `widgets` — genres et paramètres du deck —, `settings`).
-- `widget_tools` : les outils des widgets du pack (`widget_sources`,
-  `widget_source`, `set_widget`, `remove_widget`, `preview_widget` en PNG), dans
-  les deux modes.
+- `read_tools` : outils de lecture (`deck_outline`, `slide`, `render_slide`, `templates`, `widgets`, `settings`).
+- `widget_tools` : outils des widgets du pack (`widget_sources`, `widget_source`, `set_widget`,
+  `remove_widget`, `preview_widget`), dans les deux modes.
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).

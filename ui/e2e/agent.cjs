@@ -34,7 +34,8 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   assert.equal(await p.locator('.agent-sheet .diff-text').count(), 2);
   await p.keyboard.press('2');
   await p.waitForSelector('.agent-sheet', { state: 'detached' });
-  await p.getByText('Texte reformulé.').waitFor();
+  // Sans `report`, le tour se clôt par un reçu de repli (le texte de l'agent).
+  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
   assert.equal(await textOf(p), 'Un bloc libre');
   assert.equal((await api(p, { cmd: 'snapshot' })).undo_label, 'Agent : rends ce texte plus clair');
 
@@ -73,7 +74,7 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   // changement sur son propre deck vierge (slide « s-1 ») : le vérifier confirme que
   // l'onglet 2 a bien joué son tour, pas seulement reçu un morceau de texte.
   await prompt(p, 'bonjour', tab2);
-  await p.getByText('Titre changé.').waitFor();
+  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
   const snap2 = await api(p, { cmd: 'snapshot' }, tab2);
   assert.equal(snap2.slides.find((s) => s.id === 's-1').title, 'Second onglet, bonjour');
   // Dans un tour, l'étiquette d'annulation est celle du tour (le prompt), pas celle
@@ -83,6 +84,29 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
   await p.waitForSelector('.agent-sheet .chips');
+
+  // 5. Un tour qui se clôt par `report` : le fil se replie en un résumé et un reçu.
+  // (Le fil de t-1 garde ses tours précédents : un seul de plus.)
+  // La question du troisième tour attend encore : on y répond, il se clôt, puis le tour suivant part.
+  await p.locator('.agent-sheet .chips .chip').first().click();
+  await p.waitForSelector('.agent-sheet', { state: 'detached' });
+  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
+  const before = await p.locator('.agent-turn').count();
+  await prompt(p, 'change le fond');
+  const turn = p.locator('.agent-turn', { hasText: 'change le fond' });
+  await turn.locator('.a2ui-prompt').waitFor();
+  await turn.locator('.a2ui-receipt .a2ui-title').waitFor();
+  assert.equal(await turn.locator('.a2ui-receipt .a2ui-title').innerText(), 'Fond bleu nuit');
+  await turn.locator('.a2ui-timeline-summary').waitFor({ state: 'visible' });
+  assert.equal(await p.locator('.agent-turn').count(), before + 1);
+
+  // 6. Une question sans ancre : elle vit dans le dock ; répondre la fige dans le tour.
+  await prompt(p, 'quelle couleur ?');
+  await p.waitForSelector('.agent-dock .chips .chip');
+  assert.equal(await p.locator('.agent-dock .chips .chip').count(), 2);
+  await p.locator('.agent-dock .chips .chip').nth(1).click();
+  await p.waitForSelector('.agent-dock', { state: 'detached' });
+  await p.locator('.agent-turn', { hasText: '✓' }).filter({ hasText: 'Sable' }).first().waitFor();
 
   assert.deepEqual(errors, []);
   await b.close();

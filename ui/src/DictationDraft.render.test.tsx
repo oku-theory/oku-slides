@@ -65,13 +65,19 @@ describe("brouillon de dictée", () => {
     expectIconOnly(host.querySelector(".draft-discard"));
   });
 
-  test("DictationDraft avec une dictée la montre sur un post-it, sans champ", async () => {
+  test("le brouillon est une carte de consigne, sans post-it", async () => {
+    const { host } = await mount("plus court");
+    expect(host.querySelector("section.draft.card.prompt")).not.toBeNull();
+    expect(host.querySelector(".postit")).toBeNull();
+  });
+
+  test("DictationDraft avec une dictée la montre sur une carte, sans champ", async () => {
     const { note, area } = await mount("rends ce titre plus court");
     expect(note().textContent).toBe("rends ce titre plus court");
     expect(area()).toBeNull();
   });
 
-  test("DictationDraft clic sur le post-it ouvre l'édition, curseur en fin", async () => {
+  test("DictationDraft clic sur la carte ouvre l'édition, curseur en fin", async () => {
     const { note, area } = await mount("plus court");
     await act(async () => note().click());
     expect(area().value).toBe("plus court");
@@ -79,13 +85,13 @@ describe("brouillon de dictée", () => {
     expect(area().selectionStart).toBe("plus court".length);
   });
 
-  test("DictationDraft Entrée sur le post-it ouvre l'édition", async () => {
+  test("DictationDraft Entrée sur la carte ouvre l'édition", async () => {
     const { note, area } = await mount("plus court");
     await act(async () => key(note(), { key: "Enter" }));
     expect(area()).not.toBeNull();
   });
 
-  test("DictationDraft Échap dans le champ revient au post-it", async () => {
+  test("DictationDraft Échap dans le champ revient à la carte", async () => {
     const { note, area } = await mount("plus court");
     await act(async () => note().click());
     await act(async () => key(area(), { key: "Escape" }));
@@ -121,7 +127,7 @@ describe("brouillon de dictée", () => {
     expect(sent).toEqual(["plus court"]);
   });
 
-  test("DictationDraft ⌘↩ sur le post-it envoie", async () => {
+  test("DictationDraft ⌘↩ sur la carte envoie", async () => {
     const { note, sent } = await mount("plus court");
     await act(async () => key(note(), { key: "Enter", metaKey: true }));
     expect(sent).toEqual(["plus court"]);
@@ -161,7 +167,7 @@ describe("brouillon de dictée", () => {
     expect(discarded()).toBe(1);
   });
 
-  test("DictationDraft après une dictée donne le focus au post-it", async () => {
+  test("DictationDraft après une dictée donne le focus à la carte", async () => {
     const { note } = await mount("plus court");
     expect(document.activeElement).toBe(note());
   });

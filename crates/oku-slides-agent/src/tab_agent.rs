@@ -142,7 +142,8 @@ impl TabAgent {
 
     fn new_conversation(&mut self) {
         self.forget();
-        self.ctx.hub.cancel_asks();
+        // Questions relâchées, plus aucun tour, surfaces du fil fermées : avant toute nouvelle consigne.
+        self.ctx.hub.clear_thread();
         self.ctx.emit(AgentEvent::Conversation);
     }
 
@@ -159,6 +160,9 @@ impl TabAgent {
         text: String,
         ui: AgentUi,
     ) -> Option<Command> {
+        // Le tour existe avant toute étape qui peut échouer (connexion, session) : son erreur s'y affiche.
+        let n = self.ctx.hub.begin_turn();
+        self.ctx.emit(AgentEvent::UserText { turn: n, text: text.clone() });
         if self.conversation.is_none() {
             self.ctx.emit(AgentEvent::Status { state: AgentState::Starting });
         }

@@ -1,6 +1,6 @@
 # Agente: superfici, conferme, thread.
 
-agent-instructions = Modifichi una presentazione di Oku Slides per l'utente, che ti parla. Agisci solo tramite gli strumenti oku-slides. Leggi il deck con deck_outline, slide e render_slide prima di modificarlo; modificalo con apply (ogni modifica può essere annullata). Quando una decisione spetta all'utente, chiedi con ask_choice, ask_confirm o ask_rewrite; proponi layout con show_variants e impostazioni dal vivo con show_params. Rispondi brevemente, nella lingua dell'utente. Ogni messaggio inizia con un blocco <oku-slides-context> che descrive cosa vede l'utente. Dopo ogni risposta, se ci sono passi successivi utili, proponine da 1 a 4 con suggest_next (etichette brevi; un clic ti invia l'istruzione). Prima di aggiungere un elemento, leggi lo strumento widgets per conoscere i tipi disponibili e i loro parametri.
+agent-instructions = Modifichi una presentazione Oku Slides per l'utente, che ti parla. Agisci solo con gli strumenti oku-slides. Leggi il deck con deck_outline, slide e render_slide prima di cambiarlo; cambialo con apply (tutto si può annullare). Quando una decisione spetta all'utente, chiedi con ask_choice, ask_confirm o ask_rewrite; proponi impaginazioni con show_variants e regolazioni dal vivo con show_params. Chiudi ogni turno con report: un titolo di una riga, da 1 a 4 fatti brevi, la tua spiegazione in why e da 0 a 4 passi successivi in actions. Il tuo testo libero viene mostrato solo come nota di avanzamento di una riga: scrivilo così, breve e nella lingua dell'utente. Usa render solo se nessun altro strumento è adatto. Ogni messaggio inizia con un blocco <oku-slides-context> che descrive ciò che vede l'utente. Prima di aggiungere un elemento, leggi lo strumento widgets per conoscere i generi disponibili e i loro parametri.
 
 agent-instructions-widgets = Creare un widget: un widget è un file Typst del pacchetto di modelli; usa widget_sources, widget_source, set_widget, remove_widget e preview_widget, sia in modalità deck sia in modalità modelli. Forma di un file kpi: #import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of, poi #let widget = widget("kpi", params: (value: p.plain(), label: p.plain()), (args, ctx) => …); il nome dichiarato è quello del file. Parametri: descrittori p.plain, p.rich, p.flag, p.number, p.choice, p.asset, p.slot, p.grid. Testi modificabili: field(ctx, "value", args.value), impilati con fields-stack. Colori e dimensioni: token del tema (color-of(ctx.tokens, "accent"), size-of(ctx.tokens, "body")), mai valori fissi. Codice condiviso: il file _commun, importato con #import "_commun.typ": …. Ciclo: scrivi con set_widget, leggi lo stato e le sue diagnostiche (riga, colonna), guarda preview_widget, correggi. Per inserirlo nel deck: add_element con kind = nome del widget. Un widget di slide dichiara category: "slide" (widget("nome", category: "slide", params: …)); altrimenti è un elemento. In un descrittore, label: e default: sono facoltativi (p.plain(), p.plain(label: "Titolo", default: "…")).
 
@@ -39,3 +39,22 @@ agent-no-http = Questo agente non riesce a connettersi agli strumenti di Oku Sli
 agent-stopped = L'agente si è fermato.
 agent-failed = L'agente ha rifiutato la richiesta: { $message }
 agent-tool-failed = Lo strumento ha avuto un errore imprevisto.
+
+agent-turn-tools = { $tools ->
+   [one] { $tools } strumento
+  *[other] { $tools } strumenti
+}
+agent-turn-notes = { $notes ->
+   [one] { $notes } nota
+  *[other] { $notes } note
+}
+agent-turn-secs = { $secs } s
+agent-turn-stopped = Fermato.
+agent-turn-interrupted = Interrotto.
+agent-turn-max-tokens = L'agente ha raggiunto il limite di lunghezza.
+agent-turn-max-turns = L'agente ha raggiunto il limite di passaggi.
+agent-turn-refusal = L'agente ha rifiutato.
+agent-turn-ended = Turno concluso ({ $stop }).
+agent-choice-cancelled = Domanda annullata
+agent-choice-answered = ✓ { $answer }
+agent-report-why = Perché

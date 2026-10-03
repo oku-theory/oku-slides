@@ -6,6 +6,7 @@ import { applyDefaultScheme } from "./appearance";
 import { applyLens } from "./lens";
 import { currentScheme, loadScheme } from "./scheme";
 import "./styles.css";
+import "./a2ui/a2ui.css";
 import "./glass.css";
 
 // Les messages d'abord : chaque texte de l'interface en dépend. Sans hôte

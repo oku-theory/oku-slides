@@ -54,9 +54,6 @@ pub(crate) async fn run(
             String::new()
         }
     };
-    // Les suites proposées au tour précédent ne valent plus.
-    ctx.hub.clear_suggestions();
-    ctx.emit(AgentEvent::UserText { text: text.clone() });
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
     let mut blocks = Vec::with_capacity(4);
     if first {

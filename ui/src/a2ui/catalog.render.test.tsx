@@ -1,4 +1,4 @@
-// Rendu et comportement des composants du catalogue v2, dans un DOM happy-dom.
+// Rendu et comportement des composants du catalogue v3, dans un DOM happy-dom.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
@@ -50,6 +50,26 @@ async function mount(root: Record<string, unknown>, data: unknown = {}) {
   return { host, actions, errors };
 }
 
+/** Monte une surface de plusieurs composants (dont `root`) ; renvoie son hôte et les erreurs reçues. */
+async function mountAll(components: Record<string, unknown>[], data: unknown = {}) {
+  const errors: string[] = [];
+  const host = document.createElement("div");
+  document.body.append(host);
+  const r = createRoot(host);
+  mounted = { root: r, host };
+  await act(async () => {
+    r.render(
+      createElement(SurfaceView, {
+        messages: messages(components, data),
+        surfaceId: "s",
+        onAction: () => {},
+        onError: (m: string) => errors.push(m),
+      }),
+    );
+  });
+  return { host, errors };
+}
+
 /**
  * Change la valeur d'un champ comme le navigateur, puis émet `type`.
  * Le setter du prototype contourne le suivi de valeur de React, qui ignore les
@@ -77,7 +97,7 @@ const colorField = {
   action: { event: { name: "param", context: { value: { path: "/c" } } } },
 };
 
-describe("rendu du catalogue v2", () => {
+describe("rendu du catalogue v3", () => {
   test("DiffText barre le retiré et marque l'ajouté", async () => {
     const { host } = await mount({
       component: "DiffText",
@@ -262,5 +282,90 @@ describe("rendu du catalogue v2", () => {
   test("SurfaceView : la surface est enveloppée d'un .a2ui-surface", async () => {
     const { host } = await mount({ component: "Text", text: "Bonjour" });
     expect(host.querySelector(".a2ui-surface")?.textContent).toBe("Bonjour");
+  });
+});
+
+describe("composants du fil (v3)", () => {
+  test("Prompt rend la consigne dans une bulle", async () => {
+    const { host } = await mount({ component: "Prompt", text: "Change le fond" });
+    expect(host.querySelector(".a2ui-prompt")?.textContent).toBe("Change le fond");
+  });
+
+  test("Timeline repliée ne montre que son résumé jusqu'au clic", async () => {
+    const data = { steps: [{ label: "Slide 4 lue", status: "completed" }], collapsed: true, summary: "1 outil · 4 s" };
+    const { host } = await mount(
+      { component: "Timeline", steps: { path: "/steps" }, collapsed: { path: "/collapsed" }, summary: { path: "/summary" } },
+      data,
+    );
+    const summary = host.querySelector(".a2ui-timeline-summary");
+    expect(summary?.textContent).toContain("1 outil · 4 s");
+    expect(host.querySelector(".a2ui-step")).toBeNull();
+    await click(summary!);
+    expect(host.querySelector(".a2ui-step-label")?.textContent).toBe("Slide 4 lue");
+  });
+
+  test("Timeline ignore des étapes mal formées dans le modèle de données", async () => {
+    const data = { steps: [{ label: "ok", status: "completed" }, { label: "x", status: "<b>" }, 3], collapsed: false, summary: "" };
+    const { host, errors } = await mount(
+      { component: "Timeline", steps: { path: "/steps" }, collapsed: { path: "/collapsed" }, summary: { path: "/summary" } },
+      data,
+    );
+    expect(errors).toEqual([]);
+    expect(host.querySelectorAll(".a2ui-step").length).toBe(1);
+  });
+
+  test("Timeline en cours liste ses étapes et leur nombre d'outils", async () => {
+    const data = { steps: [{ label: "Fond posé", status: "in_progress", count: 3 }], collapsed: false, summary: "" };
+    const { host } = await mount(
+      { component: "Timeline", steps: { path: "/steps" }, collapsed: { path: "/collapsed" }, summary: { path: "/summary" } },
+      data,
+    );
+    expect(host.querySelector(".a2ui-step.in_progress .a2ui-step-label")?.textContent).toBe("Fond posé");
+    expect(host.querySelector(".a2ui-step .a2ui-badge")?.textContent).toBe("3");
+  });
+
+  test("Receipt montre titre, faits et pastille de couleur", async () => {
+    const { host } = await mount({
+      component: "Receipt",
+      title: "Slide 4 : fond bleu nuit",
+      facts: ["titre en blanc", "surtitre bleu clair"],
+      swatch: "#00154e",
+    });
+    expect(host.querySelector(".a2ui-receipt .a2ui-title")?.textContent).toBe("Slide 4 : fond bleu nuit");
+    expect(host.querySelector(".a2ui-receipt .a2ui-hint")?.textContent).toBe("titre en blanc · surtitre bleu clair");
+    // happy-dom garde la valeur telle qu'écrite (pas de conversion en rgb()).
+    expect((host.querySelector(".a2ui-swatch") as HTMLElement).style.background).toBe("#00154e");
+  });
+
+  test("Disclosure cache son enfant jusqu'au clic", async () => {
+    const { host } = await mountAll([
+      { id: "root", component: "Disclosure", summary: "Pourquoi", child: "why" },
+      { id: "why", component: "Markdown", text: "Le modèle **content** n'a pas de fond." },
+    ]);
+    expect(host.querySelector(".a2ui-md")).toBeNull();
+    await click(host.querySelector(".a2ui-disclosure > button")!);
+    expect(host.querySelector(".a2ui-md strong")?.textContent).toBe("content");
+  });
+
+  test("Badge porte la classe de son ton", async () => {
+    const { host } = await mount({ component: "Badge", text: "annulé", tone: "danger" });
+    expect(host.querySelector(".a2ui-badge.tone-danger")?.textContent).toBe("annulé");
+  });
+
+  test("Text note prend la classe des notes", async () => {
+    const { host } = await mount({ component: "Text", text: "Je lis la slide", variant: "note" });
+    expect(host.querySelector(".a2ui-note")?.textContent).toBe("Je lis la slide");
+  });
+
+  test("Receipt avec une propriété inconnue est refusé en la nommant", async () => {
+    // @a2ui journalise l'erreur de validation : attendue ici (même précaution que le test d'erreur existant).
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { host, errors } = await mountAll([{ id: "root", component: "Receipt", title: "x", facts: [], extra: 1 }]);
+      expect(host.querySelector(".a2ui-receipt")).toBeNull();
+      expect(errors.join("\n")).toContain("extra");
+    } finally {
+      logged.mockRestore();
+    }
   });
 });

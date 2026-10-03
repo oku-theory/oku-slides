@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
-use crate::{AgentEvent, Launch, Link};
+use crate::{AgentEvent, AgentState, Launch, Link};
 
 /// Commande de l'interface vers l'agent d'un onglet (JSON `{"cmd": …, "tab": …}`),
 /// la même pour Tauri et HTTP.
@@ -146,11 +146,12 @@ impl Stack {
                     t.send(Command::Cancel);
                 }
             }
-            AgentCommand::NewConversation { tab } => match self.tab(&tab) {
-                Some(t) => t.send(Command::NewConversation),
-                // Rien à oublier : l'interface vide son fil, sans démarrer l'onglet.
-                None => emit(&self.out_tx, "agent", &tab, &AgentEvent::Conversation),
-            },
+            // Un onglet sans agent n'a aucune surface de tour à fermer : rien à faire pour lui.
+            AgentCommand::NewConversation { tab } => {
+                if let Some(t) = self.tab(&tab) {
+                    t.send(Command::NewConversation);
+                }
+            }
             AgentCommand::SurfaceAction { tab, surface, name, context } => {
                 // Un onglet sans agent n'a aucune surface ouverte.
                 let t = self.tab(&tab).ok_or_else(|| "unknown surface".to_owned())?;
@@ -161,7 +162,7 @@ impl Stack {
         Ok(())
     }
 
-    /// Le fil gardé puis les surfaces ouvertes ; vides pour un onglet sans agent.
+    /// L'état de l'agent puis les surfaces ouvertes ; vides pour un onglet sans agent.
     fn resync(&self, tab: &str) {
         match self.tab(tab) {
             Some(t) => {
@@ -169,14 +170,14 @@ impl Stack {
                 t.hub.resync();
             }
             None => {
-                emit(&self.out_tx, "agent", tab, &AgentEvent::Thread { entries: Vec::new() });
+                emit(&self.out_tx, "agent", tab, &AgentEvent::Status { state: AgentState::Idle });
                 emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
             }
         }
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir
-    /// `Request::changes_deck`) : fermer les post-its orphelins.
+    /// `Request::changes_deck`) : fermer les surfaces orphelines.
     pub fn after_change(&self, tab: &str) {
         if let Some(t) = self.tab(tab) {
             t.hub.prune();

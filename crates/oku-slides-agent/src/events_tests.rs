@@ -35,9 +35,7 @@ fn from_update_plan_gives_items() {
 }
 
 #[test]
-fn thread_serializes_its_entries_as_events() {
-    let thread = AgentEvent::Thread { entries: vec![AgentEvent::Chunk { text: "a".into() }] };
-    let json = serde_json::to_value(&thread).unwrap();
-    assert_that!(json)
-        .is_equal_to(serde_json::json!({ "kind": "thread", "entries": [{ "kind": "chunk", "text": "a" }] }));
+fn user_text_serializes_its_turn() {
+    let json = serde_json::to_value(AgentEvent::UserText { turn: 3, text: "x".into() }).unwrap();
+    assert_that!(json).is_equal_to(serde_json::json!({ "kind": "user_text", "turn": 3, "text": "x" }));
 }

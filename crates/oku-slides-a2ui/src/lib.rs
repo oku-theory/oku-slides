@@ -4,7 +4,7 @@
 //!   `updateDataModel`, `deleteSurface`, au format v0.9.
 //! - [`Component`] / [`ComponentKind`] : le catalogue [`CATALOG_ID`] (Column,
 //!   Row, Card, Text, TextField, Stepper, Button, ChoiceChips, Slider,
-//!   ColorField, Select, SlideThumb, DiffText), à plat, relié par identifiants.
+//!   ColorField, Select, SlideThumb, DiffText, Prompt, Timeline, Receipt, Disclosure, Badge, Markdown), à plat, relié par identifiants.
 //! - [`Dynamic`] : une valeur littérale ou un chemin (JSON Pointer) dans le
 //!   modèle de données de la surface.
 //! - [`Action`] : l'évènement qu'un composant envoie ; l'interface le traite.
@@ -17,5 +17,6 @@ mod message;
 
 pub use message::{
     Action, CATALOG_ID, ChoiceOption, Component, ComponentKind, CreateSurface, DeleteSurface, DiffKind, DiffSegment,
-    Dynamic, Event, ServerBody, ServerMessage, TextVariant, UpdateComponents, UpdateDataModel, Version,
+    Dynamic, Event, ServerBody, ServerMessage, StepStatus, TextVariant, TimelineStep, Tone, UpdateComponents,
+    UpdateDataModel, Version,
 };

@@ -1,6 +1,6 @@
 // Le brouillon des dictées dans le panneau de droite : on relit, retouche ou
 // complète ce qu'on a dit, puis on choisit — l'insérer tel quel ou l'envoyer
-// à l'agent comme consigne. Il se lit sur un post-it ; un clic l'ouvre en édition.
+// à l'agent comme consigne. Il se lit sur une carte ; un clic l'ouvre en édition.
 
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
@@ -38,7 +38,7 @@ export function DictationDraft({
     if (editing) toEnd(area.current);
     else note.current?.focus();
   }, [dictations]);
-  // Ouvert en édition : curseur en fin de texte. Refermé : le focus reste sur le post-it.
+  // Ouvert en édition : curseur en fin de texte. Refermé : le focus reste sur la carte.
   const opened = useRef(false);
   useEffect(() => {
     if (editing) toEnd(area.current);
@@ -58,7 +58,7 @@ export function DictationDraft({
   };
   return (
     <section
-      className="draft postit"
+      className="draft card prompt"
       aria-label={t("ui-draft")}
       onKeyDown={(e) => {
         if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;

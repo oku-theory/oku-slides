@@ -1,9 +1,9 @@
 //! Formes de surface de l'agent : arguments des outils `ask_*` / `show_*`
-//! et leur composition en messages A2UI (catalogue v2).
+//! et leur composition en messages A2UI (catalogue v3).
 //!
 //! Actions renvoyées par l'interface : `choose {choice}`, `confirm
 //! {confirmed}`, `permission {index}`, `rewrite {kept, text}`, `param
-//! {field, value}`, `variant {index}`, `suggest {prompt}`, `dismiss`, `answer
+//! {field, value}`, `variant {index}`, `dismiss`, `answer
 //! {text}` (réponse dictée à une question en attente).
 
 use oku_slides_a2ui::{
@@ -21,16 +21,12 @@ use serde_json::{Value, json};
 pub enum Place {
     /// Fiche ancrée sous un élément de la slide.
     Sheet,
-    /// Dans le fil de l'agent (panneau de droite).
+    /// Dans le fil de l'agent : dans son tour, ou au dock si vivante.
     Thread,
     /// Tiroir sous la scène (variantes).
     Drawer,
-    /// Post-it du panneau de droite (paramètres).
-    Postit,
     /// Fenêtre modale (confirmation, permission).
     Modal,
-    /// Boutons de suite sous la dernière réponse, dans le fil ; pas une question.
-    Suggestions,
 }
 
 /// Une surface prête à afficher : ses messages A2UI et sa place.
@@ -40,6 +36,11 @@ pub struct Surface {
     pub place: Place,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor: Option<Anchor>,
+    /// Le tour qui l'a créée (surfaces du fil) ; le hub la remplit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn: Option<u32>,
+    /// Vivante : dans le dock, elle attend ou agit encore ; figée : dans son tour.
+    pub live: bool,
     pub messages: Vec<ServerMessage>,
 }
 
@@ -47,7 +48,7 @@ impl Surface {
     /// Change une valeur racine du modèle de données (`f0`, `choice`…).
     ///
     /// Sert à garder la copie de l'hôte à jour quand l'interface a déjà
-    /// changé la sienne (un réglage de post-it), pour une resynchronisation.
+    /// changé la sienne (un réglage de surface), pour une resynchronisation.
     pub fn set_value(&mut self, key: &str, value: Value) {
         for m in &mut self.messages {
             if let ServerBody::UpdateDataModel(u) = &mut m.body
@@ -78,6 +79,23 @@ pub struct AskChoice {
     /// Élément concerné : la question s'affiche dessous ; sinon dans le fil.
     #[serde(default)]
     pub anchor: Option<Anchor>,
+}
+
+/// Une question du fil, répondue ou annulée : sa question et la réponse, figées.
+pub fn frozen_choice(id: &str, question: &str, answer: Option<&str>, l: &Localizer) -> Surface {
+    let said = match answer {
+        Some(a) => l.tr_with("agent-choice-answered", &[("answer", a.into())]),
+        None => l.tr("agent-choice-cancelled"),
+    };
+    let components = vec![
+        Component::card("root", "body"),
+        Component::column("body", &["question", "answer"]),
+        Component::text("question", question.to_owned(), Some(TextVariant::Caption)),
+        Component::text("answer", said, Some(TextVariant::Body)),
+    ];
+    let mut s = surface(id, Place::Thread, None, components, json!({}));
+    s.live = false;
+    s
 }
 
 /// `ask_confirm` : oui ou non.
@@ -130,11 +148,11 @@ pub struct ParamField {
     pub options: Vec<ChoiceOption>,
 }
 
-/// `show_params` : un post-it de réglages qui s'appliquent tout de suite.
+/// `show_params` : une surface de réglages qui s'appliquent tout de suite.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct ShowParams {
     pub title: String,
-    /// Slide réglée : le post-it disparaît si elle est supprimée.
+    /// Slide réglée : la surface disparaît si elle est supprimée.
     pub slide: String,
     /// 1 à 8 champs.
     pub fields: Vec<ParamField>,
@@ -154,29 +172,11 @@ pub struct ShowVariants {
     pub variants: Vec<Variant>,
 }
 
-/// Une suite possible : un bouton, et la consigne qu'il envoie à l'agent.
-#[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
-pub struct Suggestion {
-    /// Libellé du bouton, 2 à 5 mots, dans la langue de l'utilisateur.
-    pub label: String,
-    /// Consigne envoyée à l'agent au clic ; le libellé si absente.
-    #[serde(default)]
-    pub prompt: Option<String>,
-}
-
-/// `suggest_next` : les suites qu'un clic lance, sous la réponse.
-#[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
-pub struct SuggestNext {
-    /// 1 à 4 suites, la plus probable d'abord.
-    pub suggestions: Vec<Suggestion>,
-}
-
 /// Bornes du nombre d'options, de propositions, de variantes et de champs.
 pub const CHOICES: (usize, usize) = (2, 6);
 pub const PROPOSALS: (usize, usize) = (2, 3);
 pub const VARIANTS: (usize, usize) = (2, 4);
 pub const FIELDS: (usize, usize) = (1, 8);
-pub const SUGGESTIONS: (usize, usize) = (1, 4);
 /// Bornes du nombre d'opérations d'une variante (contre un lot démesuré venant de l'agent).
 pub const OPS: (usize, usize) = (1, 50);
 /// Bornes par défaut d'un `Slider` sans `min`/`max`. Partagées avec
@@ -196,6 +196,8 @@ pub(crate) fn surface(
         id: id.to_owned(),
         place,
         anchor,
+        turn: None,
+        live: true,
         messages: vec![
             ServerMessage::create_surface(id),
             ServerMessage::update_components(id, components),
@@ -359,12 +361,12 @@ pub(crate) fn rewrite(id: &str, spec: &AskRewrite, original: &str, l: &Localizer
     surface(id, Place::Sheet, Some(anchor), components, json!({ "draft": draft }))
 }
 
-/// Clé du champ `i` d'un post-it `show_params` dans son modèle de données.
+/// Clé du champ `i` d'une surface `show_params` dans son modèle de données.
 pub fn param_key(i: usize) -> String {
     format!("f{i}")
 }
 
-/// `show_params` : post-it ; chaque champ `f<i>` envoie `param {field, value}`.
+/// `show_params` : surface ; chaque champ `f<i>` envoie `param {field, value}`.
 pub(crate) fn params(id: &str, spec: &ShowParams, palette: &[String], l: &Localizer) -> Surface {
     let mut body: Vec<String> = vec!["title".into()];
     let mut components = vec![Component::text("title", spec.title.clone(), Some(TextVariant::H4))];
@@ -407,7 +409,7 @@ pub(crate) fn params(id: &str, spec: &ShowParams, palette: &[String], l: &Locali
     let refs: Vec<&str> = body.iter().map(String::as_str).collect();
     components.insert(0, Component::column("body", &refs));
     components.insert(0, Component::card("root", "body"));
-    surface(id, Place::Postit, None, components, Value::Object(data))
+    surface(id, Place::Thread, None, components, Value::Object(data))
 }
 
 /// `show_variants` : tiroir de miniatures ; `variant {index}` au clic.
@@ -431,20 +433,6 @@ pub(crate) fn variants(id: &str, spec: &ShowVariants, svgs: &[std::sync::Arc<str
         ));
     }
     surface(id, Place::Drawer, None, components, json!({}))
-}
-
-/// `suggest_next` : une rangée de boutons ; `suggest {prompt}` au clic.
-pub fn suggestions(id: &str, spec: &SuggestNext) -> Surface {
-    let ids: Vec<String> = (0..spec.suggestions.len()).map(|i| format!("s{i}")).collect();
-    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-    let mut components = vec![Component::row("buttons", &refs)];
-    for (sid, s) in ids.iter().zip(&spec.suggestions) {
-        let prompt = s.prompt.clone().unwrap_or_else(|| s.label.clone());
-        let action = Action::event("suggest", [("prompt", lit(json!(prompt)))]);
-        components.push(Component::button(sid, s.label.clone(), false, action));
-    }
-    components.insert(0, Component::column("root", &["buttons"]));
-    surface(id, Place::Suggestions, None, components, json!({}))
 }
 
 #[cfg(test)]

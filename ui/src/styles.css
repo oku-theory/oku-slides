@@ -60,17 +60,10 @@
   --shadow-object: 0 calc(1px * var(--elev)) calc(1px * var(--elev)) var(--shade),
     0 calc(6px * var(--elev)) calc(10px * var(--elev)) calc(-2px * var(--elev)) var(--shade-strong),
     0 calc(14px * var(--elev)) calc(28px * var(--elev)) calc(-6px * var(--elev)) var(--shade);
-  --shadow-note: 0 1px 1px var(--shade),
-    0 calc(10px * var(--elev)) calc(14px * var(--elev)) calc(-5px * var(--elev)) var(--shade-strong),
-    calc(2px * var(--elev)) calc(18px * var(--elev)) calc(22px * var(--elev)) calc(-10px * var(--elev)) var(--shade);
   /* Arête éclairée des objets : les distingue aussi sur une table sombre. */
   --edge-light: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
   /* Liseré de la feuille : reste visible quand la slide est aussi sombre que la table. */
   --sheet-ring: 0 0 0 1px color-mix(in oklab, var(--ink) 16%, transparent);
-  --postit: var(--app-postit, color-mix(in oklab, var(--accent-fill) 20%, var(--paper-200)));
-  /* Le post-it de l'utilisateur (brouillon, consignes envoyées) : le papier des slides, face au vert de l'agent. */
-  --postit-you: var(--t-bg);
-  --postit-you-ink: var(--t-ink, var(--ink));
   --lift: translateY(calc(-3px * var(--elev)));
 
   --serif: var(--t-font-display);
@@ -101,7 +94,6 @@
   --on-accent: var(--t-on-accent);
   --accent-soft: color-mix(in oklab, var(--accent-fill) 26%, var(--paper-200));
   --danger: color-mix(in oklab, #e0735a 88%, var(--ink));
-  --postit: color-mix(in oklab, var(--accent-fill) 30%, var(--paper-200));
 }
 :root[data-derived="light"] {
   --paper-000: color-mix(in oklab, var(--t-light) 89%, var(--t-dark));
@@ -116,7 +108,6 @@
   --on-accent: var(--t-on-accent);
   --accent-soft: color-mix(in oklab, var(--accent-fill) 16%, var(--paper-200));
   --danger: color-mix(in oklab, #b3402a 85%, var(--ink));
-  --postit: color-mix(in oklab, var(--accent-fill) 20%, var(--paper-200));
 }
 /* Sur une table sombre, une ombre légère ne se voit plus : plus dense, vers le noir. */
 :root[data-scheme="dark"] {
@@ -304,7 +295,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   background: var(--paper-200); padding: 4px 10px; border-radius: 999px; box-shadow: var(--edge-light), var(--shadow-rest); pointer-events: none;
 }
 
-/* ---- Post-it autour de la feuille ---- */
+/* ---- Cartes autour de la feuille ---- */
 .notes { grid-area: notes; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
 /* ---- Séparateurs des colonnes ---- */
 /* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol. */
@@ -322,21 +313,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .col-divider.active::before, .col-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
 body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 
-.postit {
-  width: 132px; min-height: 96px; padding: 14px 14px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-2);
-  background: var(--postit); color: var(--ink); border: 0; border-radius: 3px 3px var(--radius-md) 3px; text-align: start; cursor: pointer;
-  box-shadow: var(--edge-light), var(--shadow-note); transform: rotate(var(--tilt, -2deg));
-  transition: var(--theme-fade), transform 200ms ease-out;
-}
-.postit:hover:not(:disabled) { transform: rotate(0deg) var(--lift); box-shadow: var(--shadow-floating); }
-.postit:disabled { opacity: 0.72; cursor: default; }
-.postit:disabled .postit-title { opacity: 0.75; }
-.postit-title { font: 600 15px/20px var(--sans); }
-.postit-hint { font-size: 12px; line-height: 16px; color: color-mix(in oklab, var(--ink) 78%, var(--postit)); }
-
 /* ---- Appareil de dictée ---- */
 .device {
-  /* En bas de la colonne du fil, alignée sur ses post-its. */
+  /* En bas de la colonne du fil, alignée sur ses cartes. */
   grid-area: device; justify-self: stretch; align-self: center; min-width: 0; min-height: 68px;
   margin-inline: var(--space-2) var(--space-6);
   position: relative; z-index: 3;
@@ -482,12 +461,10 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   fill: color-mix(in oklab, var(--accent) 14%, transparent);
   stroke: color-mix(in oklab, var(--accent) 75%, transparent); stroke-width: 1.5;
 }
-.grid-note { cursor: default; gap: 6px; justify-content: flex-start; }
-.grid-note:hover { transform: rotate(var(--tilt, -2deg)); box-shadow: var(--edge-light), var(--shadow-note); }
 .stepper { display: grid; grid-template-columns: 1fr 22px 24px 22px; align-items: center; gap: 2px; }
 .stepper button {
   width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; cursor: pointer; font: 500 14px/1 var(--sans);
-  background: color-mix(in oklab, var(--postit) 80%, var(--ink)); color: var(--ink);
+  background: color-mix(in oklab, var(--a2ui-surface) 80%, var(--ink)); color: var(--ink);
 }
 .stepper button:disabled { opacity: 0.35; cursor: default; }
 .stepper-value { text-align: center; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
@@ -526,27 +503,22 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 .drop-line.end { position: relative; top: auto; display: block; margin-block: -9px; margin-inline: 22px 0; flex: none; }
 
-/* ---- Post-it du panneau (surface A2UI) ---- */
-.panel-card { cursor: default; justify-content: flex-start; }
-/* Colonnes A2UI : les post-it de la racine s'espacent comme dans le panneau, le contenu d'un post-it se serre. */
-.a2ui-column { display: flex; flex-direction: column; gap: var(--space-2); }
+/* ---- Carte du panneau (surface A2UI) ---- */
+/* Colonnes A2UI : les cartes de la racine s'espacent comme dans le panneau, le contenu d'une carte se serre. */
 .a2ui-surface { display: contents; }
-.notes > .a2ui-surface > .a2ui-column { gap: 22px; }
-.notes > .a2ui-surface > .a2ui-column > .a2ui-slot:nth-child(2) > .postit { --tilt: 1.6deg; }
-.notes > .a2ui-surface > .a2ui-column > .a2ui-slot:nth-child(3) > .postit { --tilt: -1deg; }
-.panel-card:hover { transform: rotate(var(--tilt, -2deg)); box-shadow: var(--edge-light), var(--shadow-note); }
+.notes > .a2ui-surface > .a2ui-column { gap: var(--space-2); }
 .linkish:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
 .note-field { display: flex; flex-direction: column; gap: 2px; }
 .note-field input {
   width: 100%; min-width: 0; padding: 3px 6px; border: 0; border-radius: 5px; font: 13px/18px var(--sans); color: var(--ink);
-  background: color-mix(in oklab, var(--postit) 70%, white); outline: none;
+  background: color-mix(in oklab, var(--a2ui-surface) 70%, white); outline: none;
 }
 .note-field input:focus { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent); }
 .label.editing-templates .brand { color: var(--app-danger, var(--accent)); }
 .toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer; }
 .toggle-track {
   position: relative; width: 30px; height: 18px; border-radius: 9px; flex: none; transition: background 140ms;
-  background: color-mix(in oklab, var(--postit) 70%, var(--ink));
+  background: color-mix(in oklab, var(--a2ui-surface) 70%, var(--ink));
 }
 .toggle-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 140ms; }
 .toggle.on .toggle-track { background: var(--accent-fill); }
@@ -558,14 +530,12 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 /* Ce que les propriétés logiques ne retournent pas d'elles-mêmes. */
 [dir="rtl"] .select { background-position: left 9px center, left 14px center; }
 [dir="rtl"] .toggle.on .toggle-thumb { transform: translateX(-12px); }
-[dir="rtl"] .postit { border-radius: 3px 3px 3px var(--radius-md); }
 /* Annuler pointe vers le début de la ligne : à droite en arabe. */
 [dir="rtl"] .tray .token svg { transform: scaleX(-1); }
 /* Retour et envoi suivent aussi le sens de lecture. */
 [dir="rtl"] .history-back svg, [dir="rtl"] .draft-send svg { transform: scaleX(-1); }
 
 /* --- Surfaces de l'agent (catalogue v2) --------------------------------- */
-.a2ui-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: stretch; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .chip { border: 1px solid var(--accent-fill); color: var(--accent); background: transparent; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
 .chip.on { background: var(--accent-fill); color: var(--on-accent); }
@@ -582,23 +552,13 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .chip:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* --- Fil de l'agent ------------------------------------------------------- */
-/* Même couche que les post-its : la feuille peut déborder sur la colonne des notes.
-   Sans fond, posé sur la table ; la marge intérieure laisse la place aux ombres des
-   post-its, que le défilement rognerait sinon au bord de la boîte. */
-.agent-thread { position: relative; z-index: 3; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; overflow: auto; padding: var(--space-1) var(--space-4) var(--space-6); }
+/* Même couche que les cartes : la feuille peut déborder sur la colonne des notes.
+   Sans fond, posé sur la table ; les cartes se bordent d'un filet intérieur (pas
+   d'ombre portée à rogner) et le défilement se fait dans `.agent-scroller`. */
+.agent-thread { position: relative; z-index: 3; }
 .agent-thread-head { display: flex; justify-content: space-between; align-items: center; }
 .agent-thread-head .token.ghost { width: 28px; height: 28px; }
-.agent-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-/* Une conversation : mes post-its couleur de slide, décalés à droite ; ceux de l'agent en vert, à gauche. */
-.agent-entries { padding: var(--space-1) var(--space-1) var(--space-2); }
-.agent-entry .you, .agent-entry .msg {
-  display: block; width: auto; min-height: 0; margin-block: var(--space-1); padding: 12px 14px;
-  font: 500 15px/21px var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; cursor: default;
-  color: var(--ink); border-radius: 3px 3px var(--radius-md) 3px;
-  box-shadow: var(--edge-light), var(--shadow-note); transform: rotate(var(--tilt, -0.8deg)); transition: var(--theme-fade);
-}
-/* Le Markdown d'une réponse : des blocs serrés, à la taille du post-it. */
-.agent-entry .msg.md { white-space: normal; }
+/* Le Markdown d'une réponse : des blocs serrés, à la taille de la carte. */
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
 .md p { margin: 0 0 8px; white-space: pre-line; }
@@ -607,8 +567,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .md li + li { margin-top: 2px; }
 .md .md-heading { font-weight: 650; margin-top: 12px; }
 .md strong { font-weight: 650; }
-.md code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 4px; border-radius: 4px; background: color-mix(in oklab, var(--postit) 70%, var(--ink) 8%); }
-.md pre { margin: 0 0 8px; padding: 8px 10px; overflow-x: auto; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--postit) 70%, var(--ink) 8%); }
+.md code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 4px; border-radius: 4px; background: color-mix(in oklab, var(--a2ui-surface) 70%, var(--ink) 8%); }
+.md pre { margin: 0 0 8px; padding: 8px 10px; overflow-x: auto; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--a2ui-surface) 70%, var(--ink) 8%); }
 .md pre code { padding: 0; background: none; white-space: pre; }
 .md blockquote { margin: 0 0 8px; padding-inline-start: 10px; border-inline-start: 2px solid color-mix(in oklab, var(--ink) 30%, transparent); color: var(--ink-muted); }
 .md hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--ink) 20%, transparent); margin: 10px 0; }
@@ -616,53 +576,32 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .md table { border-collapse: collapse; margin: 0 0 8px; font-size: 14px; }
 .md th, .md td { padding: 3px 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink) 15%, transparent); text-align: start; }
 .md th { font-weight: 650; }
-.agent-entry .you { background: var(--postit-you); color: var(--postit-you-ink); margin-inline-start: 6%; --tilt: 0.7deg; }
-.agent-entry .msg { background: var(--postit); margin-inline-end: 6%; }
-.agent-entry .you:hover { transform: rotate(var(--tilt)); box-shadow: var(--edge-light), var(--shadow-note); }
-[dir="rtl"] .agent-entry .msg, [dir="rtl"] .agent-entry .you { border-radius: 3px 3px 3px var(--radius-md); }
-/* Les outils : un accordéon discret, fermé par défaut. */
-.tools summary { cursor: pointer; width: fit-content; list-style-position: inside; }
-.tool-list { list-style: none; margin: 4px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 2px; }
-/* Les surfaces du fil (questions de l'agent) : un post-it vert sur toute la largeur. */
-.agent-surface .postit { width: auto; margin-inline-end: 6%; }
-.agent-surface .chip { text-align: start; }
-/* Les suites de la réponse : des pastilles discrètes sous la carte de l'agent, alignées sur elle. */
-.agent-surface.place-suggestions { margin-inline-end: 6%; margin-top: var(--space-1); }
-.agent-surface.place-suggestions .a2ui-row { gap: 6px; }
-.agent-surface.place-suggestions .btn {
-  height: auto; min-height: 32px; padding: 6px 14px; border-radius: 999px; font: 500 13px/18px var(--sans); text-align: start;
-  background: color-mix(in oklab, var(--postit) 55%, var(--paper-100)); color: var(--ink);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
-}
-.agent-surface.place-suggestions .btn:hover:not(:disabled) { background: var(--postit); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-rest); }
-.agent-entry .tool, .agent-entry .plan { color: var(--ink-muted); font-size: .9em; }
-.agent-entry .plan { list-style: none; padding: 0; margin: 0; }
-.agent-entry .error { color: var(--danger); }
 /* Brouillon des dictées : relu, retouché, puis inséré ou envoyé à l'agent. */
-/* Le brouillon : un grand post-it, lu par défaut ; un clic l'ouvre en édition. */
-.draft.postit { position: relative; z-index: 3; width: auto; margin-inline-start: 6%; padding: 16px 16px 12px; background: var(--postit-you); color: var(--postit-you-ink); min-height: 0; justify-content: flex-start; gap: var(--space-4); cursor: default; --tilt: -0.8deg; }
-.draft.postit:hover { transform: rotate(var(--tilt)); box-shadow: var(--edge-light), var(--shadow-note); }
+/* Le brouillon : une grande carte de consigne, lue par défaut ; un clic l'ouvre en édition. */
+.draft { position: relative; z-index: 3; }
+/* Plus spécifique que la carte de consigne (a2ui.css, chargé après) : le brouillon garde sa mise en page en colonne. */
+.draft.card.prompt { display: flex; flex-direction: column; gap: var(--space-4); padding: 16px 16px 12px; width: 85%; }
 /* Lu ou édité, le texte garde la même place : même marge intérieure, pas de saut au clic. */
 .draft-note, .draft-text { font: 500 15px/22px var(--sans); min-height: 3lh; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); }
 .draft-note { white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; transition: background 120ms ease-out; }
-.draft-note:hover { background: color-mix(in oklab, var(--postit-you) 94%, var(--postit-you-ink)); }
+.draft-note:hover { background: color-mix(in oklab, var(--paper-200) 94%, var(--ink)); }
 .draft-text {
   display: block; width: 100%; resize: none; field-sizing: content; max-height: 12lh; color: inherit; border: 0;
-  background: color-mix(in oklab, var(--postit-you) 90%, white);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--postit-you-ink) 14%, transparent);
+  background: color-mix(in oklab, var(--paper-200) 90%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 14%, transparent);
   transition: box-shadow 120ms ease-out;
 }
-/* Un anneau intérieur plutôt qu'un contour : il ne touche pas le bord du post-it. */
+/* Un anneau intérieur plutôt qu'un contour : il ne touche pas le bord de la carte. */
 .draft-text:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--accent-fill); }
 /* Les actions sous un filet, séparées du texte. */
 .draft-actions {
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-2);
-  padding-top: var(--space-2); border-top: 1px solid color-mix(in oklab, var(--postit-you-ink) 12%, transparent);
+  padding-top: var(--space-2); border-top: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
 }
 .draft-exits { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .draft-actions .token { width: 36px; height: 36px; }
-.draft-actions .token.ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--postit-you) 88%, var(--postit-you-ink)); }
-.draft-insert-to { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: color-mix(in oklab, var(--postit-you-ink) 65%, var(--postit-you)); }
+.draft-actions .token.ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--paper-200) 88%, var(--ink)); }
+.draft-insert-to { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: color-mix(in oklab, var(--ink) 65%, var(--paper-200)); }
 /* Couleur d'accent du brouillon (⌘⇧D), sauf pendant l'écoute (`.live` garde son rouge). */
 .device.dictation.draft .mic:not(.live) { background: var(--accent-fill); color: var(--on-accent); }
 /* Arrêter l'agent : plus discret que le micro, un anneau qui tourne dit qu'il travaille. */
@@ -691,12 +630,6 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .variant-drawer .a2ui-row > * { flex: 1 1 0; min-width: 0; }
 .agent-veil { position: fixed; inset: 0; background: rgb(0 0 0 / .35); display: grid; place-items: center; z-index: 20; }
 .agent-modal { width: min(420px, 90vw); }
-/* La carte A2UI d'une fiche, du tiroir ou de la fenêtre : le cadre est celui de la surface, pas un post-it. */
-.agent-sheet-box .postit, .variant-drawer .postit, .agent-modal .postit,
-.agent-sheet-box .postit:hover, .variant-drawer .postit:hover, .agent-modal .postit:hover {
-  width: auto; min-height: 0; padding: 0; background: transparent; box-shadow: none; transform: none; cursor: default;
-}
-
 /* Onglets : la bande du bas de la fenêtre ; en haut, la barre de titre intégrée (macOS). */
 .workspace { height: 100%; display: flex; flex-direction: column; }
 .workspace-body { flex: 1; min-height: 0; }

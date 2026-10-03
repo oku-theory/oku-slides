@@ -1,10 +1,10 @@
-// Catalogue A2UI d'Oku Slides (v2) : panneau et surfaces de l'agent, au style
-// Papier (post-it). Rendu par @a2ui/react ; les messages sont validés contre
-// ces schémas zod par @a2ui/web_core.
+// Catalogue A2UI d'Oku Slides (v3) : panneau et surfaces de l'agent. Rendu par
+// @a2ui/react ; les messages sont validés contre ces schémas zod par
+// @a2ui/web_core.
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `Stepper`,
-// `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText` sont propres à
-// Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
+// `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
+// `Receipt`, `Disclosure`, `Badge`, `Markdown` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -12,14 +12,16 @@ import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import { t } from "../i18n";
+import { Hex, ToneSchema, toneClass } from "./schemas";
+import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
-export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v2";
+export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v3";
 
 const ColumnApi = { name: "Column", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
-const CardApi = { name: "Card", schema: z.object({ child: CommonSchemas.ComponentId }).strict() };
+const CardApi = { name: "Card", schema: z.object({ child: CommonSchemas.ComponentId, tone: ToneSchema.optional() }).strict() };
 const TextApi = {
   name: "Text",
-  schema: z.object({ text: CommonSchemas.DynamicString, variant: z.enum(["h4", "body", "caption"]).optional() }).strict(),
+  schema: z.object({ text: CommonSchemas.DynamicString, variant: z.enum(["h4", "body", "caption", "note"]).optional() }).strict(),
 };
 const TextFieldApi = {
   name: "TextField",
@@ -40,8 +42,6 @@ const StepperApi = {
     .strict(),
 };
 const Option = z.object({ id: z.string(), label: z.string(), hint: z.string().optional() }).strict();
-/** Une couleur hexadécimale (#rgb, #rgba, #rrggbb, #rrggbbaa) : rien d'autre n'entre dans un style. */
-const Hex = z.string().regex(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
 const RowApi = { name: "Row", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
 const ButtonApi = {
   name: "Button",
@@ -124,17 +124,19 @@ const Column = createComponentImplementation(ColumnApi, ({ props, buildChild }) 
   <div className="a2ui-column">{children(props.children, buildChild, "a2ui-slot")}</div>
 ));
 
-/** Un post-it autour d'un seul enfant. */
+/** Une carte autour d'un seul enfant. */
 const Card = createComponentImplementation(CardApi, ({ props, buildChild }) => (
-  <div className="postit panel-card">{buildChild(props.child)}</div>
+  <div className={`a2ui-card${toneClass(props.tone)}`}>{buildChild(props.child)}</div>
 ));
 
-/** Titre (h4), texte courant ou petite légende d'un post-it. */
+const TEXT_CLASS = { h4: "a2ui-title", body: undefined, caption: "a2ui-hint", note: "a2ui-note" } as const;
+
+/** Titre (h4), texte courant, légende ou note. */
 const Text = createComponentImplementation(TextApi, ({ props }) => (
-  <span className={props.variant === "h4" ? "postit-title" : props.variant === "caption" ? "postit-hint" : undefined}>{props.text}</span>
+  <span className={TEXT_CLASS[props.variant ?? "body"]}>{props.text}</span>
 ));
 
-/** Champ d'un post-it : la valeur et l'action partent à la sortie ou sur Entrée. */
+/** Champ d'une carte : la valeur et l'action partent à la sortie ou sur Entrée. */
 const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
   const value = props.value ?? "";
   const [draft, setDraft] = useState(value);
@@ -146,7 +148,7 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
   };
   return (
     <label className="note-field">
-      <span className="postit-hint">{props.label}</span>
+      <span className="a2ui-hint">{props.label}</span>
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -171,7 +173,7 @@ const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
   };
   return (
     <div className="stepper">
-      <span className="postit-hint">{label}</span>
+      <span className="a2ui-hint">{label}</span>
       <button aria-label={t("ui-stepper-less", { label })} disabled={value <= min} onClick={() => step(value - 1)}>−</button>
       <span className="stepper-value">{value}</span>
       <button aria-label={t("ui-stepper-more", { label })} disabled={value >= max} onClick={() => step(value + 1)}>+</button>
@@ -275,7 +277,7 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
   const step = props.step ?? 1;
   return (
     <label className="note-field">
-      <span className="postit-hint">{props.label} · {draft.toFixed(decimals(step))}</span>
+      <span className="a2ui-hint">{props.label} · {draft.toFixed(decimals(step))}</span>
       <input
         ref={ref}
         type="range"
@@ -301,7 +303,7 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
   const ref = useNativeChange(pick);
   return (
     <div className="note-field">
-      <span className="postit-hint">{props.label}</span>
+      <span className="a2ui-hint">{props.label}</span>
       <div className="swatches">
         {props.palette.map((c, i) => (
           <button
@@ -331,7 +333,7 @@ const Select = createComponentImplementation(SelectApi, ({ props }) => {
   const known = props.options.some((o) => o.id === props.value);
   return (
     <label className="note-field">
-      <span className="postit-hint">{props.label}</span>
+      <span className="a2ui-hint">{props.label}</span>
       <select
         className="select"
         value={known ? props.value : ""}
@@ -370,4 +372,5 @@ const DiffText = createComponentImplementation(DiffTextApi, ({ props }) => (
 /** Le catalogue des surfaces d'Oku Slides : panneau de droite et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
   Column, Row, Card, Text, TextField, Stepper, Button, ChoiceChips, Slider, ColorField, Select, SlideThumb, DiffText,
+  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown,
 ]);

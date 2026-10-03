@@ -51,7 +51,7 @@ fn slide_context(slide: &Slide) -> (&'static str, Dynamic<Value>) {
     ("slide", Dynamic::Literal(Value::String(slide.id.clone())))
 }
 
-/// Post-it du modèle : titre, nom, description.
+/// Fiche du modèle : titre, nom, description.
 fn template_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
     let field = |id: &str, label: &str, path: &str, action: &str| {
         Component::new(
@@ -72,7 +72,7 @@ fn template_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
     ]
 }
 
-/// Post-it de la grille : colonnes et lignes.
+/// Fiche de la grille : colonnes et lignes.
 fn grid_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
     let stepper = |id: &str, label: &str, path: &str| {
         let action = Action::event(

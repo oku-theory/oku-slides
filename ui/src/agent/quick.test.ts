@@ -8,6 +8,7 @@ import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 const surface = (components: unknown[], data?: unknown, more: unknown[] = []): Surface => ({
   id: "ask-1",
   place: "sheet",
+  live: false,
   messages: [
     { version: "v0.9", createSurface: { surfaceId: "ask-1", catalogId: "x" } },
     { version: "v0.9", updateComponents: { surfaceId: "ask-1", components } },

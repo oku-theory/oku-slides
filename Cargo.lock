@@ -5452,6 +5452,7 @@ dependencies = [
  "getrandom 0.3.4",
  "hex",
  "insta",
+ "oku-slides-a2ui",
  "oku-slides-chart",
  "oku-slides-core",
  "oku-slides-i18n",

@@ -1,0 +1,215 @@
+//! Tours du fil : numéros, rangement, gel, éviction, expiration des suites.
+
+use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
+use oku_slides_session::agent::{Place, Surface};
+
+use super::{HubState, McpEvent, Shown, SurfaceHub};
+
+/// Ce qui remplace une question du fil une fois répondue (ou annulée).
+pub type Freeze = Box<dyn FnOnce(&super::Answer) -> Surface + Send>;
+
+/// Surfaces figées gardées au plus par tour (`render`, questions répondues) : contre un agent qui en empile.
+pub const STATIC_PER_TURN: usize = 8;
+
+impl SurfaceHub {
+    /// Ouvre un tour : les surfaces du fil créées ensuite le portent. Les suites des tours passés expirent.
+    pub fn begin_turn(&self) -> u32 {
+        let n = {
+            let mut state = self.state();
+            state.turns = state.turns.saturating_add(1);
+            let n = state.turns;
+            state.turn = Some(n);
+            state.live_turns.insert(n);
+            n
+        };
+        self.expire_actions();
+        n
+    }
+
+    /// Range `surface` dans le tour en cours si elle est du fil et n'en a pas (verrou déjà pris).
+    pub(super) fn tag_in(state: &HubState, surface: &mut Surface) {
+        if surface.place == Place::Thread && surface.turn.is_none() {
+            surface.turn = state.turn;
+        }
+    }
+
+    /// Une surface figée (composition `render`, question répondue) dans son tour.
+    ///
+    /// Refusée (`false`) si l'onglet est fermé, si aucun tour n'est ouvert, ou si son tour a
+    /// quitté le fil : la décision et l'insertion se font sous le même verrou.
+    pub fn show_static(&self, mut surface: Surface) -> bool {
+        let oldest = {
+            let mut state = self.state();
+            Self::tag_in(&state, &mut surface);
+            let Some(turn) = surface.turn else { return false };
+            if state.closed || !state.live_turns.contains(&turn) {
+                return false;
+            }
+            surface.live = false;
+            let plain = surface.has_actions().then(|| surface.without_actions());
+            state
+                .shows
+                .insert(surface.id.clone(), Shown::Static { turn: Some(turn), plain, expired: false, report: false });
+            // Au plus `STATIC_PER_TURN` surfaces figées par tour : la plus ancienne cède la place.
+            let same: Vec<String> = state
+                .open
+                .iter()
+                .filter(|s| s.turn == Some(turn) && s.id != surface.id && !s.live)
+                // Le reçu du tour ne compte pas : il est unique et ne doit jamais céder sa place.
+                .filter(|s| matches!(state.shows.get(&s.id), Some(Shown::Static { report: false, .. })))
+                .map(|s| s.id.clone())
+                .collect();
+            let excess = (same.len() + 1).saturating_sub(STATIC_PER_TURN);
+            same.into_iter().take(excess).collect::<Vec<_>>()
+        };
+        self.close_all(oldest);
+        self.emit(McpEvent::Surface { surface });
+        true
+    }
+
+    /// Fige la surface `id` : elle quitte le dock pour son tour, en lecture seule, avec ses dernières valeurs.
+    pub fn freeze(&self, id: &str) {
+        let frozen = {
+            let mut state = self.state();
+            let Some(open) = state.open.iter_mut().find(|s| s.id == id) else {
+                tracing::debug!(surface = id, "surface à figer introuvable");
+                return;
+            };
+            // En lecture seule : ses actions n'auraient plus de destinataire.
+            let mut frozen = open.without_actions();
+            frozen.live = false;
+            *open = frozen.clone();
+            let turn = frozen.turn;
+            state.shows.insert(id.to_owned(), Shown::Static { turn, plain: None, expired: false, report: false });
+            frozen
+        };
+        self.emit(McpEvent::Surface { surface: frozen });
+    }
+
+    /// Le reçu du tour en cours ; remplace un reçu déjà montré pour ce tour.
+    ///
+    /// Refusé (`false`) comme `show_static` : onglet fermé, aucun tour ouvert, ou tour sorti du fil.
+    pub fn show_report(&self, report: ReceiptSurfaces) -> bool {
+        let ReceiptSurfaces { mut surface, plain } = report;
+        let old: Vec<String> = {
+            let mut state = self.state();
+            Self::tag_in(&state, &mut surface);
+            let Some(turn) = surface.turn else { return false };
+            if state.closed || !state.live_turns.contains(&turn) {
+                return false;
+            }
+            surface.live = false;
+            let old: Vec<String> = state
+                .shows
+                .iter()
+                .filter(|(_, s)| matches!(s, Shown::Static { turn: t, report: true, .. } if *t == Some(turn)))
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in &old {
+                state.shows.remove(id);
+            }
+            state.reported.insert(turn);
+            let plain = plain.map(|mut p| {
+                p.turn = Some(turn);
+                p.live = false;
+                p
+            });
+            state
+                .shows
+                .insert(surface.id.clone(), Shown::Static { turn: Some(turn), plain, expired: false, report: true });
+            old
+        };
+        for id in old {
+            self.emit(McpEvent::CloseSurface { id });
+        }
+        self.emit(McpEvent::Surface { surface });
+        true
+    }
+
+    /// Le tour `turn` a-t-il son reçu ?
+    pub fn has_report(&self, turn: u32) -> bool {
+        self.state().reported.contains(&turn)
+    }
+
+    /// Fin du tour `turn` : plus de tour en cours, et reçu de repli si l'agent n'en a pas fait.
+    pub fn end_turn(&self, turn: u32, narration: &str) {
+        {
+            // Une surface qui arriverait encore (outil tardif d'un tour annulé) n'est rangée dans aucun tour : refusée.
+            let mut state = self.state();
+            if state.turn == Some(turn) {
+                state.turn = None;
+            }
+        }
+        if self.has_report(turn) || narration.trim().is_empty() {
+            return;
+        }
+        let id = self.next_id("report");
+        if let Some(mut surface) = fallback(&id, narration, &self.localizer) {
+            surface.turn = Some(turn);
+            self.show_report(ReceiptSurfaces { surface, plain: None });
+        }
+    }
+
+    /// Ferme les surfaces du tour `n` (tour évincé du fil).
+    pub fn close_turn(&self, n: u32) {
+        let ids = {
+            let mut state = self.state();
+            state.live_turns.remove(&n);
+            state.reported.remove(&n);
+            Self::thread_ids(&state, |t| t == n)
+        };
+        self.close_all(ids);
+    }
+
+    /// Nouvelle conversation : questions relâchées, plus aucun tour, surfaces du fil fermées.
+    ///
+    /// Appelée **par l'acteur de l'onglet, avant la consigne suivante** (tâche 7) : jamais
+    /// en concurrence avec `begin_turn`. Tout est décidé sous un seul verrou.
+    pub fn clear_thread(&self) {
+        let ids = {
+            let mut state = self.state();
+            state.turn = None;
+            state.live_turns.clear();
+            state.reported.clear();
+            Self::thread_ids(&state, |_| true)
+        };
+        // Après l'effacement : une question relâchée ici ne trouve plus son tour et se ferme au lieu de se figer.
+        self.cancel_asks();
+        self.close_all(ids);
+    }
+
+    /// Les surfaces rangées dans un tour que `which` désigne.
+    fn thread_ids(state: &HubState, which: impl Fn(u32) -> bool) -> Vec<String> {
+        state.open.iter().filter(|s| s.turn.is_some_and(&which)).map(|s| s.id.clone()).collect()
+    }
+
+    /// Ferme `ids` (sans verrou tenu par l'appelant).
+    pub(super) fn close_all(&self, ids: Vec<String>) {
+        for id in ids {
+            self.state().shows.remove(&id);
+            self.emit(McpEvent::CloseSurface { id });
+        }
+    }
+
+    /// Les suites des tours passés expirent : leur surface est remplacée par sa version sans actions.
+    fn expire_actions(&self) {
+        let plains: Vec<Surface> = {
+            let mut state = self.state();
+            let current = state.turn;
+            state
+                .shows
+                .values_mut()
+                .filter_map(|shown| match shown {
+                    Shown::Static { turn, plain, expired, .. } if !*expired && *turn != current => {
+                        *expired = true;
+                        plain.take()
+                    }
+                    _ => None,
+                })
+                .collect()
+        };
+        for surface in plains {
+            self.emit(McpEvent::Surface { surface });
+        }
+    }
+}

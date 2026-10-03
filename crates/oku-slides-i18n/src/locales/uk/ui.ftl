@@ -164,11 +164,6 @@ ui-stepper-more = { $label }: на один більше
 ui-agent-color-other = Інший колір
 ui-agent-thread = Агент
 ui-agent-new-conversation = Нова розмова
-ui-agent-tools = { $count ->
-    [one] { $count } інструмент
-    [few] { $count } інструменти
-   *[other] { $count } інструментів
-}
 ui-draft = Чернетка
 ui-draft-insert = Вставити
 ui-draft-insert-title = Вставити як є (⌘⇧↩)
@@ -178,11 +173,9 @@ ui-draft-discard = Видалити
 ui-agent-state-idle = Агент
 ui-agent-state-starting = Агент запускається…
 ui-agent-state-working = Агент працює…
-ui-agent-stopped = Зупинено.
-ui-agent-ended = Хід завершено ({ $stop }).
-ui-agent-stop-max-tokens = Агент досяг межі довжини.
-ui-agent-stop-max-turns = Агент досяг межі кроків.
-ui-agent-stop-refusal = Агент відмовився.
+ui-agent-dock = Триває
+ui-agent-dock-settings = Налаштування
+ui-agent-jump = ↓ Поточний хід
 ui-agent-sheet = Запитання агента
 ui-agent-sheet-keys = 1–4 вибрати · Enter підтвердити · E змінити · Esc скасувати
 ui-agent-variants = Варіанти

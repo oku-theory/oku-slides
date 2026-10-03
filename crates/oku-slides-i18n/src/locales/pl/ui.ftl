@@ -164,11 +164,6 @@ ui-stepper-more = { $label }: o jeden więcej
 ui-agent-color-other = Inny kolor
 ui-agent-thread = Agent
 ui-agent-new-conversation = Nowa rozmowa
-ui-agent-tools = { $count ->
-    [one] { $count } narzędzie
-    [few] { $count } narzędzia
-   *[other] { $count } narzędzi
-}
 ui-draft = Szkic
 ui-draft-insert = Wstaw
 ui-draft-insert-title = Wstaw bez zmian (⌘⇧↩)
@@ -178,11 +173,9 @@ ui-draft-discard = Odrzuć
 ui-agent-state-idle = Agent
 ui-agent-state-starting = Agent się uruchamia…
 ui-agent-state-working = Agent pracuje…
-ui-agent-stopped = Zatrzymano.
-ui-agent-ended = Tura zakończona ({ $stop }).
-ui-agent-stop-max-tokens = Agent osiągnął limit długości.
-ui-agent-stop-max-turns = Agent osiągnął limit kroków.
-ui-agent-stop-refusal = Agent odmówił.
+ui-agent-dock = W toku
+ui-agent-dock-settings = Ustawienia
+ui-agent-jump = ↓ Bieżąca tura
 ui-agent-sheet = Pytanie agenta
 ui-agent-sheet-keys = 1–4 wybierz · Enter zatwierdź · E popraw · Esc anuluj
 ui-agent-variants = Warianty

@@ -25,6 +25,18 @@
           { "id": "a", "label": "A" }, { "id": "b", "label": "B" }
         ], "anchor": { "slide": "s-libre", "element": "e-texte" } } }
       ]
+    },
+    {
+      "mcp": [
+        { "tool": "report", "args": { "title": "Fond bleu nuit", "facts": ["titre en blanc"], "actions": [{ "label": "Autre couleur" }] } }
+      ]
+    },
+    {
+      "mcp": [
+        { "tool": "ask_choice", "args": { "question": "Quelle couleur ?", "options": [
+          { "id": "n", "label": "Nuit" }, { "id": "s", "label": "Sable" }
+        ] } }
+      ]
     }
   ],
   "sessions": {

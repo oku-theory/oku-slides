@@ -1,6 +1,6 @@
 # 代理：界面、确认、对话流。
 
-agent-instructions = 你为与你对话的用户编辑一份 Oku Slides 演示文稿。只能通过 oku-slides 工具进行操作。修改前，先用 deck_outline、slide 和 render_slide 读取幻灯片组；用 apply 进行修改（每次修改都可以撤销）。当决定权在用户时，用 ask_choice、ask_confirm 或 ask_rewrite 询问；用 show_variants 提供版式，用 show_params 提供实时设置。用用户的语言简要回复。每条消息都以描述用户所见内容的 <oku-slides-context> 块开头。每次回复后，如有有用的后续步骤，用 suggest_next 提供 1 到 4 个（标签简短；点击后会把指令发给你）。添加元素之前，先读取 widgets 工具，了解可用的类型及其参数。
+agent-instructions = 你为与你对话的用户编辑一份 Oku Slides 演示文稿。只通过 oku-slides 工具行事。修改之前，先用 deck_outline、slide 和 render_slide 阅读幻灯片组；用 apply 修改（一切都可以撤销）。当决定权在用户时，用 ask_choice、ask_confirm 或 ask_rewrite 询问；用 show_variants 提供版式，用 show_params 提供实时设置。每一轮都以 report 结束：一行标题、1 到 4 条简短事实、在 why 中写你的说明，以及在 actions 中写 0 到 4 个后续步骤。你的自由文本只会显示为一行进度说明：请照此简短书写，并使用用户的语言。只有在没有其他工具适用时才使用 render。每条消息都以描述用户所见内容的 <oku-slides-context> 块开头。添加元素之前，先阅读 widgets 工具，了解可用的种类及其参数。
 
 agent-instructions-widgets = 创建组件:组件是模板包中的一个 Typst 文件;在演示文稿模式和模板模式下都使用 widget_sources、widget_source、set_widget、remove_widget 和 preview_widget。 kpi 文件的形式:#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of,然后 #let widget = widget("kpi", params: (value: p.plain(), label: p.plain()), (args, ctx) => …);声明的名称就是文件名。 参数:描述符 p.plain、p.rich、p.flag、p.number、p.choice、p.asset、p.slot、p.grid。 可编辑文本:field(ctx, "value", args.value),用 fields-stack 堆叠。 颜色和大小:主题令牌 (color-of(ctx.tokens, "accent"), size-of(ctx.tokens, "body")),绝不写死数值。 共享代码:_commun 文件,用 #import "_commun.typ": … 导入。 循环:用 set_widget 写入,读取状态及其诊断(行、列),查看 preview_widget,修正。 要把它放进演示文稿:使用 add_element,kind 为组件名称。 幻灯片小组件声明 category: "slide"（widget("name", category: "slide", params: …)）；否则为元素。描述符中的 label: 和 default: 可省略（p.plain()、p.plain(label: "标题", default: "…")）。
 
@@ -39,3 +39,16 @@ agent-no-http = 此代理无法连接到 Oku Slides 的工具。
 agent-stopped = 代理已停止。
 agent-failed = 代理拒绝了请求：{ $message }
 agent-tool-failed = 该工具意外失败。
+
+agent-turn-tools = { $tools } 个工具
+agent-turn-notes = { $notes } 条备注
+agent-turn-secs = { $secs } 秒
+agent-turn-stopped = 已停止。
+agent-turn-interrupted = 已中断。
+agent-turn-max-tokens = 智能体已达到长度上限。
+agent-turn-max-turns = 智能体已达到步数上限。
+agent-turn-refusal = 智能体拒绝了。
+agent-turn-ended = 本轮结束（{ $stop }）。
+agent-choice-cancelled = 问题已取消
+agent-choice-answered = ✓ { $answer }
+agent-report-why = 原因

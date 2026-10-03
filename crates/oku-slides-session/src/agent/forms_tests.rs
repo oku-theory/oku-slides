@@ -6,8 +6,7 @@ use serde_json::json;
 
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, SuggestNext, Suggestion, Variant, choice, confirm, params, permission, rewrite,
-    suggestions, variants,
+    ShowParams, ShowVariants, Variant, choice, confirm, params, permission, rewrite, variants,
 };
 
 fn fr() -> Localizer {
@@ -37,6 +36,26 @@ fn choice_with_anchor_goes_to_sheet() {
 fn choice_without_anchor_goes_to_thread() {
     let spec = AskChoice { question: "Laquelle ?".into(), options: options(), anchor: None };
     assert_that!(choice("ask-2", &spec, &fr()).place).is_equal_to(Place::Thread);
+}
+
+#[test]
+fn params_surface_is_live_in_the_thread() {
+    let s = every_form().into_iter().find(|s| s.id == "show-5").unwrap();
+    assert_that!(s.place).is_equal_to(Place::Thread);
+    assert_that!(s.live).is_true();
+}
+
+#[test]
+fn frozen_choice_with_answer_shows_it() {
+    let s = super::frozen_choice("ask-2", "Laquelle ?", Some("Bleu nuit"), &fr());
+    assert_that!(s.live).is_false();
+    insta::assert_json_snapshot!(s);
+}
+
+#[test]
+fn frozen_choice_without_answer_says_cancelled() {
+    let s = super::frozen_choice("ask-2", "Laquelle ?", None, &fr());
+    assert_that!(serde_json::to_string(&s).unwrap()).contains("Question annulée");
 }
 
 #[test]
@@ -98,35 +117,6 @@ fn title_of(s: &super::Surface) -> String {
         .and_then(|c| c["text"].as_str())
         .unwrap_or_default()
         .to_owned()
-}
-
-fn suggest_next() -> SuggestNext {
-    SuggestNext {
-        suggestions: vec![
-            Suggestion { label: "Mettre en barres".into(), prompt: Some("Affiche la moyenne en barres.".into()) },
-            Suggestion { label: "Ajouter une légende".into(), prompt: None },
-        ],
-    }
-}
-
-#[test]
-fn suggestions_have_their_own_place_and_one_button_each() {
-    let s = suggestions("show-7", &suggest_next());
-    assert_that!(s.place).is_equal_to(Place::Suggestions);
-    let labels: Vec<String> = buttons(&s).into_iter().map(|b| b.label).collect();
-    assert_that!(labels).is_equal_to(vec!["Mettre en barres".to_owned(), "Ajouter une légende".to_owned()]);
-}
-
-#[test]
-fn suggestion_button_sends_its_prompt_or_its_label() {
-    let json = serde_json::to_value(suggestions("show-7", &suggest_next())).unwrap();
-    let components = json["messages"][1]["updateComponents"]["components"].as_array().unwrap().clone();
-    let prompts: Vec<serde_json::Value> = components
-        .iter()
-        .filter(|c| c["component"] == "Button")
-        .map(|c| c["action"]["event"]["context"]["prompt"].clone())
-        .collect();
-    assert_that!(prompts).is_equal_to(vec![json!("Affiche la moyenne en barres."), json!("Ajouter une légende")]);
 }
 
 #[test]
@@ -243,6 +233,58 @@ fn every_form() -> Vec<super::Surface> {
     };
     let svgs =
         ["<svg xmlns=\"http://www.w3.org/2000/svg\"/>".into(), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".into()];
+    let turn = crate::agent::turn_view::TurnView {
+        n: 3,
+        prompt: "Change le fond de la slide quatre.".into(),
+        plan: Vec::new(),
+        steps: vec![
+            oku_slides_a2ui::TimelineStep {
+                label: "Bleu nuit choisi".into(),
+                status: oku_slides_a2ui::StepStatus::Completed,
+                count: None,
+            },
+            oku_slides_a2ui::TimelineStep {
+                label: "apply".into(),
+                status: oku_slides_a2ui::StepStatus::Completed,
+                count: Some(6),
+            },
+        ],
+        tools: 6,
+        notes: 1,
+        narration: String::new(),
+        state: crate::agent::turn_view::TurnState::Done { secs: 38 },
+    };
+    // Une question du fil en attente (vivante, au dock) et une question répondue (figée, dans son tour).
+    let mut ask8 =
+        choice("ask-8", &AskChoice { question: "Quelle couleur ?".into(), options: options(), anchor: None }, &l);
+    ask8.turn = Some(3);
+    let mut ask7 = super::frozen_choice("ask-7", "Quelle mise en page ?", Some("Deux colonnes"), &l);
+    ask7.turn = Some(3);
+    let report = crate::agent::receipt::Report {
+        title: "Slide 4 : fond bleu nuit".into(),
+        facts: vec!["titre en blanc".into(), "surtitre bleu clair".into()],
+        slide: Some("s-4".into()),
+        swatch: Some("#00154e".into()),
+        why: Some("Le modèle `content` n'a pas de fond : rectangle pleine page ajouté.".into()),
+        actions: vec![crate::agent::receipt::NextStep {
+            label: "Autre couleur".into(),
+            prompt: Some("Essaie un vert sapin".into()),
+        }],
+    };
+    let mut report8 = crate::agent::receipt::receipt("report-8", &report, Some("<svg/>"), &l);
+    report8.turn = Some(3);
+    let render_spec = crate::agent::Render {
+        components: serde_json::from_value(json!([
+            {"id": "root", "component": "Card", "child": "col", "tone": "accent"},
+            {"id": "col", "component": "Column", "children": ["t", "b", "go"]},
+            {"id": "t", "component": "Text", "text": "Trois palettes possibles", "variant": "h4"},
+            {"id": "b", "component": "Badge", "text": "nouveau", "tone": "accent"},
+            {"id": "go", "component": "Button", "label": "Essaie la deuxième", "action": {"event": {"name": "suggest", "context": {"prompt": "Essaie la deuxième"}}}}
+        ]))
+        .unwrap(),
+    };
+    let mut render9 = crate::agent::render::render("render-9", &render_spec).unwrap();
+    render9.turn = Some(3);
     vec![
         choice("ask-1", &AskChoice { question: "Quelle mise en page ?".into(), options: options(), anchor }, &l),
         confirm("ask-2", &AskConfirm { message: "Remplacer le fichier ?".into(), danger: true }, &l),
@@ -268,7 +310,11 @@ fn every_form() -> Vec<super::Surface> {
         ),
         params("show-5", &show, &["#c2573a".into(), "#1f4e79".into()], &l),
         variants("show-6", &variants_spec, &svgs, &l),
-        suggestions("show-7", &suggest_next()),
+        crate::agent::turn_view::turn_surface(&turn, &l),
+        ask7,
+        ask8,
+        report8,
+        render9,
     ]
 }
 

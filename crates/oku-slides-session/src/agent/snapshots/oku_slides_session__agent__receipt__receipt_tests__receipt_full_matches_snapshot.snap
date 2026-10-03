@@ -1,0 +1,84 @@
+---
+source: crates/oku-slides-session/src/agent/receipt_tests.rs
+expression: s
+---
+{
+  "id": "report-1",
+  "place": "thread",
+  "live": false,
+  "messages": [
+    {
+      "version": "v0.9",
+      "createSurface": {
+        "surfaceId": "report-1",
+        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "report-1",
+        "components": [
+          {
+            "id": "root",
+            "component": "Column",
+            "children": [
+              "card",
+              "why",
+              "next"
+            ]
+          },
+          {
+            "id": "card",
+            "component": "Receipt",
+            "title": "Slide 4 : fond bleu nuit",
+            "facts": [
+              "titre en blanc",
+              "surtitre bleu clair"
+            ],
+            "thumb": "<svg/>",
+            "swatch": "#00154e"
+          },
+          {
+            "id": "why",
+            "component": "Disclosure",
+            "summary": "Pourquoi",
+            "child": "why-text"
+          },
+          {
+            "id": "why-text",
+            "component": "Markdown",
+            "text": "Le modèle `content` n'a pas de fond : rectangle pleine page ajouté."
+          },
+          {
+            "id": "next-0",
+            "component": "Button",
+            "label": "Autre couleur",
+            "action": {
+              "event": {
+                "name": "suggest",
+                "context": {
+                  "prompt": "Essaie un vert sapin"
+                }
+              }
+            }
+          },
+          {
+            "id": "next",
+            "component": "Row",
+            "children": [
+              "next-0"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateDataModel": {
+        "surfaceId": "report-1",
+        "value": {}
+      }
+    }
+  ]
+}

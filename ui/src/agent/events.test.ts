@@ -59,10 +59,10 @@ describe("évènements en SSE (développement)", () => {
     const r = recorder();
     subscribeSse("/api/events", TAB, r.handlers);
     FakeSource.last.emit("mcp", envelope(TAB, { kind: "changed" }));
-    FakeSource.last.emit("agent", envelope(TAB, { kind: "conversation" }));
+    FakeSource.last.emit("agent", envelope(TAB, { kind: "status", state: "idle" }));
     expect(FakeSource.last.url).toBe("/api/events");
     expect(r.mcp).toEqual([{ kind: "changed" }]);
-    expect(r.agent).toEqual([{ kind: "conversation" }]);
+    expect(r.agent).toEqual([{ kind: "status", state: "idle" }]);
   });
 
   test("un évènement d'un autre onglet n'est pas livré (et n'est pas une erreur)", () => {
@@ -168,7 +168,7 @@ describe("évènements Tauri", () => {
     const r = recorder();
     subscribeTauri(async () => f.listen, TAB, r.handlers);
     await settle();
-    f.callbacks.get("oku-slides:agent")?.({ payload: JSON.stringify({ event: { kind: "conversation" } }) });
+    f.callbacks.get("oku-slides:agent")?.({ payload: JSON.stringify({ event: { kind: "status", state: "idle" } }) });
     f.callbacks.get("oku-slides:agent")?.({ payload: JSON.stringify({ tab: TAB }) });
     expect(r.agent).toEqual([]);
     expect(r.errors).toHaveLength(2);
@@ -214,7 +214,7 @@ describe("évènements Tauri", () => {
     const stop = subscribeTauri(async () => f.listen, TAB, r.handlers);
     await settle();
     stop();
-    f.callbacks.get("oku-slides:agent")?.({ payload: envelope(TAB, { kind: "conversation" }) });
+    f.callbacks.get("oku-slides:agent")?.({ payload: envelope(TAB, { kind: "status", state: "idle" }) });
     expect(r.agent).toEqual([]);
   });
 

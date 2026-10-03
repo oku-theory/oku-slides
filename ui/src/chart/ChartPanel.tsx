@@ -64,7 +64,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
           onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", target: { slide, element: element.id }, param: "option", patch: colorPatch(element, index, color) }])
         }
       />
-      {current === "waterfall" && <p className="postit-hint">{t("ui-chart-waterfall-hint")}</p>}
+      {current === "waterfall" && <p className="a2ui-hint">{t("ui-chart-waterfall-hint")}</p>}
       {source ? (
         <ChartDataGrid
           source={source}
@@ -72,7 +72,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
           onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", target: { slide, element: element.id }, param: "option", change }])}
         />
       ) : (
-        <p className="postit-hint">{t("ui-chart-no-data")}</p>
+        <p className="a2ui-hint">{t("ui-chart-no-data")}</p>
       )}
     </section>
   );

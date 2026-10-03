@@ -62,3 +62,14 @@ async fn agent_that_never_gets_ready_is_stopped_and_the_next_start_works() {
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "enfin".into() });
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_command_error_comes_after_the_turn_is_opened() {
+    let h = start_with(json!({}), Some("/chemin/sans/agent")).await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("bonjour".into(), Default::default());
+    let opened = until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. } | AgentEvent::Error { .. })).await;
+    assert_that!(matches!(opened, AgentEvent::UserText { turn: 1, .. })).is_true();
+    until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
+}

@@ -1,11 +1,10 @@
 //! Surfaces ouvertes par l'agent et évènements vers l'interface.
 //!
 //! Deux familles de surfaces : les questions `ask_*` (oneshot, une réponse
-//! puis fermeture) et les surfaces persistantes `show_*` (post-its de
+//! puis fermeture) et les surfaces persistantes `show_*` (surfaces de
 //! paramètres, tiroir de variantes) qui restent ouvertes et appliquent leurs
-//! actions directement. Les suites (`suggest_next`) sont persistantes aussi,
-//! jusqu'au clic ou au tour suivant (`clear_suggestions`) ; l'interface
-//! envoie elle-même la consigne choisie à l'agent.
+//! actions directement. Les suites (`report`, `render`) sont des surfaces
+//! figées dont le bouton `suggest` renvoie sa consigne à l'agent par l'interface.
 //!
 //! Ordre des verrous : jamais `state` tenu pendant un `.await`, ni en même
 //! temps que la session. `prune` prend la session puis `state` ; `act`
@@ -13,7 +12,7 @@
 //! `emit` prend `state` (liste des surfaces ouvertes) : jamais appelé
 //! avec `state` déjà tenu.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use oku_slides_i18n::Localizer;
@@ -45,6 +44,11 @@ pub enum McpEvent {
     Surfaces {
         list: Vec<Surface>,
     },
+    /// Messages qui prolongent une surface ouverte (progression d'un tour).
+    SurfacePatch {
+        id: String,
+        messages: Vec<oku_slides_a2ui::ServerMessage>,
+    },
 }
 
 /// Réponse de l'utilisateur à une surface `ask_*`.
@@ -67,21 +71,44 @@ pub struct SurfaceAction {
 struct PendingAsk {
     id: String,
     tx: oneshot::Sender<Answer>,
+    /// Question du fil figée une fois répondue (`ask_then`) : elle garde sa place dans la liste.
+    frozen: bool,
 }
 
-/// Ferme la surface `id` à la sortie de `ask`, y compris si le futur qui
-/// l'attend est abandonné (agent annulé, appel MCP interrompu) : c'est le
+/// Ferme (ou fige) la surface `id` à la sortie de `ask`, y compris si le futur
+/// qui l'attend est abandonné (agent annulé, appel MCP interrompu) : c'est le
 /// seul endroit qui émet `CloseSurface` pour une question.
 struct CloseOnDrop<'a> {
     hub: &'a SurfaceHub,
     id: String,
+    /// Le tour de la question, s'il est du fil.
+    turn: Option<u32>,
+    freeze: Option<Freeze>,
+    /// La réponse reçue ; sans elle (futur abandonné), la question est figée « annulée ».
+    answer: Option<Answer>,
 }
 
 impl Drop for CloseOnDrop<'_> {
     fn drop(&mut self) {
         self.hub.state().asks.retain(|a| a.id != self.id);
-        self.hub.emit(McpEvent::CloseSurface { id: std::mem::take(&mut self.id) });
+        let id = std::mem::take(&mut self.id);
+        let shown = self.freeze.take().is_some_and(|freeze| {
+            let mut frozen = freeze(self.answer.as_ref().unwrap_or(&Answer::Cancelled));
+            frozen.turn = self.turn;
+            self.hub.show_static(frozen)
+        });
+        if !shown {
+            // Pas de gel (question ordinaire), ou son tour a disparu / l'onglet est fermé : fermée.
+            self.hub.emit(McpEvent::CloseSurface { id });
+        }
     }
+}
+
+/// Ce qu'il advient d'une surface persistante après une action.
+enum After {
+    Keep,
+    Close,
+    Freeze,
 }
 
 /// Surface persistante et ce qu'il faut pour appliquer ses actions.
@@ -89,8 +116,15 @@ impl Drop for CloseOnDrop<'_> {
 enum Shown {
     Params(ShowParams),
     Variants(ShowVariants),
-    /// Les suites proposées ; rien à appliquer, le clic part vers l'agent.
-    Suggestions,
+    /// Figée (question répondue, composition `render`) : seules ses suites (`suggest`) partent
+    /// encore, et seulement tant que son tour est le dernier. `plain` : sa version sans actions,
+    /// affichée quand elles expirent.
+    Static {
+        turn: Option<u32>,
+        plain: Option<Surface>,
+        expired: bool,
+        report: bool,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -105,14 +139,25 @@ struct HubState {
     open: Vec<Surface>,
     /// L'onglet est fermé (`SurfaceHub::close`) : plus aucune question ne s'ouvre.
     closed: bool,
+    /// Le tour en cours ; `None` entre deux tours (une surface du fil y est alors refusée).
+    turn: Option<u32>,
+    /// Le dernier numéro de tour donné.
+    turns: u32,
+    /// Tours dont les surfaces sont encore dans le fil (ouverts, ni évincés ni effacés).
+    live_turns: BTreeSet<u32>,
+    /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
+    reported: HashSet<u32>,
 }
 
 impl HubState {
     /// Retire la question `i` ; sa surface quitte aussitôt la liste des
-    /// ouvertes (le `CloseSurface` de `CloseOnDrop` suit, sans effet de plus).
+    /// ouvertes (le `CloseSurface` de `CloseOnDrop` suit, sans effet de plus),
+    /// sauf une question gelée : sa version figée la remplace à sa place.
     fn take_ask(&mut self, i: usize) -> PendingAsk {
         let ask = self.asks.remove(i);
-        self.open.retain(|s| s.id != ask.id);
+        if !ask.frozen {
+            self.open.retain(|s| s.id != ask.id);
+        }
         ask
     }
 
@@ -123,7 +168,7 @@ impl HubState {
 
     fn take_asks(&mut self) -> Vec<PendingAsk> {
         let asks = std::mem::take(&mut self.asks);
-        self.open.retain(|s| !asks.iter().any(|a| a.id == s.id));
+        self.open.retain(|s| !asks.iter().any(|a| !a.frozen && a.id == s.id));
         asks
     }
 }
@@ -160,12 +205,21 @@ impl SurfaceHub {
     pub fn emit(&self, mut event: McpEvent) {
         let mut state = self.state();
         match &mut event {
+            // Le relais, en retard, peut émettre la surface d'un tour effacé par une nouvelle conversation.
+            McpEvent::Surface { surface } if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) => {
+                tracing::debug!(surface = %surface.id, "surface d'un tour effacé : ignorée");
+                return;
+            }
             McpEvent::Surface { surface } => match state.open.iter_mut().find(|s| s.id == surface.id) {
                 Some(open) => *open = surface.clone(),
                 None => state.open.push(surface.clone()),
             },
             McpEvent::CloseSurface { id } => state.open.retain(|s| &s.id != id),
             McpEvent::Surfaces { list } => *list = state.open.clone(),
+            McpEvent::SurfacePatch { id, messages } => match state.open.iter_mut().find(|s| &s.id == id) {
+                Some(open) => open.apply_patch(messages),
+                None => tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée"),
+            },
             McpEvent::Changed | McpEvent::Focus { .. } => {}
         }
         let _ = self.events.send(event);
@@ -197,6 +251,15 @@ impl SurfaceHub {
     /// `CloseOnDrop` retire la question et ferme la surface à sa place.
     /// Onglet fermé (`close`) : `Cancelled` tout de suite, sans rien afficher.
     pub async fn ask(&self, surface: Surface) -> Answer {
+        self.ask_with(surface, None).await
+    }
+
+    /// Comme `ask`, mais `freeze` remplace la question, figée, dans son tour.
+    pub async fn ask_then(&self, surface: Surface, freeze: Freeze) -> Answer {
+        self.ask_with(surface, Some(freeze)).await
+    }
+
+    async fn ask_with(&self, mut surface: Surface, freeze: Option<Freeze>) -> Answer {
         let (tx, rx) = oneshot::channel();
         let id = surface.id.clone();
         {
@@ -204,34 +267,36 @@ impl SurfaceHub {
             if state.closed {
                 return Answer::Cancelled;
             }
-            state.asks.push(PendingAsk { id: id.clone(), tx });
+            Self::tag_in(&state, &mut surface);
+            state.asks.push(PendingAsk { id: id.clone(), tx, frozen: freeze.is_some() });
         }
+        let turn = surface.turn;
         self.emit(McpEvent::Surface { surface });
-        let _guard = CloseOnDrop { hub: self, id };
-        rx.await.unwrap_or(Answer::Cancelled)
+        let mut guard = CloseOnDrop { hub: self, id, turn, freeze, answer: None };
+        let answer = rx.await.unwrap_or(Answer::Cancelled);
+        guard.answer = Some(answer.clone());
+        answer
     }
 
-    /// Post-it de paramètres ; il reste jusqu'à sa fermeture.
-    pub fn show_params(&self, surface: Surface, spec: ShowParams) {
-        self.state().shows.insert(surface.id.clone(), Shown::Params(spec));
+    /// Réglages du fil ; ils restent vivants jusqu'à ce qu'on les fige, et figent les précédents.
+    pub fn show_params(&self, mut surface: Surface, spec: ShowParams) {
+        let previous: Vec<String> = {
+            let mut state = self.state();
+            Self::tag_in(&state, &mut surface);
+            let previous =
+                state.shows.iter().filter(|(_, s)| matches!(s, Shown::Params(_))).map(|(id, _)| id.clone()).collect();
+            state.shows.insert(surface.id.clone(), Shown::Params(spec));
+            previous
+        };
+        for id in previous {
+            self.freeze(&id);
+        }
         self.emit(McpEvent::Surface { surface });
     }
 
     /// Tiroir de variantes ; remplace le précédent.
     pub fn show_variants(&self, surface: Surface, spec: ShowVariants) {
         self.show_alone(surface, Shown::Variants(spec), |s| matches!(s, Shown::Variants(_)));
-    }
-
-    /// Suites de la réponse ; remplacent les précédentes.
-    pub fn show_suggestions(&self, surface: Surface) {
-        self.show_alone(surface, Shown::Suggestions, |s| matches!(s, Shown::Suggestions));
-    }
-
-    /// Ferme les suites proposées : un nouveau tour les rend caduques.
-    pub fn clear_suggestions(&self) {
-        for id in self.take_shown(|s| matches!(s, Shown::Suggestions)) {
-            self.emit(McpEvent::CloseSurface { id });
-        }
     }
 
     /// Affiche `surface` à la place des surfaces de la même famille (`same`).
@@ -316,18 +381,26 @@ impl SurfaceHub {
         // la surface : elle est ré-insérée dans tous les cas d'erreur, pour
         // que l'utilisateur puisse corriger ou la fermer explicitement.
         let result = match (&shown, action.name.as_str()) {
-            (_, "dismiss") => Ok(false),
-            (Shown::Params(spec), "param") => self.apply_param(&action.surface, spec, &action.context).map(|()| true),
-            (Shown::Variants(spec), "variant") => self.apply_variant(spec, &action.context).map(|()| false),
-            (Shown::Suggestions, "suggest") => Ok(false),
+            (Shown::Params(_), "dismiss") => Ok(After::Freeze),
+            (_, "dismiss") => Ok(After::Close),
+            (Shown::Params(spec), "param") => {
+                self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep)
+            }
+            (Shown::Variants(spec), "variant") => self.apply_variant(spec, &action.context).map(|()| After::Close),
+            (Shown::Static { expired: false, .. }, "suggest") => Ok(After::Keep),
+            (Shown::Static { expired: true, .. }, "suggest") => Err("the actions of a past turn have expired".into()),
             (_, other) => Err(format!("unexpected action {other}")),
         };
         match result {
-            Ok(true) => {
+            Ok(After::Keep) => {
                 self.state().shows.insert(action.surface, shown);
                 Ok(())
             }
-            Ok(false) => {
+            Ok(After::Freeze) => {
+                self.freeze(&action.surface);
+                Ok(())
+            }
+            Ok(After::Close) => {
                 self.emit(McpEvent::CloseSurface { id: action.surface });
                 Ok(())
             }
@@ -382,10 +455,11 @@ impl SurfaceHub {
         Ok(())
     }
 
-    /// Ferme les post-its dont la slide n'existe plus ; sans post-it, ne
-    /// prend pas la session (appelée après chaque requête qui change le deck).
+    /// Ferme les surfaces dont la slide n'existe plus ; sans réglage vivant
+    /// (`Params`, `Variants`), ne prend pas la session (appelée après chaque
+    /// requête qui change le deck).
     pub fn prune(&self) {
-        if self.state().shows.is_empty() {
+        if !self.state().shows.values().any(|s| matches!(s, Shown::Params(_) | Shown::Variants(_))) {
             return;
         }
         let Ok(gone) = self.session.with(|s| {
@@ -398,7 +472,7 @@ impl SurfaceHub {
                     let slide = match shown {
                         Shown::Params(p) => &p.slide,
                         Shown::Variants(v) => &v.slide,
-                        Shown::Suggestions => return false,
+                        Shown::Static { .. } => return false,
                     };
                     deck.slide(slide).is_none()
                 })
@@ -438,3 +512,7 @@ impl SurfaceHub {
         }
     }
 }
+
+#[path = "hub_turns.rs"]
+mod turns;
+pub use turns::{Freeze, STATIC_PER_TURN};

@@ -168,26 +168,12 @@ async fn crash_mid_turn_reports_stopped_and_closes_group() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn next_turn_closes_the_suggestions_of_the_previous_one() {
-    let suggest = json!({ "tool": "suggest_next", "args": { "suggestions": [{ "label": "En barres" }] } });
-    let h = start(json!({ "turns": [{ "mcp": [suggest] }, {}] })).await;
-    let t = h.tab("t-1");
-    let mut rx = t.agent.subscribe();
-    t.agent.prompt("ajoute une série".into(), AgentUi::default());
-    until(&mut rx, ended).await;
-    assert_that!(t.hub.surfaces()).has_length(1);
-    t.agent.prompt("en barres".into(), AgentUi::default());
-    until(&mut rx, ended).await;
-    assert_that!(t.hub.surfaces()).is_empty();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn instructions_ask_for_next_step_buttons() {
+async fn instructions_ask_for_a_report_at_the_end_of_each_turn() {
     let h = start(json!({ "turns": [{}] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
     t.agent.prompt("bonjour".into(), AgentUi::default());
     until(&mut rx, ended).await;
     let blocks = logged(&h.log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
-    assert_that!(blocks[0]["text"].as_str().unwrap().contains("suggest_next")).is_true();
+    assert_that!(blocks[0]["text"].as_str().unwrap().contains("report")).is_true();
 }

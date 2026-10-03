@@ -7,32 +7,28 @@ les consignes dictées relayées avec le contexte de l'interface.
 ## Modules
 
 - `config` : `Launch` (commande, arguments, dossier de repli, `ready_within`).
-- `error` : `AgentError`, opaque, `Localize` → `agent-not-found`,
-  `-no-http`, `-stopped`, `-failed`.
-- `events` : `AgentEvent` (le fil, `Thread` rejoué), `AgentState`,
+- `error` : `AgentError`, opaque, `Localize` (`agent-not-found`, `-no-http`, `-stopped`, `-failed`).
+- `events` : `AgentEvent` (`UserText` ouvre le tour `turn`), `AgentState`,
   `PlanItem`, `from_update` (mise à jour ACP → évènement).
-- `link` : `Link`, la connexion ACP partagée : sous-processus, poignée de
-  main, notifications et permissions routées par (lancement, `SessionId`).
+- `link` : `Link`, la connexion ACP partagée (sous-processus, poignée de main,
+  notifications et permissions routées par lancement et `SessionId`).
 - `tab_agent` : `AgentHandle`, l'acteur d'un onglet (`prompt`, `cancel`,
   `new_conversation`) : sa session ACP et ses outils (`ToolsAccess`).
 - `turn` : un tour, simultané entre onglets ; `permission` : `PermissionChoice` ;
   `settings_port` : `AppSettings`, les réglages de l'app pour `set_setting`.
 - `stack` : `Stack`, table des onglets (1re commande → `tab_closed`, puis commandes ignorées ;
   onglets démarrés et fermés sous un seul verrou) ; `forward` relaie `{tab, event}` ;
-  `resync` : fil gardé puis surfaces ; `shutdown` : fin de l'app, agent ACP tué.
+  `resync` : état de l'agent puis surfaces ; `shutdown` : fin de l'app, agent ACP tué.
 - `tab_entry` : un onglet ; outils puis agent démarrés dans `rt`, commandes
   en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`) ;
   fermé, son hub refuse toute question (`SurfaceHub::close`).
-- `thread_log` : `ThreadLog`, 200 entrées du fil d'un onglet (morceaux
-  fusionnés), l'état courant rejoué en dernier.
-- `bin/fake_agent` : `oku-slides-fake-agent`, agent ACP minimal piloté par un
-  scénario JSON (`--script`, journal `--log`) ; pour les tests seulement.
+- `turns` : `Turns`, réducteur des évènements en surfaces de tour A2UI (`TurnOut`) ; le relais les émet par le hub.
+- `bin/fake_agent` : agent ACP minimal piloté par un scénario JSON (`--script`, `--log`) ; tests seulement.
 
 ## Cycle de vie
 
-Au repos, l'agent n'est pas lancé. Le premier `prompt` d'un onglet le
-démarre (un seul pour l'app ; pas prêt dans `ready_within` : tué) puis ouvre
-la session de l'onglet. Un arrêt fait échouer les tours de tous les onglets
+Au repos, l'agent n'est pas lancé. Le premier `prompt` d'un onglet le démarre (un seul pour
+l'app ; pas prêt dans `ready_within` : tué) puis ouvre la session de l'onglet. Un arrêt fait échouer les tours de tous les onglets
 (`agent-stopped`), referme leurs groupes d'annulation et relâche leurs
 questions ; le prompt suivant relance l'agent. Une requête refusée
 (`agent-failed`) garde la session. Lâcher le dernier `Link` arrête l'agent ;

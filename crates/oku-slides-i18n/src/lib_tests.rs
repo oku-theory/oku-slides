@@ -167,3 +167,13 @@ fn widgets_prompt_mentions_slide_category_and_optional_label_and_default_in_ever
         }
     }
 }
+
+#[test]
+fn agent_instructions_ask_for_report_not_suggest_next() {
+    for lang in crate::available() {
+        let text = Localizer::new(Some(lang)).tr("agent-instructions");
+        assert!(text.contains("report"), "{lang} : report absent");
+        assert!(text.contains("render"), "{lang} : render absent");
+        assert!(!text.contains("suggest_next"), "{lang} : suggest_next present");
+    }
+}

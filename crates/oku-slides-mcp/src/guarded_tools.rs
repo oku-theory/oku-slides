@@ -74,7 +74,7 @@ impl Tools {
         self.with_session(|s| Ok(s.snapshot().dirty)).await.unwrap_or(false)
     }
 
-    /// Un autre deck dans l'onglet : ses post-its orphelins se ferment
+    /// Un autre deck dans l'onglet : ses surfaces orphelines se ferment
     /// (`SurfaceHub::prune` verrouille la session : hors du fil async).
     async fn prune_if_done(&self, result: &CallToolResult) {
         if result.is_error == Some(true) {
@@ -82,7 +82,7 @@ impl Tools {
         }
         let hub = self.hub.clone();
         if let Err(e) = tokio::task::spawn_blocking(move || hub.prune()).await {
-            tracing::warn!(error = %e, "post-its non élagués");
+            tracing::warn!(error = %e, "surfaces non élaguées");
         }
     }
 

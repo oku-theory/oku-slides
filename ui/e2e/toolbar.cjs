@@ -33,8 +33,8 @@ const state = (p) => p.evaluate(() => ({
   await p.keyboard.press('Control+z');
   await p.waitForTimeout(700);
   assert.equal((await state(p)).slides, before);
-  // Plus de post-it d'ajout ni de suppression dans le panneau.
-  assert.equal(await p.locator('.notes .add-note, .notes button.postit').count(), 0);
+  // Plus de carte d'ajout ni de suppression dans le panneau.
+  assert.equal(await p.locator('.notes .add-note').count(), 0);
   // Fenêtre minimale (1024 px) : la barre reste sous la feuille, ses jetons ne s'écrasent pas.
   await p.setViewportSize({ width: 1024, height: 640 });
   await p.waitForTimeout(300);

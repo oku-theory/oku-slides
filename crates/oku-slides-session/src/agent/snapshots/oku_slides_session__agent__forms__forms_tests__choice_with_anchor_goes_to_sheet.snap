@@ -9,12 +9,13 @@ expression: s
     "slide": "s-4",
     "element": "e-2"
   },
+  "live": true,
   "messages": [
     {
       "version": "v0.9",
       "createSurface": {
         "surfaceId": "ask-1",
-        "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
       }
     },
     {

@@ -23,7 +23,7 @@ mod tools;
 mod widget_tools;
 
 pub use error::McpError;
-pub use hub::{Answer, McpEvent, SurfaceAction, SurfaceHub};
+pub use hub::{Answer, Freeze, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub};
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
 pub use tools::Tools;

@@ -3,18 +3,28 @@
 //! (`Sessions`, `TabSession`). Les outils MCP (`oku-slides-mcp`) et le
 //! client ACP (`oku-slides-agent`) passent par ici.
 
+pub mod bounds;
 pub mod context;
 pub mod diff;
 pub mod forms;
+pub mod receipt;
+pub mod render;
+mod surface_ops;
 mod tabs;
+pub mod turn_view;
 pub mod variants;
 
+pub use bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX};
 pub use context::AgentUi;
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, SuggestNext, Suggestion, Surface, Variant,
+    ShowParams, ShowVariants, Surface, Variant,
 };
+pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep};
+pub use receipt::{NextStep, ReceiptSurfaces, Report};
+pub use render::Render;
 pub use tabs::{Sessions, TabSession};
+pub use turn_view::{TurnState, TurnView};
 
 use oku_slides_core::{Op, Paragraph, ParamType, Target, apply_all};
 use serde_json::Value;

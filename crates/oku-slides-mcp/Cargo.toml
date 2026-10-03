@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 oku-slides-core.workspace = true
 oku-slides-session.workspace = true
+oku-slides-a2ui.workspace = true
 oku-slides-i18n.workspace = true
 oku-slides-platform.workspace = true
 oku-slides-chart.workspace = true

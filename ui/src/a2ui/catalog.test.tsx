@@ -94,11 +94,14 @@ function typesOf(components: unknown[], data: unknown = {}) {
   return Object.fromEntries((components as { id: string }[]).map((c) => [c.id, model?.componentsModel.get(c.id)?.type]));
 }
 
-const V2 = ["Column", "Row", "Card", "Text", "TextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select", "SlideThumb", "DiffText"];
+const V3 = [
+  "Column", "Row", "Card", "Text", "TextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select", "SlideThumb", "DiffText",
+  "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown",
+];
 
-describe("catalogue v2", () => {
+describe("catalogue v3", () => {
   test("déclare chacun des composants du catalogue Rust", () => {
-    expect([...catalog.components.keys()].sort()).toEqual([...V2].sort());
+    expect([...catalog.components.keys()].sort()).toEqual([...V3].sort());
   });
 
   test("les surfaces produites par la session Rust sont acceptées", () => {
@@ -131,8 +134,26 @@ describe("catalogue v2", () => {
     });
   });
 
+  test("accepte les composants du fil", () => {
+    expect(
+      typesOf([
+        { id: "root", component: "Column", children: ["p", "t", "r", "d", "b", "m"] },
+        { id: "p", component: "Prompt", text: "Change le fond" },
+        { id: "t", component: "Timeline", steps: { path: "/steps" }, collapsed: { path: "/c" }, summary: { path: "/s" } },
+        { id: "r", component: "Receipt", title: "x", facts: ["a"], swatch: "#00154e" },
+        { id: "d", component: "Disclosure", summary: "Pourquoi", child: "m" },
+        { id: "b", component: "Badge", text: "3", tone: "accent" },
+        { id: "m", component: "Markdown", text: "**x**" },
+      ], { steps: [], c: false, s: "" }),
+    ).toEqual({ root: "Column", p: "Prompt", t: "Timeline", r: "Receipt", d: "Disclosure", b: "Badge", m: "Markdown" });
+  });
+
   const action = { event: { name: "x" } };
   test.each([
+    ["un reçu avec une couleur qui n'est pas en hexadécimal", { component: "Receipt", title: "x", facts: [], swatch: "red" }, /Receipt/],
+    ["un badge d'une teinte inconnue", { component: "Badge", text: "x", tone: "loud" }, /Badge/],
+    ["une carte d'une teinte inconnue", { component: "Card", child: "x", tone: "loud" }, /Card/],
+    ["un détail sans enfant", { component: "Disclosure", summary: "x" }, /Disclosure/],
     ["un segment de nature inconnue", { component: "DiffText", segments: [{ kind: "moved", text: "x" }] }, /DiffText/],
     ["un bouton sans action", { component: "Button", label: "OK" }, /Button/],
     ["une rangée sans enfants", { component: "Row" }, /Row/],
@@ -168,10 +189,11 @@ describe("buildSurface", () => {
 
   test("un identifiant absent des messages ne rend rien", () => {
     const built = buildSurface(surface([{ id: "root", component: "Text", text: "a" }]) as never, "autre", () => {});
-    expect(built).toEqual({ surface: null, error: null });
+    expect(built.surface).toBeNull();
+    expect(built.error).toBeNull();
   });
 
   test("aucun message, aucune surface", () => {
-    expect(buildSurface([], "s", () => {})).toEqual({ surface: null, error: null });
+    expect(buildSurface([], "s", () => {})).toEqual({ processor: null, surface: null, error: null });
   });
 });

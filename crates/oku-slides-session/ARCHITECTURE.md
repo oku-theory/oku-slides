@@ -14,7 +14,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
   pack → version courante du pack par défaut ; `SetTemplates` embarque depuis la bibliothèque.
   `library.rs` : `Library` versionnée (`<data>/templates/<uuid>/{current, versions/<hex>/}`).
-- `widgets_edit.rs` (statut, `set/remove/rename_widget`, mode modèles par `adopt_session_version`), `widgets_deck.rs` (mode deck : `SetTemplates`, une étape d'annulation par séance), `widget_preview.rs` (`preview_widget`, emplacement d'essai), `request.rs` (`Request`).
+- `widgets_edit.rs` (`set/remove/rename_widget`, `adopt_session_version`), `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance), `widget_preview.rs` (`preview_widget`).
 - Rendu borné : un `RenderWorker` par `Session`, un `RenderSlot` par rendu (deck, modèles, variantes, polices) ; `resolve_widgets` sonde les packs par lui.
   `fall_back_to_base` : pack fautif (`is_bounded`) → base + avis `session-pack-disabled` et un second essai (deck, aperçus, variantes ; `usable_pack` avant d'ouvrir un emplacement). `with_compiled` : export sur une poignée `Stale` (travailleur relancé) → re-rendu une fois, puis réessai.
 - `merge.rs` : fusion d'un autre PDF du même deck (`merge_file`) ; `save_checked` : même deck changé sur disque → fusion puis écriture, autre deck → refusé.
@@ -25,6 +25,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
 - `paragraphs_to_text` (`text.rs`, `inline.rs`) : markdown d'édition relu par `@lezer/markdown` ; contrat `fixtures/markdown*.json`.
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente
   (`with_session`, `open_elsewhere`, `open_beside`). Un tour = un groupe d'annulation (`begin_turn`).
+- `agent::turn_view` (surface d'un tour : consigne, timeline, note, issue), `receipt` (`report` et reçu de repli), `render` (composition libre validée) : constructeurs purs, formes A2UI de `oku-slides-a2ui`.
 
 ## Verrous
 

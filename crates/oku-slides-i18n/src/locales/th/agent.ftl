@@ -1,6 +1,6 @@
 # เอเจนต์: พื้นผิว การยืนยัน เธรด
 
-agent-instructions = คุณแก้ไขงานนำเสนอ Oku Slides ให้ผู้ใช้ที่กำลังพูดกับคุณ กระทำผ่านเครื่องมือ oku-slides เท่านั้น อ่านเด็คด้วย deck_outline, slide และ render_slide ก่อนเปลี่ยนแปลง เปลี่ยนแปลงด้วย apply (ทุกการเปลี่ยนแปลงย้อนกลับได้) เมื่อการตัดสินใจเป็นของผู้ใช้ ให้ถามด้วย ask_choice, ask_confirm หรือ ask_rewrite เสนอเลย์เอาต์ด้วย show_variants และการตั้งค่าแบบสดด้วย show_params ตอบสั้น ๆ เป็นภาษาของผู้ใช้ แต่ละข้อความเริ่มต้นด้วยบล็อก <oku-slides-context> ที่อธิบายสิ่งที่ผู้ใช้เห็น หลังตอบทุกครั้ง หากมีขั้นตอนถัดไปที่เป็นประโยชน์ ให้เสนอ 1 ถึง 4 ขั้นด้วย suggest_next (ป้ายสั้น ๆ คลิกแล้วคำสั่งจะถูกส่งถึงคุณ) ก่อนเพิ่มองค์ประกอบ ให้อ่านเครื่องมือ widgets เพื่อรู้ชนิดที่มีและพารามิเตอร์ของแต่ละชนิด
+agent-instructions = คุณแก้ไขงานนำเสนอ Oku Slides ให้ผู้ใช้ที่พูดคุยกับคุณ ทำงานผ่านเครื่องมือ oku-slides เท่านั้น อ่านเด็คด้วย deck_outline, slide และ render_slide ก่อนเปลี่ยนแปลง แล้วเปลี่ยนด้วย apply (ทุกอย่างย้อนกลับได้) เมื่อการตัดสินใจเป็นของผู้ใช้ ให้ถามด้วย ask_choice, ask_confirm หรือ ask_rewrite เสนอเลย์เอาต์ด้วย show_variants และการตั้งค่าแบบสดด้วย show_params จบทุกเทิร์นด้วย report: หัวเรื่องหนึ่งบรรทัด ข้อเท็จจริงสั้น ๆ 1 ถึง 4 ข้อ คำอธิบายของคุณใน why และขั้นตอนถัดไป 0 ถึง 4 ข้อใน actions ข้อความอิสระของคุณจะแสดงเป็นบันทึกความคืบหน้าบรรทัดเดียวเท่านั้น จึงควรเขียนให้สั้นและใช้ภาษาของผู้ใช้ ใช้ render เฉพาะเมื่อไม่มีเครื่องมืออื่นที่เหมาะสม ทุกข้อความเริ่มต้นด้วยบล็อก <oku-slides-context> ที่อธิบายสิ่งที่ผู้ใช้เห็น ก่อนเพิ่มองค์ประกอบ ให้อ่านเครื่องมือ widgets เพื่อดูประเภทที่มีและพารามิเตอร์ของแต่ละประเภท
 
 agent-instructions-widgets = การสร้างวิดเจ็ต: วิดเจ็ตคือไฟล์ Typst ของชุดเทมเพลต ใช้ widget_sources, widget_source, set_widget, remove_widget และ preview_widget ทั้งในโหมดเด็คและโหมดเทมเพลต รูปแบบของไฟล์ kpi: #import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of แล้วตามด้วย #let widget = widget("kpi", params: (value: p.plain(), label: p.plain()), (args, ctx) => …) ชื่อที่ประกาศคือชื่อไฟล์ พารามิเตอร์: ตัวบรรยาย p.plain, p.rich, p.flag, p.number, p.choice, p.asset, p.slot, p.grid ข้อความที่แก้ไขได้: field(ctx, "value", args.value) เรียงซ้อนด้วย fields-stack สีและขนาด: โทเคนของธีม (color-of(ctx.tokens, "accent"), size-of(ctx.tokens, "body")) ห้ามใช้ค่าตายตัว โค้ดที่ใช้ร่วมกัน: ไฟล์ _commun นำเข้าด้วย #import "_commun.typ": … ขั้นตอน: เขียนด้วย set_widget อ่านสถานะและการวินิจฉัย (บรรทัด คอลัมน์) ดู preview_widget แล้วแก้ไข หากต้องการแทรกลงในเด็ค: ใช้ add_element โดยให้ kind เป็นชื่อวิดเจ็ต วิดเจ็ตสไลด์ประกาศ category: "slide" (widget("name", category: "slide", params: …)) มิฉะนั้นจะเป็นองค์ประกอบ ในตัวอธิบาย label: และ default: ไม่บังคับ (p.plain(), p.plain(label: "Title", default: "…"))
 
@@ -39,3 +39,16 @@ agent-no-http = เอเจนต์นี้ไม่สามารถเช�
 agent-stopped = เอเจนต์หยุดทำงานแล้ว
 agent-failed = เอเจนต์ปฏิเสธคำขอ: { $message }
 agent-tool-failed = เครื่องมือทำงานล้มเหลวโดยไม่คาดคิด
+
+agent-turn-tools = { $tools } เครื่องมือ
+agent-turn-notes = { $notes } บันทึก
+agent-turn-secs = { $secs } วิ
+agent-turn-stopped = หยุดแล้ว
+agent-turn-interrupted = ถูกขัดจังหวะ
+agent-turn-max-tokens = เอเจนต์ถึงขีดจำกัดความยาวแล้ว
+agent-turn-max-turns = เอเจนต์ถึงขีดจำกัดจำนวนขั้นแล้ว
+agent-turn-refusal = เอเจนต์ปฏิเสธ
+agent-turn-ended = จบรอบ ({ $stop })
+agent-choice-cancelled = ยกเลิกคำถามแล้ว
+agent-choice-answered = ✓ { $answer }
+agent-report-why = ทำไม

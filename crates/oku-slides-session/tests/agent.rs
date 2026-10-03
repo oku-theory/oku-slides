@@ -135,7 +135,7 @@ fn theme_field(template: serde_json::Value) -> ParamField {
 }
 
 #[test]
-fn params_surface_valid_template_goes_to_postit() {
+fn params_surface_valid_template_goes_to_the_thread() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let spec = ShowParams {
@@ -144,7 +144,7 @@ fn params_surface_valid_template_goes_to_postit() {
         fields: vec![theme_field(json!({ "op": "set_theme", "theme": "$value" }))],
     };
     let surface = s.params_surface("show-1", &spec).unwrap();
-    assert_that!(surface.place).is_equal_to(Place::Postit);
+    assert_that!(surface.place).is_equal_to(Place::Thread);
     let json = serde_json::to_value(&surface).unwrap();
     let components = json["messages"][1]["updateComponents"]["components"].as_array().unwrap();
     let f0 = components.iter().find(|c| c["id"] == "f0").unwrap();

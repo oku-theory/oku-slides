@@ -25,8 +25,9 @@ pub enum AgentEvent {
     Status {
         state: AgentState,
     },
-    /// La consigne dite.
+    /// La consigne dite, qui ouvre le tour `turn`.
     UserText {
+        turn: u32,
         text: String,
     },
     /// Un morceau de la réponse de l'agent.
@@ -56,10 +57,6 @@ pub enum AgentEvent {
     },
     /// Nouvelle conversation : le fil repart de zéro.
     Conversation,
-    /// Le fil gardé de l'onglet, rejoué à l'interface (ré)abonnée.
-    Thread {
-        entries: Vec<AgentEvent>,
-    },
 }
 
 /// Une valeur ACP sérialisée en chaîne (`"in_progress"`, un identifiant…).

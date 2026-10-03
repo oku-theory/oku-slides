@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Catalogue des surfaces d'Oku Slides (panneau et agent), implémenté par l'interface (`ui/src/a2ui`).
-pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v2";
+pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v3";
 
 /// Version du protocole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -69,7 +69,7 @@ pub struct DeleteSurface {
 }
 
 /// Un composant : son identifiant et ce qu'il est. `root` est la racine.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Component {
     pub id: String,
     #[serde(flatten)]
@@ -79,13 +79,17 @@ pub struct Component {
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
 /// ceux du catalogue de base v0.9 ; `Stepper`, `ChoiceChips`, `ColorField`,
 /// `SlideThumb`, `DiffText` sont propres à Oku Slides.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
     /// Enfants empilés verticalement.
     Column { children: Vec<String> },
-    /// Un post-it autour d'un seul enfant.
-    Card { child: String },
+    /// Une carte autour d'un seul enfant ; `tone` la teinte.
+    Card {
+        child: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tone: Option<Tone>,
+    },
     /// Un texte.
     Text {
         text: Dynamic<String>,
@@ -166,20 +170,85 @@ pub enum ComponentKind {
     },
     /// Un texte et ses changements, mot à mot.
     DiffText { segments: Vec<DiffSegment> },
+    /// La consigne de l'utilisateur (hôte seul).
+    Prompt { text: Dynamic<String> },
+    /// La progression d'un tour ; repliée en une ligne `summary` (hôte seul).
+    Timeline { steps: Dynamic<Vec<TimelineStep>>, collapsed: Dynamic<bool>, summary: Dynamic<String> },
+    /// La conclusion d'un tour : titre, 1 à 4 faits, miniature et couleur facultatives.
+    Receipt {
+        title: Dynamic<String>,
+        facts: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumb: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        swatch: Option<String>,
+    },
+    /// Un enfant replié derrière `summary`.
+    Disclosure { summary: Dynamic<String>, child: String },
+    /// Un compteur ou un statut.
+    Badge {
+        text: Dynamic<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tone: Option<Tone>,
+    },
+    /// Du Markdown (rendu sans HTML brut).
+    Markdown { text: Dynamic<String> },
+}
+
+/// Teinte d'une carte ou d'un badge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tone {
+    /// Sans teinte.
+    Neutral,
+    /// Teinte d'accent (reçus).
+    Accent,
+    /// Filet rouge : réservé à l'hôte dans `render`.
+    Danger,
+}
+
+/// Statut d'une étape de la timeline d'un tour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepStatus {
+    /// Pas commencée.
+    Pending,
+    /// En cours.
+    InProgress,
+    /// Finie.
+    Completed,
+    /// Échouée : reste visible dans une étape d'outils groupés.
+    Failed,
+}
+
+/// Une étape de la timeline : outils groupés, note de l'agent ou entrée du plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimelineStep {
+    /// Titre du dernier outil de l'étape, note de l'agent ou entrée du plan.
+    pub label: String,
+    /// Statut agrégé de l'étape.
+    pub status: StepStatus,
+    /// Nombre d'outils de l'étape ; absent pour une note ou une entrée du plan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
 }
 
 /// Style d'un texte (sous-ensemble des variantes v0.9).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TextVariant {
     H4,
     Body,
     Caption,
+    /// Une ligne atténuée, coupée.
+    Note,
 }
 
 /// Une option d'un choix ou d'une liste. Aussi argument des outils de
 /// l'agent (`ask_choice`, champs `select`) : désérialisable, avec schéma.
-#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ChoiceOption {
     pub id: String,
     pub label: String,
@@ -188,13 +257,14 @@ pub struct ChoiceOption {
 }
 
 /// Un morceau de texte gardé, retiré ou ajouté.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DiffSegment {
     pub kind: DiffKind,
     pub text: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DiffKind {
     Keep,
@@ -203,7 +273,7 @@ pub enum DiffKind {
 }
 
 /// Une valeur écrite telle quelle, ou lue dans le modèle de données.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Dynamic<T> {
     /// Chemin JSON Pointer (RFC 6901) dans le modèle de la surface.
@@ -220,27 +290,124 @@ impl<T> Dynamic<T> {
 }
 
 /// Ce qu'un composant envoie quand l'utilisateur agit.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Action {
     pub event: Event,
 }
 
 /// Un évènement nommé ; l'interface lit les chemins du contexte à l'envoi.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Event {
     pub name: String,
+    #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub context: BTreeMap<String, Dynamic<Value>>,
 }
 
+impl ComponentKind {
+    /// Les identifiants des enfants, dans l'ordre.
+    pub fn children(&self) -> Vec<&str> {
+        // Sans `_` : un nouveau composant doit dire ici s'il a des enfants (la validation de `render` en dépend).
+        match self {
+            Self::Column { children } | Self::Row { children } => children.iter().map(String::as_str).collect(),
+            Self::Card { child, .. } | Self::Disclosure { child, .. } => vec![child.as_str()],
+            Self::Text { .. }
+            | Self::TextField { .. }
+            | Self::Stepper { .. }
+            | Self::Button { .. }
+            | Self::ChoiceChips { .. }
+            | Self::Slider { .. }
+            | Self::ColorField { .. }
+            | Self::Select { .. }
+            | Self::SlideThumb { .. }
+            | Self::DiffText { .. }
+            | Self::Prompt { .. }
+            | Self::Timeline { .. }
+            | Self::Receipt { .. }
+            | Self::Badge { .. }
+            | Self::Markdown { .. } => Vec::new(),
+        }
+    }
+
+    /// Les actions que le composant peut envoyer.
+    pub fn actions(&self) -> Vec<&Action> {
+        match self {
+            Self::Button { action, .. } => vec![action],
+            Self::TextField { action, .. }
+            | Self::Stepper { action, .. }
+            | Self::ChoiceChips { action, .. }
+            | Self::Slider { action, .. }
+            | Self::ColorField { action, .. }
+            | Self::Select { action, .. }
+            | Self::SlideThumb { action, .. } => action.iter().collect(),
+            // Sans `_` : un nouveau composant doit dire ici s'il envoie une action (la validation de `render` en dépend).
+            Self::Column { .. }
+            | Self::Row { .. }
+            | Self::Card { .. }
+            | Self::Text { .. }
+            | Self::DiffText { .. }
+            | Self::Prompt { .. }
+            | Self::Timeline { .. }
+            | Self::Receipt { .. }
+            | Self::Disclosure { .. }
+            | Self::Badge { .. }
+            | Self::Markdown { .. } => Vec::new(),
+        }
+    }
+
+    /// Le même composant, en lecture seule ; `None` pour un bouton (sans action, il n'a plus de sens).
+    pub fn without_action(self) -> Option<Self> {
+        Some(match self {
+            Self::Button { .. } => return None,
+            Self::TextField { label, value, .. } => Self::TextField { label, value, action: None },
+            Self::Stepper { label, value, min, max, .. } => Self::Stepper { label, value, min, max, action: None },
+            Self::ChoiceChips { options, value, .. } => Self::ChoiceChips { options, value, action: None },
+            Self::Slider { label, value, min, max, step, .. } => {
+                Self::Slider { label, value, min, max, step, action: None }
+            }
+            Self::ColorField { label, value, palette, .. } => Self::ColorField { label, value, palette, action: None },
+            Self::Select { label, value, options, .. } => Self::Select { label, value, options, action: None },
+            Self::SlideThumb { svg, label, .. } => Self::SlideThumb { svg, label, action: None },
+            // Sans `_` : un nouveau composant doit dire ici comment il se fige.
+            kind @ (Self::Column { .. }
+            | Self::Row { .. }
+            | Self::Card { .. }
+            | Self::Text { .. }
+            | Self::DiffText { .. }
+            | Self::Prompt { .. }
+            | Self::Timeline { .. }
+            | Self::Receipt { .. }
+            | Self::Disclosure { .. }
+            | Self::Badge { .. }
+            | Self::Markdown { .. }) => kind,
+        })
+    }
+}
+
 impl Component {
+    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`).
+    ///
+    /// Un reçu passe par l'outil `report` (bornes, miniature rendue par l'hôte) ; une miniature
+    /// est toujours rendue par l'hôte.
+    pub fn agent_allowed(&self) -> bool {
+        !matches!(
+            self.kind,
+            ComponentKind::Prompt { .. }
+                | ComponentKind::Timeline { .. }
+                | ComponentKind::Receipt { .. }
+                | ComponentKind::SlideThumb { .. }
+        )
+    }
+
     pub fn new(id: impl Into<String>, kind: ComponentKind) -> Self {
         Self { id: id.into(), kind }
     }
 
-    /// Un post-it autour de `child`.
+    /// Une carte autour de `child`.
     pub fn card(id: impl Into<String>, child: &str) -> Self {
-        Self::new(id, ComponentKind::Card { child: child.to_owned() })
+        Self::new(id, ComponentKind::Card { child: child.to_owned(), tone: None })
     }
 
     pub fn column(id: impl Into<String>, children: &[&str]) -> Self {
@@ -316,6 +483,15 @@ impl ServerMessage {
         Self::v0_9(ServerBody::UpdateDataModel(UpdateDataModel {
             surface_id: surface_id.into(),
             path: None,
+            value: Some(value),
+        }))
+    }
+
+    /// Écrit `value` au chemin `path` (JSON Pointer) du modèle de données.
+    pub fn update_data_model(surface_id: impl Into<String>, path: &str, value: Value) -> Self {
+        Self::v0_9(ServerBody::UpdateDataModel(UpdateDataModel {
+            surface_id: surface_id.into(),
+            path: Some(path.to_owned()),
             value: Some(value),
         }))
     }

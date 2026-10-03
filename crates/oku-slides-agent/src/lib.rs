@@ -20,8 +20,8 @@ mod settings_port;
 mod stack;
 mod tab_agent;
 mod tab_entry;
-mod thread_log;
 mod turn;
+mod turns;
 
 pub use config::{Launch, READY_WITHIN};
 pub use error::AgentError;

@@ -7,7 +7,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
 const LIBRE = 5;
 const state = (p) => p.evaluate((LIBRE) => ({
-  cards: document.querySelectorAll('.notes .panel-card').length,
+  cards: document.querySelectorAll('.notes .a2ui-card').length,
   name: document.querySelector('.notes input')?.value,
   grid: [...document.querySelectorAll('.notes .stepper-value')].map((e) => Number(e.textContent)),
   thumb: document.querySelectorAll('.thumb')[LIBRE]?.parentElement?.innerText,
@@ -25,9 +25,9 @@ const state = (p) => p.evaluate((LIBRE) => ({
   // Les modèles s'ouvrent depuis le menu ⋯.
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Modèles' }).click();
-  await p.waitForSelector('.notes .panel-card');
+  await p.waitForSelector('.notes .a2ui-card');
   await p.click(`.thumb >> nth=${LIBRE}`);
-  await p.waitForSelector('.notes .panel-card >> nth=1');
+  await p.waitForSelector('.notes .a2ui-card >> nth=1');
   const before = await state(p);
   assert.equal(before.cards, 2);
   // Renommer : la vignette suit, l'annulation porte le libellé.

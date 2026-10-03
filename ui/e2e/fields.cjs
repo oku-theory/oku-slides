@@ -167,7 +167,7 @@ const editorLines = (p) => p.evaluate(() => {
     await p.waitForSelector('.editor', { state: 'detached' });
     await p.waitForFunction((src) => {
       const img = document.querySelector('.stage img');
-      return img.getAttribute('src') !== src && img.complete && img.naturalWidth > 0;
+      return !!img && img.getAttribute('src') !== src && img.complete && img.naturalWidth > 0;
     }, src);
     const after = await show('s-libre');
     assert.equal(after[at].text, text);

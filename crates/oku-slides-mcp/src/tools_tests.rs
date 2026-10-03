@@ -48,3 +48,27 @@ fn tool_names_are_unique() {
     names.dedup();
     assert_that!(names.len()).is_equal_to(n);
 }
+
+#[test]
+fn tools_list_includes_report() {
+    assert_that!(list().iter().any(|t| t.name == "report")).is_true();
+}
+
+#[test]
+fn tools_list_includes_render() {
+    assert_that!(list().iter().any(|t| t.name == "render")).is_true();
+}
+
+#[test]
+fn tools_render_description_states_the_real_limits() {
+    use oku_slides_session::agent::render::{RENDER_DEPTH, RENDER_MAX};
+    let tool = list().into_iter().find(|t| t.name == "render").unwrap();
+    let text = serde_json::to_value(&tool).unwrap()["description"].as_str().unwrap_or_default().to_owned();
+    assert_that!(text).contains(format!("At most {RENDER_MAX} components").as_str());
+    assert_that!(text).contains(format!("{RENDER_DEPTH} levels").as_str());
+}
+
+#[test]
+fn tools_list_excludes_suggest_next() {
+    assert_that!(list().iter().any(|t| t.name == "suggest_next")).is_false();
+}

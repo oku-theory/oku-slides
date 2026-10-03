@@ -1,6 +1,6 @@
 # Agent: powierzchnie, potwierdzenia, wątek.
 
-agent-instructions = Edytujesz prezentację Oku Slides dla użytkownika, który do ciebie mówi. Działaj wyłącznie za pomocą narzędzi oku-slides. Przeczytaj deck za pomocą deck_outline, slide i render_slide, zanim go zmienisz; zmieniaj go za pomocą apply (każdą zmianę można cofnąć). Gdy decyzja należy do użytkownika, zapytaj za pomocą ask_choice, ask_confirm lub ask_rewrite; proponuj układy za pomocą show_variants i ustawienia na żywo za pomocą show_params. Odpowiadaj krótko, w języku użytkownika. Każda wiadomość zaczyna się od bloku <oku-slides-context> opisującego to, co widzi użytkownik. Po każdej odpowiedzi, jeśli są przydatne kolejne kroki, zaproponuj od 1 do 4 za pomocą suggest_next (krótkie etykiety; kliknięcie wysyła ci polecenie). Zanim dodasz element, odczytaj narzędzie widgets, aby poznać dostępne rodzaje i ich parametry.
+agent-instructions = Edytujesz prezentację Oku Slides dla użytkownika, który do ciebie mówi. Działaj wyłącznie przez narzędzia oku-slides. Przeczytaj deck za pomocą deck_outline, slide i render_slide, zanim go zmienisz; zmieniaj go przez apply (wszystko można cofnąć). Gdy decyzja należy do użytkownika, zapytaj przez ask_choice, ask_confirm lub ask_rewrite; proponuj układy przez show_variants i ustawienia na żywo przez show_params. Każdą turę zakończ narzędziem report: jednowierszowy tytuł, od 1 do 4 krótkich faktów, twoje wyjaśnienie w why i od 0 do 4 kolejnych kroków w actions. Twój swobodny tekst jest pokazywany tylko jako jednowierszowa notatka o postępie: pisz go tak, krótko i w języku użytkownika. Używaj render tylko wtedy, gdy żadne inne narzędzie nie pasuje. Każda wiadomość zaczyna się blokiem <oku-slides-context>, który opisuje to, co widzi użytkownik. Zanim dodasz element, przeczytaj narzędzie widgets, aby poznać dostępne rodzaje i ich parametry.
 
 agent-instructions-widgets = Tworzenie widgetu: widget to plik Typst pakietu szablonów; używaj widget_sources, widget_source, set_widget, remove_widget i preview_widget, zarówno w trybie decku, jak i w trybie szablonów. Postać pliku kpi: #import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of, a potem #let widget = widget("kpi", params: (value: p.plain(), label: p.plain()), (args, ctx) => …); zadeklarowana nazwa jest nazwą pliku. Parametry: deskryptory p.plain, p.rich, p.flag, p.number, p.choice, p.asset, p.slot, p.grid. Edytowalne teksty: field(ctx, "value", args.value), ułożone przez fields-stack. Kolory i rozmiary: tokeny motywu (color-of(ctx.tokens, "accent"), size-of(ctx.tokens, "body")), nigdy wartości na sztywno. Wspólny kod: plik _commun, importowany przez #import "_commun.typ": …. Pętla: zapisz przez set_widget, odczytaj stan i diagnostykę (wiersz, kolumna), obejrzyj preview_widget, popraw. Aby wstawić go do decku: add_element z kind = nazwa widgetu. Widżet slajdu deklaruje category: "slide" (widget("nazwa", category: "slide", params: …)); w przeciwnym razie jest elementem. W deskryptorze label: i default: są opcjonalne (p.plain(), p.plain(label: "Tytuł", default: "…")).
 
@@ -39,3 +39,26 @@ agent-no-http = Ten agent nie może połączyć się z narzędziami Oku Slides.
 agent-stopped = Agent zatrzymał się.
 agent-failed = Agent odrzucił żądanie: { $message }
 agent-tool-failed = Narzędzie nieoczekiwanie zawiodło.
+
+agent-turn-tools = { $tools ->
+   [one] { $tools } narzędzie
+   [few] { $tools } narzędzia
+   [many] { $tools } narzędzi
+  *[other] { $tools } narzędzia
+}
+agent-turn-notes = { $notes ->
+   [one] { $notes } notatka
+   [few] { $notes } notatki
+   [many] { $notes } notatek
+  *[other] { $notes } notatki
+}
+agent-turn-secs = { $secs } s
+agent-turn-stopped = Zatrzymano.
+agent-turn-interrupted = Przerwano.
+agent-turn-max-tokens = Agent osiągnął limit długości.
+agent-turn-max-turns = Agent osiągnął limit kroków.
+agent-turn-refusal = Agent odmówił.
+agent-turn-ended = Tura zakończona ({ $stop }).
+agent-choice-cancelled = Pytanie anulowane
+agent-choice-answered = ✓ { $answer }
+agent-report-why = Dlaczego

@@ -216,3 +216,21 @@ describe("fenêtre de confirmation", () => {
     }
   });
 });
+
+describe("réglages du fil", () => {
+  test("une surface show-… vivante rend dans le dock, ses touches ignorées de l'app", async () => {
+    const { AgentThread } = await import("./AgentThread");
+    const { routeSurfaces } = await import("./surfaces");
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    const live = { ...real("show-6"), place: "thread", live: true, turn: 1 } as Surface;
+    const { turns, loose, dock } = routeSurfaces([live], null);
+    await act(async () => {
+      root.render(createElement(AgentThread, { state: "idle", turns, loose, dock, onAction: () => {}, onNewConversation: () => {}, onError: () => {} }));
+    });
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    expect(host.querySelector('.agent-dock.agent-keys [data-surface-id="show-6"]')).not.toBeNull();
+  });
+});

@@ -48,6 +48,8 @@ fn main() -> color_eyre::Result<()> {
         .handle(AgentCommand::Prompt { tab: TAB.to_owned(), text: prompt, ui: AgentUi::default() })
         .map_err(|e| color_eyre::eyre::eyre!(e))?;
 
+    let mut worked = false;
+    let mut started = false;
     runtime.block_on(async {
         while let Some((channel, json)) = rx.recv().await {
             let envelope: Value = serde_json::from_str(&json)?;
@@ -56,11 +58,17 @@ fn main() -> color_eyre::Result<()> {
             match channel {
                 "agent" => {
                     println!("{event}");
-                    if matches!(kind, "turn_ended" | "error") {
+                    if kind == "status" && event["state"] == "working" {
+                        worked = true;
+                    } else if kind == "status" && event["state"] == "starting" {
+                        started = true;
+                    } else if kind == "status" && event["state"] == "idle" && (worked || started) {
                         break;
                     }
                 }
-                "mcp" if kind == "surface" => {
+                "mcp"
+                    if kind == "surface" && event["surface"]["id"].as_str().is_some_and(|i| i.starts_with("ask-")) =>
+                {
                     let surface = &event["surface"];
                     let id = surface["id"].as_str().unwrap_or_default().to_owned();
                     println!("surface {id} ({:?})", surface["place"]);
@@ -69,6 +77,7 @@ fn main() -> color_eyre::Result<()> {
                         .handle(AgentCommand::SurfaceAction { tab: TAB.to_owned(), surface: id, name, context })
                         .map_err(|e| color_eyre::eyre::eyre!(e))?;
                 }
+                "mcp" if kind == "surface_patch" || kind == "surface" => println!("{event}"),
                 _ => {}
             }
         }

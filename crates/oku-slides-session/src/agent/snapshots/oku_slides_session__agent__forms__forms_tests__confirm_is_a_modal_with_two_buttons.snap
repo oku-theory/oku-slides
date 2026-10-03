@@ -5,12 +5,13 @@ expression: s
 {
   "id": "ask-3",
   "place": "modal",
+  "live": true,
   "messages": [
     {
       "version": "v0.9",
       "createSurface": {
         "surfaceId": "ask-3",
-        "catalogId": "urn:oku-slides:a2ui:catalog:v2"
+        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
       }
     },
     {

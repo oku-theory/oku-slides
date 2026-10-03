@@ -1,7 +1,8 @@
 //! Un onglet de la pile : son hub de surfaces, ses outils MCP, son agent et
-//! son fil gardé, avec les relais de ses évènements vers l'interface.
+//! ses tours, avec les relais de ses évènements vers l'interface.
 
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Instant;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{McpEvent, SurfaceHub, ToolServer, Tools};
@@ -15,8 +16,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
-use crate::thread_log::ThreadLog;
-use crate::{AgentEvent, AgentHandle, Link, ToolsAccess};
+use crate::turns::{TurnOut, Turns};
+use crate::{AgentEvent, AgentHandle, AgentState, Link, ToolsAccess};
 
 /// Un évènement relayé : canal (`"mcp"`, `"agent"`) et JSON enveloppé.
 pub(crate) type Out = (&'static str, String);
@@ -46,7 +47,7 @@ pub(crate) struct TabLink {
     pub hub: Arc<SurfaceHub>,
     /// Vers la tâche qui démarre les outils puis l'agent, et lui relaie les commandes.
     cmds: mpsc::UnboundedSender<Command>,
-    thread: Arc<Mutex<ThreadLog>>,
+    status: Arc<Mutex<AgentState>>,
 }
 
 impl TabLink {
@@ -54,11 +55,10 @@ impl TabLink {
         let _ = self.cmds.send(cmd);
     }
 
-    /// Envoie le fil gardé. Sous le verrou du fil, comme le relais de
-    /// l'agent : aucun évènement n'est à la fois dans le fil et après lui.
+    /// Envoie l'état de l'agent ; les surfaces des tours sont rejouées par le hub.
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
-        let thread = self.thread.lock().unwrap_or_else(PoisonError::into_inner);
-        emit(out, "agent", &self.tab, &AgentEvent::Thread { entries: thread.entries() });
+        let state = *self.status.lock().unwrap_or_else(PoisonError::into_inner);
+        emit(out, "agent", &self.tab, &AgentEvent::Status { state });
     }
 }
 
@@ -85,13 +85,21 @@ impl TabEntry {
         let tools = Tools::new(session.clone(), hub.clone(), settings, platform);
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
-        let thread = Arc::new(Mutex::new(ThreadLog::default()));
+        let status = Arc::new(Mutex::new(AgentState::Idle));
         let closed = cancel.clone();
         rt.spawn(relay_mcp(tab.clone(), hub.subscribe(), Arc::downgrade(&hub), out.clone(), closed.clone()));
         let agent = Agent { session, hub: hub.clone(), link, localizer: platform.localizer.clone() };
-        let relay = Relay { tab: tab.clone(), thread: thread.clone(), out, closed };
+        let relay = Relay {
+            tab: tab.clone(),
+            hub: hub.clone(),
+            localizer: platform.localizer.clone(),
+            turns: Turns::default(),
+            status: status.clone(),
+            out,
+            closed,
+        };
         rt.spawn(agent.run(tools, cancel.clone(), rx, relay));
-        Self { link: TabLink { tab, hub, cmds, thread }, cancel }
+        Self { link: TabLink { tab, hub, cmds, status }, cancel }
     }
 }
 
@@ -126,7 +134,8 @@ async fn relay_mcp(
             Err(RecvError::Lagged(_)) => {
                 emit(&out, "mcp", &tab, &McpEvent::Changed);
                 // Les évènements encore en file rejouent ensuite par-dessus : sans
-                // risque, `surface` remplace à sa place et `close_surface` est idempotent.
+                // risque : `surface` et `surface_patch` écrivent des clés entières (le rejeu
+                // converge) et `close_surface` est idempotent.
                 let Some(hub) = hub.upgrade() else { return };
                 let list = hub.surfaces();
                 emit(&out, "mcp", &tab, &McpEvent::Surfaces { list });
@@ -136,26 +145,40 @@ async fn relay_mcp(
     }
 }
 
-/// Le fil de l'onglet : gardé, puis relayé ; plus rien une fois l'onglet
-/// fermé (`closed`), même si son agent n'a pas encore fini de s'arrêter.
+/// Les évènements de l'agent : l'état part à l'interface, le reste met à jour les
+/// surfaces des tours ; plus rien une fois l'onglet fermé (`closed`), même si son
+/// agent n'a pas encore fini de s'arrêter.
 struct Relay {
     tab: String,
-    thread: Arc<Mutex<ThreadLog>>,
+    hub: Arc<SurfaceHub>,
+    localizer: Arc<oku_slides_i18n::Localizer>,
+    turns: Turns,
+    status: Arc<Mutex<AgentState>>,
     out: mpsc::UnboundedSender<Out>,
     closed: CancellationToken,
 }
 
 impl Relay {
-    fn emit(&self, e: &AgentEvent) {
+    fn emit(&mut self, e: &AgentEvent) {
         if self.closed.is_cancelled() {
             return;
         }
-        let mut thread = self.thread.lock().unwrap_or_else(PoisonError::into_inner);
-        thread.push(e);
-        emit(&self.out, "agent", &self.tab, e);
+        if let AgentEvent::Status { state } = e {
+            *self.status.lock().unwrap_or_else(PoisonError::into_inner) = *state;
+            emit(&self.out, "agent", &self.tab, e);
+        }
+        // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
+        for out in self.turns.apply(e, Instant::now(), &self.localizer) {
+            match out {
+                TurnOut::Show(surface) => self.hub.emit(McpEvent::Surface { surface }),
+                TurnOut::Patch { id, messages } => self.hub.emit(McpEvent::SurfacePatch { id, messages }),
+                TurnOut::Evict(n) => self.hub.close_turn(n),
+                TurnOut::Ended { turn, narration } => self.hub.end_turn(turn, &narration),
+            }
+        }
     }
 
-    async fn run(self, mut rx: broadcast::Receiver<AgentEvent>) {
+    async fn run(mut self, mut rx: broadcast::Receiver<AgentEvent>) {
         loop {
             let received = tokio::select! {
                 biased;
@@ -164,7 +187,10 @@ impl Relay {
             };
             match received {
                 Ok(e) => self.emit(&e),
-                Err(RecvError::Lagged(_)) => {}
+                Err(RecvError::Lagged(n)) => {
+                    // Évènements perdus : le tour se clôt au retour de l'agent au repos (voir `Turns`).
+                    tracing::debug!(tab = %self.tab, lost = n, "relais de l'agent en retard");
+                }
                 Err(RecvError::Closed) => return,
             }
         }
@@ -187,7 +213,7 @@ impl Agent {
         tools: Tools,
         cancel: CancellationToken,
         mut rx: mpsc::UnboundedReceiver<Command>,
-        relay: Relay,
+        mut relay: Relay,
     ) {
         let server = match ToolServer::start(tools, cancel.clone()).await {
             Ok(server) => server,
@@ -196,7 +222,9 @@ impl Agent {
                 // Chaque consigne reçoit l'erreur dans le fil ; le reste est sans objet.
                 let message = e.localize(&self.localizer);
                 while let Some(cmd) = next(&cancel, &mut rx).await {
-                    if let Command::Prompt { .. } = cmd {
+                    if let Command::Prompt { text, .. } = cmd {
+                        let n = self.hub.begin_turn();
+                        relay.emit(&AgentEvent::UserText { turn: n, text });
                         relay.emit(&AgentEvent::Error { message: message.clone() });
                     }
                 }

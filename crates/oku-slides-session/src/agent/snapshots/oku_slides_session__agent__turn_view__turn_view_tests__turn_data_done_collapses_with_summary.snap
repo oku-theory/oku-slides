@@ -1,0 +1,5 @@
+---
+source: crates/oku-slides-session/src/agent/turn_view_tests.rs
+expression: "d[\"summary\"].as_str().unwrap()"
+---
+6 outils · 1 note · 38 s

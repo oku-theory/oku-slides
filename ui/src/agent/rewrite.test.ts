@@ -8,6 +8,7 @@ import type { Surface } from "../api";
 const surface = (anchor?: { slide: string; element: string }): Surface => ({
   id: "ask-1",
   place: "sheet",
+  live: false,
   anchor,
   messages: [],
 });

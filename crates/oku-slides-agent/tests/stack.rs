@@ -2,7 +2,7 @@ mod common;
 
 use std::sync::Arc;
 
-use common::{stack_with_sink, stack_with_sink_and_log, wait_for};
+use common::{is_tool_surface, stack_with_sink, stack_with_sink_and_log, wait_for, wait_turn_done};
 use oku_slides_agent::AgentCommand;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -15,32 +15,36 @@ fn cmd(v: serde_json::Value) -> AgentCommand {
 async fn forward_wraps_every_event_with_its_tab() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{ "chunks": ["bonjour"] }] }), &["t-1", "t-2"]).await;
     stack.handle(serde_json::from_value(json!({ "cmd": "prompt", "tab": "t-2", "text": "salut" })).unwrap()).unwrap();
-    let chunk = wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "chunk").await;
-    assert_that!(chunk.1["tab"].clone()).is_equal_to(json!("t-2"));
+    let surface = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "turn-1"
+    })
+    .await;
+    assert_that!(surface.1["tab"].clone()).is_equal_to(json!("t-2"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn resync_replays_the_tab_thread_then_its_surfaces() {
+async fn resync_replays_the_agent_state_then_the_turn_surfaces() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{ "chunks": ["bonjour"] }] }), &["t-1"]).await;
     stack.handle(serde_json::from_value(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" })).unwrap()).unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
+    // L'état `idle` de fin de tour doit être relayé avant de prendre la mesure.
+    wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
+    let before = rx.lock().unwrap().len();
     stack.handle(serde_json::from_value(json!({ "cmd": "resync", "tab": "t-1" })).unwrap()).unwrap();
-    let thread = wait_for(&rx, |(_, v)| v["event"]["kind"] == "thread").await;
-    let kinds: Vec<_> = thread.1["event"]["entries"].as_array().unwrap().iter().map(|e| e["kind"].clone()).collect();
-    assert_that!(kinds).contains(json!("chunk"));
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "surfaces" && v["tab"] == "t-1").await;
-    // Le fil d'abord, puis les surfaces (aucun `surfaces` n'est relayé avant le resync).
-    let relayed = rx.lock().unwrap().clone();
-    let at = |kind: &str| relayed.iter().position(|(_, v)| v["tab"] == "t-1" && v["event"]["kind"] == kind).unwrap();
-    assert_that!(at("thread")).is_less_than(at("surfaces"));
+    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces" && v["tab"] == "t-1").await;
+    let ids: Vec<_> = surfaces.1["event"]["list"].as_array().unwrap().iter().map(|s| s["id"].clone()).collect();
+    assert_that!(ids).contains(json!("turn-1"));
+    // L'état de l'agent d'abord, puis les surfaces.
+    let relayed = rx.lock().unwrap()[before..].to_vec();
+    let at = |ch: &str, kind: &str| relayed.iter().position(|(c, v)| *c == ch && v["event"]["kind"] == kind).unwrap();
+    assert_that!(at("agent", "status")).is_less_than(at("mcp", "surfaces"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn resync_of_an_unused_tab_sends_an_empty_thread_and_no_surfaces() {
+async fn resync_of_an_unused_tab_sends_idle_and_no_surfaces() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
     stack.handle(serde_json::from_value(json!({ "cmd": "resync", "tab": "t-1" })).unwrap()).unwrap();
-    let thread = wait_for(&rx, |(_, v)| v["event"]["kind"] == "thread").await;
-    assert_that!(thread.1["event"]["entries"].clone()).is_equal_to(json!([]));
+    wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
     let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
     assert_that!(surfaces.1["event"]["list"].clone()).is_equal_to(json!([]));
 }
@@ -54,8 +58,8 @@ async fn tab_closed_during_a_turn_releases_its_questions_and_other_tabs_go_on() 
     let prompt = |tab: &str| serde_json::from_value(json!({ "cmd": "prompt", "tab": tab, "text": "?" })).unwrap();
     stack.handle(prompt("t-1")).unwrap();
     stack.handle(prompt("t-2")).unwrap();
-    let ask2 = wait_for(&rx, |(_, v)| v["tab"] == "t-2" && v["event"]["kind"] == "surface").await;
-    wait_for(&rx, |(_, v)| v["tab"] == "t-1" && v["event"]["kind"] == "surface").await;
+    let ask2 = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-2", "ask-")).await;
+    wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
     stack.tab_closed("t-1");
     let id = ask2.1["event"]["surface"]["id"].as_str().unwrap().to_owned();
     stack
@@ -65,11 +69,11 @@ async fn tab_closed_during_a_turn_releases_its_questions_and_other_tabs_go_on() 
             .unwrap(),
         )
         .unwrap();
-    wait_for(&rx, |(_, v)| v["tab"] == "t-2" && v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-2", 1).await;
     let seen = rx.lock().unwrap().len();
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let late: Vec<_> = rx.lock().unwrap()[seen..].iter().filter(|(_, v)| v["tab"] == "t-1").cloned().collect();
-    assert_that!(late.iter().any(|(_, v)| v["event"]["kind"] == "chunk")).is_false();
+    assert_that!(late.iter().any(|(_, v)| v["event"]["kind"] == "surface_patch")).is_false();
     // Les deux questions ont rendu leur outil à l'agent : celle de t-1 relâchée, pas pendante.
     let outs: Vec<String> = common::logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
     assert_that!(outs).has_length(2);
@@ -83,14 +87,11 @@ async fn prompt_while_question_waits_answers_it_instead_of_new_turn() {
         { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "mcp": [ask] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
-    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surface").await;
+    wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième" }))).unwrap();
-    let chunk = wait_for(&rx, |(_, v)| {
-        v["event"]["kind"] == "chunk" && v["event"]["text"].as_str().is_some_and(|t| t.starts_with("tool:ask_choice"))
-    })
-    .await;
-    assert_that!(chunk.1["event"]["text"].as_str().unwrap().contains("la deuxième")).is_true();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
+    let r = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "report-")).await;
+    assert_that!(r.1.to_string()).contains("la deuxième");
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
 }
 
@@ -100,7 +101,7 @@ async fn handle_passes_the_ui_context_with_the_prompt() {
     stack
         .handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "bonjour", "ui": { "slide": "s-libre" } })))
         .unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
     let prompt = &common::logged(&log, "session/prompt")[0]["prompt"];
     assert_that!(prompt[2]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
 }
@@ -115,28 +116,28 @@ async fn surface_action_on_an_unknown_surface_or_tab_is_an_error() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn new_conversation_clears_the_replayed_thread() {
+async fn new_conversation_closes_the_turn_surfaces() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{ "chunks": ["bonjour"] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "conversation").await;
+    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "close_surface" && v["event"]["id"] == "turn-1")
+        .await;
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
-    let thread = wait_for(&rx, |(_, v)| v["event"]["kind"] == "thread").await;
-    // Le fil repart de zéro ; l'état courant est rejoué en dernier.
-    assert_that!(thread.1["event"]["entries"].clone())
-        .is_equal_to(json!([{ "kind": "conversation" }, { "kind": "status", "state": "idle" }]));
+    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
+    let last = rx.lock().unwrap().iter().rev().find(|(_, v)| v["event"]["kind"] == "surfaces").cloned().unwrap();
+    assert_that!(last.1["event"]["list"].clone()).is_equal_to(json!([]));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn new_conversation_on_a_tab_without_agent_starts_nothing() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" }))).unwrap();
-    wait_for(&rx, |(c, v)| *c == "agent" && v["tab"] == "t-1" && v["event"]["kind"] == "conversation").await;
-    // Aucun onglet démarré : le fil rejoué est vide (pas même la conversation).
+    // Aucun onglet démarré : l'état rejoué est `idle`, sans surface.
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
-    let thread = wait_for(&rx, |(_, v)| v["event"]["kind"] == "thread").await;
-    assert_that!(thread.1["event"]["entries"].clone()).is_equal_to(json!([]));
+    wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
+    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
+    assert_that!(surfaces.1["event"]["list"].clone()).is_equal_to(json!([]));
     assert_that!(common::read_log(&log)).is_empty();
 }
 
@@ -145,7 +146,7 @@ async fn dropping_the_stack_ends_the_forwarding() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1", "t-2"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-2" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
     drop(stack);
     // Le relais tient le puits (et son clone de `rx`) : il doit finir avec la pile.
     for _ in 0..250 {
@@ -164,7 +165,7 @@ async fn a_prompt_queued_before_tab_closed_never_reaches_the_agent() {
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "perdue" }))).unwrap();
     stack.tab_closed("t-1");
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-2", "text": "gardée" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["tab"] == "t-2" && v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-2", 1).await;
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     assert_that!(common::logged(&log, "session/new")).has_length(1);
     let prompts = common::logged(&log, "session/prompt");
@@ -183,7 +184,7 @@ async fn commands_for_a_closed_tab_are_ignored_and_start_nothing() {
     assert_that!(stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" })))).is_ok();
     assert_that!(stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" })))).is_ok();
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-2", "text": "gardée" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["tab"] == "t-2" && v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-2", 1).await;
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     assert_that!(common::logged(&log, "session/new")).has_length(1);
     let from_closed = rx.lock().unwrap().iter().filter(|(_, v)| v["tab"] == "t-1").count();
@@ -205,7 +206,7 @@ fn alive(pid: u64) -> bool {
 async fn shutdown_kills_the_agent_and_later_commands_start_nothing() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
-    wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
+    wait_turn_done(&rx, "t-1", 1).await;
     let pid = common::logged(&log, "pid")[0].as_u64().unwrap();
     stack.shutdown().await;
     // Tué (puis ramassé en arrière-plan par tokio) : parti en moins de 2 s.

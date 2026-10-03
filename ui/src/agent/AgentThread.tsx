@@ -1,44 +1,15 @@
-// Le fil de l'agent dans le panneau de droite : consignes, outils, plan,
-// réponses, et les surfaces qui y vivent (questions sans ancre, paramètres).
+// Le fil de l'agent : ses tours (surfaces A2UI de l'hôte) et le dock des surfaces vivantes.
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import { lazy, Suspense } from "react";
-import type { AgentState, Place, StopReason, Surface } from "../api";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { AgentState, Surface } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
-import type { Thread } from "./thread";
-import { Markdown } from "./Markdown";
-import { threadItems } from "./thread";
+import { AgentDock } from "./AgentDock";
+import type { Routed } from "./surfaces";
 
 // @a2ui ne se charge qu'avec la première surface (comme le panneau des modèles).
 const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
-
-/** Marque d'un outil ou d'une étape du plan, selon son statut ACP. */
-const TOOL_MARK: Record<string, string> = { pending: "☐", in_progress: "◌", completed: "☑", failed: "✕" };
-
-/** Classe CSS d'un statut venu de l'hôte : seules les valeurs connues passent. */
-const STATUS_CLASS = new Set(["pending", "in_progress", "completed", "failed"]);
-const statusClass = (status: string) => (STATUS_CLASS.has(status) ? status : "other");
-
-/** Places rendues dans le fil ; une autre place ne donne pas sa valeur en classe.
- * Préfixée (`place-postit`) : nue, `postit` prendrait le style des post-its des notes. */
-const PLACE_CLASS = new Set<Place>(["thread", "postit", "suggestions"]);
-
-/** Une fin de tour dite dans la langue de l'utilisateur ; une raison inconnue est citée telle quelle. */
-function stopText(stop: StopReason): string {
-  switch (stop) {
-    case "cancelled":
-      return t("ui-agent-stopped");
-    case "max_tokens":
-      return t("ui-agent-stop-max-tokens");
-    case "max_turn_requests":
-      return t("ui-agent-stop-max-turns");
-    case "refusal":
-      return t("ui-agent-stop-refusal");
-    default:
-      return t("ui-agent-ended", { stop });
-  }
-}
 
 /** Clés écrites en entier : `i18n-keys.test.ts` cherche chaque clé en littéral. */
 const STATE_KEY: Record<AgentState, string> = {
@@ -47,60 +18,104 @@ const STATE_KEY: Record<AgentState, string> = {
   working: "ui-agent-state-working",
 };
 
-/** Le fil de l'agent et ses surfaces ; rien tant qu'il est vide. */
+/** Le fil et son dock ; rien tant qu'il n'y a ni tour ni surface. */
 export function AgentThread({
-  thread,
-  surfaces,
+  state,
+  turns,
+  loose,
+  dock,
   onAction,
   onNewConversation,
   onError,
 }: {
-  thread: Thread;
-  surfaces: Surface[];
+  state: AgentState;
   onAction: (surface: Surface, action: A2uiClientAction) => void;
   onNewConversation: () => void;
   onError: (message: string) => void;
-}) {
-  if (thread.entries.length === 0 && surfaces.length === 0) return null;
+} & Pick<Routed, "turns" | "loose" | "dock">) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const [pinned, setPinned] = useState(true);
+  const pinnedRef = useRef(pinned);
+  pinnedRef.current = pinned;
+  const lastTurn = turns.at(-1)?.turn;
+  const toBottom = () => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+  // Un nouveau tour se suit à nouveau, même si l'utilisateur était remonté (la référence d'abord :
+  // l'observateur ci-dessous la lit avant le prochain rendu).
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- déclenché par le numéro du dernier tour
+  useEffect(() => {
+    pinnedRef.current = true;
+    setPinned(true);
+    toBottom();
+  }, [lastTurn]);
+  // Le contenu A2UI grandit sans re-rendre ce composant (signaux internes) : on observe la taille
+  // de la liste entière. Ref de rappel : la liste n'existe pas tant que le fil est vide (le composant
+  // rend `null`), un effet sans dépendances ne la verrait jamais.
+  const list = useCallback((el: HTMLOListElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => {
+      if (pinnedRef.current) toBottom();
+    });
+    watch.observe(el);
+    observer.current = watch;
+  }, []);
+  if (turns.length === 0 && loose.length === 0 && dock.length === 0) return null;
+  const view = (s: Surface) => (
+    <Suspense fallback={null}>
+      <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
+    </Suspense>
+  );
   return (
     <section className="agent-thread" aria-label={t("ui-agent-thread")}>
       <header className="agent-thread-head">
-        <span className="caption">{t(STATE_KEY[thread.state])}</span>
+        <span className="caption">{t(STATE_KEY[state])}</span>
         <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>
       </header>
-      <ol className="agent-entries" aria-live="polite">
-        {threadItems(thread.entries).map((e) => (
-          <li key={e.at} className={`agent-entry ${e.kind}`}>
-            {e.kind === "user" && <span className="you postit">{e.text}</span>}
-            {e.kind === "agent" && <div className="msg md"><Markdown text={e.text} /></div>}
-            {e.kind === "tools" && (
-              // Fermé par défaut ; l'état ouvert tient tant que la clé (`at`) ne change pas.
-              <details className="tools">
-                <summary className="caption">
-                  {TOOL_MARK[e.tools.at(-1)!.status] ?? "·"} {t("ui-agent-tools", { count: e.tools.length })}
-                </summary>
-                <ul className="tool-list">
-                  {e.tools.map((x) => <li key={x.id} className="tool">{TOOL_MARK[x.status] ?? "·"} {x.title}</li>)}
-                </ul>
-              </details>
-            )}
-            {e.kind === "plan" && (
-              <ul className="plan">
-                {e.entries.map((p, j) => <li key={j} className={statusClass(p.status)}>{TOOL_MARK[p.status] ?? "☐"} {p.content}</li>)}
-              </ul>
-            )}
-            {e.kind === "error" && <span className="error" role="alert">{e.text}</span>}
-            {e.kind === "stop" && <span className="caption">{stopText(e.stop)}</span>}
-          </li>
-        ))}
-      </ol>
-      <Suspense fallback={null}>
-        {surfaces.map((s) => (
-          <div key={s.id} className={`agent-surface${PLACE_CLASS.has(s.place) ? ` place-${s.place}` : ""}`}>
-            <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
-          </div>
-        ))}
-      </Suspense>
+      <div
+        ref={scroller}
+        className="agent-scroller"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 24);
+        }}
+      >
+        <ol ref={list} className="agent-turns">
+          {turns.map(({ turn, surfaces }) => (
+            // Seul le dernier tour est annoncé : les anciens ne changent plus.
+            <li key={turn} className="agent-turn" aria-live={turn === lastTurn ? "polite" : undefined}>
+              {surfaces.map((s) => (
+                <div key={s.id} data-surface-id={s.id}>
+                  {view(s)}
+                </div>
+              ))}
+            </li>
+          ))}
+          {loose.map((s) => (
+            <li key={s.id} className="agent-turn" data-surface-id={s.id}>
+              {view(s)}
+            </li>
+          ))}
+        </ol>
+      </div>
+      {!pinned && state === "working" && (
+        <button
+          type="button"
+          className="token agent-jump"
+          onClick={() => {
+            pinnedRef.current = true;
+            setPinned(true);
+            toBottom();
+          }}
+        >
+          {t("ui-agent-jump")}
+        </button>
+      )}
+      <AgentDock surfaces={dock} view={view} />
     </section>
   );
 }

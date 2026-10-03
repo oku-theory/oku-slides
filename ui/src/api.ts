@@ -442,46 +442,21 @@ export interface AgentUi {
 /** L'agent au repos, en lancement, ou en plein tour. */
 export type AgentState = "idle" | "starting" | "working";
 
-/** Valeurs ACP connues ; une valeur future reste une chaîne acceptée. */
-type Open<T extends string> = T | (string & {});
+/** Évènements du canal `agent` : l'état de l'agent seul (le fil passe par les surfaces). */
+export type AgentEvent = { kind: "status"; state: AgentState };
 
-/** Statut d'une étape du plan (ACP `PlanEntryStatus`). */
-export type PlanStatus = Open<"pending" | "in_progress" | "completed">;
-
-/** Statut d'un appel d'outil (ACP `ToolCallStatus`). */
-export type ToolStatus = Open<"pending" | "in_progress" | "completed" | "failed">;
-
-/** Raison de fin d'un tour (ACP `StopReason`). */
-export type StopReason = Open<"end_turn" | "max_tokens" | "max_turn_requests" | "refusal" | "cancelled">;
-
-/** Une étape du plan de l'agent. */
-export interface PlanItem {
-  content: string;
-  status: PlanStatus;
-}
-
-/** Évènements du fil (crate oku-slides-agent, `AgentEvent`). */
-export type AgentEvent =
-  | { kind: "status"; state: AgentState }
-  | { kind: "user_text"; text: string }
-  | { kind: "chunk"; text: string }
-  | { kind: "tool_call"; id: string; title: string; status: ToolStatus }
-  | { kind: "tool_update"; id: string; title: string | null; status: ToolStatus | null }
-  | { kind: "plan"; entries: PlanItem[] }
-  | { kind: "turn_ended"; stop: StopReason }
-  | { kind: "error"; message: string }
-  | { kind: "conversation" }
-  /** Le fil gardé de l'onglet, rejoué à l'interface (ré)abonnée. */
-  | { kind: "thread"; entries: AgentEvent[] };
-
-/** Où s'affiche une surface : fiche, fil, tiroir, post-it ou fenêtre. */
-export type Place = "sheet" | "thread" | "drawer" | "postit" | "modal" | "suggestions";
+/** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
+export type Place = "sheet" | "thread" | "drawer" | "modal";
 
 /** Une surface de l'agent : ses messages A2UI et sa place (session, `agent::Surface`). */
 export interface Surface {
   id: string;
   place: Place;
   anchor?: { slide: string; element: string };
+  /** Le tour qui l'a créée (surfaces du fil). */
+  turn?: number;
+  /** Vivante : dans le dock ; figée : dans son tour. */
+  live: boolean;
   messages: A2uiMessage[];
 }
 
@@ -491,7 +466,8 @@ export type McpEvent =
   | { kind: "surface"; surface: Surface }
   | { kind: "close_surface"; id: string }
   | { kind: "focus"; slide: string; element: string | null }
-  | { kind: "surfaces"; list: Surface[] };
+  | { kind: "surfaces"; list: Surface[] }
+  | { kind: "surface_patch"; id: string; messages: A2uiMessage[] };
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =

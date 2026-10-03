@@ -17,7 +17,7 @@ tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { o
 .cdg-actions button svg, .chart-options button svg { width: 20px; height: 20px; }
 
 /* Panneau du graphique sélectionné, en tête de la colonne des notes. */
-.chart-panel { position: relative; flex: none; max-height: 60%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper, #fff); border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-note, 0 6px 24px rgb(0 0 0 / 0.12)); z-index: 5; }
+.chart-panel { position: relative; flex: none; max-height: 60%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper, #fff); border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-floating); z-index: 5; }
 .chart-kinds, .chart-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .chart-kinds button, .chart-options button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; color: inherit; cursor: pointer; }
 .chart-kinds button svg { width: 20px; height: 20px; }

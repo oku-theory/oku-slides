@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import type { AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -37,10 +37,9 @@ import type { DictationMode } from "./agent/keys";
 import { escapeAction } from "./agent/keys";
 import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
-import { agentBusy, routeSurfaces, suggestedPrompt, surfacesReducer } from "./agent/surfaces";
+import { agentBusy, routeSurfaces, sendThenPrompt, surfacesReducer } from "./agent/surfaces";
 import { withRewriteParagraphs } from "./agent/rewrite";
 import { useQuickKeys } from "./agent/useQuickKeys";
-import { EMPTY_THREAD, threadReducer } from "./agent/thread";
 import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
@@ -391,9 +390,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
   const agent = useMemo(() => agentApi(tab), [tab]);
-  const [thread, onAgentEvent] = useReducer(threadReducer, EMPTY_THREAD);
+  const [agentState, onAgentEvent] = useReducer((_: AgentState, e: AgentEvent) => e.state, "idle" as AgentState);
   const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
-  const busy = agentBusy(thread.state, surfaces);
+  const busy = agentBusy(agentState, surfaces);
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
   // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
   const routed = useMemo(
@@ -405,7 +404,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     [surfaces, view, current],
   );
   const { stage: sheet, drawer, modal } = routed;
-  const threadSurfaces = routed.thread;
   const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
   useEffect(
     () =>
@@ -433,17 +431,21 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   );
   const sendAction = (s: Surface, a: QuickAction) => {
     const action = withRewriteParagraphs(s, a);
-    agent.surfaceAction(s.id, action.name, action.context).catch((err) => say(String(err), true));
+    return agent.surfaceAction(s.id, action.name, action.context).then(
+      () => true,
+      (err) => {
+        say(String(err), true);
+        return false;
+      },
+    );
   };
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur. */
   const promptAgent = (text: string) =>
     agent.prompt(text, agentUi(current, selected, editField)).catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
     const action = fromA2ui(a);
-    sendAction(s, action);
-    // Une suite cliquée part vers l'agent comme une consigne dictée.
-    const prompt = suggestedPrompt(action);
-    if (prompt) promptAgent(prompt);
+    // Une suite cliquée part vers l'agent comme une consigne dictée, une fois l'action acceptée.
+    void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
   useQuickKeys(
     modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
@@ -844,7 +846,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         )}
       </main>
 
-      {/* Post-it à droite de la feuille. */}
+      {/* Cartes à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
         {/* Données du graphique sélectionné : hors de la feuille, pour ne rien masquer. */}
         {view && !history && selectedElement?.kind === "chart" && (
@@ -857,8 +859,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           />
         )}
         <AgentThread
-          thread={thread}
-          surfaces={threadSurfaces}
+          state={agentState}
+          turns={routed.turns}
+          loose={routed.loose}
+          dock={routed.dock}
           onAction={onSurfaceAction}
           onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
           onError={(m) => say(m, true)}

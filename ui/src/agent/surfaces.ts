@@ -17,6 +17,8 @@ export function surfacesReducer(list: Surface[], e: McpEvent): Surface[] {
       return list.filter((s) => s.id !== e.id);
     case "surfaces":
       return e.list;
+    case "surface_patch":
+      return list.map((s) => (s.id === e.id ? { ...s, messages: [...s.messages, ...e.messages] } : s));
     default:
       return list;
   }
@@ -25,9 +27,12 @@ export function surfacesReducer(list: Surface[], e: McpEvent): Surface[] {
 /** Les surfaces d'une place, dans l'ordre d'arrivée. */
 export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.place === place);
 
+/** Une question de l'agent (les autres surfaces vivantes du fil sont des réglages). */
+export const isQuestion = (s: Surface) => s.id.startsWith("ask-");
+
 /** Une question de l'agent attend l'utilisateur : ⌘⇧D y répond au lieu d'arrêter le tour. */
 export const isAsking = (list: Surface[]) =>
-  list.some((s) => s.place === "sheet" || s.place === "thread" || s.place === "modal");
+  list.some((s) => s.place === "sheet" || s.place === "modal" || (s.place === "thread" && s.live && isQuestion(s)));
 
 /**
  * Un tour de l'agent est en cours et n'attend pas l'utilisateur : ⌘⇧D et
@@ -43,24 +48,45 @@ export interface Routed {
   drawer?: Surface;
   /** Fenêtre de confirmation (la plus ancienne : une question en attente n'est jamais remplacée sous le curseur). */
   modal?: Surface;
-  /** Fil de l'agent, dans l'ordre d'arrivée : questions sans ancre, post-its, fiches hors de la scène, suites. */
-  thread: Surface[];
+  /** Surfaces vivantes du fil : réglages d'abord, la question en dernier (au plus près du micro). */
+  dock: Surface[];
+  /** Les tours, du plus ancien au plus récent : la surface du tour puis ses surfaces figées. */
+  turns: { turn: number; surfaces: Surface[] }[];
+  /** Fiches dont l'élément n'est pas à l'écran, et surfaces figées du fil sans tour. */
+  loose: Surface[];
 }
 
 /**
  * Répartit les surfaces. `shown` : la slide affichée et ses cibles (`null`
  * pendant un changement de slide) ; une fiche n'y va que si son élément y est.
+ * Au dock, les réglages d'abord et la question (`ask-…`) en dernier, au plus près du micro.
  */
 export function routeSurfaces(list: Surface[], shown: { slide: string; targets: string[] } | null): Routed {
   const sheets = byPlace(list, "sheet");
   const stage = sheets.find((s) => !!shown && s.anchor?.slide === shown.slide && shown.targets.includes(s.anchor.element));
+  const thread = byPlace(list, "thread");
+  const dock = thread.filter((s) => s.live).sort((a, b) => Number(isQuestion(a)) - Number(isQuestion(b)));
+  const byTurn = new Map<number, Surface[]>();
+  for (const s of thread) {
+    if (s.live || s.turn === undefined) continue;
+    const group = byTurn.get(s.turn);
+    if (group) group.push(s);
+    else byTurn.set(s.turn, [s]);
+  }
+  const turns = [...byTurn.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([turn, surfaces]) => ({
+      turn,
+      surfaces: [...surfaces].sort((a, b) => Number(b.id === `turn-${turn}`) - Number(a.id === `turn-${turn}`)),
+    }));
   return {
     stage,
     drawer: byPlace(list, "drawer").at(-1),
     modal: byPlace(list, "modal")[0],
-    thread: list.filter(
-      (s) => s.place === "thread" || s.place === "postit" || s.place === "suggestions" || (s.place === "sheet" && s !== stage),
-    ),
+    dock,
+    turns,
+    // Fiches hors de la scène, et surfaces figées du fil sans tour (aucune n'est jamais invisible).
+    loose: [...sheets.filter((s) => s !== stage), ...thread.filter((s) => !s.live && s.turn === undefined)],
   };
 }
 
@@ -68,4 +94,15 @@ export function routeSurfaces(list: Surface[], shown: { slide: string; targets: 
 export function suggestedPrompt(a: QuickAction): string | null {
   const prompt = a.name === "suggest" ? a.context.prompt : undefined;
   return typeof prompt === "string" && prompt.trim() ? prompt : null;
+}
+
+/** Envoie l'action au hub, puis la consigne d'une suite à l'agent, seulement si le hub l'a acceptée (une suite d'un tour passé est refusée). */
+export async function sendThenPrompt(
+  action: QuickAction,
+  send: () => Promise<boolean>,
+  prompt: (text: string) => unknown,
+): Promise<void> {
+  const text = suggestedPrompt(action);
+  const accepted = await send();
+  if (accepted && text) prompt(text);
 }
