@@ -1,0 +1,92 @@
+# Releases de l'app de bureau (Windows, macOS, Linux), lancées à la main depuis l'onglet Actions.
+# Chaque plateforme construit ses paquets avec `cargo tauri build` et les dépose dans une même
+# release brouillon `v<version>` (version de src-tauri/tauri.conf.json), à relire puis publier.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Une seule release à la fois : deux lancements écriraient dans le même brouillon.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      # Une plateforme en échec n'annule pas les autres : le run passe quand même en rouge et la
+      # release reste un brouillon, à ne publier qu'avec les quatre jeux de paquets.
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            runner: macos-15
+          - name: macOS (Intel)
+            runner: macos-15-intel
+          - name: Linux
+            runner: ubuntu-22.04
+          - name: Windows
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    # CTranslate2 (dictée) se compile en C++ : long sans cache.
+    timeout-minutes: 120
+    steps:
+      # Les polices embarquées (bundle.resources) sont en Git LFS.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Une police restée pointeur LFS (quota dépassé…) partirait telle quelle dans les paquets.
+      - name: Polices récupérées
+        shell: bash
+        run: |
+          if grep -l "^version https://git-lfs" assets/fonts/*.ttf assets/fonts/*.otf 2>/dev/null; then
+            echo "::error::polices non récupérées (pointeurs Git LFS)"
+            exit 1
+          fi
+
+      - name: Dépendances système (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libasound2-dev
+
+      # Versions figées : une release se reconstruit à l'identique. À monter avec l'outillage local.
+      - uses: dtolnay/rust-toolchain@1.98.1
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2.11.5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      # `beforeBuildCommand` (bun run build) suppose les dépendances de l'interface installées.
+      - name: Dépendances de l'interface
+        working-directory: ui
+        run: bun install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signature ad hoc des deux jobs macOS (Apple Silicon et Intel), ignorée ailleurs : sans
+          # certificat Apple, l'app Apple Silicon doit au moins être signée pour se lancer.
+          APPLE_SIGNING_IDENTITY: "-"
+        with:
+          tauriScript: cargo tauri
+          # `__VERSION__` : remplacé par tauri-action par la version de src-tauri/tauri.conf.json.
+          tagName: v__VERSION__
+          releaseName: Oku Slides v__VERSION__
+          releaseBody: Paquets Windows, macOS et Linux construits par le workflow Release.
+          releaseDraft: true
+          prerelease: false
