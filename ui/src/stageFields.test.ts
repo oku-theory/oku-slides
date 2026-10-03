@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FieldView, SlideView, TextStyle } from "./api";
 import { setMessages } from "./i18n";
+import { resetMessages } from "./test/messages";
 import { anchorIds, fieldHitBox, fieldKey, fieldLabel, findField, lineHeight, nextField, primaryFieldOf } from "./stageFields";
 
 const ftl = (lang: string) =>
@@ -10,7 +11,7 @@ beforeAll(async () => {
   setMessages("fr", [await ftl("en"), await ftl("fr")]);
 });
 // Les autres fichiers de la passe attendent les identifiants bruts.
-afterAll(() => setMessages("en", []));
+afterAll(resetMessages);
 
 const style: TextStyle = { size: 20, leading: 6, tracking: 0, font: ["Inter"], weight: 400, fill: null, align: "left", case: null, bg: null };
 const f = (owner: string, field: string, extra: Partial<FieldView> = {}): FieldView => ({

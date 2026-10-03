@@ -6,6 +6,7 @@ import type { SttState, SttStatus } from "./api";
 import { stt } from "./api";
 import type { DictationMode } from "./agent/keys";
 import { setMessages } from "./i18n";
+import { resetMessages } from "./test/messages";
 
 // Voir a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -46,6 +47,9 @@ function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
   ];
   return { calls, starts, restore: () => spies.forEach((s) => s.mockRestore()) };
 }
+
+// Remise à zéro même si une assertion échoue en cours de test.
+afterEach(resetMessages);
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement; restore: () => void } | null = null;
@@ -245,7 +249,6 @@ describe("modèle Apple", () => {
     const { host } = await mount();
     await openSettings(host);
     expect(host.querySelector("select option")?.textContent).toBe("Automatique (Français)");
-    setMessages("en", []);
   });
 
   test("Dictation Apple language to download shows no size", async () => {

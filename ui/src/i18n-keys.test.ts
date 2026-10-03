@@ -1,6 +1,7 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { cellLabel } from "./grid";
 import { setMessages, t } from "./i18n";
+import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) =>
   Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -27,6 +28,8 @@ beforeAll(async () => {
   en = await ftl("en");
   fr = await ftl("fr");
 });
+// Les autres fichiers de la passe attendent les identifiants bruts.
+afterAll(resetMessages);
 
 describe("messages de l'interface", () => {
   test("chaque identifiant utilisé par l'interface existe en anglais", async () => {

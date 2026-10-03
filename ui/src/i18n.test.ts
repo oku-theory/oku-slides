@@ -1,8 +1,12 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { applyMessages, availableLocales, chosenLocale, direction, languageName, locale, onLocaleChange, setMessages, t } from "./i18n";
+import { resetMessages } from "./test/messages";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
 const fr = "ui-hello = Bonjour { $name }\n";
+
+// Les autres fichiers de la passe attendent les identifiants bruts.
+afterAll(resetMessages);
 
 describe("t", () => {
   beforeEach(() => setMessages("fr", [en, fr]));

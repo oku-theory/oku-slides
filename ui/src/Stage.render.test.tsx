@@ -5,6 +5,7 @@ import { afterEach, afterAll, beforeAll, expect, test } from "bun:test";
 import "./test/dom";
 import type { FieldView, SlideView } from "./api";
 import { setMessages } from "./i18n";
+import { resetMessages } from "./test/messages";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -20,7 +21,7 @@ beforeAll(async () => {
   setMessages("fr", [await ftl("en"), await ftl("fr")]);
 });
 // Les autres fichiers de la passe attendent les identifiants bruts.
-afterAll(() => setMessages("en", []));
+afterAll(resetMessages);
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
