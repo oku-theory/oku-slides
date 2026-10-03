@@ -32,6 +32,8 @@ jobs:
           - name: Windows
             runner: windows-2022
     runs-on: ${{ matrix.runner }}
+    env:
+      TAURI_CLI_VERSION: 2.11.5
     # CTranslate2 (dictée) se compile en C++ : long sans cache.
     timeout-minutes: 120
     steps:
@@ -64,22 +66,18 @@ jobs:
           key: release
 
       - uses: taiki-e/install-action@v2
+        if: runner.os != 'macOS' || runner.arch != 'ARM64'
         with:
-          tool: tauri-cli@2.11.5
+          tool: tauri-cli@${{ env.TAURI_CLI_VERSION }}
 
-      # MVP: t-383 : sur le runner Apple Silicon, la configuration CMake de ct2rs détecte un hôte
-      # x86_64 (arm64 en local et dans ce shell) et ruy compile alors ses noyaux AVX pour arm64.
-      # CMAKE_APPLE_SILICON_PROCESSOR, le réglage CMake prévu pour ce cas, impose arm64 ; la cause
-      # reste à établir : relevé de l'environnement ici, de la détection CMake après le build.
-      - name: CMake en arm64 (macOS Apple Silicon)
+      # tauri-cli n'a pas de binaire précompilé arm64 : install-action prendrait celui pour x86_64,
+      # lancé sous Rosetta. Ses enfants hériteraient du mode x86_64 (CMake verrait un hôte x86_64
+      # et ruy compilerait ses noyaux AVX) et le .dmg serait nommé _x64. Compilé ici en natif.
+      - name: tauri-cli natif (macOS Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         run: |
-          echo "uname -m : $(uname -m) ; rustc : $(rustc -vV | grep host)"
-          echo "proc_translated : $(sysctl -n sysctl.proc_translated 2>/dev/null || echo absent)"
-          for c in $(which -a cmake) $(which -a uname); do file "$c"; done
-          cmake --version | head -1
-          env | grep -iE 'cmake|arch|processor|rosetta|macosx|sdkroot' | sort || true
-          echo "CMAKE_APPLE_SILICON_PROCESSOR=arm64" >> "$GITHUB_ENV"
+          cargo install tauri-cli --locked --version "$TAURI_CLI_VERSION"
+          file "$(command -v cargo-tauri)" | grep -q arm64 || { echo "::error::cargo-tauri n'est pas arm64"; exit 1; }
 
       # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
       # objets précompilés le remplacent.
@@ -115,15 +113,3 @@ jobs:
           releaseBody: Paquets Windows, macOS et Linux construits par le workflow Release.
           releaseDraft: true
           prerelease: false
-
-      # Après le build, réussi ou non : quel `uname` CMake a lancé, et dans quelle architecture.
-      - name: Détection CMake de ct2rs (macOS Apple Silicon)
-        if: always() && runner.os == 'macOS' && runner.arch == 'ARM64'
-        run: |
-          for d in target/release/build/ct2rs-*/out/build; do
-            echo "== $d"
-            cat "$d"/CMakeFiles/*/CMakeSystem.cmake || true
-            grep -iE 'PROCESSOR|OSX_ARCH|APPLE_SILICON|CMAKE_UNAME' "$d/CMakeCache.txt" || true
-            u=$(sed -n 's/^CMAKE_UNAME:FILEPATH=//p' "$d/CMakeCache.txt")
-            if [ -n "$u" ]; then file "$u"; fi
-          done
