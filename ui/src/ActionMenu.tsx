@@ -16,8 +16,18 @@ const BURGER = (
   </svg>
 );
 
-/** Le bouton burger et son menu. */
-export function ActionMenu({ label, entries }: { label: string; entries: MenuEntry[] }) {
+export interface ActionMenuProps {
+  label: string;
+  entries: MenuEntry[];
+  /** Pictogramme du bouton ; défaut : le burger. */
+  icon?: ReactNode;
+  /** Classes du bouton ; défaut : `object token`. */
+  triggerClass?: string;
+  disabled?: boolean;
+}
+
+/** Un bouton (burger par défaut) et son menu. */
+export function ActionMenu({ label, entries, icon = BURGER, triggerClass = "object token", disabled }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -58,14 +68,15 @@ export function ActionMenu({ label, entries }: { label: string; entries: MenuEnt
       <button
         ref={trigger}
         type="button"
-        className="object token action-menu-trigger"
+        className={`${triggerClass} action-menu-trigger`}
         aria-label={label}
         title={label}
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {BURGER}
+        {icon}
       </button>
       {open && (
         <div className="action-menu-list object" role="menu" aria-label={label} onKeyDown={onKey}>

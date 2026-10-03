@@ -23,7 +23,8 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_chart::ChartLabels;
 use oku_slides_core::{
-    Deck, DeckParams, Element, Op, PackRef, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits, WidgetRegistry,
+    Category, Deck, DeckParams, Element, Op, PackRef, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits,
+    WidgetRegistry,
 };
 pub use oku_slides_i18n::{Localize, Localizer};
 pub use oku_slides_platform::Platform;
@@ -83,7 +84,7 @@ pub use panel::PANEL_SURFACE;
 pub use request::Request;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
+    AddWidget, HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
     TemplatesView, UiState,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
@@ -366,6 +367,17 @@ impl Session {
             Mode::History { .. } => None,
         };
         files.map_or_else(Vec::new, |f| f.widgets().keys().filter(|n| !n.is_common()).map(|n| n.as_str()).collect())
+    }
+
+    /// Les widgets du pack que le registre tient pour des éléments : un
+    /// widget cassé ou de slide ne s'ajoute pas à une slide.
+    fn add_widgets(&self) -> Vec<AddWidget<'_>> {
+        self.pack_widget_names()
+            .into_iter()
+            .filter_map(|name| self.registry.get(name))
+            .filter(|w| w.category == Category::Element)
+            .map(|w| AddWidget { name: &w.name, label: w.label.as_deref() })
+            .collect()
     }
 
     fn editing(&self) -> Option<&TemplateMode> {
@@ -803,6 +815,7 @@ impl Session {
             editing: self.editing(),
             pack_notice: self.pack_notice_view(),
             pack_widgets: self.pack_widget_names(),
+            add_widgets: self.add_widgets(),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] Grafik
    *[text] Metin
 }
+ui-add-widget = Paket bileşeni
 ui-toolbar-remove-template = Şablonu sil
 ui-toolbar-remove-slide = Slaytı sil
 ui-toolbar-remove-hint = Slayt { $n } · ⌘Z ile geri alın
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] Grafik ekle
    *[text] Metin ekle
 }
+ui-undo-add-widget = “{ $name }” ekle
 ui-undo-new-template = Yeni şablon: { $name }
 ui-undo-new-slide = Yeni slayt: { $name }
 ui-undo-grid = Izgara { $columns } × { $rows }

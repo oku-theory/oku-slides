@@ -695,6 +695,11 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .action-menu-list [role="menuitem"]:hover:not(:disabled), .action-menu-list [role="menuitem"]:focus-visible { background: var(--shade); outline: none; }
 .action-menu-list [role="menuitem"]:disabled { color: var(--ink-muted); cursor: default; }
 .action-menu-list kbd { font: inherit; font-size: 12px; color: var(--ink-muted); }
+/* Menu « Widget » de la barre d'ajout : posée sous la feuille, la liste s'ouvre au-dessus. */
+.tools-tray:has(.action-menu-trigger[aria-expanded="true"]) { z-index: 10; }
+.tools-tray .action-menu-trigger { opacity: 1; }
+.tools-tray .action-menu-list { top: auto; bottom: calc(100% + 8px); inset-inline-end: auto; inset-inline-start: 50%; translate: -50% 0; min-width: 200px; }
+[dir="rtl"] .tools-tray .action-menu-list { translate: 50% 0; }
 .action-menu-sep { border: 0; border-top: 1px solid color-mix(in oklab, var(--edge) 50%, transparent); margin: 5px 4px; }
 .action-menu-custom { padding: 4px 10px; }
 .menu-theme { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }

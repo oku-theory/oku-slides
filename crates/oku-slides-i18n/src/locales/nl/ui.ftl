@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] Grafiek
    *[text] Tekst
 }
+ui-add-widget = Pakketwidget
 ui-toolbar-remove-template = Sjabloon verwijderen
 ui-toolbar-remove-slide = Dia verwijderen
 ui-toolbar-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] Grafiek toevoegen
    *[text] Tekst toevoegen
 }
+ui-undo-add-widget = “{ $name }” toevoegen
 ui-undo-new-template = Nieuw sjabloon: { $name }
 ui-undo-new-slide = Nieuwe dia: { $name }
 ui-undo-grid = Raster { $columns } × { $rows }

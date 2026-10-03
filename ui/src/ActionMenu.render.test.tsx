@@ -18,7 +18,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount() {
+async function mount(extra: Record<string, unknown> = {}) {
   const picked: string[] = [];
   const host = document.createElement("div");
   document.body.append(host);
@@ -34,6 +34,7 @@ async function mount() {
           { kind: "item", label: "Déplacer…", disabled: true, onSelect: () => picked.push("move") },
           { kind: "custom", node: createElement("span", { className: "extra" }, "Thème") },
         ],
+        ...extra,
       }),
     );
   });
@@ -103,5 +104,20 @@ describe("menu d'actions", () => {
     await act(async () => key(menu() as Element, "ArrowDown"));
     // La seconde est désactivée : on reste sur la seule active.
     expect(document.activeElement).toBe(items()[0]);
+  });
+
+  test("ActionMenu icon et triggerClass remplacent le burger et le style du bouton", async () => {
+    const icon = createElement("svg", { className: "custom-icon" });
+    const { trigger } = await mount({ icon, triggerClass: "token ghost" });
+    expect(trigger().querySelector(".custom-icon")).not.toBeNull();
+    expect(trigger().querySelectorAll("svg line").length).toBe(0);
+    expect(trigger().className).toBe("token ghost action-menu-trigger");
+  });
+
+  test("ActionMenu disabled : le bouton ne s'ouvre pas", async () => {
+    const { trigger, menu } = await mount({ disabled: true });
+    expect(trigger().disabled).toBe(true);
+    await act(async () => trigger().click());
+    expect(menu()).toBeNull();
   });
 });

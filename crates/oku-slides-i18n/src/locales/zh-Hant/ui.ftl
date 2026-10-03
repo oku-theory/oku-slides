@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] 圖表
    *[text] 文字
 }
+ui-add-widget = 範本包小工具
 ui-toolbar-remove-template = 刪除範本
 ui-toolbar-remove-slide = 刪除投影片
 ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] 新增圖表
    *[text] 新增文字
 }
+ui-undo-add-widget = 新增「{ $name }」
 ui-undo-new-template = 新範本：{ $name }
 ui-undo-new-slide = 新投影片：{ $name }
 ui-undo-grid = 格線 { $columns } × { $rows }

@@ -62,6 +62,7 @@ ui-add-kind = { $kind ->
     [chart] 차트
    *[text] 텍스트
 }
+ui-add-widget = 팩 위젯
 ui-toolbar-remove-template = 템플릿 삭제
 ui-toolbar-remove-slide = 슬라이드 삭제
 ui-toolbar-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [chart] 차트 추가
    *[text] 텍스트 추가
 }
+ui-undo-add-widget = ‘{ $name }’ 추가
 ui-undo-new-template = 새 템플릿: { $name }
 ui-undo-new-slide = 새 슬라이드: { $name }
 ui-undo-grid = 그리드 { $columns } × { $rows }

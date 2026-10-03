@@ -72,6 +72,7 @@ ui-add-kind = { $kind ->
     [chart] مخطط
    *[text] نص
 }
+ui-add-widget = أداة الحزمة
 ui-toolbar-remove-template = حذف القالب
 ui-toolbar-remove-slide = حذف الشريحة
 ui-toolbar-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
@@ -84,6 +85,7 @@ ui-undo-add = { $kind ->
     [chart] إضافة مخطط
    *[text] إضافة نص
 }
+ui-undo-add-widget = إضافة «{ $name }»
 ui-undo-new-template = قالب جديد: { $name }
 ui-undo-new-slide = شريحة جديدة: { $name }
 ui-undo-grid = شبكة { $columns } × { $rows }

@@ -856,3 +856,37 @@ fn snapshot_pack_widgets_is_empty_without_an_embedded_pack() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["pack_widgets"]).is_equal_to(json!([]));
 }
+
+const KPI_LABELLED: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", label: "KPI", params: (body: p.plain()),
+  (args, ctx) => field(ctx, "body", args.body))
+"#;
+
+const COVER_SLIDE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("cover", category: "slide", params: (title: p.plain()),
+  (args, ctx) => args.title)
+"#;
+
+/// La barre d'ajout propose les widgets d'élément du pack, avec leur label.
+#[test]
+fn snapshot_add_widgets_lists_the_pack_element_widgets_with_their_label() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_LABELLED}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["add_widgets"]).is_equal_to(json!([{"name": "kpi", "label": "KPI"}]));
+}
+
+/// Un widget de slide du pack ne s'ajoute pas à une slide : absent de la liste.
+#[test]
+fn snapshot_add_widgets_leaves_out_slide_widgets() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "set_widget", "name": "cover", "source": COVER_SLIDE}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["add_widgets"]).is_equal_to(json!([]));
+}
+
+/// Un widget du pack qui ne compile pas n'est pas au registre : absent de la liste.
+#[test]
+fn snapshot_add_widgets_leaves_out_broken_widgets() {
+    let mut s = session();
+    let _ = s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": "#let widget = ("})));
+    assert_that!(snapshot_json(&mut s)["add_widgets"]).is_equal_to(json!([]));
+}

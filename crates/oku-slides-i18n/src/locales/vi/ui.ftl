@@ -62,6 +62,7 @@ ui-add-kind = { $kind ->
     [chart] Biểu đồ
    *[text] Văn bản
 }
+ui-add-widget = Tiện ích của gói
 ui-toolbar-remove-template = Xóa mẫu
 ui-toolbar-remove-slide = Xóa trang chiếu
 ui-toolbar-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [chart] Thêm biểu đồ
    *[text] Thêm văn bản
 }
+ui-undo-add-widget = Thêm “{ $name }”
 ui-undo-new-template = Mẫu mới: { $name }
 ui-undo-new-slide = Trang chiếu mới: { $name }
 ui-undo-grid = Lưới { $columns } × { $rows }

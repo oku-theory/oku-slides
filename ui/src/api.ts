@@ -34,6 +34,12 @@ export interface Appearance {
   chart_palette: string[];
 }
 
+/** Un widget de pack qu'on ajoute à une slide : son nom (`kind`) et son label. */
+export interface AddWidget {
+  name: string;
+  label: string | null;
+}
+
 export interface Snapshot {
   path: string | null;
   name: string;
@@ -60,6 +66,8 @@ export interface Snapshot {
   pack_notice: PackNotice | null;
   /** Widgets du pack en cours (fichiers, sans `_commun`), sans sonde. */
   pack_widgets: string[];
+  /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
+  add_widgets: AddWidget[];
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   ui: UiState;

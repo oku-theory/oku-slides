@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] Diagramm
    *[text] Text
 }
+ui-add-widget = Paket-Widget
 ui-toolbar-remove-template = Vorlage löschen
 ui-toolbar-remove-slide = Folie löschen
 ui-toolbar-remove-hint = Folie { $n } · rückgängig mit ⌘Z
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] Diagramm hinzufügen
    *[text] Text hinzufügen
 }
+ui-undo-add-widget = „{ $name }“ hinzufügen
 ui-undo-new-template = Neue Vorlage: { $name }
 ui-undo-new-slide = Neue Folie: { $name }
 ui-undo-grid = Raster { $columns } × { $rows }

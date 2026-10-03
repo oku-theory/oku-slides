@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import type { AddWidget, AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -11,7 +11,7 @@ import { applyAppearance } from "./appearance";
 import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
 import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, slot, textToParagraphs } from "./deck";
-import { newElement } from "./newElement";
+import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import { ColumnDividers } from "./ColumnDivider";
@@ -28,7 +28,7 @@ import { ChartPanel } from "./chart/ChartPanel";
 import { Icon } from "./icons";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
-import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
+import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
 import { panelActionOps } from "./a2ui/panelActions";
 import { AgentThread } from "./agent/AgentThread";
@@ -330,14 +330,22 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
   /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
   const addElement = (kind: AddKind, text?: Paragraph[], label?: string) => {
+    const element = newElement(kind, newId(kind[0]));
+    if (kind === "text" && text) element.params = { ...element.params, body: text };
+    place(element, label ?? t("ui-undo-add", { kind }), kind === "text" && !text);
+  };
+
+  /** Ajoute un widget du pack, avec les défauts de ses paramètres. */
+  const addPackWidget = (w: AddWidget) => {
+    place(newPackWidget(w.name, newId("w")), t("ui-undo-add-widget", { name: w.label ?? w.name }), false);
+  };
+
+  /** Pose `element` sur la slide affichée, puis le sélectionne (et l'édite si `edit`). */
+  const place = (element: Element, label: string, edit: boolean) => {
     if (!view) return;
     const slide = view.slide;
-    const id = newId(kind[0]);
     const zone = view.zone;
     const g = zone?.grid;
-    const element = newElement(kind, id);
-    if (kind === "text" && text) element.params = { ...element.params, body: text };
-    label ??= t("ui-undo-add", { kind });
     let ops: Op[];
     const hasBlocks = slot(slide, "blocks").length > 0;
     if (zone && g && !hasBlocks) {
@@ -348,8 +356,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       ops = [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "blocks" }, element }];
     }
     apply(label, ops).then(() => {
-      setSelected(id);
-      if (kind === "text" && !text) editWhenShown(id);
+      setSelected(element.id);
+      if (edit) editWhenShown(element.id);
     });
   };
 
@@ -464,6 +472,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // Clé par contenu : chaque snapshot apporte un nouveau tableau.
   const packWidgetsKey = (snap?.pack_widgets ?? []).join("\n");
   const packWidgets = useMemo(() => new Set(packWidgetsKey ? packWidgetsKey.split("\n") : []), [packWidgetsKey]);
+  const addWidgets = menuWidgets(snap?.add_widgets ?? []);
   const finishTemplates = async () => {
     if (!snap?.editing) return;
     await autosave.flush();
@@ -760,6 +769,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
               </button>
             );
           })}
+          {addWidgets.length > 0 && (
+            <ActionMenu
+              label={t("ui-add-widget")}
+              icon={Icon.widget}
+              triggerClass="token ghost"
+              disabled={!canAdd("widget", view?.slide.kind)}
+              entries={addWidgets.map((w) => ({ kind: "item", label: w.label ?? w.name, onSelect: () => addPackWidget(w) }))}
+            />
+          )}
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>

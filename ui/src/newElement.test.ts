@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { newElement } from "./newElement";
+import { newElement, newPackWidget } from "./newElement";
 
 describe("newElement", () => {
   test("text : un paragraphe de départ dans params.body", () => {
@@ -32,5 +32,11 @@ describe("newElement", () => {
 
   test("chaque élément garde l'id donné", () => {
     expect(newElement("text", "abc").id).toBe("abc");
+  });
+});
+
+describe("newPackWidget", () => {
+  test("newPackWidget nomme le widget en kind, sans params : ses défauts valent", () => {
+    expect(newPackWidget("kpi", "e-5")).toEqual({ id: "e-5", kind: "kpi" });
   });
 });

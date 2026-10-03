@@ -18,3 +18,8 @@ export function newElement(kind: AddKind, id: string): Element {
       return { id, kind: "chart", params: { option: starterChart() } };
   }
 }
+
+/** Widget du pack neuf : son nom en `kind`, sans params (ses défauts valent). */
+export function newPackWidget(name: string, id: string): Element {
+  return { id, kind: name };
+}

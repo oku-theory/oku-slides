@@ -62,6 +62,7 @@ ui-add-kind = { $kind ->
     [chart] แผนภูมิ
    *[text] ข้อความ
 }
+ui-add-widget = วิดเจ็ตของแพ็ก
 ui-toolbar-remove-template = ลบเทมเพลต
 ui-toolbar-remove-slide = ลบสไลด์
 ui-toolbar-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [chart] เพิ่มแผนภูมิ
    *[text] เพิ่มข้อความ
 }
+ui-undo-add-widget = เพิ่ม “{ $name }”
 ui-undo-new-template = เทมเพลตใหม่: { $name }
 ui-undo-new-slide = สไลด์ใหม่: { $name }
 ui-undo-grid = เส้นตาราง { $columns } × { $rows }

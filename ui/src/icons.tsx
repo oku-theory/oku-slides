@@ -19,6 +19,8 @@ export const Icon = {
   card: stroke(<><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="M7 10h10M7 14h6" /></>),
   shape: stroke(<><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></>),
   chart: stroke(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>),
+  // Puis le menu des widgets du pack : trois tuiles et une pièce posée de biais.
+  widget: stroke(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 3.5l3.5 3.5-3.5 3.5-3.5-3.5z" /></>),
   // Actions.
   add: stroke(<path d="M12 5v14M5 12h14" />),
   check: stroke(<path d="M5 12.5l4.5 4.5L19 7.5" />),

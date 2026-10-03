@@ -76,10 +76,19 @@ pub struct Snapshot<'a> {
     pub pack_notice: Option<crate::PackNoticeView>,
     /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.
     pub pack_widgets: Vec<&'a str>,
+    /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
+    pub add_widgets: Vec<AddWidget<'a>>,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.
     pub history: Option<HistoryView<'a>>,
+}
+
+/// Un widget de pack qu'on ajoute à une slide : son nom (`kind`) et son label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct AddWidget<'a> {
+    pub name: &'a str,
+    pub label: Option<&'a str>,
 }
 
 /// La version que montre l'historique, et ce qui a changé depuis.

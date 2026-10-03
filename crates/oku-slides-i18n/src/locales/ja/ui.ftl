@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] グラフ
    *[text] テキスト
 }
+ui-add-widget = パックのウィジェット
 ui-toolbar-remove-template = テンプレートを削除
 ui-toolbar-remove-slide = スライドを削除
 ui-toolbar-remove-hint = スライド { $n } · ⌘Z で取り消し
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] グラフを追加
    *[text] テキストを追加
 }
+ui-undo-add-widget = 「{ $name }」を追加
 ui-undo-new-template = 新規テンプレート：{ $name }
 ui-undo-new-slide = 新規スライド：{ $name }
 ui-undo-grid = グリッド { $columns } × { $rows }

@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] Grafico
    *[text] Testo
 }
+ui-add-widget = Widget del pacchetto
 ui-toolbar-remove-template = Elimina il modello
 ui-toolbar-remove-slide = Elimina la diapositiva
 ui-toolbar-remove-hint = Diapositiva { $n } · annulla con ⌘Z
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] Aggiungi un grafico
    *[text] Aggiungi un testo
 }
+ui-undo-add-widget = Aggiungi «{ $name }»
 ui-undo-new-template = Nuovo modello: { $name }
 ui-undo-new-slide = Nuova diapositiva: { $name }
 ui-undo-grid = Griglia { $columns } × { $rows }

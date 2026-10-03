@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] 图表
    *[text] 文本
 }
+ui-add-widget = 模板包小组件
 ui-toolbar-remove-template = 删除模板
 ui-toolbar-remove-slide = 删除幻灯片
 ui-toolbar-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] 添加图表
    *[text] 添加文本
 }
+ui-undo-add-widget = 添加“{ $name }”
 ui-undo-new-template = 新模板：{ $name }
 ui-undo-new-slide = 新幻灯片：{ $name }
 ui-undo-grid = 网格 { $columns } × { $rows }

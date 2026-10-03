@@ -68,6 +68,7 @@ ui-add-kind = { $kind ->
     [chart] Wykres
    *[text] Tekst
 }
+ui-add-widget = Widżet pakietu
 ui-toolbar-remove-template = Usuń szablon
 ui-toolbar-remove-slide = Usuń slajd
 ui-toolbar-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
@@ -80,6 +81,7 @@ ui-undo-add = { $kind ->
     [chart] Dodaj wykres
    *[text] Dodaj tekst
 }
+ui-undo-add-widget = Dodaj „{ $name }”
 ui-undo-new-template = Nowy szablon: { $name }
 ui-undo-new-slide = Nowy slajd: { $name }
 ui-undo-grid = Siatka { $columns } × { $rows }

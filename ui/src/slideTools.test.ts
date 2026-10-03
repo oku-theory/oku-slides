@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SlideKind } from "./api";
-import { ADD_KINDS, canAdd, canRemoveSlide } from "./slideTools";
+import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 
 describe("canAdd", () => {
   test("sur une slide de contenu, tout s'ajoute", () => {
@@ -32,5 +32,18 @@ describe("canRemoveSlide", () => {
 
   test("avec deux slides, la suppression est permise", () => {
     expect(canRemoveSlide(2)).toBe(true);
+  });
+});
+
+describe("menuWidgets", () => {
+  test("menuWidgets écarte les widgets du pack qui ont déjà leur bouton", () => {
+    const list = [{ name: "card", label: "Carte maison" }, { name: "kpi", label: "KPI" }];
+    expect(menuWidgets(list)).toEqual([{ name: "kpi", label: "KPI" }]);
+  });
+});
+
+describe("canAdd widget", () => {
+  test("canAdd un widget du pack suit la règle des éléments non textuels", () => {
+    expect([canAdd("widget", "content"), canAdd("widget", "blank"), canAdd("widget", "title")]).toEqual([true, true, false]);
   });
 });

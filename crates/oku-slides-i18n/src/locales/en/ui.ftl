@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] Chart
    *[text] Text
 }
+ui-add-widget = Pack widget
 ui-toolbar-remove-template = Delete the template
 ui-toolbar-remove-slide = Delete the slide
 ui-toolbar-remove-hint = Slide { $n } · undo with ⌘Z
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] Add a chart
    *[text] Add a text
 }
+ui-undo-add-widget = Add “{ $name }”
 ui-undo-new-template = New template: { $name }
 ui-undo-new-slide = New slide: { $name }
 ui-undo-grid = Grid { $columns } × { $rows }

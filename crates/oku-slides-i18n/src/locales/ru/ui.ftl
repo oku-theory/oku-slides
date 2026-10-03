@@ -68,6 +68,7 @@ ui-add-kind = { $kind ->
     [chart] Диаграмма
    *[text] Текст
 }
+ui-add-widget = Виджет пакета
 ui-toolbar-remove-template = Удалить шаблон
 ui-toolbar-remove-slide = Удалить слайд
 ui-toolbar-remove-hint = Слайд { $n } · отменить: ⌘Z
@@ -80,6 +81,7 @@ ui-undo-add = { $kind ->
     [chart] Добавить диаграмму
    *[text] Добавить текст
 }
+ui-undo-add-widget = Добавить «{ $name }»
 ui-undo-new-template = Новый шаблон: { $name }
 ui-undo-new-slide = Новый слайд: { $name }
 ui-undo-grid = Сетка { $columns } × { $rows }

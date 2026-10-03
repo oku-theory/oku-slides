@@ -64,6 +64,7 @@ ui-add-kind = { $kind ->
     [chart] চার্ট
    *[text] টেক্সট
 }
+ui-add-widget = প্যাক উইজেট
 ui-toolbar-remove-template = টেমপ্লেট মুছুন
 ui-toolbar-remove-slide = স্লাইড মুছুন
 ui-toolbar-remove-hint = স্লাইড { $n } · ⌘Z দিয়ে পূর্বাবস্থায় ফেরান
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [chart] চার্ট যোগ করুন
    *[text] টেক্সট যোগ করুন
 }
+ui-undo-add-widget = “{ $name }” যোগ করুন
 ui-undo-new-template = নতুন টেমপ্লেট: { $name }
 ui-undo-new-slide = নতুন স্লাইড: { $name }
 ui-undo-grid = গ্রিড { $columns } × { $rows }
