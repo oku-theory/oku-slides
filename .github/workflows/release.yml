@@ -67,17 +67,19 @@ jobs:
         with:
           tool: tauri-cli@2.11.5
 
-      # MVP: t-383 : sur le runner Apple Silicon, CMake détecte CMAKE_SYSTEM_PROCESSOR=x86_64
-      # (arm64 en local) et ruy compile alors ses noyaux AVX pour arm64. Cause à établir : relevé
-      # de l'environnement avant le build, puis de la détection CMake s'il échoue.
-      - name: Diagnostic CMake (macOS Apple Silicon)
+      # MVP: t-383 : sur le runner Apple Silicon, la configuration CMake de ct2rs détecte un hôte
+      # x86_64 (arm64 en local et dans ce shell) et ruy compile alors ses noyaux AVX pour arm64.
+      # CMAKE_APPLE_SILICON_PROCESSOR, le réglage CMake prévu pour ce cas, impose arm64 ; la cause
+      # reste à établir : relevé de l'environnement ici, de la détection CMake après le build.
+      - name: CMake en arm64 (macOS Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         run: |
           echo "uname -m : $(uname -m) ; rustc : $(rustc -vV | grep host)"
           echo "proc_translated : $(sysctl -n sysctl.proc_translated 2>/dev/null || echo absent)"
-          for c in $(which -a cmake); do file "$c"; done
+          for c in $(which -a cmake) $(which -a uname); do file "$c"; done
           cmake --version | head -1
           env | grep -iE 'cmake|arch|processor|rosetta|macosx|sdkroot' | sort || true
+          echo "CMAKE_APPLE_SILICON_PROCESSOR=arm64" >> "$GITHUB_ENV"
 
       # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
       # objets précompilés le remplacent.
@@ -114,11 +116,14 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      - name: Détection CMake de ct2rs (macOS Apple Silicon, en cas d'échec)
-        if: failure() && runner.os == 'macOS' && runner.arch == 'ARM64'
+      # Après le build, réussi ou non : quel `uname` CMake a lancé, et dans quelle architecture.
+      - name: Détection CMake de ct2rs (macOS Apple Silicon)
+        if: always() && runner.os == 'macOS' && runner.arch == 'ARM64'
         run: |
           for d in target/release/build/ct2rs-*/out/build; do
             echo "== $d"
             cat "$d"/CMakeFiles/*/CMakeSystem.cmake || true
-            grep -iE 'PROCESSOR|OSX_ARCH|APPLE_SILICON' "$d/CMakeCache.txt" || true
+            grep -iE 'PROCESSOR|OSX_ARCH|APPLE_SILICON|CMAKE_UNAME' "$d/CMakeCache.txt" || true
+            u=$(sed -n 's/^CMAKE_UNAME:FILEPATH=//p' "$d/CMakeCache.txt")
+            if [ -n "$u" ]; then file "$u"; fi
           done
