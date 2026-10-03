@@ -152,3 +152,59 @@ fn no_schema_gives_an_explicit_diagnostic_not_an_empty_preview() {
     assert_that!(preview.diagnostics[0].error).is_true();
     assert_that!(preview.diagnostics[0].file.clone()).is_equal_to(Some(name));
 }
+
+const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("couverture", category: "slide", params: (title: p.plain()),
+  (args, ctx) => field(ctx, "title", args.title))
+"#;
+
+#[test]
+fn preview_of_an_element_widget_gives_the_box_of_what_it_draws() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let bbox = preview.bbox.unwrap();
+    // Une ligne de texte : bien plus petite que la grille (1680 × 790 pt).
+    assert_that!(bbox.w).is_greater_than(0.0);
+    assert_that!(bbox.h).is_greater_than(0.0);
+    assert_that!(bbox.w).is_less_than(1680.0);
+    assert_that!(bbox.h).is_less_than(200.0);
+    let json = serde_json::to_value(bbox).unwrap();
+    assert_that!(json).is_equal_to(json!({ "x": bbox.x, "y": bbox.y, "w": bbox.w, "h": bbox.h }));
+}
+
+#[test]
+fn preview_of_a_slide_widget_has_no_box() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let preview = s.preview_widget("couverture", &Map::new(), PreviewFormat::Svg).unwrap();
+    assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
+    assert_that!(preview.svg.is_some()).is_true();
+    assert_that!(preview.bbox).is_none();
+}
+
+#[test]
+fn preview_keeps_the_bare_slide_png_between_previews() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let first = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let kept = s.widget_preview.as_ref().and_then(|p| p.bare.clone()).unwrap();
+    // Une autre source du widget montré : la slide sans éléments ne change pas.
+    s.set_widget("quote", QUOTE.replace("emph", "strong")).unwrap();
+    let second = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    assert_that!(s.widget_preview.as_ref().and_then(|p| p.bare.clone())).is_equal_to(Some(kept));
+    assert_that!(first.bbox.is_some() && second.bbox.is_some()).is_true();
+}
+
+#[test]
+fn png_preview_for_the_agent_has_no_box() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Png).unwrap();
+    assert_that!(preview.png.is_some()).is_true();
+    assert_that!(preview.bbox).is_none();
+}

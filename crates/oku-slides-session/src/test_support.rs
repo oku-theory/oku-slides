@@ -106,3 +106,14 @@ pub(crate) fn session_on(data: &std::path::Path) -> Session {
 pub(crate) fn library_of(s: &Session) -> &crate::library::Library {
     &s.library
 }
+
+/// Le fichier touché par un autre outil : même deck, autre empreinte.
+///
+/// La date `/ModDate` change, à longueur égale.
+pub(crate) fn touch_elsewhere(path: &std::path::Path) {
+    let mut bytes = std::fs::read(path).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
+    let at = bytes.windows(8).position(|w| w == b"/ModDate").unwrap_or_else(|| panic!("sans /ModDate"));
+    let date = at + bytes[at..].windows(2).position(|w| w == b"D:").unwrap_or_else(|| panic!("date illisible")) + 2;
+    bytes[date..date + 4].copy_from_slice(b"2099");
+    std::fs::write(path, bytes).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
+}

@@ -64,6 +64,8 @@ clap = { version = "4", features = ["derive"] }
 charts-rs = "1.1"
 json-patch = "4"
 typst-layout = "0.15.1"
+# Aperçu des widgets recadré sur leur dessin (t-392) ; déjà tiré par typst-render.
+png = "0.18"
 tiny_http = "0.12"
 similar = "3"
 loro = "1.16"

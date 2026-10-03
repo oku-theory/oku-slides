@@ -178,6 +178,8 @@ export interface WidgetChange {
 /** Aperçu d'un widget seul : SVG, ou les diagnostics qui l'en empêchent. */
 export interface WidgetPreview {
   svg: string | null;
+  /** Ce que dessine un widget d'élément sur la slide (pt) ; `null` pour un widget de slide. */
+  bbox?: Frame | null;
   diagnostics: WidgetDiagnostic[];
 }
 

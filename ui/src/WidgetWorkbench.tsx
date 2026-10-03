@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { errorText, type TabApi, type WidgetPreview, type WidgetStatus } from "./api";
+import { croppedSvg } from "./widgetPreview";
 import { PREVIEW_DELAY_MS, debounced } from "./debounce";
 import { t } from "./i18n";
 import { Icon } from "./icons";
@@ -197,7 +198,12 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
   const currentStatus = statuses?.find((s) => s.name === current);
   const editorDiagnostics = useMemo(() => (current ? fileDiagnostics(currentStatus, current) : []), [currentStatus, current]);
   const previewUrl = useMemo(
-    () => (preview?.svg ? URL.createObjectURL(new Blob([preview.svg], { type: "image/svg+xml" })) : null),
+    () => {
+      if (!preview?.svg) return null;
+      // Un widget d'élément est cadré sur ce qu'il dessine, pas sur la slide entière.
+      const svg = croppedSvg(preview.svg, preview.bbox ?? null);
+      return URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    },
     [preview],
   );
   useEffect(() => () => {

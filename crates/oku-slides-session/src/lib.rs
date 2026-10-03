@@ -51,6 +51,7 @@ mod merge;
 pub mod pack;
 mod pack_notice;
 mod panel;
+mod preview_crop;
 mod render_fonts;
 mod request;
 mod resume;
@@ -85,7 +86,7 @@ pub use views::{
     HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
     TemplatesView, UiState,
 };
-pub use widget_preview::{PreviewFormat, WidgetPreview};
+pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
@@ -478,7 +479,7 @@ impl Session {
             ),
         );
         // La séance des widgets du mode deck finit à la première autre modification.
-        if req.changes_deck() && !req.is_widget_edit() {
+        if req.ends_widget_session() {
             self.end_widget_session();
         }
         match req {

@@ -10,7 +10,9 @@
 //! (`undo_steps` inchangé) ; sinon annuler y revient, elle reste. Annuler
 //! rend la version d'avant ; la bibliothèque garde la version créée. La
 //! séance finit à la première opération qui n'est pas une modification de
-//! widget, et aux bornes d'un tour de l'agent.
+//! widget, et aux bornes d'un tour de l'agent. Un enregistrement la garde
+//! (l'interface enregistre après chaque écriture), sauf s'il fusionne un
+//! fichier changé sur disque.
 //!
 //! Le deck est rendu avant toute écriture dans la bibliothèque : un widget
 //! dont le corps échoue au rendu ne change rien (`set_widget` en rend les
@@ -129,7 +131,6 @@ impl Session {
         {
             self.doc.sources.packs.remove(&s.version);
         }
-        self.pack_notice = self.pack_notice_for_deck();
         // Le deck embarque la version : un échec d'écriture n'y perd rien.
         let written = match replaced {
             Some(s) => self.library.replace_version(t.id, &s.version, &files).map(|_| ()),
@@ -138,6 +139,8 @@ impl Session {
         if let Err(e) = written {
             tracing::error!(error = %e.one_line(), "version de widgets non écrite dans la bibliothèque");
         }
+        // Après l'écriture : la bibliothèque connaît la version, courante (pas de bandeau).
+        self.pack_notice = self.pack_notice_for_deck();
         Ok(WidgetSession { id: t.id, parent, version })
     }
 }

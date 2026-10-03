@@ -69,6 +69,8 @@ impl Session {
     /// un rendu raté ne laisse pas un contenu fusionné passer pour enregistré.
     /// `on_save` : une fusion qui n'importe rien ne pose pas d'avis.
     fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
+        // Le deck reçoit un autre état : la séance des widgets finit (`Save` compris).
+        self.end_widget_session();
         let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len());
         let before = count(&self.doc.sources);
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;

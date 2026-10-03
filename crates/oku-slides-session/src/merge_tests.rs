@@ -2,6 +2,7 @@ use oku_slides_core::MergeReport;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::test_support::touch_elsewhere;
 
 /// Le texte sans les marques d'isolement bidirectionnel de Fluent.
 fn plain(text: String) -> String {
@@ -62,16 +63,6 @@ fn saved(dir: &Dir) -> (Session, PathBuf) {
     let path = dir.0.join("deck.oku-slides.pdf");
     s.save(Some(&path)).unwrap();
     (s, path)
-}
-
-/// Le fichier touché par un autre outil : même deck, autre empreinte (la
-/// date `/ModDate` change, à longueur égale).
-fn touch_elsewhere(path: &Path) {
-    let mut bytes = std::fs::read(path).unwrap();
-    let at = bytes.windows(8).position(|w| w == b"/ModDate").unwrap();
-    let date = at + bytes[at..].windows(2).position(|w| w == b"D:").unwrap() + 2;
-    bytes[date..date + 4].copy_from_slice(b"2099");
-    std::fs::write(path, bytes).unwrap();
 }
 
 #[test]

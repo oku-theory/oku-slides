@@ -69,6 +69,22 @@ describe("PackNoticeBar", () => {
     expectIconOnly(host.querySelector(".pack-notice-close"));
   });
 
+  test("PackNoticeBar is a bar: text, then text buttons side by side, then close", async () => {
+    const host = await mount([]);
+    const bar = host.querySelector(".pack-notice");
+    // Une barre posée, pas un objet qui se soulève au survol.
+    expect(bar?.classList.contains("object")).toBe(false);
+    expect([...(bar?.children ?? [])].map((c) => c.className)).toEqual([
+      "pack-notice-text",
+      "pack-notice-actions",
+      "token ghost pack-notice-close",
+    ]);
+    // Des boutons de texte, pas des pastilles rondes d'icône (`token`).
+    const [mine, current] = [...host.querySelectorAll(".pack-notice-actions button")];
+    expect(mine?.className).toBe("btn primary");
+    expect(current?.className).toBe("btn ghost");
+  });
+
   test("PackNoticeBar hides make current when the session does not offer it", async () => {
     const host = await mount([], { ...notice, make_current: null });
     const actions = host.querySelectorAll(".pack-notice-actions button");

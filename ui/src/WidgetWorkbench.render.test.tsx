@@ -365,3 +365,36 @@ describe("WidgetWorkbench, édition", () => {
     await act(async () => writes[1]?.resolve({ status: statuses[0], broken: [] }));
   });
 });
+
+describe("WidgetWorkbench, aperçu", () => {
+  test("un widget d'élément est cadré sur sa boîte", async () => {
+    const blobs: Blob[] = [];
+    const create = URL.createObjectURL;
+    URL.createObjectURL = (b: Blob | MediaSource) => {
+      blobs.push(b as Blob);
+      return "blob:apercu";
+    };
+    try {
+      const fake = {
+        widgetStatus: async () => [statuses[0]],
+        widgetSource: async () => "#let a = 1\n",
+        previewWidget: async () => ({
+          svg: '<svg viewBox="0 0 1920 1080" width="1920pt" height="1080pt"></svg>',
+          bbox: { x: 100, y: 200, w: 300, h: 40 },
+          diagnostics: [],
+        }),
+      } as unknown as TabApi;
+      const { host } = await mountWith(fake);
+      await pick(host, "kpi");
+      expect(host.querySelector(".workbench-preview img")?.getAttribute("src")).toBe("blob:apercu");
+      const svg = await blobs.at(-1)?.text();
+      const box = /viewBox="([^"]*)"/.exec(svg ?? "")?.[1]?.split(" ").map(Number) ?? [];
+      // La boîte (100, 200, 300 × 40) avec sa marge, pas la slide entière.
+      const m = 100 - (box[0] ?? 0);
+      expect(m).toBeGreaterThan(0);
+      expect(box).toEqual([100 - m, 200 - m, 300 + 2 * m, 40 + 2 * m]);
+    } finally {
+      URL.createObjectURL = create;
+    }
+  });
+});

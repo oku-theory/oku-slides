@@ -114,7 +114,13 @@ fn read_state_without_ghosts_or_columns_returns_defaults() {
     let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{{"slide":"s-1","grid":false}}}}"#);
     std::fs::write(r.dir.join("state.json"), state).unwrap();
     let back = r.read_state().unwrap().unwrap();
-    assert_that!(back.ui).is_equal_to(UiState { slide: Some("s-1".into()), grid: false, ghosts: false, pile: None, notes: None });
+    assert_that!(back.ui).is_equal_to(UiState {
+        slide: Some("s-1".into()),
+        grid: false,
+        ghosts: false,
+        pile: None,
+        notes: None,
+    });
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

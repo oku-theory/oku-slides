@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use crate::SessionErrorKind;
 use crate::pack::{DEFAULT_PACK, PackManifest};
-use crate::test_support::{fresh_dir, library_of, opened_on};
+use crate::test_support::{fresh_dir, library_of, opened_on, touch_elsewhere};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -222,4 +222,62 @@ fn two_writes_in_one_agent_turn_keep_only_the_last_version() {
     assert_that!(s.doc.sources.packs.len()).is_equal_to(packs + 1);
     s.undo().unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(before));
+}
+
+#[test]
+fn set_widget_in_deck_mode_shows_no_pack_notice() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let r = s.deck().templates.clone().unwrap();
+    assert_that!(library_of(&s).current(r.id)).is_equal_to(Some(r.version.clone()));
+    assert_that!(s.snapshot().pack_notice.map(|n| n.message)).is_none();
+    s.set_widget("quote", QUOTE_V2.into()).unwrap();
+    assert_that!(s.snapshot().pack_notice.map(|n| n.message)).is_none();
+}
+
+/// `Save` de l'interface (sans `overwrite`), dans `path`.
+fn save(path: &std::path::Path) -> crate::Request {
+    crate::Request::Save { path: Some(path.to_owned()), overwrite: false }
+}
+
+/// `SetWidget` de l'interface.
+fn set(source: &str) -> crate::Request {
+    crate::Request::SetWidget { name: "quote".into(), source: source.into() }
+}
+
+#[test]
+fn a_save_between_two_widget_writes_keeps_the_widget_session() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    let path = data.path().join("deck.oku-slides.pdf");
+    s.handle(save(&path)).unwrap();
+    let before = s.deck().templates.clone().unwrap();
+    let versions = library_of(&s).versions(before.id).len();
+    s.handle(set(QUOTE)).unwrap();
+    s.handle(save(&path)).unwrap();
+    s.handle(set(QUOTE_V2)).unwrap();
+    s.handle(save(&path)).unwrap();
+    // Une seule version nouvelle (l'intermédiaire remplacée), une seule étape.
+    assert_that!(library_of(&s).versions(before.id).len()).is_equal_to(versions + 1);
+    s.handle(crate::Request::Undo).unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(before));
+}
+
+#[test]
+fn a_save_that_merges_a_change_on_disk_ends_the_widget_session() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    let path = data.path().join("deck.oku-slides.pdf");
+    s.handle(save(&path)).unwrap();
+    s.handle(set(QUOTE)).unwrap();
+    let first = s.deck().templates.clone().unwrap();
+    touch_elsewhere(&path);
+    s.handle(save(&path)).unwrap();
+    s.handle(set(QUOTE_V2)).unwrap();
+    let second = s.deck().templates.clone().unwrap();
+    let lib = library_of(&s);
+    assert_that!(lib.version(first.id, &first.version).is_some()).is_true();
+    let manifest = PackManifest::from_files(&lib.version(second.id, &second.version).unwrap()).unwrap();
+    assert_that!(manifest.parent).is_equal_to(Some(first.version));
 }

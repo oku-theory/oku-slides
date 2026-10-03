@@ -5559,6 +5559,7 @@ dependencies = [
  "oku-slides-platform",
  "oku-slides-render",
  "oku-slides-render-worker",
+ "png 0.18.1",
  "rstest",
  "schemars 1.2.2",
  "serde",

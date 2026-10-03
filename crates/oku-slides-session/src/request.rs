@@ -210,6 +210,16 @@ impl Request {
         )
     }
 
+    /// Vrai si la requête termine la séance des widgets du mode deck.
+    ///
+    /// Toute requête qui change le deck, sauf une modification de widget et
+    /// `Save` : l'enregistrement ne la termine que s'il fusionne un fichier
+    /// changé sur disque (voir `Session::absorb`). L'interface enregistre
+    /// après chaque écriture : sinon chacune ferait une version du pack.
+    pub(crate) fn ends_widget_session(&self) -> bool {
+        self.changes_deck() && !matches!(self, Self::Save { .. }) && !self.is_widget_edit()
+    }
+
     /// Vrai pour une modification de widget : elle ne termine pas la séance des widgets.
     pub(crate) fn is_widget_edit(&self) -> bool {
         matches!(self, Self::SetWidget { .. } | Self::RemoveWidget { .. } | Self::RenameWidget { .. })

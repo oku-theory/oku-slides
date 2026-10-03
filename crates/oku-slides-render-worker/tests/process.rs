@@ -59,7 +59,9 @@ fn set_widgets_error(w: &RenderWorker, id: &str, name: &str, source: &str) -> Re
 
 #[test]
 fn process_set_widgets_that_loops_times_out() {
-    let w = worker(500, 4096);
+    // Le délai borne aussi le lancement du processus et l'ouverture de
+    // l'emplacement : 500 ms n'y suffisent pas toujours. La boucle dure bien plus.
+    let w = worker(3_000, 4096);
     let kind = set_widgets_error(&w, "boucle", "boucle", test_packs::LOOP_ON_IMPORT);
     assert_that!(kind).is_equal_to(RenderErrorKind::Timeout);
 }

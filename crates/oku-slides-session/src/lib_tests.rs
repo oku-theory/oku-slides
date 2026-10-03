@@ -199,6 +199,20 @@ fn is_widget_edit_widget_writes_return_true_and_others_false() {
 }
 
 #[test]
+fn ends_widget_session_spares_save_and_widget_writes() {
+    let request = |v| serde_json::from_value::<Request>(v).unwrap();
+    let kept = [
+        json!({ "cmd": "save" }),
+        json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
+        json!({ "cmd": "snapshot" }),
+    ];
+    assert_that!(kept.into_iter().map(request).any(|r| r.ends_widget_session())).is_false();
+    let ending =
+        [json!({ "cmd": "undo" }), json!({ "cmd": "merge", "path": "x" }), json!({ "cmd": "close_templates" })];
+    assert_that!(ending.into_iter().map(request).all(|r| r.ends_widget_session())).is_true();
+}
+
+#[test]
 fn apply_set_param_on_card_title_sets_that_title() {
     let mut s = session_with_fixture();
     let target = OpTarget { slide: "s-priorites".into(), element: Some("c1".into()) };
