@@ -148,7 +148,10 @@ fn start_with_unreadable_model_reports_a_localized_error_and_goes_idle() {
     let wav = broken_model_and_fake_mic(&dir);
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", Some(wav)));
     let status = stt.handle(SttRequest::Start { prompt: Some("Oku Slides".into()) });
-    assert_that!(status.state).is_equal_to(State::Recording);
+    // t-404 : le fil de transcription peut échouer sur le modèle et revenir au
+    // repos avant que `handle` construise son statut ; seul compte que
+    // l'écoute ait démarré (pas de téléchargement, le modèle est installé).
+    assert_that!(vec![State::Recording, State::Idle]).contains(status.state);
     let failed = wait_until(&stt, "erreur du modèle", |s| s.error.is_some());
     assert_that!(failed.error.as_deref()).is_equal_to(Some("Modèle de dictée illisible"));
     wait_until(&stt, "retour au repos", |s| s.state == State::Idle);
