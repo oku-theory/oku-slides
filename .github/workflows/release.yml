@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 120
     steps:
       # Les polices embarquées (bundle.resources) sont en Git LFS.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           lfs: true
 
