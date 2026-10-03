@@ -124,6 +124,27 @@ describe("TemplateTabs", () => {
     expect(seen).toEqual([]);
   });
 
+  test("⌫ (Backspace) sur un onglet widget : onClose(id), comme Suppr ; sur Modèles : rien", async () => {
+    const { host, props } = await mount();
+    await press(tabs(host)[0], "Backspace");
+    expect(props.onClose).not.toHaveBeenCalled();
+    await press(tabs(host)[2], "Backspace");
+    expect(props.onClose).toHaveBeenCalledWith(2);
+  });
+
+  test("⌫ (Backspace) sur Modèles : pris par la barre, jamais vu de la fenêtre", async () => {
+    const { host } = await mount();
+    const seen: string[] = [];
+    const l = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener("keydown", l);
+    try {
+      await press(tabs(host)[0], "Backspace");
+    } finally {
+      window.removeEventListener("keydown", l);
+    }
+    expect(seen).toEqual([]);
+  });
+
   test("une autre touche se propage", async () => {
     const { host } = await mount();
     const seen: string[] = [];

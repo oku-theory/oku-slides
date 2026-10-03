@@ -511,6 +511,38 @@ describe("useWidgetFiles, essais et relectures", () => {
     expect(out.files!.statuses?.map((s) => s.diagnostics.length)).toEqual([1, 1]);
   });
 
+  test("relecture relancée par une écriture : les diagnostics de l'essai d'avant sont gardés", async () => {
+    const { fake } = memory({ a: "a", b: "b" });
+    const set = fake.setWidget;
+    stub(fake, "setWidget", async (n: string, s: string): Promise<WidgetChange> => {
+      const c = await set(n, s);
+      return { ...c, status: { ...c.status, diagnostics: [{ file: n, line: 1, column: 1, error: true, message: `rendu ${n}` }] } };
+    });
+    const { out, render } = await mount(fake);
+    // L'écriture de a, puis la relecture de r1 retenue.
+    await typed(out, "a", "a2");
+    await act(async () => out.files!.flush());
+    await wait(10);
+    const held = deferred<void>();
+    const status = fake.widgetStatus;
+    let first = true;
+    stub(fake, "widgetStatus", async () => {
+      if (first) {
+        first = false;
+        await held.promise;
+      }
+      return status();
+    });
+    await render("p", "r1");
+    // L'écriture de b relance la relecture : la première est écartée.
+    await typed(out, "b", "b2");
+    await act(async () => out.files!.flush());
+    await wait(10);
+    await act(async () => held.resolve());
+    await wait(10);
+    expect(out.files!.statuses?.map((s) => [s.name, s.diagnostics.length])).toEqual([["a", 1], ["b", 1]]);
+  });
+
   // 22
   test("essai refusé : une relecture du pack ne lui colle pas ses diagnostics", async () => {
     const { fake } = memory({ kpi: "k" });

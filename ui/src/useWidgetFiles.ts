@@ -96,6 +96,8 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
   const inflight = useRef<Promise<unknown>>(Promise.resolve());
   const moves = useRef(new Map<string, { to: string; done: boolean }>());
   const trials = useRef(new Map<string, Trial>());
+  /** Essais pris par la relecture en vol : rendus à la suivante si elle la remplace. */
+  const reread = useRef(new Map<string, Trial>());
   const pushes = useRef(new Map<string, Push>());
   /** Par fichier : le dernier texte tapé, tant qu'il attend son délai. */
   const typing = useRef(new Map<string, string>());
@@ -129,7 +131,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     reading.current = false;
     pushes.current.forEach((p) => p.cancel());
     pushes.current.clear();
-    for (const r of [sent, unsent, edits, writing, moves, trials, typing]) r.current.clear();
+    for (const r of [sent, unsent, edits, writing, moves, trials, reread, typing]) r.current.clear();
     unsavedNow.current.clear();
     setStatuses(null);
     setStatusesFor(null);
@@ -145,13 +147,17 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     const rev = revisionRef.current;
     const read = apiRef.current;
     reading.current = true;
+    // Une relecture remplacée rend ses essais ; un essai plus récent du même fichier l'emporte.
+    for (const [file, tr] of reread.current) if (!trials.current.has(file)) trials.current.set(file, tr);
     const pending = [...trials.current];
     trials.current.clear();
+    reread.current = new Map(pending);
     const written = Promise.all(pending.map(([file]) => read.widgetSource(file).catch(() => null)));
     Promise.all([read.widgetStatus(), written])
       .then(([list, sources]) => {
         if (seq !== refreshSeq.current) return;
         reading.current = false;
+        reread.current.clear();
         let shown = list;
         pending.forEach(([, tr], i) => {
           if (sources[i] === tr.text) shown = withTrial(shown, tr.statuses);
@@ -162,6 +168,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
       .catch((e: unknown) => {
         if (seq !== refreshSeq.current) return;
         reading.current = false;
+        reread.current.clear();
         fail(e);
       });
   }, [fail]);

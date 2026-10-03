@@ -28,8 +28,8 @@ export default function TemplateTabs({ tabs, active, unsaved, onActivate, onClos
     if (step !== undefined) go(order[(i + step + order.length) % order.length]);
     else if (e.key === "Home") go(order[0]);
     else if (e.key === "End") go(order[order.length - 1]);
-    else if (e.key === "Delete") {
-      // Sur « Modèles », Suppr ne fait rien, mais ne doit pas supprimer l'élément choisi de la scène.
+    else if (e.key === "Delete" || e.key === "Backspace") {
+      // Suppr, ou ⌫ (Mac). Sur « Modèles », rien, mais l'élément choisi de la scène ne doit pas être supprimé.
       if (key !== 0) onClose(key);
     } else return;
     // Les raccourcis de la fenêtre (scène : flèches, Suppr) ne voient pas la touche.
