@@ -66,6 +66,11 @@ json-patch = "4"
 typst-layout = "0.15.1"
 # Aperçu des widgets recadré sur leur dessin (t-392) ; déjà tiré par typst-render.
 png = "0.18"
+# Serveur de développement (`oku-slides serve`, t-419) ; déjà tiré par rust-mcp-axum.
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+# Corps de réponse SSE en flux (`Frame`, que axum ne ré-exporte pas).
+http-body = "1"
+# Faux serveur des tests de téléchargement de la dictée (dev-dependency de oku-slides-stt).
 tiny_http = "0.12"
 similar = "3"
 loro = "1.16"

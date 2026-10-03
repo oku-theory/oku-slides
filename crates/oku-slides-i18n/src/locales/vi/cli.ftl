@@ -28,7 +28,6 @@ cli-serving = Oku Slides (dev) tại http://{ $host }:{ $port }
 cli-models-dir = mô hình đọc chính tả: { $dir }
 cli-stopped = đã dừng máy chủ
 cli-not-found = không tìm thấy
-cli-bad-header = tiêu đề HTTP không hợp lệ: { $value }
 cli-bad-request = yêu cầu không hợp lệ: { $reason }
 cli-sse-full = đã mở quá nhiều luồng sự kiện
 cli-forbidden = yêu cầu bị từ chối: không đến từ giao diện cục bộ

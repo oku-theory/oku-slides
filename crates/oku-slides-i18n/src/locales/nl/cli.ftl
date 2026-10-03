@@ -28,7 +28,6 @@ cli-serving = Oku Slides (dev) op http://{ $host }:{ $port }
 cli-models-dir = dicteermodellen: { $dir }
 cli-stopped = server gestopt
 cli-not-found = niet gevonden
-cli-bad-header = ongeldige HTTP-header: { $value }
 cli-bad-request = ongeldig verzoek: { $reason }
 cli-sse-full = te veel gebeurtenisstromen al geopend
 cli-forbidden = verzoek geweigerd: het komt niet van de lokale interface

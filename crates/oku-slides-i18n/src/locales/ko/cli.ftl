@@ -28,7 +28,6 @@ cli-serving = Oku Slides (개발) 주소: http://{ $host }:{ $port }
 cli-models-dir = 받아쓰기 모델: { $dir }
 cli-stopped = 서버가 중지되었습니다
 cli-not-found = 찾을 수 없음
-cli-bad-header = 잘못된 HTTP 헤더: { $value }
 cli-bad-request = 잘못된 요청: { $reason }
 cli-sse-full = 이미 너무 많은 이벤트 스트림이 열려 있습니다
 cli-forbidden = 요청 거부됨: 로컬 인터페이스에서 온 요청이 아닙니다

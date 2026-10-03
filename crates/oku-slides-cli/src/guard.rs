@@ -20,7 +20,7 @@
 //! Ce n'est pas une authentification : un client hors navigateur qui joint
 //! le port peut tout demander. `[serve] host` reste donc la boucle locale.
 
-use tiny_http::{Method, Request};
+use axum::http::{HeaderMap, Method};
 
 const LOOPBACK: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
 
@@ -38,8 +38,8 @@ pub(crate) enum Refusal {
 }
 
 /// `Ok` si la requête vient de l'interface locale ; sinon la règle enfreinte.
-pub(crate) fn check(req: &Request, bound: &str) -> Result<(), Refusal> {
-    let host = single(req, "Host").ok().flatten().and_then(authority).ok_or(Refusal::Host)?;
+pub(crate) fn check(method: &Method, headers: &HeaderMap, bound: &str) -> Result<(), Refusal> {
+    let host = single(headers, "Host").ok().flatten().and_then(authority).ok_or(Refusal::Host)?;
     let bound = unbracket(bound);
     let wildcard = bound == "0.0.0.0" || bound == "::";
     let local = LOOPBACK.iter().any(|l| l.eq_ignore_ascii_case(host.name))
@@ -48,16 +48,16 @@ pub(crate) fn check(req: &Request, bound: &str) -> Result<(), Refusal> {
         return Err(Refusal::Host);
     }
     // Absent : un client hors navigateur, ou un navigateur trop ancien pour l'envoyer.
-    let site = single(req, "Sec-Fetch-Site").map_err(|()| Refusal::CrossSite)?;
+    let site = single(headers, "Sec-Fetch-Site").map_err(|()| Refusal::CrossSite)?;
     if site.is_some_and(|s| !s.eq_ignore_ascii_case("same-origin") && !s.eq_ignore_ascii_case("none")) {
         return Err(Refusal::CrossSite);
     }
-    let origin = single(req, "Origin").map_err(|()| Refusal::Origin)?;
+    let origin = single(headers, "Origin").map_err(|()| Refusal::Origin)?;
     if origin.is_some_and(|o| origin_authority(o).is_none_or(|o| !o.same_as(&host))) {
         return Err(Refusal::Origin);
     }
-    if req.method() == &Method::Post {
-        let json = single(req, "Content-Type")
+    if method == Method::POST {
+        let json = single(headers, "Content-Type")
             .ok()
             .flatten()
             .and_then(|t| t.split(';').next())
@@ -69,10 +69,11 @@ pub(crate) fn check(req: &Request, bound: &str) -> Result<(), Refusal> {
     Ok(())
 }
 
-/// La valeur d'un en-tête ; `Err` s'il apparaît plus d'une fois.
-fn single<'a>(req: &'a Request, name: &'static str) -> Result<Option<&'a str>, ()> {
-    let mut values = req.headers().iter().filter(|h| h.field.equiv(name)).map(|h| h.value.as_str().trim());
-    let first = values.next();
+/// La valeur d'un en-tête ; `Err` s'il apparaît plus d'une fois ou n'est pas
+/// de l'ASCII visible.
+fn single<'a>(headers: &'a HeaderMap, name: &'static str) -> Result<Option<&'a str>, ()> {
+    let mut values = headers.get_all(name).iter();
+    let first = values.next().map(|v| v.to_str().map(str::trim).map_err(|_| ())).transpose()?;
     if values.next().is_some() { Err(()) } else { Ok(first) }
 }
 

@@ -28,7 +28,6 @@ cli-serving = Oku Slides (dev) adresi: http://{ $host }:{ $port }
 cli-models-dir = dikte modelleri: { $dir }
 cli-stopped = sunucu durduruldu
 cli-not-found = bulunamadı
-cli-bad-header = geçersiz HTTP başlığı: { $value }
 cli-bad-request = geçersiz istek: { $reason }
 cli-sse-full = zaten çok fazla olay akışı açık
 cli-forbidden = istek reddedildi: yerel arayüzden gelmiyor

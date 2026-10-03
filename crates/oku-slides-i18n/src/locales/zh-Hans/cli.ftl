@@ -28,7 +28,6 @@ cli-serving = Oku Slides（开发）运行于 http://{ $host }:{ $port }
 cli-models-dir = 听写模型：{ $dir }
 cli-stopped = 服务器已停止
 cli-not-found = 未找到
-cli-bad-header = HTTP 头无效：{ $value }
 cli-bad-request = 请求无效：{ $reason }
 cli-sse-full = 已打开的事件流过多
 cli-forbidden = 请求被拒绝：并非来自本地界面

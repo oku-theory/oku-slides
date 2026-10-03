@@ -5386,9 +5386,11 @@ dependencies = [
 name = "oku-slides-cli"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "clap",
  "color-eyre",
  "ctrlc",
+ "http-body",
  "oku-slides-agent",
  "oku-slides-core",
  "oku-slides-i18n",
@@ -5402,7 +5404,6 @@ dependencies = [
  "serde_json",
  "speculoos",
  "tempfile",
- "tiny_http",
  "tokio",
  "tracing",
  "uuid",

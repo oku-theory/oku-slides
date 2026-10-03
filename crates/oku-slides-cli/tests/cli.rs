@@ -270,8 +270,9 @@ fn serve_close_window_on_the_only_window_answers_409_and_keeps_it() {
 }
 
 /// Un corps de plus de 64 Mio est refusé (413) sans être traité ; le
-/// serveur répond ensuite normalement. Un vrai corps : `Content-Length`
-/// seul, plus grand que le corps envoyé, n'est pas fiable avec tiny_http.
+/// serveur répond ensuite normalement. Un vrai corps, en « chunked » : sans
+/// `Content-Length`, la limite tient pendant la lecture (l'annonce d'un
+/// `Content-Length` trop grand est couverte par le test suivant).
 #[test]
 fn serve_body_over_64_mib_answers_413() {
     let dir = workdir("serve-body-cap");
@@ -289,11 +290,56 @@ fn serve_body_over_64_mib_answers_413() {
             .unwrap_or_else(|e| panic!("serveur : {e}")),
     );
 
-    let big = " ".repeat(64 * 1024 * 1024 + 1);
-    let (status, _) = http(port, "POST", "/api/workspace", &big);
-    assert_that!(status).is_equal_to(413);
+    // Le serveur est prêt.
+    assert_that!(http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#).0).is_equal_to(200);
+    let size = 64 * 1024 * 1024 + 1;
+    let mut s = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+    let head = format!(
+        "POST /api/workspace HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n\
+         Transfer-Encoding: chunked\r\n\r\n{size:x}\r\n"
+    );
+    std::io::Write::write_all(&mut s, head.as_bytes()).unwrap_or_else(|e| panic!("requête : {e}"));
+    std::io::Write::write_all(&mut s, " ".repeat(size).as_bytes()).unwrap_or_else(|e| panic!("corps : {e}"));
+    s.set_read_timeout(Some(Duration::from_secs(10))).unwrap_or_else(|e| panic!("délai : {e}"));
+    let mut head = [0u8; 12];
+    s.read_exact(&mut head).unwrap_or_else(|e| panic!("réponse : {e}"));
+    assert_that!(&head).is_equal_to(b"HTTP/1.1 413");
     let (status, _) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
     assert_that!(status).is_equal_to(200);
+}
+
+/// Un `Content-Length` de plus de 64 Mio est refusé (413, texte) sans
+/// attendre le corps.
+#[test]
+fn serve_announced_body_over_64_mib_answers_413_at_once() {
+    use std::io::Write as _;
+    let dir = workdir("serve-body-announced");
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .args(["serve", "--port", &port.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+    // Le serveur est prêt.
+    assert_that!(http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#).0).is_equal_to(200);
+
+    let mut s = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+    let head = format!(
+        "POST /api/workspace HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n\
+         Content-Length: {}\r\n\r\n",
+        64 * 1024 * 1024 + 1
+    );
+    s.write_all(head.as_bytes()).unwrap_or_else(|e| panic!("requête : {e}"));
+    s.set_read_timeout(Some(Duration::from_secs(5))).unwrap_or_else(|e| panic!("délai : {e}"));
+    let mut buf = [0u8; 1024];
+    let n = s.read(&mut buf).unwrap_or_else(|e| panic!("pas de réponse sans le corps : {e}"));
+    let reply = String::from_utf8_lossy(&buf[..n]).to_ascii_lowercase();
+    assert_that!(reply.as_str()).starts_with("http/1.1 413");
+    assert_that!(reply.as_str()).contains("content-type: text/plain; charset=utf-8");
 }
 
 /// Fermer le dernier onglet de la seule fenêtre viderait l'espace de travail :
@@ -364,6 +410,47 @@ fn serve_stops_cleanly_on_sigterm() {
     server.stdout.take().unwrap().read_to_string(&mut printed).unwrap();
     assert_that!(exit.success()).is_true();
     assert_that!(printed).ends_with("server stopped\n");
+}
+
+/// Un flux d'évènements ouvert ne retient pas l'arrêt : SIGTERM termine le
+/// serveur (code 0) en quelques secondes.
+#[cfg(unix)]
+#[test]
+fn serve_stops_on_sigterm_with_an_open_event_stream() {
+    use std::io::Write as _;
+    let dir = workdir("sigterm-sse");
+    let port = free_port();
+    let mut server = oku_slides(&dir, "en")
+        .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+        .args(["serve", "--port", &port.to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap_or_else(|e| panic!("serveur : {e}"));
+    assert_that!(http(port, "POST", "/api", r#"{"tab":"t-1","req":{"cmd":"snapshot"}}"#).0).is_equal_to(200);
+
+    let mut events = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+    write!(events, "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n")
+        .unwrap_or_else(|e| panic!("requête : {e}"));
+    events.set_read_timeout(Some(Duration::from_secs(5))).unwrap_or_else(|e| panic!("délai : {e}"));
+    let mut head = [0u8; 12];
+    events.read_exact(&mut head).unwrap_or_else(|e| panic!("flux : {e}"));
+    assert_that!(&head).is_equal_to(b"HTTP/1.1 200");
+
+    let killed = Command::new("kill").args(["-TERM", &server.id().to_string()]).status();
+    assert_that!(killed.is_ok_and(|k| k.success())).is_true();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let exit = loop {
+        if let Some(exit) = server.try_wait().unwrap_or_else(|e| panic!("attente : {e}")) {
+            break exit;
+        }
+        if Instant::now() > deadline {
+            let _ = server.kill();
+            panic!("le serveur ne s'arrête pas avec un flux ouvert");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_that!(exit.code()).is_equal_to(Some(0));
 }
 
 const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 };

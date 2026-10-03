@@ -1,35 +1,44 @@
+use axum::http::request::Builder;
+use axum::http::{Method, Request};
 use speculoos::prelude::*;
-use tiny_http::{Header, Method, Request, TestRequest};
 
-use super::{Refusal, check};
+use super::{Refusal, check as check_parts};
 
-fn allowed(req: &Request, bound: &str) -> bool {
+/// Une requête de test, sans corps.
+type Req = Request<()>;
+
+fn check(req: &Req, bound: &str) -> Result<(), Refusal> {
+    check_parts(req.method(), req.headers(), bound)
+}
+
+fn allowed(req: &Req, bound: &str) -> bool {
     check(req, bound).is_ok()
 }
 
-fn header(name: &str, value: &str) -> Header {
-    Header::from_bytes(name, value).unwrap_or_else(|()| panic!("en-tête {name}"))
+/// Construit la requête (méthode GET et chemin `/` par défaut).
+fn build(builder: Builder) -> Req {
+    builder.body(()).unwrap_or_else(|e| panic!("requête : {e}"))
 }
 
 /// Un POST JSON de l'interface servie par Vite (Origin sur le port 5173).
-fn post(host: &str, origin: Option<&str>, content_type: &str) -> Request {
-    let mut req = TestRequest::new()
-        .with_method(Method::Post)
-        .with_path("/api/agent")
-        .with_header(header("Host", host))
-        .with_header(header("Content-Type", content_type));
+fn post(host: &str, origin: Option<&str>, content_type: &str) -> Req {
+    let mut req = Request::builder()
+        .method(Method::POST)
+        .uri("/api/agent")
+        .header("Host", host)
+        .header("Content-Type", content_type);
     if let Some(origin) = origin {
-        req = req.with_header(header("Origin", origin));
+        req = req.header("Origin", origin);
     }
-    req.into()
+    build(req)
 }
 
-fn get(host: Option<&str>) -> Request {
-    let mut req = TestRequest::new().with_path("/api/events");
+fn get(host: Option<&str>) -> Req {
+    let mut req = Request::builder().uri("/api/events");
     if let Some(host) = host {
-        req = req.with_header(header("Host", host));
+        req = req.header("Host", host);
     }
-    req.into()
+    build(req)
 }
 
 #[test]
@@ -108,8 +117,7 @@ fn allowed_request_for_the_configured_host_is_accepted() {
 
 #[test]
 fn check_post_without_content_type_is_refused() {
-    let req: Request =
-        TestRequest::new().with_method(Method::Post).with_header(header("Host", "127.0.0.1:4870")).into();
+    let req = build(Request::builder().method(Method::POST).header("Host", "127.0.0.1:4870"));
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::ContentType);
 }
 
@@ -139,32 +147,25 @@ fn check_look_alike_host_is_refused() {
 #[test]
 fn check_get_from_a_foreign_origin_is_refused() {
     // Un EventSource d'une autre page prendrait une place du flux d'évènements.
-    let req: Request = TestRequest::new()
-        .with_path("/api/events")
-        .with_header(header("Host", "127.0.0.1:4870"))
-        .with_header(header("Origin", "https://evil.example"))
-        .into();
+    let req = build(
+        Request::builder().uri("/api/events").header("Host", "127.0.0.1:4870").header("Origin", "https://evil.example"),
+    );
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::Origin);
 }
 
 #[test]
 fn check_cross_site_fetch_is_refused() {
     // Une requête no-cors (<img>, <script>) ne porte pas d'Origin, mais le navigateur dit d'où elle part.
-    let req: Request = TestRequest::new()
-        .with_path("/api/events")
-        .with_header(header("Host", "127.0.0.1:4870"))
-        .with_header(header("Sec-Fetch-Site", "cross-site"))
-        .into();
+    let req = build(
+        Request::builder().uri("/api/events").header("Host", "127.0.0.1:4870").header("Sec-Fetch-Site", "cross-site"),
+    );
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::CrossSite);
 }
 
 #[test]
 fn check_same_origin_fetch_is_accepted() {
     for site in ["same-origin", "none"] {
-        let req: Request = TestRequest::new()
-            .with_header(header("Host", "localhost:5173"))
-            .with_header(header("Sec-Fetch-Site", site))
-            .into();
+        let req = build(Request::builder().header("Host", "localhost:5173").header("Sec-Fetch-Site", site));
         assert_that!(check(&req, "127.0.0.1")).named(site).is_ok();
     }
 }
@@ -172,11 +173,9 @@ fn check_same_origin_fetch_is_accepted() {
 #[test]
 fn check_same_site_fetch_from_another_local_port_is_refused() {
     // localhost:3000 → localhost:4870 est « same-site » : le port ne compte pas pour le navigateur.
-    let req: Request = TestRequest::new()
-        .with_path("/api/events")
-        .with_header(header("Host", "localhost:4870"))
-        .with_header(header("Sec-Fetch-Site", "same-site"))
-        .into();
+    let req = build(
+        Request::builder().uri("/api/events").header("Host", "localhost:4870").header("Sec-Fetch-Site", "same-site"),
+    );
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::CrossSite);
 }
 
@@ -192,10 +191,7 @@ fn check_host_with_junk_after_the_ipv6_bracket_is_refused() {
 
 #[test]
 fn check_duplicate_host_is_refused() {
-    let req: Request = TestRequest::new()
-        .with_header(header("Host", "127.0.0.1:4870"))
-        .with_header(header("Host", "evil.example"))
-        .into();
+    let req = build(Request::builder().header("Host", "127.0.0.1:4870").header("Host", "evil.example"));
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::Host);
 }
 
@@ -210,4 +206,34 @@ fn check_ipv6_bound_address_is_accepted_in_both_spellings() {
 fn check_wildcard_bound_address_does_not_open_the_lan() {
     // `host = "0.0.0.0"` écoute partout, mais seuls les noms locaux sont servis (voir config).
     assert_that!(check(&get(Some("192.168.1.20:4870")), "0.0.0.0")).is_err_containing(Refusal::Host);
+}
+
+#[test]
+fn check_duplicate_origin_is_refused() {
+    let req = build(
+        Request::builder()
+            .header("Host", "127.0.0.1:4870")
+            .header("Origin", "http://127.0.0.1:4870")
+            .header("Origin", "http://127.0.0.1:4870"),
+    );
+    assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::Origin);
+}
+
+#[test]
+fn check_duplicate_sec_fetch_site_is_refused() {
+    let req = build(
+        Request::builder()
+            .header("Host", "127.0.0.1:4870")
+            .header("Sec-Fetch-Site", "same-origin")
+            .header("Sec-Fetch-Site", "same-origin"),
+    );
+    assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::CrossSite);
+}
+
+#[test]
+fn check_origin_with_non_visible_ascii_is_refused() {
+    let origin =
+        axum::http::HeaderValue::from_bytes(b"http://127.0.0.1:4870\xff").unwrap_or_else(|e| panic!("valeur : {e}"));
+    let req = build(Request::builder().header("Host", "127.0.0.1:4870").header("Origin", origin));
+    assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::Origin);
 }

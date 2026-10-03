@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TabApi, TemplateView } from "./api";
+import type { Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -18,6 +18,7 @@ import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
 import { anchorIds, fieldKey, fieldLabel, primaryFieldOf } from "./stageFields";
 import { useFieldEditing } from "./useFieldEditing";
+import { useSvgCache } from "./useSvgCache";
 import { useViewOptions } from "./useViewOptions";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import Dictation from "./Dictation";
@@ -59,42 +60,6 @@ const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ de
 
 /** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
 const NO_PANEL: A2uiMessage[] = [];
-
-/** SVG des slides, en URL d'objet, mis en cache par empreinte de rendu. */
-function useSvgCache(api: TabApi) {
-  const cache = useRef(new Map<string, string>());
-  const [, bump] = useState(0);
-  const pending = useRef(new Set<string>());
-  const alive = useRef(true);
-  useEffect(() => {
-    // StrictMode monte, démonte puis remonte en développement : on repart
-    // d'un cache vide et vivant à chaque montage.
-    alive.current = true;
-    const [urls, waiting] = [cache.current, pending.current];
-    return () => {
-      alive.current = false;
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
-      waiting.clear();
-    };
-  }, []);
-  const get = useCallback((id: string, hash: string): string | null => {
-    const hit = cache.current.get(hash);
-    if (hit) return hit;
-    if (hash && !pending.current.has(hash)) {
-      pending.current.add(hash);
-      api.svg(id).then((svg) => {
-        pending.current.delete(hash);
-        if (!alive.current) return;
-        const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-        cache.current.set(hash, url);
-        bump((n) => n + 1);
-      }).catch(() => pending.current.delete(hash));
-    }
-    return null;
-  }, [api]);
-  return get;
-}
 
 /** Titre de la présentation, modifiable sur place (clic, Entrée pour valider, Échap pour annuler). */
 function TitleField({ value, display, onCommit }: { value: string; display: string; onCommit: (v: string) => void }) {
