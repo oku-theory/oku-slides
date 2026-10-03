@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{PackRef, PackVersion, Slide, SlideChanges, Version};
+use oku_slides_core::{PackRef, PackVersion, Slide, SlideChanges, Version, WidgetFile};
 use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
@@ -74,6 +74,8 @@ pub struct Snapshot<'a> {
     pub editing: Option<&'a TemplateMode>,
     /// Bandeau du pack : le deck embarque une autre version que ma version courante.
     pub pack_notice: Option<crate::PackNoticeView>,
+    /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.
+    pub pack_widgets: Vec<&'a str>,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.
@@ -92,7 +94,8 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes.
+/// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
+/// sous-onglets de widgets.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -109,6 +112,12 @@ pub struct UiState {
     /// Largeur du fil de l'agent en px, choisie au séparateur ; `None` : largeur par défaut.
     #[serde(default)]
     pub notes: Option<u32>,
+    /// Sous-onglets de widgets ouverts en mode modèles, dans l'ordre d'ouverture.
+    #[serde(default)]
+    pub widgets: Vec<String>,
+    /// Sous-onglet actif ; `None` : « Modèles ».
+    #[serde(default)]
+    pub widget: Option<String>,
 }
 
 fn shown() -> bool {
@@ -117,9 +126,35 @@ fn shown() -> bool {
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { slide: None, grid: true, ghosts: false, pile: None, notes: None }
+        Self { slide: None, grid: true, ghosts: false, pile: None, notes: None, widgets: Vec::new(), widget: None }
     }
 }
+
+/// Nombre maximal de sous-onglets gardés.
+pub const MAX_WIDGET_TABS: usize = 64;
+
+impl UiState {
+    /// L'état admis : sous-onglets vidés hors du mode modèles, sinon noms
+    /// valides, sans doublon, au plus `MAX_WIDGET_TABS`, actif parmi eux.
+    pub fn sanitized(mut self, templates: bool) -> Self {
+        if !templates {
+            self.widgets.clear();
+            self.widget = None;
+            return self;
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        self.widgets.retain(|n| WidgetFile::parse(n).is_some() && seen.insert(n.clone()));
+        self.widgets.truncate(MAX_WIDGET_TABS);
+        if self.widget.as_ref().is_some_and(|w| !self.widgets.contains(w)) {
+            self.widget = None;
+        }
+        self
+    }
+}
+
+#[cfg(test)]
+#[path = "views_tests.rs"]
+mod views_tests;
 
 /// Un onglet vu de sa barre : titre, travail non enregistré, mode.
 ///

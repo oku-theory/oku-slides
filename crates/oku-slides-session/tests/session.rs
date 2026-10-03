@@ -409,7 +409,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null}));
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null}));
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null}));
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null}));
 }
 
 #[test]
@@ -442,8 +442,9 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true, "pile": 200, "notes": 520})))
         .unwrap();
     s.new_deck().unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520}));
+    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
+        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null}),
+    );
 }
 
 #[test]
@@ -741,6 +742,34 @@ fn resume_with_unreadable_templates_returns_to_the_deck_without_loss() {
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
 }
 
+/// t-394 : reprise en mode modèles, les sous-onglets de widgets reviennent.
+#[test]
+fn resume_in_templates_mode_returns_the_widget_tabs() {
+    let data = data_dir();
+    let mut a = resumed(&data);
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "widgets": ["_commun"], "widget": "_commun"})))
+        .unwrap();
+    drop(a);
+    let mut b = resumed(&data);
+    let ui = snapshot_json(&mut b)["ui"].clone();
+    assert_that!((ui["widgets"].clone(), ui["widget"].clone())).is_equal_to((json!(["_commun"]), json!("_commun")));
+}
+
+/// t-394 : modèles illisibles, la reprise revient au deck sans sous-onglets.
+#[test]
+fn resume_with_unreadable_templates_returns_no_widget_tabs() {
+    let data = data_dir();
+    let mut a = resumed(&data);
+    a.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "widgets": ["_commun"], "widget": "_commun"})))
+        .unwrap();
+    drop(a);
+    std::fs::write(data.join("resume/templates/document.json"), b"pas du json").unwrap();
+    let mut b = resumed(&data);
+    assert_that!(snapshot_json(&mut b)["ui"]["widgets"].clone()).is_equal_to(json!([]));
+}
+
 /// t-145 : un deck illisible fait repartir d'un deck vierge ; l'ancien
 /// dossier est mis de côté, jamais écrasé.
 #[test]
@@ -793,4 +822,37 @@ fn appearance_carries_the_dark_interface_palette_of_papier_and_pro() {
     asserting("pro : table navy")
         .that(&pro.variants["dark"].get("desk").map(String::as_str))
         .is_equal_to(Some("#000c2e"));
+}
+
+const KPI_WIDGET: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", params: (body: p.plain()),
+  (args, ctx) => field(ctx, "body", args.body))
+"#;
+
+/// Le snapshot nomme les widgets du pack du deck, sans `_commun`.
+#[test]
+fn snapshot_lists_the_pack_widget_files_without_common() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "set_widget", "name": "_commun", "source": "#let x = 1"}))).unwrap();
+    s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_WIDGET}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["pack_widgets"]).is_equal_to(json!(["kpi"]));
+}
+
+/// En mode modèles, le snapshot nomme les widgets du pack édité, sans `_commun`.
+#[test]
+fn snapshot_lists_the_edited_pack_widgets_in_template_mode() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}))).unwrap();
+    s.handle(req(json!({"cmd": "set_widget", "name": "_commun", "source": "#let x = 1"}))).unwrap();
+    s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_WIDGET}))).unwrap();
+    let snap = snapshot_json(&mut s);
+    assert_that!(snap["editing"].is_null()).is_false();
+    assert_that!(snap["pack_widgets"]).is_equal_to(json!(["kpi"]));
+}
+
+/// Sans widget embarqué, la liste est vide.
+#[test]
+fn snapshot_pack_widgets_is_empty_without_an_embedded_pack() {
+    let mut s = session();
+    assert_that!(snapshot_json(&mut s)["pack_widgets"]).is_equal_to(json!([]));
 }

@@ -98,7 +98,15 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         parent: Some(v),
         session_version: None,
     };
-    let ui = UiState { slide: Some("s-1".into()), grid: false, ghosts: true, pile: Some(200), notes: Some(520) };
+    let ui = UiState {
+        slide: Some("s-1".into()),
+        grid: false,
+        ghosts: true,
+        pile: Some(200),
+        notes: Some(520),
+        widgets: vec!["_commun".into(), "kpi".into()],
+        widget: Some("kpi".into()),
+    };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
     let back = r.read_state().unwrap().unwrap();
     assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
@@ -108,7 +116,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
 
 /// Un `state.json` écrit avant les fantômes et les colonnes se relit, fantômes masqués, largeurs par défaut.
 #[test]
-fn read_state_without_ghosts_or_columns_returns_defaults() {
+fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
     let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{{"slide":"s-1","grid":false}}}}"#);
@@ -120,6 +128,8 @@ fn read_state_without_ghosts_or_columns_returns_defaults() {
         ghosts: false,
         pile: None,
         notes: None,
+        widgets: Vec::new(),
+        widget: None,
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }

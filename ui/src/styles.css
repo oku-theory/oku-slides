@@ -281,6 +281,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   box-shadow: var(--shadow-object);
 }
 
+.tag-open { cursor: pointer; text-decoration: underline dotted; border: 0; font-family: inherit; }
+
 .editor {
   position: absolute; z-index: 5; margin: 0; overflow: hidden; user-select: text;
   background-color: var(--t-bg, var(--paper-200)); background-clip: content-box; color: var(--t-ink, var(--ink));
@@ -823,27 +825,12 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .thumb-mark.removed { background: var(--danger); }
 .thumb-mark.changed { background: var(--accent-fill); }
 
-/* Panneau Widgets : fichiers, éditeur Typst, aperçu. */
-.workbench { width: min(1280px, 94vw); height: min(780px, 90vh); }
-.workbench-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr 360px; gap: var(--space-4); }
-.workbench-list { min-width: 0; overflow: auto; }
-.workbench-list ul { list-style: none; margin: 0; padding: 0; }
-.workbench-file { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
-.workbench-file[aria-current="true"] { background: var(--accent-soft); }
-.workbench-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
-.workbench-name { margin-top: var(--space-2); }
-.workbench-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+/* Widgets : pastilles d'état et éditeur Typst. */
 .pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .pill.valid { background: color-mix(in oklab, #2f8a4f 80%, var(--ink)); }
 .pill.errors { background: var(--danger); }
-.workbench-unsaved { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
-.workbench-editor { min-width: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
 .typst-editor { height: 100%; }
 .typst-editor .cm-editor { height: 100%; font: 13px/20px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.workbench-preview { min-width: 0; overflow: auto; }
-.workbench-preview img { width: 100%; max-height: 50vh; object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet-lifted); }
-.workbench-diagnostics { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 12px; }
-.workbench-diagnostics .error { color: var(--danger); }
 .cm-typ-comment { color: color-mix(in oklab, var(--ink) 50%, transparent); font-style: italic; }
 .cm-typ-string { color: color-mix(in oklab, #2f8a4f 85%, var(--ink)); }
 .cm-typ-keyword, .cm-typ-hash { color: var(--accent); font-weight: 600; }
@@ -851,3 +838,48 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .cm-diag-underline { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
 .cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }
+
+.widget-tab { display: grid; grid-template-columns: minmax(0, 3fr) minmax(200px, 2fr); gap: var(--space-4); height: 100%; min-height: 0; }
+.widget-tab[hidden] { display: none; }
+.widget-tab-editor { min-width: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
+.widget-tab-side { min-width: 0; overflow: auto; }
+.widget-tab-side img { width: 100%; max-height: 50vh; object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet-lifted); }
+.widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }
+.widget-tab-broken ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.widget-tab-diagnostics { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 12px; }
+.widget-tab-diagnostics .error { color: var(--danger); }
+
+/* Section « Widgets » de la pile des modèles. */
+.pile-widgets { margin-top: var(--space-4); }
+.pile-widgets-head { display: flex; align-items: center; justify-content: space-between; }
+.pile-widgets-head h3 { margin: 0; font: 500 13px/20px var(--sans); }
+.pile-widgets ul { list-style: none; margin: 0; padding: 0; }
+.pile-widgets-row { display: flex; align-items: center; }
+.pile-widgets-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
+.pile-widgets-file[aria-current="true"] { background: var(--accent-soft); }
+.pile-widgets-remove { opacity: 0; }
+.pile-widgets-row:hover .pile-widgets-remove, .pile-widgets-row:focus-within .pile-widgets-remove { opacity: 1; }
+.pile-widgets-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+.unsaved-dot { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
+
+.template-tabs { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
+.template-tab-slot { display: inline-flex; align-items: center; }
+.template-tab { padding: 4px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; font: 500 13px/20px var(--sans); display: inline-flex; align-items: center; gap: var(--space-2); }
+.template-tab[aria-selected="true"] { border-bottom-color: var(--accent); }
+.template-tab-slot .token { width: 20px; height: 20px; }
+.template-tab:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: -2px; border-radius: var(--radius-sm); }
+
+/* Mode modèles : la barre des sous-onglets prend une rangée au-dessus de la feuille. */
+.table:has(> .template-tabs) {
+  grid-template-rows: 104px auto minmax(0, 1fr) 104px;
+  grid-template-areas: ". label tray" "pile subtabs notes" "pile sheet notes" "pile tools device";
+}
+.table:has(> .pack-notice):has(> .template-tabs) {
+  grid-template-rows: 104px auto auto minmax(0, 1fr) 104px;
+  grid-template-areas: ". label tray" "notice notice notice" "pile subtabs notes" "pile sheet notes" "pile tools device";
+}
+.template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
+/* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
+.templates-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.widget-pane > .widget-tab { flex: 1; }
+.templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }

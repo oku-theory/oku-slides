@@ -58,6 +58,8 @@ export interface Snapshot {
   editing: TemplateMode | null;
   /** Le deck embarque une autre version de son pack que ma version courante. */
   pack_notice: PackNotice | null;
+  /** Widgets du pack en cours (fichiers, sans `_commun`), sans sonde. */
+  pack_widgets: string[];
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   ui: UiState;
@@ -90,7 +92,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes et colonnes, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes et sous-onglets de widgets, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -100,6 +102,10 @@ export interface UiState {
   pile: number | null;
   /** Largeur du fil de l'agent en px, choisie au séparateur ; `null` : largeur par défaut. */
   notes: number | null;
+  /** Sous-onglets de widgets ouverts en mode modèles, dans l'ordre d'ouverture. */
+  widgets: string[];
+  /** Sous-onglet actif ; `null` : « Modèles ». */
+  widget: string | null;
 }
 
 /** Un pack de modèles à une version donnée. */

@@ -73,6 +73,9 @@ interface Props {
   showGhosts?: boolean;
   /** Message pour l'utilisateur (le champ en édition a disparu). */
   onNotice?: (msg: string) => void;
+  /** Widgets du pack : leur étiquette ouvre le widget. */
+  packWidgets?: ReadonlySet<string>;
+  onOpenWidget?: (name: string) => void;
 }
 
 /** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
@@ -128,7 +131,7 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
 
 export default function Stage({
   ref, view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette,
-  readOnly = false, templates = false, showGhosts = false, onNotice,
+  readOnly = false, templates = false, showGhosts = false, onNotice, packWidgets, onOpenWidget,
 }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const editor = useRef<TextEditorHandle>(null);
@@ -317,7 +320,24 @@ export default function Stage({
                     if (f) onEdit(fieldKey(f));
                   }}
                 >
-                  {sel && !editing && <span className="tag">{tagFor(tg)}</span>}
+                  {sel && !editing && (packWidgets?.has(tg.kind) && onOpenWidget ? (
+                    <button
+                      className="tag tag-open"
+                      aria-label={t("ui-widgets-open", { name: tg.kind })}
+                      title={t("ui-widgets-open", { name: tg.kind })}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      // Entrée / Espace ouvrent le widget (clic du bouton) : jamais l'édition du champ par la fenêtre.
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+                      }}
+                      onClick={() => onOpenWidget(tg.kind)}
+                    >
+                      {tagFor(tg)}
+                    </button>
+                  ) : (
+                    <span className="tag">{tagFor(tg)}</span>
+                  ))}
                   {sel && movable && !editing &&
                     (["nw", "ne", "sw", "se"] as Mode[]).map((m) => (
                       <span key={m} className={`handle ${m}`} onPointerDown={(e) => startDrag(e, tg, m)} />

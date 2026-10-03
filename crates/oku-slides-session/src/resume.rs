@@ -603,7 +603,7 @@ impl Session {
             self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }
-        self.ui = state.ui;
+        self.ui = state.ui.sanitized(matches!(self.mode, Mode::Templates { .. }));
         Ok(())
     }
 

@@ -342,3 +342,59 @@ test("Stage click on a field of another element while editing selects that eleme
   expect(calls.edit).toEqual(["c2\u001ftitle"]);
   expect(calls.select).toEqual(["c2"]);
 });
+
+test("Stage selected element of a pack widget: the tag is a button that opens the widget without moving or reselecting", async () => {
+  const opened: string[] = [];
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: (n: string) => opened.push(n) });
+  const tag = host.querySelector("button.tag-open")!;
+  expect(tag).not.toBeNull();
+  await act(async () => {
+    tag.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    tag.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  expect(opened).toEqual(["card"]);
+  expect(calls.apply).toEqual([]);
+  expect(calls.select).toEqual([]);
+});
+
+test("Stage double click on the tag button does not edit the field", async () => {
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  await act(async () => {
+    host.querySelector("button.tag-open")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  expect(calls.edit).toEqual([]);
+});
+
+test("Stage selected built-in element keeps a plain tag, no button", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  expect(host.querySelector("button.tag-open")).toBeNull();
+  expect(host.querySelector(".target.selected span.tag")).not.toBeNull();
+});
+
+test("Stage double click on a pack widget element, outside the tag, still edits its main field", async () => {
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  await act(async () => {
+    host.querySelector(".target")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  expect(calls.edit).toEqual(["c1\u001fkicker"]);
+});
+
+test("Stage Enter or Space on the focused tag button stays on the button: the window shortcuts never see it", async () => {
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  const seen: string[] = [];
+  const l = (e: KeyboardEvent) => seen.push(e.key);
+  window.addEventListener("keydown", l);
+  try {
+    const tag = host.querySelector<HTMLElement>("button.tag-open")!;
+    tag.focus();
+    for (const key of ["Enter", " "]) {
+      await act(async () => {
+        tag.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+      });
+    }
+  } finally {
+    window.removeEventListener("keydown", l);
+  }
+  expect(seen).toEqual([]);
+  expect(calls.edit).toEqual([]);
+});

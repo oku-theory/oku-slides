@@ -124,6 +124,7 @@ impl Session {
             self.set_notice(notice);
         }
         self.ui.slide = None;
+        self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.rerender()?;
         Ok(())
     }
@@ -277,6 +278,7 @@ impl Session {
         }
         self.template_cache = None;
         self.ui.slide = None;
+        self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.rerender()?;
         Ok(())
     }

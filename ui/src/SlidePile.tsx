@@ -5,7 +5,7 @@
 // glisser-déposer HTML5 : dans l'app Tauri, la webview réserve ce dernier au
 // dépôt de fichiers, et il ne se déclenche pas toujours.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SlideSummary } from "./api";
 import { t } from "./i18n";
 
@@ -31,6 +31,8 @@ interface Props {
   canRemove: boolean;
   /** Absent : pas de bouton de suppression (lecture seule). */
   onRemove?: (id: string) => void;
+  /** Sous la pile, dans la même colonne (section Widgets du mode modèles). */
+  children?: ReactNode;
 }
 
 const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-changed-since" } as const;
@@ -61,7 +63,7 @@ const RemoveIcon = (
 const THRESHOLD = 5;
 
 export default function SlidePile({
-  slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove,
+  slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove, children,
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -192,6 +194,7 @@ export default function SlidePile({
       })}
       {drag?.moved && drag.slot === slides.length && <span className="drop-line end" aria-hidden />}
       {onAdd && <button className="object btn add-slide" onClick={onAdd}>{addLabel}</button>}
+      {children}
 
       {/* La miniature suit le pointeur, soulevée de la pile. */}
       {drag?.moved && (

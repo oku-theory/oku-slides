@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
 import type { UiState } from "./api";
 import { t } from "./i18n";
+import type { KeptTabs } from "./widgetTabs";
 
 /** Option d'affichage qu'une touche bascule : ⌘' la grille, ⌘⇧G les fantômes. */
 export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): "grid" | "ghosts" | null {
@@ -32,6 +33,7 @@ export interface ViewOptions {
 /**
  * Grille, fantômes et colonnes, repris de l'état gardé `kept` au premier
  * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement.
+ * `tabs` : sous-onglets à garder avec le reste.
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
  */
@@ -39,6 +41,7 @@ export function useViewOptions(
   kept: UiState | null,
   current: string | null,
   save: (ui: UiState) => Promise<unknown>,
+  tabs: KeptTabs,
 ): ViewOptions {
   const [grid, setGrid] = useState(true);
   const [ghosts, setGhosts] = useState(false);
@@ -56,11 +59,11 @@ export function useViewOptions(
 
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns }).catch(() => {
+    save({ slide: current, grid, ghosts, ...columns, ...tabs }).catch(() => {
       /* reprise facultative : l'édition continue */
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
-  }, [restored, current, grid, ghosts, columns]);
+  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget]);
 
   const flip = (which: "grid" | "ghosts") => (which === "grid" ? setGrid : setGhosts)((v) => !v);
   const entries: MenuEntry[] = [

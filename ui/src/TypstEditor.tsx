@@ -7,14 +7,26 @@
  * seulement s'ils portent sur le texte courant (`diagnosticsFor`).
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
-import { history, historyKeymap, indentWithTab, standardKeymap } from "@codemirror/commands";
+import { history, historyKeymap, indentWithTab, redo, redoDepth, standardKeymap, undo, undoDepth } from "@codemirror/commands";
 import type { Range } from "@codemirror/state";
-import { Annotation, EditorState, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { Annotation, EditorState, RangeSetBuilder, StateEffect, StateField, Transaction } from "@codemirror/state";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
 import { Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, gutter, keymap, lineNumbers } from "@codemirror/view";
 import type { WidgetDiagnostic } from "./api";
 import { typstTokens } from "./typstHighlight";
 import { diagnosticRange } from "./widgetDiagnostics";
+
+/** Commandes d'un éditeur, pour les boutons du plateau. */
+export interface EditorCommands {
+  undo(): void;
+  redo(): void;
+}
+
+/** Pas d'annulation disponibles. */
+export interface EditorHistory {
+  undo: number;
+  redo: number;
+}
 
 const MARKS = new Map<string, Decoration>(
   ["comment", "string", "keyword", "hash", "param"].map((k) => [`cm-typ-${k}`, Decoration.mark({ class: `cm-typ-${k}` })] as const),
@@ -122,6 +134,14 @@ const diagnosticGutter = gutter({
   },
 });
 
+/** Remplacement à faire dans le texte courant (nom déclaré après un renommage). */
+export interface Rewrite {
+  find: string;
+  replace: string;
+  /** Le parent sait déjà le texte obtenu : pas d'`onChange`. */
+  silent?: boolean;
+}
+
 interface Props {
   /** Texte à l'ouverture (lu une fois). */
   text: string;
@@ -139,13 +159,19 @@ interface Props {
    * comme une frappe (`onChange` suit), ou sans `onChange` si `silent` (le
    * parent sait déjà le texte obtenu). Sert au nom déclaré après un renommage.
    */
-  rewrite?: { find: string; replace: string; silent?: boolean } | null;
+  rewrite?: Rewrite | null;
+  /** Commandes d'annulation/rétablissement : appelé au montage, null au démontage. */
+  onCommands?: (c: EditorCommands | null) => void;
+  /** Profondeurs d'annulation/rétablissement : appelé au montage puis à chaque changement. */
+  onHistory?: (h: EditorHistory) => void;
 }
 
-export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, onChange, rewrite }: Props) {
+export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, onChange, rewrite, onCommands, onHistory }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const changed = useEffectEvent((t: string) => onChange(t));
+  const report = useEffectEvent((h: EditorHistory) => onHistory?.(h));
+  const give = useEffectEvent((c: EditorCommands | null) => onCommands?.(c));
   useLayoutEffect(() => {
     const parent = host.current;
     if (!parent) return;
@@ -164,12 +190,18 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
           EditorView.contentAttributes.of({ "aria-label": label }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged && !u.transactions.some((tr) => tr.annotation(quiet))) changed(u.state.doc.toString());
+            const h = { undo: undoDepth(u.state), redo: redoDepth(u.state) };
+            const before = { undo: undoDepth(u.startState), redo: redoDepth(u.startState) };
+            if (h.undo !== before.undo || h.redo !== before.redo) report(h);
           }),
         ],
       }),
     });
     view.current = v;
+    give({ undo: () => undo(v), redo: () => redo(v) });
+    report({ undo: 0, redo: 0 });
     return () => {
+      give(null);
       v.destroy();
       view.current = null;
     };
@@ -192,7 +224,7 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
     if (at < 0) return;
     v.dispatch({
       changes: { from: at, to: at + rewrite.find.length, insert: rewrite.replace },
-      annotations: rewrite.silent ? quiet.of(true) : [],
+      annotations: [Transaction.addToHistory.of(false), ...(rewrite.silent ? [quiet.of(true)] : [])],
     });
   }, [rewrite]);
   return <div className="typst-editor" ref={host} />;

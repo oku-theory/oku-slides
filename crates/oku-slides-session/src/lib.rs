@@ -358,6 +358,16 @@ impl Session {
         }
     }
 
+    /// Les widgets du pack en cours, lus dans ses fichiers sans rien construire ni sonder.
+    fn pack_widget_names(&self) -> Vec<&str> {
+        let files = match &self.mode {
+            Mode::Templates { edit, .. } => self.doc.sources.packs.get(&edit.base),
+            Mode::Deck => self.deck_pack().and_then(|r| self.user_blobs().packs.get(&r.version)),
+            Mode::History { .. } => None,
+        };
+        files.map_or_else(Vec::new, |f| f.widgets().keys().filter(|n| !n.is_common()).map(|n| n.as_str()).collect())
+    }
+
     fn editing(&self) -> Option<&TemplateMode> {
         match &self.mode {
             Mode::Deck | Mode::History { .. } => None,
@@ -538,7 +548,7 @@ impl Session {
             Request::EditTemplates { set } => self.edit_templates(set)?,
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
-            Request::Ui(ui) => self.ui = ui,
+            Request::Ui(ui) => self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. })),
             Request::HistoryOpen => self.history_open()?,
             Request::HistorySeek { index } => self.history_seek(index)?,
             Request::HistoryRestore => self.history_restore()?,
@@ -608,6 +618,7 @@ impl Session {
             self.set_notice(notice);
         }
         self.ui.slide = None;
+        self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.pack_notice = None;
         self.rerender()
     }
@@ -791,6 +802,7 @@ impl Session {
             templates: self.deck_pack(),
             editing: self.editing(),
             pack_notice: self.pack_notice_view(),
+            pack_widgets: self.pack_widget_names(),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

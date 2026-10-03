@@ -44,6 +44,10 @@ import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import { pileMarks } from "./history";
+import { useTemplateWidgets } from "./useTemplateWidgets";
+import WidgetPane from "./WidgetPane";
+import TemplateTabs from "./TemplateTabs";
+import PileWidgets from "./PileWidgets";
 
 
 // @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
@@ -52,7 +56,6 @@ const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ def
 const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
 const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
 const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
-const WidgetWorkbench = lazy(() => import("./WidgetWorkbench"));
 
 /** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
 const NO_PANEL: A2uiMessage[] = [];
@@ -192,6 +195,16 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     if (notice) say(notice, true);
   }, [notice]);
 
+  // --- Sous-onglets de widgets du mode modèles ------------------------------
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+  const widgets = useTemplateWidgets(api, snap, {
+    changed: () => void run(api.snapshot()),
+    error: (m) => say(m, true),
+    blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history,
+  });
+  const widgetActive = !!snap?.editing && widgets.tabs.active !== null;
+
   // --- Historique (lecture seule) -------------------------------------------
   // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
   const cursor = useHistoryCursor(api, snap?.history ?? null, (s) => run(Promise.resolve(s)), (e) => say(errorText(e), true));
@@ -221,7 +234,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   }, [appearanceKey, scheme]);
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
-  const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui);
+  const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui, widgets.kept);
 
   // L'interface reprend la slide gardée par l'hôte ; ensuite, la slide
   // courante, ou la première si elle a disparu.
@@ -244,7 +257,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   const clip = useRef<{ element: Element; text: string } | null>(null);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || widgetsOpen || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
+    const skip = (e: ClipboardEvent) => editing || picking || widgetActive || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected) return false;
       const element = findElement(view.slide, selected);
@@ -305,8 +318,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // --- Enregistrement automatique -----------------------------------------
   // On n'enregistre jamais à la main : chaque modification part au fichier
   // (au dossier par défaut pour un deck neuf) peu après la dernière.
-  const snapRef = useRef(snap);
-  snapRef.current = snap;
   // Un fichier remplacé par un autre deck, et l'écrasement refusé : plus
   // d'enregistrement automatique jusqu'à un déplacement.
   const [autosavePaused, setAutosavePaused] = useState(false);
@@ -379,7 +390,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
 
   const [picking, setPicking] = useState(false);
-  const [widgetsOpen, setWidgetsOpen] = useState(false);
   const addSlide = () => setPicking(true);
   const insertTemplate = (tpl: TemplateView) => {
     if (!snap) return;
@@ -472,24 +482,29 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   useQuickKeys(
     modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
-    !editing && !picking && !widgetsOpen,
+    !editing && !picking && !widgetActive,
     sendAction,
   );
 
   // --- Édition des modèles ------------------------------------------------
-  const editTemplates = async () => {
-    if (!snap?.templates) return;
-    if (await run(api.editTemplates(snap.templates.id))) {
-      setCurrent(null);
-      setSelected(null);
-    }
+  const editTemplates = async (): Promise<boolean> => {
+    if (!snap?.templates) return false;
+    if (!(await run(api.editTemplates(snap.templates.id)))) return false;
+    setCurrent(null);
+    setSelected(null);
+    return true;
   };
+  // Clé par contenu : chaque snapshot apporte un nouveau tableau.
+  const packWidgetsKey = (snap?.pack_widgets ?? []).join("\n");
+  const packWidgets = useMemo(() => new Set(packWidgetsKey ? packWidgetsKey.split("\n") : []), [packWidgetsKey]);
   const finishTemplates = async () => {
     if (!snap?.editing) return;
     await autosave.flush();
     // Un enregistrement refusé laisse des modèles non enregistrés.
     if (snapRef.current?.dirty && !window.confirm(t("ui-confirm-quit-templates"))) return;
-    if (await run(api.closeTemplates())) {
+    let closed = false;
+    await widgets.finish(async () => { closed = !!(await run(api.closeTemplates())); });
+    if (closed) {
       setCurrent(null);
       setSelected(null);
     }
@@ -525,9 +540,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Déjà prise par un composant (barre des sous-onglets, pile…) : pas deux actions pour une touche.
+      if (e.defaultPrevented) return;
       // Dans une surface A2UI (panneau, agent), une fiche de l'agent ou l'éditeur de texte, les touches sont les leurs.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      if (modal || editing || picking || widgetsOpen || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
+      if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
       const mod = e.metaKey || e.ctrlKey;
       // Grille et fantômes se basculent partout, historique compris.
       if (viewOptions.handleKey(e)) return;
@@ -540,7 +557,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         }
         return;
       }
+      // Sous-onglet widget : ⌘Z va à son éditeur (`useTemplateWidgets`), jamais aux modèles.
       if (mod && e.key.toLowerCase() === "z") {
+        if (widgetActive) return;
         e.preventDefault();
         run(e.shiftKey ? api.redo() : api.undo());
       } else if (mod && e.key.toLowerCase() === "s") {
@@ -551,7 +570,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         open();
-      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current) {
+      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current && !widgetActive) {
         e.preventDefault();
         const i = snap.slides.findIndex((s) => s.id === current);
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
@@ -563,7 +582,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           e.preventDefault();
           cancelAgent();
         }
-      } else if (!view || !selected) {
+      } else if (!view || !selected || widgetActive) {
+        // Sous-onglet widget actif : la scène est cachée, ses raccourcis (Entrée, Suppr, flèches) aussi.
         return;
       } else if (e.key === "Enter") {
         const f = primaryFieldOf(view, selected);
@@ -690,14 +710,12 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </select>
     </label>
   );
-  const widgetsEntry: MenuEntry = { kind: "item", label: t("ui-widgets-menu"), onSelect: () => setWidgetsOpen(true) };
   const schemePicker = (
     <SchemePicker value={schemeChoice} onChange={(c) => changeScheme(c).catch((err) => say(errorText(err), true))} />
   );
   const menuEntries: MenuEntry[] = snap.editing
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
-        widgetsEntry,
         { kind: "separator" },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
@@ -712,8 +730,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "item", label: t("ui-menu-move"), onSelect: moveFile },
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
-        { kind: "item", label: t("ui-toolbar-templates"), onSelect: editTemplates },
-        widgetsEntry,
+        { kind: "item", label: t("ui-toolbar-templates"), onSelect: () => void editTemplates() },
+        { kind: "item", label: t("ui-widgets-edit"), onSelect: () => void widgets.enterAndOpen(editTemplates, null) },
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
@@ -762,10 +780,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             : <>{snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
         </span>
       </header>
+      {snap.editing && <TemplateTabs tabs={widgets.tabs.tabs} active={widgets.tabs.active} unsaved={widgets.files.unsaved} onActivate={widgets.activate} onClose={widgets.close} />}
 
       {/* Ce qu'on ajoute à la slide, puis annuler / rétablir : posés sous la feuille. */}
       <div className="object theme-card tools-tray">
-        <div className="add-group" role="group" aria-label={t("ui-toolbar-add-label")}>
+        <div className="add-group" role="group" aria-label={t("ui-toolbar-add-label")} hidden={widgetActive}>
           {ADD_KINDS.map((k) => {
             const name = t("ui-add-kind", { kind: k });
             return (
@@ -775,9 +794,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             );
           })}
         </div>
-        <span className="tools-sep" aria-hidden />
-        <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
-        <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+        <span className="tools-sep" aria-hidden hidden={widgetActive} />
+        {widgetActive ? (<>
+          {/* Sous-onglet widget : l'historique de son éditeur. */}
+          <button className="token ghost" aria-label={t("ui-toolbar-undo")} title={t("ui-toolbar-undo")} disabled={widgets.history.undo === 0} onClick={widgets.undo}>{Icon.undo}</button>
+          <button className="token ghost" aria-label={t("ui-toolbar-redo")} title={t("ui-toolbar-redo")} disabled={widgets.history.redo === 0} onClick={widgets.redo}>{Icon.redo}</button>
+        </>) : (<>
+          <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
+          <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
+        </>)}
       </div>
 
       {/* En haut à droite, tout ce qui sert rarement : un seul menu. */}
@@ -802,10 +827,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
         canRemove={canRemoveSlide(snap.slides.length)}
         onRemove={history ? undefined : removeSlide}
-      />
+      >
+        {snap.editing && !history && <PileWidgets files={widgets.files} current={widgets.activeName} onOpen={widgets.open} onRemoved={widgets.removed} focus={widgets.pileFocus} />}
+      </SlidePile>
 
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${history ? " read-only" : ""}`}>
+        {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
+        <div id="templates-panel" className="templates-panel" role={snap.editing ? "tabpanel" : undefined} aria-labelledby={snap.editing ? "widget-tab-0" : undefined} hidden={widgetActive}>
         {view && view.slide.id === current ? (
           <Stage
             ref={stage}
@@ -818,6 +847,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onApply={history ? noop : apply}
             readOnly={!!history}
             templates={!!snap.editing}
+            packWidgets={packWidgets}
+            onOpenWidget={(name) => void widgets.enterAndOpen(editTemplates, name)}
             onNotice={(m) => say(m, true)}
             dictated={dictated}
             showGridAlways={viewOptions.grid}
@@ -839,6 +870,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
+        </div>
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />
@@ -906,18 +939,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onClose={() => setPicking(false)}
           api={api}
         />
-      )}
-
-      {widgetsOpen && (
-        <Suspense fallback={null}>
-          <WidgetWorkbench
-            api={api}
-            revision={`${snap.templates?.version ?? ""}|${snap.editing?.base ?? ""}`}
-            onChanged={() => run(api.snapshot())}
-            onClose={() => setWidgetsOpen(false)}
-            onError={(m) => say(m, true)}
-          />
-        </Suspense>
       )}
 
       {modal && (

@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { WidgetDiagnostic } from "./api";
+import type { EditorCommands, EditorHistory } from "./TypstEditor";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -33,6 +34,31 @@ async function mount(text = "#let a = 1") {
     );
   await render([]);
   return { host, render };
+}
+
+type Extra = Partial<Parameters<typeof TypstEditor>[0]>;
+
+async function mountWith(extra: Extra, text = "a") {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mounted = { root, host };
+  const render = (more: Extra = {}) =>
+    act(async () =>
+      root.render(
+        createElement(TypstEditor, { text, diagnostics: [], label: "kpi", onChange: () => {}, ...extra, ...more }),
+      ),
+    );
+  await render();
+  const view = () => EditorView.findFromDOM(host.querySelector(".cm-content") as HTMLElement)!;
+  const typeText = (insert: string) =>
+    act(async () =>
+      view().dispatch({
+        changes: { from: 0, to: view().state.doc.length, insert },
+        userEvent: "input.type",
+      }),
+    );
+  return { host, render, view, typeText };
 }
 
 const markers = (host: HTMLElement) => host.querySelectorAll(".cm-diag-marker").length;
@@ -101,5 +127,51 @@ describe("TypstEditor", () => {
     await render({ find: "a", replace: "b", silent: true });
     expect(host.querySelector(".cm-content")?.textContent).toBe("#let b = 1");
     expect(seen).toEqual([]);
+  });
+});
+
+describe("TypstEditor, commandes", () => {
+  test("au montage : commandes posées et historique vide signalé", async () => {
+    let commands: EditorCommands | null = null;
+    const histories: EditorHistory[] = [];
+    await mountWith({ onCommands: (c) => (commands = c), onHistory: (h) => histories.push(h) });
+    expect(commands).not.toBeNull();
+    expect(histories).toEqual([{ undo: 0, redo: 0 }]);
+  });
+
+  test("undo annule la frappe, onChange suit ; redo la refait", async () => {
+    let commands: EditorCommands | null = null;
+    const seen: string[] = [];
+    const { typeText } = await mountWith({ onCommands: (c) => (commands = c), onChange: (t) => seen.push(t) });
+    await typeText("ab");
+    await act(async () => commands!.undo());
+    expect(seen.at(-1)).toBe("a");
+    await act(async () => commands!.redo());
+    expect(seen.at(-1)).toBe("ab");
+  });
+
+  test("l'historique n'est signalé que s'il change (pas pour un déplacement du curseur)", async () => {
+    const histories: EditorHistory[] = [];
+    const { typeText, view } = await mountWith({ onHistory: (h) => histories.push(h) });
+    await typeText("ab");
+    const n = histories.length;
+    await act(async () => view().dispatch({ selection: { anchor: 1 } }));
+    expect(histories.length).toBe(n);
+    expect(histories.at(-1)).toEqual({ undo: 1, redo: 0 });
+  });
+
+  test("démontage : commandes retirées", async () => {
+    let commands: EditorCommands | null = null;
+    await mountWith({ onCommands: (c) => (commands = c) });
+    await act(async () => mounted!.root.unmount());
+    mounted = null;
+    expect(commands).toBeNull();
+  });
+
+  test("un remplacement (renommage) n'entre pas dans l'historique", async () => {
+    const histories: EditorHistory[] = [];
+    const { render } = await mountWith({ onHistory: (h) => histories.push(h) }, 'widget("kpi"');
+    await render({ rewrite: { find: 'widget("kpi"', replace: 'widget("kpi2"' } });
+    expect(histories.at(-1)).toEqual({ undo: 0, redo: 0 });
   });
 });

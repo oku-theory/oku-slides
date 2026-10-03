@@ -211,3 +211,44 @@ fn a_save_after_a_turn_begun_in_deck_mode_keeps_the_turn_version() {
     s.undo().unwrap();
     assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(turn));
 }
+
+fn open_tabs(s: &mut crate::Session) {
+    let ui = crate::views::UiState {
+        widgets: vec!["_commun".into()],
+        widget: Some("_commun".into()),
+        ..crate::views::UiState::default()
+    };
+    s.handle(crate::Request::Ui(ui)).unwrap();
+}
+
+/// Sortir du mode modèles : le deck ne garde aucun sous-onglet.
+#[test]
+fn close_templates_with_open_widget_tabs_clears_them() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    open_tabs(&mut s);
+    s.close_templates().unwrap();
+    assert_that!(s.ui.widgets).is_empty();
+    assert_that!(s.ui.widget).is_none();
+}
+
+/// Passer à un autre pack : les sous-onglets de l'ancien ne le suivent pas.
+#[test]
+fn edit_templates_of_another_pack_clears_the_widget_tabs() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    open_tabs(&mut s);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    assert_that!(s.ui.widgets).is_empty();
+}
+
+/// En mode deck, l'interface ne peut pas poser de sous-onglets.
+#[test]
+fn ui_request_in_deck_mode_keeps_no_widget_tabs() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    open_tabs(&mut s);
+    assert_that!(s.ui.widgets).is_empty();
+}

@@ -1,0 +1,36 @@
+use speculoos::prelude::*;
+
+use super::{MAX_WIDGET_TABS, UiState};
+
+fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
+    UiState {
+        widgets: widgets.iter().map(|s| (*s).to_owned()).collect(),
+        widget: widget.map(str::to_owned),
+        ..UiState::default()
+    }
+}
+
+#[test]
+fn sanitized_outside_templates_clears_the_tabs() {
+    let ui = tabs(&["kpi"], Some("kpi")).sanitized(false);
+    assert_that!(ui.widgets).is_empty();
+    assert_that!(ui.widget).is_none();
+}
+
+#[test]
+fn sanitized_in_templates_drops_invalid_and_duplicate_names() {
+    let ui = tabs(&["kpi", "../x", "Kpi", "kpi", "_commun"], Some("kpi")).sanitized(true);
+    assert_that!(ui.widgets).is_equal_to(vec!["kpi".to_owned(), "_commun".to_owned()]);
+}
+
+#[test]
+fn sanitized_in_templates_caps_the_list() {
+    let names: Vec<String> = (0..MAX_WIDGET_TABS + 10).map(|i| format!("w{i}")).collect();
+    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    assert_that!(tabs(&refs, None).sanitized(true).widgets).has_length(MAX_WIDGET_TABS);
+}
+
+#[test]
+fn sanitized_with_an_active_tab_not_open_drops_it() {
+    assert_that!(tabs(&["kpi"], Some("quote")).sanitized(true).widget).is_none();
+}

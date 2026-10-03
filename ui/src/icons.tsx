@@ -20,6 +20,7 @@ export const Icon = {
   shape: stroke(<><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></>),
   chart: stroke(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>),
   // Actions.
+  add: stroke(<path d="M12 5v14M5 12h14" />),
   check: stroke(<path d="M5 12.5l4.5 4.5L19 7.5" />),
   close: stroke(<path d="M6 6l12 12M18 6L6 18" />),
   trash: stroke(<><path d="M4.5 7h15" /><path d="M9.5 7V4.5h5V7" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>),

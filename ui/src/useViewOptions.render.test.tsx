@@ -19,8 +19,10 @@ afterEach(async () => {
   m.host.remove();
 });
 
+type Tabs = Pick<UiState, "widgets" | "widget">;
+
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null };
+const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -33,11 +35,12 @@ async function mount(first: UiState | null = kept) {
     out.saved.push([ui.slide, ui.grid, ui.ghosts]);
     out.kept.push(ui);
   };
-  function Probe({ ui, current }: { ui: UiState | null; current: string }) {
-    out.hook = useViewOptions(ui, current, save);
+  function Probe({ ui, current, tabs }: { ui: UiState | null; current: string; tabs: Tabs }) {
+    out.hook = useViewOptions(ui, current, save, tabs);
     return null;
   }
-  const render = (ui: UiState | null, current = "s1") => act(async () => root.render(createElement(Probe, { ui, current })));
+  const render = (ui: UiState | null, current = "s1", tabs: Tabs = { widgets: [], widget: null }) =>
+    act(async () => root.render(createElement(Probe, { ui, current, tabs })));
   await render(first);
   return { out, render };
 }
@@ -108,7 +111,21 @@ test("useViewOptions first snapshot restores the column widths kept by the host"
 test("useViewOptions setColumns saves the new widths with the rest of the state", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
-  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540 });
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null });
+});
+
+test("useViewOptions sauve les sous-onglets passés avec le reste", async () => {
+  const { out, render } = await mount();
+  await render(kept, "s1", { widgets: ["kpi"], widget: "kpi" });
+  expect(out.kept.at(-1)).toMatchObject({ widgets: ["kpi"], widget: "kpi" });
+});
+
+test("useViewOptions avec une nouvelle liste de même contenu ne sauve pas de nouveau", async () => {
+  const { out, render } = await mount();
+  await render(kept, "s1", { widgets: ["kpi"], widget: null });
+  const n = out.saved.length;
+  await render(kept, "s1", { widgets: ["kpi"], widget: null });
+  expect(out.saved.length).toBe(n);
 });
 
 test("useViewOptions handleKey leaves other keys alone", async () => {
