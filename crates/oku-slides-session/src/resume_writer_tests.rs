@@ -36,7 +36,7 @@ fn state(slide: &str) -> State {
     State {
         version: VERSION,
         mode: SavedMode::Deck,
-        ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false },
+        ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false, ..UiState::default() },
     }
 }
 

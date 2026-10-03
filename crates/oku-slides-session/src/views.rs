@@ -92,7 +92,7 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// Ce que l'interface fait garder à l'hôte : slide courante, grille et fantômes.
+/// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -103,6 +103,12 @@ pub struct UiState {
     /// Fantômes visibles : zone, widgets et champs annotés.
     #[serde(default)]
     pub ghosts: bool,
+    /// Largeur de la pile en px, choisie au séparateur ; `None` : largeur par défaut.
+    #[serde(default)]
+    pub pile: Option<u32>,
+    /// Largeur du fil de l'agent en px, choisie au séparateur ; `None` : largeur par défaut.
+    #[serde(default)]
+    pub notes: Option<u32>,
 }
 
 fn shown() -> bool {
@@ -111,7 +117,7 @@ fn shown() -> bool {
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { slide: None, grid: true, ghosts: false }
+        Self { slide: None, grid: true, ghosts: false, pile: None, notes: None }
     }
 }
 

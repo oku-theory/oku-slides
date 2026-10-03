@@ -41,6 +41,32 @@ const columns = (p) => p.evaluate(() => {
     assert.equal(label.shadow, 'none');
     assert.equal(label.bg, 'rgba(0, 0, 0, 0)');
   }
+  // Séparateurs : glisser celui du fil vers la gauche l'élargit ; la largeur est gardée par l'hôte
+  // (rechargement) ; un double-clic la rend par défaut.
+  await p.setViewportSize({ width: 1440, height: 900 });
+  await p.waitForTimeout(300);
+  const notesWidth = () => p.evaluate(() => document.querySelector('.notes').getBoundingClientRect().width);
+  const before = await notesWidth();
+  // Une bande de prise de 8 px, rien de plus (sans hériter des règles des colonnes).
+  const widths = await p.evaluate(() => [...document.querySelectorAll('.col-divider')].map((d) => d.getBoundingClientRect().width));
+  assert.deepEqual(widths, [8, 8]);
+  const handle = await p.locator('.col-divider[data-side="notes"]').boundingBox();
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x - 50, y, { steps: 5 });
+  await p.mouse.move(x - 100, y, { steps: 5 });
+  await p.mouse.up();
+  await p.waitForTimeout(300);
+  assert.ok(Math.abs((await notesWidth()) - (before + 100)) <= 1, `fil pas élargi de 100 px (${before} → ${await notesWidth()})`);
+  await p.reload();
+  await p.waitForSelector('.stage img');
+  await p.waitForTimeout(300);
+  assert.ok(Math.abs((await notesWidth()) - (before + 100)) <= 1, `largeur du fil perdue au rechargement (${await notesWidth()})`);
+  await p.dblclick('.col-divider[data-side="notes"]');
+  await p.waitForTimeout(300);
+  assert.ok(Math.abs((await notesWidth()) - before) <= 1, `double-clic : fil pas revenu à ${before} (${await notesWidth()})`);
   assert.deepEqual(errors, []);
   console.log('colonnes ok');
   await b.close();

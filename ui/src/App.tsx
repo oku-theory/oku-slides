@@ -12,6 +12,7 @@ import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourS
 import { newElement } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
+import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
 import { anchorIds, fieldKey, fieldLabel, primaryFieldOf } from "./stageFields";
 import { useFieldEditing } from "./useFieldEditing";
@@ -214,7 +215,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appearanceKey]);
 
-  // --- Grille et fantômes de la slide : repris et gardés par l'hôte ---------
+  // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
   const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui);
 
   // L'interface reprend la slide gardée par l'hôte ; ensuite, la slide
@@ -865,6 +866,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           </Suspense>
         )}
       </aside>
+
+      {/* Entre pile et feuille, entre feuille et fil : de quoi régler les largeurs. */}
+      <ColumnDividers columns={viewOptions.columns} onChange={viewOptions.setColumns} />
 
       {/* Appareil de dictée, posé devant la feuille. */}
       {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}

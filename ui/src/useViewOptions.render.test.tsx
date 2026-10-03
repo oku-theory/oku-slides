@@ -1,4 +1,4 @@
-// Options d'affichage (grille, fantômes) : reprise, bascule, raccourcis, sauvegarde chez l'hôte.
+// Options d'affichage (grille, fantômes, colonnes) : reprise, bascule, raccourcis, sauvegarde chez l'hôte.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true };
+const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -28,9 +28,10 @@ async function mount(first: UiState | null = kept) {
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const out: { hook: Hook | null; saved: [string | null, boolean, boolean][] } = { hook: null, saved: [] };
-  const save = async (slide: string | null, grid: boolean, ghosts: boolean) => {
-    out.saved.push([slide, grid, ghosts]);
+  const out: { hook: Hook | null; saved: [string | null, boolean, boolean][]; kept: UiState[] } = { hook: null, saved: [], kept: [] };
+  const save = async (ui: UiState) => {
+    out.saved.push([ui.slide, ui.grid, ui.ghosts]);
+    out.kept.push(ui);
   };
   function Probe({ ui, current }: { ui: UiState | null; current: string }) {
     out.hook = useViewOptions(ui, current, save);
@@ -97,6 +98,17 @@ test("useViewOptions handleKey takes its shortcut and prevents the default", asy
   let handled = false;
   await act(async () => { handled = out.hook!.handleKey(e); });
   expect([handled, e.prevented, out.hook!.ghosts]).toEqual([true, true, false]);
+});
+
+test("useViewOptions first snapshot restores the column widths kept by the host", async () => {
+  const { out } = await mount();
+  expect(out.hook!.columns).toEqual({ pile: 200, notes: null });
+});
+
+test("useViewOptions setColumns saves the new widths with the rest of the state", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540 });
 });
 
 test("useViewOptions handleKey leaves other keys alone", async () => {

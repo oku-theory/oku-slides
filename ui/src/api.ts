@@ -88,12 +88,16 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille et fantômes, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes et colonnes, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
   /** Fantômes visibles : zone, objets et champs annotés. */
   ghosts: boolean;
+  /** Largeur de la pile en px, choisie au séparateur ; `null` : largeur par défaut. */
+  pile: number | null;
+  /** Largeur du fil de l'agent en px, choisie au séparateur ; `null` : largeur par défaut. */
+  notes: number | null;
 }
 
 /** Un pack de modèles à une version donnée. */
@@ -353,7 +357,7 @@ type Request =
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "panel"; slide: string }
-  | { cmd: "ui"; slide: string | null; grid: boolean; ghosts: boolean }
+  | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
   | { cmd: "history_restore" }
@@ -524,7 +528,7 @@ export function tabApi(tab: string) {
     /** Bandeau du pack : sa version devient ma version courante. */
     packMakeCurrent: () => call<Snapshot>({ cmd: "pack_make_current" }),
     packNoticeClose: () => call<Snapshot>({ cmd: "pack_notice_close" }),
-    ui: (slide: string | null, grid: boolean, ghosts: boolean) => call<Snapshot>({ cmd: "ui", slide, grid, ghosts }),
+    ui: (ui: UiState) => call<Snapshot>({ cmd: "ui", ...ui }),
     /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
     historyOpen: () => call<Snapshot>({ cmd: "history_open" }),
     historySeek: (index: number) => call<Snapshot>({ cmd: "history_seek", index }),

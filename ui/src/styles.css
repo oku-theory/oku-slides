@@ -101,8 +101,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .table {
   height: 100%;
   display: grid;
-  /* Pile, feuille, puis le fil de l'agent et ses surfaces a2ui : une large part de la table. */
-  grid-template-columns: 236px minmax(0, 1fr) clamp(420px, 40vw, 760px);
+  /* Pile, feuille, puis le fil de l'agent et ses surfaces a2ui : une large part de la table.
+     Largeurs par défaut, remplacées sur la table par celles choisies aux séparateurs ;
+     le fil cède toujours 320px à la feuille (fenêtre rétrécie depuis le choix). */
+  --pile-w: 236px;
+  --notes-w: clamp(420px, 40vw, 760px);
+  grid-template-columns: var(--pile-w) minmax(0, 1fr) max(300px, min(var(--notes-w), 100% - var(--pile-w) - 320px));
   grid-template-rows: 104px minmax(0, 1fr) 104px;
   grid-template-areas: ". label tray" "pile sheet notes" "pile tools device";
   background:
@@ -184,17 +188,18 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .select:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
 
 /* ---- Pile de slides ---- */
-.pile { grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+/* Les miniatures suivent la largeur de la pile : 150px par défaut, moins le numéro et les marges. */
+.pile { --thumb-w: calc(var(--pile-w) - 86px); grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
 .thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; }
 .thumb-n { width: 18px; font-size: 12px; line-height: 16px; color: var(--ink-muted); padding-top: 2px; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
 .thumb-img {
-  width: 150px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
+  width: var(--thumb-w); aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: var(--theme-fade), transform 180ms ease-out;
 }
 .thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
 .thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
-.add-slide { margin-inline-start: 26px; width: 150px; height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
+.add-slide { margin-inline-start: 26px; width: var(--thumb-w); height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
 /* ---- La feuille ---- */
 .sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-6) 40px 56px; display: flex; }
@@ -257,6 +262,22 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* ---- Post-it autour de la feuille ---- */
 .notes { grid-area: notes; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
+/* ---- Séparateurs des colonnes ---- */
+/* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol. */
+.col-divider {
+  grid-row: 2 / -1; justify-self: start; position: relative; z-index: 4; width: 8px; height: 100%;
+  margin-inline-start: -4px; cursor: col-resize; touch-action: none; outline: none;
+}
+.col-divider[data-side="pile"] { grid-column: 2; }
+.col-divider[data-side="notes"] { grid-column: 3; }
+.col-divider::before {
+  content: ""; position: absolute; inset-block: var(--space-6); inset-inline-start: 3.5px; width: 1px; border-radius: 1px;
+  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.col-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
+.col-divider.active::before, .col-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
+body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+
 .postit {
   width: 132px; min-height: 96px; padding: 14px 14px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-2);
   background: var(--postit); color: var(--ink); border: 0; border-radius: 3px 3px var(--radius-md) 3px; text-align: start; cursor: pointer;
@@ -433,10 +454,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- Pile : glisser-déposer ---- */
 .thumb-slot { position: relative; }
 /* Supprimer : une corbeille estompée en bas à droite de chaque miniature, nette au survol.
-   Placée depuis le coin haut de l'image (26px de numéro, 150px de large, 16/9) : un nom de modèle dessous ne la déplace pas. */
+   Placée depuis le coin haut de l'image (26px de numéro, --thumb-w de large, 16/9) : un nom de modèle dessous ne la déplace pas. */
 .thumb-remove {
   position: absolute; z-index: 1; width: 24px; height: 24px;
-  top: calc(150px * 9 / 16 - 24px - 5px); inset-inline-start: calc(26px + 150px - 24px - 5px);
+  top: calc(var(--thumb-w) * 9 / 16 - 24px - 5px); inset-inline-start: calc(26px + var(--thumb-w) - 24px - 5px);
   opacity: 0.4; transition: opacity 120ms ease-out, var(--theme-fade);
 }
 .thumb-remove svg { width: 14px; height: 14px; }
@@ -444,7 +465,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .thumb-slot .thumb-remove:disabled { opacity: 0; pointer-events: none; }
 .thumb-remove:hover:not(:disabled) { color: var(--danger); }
 .thumb-body { display: flex; flex-direction: column; gap: 4px; }
-.thumb-name { font-size: 12px; line-height: 15px; color: var(--ink-muted); max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thumb-name { font-size: 12px; line-height: 15px; color: var(--ink-muted); max-width: var(--thumb-w); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thumb[aria-current="true"] .thumb-name { color: var(--ink); }
 .thumb { touch-action: none; user-select: none; -webkit-user-select: none; }
 .thumb.lifted .thumb-img { opacity: 0.3; transform: none; box-shadow: none; outline: 2px dashed color-mix(in oklab, var(--accent) 50%, transparent); outline-offset: -2px; }

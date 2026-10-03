@@ -408,7 +408,16 @@ fn edit_records_the_configured_author() {
 fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true}));
+    assert_that!(snapshot_json(&mut s)["ui"])
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null}));
+}
+
+#[test]
+fn ui_request_with_column_widths_keeps_them_in_snapshot() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "ghosts": false, "pile": 200, "notes": 520}))).unwrap();
+    let ui = snapshot_json(&mut s)["ui"].clone();
+    assert_that!((ui["pile"].clone(), ui["notes"].clone())).is_equal_to((json!(200), json!(520)));
 }
 
 /// Une interface d'avant les fantômes n'envoie pas `ghosts` : ils restent masqués.
@@ -422,15 +431,17 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 #[test]
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": true, "ghosts": false}));
+    assert_that!(snapshot_json(&mut s)["ui"])
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null}));
 }
 
 #[test]
-fn new_deck_forgets_the_remembered_slide_but_keeps_grid_and_ghosts() {
+fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     s.new_deck().unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(json!({"slide": null, "grid": false, "ghosts": true}));
+    assert_that!(snapshot_json(&mut s)["ui"])
+        .is_equal_to(json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520}));
 }
 
 #[test]
@@ -438,7 +449,7 @@ fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     let mut before = snapshot_json(&mut a);
     drop(a);
     let mut b = resumed(&data);
