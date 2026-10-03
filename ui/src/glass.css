@@ -1,0 +1,108 @@
+/* Essai « liquid glass » (t-391) : les objets de l'interface deviennent du verre posé sur la table.
+   Les slides et les post-its restent du papier ; seul l'outillage passe en verre.
+   Couche à part, chargée après styles.css : la retirer rend l'interface Papier. */
+
+:root {
+  /* Teinte du verre : le papier du thème, rendu translucide. Épais pour ce qui flotte. */
+  --glass-tint: color-mix(in oklab, var(--paper-200) 52%, transparent);
+  --glass-tint-thick: color-mix(in oklab, var(--paper-200) 76%, transparent);
+  --glass-blur: blur(18px) saturate(180%);
+  /* Arêtes : un trait d'un demi-pixel, plus vif en haut, où la lumière tombe ; rien de plus,
+     des couches qui s'additionnent épaississent le bord en biseau. */
+  --glass-rim: inset 0 0 0 0.5px color-mix(in oklab, white 34%, transparent),
+    inset 0 0.5px 0 color-mix(in oklab, white 70%, transparent);
+  /* Lentille (data-lens, Chromium) : le fond reste presque net, déformé aux bords. */
+  --glass-lens: url(#glass-lens) blur(3px) saturate(170%);
+  --glass-lens-thick: url(#glass-lens) blur(12px) saturate(180%);
+}
+/* Sur une table sombre, le verre fonce et ses arêtes s'adoucissent. */
+:root[data-scheme="dark"] {
+  --glass-tint: color-mix(in oklab, var(--paper-200) 46%, transparent);
+  /* Ce qui flotte reste presque opaque : sur une slide claire, un verre sombre virerait au gris. */
+  --glass-tint-thick: color-mix(in oklab, var(--paper-200) 90%, transparent);
+  --glass-rim: inset 0 0 0 0.5px color-mix(in oklab, white 9%, transparent),
+    inset 0 0.5px 0 color-mix(in oklab, white 22%, transparent);
+}
+
+/* ---- Les objets : verre clair ---- */
+.object, .history-bar, .editor-hint, .toast {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--shadow-object);
+}
+.object:hover:not(:disabled) { box-shadow: var(--glass-rim), var(--shadow-floating); }
+.object:active:not(:disabled) { box-shadow: var(--glass-rim), var(--shadow-rest); }
+.object:disabled { box-shadow: var(--glass-rim), var(--shadow-rest); }
+.theme-card:hover, .device:hover { box-shadow: var(--glass-rim), var(--shadow-object); }
+.device.recording, .device.transcribing { box-shadow: var(--glass-rim), var(--shadow-floating); }
+
+/* Boutons principaux : l'accent plein, qui reste franc sur tout fond ; le verre ne garde que l'arête. */
+.btn.primary, .token.primary, .mic {
+  background: var(--accent-fill);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--glass-rim), var(--shadow-rest);
+}
+.mic.live { background: var(--app-danger, #b3261e); }
+.mic.agent-mic { background: var(--glass-tint); box-shadow: var(--glass-rim); }
+.btn.primary.danger { background: var(--danger); }
+.btn.danger:not(.primary) { box-shadow: var(--glass-rim), inset 0 0 0 1px var(--danger), var(--shadow-rest); }
+
+/* Boutons fantômes dans une barre de verre : rien que le survol, une goutte plus claire. */
+.ghost { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ghost:hover:not(:disabled) {
+  background: color-mix(in oklab, white 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, white 26%, transparent);
+}
+:root[data-scheme="dark"] .ghost:hover:not(:disabled) { background: color-mix(in oklab, white 9%, transparent); }
+
+/* ---- Ce qui flotte : verre épais, lisible sur n'importe quel fond ---- */
+.action-menu-list, .tab-menu, .dictation-settings, .agent-sheet-box, .variant-drawer, .agent-modal, .picker, .toast {
+  background: var(--glass-tint-thick);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  box-shadow: var(--glass-rim), var(--shadow-floating);
+}
+.action-menu-list:hover, .dictation-settings:hover { box-shadow: var(--glass-rim), var(--shadow-floating); }
+.agent-veil, .picker-scrim { -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
+
+/* Champs et listes dans le verre : creusés plutôt que pleins. */
+.select, .dictation-settings .btn {
+  background-color: color-mix(in oklab, var(--ink) 7%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ink) 10%, transparent);
+}
+.select:hover { background-color: color-mix(in oklab, var(--ink) 11%, transparent); }
+.model:hover { background: color-mix(in oklab, white 18%, transparent); }
+
+/* ---- Onglets : la bande devient une vitre, l'onglet actif une goutte ---- */
+.tabbar {
+  background: color-mix(in oklab, var(--paper-000) 60%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 16%, transparent);
+}
+.tab.active { background: var(--glass-tint-thick); box-shadow: var(--glass-rim); }
+.tab-close:hover, .tab-new:hover { background: color-mix(in oklab, white 22%, transparent); }
+
+/* ---- Lentille : le fond se déforme aux bords (moteurs qui le rendent, voir lens.ts) ---- */
+/* Les boutons principaux sont pleins : pas de lentille. Le micro (`.mic`, sans `.object`) n'est pas visé. */
+:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar):not(.primary) {
+  -webkit-backdrop-filter: var(--glass-lens);
+  backdrop-filter: var(--glass-lens);
+}
+:root[data-lens] :is(.action-menu-list, .tab-menu, .dictation-settings, .agent-sheet-box, .variant-drawer, .agent-modal, .picker, .toast) {
+  -webkit-backdrop-filter: var(--glass-lens-thick);
+  backdrop-filter: var(--glass-lens-thick);
+}
+:root[data-lens] .ghost { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Sans flou (réglage d'accessibilité) : un verre plus opaque reste lisible. */
+@media (prefers-reduced-transparency: reduce) {
+  :root, :root[data-scheme="dark"] {
+    --glass-tint: color-mix(in oklab, var(--paper-200) 94%, transparent);
+    --glass-tint-thick: var(--paper-200);
+    --glass-lens: blur(18px);
+    --glass-lens-thick: blur(28px);
+  }
+}

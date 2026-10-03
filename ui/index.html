@@ -6,6 +6,16 @@
     <title>Oku Slides</title>
   </head>
   <body>
+    <!-- Lentille du verre (lens.ts) : une carte neutre (gris 50 %) au centre, qui décale vers
+         l'intérieur aux bords. Rouge : décalage horizontal ; vert : vertical. Étirée à chaque objet. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="glass-lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feImage preserveAspectRatio="none" result="dx" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3ClinearGradient id='g'%3E%3Cstop offset='0' stop-color='rgb(255,0,0)'/%3E%3Cstop offset='.22' stop-color='rgb(128,0,0)'/%3E%3Cstop offset='.78' stop-color='rgb(128,0,0)'/%3E%3Cstop offset='1' stop-color='rgb(0,0,0)'/%3E%3C/linearGradient%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3C/svg%3E" />
+        <feImage preserveAspectRatio="none" result="dy" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='rgb(0,255,0)'/%3E%3Cstop offset='.22' stop-color='rgb(0,128,0)'/%3E%3Cstop offset='.78' stop-color='rgb(0,128,0)'/%3E%3Cstop offset='1' stop-color='rgb(0,0,0)'/%3E%3C/linearGradient%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3C/svg%3E" />
+        <feComposite in="dx" in2="dy" operator="arithmetic" k2="1" k3="1" result="map" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="24" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
