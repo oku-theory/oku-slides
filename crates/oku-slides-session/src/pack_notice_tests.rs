@@ -10,7 +10,7 @@ use crate::test_support::{fresh_dir, manifest, session_on};
 use crate::{Request, Session};
 
 fn files(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
-    manifest(id, name, parent, created).to_files(None).unwrap()
+    manifest(id, name, parent, created).to_files(std::collections::BTreeMap::new()).unwrap()
 }
 
 /// Un fichier enregistré par une autre session (dossier `them`), dont le deck embarque `pack`.

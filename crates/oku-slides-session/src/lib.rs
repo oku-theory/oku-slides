@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
@@ -32,7 +32,6 @@ pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
 use oku_slides_render::{PackWidgets, RenderError, RenderErrorKind};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
-use uuid::Uuid;
 
 pub mod agent;
 mod appearance;
@@ -53,6 +52,7 @@ pub mod pack;
 mod pack_notice;
 mod panel;
 mod render_fonts;
+mod request;
 mod resume;
 mod resume_writer;
 mod templates_mode;
@@ -60,6 +60,9 @@ mod templates_mode;
 pub(crate) mod test_support;
 mod text;
 mod views;
+mod widget_preview;
+mod widgets_deck;
+mod widgets_edit;
 mod workspace;
 
 pub use appearance::{Appearance, appearance};
@@ -76,11 +79,14 @@ pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
 pub use panel::PANEL_SURFACE;
+pub use request::Request;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
     HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
     TemplatesView, UiState,
 };
+pub use widget_preview::{PreviewFormat, WidgetPreview};
+pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
 /// Un document ouvert : ses sources (deck et son historique, assets,
@@ -137,154 +143,6 @@ pub(crate) enum Mode {
         stash: Box<Document>,
         history: history::HistoryMode,
     },
-}
-
-// ---- Requêtes ----------------------------------------------------------------------
-
-/// Une requête de l'interface (même forme pour Tauri et HTTP).
-#[derive(Debug, Deserialize)]
-#[serde(tag = "cmd", rename_all = "snake_case")]
-pub enum Request {
-    Snapshot,
-    /// Enregistre ; sans `overwrite`, un fichier changé sur disque est
-    /// d'abord fusionné (même deck) ou laissé tel quel (autre deck, signalé
-    /// par `disk_replaced` dans le snapshot).
-    Save {
-        path: Option<PathBuf>,
-        #[serde(default)]
-        overwrite: bool,
-    },
-    Slide {
-        id: String,
-    },
-    Svg {
-        id: String,
-    },
-    Apply {
-        label: String,
-        ops: Vec<Op>,
-        /// Clé de session de saisie : les `Apply` consécutifs de même clé
-        /// forment une étape d'annulation.
-        #[serde(default)]
-        merge: Option<String>,
-    },
-    Undo,
-    Redo,
-    Schema,
-    /// Registre des widgets du deck ouvert (base, surchargée par son pack).
-    Widgets,
-    /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
-    Panel {
-        slide: String,
-    },
-    /// Change le type d'un graphique ; ses données sont converties. Annulable.
-    ChartKind {
-        label: String,
-        slide: String,
-        element: String,
-        kind: oku_slides_chart::SeriesType,
-    },
-    /// Modèles d'un pack, rendus avec le thème du deck.
-    ///
-    /// Par défaut, celui du deck, dans sa version embarquée.
-    Templates {
-        #[serde(default)]
-        set: Option<Uuid>,
-    },
-    /// Liste des packs de modèles, dans leur version courante.
-    TemplateSets,
-    /// Passe en édition de la version courante d'un pack (le deck est mis de côté).
-    EditTemplates {
-        set: Uuid,
-    },
-    /// Enregistre le pack édité dans la version de cette session d'édition.
-    ///
-    /// `as_new` : une copie (nouvel id).
-    SaveTemplates {
-        #[serde(default)]
-        as_new: bool,
-    },
-    /// Quitte l'édition des modèles et retrouve le deck.
-    CloseTemplates,
-    /// Supprime un pack de l'utilisateur, toutes versions comprises.
-    ///
-    /// Refusé sous l'id d'un pack intégré.
-    DeleteTemplateSet {
-        set: Uuid,
-    },
-    /// Slide courante, grille et fantômes de l'interface (gardés pour la reprise).
-    Ui(UiState),
-    /// Fusionne un autre `.oku-slides.pdf` du même deck. Non annulable.
-    Merge {
-        path: PathBuf,
-    },
-    /// Ouvre l'historique sur la dernière version (le deck est mis de côté).
-    HistoryOpen,
-    /// Montre une version de l'historique (bornée à la dernière).
-    HistorySeek {
-        index: usize,
-    },
-    /// Ramène le deck à la version montrée (annulable) et ferme l'historique.
-    HistoryRestore,
-    /// Ferme l'historique et retrouve le deck.
-    HistoryClose,
-    /// Les versions du deck, dans l'ordre (tableau de `Version`).
-    HistoryVersions,
-    /// Déplace le fichier du deck : écrit à `path`, supprime l'ancien.
-    Move {
-        path: PathBuf,
-    },
-    /// Écrit une copie à `path` ; le deck garde son fichier.
-    SaveCopy {
-        path: PathBuf,
-    },
-    /// Bandeau du pack : le deck passe à ma version courante (annulable).
-    PackUseMine,
-    /// Bandeau du pack : sa version devient ma version courante.
-    PackMakeCurrent,
-    /// Ferme le bandeau du pack pour la session.
-    PackNoticeClose,
-}
-
-impl Request {
-    /// Vrai si la requête peut changer le deck (slides ajoutées ou retirées).
-    ///
-    /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
-    /// L'historique (sauf la liste des versions) : le deck montré change.
-    /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
-    pub fn changes_deck(&self) -> bool {
-        match self {
-            Self::Save { .. }
-            | Self::Apply { .. }
-            | Self::Undo
-            | Self::Redo
-            | Self::ChartKind { .. }
-            | Self::EditTemplates { .. }
-            | Self::CloseTemplates
-            | Self::Merge { .. }
-            | Self::HistoryOpen
-            | Self::HistorySeek { .. }
-            | Self::HistoryRestore
-            | Self::HistoryClose
-            | Self::Move { .. }
-            | Self::PackUseMine => true,
-            Self::Snapshot
-            | Self::Slide { .. }
-            | Self::Svg { .. }
-            | Self::Schema
-            | Self::Widgets
-            | Self::Panel { .. }
-            | Self::Templates { .. }
-            | Self::TemplateSets
-            | Self::SaveTemplates { .. }
-            | Self::DeleteTemplateSet { .. }
-            | Self::SaveCopy { .. }
-            | Self::Ui(_)
-            | Self::HistoryVersions
-            | Self::PackMakeCurrent
-            | Self::PackNoticeClose => false,
-        }
-    }
 }
 
 // ---- Session ----------------------------------------------------------------------
@@ -344,6 +202,14 @@ pub struct Session {
     pack_notice: Option<pack_notice::PackNotice>,
     /// Bandeaux fermés : ils ne reviennent plus dans cette session.
     pack_notices_closed: HashSet<PackRef>,
+    /// Bornes des fichiers de widgets (`[render]`).
+    widget_limits: widgets_edit::WidgetLimits,
+    /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
+    widget_edit: bool,
+    /// Séance de modification des widgets en mode deck.
+    widget_session: Option<widgets_deck::WidgetSession>,
+    /// Emplacement d'essai de l'aperçu des widgets.
+    widget_preview: Option<widget_preview::PreviewSlot>,
     #[cfg(test)]
     failpoints: deck_widgets::Failpoints,
 }
@@ -445,6 +311,10 @@ impl Session {
             agent_notes: Vec::new(),
             pack_notice: None,
             pack_notices_closed: HashSet::new(),
+            widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
+            widget_edit: false,
+            widget_session: None,
+            widget_preview: None,
             sent_blobs: Vec::new(),
             #[cfg(test)]
             failpoints: Default::default(),
@@ -585,7 +455,7 @@ impl Session {
         {
             return EditingTemplatesSnafu.fail()?;
         }
-        if matches!(self.mode, Mode::History { .. }) && Self::edits(&req) {
+        if matches!(self.mode, Mode::History { .. }) && req.edits() {
             return InHistorySnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
@@ -607,6 +477,10 @@ impl Session {
                     | Request::PackNoticeClose
             ),
         );
+        // La séance des widgets du mode deck finit à la première autre modification.
+        if req.changes_deck() && !req.is_widget_edit() {
+            self.end_widget_session();
+        }
         match req {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
@@ -616,6 +490,26 @@ impl Session {
             Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.packs()),
+            Request::WidgetStatus => return json(&self.widget_status()?),
+            Request::WidgetSource { name } => return json(&self.widget_source(&name)?),
+            Request::SetWidget { name, source } => {
+                let change = self.set_widget(&name, source)?;
+                self.persist(true);
+                return json(&change);
+            }
+            Request::RemoveWidget { name } => {
+                let statuses = self.remove_widget(&name)?;
+                self.persist(true);
+                return json(&statuses);
+            }
+            Request::RenameWidget { from, to } => {
+                let statuses = self.rename_widget(&from, &to)?;
+                self.persist(true);
+                return json(&statuses);
+            }
+            Request::PreviewWidget { name, params } => {
+                return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
+            }
             Request::DeleteTemplateSet { set } => {
                 ensure!(!Library::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
                 self.library.delete(set)?;
@@ -660,27 +554,6 @@ impl Session {
         Ok(out)
     }
 
-    /// Requêtes refusées pendant l'historique : elles modifieraient le deck,
-    /// l'enregistreraient, ou passeraient aux modèles.
-    fn edits(req: &Request) -> bool {
-        matches!(
-            req,
-            Request::Apply { .. }
-                | Request::Undo
-                | Request::Redo
-                | Request::Save { .. }
-                | Request::Merge { .. }
-                | Request::Move { .. }
-                | Request::SaveCopy { .. }
-                | Request::ChartKind { .. }
-                | Request::EditTemplates { .. }
-                | Request::SaveTemplates { .. }
-                | Request::CloseTemplates
-                | Request::DeleteTemplateSet { .. }
-                | Request::PackUseMine
-        )
-    }
-
     pub fn new_deck(&mut self) -> Result<()> {
         let sources = SourceBundle::new(blank_deck(&self.localizer), self.registry.clone()).context(SourcesSnafu)?;
         self.load(sources, None)?;
@@ -700,6 +573,7 @@ impl Session {
     /// avec les widgets du pack qu'il embarque ; sans pack, il adopte le pack
     /// par défaut (voir `deck_pack`).
     fn load_document(&mut self, mut doc: Document) -> Result<()> {
+        self.end_widget_session();
         deck_pack::adopt_default_pack(&self.library, &mut doc.sources)?;
         let (widgets, notice) = self.resolve_widgets(doc.sources.deck().templates.as_ref(), &doc.sources.packs)?;
         doc.sources.set_registry(widgets.registry.clone());
@@ -836,6 +710,7 @@ impl Session {
 
     /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn undo(&mut self) -> Result<()> {
+        self.end_widget_session();
         self.ensure_not_in_history()?;
         if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
@@ -847,6 +722,7 @@ impl Session {
 
     /// Rétablit par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn redo(&mut self) -> Result<()> {
+        self.end_widget_session();
         self.ensure_not_in_history()?;
         if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;

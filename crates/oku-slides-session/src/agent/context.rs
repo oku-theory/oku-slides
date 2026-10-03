@@ -38,13 +38,18 @@ pub(crate) fn turn_label(prompt: &str) -> String {
 
 impl Session {
     /// Ouvre le groupe d'annulation d'un tour de l'agent.
+    ///
+    /// La séance de widgets du mode deck finit ici et à la fin du tour : une
+    /// séance ne chevauche jamais l'étape d'un tour.
     pub fn begin_turn(&mut self, prompt: &str) {
+        self.end_widget_session();
         let label = self.localizer.tr_with("agent-undo-turn", &[("text", turn_label(prompt).into())]);
         self.doc.sources.begin_group(&label);
     }
 
     /// Ferme le groupe du tour, y compris sur le deck mis de côté (modèles, historique).
     pub fn end_turn(&mut self) {
+        self.end_widget_session();
         self.doc.sources.end_group();
         if let Mode::Templates { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
             stash.sources.end_group();

@@ -39,11 +39,16 @@ const GRACE: Duration = Duration::from_millis(500);
 const GRACE_POLL: Duration = Duration::from_millis(20);
 
 /// Empreinte hexadécimale d'un pack, égale à celle de `PackWidgets::fingerprint`.
-pub(crate) fn fingerprint_hex(id: &str, source: &str) -> String {
+pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
     let mut h = Sha256::new();
-    h.update(id.as_bytes());
+    h.update(pack.id.as_bytes());
     h.update([0]);
-    h.update(source.as_bytes());
+    for (name, source) in &pack.files {
+        h.update(name.as_bytes());
+        h.update([0]);
+        h.update(source.as_bytes());
+        h.update([0]);
+    }
     hex::encode(h.finalize())
 }
 
@@ -264,7 +269,7 @@ impl Link {
                 }
             }
             self.expect_ok(&Request::OpenSlot { slot, fonts: st.fonts.clone() }, &[])?;
-            let pack = st.pack.filter(|p| !self.faulty_packs.contains(&fingerprint_hex(&p.id, &p.source)));
+            let pack = st.pack.filter(|p| !self.faulty_packs.contains(&fingerprint_hex(p)));
             if pack.is_some() {
                 self.expect_ok(&Request::SetWidgets { slot, pack }, &[])?;
             }

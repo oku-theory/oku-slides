@@ -19,6 +19,10 @@
 //!   `set_widgets`, celui de l'emplacement pour les autres. Il n'est plus
 //!   exécuté dans ce travailleur, et le rendu de l'emplacement répond
 //!   `PackDisabled` sans appel.
+//! - Un emplacement d'essai (`trial_slot`, aperçu d'un widget en cours
+//!   d'écriture) n'accuse aucun pack et pose même un pack fautif. Après une
+//!   relance, le rejeu a écarté ce pack fautif : son rendu répond alors
+//!   `PackDisabled` plutôt que de rendre sans le widget.
 //! - Assets : l'hôte ne garde, parmi ceux envoyés, que ceux du dernier rendu
 //!   de chaque emplacement (même règle que le travailleur).
 
@@ -30,7 +34,7 @@ use oku_slides_core::{Deck, WidgetRegistry};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Diagnostic, Fonts, Layout, PackWidgets, RegistryError, RenderError, registry_from_probe};
+use oku_slides_render::{Diagnostic, FileProbe, Fonts, Layout, PackWidgets, RenderError};
 use sha2::{Digest, Sha256};
 
 use crate::link::{Link, SlotState, fingerprint_hex};
@@ -52,13 +56,19 @@ enum Deferred {
 
 /// Ce que partagent les poignées d'un travailleur, hors du verrou du lien.
 #[derive(Debug, Default)]
-struct Shared {
+pub(crate) struct Shared {
     /// `Release` et `CloseSlot` mis en file par un `Drop`.
     deferred: Mutex<Vec<Deferred>>,
-    /// Registres sondés, par empreinte hexadécimale du pack.
-    registries: Mutex<HashMap<String, Arc<WidgetRegistry>>>,
     /// Dernier identifiant d'emplacement attribué.
     last_slot: AtomicU32,
+    /// Sondes de fichiers, par `probe_key` (échecs bornés compris).
+    pub(crate) file_probes: Mutex<HashMap<[u8; 32], FileProbe>>,
+    /// Nombre de fichiers sondés d'un pack, au plus.
+    pub(crate) max_widgets: usize,
+    /// Taille d'un fichier sondé, au plus (octets).
+    pub(crate) max_widget_bytes: usize,
+    /// Durée totale des sondes d'un pack, au plus (`timeout_ms`).
+    pub(crate) probe_budget: std::time::Duration,
 }
 
 impl Shared {
@@ -69,7 +79,7 @@ impl Shared {
 
 /// Un travailleur de rendu partagé par les rendus d'une session.
 #[derive(Clone)]
-pub struct RenderWorker(Arc<Mutex<Link>>, Arc<Shared>);
+pub struct RenderWorker(pub(crate) Arc<Mutex<Link>>, pub(crate) Arc<Shared>);
 
 impl std::fmt::Debug for RenderWorker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -79,10 +89,10 @@ impl std::fmt::Debug for RenderWorker {
 }
 
 fn wire(pack: &PackWidgets) -> WirePack {
-    WirePack { id: pack.id().to_owned(), source: pack.source().to_owned() }
+    WirePack { id: pack.id().to_owned(), files: pack.files().iter().map(|(n, s)| (n.to_string(), s.clone())).collect() }
 }
 
-fn unexpected(resp: &Response) -> RenderError {
+pub(crate) fn unexpected(resp: &Response) -> RenderError {
     RenderError::frame(format!("unexpected reply {resp:?}"))
 }
 
@@ -100,14 +110,14 @@ fn blame(link: &mut Link, pack: Option<&WirePack>, e: &RenderError) {
     if let Some(p) = pack
         && e.kind().is_bounded()
     {
-        link.faulty_packs.insert(fingerprint_hex(&p.id, &p.source));
+        link.faulty_packs.insert(fingerprint_hex(p));
     }
 }
 
 /// Le pack fautif d'un emplacement, s'il l'est.
 fn faulty_pack(link: &Link, slot: SlotId) -> Option<String> {
     let pack = link.state.slots.get(&slot)?.pack.as_ref()?;
-    link.faulty_packs.contains(&fingerprint_hex(&pack.id, &pack.source)).then(|| pack.id.clone())
+    link.faulty_packs.contains(&fingerprint_hex(pack)).then(|| pack.id.clone())
 }
 
 /// Ne garde des assets envoyés que ceux du dernier rendu de chaque emplacement.
@@ -120,11 +130,17 @@ fn evict_assets(link: &mut Link) {
 impl RenderWorker {
     /// Un travailleur, lancé à la première requête.
     pub fn new(launch: RenderLaunch, settings: RenderSettings) -> Self {
-        Self(Arc::new(Mutex::new(Link::new(launch, settings))), Arc::new(Shared::default()))
+        let shared = Shared {
+            max_widgets: settings.max_widgets,
+            max_widget_bytes: settings.max_widget_bytes(),
+            probe_budget: std::time::Duration::from_millis(settings.timeout_ms),
+            ..Shared::default()
+        };
+        Self(Arc::new(Mutex::new(Link::new(launch, settings))), Arc::new(shared))
     }
 
     /// Le verrou du lien, sans rien envoyer.
-    fn link(&self) -> MutexGuard<'_, Link> {
+    pub(crate) fn link(&self) -> MutexGuard<'_, Link> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
@@ -132,7 +148,7 @@ impl RenderWorker {
     ///
     /// Sans connexion, le travailleur neuf ne connaît ni les générations ni
     /// les emplacements fermés : seul l'état de rejeu est mis à jour.
-    fn prepare(&self, link: &mut Link) -> Result<(), RenderError> {
+    pub(crate) fn prepare(&self, link: &mut Link) -> Result<(), RenderError> {
         let deferred = std::mem::take(&mut *self.1.deferred.lock().unwrap_or_else(PoisonError::into_inner));
         let mut closed = false;
         for d in &deferred {
@@ -167,36 +183,9 @@ impl RenderWorker {
         self.prepare(link).inspect_err(|e| blame(link, pack, e))
     }
 
-    /// Le registre des widgets de `pack` (base surchargée), sonde exécutée dans le travailleur, gardé par empreinte.
-    pub fn probe(&self, pack: &PackWidgets) -> Result<Arc<WidgetRegistry>, RegistryError> {
-        let key = fingerprint_hex(pack.id(), pack.source());
-        let mut link = self.link();
-        if link.faulty_packs.contains(&key) {
-            return Err(RegistryError::worker(RenderError::pack_disabled(pack.id())));
-        }
-        if let Some(r) = self.1.registries.lock().unwrap_or_else(PoisonError::into_inner).get(&key) {
-            return Ok(r.clone());
-        }
-        self.prepare(&mut link).map_err(RegistryError::worker)?;
-        let wire = wire(pack);
-        match link.call(&Request::Probe { pack: wire.clone() }, &[]) {
-            Ok((Response::Probe { json }, _)) => {
-                let registry = Arc::new(registry_from_probe(json)?);
-                self.1.registries.lock().unwrap_or_else(PoisonError::into_inner).insert(key, registry.clone());
-                Ok(registry)
-            }
-            Ok((Response::Error { error }, _)) => Err(error.into_registry()),
-            Ok((other, _)) => Err(RegistryError::worker(unexpected(&other))),
-            Err(e) => {
-                blame(&mut link, Some(&wire), &e);
-                Err(RegistryError::worker(e))
-            }
-        }
-    }
-
     /// `pack` a fait échouer le rendu (délai, mémoire, arrêt) : il n'est plus exécuté dans ce travailleur.
     pub fn is_faulty(&self, pack: &PackWidgets) -> bool {
-        self.link().faulty_packs.contains(&fingerprint_hex(pack.id(), pack.source()))
+        self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))
     }
 
     /// Ouvre un emplacement avec ces polices, les widgets de base et la langue `l`.
@@ -220,7 +209,29 @@ impl RenderWorker {
         expect_ok(&mut link, &Request::OpenSlot { slot, fonts: ids.clone() }, &[])?;
         link.state.slots.insert(slot, SlotState { fonts: ids, pack: None, last_assets: Vec::new() });
         drop(link);
-        Ok(RenderSlot { worker: self.clone(), id: slot, registry: base, chart_palette: Vec::new() })
+        Ok(RenderSlot {
+            worker: self.clone(),
+            id: slot,
+            registry: base,
+            chart_palette: Vec::new(),
+            accuse: true,
+            pack_epoch: 0,
+        })
+    }
+
+    /// Ouvre un emplacement d'essai : aucun échec n'y accuse un pack.
+    ///
+    /// Pour l'aperçu d'un widget en cours d'écriture : le pack n'est pas
+    /// écarté, et un pack déjà fautif y est tout de même posé.
+    pub fn trial_slot(
+        &self,
+        fonts: &Fonts,
+        l: &Localizer,
+        base: Arc<WidgetRegistry>,
+    ) -> Result<RenderSlot, RenderError> {
+        let mut slot = self.slot(fonts, l, base)?;
+        slot.accuse = false;
+        Ok(slot)
     }
 
     /// Tue le travailleur sans toucher à l'état du lien (tests de relance).
@@ -249,6 +260,10 @@ pub struct RenderSlot {
     id: SlotId,
     registry: Arc<WidgetRegistry>,
     chart_palette: Vec<String>,
+    /// Un échec borné y accuse le pack ; `false` pour un emplacement d'essai.
+    accuse: bool,
+    /// Époque du travailleur où `set_widgets` a posé le pack.
+    pack_epoch: u64,
 }
 
 impl std::fmt::Debug for RenderSlot {
@@ -266,17 +281,20 @@ impl RenderSlot {
     ) -> Result<(), RenderError> {
         let mut link = self.worker.link();
         let wire = pack.map(wire);
-        if let Some(p) = &wire
-            && link.faulty_packs.contains(&fingerprint_hex(&p.id, &p.source))
+        if self.accuse
+            && let Some(p) = &wire
+            && link.faulty_packs.contains(&fingerprint_hex(p))
         {
             return Err(RenderError::pack_disabled(p.id.clone()));
         }
-        self.worker.prepare_for(&mut link, wire.as_ref())?;
+        let blamed = wire.as_ref().filter(|_| self.accuse);
+        self.worker.prepare_for(&mut link, blamed)?;
         let req = Request::SetWidgets { slot: self.id, pack: wire.clone() };
         if let Err(e) = expect_ok(&mut link, &req, &[]) {
-            blame(&mut link, wire.as_ref(), &e);
+            blame(&mut link, blamed, &e);
             return Err(e);
         }
+        self.pack_epoch = link.restarts;
         if let Some(state) = link.state.slots.get_mut(&self.id) {
             state.pack = wire;
         }
@@ -299,11 +317,20 @@ impl RenderSlot {
     /// Rend `deck` sous une nouvelle génération.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<RemoteCompiled, RenderError> {
         let mut link = self.worker.link();
-        if let Some(pack) = faulty_pack(&link, self.id) {
+        if self.accuse
+            && let Some(pack) = faulty_pack(&link, self.id)
+        {
             return Err(RenderError::pack_disabled(pack));
         }
-        let pack = link.state.slots.get(&self.id).and_then(|s| s.pack.clone());
+        let pack = link.state.slots.get(&self.id).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
         self.worker.prepare_for(&mut link, pack.as_ref())?;
+        // Essai : un pack fautif posé avant une relance n'a pas été rejoué.
+        if !self.accuse
+            && link.restarts != self.pack_epoch
+            && let Some(pack) = faulty_pack(&link, self.id)
+        {
+            return Err(RenderError::pack_disabled(pack));
+        }
         for (id, bytes) in assets {
             if !link.sent_assets.contains(id) {
                 expect_ok(&mut link, &Request::PutAsset { id: id.clone() }, bytes)?;
@@ -339,6 +366,7 @@ impl RenderSlot {
         self.chart_palette = chart_palette;
         Ok(RemoteCompiled {
             warnings,
+            accuse: self.accuse,
             worker: self.worker.clone(),
             slot: self.id,
             generation,
@@ -383,6 +411,8 @@ impl Drop for Release {
 /// Une génération rendue par le travailleur ; les pages s'exportent à la demande.
 pub struct RemoteCompiled {
     pub warnings: Vec<Diagnostic>,
+    /// Un échec borné y accuse le pack ; `false` pour un emplacement d'essai.
+    accuse: bool,
     worker: RenderWorker,
     slot: SlotId,
     pub(crate) generation: u64,
@@ -435,7 +465,7 @@ impl RemoteCompiled {
         self.bytes(&Request::Pdf { slot: self.slot, generation: self.generation })
     }
 
-    /// Un export de cette génération ; un échec borné rend le pack de l'emplacement fautif.
+    /// Un export de cette génération ; un échec borné accuse le pack (hors essai).
     ///
     /// Une génération d'un travailleur précédent répond `Stale` sans appel.
     fn bytes(&self, req: &Request) -> Result<Vec<u8>, RenderError> {
@@ -443,7 +473,7 @@ impl RemoteCompiled {
         if link.restarts != self.epoch {
             return Err(RenderError::stale());
         }
-        let pack = link.state.slots.get(&self.slot).and_then(|s| s.pack.clone());
+        let pack = link.state.slots.get(&self.slot).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
         self.worker.prepare_for(&mut link, pack.as_ref())?;
         // `prepare` a pu relancer le travailleur.
         if link.restarts != self.epoch {
@@ -465,6 +495,7 @@ impl RemoteCompiled {
     pub(crate) fn clone_handle_for_test(&self) -> Self {
         Self {
             warnings: self.warnings.clone(),
+            accuse: self.accuse,
             worker: self.worker.clone(),
             slot: self.slot,
             generation: self.generation,

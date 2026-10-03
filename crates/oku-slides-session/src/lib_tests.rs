@@ -147,6 +147,9 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "save_templates" }),
         json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "history_versions" }),
+        json!({ "cmd": "widget_status" }),
+        json!({ "cmd": "widget_source", "name": "kpi" }),
+        json!({ "cmd": "preview_widget", "name": "kpi" }),
     ];
     let changing: Vec<_> = reads
         .into_iter()
@@ -170,6 +173,9 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "history_seek", "index": 0 }),
         json!({ "cmd": "history_restore" }),
         json!({ "cmd": "history_close" }),
+        json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
+        json!({ "cmd": "remove_widget", "name": "kpi" }),
+        json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
     ];
     let kept: Vec<_> = edits
         .into_iter()
@@ -177,6 +183,19 @@ fn changes_deck_edit_requests_return_true() {
         .filter(|r| !r.changes_deck())
         .collect();
     assert_that!(kept).is_empty();
+}
+
+#[test]
+fn is_widget_edit_widget_writes_return_true_and_others_false() {
+    let request = |v| serde_json::from_value::<Request>(v).unwrap();
+    let writes = [
+        json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
+        json!({ "cmd": "remove_widget", "name": "kpi" }),
+        json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
+    ];
+    assert_that!(writes.into_iter().map(request).all(|r| r.is_widget_edit())).is_true();
+    let others = [json!({ "cmd": "widget_status" }), json!({ "cmd": "undo" }), json!({ "cmd": "save_templates" })];
+    assert_that!(others.into_iter().map(request).any(|r| r.is_widget_edit())).is_false();
 }
 
 #[test]

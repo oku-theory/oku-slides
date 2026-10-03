@@ -5,7 +5,7 @@
 //! (`deck/`, `templates/`) tient dans un `deck.loro` (le replica : deck,
 //! identité et historique complet ; pas la pile d'annulation) et un
 //! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets,
-//! polices et packs, écrits une fois par nom.
+//! polices et packs (`<hex>.json`, `<hex>.<nom>.typ`), écrits une fois par nom.
 //!
 //! Un seul écrivain par dossier : la session de l'onglet. L'espace de travail
 //! (`workspace.rs`) écrit seul `workspace.json`, au-dessus.
@@ -18,7 +18,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use oku_slides_core::{DeckReplica, PackFiles, PackVersion, ReplicaError, SourceBundle, WidgetRegistry};
+use oku_slides_core::{DeckReplica, PackFiles, PackVersion, ReplicaError, SourceBundle, WidgetFile, WidgetRegistry};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
@@ -277,22 +277,21 @@ impl Resume {
         });
         let keep_fonts = self.write_missing(&dir.join("fonts"), fonts)?;
 
-        // Les packs sont adressés par contenu : `<hex>.json` et `<hex>.typ`.
+        // Les packs sont adressés par contenu : `<hex>.json` et un `<hex>.<nom>.typ` par fichier de widget.
         let packs_dir = dir.join("packs");
         let mut keep_packs = BTreeSet::new();
         for (version, files) in &doc.blobs.packs {
-            let json = packs_dir.join(format!("{}.json", version.hex()));
+            let hex = version.hex();
+            let json = packs_dir.join(format!("{hex}.json"));
             if !self.storage.exists(&json).context(AccessSnafu { path: &json })? {
-                // `<hex>.typ` d'abord : un `<hex>.json` présent dit le pack complet.
-                if let Some(source) = files.widgets() {
-                    self.put(&packs_dir.join(format!("{}.typ", version.hex())), source.as_bytes().to_vec())?;
+                // Les widgets d'abord : un `<hex>.json` présent dit le pack complet.
+                for (name, source) in files.widgets() {
+                    self.put(&packs_dir.join(format!("{hex}.{}", name.file_name())), source.as_bytes().to_vec())?;
                 }
                 self.put(&json, files.pack_json().context(JsonSnafu { path: &json })?)?;
             }
-            keep_packs.insert(format!("{}.json", version.hex()));
-            if files.widgets().is_some() {
-                keep_packs.insert(format!("{}.typ", version.hex()));
-            }
+            keep_packs.insert(format!("{hex}.json"));
+            keep_packs.extend(files.widgets().keys().map(|n| format!("{hex}.{}", n.file_name())));
         }
 
         self.put(&dir.join("deck.loro"), doc.replica.clone())?;
@@ -453,7 +452,10 @@ impl Resume {
         let mut packs = BTreeMap::new();
         for (name, bytes) in &raw_packs {
             let Some(hex) = name.strip_suffix(".json") else { continue };
-            let widgets = raw_packs.get(&format!("{hex}.typ")).map(Vec::as_slice);
+            let prefix = format!("{hex}.");
+            let widgets = raw_packs
+                .iter()
+                .filter_map(|(n, b)| WidgetFile::from_file_name(n.strip_prefix(&prefix)?).map(|w| (w, b.as_slice())));
             // Vérifiée par son empreinte : un pack altéré est ignoré.
             let checked = PackVersion::from_hex(hex)
                 .and_then(|v| PackFiles::from_bytes(bytes, widgets).filter(|f| f.matches(&v)).map(|f| (v, f)));

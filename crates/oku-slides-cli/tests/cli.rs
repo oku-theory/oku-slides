@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use common::{FIXTURE, Server, free_port, http, oku_slides, request, workdir};
-use oku_slides_core::{Deck, PackFiles, PackRef, SourceBundle, SourceLimits, WidgetRegistry};
+use oku_slides_core::{Deck, PackFiles, PackRef, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry};
 use oku_slides_session::{Library, PackManifest, Storage};
 use speculoos::prelude::*;
 
@@ -370,16 +370,14 @@ const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes:
 
 /// Le pack `quote` du plan 1.
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
-#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
+#let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
   (args, ctx) => field(ctx, "body", emph(args.body)))
-#let registry = (quote,)
 "#;
 
 /// Un widget `boucle` qui boucle au rendu, hors des gardes de Typst.
 const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
-#let boucle = widget("boucle", params: (body: p.plain()),
+#let widget = widget("boucle", params: (body: p.plain()),
   (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
-#let registry = (boucle,)
 "#;
 
 fn base_registry() -> Arc<WidgetRegistry> {
@@ -388,8 +386,8 @@ fn base_registry() -> Arc<WidgetRegistry> {
     Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre de base : {e}")))
 }
 
-/// Une première version du pack `id`, avec `widgets` pour `widgets.typ`.
-fn pack_files(id: uuid::Uuid, widgets: &str) -> PackFiles {
+/// Une première version du pack `id`, avec ses fichiers de widgets `(nom, source)`.
+fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
     let manifest = PackManifest {
         id,
         name: "Pack".to_owned(),
@@ -398,11 +396,18 @@ fn pack_files(id: uuid::Uuid, widgets: &str) -> PackFiles {
         created: "2026-10-01T00:00:00Z".to_owned(),
         templates: Vec::new(),
     };
-    manifest.to_files(Some(widgets.to_owned())).unwrap_or_else(|e| panic!("pack.json : {e}"))
+    let widgets = widgets
+        .iter()
+        .map(|(name, source)| {
+            let file = WidgetFile::parse(name).unwrap_or_else(|| panic!("nom de widget invalide : {name}"));
+            (file, (*source).to_owned())
+        })
+        .collect();
+    manifest.to_files(widgets).unwrap_or_else(|e| panic!("pack.json : {e}"))
 }
 
 /// Ajoute un pack de l'utilisateur à la bibliothèque de `dir` ; sa référence.
-fn user_pack(dir: &Path, widgets: &str) -> PackRef {
+fn user_pack(dir: &Path, widgets: &[(&str, &str)]) -> PackRef {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, widgets);
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
@@ -433,7 +438,7 @@ fn save_of_a_deck_without_templates_embeds_the_default_pack() {
 #[test]
 fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
     let dir = workdir("pack-quote");
-    let r = user_pack(&dir, QUOTE);
+    let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
     std::fs::write(
         &deck,
@@ -461,7 +466,7 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
     assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&base)).status.success()).is_true();
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
     let id = uuid::Uuid::new_v4();
-    let files = pack_files(id, LOOP_ON_RENDER);
+    let files = pack_files(id, &[("boucle", LOOP_ON_RENDER)]);
     let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3,
         "templates": { "id": id, "version": files.version() },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
@@ -502,7 +507,7 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
 #[test]
 fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
     let dir = workdir("pack-json");
-    let r = user_pack(&dir, QUOTE);
+    let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
     let json = serde_json::json!({ "version": 3, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
@@ -518,7 +523,7 @@ fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackRef) {
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
     let id = uuid::Uuid::new_v4();
-    let files = pack_files(id, QUOTE);
+    let files = pack_files(id, &[("quote", QUOTE)]);
     let r = PackRef { id, version: files.version() };
     let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
@@ -547,7 +552,7 @@ fn open_out_then_save_keeps_a_received_pack_missing_from_the_library() {
     assert_that!(opened.status.success()).is_true();
     let pack_dir = extract.join("packs").join(r.version.hex());
     assert_that!(pack_dir.join("pack.json").exists()).is_true();
-    assert_that!(pack_dir.join("widgets.typ").exists()).is_true();
+    assert_that!(pack_dir.join("widgets").join("quote.typ").exists()).is_true();
 
     let pdf = dir.join("again.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "en").arg("save").arg(extract.join("deck.json")).arg(&pdf));
@@ -566,7 +571,7 @@ fn save_of_a_deck_whose_pack_is_found_nowhere_fails_with_a_localized_error() {
     assert_that!(run(oku_slides(&dir, "en").arg("open").arg(&received).arg("--out").arg(&extract)).status.success())
         .is_true();
     // Le pack à côté du deck est altéré : sa version ne correspond plus.
-    let widgets = extract.join("packs").join(r.version.hex()).join("widgets.typ");
+    let widgets = extract.join("packs").join(r.version.hex()).join("widgets").join("quote.typ");
     std::fs::write(&widgets, format!("{QUOTE}\n// altéré\n")).unwrap();
     let pdf = dir.join("again.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "fr").arg("save").arg(extract.join("deck.json")).arg(&pdf));

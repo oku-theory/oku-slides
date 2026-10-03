@@ -19,7 +19,7 @@ use std::time::Instant;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
+use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::Fonts;
@@ -193,17 +193,25 @@ fn embed_pack(
 /// La version `v` extraite à côté du deck, si elle s'y trouve intacte.
 fn beside_deck(storage: &Storage, deck_dir: &Path, v: &PackVersion) -> Option<PackFiles> {
     let dir = deck_dir.join("packs").join(v.hex());
-    let read = |name: &str| -> Option<Vec<u8>> {
-        let path = dir.join(name);
-        match storage.len(&path) {
+    let read = |path: &Path| -> Option<Vec<u8>> {
+        match storage.len(path) {
             Ok(Some(_)) => storage
-                .read(&path)
+                .read(path)
                 .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "fichier du pack illisible"))
                 .ok(),
             _ => None,
         }
     };
-    let files = PackFiles::from_bytes(&read("pack.json")?, read("widgets.typ").as_deref())?;
+    let mut widgets = BTreeMap::new();
+    let listed = storage.list_files(&dir.join("widgets")).unwrap_or_default();
+    for path in listed {
+        let Some(name) = path.file_name().and_then(|n| n.to_str()).and_then(WidgetFile::from_file_name) else {
+            continue;
+        };
+        widgets.insert(name, read(&path)?);
+    }
+    let files =
+        PackFiles::from_bytes(&read(&dir.join("pack.json"))?, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))?;
     if files.matches(v) {
         Some(files)
     } else {
@@ -348,8 +356,8 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 for (version, files) in &bundle.packs {
                     let at = dir.join("packs").join(version.hex());
                     storage.write(&at.join("pack.json"), files.pack_json()?)?;
-                    if let Some(source) = files.widgets() {
-                        storage.write(&at.join("widgets.typ"), source.as_bytes())?;
+                    for (name, source) in files.widgets() {
+                        storage.write(&at.join("widgets").join(name.file_name()), source.as_bytes())?;
                     }
                 }
                 out.line("cli-extracted", &[("dir", dir.display().to_string().into())])?;

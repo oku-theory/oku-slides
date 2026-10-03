@@ -3,10 +3,11 @@
 //! Binaire sans harnais : lancé avec `--render-worker`, il est le processus
 //! de rendu ; sinon il est le test.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use oku_slides_core::Op;
+use oku_slides_core::{Op, WidgetFile};
 use oku_slides_platform::RenderLaunch;
 use oku_slides_session::{Fonts, Library, PackManifest, Platform, Request, Session, Settings, Storage};
 
@@ -33,9 +34,8 @@ fn main() {
 }
 
 const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
-#let boucle = widget("boucle", params: (body: p.plain()),
+#let widget = widget("boucle", params: (body: p.plain()),
   (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
-#let registry = (boucle,)
 "#;
 
 fn looping_pack_render_returns_within_timeout_with_base_widgets() {
@@ -50,7 +50,12 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
         created: "2026-10-01T00:00:00Z".into(),
         templates: vec![],
     };
-    let files = manifest.to_files(Some(LOOP_ON_RENDER.into())).unwrap_or_else(|e| panic!("{e}"));
+    let files = manifest
+        .to_files(BTreeMap::from([(
+            WidgetFile::parse("boucle").unwrap_or_else(|| panic!("nom")),
+            LOOP_ON_RENDER.into(),
+        )]))
+        .unwrap_or_else(|e| panic!("{e}"));
     let version = files.version();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
     Library::new(Some(data.path().join("templates")), storage)

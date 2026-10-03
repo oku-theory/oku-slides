@@ -1,6 +1,7 @@
-//! Le zip des sources (format `oku-slides-sources`, version 4) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 5) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices et les
-//! versions de packs de modèles (`packs/<hex>/`). C'est ce blob qui est
+//! versions de packs de modèles (`packs/<hex>/pack.json`,
+//! `packs/<hex>/widgets/<nom>.typ`). C'est ce blob qui est
 //! stocké dans le PDF.
 //!
 //! [`SourceBundle`] détient le replica ; le [`Deck`] n'en est qu'une vue,
@@ -11,8 +12,7 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 et 3 : deck v1 ou
-//! v2) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 4) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -31,19 +31,24 @@ use crate::error::{
 };
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
-use crate::pack::{PackFiles, PackVersion};
+use crate::pack::{PackFiles, PackVersion, WidgetFile};
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 4;
+pub const SOURCES_VERSION: u32 = 5;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
 
 /// Dossier des versions de packs dans le zip.
 const PACKS_DIR: &str = "packs/";
+
+/// Le manifeste d'une version de pack, dans son dossier.
+const PACK_JSON: &str = "pack.json";
+/// Les fichiers de widgets d'une version de pack, dans son dossier.
+const WIDGETS_DIR: &str = "widgets";
 
 /// Capacité initiale maximale d'une entrée lue : la taille annoncée par
 /// l'en-tête du zip n'est qu'une indication, non fiable.
@@ -123,16 +128,34 @@ fn asset_name(id: &str) -> Result<&str, SourcesInner> {
 #[derive(Default)]
 struct RawPack {
     pack_json: Option<Vec<u8>>,
-    widgets: Option<Vec<u8>>,
+    widgets: BTreeMap<WidgetFile, Vec<u8>>,
+}
+
+/// Ce qu'est une entrée `packs/<hex>/…`.
+enum PackPart {
+    Manifest,
+    Widget(WidgetFile),
+    /// Dossier nu, ou fichier inconnu : ni lu, ni compté.
+    Ignored,
 }
 
 /// `packs/<hex>/<fichier>` : l'empreinte (64 hex minuscules, sinon refusée)
-/// et le fichier (`pack.json`, `widgets.typ` ; autre nom : ignoré).
-fn pack_entry(name: &str) -> Result<(&str, &str), SourcesInner> {
+/// et la partie. Sous `widgets/`, un nom hors de [`WidgetFile`] est refusé,
+/// comme tout sous-dossier autre que `widgets/`.
+fn pack_entry(name: &str) -> Result<(&str, PackPart), SourcesInner> {
     let rest = name.strip_prefix(PACKS_DIR).unwrap_or(name);
     let (hex, file) = rest.split_once('/').unwrap_or((rest, ""));
-    ensure!(PackVersion::from_hex(hex).is_some() && !file.contains('/'), BadNameSnafu { name });
-    Ok((hex, file))
+    ensure!(PackVersion::from_hex(hex).is_some(), BadNameSnafu { name });
+    let part = match file.split_once('/') {
+        None if file == PACK_JSON => PackPart::Manifest,
+        None => PackPart::Ignored,
+        Some((WIDGETS_DIR, "")) => PackPart::Ignored,
+        Some((WIDGETS_DIR, widget)) => {
+            PackPart::Widget(WidgetFile::from_file_name(widget).context(BadNameSnafu { name })?)
+        }
+        Some(_) => return BadNameSnafu { name }.fail(),
+    };
+    Ok((hex, part))
 }
 
 /// Lit une entrée du zip : au plus `cap` octets pour elle, et au plus ce qui
@@ -263,6 +286,11 @@ impl SourceBundle {
     /// Ferme le groupe d'annulation ouvert.
     pub fn end_group(&mut self) {
         self.replica.end_group();
+    }
+
+    /// Étapes d'annulation empilées (voir [`DeckReplica::undo_steps`]).
+    pub fn undo_steps(&self) -> u64 {
+        self.replica.undo_steps()
     }
 
     /// Défait la dernière étape ; `false` s'il n'y en avait pas.
@@ -397,10 +425,10 @@ impl SourceBundle {
             }
             for (version, files) in &self.packs {
                 let dir = format!("{PACKS_DIR}{}", version.hex());
-                zw.start_file(format!("{dir}/pack.json"), deflate).context(ZipSnafu)?;
-                zw.write_all(&files.pack_json().context(JsonSnafu { file: "pack.json" })?).context(IoSnafu)?;
-                if let Some(source) = files.widgets() {
-                    zw.start_file(format!("{dir}/widgets.typ"), deflate).context(ZipSnafu)?;
+                zw.start_file(format!("{dir}/{PACK_JSON}"), deflate).context(ZipSnafu)?;
+                zw.write_all(&files.pack_json().context(JsonSnafu { file: PACK_JSON })?).context(IoSnafu)?;
+                for (name, source) in files.widgets() {
+                    zw.start_file(format!("{dir}/{WIDGETS_DIR}/{}", name.file_name()), deflate).context(ZipSnafu)?;
                     zw.write_all(source.as_bytes()).context(IoSnafu)?;
                 }
             }
@@ -453,16 +481,18 @@ impl SourceBundle {
                 continue; // Entrée de répertoire nue, comme `packs/<hex>/`.
             }
             if name.starts_with(PACKS_DIR) {
-                let (hex, file) = pack_entry(&name)?;
-                if file != "pack.json" && file != "widgets.typ" {
+                let (hex, part) = pack_entry(&name)?;
+                if matches!(part, PackPart::Ignored) {
                     continue; // Dossier ou fichier inconnu : ni lu, ni compté.
                 }
                 let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
                 let slot = raw_packs.entry(hex.to_owned()).or_default();
-                if file == "pack.json" {
-                    slot.pack_json = Some(data);
-                } else {
-                    slot.widgets = Some(data);
+                match part {
+                    PackPart::Manifest => slot.pack_json = Some(data),
+                    PackPart::Widget(widget) => {
+                        slot.widgets.insert(widget, data);
+                    }
+                    PackPart::Ignored => {}
                 }
                 continue;
             }
@@ -502,7 +532,8 @@ impl SourceBundle {
         for (hex, RawPack { pack_json, widgets }) in raw_packs {
             // `pack_entry` a déjà validé l'empreinte : `claimed` est toujours là.
             let claimed = PackVersion::from_hex(&hex);
-            let files = pack_json.and_then(|p| PackFiles::from_bytes(&p, widgets.as_deref()));
+            let files = pack_json
+                .and_then(|p| PackFiles::from_bytes(&p, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))));
             match (claimed, files) {
                 (Some(claimed), Some(files)) if files.matches(&claimed) => {
                     packs.insert(claimed, files);

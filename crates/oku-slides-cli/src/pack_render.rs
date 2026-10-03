@@ -1,6 +1,7 @@
 //! Rendu d'un deck pour la CLI : en mémoire, ou par le processus de rendu
-//! quand le pack qu'il embarque a des widgets. Le code d'un pack reçu y est
-//! isolé et borné (délai, mémoire : spec t-327).
+//! quand le pack qu'il embarque a des widgets : chaque fichier y est sondé à
+//! part, les widgets cassés écartés (diagnostics au journal). Le code d'un
+//! pack reçu y est isolé et borné (délai, mémoire : spec t-327).
 
 use color_eyre::eyre::Result;
 
@@ -76,18 +77,26 @@ pub(crate) fn render(
         tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
         return local(l, fonts, bundle, deck);
     };
-    let Some(source) = files.widgets() else { return local(l, fonts, bundle, deck) };
+    if files.widgets().is_empty() {
+        return local(l, fonts, bundle, deck);
+    }
     let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
-    let loaded = PackWidgets::new(r.version.hex(), source).and_then(|pack| Ok((worker.probe(&pack)?, pack)));
-    let (registry, pack) = match loaded {
-        Ok(loaded) => loaded,
+    let probed = PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| worker.probe_pack(&pack));
+    let probe = match probed {
+        Ok(probe) => probe,
         Err(e) => {
             tracing::warn!(pack = %r.id, error = %one_line(&e), "{}", e.localize(l));
             return local(l, fonts, bundle, deck);
         }
     };
-    let mut slot = worker.slot(&fonts, l, registry.clone())?;
-    slot.set_widgets(Some(&pack), registry)?;
+    for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
+        for d in &file.diagnostics {
+            tracing::warn!(pack = %r.id, widget = %name, "{}", d.localize(l));
+        }
+    }
+    let Some(pack) = probe.pack else { return local(l, fonts, bundle, deck) };
+    let mut slot = worker.slot(&fonts, l, probe.registry.clone())?;
+    slot.set_widgets(Some(&pack), probe.registry)?;
     let compiled = slot.render(deck, &bundle.assets)?;
     Ok(Rendered::Remote { compiled, _slot: slot })
 }

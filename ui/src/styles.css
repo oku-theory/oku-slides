@@ -807,3 +807,30 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .thumb-mark { position: absolute; top: 6px; inset-inline-end: 6px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--paper-200); }
 .thumb-mark.removed { background: var(--danger); }
 .thumb-mark.changed { background: var(--accent-fill); }
+
+/* Panneau Widgets : fichiers, éditeur Typst, aperçu. */
+.workbench { width: min(1280px, 94vw); height: min(780px, 90vh); }
+.workbench-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr 360px; gap: var(--space-4); }
+.workbench-list { min-width: 0; overflow: auto; }
+.workbench-list ul { list-style: none; margin: 0; padding: 0; }
+.workbench-file { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
+.workbench-file[aria-current="true"] { background: var(--accent-soft); }
+.workbench-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.workbench-name { margin-top: var(--space-2); }
+.workbench-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+.pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.pill.valid { background: color-mix(in oklab, #2f8a4f 80%, var(--ink)); }
+.pill.errors { background: var(--danger); }
+.workbench-editor { min-width: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
+.typst-editor { height: 100%; }
+.typst-editor .cm-editor { height: 100%; font: 13px/20px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workbench-preview { min-width: 0; overflow: auto; }
+.workbench-preview img { width: 100%; border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet-lifted); }
+.workbench-diagnostics { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 12px; }
+.workbench-diagnostics .error { color: var(--danger); }
+.cm-typ-comment { color: color-mix(in oklab, var(--ink) 50%, transparent); font-style: italic; }
+.cm-typ-string { color: color-mix(in oklab, #2f8a4f 85%, var(--ink)); }
+.cm-typ-keyword, .cm-typ-hash { color: var(--accent); font-weight: 600; }
+.cm-typ-param { color: color-mix(in oklab, #8a4f2f 85%, var(--ink)); }
+.cm-diag-underline { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
+.cm-diag-marker { color: var(--danger); cursor: help; }

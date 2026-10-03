@@ -149,19 +149,19 @@ fn settings_default_render_limits_match_config_defaults() {
 
 #[test]
 fn render_settings_memory_bytes_converts_mib() {
-    let r = RenderSettings { timeout_ms: 1, memory_mib: 3, max_frame_mib: 1 };
+    let r = RenderSettings { timeout_ms: 1, memory_mib: 3, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 };
     assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
 }
 
 #[test]
 fn render_settings_timeout_is_in_milliseconds() {
-    let r = RenderSettings { timeout_ms: 1500, memory_mib: 1, max_frame_mib: 1 };
+    let r = RenderSettings { timeout_ms: 1500, memory_mib: 1, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 };
     assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
 }
 
 #[test]
 fn render_settings_max_frame_bytes_converts_mib() {
-    let r = RenderSettings { timeout_ms: 1, memory_mib: 1, max_frame_mib: 512 };
+    let r = RenderSettings { timeout_ms: 1, memory_mib: 1, max_frame_mib: 512, max_widget_kib: 256, max_widgets: 64 };
     assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
 }
 
@@ -199,4 +199,12 @@ fn render_launch_for_a_worker_process_is_in_process() {
 fn render_worker_env_variable_does_not_break_settings() {
     let s = Settings::from_sources(None, env(&[(crate::RENDER_WORKER_ENV, "1")]));
     assert_that!(s.is_ok()).is_true();
+}
+
+#[test]
+fn defaults_bound_widget_files() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.render.max_widget_kib).is_equal_to(256);
+    assert_that!(s.render.max_widgets).is_equal_to(64);
+    assert_that!(s.render.max_widget_bytes()).is_equal_to(256 * 1024);
 }

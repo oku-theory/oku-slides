@@ -358,7 +358,7 @@ fn panel_of_template_with_blocks_has_no_grid_steppers() {
             "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
         } }
     }] });
-    let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), None).unwrap();
+    let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), []).unwrap();
     let library =
         oku_slides_session::Library::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
     library.add_version(id, &files).unwrap();

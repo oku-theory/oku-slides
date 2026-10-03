@@ -7,6 +7,8 @@
 //! - `OpenSlot` bâtit les polices (un identifiant inconnu répond `Error Setup`),
 //!   crée le `Renderer`, puis lui pose la langue courante si elle l'est.
 //! - `SetWidgets` demande le registre du pack à `Registries`, puis le pose.
+//! - `ProbeFile` sonde un fichier seul (`Registries::probe_file`, mémoïsé).
+//! - Un nom de fichier de widget invalide répond `Error Setup`.
 //! - `Render` rend le deck sous une nouvelle génération (compteur global,
 //!   croissant), rangée dans l'emplacement. Ensuite, les assets qui ne sont
 //!   dans aucun des `assets` du dernier `Render` de chaque emplacement sont
@@ -22,6 +24,7 @@ use std::io::{Read, Write};
 use std::sync::Arc;
 use std::time::Instant;
 
+use oku_slides_core::WidgetFile;
 use oku_slides_i18n::Localizer;
 use oku_slides_render::{Compiled, Fonts, PackWidgets, Registries, RenderError, Renderer, WireError};
 use snafu::Snafu;
@@ -98,6 +101,16 @@ fn render_error(e: &RenderError) -> WireError {
     WireError::from_render(e)
 }
 
+/// Le pack d'une requête ; un nom de fichier invalide répond `Error Setup`.
+fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
+    let files = p
+        .files
+        .into_iter()
+        .map(|(n, s)| WidgetFile::parse(&n).map(|n| (n, s)).ok_or_else(|| setup(format!("bad widget file {n}"))))
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    PackWidgets::new(p.id, files).map_err(|e| WireError::from_registry(&e))
+}
+
 impl Worker {
     fn handle(&mut self, request: Request, payload: Vec<u8>) -> Reply {
         let result = match request {
@@ -111,6 +124,7 @@ impl Worker {
                 ok()
             }
             Request::Probe { pack } => self.probe(pack),
+            Request::ProbeFile { name, source, common } => self.probe_file(&name, &source, common.as_deref()),
             Request::OpenSlot { slot, fonts } => self.open_slot(slot, &fonts),
             Request::CloseSlot { slot } => {
                 self.slots.remove(&slot);
@@ -152,9 +166,15 @@ impl Worker {
     }
 
     fn probe(&mut self, pack: WirePack) -> Result<Reply, WireError> {
-        let pack = PackWidgets::new(pack.id, pack.source).map_err(|e| WireError::from_registry(&e))?;
+        let pack = pack_of(pack)?;
         let json = self.registries().probe(&pack).map_err(|e| WireError::from_registry(&e))?;
         Ok((Response::Probe { json: (*json).clone() }, Vec::new()))
+    }
+
+    fn probe_file(&mut self, name: &str, source: &str, common: Option<&str>) -> Result<Reply, WireError> {
+        let name = WidgetFile::parse(name).ok_or_else(|| setup(format!("bad widget file {name}")))?;
+        let probe = self.registries().probe_file(&name, source, common);
+        Ok((Response::FileProbe { probe }, Vec::new()))
     }
 
     fn set_language(&mut self, locale: &str) -> Result<Reply, WireError> {
@@ -176,8 +196,7 @@ impl Worker {
     }
 
     fn set_widgets(&mut self, slot: SlotId, pack: Option<WirePack>) -> Result<Reply, WireError> {
-        let pack =
-            pack.map(|p| PackWidgets::new(p.id, p.source)).transpose().map_err(|e| WireError::from_registry(&e))?;
+        let pack = pack.map(pack_of).transpose()?;
         let registry = self.registries().get(pack.as_ref()).map_err(|e| WireError::from_registry(&e))?;
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         s.renderer.set_widgets(pack.as_ref(), registry).map_err(|e| render_error(&e))?;

@@ -419,6 +419,16 @@ impl WidgetError {
             WidgetInner::IncompatibleCategory { .. } => WidgetErrorKind::IncompatibleCategory,
         }
     }
+
+    /// Le widget refusé ; `None` si le registre est illisible.
+    pub fn widget(&self) -> Option<&str> {
+        match &self.0 {
+            WidgetInner::Unreadable { .. } => None,
+            WidgetInner::BadSchema { widget, .. }
+            | WidgetInner::IncompatibleOverride { widget, .. }
+            | WidgetInner::IncompatibleCategory { widget, .. } => Some(widget),
+        }
+    }
 }
 
 impl Localize for WidgetError {
@@ -443,6 +453,14 @@ impl Localize for WidgetError {
 #[derive(Debug, Snafu)]
 #[snafu(display("invalid pack version: {value}"), visibility(pub(crate)))]
 pub struct PackVersionError {
+    value: String,
+    backtrace: Backtrace,
+}
+
+/// Une chaîne qui n'est pas un [`WidgetFile`](crate::WidgetFile).
+#[derive(Debug, Snafu)]
+#[snafu(display("invalid widget file name: {value}"), visibility(pub(crate)))]
+pub struct WidgetFileError {
     value: String,
     backtrace: Backtrace,
 }

@@ -1,8 +1,8 @@
 //! Registre des widgets : le schéma des paramètres de chaque composant.
 //!
 //! Les widgets sont déclarés en Typst (`typst/oku-slides/src/widgets.typ`,
-//! et le `widgets.typ` d'un pack). Le rendu compile une sonde qui émet leurs
-//! schémas en JSON ; [`WidgetRegistry::from_probe`] les lit, les contrôle et
+//! et les fichiers `widgets/<nom>.typ` d'un pack, avec `_commun`). Le rendu
+//! compile une sonde qui émet leurs schémas en JSON ; [`WidgetRegistry::from_probe`] les lit, les contrôle et
 //! applique les surcharges du pack. Le cœur ne voit que ce JSON.
 
 use std::collections::{BTreeMap, BTreeSet};

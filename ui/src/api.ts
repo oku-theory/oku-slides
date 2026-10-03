@@ -152,6 +152,35 @@ export interface TemplatesView {
   templates: TemplateView[];
 }
 
+/** Un message de Typst (ou du contrôle) sur un fichier de widget ; ligne et colonne à partir de 1. */
+export interface WidgetDiagnostic {
+  file: string | null;
+  line: number | null;
+  column: number | null;
+  error: boolean;
+  message: string;
+}
+
+/** Un fichier de widget du pack en cours et son statut. */
+export interface WidgetStatus {
+  name: string;
+  /** Schéma du widget s'il est valide ; `null` pour `_commun`. */
+  schema: unknown | null;
+  diagnostics: WidgetDiagnostic[];
+}
+
+/** Réponse d'une écriture : le fichier, et les widgets qu'elle a cassés. */
+export interface WidgetChange {
+  status: WidgetStatus;
+  broken: WidgetStatus[];
+}
+
+/** Aperçu d'un widget seul : SVG, ou les diagnostics qui l'en empêchent. */
+export interface WidgetPreview {
+  svg: string | null;
+  diagnostics: WidgetDiagnostic[];
+}
+
 export interface Frame {
   x: number;
   y: number;
@@ -364,6 +393,12 @@ type Request =
   | { cmd: "history_seek"; index: number }
   | { cmd: "history_restore" }
   | { cmd: "history_close" }
+  | { cmd: "widget_status" }
+  | { cmd: "widget_source"; name: string }
+  | { cmd: "set_widget"; name: string; source: string }
+  | { cmd: "remove_widget"; name: string }
+  | { cmd: "rename_widget"; from: string; to: string }
+  | { cmd: "preview_widget"; name: string; params: Record<string, unknown> }
   | { cmd: "history_versions" };
 
 /** Schéma de l'interface gardé par l'hôte ; `null` : celui du système. */
@@ -530,6 +565,15 @@ export function tabApi(tab: string) {
     saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
     closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
     deleteTemplateSet: (set: string) => call<PackInfo[]>({ cmd: "delete_template_set", set }),
+    /** Fichiers de widgets du pack en cours, `_commun` en tête. */
+    widgetStatus: () => call<WidgetStatus[]>({ cmd: "widget_status" }),
+    widgetSource: (name: string) => call<string>({ cmd: "widget_source", name }),
+    /** Crée ou remplace un fichier ; en mode deck, le deck passe à la nouvelle version de son pack. */
+    setWidget: (name: string, source: string) => call<WidgetChange>({ cmd: "set_widget", name, source }),
+    removeWidget: (name: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name }),
+    renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
+    previewWidget: (name: string, params: Record<string, unknown> = {}) =>
+      call<WidgetPreview>({ cmd: "preview_widget", name, params }),
     /** Bandeau du pack : le deck passe à ma version courante (annulable). */
     packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
     /** Bandeau du pack : sa version devient ma version courante. */

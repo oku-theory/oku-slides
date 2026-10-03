@@ -169,16 +169,40 @@ registre de base (13 widgets : `text`, `card`, `image`, `shape`, `chart`,
 lu par l'hôte (sonde `<oku-widgets>`) et sert au rendu du deck JSON.
 
 Un **pack de modèles** peut ajouter ses propres widgets, ou surcharger ceux
-de la base, avec un fichier `widgets.typ` qui expose un tableau `registry` :
+de la base : **un fichier par widget**, `widgets/<nom>.typ`, dont la liaison
+`widget` est le résultat de `widget("<nom>", …)` (le nom déclaré est celui du
+fichier, `[a-z][a-z0-9-]*`). Le fichier facultatif `widgets/_commun.typ` porte
+le code partagé : un widget l'importe par `#import "_commun.typ": …` ; ce n'est
+pas un widget. L'app génère le `registry` du pack (un module d'assemblage qui
+importe chaque widget) ; un widget qui ne compile pas en est écarté avec ses
+diagnostics, les autres restent.
+
+Exemple : un indicateur, `widgets/kpi.typ` et `widgets/_commun.typ`.
 
 ```typ
-#import "/oku-slides/lib.typ": widget, field, params as p
+// Code partagé des widgets du pack : `#import "_commun.typ": carte`.
+#import "/oku-slides/lib.typ": color-of
 
-#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
-  (args, ctx) => field(ctx, "body", emph(args.body)))
-
-#let registry = (quote,)
+/// Un cadre aux couleurs du thème.
+#let carte(t, body) = block(width: 100%, inset: 24pt, radius: 8pt, fill: color-of(t, "surface"), body)
 ```
+
+```typ
+// Un indicateur : une valeur en grand, sa légende dessous.
+#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of
+#import "_commun.typ": carte
+
+#let widget = widget("kpi", label: "KPI",
+  params: (value: p.plain(default: "42 %"), label: p.plain(), trend: p.choice("up", "down", "flat")),
+  (args, ctx) => carte(ctx.tokens, fields-stack(spacing: 8pt,
+    field(ctx, "value", { set text(size: size-of(ctx.tokens, "display"), fill: color-of(ctx.tokens, "accent")); args.value }),
+    field(ctx, "label", { set text(size: size-of(ctx.tokens, "body"), fill: color-of(ctx.tokens, "ink-muted")); args.label }),
+  )))
+```
+
+Pour ses couleurs et ses tailles, un widget lit les jetons du thème
+(`color-of(ctx.tokens, "accent")`, `size-of(ctx.tokens, "body")`) plutôt que
+des valeurs en dur.
 
 `lib.typ` exporte tout ce dont un pack a besoin : `widget`, `field`,
 `by-name`, le module `params` (à importer `as p`), `free-area`,

@@ -92,6 +92,10 @@ pub struct RenderSettings {
     pub memory_mib: u64,
     /// Taille maximale d'un message échangé avec le processus de rendu (Mio).
     pub max_frame_mib: u64,
+    /// Taille maximale d'un fichier de widget d'un pack (Kio).
+    pub max_widget_kib: usize,
+    /// Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
+    pub max_widgets: usize,
 }
 
 impl SourcesSettings {
@@ -120,6 +124,11 @@ impl RenderSettings {
     /// [`Self::max_frame_mib`] en octets.
     pub fn max_frame_bytes(&self) -> usize {
         (self.max_frame_mib as usize).saturating_mul(1024 * 1024)
+    }
+
+    /// [`Self::max_widget_kib`] en octets.
+    pub fn max_widget_bytes(&self) -> usize {
+        self.max_widget_kib.saturating_mul(1024)
     }
 }
 

@@ -52,6 +52,9 @@ pub(super) struct Undo {
     /// Libellé du groupe ouvert, et si l'étape du sommet lui appartient déjà.
     group: Option<(String, bool)>,
     limit: usize,
+    /// Étapes empilées depuis la création (jamais décrémenté) : une
+    /// application qui ne l'augmente pas a rejoint l'étape du sommet.
+    steps: u64,
 }
 
 impl Undo {
@@ -69,7 +72,7 @@ impl Undo {
             }
             UndoItemMeta::new()
         })));
-        let mut undo = Self { manager, pushed, undo: Vec::new(), redo: Vec::new(), group: None, limit: 0 };
+        let mut undo = Self { manager, pushed, undo: Vec::new(), redo: Vec::new(), group: None, limit: 0, steps: 0 };
         undo.set_limit(DEFAULT_LIMIT);
         undo
     }
@@ -92,11 +95,15 @@ impl Undo {
             }
             Some((group, open)) => {
                 self.undo.push(Step { label: group.clone(), items, merge: None });
+                self.steps += 1;
                 *open = true;
             }
             None => match (merge, self.undo.last_mut()) {
                 (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => top.items += items,
-                _ => self.undo.push(Step { label: label.to_owned(), items, merge: merge.map(str::to_owned) }),
+                _ => {
+                    self.undo.push(Step { label: label.to_owned(), items, merge: merge.map(str::to_owned) });
+                    self.steps += 1;
+                }
             },
         }
         self.trim();
@@ -126,6 +133,11 @@ impl Undo {
 
     pub(super) fn end_group(&mut self) {
         self.group = None;
+    }
+
+    /// Étapes empilées depuis la création ; inchangé par une fusion.
+    pub(super) fn steps(&self) -> u64 {
+        self.steps
     }
 
     pub(super) fn in_group(&self) -> bool {

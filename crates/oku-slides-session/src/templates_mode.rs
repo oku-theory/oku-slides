@@ -5,8 +5,10 @@
 //! courante au début de la session), la rend courante, l'embarque dans le
 //! deck mis de côté, qui y passe (`SetTemplates`, une seule étape
 //! d'annulation) ; les suivants la remplacent (`Library::replace_version`,
-//! même parente, l'intermédiaire quitte la bibliothèque ; les sources du
-//! deck restent en ajout seul), jusqu'à la sortie du mode modèles.
+//! même parente, l'intermédiaire quitte la bibliothèque et les sources des
+//! deux documents si l'enregistrement a rejoint son étape d'annulation ;
+//! sinon il y reste, annuler y revenant),
+//! jusqu'à la sortie du mode modèles.
 //! « Enregistrer comme copie » : un nouvel id, sans parente, et la session
 //! continue sur la copie. Un pack intégré suit la même règle, sous son id.
 
@@ -16,7 +18,7 @@ use std::sync::Arc;
 use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
-use oku_slides_core::{Deck, PackRef, PackVersion, Slide, SourceBundle};
+use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle};
 
 use crate::error::{
     InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu,
@@ -31,7 +33,7 @@ const ADOPT_MERGE: &str = "templates-adopt";
 /// Clé d'étape d'annulation d'une session d'édition : son pack et la parente
 /// de sa version. Ses enregistrements n'en font qu'une ; une autre session
 /// (autre parente) ou une copie (autre id) en fait une autre.
-fn adopt_merge_key(id: Uuid, parent: Option<&PackVersion>) -> String {
+pub(crate) fn adopt_merge_key(id: Uuid, parent: Option<&PackVersion>) -> String {
     format!("{ADOPT_MERGE}:{id}:{}", parent.map_or("", PackVersion::as_str))
 }
 
@@ -54,7 +56,7 @@ fn template_slide(t: Template) -> Slide {
 
 /// Un deck qui a le style de `base` (thème, jetons, paramètres, variables,
 /// pack de modèles) et ces slides.
-fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
+pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
     Deck {
         version: base.version,
         theme: base.theme.clone(),
@@ -172,12 +174,34 @@ impl Session {
         let base = self.doc.sources.packs.get(&edit.base);
         let description =
             base.and_then(|f| PackManifest::from_files(f).ok()).map(|m| m.description).unwrap_or_default();
-        let widgets = base.and_then(|f| f.widgets()).map(str::to_owned);
+        let widgets = base.map(|f| f.widgets().clone()).unwrap_or_default();
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.set, edit.parent.clone()) };
-        let manifest = self.edited_manifest(&deck, id, parent.clone(), description);
+        let manifest = self.edited_manifest(&deck, id, parent, description);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
-        // Une version par session : la première est créée, les suivantes la remplacent.
-        let version = match edit.session_version.as_ref().filter(|_| !as_new) {
+        self.adopt_session_version(deck, files, &edit, as_new)?;
+        self.rerender()?;
+        self.doc.dirty = false;
+        Ok(())
+    }
+
+    /// `files` devient la version de la séance d'édition `edit`.
+    ///
+    /// Créée la première fois (ou toujours, pour une copie `as_new`),
+    /// remplacée ensuite, rendue courante ; `deck` (le document des modèles)
+    /// et le deck mis de côté y passent, celui-ci en une étape d'annulation.
+    /// Sans rendu : l'appelant rend ensuite le document des modèles.
+    pub(crate) fn adopt_session_version(
+        &mut self,
+        mut deck: Deck,
+        files: PackFiles,
+        edit: &TemplateMode,
+        as_new: bool,
+    ) -> Result<PackVersion> {
+        let manifest = PackManifest::from_files(&files).context(PackJsonSnafu { id: edit.set })?;
+        let (id, parent) = (manifest.id, manifest.parent.clone());
+        // Une version par séance : la première est créée, les suivantes la remplacent.
+        let replaced = edit.session_version.as_ref().filter(|_| !as_new);
+        let version = match replaced {
             Some(old) => self.library.replace_version(id, old, &files)?,
             None => {
                 let version = files.version();
@@ -198,22 +222,33 @@ impl Session {
             stash.sources.add_pack(files);
             let mut user = stash.sources.deck().clone();
             user.templates = Some(r);
+            let steps = stash.sources.undo_steps();
             stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
             stash.dirty = true;
+            if let Some(old) = replaced.filter(|old| **old != version && Some(*old) != parent.as_ref()) {
+                if stash.sources.undo_steps() == steps {
+                    // Fusionnée dans l'étape qui l'avait introduite : plus atteignable.
+                    stash.sources.packs.remove(old);
+                    self.doc.sources.packs.remove(old);
+                } else if let Some(files) = stash.sources.packs.get(old) {
+                    // Nouvelle étape : annuler y revient ; la bibliothèque la retrouve.
+                    if let Err(e) = self.library.add_version(id, files) {
+                        tracing::error!(error = %e.one_line(), "version de séance non rétablie dans la bibliothèque");
+                    }
+                }
+            }
             *edit = TemplateMode {
                 set: id,
                 name: manifest.name,
                 builtin: Library::is_builtin(id),
                 base: version.clone(),
                 parent,
-                session_version: Some(version),
+                session_version: Some(version.clone()),
             };
         }
         self.sync_widgets()?;
-        self.doc.dirty = false;
         self.template_cache = None;
-        self.rerender()?;
-        Ok(())
+        Ok(version)
     }
 
     /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.

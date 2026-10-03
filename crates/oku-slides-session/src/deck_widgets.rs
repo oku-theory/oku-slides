@@ -1,6 +1,7 @@
-//! Widgets du deck : la base, surchargée par le `widgets.typ` de la version
-//! de pack qu'il embarque (`deck.templates`, cherchée dans
-//! `SourceBundle.packs`, jamais dans la bibliothèque).
+//! Widgets du deck : la base, surchargée par les widgets valides de la
+//! version de pack qu'il embarque (`deck.templates`, cherchée dans
+//! `SourceBundle.packs`, jamais dans la bibliothèque) ; chaque fichier est
+//! sondé à part.
 //!
 //! Invariant : le registre de la session (`Session::registry`), celui des
 //! sources du document ouvert et celui du rendu du deck sont le même, celui
@@ -18,13 +19,13 @@ use std::sync::Arc;
 
 use snafu::{OptionExt, ResultExt};
 
-use oku_slides_core::{Deck, Op, PackFiles, PackRef, PackVersion, WidgetRegistry};
+use oku_slides_core::{Deck, Op, PackFiles, PackRef, PackVersion, WidgetFile, WidgetRegistry};
 use oku_slides_i18n::Localize;
-use oku_slides_render::{PackWidgets, RenderError};
+use oku_slides_render::{FileProbe, PackWidgets, RenderError};
 use oku_slides_render_worker::RemoteCompiled;
 
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
-use crate::pack::DEFAULT_PACK;
+use crate::pack::{DEFAULT_PACK, PackManifest};
 use crate::{Result, Session, charts};
 
 /// Les widgets résolus pour un pack de modèles.
@@ -49,13 +50,13 @@ pub(crate) struct Failpoints {
 
 impl Session {
     /// Les widgets de la version de pack `templates`, lue dans `packs` (les
-    /// sources du document) : la base, surchargée par son `widgets.typ`.
+    /// sources du document) : la base, surchargée par ses widgets valides.
     ///
     /// Version absente des sources : la base, et l'avis `session-pack-missing`.
-    /// Pas de `widgets.typ` : la base, sans avis. Un pack cassé (Typst qui ne
-    /// compile pas, schéma refusé, sonde hors de ses bornes, pack écarté) :
-    /// journalisé, la base, et l'avis de son erreur. Seule la base qui ne se
-    /// lit pas est une erreur.
+    /// Pas de widget : la base, sans avis. Chaque fichier est sondé à part :
+    /// un widget cassé est écarté (avis `session-widgets-broken`), les autres
+    /// restent. Pack écarté pour la session ou registre illisible : la base
+    /// et l'avis de son erreur. Seule la base qui ne se lit pas est une erreur.
     pub(crate) fn resolve_widgets(
         &self,
         templates: Option<&PackRef>,
@@ -70,15 +71,44 @@ impl Session {
             tracing::warn!(pack = %r.id, version = %r.version, "version du pack absente des sources : widgets de base");
             return base(Some(self.localizer.tr("session-pack-missing")));
         };
-        let Some(source) = files.widgets() else { return base(None) };
-        let loaded = PackWidgets::new(r.version.hex(), source).and_then(|pack| Ok((self.worker.probe(&pack)?, pack)));
-        match loaded {
-            Ok((registry, pack)) => Ok((DeckWidgets { templates: Some(r.clone()), pack: Some(pack), registry }, None)),
-            Err(e) => {
-                tracing::warn!(pack = %r.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets cassé : widgets de base");
-                base(Some(e.localize(&self.localizer)))
-            }
+        if files.widgets().is_empty() {
+            return base(None);
         }
+        let probed =
+            PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| self.worker.probe_pack(&pack));
+        let probe = match probed {
+            Ok(probe) => probe,
+            Err(e) => {
+                tracing::warn!(pack = %r.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets illisible : widgets de base");
+                return base(Some(e.localize(&self.localizer)));
+            }
+        };
+        let notice = self.broken_widgets_notice(&probe.files);
+        match probe.pack {
+            Some(pack) if self.worker.is_faulty(&pack) => {
+                // Nommé par son manifeste, pas par son empreinte.
+                let name = PackManifest::from_files(files).map_or_else(|_| pack.id().to_owned(), |m| m.name);
+                base(Some(self.localizer.tr_with("render-pack-disabled", &[("pack", name.as_str().into())])))
+            }
+            Some(pack) => {
+                Ok((DeckWidgets { templates: Some(r.clone()), pack: Some(pack), registry: probe.registry }, notice))
+            }
+            None => base(notice),
+        }
+    }
+
+    /// L'avis des widgets écartés de `files`, s'il y en a.
+    ///
+    /// `_commun` n'y est pas : ses widgets dépendants y sont déjà. Muet
+    /// pendant une écriture de widgets : le panneau et l'agent ont les statuts.
+    pub(crate) fn broken_widgets_notice(&self, files: &BTreeMap<WidgetFile, FileProbe>) -> Option<String> {
+        if self.widget_edit {
+            return None;
+        }
+        let names: Vec<&str> =
+            files.iter().filter(|(n, p)| !n.is_common() && !p.is_valid()).map(|(n, _)| n.as_str()).collect();
+        (!names.is_empty())
+            .then(|| self.localizer.tr_with("session-widgets-broken", &[("names", names.join(", ").into())]))
     }
 
     /// Installe `widgets` dans le rendu du deck et la session ; les aperçus
@@ -121,6 +151,8 @@ impl Session {
     /// peut ajouter un de ses widgets. Le dernier `set_templates` l'emporte,
     /// comme dans le deck obtenu. En cas d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+        // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
+        self.end_widget_session();
         self.ensure_not_in_history()?;
         // `set_templates` à `null` : le pack par défaut, référencé dans sa version courante.
         for op in &mut ops {

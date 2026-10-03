@@ -87,7 +87,8 @@ fn serve_generations_grow_across_slots() {
 #[test]
 fn serve_probe_of_broken_pack_returns_registry_compile_error() {
     let mut h = Harness::new();
-    let pack = WirePack { id: "casse".into(), source: "#let registry = (".into() };
+    let files = std::collections::BTreeMap::from([("casse".into(), "#let widget = (".into())]);
+    let pack = WirePack { id: "casse".into(), files };
     let (resp, _) = h.call(&Request::Probe { pack }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::RegistryCompile { .. } }))
         .is_true();
@@ -166,4 +167,21 @@ fn worker_args_without_bounds_keeps_defaults() {
 #[test]
 fn worker_args_of_an_ordinary_launch_is_none() {
     assert_that!(worker_args(&os_args(&["deck.oku-slides.pdf"]))).is_none();
+}
+
+#[test]
+fn probe_file_request_returns_the_file_probe() {
+    let mut worker = Worker::default();
+    let req = Request::ProbeFile { name: "casse".into(), source: "#let widget = (".into(), common: None };
+    let (reply, _) = worker.handle(req, Vec::new());
+    let Response::FileProbe { probe } = reply else { panic!("réponse inattendue : {reply:?}") };
+    assert_that!(probe.is_valid()).is_false();
+}
+
+#[test]
+fn probe_with_a_bad_widget_file_name_returns_setup_error() {
+    let mut worker = Worker::default();
+    let files = std::collections::BTreeMap::from([("Casse".into(), "#let widget = (".into())]);
+    let (reply, _) = worker.handle(Request::Probe { pack: WirePack { id: "p".into(), files } }, Vec::new());
+    assert_that!(matches!(reply, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }

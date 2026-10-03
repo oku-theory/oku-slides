@@ -64,6 +64,12 @@ pub enum SessionErrorKind {
     HistoryNotOpen,
     /// Modifier, enregistrer ou fusionner pendant que l'historique est ouvert.
     InHistory,
+    /// Nom, taille ou nombre de fichiers de widgets refusé.
+    InvalidWidget,
+    /// Widget utilisé par un modèle du pack.
+    WidgetInUse,
+    /// Fichier de widget introuvable.
+    UnknownWidget,
 }
 
 #[derive(Debug, Snafu)]
@@ -133,6 +139,20 @@ pub(crate) enum SessionInner {
     InHistory { backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
     Version { source: oku_slides_core::ReplicaError, backtrace: Backtrace },
+    #[snafu(display("invalid widget name: {name}"))]
+    InvalidWidgetName { name: String, backtrace: Backtrace },
+    #[snafu(display("widget {name} is larger than {max} KiB"))]
+    WidgetTooLarge { name: String, max: usize, backtrace: Backtrace },
+    #[snafu(display("widget {name} contains a nul character"))]
+    WidgetHasNul { name: String, backtrace: Backtrace },
+    #[snafu(display("a pack holds at most {max} widget files"))]
+    TooManyWidgets { max: usize, backtrace: Backtrace },
+    #[snafu(display("widget {name} is used by templates: {}", templates.join(", ")))]
+    WidgetInUse { name: String, templates: Vec<String>, backtrace: Backtrace },
+    #[snafu(display("widget not found: {name}"))]
+    UnknownWidget { name: String, backtrace: Backtrace },
+    #[snafu(display("widget already exists: {name}"))]
+    WidgetExists { name: String, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -168,6 +188,13 @@ impl SessionError {
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
             HistoryNotOpen { .. } => SessionErrorKind::HistoryNotOpen,
             InHistory { .. } => SessionErrorKind::InHistory,
+            InvalidWidgetName { .. }
+            | WidgetTooLarge { .. }
+            | WidgetHasNul { .. }
+            | TooManyWidgets { .. }
+            | WidgetExists { .. } => SessionErrorKind::InvalidWidget,
+            WidgetInUse { .. } => SessionErrorKind::WidgetInUse,
+            UnknownWidget { .. } => SessionErrorKind::UnknownWidget,
         }
     }
 
@@ -252,6 +279,20 @@ impl Localize for SessionError {
             HistoryNotOpen { .. } => l.tr("session-history-not-open"),
             InHistory { .. } => l.tr("session-in-history"),
             Version { source, .. } => source.localize(l),
+            InvalidWidgetName { name, .. } => {
+                l.tr_with("session-invalid-widget-name", &[("name", name.as_str().into())])
+            }
+            WidgetTooLarge { name, max, .. } => {
+                l.tr_with("session-widget-too-large", &[("name", name.as_str().into()), ("max", (*max).into())])
+            }
+            WidgetHasNul { name, .. } => l.tr_with("session-widget-nul", &[("name", name.as_str().into())]),
+            TooManyWidgets { max, .. } => l.tr_with("session-too-many-widgets", &[("max", (*max).into())]),
+            WidgetInUse { name, templates, .. } => l.tr_with(
+                "session-widget-in-use",
+                &[("name", name.as_str().into()), ("templates", templates.join(", ").into())],
+            ),
+            UnknownWidget { name, .. } => l.tr_with("session-unknown-widget", &[("name", name.as_str().into())]),
+            WidgetExists { name, .. } => l.tr_with("session-widget-exists", &[("name", name.as_str().into())]),
         }
     }
 }

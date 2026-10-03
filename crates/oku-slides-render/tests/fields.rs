@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::Deck;
+use oku_slides_core::{Deck, WidgetFile};
 use oku_slides_render::{FieldBox, FieldSide, Fonts, PackWidgets, Renderer, load_registry};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -108,14 +108,19 @@ fn text_element_with_empty_body_marks_its_body_empty() {
 fn fields_stack_with_empty_markers_keeps_the_stack_height() {
     // Un widget de pack : deux champs, le premier vide, dans fields-stack ; et un
     // témoin identique sans le champ vide. Leurs boîtes d'élément ont la même hauteur.
-    let src = r#"#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p
-#let duo = widget("duo", params: (a: p.plain(), b: p.plain()),
+    let duo = r#"#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p
+#let widget = widget("duo", params: (a: p.plain(), b: p.plain()),
   (args, ctx) => fields-stack(spacing: 20pt, field(ctx, "a", args.a), field(ctx, "b", args.b)))
-#let solo = widget("solo", params: (b: p.plain()),
-  (args, ctx) => fields-stack(spacing: 20pt, field(ctx, "b", args.b)))
-#let registry = (duo, solo)
 "#;
-    let pack = PackWidgets::new("duo", src).unwrap();
+    let solo = r#"#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p
+#let widget = widget("solo", params: (b: p.plain()),
+  (args, ctx) => fields-stack(spacing: 20pt, field(ctx, "b", args.b)))
+"#;
+    let files = BTreeMap::from([
+        (WidgetFile::parse("duo").unwrap(), duo.to_owned()),
+        (WidgetFile::parse("solo").unwrap(), solo.to_owned()),
+    ]);
+    let pack = PackWidgets::new("duo", files).unwrap();
     let registry = Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap());
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_widgets(Some(&pack), registry).unwrap();

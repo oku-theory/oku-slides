@@ -1,15 +1,17 @@
 //! Messages échangés entre l'hôte et le travailleur, dans l'en-tête des trames.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
 
-/// Un pack de widgets : son identifiant et sa source Typst.
+/// Un pack de widgets : son identifiant et ses fichiers (nom → source).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct WirePack {
     pub(crate) id: String,
-    pub(crate) source: String,
+    pub(crate) files: BTreeMap<String, String>,
 }
 
 /// Une requête de l'hôte.
@@ -29,6 +31,13 @@ pub(crate) enum Request {
     },
     Probe {
         pack: WirePack,
+    },
+    /// Sonde un fichier de widget seul ; `common` : la source de `_commun`.
+    ProbeFile {
+        name: String,
+        source: String,
+        #[serde(default)]
+        common: Option<String>,
     },
     OpenSlot {
         slot: SlotId,
@@ -87,6 +96,9 @@ pub(crate) enum Response {
     Ok,
     Probe {
         json: serde_json::Value,
+    },
+    FileProbe {
+        probe: oku_slides_render::FileProbe,
     },
     Compiled(Box<CompiledHeader>),
     /// Charge : octets du résultat.

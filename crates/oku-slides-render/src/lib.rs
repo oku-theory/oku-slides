@@ -15,7 +15,7 @@
 //!   [`FieldBox`], [`FieldSide`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
 //!   compilé.
 //! - Le registre des widgets ([`load_registry`], [`Registries`]) se lit par une sonde
-//!   Typst, éventuellement surchargée par un [`PackWidgets`].
+//!   Typst (pack assemblé) ou fichier par fichier ([`probe_file`], [`assemble`]).
 
 mod charts;
 mod diagnostic;
@@ -23,6 +23,7 @@ mod error;
 mod fonts;
 mod palette;
 mod registry;
+mod widget_probe;
 mod wire;
 mod world;
 
@@ -39,14 +40,15 @@ use typst_layout::PagedDocument;
 
 use oku_slides_core::{Deck, WidgetRegistry};
 
-pub use diagnostic::{Diagnostic, Severity};
+pub use diagnostic::{Diagnostic, Severity, SourceAt};
 use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
 pub use registry::{
-    PackWidgets, Registries, base_registry, is_pack_id, load_registry, probe_registry, registry_from_probe,
+    PackWidgets, Registries, base_probe, base_registry, is_pack_id, load_registry, probe_registry, registry_from_probe,
 };
+pub use widget_probe::{FileProbe, PROBE_PACK, assemble, probe_file, probe_key};
 pub use wire::WireError;
 use world::OkuSlidesWorld;
 
@@ -354,6 +356,7 @@ impl Compiled {
                     place: None,
                     message: d.message.to_string(),
                     hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
+                    at: None,
                 })
                 .collect::<Vec<_>>();
             PdfSnafu { diagnostics }.build().into()

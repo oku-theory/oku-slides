@@ -3,13 +3,15 @@
 //! Un pack regroupe des modèles (des slides complètes, nommées). Il est
 //! indépendant du thème : ses modèles ne parlent qu'en jetons.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use time::OffsetDateTime;
 use time::macros::format_description;
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackVersion, Slide};
+use oku_slides_core::{PackFiles, PackVersion, Slide, WidgetFile};
 
 /// Pack par défaut, `templates/essentiel` : id constant.
 pub const DEFAULT_PACK: Uuid = Uuid::from_u128(0x6f3c1e2a_8b4d_4c1e_9a57_2d0e5b7c9f10);
@@ -47,8 +49,8 @@ impl PackManifest {
         serde_json::from_value(Value::Object(files.manifest().clone()))
     }
 
-    /// Les fichiers de cette version, avec `widgets` pour `widgets.typ`.
-    pub fn to_files(&self, widgets: Option<String>) -> serde_json::Result<PackFiles> {
+    /// Les fichiers de cette version, avec ses fichiers de widgets.
+    pub fn to_files(&self, widgets: BTreeMap<WidgetFile, String>) -> serde_json::Result<PackFiles> {
         match serde_json::to_value(self)? {
             Value::Object(manifest) => Ok(PackFiles::new(manifest, widgets)),
             _ => Err(serde::ser::Error::custom("pack manifest is not an object")),

@@ -4,6 +4,7 @@
 //! Avant t-328, un pack était un dossier nommé par son slug : recevoir un
 //! deck dont le pack portait le même nom revenait à remplacer le sien.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::{Op, PackFiles, PackRef, PackVersion};
@@ -27,7 +28,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         created: created.into(),
         templates: Vec::new(),
     };
-    m.to_files(None).unwrap_or_else(|e| panic!("{e}"))
+    m.to_files(BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Un fichier enregistré par quelqu'un d'autre, dont le deck embarque `pack`.

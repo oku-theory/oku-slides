@@ -270,3 +270,12 @@ fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let ids: Vec<_> = issues.iter().map(|i| i.message.id()).collect();
     assert_that!(ids).is_equal_to(vec!["issue-wrong-category"]);
 }
+
+#[test]
+fn widget_error_names_the_refused_widget() {
+    let pack = vec![widget("card", "element", json!([]))];
+    let err = WidgetRegistry::from_probe(probe(vec![card()], Some(pack))).unwrap_err();
+    assert_that!(err.widget()).is_equal_to(Some("card"));
+    let unreadable = WidgetRegistry::from_probe(json!({ "pack": 1 })).unwrap_err();
+    assert_that!(unreadable.widget()).is_none();
+}

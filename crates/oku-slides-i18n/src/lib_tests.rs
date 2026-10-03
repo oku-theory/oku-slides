@@ -157,3 +157,13 @@ fn shipped_maps_a_region_tag_and_refuses_the_unknown() {
     assert_that!(shipped("fr-CA")).is_equal_to(Some("fr"));
     assert_that!(shipped("xx")).is_none();
 }
+
+#[test]
+fn widgets_prompt_mentions_slide_category_and_optional_label_and_default_in_every_locale() {
+    for locale in crate::available() {
+        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
+        for part in ["category: \"slide\"", "label:", "default:"] {
+            assert!(text.contains(part), "{locale} : « {part} » absent");
+        }
+    }
+}

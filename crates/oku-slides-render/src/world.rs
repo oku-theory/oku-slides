@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use typst::diag::{FileError, FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Duration};
-use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
+use typst::syntax::{DiagSpan, FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World, WorldExt};
@@ -19,7 +19,7 @@ use oku_slides_i18n::Localizer;
 
 use crate::THEMES;
 use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD};
-use crate::diagnostic::{Diagnostic, Severity};
+use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
 use crate::registry::PackWidgets;
@@ -165,7 +165,7 @@ pub(crate) struct OkuSlidesWorld {
     theme: Option<String>,
     hexes: Vec<String>,
     labels: Labels,
-    /// Widgets du pack de modèles, servis sous `/packs/<id>/widgets.typ`.
+    /// Widgets du pack : ses fichiers sous /packs/<id>/widgets/, l'assemblage sous /packs/<id>/widgets.typ.
     pack: Option<PackWidgets>,
     charts: Charts,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
@@ -246,10 +246,14 @@ impl OkuSlidesWorld {
         registry: &WidgetRegistry,
     ) -> Result<(), RenderError> {
         if let Some(old) = self.pack.take() {
-            self.sources.remove(&file_id(&old.path())?);
+            for (path, _) in old.sources() {
+                self.sources.remove(&file_id(&path)?);
+            }
         }
         if let Some(p) = pack {
-            self.add_source(&p.path(), p.source().to_owned())?;
+            for (path, text) in p.sources() {
+                self.add_source(&path, text)?;
+            }
         }
         self.pack = pack.cloned();
         self.redraw_charts(registry)
@@ -309,22 +313,28 @@ impl OkuSlidesWorld {
         Ok(())
     }
 
-    /// Un message de Typst, avec sa place (`fichier:ligne`).
+    /// Fichier, ligne et colonne d'un emplacement de source, s'il est connu.
+    pub(crate) fn source_at(&self, span: impl Into<DiagSpan>) -> Option<SourceAt> {
+        let span = span.into();
+        let id = span.id()?;
+        let range = self.range(span)?;
+        let source = self.source_of(id)?;
+        let (line, column) = source.lines().byte_to_line_column(range.start)?;
+        Some(SourceAt { path: id.vpath().get_without_slash().to_string(), line: line + 1, column: column + 1 })
+    }
+
+    /// Un message de Typst, avec sa place (`fichier:ligne`) et sa colonne.
     pub(crate) fn diagnostic(&self, d: &SourceDiagnostic) -> Diagnostic {
-        let place = d.span.id().and_then(|id| {
-            let range = self.range(d.span)?;
-            let source = self.source_of(id)?;
-            let line = source.lines().byte_to_line(range.start)? + 1;
-            Some(format!("{}:{line}", id.vpath().get_without_slash()))
-        });
+        let at = self.source_at(d.span);
         Diagnostic {
             severity: match d.severity {
                 typst::diag::Severity::Error => Severity::Error,
                 typst::diag::Severity::Warning => Severity::Warning,
             },
-            place,
+            place: at.as_ref().map(|a| format!("{}:{}", a.path, a.line)),
             message: d.message.to_string(),
             hints: d.hints.iter().map(|h| h.v.to_string()).collect(),
+            at,
         }
     }
 }

@@ -6,7 +6,7 @@
 //! ```text
 //! <data>/templates/<uuid>/current                     version courante
 //! <data>/templates/<uuid>/versions/<hex>/pack.json
-//! <data>/templates/<uuid>/versions/<hex>/widgets.typ  (facultatif)
+//! <data>/templates/<uuid>/versions/<hex>/widgets/<nom>.typ  (un par fichier de widget)
 //! ```
 //!
 //! Packs intégrés (`templates/essentiel`, `templates/grilles` du dépôt) :
@@ -14,14 +14,14 @@
 //! l'utilisateur n'a pas de fichier `current`. La version courante ne change
 //! que par [`Library::set_current`], ou à la création d'un pack inconnu.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackVersion};
+use oku_slides_core::{PackFiles, PackVersion, WidgetFile};
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::storage::Storage;
 
@@ -36,7 +36,7 @@ const CURRENT_FILE: &str = "current";
 /// Versions d'un pack, dans son dossier.
 const VERSIONS_DIR: &str = "versions";
 const PACK_FILE: &str = "pack.json";
-const WIDGETS_FILE: &str = "widgets.typ";
+const WIDGETS_DIR: &str = "widgets";
 
 /// Une version lue et vérifiée : empreinte, fichiers, `pack.json` lu.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,7 +59,7 @@ static BUILTIN: LazyLock<Vec<StoredVersion>> = LazyLock::new(|| {
     [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
         .iter()
         .filter_map(|json| {
-            let read = PackFiles::from_bytes(json.as_bytes(), None)
+            let read = PackFiles::from_bytes(json.as_bytes(), [])
                 .ok_or_else(|| "pack.json is not a json object".to_owned())
                 .and_then(StoredVersion::read);
             // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
@@ -161,13 +161,17 @@ impl Library {
         let name = folder.file_name().and_then(|n| n.to_str()).unwrap_or_default();
         let expected = PackVersion::from_hex(name).ok_or_else(|| format!("not a version folder: {name}"))?;
         let pack = self.storage.read(&folder.join(PACK_FILE)).map_err(|e| one_line(&e))?;
-        let path = folder.join(WIDGETS_FILE);
-        let widgets = match self.storage.len(&path).map_err(|e| one_line(&e))? {
-            Some(_) => Some(self.storage.read(&path).map_err(|e| one_line(&e))?),
-            None => None,
-        };
-        let files =
-            PackFiles::from_bytes(&pack, widgets.as_deref()).ok_or_else(|| "unreadable pack files".to_owned())?;
+        let mut widgets = BTreeMap::new();
+        for path in self.storage.list_files(&folder.join(WIDGETS_DIR)).map_err(|e| one_line(&e))? {
+            let file = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let Some(name) = WidgetFile::from_file_name(file) else {
+                tracing::debug!(path = %path.display(), "fichier étranger aux widgets ignoré");
+                continue;
+            };
+            widgets.insert(name, self.storage.read(&path).map_err(|e| one_line(&e))?);
+        }
+        let files = PackFiles::from_bytes(&pack, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
+            .ok_or_else(|| "unreadable pack files".to_owned())?;
         if !files.matches(&expected) {
             return Err(format!("content does not match {expected}"));
         }
@@ -244,9 +248,9 @@ impl Library {
             return Ok(false);
         }
         let at = dir.join(VERSIONS_DIR).join(version.hex());
-        // `widgets.typ` d'abord : un `pack.json` présent dit la version complète.
-        if let Some(source) = files.widgets() {
-            let path = at.join(WIDGETS_FILE);
+        // Les widgets d'abord : un `pack.json` présent dit la version complète.
+        for (name, source) in files.widgets() {
+            let path = at.join(WIDGETS_DIR).join(name.file_name());
             self.storage.write_atomic(&path, source.as_bytes()).context(WriteSnafu { path: &path })?;
         }
         let path = at.join(PACK_FILE);

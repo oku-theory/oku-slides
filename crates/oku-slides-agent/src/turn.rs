@@ -58,9 +58,10 @@ pub(crate) async fn run(
     ctx.hub.clear_suggestions();
     ctx.emit(AgentEvent::UserText { text: text.clone() });
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
-    let mut blocks = Vec::with_capacity(3);
+    let mut blocks = Vec::with_capacity(4);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(ctx.localizer.tr("agent-instructions"))));
+        blocks.push(ContentBlock::Text(TextContent::new(ctx.localizer.tr("agent-instructions-widgets"))));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.push(ContentBlock::Text(TextContent::new(text)));

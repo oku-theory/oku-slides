@@ -303,22 +303,33 @@ fn new_deck_without_handle_resumes_to_a_blank_deck() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-/// Un pack de l'utilisateur, `widgets` pour `widgets.typ`.
-fn pack_files(name: &str, widgets: Option<&str>) -> oku_slides_core::PackFiles {
+/// Un pack de l'utilisateur, avec ses fichiers `widgets`.
+fn pack_files(name: &str, widgets: &[(&str, &str)]) -> oku_slides_core::PackFiles {
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
-    m.to_files(widgets.map(str::to_owned)).unwrap()
+    m.to_files(crate::test_support::widget_files(widgets)).unwrap()
+}
+
+/// Les fichiers `<hex>.*.typ` de `packs`.
+fn widget_files_of(packs: &std::path::Path, hex: &str) -> Vec<String> {
+    let prefix = format!("{hex}.");
+    std::fs::read_dir(packs)
+        .unwrap()
+        .filter_map(|e| e.ok()?.file_name().into_string().ok())
+        .filter(|n| n.starts_with(&prefix) && n.ends_with(".typ"))
+        .collect()
 }
 
 #[test]
 fn write_snapshot_then_read_doc_keeps_the_packs_and_their_widgets() {
     let r = resume();
     let mut doc = document();
-    let with = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
-    let without = doc.sources.add_pack(pack_files("Sans", None));
+    let with = doc.sources.add_pack(pack_files("Avec", &[("kpi", "K"), ("_commun", "C")]));
+    let without = doc.sources.add_pack(pack_files("Sans", &[]));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     let packs = r.dir.join(DECK_DIR).join("packs");
-    assert_that!(packs.join(format!("{}.typ", with.hex())).exists()).is_true();
-    assert_that!(packs.join(format!("{}.typ", without.hex())).exists()).is_false();
+    assert_that!(packs.join(format!("{}.kpi.typ", with.hex())).exists()).is_true();
+    assert_that!(packs.join(format!("{}._commun.typ", with.hex())).exists()).is_true();
+    assert_that!(widget_files_of(&packs, without.hex())).is_empty();
     let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
     assert_that!(back.sources.packs == doc.sources.packs).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
@@ -328,10 +339,10 @@ fn write_snapshot_then_read_doc_keeps_the_packs_and_their_widgets() {
 fn read_doc_ignores_a_pack_whose_content_differs_from_its_name() {
     let r = resume();
     let mut doc = document();
-    let v = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
+    let v = doc.sources.add_pack(pack_files("Avec", &[("kpi", "K")]));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let typ = r.dir.join(DECK_DIR).join("packs").join(format!("{}.typ", v.hex()));
-    std::fs::write(&typ, "#let registry = (1,)\n").unwrap();
+    let typ = r.dir.join(DECK_DIR).join("packs").join(format!("{}.kpi.typ", v.hex()));
+    std::fs::write(&typ, "autre").unwrap();
     let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
     assert_that!(back.sources.packs.is_empty()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
@@ -341,12 +352,12 @@ fn read_doc_ignores_a_pack_whose_content_differs_from_its_name() {
 fn write_snapshot_removes_orphan_packs() {
     let r = resume();
     let mut doc = document();
-    let v = doc.sources.add_pack(pack_files("Avec", Some("#let registry = ()\n")));
+    let v = doc.sources.add_pack(pack_files("Avec", &[("kpi", "K")]));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.packs.clear();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     let packs = r.dir.join(DECK_DIR).join("packs");
     assert_that!(packs.join(format!("{}.json", v.hex())).exists()).is_false();
-    assert_that!(packs.join(format!("{}.typ", v.hex())).exists()).is_false();
+    assert_that!(packs.join(format!("{}.kpi.typ", v.hex())).exists()).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }

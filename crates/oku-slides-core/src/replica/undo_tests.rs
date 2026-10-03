@@ -246,3 +246,23 @@ fn keyed_apply_after_undoing_a_later_step_opens_a_new_step() {
     assert_that!(r.undo().unwrap()).is_true();
     assert_that!(r.deck().0).is_equal_to(&one);
 }
+
+#[test]
+fn undo_steps_counts_new_steps_but_not_merged_applies() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    let start = r.undo_steps();
+    r.apply(&titled(&deck, "Un"), "a", Some("k")).unwrap();
+    assert_that!(r.undo_steps()).is_equal_to(start + 1);
+    // Même clé : l'étape du sommet grandit.
+    r.apply(&titled(&deck, "Deux"), "a", Some("k")).unwrap();
+    assert_that!(r.undo_steps()).is_equal_to(start + 1);
+    r.begin_group("Tour");
+    r.apply(&titled(&deck, "Trois"), "a", Some("k")).unwrap();
+    r.apply(&titled(&deck, "Quatre"), "a", Some("k")).unwrap();
+    r.end_group();
+    // Le groupe est une nouvelle étape, une seule.
+    assert_that!(r.undo_steps()).is_equal_to(start + 2);
+    r.apply(&titled(&deck, "Cinq"), "a", Some("k")).unwrap();
+    assert_that!(r.undo_steps()).is_equal_to(start + 3);
+}

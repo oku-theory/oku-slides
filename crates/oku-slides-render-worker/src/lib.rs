@@ -6,7 +6,9 @@
 //!
 //! API publique :
 //! - [`RenderWorker`] : côté hôte, le travailleur partagé (sondes, packs
-//!   fautifs, relance) ; ouvre des emplacements.
+//!   fautifs, relance) ; ouvre des emplacements ; `probe_pack` (sonde par
+//!   fichier, sans accusation), `trial_slot` (emplacement d'aperçu).
+//! - [`PackProbe`] : la sonde d'un pack, fichier par fichier.
 //! - [`RenderSlot`] : un emplacement, même surface que `Renderer`.
 //! - [`RemoteCompiled`] : une génération rendue ; SVG, PNG et PDF à la demande.
 //! - [`serve`] : la boucle du travailleur ([`ServeError`] si le tube est illisible).
@@ -16,6 +18,7 @@ mod client;
 mod error;
 mod frame;
 mod link;
+mod pack_probe;
 mod protocol;
 mod rss;
 mod serve;
@@ -24,4 +27,5 @@ pub(crate) mod test_packs;
 mod watchdog;
 
 pub use client::{RemoteCompiled, RenderSlot, RenderWorker};
+pub use pack_probe::PackProbe;
 pub use serve::{ServeError, exit_if_worker, serve};

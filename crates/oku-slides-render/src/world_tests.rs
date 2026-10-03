@@ -18,7 +18,7 @@ fn main_source_quotes_labels_instead_of_running_them() {
 
 #[test]
 fn main_source_with_pack_imports_its_widgets_after_the_base() {
-    let pack = crate::PackWidgets::new("citations", "").unwrap();
+    let pack = crate::PackWidgets::new("citations", std::collections::BTreeMap::new()).unwrap();
     let source = main_source(None, Some(&pack), std::iter::empty(), &Labels::default());
     assert_that!(source).contains(r#"#import "/packs/citations/widgets.typ": registry as pack-registry"#);
     assert_that!(source).contains("widgets: by-name(base-registry + pack-registry)");

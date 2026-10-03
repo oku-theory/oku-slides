@@ -22,12 +22,12 @@ sources. Aucune dépendance à Typst ni à Tauri.
   racine `peers` : nom de chaque pair, inscrit à sa première édition. `history` : un `Version`
   par édition ; `restore` = `apply` de `deck_at`, pas de `revert_to` (perd les `mov`).
   Modules : `schema`, `read`/`write` (clés triées), `rich`, `undo`, `authors`, `history`.
-- `PackVersion`/`PackRef`/`PackFiles` (`pack.rs`) : version adressée par contenu (sha-256 de
-  `pack.json` à clés triées, `0`, `widgets.typ`).
+- `PackVersion`/`PackRef`/`PackFiles`/`WidgetFile` (`pack.rs`) : version adressée par contenu
+  (sha-256 de `pack.json` à clés triées, `0`, puis nom, `0`, source, `0` par fichier de widget).
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
   `validate`, `locate`) ; `new` refuse un deck trop profond, `merge` et `restore` passent `validate`.
-  Zip v4 : snapshot Loro, assets, polices, `packs/<hex>/` en ajout seul, vérifiés à la lecture
-  (`issue-pack-version-mismatch`), unis à la fusion.
+  Zip v5 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` en ajout
+  seul, vérifiés à la lecture (`issue-pack-version-mismatch`), nom invalide → `BadName`, unis à la fusion.
 - `validate` (`validate.rs`) : cohérence du deck contre le `WidgetRegistry` ; signale plutôt qu'il n'échoue.
 - `Slide::text_fields` (`fields.rs`) : champs texte ; `locate` (`locate.rs`) : chemin d'un élément ;
   `apply(…, merge)` fusionne les étapes d'annulation de même clé.

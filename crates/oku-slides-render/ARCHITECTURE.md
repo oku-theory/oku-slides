@@ -19,11 +19,11 @@ le même document compilé donne SVG, PNG et PDF.
 - Champs (`typst/oku-slides`) : `field()` émet une boîte par champ, même vide ; `fields-stack`
   colle le marqueur d'un champ vide à l'item voisin, sans occuper de place ni recevoir
   d'espacement (`FieldBox.empty`, `side`).
-- `probe_registry` / `registry_from_probe` / `load_registry` + `Registries` (`registry.rs`) : le
-  `WidgetRegistry` (`oku-slides-core`) lu par une sonde Typst qui importe `widgets.typ`, base et
-  pack (`PackWidgets`). La sonde brute (JSON) se sépare de sa lecture : le travailleur exécute
-  l'une, l'hôte lit l'autre. `Registries` mémoïse par pack (`probe`, `get`) ; `base_registry`
-  (public) donne la base sans pack ; `PackWidgets::fingerprint` clé les packs.
+- `PackWidgets` : fichiers `widgets/<nom>.typ` (`_commun` partagé) servis sous `/packs/<id>/`,
+  module d'assemblage généré `/packs/<id>/widgets.typ`. `probe_file` (`widget_probe.rs`) : un
+  fichier seul → `FileProbe` (schéma ou diagnostics à ligne et colonne), nom déclaré = nom de
+  fichier ; `assemble` : registre des seuls valides. `Registries` (`registry.rs`) mémoïse par
+  pack et par `probe_key` ; `base_registry` donne la base sans pack.
 - Erreurs bornées (`error.rs`) : `RenderErrorKind` compte `Timeout`, `OutOfMemory`, `WorkerLost`,
   `Frame`, `Stale`, `PackDisabled` en plus des échecs Typst ; `is_bounded` dit lesquels
   (hors `Frame`, `Stale`) font replier la session sur les widgets de base.

@@ -277,6 +277,7 @@ fn diagnostic_localize_formats_place_and_hints() {
         place: Some("oku-slides/src/data.typ:12".into()),
         message: "unknown font".into(),
         hints: vec!["check the family".into()],
+        at: None,
     };
     let fr = d.localize(&Localizer::new(Some("fr")));
     assert_that!(fr).is_equal_to(

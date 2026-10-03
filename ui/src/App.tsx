@@ -52,6 +52,7 @@ const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ def
 const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
 const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
 const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
+const WidgetWorkbench = lazy(() => import("./WidgetWorkbench"));
 
 /** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
 const NO_PANEL: A2uiMessage[] = [];
@@ -243,7 +244,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   const clip = useRef<{ element: Element; text: string } | null>(null);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
+    const skip = (e: ClipboardEvent) => editing || picking || widgetsOpen || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected) return false;
       const element = findElement(view.slide, selected);
@@ -378,6 +379,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
 
   const [picking, setPicking] = useState(false);
+  const [widgetsOpen, setWidgetsOpen] = useState(false);
   const addSlide = () => setPicking(true);
   const insertTemplate = (tpl: TemplateView) => {
     if (!snap) return;
@@ -470,7 +472,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   useQuickKeys(
     modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
-    !editing && !picking,
+    !editing && !picking && !widgetsOpen,
     sendAction,
   );
 
@@ -525,7 +527,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     const onKey = (e: KeyboardEvent) => {
       // Dans une surface A2UI (panneau, agent), une fiche de l'agent ou l'éditeur de texte, les touches sont les leurs.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
+      if (modal || editing || picking || widgetsOpen || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
       const mod = e.metaKey || e.ctrlKey;
       // Grille et fantômes se basculent partout, historique compris.
       if (viewOptions.handleKey(e)) return;
@@ -687,12 +689,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </select>
     </label>
   );
+  const widgetsEntry: MenuEntry = { kind: "item", label: t("ui-widgets-menu"), onSelect: () => setWidgetsOpen(true) };
   const schemePicker = (
     <SchemePicker value={schemeChoice} onChange={(c) => changeScheme(c).catch((err) => say(errorText(err), true))} />
   );
   const menuEntries: MenuEntry[] = snap.editing
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
+        widgetsEntry,
         { kind: "separator" },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
@@ -708,6 +712,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
         { kind: "item", label: t("ui-toolbar-templates"), onSelect: editTemplates },
+        widgetsEntry,
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
@@ -900,6 +905,18 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onClose={() => setPicking(false)}
           api={api}
         />
+      )}
+
+      {widgetsOpen && (
+        <Suspense fallback={null}>
+          <WidgetWorkbench
+            api={api}
+            revision={`${snap.templates?.version ?? ""}|${snap.editing?.base ?? ""}`}
+            onChanged={() => run(api.snapshot())}
+            onClose={() => setWidgetsOpen(false)}
+            onError={(m) => say(m, true)}
+          />
+        </Suspense>
       )}
 
       {modal && (

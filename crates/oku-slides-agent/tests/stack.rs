@@ -102,7 +102,7 @@ async fn handle_passes_the_ui_context_with_the_prompt() {
         .unwrap();
     wait_for(&rx, |(_, v)| v["event"]["kind"] == "turn_ended").await;
     let prompt = &common::logged(&log, "session/prompt")[0]["prompt"];
-    assert_that!(prompt[1]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
+    assert_that!(prompt[2]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -39,6 +39,10 @@ timeout_ms = 10000
 memory_mib = 2048
 # Taille maximale d'un message échangé avec le processus de rendu (Mio).
 max_frame_mib = 512
+# Taille maximale d'un fichier de widget d'un pack (Kio).
+max_widget_kib = 256
+# Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
+max_widgets = 64
 
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.

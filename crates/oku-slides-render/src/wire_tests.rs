@@ -10,6 +10,7 @@ fn diag() -> Diagnostic {
         place: Some("packs/p/widgets.typ:3".into()),
         message: "boom".into(),
         hints: vec!["h".into()],
+        at: None,
     }
 }
 

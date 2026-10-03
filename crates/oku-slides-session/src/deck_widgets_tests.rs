@@ -7,28 +7,27 @@ use speculoos::prelude::*;
 
 use crate::{Fonts, Platform, Request, Session, SessionErrorKind, Settings};
 
-/// Le pack `quote` du plan 1 : un widget d'élément, avec un corps riche.
+/// Le fichier `quote` : un widget d'élément, avec un corps riche.
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
-#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
+#let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
   (args, ctx) => field(ctx, "body", emph(args.body)))
-#let registry = (quote,)
 "#;
 
-/// Un pack qui ne compile pas.
-const BROKEN: &str = "#let registry = (";
+/// Un fichier `casse` qui ne compile pas.
+const BROKEN: &str = "#let widget = (";
 
-/// Un widget `boucle` qui boucle au rendu, hors des gardes de Typst.
+/// Le fichier `boucle` : boucle au rendu, hors des gardes de Typst.
 ///
 /// Boucles imbriquées : `range(1e12)` alloue au lieu de tourner.
 const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
-#let boucle = widget("boucle", params: (body: p.plain()),
+#let widget = widget("boucle", params: (body: p.plain()),
   (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
-#let registry = (boucle,)
 "#;
 
-/// Un pack qui boucle dès son chargement (sonde).
-const LOOP_ON_IMPORT: &str = r#"#let _spin = { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; n }
-#let registry = ()
+/// Le fichier `boucle` : boucle dès son chargement (sonde).
+const LOOP_ON_IMPORT: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let _spin = { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; n }
+#let widget = widget("boucle", params: (body: p.plain()), (args, ctx) => [])
 "#;
 
 /// Délai de rendu des tests de packs qui bouclent : bien plus qu'un rendu
@@ -75,10 +74,10 @@ fn fixture_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
 }
 
-/// Ajoute à la bibliothèque de `s` un pack de l'utilisateur, `widgets` pour `widgets.typ` ; sa référence.
-fn user_pack(s: &Session, name: &str, widgets: &str) -> PackRef {
+/// Ajoute à la bibliothèque de `s` un pack de l'utilisateur, avec ses fichiers `widgets` ; sa référence.
+fn user_pack(s: &Session, name: &str, widgets: &[(&str, &str)]) -> PackRef {
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
-    crate::test_support::add_version(&s.library, &m, Some(widgets))
+    crate::test_support::add_version(&s.library, &m, widgets)
 }
 
 fn op(v: serde_json::Value) -> Op {
@@ -132,7 +131,7 @@ fn has_quote(s: &Session) -> bool {
 fn session_with_pack_widgets_uses_the_pack_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     assert_that!(widgets_have_quote(&mut s)).is_false();
     s.apply("Pack", vec![set_templates(Some(&quote))], None).unwrap();
     assert_that!(widgets_have_quote(&mut s)).is_true();
@@ -143,7 +142,7 @@ fn session_with_pack_widgets_uses_the_pack_registry() {
 fn apply_set_templates_then_pack_element_in_one_transaction_succeeds() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.apply("Citation", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
     assert_that!(has_quote(&s)).is_true();
     let page = s.slide("s-constat").unwrap();
@@ -155,7 +154,7 @@ fn apply_set_templates_then_pack_element_in_one_transaction_succeeds() {
 fn apply_pack_element_without_its_pack_is_refused() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    user_pack(&s, "Citation", QUOTE);
+    user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let err = s.apply("Citation", vec![add_quote()], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Op);
     assert_that!(has_quote(&s)).is_false();
@@ -165,7 +164,7 @@ fn apply_pack_element_without_its_pack_is_refused() {
 fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let (base, before) = (s.registry.clone(), s.deck().templates.clone());
     let bad = op(json!({ "op": "set_token", "path": ["color", "accent"], "value": 5 }));
     let err = s.apply("Pack", vec![set_templates(Some(&quote)), bad], None).unwrap_err();
@@ -179,7 +178,7 @@ fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
 fn apply_set_templates_with_sources_failure_keeps_the_previous_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let (base, before) = (s.registry.clone(), s.deck().templates.clone());
     s.failpoints.sources_apply = true;
     assert_that!(s.apply("Pack", vec![set_templates(Some(&quote))], None).is_err()).is_true();
@@ -193,7 +192,7 @@ fn apply_set_templates_with_sources_failure_keeps_the_previous_registry() {
 fn undo_and_redo_of_set_templates_follow_the_deck_pack() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let before = s.deck().templates.clone();
     s.apply("Citation", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
     s.undo().unwrap();
@@ -210,7 +209,7 @@ fn undo_and_redo_of_set_templates_follow_the_deck_pack() {
 fn merge_file_that_brings_a_pack_uses_its_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let ours = data.0.join("nous.oku-slides.pdf");
     s.save(Some(&ours)).unwrap();
     // Un autre pair du même deck choisit le pack et y ajoute une citation.
@@ -231,7 +230,7 @@ fn merge_file_that_brings_a_pack_uses_its_registry() {
 fn history_restore_before_set_templates_returns_to_the_base_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let before_pack = s.deck().templates.clone();
     s.apply("Pack", vec![set_templates(Some(&quote))], None).unwrap();
     s.history_open().unwrap();
@@ -244,9 +243,9 @@ fn history_restore_before_set_templates_returns_to_the_base_registry() {
 }
 
 /// Les sources de la fixture, qui embarquent un pack `name` de widgets `widgets` et y renvoient.
-fn bundle_with_pack(s: &Session, name: &str, widgets: &str) -> (SourceBundle, PackRef) {
+fn bundle_with_pack(s: &Session, name: &str, widgets: &[(&str, &str)]) -> (SourceBundle, PackRef) {
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
-    let files = m.to_files(Some(widgets.to_owned())).unwrap();
+    let files = m.to_files(crate::test_support::widget_files(widgets)).unwrap();
     let r = PackRef { id: m.id, version: files.version() };
     let mut deck = s.deck().clone();
     deck.templates = Some(r.clone());
@@ -260,12 +259,12 @@ fn load_sources_with_a_broken_pack_keeps_the_base_registry_and_sets_a_notice() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let base = s.registry.clone();
-    let (sources, broken) = bundle_with_pack(&s, "Cassé", BROKEN);
+    let (sources, broken) = bundle_with_pack(&s, "Cassé", &[("casse", BROKEN)]);
     s.load(sources, None).unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(broken));
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
     let notice = s.doc.notice.clone().unwrap_or_default();
-    assert_that!(notice.as_str()).contains(s.localizer.tr("registry-compile").as_str());
+    assert_that!(notice.as_str()).contains("casse");
     assert_registry_agrees(&s);
 }
 
@@ -274,7 +273,7 @@ fn load_sources_with_a_broken_pack_keeps_the_base_registry_and_sets_a_notice() {
 fn load_sources_with_an_embedded_pack_unknown_to_the_library_uses_its_widgets() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let (sources, quote) = bundle_with_pack(&s, "Citation", QUOTE);
+    let (sources, quote) = bundle_with_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.load(sources, None).unwrap();
     assert_that!(s.library.current(quote.id)).is_none();
     assert_that!(widgets_have_quote(&mut s)).is_true();
@@ -285,7 +284,7 @@ fn load_sources_with_an_embedded_pack_unknown_to_the_library_uses_its_widgets() 
 fn apply_set_templates_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notice() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let broken = user_pack(&s, "Cassé", BROKEN);
+    let broken = user_pack(&s, "Cassé", &[("casse", BROKEN)]);
     let base = s.registry.clone();
     s.apply("Pack", vec![set_templates(Some(&broken))], None).unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(broken));
@@ -294,11 +293,24 @@ fn apply_set_templates_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notic
     assert_registry_agrees(&s);
 }
 
+/// t-329 : un widget cassé est écarté, les autres du même pack restent.
+#[test]
+fn apply_set_templates_to_a_pack_with_one_broken_widget_keeps_the_others() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    let mixed = user_pack(&s, "Mixte", &[("quote", QUOTE), ("casse", BROKEN)]);
+    s.apply("Pack", vec![set_templates(Some(&mixed)), add_quote()], None).unwrap();
+    assert_that!(widgets_have_quote(&mut s)).is_true();
+    assert_that!(has_quote(&s)).is_true();
+    assert_that!(s.doc.notice.clone().unwrap_or_default().as_str()).contains("casse");
+    assert_registry_agrees(&s);
+}
+
 #[test]
 fn load_with_a_failed_registry_install_keeps_the_previous_document() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.apply("Citation", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
     let before = s.deck().clone();
     s.failpoints.install_widgets = true;
@@ -313,7 +325,7 @@ fn load_with_a_failed_registry_install_keeps_the_previous_document() {
 fn edit_templates_of_a_pack_with_widgets_uses_them_then_close_returns_to_the_deck_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.edit_templates(quote.id).unwrap();
     assert_that!(widgets_have_quote(&mut s)).is_true();
     assert_registry_agrees(&s);
@@ -326,13 +338,13 @@ fn edit_templates_of_a_pack_with_widgets_uses_them_then_close_returns_to_the_dec
 fn save_templates_as_a_copy_takes_the_pack_widgets_along() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.edit_templates(quote.id).unwrap();
     s.save_templates(true).unwrap();
     let copy = s.snapshot().editing.unwrap().set;
     assert_that!(copy).is_not_equal_to(quote.id);
     let stored = s.library.current_version(copy).unwrap();
-    assert_that!(stored.files.widgets().map(str::to_owned)).is_equal_to(Some(QUOTE.to_owned()));
+    assert_that!(stored.files.widget(&oku_slides_core::WidgetFile::parse("quote").unwrap())).is_equal_to(Some(QUOTE));
     assert_that!(widgets_have_quote(&mut s)).is_true();
     assert_registry_agrees(&s);
 }
@@ -341,7 +353,7 @@ fn save_templates_as_a_copy_takes_the_pack_widgets_along() {
 fn apply_with_a_widget_that_loops_falls_back_to_the_base_registry_with_a_notice() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
-    let looping = user_pack(&s, "Boucle", LOOP_ON_RENDER);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
     let base = s.registry.clone();
     // Le pack est installé, puis son widget boucle au rendu : l'élément reste, la base le rend.
     s.apply("Pack", vec![set_templates(Some(&looping)), add_loop()], None).unwrap();
@@ -356,7 +368,7 @@ fn apply_with_a_widget_that_loops_falls_back_to_the_base_registry_with_a_notice(
 fn apply_set_templates_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_notice() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
-    let looping = user_pack(&s, "Boucle", LOOP_ON_IMPORT);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_IMPORT)]);
     let base = s.registry.clone();
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
@@ -368,7 +380,7 @@ fn apply_set_templates_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_n
 fn a_pack_that_looped_is_not_retried_in_the_session() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
-    let looping = user_pack(&s, "Boucle", LOOP_ON_IMPORT);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_IMPORT)]);
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
     let started = std::time::Instant::now();
     s.apply("Pack", vec![set_templates(None)], None).unwrap();
@@ -382,10 +394,10 @@ fn a_pack_that_looped_is_not_retried_in_the_session() {
 fn render_uses_the_embedded_version_even_when_the_library_has_another() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.apply("Pack", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
     let sans = crate::test_support::manifest(quote.id, "Citation", Some(&quote.version), "2026-10-02T10:00:00Z");
-    let plain = crate::test_support::add_version(&s.library, &sans, None);
+    let plain = crate::test_support::add_version(&s.library, &sans, &[]);
     s.library.set_current(quote.id, &plain.version).unwrap();
     let path = data.0.join("decks").join("cache.oku-slides.pdf");
     s.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
@@ -414,7 +426,7 @@ fn pack_without_widgets_renders_base_widgets_without_a_notice() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), "Sans", None, "2026-10-01T10:00:00Z");
-    let r = crate::test_support::add_version(&s.library, &m, None);
+    let r = crate::test_support::add_version(&s.library, &m, &[]);
     s.handle(Request::Snapshot).unwrap();
     s.apply("Pack", vec![set_templates(Some(&r))], None).unwrap();
     let snap: serde_json::Value = serde_json::from_str(&s.handle(Request::Snapshot).unwrap()).unwrap();
@@ -426,12 +438,12 @@ fn pack_without_widgets_renders_base_widgets_without_a_notice() {
 fn history_restore_brings_back_the_pack_of_that_version() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", QUOTE);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     s.apply("Pack", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
     let plain = crate::test_support::add_version(
         &s.library,
         &crate::test_support::manifest(uuid::Uuid::new_v4(), "Sans", None, "2026-10-01T10:00:00Z"),
-        None,
+        &[],
     );
     s.apply("Autre", vec![set_templates(Some(&plain))], None).unwrap();
     assert_that!(widgets_have_quote(&mut s)).is_false();
@@ -445,18 +457,24 @@ fn history_restore_brings_back_the_pack_of_that_version() {
 
 // ---- Relance du travailleur et repli hors du rendu du deck ----------------------------
 
-/// Relance le travailleur hors du rendu du deck : la sonde d'un autre pack boucle.
+/// Relance le travailleur hors du rendu du deck : la sonde d'un fichier qui
+/// boucle (neuf à chaque appel, hors cache) dépasse le délai.
 fn restart_worker_outside_the_deck(s: &Session) {
-    let other = oku_slides_render::PackWidgets::new("autre", LOOP_ON_IMPORT).unwrap();
-    let err = s.worker.probe(&other).unwrap_err();
-    assert_that!(err.render_error().is_some_and(|e| e.kind().is_bounded())).is_true();
+    static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let source = format!("{LOOP_ON_IMPORT}// {n}\n");
+    let other = oku_slides_render::PackWidgets::new("autre", crate::test_support::widget_files(&[("boucle", &source)]))
+        .unwrap();
+    let probe = s.worker.probe_pack(&other).unwrap();
+    let boucle = oku_slides_core::WidgetFile::parse("boucle").unwrap();
+    assert_that!(probe.files[&boucle].diagnostics[0].message.as_str()).contains("took more than");
 }
 
 /// Une session dont le deck a le pack `boucle` (widget qui boucle au rendu)
 /// sans élément `boucle` : le rendu du deck réussit.
 fn session_on_looping_pack(data: &Path) -> Session {
     let mut s = session_with_timeout(data, LOOP_TIMEOUT_MS);
-    let looping = user_pack(&s, "Boucle", LOOP_ON_RENDER);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
     assert_that!(s.pack.is_some()).is_true();
     s
@@ -512,7 +530,7 @@ fn templates_view_with_a_template_that_loops_falls_back_to_the_base_with_a_notic
         { "id": "l", "kind": "boucle", "params": { "body": "x" } } ] } });
     let mut m = crate::test_support::manifest(uuid::Uuid::new_v4(), "Boucle", None, "2026-10-01T10:00:00Z");
     m.templates = vec![serde_json::from_value(json!({ "id": "l", "name": "Boucle", "slide": slide })).unwrap()];
-    let looping = crate::test_support::add_version(&s.library, &m, Some(LOOP_ON_RENDER));
+    let looping = crate::test_support::add_version(&s.library, &m, &[("boucle", LOOP_ON_RENDER)]);
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
     let view = s.templates_view(None).unwrap();
     assert_that!(view.templates.len()).is_equal_to(1);
@@ -544,4 +562,32 @@ fn refresh_fonts_after_the_pack_faulted_elsewhere_falls_back_and_succeeds() {
     s.refresh_fonts().unwrap();
     assert_fell_back(&s, &base);
     s.rerender().unwrap();
+}
+
+#[test]
+fn set_templates_back_to_a_faulty_pack_names_it_by_its_name() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
+    s.apply("Pack", vec![set_templates(Some(&looping)), add_loop()], None).unwrap();
+    s.apply("Pack", vec![set_templates(None)], None).unwrap();
+    s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
+    let notice = s.doc.notice.clone().unwrap_or_default();
+    assert_that!(notice.as_str()).contains("Boucle");
+    assert_that!(notice.as_str()).does_not_contain(looping.version.hex());
+}
+
+#[test]
+fn broken_widgets_notice_lists_the_widgets_but_not_common() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    let framed = r#"#import "/oku-slides/lib.typ": widget, params as p
+#import "_commun.typ": cadre
+#let widget = widget("cadre", params: (body: p.plain()), (args, ctx) => cadre(args.body))
+"#;
+    let broken = user_pack(&s, "Commun", &[("_commun", "#let cadre = ("), ("cadre", framed), ("quote", QUOTE)]);
+    s.apply("Pack", vec![set_templates(Some(&broken))], None).unwrap();
+    let notice = s.doc.notice.clone().unwrap_or_default();
+    assert_that!(notice.as_str()).contains("cadre");
+    assert_that!(notice.as_str()).does_not_contain("_commun");
 }

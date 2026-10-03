@@ -5,9 +5,11 @@ rendu qui boucle ou qui consomme trop se tue sans emporter l'application.
 
 ## Types clés
 
-- `RenderWorker` (`client.rs`) : le lien partagé (`Arc<Mutex<Link>>`) ; `probe`
-  (registre gardé par empreinte), `is_faulty`, `slot`. Un pack qui fait échouer
+- `RenderWorker` (`client.rs`) : le lien partagé (`Arc<Mutex<Link>>`) ;
+  `is_faulty`, `slot`. Un pack qui fait échouer
   le rendu (délai, mémoire, arrêt) devient fautif et n'est plus exécuté.
+- `probe_pack` (`pack_probe.rs`) : sonde par fichier, jamais d'accusation (un délai = un
+  diagnostic), gardée par `probe_key`, budget total `timeout_ms` par appel ; `trial_slot` : emplacement d'aperçu qui n'accuse aucun pack.
 - `RenderSlot` (`client.rs`) : un emplacement (`set_widgets`, `set_language`,
   `render`) ; son `Drop` met `CloseSlot` en file.
 - `RemoteCompiled` (`client.rs`) : une génération ; `layout`, `page_hash` locaux,

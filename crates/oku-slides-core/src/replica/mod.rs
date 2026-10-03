@@ -304,6 +304,14 @@ impl DeckReplica {
         self.undo.in_group()
     }
 
+    /// Étapes d'annulation empilées depuis la création, jamais décrémenté.
+    ///
+    /// Une application qui ne l'augmente pas a rejoint l'étape du sommet
+    /// (même clé de fusion, ou groupe déjà ouvert).
+    pub fn undo_steps(&self) -> u64 {
+        self.undo.steps()
+    }
+
     /// Défait la dernière étape locale ; `false` s'il n'y en avait pas.
     /// Ferme d'abord le groupe ouvert.
     pub fn undo(&mut self) -> Result<bool, ReplicaError> {

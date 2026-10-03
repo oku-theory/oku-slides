@@ -22,7 +22,7 @@ fn new_deck_takes_the_current_version_of_the_default_pack() {
     let mut s = session_on(data.path());
     let builtin = builtin_versions()[0].version.clone();
     let mine =
-        add_version(library_of(&s), &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), None);
+        add_version(library_of(&s), &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
     library_of(&s).set_current(DEFAULT_PACK, &mine.version).unwrap();
     s.new_deck().unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(mine.clone()));
@@ -40,7 +40,7 @@ fn json_deck_without_templates_adopts_the_default_pack() {
 fn set_templates_embeds_the_library_version_in_the_sources() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
-    let r = add_version(library_of(&s), &manifest(Uuid::new_v4(), "Mien", None, "2026-10-01T10:00:00Z"), None);
+    let r = add_version(library_of(&s), &manifest(Uuid::new_v4(), "Mien", None, "2026-10-01T10:00:00Z"), &[]);
     s.apply("Pack", vec![Op::SetTemplates { templates: Some(r.clone()) }], None).unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(r.clone()));
     assert_that!(s.sources_for_tests().packs.contains_key(&r.version)).is_true();
@@ -50,7 +50,7 @@ fn set_templates_embeds_the_library_version_in_the_sources() {
 fn set_templates_to_null_references_the_default_pack_explicitly() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
-    let r = add_version(library_of(&s), &manifest(Uuid::new_v4(), "Mien", None, "2026-10-01T10:00:00Z"), None);
+    let r = add_version(library_of(&s), &manifest(Uuid::new_v4(), "Mien", None, "2026-10-01T10:00:00Z"), &[]);
     s.apply("Pack", vec![Op::SetTemplates { templates: Some(r) }], None).unwrap();
     s.apply("Défaut", vec![Op::SetTemplates { templates: None }], None).unwrap();
     assert_that!(s.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(DEFAULT_PACK));

@@ -20,6 +20,7 @@ mod server;
 mod settings;
 mod surface_tools;
 mod tools;
+mod widget_tools;
 
 pub use error::McpError;
 pub use hub::{Answer, McpEvent, SurfaceAction, SurfaceHub};

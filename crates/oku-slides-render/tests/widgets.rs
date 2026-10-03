@@ -1,19 +1,26 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Category, Deck, ParamType, WidgetErrorKind};
+use oku_slides_core::{Category, Deck, ParamType, WidgetErrorKind, WidgetFile};
 use oku_slides_render::{Fonts, PackWidgets, Registries, RegistryErrorKind, Renderer, load_registry};
 use speculoos::prelude::*;
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
-#let quote = widget("quote", params: (body: p.rich(), source: p.plain()),
+#let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
   (args, ctx) => field(ctx, "body", emph(args.body)))
-#let registry = (quote,)
 "#;
+
+/// Les fichiers de widgets d'un pack, par nom.
+fn files(entries: &[(&str, &str)]) -> BTreeMap<WidgetFile, String> {
+    entries
+        .iter()
+        .map(|(n, s)| (WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}")), (*s).to_owned()))
+        .collect()
+}
 
 #[test]
 fn load_registry_with_pack_adds_its_widgets_to_the_base() {
-    let pack = PackWidgets::new("citations", QUOTE).unwrap();
+    let pack = PackWidgets::new("citations", files(&[("quote", QUOTE)])).unwrap();
     let r = load_registry(&Fonts::default(), Some(&pack)).unwrap();
     assert_that!(r.get("quote").map(|w| w.params.len())).is_equal_to(Some(2));
     assert_that!(r.get("card")).is_some();
@@ -22,9 +29,9 @@ fn load_registry_with_pack_adds_its_widgets_to_the_base() {
 #[test]
 fn load_registry_pack_breaking_card_returns_schema_error() {
     let src = r#"#import "/oku-slides/lib.typ": widget, params as p
-#let registry = (widget("card", params: (title: p.plain()), (args, ctx) => []),)
+#let widget = widget("card", params: (title: p.plain()), (args, ctx) => [])
 "#;
-    let pack = PackWidgets::new("casse", src).unwrap();
+    let pack = PackWidgets::new("casse", files(&[("card", src)])).unwrap();
     let err = load_registry(&Fonts::default(), Some(&pack)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RegistryErrorKind::Schema);
     assert_that!(err.widget_error().map(|e| e.kind())).is_equal_to(Some(WidgetErrorKind::IncompatibleOverride));
@@ -32,18 +39,22 @@ fn load_registry_pack_breaking_card_returns_schema_error() {
 
 #[test]
 fn load_registry_pack_that_does_not_compile_returns_its_diagnostics() {
-    let pack = PackWidgets::new("casse", "#let registry = (").unwrap();
+    let pack = PackWidgets::new("casse", files(&[("casse", "#let widget = (")])).unwrap();
     let err = load_registry(&Fonts::default(), Some(&pack)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RegistryErrorKind::Compile);
-    assert_that!(err.diagnostics().iter().any(|d| d.place.as_deref().is_some_and(|p| p.contains("packs/casse"))))
-        .is_true();
+    assert_that!(
+        err.diagnostics()
+            .iter()
+            .any(|d| d.place.as_deref().is_some_and(|p| p.contains("packs/casse/widgets/casse.typ")))
+    )
+    .is_true();
 }
 
 #[test]
 fn pack_widgets_new_with_a_path_like_id_returns_bad_pack_id() {
     for id in ["", "../x", "A", "a/b", "é"] {
         asserting(id)
-            .that(&PackWidgets::new(id, "").map(|_| ()).map_err(|e| e.kind()))
+            .that(&PackWidgets::new(id, BTreeMap::new()).map(|_| ()).map_err(|e| e.kind()))
             .is_equal_to(Err(RegistryErrorKind::BadPackId));
     }
 }
@@ -58,7 +69,7 @@ fn registries_get_without_pack_is_the_renderer_base_registry() {
 #[test]
 fn registries_get_same_pack_twice_reuses_the_registry() {
     let mut regs = Registries::new(Fonts::default());
-    let pack = PackWidgets::new("citations", QUOTE).unwrap();
+    let pack = PackWidgets::new("citations", files(&[("quote", QUOTE)])).unwrap();
     let a = regs.get(Some(&pack)).unwrap();
     let b = regs.get(Some(&pack)).unwrap();
     assert_that!(Arc::ptr_eq(&a, &b)).is_true();
@@ -69,9 +80,9 @@ fn registries_get_same_pack_twice_reuses_the_registry() {
 #[test]
 fn registries_get_changed_pack_source_reloads() {
     let mut regs = Registries::new(Fonts::default());
-    let a = regs.get(Some(&PackWidgets::new("citations", QUOTE).unwrap())).unwrap();
+    let a = regs.get(Some(&PackWidgets::new("citations", files(&[("quote", QUOTE)])).unwrap())).unwrap();
     let changed = QUOTE.replace("source: p.plain()", "source: p.plain(), note: p.plain()");
-    let b = regs.get(Some(&PackWidgets::new("citations", changed).unwrap())).unwrap();
+    let b = regs.get(Some(&PackWidgets::new("citations", files(&[("quote", &changed)])).unwrap())).unwrap();
     assert_that!(b.get("quote").map(|w| w.params.len())).is_equal_to(Some(3));
     assert_that!(Arc::ptr_eq(&a, &b)).is_false();
 }
@@ -203,7 +214,7 @@ fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
 #[test]
 fn compile_pack_widget_renders_in_the_deck() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
-    let pack = PackWidgets::new("citations", QUOTE).unwrap();
+    let pack = PackWidgets::new("citations", files(&[("quote", QUOTE)])).unwrap();
     let registry = Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap());
     r.set_widgets(Some(&pack), registry.clone()).unwrap();
     assert_that!(Arc::ptr_eq(r.registry(), &registry)).is_true();
@@ -218,11 +229,10 @@ fn compile_pack_widget_renders_in_the_deck() {
 }
 
 const RED_CARD: &str = r##"#import "/oku-slides/lib.typ": widget, field, params as p
-#let card = widget("card",
+#let widget = widget("card",
   params: (kicker: p.plain(), title: p.plain(), body: p.rich(), highlight: p.flag(), icon: p.plain()),
   (args, ctx) => block(fill: rgb("#ff0000"), width: 100%, height: 100%, inset: 12pt,
     field(ctx, "title", text(args.title)) + args.body))
-#let registry = (card,)
 "##;
 
 #[test]
@@ -233,7 +243,7 @@ fn compile_pack_override_of_card_replaces_the_base_render() {
     let plain = base.render(&deck, &BTreeMap::new()).unwrap();
 
     let mut r = Renderer::new(Fonts::default()).unwrap();
-    let pack = PackWidgets::new("rouge", RED_CARD).unwrap();
+    let pack = PackWidgets::new("rouge", files(&[("card", RED_CARD)])).unwrap();
     let registry = Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap());
     assert_that!(registry.get("card").and_then(|w| w.param("icon"))).is_some();
     r.set_widgets(Some(&pack), registry).unwrap();
@@ -263,7 +273,7 @@ fn set_widgets_back_to_the_base_drops_the_pack_override() {
     let deck = one_element_deck("card", serde_json::json!({ "title": "Rouge" }));
     let mut r = Renderer::new(Fonts::default()).unwrap();
     let base = r.registry().clone();
-    let pack = PackWidgets::new("rouge", RED_CARD).unwrap();
+    let pack = PackWidgets::new("rouge", files(&[("card", RED_CARD)])).unwrap();
     r.set_widgets(Some(&pack), Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap())).unwrap();
     assert_that!(r.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap().to_lowercase()).contains("#ff0000");
     r.set_widgets(None, base).unwrap();
