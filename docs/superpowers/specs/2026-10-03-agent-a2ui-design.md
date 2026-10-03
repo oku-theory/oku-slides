@@ -244,3 +244,27 @@ attente dans le dock, en clair et en sombre, Papier et Verre.
 
 L'étape 1 est livrable seule. Les étapes 3 à 5 forment un tout : pas de
 fusion avant la fin de l'étape 5.
+
+## Décisions d'implémentation
+
+Précisées par le plan (`docs/superpowers/plans/2026-10-03-agent-a2ui.md`) et sa revue :
+
+- **Canal** : les surfaces `turn-N` passent par le `SurfaceHub` comme toute surface ; la progression part en `McpEvent::SurfacePatch` (modèle de données racine du tour), que `SurfaceView` applique sans reconstruire la surface. Le canal `agent` vers l'interface ne porte plus que `Status`.
+- **Ouverture du tour** : `begin_turn` et `UserText` au tout début de `TabAgent::prompt`, avant la connexion : une erreur de démarrage s'affiche dans son tour.
+- **Tours gardés** : constante `KEPT_TURNS = 50` (pas de clé de configuration).
+- **Actions** : les suites d'un reçu et l'unique action permise dans `render` réutilisent l'évènement existant `suggest {prompt}`. Elles expirent à l'ouverture du tour suivant : le reçu est remplacé par sa version sans actions et le hub refuse une action en retard.
+- **`Receipt`** n'a pas d'enfant : les suites sont une `Row` sœur dans la colonne du reçu. Le reçu de repli est construit dans `receipt.rs`.
+- **`render`** exige un arbre : identifiants uniques, chaque composant visité une fois (ni partage ni cycle), aucun orphelin, profondeur ≤ 6, 40 composants au plus.
+- **Questions figées** : une question annulée n'est figée que si son tour est encore dans le fil et l'onglet ouvert ; sinon elle est fermée.
+- **`render`, garde-fous** : pas de bouton `primary`/`danger`, pas de carte `tone: danger`, pas de `SlideThumb` ni de miniature de reçu (rendues par l'hôte) ; un bouton `suggest` envoie exactement son libellé ; 64 Kio au plus par appel ; erreurs `AgentForm` (Snafu). Mêmes contrôles de contenu que `report` (couleur hexadécimale, 1 à 4 faits, longueurs).
+- **Longueurs** des textes de l'agent : titre et faits 120 caractères, libellé de suite 60, explication 4000, consigne d'une suite 2000.
+- **Surfaces figées** : 8 au plus par tour (la plus ancienne cède) ; des réglages figés sont en lecture seule (champs sans action, boutons retirés).
+- **Dock** : quand une question attend, les réglages se replient sur une ligne qui les rouvre (au lieu d'un repli au-delà de 45 %) ; le dock défile s'il dépasse 45 % du panneau.
+- **Progression** : une mise à jour du tour ne part que si ses données changent ; un tour dont la fin s'est perdue est clos par le retour de l'agent au repos, ou interrompu par le tour suivant.
+- **Hub** : la gestion des tours est dans `hub_turns.rs` ; `hub.rs` garde les questions, les actions et les réglages.
+- **Nouvelle conversation** : l'acteur de l'onglet vide le fil lui-même (`clear_thread`), de façon synchrone, avant toute consigne suivante ; le relais n'y touche plus.
+- **Hors d'un tour ouvert** (entre deux tours, tour annulé), `render` et `report` sont refusés : un appel tardif ne s'affiche dans aucun tour.
+- **`render` sans modèle de données** : valeurs littérales seulement (ni `{path}` ni `data`), seul un bouton porte une action ; `Receipt` et `SlideThumb` sont réservés à l'hôte (via `report`) ; un `Badge` `danger` aussi ; les textes de l'agent ne contiennent ni contrôle bidirectionnel ni caractère invisible.
+- **Expiration des suites** : celles d'une carte `render` expirent au tour suivant, comme celles d'un reçu.
+- **Question figée** : elle montre la question (en légende) et la réponse (« ✓ … »), pas la réponse seule ; elle garde sa place dans le fil.
+- **Mises à jour du tour** : une écriture par clé du modèle qui change (`/narration` pendant que l'agent écrit) ; narration gardée bornée à 4000 caractères, 60 étapes au plus par tour.
