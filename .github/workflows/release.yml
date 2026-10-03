@@ -51,6 +51,19 @@ jobs:
             exit 1
           fi
 
+      # Le pont Swift de la dictée (moteur d'Apple) compile contre le SDK macOS 26 ; les runners
+      # macos-15 ont Xcode 16.4 par défaut, mais installent aussi Xcode 26.0.1 à 26.3 (images x64 et
+      # arm64, actions/runner-images, images/macos/macos-15*-Readme.md) : on prend le plus récent.
+      - name: Xcode 26 (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$xcode" ] || { echo "::error::aucun Xcode 26 sur ce runner"; ls -d /Applications/Xcode*.app; exit 1; }
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          sdk=$(xcrun --sdk macosx --show-sdk-version)
+          echo "Xcode : $xcode, SDK macOS $sdk"
+          [ "${sdk%%.*}" -ge 26 ] || { echo "::error::SDK macOS $sdk (26 ou plus requis)"; exit 1; }
+
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
         run: |
