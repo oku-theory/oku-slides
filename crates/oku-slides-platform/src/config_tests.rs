@@ -15,6 +15,18 @@ fn env(vars: &[(&str, &str)]) -> config::Environment {
 }
 
 #[test]
+fn defaults_stt_offers_apple_engine() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.stt.apple).is_true();
+}
+
+#[test]
+fn defaults_stt_apple_finish_timeout_is_five_seconds() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.stt.apple_finish_timeout_secs).is_equal_to(5.0);
+}
+
+#[test]
 fn defaults_embedded_file_gives_documented_values() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.history.limit).is_equal_to(500);

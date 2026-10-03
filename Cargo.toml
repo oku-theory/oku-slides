@@ -78,6 +78,8 @@ ndarray = "0.16"
 earshot = "1.2"
 cpal = "0.18"
 ureq = "3"
+# Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
+swift-rs = "1.0.8"
 # App de bureau
 tauri = "2.12"
 tauri-build = "2"

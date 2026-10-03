@@ -37,7 +37,7 @@ pub(crate) struct SaveTemplatesArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetSettingArgs {
-    /// `dictation.model` (turbo|large|base), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `i18n.locale`, `history.limit`, `stt.vad.<clé>`.
+    /// `dictation.model` (apple|turbo|large|base), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `i18n.locale`, `history.limit`, `stt.vad.<clé>`.
     pub key: String,
     pub value: Value,
 }

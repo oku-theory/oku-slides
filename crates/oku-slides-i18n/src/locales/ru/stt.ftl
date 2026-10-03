@@ -8,9 +8,12 @@ stt-transcription = Не удалось распознать речь
 stt-download = Не удалось загрузить модель
 stt-download-incomplete = Загрузка не завершена: { $got } байт из { $expected }
 stt-cancelled = Загрузка отменена
+stt-speech-denied = Разрешите распознавание речи в Системных настройках › Конфиденциальность и безопасность
+stt-locale-unsupported = Движок Apple не поддерживает этот язык ({ $language })
 
 stt-model-turbo = Large v3 Turbo (многоязычная, 818 МБ)
 stt-model-large = Large v3 (многоязычная, 3,1 ГБ)
 stt-model-base = Base (многоязычная, 148 МБ)
+stt-model-apple = Apple (системный)
 
 log-model-downloaded = Модель диктовки загружена

@@ -4,5 +4,7 @@
 <dict>
   <key>NSMicrophoneUsageDescription</key>
   <string>Oku Slides utilise le micro pour la dictée. L'audio est transcrit sur votre Mac et n'est pas conservé.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Oku Slides transcrit votre voix avec le moteur de dictée d'Apple, sur votre Mac.</string>
 </dict>
 </plist>

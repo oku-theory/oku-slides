@@ -9,9 +9,11 @@ use oku_slides_i18n::Localizer;
 use oku_slides_platform::config::SttSettings;
 use oku_slides_platform::storage::Storage;
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{ResultExt, ensure};
 
-use crate::error::{CancelledSnafu, HttpReadSnafu, HttpSnafu, IncompleteSnafu, ModelWriteSnafu, SttError};
+use crate::error::{
+    CancelledSnafu, HttpReadSnafu, HttpSnafu, IncompleteSnafu, ModelWriteSnafu, NotDownloadableSnafu, SttError,
+};
 
 /// Marqueur écrit quand tous les fichiers d'un modèle sont là.
 const COMPLETE: &str = ".complete";
@@ -20,6 +22,8 @@ const COMPLETE: &str = ".complete";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Model {
+    /// Moteur d'Apple (macOS 26+) : en continu, langue installée par le système.
+    Apple,
     /// large-v3-turbo quantifié int8 : très bon compromis qualité / vitesse.
     #[default]
     Turbo,
@@ -30,11 +34,12 @@ pub enum Model {
 }
 
 impl Model {
-    pub const ALL: [Model; 3] = [Model::Turbo, Model::Large, Model::Base];
+    pub const ALL: [Model; 4] = [Model::Apple, Model::Turbo, Model::Large, Model::Base];
 
     /// Dépôt Hugging Face du modèle.
     pub fn repo(self) -> &'static str {
         match self {
+            Model::Apple => "apple",
             Model::Turbo => "Zoont/faster-whisper-large-v3-turbo-int8-ct2",
             Model::Large => "Systran/faster-whisper-large-v3",
             Model::Base => "Systran/faster-whisper-base",
@@ -44,6 +49,9 @@ impl Model {
     /// Fichiers à récupérer : (dépôt, fichier). Le dépôt `base` n'a pas de
     /// `preprocessor_config.json` : on prend celui d'OpenAI.
     fn files(self) -> Vec<(&'static str, &'static str)> {
+        if self == Model::Apple {
+            return Vec::new();
+        }
         let repo = self.repo();
         // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
         let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
@@ -57,6 +65,7 @@ impl Model {
     /// Taille totale attendue (octets), pour la progression.
     pub fn size(self) -> u64 {
         match self {
+            Model::Apple => 0,
             Model::Turbo => 817_887_676,
             Model::Large => 3_090_835_702,
             Model::Base => 148_067_931,
@@ -66,6 +75,7 @@ impl Model {
     /// Nom affiché, dans la langue de l'utilisateur.
     pub fn label(self, l: &Localizer) -> String {
         l.tr(match self {
+            Model::Apple => "stt-model-apple",
             Model::Turbo => "stt-model-turbo",
             Model::Large => "stt-model-large",
             Model::Base => "stt-model-base",
@@ -78,7 +88,7 @@ impl Model {
     }
 
     pub fn is_installed(self, storage: &Storage, dir: &Path) -> bool {
-        storage.exists(&self.path(dir).join(COMPLETE)).unwrap_or(false)
+        self != Model::Apple && storage.exists(&self.path(dir).join(COMPLETE)).unwrap_or(false)
     }
 }
 
@@ -92,6 +102,7 @@ pub fn download(
     storage: &Storage,
     mut progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<PathBuf, SttError> {
+    ensure!(model != Model::Apple, NotDownloadableSnafu);
     let dest = model.path(dir);
     let agent: ureq::Agent = ureq::Agent::config_builder().proxy(ureq::Proxy::try_from_env()).build().into();
     let total = model.size();

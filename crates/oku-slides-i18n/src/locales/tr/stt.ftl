@@ -8,9 +8,12 @@ stt-transcription = Yazıya dökme başarısız oldu
 stt-download = Model indirilemedi
 stt-download-incomplete = Eksik indirme: { $got } / { $expected } bayt
 stt-cancelled = İndirme iptal edildi
+stt-speech-denied = Sistem Ayarları › Gizlilik ve Güvenlik bölümünde konuşma tanımaya izin verin
+stt-locale-unsupported = Apple'ın motoru bu dili desteklemiyor ({ $language })
 
 stt-model-turbo = Large v3 Turbo (çok dilli, 818 MB)
 stt-model-large = Large v3 (çok dilli, 3,1 GB)
 stt-model-base = Base (çok dilli, 148 MB)
+stt-model-apple = Apple (sistem)
 
 log-model-downloaded = Dikte modeli indirildi

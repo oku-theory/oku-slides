@@ -1,4 +1,4 @@
-//! `cargo run --release -p oku-slides-stt --example transcribe -- <fichier.wav> [base|turbo|large] [langue]`
+//! `cargo run --release -p oku-slides-stt --example transcribe -- <fichier.wav> [base|turbo|large|apple] [langue]`
 //! Télécharge le modèle s'il manque (dans le dossier des modèles de l'app,
 //! voir les réglages), découpe l'audio en phrases (détection de la voix) et
 //! les transcrit comme une dictée.
@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = match args.next().as_deref() {
         Some("base") => Model::Base,
         Some("large") => Model::Large,
+        Some("apple") => Model::Apple,
         _ => Model::Turbo,
     };
     let language = args.next();
@@ -20,7 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (settings, storage) = (&platform.settings, &platform.storage);
     let dir = settings.paths.models();
 
-    if !model.is_installed(storage, &dir) {
+    // La langue d'Apple s'installe d'elle-même, dans `transcribe_samples`.
+    if model != Model::Apple && !model.is_installed(storage, &dir) {
         eprintln!("↓ {} …", model.label(&platform.localizer));
         let mut last = 0;
         oku_slides_stt::download(model, &dir, &settings.stt, storage, |got, total| {

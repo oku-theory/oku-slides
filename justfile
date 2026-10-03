@@ -132,6 +132,11 @@ doctor:
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
     command -v cmake >/dev/null || echo "  cmake sert à compiler CTranslate2 (dictée) : brew install cmake"
+    # Le pont Swift de la dictée d'Apple exige le SDK de macOS 26 ou plus.
+    if [ "$(uname)" = Darwin ]; then
+      sdk="$(xcrun --show-sdk-version 2>/dev/null)"
+      if [ -n "$sdk" ] && [ "${sdk%%.*}" -ge 26 ] 2>/dev/null; then echo "✓ Xcode, SDK macOS $sdk"; else echo "✗ Xcode avec le SDK macOS 26+ manquant (SDK : ${sdk:-aucun}) : installez Xcode 26 ou plus"; ok=0; fi
+    fi
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     if command -v git-lfs >/dev/null; then echo "✓ git-lfs"; else echo "✗ git-lfs manquant (polices de assets/fonts) : brew install git-lfs && git lfs install"; ok=0; fi
     # Installé dans CE clone : le filtre (checkout) et le hook pre-push (envoi des polices).
@@ -145,9 +150,13 @@ doctor:
 # Accélération de la dictée selon la machine (Accelerate sur Mac)
 stt_features := if os() == "macos" { "accelerate" } else { "" }
 
-# Transcrit un fichier WAV avec le modèle de dictée (turbo, large ou base ; langue facultative)
+# Transcrit un fichier WAV avec le modèle de dictée (turbo, large, base ou apple ; langue facultative)
 transcribe wav model="turbo" lang="":
     cargo run -q --release -p oku-slides-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+
+# Dictée par le moteur d'Apple, pour de vrai (macOS 26, français installé).
+test-apple:
+    cargo nextest run -p oku-slides-stt --run-ignored ignored-only -E 'binary_id(oku-slides-stt::apple) | test(/^apple::/)'
 
 # Vérification manuelle avec le vrai agent (réseau, compte) : just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"
 agent-smoke deck prompt:

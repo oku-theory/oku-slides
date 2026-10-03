@@ -80,6 +80,11 @@ countdown_after_secs = 0.3
 hub_url = "https://huggingface.co"
 download_retries = 5
 download_backoff_secs = 4
+# Proposer le moteur de dictée d'Apple (macOS 26+), choisi par défaut ;
+# false : Whisper seulement.
+apple = true
+# Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
+apple_finish_timeout_secs = 5.0
 # Micro simulé : rejoue ce fichier WAV au lieu du micro (tests, démos).
 # fake_mic = "voix.wav"
 

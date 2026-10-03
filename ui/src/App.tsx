@@ -622,9 +622,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         : null;
   // Où va ⌘D : au curseur pendant l'édition, au brouillon ailleurs.
   const destination = t(editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft");
-  const whisperPrompt = snap
-    ? [snap.title, ...snap.slides.map((s) => s.title)].filter(Boolean).join(". ").slice(0, 600)
-    : "";
+  const dictationVocabulary = useMemo(
+    () => (snap ? [snap.title, ...snap.slides.map((s) => s.title)].filter((s): s is string => !!s) : []),
+    [snap],
+  );
 
   // Hors édition, une dictée s'écrit dans le brouillon : « Insérer » l'écrit
   // tel quel dans le deck, « Envoyer » la donne à l'agent.
@@ -888,7 +889,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}
       <Dictation
         destination={destination}
-        prompt={whisperPrompt}
+        vocabulary={dictationVocabulary}
         onText={onDictated}
         onError={(m) => say(m, true)}
         agentBusy={busy}

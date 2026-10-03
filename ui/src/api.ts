@@ -318,7 +318,7 @@ export interface TemplateView {
 
 // --- Dictée ---------------------------------------------------------------
 
-export type SttModel = "turbo" | "large" | "base";
+export type SttModel = "apple" | "turbo" | "large" | "base";
 export type SttState = "idle" | "downloading" | "recording" | "transcribing";
 
 export interface SttConfig {
@@ -327,12 +327,15 @@ export interface SttConfig {
   /** Arrêter l'écoute seule après un silence de `silence` secondes. */
   auto_stop: boolean;
   silence: number;
+  /** Version des réglages (tenue par l'hôte). */
+  version: number;
 }
 
 export interface SttStatus {
   state: SttState;
   config: SttConfig;
-  models: { id: SttModel; label: string; size: number; installed: boolean }[];
+  /** `available` faux : le modèle ne gère pas la langue choisie. */
+  models: { id: SttModel; label: string; size: number; installed: boolean; available: boolean }[];
   download: { model: SttModel; received: number; total: number } | null;
   level: number;
   /** Voix détectée en ce moment. */
@@ -352,7 +355,7 @@ export interface SttStatus {
 type SttRequest =
   | { cmd: "status" }
   | ({ cmd: "configure" } & SttConfig)
-  | { cmd: "start"; prompt: string | null }
+  | { cmd: "start"; vocabulary: string[] }
   | { cmd: "stop" }
   | { cmd: "cancel" }
   | { cmd: "download"; model: SttModel };
@@ -362,7 +365,7 @@ const sttCall = (req: SttRequest) => host<SttStatus>("stt", { req }, "/api/stt",
 export const stt = {
   status: () => sttCall({ cmd: "status" }),
   configure: (config: SttConfig) => sttCall({ cmd: "configure", ...config }),
-  start: (prompt: string | null) => sttCall({ cmd: "start", prompt }),
+  start: (vocabulary: string[]) => sttCall({ cmd: "start", vocabulary }),
   stop: () => sttCall({ cmd: "stop" }),
   cancel: () => sttCall({ cmd: "cancel" }),
   download: (model: SttModel) => sttCall({ cmd: "download", model }),

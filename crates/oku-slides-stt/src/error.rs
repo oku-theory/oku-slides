@@ -33,6 +33,8 @@ pub enum SttErrorKind {
     Download,
     /// Téléchargement annulé par l'utilisateur.
     Cancelled,
+    /// Autorisation refusée (reconnaissance vocale).
+    Permission,
 }
 
 #[derive(Debug, Snafu)]
@@ -84,6 +86,18 @@ pub(crate) enum SttInner {
     Incomplete { got: u64, expected: u64, backtrace: Backtrace },
     #[snafu(display("download cancelled"))]
     Cancelled { backtrace: Backtrace },
+    #[snafu(display("speech recognition not allowed"))]
+    SpeechDenied { backtrace: Backtrace },
+    #[snafu(display("language not supported by the system engine: {locale}"))]
+    LocaleUnsupported { locale: String, backtrace: Backtrace },
+    #[snafu(display("language download failed: {reason}"))]
+    AssetInstall { reason: String, backtrace: Backtrace },
+    #[snafu(display("system transcription failed: {reason}"))]
+    Analyzer { reason: String, backtrace: Backtrace },
+    #[snafu(display("system transcription did not finish in time"))]
+    FinishTimeout { backtrace: Backtrace },
+    #[snafu(display("this model is installed by the system"))]
+    NotDownloadable { backtrace: Backtrace },
 }
 
 impl SttError {
@@ -102,12 +116,20 @@ impl SttError {
             | MissingModelFile { .. }
             | ModelSettings { .. }
             | ZeroSetting { .. }
-            | MelFilters { .. } => SttErrorKind::Model,
-            Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => {
-                SttErrorKind::Transcription
+            | MelFilters { .. }
+            | LocaleUnsupported { .. }
+            | NotDownloadable { .. } => SttErrorKind::Model,
+            Transcribe { .. }
+            | Features { .. }
+            | NoLanguage { .. }
+            | NotContiguous { .. }
+            | Analyzer { .. }
+            | FinishTimeout { .. } => SttErrorKind::Transcription,
+            Http { .. } | HttpRead { .. } | ModelWrite { .. } | Incomplete { .. } | AssetInstall { .. } => {
+                SttErrorKind::Download
             }
-            Http { .. } | HttpRead { .. } | ModelWrite { .. } | Incomplete { .. } => SttErrorKind::Download,
             Cancelled { .. } => SttErrorKind::Cancelled,
+            SpeechDenied { .. } => SttErrorKind::Permission,
         }
     }
 }
@@ -128,13 +150,23 @@ impl Localize for SttError {
             | MissingModelFile { .. }
             | ModelSettings { .. }
             | ZeroSetting { .. }
-            | MelFilters { .. } => l.tr("stt-model"),
-            Transcribe { .. } | Features { .. } | NoLanguage { .. } | NotContiguous { .. } => l.tr("stt-transcription"),
+            | MelFilters { .. }
+            | NotDownloadable { .. } => l.tr("stt-model"),
+            Transcribe { .. }
+            | Features { .. }
+            | NoLanguage { .. }
+            | NotContiguous { .. }
+            | Analyzer { .. }
+            | FinishTimeout { .. } => l.tr("stt-transcription"),
             Incomplete { got, expected, .. } => {
                 l.tr_with("stt-download-incomplete", &[("got", (*got).into()), ("expected", (*expected).into())])
             }
-            Http { .. } | HttpRead { .. } | ModelWrite { .. } => l.tr("stt-download"),
+            Http { .. } | HttpRead { .. } | ModelWrite { .. } | AssetInstall { .. } => l.tr("stt-download"),
             Cancelled { .. } => l.tr("stt-cancelled"),
+            SpeechDenied { .. } => l.tr("stt-speech-denied"),
+            LocaleUnsupported { locale, .. } => {
+                l.tr_with("stt-locale-unsupported", &[("language", locale.as_str().into())])
+            }
         }
     }
 }

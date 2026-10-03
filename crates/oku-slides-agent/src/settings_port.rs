@@ -45,7 +45,8 @@ impl SettingsPort for AppSettings {
         if let Some(stt) = &self.stt
             && let Ok(Value::Object(config)) = serde_json::to_value(stt.handle(SttRequest::Status).config)
         {
-            for (k, v) in config {
+            // `version` sert à la migration des réglages, pas à l'agent.
+            for (k, v) in config.into_iter().filter(|(k, _)| k != "version") {
                 out.insert(format!("dictation.{k}"), v);
             }
         }

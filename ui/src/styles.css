@@ -204,7 +204,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   font-size: 13px; font-weight: 500; line-height: 18px;
 }
 .btn svg { width: 18px; height: 18px; flex: none; }
-.token { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; color: var(--ink); }
+.token { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; color: var(--ink); }
 .token svg { width: 18px; height: 18px; }
 .btn.primary, .token.primary { background: var(--accent-fill); color: var(--on-accent); }
 /* Une action qui engage (non annulable, permission durable) : cernée de rouge ; pleine si c'est aussi le bouton principal.
@@ -342,8 +342,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   border-radius: calc(var(--radius-lg) + 8px); cursor: default;
 }
 .device:hover { transform: none; box-shadow: var(--edge-light), var(--shadow-object); }
-/* Au repos sans rien à dire : micro et réglages seuls, la pastille se resserre à droite. */
-.device.idle:not(:has(.dictation-body)) { justify-self: end; }
+/* Au repos sans rien à dire : micro et réglages seuls, la pastille se resserre au centre. */
+.device.idle:not(:has(.dictation-body)) { justify-self: center; }
 .device.recording, .device.transcribing { box-shadow: var(--edge-light), var(--shadow-floating); }
 .mic {
   position: relative; flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer;
@@ -614,18 +614,18 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .md table { border-collapse: collapse; margin: 0 0 8px; font-size: 14px; }
 .md th, .md td { padding: 3px 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink) 15%, transparent); text-align: start; }
 .md th { font-weight: 650; }
-.agent-entry .you { background: var(--postit-you); color: var(--postit-you-ink); margin-inline-start: 18%; --tilt: 0.7deg; }
-.agent-entry .msg { background: var(--postit); margin-inline-end: 12%; }
+.agent-entry .you { background: var(--postit-you); color: var(--postit-you-ink); margin-inline-start: 6%; --tilt: 0.7deg; }
+.agent-entry .msg { background: var(--postit); margin-inline-end: 6%; }
 .agent-entry .you:hover { transform: rotate(var(--tilt)); box-shadow: var(--edge-light), var(--shadow-note); }
 [dir="rtl"] .agent-entry .msg, [dir="rtl"] .agent-entry .you { border-radius: 3px 3px 3px var(--radius-md); }
 /* Les outils : un accordéon discret, fermé par défaut. */
 .tools summary { cursor: pointer; width: fit-content; list-style-position: inside; }
 .tool-list { list-style: none; margin: 4px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 2px; }
 /* Les surfaces du fil (questions de l'agent) : un post-it vert sur toute la largeur. */
-.agent-surface .postit { width: auto; margin-inline-end: 12%; }
+.agent-surface .postit { width: auto; margin-inline-end: 6%; }
 .agent-surface .chip { text-align: start; }
 /* Les suites de la réponse : des pastilles discrètes sous la carte de l'agent, alignées sur elle. */
-.agent-surface.place-suggestions { margin-inline-end: 12%; margin-top: var(--space-1); }
+.agent-surface.place-suggestions { margin-inline-end: 6%; margin-top: var(--space-1); }
 .agent-surface.place-suggestions .a2ui-row { gap: 6px; }
 .agent-surface.place-suggestions .btn {
   height: auto; min-height: 32px; padding: 6px 14px; border-radius: 999px; font: 500 13px/18px var(--sans); text-align: start;
@@ -638,7 +638,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .agent-entry .error { color: var(--danger); }
 /* Brouillon des dictées : relu, retouché, puis inséré ou envoyé à l'agent. */
 /* Le brouillon : un grand post-it, lu par défaut ; un clic l'ouvre en édition. */
-.draft.postit { position: relative; z-index: 3; width: auto; margin-inline-start: 18%; padding: 16px 16px 12px; background: var(--postit-you); color: var(--postit-you-ink); min-height: 0; justify-content: flex-start; gap: var(--space-4); cursor: default; --tilt: -0.8deg; }
+.draft.postit { position: relative; z-index: 3; width: auto; margin-inline-start: 6%; padding: 16px 16px 12px; background: var(--postit-you); color: var(--postit-you-ink); min-height: 0; justify-content: flex-start; gap: var(--space-4); cursor: default; --tilt: -0.8deg; }
 .draft.postit:hover { transform: rotate(var(--tilt)); box-shadow: var(--edge-light), var(--shadow-note); }
 /* Lu ou édité, le texte garde la même place : même marge intérieure, pas de saut au clic. */
 .draft-note, .draft-text { font: 500 15px/22px var(--sans); min-height: 3lh; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); }

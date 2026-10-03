@@ -5589,6 +5589,8 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "swift-rs",
+ "sys-locale",
  "tempfile",
  "tiny_http",
  "tokenizers",

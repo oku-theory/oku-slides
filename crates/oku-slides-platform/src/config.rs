@@ -189,6 +189,10 @@ pub struct SttSettings {
     pub download_backoff_secs: u64,
     /// Rejoue ce fichier WAV au lieu du micro.
     pub fake_mic: Option<PathBuf>,
+    /// Proposer le moteur de dictée d'Apple (macOS 26+).
+    pub apple: bool,
+    /// Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
+    pub apple_finish_timeout_secs: f32,
     pub vad: VadSettings,
 }
 

@@ -10,3 +10,4 @@ Claude outputs/
 *.tsbuildinfo
 
 .superpowers/
+crates/oku-slides-stt/swift/.build/

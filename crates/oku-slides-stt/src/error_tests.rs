@@ -25,6 +25,24 @@ fn localize_each_kind_speaks_to_the_user() {
             "Téléchargement incomplet : 3 octets sur 5",
         ),
         (CancelledSnafu.build().into(), SttErrorKind::Cancelled, "Téléchargement annulé"),
+        (
+            SpeechDeniedSnafu.build().into(),
+            SttErrorKind::Permission,
+            "Autorisez la reconnaissance vocale dans Réglages Système › Confidentialité et sécurité",
+        ),
+        (
+            LocaleUnsupportedSnafu { locale: "xx" }.build().into(),
+            SttErrorKind::Model,
+            "Le moteur d'Apple ne prend pas en charge cette langue (xx)",
+        ),
+        (
+            AssetInstallSnafu { reason: "x" }.build().into(),
+            SttErrorKind::Download,
+            "Le modèle n'a pas pu être téléchargé",
+        ),
+        (AnalyzerSnafu { reason: "x" }.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
+        (FinishTimeoutSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
+        (NotDownloadableSnafu.build().into(), SttErrorKind::Model, "Modèle de dictée illisible"),
     ];
     for (err, kind, message) in cases {
         asserting(message).that(&err.kind()).is_equal_to(kind);

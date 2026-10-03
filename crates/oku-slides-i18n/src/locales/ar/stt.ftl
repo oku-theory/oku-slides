@@ -8,9 +8,12 @@ stt-transcription = فشل التفريغ النصي
 stt-download = تعذّر تنزيل النموذج
 stt-download-incomplete = تنزيل غير مكتمل: { $got } بايت من أصل { $expected }
 stt-cancelled = أُلغي التنزيل
+stt-speech-denied = اسمح بالتعرف على الكلام في إعدادات النظام › الخصوصية والأمان
+stt-locale-unsupported = محرك Apple لا يدعم هذه اللغة ({ $language })
 
 stt-model-turbo = Large v3 Turbo (متعدد اللغات، 818 ميغابايت)
 stt-model-large = Large v3 (متعدد اللغات، 3.1 غيغابايت)
 stt-model-base = Base (متعدد اللغات، 148 ميغابايت)
+stt-model-apple = Apple (النظام)
 
 log-model-downloaded = نُزّل نموذج الإملاء

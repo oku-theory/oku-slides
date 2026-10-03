@@ -10,9 +10,7 @@ const SILENCES = [1, 1.5, 2, 3, 5];
 
 const secs = (s: number) => t("ui-seconds", { value: s });
 
-/** Langues de la dictée, chacune dans sa langue ; la détection automatique dans celle de l'interface. */
-const languages = (): [string | null, string][] => [
-  [null, t("ui-dictation-language-auto")],
+const NAMED: [string, string][] = [
   ["fr", "Français"],
   ["en", "English"],
   ["de", "Deutsch"],
@@ -21,6 +19,13 @@ const languages = (): [string | null, string][] => [
   ["pt", "Português"],
   ["nl", "Nederlands"],
 ];
+
+/** Langues de la dictée, chacune dans sa langue ; « auto » dit celle retenue (`resolved`) s'il la connaît. */
+const languages = (resolved: string | null = null): [string | null, string][] => {
+  const name = resolved ? NAMED.find(([code]) => code === resolved)?.[1] : undefined;
+  const auto = name ? t("ui-dictation-language-auto-resolved", { language: name }) : t("ui-dictation-language-auto");
+  return [[null, auto], ...NAMED];
+};
 
 const mo = (bytes: number) =>
   bytes >= 1e9 ? t("ui-size-gb", { value: bytes / 1e9 }) : t("ui-size-mb", { value: Math.round(bytes / 1e6) });
@@ -49,8 +54,8 @@ const GearIcon = (
 interface Props {
   /** Où ira le texte, affiché au repos (« dans le titre », « nouveau bloc »…). */
   destination: string;
-  /** Mots utiles à Whisper : titres, noms propres du deck. */
-  prompt: string;
+  /** Mots utiles à la reconnaissance : titres, noms propres du deck. */
+  vocabulary: string[];
   /** Texte final d'une dictée et son mode : l'app l'écrit au curseur ou au brouillon. */
   onText: (text: string, mode: DictationMode) => void;
   onError: (message: string) => void;
@@ -61,7 +66,7 @@ interface Props {
 }
 
 /** L'appareil de dictée : micro, niveau, texte provisoire, réglages du modèle. */
-export default function Dictation({ destination, prompt, onText, onError, agentBusy, onAgentCancel }: Props) {
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
@@ -118,10 +123,10 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
         setSettings(false);
         setMode(next);
         modeRef.current = next;
-        send(stt.start(prompt || null));
+        send(stt.start(vocabulary));
       } else if (status.state === "recording") send(stt.stop());
     },
-    [status, prompt, send],
+    [status, vocabulary, send],
   );
 
   // ⌘D, ⌘⇧D brouillon (Ctrl ailleurs), partout, même pendant la saisie d'un texte.
@@ -159,7 +164,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
   }
 
   const model = status.models.find((m) => m.id === status.config.model);
-  const langs = languages();
+  const langs = languages(status.config.model === "apple" ? status.detected : null);
   const language = langs.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
   const { state } = status;
   // Le mode ne se montre que pendant une dictée : au repos, le micro est en mode auto.
@@ -218,14 +223,16 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
     );
   } else {
     // Au repos, rien que le micro : où va le texte et les réglages sont dans son
-    // infobulle ; seuls l'agent au travail et un modèle à télécharger s'écrivent.
+    // infobulle ; seuls l'agent au travail et un modèle à télécharger (ou
+    // indisponible pour cette langue) s'écrivent.
     idleDetails = [
       `→ ${destination}`,
       [model?.label.split(" (")[0], language].filter(Boolean).join(" · "),
       status.config.auto_stop ? t("ui-dictation-auto-stop", { duration: secs(status.config.silence) }) : "",
     ].filter(Boolean).join("\n");
-    const toDownload = model && !model.installed;
-    body = (agentBusy || toDownload) && (
+    const toDownload = model && model.available && !model.installed;
+    const unavailable = model && !model.available;
+    body = (agentBusy || toDownload || unavailable) && (
       <div className="dictation-body">
         {agentBusy && (
           // L'état en clair, le raccourci pour l'arrêter en dessous, en petit.
@@ -236,7 +243,12 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
         )}
         {toDownload && (
           <div className="dictation-line">
-            <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>
+            <span className="caption">{t(model.size > 0 ? "ui-dictation-to-download" : "ui-dictation-to-download-language", { size: mo(model.size) })}</span>
+          </div>
+        )}
+        {unavailable && (
+          <div className="dictation-line">
+            <span className="caption">{t("ui-dictation-model-unavailable")}</span>
           </div>
         )}
       </div>
@@ -288,7 +300,7 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
       {settings && state === "idle" && (
         <div className="dictation-settings object" role="dialog" aria-label={t("ui-dictation-settings")}>
           <div className="settings-title">{t("ui-dictation-model-title")}</div>
-          <p className="caption">{t("ui-dictation-model-intro")}</p>
+          <p className="caption">{t(status.models.some((m) => m.id === "apple") ? "ui-dictation-model-intro-apple" : "ui-dictation-model-intro")}</p>
           <div className="model-list" role="radiogroup">
             {status.models.map((m) => {
               const [name, detail] = m.label.replace(")", "").split(" (");
@@ -298,11 +310,14 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
                     type="radio"
                     name="stt-model"
                     checked={m.id === status.config.model}
+                    disabled={!m.available}
                     onChange={() => configure({ model: m.id as SttModel })}
                   />
                   <span className="model-name">{name}</span>
-                  <span className="caption">{modelNote(m.id)} · {detail?.replace(/^[^,]*, /, "")}</span>
-                  <span className={`badge${m.installed ? " ok" : ""}`}>{t(m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}</span>
+                  <span className="caption">{modelNote(m.id)}{m.size > 0 && ` · ${detail?.replace(/^[^,]*, /, "") ?? ""}`}</span>
+                  <span className={`badge${m.available && m.installed ? " ok" : ""}`}>
+                    {t(!m.available ? "ui-dictation-model-unavailable" : m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}
+                  </span>
                 </label>
               );
             })}
@@ -335,8 +350,8 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
             </select>
           </div>
           <p className="caption">{t("ui-dictation-phrases-note")}</p>
-          {model && !model.installed && (
-            <button className="btn" onClick={() => send(stt.download(model.id))}>{t("ui-dictation-download-now", { size: mo(model.size) })}</button>
+          {model && model.available && !model.installed && (
+            <button className="btn" onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</button>
           )}
         </div>
       )}
@@ -347,6 +362,8 @@ export default function Dictation({ destination, prompt, onText, onError, agentB
 /** Note d'un modèle de dictée ; aucune pour un modèle inconnu. */
 function modelNote(id: string): string | undefined {
   switch (id) {
+    case "apple":
+      return t("ui-dictation-note-apple");
     case "turbo":
       return t("ui-dictation-note-turbo");
     case "large":

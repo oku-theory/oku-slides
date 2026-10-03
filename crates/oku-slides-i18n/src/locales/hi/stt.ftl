@@ -8,9 +8,12 @@ stt-transcription = ट्रांसक्रिप्शन विफल र�
 stt-download = मॉडल डाउनलोड नहीं हो सका
 stt-download-incomplete = अधूरा डाउनलोड: { $expected } में से { $got } बाइट
 stt-cancelled = डाउनलोड रद्द किया गया
+stt-speech-denied = सिस्टम सेटिंग्ज › गोपनीयता और सुरक्षा में वाक् पहचान की अनुमति दें
+stt-locale-unsupported = Apple का इंजन इस भाषा का समर्थन नहीं करता ({ $language })
 
 stt-model-turbo = Large v3 Turbo (बहुभाषी, 818 MB)
 stt-model-large = Large v3 (बहुभाषी, 3.1 GB)
 stt-model-base = Base (बहुभाषी, 148 MB)
+stt-model-apple = Apple (सिस्टम)
 
 log-model-downloaded = डिक्टेशन मॉडल डाउनलोड हो गया

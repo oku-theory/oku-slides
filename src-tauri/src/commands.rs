@@ -120,10 +120,14 @@ pub async fn quit(app: AppHandle) {
     let _ = tauri::async_runtime::spawn_blocking(move || state::shutdown(&app2)).await;
 }
 
-/// Dictée : jamais bloquant (téléchargement, micro et Whisper tournent dans leurs fils).
+/// Dictée, hors du fil principal : les requêtes au moteur d'Apple bloquent.
+///
+/// `Configure` (langue d'Apple) et `Start` (ouverture du flux) interrogent
+/// Speech, jusqu'à 5 s ; téléchargement, micro et Whisper ont leurs fils.
 #[tauri::command]
-pub fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Status {
-    engine.handle(req)
+pub async fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Result<Status, String> {
+    let engine = Stt::clone(&engine);
+    tauri::async_runtime::spawn_blocking(move || engine.handle(req)).await.map_err(|e| e.to_string())
 }
 
 /// Agent d'un onglet : consigne, annulation, nouvelle conversation, action

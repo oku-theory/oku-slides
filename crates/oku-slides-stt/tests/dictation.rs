@@ -45,6 +45,7 @@ fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
     settings.stt.download_backoff_secs = 0;
     settings.stt.fake_mic = fake_mic;
     settings.i18n.locale = Some("fr".into());
+    settings.stt.apple = false;
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
 }
 
@@ -147,7 +148,7 @@ fn start_with_unreadable_model_reports_a_localized_error_and_goes_idle() {
     let dir = workdir("start");
     let wav = broken_model_and_fake_mic(&dir);
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", Some(wav)));
-    let status = stt.handle(SttRequest::Start { prompt: Some("Oku Slides".into()) });
+    let status = stt.handle(SttRequest::Start { vocabulary: vec!["Oku Slides".into()] });
     // t-404 : le fil de transcription peut échouer sur le modèle et revenir au
     // repos avant que `handle` construise son statut ; seul compte que
     // l'écoute ait démarré (pas de téléchargement, le modèle est installé).
@@ -168,7 +169,7 @@ fn start_without_model_downloads_it_then_starts_listening() {
         model: Model::Base,
         ..oku_slides_stt::Config::default()
     }));
-    let status = stt.handle(SttRequest::Start { prompt: None });
+    let status = stt.handle(SttRequest::Start { vocabulary: Vec::new() });
     assert_that!(status.state).is_equal_to(State::Downloading);
     // Téléchargé, puis l'écoute démarre ; le modèle factice ne se charge pas.
     let failed = wait_until(&stt, "téléchargement puis erreur", |s| s.error.is_some());
@@ -189,7 +190,7 @@ fn cancel_during_recording_returns_to_idle() {
     let dir = workdir("cancel-rec");
     let wav = broken_model_and_fake_mic(&dir);
     let stt = Stt::new(&platform(&dir, "http://127.0.0.1:1", Some(wav)));
-    stt.handle(SttRequest::Start { prompt: None });
+    stt.handle(SttRequest::Start { vocabulary: Vec::new() });
     assert_that!(stt.handle(SttRequest::Cancel).state).is_equal_to(State::Idle);
 }
 

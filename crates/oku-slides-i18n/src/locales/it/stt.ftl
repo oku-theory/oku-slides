@@ -8,9 +8,12 @@ stt-transcription = Trascrizione non riuscita
 stt-download = Impossibile scaricare il modello
 stt-download-incomplete = Download incompleto: { $got } byte su { $expected }
 stt-cancelled = Download annullato
+stt-speech-denied = Consenti il riconoscimento vocale in Impostazioni di Sistema › Privacy e sicurezza
+stt-locale-unsupported = Il motore di Apple non supporta questa lingua ({ $language })
 
 stt-model-turbo = Large v3 Turbo (multilingue, 818 MB)
 stt-model-large = Large v3 (multilingue, 3,1 GB)
 stt-model-base = Base (multilingue, 148 MB)
+stt-model-apple = Apple (sistema)
 
 log-model-downloaded = Modello di dettatura scaricato
