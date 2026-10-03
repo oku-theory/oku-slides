@@ -52,6 +52,10 @@ port = 4870
 # Langue des messages (`fr`, `en`…) ; absente = celle du système.
 # locale = "fr"
 
+[appearance]
+# Schéma de l'interface (`light`, `dark`) ; absent = celui du système.
+# scheme = "dark"
+
 [author]
 # Nom inscrit dans l'historique des decks que vous modifiez ; absent =
 # l'utilisateur du système.

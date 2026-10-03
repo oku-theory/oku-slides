@@ -42,10 +42,12 @@ pub async fn blocking<T: Send + 'static>(
 fn classify(req: &WorkspaceRequest) -> (bool, bool) {
     match req {
         // `SameDeck` ne change rien : sa réponse est rendue telle quelle ;
-        // `SetLocale` ne touche qu'à la langue, pas aux onglets.
+        // `SetLocale` et `SetScheme` ne touchent qu'aux réglages, pas aux onglets.
         WorkspaceRequest::View
         | WorkspaceRequest::Messages
         | WorkspaceRequest::SetLocale { .. }
+        | WorkspaceRequest::Scheme
+        | WorkspaceRequest::SetScheme { .. }
         | WorkspaceRequest::SameDeck { .. } => (false, false),
         WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }

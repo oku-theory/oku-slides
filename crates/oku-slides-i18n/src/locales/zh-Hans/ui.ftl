@@ -53,6 +53,10 @@ ui-menu = 菜单
 ui-menu-move = 移动…
 ui-language = 语言
 ui-language-system = 系统语言
+ui-scheme = 外观
+ui-scheme-system = 跟随系统
+ui-scheme-light = 浅色
+ui-scheme-dark = 深色
 ui-toolbar-add-label = 添加到幻灯片
 ui-add-kind = { $kind ->
     [card] 卡片

@@ -53,6 +53,10 @@ ui-menu = Menu
 ui-menu-move = Verplaatsen…
 ui-language = Taal
 ui-language-system = Systeemtaal
+ui-scheme = Weergave
+ui-scheme-system = Systeem
+ui-scheme-light = Licht
+ui-scheme-dark = Donker
 ui-toolbar-add-label = Toevoegen aan de dia
 ui-add-kind = { $kind ->
     [card] Kaart

@@ -17,6 +17,10 @@ pub struct Appearance {
     /// Couleurs de l'interface (`desk`, `sheet`, `piece`, `ink`…). Une couleur
     /// absente est dérivée par l'interface à partir des couleurs des slides.
     pub app: BTreeMap<String, String>,
+    /// Couleurs de l'interface pour l'autre schéma, par schéma (`dark`,
+    /// `light`), lues dans les jetons `app-dark` / `app-light`. Un schéma
+    /// absent est dérivé par l'interface des couleurs des slides.
+    pub variants: BTreeMap<String, BTreeMap<String, String>>,
     /// Formes de l'interface : `radius-sm`, `radius-md`, `radius-lg` (px), `elevation`.
     pub metrics: BTreeMap<String, f64>,
     /// Familles de police : titres et texte courant.
@@ -40,6 +44,17 @@ fn token_fonts(fonts: &serde_json::Map<String, Value>, name: &str) -> Vec<String
     Vec::new()
 }
 
+/// Les couleurs d'un bloc de jetons d'interface, résolues en hex.
+fn app_colors(
+    colors: &serde_json::Map<String, Value>,
+    app: &serde_json::Map<String, Value>,
+) -> BTreeMap<String, String> {
+    app.iter()
+        .filter(|(k, _)| *k != "scheme")
+        .filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?)))
+        .collect()
+}
+
 /// Apparence à partir des jetons résolus par Typst.
 pub fn appearance(tokens: &Value) -> Appearance {
     let empty = serde_json::Map::new();
@@ -47,19 +62,28 @@ pub fn appearance(tokens: &Value) -> Appearance {
     let fonts = tokens.get("font").and_then(Value::as_object).unwrap_or(&empty);
     let app = tokens.get("app").and_then(Value::as_object).unwrap_or(&empty);
     let slide = colors.iter().filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?))).collect();
-    let app_colors = app
-        .iter()
-        .filter(|(k, _)| *k != "scheme")
-        .filter_map(|(k, v)| Some((k.clone(), resolve_color(colors, v)?)))
-        .collect();
     let metrics = app.iter().filter_map(|(k, v)| Some((k.clone(), v.as_f64()?))).collect();
+    let scheme = app.get("scheme").and_then(Value::as_str).unwrap_or("light").to_owned();
+    let variants = ["dark", "light"]
+        .into_iter()
+        .filter(|s| *s != scheme)
+        .filter_map(|s| {
+            let block = tokens.get(format!("app-{s}"))?.as_object()?;
+            Some((s.to_owned(), app_colors(colors, block)))
+        })
+        .collect();
     Appearance {
         metrics,
-        scheme: app.get("scheme").and_then(Value::as_str).unwrap_or("light").to_owned(),
+        scheme,
         slide,
-        app: app_colors,
+        app: app_colors(colors, app),
+        variants,
         font_display: token_fonts(fonts, "display"),
         font_body: token_fonts(fonts, "body"),
         chart_palette: chart_palette(tokens),
     }
 }
+
+#[cfg(test)]
+#[path = "appearance_tests.rs"]
+mod appearance_tests;

@@ -73,6 +73,12 @@ pub enum WorkspaceRequest {
     /// dans `config.toml` ; répond comme `Messages`. Les messages du cœur
     /// (erreurs, noms par défaut) suivent au prochain lancement.
     SetLocale { locale: Option<String> },
+    /// Schéma de l'interface choisi : `{ "scheme": "light" | "dark" | null }`
+    /// (`null` : celui du système).
+    Scheme,
+    /// Choisit le schéma de l'interface (`None` ou inconnu : celui du
+    /// système), gardé dans `config.toml` ; répond comme `Scheme`.
+    SetScheme { scheme: Option<String> },
     /// Un onglet vierge, à la fin de `window`.
     NewTab {
         /// Label de la fenêtre.
@@ -343,6 +349,8 @@ pub struct Workspace {
     generation: AtomicU64,
     /// Langue choisie dans les réglages ; `None` : celle du système.
     chosen_locale: Option<&'static str>,
+    /// Schéma choisi dans les réglages ; `None` : celui du système.
+    chosen_scheme: Option<&'static str>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -374,6 +382,7 @@ impl Workspace {
             closed: Arc::new(AtomicBool::new(false)),
             generation: AtomicU64::new(0),
             chosen_locale: platform.settings.i18n.locale.as_deref().and_then(oku_slides_i18n::shipped),
+            chosen_scheme: platform.settings.appearance.scheme.as_deref().and_then(scheme::known),
         }
     }
 
@@ -600,6 +609,11 @@ impl Workspace {
                     w.set_locale(locale.as_deref());
                     return w.messages_json().map(WorkspaceOutcome::Applied);
                 }
+                WorkspaceRequest::Scheme => return w.scheme_json().map(WorkspaceOutcome::Applied),
+                WorkspaceRequest::SetScheme { scheme } => {
+                    w.set_scheme(scheme.as_deref());
+                    return w.scheme_json().map(WorkspaceOutcome::Applied);
+                }
                 WorkspaceRequest::NewTab { window } => {
                     w.window_index(&window)?;
                     w.pending(Some(window), None, None)
@@ -814,6 +828,8 @@ impl Workspace {
             WorkspaceRequest::View
             | WorkspaceRequest::Messages
             | WorkspaceRequest::SetLocale { .. }
+            | WorkspaceRequest::Scheme
+            | WorkspaceRequest::SetScheme { .. }
             | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
@@ -885,6 +901,9 @@ mod slot;
 
 #[path = "workspace_same_deck.rs"]
 mod same_deck;
+
+#[path = "workspace_scheme.rs"]
+mod scheme;
 
 #[path = "workspace_agent.rs"]
 mod agent;

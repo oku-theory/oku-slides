@@ -53,6 +53,10 @@ ui-menu = Menu
 ui-menu-move = Move…
 ui-language = Language
 ui-language-system = System language
+ui-scheme = Appearance
+ui-scheme-system = System
+ui-scheme-light = Light
+ui-scheme-dark = Dark
 ui-toolbar-add-label = Add to the slide
 ui-add-kind = { $kind ->
     [card] Card

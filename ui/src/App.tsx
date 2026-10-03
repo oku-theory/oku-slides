@@ -8,6 +8,8 @@ import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
+import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
+import SchemePicker from "./SchemePicker";
 import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, slot, textToParagraphs } from "./deck";
 import { newElement } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
@@ -208,12 +210,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     run(api.snapshot());
   }, [run, nonce]);
 
-  // L'interface suit le thème des slides, à chaque changement.
+  // L'interface suit le thème des slides et le schéma (clair, sombre), à chaque changement.
+  const scheme = useScheme();
+  const schemeChoice = useSchemeChoice();
   const appearanceKey = snap ? JSON.stringify(snap.appearance) : "";
   useEffect(() => {
-    if (snap) applyAppearance(snap.appearance);
+    if (snap) applyAppearance(snap.appearance, scheme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appearanceKey]);
+  }, [appearanceKey, scheme]);
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
   const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui);
@@ -683,6 +687,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </select>
     </label>
   );
+  const schemePicker = (
+    <SchemePicker value={schemeChoice} onChange={(c) => changeScheme(c).catch((err) => say(errorText(err), true))} />
+  );
   const menuEntries: MenuEntry[] = snap.editing
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
@@ -690,6 +697,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
         { kind: "separator" },
+        { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
       ]
     : [
@@ -704,6 +712,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
         { kind: "separator" },
+        { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
       ];
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));

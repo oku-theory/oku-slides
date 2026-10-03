@@ -25,6 +25,8 @@ fn defaults_embedded_file_gives_documented_values() {
     assert_that!(s.paths).is_equal_to(PathSettings::default());
     // Sans réglage, la langue du système.
     assert_that!(s.i18n.locale).is_none();
+    // Sans réglage, le schéma du système.
+    assert_that!(s.appearance.scheme).is_none();
 }
 
 #[test]

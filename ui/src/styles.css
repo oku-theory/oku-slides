@@ -13,6 +13,9 @@
   --t-rule: #ddd7cc;
   --t-font-display: "Newsreader Variable", "Newsreader", Georgia, serif;
   --t-font-body: "Instrument Sans Variable", "Instrument Sans", system-ui, sans-serif;
+  /* Fond et encre des slides, du plus clair au plus foncé (dérivation dans l'autre schéma). */
+  --t-light: var(--t-bg);
+  --t-dark: var(--t-ink);
 
   /* Interface : chaque couleur vient du thème (--app-*), sinon elle est dérivée des slides. */
   --paper-000: var(--app-desk, color-mix(in oklab, var(--t-bg) 89%, var(--t-ink)));
@@ -81,6 +84,45 @@
     border-color 250ms ease-out, border-radius 250ms ease-out;
   color-scheme: var(--app-scheme, light);
   background: var(--paper-000);
+}
+
+/* Schéma imposé sans palette du thème pour lui : l'interface se dérive des
+   deux bouts des couleurs des slides (voir applyAppearance). */
+:root[data-derived="dark"] {
+  --paper-000: color-mix(in oklab, var(--t-dark) 78%, black);
+  --paper-100: color-mix(in oklab, var(--t-dark) 93%, var(--t-light));
+  --paper-200: color-mix(in oklab, var(--t-dark) 86%, var(--t-light));
+  --ink: color-mix(in oklab, var(--t-light) 94%, var(--t-dark));
+  --ink-muted: color-mix(in oklab, var(--t-light) 66%, var(--t-dark));
+  --rule: color-mix(in oklab, var(--t-light) 18%, var(--t-dark));
+  --edge: color-mix(in oklab, var(--ink-muted) 70%, var(--paper-200));
+  --accent: color-mix(in oklab, var(--t-accent) 62%, var(--t-light));
+  --accent-fill: var(--t-accent);
+  --on-accent: var(--t-on-accent);
+  --accent-soft: color-mix(in oklab, var(--accent-fill) 26%, var(--paper-200));
+  --danger: color-mix(in oklab, #e0735a 88%, var(--ink));
+  --postit: color-mix(in oklab, var(--accent-fill) 30%, var(--paper-200));
+}
+:root[data-derived="light"] {
+  --paper-000: color-mix(in oklab, var(--t-light) 89%, var(--t-dark));
+  --paper-100: color-mix(in oklab, var(--t-light) 95%, var(--t-dark));
+  --paper-200: var(--t-light);
+  --ink: var(--t-dark);
+  --ink-muted: color-mix(in oklab, var(--t-dark) 70%, var(--t-light));
+  --rule: color-mix(in oklab, var(--t-dark) 15%, var(--t-light));
+  --edge: color-mix(in oklab, var(--ink-muted) 80%, var(--paper-200));
+  --accent: color-mix(in oklab, var(--t-accent) 75%, var(--t-dark));
+  --accent-fill: var(--t-accent);
+  --on-accent: var(--t-on-accent);
+  --accent-soft: color-mix(in oklab, var(--accent-fill) 16%, var(--paper-200));
+  --danger: color-mix(in oklab, #b3402a 85%, var(--ink));
+  --postit: color-mix(in oklab, var(--accent-fill) 20%, var(--paper-200));
+}
+/* Sur une table sombre, une ombre légère ne se voit plus : plus dense, vers le noir. */
+:root[data-scheme="dark"] {
+  --shade: color-mix(in oklab, var(--app-shadow, black) 34%, transparent);
+  --shade-strong: color-mix(in oklab, var(--app-shadow, black) 50%, transparent);
+  --shade-soft: color-mix(in oklab, var(--app-shadow, black) 22%, transparent);
 }
 
 * { box-sizing: border-box; }

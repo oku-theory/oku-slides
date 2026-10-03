@@ -27,6 +27,13 @@
     accent: "accent", accent-text: "accent", on-accent: "on-accent", accent-soft: "accent-soft",
     danger: "#a3452e", shadow: "#2e2b26",
   ),
+  // Interface en schéma sombre : le Papier de nuit, chaud, l'accent éclairci pour le texte.
+  app-dark: (
+    desk: "#1f1d1a", sheet: "#2a2824", piece: "#34312c",
+    ink: "#f1ece3", ink-muted: "#aaa398", rule: "#45413a", edge: "#6f685d",
+    accent: "accent", accent-text: "#8fbfae", on-accent: "on-accent", accent-soft: "#2c3b35",
+    danger: "#e07a5f", shadow: "#000000",
+  ),
   component: (
     chapter: (bg: "surface", ink: "ink", number-color: "accent", number-opacity: 1),
     title-slide: (bg: "bg", bar-color: "accent"),

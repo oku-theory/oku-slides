@@ -53,6 +53,10 @@ ui-menu = Menu
 ui-menu-move = Sposta…
 ui-language = Lingua
 ui-language-system = Lingua di sistema
+ui-scheme = Aspetto
+ui-scheme-system = Sistema
+ui-scheme-light = Chiaro
+ui-scheme-dark = Scuro
 ui-toolbar-add-label = Aggiungi alla diapositiva
 ui-add-kind = { $kind ->
     [card] Scheda

@@ -50,6 +50,13 @@
     danger: "#b3261e", shadow: "brand-ink",
     radius-sm: 8, radius-md: 12, radius-lg: 16, elevation: 1.5, sheet-elevation: 2.6,
   ),
+  // Interface en schéma sombre : la table navy des chapitres, accent cyan.
+  app-dark: (
+    desk: "#000c2e", sheet: "#06173d", piece: "#0c2150",
+    ink: "#e6edf7", ink-muted: "#9aa8c0", rule: "#1d3160", edge: "#4a5f88",
+    accent: "accent", accent-text: "accent-on-dark", on-accent: "on-accent", accent-soft: "#0b3a5c",
+    danger: "#ff6b5e", shadow: "#000000",
+  ),
   component: (
     header: (left: none, right: none),
     footer: (

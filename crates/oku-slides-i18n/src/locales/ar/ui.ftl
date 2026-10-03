@@ -61,6 +61,10 @@ ui-menu = القائمة
 ui-menu-move = نقل…
 ui-language = اللغة
 ui-language-system = لغة النظام
+ui-scheme = المظهر
+ui-scheme-system = النظام
+ui-scheme-light = فاتح
+ui-scheme-dark = داكن
 ui-toolbar-add-label = إضافة إلى الشريحة
 ui-add-kind = { $kind ->
     [card] بطاقة

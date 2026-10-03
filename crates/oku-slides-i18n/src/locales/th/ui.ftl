@@ -51,6 +51,10 @@ ui-menu = เมนู
 ui-menu-move = ย้าย…
 ui-language = ภาษา
 ui-language-system = ภาษาของระบบ
+ui-scheme = ลักษณะที่ปรากฏ
+ui-scheme-system = ตามระบบ
+ui-scheme-light = สว่าง
+ui-scheme-dark = มืด
 ui-toolbar-add-label = เพิ่มลงในสไลด์
 ui-add-kind = { $kind ->
     [card] การ์ด

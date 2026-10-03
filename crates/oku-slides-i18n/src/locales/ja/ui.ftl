@@ -53,6 +53,10 @@ ui-menu = メニュー
 ui-menu-move = 移動…
 ui-language = 言語
 ui-language-system = システムの言語
+ui-scheme = 外観
+ui-scheme-system = システム
+ui-scheme-light = ライト
+ui-scheme-dark = ダーク
 ui-toolbar-add-label = スライドに追加
 ui-add-kind = { $kind ->
     [card] カード

@@ -776,3 +776,18 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
     assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
 }
+
+#[test]
+fn appearance_carries_the_dark_interface_palette_of_papier_and_pro() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let papier = s.snapshot().appearance;
+    asserting("papier : table sombre")
+        .that(&papier.variants["dark"].get("desk").map(String::as_str))
+        .is_equal_to(Some("#1f1d1a"));
+    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    let pro = s.snapshot().appearance;
+    asserting("pro : table navy")
+        .that(&pro.variants["dark"].get("desk").map(String::as_str))
+        .is_equal_to(Some("#000c2e"));
+}

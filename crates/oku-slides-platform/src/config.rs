@@ -36,6 +36,7 @@ pub struct Settings {
     pub render: RenderSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
+    pub appearance: AppearanceSettings,
     pub stt: SttSettings,
     pub agent: AgentSettings,
     #[serde(default)]
@@ -155,6 +156,14 @@ pub struct ServeSettings {
 pub struct I18nSettings {
     /// Langue imposée (`fr`, `en`…) ; `None` : celle du système.
     pub locale: Option<String>,
+}
+
+/// Apparence de l'interface.
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[non_exhaustive]
+pub struct AppearanceSettings {
+    /// Schéma imposé (`light`, `dark`) ; `None` : celui du système.
+    pub scheme: Option<String>,
 }
 
 /// Rythmes et seuils de la dictée.

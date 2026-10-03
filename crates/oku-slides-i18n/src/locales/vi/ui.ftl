@@ -51,6 +51,10 @@ ui-menu = Menu
 ui-menu-move = Di chuyển…
 ui-language = Ngôn ngữ
 ui-language-system = Ngôn ngữ hệ thống
+ui-scheme = Giao diện
+ui-scheme-system = Hệ thống
+ui-scheme-light = Sáng
+ui-scheme-dark = Tối
 ui-toolbar-add-label = Thêm vào trang chiếu
 ui-add-kind = { $kind ->
     [card] Thẻ

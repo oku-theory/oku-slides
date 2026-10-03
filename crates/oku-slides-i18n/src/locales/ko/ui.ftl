@@ -51,6 +51,10 @@ ui-menu = 메뉴
 ui-menu-move = 이동…
 ui-language = 언어
 ui-language-system = 시스템 언어
+ui-scheme = 화면 모드
+ui-scheme-system = 시스템
+ui-scheme-light = 밝게
+ui-scheme-dark = 어둡게
 ui-toolbar-add-label = 슬라이드에 추가
 ui-add-kind = { $kind ->
     [card] 카드

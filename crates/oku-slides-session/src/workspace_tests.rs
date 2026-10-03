@@ -887,3 +887,50 @@ fn with_session_wakes_a_dormant_resumed_tab() {
     assert_that!(theme).is_ok().is_equal_to(Some("pro".to_owned()));
     assert_that!(matches!(*relock(&slot), Slot::Ready(_))).is_true();
 }
+
+#[test]
+fn scheme_without_setting_follows_the_system() {
+    let data = Data::new();
+    let json = send(&workspace_in(&data), json!({"cmd": "scheme"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["scheme"].is_null()).is_true();
+}
+
+#[test]
+fn set_scheme_dark_answers_with_it_and_keeps_it() {
+    let data = Data::new();
+    let json = send(&workspace_in(&data), json!({"cmd": "set_scheme", "scheme": "dark"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["scheme"].as_str()).is_equal_to(Some("dark"));
+    let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
+    assert_that!(config.contains("scheme = \"dark\"")).is_true();
+}
+
+#[test]
+fn set_scheme_null_follows_the_system_again() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    send(&ws, json!({"cmd": "set_scheme", "scheme": "light"})).unwrap();
+    send(&ws, json!({"cmd": "set_scheme", "scheme": null})).unwrap();
+    let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
+    assert_that!(config.contains("scheme")).is_false();
+}
+
+#[test]
+fn set_scheme_unknown_value_follows_the_system() {
+    let data = Data::new();
+    let json = send(&workspace_in(&data), json!({"cmd": "set_scheme", "scheme": "sepia"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["scheme"].is_null()).is_true();
+}
+
+#[test]
+fn scheme_reads_the_setting_of_the_platform() {
+    let data = Data::new();
+    let mut settings = (*platform(&data.0).settings).clone();
+    settings.appearance.scheme = Some("light".into());
+    let ws = Mutex::new(Workspace::new(Fonts::default(), &Platform::with_settings(settings).unwrap(), None).unwrap());
+    let json = send(&ws, json!({"cmd": "scheme"})).unwrap().into_json();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_that!(v["scheme"].as_str()).is_equal_to(Some("light"));
+}

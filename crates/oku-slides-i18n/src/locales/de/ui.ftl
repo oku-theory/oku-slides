@@ -53,6 +53,10 @@ ui-menu = Menü
 ui-menu-move = Verschieben…
 ui-language = Sprache
 ui-language-system = Systemsprache
+ui-scheme = Erscheinungsbild
+ui-scheme-system = System
+ui-scheme-light = Hell
+ui-scheme-dark = Dunkel
 ui-toolbar-add-label = Zur Folie hinzufügen
 ui-add-kind = { $kind ->
     [card] Karte

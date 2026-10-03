@@ -53,6 +53,10 @@ ui-menu = मेनू
 ui-menu-move = ले जाएँ…
 ui-language = भाषा
 ui-language-system = सिस्टम की भाषा
+ui-scheme = रूप
+ui-scheme-system = सिस्टम
+ui-scheme-light = हल्का
+ui-scheme-dark = गहरा
 ui-toolbar-add-label = स्लाइड में जोड़ें
 ui-add-kind = { $kind ->
     [card] कार्ड

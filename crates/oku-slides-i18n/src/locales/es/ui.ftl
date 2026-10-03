@@ -53,6 +53,10 @@ ui-menu = Menú
 ui-menu-move = Mover…
 ui-language = Idioma
 ui-language-system = Idioma del sistema
+ui-scheme = Apariencia
+ui-scheme-system = Sistema
+ui-scheme-light = Claro
+ui-scheme-dark = Oscuro
 ui-toolbar-add-label = Añadir a la diapositiva
 ui-add-kind = { $kind ->
     [card] Tarjeta

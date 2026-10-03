@@ -24,6 +24,8 @@ export interface Appearance {
   slide: Record<string, string>;
   /** Couleurs de l'interface (desk, sheet, piece, ink…) ; absentes = dérivées. */
   app: Record<string, string>;
+  /** Couleurs de l'interface pour l'autre schéma (`dark`, `light`) ; absent = dérivé. */
+  variants: Record<string, Record<string, string>>;
   /** radius-sm, radius-md, radius-lg (px), elevation. */
   metrics: Record<string, number>;
   font_display: string[];
@@ -364,6 +366,11 @@ type Request =
   | { cmd: "history_close" }
   | { cmd: "history_versions" };
 
+/** Schéma de l'interface gardé par l'hôte ; `null` : celui du système. */
+export interface SchemeSetting {
+  scheme: "light" | "dark" | null;
+}
+
 /** Langue de l'utilisateur et ressources Fluent de l'interface (anglais d'abord). */
 export interface Messages {
   locale: string;
@@ -574,6 +581,8 @@ type WorkspaceRequest =
   | { cmd: "view" }
   | { cmd: "messages" }
   | { cmd: "set_locale"; locale: string | null }
+  | { cmd: "scheme" }
+  | { cmd: "set_scheme"; scheme: "light" | "dark" | null }
   | { cmd: "new_tab"; window: string }
   | { cmd: "open_tab"; window: string; path: string }
   | { cmd: "same_deck"; path: string }
@@ -592,6 +601,10 @@ export const workspace = {
   messages: () => ws<Messages>({ cmd: "messages" }),
   /** Choisit la langue de l'interface (`null` : celle du système) ; ses messages. */
   setLocale: (locale: string | null) => ws<Messages>({ cmd: "set_locale", locale }),
+  /** Schéma de l'interface choisi (`null` : celui du système). */
+  scheme: () => ws<SchemeSetting>({ cmd: "scheme" }),
+  /** Choisit le schéma de l'interface (`null` : celui du système). */
+  setScheme: (scheme: "light" | "dark" | null) => ws<SchemeSetting>({ cmd: "set_scheme", scheme }),
   newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
   openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
   /** L'onglet qui tient déjà le deck de `path` sous un autre fichier ; ne change rien. */

@@ -57,6 +57,10 @@ ui-menu = Меню
 ui-menu-move = Переместить…
 ui-language = Язык
 ui-language-system = Язык системы
+ui-scheme = Оформление
+ui-scheme-system = Системное
+ui-scheme-light = Светлое
+ui-scheme-dark = Тёмное
 ui-toolbar-add-label = Добавить на слайд
 ui-add-kind = { $kind ->
     [card] Карточка

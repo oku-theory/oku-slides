@@ -53,6 +53,10 @@ ui-menu = Menü
 ui-menu-move = Taşı…
 ui-language = Dil
 ui-language-system = Sistem dili
+ui-scheme = Görünüm
+ui-scheme-system = Sistem
+ui-scheme-light = Açık
+ui-scheme-dark = Koyu
 ui-toolbar-add-label = Slayta ekle
 ui-add-kind = { $kind ->
     [card] Kart
