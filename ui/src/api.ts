@@ -173,6 +173,8 @@ export interface WidgetStatus {
 export interface WidgetChange {
   status: WidgetStatus;
   broken: WidgetStatus[];
+  /** L'écriture est enregistrée ; faux en mode deck quand le rendu échoue (rien n'est enregistré). */
+  saved: boolean;
 }
 
 /** Aperçu d'un widget seul : SVG, ou les diagnostics qui l'en empêchent. */

@@ -35,6 +35,7 @@ templates-default-name = My templates
 templates-copy-name = { $name } (copy)
 templates-adopt-label = Templates: { $name }
 session-widgets-broken = Widgets left out because they do not compile: { $names }. The pack's other widgets remain.
+session-widgets-not-saved = The widget version of the “{ $pack }” pack could not be saved in the library. The deck keeps it.
 session-invalid-widget-name = Invalid widget name: “{ $name }”. Use lowercase letters, digits and hyphens, or _commun.
 session-widget-too-large = Widget “{ $name }” is larger than { $max } KiB.
 session-widget-nul = Widget “{ $name }” contains a NUL character.

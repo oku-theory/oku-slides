@@ -8,6 +8,9 @@
 //! d'élément occupe toute la grille d'une slide `blank` ; l'aperçu donne la
 //! boîte de ce qu'il y dessine (`bbox`), pour que l'interface s'y recadre.
 //!
+//! Les assets sont ceux du deck de l'utilisateur (mis de côté en mode
+//! modèles) : un paramètre `asset` montre l'image du deck.
+//!
 //! Seul le pack rendu par `probe_pack` (widgets valides) est posé, avant
 //! chaque rendu : après une relance du travailleur, l'emplacement d'essai
 //! le retrouve. Un pack écarté malgré tout donne un diagnostic explicite.
@@ -32,7 +35,7 @@ use crate::error::{RegistrySnafu, RenderSnafu, UnknownWidgetSnafu};
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
 use crate::templates_mode::styled_like;
 use crate::widgets_edit::{WidgetDiagnostic, parse_name};
-use crate::{Result, Session};
+use crate::{Document, Mode, Result, Session};
 
 /// Identifiant de la slide d'aperçu.
 const PREVIEW_SLIDE: &str = "apercu";
@@ -89,6 +92,8 @@ pub(crate) struct PreviewSlot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BareKey {
     pack: Option<u64>,
+    /// Les identifiants des assets du deck.
+    assets: u64,
     deck: String,
 }
 
@@ -101,6 +106,7 @@ impl PreviewSlot {
         shown: &WidgetFile,
         pack: Option<&PackWidgets>,
         deck: &Deck,
+        assets: &Assets,
     ) -> Result<Vec<u8>, RenderError> {
         let bare = without_elements(deck);
         let pack_key = pack.map(|p| {
@@ -109,8 +115,11 @@ impl PreviewSlot {
             h.finish()
         });
         let unversioned = Deck { templates: None, ..bare.clone() };
+        let mut h = DefaultHasher::new();
+        assets.keys().for_each(|k| k.hash(&mut h));
         let key = BareKey {
             pack: pack_key,
+            assets: h.finish(),
             deck: serde_json::to_string(&unversioned).map_err(|e| RenderError::frame(e.to_string()))?,
         };
         if let Some((k, png)) = &self.bare
@@ -118,9 +127,23 @@ impl PreviewSlot {
         {
             return Ok(png.clone());
         }
-        let png = self.slot.render(&bare, &BTreeMap::new())?.png(0, CROP_PIXEL_PER_PT)?;
+        let png = self.slot.render(&bare, assets)?.png(0, CROP_PIXEL_PER_PT)?;
         self.bare = Some((key, png.clone()));
         Ok(png)
+    }
+}
+
+/// Les assets d'un deck, par identifiant.
+type Assets = BTreeMap<String, Vec<u8>>;
+
+/// Les assets du deck de l'utilisateur, comme `Session::user_blobs`.
+///
+/// Par champs : l'emplacement d'essai est emprunté en même temps. En
+/// historique, le document montré a pris les assets du deck mis de côté.
+fn user_assets<'a>(mode: &'a Mode, doc: &'a Document) -> &'a Assets {
+    match mode {
+        Mode::Deck | Mode::History { .. } => &doc.sources.assets,
+        Mode::Templates { stash, .. } => &stash.sources.assets,
     }
 }
 
@@ -267,10 +290,11 @@ impl Session {
             }
         };
         let preview = self.widget_preview.insert(kept);
+        let assets = user_assets(&self.mode, &self.doc);
         // Posé avant chaque rendu : après une relance, le rejeu a pu l'écarter.
         let attempt = (|| -> std::result::Result<WidgetPreview, RenderError> {
             preview.slot.set_widgets(pack, registry)?;
-            let compiled = preview.slot.render(deck, &BTreeMap::new())?;
+            let compiled = preview.slot.render(deck, assets)?;
             let diagnostics = compiled.warnings.iter().map(WidgetDiagnostic::of).collect();
             // Seul un widget d'élément a une boîte : celle de l'élément d'aperçu.
             let cell = compiled.layout().boxes.iter().find(|b| b.id == PREVIEW_ELEMENT).map(|b| PreviewBox {
@@ -291,7 +315,7 @@ impl Session {
                 // La boîte est toute la grille : recadrée sur ce que l'élément dessine.
                 // Au mieux : un échec ici garde l'aperçu déjà rendu, sur la cellule.
                 let with = || compiled.png(0, CROP_PIXEL_PER_PT);
-                let bare = || preview.bare_png(name, pack, deck);
+                let bare = || preview.bare_png(name, pack, deck, assets);
                 out.bbox = Some(crop_box(cell, with, bare));
             }
             Ok(out)

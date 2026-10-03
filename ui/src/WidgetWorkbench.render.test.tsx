@@ -5,19 +5,12 @@ import "./test/dom";
 import type { TabApi, WidgetStatus } from "./api";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
-const { act, createElement } = await import("react");
-const { createRoot } = await import("react-dom/client");
-const WidgetWorkbench = (await import("./WidgetWorkbench")).default;
+const { act } = await import("react");
+const { EditorView } = await import("@codemirror/view");
+const { PREVIEW_DELAY_MS } = await import("./debounce");
+const { deferred, editorText, memory, mountWith, pick, type, unmount, wait } = await import("./test/workbench");
 
-type Root = ReturnType<typeof createRoot>;
-let mounted: { root: Root; host: HTMLElement } | null = null;
-afterEach(async () => {
-  const m = mounted;
-  mounted = null;
-  if (!m) return;
-  await act(async () => m.root.unmount());
-  m.host.remove();
-});
+afterEach(unmount);
 
 const statuses: WidgetStatus[] = [
   { name: "kpi", schema: {}, diagnostics: [] },
@@ -30,58 +23,14 @@ const api = {
   previewWidget: async () => ({ svg: null, diagnostics: [] }),
 } as unknown as TabApi;
 
-async function mount() {
-  const host = document.createElement("div");
-  document.body.append(host);
-  const root = createRoot(host);
-  mounted = { root, host };
-  await act(async () => {
-    root.render(
-      createElement(WidgetWorkbench, { api, revision: "r", onChanged: () => {}, onClose: () => {}, onError: () => {} }),
-    );
-  });
-  return host;
-}
-
 describe("WidgetWorkbench", () => {
   test("liste : _commun en tête, chacun avec sa pastille d'état", async () => {
-    const host = await mount();
+    const { host } = await mountWith(api);
     const items = [...host.querySelectorAll(".workbench-list li")];
     expect(items.map((li) => li.querySelector(".pill")?.className)).toEqual(["pill errors", "pill valid"]);
     expect(items[1]?.textContent).toContain("kpi");
   });
 });
-
-const { EditorView } = await import("@codemirror/view");
-const { PREVIEW_DELAY_MS } = await import("./debounce");
-
-type Props = Parameters<typeof WidgetWorkbench>[0];
-
-/** Monte le panneau avec `over` en plus des props par défaut ; rend de nouvelles props par `rerender`. */
-async function mountWith(fake: TabApi, over: Partial<Props> = {}) {
-  const host = document.createElement("div");
-  document.body.append(host);
-  const root = createRoot(host);
-  mounted = { root, host };
-  const props = (p: Partial<Props>): Props => ({
-    api: fake,
-    revision: "r",
-    onChanged: () => {},
-    onClose: () => {},
-    onError: () => {},
-    ...over,
-    ...p,
-  });
-  await act(async () => root.render(createElement(WidgetWorkbench, props({}))));
-  const rerender = (p: Partial<Props>) => act(async () => root.render(createElement(WidgetWorkbench, props(p))));
-  return { host, rerender };
-}
-
-/** Choisit le fichier `label` dans la liste et attend sa source. */
-async function pick(host: HTMLElement, label: string) {
-  const button = [...host.querySelectorAll<HTMLButtonElement>(".workbench-file")].find((b) => b.textContent?.includes(label));
-  await act(async () => button?.click());
-}
 
 describe("WidgetWorkbench, édition", () => {
   test("une frappe en attente survit à un nouveau rendu du parent (rappels en ligne)", async () => {
@@ -92,7 +41,7 @@ describe("WidgetWorkbench, édition", () => {
       widgetSource: async () => "#let a = 1\n",
       setWidget: async (name: string, source: string) => {
         sets.push(`${name}:${source}`);
-        return { status: statuses[0], broken: [] };
+        return { status: statuses[0], broken: [], saved: true };
       },
       previewWidget: async () => ({ svg: null, diagnostics: [] }),
     } as unknown as TabApi;
@@ -134,45 +83,12 @@ describe("WidgetWorkbench, édition", () => {
     expect(items).toEqual(["_commun:3:2 unknown variable: foo", "kpi:1:1 dans kpi"]);
   });
 
-  /** Une api en mémoire : sources par nom, écritures et suppressions notées. */
-  function memory(files: Record<string, string>) {
-    const log: string[] = [];
-    const fake = {
-      widgetStatus: async () => Object.keys(files).map((name) => ({ name, schema: null, diagnostics: [] })),
-      widgetSource: async (name: string) => files[name] ?? "",
-      setWidget: async (name: string, source: string) => {
-        log.push(`set ${name}:${source}`);
-        files[name] = source;
-        return { status: { name, schema: null, diagnostics: [] }, broken: [] };
-      },
-      removeWidget: async (name: string) => {
-        log.push(`remove ${name}`);
-        delete files[name];
-        return [];
-      },
-      previewWidget: async () => ({ svg: null, diagnostics: [] }),
-    } as unknown as TabApi;
-    return { fake, log };
-  }
-
-  async function type(host: HTMLElement, text: string) {
-    const cm = EditorView.findFromDOM(host.querySelector(".typst-editor .cm-content") as HTMLElement);
-    await act(async () => {
-      cm?.dispatch({ changes: { from: 0, to: cm.state.doc.length, insert: text }, userEvent: "input.type" });
-    });
-  }
-
-  const editorText = (host: HTMLElement) => host.querySelector(".typst-editor .cm-content")?.textContent;
-
   test("fermer pendant le délai envoie la dernière frappe", async () => {
     const { fake, log } = memory({ kpi: "a" });
     const { host } = await mountWith(fake);
     await pick(host, "kpi");
     await type(host, "ab");
-    const m = mounted;
-    mounted = null;
-    await act(async () => m?.root.unmount());
-    m?.host.remove();
+    await unmount();
     expect(log).toEqual(["set kpi:ab"]);
   });
 
@@ -199,21 +115,6 @@ describe("WidgetWorkbench, édition", () => {
     expect(log).toEqual(["remove kpi"]);
   });
 
-  /** Une promesse tenue de l'extérieur. */
-  function deferred<T>() {
-    let resolve!: (v: T) => void;
-    let reject!: (e: unknown) => void;
-    const promise = new Promise<T>((ok, ko) => {
-      resolve = ok;
-      reject = ko;
-    });
-    return { promise, resolve, reject };
-  }
-
-  const wait = (ms: number) => act(async () => {
-    await new Promise((r) => setTimeout(r, ms));
-  });
-
   test("une réponse de source arrivée après une frappe ne ramène pas l'ancien texte", async () => {
     const { fake, log } = memory({ kpi: "T0" });
     const { host, rerender } = await mountWith(fake);
@@ -234,7 +135,7 @@ describe("WidgetWorkbench, édition", () => {
     // La vieille réponse arrive : le texte tapé reste.
     await act(async () => late.resolve("T1"));
     expect(editorText(host)).toBe("T2");
-    await act(async () => write.resolve({ status: statuses[0], broken: [] }));
+    await act(async () => write.resolve({ status: statuses[0], broken: [], saved: true }));
     expect(editorText(host)).toBe("T2");
   });
 
@@ -293,7 +194,7 @@ describe("WidgetWorkbench, édition", () => {
     await wait(PREVIEW_DELAY_MS + 50);
     await act(async () => host.querySelector<HTMLButtonElement>(".workbench-actions .danger")?.click());
     expect(log).toEqual(["set kpi:k2"]);
-    await act(async () => write.resolve({ status: statuses[0], broken: [] }));
+    await act(async () => write.resolve({ status: statuses[0], broken: [], saved: true }));
     await wait(10);
     expect(log).toEqual(["set kpi:k2", "remove kpi"]);
   });
@@ -359,10 +260,10 @@ describe("WidgetWorkbench, édition", () => {
     await type(host, "k3");
     await wait(PREVIEW_DELAY_MS + 50);
     expect(log).toEqual(["set kpi:k2"]);
-    await act(async () => writes[0]?.resolve({ status: statuses[0], broken: [] }));
+    await act(async () => writes[0]?.resolve({ status: statuses[0], broken: [], saved: true }));
     await wait(10);
     expect(log).toEqual(["set kpi:k2", "set kpi:k3"]);
-    await act(async () => writes[1]?.resolve({ status: statuses[0], broken: [] }));
+    await act(async () => writes[1]?.resolve({ status: statuses[0], broken: [], saved: true }));
   });
 });
 

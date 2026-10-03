@@ -321,3 +321,4 @@ ui-widgets-pick = اختر ملفًا، أو أنشئ عنصر واجهة.
 ui-widgets-preview = معاينة عنصر الواجهة
 ui-widgets-no-preview = لا توجد معاينة
 ui-widgets-close = إغلاق
+ui-widgets-unsaved = غير محفوظ

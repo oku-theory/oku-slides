@@ -35,6 +35,7 @@ templates-default-name = 내 템플릿
 templates-copy-name = { $name } (사본)
 templates-adopt-label = 템플릿: { $name }
 session-widgets-broken = 컴파일되지 않아 제외된 위젯: { $names }. 팩의 다른 위젯은 그대로 유지됩니다.
+session-widgets-not-saved = 팩 “{ $pack }”의 위젯 버전을 라이브러리에 저장하지 못했습니다. 프레젠테이션에는 유지됩니다.
 session-invalid-widget-name = 위젯 이름이 올바르지 않습니다: “{ $name }”. 영문 소문자, 숫자, 하이픈 또는 _commun을 사용하세요.
 session-widget-too-large = 위젯 “{ $name }”이(가) { $max } KiB를 넘습니다.
 session-widget-nul = 위젯 “{ $name }”에 NUL 문자가 있습니다.

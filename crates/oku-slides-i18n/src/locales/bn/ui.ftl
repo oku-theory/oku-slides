@@ -313,3 +313,4 @@ ui-widgets-pick = একটি ফাইল বেছে নিন, অথবা
 ui-widgets-preview = উইজেটের প্রিভিউ
 ui-widgets-no-preview = প্রিভিউ নেই
 ui-widgets-close = বন্ধ করুন
+ui-widgets-unsaved = সংরক্ষিত হয়নি

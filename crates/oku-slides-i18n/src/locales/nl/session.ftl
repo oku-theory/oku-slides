@@ -35,6 +35,7 @@ templates-default-name = Mijn sjablonen
 templates-copy-name = { $name } (kopie)
 templates-adopt-label = Sjablonen: { $name }
 session-widgets-broken = Widgets weggelaten omdat ze niet compileren: { $names }. De andere widgets van het pakket blijven.
+session-widgets-not-saved = De widgetversie van het pakket ‘{ $pack }’ kon niet in de bibliotheek worden opgeslagen. De presentatie behoudt haar.
 session-invalid-widget-name = Ongeldige widgetnaam: ‘{ $name }’. Gebruik kleine letters, cijfers en koppeltekens, of _commun.
 session-widget-too-large = Widget ‘{ $name }’ is groter dan { $max } KiB.
 session-widget-nul = Widget ‘{ $name }’ bevat een NUL-teken.

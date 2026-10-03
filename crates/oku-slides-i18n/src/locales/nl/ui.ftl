@@ -316,3 +316,4 @@ ui-widgets-pick = Kies een bestand of maak een widget.
 ui-widgets-preview = Widgetvoorbeeld
 ui-widgets-no-preview = Geen voorbeeld
 ui-widgets-close = Sluiten
+ui-widgets-unsaved = Niet opgeslagen

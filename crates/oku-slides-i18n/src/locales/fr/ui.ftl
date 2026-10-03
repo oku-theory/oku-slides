@@ -316,3 +316,4 @@ ui-widgets-pick = Choisissez un fichier, ou créez un widget.
 ui-widgets-preview = Aperçu du widget
 ui-widgets-no-preview = Pas d'aperçu
 ui-widgets-close = Fermer
+ui-widgets-unsaved = Non enregistré

@@ -27,3 +27,6 @@ render-frame = 렌더링 프로세스의 메시지를 읽을 수 없습니다
 render-stale = 렌더링이 다른 요청으로 대체되었습니다. 다시 시도하세요
 render-pack-disabled = '{ $pack }' 팩의 위젯은 이 세션에서 비활성화되었습니다
 registry-schema-remote = 위젯 레지스트리가 올바르지 않습니다: { $message }
+probe-not-probed = 아직 확인되지 않음: 팩의 위젯에 할당된 시간이 끝났습니다. 다음 렌더링 때 확인합니다.
+probe-too-many-files = 팩의 위젯 파일이 { $max }개를 넘습니다: 이 파일은 불러오지 않습니다.
+probe-too-large = { $max } KiB를 넘습니다: 불러오지 않습니다.

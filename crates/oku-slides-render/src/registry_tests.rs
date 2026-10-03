@@ -9,9 +9,9 @@ use super::{PackWidgets, Registries, compile_probe, probe_json, probe_registry, 
 use crate::base_registry;
 use crate::error::RegistryErrorKind;
 use crate::fonts::Fonts;
-use crate::load_registry;
 use crate::widget_probe::{FileProbe, assemble, probe_file};
 use crate::world::OkuSlidesWorld;
+use crate::{FileProbeCache, load_registry};
 
 #[test]
 fn probe_json_no_metadata_returns_missing() {
@@ -48,11 +48,11 @@ fn pack_fingerprint_changes_with_source() {
 }
 
 #[test]
-fn registries_probe_is_memoized_by_fingerprint() {
+fn registries_get_is_memoized_by_fingerprint() {
     let mut r = Registries::new(Fonts::default());
     let pack = PackWidgets::new("p", files(&[("quote", QUOTE_FILE)])).unwrap();
-    let first = r.probe(&pack).unwrap();
-    let second = r.probe(&pack).unwrap();
+    let first = r.get(Some(&pack)).unwrap();
+    let second = r.get(Some(&pack)).unwrap();
     assert_that!(Arc::ptr_eq(&first, &second)).is_true();
 }
 
@@ -184,12 +184,22 @@ fn registries_probe_file_recompiles_only_what_changed() {
     r.probe_file(&wf("quote"), &changed, Some(COMMON));
     r.probe_file(&wf("kpi"), KPI_FILE, Some(COMMON));
     assert_that!(r.file_compiles).is_equal_to(3);
-    // `_commun` modifié : seuls ceux qui l'importent sont recompilés.
+    // `_commun` modifié : tous les widgets sont recompilés.
     let common = "#let cadre(body) = block(inset: 4pt, body)\n";
     r.probe_file(&wf("quote"), &changed, Some(common));
-    assert_that!(r.file_compiles).is_equal_to(3);
-    r.probe_file(&wf("kpi"), KPI_FILE, Some(common));
     assert_that!(r.file_compiles).is_equal_to(4);
+    r.probe_file(&wf("kpi"), KPI_FILE, Some(common));
+    assert_that!(r.file_compiles).is_equal_to(5);
+}
+
+#[test]
+fn registries_probe_file_sees_a_common_imported_through_an_expression() {
+    // L'import de `_commun` n'est pas écrit en toutes lettres.
+    let kpi = KPI_FILE.replace("\"_commun.typ\"", "(\"_com\" + \"mun.typ\")");
+    let mut r = Registries::new(Fonts::default());
+    assert_that!(r.probe_file(&wf("kpi"), &kpi, Some(COMMON)).is_valid()).is_true();
+    let without_cadre = "#let autre(body) = body\n";
+    assert_that!(r.probe_file(&wf("kpi"), &kpi, Some(without_cadre)).is_valid()).is_false();
 }
 
 #[test]
@@ -221,4 +231,69 @@ fn probe_file_error_raised_in_the_library_points_at_the_call_in_the_file() {
     let d = probe.diagnostics.iter().find(|d| d.severity == crate::Severity::Error).unwrap();
     assert_that!(d.widget_file()).is_equal_to(Some(wf("kpi")));
     assert_that!(d.at.as_ref().map(|a| a.line)).is_equal_to(Some(3));
+}
+
+#[test]
+fn registries_keep_a_bounded_number_of_probes_per_file() {
+    let mut r = Registries::new(Fonts::default());
+    for i in 0..FileProbeCache::PER_FILE + 2 {
+        r.probe_file(&wf("quote"), &format!("{QUOTE_FILE}// {i}\n"), None);
+    }
+    r.probe_file(&wf("kpi"), KPI_FILE, Some(COMMON));
+    assert_that!(r.files.len()).is_equal_to(FileProbeCache::PER_FILE + 1);
+    // Les plus récentes restent servies sans recompiler.
+    let compiles = r.file_compiles;
+    r.probe_file(&wf("quote"), &format!("{QUOTE_FILE}// {}\n", FileProbeCache::PER_FILE + 1), None);
+    r.probe_file(&wf("quote"), &format!("{QUOTE_FILE}// 2\n"), None);
+    assert_that!(r.file_compiles).is_equal_to(compiles);
+    // La plus ancienne a été évincée.
+    r.probe_file(&wf("quote"), &format!("{QUOTE_FILE}// 0\n"), None);
+    assert_that!(r.file_compiles).is_equal_to(compiles + 1);
+}
+
+/// Le pack `i` : un seul widget, dont la source porte `i`.
+fn pack_n(i: usize) -> PackWidgets {
+    PackWidgets::new("p", files(&[("quote", &format!("{QUOTE_FILE}// {i}\n"))])).unwrap()
+}
+
+#[test]
+fn registries_keep_a_bounded_number_of_pack_registries() {
+    let mut r = Registries::new(Fonts::default());
+    for i in 0..super::MAX_CACHED_PACKS + 3 {
+        r.get(Some(&pack_n(i))).unwrap();
+    }
+    assert_that!(r.cache.len()).is_equal_to(super::MAX_CACHED_PACKS);
+    // Le plus récent reste servi.
+    let last = pack_n(super::MAX_CACHED_PACKS + 2);
+    let first = r.get(Some(&last)).unwrap();
+    assert_that!(Arc::ptr_eq(&first, &r.get(Some(&last)).unwrap())).is_true();
+}
+
+#[test]
+fn registries_evict_the_least_recently_served_pack() {
+    let mut r = Registries::new(Fonts::default());
+    let first = r.get(Some(&pack_n(0))).unwrap();
+    for i in 1..super::MAX_CACHED_PACKS {
+        r.get(Some(&pack_n(i))).unwrap();
+    }
+    // Le premier, servi de nouveau, devient le plus récent : le second est évincé à sa place.
+    assert_that!(Arc::ptr_eq(&first, &r.get(Some(&pack_n(0))).unwrap())).is_true();
+    r.get(Some(&pack_n(super::MAX_CACHED_PACKS))).unwrap();
+    assert_that!(r.cache.contains_key(&pack_n(0).fingerprint())).is_true();
+    assert_that!(r.cache.contains_key(&pack_n(1).fingerprint())).is_false();
+    assert_that!(r.cache.len()).is_equal_to(super::MAX_CACHED_PACKS);
+}
+
+#[test]
+fn registries_alternating_two_versions_of_a_file_does_not_recompile() {
+    let mut r = Registries::new(Fonts::default());
+    let (a, b) = (format!("{QUOTE_FILE}// a\n"), format!("{QUOTE_FILE}// b\n"));
+    r.probe_file(&wf("quote"), &a, None);
+    r.probe_file(&wf("quote"), &b, None);
+    assert_that!(r.file_compiles).is_equal_to(2);
+    for _ in 0..3 {
+        r.probe_file(&wf("quote"), &a, None);
+        r.probe_file(&wf("quote"), &b, None);
+    }
+    assert_that!(r.file_compiles).is_equal_to(2);
 }

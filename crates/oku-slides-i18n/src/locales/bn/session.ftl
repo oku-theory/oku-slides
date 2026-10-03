@@ -35,6 +35,7 @@ templates-default-name = আমার টেমপ্লেট
 templates-copy-name = { $name } (কপি)
 templates-adopt-label = টেমপ্লেট: { $name }
 session-widgets-broken = কম্পাইল না হওয়ায় এই উইজেটগুলো বাদ দেওয়া হয়েছে: { $names }। প্যাকের বাকি উইজেটগুলো থাকছে।
+session-widgets-not-saved = “{ $pack }” প্যাকের উইজেট সংস্করণটি লাইব্রেরিতে সংরক্ষণ করা যায়নি। প্রেজেন্টেশনটি এটি রেখে দিচ্ছে।
 session-invalid-widget-name = উইজেটের নাম অবৈধ: “{ $name }”। ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন, অথবা _commun ব্যবহার করুন।
 session-widget-too-large = উইজেট “{ $name }” { $max } KiB-এর চেয়ে বড়।
 session-widget-nul = উইজেট “{ $name }”-এ একটি NUL অক্ষর আছে।

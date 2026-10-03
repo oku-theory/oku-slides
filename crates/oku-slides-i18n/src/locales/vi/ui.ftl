@@ -311,3 +311,4 @@ ui-widgets-pick = Chọn một tệp, hoặc tạo một widget.
 ui-widgets-preview = Xem trước widget
 ui-widgets-no-preview = Không có bản xem trước
 ui-widgets-close = Đóng
+ui-widgets-unsaved = Chưa lưu

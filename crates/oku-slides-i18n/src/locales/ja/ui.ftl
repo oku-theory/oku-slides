@@ -313,3 +313,4 @@ ui-widgets-pick = ファイルを選ぶか、ウィジェットを作成して�
 ui-widgets-preview = ウィジェットのプレビュー
 ui-widgets-no-preview = プレビューなし
 ui-widgets-close = 閉じる
+ui-widgets-unsaved = 未保存

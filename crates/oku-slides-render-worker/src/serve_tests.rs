@@ -85,13 +85,24 @@ fn serve_generations_grow_across_slots() {
 }
 
 #[test]
-fn serve_probe_of_broken_pack_returns_registry_compile_error() {
+fn serve_set_widgets_of_broken_pack_returns_registry_compile_error() {
     let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
     let files = std::collections::BTreeMap::from([("casse".into(), "#let widget = (".into())]);
     let pack = WirePack { id: "casse".into(), files };
-    let (resp, _) = h.call(&Request::Probe { pack }, &[]);
+    let (resp, _) = h.call(&Request::SetWidgets { slot: 1, pack: Some(pack) }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::RegistryCompile { .. } }))
         .is_true();
+}
+
+#[test]
+fn serve_whole_pack_probe_request_is_not_understood() {
+    let mut h = Harness::new();
+    let req = serde_json::json!({ "op": "probe", "pack": { "id": "p", "files": {} } });
+    write_frame(&mut h.tx, &req, &[], usize::MAX).unwrap();
+    let f = read_frame(&mut h.rx, MAX).unwrap().unwrap();
+    let resp: Response = serde_json::from_slice(&f.header).unwrap();
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Frame { .. } })).is_true();
 }
 
 #[test]
@@ -179,9 +190,11 @@ fn probe_file_request_returns_the_file_probe() {
 }
 
 #[test]
-fn probe_with_a_bad_widget_file_name_returns_setup_error() {
+fn set_widgets_with_a_bad_widget_file_name_returns_setup_error() {
     let mut worker = Worker::default();
+    worker.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
     let files = std::collections::BTreeMap::from([("Casse".into(), "#let widget = (".into())]);
-    let (reply, _) = worker.handle(Request::Probe { pack: WirePack { id: "p".into(), files } }, Vec::new());
+    let pack = Some(WirePack { id: "p".into(), files });
+    let (reply, _) = worker.handle(Request::SetWidgets { slot: 1, pack }, Vec::new());
     assert_that!(matches!(reply, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }

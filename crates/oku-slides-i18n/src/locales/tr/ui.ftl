@@ -313,3 +313,4 @@ ui-widgets-pick = Bir dosya seçin veya bir widget oluşturun.
 ui-widgets-preview = Widget önizlemesi
 ui-widgets-no-preview = Önizleme yok
 ui-widgets-close = Kapat
+ui-widgets-unsaved = Kaydedilmedi

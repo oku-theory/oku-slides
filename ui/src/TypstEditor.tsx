@@ -9,9 +9,9 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { history, historyKeymap, indentWithTab, standardKeymap } from "@codemirror/commands";
 import type { Range } from "@codemirror/state";
-import { EditorState, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { Annotation, EditorState, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
-import { Decoration, EditorView, GutterMarker, ViewPlugin, gutter, keymap, lineNumbers } from "@codemirror/view";
+import { Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, gutter, keymap, lineNumbers } from "@codemirror/view";
 import type { WidgetDiagnostic } from "./api";
 import { typstTokens } from "./typstHighlight";
 import { diagnosticRange } from "./widgetDiagnostics";
@@ -49,6 +49,9 @@ const typstHighlight = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations },
 );
 
+/** Changement venu du parent, qui en sait le résultat : pas d'`onChange`. */
+const quiet = Annotation.define<boolean>();
+
 const setDiagnostics = StateEffect.define<WidgetDiagnostic[]>();
 
 /** Les diagnostics affichés ; une frappe les efface. */
@@ -62,13 +65,28 @@ const diagnosticsField = StateField.define<WidgetDiagnostic[]>({
 
 const underline = Decoration.mark({ class: "cm-diag-underline" });
 
+/** Marque d'un diagnostic sans caractère à souligner (ligne vide). */
+class PointMark extends WidgetType {
+  override eq() {
+    return true;
+  }
+  override toDOM() {
+    const el = document.createElement("span");
+    el.className = "cm-diag-point";
+    el.setAttribute("aria-hidden", "true");
+    return el;
+  }
+}
+
+const point = Decoration.widget({ widget: new PointMark(), side: 1 });
+
 const diagnosticMarks = EditorView.decorations.compute([diagnosticsField], (state) => {
   const doc = state.doc.toString();
   const ranges = state
     .field(diagnosticsField)
     .map((d) => diagnosticRange(doc, d))
-    .filter((r): r is NonNullable<typeof r> => r !== null && r.to > r.from)
-    .map((r) => underline.range(r.from, r.to));
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+    .map((r) => (r.to > r.from ? underline.range(r.from, r.to) : point.range(r.from)));
   return Decoration.set(ranges, true);
 });
 
@@ -115,9 +133,16 @@ interface Props {
   label: string;
   /** Texte après chaque modification. */
   onChange: (text: string) => void;
+  /**
+   * Remplacement à faire dans le texte courant, à chaque nouvel objet reçu
+   * après l'ouverture : la première occurrence de `find` devient `replace`,
+   * comme une frappe (`onChange` suit), ou sans `onChange` si `silent` (le
+   * parent sait déjà le texte obtenu). Sert au nom déclaré après un renommage.
+   */
+  rewrite?: { find: string; replace: string; silent?: boolean } | null;
 }
 
-export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, onChange }: Props) {
+export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, onChange, rewrite }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const changed = useEffectEvent((t: string) => onChange(t));
@@ -138,7 +163,7 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
           diagnosticMarks,
           EditorView.contentAttributes.of({ "aria-label": label }),
           EditorView.updateListener.of((u) => {
-            if (u.docChanged) changed(u.state.doc.toString());
+            if (u.docChanged && !u.transactions.some((tr) => tr.annotation(quiet))) changed(u.state.doc.toString());
           }),
         ],
       }),
@@ -157,5 +182,18 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
     if (diagnosticsFor != null && v.state.doc.toString() !== diagnosticsFor) return;
     v.dispatch({ effects: setDiagnostics.of(diagnostics) });
   }, [diagnostics, diagnosticsFor]);
+  // Celui reçu à l'ouverture visait une vue précédente : ignoré.
+  const applied = useRef(rewrite);
+  useEffect(() => {
+    const v = view.current;
+    if (!v || !rewrite || rewrite === applied.current) return;
+    applied.current = rewrite;
+    const at = v.state.doc.toString().indexOf(rewrite.find);
+    if (at < 0) return;
+    v.dispatch({
+      changes: { from: at, to: at + rewrite.find.length, insert: rewrite.replace },
+      annotations: rewrite.silent ? quiet.of(true) : [],
+    });
+  }, [rewrite]);
   return <div className="typst-editor" ref={host} />;
 }

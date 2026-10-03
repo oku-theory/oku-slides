@@ -179,10 +179,9 @@ const QUOTE_FAILING: &str = r#"#import "/oku-slides/lib.typ": widget, field, par
 #let widget = widget("quote", params: (body: p.plain()), (args, ctx) => panic("corps fautif"))
 "#;
 
-#[test]
-fn set_widget_whose_body_fails_in_a_template_keeps_the_version_and_returns_diagnostics() {
-    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = editing(data.path());
+/// En édition du pack par défaut, un modèle de contenu porte un élément `quote`.
+fn template_using_quote(data: &std::path::Path) -> Session {
+    let mut s = editing(data);
     s.set_widget("quote", QUOTE.into()).unwrap();
     let slide = s.deck().slides.iter().find(|sl| sl.kind == "content").map(|sl| sl.id.clone()).unwrap();
     let add: oku_slides_core::Op = serde_json::from_value(serde_json::json!({
@@ -192,8 +191,16 @@ fn set_widget_whose_body_fails_in_a_template_keeps_the_version_and_returns_diagn
     }))
     .unwrap();
     s.apply("Citation", vec![add], None).unwrap();
+    s
+}
+
+#[test]
+fn set_widget_whose_body_fails_in_a_template_keeps_the_version_and_returns_diagnostics() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = template_using_quote(data.path());
     let change = s.set_widget("quote", QUOTE_FAILING.into()).unwrap();
     // Choix du mode modèles : la version reste écrite, le rendu rend ses diagnostics.
+    assert_that!(change.saved).is_true();
     assert_that!(change.status.diagnostics.iter().any(|d| d.error && d.message.contains("corps fautif"))).is_true();
     let current = crate::test_support::library_of(&s).current_version(DEFAULT_PACK).unwrap();
     let quote = oku_slides_core::WidgetFile::parse("quote").unwrap();
@@ -240,4 +247,74 @@ fn set_widget_with_a_nul_character_is_refused() {
     assert_that!(oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr"))))
         .contains("caractère nul");
     assert_that!(s.widget_source("kpi").map_err(|e| e.kind())).is_equal_to(Err(SessionErrorKind::UnknownWidget));
+}
+
+#[test]
+fn save_templates_whose_render_fails_keeps_the_version_and_posts_the_failure() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = template_using_quote(data.path());
+    s.set_widget("quote", QUOTE_FAILING.into()).unwrap();
+    let rename: oku_slides_core::Op =
+        serde_json::from_value(serde_json::json!({ "op": "set_deck_param", "key": "title", "value": "Cassé" }))
+            .unwrap();
+    // Le rendu du document des modèles échoue : l'op n'est pas appliquée,
+    // mais l'enregistrement, lui, réussit.
+    let _ = s.apply("Nom", vec![rename], None);
+    s.doc.notice = None;
+    s.save_templates(true).unwrap();
+    let crate::Mode::Templates { edit, .. } = &s.mode else { panic!("mode modèles attendu") };
+    let lib = crate::test_support::library_of(&s);
+    assert_that!(edit.set).is_not_equal_to(DEFAULT_PACK);
+    assert_that!(lib.current(edit.set)).is_equal_to(Some(edit.base.clone()));
+    assert_that!(s.doc.dirty).is_false();
+    assert_that!(s.doc.notice.as_deref().unwrap_or_default()).contains("corps fautif");
+}
+
+#[test]
+fn rename_widget_to_an_existing_name_is_refused() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let err = s.rename_widget("kpi", "quote").unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidWidget);
+    let shown = oku_slides_i18n::Localize::localize(&err, &s.localizer);
+    assert_that!(shown).contains("« quote » existe déjà");
+    assert_that!(s.widget_source("kpi").unwrap()).is_equal_to(KPI.to_owned());
+    assert_that!(s.widget_source("quote").unwrap()).is_equal_to(QUOTE.to_owned());
+}
+
+#[test]
+fn remove_widget_used_by_a_saved_template_is_refused_in_deck_mode() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = crate::test_support::opened_on(data.path());
+    let set = s.deck().templates.clone().unwrap().id;
+    s.edit_templates(set).unwrap();
+    s.set_widget("kpi", KPI.into()).unwrap();
+    let slide = serde_json::json!({
+        "op": "add_slide", "index": 0,
+        "slide": { "id": "t-kpi", "kind": "blank", "name": "Indicateur", "params": { "elements": [
+            { "id": "k", "kind": "kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
+        ] } }
+    });
+    s.apply("Modèle", vec![serde_json::from_value(slide).unwrap()], None).unwrap();
+    s.save_templates(false).unwrap();
+    s.close_templates().unwrap();
+    // Mode deck : aucun modèle en cours d'édition, seul le modèle enregistré l'utilise.
+    let err = s.remove_widget("kpi").unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInUse);
+    assert_that!(err.one_line()).contains("Indicateur");
+}
+
+#[test]
+fn a_widget_broken_before_a_common_change_is_not_listed_as_broken_by_it() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("_commun", COMMON.into()).unwrap();
+    s.set_widget("cadre", FRAMED.into()).unwrap();
+    let old = FRAMED.replace("widget(\"cadre\"", "widget(\"vieux\"").replace("cadre(field", "cadre(field(");
+    assert_that!(s.set_widget("vieux", old).unwrap().status.is_valid()).is_false();
+    let change = s.set_widget("_commun", "#let cadre = (".into()).unwrap();
+    let broken: Vec<&str> = change.broken.iter().map(|b| b.name.as_str()).collect();
+    assert_that!(broken).is_equal_to(vec!["cadre"]);
 }

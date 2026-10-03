@@ -35,6 +35,7 @@ templates-default-name = قوالبي
 templates-copy-name = { $name } (نسخة)
 templates-adopt-label = القوالب: { $name }
 session-widgets-broken = استُبعدت عناصر واجهة لأنها لا تُترجَم: { $names }. تبقى عناصر الواجهة الأخرى في الحزمة.
+session-widgets-not-saved = تعذّر حفظ إصدار عناصر الواجهة للحزمة «{ $pack }» في المكتبة. يحتفظ به العرض التقديمي.
 session-invalid-widget-name = اسم عنصر واجهة غير صالح: «{ $name }». استخدم أحرفًا لاتينية صغيرة وأرقامًا وشرطات، أو _commun.
 session-widget-too-large = عنصر الواجهة «{ $name }» أكبر من { $max } كيلوبايت.
 session-widget-nul = عنصر الواجهة «{ $name }» يحتوي على محرف NUL.

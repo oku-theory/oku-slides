@@ -15,7 +15,7 @@ fn settings(timeout_ms: u64) -> RenderSettings {
 }
 
 fn looping_probe() -> Request {
-    Request::Probe { pack: looping_pack() }
+    Request::ProbeFile { name: "boucle".into(), source: LOOP_ON_IMPORT.into(), common: None }
 }
 
 fn looping_pack() -> WirePack {

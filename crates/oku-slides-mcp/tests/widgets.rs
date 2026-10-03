@@ -71,7 +71,73 @@ async fn widget_tools_work_in_templates_mode_and_remove_refuses_a_used_widget() 
             { "id": "k", "kind": "kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
         ] } } });
     call(&c, "apply", json!({ "ops": [slide] })).await;
-    let r = call(&c, "remove_widget", json!({ "name": "kpi" })).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("Indicateur");
+    // Le message de Fluent, dans la langue de l'utilisateur (`fr`).
+    assert_that!(error_text(&c, "remove_widget", json!({ "name": "kpi" })).await)
+        .is_equal_to("Le widget « kpi » est utilisé par ces modèles : Indicateur.".to_owned());
+}
+
+/// Le texte d'un résultat d'erreur, débarrassé des isolants Unicode de Fluent.
+async fn error_text(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>, tool: &str, args: Value) -> String {
+    let r = call(c, tool, args).await;
+    assert_that!(r.is_error).named(tool).is_equal_to(Some(true));
+    text_of(&r).replace(['\u{2068}', '\u{2069}'], "")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn widget_tools_refuse_an_invalid_name_in_the_user_language() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    for (tool, args) in [
+        ("set_widget", json!({ "name": "Kpi", "source": KPI })),
+        ("widget_source", json!({ "name": "../kpi" })),
+        ("remove_widget", json!({ "name": "" })),
+        ("preview_widget", json!({ "name": "k pi" })),
+    ] {
+        let text = error_text(&c, tool, args).await;
+        asserting(tool).that(&text).starts_with("Nom de widget invalide");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn widget_tools_on_an_unknown_widget_say_it_is_not_found() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    for (tool, args) in [
+        ("widget_source", json!({ "name": "absent" })),
+        ("remove_widget", json!({ "name": "absent" })),
+        ("set_widget", json!({ "name": "absent", "source": "" })),
+        ("preview_widget", json!({ "name": "absent" })),
+    ] {
+        let text = error_text(&c, tool, args).await;
+        asserting(tool).that(&text).is_equal_to("Widget introuvable : « absent ».".to_owned());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_refuses_a_nul_character_and_an_oversized_file() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let nul = error_text(&c, "set_widget", json!({ "name": "kpi", "source": "#let a = 1\u{0}" })).await;
+    assert_that!(nul).is_equal_to("Le widget « kpi » contient un caractère nul.".to_owned());
+    let big = format!("{KPI}// {}\n", "x".repeat(256 * 1024));
+    let large = error_text(&c, "set_widget", json!({ "name": "kpi", "source": big })).await;
+    assert_that!(large).is_equal_to("Le widget « kpi » dépasse 256 Kio.".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_beyond_max_widgets_is_refused() {
+    let h = start_with_settings(|s| s.render.max_widgets = 1).await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    assert_that!(call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await.is_error)
+        .is_not_equal_to(Some(true));
+    let text = error_text(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    assert_that!(text).is_equal_to("Un pack ne peut pas avoir plus de 1 fichiers de widgets.".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn widget_tools_on_a_closed_tab_answer_in_the_user_language() {
+    let h = start_closed().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let text = error_text(&c, "widget_sources", json!({})).await;
+    assert_that!(text).is_equal_to("Cet onglet n'est plus ouvert.".to_owned());
 }

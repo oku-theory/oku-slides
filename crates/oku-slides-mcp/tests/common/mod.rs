@@ -27,12 +27,18 @@ pub fn temp_dir(prefix: &str) -> tempfile::TempDir {
 /// Une plateforme de test (locale `fr`) et son dossier de données, à garder
 /// vivant autant qu'elle.
 pub fn platform() -> (Platform, tempfile::TempDir) {
+    platform_with(|_| {})
+}
+
+/// [`platform`], réglages retouchés par `tweak`.
+pub fn platform_with(tweak: impl FnOnce(&mut Settings)) -> (Platform, tempfile::TempDir) {
     let data = temp_dir("oku-slides-mcp-");
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
     settings.paths.data = Some(data.path().to_owned());
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.i18n.locale = Some("fr".into());
+    tweak(&mut settings);
     (Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme de test : {e}")), data)
 }
 
@@ -80,12 +86,17 @@ impl Harness {
 /// `Platform` et une session de test, ouverte sur `fixtures/roadmap.json`,
 /// hors du fil async (voir `start`).
 async fn prepared() -> (Platform, Session, tempfile::TempDir) {
+    prepared_with(|_| {}).await
+}
+
+/// [`prepared`], réglages retouchés par `tweak`.
+async fn prepared_with(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> (Platform, Session, tempfile::TempDir) {
     // `Storage` bloque sur son propre runtime (OpenDAL) : l'ouvrir depuis le
     // fil async du test (déjà dans le runtime de `#[tokio::test]`) paniquerait
     // ("Cannot start a runtime from within a runtime"), comme le fait
     // `Tools::with_session` pour les outils.
     tokio::task::spawn_blocking(|| {
-        let (platform, data) = platform();
+        let (platform, data) = platform_with(tweak);
         let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session de test : {e}"));
         session.open(&fixture_path()).unwrap_or_else(|e| panic!("ouverture de la fixture : {e}"));
         (platform, session, data)
@@ -111,24 +122,25 @@ async fn start_with(
 }
 
 pub async fn start() -> Harness {
-    let (platform, session, data) = prepared().await;
+    start_with_settings(|_| {}).await
+}
+
+/// [`start`], réglages retouchés par `tweak` (limites de rendu…).
+pub async fn start_with_settings(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> Harness {
+    let (platform, session, data) = prepared_with(tweak).await;
     let session = Arc::new(Mutex::new(session));
     start_with((platform, data), session.clone(), session).await
 }
 
-/// Un `Sessions` qui refuse toujours l'onglet : simule un onglet fermé côté hôte.
+/// Un `Sessions` qui refuse toujours l'onglet : un vrai espace de travail,
+/// interrogé sur un onglet qu'il n'a pas (fermé côté hôte).
 #[derive(Debug)]
-pub struct ClosedTabs(Arc<Mutex<Session>>);
+pub struct ClosedTabs(Mutex<oku_slides_session::Workspace>);
 
 impl Sessions for ClosedTabs {
-    /// Onglet toujours fermé : `f` n'est jamais appelée, l'erreur vient
-    /// d'un rendu sur une slide qui n'existe pas.
-    fn with(&self, _tab: &str, _f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        let mut s = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        match s.png("closed-tab-has-no-slide") {
-            Ok(_) => panic!("cette slide ne devrait pas exister dans la fixture de test"),
-            Err(e) => Err(e),
-        }
+    /// Onglet toujours fermé : `f` n'est jamais appelée.
+    fn with(&self, _tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
+        self.0.with("onglet-ferme", f)
     }
 }
 
@@ -168,8 +180,15 @@ pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
 /// Un serveur dont l'onglet est fermé : tout outil sur la session échoue.
 pub async fn start_closed() -> Harness {
     let (platform, session, data) = prepared().await;
+    let (platform, workspace) = tokio::task::spawn_blocking(move || {
+        let workspace = oku_slides_session::Workspace::new(Fonts::default(), &platform, None)
+            .unwrap_or_else(|e| panic!("espace de travail de test : {e}"));
+        (platform, workspace)
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante de l'espace de travail : {e}"));
     let session = Arc::new(Mutex::new(session));
-    let sessions: Arc<dyn Sessions> = Arc::new(ClosedTabs(session.clone()));
+    let sessions: Arc<dyn Sessions> = Arc::new(ClosedTabs(Mutex::new(workspace)));
     start_with((platform, data), sessions, session).await
 }
 

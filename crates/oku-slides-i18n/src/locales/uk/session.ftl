@@ -35,6 +35,7 @@ templates-default-name = Мої шаблони
 templates-copy-name = { $name } (копія)
 templates-adopt-label = Шаблони: { $name }
 session-widgets-broken = Віджети вилучено, бо вони не компілюються: { $names }. Інші віджети пакета залишаються.
+session-widgets-not-saved = Не вдалося зберегти в бібліотеці версію віджетів пакета «{ $pack }». Презентація її зберігає.
 session-invalid-widget-name = Неприпустиме ім’я віджета: «{ $name }». Використовуйте малі літери, цифри й дефіси або _commun.
 session-widget-too-large = Віджет «{ $name }» більший за { $max } КіБ.
 session-widget-nul = Віджет «{ $name }» містить символ NUL.

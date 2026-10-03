@@ -313,3 +313,4 @@ ui-widgets-pick = 選擇一個檔案，或建立一個小工具。
 ui-widgets-preview = 小工具預覽
 ui-widgets-no-preview = 無預覽
 ui-widgets-close = 關閉
+ui-widgets-unsaved = 未儲存

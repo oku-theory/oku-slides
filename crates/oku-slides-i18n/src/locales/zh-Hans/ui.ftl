@@ -313,3 +313,4 @@ ui-widgets-pick = 选择一个文件，或创建一个小组件。
 ui-widgets-preview = 小组件预览
 ui-widgets-no-preview = 无预览
 ui-widgets-close = 关闭
+ui-widgets-unsaved = 未保存

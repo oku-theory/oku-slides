@@ -1,14 +1,19 @@
 //! Outils des widgets du pack : statut, source, écriture, suppression et
 //! aperçu. Disponibles en mode deck comme en mode modèles.
+//!
+//! Les erreurs reviennent dans la langue de l'utilisateur (Fluent, via
+//! [`Localize`]) : nom invalide, widget introuvable ou utilisé par un
+//! modèle, limites de taille et de nombre, caractère nul.
 
-use oku_slides_session::{PreviewFormat, Request};
+use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_session::{PreviewFormat, Request, Session};
 use rust_mcp_sdk::schema::{CallToolResult, TextContent};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::McpEvent;
-use crate::tools::{Tools, fail, json_result, parse, png, text};
+use crate::tools::{Tools, fail, parse, png, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct WidgetName {
@@ -33,10 +38,30 @@ pub(crate) struct PreviewWidgetArgs {
     pub params: Map<String, Value>,
 }
 
+/// La tâche de la session a échoué (panique, annulation) : journalisé, puis
+/// dit dans la langue de l'utilisateur.
+fn task_failed(l: &Localizer, e: &tokio::task::JoinError) -> String {
+    tracing::error!(error = %e, "tâche de la session d'un outil de widgets");
+    l.tr("agent-tool-failed")
+}
+
 impl Tools {
+    /// [`Tools::with_session`], l'erreur de la session (onglet fermé compris)
+    /// dite dans la langue de l'utilisateur.
+    async fn with_widgets<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut Session) -> oku_slides_session::Result<T> + Send + 'static,
+    ) -> Result<T, String> {
+        let l = self.localizer.clone();
+        let session = self.session.clone();
+        tokio::task::spawn_blocking(move || session.with(f).and_then(|r| r).map_err(|e| e.localize(&l)))
+            .await
+            .map_err(|e| task_failed(&self.localizer, &e))?
+    }
+
     /// Une requête de widgets, sa réponse JSON telle quelle ; `Changed` si `changes`.
     async fn widget_request(&self, req: Request, changes: bool) -> CallToolResult {
-        match self.with_session(move |s| s.handle(req).map_err(|e| e.one_line())).await {
+        match self.with_widgets(move |s| s.handle(req)).await {
             Ok(json) => {
                 if changes {
                     self.hub.emit(McpEvent::Changed);
@@ -53,12 +78,10 @@ impl Tools {
 
     pub(crate) async fn widget_source(&self, args: Value) -> CallToolResult {
         match parse::<WidgetName>(args) {
-            Ok(WidgetName { name }) => {
-                match self.with_session(move |s| s.widget_source(&name).map_err(|e| e.one_line())).await {
-                    Ok(source) => text(source),
-                    Err(e) => fail(e),
-                }
-            }
+            Ok(WidgetName { name }) => match self.with_widgets(move |s| s.widget_source(&name)).await {
+                Ok(source) => text(source),
+                Err(e) => fail(e),
+            },
             Err(r) => r,
         }
     }
@@ -83,21 +106,27 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let preview = self
-            .with_session(move |s| s.preview_widget(&name, &params, PreviewFormat::Png).map_err(|e| e.one_line()))
-            .await;
+        let preview = self.with_widgets(move |s| s.preview_widget(&name, &params, PreviewFormat::Png)).await;
         let preview = match preview {
             Ok(p) => p,
             Err(e) => return fail(e),
         };
-        let Some(bytes) = &preview.png else { return json_result(&preview.diagnostics) };
+        let diagnostics = match serde_json::to_string(&preview.diagnostics) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::warn!(error = %e, "diagnostics de l'aperçu non sérialisables");
+                return fail(self.localizer.tr("session-response"));
+            }
+        };
+        let Some(bytes) = &preview.png else { return text(diagnostics) };
         let mut result = png(bytes);
         if !preview.diagnostics.is_empty() {
-            match serde_json::to_string(&preview.diagnostics) {
-                Ok(json) => result.content.push(TextContent::new(json, None, None).into()),
-                Err(e) => return fail(format!("response not serializable: {e}")),
-            }
+            result.content.push(TextContent::new(diagnostics, None, None).into());
         }
         result
     }
 }
+
+#[cfg(test)]
+#[path = "widget_tools_tests.rs"]
+mod widget_tools_tests;

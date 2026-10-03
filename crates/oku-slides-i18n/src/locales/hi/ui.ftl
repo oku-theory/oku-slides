@@ -313,3 +313,4 @@ ui-widgets-pick = कोई फ़ाइल चुनें, या विजे
 ui-widgets-preview = विजेट पूर्वावलोकन
 ui-widgets-no-preview = कोई पूर्वावलोकन नहीं
 ui-widgets-close = बंद करें
+ui-widgets-unsaved = सहेजा नहीं गया

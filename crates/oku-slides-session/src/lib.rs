@@ -13,7 +13,7 @@
 //! cinq fonctions s'en chargent, en séquence, `Workspace::apply`, `request`,
 //! `open_files`, `settle` et `post_notice`.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -173,6 +173,8 @@ pub struct Session {
     /// Référence de pack (`deck.templates`) pour laquelle `registry` et
     /// `pack` ont été résolus.
     widgets_templates: Option<PackRef>,
+    /// Les fichiers du pack installé qui restent à sonder (budget épuisé).
+    widgets_unprobed: BTreeSet<oku_slides_core::WidgetFile>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<RenderSlot>,
     template_cache: Option<templates_mode::Previews>,
@@ -296,6 +298,7 @@ impl Session {
             registry,
             pack: None,
             widgets_templates: None,
+            widgets_unprobed: BTreeSet::new(),
             localizer: l.clone(),
             chart_labels: ChartLabels::new(l),
             render_fonts: app_fonts.clone(),
@@ -344,11 +347,14 @@ impl Session {
         }
     }
 
-    /// Les sources du deck de l'utilisateur, même pendant l'édition des modèles.
-    fn user_sources(&self) -> &SourceBundle {
+    /// Les sources qui portent les images, polices et packs du deck de l'utilisateur.
+    ///
+    /// Le deck mis de côté en mode modèles ; en historique, le document
+    /// montré, qui les a pris au deck mis de côté (`history.rs`).
+    fn user_blobs(&self) -> &SourceBundle {
         match &self.mode {
-            Mode::Deck => &self.doc.sources,
-            Mode::Templates { stash, .. } | Mode::History { stash, .. } => &stash.sources,
+            Mode::Deck | Mode::History { .. } => &self.doc.sources,
+            Mode::Templates { stash, .. } => &stash.sources,
         }
     }
 

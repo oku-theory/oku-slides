@@ -35,6 +35,7 @@ templates-default-name = 我的模板
 templates-copy-name = { $name }（副本）
 templates-adopt-label = 模板：{ $name }
 session-widgets-broken = 以下小组件无法编译，已排除：{ $names }。包中的其他小组件保留。
+session-widgets-not-saved = 无法将包“{ $pack }”的小组件版本保存到库中。演示文稿仍保留该版本。
 session-invalid-widget-name = 小组件名称无效：“{ $name }”。请使用小写字母、数字和连字符，或 _commun。
 session-widget-too-large = 小组件“{ $name }”超过 { $max } KiB。
 session-widget-nul = 小组件“{ $name }”包含 NUL 字符。

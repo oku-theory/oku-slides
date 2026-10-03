@@ -35,6 +35,7 @@ templates-default-name = マイテンプレート
 templates-copy-name = { $name }（コピー）
 templates-adopt-label = テンプレート：{ $name }
 session-widgets-broken = コンパイルできないためウィジェットを除外しました：{ $names }。パックのほかのウィジェットはそのまま使えます。
+session-widgets-not-saved = パック「{ $pack }」のウィジェットのバージョンをライブラリに保存できませんでした。プレゼンテーションには保持されています。
 session-invalid-widget-name = ウィジェット名が無効です：「{ $name }」。半角英小文字・数字・ハイフン、または _commun を使ってください。
 session-widget-too-large = ウィジェット「{ $name }」は { $max } KiB を超えています。
 session-widget-nul = ウィジェット「{ $name }」に NUL 文字が含まれています。

@@ -1,7 +1,7 @@
 //! Registre des widgets : une sonde Typst par pack (base, puis le module
 //! d'assemblage du pack) et une sonde par fichier de widget (`widget_probe`).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::Value as Json;
@@ -16,6 +16,7 @@ use oku_slides_core::{WidgetFile, WidgetRegistry};
 
 use crate::error::{BadPackIdSnafu, MissingSnafu, RegistryCompileSnafu, RegistryError, SchemaSnafu, SetupSnafu};
 use crate::fonts::Fonts;
+use crate::probe_cache::FileProbeCache;
 use crate::widget_probe::{FileProbe, probe_key};
 use crate::world::OkuSlidesWorld;
 
@@ -195,13 +196,22 @@ fn probe_json(metadata: Option<Result<Json, serde_json::Error>>) -> Result<Json,
     result.map_err(oku_slides_core::WidgetError::unreadable).map_err(Box::new).context(SchemaSnafu).map_err(Into::into)
 }
 
+/// Registres de packs gardés par [`Registries`], au plus : les plus récents.
+pub(crate) const MAX_CACHED_PACKS: usize = 8;
+
 /// Sondes et registres déjà lus, par pack : une sonde ne compile qu'une
 /// fois par source de pack. La bibliothèque est dans le binaire : constante.
+///
+/// Caches bornés : les [`MAX_CACHED_PACKS`] packs les plus récemment servis,
+/// et quelques sondes par fichier ([`FileProbeCache`]) ; éditer un widget
+/// ne les fait pas grandir.
 pub struct Registries {
     fonts: Fonts,
-    cache: HashMap<[u8; 32], (Arc<Json>, Arc<WidgetRegistry>)>,
-    /// Sondes de fichiers, par [`probe_key`].
-    files: HashMap<[u8; 32], FileProbe>,
+    cache: HashMap<[u8; 32], Arc<WidgetRegistry>>,
+    /// Clés de `cache`, de la moins à la plus récemment servie.
+    recent: VecDeque<[u8; 32]>,
+    /// Sondes de fichiers, par nom et [`probe_key`].
+    files: FileProbeCache,
     /// Compilations de sondes de fichiers (tests du cache).
     #[cfg(test)]
     pub(crate) file_compiles: usize,
@@ -221,7 +231,8 @@ impl Registries {
         Self {
             fonts,
             cache: HashMap::new(),
-            files: HashMap::new(),
+            recent: VecDeque::new(),
+            files: FileProbeCache::default(),
             #[cfg(test)]
             file_compiles: 0,
         }
@@ -232,38 +243,41 @@ impl Registries {
     pub fn get(&mut self, pack: Option<&PackWidgets>) -> Result<Arc<WidgetRegistry>, RegistryError> {
         match pack {
             None => base_registry(&self.fonts),
-            Some(p) => Ok(self.entry(p)?.1.clone()),
+            Some(p) => self.entry(p),
         }
     }
 
-    /// Le JSON brut de la sonde de `pack`, partagé avec [`Registries::get`].
-    pub fn probe(&mut self, pack: &PackWidgets) -> Result<Arc<Json>, RegistryError> {
-        Ok(self.entry(pack)?.0.clone())
-    }
-
-    /// La sonde du fichier `name` (avec `_commun`), mémoïsée par [`probe_key`].
+    /// La sonde du fichier `name` (avec `_commun`), mémoïsée par [`probe_key`]
+    /// dans un [`FileProbeCache`].
     pub fn probe_file(&mut self, name: &WidgetFile, source: &str, common: Option<&str>) -> FileProbe {
         let key = probe_key(name, source, common);
-        if let Some(probe) = self.files.get(&key) {
-            return probe.clone();
+        if let Some(probe) = self.files.get(name, &key) {
+            return probe;
         }
         #[cfg(test)]
         {
             self.file_compiles += 1;
         }
         let probe = crate::widget_probe::probe_file(&self.fonts, name, source, common);
-        self.files.insert(key, probe.clone());
+        self.files.insert(name, key, probe.clone());
         probe
     }
 
-    fn entry(&mut self, pack: &PackWidgets) -> Result<&(Arc<Json>, Arc<WidgetRegistry>), RegistryError> {
+    fn entry(&mut self, pack: &PackWidgets) -> Result<Arc<WidgetRegistry>, RegistryError> {
         let key = pack.fingerprint();
-        if !self.cache.contains_key(&key) {
-            let json = probe_registry(&self.fonts, Some(pack))?;
-            let registry = registry_from_probe(json.clone())?;
-            self.cache.insert(key, (Arc::new(json), Arc::new(registry)));
+        if self.cache.contains_key(&key) {
+            self.recent.retain(|k| *k != key);
+        } else {
+            let registry = load_registry(&self.fonts, Some(pack))?;
+            self.cache.insert(key, Arc::new(registry));
+            while self.recent.len() >= MAX_CACHED_PACKS {
+                if let Some(old) = self.recent.pop_front() {
+                    self.cache.remove(&old);
+                }
+            }
         }
-        self.cache.get(&key).ok_or_else(|| MissingSnafu.build().into())
+        self.recent.push_back(key);
+        self.cache.get(&key).cloned().ok_or_else(|| MissingSnafu.build().into())
     }
 }
 

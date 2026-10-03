@@ -35,6 +35,7 @@ templates-default-name = Mẫu của tôi
 templates-copy-name = { $name } (bản sao)
 templates-adopt-label = Mẫu: { $name }
 session-widgets-broken = Đã bỏ qua các widget không biên dịch được: { $names }. Các widget khác của gói vẫn được giữ.
+session-widgets-not-saved = Không thể lưu phiên bản widget của gói “{ $pack }” vào thư viện. Bản trình bày vẫn giữ phiên bản này.
 session-invalid-widget-name = Tên widget không hợp lệ: “{ $name }”. Hãy dùng chữ thường, chữ số và dấu gạch ngang, hoặc _commun.
 session-widget-too-large = Widget “{ $name }” lớn hơn { $max } KiB.
 session-widget-nul = Widget “{ $name }” chứa ký tự NUL.

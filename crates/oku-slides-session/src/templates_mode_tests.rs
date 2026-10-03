@@ -179,3 +179,35 @@ fn two_editing_sessions_make_two_undo_steps_in_the_deck() {
     s.undo().unwrap();
     assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(first));
 }
+
+/// Le titre du deck des modèles devient `t`.
+fn rename(t: &str) -> oku_slides_core::Op {
+    serde_json::from_value(serde_json::json!({ "op": "set_deck_param", "key": "title", "value": t })).unwrap()
+}
+
+#[test]
+fn a_save_after_a_turn_begun_in_deck_mode_keeps_the_turn_version() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = crate::test_support::opened_on(data.path());
+    let set = s.deck().templates.clone().unwrap().id;
+    // Le tour groupe le deck, qui passe de côté pendant le tour.
+    s.begin_turn("modifie les modèles");
+    s.edit_templates(set).unwrap();
+    s.apply("Nom", vec![rename("Un")], None).unwrap();
+    s.save_templates(false).unwrap();
+    s.end_turn();
+    let turn = library_of(&s).current(set).unwrap();
+    // Après le tour : nouvelle étape du deck mis de côté, pas de fusion.
+    s.apply("Nom", vec![rename("Deux")], None).unwrap();
+    s.save_templates(false).unwrap();
+    let after = library_of(&s).current(set).unwrap();
+    assert_that!(after).is_not_equal_to(turn.clone());
+    assert_that!(library_of(&s).version(set, &turn).is_some()).is_true();
+    assert_that!(s.doc.sources.packs.contains_key(&turn)).is_true();
+    let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
+    assert_that!(stash.sources.packs.contains_key(&turn)).is_true();
+    // Annuler revient à la version du tour, présente dans les sources.
+    s.close_templates().unwrap();
+    s.undo().unwrap();
+    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(turn));
+}

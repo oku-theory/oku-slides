@@ -38,3 +38,4 @@ agent-not-found = لم يتم العثور على الوكيل: { $command }. إ
 agent-no-http = هذا الوكيل لا يستطيع الاتصال بأدوات Oku Slides.
 agent-stopped = توقف الوكيل.
 agent-failed = رفض الوكيل الطلب: { $message }
+agent-tool-failed = تعذّر تنفيذ الأداة بشكل غير متوقع.

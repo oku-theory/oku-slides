@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { WidgetStatus } from "./api";
-import { COMMON, diagnosticPlace, fileDiagnostics, isWidgetName, listedDiagnostics, ordered, skeleton, stateOf } from "./widgetList";
+import { COMMON, diagnosticPlace, fileDiagnostics, isWidgetName, listedDiagnostics, merged, nameAvailable, ordered, skeleton, stateOf, withTrial } from "./widgetList";
 
 const status = (name: string, error = false): WidgetStatus => ({
   name,
@@ -11,6 +11,34 @@ const status = (name: string, error = false): WidgetStatus => ({
 describe("widgetList", () => {
   test("_commun en tête, puis par nom", () => {
     expect(ordered([status("kpi"), status(COMMON), status("a")]).map((s) => s.name)).toEqual([COMMON, "a", "kpi"]);
+  });
+
+  test("statuts fusionnés : ceux rendus remplacent ou s'ajoutent, dans l'ordre", () => {
+    const out = merged([status(COMMON), status("kpi")], [status("kpi", true), status("a")]);
+    expect(out.map((s) => [s.name, stateOf(s)])).toEqual([[COMMON, "valid"], ["a", "valid"], ["kpi", "errors"]]);
+    expect(merged(null, [status("kpi")]).map((s) => s.name)).toEqual(["kpi"]);
+  });
+
+  test("nom saisi : admis et libre, `_commun` seulement créé ; refusé tant que la liste est inconnue", () => {
+    const list = [status(COMMON), status("kpi")];
+    expect(nameAvailable(list, "quote", null)).toBe(true);
+    expect(nameAvailable(list, "kpi", null)).toBe(false);
+    expect(nameAvailable(list, "kpi", "kpi")).toBe(true);
+    // `_commun` : créé s'il manque, jamais en double ni par un renommage.
+    expect(nameAvailable(list, COMMON, null)).toBe(false);
+    expect(nameAvailable([status("kpi")], COMMON, null)).toBe(true);
+    expect(nameAvailable([status("kpi")], COMMON, "kpi")).toBe(false);
+    expect(nameAvailable(list, "Kpi", null)).toBe(false);
+    expect(nameAvailable(list, "", null)).toBe(false);
+    expect(nameAvailable(null, "quote", null)).toBe(false);
+  });
+
+  test("relecture et essai : les diagnostics de l'essai manquants s'ajoutent, sans doublon ni fichier disparu", () => {
+    const read = [status("kpi", true), status("quote")];
+    const trial = [status("kpi", true), { ...status("quote"), diagnostics: [{ file: "quote", line: 2, column: 1, error: true, message: "rendu" }] }, status("gone", true)];
+    const out = withTrial(read, trial);
+    expect(out.map((s) => [s.name, s.diagnostics.length])).toEqual([["kpi", 1], ["quote", 1]]);
+    expect(out[1]?.diagnostics[0]?.message).toBe("rendu");
   });
 
   test("état : valide, ou erreurs", () => {

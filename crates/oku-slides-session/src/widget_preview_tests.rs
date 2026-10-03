@@ -208,3 +208,61 @@ fn png_preview_for_the_agent_has_no_box() {
     assert_that!(preview.png.is_some()).is_true();
     assert_that!(preview.bbox).is_none();
 }
+
+const LOGO: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("logo", params: (asset: p.asset()),
+  (args, ctx) => (ctx.load)(asset: args.asset, fit: "contain"))
+"#;
+
+/// Un PNG de 2 × 2 pixels rouges.
+fn red_png() -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, 2, 2);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.write_header().unwrap().write_image_data(&[255, 0, 0].repeat(4)).unwrap();
+    out
+}
+
+#[test]
+fn preview_widget_shows_an_asset_of_the_deck() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("logo", LOGO.into()).unwrap();
+    let id = s.doc.sources.add_asset(red_png());
+    let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
+    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
+    // L'image, pas le cadre « image manquante ».
+    assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
+}
+
+#[test]
+fn preview_widget_in_templates_mode_shows_an_asset_of_the_set_aside_deck() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    let id = s.doc.sources.add_asset(red_png());
+    let set = s.deck().templates.clone().unwrap().id;
+    s.edit_templates(set).unwrap();
+    s.set_widget("logo", LOGO.into()).unwrap();
+    let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
+    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
+    assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
+}
+
+#[test]
+fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("logo", LOGO.into()).unwrap();
+    s.apply("Thème", vec![oku_slides_core::Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.history_open().unwrap();
+    // L'historique a pris les images du deck mis de côté (`history.rs`) :
+    // celle-ci y est, sans rendu qui l'aurait déjà envoyée au processus de rendu.
+    let id = s.doc.sources.add_asset(red_png());
+    let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
+    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
+    assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
+}

@@ -35,6 +35,7 @@ templates-default-name = मेरे टेम्पलेट
 templates-copy-name = { $name } (कॉपी)
 templates-adopt-label = टेम्पलेट: { $name }
 session-widgets-broken = ये विजेट कंपाइल नहीं होते, इसलिए छोड़ दिए गए: { $names }। पैक के बाकी विजेट बने रहते हैं।
+session-widgets-not-saved = पैक “{ $pack }” के विजेट का संस्करण लाइब्रेरी में सहेजा नहीं जा सका। प्रेज़ेंटेशन इसे रखता है।
 session-invalid-widget-name = विजेट का नाम अमान्य है: “{ $name }”। छोटे अक्षर, अंक और हाइफ़न, या _commun इस्तेमाल करें।
 session-widget-too-large = विजेट “{ $name }” { $max } KiB से बड़ा है।
 session-widget-nul = विजेट “{ $name }” में NUL वर्ण है।

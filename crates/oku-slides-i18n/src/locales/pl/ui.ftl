@@ -321,3 +321,4 @@ ui-widgets-pick = Wybierz plik lub utwórz widżet.
 ui-widgets-preview = Podgląd widżetu
 ui-widgets-no-preview = Brak podglądu
 ui-widgets-close = Zamknij
+ui-widgets-unsaved = Nie zapisano

@@ -123,7 +123,6 @@ impl Worker {
                 self.assets.insert(id, payload);
                 ok()
             }
-            Request::Probe { pack } => self.probe(pack),
             Request::ProbeFile { name, source, common } => self.probe_file(&name, &source, common.as_deref()),
             Request::OpenSlot { slot, fonts } => self.open_slot(slot, &fonts),
             Request::CloseSlot { slot } => {
@@ -163,12 +162,6 @@ impl Worker {
     fn registries(&mut self) -> &mut Registries {
         // Les schémas ne dépendent pas des polices : celles de Typst suffisent.
         self.registries.get_or_insert_with(|| Registries::new(Fonts::default()))
-    }
-
-    fn probe(&mut self, pack: WirePack) -> Result<Reply, WireError> {
-        let pack = pack_of(pack)?;
-        let json = self.registries().probe(&pack).map_err(|e| WireError::from_registry(&e))?;
-        Ok((Response::Probe { json: (*json).clone() }, Vec::new()))
     }
 
     fn probe_file(&mut self, name: &str, source: &str, common: Option<&str>) -> Result<Reply, WireError> {

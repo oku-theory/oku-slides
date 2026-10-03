@@ -26,3 +26,6 @@ render-frame = Unlesbare Nachricht des Rendering-Prozesses
 render-stale = Das Rendern wurde ersetzt; bitte erneut versuchen
 render-pack-disabled = Die Widgets des Pakets „{ $pack }“ sind für diese Sitzung deaktiviert
 registry-schema-remote = Ungültige Widget-Registry: { $message }
+probe-not-probed = Noch nicht geprüft: Die Zeit für die Widgets des Pakets ist abgelaufen. Die Prüfung folgt beim nächsten Rendern.
+probe-too-many-files = Das Paket hat mehr als { $max } Widget-Dateien: Diese wird nicht geladen.
+probe-too-large = Größer als { $max } KiB: nicht geladen.

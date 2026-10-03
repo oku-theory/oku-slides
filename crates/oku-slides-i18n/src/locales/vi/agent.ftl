@@ -38,3 +38,4 @@ agent-not-found = Không tìm thấy tác nhân: { $command }. Cài đặt [agen
 agent-no-http = Tác nhân này không thể kết nối với các công cụ của Oku Slides.
 agent-stopped = Tác nhân đã dừng.
 agent-failed = Tác nhân đã từ chối yêu cầu: { $message }
+agent-tool-failed = Công cụ gặp lỗi ngoài dự kiến.

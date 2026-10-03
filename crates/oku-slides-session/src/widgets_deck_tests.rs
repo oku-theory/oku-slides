@@ -25,7 +25,8 @@ fn set_widget_twice_in_deck_mode_makes_one_current_version_and_one_undo_step() {
     let data = fresh_dir("oku-slides-widgets-deck-");
     let mut s = opened_on(data.path());
     let before = s.deck().templates.clone().unwrap();
-    s.set_widget("quote", QUOTE.into()).unwrap();
+    let change = s.set_widget("quote", QUOTE.into()).unwrap();
+    assert_that!(serde_json::to_value(&change).unwrap()["saved"].clone()).is_equal_to(json!(true));
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
     let after = s.deck().templates.clone().unwrap();
     assert_that!(after.id).is_equal_to(before.id);
@@ -145,6 +146,8 @@ fn set_widget_whose_body_fails_to_render_changes_nothing_and_returns_diagnostics
     let versions = library_of(&s).versions(r.id).len();
     let packs = s.doc.sources.packs.len();
     let change = s.set_widget("quote", QUOTE_FAILING.into()).unwrap();
+    assert_that!(change.saved).is_false();
+    assert_that!(serde_json::to_value(&change).unwrap()["saved"].clone()).is_equal_to(json!(false));
     assert_that!(change.status.is_valid()).is_false();
     assert_that!(change.status.diagnostics.iter().any(|d| d.error && d.message.contains("corps fautif"))).is_true();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(r.clone()));
@@ -280,4 +283,67 @@ fn a_save_that_merges_a_change_on_disk_ends_the_widget_session() {
     assert_that!(lib.version(first.id, &first.version).is_some()).is_true();
     let manifest = PackManifest::from_files(&lib.version(second.id, &second.version).unwrap()).unwrap();
     assert_that!(manifest.parent).is_equal_to(Some(first.version));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_library_write_failure_after_the_render_posts_a_notice_and_keeps_the_deck_version() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    // Bibliothèque en lecture seule : la version ne peut pas y être écrite.
+    let templates = data.path().join("lecture-seule");
+    std::fs::create_dir(&templates).unwrap();
+    s.set_templates_dir(&templates);
+    std::fs::set_permissions(&templates, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let change = s.set_widget("quote", QUOTE.into());
+    std::fs::set_permissions(&templates, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_that!(change.unwrap().status.is_valid()).is_true();
+    let r = s.deck().templates.clone().unwrap();
+    assert_that!(s.doc.sources.packs.contains_key(&r.version)).is_true();
+    assert_that!(library_of(&s).version(r.id, &r.version)).is_none();
+    assert_that!(s.doc.notice.as_deref().unwrap_or_default()).contains("bibliothèque");
+}
+
+const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", params: (value: p.plain()), (args, ctx) => field(ctx, "value", args.value))
+"#;
+
+#[test]
+fn undo_and_redo_of_a_widget_session_in_deck_mode_follow_the_registry() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    assert_that!(s.registry.get("kpi")).is_none();
+    s.set_widget("kpi", KPI.into()).unwrap();
+    assert_that!(s.registry.get("kpi")).is_some();
+    s.undo().unwrap();
+    assert_that!(s.registry.get("kpi")).is_none();
+    assert_that!(std::ptr::eq(s.doc.sources.registry(), &*s.registry)).is_true();
+    s.redo().unwrap();
+    assert_that!(s.registry.get("kpi")).is_some();
+    assert_that!(std::ptr::eq(s.doc.sources.registry(), &*s.registry)).is_true();
+}
+
+#[test]
+fn rename_and_remove_requests_in_deck_mode_make_one_version_and_one_undo_step() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    let before = s.deck().templates.clone().unwrap();
+    let versions = library_of(&s).versions(before.id).len();
+    s.handle(crate::Request::SetWidget { name: "kpi".into(), source: KPI.into() }).unwrap();
+    s.handle(crate::Request::RenameWidget { from: "kpi".into(), to: "indicateur".into() }).unwrap();
+    assert_that!(s.widget_source("indicateur").unwrap().as_str()).contains("widget(\"indicateur\"");
+    assert_that!(s.registry.get("indicateur")).is_some();
+    s.handle(crate::Request::RemoveWidget { name: "indicateur".into() }).unwrap();
+    assert_that!(s.widget_status().unwrap()).is_empty();
+    // Une seule version de séance, de parente la version d'avant.
+    let r = s.deck().templates.clone().unwrap();
+    let lib = library_of(&s);
+    assert_that!(lib.versions(before.id).len()).is_equal_to(versions + 1);
+    let manifest = PackManifest::from_files(&lib.version(r.id, &r.version).unwrap()).unwrap();
+    assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
+    // Une seule étape : annuler rend la version d'avant.
+    s.handle(crate::Request::Undo).unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(before));
 }

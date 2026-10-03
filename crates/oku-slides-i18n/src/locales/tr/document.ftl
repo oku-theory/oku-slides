@@ -27,3 +27,6 @@ render-frame = Oluşturma işleminden okunamayan ileti geldi
 render-stale = Oluşturma değiştirildi; yeniden deneyin
 render-pack-disabled = “{ $pack }” paketinin widget'ları bu oturum için devre dışı
 registry-schema-remote = Geçersiz widget kaydı: { $message }
+probe-not-probed = Henüz denetlenmedi: paketin widget'larına ayrılan süre doldu. Bir sonraki işlemede denetlenecek.
+probe-too-many-files = Pakette { $max } widget dosyasından fazlası var: bu dosya yüklenmedi.
+probe-too-large = { $max } KiB'tan büyük: yüklenmedi.

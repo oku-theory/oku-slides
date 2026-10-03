@@ -35,6 +35,7 @@ templates-default-name = เทมเพลตของฉัน
 templates-copy-name = { $name } (สำเนา)
 templates-adopt-label = เทมเพลต: { $name }
 session-widgets-broken = ละวิดเจ็ตเหล่านี้เพราะคอมไพล์ไม่ผ่าน: { $names } วิดเจ็ตอื่นในแพ็กยังคงอยู่
+session-widgets-not-saved = บันทึกเวอร์ชันวิดเจ็ตของแพ็ก “{ $pack }” ลงในคลังไม่ได้ งานนำเสนอยังเก็บเวอร์ชันนี้ไว้
 session-invalid-widget-name = ชื่อวิดเจ็ตไม่ถูกต้อง: “{ $name }” ใช้อักษรละตินตัวพิมพ์เล็ก ตัวเลข และขีดกลาง หรือ _commun
 session-widget-too-large = วิดเจ็ต “{ $name }” มีขนาดเกิน { $max } KiB
 session-widget-nul = วิดเจ็ต “{ $name }” มีอักขระ NUL

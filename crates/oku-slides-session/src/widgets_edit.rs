@@ -95,6 +95,10 @@ pub struct WidgetChange {
     pub status: WidgetStatus,
     /// Widgets valides avant, cassés après (un `_commun` modifié).
     pub broken: Vec<WidgetStatus>,
+    /// L'écriture est enregistrée.
+    ///
+    /// Faux en mode deck quand le rendu échoue : rien n'est enregistré.
+    pub saved: bool,
 }
 
 /// Statuts après une écriture, et diagnostics d'un rendu en échec.
@@ -217,12 +221,12 @@ impl Session {
             widgets.insert(name.clone(), source);
         }
         let before = self.statuses(&t.version, t.files.widgets())?;
-        let after = match self.commit_widgets(&t, widgets.clone()) {
-            Ok((after, render)) => with_render(after, render, &name),
+        let (after, saved) = match self.commit_widgets(&t, widgets.clone()) {
+            Ok((after, render)) => (with_render(after, render, &name), true),
             // Mode deck : rien n'a changé ; les statuts sont ceux de l'essai.
             Err(e) if e.render_error().is_some() => {
                 let render = render_diagnostics(&e);
-                with_render(self.statuses(&t.version, &widgets)?, render, &name)
+                (with_render(self.statuses(&t.version, &widgets)?, render, &name), false)
             }
             Err(e) => return Err(e),
         };
@@ -233,7 +237,7 @@ impl Session {
         });
         let was_valid = |n: &WidgetFile| before.iter().any(|b| b.name == *n && b.is_valid());
         let broken = after.into_iter().filter(|s| s.name != name && !s.is_valid() && was_valid(&s.name)).collect();
-        Ok(WidgetChange { status, broken })
+        Ok(WidgetChange { status, broken, saved })
     }
 
     /// Supprime le fichier `name` ; refusé si un modèle du pack l'utilise.

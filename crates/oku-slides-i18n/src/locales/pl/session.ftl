@@ -35,6 +35,7 @@ templates-default-name = Moje szablony
 templates-copy-name = { $name } (kopia)
 templates-adopt-label = Szablony: { $name }
 session-widgets-broken = Pominięto widżety, które się nie kompilują: { $names }. Pozostałe widżety pakietu zostają.
+session-widgets-not-saved = Nie udało się zapisać w bibliotece wersji widżetów pakietu „{ $pack }”. Prezentacja ją zachowuje.
 session-invalid-widget-name = Nieprawidłowa nazwa widżetu: „{ $name }”. Użyj małych liter, cyfr i łączników albo _commun.
 session-widget-too-large = Widżet „{ $name }” przekracza { $max } KiB.
 session-widget-nul = Widżet „{ $name }” zawiera znak NUL.

@@ -38,3 +38,4 @@ agent-not-found = Ajan bulunamadı: { $command }. Ayar [agent] command.
 agent-no-http = Bu ajan Oku Slides'ın araçlarına bağlanamıyor.
 agent-stopped = Ajan durdu.
 agent-failed = Ajan isteği reddetti: { $message }
+agent-tool-failed = Araç beklenmedik biçimde başarısız oldu.

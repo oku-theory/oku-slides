@@ -22,6 +22,7 @@ mod diagnostic;
 mod error;
 mod fonts;
 mod palette;
+mod probe_cache;
 mod registry;
 mod widget_probe;
 mod wire;
@@ -45,6 +46,7 @@ use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};
 pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
+pub use probe_cache::FileProbeCache;
 pub use registry::{
     PackWidgets, Registries, base_probe, base_registry, is_pack_id, load_registry, probe_registry, registry_from_probe,
 };

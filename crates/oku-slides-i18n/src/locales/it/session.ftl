@@ -35,6 +35,7 @@ templates-default-name = I miei modelli
 templates-copy-name = { $name } (copia)
 templates-adopt-label = Modelli: { $name }
 session-widgets-broken = Widget esclusi perché non compilano: { $names }. Gli altri widget del pacchetto restano.
+session-widgets-not-saved = Impossibile salvare nella libreria la versione dei widget del pacchetto «{ $pack }». La presentazione la conserva.
 session-invalid-widget-name = Nome di widget non valido: «{ $name }». Usa lettere minuscole, cifre e trattini, oppure _commun.
 session-widget-too-large = Il widget «{ $name }» supera { $max } KiB.
 session-widget-nul = Il widget «{ $name }» contiene un carattere NUL.

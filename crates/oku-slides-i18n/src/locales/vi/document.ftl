@@ -27,3 +27,6 @@ render-frame = Thông điệp không đọc được từ tiến trình kết xu
 render-stale = Bản kết xuất đã bị thay thế; hãy thử lại
 render-pack-disabled = Các widget của gói “{ $pack }” bị tắt trong phiên này
 registry-schema-remote = Sổ đăng ký widget không hợp lệ: { $message }
+probe-not-probed = Chưa kiểm tra: đã hết thời gian dành cho các widget của gói. Sẽ kiểm tra ở lần hiển thị tiếp theo.
+probe-too-many-files = Gói có hơn { $max } tệp widget: tệp này không được tải.
+probe-too-large = Lớn hơn { $max } KiB: không được tải.

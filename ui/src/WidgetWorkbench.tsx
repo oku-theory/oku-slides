@@ -2,8 +2,8 @@
  * Panneau Widgets : les fichiers du pack en cours (mode modèles ou deck),
  * l'éditeur Typst du fichier choisi et l'aperçu du widget seul.
  *
- * La frappe passe par `set_widget`, 400 ms après la dernière touche, puis
- * l'aperçu est redemandé. L'agent passe par les mêmes opérations : quand
+ * La frappe passe par `set_widget`, 400 ms après la dernière touche ; ses
+ * statuts viennent de la réponse, puis l'aperçu est redemandé. L'agent passe par les mêmes opérations : quand
  * `revision` (version du pack) change, la liste est relue, et la source
  * aussi si ce n'est pas notre propre écriture.
  */
@@ -14,7 +14,7 @@ import { PREVIEW_DELAY_MS, debounced } from "./debounce";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import TypstEditor from "./TypstEditor";
-import { COMMON, diagnosticPlace, fileDiagnostics, isWidgetName, listedDiagnostics, ordered, skeleton, stateOf, widgetLabel } from "./widgetList";
+import { COMMON, declaredAs, diagnosticPlace, fileDiagnostics, listedDiagnostics, merged, nameAvailable, ordered, skeleton, stateOf, widgetLabel, withTrial } from "./widgetList";
 
 interface Props {
   api: TabApi;
@@ -33,6 +33,17 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
   const [naming, setNaming] = useState<{ from: string | null; value: string } | null>(null);
+  /** Fichiers dont la dernière écriture a échoué : le texte tapé n'est pas enregistré. */
+  const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(new Set());
+  const markUnsaved = useCallback((name: string, on: boolean) => {
+    setUnsaved((u) => {
+      if (u.has(name) === on) return u;
+      const next = new Set(u);
+      if (on) next.add(name);
+      else next.delete(name);
+      return next;
+    });
+  }, []);
   /** Fichier dont la source est affichée, et son dernier texte enregistré. */
   const loaded = useRef<string | null>(null);
   const sent = useRef<string | null>(null);
@@ -42,7 +53,15 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
   const edits = useRef(0);
   /** Une frappe attend son écriture. */
   const unsent = useRef(false);
-  /** Écritures en cours ; la dernière partie, qu'un renommage ou une suppression attend. */
+  /**
+   * Renommages dans la file, par ancien nom. Une frappe tapée pendant l'un
+   * d'eux vise encore l'ancien nom : s'il aboutit, elle est écrite sous le
+   * nouveau, son nom déclaré suivant, pour ne pas recréer l'ancien fichier.
+   */
+  const moves = useRef(new Map<string, { to: string; done: boolean }>());
+  /** Nom déclaré à corriger dans l'éditeur après un renommage pendant une frappe. */
+  const [rewrite, setRewrite] = useState<{ find: string; replace: string; silent?: boolean } | null>(null);
+  /** Opérations en cours (écritures, suppressions, renommages) ; la dernière de la file. */
   const writing = useRef(0);
   const inflight = useRef<Promise<unknown>>(Promise.resolve());
   /** Numéro du dernier aperçu demandé : un aperçu plus ancien est ignoré. */
@@ -58,7 +77,22 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
   const changed = useCallback(() => changedRef.current(), []);
 
   const fail = useCallback((e: unknown) => errorRef.current(errorText(e)), []);
-  const refresh = useCallback(() => api.widgetStatus().then((s) => setStatuses(ordered(s))), [api]);
+  /**
+   * Statuts rendus par la dernière écriture, et le texte écrit. Ils portent
+   * les diagnostics du rendu (mode modèles), que la relecture
+   * (`widget_status`, la sonde) n'a pas. La première relecture qui suit les
+   * garde si le fichier a bien ce texte (enregistré, pas un essai refusé du
+   * mode deck), puis ils sont oubliés.
+   */
+  const trial = useRef<{ statuses: WidgetStatus[]; file: string; text: string } | null>(null);
+  const refresh = useCallback(() => {
+    const t = trial.current;
+    trial.current = null;
+    const written = t ? api.widgetSource(t.file).catch(() => null) : Promise.resolve(null);
+    return Promise.all([api.widgetStatus(), written]).then(([list, source]) => {
+      setStatuses(ordered(t && source === t.text ? withTrial(list, t.statuses) : list));
+    });
+  }, [api]);
   const clearPreview = useCallback(() => {
     previewSeq.current += 1;
     setPreview(null);
@@ -111,6 +145,54 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
     };
   }, [api, current, revision, fail, showPreview, clearPreview]);
 
+  /**
+   * Met `task` à la suite des opérations en cours (écritures, suppressions,
+   * renommages) : une à la fois, dans l'ordre, même si l'une est lente.
+   * Un échec est dit, et la file continue.
+   */
+  const enqueue = useCallback(
+    (task: () => Promise<unknown>) => {
+      writing.current += 1;
+      inflight.current = inflight.current
+        .then(task)
+        .catch(fail)
+        .finally(() => {
+          writing.current -= 1;
+        });
+    },
+    [fail],
+  );
+
+  /** Écrit `text` dans `name` ; ses statuts, son aperçu, sa marque « non enregistré ». */
+  const write = useCallback(
+    (name: string, text: string) =>
+      api.setWidget(name, text).then(
+        (change) => {
+          // Les statuts rendus sont ceux de `text` (même un essai refusé en mode deck) :
+          // pas de relecture ici, celle du pack changé suffit.
+          setStatuses((s) => merged(s, [change.status, ...change.broken]));
+          setChecked(text);
+          if (!change.saved) {
+            // Essai refusé (mode deck, rendu en échec) : rien d'enregistré, le pack n'a pas
+            // changé. Le texte tapé reste non enregistré, et une relecture ne l'écrase pas.
+            markUnsaved(name, true);
+            return;
+          }
+          // Enregistré seulement maintenant : un échec garde le texte tapé, non enregistré.
+          sent.current = text;
+          markUnsaved(name, false);
+          trial.current = { statuses: [change.status, ...change.broken], file: name, text };
+          showPreview(name);
+          changed();
+        },
+        (e: unknown) => {
+          markUnsaved(name, true);
+          throw e;
+        },
+      ),
+    [api, changed, showPreview, markUnsaved],
+  );
+
   const push = useMemo(
     () =>
       debounced((name: string, text: string) => {
@@ -118,27 +200,11 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
         // Un fichier vide vaudrait suppression : on attend du texte.
         if (text === "") return;
         edits.current += 1;
-        writing.current += 1;
-        // Chaînée sur l'écriture précédente : l'ordre des frappes est gardé, même si une sonde est lente.
-        inflight.current = inflight.current
-          .then(() => api.setWidget(name, text))
-          .then(() => {
-            // Enregistré seulement maintenant : un échec garde le texte tapé, non enregistré.
-            sent.current = text;
-            changed();
-            return refresh();
-          })
-          .then(() => {
-            // Les statuts lus sont ceux de `text` : leurs diagnostics valent pour lui.
-            setChecked(text);
-            showPreview(name);
-          })
-          .catch(fail)
-          .finally(() => {
-            writing.current -= 1;
-          });
+        const move = moves.current.get(name);
+        // Renommé entre-temps : la frappe suit le fichier, nom déclaré compris.
+        enqueue(() => (move?.done ? write(move.to, declaredAs(text, name, move.to)) : write(name, text)));
       }, PREVIEW_DELAY_MS),
-    [api, changed, refresh, showPreview, fail],
+    [enqueue, write],
   );
   // Fermeture : la dernière frappe part quand même.
   useEffect(() => () => push.flush(), [push]);
@@ -160,23 +226,73 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose, naming]);
 
-  /** Le nom saisi : admis, et libre (un autre fichier ne le porte pas). */
-  const nameOk = (n: { from: string | null; value: string }) =>
-    isWidgetName(n.value) && !(statuses ?? []).some((s) => s.name === n.value && s.name !== n.from);
+  /** Le nom saisi : admis, et libre ; la liste doit être connue. */
+  const nameOk = (n: { from: string | null; value: string }) => nameAvailable(statuses, n.value, n.from);
 
   const commitName = () => {
     if (!naming || !nameOk(naming)) return;
     const { from, value } = naming;
     setNaming(null);
     push.flush();
-    inflight.current
-      .then((): Promise<unknown> => (from ? api.renameWidget(from, value) : api.setWidget(value, skeleton(value))))
-      .then(() => {
-        changed();
-        setCurrent(value);
-        return refresh();
-      })
-      .catch(fail);
+    if (from) rename(from, value);
+    else
+      enqueue(() =>
+        api.setWidget(value, skeleton(value)).then((c) => {
+          // Refusé (mode deck, rendu en échec) : rien n'est créé ; le premier diagnostic dit pourquoi.
+          if (!c.saved) return fail(c.status.diagnostics[0]?.message ?? t("ui-widgets-unsaved"));
+          markUnsaved(value, false);
+          trial.current = { statuses: [c.status, ...c.broken], file: value, text: skeleton(value) };
+          setStatuses((s) => merged(s, [c.status, ...c.broken]));
+          changed();
+          setCurrent(value);
+        }),
+      );
+  };
+
+  /**
+   * Renomme `from` en `to`. L'éditeur ouvert sur `from` reste ouvert, texte
+   * tapé compris : les frappes de l'attente vont à `to`, nom déclaré corrigé.
+   */
+  const rename = (from: string, to: string) => {
+    const move = { to, done: false };
+    moves.current.set(from, move);
+    const typedSince = edits.current;
+    const keep = unsaved.has(from);
+    enqueue(() =>
+      api
+        .renameWidget(from, to)
+        .then((list) => {
+          move.done = true;
+          // La frappe encore en attente part maintenant, vers `to`.
+          push.flush();
+          setUnsaved((u) => {
+            if (!u.has(from)) return u;
+            const next = new Set(u);
+            next.delete(from);
+            next.add(to);
+            return next;
+          });
+          setStatuses(ordered(list));
+          if (loaded.current === from) {
+            loaded.current = to;
+            // Texte tapé (ou non enregistré) : gardé, son nom déclaré suit, comme une frappe.
+            const find = `widget("${from}"`;
+            const replace = `widget("${to}"`;
+            if (keep || edits.current !== typedSince) setRewrite({ find, replace });
+            else {
+              // Rien de tapé : l'éditeur montre ce que la session a écrit, sans écriture de plus
+              // (la relecture de `to`, peut-être jugée périmée file non vide, n'y suffit pas).
+              const renamed = declaredAs(sent.current ?? "", from, to);
+              sent.current = renamed;
+              setChecked(renamed);
+              setRewrite({ find, replace, silent: true });
+            }
+          }
+          changed();
+          setCurrent((c) => (c === from ? to : c));
+        })
+        .finally(() => moves.current.delete(from)),
+    );
   };
 
   const remove = () => {
@@ -185,14 +301,14 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
     push.cancel();
     unsent.current = false;
     const name = current;
-    inflight.current
-      .then(() => api.removeWidget(name))
-      .then(() => {
+    enqueue(() =>
+      api.removeWidget(name).then((list) => {
+        markUnsaved(name, false);
+        setStatuses(ordered(list));
         changed();
-        setCurrent(null);
-        return refresh();
-      })
-      .catch(fail);
+        setCurrent((c) => (c === name ? null : c));
+      }),
+    );
   };
 
   const currentStatus = statuses?.find((s) => s.name === current);
@@ -215,7 +331,7 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
       <div className="picker workbench" role="dialog" aria-modal="true" aria-labelledby="workbench-title" onPointerDown={(e) => e.stopPropagation()}>
         <div className="picker-head">
           <h2 id="workbench-title">{t("ui-widgets-title")}</h2>
-          <span className="caption" />
+          <span className="caption">{current && unsaved.has(current) ? t("ui-widgets-unsaved") : ""}</span>
           <button className="object token" aria-label={t("ui-widgets-close")} title={t("ui-widgets-close")} onClick={onClose}>{Icon.close}</button>
         </div>
         <div className="workbench-body">
@@ -228,6 +344,9 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
                     <button className="workbench-file" aria-current={s.name === current} onClick={() => select(s.name)}>
                       <span className={`pill ${state}`} role="img" aria-label={t(state === "valid" ? "ui-widgets-valid" : "ui-widgets-errors")} />
                       {widgetLabel(s.name)}
+                      {unsaved.has(s.name) && (
+                        <span className="workbench-unsaved" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />
+                      )}
                     </button>
                   </li>
                 );
@@ -248,8 +367,8 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
               </form>
             ) : (
               <div className="workbench-actions">
-                <button className="btn" onClick={() => setNaming({ from: null, value: "" })}>{t("ui-widgets-new")}</button>
-                <button className="btn" disabled={!current || current === COMMON} onClick={() => current && setNaming({ from: current, value: current })}>{t("ui-widgets-rename")}</button>
+                <button className="btn" disabled={statuses === null} onClick={() => setNaming({ from: null, value: "" })}>{t("ui-widgets-new")}</button>
+                <button className="btn" disabled={statuses === null || !current || current === COMMON} onClick={() => current && setNaming({ from: current, value: current })}>{t("ui-widgets-rename")}</button>
                 <button className="btn danger" disabled={!current} onClick={remove}>{t("ui-widgets-delete")}</button>
               </div>
             )}
@@ -257,7 +376,8 @@ export default function WidgetWorkbench({ api, revision, onChanged, onClose, onE
           <section className="workbench-editor">
             {current && source !== null ? (
               <TypstEditor
-                key={`${current}:${editorKey}`}
+                key={editorKey}
+                rewrite={rewrite}
                 text={source}
                 diagnostics={editorDiagnostics}
                 diagnosticsFor={checked}

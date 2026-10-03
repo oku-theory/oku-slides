@@ -35,6 +35,7 @@ templates-default-name = 我的範本
 templates-copy-name = { $name }（副本）
 templates-adopt-label = 範本：{ $name }
 session-widgets-broken = 以下小工具無法編譯，已排除：{ $names }。套件中的其他小工具保留。
+session-widgets-not-saved = 無法將套件「{ $pack }」的小工具版本儲存到資料庫中。簡報仍保留該版本。
 session-invalid-widget-name = 小工具名稱無效：「{ $name }」。請使用小寫字母、數字和連字號，或 _commun。
 session-widget-too-large = 小工具「{ $name }」超過 { $max } KiB。
 session-widget-nul = 小工具「{ $name }」包含 NUL 字元。

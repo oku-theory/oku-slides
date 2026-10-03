@@ -311,3 +311,4 @@ ui-widgets-pick = 파일을 선택하거나 위젯을 만드세요.
 ui-widgets-preview = 위젯 미리보기
 ui-widgets-no-preview = 미리보기 없음
 ui-widgets-close = 닫기
+ui-widgets-unsaved = 저장되지 않음

@@ -27,3 +27,6 @@ render-frame = Onleesbaar bericht van het renderproces
 render-stale = De render is vervangen; probeer het opnieuw
 render-pack-disabled = De widgets van pakket “{ $pack }” zijn uitgeschakeld voor deze sessie
 registry-schema-remote = Ongeldig widgetregister: { $message }
+probe-not-probed = Nog niet gecontroleerd: de tijd voor de widgets van het pakket is op. Dit gebeurt bij de volgende weergave.
+probe-too-many-files = Het pakket heeft meer dan { $max } widgetbestanden: dit bestand wordt niet geladen.
+probe-too-large = Groter dan { $max } KiB: niet geladen.

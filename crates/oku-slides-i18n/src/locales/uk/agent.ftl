@@ -38,3 +38,4 @@ agent-not-found = Агента не знайдено: { $command }. Налашт
 agent-no-http = Цей агент не може підключитися до інструментів Oku Slides.
 agent-stopped = Агент зупинився.
 agent-failed = Агент відхилив запит: { $message }
+agent-tool-failed = Інструмент несподівано завершився з помилкою.

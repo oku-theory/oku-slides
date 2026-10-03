@@ -27,3 +27,6 @@ render-frame = 渲染进程发来的消息无法读取
 render-stale = 渲染已被替换，请重试
 render-pack-disabled = “{ $pack }”包的小组件在本次会话中已停用
 registry-schema-remote = 小组件注册表无效：{ $message }
+probe-not-probed = 尚未检查：分配给该包小组件的时间已用完，将在下次渲染时检查。
+probe-too-many-files = 包中的小组件文件超过 { $max } 个：此文件未加载。
+probe-too-large = 超过 { $max } KiB：未加载。

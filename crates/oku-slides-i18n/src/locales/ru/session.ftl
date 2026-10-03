@@ -35,6 +35,7 @@ templates-default-name = Мои шаблоны
 templates-copy-name = { $name } (копия)
 templates-adopt-label = Шаблоны: { $name }
 session-widgets-broken = Виджеты исключены, так как не компилируются: { $names }. Остальные виджеты пакета сохранены.
+session-widgets-not-saved = Не удалось сохранить в библиотеке версию виджетов пакета «{ $pack }». Презентация её сохраняет.
 session-invalid-widget-name = Недопустимое имя виджета: «{ $name }». Используйте строчные буквы, цифры и дефисы или _commun.
 session-widget-too-large = Виджет «{ $name }» больше { $max } КиБ.
 session-widget-nul = Виджет «{ $name }» содержит символ NUL.

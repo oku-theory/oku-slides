@@ -38,3 +38,4 @@ agent-not-found = 找不到代理：{ $command }。設定 [agent] command。
 agent-no-http = 此代理無法連線到 Oku Slides 的工具。
 agent-stopped = 代理已停止。
 agent-failed = 代理拒絕了請求：{ $message }
+agent-tool-failed = 此工具意外失敗。

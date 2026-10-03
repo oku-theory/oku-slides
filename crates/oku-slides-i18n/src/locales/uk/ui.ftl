@@ -321,3 +321,4 @@ ui-widgets-pick = Виберіть файл або створіть віджет
 ui-widgets-preview = Попередній перегляд віджета
 ui-widgets-no-preview = Немає попереднього перегляду
 ui-widgets-close = Закрити
+ui-widgets-unsaved = Не збережено

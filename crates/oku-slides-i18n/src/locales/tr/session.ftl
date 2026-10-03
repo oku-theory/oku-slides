@@ -35,6 +35,7 @@ templates-default-name = Şablonlarım
 templates-copy-name = { $name } (kopya)
 templates-adopt-label = Şablonlar: { $name }
 session-widgets-broken = Derlenmediği için çıkarılan widget'lar: { $names }. Paketin diğer widget'ları kalıyor.
+session-widgets-not-saved = “{ $pack }” paketinin widget sürümü kitaplığa kaydedilemedi. Sunu onu koruyor.
 session-invalid-widget-name = Geçersiz widget adı: “{ $name }”. Küçük harf, rakam ve kısa çizgi ya da _commun kullanın.
 session-widget-too-large = “{ $name }” widget'ı { $max } KiB'tan büyük.
 session-widget-nul = “{ $name }” widget'ı bir NUL karakteri içeriyor.

@@ -165,7 +165,9 @@ Dans l'ordre de construction, en TDD :
    équivalent écrit à la main ; widget cassé écarté, les autres gardés ;
    `_commun` importé, absent du registre ; nom déclaré ≠ nom de fichier
    refusé ; cache de sonde : modifier un widget ne recompile que lui,
-   modifier `_commun` recompile ceux qui l'importent.
+   modifier `_commun` recompile tous les widgets (t-390 : le hash de
+   `_commun` entre toujours dans la clé, l'import n'est plus détecté au
+   texte).
 3. **Session** : mode modèles : `set_widget` ×2 puis enregistrement → une
    version avec le fichier ; mode deck : `set_widget` ×2 → une version
    courante, le deck y passe, une seule étape d'annulation, annuler rend la
@@ -195,12 +197,16 @@ Dans l'ordre de construction, en TDD :
   y compris un corps de widget qui échoue au rendu, ne change ni la
   bibliothèque, ni la séance, ni le deck ; `set_widget` rend alors les
   diagnostics du rendu dans le statut (`WidgetChange`), pas une erreur. Une
-  écriture dans la bibliothèque qui échoue après le rendu est journalisée :
-  le deck embarque déjà la version.
+  écriture dans la bibliothèque qui échoue après le rendu est journalisée et
+  pose l'avis `session-widgets-not-saved` (t-390) : le deck embarque déjà
+  la version, la bibliothèque ne l'a pas.
 - Mode modèles (revue finale) : choix « diagnostics + succès ». La version
   est enregistrée, puis le document des modèles rendu ; si ce rendu échoue,
   la version reste et ses diagnostics sont rendus avec les statuts, comme un
   modèle fautif. `adopt_session_version` ne rend plus : l'appelant rend.
+  `save_templates` suit le même choix (t-390) : la version adoptée, un
+  rendu du document des modèles qui échoue ensuite n'est pas une erreur ;
+  l'enregistrement réussit et un avis (`set_notice`) donne la cause.
 - Garde no-op : une écriture dont les fichiers de widgets sont identiques à
   ceux de la version en cours n'enregistre rien (les deux modes).
 - Croissance du bundle : la version de séance remplacée quitte les sources
@@ -217,9 +223,13 @@ Dans l'ordre de construction, en TDD :
   référencer une version absente de ses sources.
 - La séance de widgets du mode deck finit aussi à `begin_turn` et
   `end_turn` : elle ne chevauche jamais l'étape d'un tour de l'agent. En
-  mode modèles, le deck mis de côté n'est jamais groupé par un tour
-  (`begin_turn` groupe le document des modèles, sans étape) : ses
-  enregistrements se fusionnent toujours par clé.
+  mode modèles, un tour commencé en mode modèles groupe le document des
+  modèles, pas le deck mis de côté : ses enregistrements s'y fusionnent par
+  clé. Correction (t-390) : un tour commencé en mode deck groupe le deck,
+  qui passe de côté si le tour entre en mode modèles ; `end_turn` ferme ce
+  groupe. Un enregistrement après le tour fait alors une nouvelle étape : le
+  chemin non fusionné est atteignable (la version du tour reste dans les
+  sources et est réajoutée à la bibliothèque ; annuler y revient).
 - Octet NUL : une source de widget qui en contient un est refusée, à la
   lecture (`PackFiles::from_bytes` → `None` : zip, bibliothèque, reprise
   l'écartent) et à l'écriture (`set_widget` → `WidgetHasNul`, Fluent
@@ -227,8 +237,17 @@ Dans l'ordre de construction, en TDD :
   déjà NUL : rien à refuser de ce côté.
 - Sonde d'un pack (revue finale) : budget total `timeout_ms` par appel de
   `probe_pack`. Épuisé, les fichiers restants hors cache ne sont pas
-  exécutés (diagnostic anglais « not probed: the pack's time budget is
-  exhausted », comme les autres diagnostics de limite) et ne sont pas
-  gardés : ils sont sondés au prochain appel. `RenderWorker::probe` (sonde
+  exécutés (diagnostic localisé `probe-*`, dans la langue des emplacements
+  du travailleur, comme les autres diagnostics de limite) et ne sont pas
+  gardés : ils sont sondés au prochain appel (`PackProbe::unprobed` les
+  nomme ; un échec de préparation du lien y range aussi le fichier). Tant qu'il en reste pour le pack installé du document ouvert,
+  chaque rendu du deck résout de nouveau ses widgets, un budget par rendu,
+  (t-390). Un fichier seulement non sondé n'est pas dit cassé : l'avis
+  `session-widgets-broken` l'omet, et aucun autre avis ne le signale (il
+  est sondé au rendu suivant, l'avis serait aussitôt périmé). La reprise
+  qui le juge cassé pose l'avis, réduit aux fichiers jusque-là non sondés.
+  Un fichier dont la sonde dépasse le délai est
+  gardé cassé : il ne compte plus parmi les non sondés, pas de boucle sans
+  fin. `RenderWorker::probe` (sonde
   du pack entier, sans isolation) est retiré ; ses tests passent par
   `probe_pack` ou `set_widgets`.

@@ -26,3 +26,6 @@ render-frame = Messaggio illeggibile dal processo di rendering
 render-stale = Il rendering è stato sostituito; riprova
 render-pack-disabled = I widget del pacchetto «{ $pack }» sono disattivati per questa sessione
 registry-schema-remote = Registro dei widget non valido: { $message }
+probe-not-probed = Non ancora verificato: il tempo concesso ai widget del pacchetto è scaduto. Verrà verificato al prossimo rendering.
+probe-too-many-files = Il pacchetto ha più di { $max } file di widget: questo non viene caricato.
+probe-too-large = Più di { $max } KiB: non caricato.

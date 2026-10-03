@@ -836,6 +836,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .pill.valid { background: color-mix(in oklab, #2f8a4f 80%, var(--ink)); }
 .pill.errors { background: var(--danger); }
+.workbench-unsaved { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
 .workbench-editor { min-width: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
 .typst-editor { height: 100%; }
 .typst-editor .cm-editor { height: 100%; font: 13px/20px ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -848,4 +849,5 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .cm-typ-keyword, .cm-typ-hash { color: var(--accent); font-weight: 600; }
 .cm-typ-param { color: color-mix(in oklab, #8a4f2f 85%, var(--ink)); }
 .cm-diag-underline { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
+.cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }

@@ -27,3 +27,6 @@ render-frame = Nieczytelny komunikat z procesu renderowania
 render-stale = Renderowanie zostało zastąpione; spróbuj ponownie
 render-pack-disabled = Widżety pakietu „{ $pack }” są wyłączone w tej sesji
 registry-schema-remote = Nieprawidłowy rejestr widżetów: { $message }
+probe-not-probed = Jeszcze niesprawdzony: skończył się czas przeznaczony na widżety pakietu. Zostanie sprawdzony przy następnym renderowaniu.
+probe-too-many-files = Pakiet ma więcej niż { $max } plików widżetów: ten nie jest wczytywany.
+probe-too-large = Ponad { $max } KiB: nie wczytano.

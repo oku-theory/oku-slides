@@ -26,3 +26,6 @@ render-frame = レンダリングプロセスからのメッセージを読み�
 render-stale = レンダリングは置き換えられました。もう一度お試しください
 render-pack-disabled = パック「{ $pack }」のウィジェットはこのセッションでは無効です
 registry-schema-remote = ウィジェットレジストリが無効です: { $message }
+probe-not-probed = 未確認：パックのウィジェットに割り当てられた時間を使い切りました。次の描画時に確認します。
+probe-too-many-files = パックのウィジェットファイルが { $max } 個を超えています：このファイルは読み込まれません。
+probe-too-large = { $max } KiB を超えています：読み込まれません。

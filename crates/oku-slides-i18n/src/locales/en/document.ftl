@@ -26,3 +26,6 @@ render-frame = Unreadable message from the rendering process
 render-stale = The render was replaced; try again
 render-pack-disabled = The widgets of pack “{ $pack }” are disabled for this session
 registry-schema-remote = Invalid widget registry: { $message }
+probe-not-probed = Not checked yet: the time allowed for the pack's widgets ran out. It will be checked at the next render.
+probe-too-many-files = The pack has more than { $max } widget files: this one is not loaded.
+probe-too-large = Larger than { $max } KiB: not loaded.

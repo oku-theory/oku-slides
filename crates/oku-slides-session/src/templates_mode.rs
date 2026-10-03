@@ -19,6 +19,7 @@ use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
 use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle};
+use oku_slides_i18n::Localize;
 
 use crate::error::{
     InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu,
@@ -158,6 +159,8 @@ impl Session {
     /// Créée au premier enregistrement, remplacée ensuite, elle devient
     /// courante ; le deck mis de côté l'embarque et y passe. `as_new` : une
     /// copie (nouvel id, sans parente), sur laquelle la session continue.
+    /// Un rendu raté ensuite n'est pas une erreur : la version reste, un avis
+    /// donne la cause (choix « diagnostics + succès », comme `set_widget`).
     pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
         let Mode::Templates { edit, .. } = &self.mode else {
             return NotEditingTemplatesSnafu.fail()?;
@@ -179,9 +182,16 @@ impl Session {
         let manifest = self.edited_manifest(&deck, id, parent, description);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new)?;
-        self.rerender()?;
         self.doc.dirty = false;
-        Ok(())
+        // La version est adoptée : un rendu raté ne l'annule pas, son avis le dit.
+        match self.rerender() {
+            Err(e) if e.render_error().is_some() => {
+                tracing::warn!(error = %e.one_line(), "modèles enregistrés, rendu en échec");
+                self.set_notice(e.localize(&self.localizer));
+                Ok(())
+            }
+            other => other,
+        }
     }
 
     /// `files` devient la version de la séance d'édition `edit`.
@@ -275,7 +285,7 @@ impl Session {
     /// propre pack, la courante pour un autre ; un pack disparu : celui du deck.
     fn shown_version(&self, set: Option<Uuid>) -> Option<StoredVersion> {
         let embedded = |r: &PackRef| {
-            let files = self.user_sources().packs.get(&r.version)?.clone();
+            let files = self.user_blobs().packs.get(&r.version)?.clone();
             let manifest = PackManifest::from_files(&files).ok()?;
             Some(StoredVersion { version: r.version.clone(), files, manifest })
         };

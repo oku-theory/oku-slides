@@ -16,7 +16,8 @@
 //!
 //! Le deck est rendu avant toute écriture dans la bibliothèque : un widget
 //! dont le corps échoue au rendu ne change rien (`set_widget` en rend les
-//! diagnostics).
+//! diagnostics). Une écriture qui échoue ensuite pose l'avis
+//! `session-widgets-not-saved` : le deck garde la version, pas la bibliothèque.
 
 use std::collections::BTreeMap;
 
@@ -62,7 +63,7 @@ impl Session {
             Ok((r, files))
         };
         if let Some(r) = self.deck_pack() {
-            return embedded(r.clone(), self.user_sources());
+            return embedded(r.clone(), self.user_blobs());
         }
         let deck = styled_like(self.user_deck(), Vec::new());
         let mut sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
@@ -138,6 +139,9 @@ impl Session {
         };
         if let Err(e) = written {
             tracing::error!(error = %e.one_line(), "version de widgets non écrite dans la bibliothèque");
+            let notice =
+                self.localizer.tr_with("session-widgets-not-saved", &[("pack", manifest.name.as_str().into())]);
+            self.set_notice(notice);
         }
         // Après l'écriture : la bibliothèque connaît la version, courante (pas de bandeau).
         self.pack_notice = self.pack_notice_for_deck();

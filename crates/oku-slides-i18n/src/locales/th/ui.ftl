@@ -311,3 +311,4 @@ ui-widgets-pick = เลือกไฟล์ หรือสร้างวิ�
 ui-widgets-preview = ตัวอย่างวิดเจ็ต
 ui-widgets-no-preview = ไม่มีตัวอย่าง
 ui-widgets-close = ปิด
+ui-widgets-unsaved = ยังไม่ได้บันทึก

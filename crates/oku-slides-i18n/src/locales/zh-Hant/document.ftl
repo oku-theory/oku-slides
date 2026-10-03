@@ -27,3 +27,6 @@ render-frame = 算繪程序傳來的訊息無法讀取
 render-stale = 算繪已被取代，請重試
 render-pack-disabled = 「{ $pack }」套件的小工具在本次工作階段中已停用
 registry-schema-remote = 小工具登錄表無效：{ $message }
+probe-not-probed = 尚未檢查：分配給此套件小工具的時間已用完，將於下次轉譯時檢查。
+probe-too-many-files = 套件中的小工具檔案超過 { $max } 個：此檔案未載入。
+probe-too-large = 超過 { $max } KiB：未載入。

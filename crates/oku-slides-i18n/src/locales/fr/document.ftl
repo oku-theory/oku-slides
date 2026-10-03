@@ -26,3 +26,6 @@ render-frame = Message illisible du processus de rendu
 render-stale = Le rendu a été remplacé ; réessayez
 render-pack-disabled = Les widgets du pack « { $pack } » sont désactivés pour cette session
 registry-schema-remote = Registre des widgets invalide : { $message }
+probe-not-probed = Pas encore vérifié : le temps accordé aux widgets du pack est écoulé. Il le sera au prochain rendu.
+probe-too-many-files = Le pack a plus de { $max } fichiers de widgets : celui-ci n'est pas chargé.
+probe-too-large = Plus de { $max } Kio : non chargé.

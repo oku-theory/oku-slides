@@ -52,19 +52,18 @@ impl FileProbe {
     }
 }
 
-/// Le fichier importe-t-il `_commun` ? Lecture textuelle, assez pour le cache.
-fn imports_common(source: &str) -> bool {
-    source.contains("_commun.typ")
-}
-
-/// Clé de cache : nom, source, et `_commun` si le fichier l'importe.
+/// Clé de cache : nom, source et `_commun` (qu'il soit importé ou non).
+///
+/// Le contenu de `_commun` entre toujours dans la clé : un import peut ne
+/// pas être écrit en toutes lettres, et toute modification de `_commun`
+/// force la re-sonde de chaque widget.
 pub fn probe_key(name: &WidgetFile, source: &str, common: Option<&str>) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(name.as_str().as_bytes());
     h.update([0]);
     h.update(source.as_bytes());
     h.update([0]);
-    match common.filter(|_| imports_common(source)) {
+    match common {
         Some(c) => {
             h.update([1]);
             h.update(c.as_bytes());

@@ -29,9 +29,6 @@ pub(crate) enum Request {
     PutAsset {
         id: String,
     },
-    Probe {
-        pack: WirePack,
-    },
     /// Sonde un fichier de widget seul ; `common` : la source de `_commun`.
     ProbeFile {
         name: String,
@@ -94,9 +91,6 @@ pub(crate) struct CompiledHeader {
 #[serde(tag = "reply", rename_all = "kebab-case")]
 pub(crate) enum Response {
     Ok,
-    Probe {
-        json: serde_json::Value,
-    },
     FileProbe {
         probe: oku_slides_render::FileProbe,
     },
