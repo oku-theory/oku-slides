@@ -172,7 +172,8 @@ impl Session {
     ///
     /// Créée au premier enregistrement, remplacée ensuite, elle devient
     /// courante ; le deck mis de côté l'embarque et y passe. `as_new` : une
-    /// copie (nouvel id, sans parente), sur laquelle la session continue.
+    /// copie (nouvel id, sans parente), sur laquelle la session continue,
+    /// sans historique d'annulation (un annuler ne ramène pas à l'original).
     /// Un rendu raté ensuite n'est pas une erreur : la version reste, un avis
     /// donne la cause (choix « diagnostics + succès », comme `set_widget`).
     pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
@@ -195,6 +196,11 @@ impl Session {
         let manifest = self.edited_manifest(&deck, id, parent, kept);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new, None)?;
+        if as_new {
+            // Une copie est un autre pack : son document repart sans historique,
+            // un annuler ne ramène jamais à l'original (l'édition suit la copie).
+            self.doc.sources.clear_undo();
+        }
         self.doc.dirty = false;
         // La version est adoptée : un rendu raté ne l'annule pas, son avis le dit.
         match self.rerender() {
@@ -291,6 +297,9 @@ impl Session {
     pub(crate) fn realign_templates(&mut self) -> Result<()> {
         let Some(r) = self.doc.sources.deck().templates.clone() else { return Ok(()) };
         let Mode::Templates { stash, edit, .. } = &mut self.mode else { return Ok(()) };
+        // Une copie vide l'historique du document (`save_templates`) : aucune
+        // étape ne ramène à un autre pack que celui de l'édition.
+        debug_assert_eq!(r.id, edit.set, "annuler a ramené le document à un autre pack");
         if r.id != edit.set || r.version == edit.base {
             return Ok(());
         }

@@ -266,3 +266,28 @@ fn undo_steps_counts_new_steps_but_not_merged_applies() {
     r.apply(&titled(&deck, "Cinq"), "a", Some("k")).unwrap();
     assert_that!(r.undo_steps()).is_equal_to(start + 3);
 }
+
+#[test]
+fn clear_undo_leaves_nothing_to_undo_or_redo() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    r.apply(&titled(&deck, "Un"), "Un", None).unwrap();
+    r.apply(&titled(&deck, "Deux"), "Deux", None).unwrap();
+    r.undo().unwrap();
+    r.clear_undo();
+    assert_that!((r.can_undo(), r.can_redo())).is_equal_to((false, false));
+}
+
+#[test]
+fn clear_undo_inside_a_group_keeps_the_next_apply_undoable_under_the_group() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    r.begin_group("Tour");
+    r.apply(&titled(&deck, "Un"), "Un", None).unwrap();
+    r.clear_undo();
+    r.apply(&titled(&deck, "Deux"), "Deux", None).unwrap();
+    r.end_group();
+    assert_that!(r.undo_label()).is_equal_to(Some("Tour".to_owned()));
+    r.undo().unwrap();
+    assert_that!(r.deck().0.slides[2].params.text("title")).is_equal_to(Some("Un"));
+}

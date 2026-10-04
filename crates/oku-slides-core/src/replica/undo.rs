@@ -135,6 +135,17 @@ impl Undo {
         self.group = None;
     }
 
+    /// Vide les deux piles ; un groupe ouvert le reste, sans étape au sommet.
+    pub(super) fn clear(&mut self) {
+        self.manager.clear();
+        self.pushed.store(0, Ordering::Relaxed);
+        self.undo.clear();
+        self.redo.clear();
+        if let Some((_, open)) = &mut self.group {
+            *open = false;
+        }
+    }
+
     /// Étapes empilées depuis la création ; inchangé par une fusion.
     pub(super) fn steps(&self) -> u64 {
         self.steps

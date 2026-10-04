@@ -293,6 +293,11 @@ impl SourceBundle {
         self.replica.undo_steps()
     }
 
+    /// Oublie l'historique d'annulation (voir [`DeckReplica::clear_undo`]).
+    pub fn clear_undo(&mut self) {
+        self.replica.clear_undo();
+    }
+
     /// Défait la dernière étape ; `false` s'il n'y en avait pas.
     pub fn undo(&mut self) -> Result<bool, SourcesError> {
         let done = self.replica.undo().context(ReplicaSnafu)?;

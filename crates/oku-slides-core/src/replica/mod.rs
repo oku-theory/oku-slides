@@ -312,6 +312,13 @@ impl DeckReplica {
         self.undo.steps()
     }
 
+    /// Oublie toutes les étapes d'annulation et de rétablissement.
+    ///
+    /// Un groupe ouvert le reste : la prochaine application y ouvre son étape.
+    pub fn clear_undo(&mut self) {
+        self.undo.clear();
+    }
+
     /// Défait la dernière étape locale ; `false` s'il n'y en avait pas.
     /// Ferme d'abord le groupe ouvert.
     pub fn undo(&mut self) -> Result<bool, ReplicaError> {

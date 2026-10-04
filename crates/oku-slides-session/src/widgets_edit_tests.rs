@@ -472,3 +472,25 @@ fn undo_of_a_widget_write_made_before_a_silent_save_restores_its_source() {
     s.undo().unwrap();
     assert_that!(s.widget_source("kpi").unwrap()).is_equal_to(KPI.to_owned());
 }
+
+#[test]
+fn save_as_copy_starts_the_templates_document_without_undo_history() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("kpi", KPI.into()).unwrap();
+    s.save_templates(true).unwrap();
+    assert_that!(s.snapshot().can_undo).is_false();
+}
+
+#[test]
+fn undo_of_a_write_on_the_copy_keeps_editing_the_copy() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("kpi", KPI.into()).unwrap();
+    s.save_templates(true).unwrap();
+    let copy = s.snapshot().editing.unwrap().set;
+    s.set_widget("kpi", KPI_V2.into()).unwrap();
+    s.undo().unwrap();
+    assert_that!((s.snapshot().editing.unwrap().set, s.widget_source("kpi").unwrap()))
+        .is_equal_to((copy, KPI.to_owned()));
+}
