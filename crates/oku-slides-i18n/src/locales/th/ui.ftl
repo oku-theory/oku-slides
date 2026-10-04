@@ -347,7 +347,6 @@ ui-widgets-templates-tab = เทมเพลต
 ui-widgets-close-tab = ปิด { $name }
 ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต { $name } แล้ว
 ui-examples = กรณีตัวอย่าง
-ui-examples-add = กรณี
 ui-examples-add-hint = เพิ่มกรณี โดยคัดลอกกรณีปัจจุบัน
 ui-examples-new-name = กรณี { $n }
 ui-examples-name = ชื่อกรณี
@@ -357,16 +356,10 @@ ui-examples-confirm-delete = ลบกรณี “{ $name }” หรือไ�
 ui-examples-delete = ลบ
 ui-examples-cancel = ยกเลิก
 ui-board = บอร์ดกรณีตัวอย่าง
-ui-board-summary = { $cases ->
-   *[other] { $cases } กรณี
-} · { $alerts ->
-   *[other] { $alerts } คำเตือน
-}
 ui-board-scheme = โทนสี
 ui-board-light = สว่าง
 ui-board-dark = มืด
 ui-board-ratio = สัดส่วน
-ui-board-ok = ปกติ
 ui-board-empty = ช่องว่าง
 ui-board-overflow = ล้นกรอบ
 ui-board-new = กรณีใหม่

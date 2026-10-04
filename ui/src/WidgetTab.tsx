@@ -83,10 +83,12 @@ const IMPLICIT = [EXAMPLE_DEFAULT];
 const NO_PALETTE: string[] = [];
 
 export default function WidgetTab({
-  api, files, id, name, revision, trials, look, active, code, layout, onLayout, settings = null,
+  api, files, id, name, revision, trials, look, active, code: codeOn, layout, onLayout, settings = null,
   examples = IMPLICIT, example = null, onExample = () => {}, board = false, onBoard = () => {}, scheme, run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const shownCase = currentCase(examples, example);
+  // La planche prend toute la hauteur : le code déplié s'y replie, et revient avec la scène.
+  const code = codeOn && !(board && name !== COMMON);
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);

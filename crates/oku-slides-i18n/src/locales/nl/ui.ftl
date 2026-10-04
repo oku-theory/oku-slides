@@ -352,7 +352,6 @@ ui-widgets-templates-tab = Sjablonen
 ui-widgets-close-tab = { $name } sluiten
 ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.
 ui-examples = Voorbeeldgevallen
-ui-examples-add = Geval
 ui-examples-add-hint = Geval toevoegen, kopie van het huidige
 ui-examples-new-name = Geval { $n }
 ui-examples-name = Naam van het geval
@@ -362,18 +361,10 @@ ui-examples-confirm-delete = Geval ‘{ $name }’ verwijderen?
 ui-examples-delete = Verwijderen
 ui-examples-cancel = Annuleren
 ui-board = Overzicht van de gevallen
-ui-board-summary = { $cases ->
-    [one] { $cases } geval
-   *[other] { $cases } gevallen
-} · { $alerts ->
-    [one] { $alerts } waarschuwing
-   *[other] { $alerts } waarschuwingen
-}
 ui-board-scheme = Kleurenschema
 ui-board-light = Licht
 ui-board-dark = Donker
 ui-board-ratio = Formaat
-ui-board-ok = OK
 ui-board-empty = Leeg veld
 ui-board-overflow = Loopt over
 ui-board-new = Nieuw geval

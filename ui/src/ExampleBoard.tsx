@@ -15,6 +15,7 @@ import type { ExampleAlert, PreviewLook, Snapshot, TabApi, WidgetPreview } from 
 import { PREVIEW_DELAY_MS } from "./debounce";
 import { EXAMPLES_MAX, addCase } from "./ExamplePills";
 import { t } from "./i18n";
+import { Icon } from "./icons";
 import { croppedSvg } from "./widgetPreview";
 
 type Scheme = NonNullable<PreviewLook["scheme"]>;
@@ -93,11 +94,10 @@ export default function ExampleBoard({ api, widget, names, current, trials, look
     return () => Object.values(made).forEach((u) => URL.revokeObjectURL(u));
   }, [previews]);
 
-  const alerts = shown.reduce((n, name) => n + (previews[name]?.alerts?.length ?? 0), 0);
   const add = () => void addCase(api, widget, names, current, run).then((name) => name && onOpen(name));
 
   const toggle = <T extends string>(value: T, on: T, set: (v: T) => void, label: string) => (
-    <button key={value} type="button" className={`chip${value === on ? " on" : ""}`} aria-pressed={value === on} onClick={() => set(value)}>
+    <button key={value} type="button" className="seg-item" aria-pressed={value === on} onClick={() => set(value)}>
       {label}
     </button>
   );
@@ -105,13 +105,12 @@ export default function ExampleBoard({ api, widget, names, current, trials, look
   return (
     <section className="example-board" aria-label={t("ui-board")}>
       <div className="board-bar">
-        <span className="board-summary caption">{t("ui-board-summary", { cases: shown.length, alerts })}</span>
         <div className="board-toggles">
-          <div role="group" aria-label={t("ui-board-scheme")}>
+          <div className="seg" role="group" aria-label={t("ui-board-scheme")}>
             {toggle<Scheme>("light", scheme, setScheme, t("ui-board-light"))}
             {toggle<Scheme>("dark", scheme, setScheme, t("ui-board-dark"))}
           </div>
-          <div role="group" aria-label={t("ui-board-ratio")}>
+          <div className="seg" role="group" aria-label={t("ui-board-ratio")}>
             {RATIOS.map((r) => toggle<Ratio>(r, ratio, setRatio, r))}
           </div>
         </div>
@@ -134,11 +133,9 @@ export default function ExampleBoard({ api, widget, names, current, trials, look
               <span className="board-name">{name}</span>
               <span className="board-badges">
                 {/* Sans image (rendu raté) : pas de verdict. */}
+                {/* Seules les alertes se disent : un cas sans alerte n'a pas de badge. */}
                 {p?.svg &&
-                  (kinds(p.alerts ?? []).length === 0 ? (
-                    <span className="board-badge ok">{t("ui-board-ok")}</span>
-                  ) : (
-                    kinds(p.alerts ?? []).map((k) => (
+                  kinds(p.alerts ?? []).map((k) => (
                       <span
                         key={k}
                         className={`board-badge ${k}`}
@@ -146,14 +143,14 @@ export default function ExampleBoard({ api, widget, names, current, trials, look
                       >
                         {t(k === "empty" ? "ui-board-empty" : "ui-board-overflow")}
                       </span>
-                    ))
-                  ))}
+                    ))}
               </span>
             </button>
           );
         })}
         <button type="button" className="board-card board-new" disabled={names.length >= EXAMPLES_MAX} onClick={add}>
-          {`+ ${t("ui-board-new")}`}
+          <span className="board-frame" data-ratio={ratio} aria-hidden>{Icon.add}</span>
+          <span className="board-name">{t("ui-board-new")}</span>
         </button>
       </div>
     </section>

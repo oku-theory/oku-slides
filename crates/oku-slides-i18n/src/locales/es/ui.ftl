@@ -352,7 +352,6 @@ ui-widgets-templates-tab = Plantillas
 ui-widgets-close-tab = Cerrar { $name }
 ui-widgets-removed-by-agent = El agente eliminó el widget { $name }.
 ui-examples = Casos de ejemplo
-ui-examples-add = Caso
 ui-examples-add-hint = Añadir un caso, copia del actual
 ui-examples-new-name = Caso { $n }
 ui-examples-name = Nombre del caso
@@ -362,18 +361,10 @@ ui-examples-confirm-delete = ¿Eliminar el caso «{ $name }»?
 ui-examples-delete = Eliminar
 ui-examples-cancel = Cancelar
 ui-board = Tablero de casos
-ui-board-summary = { $cases ->
-    [one] { $cases } caso
-   *[other] { $cases } casos
-} · { $alerts ->
-    [one] { $alerts } alerta
-   *[other] { $alerts } alertas
-}
 ui-board-scheme = Esquema
 ui-board-light = Claro
 ui-board-dark = Oscuro
 ui-board-ratio = Formato
-ui-board-ok = OK
 ui-board-empty = Campo vacío
 ui-board-overflow = Desborda
 ui-board-new = Nuevo caso

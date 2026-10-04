@@ -81,7 +81,7 @@ export default function ExamplePills({ api, widget, names, current, onSelect, ru
 
   return (
     <div className="example-pills">
-      <div className="example-pills-row" role="group" aria-label={t("ui-examples")}>
+      <div className="example-pills-row seg" role="group" aria-label={t("ui-examples")}>
         {names.map((name) =>
           naming?.from === name ? (
             <form key={name} className="example-name" onSubmit={(e) => { e.preventDefault(); commit(); }}>
@@ -106,7 +106,7 @@ export default function ExamplePills({ api, widget, names, current, onSelect, ru
           ) : (
             <span key={name} className="example-pill-wrap">
               <button
-                className={`chip example-pill${name === current ? " on" : ""}`}
+                className="seg-item example-pill"
                 aria-pressed={name === current}
                 title={t("ui-examples-rename-hint")}
                 onClick={() => onSelect(name)}
@@ -128,13 +128,13 @@ export default function ExamplePills({ api, widget, names, current, onSelect, ru
           ),
         )}
         <button
-          className="chip example-add"
+          className="token ghost example-add"
           aria-label={t("ui-examples-add-hint")}
           title={t("ui-examples-add-hint")}
           disabled={names.length >= EXAMPLES_MAX}
           onClick={add}
         >
-          {`+ ${t("ui-examples-add")}`}
+          {Icon.add}
         </button>
       </div>
       {removing !== null && (

@@ -357,7 +357,6 @@ ui-widgets-templates-tab = القوالب
 ui-widgets-close-tab = إغلاق { $name }
 ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.
 ui-examples = حالات المثال
-ui-examples-add = حالة
 ui-examples-add-hint = إضافة حالة، نسخة من الحالية
 ui-examples-new-name = حالة { $n }
 ui-examples-name = اسم الحالة
@@ -367,26 +366,10 @@ ui-examples-confirm-delete = حذف الحالة «{ $name }»؟
 ui-examples-delete = حذف
 ui-examples-cancel = إلغاء
 ui-board = لوحة الحالات
-ui-board-summary = { $cases ->
-    [zero] لا حالات
-    [one] حالة واحدة
-    [two] حالتان
-    [few] { $cases } حالات
-    [many] { $cases } حالة
-   *[other] { $cases } حالة
-} · { $alerts ->
-    [zero] لا تنبيهات
-    [one] تنبيه واحد
-    [two] تنبيهان
-    [few] { $alerts } تنبيهات
-    [many] { $alerts } تنبيهًا
-   *[other] { $alerts } تنبيه
-}
 ui-board-scheme = النمط
 ui-board-light = فاتح
 ui-board-dark = داكن
 ui-board-ratio = المقاس
-ui-board-ok = سليم
 ui-board-empty = حقل فارغ
 ui-board-overflow = يتجاوز الإطار
 ui-board-new = حالة جديدة

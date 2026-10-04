@@ -349,7 +349,6 @@ ui-widgets-templates-tab = टेम्पलेट
 ui-widgets-close-tab = { $name } बंद करें
 ui-widgets-removed-by-agent = एजेंट ने विजेट { $name } हटा दिया।
 ui-examples = उदाहरण केस
-ui-examples-add = केस
 ui-examples-add-hint = केस जोड़ें, वर्तमान की प्रति
 ui-examples-new-name = केस { $n }
 ui-examples-name = केस का नाम
@@ -359,18 +358,10 @@ ui-examples-confirm-delete = केस “{ $name }” हटाएँ?
 ui-examples-delete = हटाएँ
 ui-examples-cancel = रद्द करें
 ui-board = उदाहरणों का बोर्ड
-ui-board-summary = { $cases ->
-    [one] { $cases } उदाहरण
-   *[other] { $cases } उदाहरण
-} · { $alerts ->
-    [one] { $alerts } चेतावनी
-   *[other] { $alerts } चेतावनियाँ
-}
 ui-board-scheme = रंग योजना
 ui-board-light = हल्का
 ui-board-dark = गहरा
 ui-board-ratio = प्रारूप
-ui-board-ok = ठीक
 ui-board-empty = खाली फ़ील्ड
 ui-board-overflow = सीमा से बाहर
 ui-board-new = नया उदाहरण

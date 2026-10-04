@@ -353,7 +353,6 @@ ui-widgets-templates-tab = Szablony
 ui-widgets-close-tab = Zamknij { $name }
 ui-widgets-removed-by-agent = Agent usunął widżet { $name }.
 ui-examples = Przypadki przykładowe
-ui-examples-add = Przypadek
 ui-examples-add-hint = Dodaj przypadek, kopię bieżącego
 ui-examples-new-name = Przypadek { $n }
 ui-examples-name = Nazwa przypadku
@@ -363,22 +362,10 @@ ui-examples-confirm-delete = Usunąć przypadek „{ $name }”?
 ui-examples-delete = Usuń
 ui-examples-cancel = Anuluj
 ui-board = Plansza przypadków
-ui-board-summary = { $cases ->
-    [one] { $cases } przypadek
-    [few] { $cases } przypadki
-    [many] { $cases } przypadków
-   *[other] { $cases } przypadku
-} · { $alerts ->
-    [one] { $alerts } ostrzeżenie
-    [few] { $alerts } ostrzeżenia
-    [many] { $alerts } ostrzeżeń
-   *[other] { $alerts } ostrzeżenia
-}
 ui-board-scheme = Schemat
 ui-board-light = Jasny
 ui-board-dark = Ciemny
 ui-board-ratio = Format
-ui-board-ok = OK
 ui-board-empty = Puste pole
 ui-board-overflow = Wychodzi poza ramkę
 ui-board-new = Nowy przypadek

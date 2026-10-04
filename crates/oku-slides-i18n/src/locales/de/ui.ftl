@@ -349,7 +349,6 @@ ui-widgets-templates-tab = Vorlagen
 ui-widgets-close-tab = { $name } schließen
 ui-widgets-removed-by-agent = Der Agent hat das Widget { $name } gelöscht.
 ui-examples = Beispielfälle
-ui-examples-add = Fall
 ui-examples-add-hint = Fall hinzufügen, Kopie des aktuellen
 ui-examples-new-name = Fall { $n }
 ui-examples-name = Name des Falls
@@ -359,18 +358,10 @@ ui-examples-confirm-delete = Fall „{ $name }“ löschen?
 ui-examples-delete = Löschen
 ui-examples-cancel = Abbrechen
 ui-board = Tafel der Fälle
-ui-board-summary = { $cases ->
-    [one] { $cases } Fall
-   *[other] { $cases } Fälle
-} · { $alerts ->
-    [one] { $alerts } Warnung
-   *[other] { $alerts } Warnungen
-}
 ui-board-scheme = Farbschema
 ui-board-light = Hell
 ui-board-dark = Dunkel
 ui-board-ratio = Format
-ui-board-ok = OK
 ui-board-empty = Leeres Feld
 ui-board-overflow = Läuft über
 ui-board-new = Neuer Fall

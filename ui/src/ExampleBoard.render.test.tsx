@@ -77,7 +77,7 @@ describe("ExampleBoard, vignettes", () => {
     expect(m.cards().every((c) => !!c.querySelector("img.board-thumb")?.getAttribute("src"))).toBe(true);
   });
 
-  test("les badges suivent les alertes : vide, déborde, ou OK", async () => {
+  test("les badges suivent les alertes : vide, déborde ; aucun badge pour un cas sans alerte", async () => {
     const alerts: Record<string, ExampleAlert[]> = {
       Court: [],
       Long: [{ kind: "overflow", field: "body" }],
@@ -85,22 +85,16 @@ describe("ExampleBoard, vignettes", () => {
     };
     const { fake } = boardApi((example) => preview(alerts[example]));
     const m = await mount(fake, { names: ["Court", "Long", "Vide"] });
-    expect(m.badges("Court")).toEqual(["ui-board-ok"]);
+    expect(m.badges("Court")).toEqual([]);
     expect(m.badges("Long")).toEqual(["ui-board-overflow"]);
     // Une alerte du même genre sur deux champs : un seul badge.
     expect(m.badges("Vide")).toEqual(["ui-board-empty"]);
   });
 
-  test("le bilan compte les cas et les alertes", async () => {
-    setMessages("fr", ["ui-board-summary = { $cases } cas · { $alerts } alertes"]);
-    const alerts: Record<string, ExampleAlert[]> = {
-      Court: [],
-      Long: [{ kind: "overflow", field: "body" }],
-      Vide: [{ kind: "empty", field: "title" }, { kind: "empty", field: "body" }],
-    };
-    const { fake } = boardApi((example) => preview(alerts[example]));
-    const m = await mount(fake, { names: ["Court", "Long", "Vide"] });
-    expect(m.host.querySelector(".board-summary")?.textContent).toBe("3 cas · 3 alertes");
+  test("pas de bilan chiffré : les alertes se lisent sur les vignettes", async () => {
+    const { fake } = boardApi(() => preview([{ kind: "empty", field: "title" }]));
+    const m = await mount(fake, { names: ["Court"] });
+    expect(m.host.querySelector(".board-summary")).toBeNull();
   });
 
   test("le cas courant est marqué", async () => {
@@ -200,7 +194,7 @@ describe("ExampleBoard, aperçus", () => {
   test("un aperçu refusé n'empêche pas les autres", async () => {
     const { fake } = boardApi((example) => (example === "Long" ? Promise.reject(new Error("x")) : preview([])));
     const m = await mount(fake, { names: ["Court", "Long"] });
-    expect(m.badges("Court")).toEqual(["ui-board-ok"]);
+    expect(m.badges("Court")).toEqual([]);
     expect(m.badges("Long")).toEqual([]);
   });
 });

@@ -349,7 +349,6 @@ ui-widgets-templates-tab = 範本
 ui-widgets-close-tab = 關閉 { $name }
 ui-widgets-removed-by-agent = AI 代理刪除了小工具 { $name }。
 ui-examples = 範例案例
-ui-examples-add = 案例
 ui-examples-add-hint = 新增案例（複製目前案例）
 ui-examples-new-name = 案例 { $n }
 ui-examples-name = 案例名稱
@@ -359,16 +358,10 @@ ui-examples-confirm-delete = 刪除案例「{ $name }」？
 ui-examples-delete = 刪除
 ui-examples-cancel = 取消
 ui-board = 範例看板
-ui-board-summary = { $cases ->
-   *[other] { $cases } 個範例
-} · { $alerts ->
-   *[other] { $alerts } 個警告
-}
 ui-board-scheme = 配色
 ui-board-light = 淺色
 ui-board-dark = 深色
 ui-board-ratio = 比例
-ui-board-ok = 正常
 ui-board-empty = 欄位為空
 ui-board-overflow = 溢出
 ui-board-new = 新範例

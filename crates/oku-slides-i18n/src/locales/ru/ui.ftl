@@ -353,7 +353,6 @@ ui-widgets-templates-tab = Шаблоны
 ui-widgets-close-tab = Закрыть { $name }
 ui-widgets-removed-by-agent = Агент удалил виджет { $name }.
 ui-examples = Примеры
-ui-examples-add = Пример
 ui-examples-add-hint = Добавить пример — копию текущего
 ui-examples-new-name = Пример { $n }
 ui-examples-name = Название примера
@@ -363,22 +362,10 @@ ui-examples-confirm-delete = Удалить пример «{ $name }»?
 ui-examples-delete = Удалить
 ui-examples-cancel = Отмена
 ui-board = Доска примеров
-ui-board-summary = { $cases ->
-    [one] { $cases } пример
-    [few] { $cases } примера
-    [many] { $cases } примеров
-   *[other] { $cases } примера
-} · { $alerts ->
-    [one] { $alerts } предупреждение
-    [few] { $alerts } предупреждения
-    [many] { $alerts } предупреждений
-   *[other] { $alerts } предупреждения
-}
 ui-board-scheme = Схема
 ui-board-light = Светлая
 ui-board-dark = Тёмная
 ui-board-ratio = Формат
-ui-board-ok = OK
 ui-board-empty = Пустое поле
 ui-board-overflow = Выходит за рамки
 ui-board-new = Новый пример

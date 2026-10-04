@@ -349,7 +349,6 @@ ui-widgets-templates-tab = Şablonlar
 ui-widgets-close-tab = { $name } sekmesini kapat
 ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.
 ui-examples = Örnek durumlar
-ui-examples-add = Durum
 ui-examples-add-hint = Geçerli durumun kopyası olarak durum ekle
 ui-examples-new-name = Durum { $n }
 ui-examples-name = Durum adı
@@ -359,18 +358,10 @@ ui-examples-confirm-delete = “{ $name }” durumu silinsin mi?
 ui-examples-delete = Sil
 ui-examples-cancel = İptal
 ui-board = Durum panosu
-ui-board-summary = { $cases ->
-    [one] { $cases } durum
-   *[other] { $cases } durum
-} · { $alerts ->
-    [one] { $alerts } uyarı
-   *[other] { $alerts } uyarı
-}
 ui-board-scheme = Renk şeması
 ui-board-light = Açık
 ui-board-dark = Koyu
 ui-board-ratio = Biçim
-ui-board-ok = Tamam
 ui-board-empty = Boş alan
 ui-board-overflow = Taşıyor
 ui-board-new = Yeni durum

@@ -352,7 +352,6 @@ ui-widgets-templates-tab = Templates
 ui-widgets-close-tab = Close { $name }
 ui-widgets-removed-by-agent = The agent deleted widget { $name }.
 ui-examples = Example cases
-ui-examples-add = Case
 ui-examples-add-hint = Add a case, copying the current one
 ui-examples-new-name = Case { $n }
 ui-examples-name = Case name
@@ -362,18 +361,10 @@ ui-examples-confirm-delete = Delete case “{ $name }”?
 ui-examples-delete = Delete
 ui-examples-cancel = Cancel
 ui-board = Case board
-ui-board-summary = { $cases ->
-    [one] { $cases } case
-   *[other] { $cases } cases
-} · { $alerts ->
-    [one] { $alerts } alert
-   *[other] { $alerts } alerts
-}
 ui-board-scheme = Scheme
 ui-board-light = Light
 ui-board-dark = Dark
 ui-board-ratio = Format
-ui-board-ok = OK
 ui-board-empty = Empty field
 ui-board-overflow = Overflows
 ui-board-new = New case

@@ -881,15 +881,31 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
   align-items: center; justify-content: safe center;
 }
 .widget-tab-side > .widget-tab-broken, .widget-tab-side > .widget-tab-diagnostics { align-self: stretch; }
-/* Pastilles des cas d'exemple, au-dessus de l'aperçu ; la corbeille d'un cas paraît au survol ou au focus. */
-.example-pills { flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin-top: var(--space-2); }
-.example-pills-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-1); }
-.example-pill-wrap { display: inline-flex; align-items: center; }
-.example-pill-wrap .example-remove { width: 24px; height: 24px; opacity: 0; }
-.example-pill-wrap .example-remove svg { width: 14px; height: 14px; }
+/* Cas d'exemple : un contrôle segmenté discret, aligné sur le bord gauche de l'aperçu ;
+   « + » en icône ; la croix d'un cas paraît au survol ou au focus. */
+.example-pills {
+  flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1);
+  padding: var(--space-2) calc(10px * var(--elev-sheet)) 0;
+}
+.example-pills-row { flex-wrap: wrap; }
+.example-pill-wrap { display: inline-flex; align-items: center; position: relative; }
+.example-pill-wrap .example-remove { position: absolute; inset-inline-end: -6px; top: -6px; width: 18px; height: 18px; padding: 0; opacity: 0; background: var(--paper-100); box-shadow: var(--shadow-object); }
+.example-pill-wrap .example-remove svg { width: 10px; height: 10px; }
 .example-pill-wrap:hover .example-remove, .example-pill-wrap:focus-within .example-remove { opacity: 1; }
-.example-name input { width: 16ch; padding-inline: 10px; background-image: none; cursor: text; }
-.example-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); font-size: 13px; }
+.example-add { width: 26px; height: 26px; min-height: 0; padding: 0; margin-inline-start: 2px; }
+.example-add svg { width: 14px; height: 14px; }
+.example-name input { width: 14ch; height: 26px; padding-inline: 8px; background-image: none; cursor: text; font-size: 13px; }
+.example-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 13px; }
+/* Contrôle segmenté (cas, schéma, format) : un rail creusé, l'élément choisi posé dessus.
+   Neutre : l'accent reste à l'action principale de la vue. */
+.seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--ink) 6%, transparent); }
+.seg-item {
+  border: 0; background: transparent; color: var(--ink-muted); font: 400 13px/20px var(--sans); padding: 3px 10px;
+  border-radius: calc(var(--radius-sm) - 2px); cursor: pointer; white-space: nowrap;
+}
+.seg-item:hover { color: var(--ink); }
+.seg-item[aria-pressed="true"] { background: var(--paper-200); color: var(--ink); box-shadow: var(--shadow-object); }
+.seg-item:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: 1px; }
 /* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
    égales en haut et en bas, l'aperçu reste au centre. */
 .widget-tab-side > img {
@@ -906,28 +922,35 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
 /* Un champ lié au deck : en lecture, il le dit au survol. */
 .stage-preview .field.bound { cursor: help; }
-/* Planche des cas : bilan et bascules au-dessus, vignettes en grille ; la vignette cadrée au format choisi. */
-.widget-tab-side > .example-board { flex: 1 1 0; align-self: stretch; min-height: 96px; padding: var(--space-2) calc(10px * var(--elev-sheet)); }
-.board-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
-.board-toggles { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.board-toggles > [role="group"] { display: inline-flex; gap: 2px; }
-.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-4); }
-.board-card {
-  display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2); text-align: start; cursor: pointer;
-  border: 1px solid var(--rule); border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit;
+/* Planche des cas : les bascules en haut à droite ; des vignettes comme des
+   feuilles posées, le nom et les alertes dessous. Pas de cadre : l'ombre suffit. */
+.widget-tab-side > .example-board { flex: 1 1 0; align-self: stretch; min-height: 96px; padding: var(--space-2) calc(10px * var(--elev-sheet)) var(--space-6); }
+.board-bar { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
+.board-toggles { display: flex; gap: var(--space-2); }
+.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-6) var(--space-4); }
+.board-card { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.board-frame {
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: var(--radius-sm); background: var(--paper-200); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
+  transition: box-shadow 160ms ease-out, transform 160ms ease-out;
 }
-.board-card:hover, .board-card:focus-visible { border-color: var(--accent-fill); }
-.board-card:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
-.board-card[aria-current="true"] { box-shadow: inset 0 0 0 1px var(--accent-fill); border-color: var(--accent-fill); }
-.board-frame { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--paper-200); overflow: hidden; }
 .board-frame[data-ratio="4:3"] { aspect-ratio: 4 / 3; }
-.board-thumb { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: var(--sheet-ring); }
-.board-name { font: 500 13px/18px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.board-badges { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
-.board-badge { font-size: 11px; line-height: 18px; padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; }
-.board-badge.ok { color: var(--ink-muted); }
-.board-badge.empty, .board-badge.overflow { color: var(--danger); }
-.board-new { align-items: center; justify-content: center; min-height: 120px; color: var(--accent); border-style: dashed; }
+.board-card:hover .board-frame { transform: translateY(-1px); box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
+.board-card[aria-current="true"] .board-frame { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-small); }
+.board-card:focus-visible { outline: none; }
+.board-card:focus-visible .board-frame { box-shadow: 0 0 0 2px var(--accent-fill), var(--shadow-sheet-small); }
+/* Un widget d'élément est cadré au plus près : une marge le fait respirer dans sa vignette. */
+.board-thumb { width: 100%; height: 100%; object-fit: contain; padding: 8% 10%; box-sizing: border-box; }
+.board-card > .board-name { display: flex; }
+.board-name { font: 400 13px/18px var(--sans); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -4px; }
+.board-badges:empty { display: none; }
+.board-badge { font-size: 11px; line-height: 18px; padding: 0 6px; border-radius: 4px; color: var(--danger); background: color-mix(in oklab, var(--danger) 10%, transparent); }
+/* Nouveau cas : une vignette en pointillés, du même format. */
+.board-new .board-frame { background: transparent; box-shadow: none; border: 1px dashed color-mix(in oklab, var(--ink) 25%, transparent); color: var(--ink-muted); }
+.board-new .board-frame svg { width: 20px; height: 20px; }
+.board-new .board-name { color: var(--ink-muted); }
+.board-new:hover .board-frame { transform: none; border-color: color-mix(in oklab, var(--ink) 45%, transparent); color: var(--ink); box-shadow: none; }
 .board-new:disabled { cursor: default; opacity: .5; }
 /* Masqué, le code garde sa place nulle : il glisse au lieu d'apparaître d'un coup. */
 .widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }

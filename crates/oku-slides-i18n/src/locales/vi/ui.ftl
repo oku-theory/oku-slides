@@ -347,7 +347,6 @@ ui-widgets-templates-tab = Mẫu
 ui-widgets-close-tab = Đóng { $name }
 ui-widgets-removed-by-agent = Tác nhân AI đã xóa widget { $name }.
 ui-examples = Trường hợp mẫu
-ui-examples-add = Trường hợp
 ui-examples-add-hint = Thêm trường hợp, sao chép trường hợp hiện tại
 ui-examples-new-name = Trường hợp { $n }
 ui-examples-name = Tên trường hợp
@@ -357,16 +356,10 @@ ui-examples-confirm-delete = Xóa trường hợp “{ $name }”?
 ui-examples-delete = Xóa
 ui-examples-cancel = Hủy
 ui-board = Bảng các trường hợp
-ui-board-summary = { $cases ->
-   *[other] { $cases } trường hợp
-} · { $alerts ->
-   *[other] { $alerts } cảnh báo
-}
 ui-board-scheme = Bảng màu
 ui-board-light = Sáng
 ui-board-dark = Tối
 ui-board-ratio = Tỷ lệ
-ui-board-ok = OK
 ui-board-empty = Trường trống
 ui-board-overflow = Tràn khung
 ui-board-new = Trường hợp mới

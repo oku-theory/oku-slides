@@ -349,7 +349,6 @@ ui-widgets-templates-tab = টেমপ্লেট
 ui-widgets-close-tab = { $name } বন্ধ করুন
 ui-widgets-removed-by-agent = এজেন্ট উইজেট { $name } মুছে ফেলেছে।
 ui-examples = উদাহরণ কেস
-ui-examples-add = কেস
 ui-examples-add-hint = কেস যোগ করুন, বর্তমানটির অনুলিপি
 ui-examples-new-name = কেস { $n }
 ui-examples-name = কেসের নাম
@@ -359,18 +358,10 @@ ui-examples-confirm-delete = কেস “{ $name }” মুছবেন?
 ui-examples-delete = মুছুন
 ui-examples-cancel = বাতিল
 ui-board = উদাহরণের বোর্ড
-ui-board-summary = { $cases ->
-    [one] { $cases }টি উদাহরণ
-   *[other] { $cases }টি উদাহরণ
-} · { $alerts ->
-    [one] { $alerts }টি সতর্কতা
-   *[other] { $alerts }টি সতর্কতা
-}
 ui-board-scheme = রঙের ধরন
 ui-board-light = হালকা
 ui-board-dark = গাঢ়
 ui-board-ratio = আকার
-ui-board-ok = ঠিক আছে
 ui-board-empty = খালি ক্ষেত্র
 ui-board-overflow = সীমা ছাড়িয়ে যায়
 ui-board-new = নতুন উদাহরণ

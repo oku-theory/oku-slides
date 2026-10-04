@@ -43,11 +43,12 @@ const TAB = '.widget-tab:not([hidden])';
   await p.keyboard.press('Enter');
   await editor.waitFor({ state: 'detached' });
 
-  // Planche : une vignette par cas ; « Cas 2 » signale son champ vide, « Exemple » est OK.
+  // Planche : une vignette par cas ; « Cas 2 » signale son champ vide, « Exemple » n'a pas d'alerte.
   await p.getByRole('button', { name: 'Planche' }).click();
   const card = (n) => p.locator(`${TAB} .board-card`, { has: p.locator('.board-name', { hasText: new RegExp(`^${n}$`) }) });
   await card('Cas 2').locator('.board-badge', { hasText: 'Champ vide' }).waitFor();
-  await card('Exemple').locator('.board-badge', { hasText: 'OK' }).waitFor();
+  await card('Exemple').locator('.board-thumb').waitFor();
+  assert.equal(await card('Exemple').locator('.board-badge').count(), 0);
 
   // Un clic sur une vignette ramène à la scène, sur ce cas.
   await card('Exemple').click();

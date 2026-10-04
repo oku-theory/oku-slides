@@ -571,6 +571,17 @@ describe("WidgetTab, planche", () => {
     expect(m.host.querySelectorAll(".board-card:not(.board-new)").length).toBe(2);
   });
 
+  test("en planche : toute la hauteur, le code déplié se replie (inerte, sans séparateur)", async () => {
+    const { fake } = board();
+    const m = await mount(fake, { name: "kpi", examples: ["Court"], board: true, code: true });
+    const tab = m.host.querySelector<HTMLElement>(".widget-tab")!;
+    expect([tab.dataset.code, m.host.querySelector(".widget-tab-code")!.hasAttribute("inert"), m.host.querySelector(".code-divider")]).toEqual([
+      "folded",
+      true,
+      null,
+    ]);
+  });
+
   test("en planche : un aperçu par cas, pas celui de la scène", async () => {
     const { fake, asked } = board();
     await mount(fake, { name: "kpi", examples: ["Court", "Long"], board: true });

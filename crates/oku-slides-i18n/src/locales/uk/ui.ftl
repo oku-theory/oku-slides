@@ -353,7 +353,6 @@ ui-widgets-templates-tab = Шаблони
 ui-widgets-close-tab = Закрити { $name }
 ui-widgets-removed-by-agent = Агент видалив віджет { $name }.
 ui-examples = Приклади
-ui-examples-add = Приклад
 ui-examples-add-hint = Додати приклад — копію поточного
 ui-examples-new-name = Приклад { $n }
 ui-examples-name = Назва прикладу
@@ -363,22 +362,10 @@ ui-examples-confirm-delete = Видалити приклад «{ $name }»?
 ui-examples-delete = Видалити
 ui-examples-cancel = Скасувати
 ui-board = Дошка прикладів
-ui-board-summary = { $cases ->
-    [one] { $cases } приклад
-    [few] { $cases } приклади
-    [many] { $cases } прикладів
-   *[other] { $cases } прикладу
-} · { $alerts ->
-    [one] { $alerts } попередження
-    [few] { $alerts } попередження
-    [many] { $alerts } попереджень
-   *[other] { $alerts } попередження
-}
 ui-board-scheme = Схема
 ui-board-light = Світла
 ui-board-dark = Темна
 ui-board-ratio = Формат
-ui-board-ok = OK
 ui-board-empty = Порожнє поле
 ui-board-overflow = Виходить за межі
 ui-board-new = Новий приклад
