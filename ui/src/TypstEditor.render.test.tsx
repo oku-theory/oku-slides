@@ -130,6 +130,25 @@ describe("TypstEditor", () => {
   });
 });
 
+/** Règles CSS injectées par CodeMirror (balises <style> ou feuilles adoptées). */
+function injectedRules(): string {
+  const sheets = [...document.querySelectorAll("style")].map((s) => s.textContent ?? "");
+  const adopted = [...(document.adoptedStyleSheets ?? [])].flatMap((sh) => [...sh.cssRules].map((r) => r.cssText));
+  return [...sheets, ...adopted].join("\n");
+}
+
+describe("TypstEditor, thème", () => {
+  test("le curseur prend la couleur d'accent, pas le noir du thème de base", async () => {
+    const { host } = await mount();
+    const editor = host.querySelector(".cm-editor")!;
+    const rules = injectedRules();
+    const themed = [...editor.classList].filter((c) => c.startsWith("ͼ")).some((c) =>
+      new RegExp(`\\.${c}\\.cm-editor \\.cm-content\\s*\\{[^}]*caret-color:\\s*var\\(--accent\\)`).test(rules),
+    );
+    expect(themed).toBe(true);
+  });
+});
+
 describe("TypstEditor, commandes", () => {
   test("au montage : commandes posées et historique vide signalé", async () => {
     let commands: EditorCommands | null = null;

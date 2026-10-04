@@ -61,6 +61,14 @@ const typstHighlight = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations },
 );
 
+/**
+ * Curseur à la couleur d'accent : le thème de base (`&light .cm-content`) le
+ * fixe noir, invisible sur un thème sombre. `&.cm-editor` l'emporte en précision.
+ */
+const caret = EditorView.theme({
+  "&.cm-editor .cm-content": { caretColor: "var(--accent)" },
+});
+
 /** Changement venu du parent, qui en sait le résultat : pas d'`onChange`. */
 const quiet = Annotation.define<boolean>();
 
@@ -184,6 +192,7 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
           diagnosticGutter,
           history(),
           keymap.of([indentWithTab, ...standardKeymap, ...historyKeymap]),
+          caret,
           typstHighlight,
           diagnosticsField,
           diagnosticMarks,
