@@ -50,6 +50,7 @@ import WidgetPane from "./WidgetPane";
 import CodeSwitch from "./CodeSwitch";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
+import TemplatePile from "./TemplatePile";
 
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
@@ -727,6 +728,25 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const history = snap.history;
   const noop = () => {};
 
+  const pileView = (
+    <SlidePile
+      slides={snap.slides}
+      current={current}
+      svg={svgs.svg}
+      names={snap.editing ? templateNames : undefined}
+      label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
+      addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
+      marks={history ? pileMarks(history.changes) : undefined}
+      // Un sous-onglet widget ouvert cède la place au modèle cliqué.
+      onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); widgets.activate(null); }}
+      onMove={history ? undefined : moveSlide}
+      onAdd={history ? undefined : addSlide}
+      removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
+      canRemove={canRemoveSlide(snap.slides.length)}
+      onRemove={history ? undefined : removeSlide}
+    />
+  );
+
   return (
     <div className="table">
       {history ? (
@@ -805,25 +825,14 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       </div>
       </>)}
 
-      {/* Pile de slides, à gauche. */}
-      <SlidePile
-        slides={snap.slides}
-        current={current}
-        svg={svgs.svg}
-        names={snap.editing ? templateNames : undefined}
-        label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
-        addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
-        marks={history ? pileMarks(history.changes) : undefined}
-        // Un sous-onglet widget ouvert cède la place au modèle cliqué.
-        onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); widgets.activate(null); }}
-        onMove={history ? undefined : moveSlide}
-        onAdd={history ? undefined : addSlide}
-        removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
-        canRemove={canRemoveSlide(snap.slides.length)}
-        onRemove={history ? undefined : removeSlide}
-      >
-        {snap.editing && !history && <PileWidgets files={widgets.files} current={widgets.activeName} onOpen={widgets.open} onRemoved={widgets.removed} focus={widgets.pileFocus} />}
-      </SlidePile>
+      {/* Pile de slides, à gauche ; en mode modèles, sections Modèles et Widgets. */}
+      {snap.editing && !history ? (
+        <TemplatePile
+          title={t("ui-pile-templates")}
+          slides={pileView}
+          widgets={<PileWidgets files={widgets.files} current={widgets.activeName} onOpen={widgets.open} onRemoved={widgets.removed} focus={widgets.pileFocus} />}
+        />
+      ) : pileView}
 
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${history ? " read-only" : ""}`}>

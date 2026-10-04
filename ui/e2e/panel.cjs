@@ -49,7 +49,7 @@ const state = (p) => p.evaluate((LIBRE) => ({
   // Un widget ouvert, une miniature cliquée : retour au sous-onglet Modèles, sur ce modèle.
   const panelHidden = () => p.evaluate(() => document.getElementById('templates-panel').hidden);
   // Créé, il s'ouvre dans son sous-onglet.
-  await p.click('.pile-widgets-head button');
+  await p.click('.pile-widgets .pile-section-head .token');
   await p.fill('.pile-widgets-name .select', 'essai-pile');
   await p.keyboard.press('Enter');
   await p.waitForSelector('.widget-tab:not([hidden])');

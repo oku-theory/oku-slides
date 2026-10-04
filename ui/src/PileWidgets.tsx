@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import PileSection from "./PileSection";
 import type { WidgetFiles } from "./useWidgetFiles";
 import { COMMON, nameAvailable, nameIssue, stateOf, widgetLabel, widgetSlug } from "./widgetList";
 
@@ -12,7 +13,7 @@ export interface PileWidgetsProps {
   onOpen: (name: string) => void;
   /** Après une suppression réussie (le sous-onglet se ferme). */
   onRemoved: (name: string) => void;
-  /** Change : le focus va au titre de la section (☰ « Éditer les widgets »). */
+  /** Change : la section se rouvre, le focus va à son titre (☰ « Éditer les widgets »). */
   focus: number;
   /** Confirmation (injectable pour les tests) ; défaut : `window.confirm`. */
   confirm?: (message: string) => boolean;
@@ -20,13 +21,16 @@ export interface PileWidgetsProps {
 
 export default function PileWidgets({ files, current, onOpen, onRemoved, focus, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
   const [naming, setNaming] = useState<{ from: string | null; value: string } | null>(null);
-  const title = useRef<HTMLHeadingElement>(null);
+  const [open, setOpen] = useState(true);
+  const title = useRef<HTMLButtonElement>(null);
   const issueId = useId();
   const rows = useRef(new Map<string, HTMLButtonElement>());
   /** Ligne à refocaliser après le champ du nom. */
   const refocus = useRef<string | null>(null);
   useEffect(() => {
-    if (focus > 0) title.current?.focus();
+    if (focus === 0) return;
+    setOpen(true);
+    title.current?.focus();
   }, [focus]);
   useEffect(() => {
     if (naming || !refocus.current) return;
@@ -87,19 +91,26 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
   );
 
   return (
-    <section className="pile-widgets" aria-label={t("ui-widgets-files")}>
-      <div className="pile-widgets-head">
-        <h3 ref={title} tabIndex={-1}>{t("ui-widgets-section")}</h3>
+    <PileSection
+      className="pile-widgets"
+      title={t("ui-widgets-section")}
+      label={t("ui-widgets-files")}
+      open={open}
+      onToggle={() => setOpen((o) => !o)}
+      toggleRef={title}
+      actions={
         <button
           className="token ghost"
           aria-label={t("ui-widgets-new")}
           title={t("ui-widgets-new")}
           disabled={files.statuses === null}
-          onClick={() => setNaming({ from: null, value: "" })}
+          // Nommer un widget dans une section repliée : on la rouvre.
+          onClick={() => { setOpen(true); setNaming({ from: null, value: "" }); }}
         >
           {Icon.add}
         </button>
-      </div>
+      }
+    >
       {naming?.from === null && field}
       <ul>
         {(files.statuses ?? []).map((s) => {
@@ -133,6 +144,6 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
         })}
       </ul>
       {files.statuses?.length === 0 && !naming && <p className="caption">{t("ui-widgets-empty")}</p>}
-    </section>
+    </PileSection>
   );
 }

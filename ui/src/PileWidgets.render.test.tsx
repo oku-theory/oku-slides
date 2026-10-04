@@ -62,8 +62,9 @@ async function mount(fake: TabApi, over: Over = {}) {
 
 const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".pile-widgets-file")];
 const row = (host: HTMLElement, label: string) => rows(host).find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
+const toggle = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".pile-section-toggle") as HTMLButtonElement;
 const nameInput = (host: HTMLElement) => host.querySelector<HTMLInputElement>(".pile-widgets-name input");
-const add = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".pile-widgets-head button") as HTMLButtonElement;
+const add = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".pile-section-head .token") as HTMLButtonElement;
 async function submitName(host: HTMLElement, value: string) {
   const input = nameInput(host);
   await act(async () => {
@@ -275,9 +276,33 @@ describe("PileWidgets", () => {
   test("focus change : le titre de la section prend le focus", async () => {
     const { fake } = memory({ kpi: "k" });
     const { host, rerender } = await mount(fake);
-    expect(document.activeElement).not.toBe(host.querySelector("h3"));
+    expect(document.activeElement).not.toBe(toggle(host));
     await rerender(1);
-    expect(document.activeElement).toBe(host.querySelector("h3"));
+    expect(document.activeElement).toBe(toggle(host));
+  });
+
+  test("focus change : une section repliée se rouvre", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host, rerender } = await mount(fake);
+    await act(async () => toggle(host).click());
+    expect(rows(host).length).toBe(0);
+    await rerender(1);
+    expect(rows(host).length).toBe(1);
+  });
+
+  test("repliée : + rouvre la section sur le champ du nom", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => toggle(host).click());
+    await act(async () => add(host).click());
+    expect(nameInput(host)).not.toBeNull();
+  });
+
+  test("repliée : le bouton Nouveau widget reste là", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await act(async () => toggle(host).click());
+    expect(add(host)).not.toBeNull();
   });
 
   test("le bouton Supprimer est atteignable au clavier", async () => {

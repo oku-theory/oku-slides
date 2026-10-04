@@ -21,7 +21,7 @@ afterEach(async () => {
 
 const slide = (id: string) => ({ id, hash: id, title: id }) as unknown as SlideSummary;
 
-async function mount({ canRemove = true, readOnly = false, children = undefined as unknown } = {}) {
+async function mount({ canRemove = true, readOnly = false } = {}) {
   const removed: string[] = [];
   const selected: string[] = [];
   const host = document.createElement("div");
@@ -42,7 +42,6 @@ async function mount({ canRemove = true, readOnly = false, children = undefined 
         onMove: readOnly ? undefined : () => {},
         onAdd: readOnly ? undefined : () => {},
         onRemove: readOnly ? undefined : (id: string) => removed.push(id),
-        children,
       } as never),
     );
   });
@@ -73,13 +72,5 @@ describe("pile des miniatures", () => {
     const { removes, host } = await mount({ readOnly: true });
     expect(removes().length).toBe(0);
     expect(host.querySelector(".add-slide")).toBeNull();
-  });
-
-  test("SlidePile les enfants sont rendus sous le bouton d'ajout, dans la pile", async () => {
-    const { host } = await mount({ children: createElement("p", { id: "x" }) });
-    expect(host.querySelector("nav.pile #x")).not.toBeNull();
-    const add = host.querySelector(".add-slide") as Element;
-    const child = host.querySelector("#x") as Element;
-    expect(add.compareDocumentPosition(child) & 4).toBe(4);
   });
 });

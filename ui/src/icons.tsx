@@ -23,6 +23,8 @@ export const Icon = {
   widget: stroke(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 3.5l3.5 3.5-3.5 3.5-3.5-3.5z" /></>),
   // Actions.
   add: stroke(<path d="M12 5v14M5 12h14" />),
+  // Titre d'une section repliable : pointe à droite, tourné vers le bas une fois ouvert.
+  chevron: stroke(<path d="M9 6l6 6-6 6" />),
   check: stroke(<path d="M5 12.5l4.5 4.5L19 7.5" />),
   close: stroke(<path d="M6 6l12 12M18 6L6 18" />),
   trash: stroke(<><path d="M4.5 7h15" /><path d="M9.5 7V4.5h5V7" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>),

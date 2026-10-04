@@ -822,10 +822,25 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .widget-tab-diagnostics:empty { display: none; }
 .widget-tab-diagnostics .error { color: var(--danger); }
 
-/* Section « Widgets » de la pile des modèles. */
-.pile-widgets { margin-top: var(--space-4); }
-.pile-widgets-head { display: flex; align-items: center; justify-content: space-between; }
-.pile-widgets-head h3 { margin: 0; font: 500 13px/20px var(--sans); }
+/* Mode modèles : deux sections repliables. Modèles prend la place et défile seule ;
+   Widgets reste ancrée en bas, et défile à son tour si sa liste est longue. */
+.pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
+.pile-section { display: flex; flex-direction: column; min-height: 0; }
+.pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
+.pile-section-head h3 { margin: 0; min-width: 0; font: 500 13px/20px var(--sans); }
+.pile-section-toggle { display: flex; align-items: center; gap: var(--space-1); padding: 6px 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.pile-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pile-section-chevron { display: flex; color: var(--ink-muted); }
+.pile-section-chevron svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+.pile-section[data-open="true"] .pile-section-chevron svg { transform: rotate(90deg); }
+.pile-section-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.pile-templates[data-open="true"] { flex: 1 1 0; }
+.pile-templates .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
+.pile-widgets { flex: 0 1 auto; max-height: 45%; border-top: 1px solid var(--rule); padding-top: var(--space-2); }
+/* Modèles repliée : Widgets peut prendre toute la hauteur. */
+.pile-templates[data-open="false"] + .pile-widgets { max-height: none; }
+.pile-widgets .pile-section-body { overflow-y: auto; padding: 0 28px var(--space-6) var(--space-6); }
+@media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
 .pile-widgets ul { list-style: none; margin: 0; padding: 0; }
 .pile-widgets-row { display: flex; align-items: center; }
 .pile-widgets-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
