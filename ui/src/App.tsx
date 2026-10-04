@@ -54,50 +54,12 @@ import CodeSwitch from "./CodeSwitch";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
 import TemplatePile from "./TemplatePile";
-
+import TitleField from "./TitleField";
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
 const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
 const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
 const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
-
-/** Titre de la présentation, modifiable sur place (clic, Entrée pour valider, Échap pour annuler). */
-function TitleField({ value, display, onCommit }: { value: string; display: string; onCommit: (v: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  if (!editing) {
-    return (
-      <button
-        className="doc-name doc-name-button"
-        title={t("ui-title-rename")}
-        onClick={() => { setDraft(value); setEditing(true); }}
-      >
-        {display}
-      </button>
-    );
-  }
-  const commit = () => {
-    setEditing(false);
-    if (draft !== value) onCommit(draft);
-  };
-  return (
-    <input
-      className="doc-name doc-name-input"
-      aria-label={t("ui-title-field")}
-      autoFocus
-      value={draft}
-      size={Math.max(12, draft.length + 1)}
-      onFocus={(e) => e.currentTarget.select()}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") { e.preventDefault(); commit(); }
-        else if (e.key === "Escape") { e.preventDefault(); setEditing(false); }
-        e.stopPropagation();
-      }}
-    />
-  );
-}
 
 /** Un onglet : le deck de la session `tab`. */
 export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onChange }: {
