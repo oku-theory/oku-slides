@@ -52,6 +52,57 @@ colonnes ajoutées par l'utilisateur (les colonnes sont celles du schéma).
 10. **`item-label`** optionnel sur le descripteur : nourrit « Ajouter une
     étape », « Supprimer l'étape » (argument de chaînes Fluent).
 
+## Amendements après lecture du code (2026-10-04)
+
+Ces points priment sur les sections qui suivent.
+
+- **A1. Ids fournis par l'appelant.** Le cœur ne génère aucun id (ceux des
+  éléments viennent de l'interface, `newId` dans `ui/src/deck.ts`).
+  `ListOp::Insert` porte donc l'`id` de l'item (interface : `newId("i")` ;
+  agent : un id de son choix).
+- **A1 bis. Absente = vide ; le défaut amorce la création.** Un tableau
+  vide est indiscernable d'un `rich` vide une fois en JSON, et
+  `canonicalize` retire les valeurs vides : une liste vide est donc
+  **absente**, et une liste absente est **vide** (Typst rend `()`). Le
+  `default` du schéma n'amorce qu'un objet **créé** — `add_element`,
+  `add_slide`, `set_kind`, `replace_element`, sous-arbre compris — avec
+  des ids déterministes `d0`, `d1`… (`seed_lists`, cœur). L'aperçu de
+  l'éditeur de widget montre le défaut (valeurs d'essai absentes).
+  `set_param` à `null` vide la liste.
+- **A2. Conteneur du replica.** La lecture du replica se passe du
+  registre et lit toute `LoroMovableList` de paramètres comme un slot.
+  Une liste est donc une `LoroMap { list: LoroMovableList<LoroMap> }`
+  (comme `rich` : `LoroMap { rich: LoroText }`), lisible sans registre,
+  créée d'avance (parade t-188) ; vide, elle se relit absente.
+- **A3. Validation du schéma en Rust seulement.** `check_widget`
+  (`SchemaFault`, messages traduits) est l'autorité ; Typst ajoute
+  seulement `"list"` à `_types`.
+- **A4. Édition sur la slide construite en TS.** Les ops de champ sont
+  faites par `fieldOps` (`ui/src/deck.ts`) : un champ d'item y donne
+  `edit_list { set_field }`. `FieldView` gagne `list`, `item`, `column`.
+- **A5. Dock : éditeur de widget seulement.** Le dock de l'hôte ne règle
+  les paramètres de widget que dans l'éditeur de widget (valeurs
+  d'essai) ; il n'y a pas de dock des paramètres d'élément dans le deck.
+  Le tableau y modifie les valeurs d'essai par une requête
+  `EditWidgetTrialList { name, param, change }`. Dans le deck, une liste
+  s'édite sur la slide et par l'agent. Le collage TSV vaut pour le dock.
+- **A6. Colonne `asset` en lecture seule au dock** : l'interface n'a pas
+  de sélecteur d'asset et `settable` exclut déjà `asset`. Elle se règle
+  par l'agent (`edit_list`).
+- **A7. Agent** : il lit les slides en JSON brut (`SlideView`), items et
+  ids compris ; pas de tableau compact. `ask_rewrite` reste aux champs
+  de slide (`@titre`) et au premier `rich` d'un élément ; l'agent
+  modifie un champ d'item par `edit_list`.
+- **A8. Pas de menu contextuel** sur la scène : « × » seulement. « + »
+  aussi **avant le premier** item (sinon on ne peut pas insérer en tête).
+- **A9. Grille commune** dans `ui/src/table/` (`ui/src/grid.ts` existe
+  déjà) : analyse TSV et conversion des cellules. `ChartDataGrid` n'a
+  pas de navigation aux flèches : Tab natif, Entrée descend.
+- **A10. Tests Typst** dans `crates/oku-slides-render/tests/` (pas de
+  lanceur de tests Typst natif).
+- **A11. Widget de base `frise`** ajouté à `typst/oku-slides/src/widgets.typ` :
+  cas de recette et support de l'e2e (élément ajouté par `add_element`).
+
 ## Typst (`typst/oku-slides`)
 
 **Descripteur** (`src/params.typ`) :
