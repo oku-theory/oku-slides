@@ -403,7 +403,8 @@ impl Workspace {
         let l = Localizer::new(self.chosen_locale);
         let messages = serde_json::json!({
             "locale": l.locale(),
-            "resources": l.ui_messages(),
+            // Les raccourcis des messages dans la notation de la plateforme (`⌘Z` ou `Ctrl+Z`).
+            "resources": l.ui_messages().into_iter().map(oku_slides_i18n::platform_keys).collect::<Vec<_>>(),
             "available": oku_slides_i18n::available(),
             "chosen": self.chosen_locale,
         });

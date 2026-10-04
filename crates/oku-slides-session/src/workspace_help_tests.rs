@@ -88,3 +88,14 @@ fn open_help_built_twice_concurrently_keeps_a_single_help_tab() {
     let helps = v.windows[0].tabs.iter().filter(|t| t.info.help.is_some()).count();
     assert_that!(helps).is_equal_to(1);
 }
+
+/// Les messages de l'interface écrivent les raccourcis comme la plateforme.
+#[test]
+fn messages_write_shortcuts_in_the_platform_notation() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    let WorkspaceOutcome::Applied(json) = send(&ws, json!({"cmd": "messages"})) else { panic!("messages") };
+    let mac = cfg!(target_os = "macos");
+    assert_that!(json.contains("⌘Z")).is_equal_to(mac);
+    assert_that!(json.contains("Ctrl+Z")).is_equal_to(!mac);
+}

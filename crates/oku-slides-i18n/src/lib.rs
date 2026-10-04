@@ -5,14 +5,17 @@
 //! - [`Localize`] : ce qui sait se dire dans une langue (erreurs, rapports).
 //! - [`english`] : l'anglais de référence, pour les journaux et `Display`.
 //! - [`Message`] : un message à dire plus tard (dans une erreur).
+//! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
 //!
 //! Les fichiers `.ftl` sont dans `src/locales/<langue>/`, un par domaine ;
 //! `en` est la référence, chaque autre langue en reprend toutes les clés.
 
+mod keys;
 mod message;
 
 use std::sync::LazyLock;
 
+pub use keys::{pc_keys, platform_keys};
 pub use message::{Arg, Message};
 
 use fluent_bundle::FluentResource;

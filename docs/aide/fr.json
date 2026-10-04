@@ -468,7 +468,7 @@
    "kind": "chapter",
    "params": {
     "title": "Raccourcis clavier",
-    "subtitle": "⌘ sur Mac, Ctrl ailleurs"
+    "subtitle": "Les touches de votre système"
    }
   },
   {
@@ -725,21 +725,7 @@
         {
          "runs": [
           {
-           "t": "⇧",
-           "highlight": 1
-          },
-          {
-           "t": " "
-          },
-          {
-           "t": "+",
-           "highlight": 1
-          },
-          {
-           "t": " "
-          },
-          {
-           "t": "←↑→↓",
+           "t": "⇧←↑→↓",
            "highlight": 1
           },
           {

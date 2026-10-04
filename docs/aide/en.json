@@ -468,7 +468,7 @@
    "kind": "chapter",
    "params": {
     "title": "Keyboard shortcuts",
-    "subtitle": "⌘ on Mac, Ctrl elsewhere"
+    "subtitle": "The keys of your system"
    }
   },
   {
@@ -725,21 +725,7 @@
         {
          "runs": [
           {
-           "t": "⇧",
-           "highlight": 1
-          },
-          {
-           "t": " "
-          },
-          {
-           "t": "+",
-           "highlight": 1
-          },
-          {
-           "t": " "
-          },
-          {
-           "t": "←↑→↓",
+           "t": "⇧←↑→↓",
            "highlight": 1
           },
           {

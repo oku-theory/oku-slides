@@ -3,9 +3,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { keyLabel } from "./keys";
 
 /** Une ligne du menu : une action, un séparateur, ou un contrôle (sélecteur de thème…). */
 export type MenuEntry =
+  /** `shortcut` : écrit à la macOS (`⌘⇧S`), montré dans la notation de la plateforme. */
   | { kind: "item"; label: string; shortcut?: string; disabled?: boolean; onSelect: () => void }
   | { kind: "separator" }
   | { kind: "custom"; node: ReactNode };
@@ -97,7 +99,7 @@ export function ActionMenu({ label, entries, icon = BURGER, triggerClass = "obje
                 }}
               >
                 <span>{e.label}</span>
-                {e.shortcut && <kbd>{e.shortcut}</kbd>}
+                {e.shortcut && <kbd>{keyLabel(e.shortcut)}</kbd>}
               </button>
             ),
           )}

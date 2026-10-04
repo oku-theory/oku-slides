@@ -7,6 +7,7 @@ import "./test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { ActionMenu } = await import("./ActionMenu");
+const { keyLabel } = await import("./keys");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -63,7 +64,7 @@ describe("menu d'actions", () => {
   test("ActionMenu clic sur le bouton l'ouvre, avec ses entrées", async () => {
     const { trigger, items, host } = await mount();
     await act(async () => trigger().click());
-    expect(items().map((b) => b.textContent)).toEqual(["Ouvrir…⌘O", "Déplacer…"]);
+    expect(items().map((b) => b.textContent)).toEqual([`Ouvrir…${keyLabel("⌘O")}`, "Déplacer…"]);
     expect(host.querySelector(".extra")?.textContent).toBe("Thème");
     expect(trigger().getAttribute("aria-expanded")).toBe("true");
   });

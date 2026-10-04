@@ -6,7 +6,10 @@
 //! relit le deck livré, jamais une ancienne copie. Il se rend avec la
 //! version livrée du pack par défaut, pas celle que l'utilisateur a pu modifier.
 
+use std::borrow::Cow;
+
 use oku_slides_core::{Deck, PackRef, SourceBundle};
+use oku_slides_i18n::platform_keys;
 use snafu::{OptionExt, ResultExt};
 
 use crate::error::{HelpDeckSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu};
@@ -29,10 +32,17 @@ pub(crate) fn help_locale(locale: &str) -> &'static str {
     HELP_DECKS.iter().find(|(l, _)| *l == locale).unwrap_or(&HELP_DECKS[0]).0
 }
 
-/// Le deck d'aide d'une langue livrée (voir [`help_locale`]).
+/// Le deck d'aide d'une langue livrée (voir [`help_locale`]), ses raccourcis
+/// dans la notation de la plateforme.
 pub(crate) fn help_deck(locale: &str) -> Result<Deck> {
+    help_deck_with(locale, platform_keys)
+}
+
+/// Le deck d'aide, ses raccourcis (écrits à la macOS) passés par `keys`.
+pub(crate) fn help_deck_with(locale: &str, keys: fn(&str) -> Cow<'_, str>) -> Result<Deck> {
     let (_, json) = HELP_DECKS.iter().find(|(l, _)| *l == help_locale(locale)).unwrap_or(&HELP_DECKS[0]);
-    Ok(Deck::from_json(json).context(HelpDeckSnafu)?)
+    // Les symboles des touches n'apparaissent que dans les textes du JSON.
+    Ok(Deck::from_json(&keys(json)).context(HelpDeckSnafu)?)
 }
 
 impl Session {

@@ -176,3 +176,19 @@ fn open_help_uses_the_builtin_default_pack_not_the_users_current_one() {
     let used = s.deck().templates.clone().unwrap();
     assert_that!(used.version).is_equal_to(builtin);
 }
+
+#[test]
+fn help_deck_for_windows_and_linux_writes_ctrl_not_command() {
+    for locale in help_locales() {
+        let deck = help_deck_with(locale, oku_slides_i18n::pc_keys).unwrap();
+        let json = serde_json::to_string(&deck).unwrap();
+        assert_that!(json.contains(['⌘', '⌥', '⇧', '⌃'])).named(locale).is_false();
+        assert_that!(json.contains("Ctrl+Shift+S")).named(locale).is_true();
+    }
+}
+
+#[test]
+fn help_deck_for_macos_keeps_the_symbols() {
+    let json = serde_json::to_string(&help_deck_with("fr", |s| std::borrow::Cow::Borrowed(s)).unwrap()).unwrap();
+    assert_that!(json.contains("⌘⇧S")).is_true();
+}
