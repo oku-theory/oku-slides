@@ -193,6 +193,8 @@ export default function TypstEditor({ text, diagnostics, diagnosticsFor, label, 
           history(),
           keymap.of([indentWithTab, ...standardKeymap, ...historyKeymap]),
           caret,
+          // Lignes longues repliées : rien ne se cache à droite du volet.
+          EditorView.lineWrapping,
           typstHighlight,
           diagnosticsField,
           diagnosticMarks,

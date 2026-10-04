@@ -65,8 +65,9 @@
   box-shadow: var(--glass-rim), var(--shadow-floating);
 }
 .action-menu-list:hover, .dictation-settings:hover { box-shadow: var(--glass-rim), var(--shadow-floating); }
-/* Le dock flotte comme une fiche : son verre a une marge et des coins, plus de filet de séparation. */
-.agent-dock { padding: var(--space-2); border-radius: var(--radius-md); border-top: 0; }
+/* Le dock est une fiche de verre posée dans le fil : marge et coins, plus de filet de séparation.
+   Ombre d'objet posé, pas de flottant : le fil défile et rognerait une ombre large en bande. */
+.agent-dock { padding: var(--space-2); border-radius: var(--radius-md); border-top: 0; box-shadow: var(--glass-rim), var(--shadow-rest); }
 .agent-veil, .picker-scrim { -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
 
 /* Champs et listes dans le verre : creusés plutôt que pleins. */

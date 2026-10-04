@@ -210,6 +210,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
   const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui, widgets.kept);
+  // Style du deck vu par les aperçus de widgets : un changement de thème les relance.
+  const look = snap ? JSON.stringify([snap.theme, snap.appearance.slide]) : "";
 
   // L'interface reprend la slide gardée par l'hôte ; ensuite, la slide
   // courante, ou la première si elle a disparu.
@@ -910,7 +912,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} code={viewOptions.code} layout={viewOptions.codeLayout} onLayout={viewOptions.setCodeLayout} />}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} layout={viewOptions.codeLayout} onLayout={viewOptions.setCodeLayout} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} hints={hintsOn(drawer)} onAction={sendAction} onError={(m) => say(m, true)} />

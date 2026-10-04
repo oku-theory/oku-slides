@@ -35,7 +35,7 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   } as unknown as Snapshot;
   function Probe() {
     const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, code: false, layout: BELOW, onLayout: () => {} });
+    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, layout: BELOW, onLayout: () => {} });
   }
   await act(async () => root.render(createElement(Probe)));
   await wait(10);

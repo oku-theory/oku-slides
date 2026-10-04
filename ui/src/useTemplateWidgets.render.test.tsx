@@ -71,7 +71,7 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
       Fragment,
       null,
       createElement(TemplateTabs, { tabs: w.tabs.tabs, active: w.tabs.active, unsaved: w.files.unsaved, onActivate: w.activate, onClose: w.close }),
-      createElement(WidgetPane, { api: fake, widgets: w, trials: snap.widget_trials ?? 0, code: false, layout: BELOW, onLayout: () => {} }),
+      createElement(WidgetPane, { api: fake, widgets: w, trials: snap.widget_trials ?? 0, look: "", code: false, layout: BELOW, onLayout: () => {} }),
     );
   }
   const probe = createElement(Probe);

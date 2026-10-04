@@ -137,6 +137,13 @@ function injectedRules(): string {
   return [...sheets, ...adopted].join("\n");
 }
 
+describe("TypstEditor, mise en page", () => {
+  test("les lignes longues reviennent à la ligne au lieu de défiler", async () => {
+    const { host } = await mount();
+    expect(host.querySelector(".cm-content")!.classList.contains("cm-lineWrapping")).toBe(true);
+  });
+});
+
 describe("TypstEditor, thème", () => {
   test("le curseur prend la couleur d'accent, pas le noir du thème de base", async () => {
     const { host } = await mount();

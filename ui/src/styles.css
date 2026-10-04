@@ -315,6 +315,16 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .col-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
 .col-divider.active::before, .col-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
 body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+/* Poignée : une pastille discrète au repos dit que la zone se redimensionne ; plus nette au survol,
+   elle s'efface au glisser et au focus, où le trait d'accent prend le relais. */
+.col-divider::after, .code-divider::after {
+  content: ""; position: absolute; border-radius: 2px; background: var(--ink); opacity: 0.16;
+  transition: opacity 160ms ease-out; pointer-events: none;
+}
+.col-divider::after { top: 50%; inset-inline-start: 2px; width: 4px; height: 32px; margin-top: -16px; }
+.col-divider:hover::after, .code-divider:hover::after { opacity: 0.32; }
+.col-divider.active::after, .col-divider:focus-visible::after,
+.code-divider.active::after, .code-divider:focus-visible::after { opacity: 0; }
 
 /* ---- Appareil de dictée ---- */
 .device {
@@ -826,6 +836,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
 body:has(.code-divider.active) { cursor: row-resize; user-select: none; -webkit-user-select: none; }
 body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
+.code-divider::after { left: 50%; top: 4px; width: 32px; height: 4px; margin-left: -16px; }
+.code-divider[data-axis="right"]::after { left: 4px; top: 50%; width: 4px; height: 32px; margin: -16px 0 0; }
 .widget-tab[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .widget-tab { transition: none; } }
 /* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
@@ -868,7 +880,8 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .pile-widgets { flex: 0 1 auto; max-height: 45%; border-top: 1px solid var(--rule); padding-top: var(--space-2); }
 /* Modèles repliée : Widgets peut prendre toute la hauteur. */
 .pile-templates[data-open="false"] + .pile-widgets { max-height: none; }
-.pile-widgets .pile-section-body { overflow-y: auto; padding: 0 28px var(--space-6) var(--space-6); }
+/* 4 px en haut : l'anneau de focus (3 px) du champ de nom, en tête de liste, n'est pas rogné par le défilement. */
+.pile-widgets .pile-section-body { overflow-y: auto; padding: 4px 28px var(--space-6) var(--space-6); }
 @media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
 .pile-widgets ul { list-style: none; margin: 0; padding: 0; }
 .pile-widgets-row { display: flex; align-items: center; }

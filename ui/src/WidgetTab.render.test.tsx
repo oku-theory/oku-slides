@@ -25,7 +25,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout; look?: string }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -35,11 +35,11 @@ async function mount(fake: TabApi, first: Shown) {
   const opened: string[] = [];
   const layouts: CodeLayout[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW, look = "clair" }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, onLayout: (l: CodeLayout) => layouts.push(l),
+      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, look, onLayout: (l: CodeLayout) => layouts.push(l),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -126,6 +126,15 @@ describe("WidgetTab, source", () => {
     await m.render({ name: "kpi", revision: "r1" });
     await wait(10);
     expect(m.text()).toBe("agent");
+    expect(calls.filter((c) => c === "preview").length).toBe(previews + 1);
+  });
+
+  test("le style du deck changé (thème) : l'aperçu est redemandé", async () => {
+    const { fake, calls } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi" });
+    const previews = calls.filter((c) => c === "preview").length;
+    await m.render({ name: "kpi", look: "sombre" });
+    await wait(10);
     expect(calls.filter((c) => c === "preview").length).toBe(previews + 1);
   });
 

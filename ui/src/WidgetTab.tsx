@@ -32,6 +32,8 @@ export interface WidgetTabProps {
   revision: string;
   /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
   trials: number;
+  /** Empreinte du style du deck (thème, couleurs) : l'aperçu, rendu à ce style, se relance quand elle change. */
+  look: string;
   /** Seul l'actif est visible, relit sa source et demande un aperçu. */
   active: boolean;
   /** Code source affiché ; masqué, l'éditeur reste monté mais inerte. */
@@ -46,7 +48,7 @@ export interface WidgetTabProps {
   onHistory: (h: EditorHistory) => void;
 }
 
-export default function WidgetTab({ api, files, id, name, revision, trials, active, code, layout, onLayout, onOpen, onCommands, onHistory }: WidgetTabProps) {
+export default function WidgetTab({ api, files, id, name, revision, trials, look, active, code, layout, onLayout, onOpen, onCommands, onHistory }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -100,7 +102,7 @@ export default function WidgetTab({ api, files, id, name, revision, trials, acti
         if (seq === previewSeq.current) setPreview(p);
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
-  }, [api, active, name, written, ready, editorKey, trials]);
+  }, [api, active, name, written, ready, editorKey, trials, look]);
 
   // Redevenu visible (onglet actif, code déplié) : l'éditeur caché se remesure.
   useEffect(() => {
