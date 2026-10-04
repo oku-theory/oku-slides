@@ -5,8 +5,8 @@ use speculoos::prelude::*;
 use serde_json::json;
 
 use super::{
-    Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
-    ShowParams, ShowVariants, Variant, choice, confirm, params, permission, rewrite, variants,
+    Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
+    Place, ShowParams, ShowVariants, Variant, choice, confirm, params, params_with, permission, rewrite, variants,
 };
 
 fn fr() -> Localizer {
@@ -43,6 +43,54 @@ fn params_surface_is_live_in_the_thread() {
     let s = every_form().into_iter().find(|s| s.id == "show-5").unwrap();
     assert_that!(s.place).is_equal_to(Place::Thread);
     assert_that!(s.live).is_true();
+}
+
+fn rich_spec() -> ShowParams {
+    serde_json::from_value(json!({ "title": "T", "slide": "s-1", "fields": [{
+        "label": "Corps", "kind": "rich", "value": [{ "runs": [{ "t": "Un", "bold": true }] }],
+        "op_template": { "op": "set_param", "target": { "slide": "s-1" }, "param": "body", "value": "$value" }
+    }] }))
+    .unwrap()
+}
+
+#[test]
+fn params_with_a_rich_field_shows_its_markdown() {
+    let s = params("show-1", &rich_spec(), &[], &fr());
+    assert_that!(serde_json::to_string(&s.messages).unwrap().as_str()).contains("**Un**");
+}
+
+#[test]
+fn params_with_a_rich_field_sends_its_source_paragraphs() {
+    let s = params("show-1", &rich_spec(), &[], &fr());
+    assert_that!(serde_json::to_string(&s.messages).unwrap().as_str()).contains("\"path\":\"/f0-source\"");
+}
+
+fn host_spec() -> ShowParams {
+    serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [
+        { "label": "Titre", "kind": "text", "value": "x", "op_template": null }
+    ] }))
+    .unwrap()
+}
+
+#[test]
+fn params_with_keys_puts_the_key_in_the_action() {
+    let extras = FormExtras { keys: &["title".into()], notes: &[], closable: false };
+    let json = serde_json::to_string(&params_with("host-widget", &host_spec(), &extras, &[], &fr()).messages).unwrap();
+    assert_that!(json.as_str()).contains("\"key\"");
+}
+
+#[test]
+fn params_with_notes_shows_them() {
+    let extras = FormExtras { keys: &[], notes: &["n1".into()], closable: false };
+    let json = serde_json::to_string(&params_with("host-widget", &host_spec(), &extras, &[], &fr()).messages).unwrap();
+    assert_that!(json.as_str()).contains("n1");
+}
+
+#[test]
+fn params_with_not_closable_has_no_close_button() {
+    let extras = FormExtras { keys: &[], notes: &[], closable: false };
+    let json = serde_json::to_string(&params_with("host-widget", &host_spec(), &extras, &[], &fr()).messages).unwrap();
+    assert_that!(json.contains("dismiss")).is_false();
 }
 
 #[test]
@@ -225,6 +273,7 @@ fn every_form() -> Vec<super::Surface> {
             field("Accent", FieldKind::Color, json!("#c2573a")),
             ParamField { options: options(), ..field("Mise en page", FieldKind::Select, json!("a")) },
             field("Légende", FieldKind::Text, json!("Source : Insee")),
+            field("Corps", FieldKind::Rich, json!([{ "runs": [{ "t": "Un", "bold": true }] }])),
         ],
     };
     let variants_spec = ShowVariants {
@@ -290,6 +339,21 @@ fn every_form() -> Vec<super::Surface> {
     };
     let mut render9 = crate::agent::render::render("render-9", &render_spec).unwrap();
     render9.turn = Some(3);
+    // Réglages de l'hôte : champs adressés par clé, une note, sans « × ».
+    let host = ShowParams {
+        title: "Paramètres de citation".into(),
+        slide: String::new(),
+        fields: vec![
+            ParamField { op_template: serde_json::Value::Null, ..field("Source", FieldKind::Text, json!("Insee")) },
+            ParamField {
+                op_template: serde_json::Value::Null,
+                ..field("Corps", FieldKind::Rich, json!([{ "runs": [{ "t": "Un" }] }]))
+            },
+        ],
+    };
+    let host_keys = ["source".to_owned(), "body".to_owned()];
+    let host_notes = ["logo : non réglable dans l'aperçu".to_owned()];
+    let host_extras = FormExtras { keys: &host_keys, notes: &host_notes, closable: false };
     vec![
         choice("ask-1", &AskChoice { question: "Quelle mise en page ?".into(), options: options(), anchor }, &l),
         confirm("ask-2", &AskConfirm { message: "Remplacer le fichier ?".into(), danger: true }, &l),
@@ -320,6 +384,7 @@ fn every_form() -> Vec<super::Surface> {
         ask8,
         report8,
         render9,
+        params_with("host-widget", &host, &host_extras, &[], &l),
     ]
 }
 

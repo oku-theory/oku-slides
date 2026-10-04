@@ -82,7 +82,6 @@ pub use library::{Library, StoredVersion, builtin_versions};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
-pub use panel::PANEL_SURFACE;
 pub use request::Request;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
@@ -499,7 +498,7 @@ impl Session {
         // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
         // L'historique ne change pas le deck mis de côté, sauf `HistoryRestore`.
         let (changes, documents) = (
-            !matches!(req, Request::Snapshot | Request::Apply { .. }),
+            !matches!(req, Request::Snapshot | Request::Apply { .. } | Request::HostParam { .. }),
             !matches!(
                 req,
                 Request::Snapshot
@@ -509,6 +508,7 @@ impl Session {
                     | Request::HistoryClose
                     | Request::PackMakeCurrent
                     | Request::PackNoticeClose
+                    | Request::SetWidgetTrial { .. }
             ),
         );
         // La séance des widgets du mode deck finit à la première autre modification.
@@ -519,7 +519,7 @@ impl Session {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Svg { id } => return json(&*self.svg(&id)?),
-            Request::Panel { slide } => return json(&self.panel(&slide)?),
+            Request::HostSettings { slide, widget } => return json(&self.host_settings(&slide, widget.as_deref())?),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
@@ -560,6 +560,10 @@ impl Session {
                 self.merge_file(&path)?;
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
+            Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
+            Request::SetWidgetTrial { name, param, value } => {
+                self.set_widget_trials(&name, serde_json::Map::from_iter([(param, value)]))?;
+            }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
@@ -845,13 +849,6 @@ impl Session {
     }
 
     /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
-    /// Messages A2UI du panneau de droite pour la slide `id`.
-    pub fn panel(&self, id: &str) -> Result<Vec<oku_slides_a2ui::ServerMessage>> {
-        let view = self.slide(id)?;
-        let editing = matches!(self.mode, Mode::Templates { .. });
-        Ok(panel::panel(view.slide, view.zone.and_then(|z| z.grid.as_ref()), editing, &self.localizer))
-    }
-
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = self.doc.sources.deck();

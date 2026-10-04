@@ -49,6 +49,7 @@ session-trial-fixed = “{ $param }” 无法在预览中设置。
 session-trial-too-long = “{ $param }” 的试用值过长。
 session-trial-value = “{ $param }” 的试用值被拒绝：{ $reason }
 session-trial-encode = 无法保留 “{ $param }” 的试用值。
+session-host-key = 未知设置：{ $key }
 widgets-edit-label = 小组件：{ $name }
 widget-preview-plain = 示例文本
 widget-preview-rich = 一段示例文字，用于在实际情境中查看小组件。
@@ -70,14 +71,23 @@ notice-unreadable-parts = 此演示文稿的部分内容无法读取，已移出
 log-document-opened = 文档已打开
 log-document-saved = 文档已保存
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = 此模板
 session-panel-name = 名称
 session-panel-description = 描述
-session-panel-grid = 网格
 session-panel-columns = 列
 session-panel-rows = 行
+session-widget-params = { $name } 的参数
+session-widget-no-params = 此小组件没有参数。
+session-widget-param-fixed = { $name }：无法在预览中调整
+session-widget-param-yes = 是
+session-widget-param-no = 否
+session-widget-invalid-file = 文件无效：设置不可用
+session-undo-host-setting = 模板设置
+session-undo-rename-template = 重命名模板
+session-undo-describe-template = 描述模板
+session-undo-grid = 网格 { $columns } × { $rows }
 
 ## Menu
 

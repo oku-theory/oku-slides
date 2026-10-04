@@ -104,6 +104,17 @@ pub enum ComponentKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         action: Option<Action>,
     },
+    /// Texte riche multiligne : `value` lit le markdown montré, `source` la
+    /// valeur structurée d'origine ; à la validation, l'interface écrit les
+    /// deux, puis `action` part.
+    RichTextField {
+        label: Dynamic<String>,
+        value: Dynamic<String>,
+        source: Dynamic<Value>,
+        palette: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
     /// Un compteur − valeur + lié au modèle ; `action` part à chaque pas.
     Stepper {
         label: Dynamic<String>,
@@ -326,6 +337,7 @@ impl ComponentKind {
             Self::Card { child, .. } | Self::Disclosure { child, .. } => vec![child.as_str()],
             Self::Text { .. }
             | Self::TextField { .. }
+            | Self::RichTextField { .. }
             | Self::Stepper { .. }
             | Self::Button { .. }
             | Self::ChoiceChips { .. }
@@ -347,6 +359,7 @@ impl ComponentKind {
         match self {
             Self::Button { action, .. } => vec![action],
             Self::TextField { action, .. }
+            | Self::RichTextField { action, .. }
             | Self::Stepper { action, .. }
             | Self::ChoiceChips { action, .. }
             | Self::Slider { action, .. }
@@ -373,6 +386,9 @@ impl ComponentKind {
         Some(match self {
             Self::Button { .. } => return None,
             Self::TextField { label, value, .. } => Self::TextField { label, value, action: None },
+            Self::RichTextField { label, value, source, palette, .. } => {
+                Self::RichTextField { label, value, source, palette, action: None }
+            }
             Self::Stepper { label, value, min, max, .. } => Self::Stepper { label, value, min, max, action: None },
             Self::ChoiceChips { options, value, .. } => Self::ChoiceChips { options, value, action: None },
             Self::Slider { label, value, min, max, step, .. } => {

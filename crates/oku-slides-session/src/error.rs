@@ -46,6 +46,8 @@ pub enum SessionErrorKind {
     EditingTemplates,
     /// Requête qui demande l'édition des modèles.
     NotEditingTemplates,
+    /// Réglage de l'hôte inconnu.
+    HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
     Response,
     /// Arguments d'une surface de l'agent invalides.
@@ -131,6 +133,8 @@ pub(crate) enum SessionInner {
     EditingTemplates { backtrace: Backtrace },
     #[snafu(display("no template set is being edited"))]
     NotEditingTemplates { backtrace: Backtrace },
+    #[snafu(display("unknown host setting: {key}"))]
+    HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid surface: {reason}"))]
@@ -203,6 +207,7 @@ impl SessionError {
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
+            HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
@@ -299,6 +304,7 @@ impl Localize for SessionError {
             ),
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
+            HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),

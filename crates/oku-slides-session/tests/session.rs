@@ -4,7 +4,9 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 mod common;
-use common::{data_dir, fixture_path, req, session, session_in, session_with_settings, set_theme, snapshot_json};
+use common::{
+    Isolated, data_dir, fixture_path, req, session, session_in, session_with_settings, set_theme, snapshot_json,
+};
 
 /// Une session qui reprend l'état laissé dans `data`.
 fn resumed(data: &std::path::Path) -> Session {
@@ -291,90 +293,6 @@ fn errors_localize_in_the_configured_language() {
         .is_equal_to("Opération 0 refusée : Élément introuvable : absent".to_owned());
     let en = Localizer::new(Some("en"));
     assert_that!(s.slide("absente").unwrap_err().localize(&en)).is_equal_to("Slide not found: absente".to_owned());
-}
-
-/// Messages A2UI de la requête `panel` pour une slide.
-fn panel(s: &mut Session, slide: &str) -> Vec<serde_json::Value> {
-    let req = serde_json::from_value(json!({ "cmd": "panel", "slide": slide }))
-        .unwrap_or_else(|e| panic!("requête panel invalide : {e}"));
-    let reply = s.handle(req).unwrap_or_else(|e| panic!("panel refusé : {}", e.one_line()));
-    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réponse panel illisible : {e}"))
-}
-
-/// Le composant `id` des messages `updateComponents`.
-fn component<'a>(msgs: &'a [serde_json::Value], id: &str) -> Option<&'a serde_json::Value> {
-    msgs.iter().filter_map(|m| m["updateComponents"]["components"].as_array()).flatten().find(|c| c["id"] == id)
-}
-
-#[test]
-fn panel_outside_template_editing_is_empty() {
-    let mut s = session();
-    s.open(&fixture_path()).unwrap();
-    assert_that!(panel(&mut s, "s-libre")).is_empty();
-}
-
-#[test]
-fn panel_while_editing_templates_binds_name_and_description() {
-    let mut s = session();
-    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
-    let first = s.snapshot().slides[0].id.to_owned();
-    let name = s.deck().slides[0].name.clone();
-    let msgs = panel(&mut s, &first);
-
-    assert_that!(msgs[0]["createSurface"]["catalogId"].as_str()).is_equal_to(Some(oku_slides_a2ui::CATALOG_ID));
-    let data = msgs.iter().find_map(|m| m.get("updateDataModel")).map(|u| u["value"].clone());
-    assert_that!(data.map(|d| d["template"]["name"].clone())).is_equal_to(Some(json!(name)));
-    assert_that!(component(&msgs, "template-name").cloned()).is_some().is_equal_to(json!({
-        "id": "template-name", "component": "TextField", "label": "Nom", "value": { "path": "/template/name" },
-        "action": { "event": { "name": "rename_template",
-            "context": { "slide": first, "value": { "path": "/template/name" } } } }
-    }));
-    assert_that!(component(&msgs, "template-title").map(|c| c["text"].clone())).is_equal_to(Some(json!("Ce modèle")));
-}
-
-#[test]
-fn panel_while_editing_templates_binds_grid_steppers() {
-    let mut s = session();
-    s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
-    let first = s.snapshot().slides[0].id.to_owned();
-    let columns = s.slide(&first).unwrap().zone.and_then(|z| z.grid.as_ref()).map(|g| g.columns);
-    let msgs = panel(&mut s, &first);
-
-    let data = msgs.iter().find_map(|m| m.get("updateDataModel")).map(|u| u["value"]["grid"]["columns"].clone());
-    assert_that!(data).is_equal_to(columns.map(|c| json!(c)));
-    let stepper = component(&msgs, "grid-columns").cloned();
-    assert_that!(stepper.as_ref().map(|c| c["value"].clone())).is_equal_to(Some(json!({ "path": "/grid/columns" })));
-    assert_that!(stepper.map(|c| c["action"]["event"]["name"].clone())).is_equal_to(Some(json!("set_grid")));
-}
-
-#[test]
-fn panel_of_template_with_blocks_has_no_grid_steppers() {
-    // Une grille cacherait les blocs : `set_grid` y est refusé, le panneau ne le propose pas.
-    // Un pack de l'utilisateur, ajouté à sa bibliothèque.
-    let dir = data_dir();
-    let id = uuid::Uuid::new_v4();
-    let pack = json!({ "id": id, "name": "À blocs", "created": "2026-10-01T00:00:00Z", "templates": [{
-        "id": "cartes", "name": "Cartes", "slide": { "id": "cartes", "kind": "content", "params": {
-            "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
-        } }
-    }] });
-    let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), []).unwrap();
-    let library =
-        oku_slides_session::Library::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
-    library.add_version(id, &files).unwrap();
-    let mut s = session();
-    s.set_templates_dir(&*dir);
-    s.edit_templates(id).unwrap();
-    let cards = s
-        .deck()
-        .slides
-        .iter()
-        .find(|sl| sl.params.slot("blocks").is_some_and(|b| !b.is_empty()))
-        .map(|sl| sl.id.clone())
-        .unwrap();
-    let msgs = panel(&mut s, &cards);
-    assert_that!(component(&msgs, "template-name")).is_some();
-    assert_that!(component(&msgs, "grid-columns")).is_none();
 }
 
 #[test]
@@ -897,4 +815,131 @@ fn snapshot_add_widgets_leaves_out_broken_widgets() {
     let mut s = session();
     let _ = s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": "#let widget = ("})));
     assert_that!(snapshot_json(&mut s)["add_widgets"]).is_equal_to(json!([]));
+}
+
+const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
+  (args, ctx) => field(ctx, "body", emph(args.body)))
+"#;
+
+fn editing() -> (Isolated, String) {
+    let mut s = session();
+    s.edit_templates(oku_slides_session::GRID_PACK)
+        .unwrap_or_else(|e| panic!("édition des modèles refusée : {}", e.one_line()));
+    let slide = s.snapshot().slides[0].id.to_owned();
+    (s, slide)
+}
+
+/// La surface de `host_settings`, en JSON.
+fn host(s: &mut Session, slide: &str, widget: Option<&str>) -> serde_json::Value {
+    let reply = s
+        .handle(Request::HostSettings { slide: slide.into(), widget: widget.map(Into::into) })
+        .unwrap_or_else(|e| panic!("réglages de l'hôte refusés : {}", e.one_line()));
+    serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réglages de l'hôte illisibles : {e}"))
+}
+
+fn host_param(s: &mut Session, slide: &str, key: &str, value: serde_json::Value) -> oku_slides_session::Result<String> {
+    s.handle(Request::HostParam { slide: slide.into(), key: key.into(), value })
+}
+
+#[test]
+fn host_settings_outside_templates_mode_is_null() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    assert_that!(host(&mut s, "s-libre", None)).is_equal_to(json!(null));
+}
+
+#[test]
+fn host_settings_shows_the_template_name() {
+    let (mut s, slide) = editing();
+    host_param(&mut s, &slide, "name", json!("Grille de démonstration")).unwrap();
+    assert_that!(host(&mut s, &slide, None).to_string().as_str()).contains("Grille de démonstration");
+}
+
+#[test]
+fn host_settings_of_a_template_with_blocks_has_no_grid_fields() {
+    let dir = data_dir();
+    let id = uuid::Uuid::new_v4();
+    let pack = json!({ "id": id, "name": "À blocs", "created": "2026-10-01T00:00:00Z", "templates": [{
+        "id": "cartes", "name": "Cartes", "slide": { "id": "cartes", "kind": "content", "params": {
+            "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
+        } }
+    }] });
+    let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), []).unwrap();
+    let library =
+        oku_slides_session::Library::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
+    library.add_version(id, &files).unwrap();
+    let mut s = session();
+    s.set_templates_dir(&*dir);
+    s.edit_templates(id).unwrap();
+    let cards = s
+        .deck()
+        .slides
+        .iter()
+        .find(|sl| sl.params.slot("blocks").is_some_and(|b| !b.is_empty()))
+        .map(|sl| sl.id.clone())
+        .unwrap();
+    assert_that!(host(&mut s, &cards, None).to_string().contains("\"columns\"")).is_false();
+}
+
+#[test]
+fn host_settings_of_a_widget_shows_its_trial() {
+    let (mut s, slide) = editing();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.handle(Request::SetWidgetTrial { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
+    assert_that!(host(&mut s, &slide, Some("quote")).to_string().as_str()).contains("Essai");
+}
+
+#[test]
+fn host_settings_of_a_broken_widget_keeps_the_widget_card() {
+    let (mut s, slide) = editing();
+    s.set_widget("quote", "#let widget = (".into()).unwrap();
+    assert_that!(host(&mut s, &slide, Some("quote"))["id"].as_str()).is_equal_to(Some("host-widget"));
+}
+
+#[test]
+fn host_settings_of_a_stale_widget_shows_the_template() {
+    let (mut s, slide) = editing();
+    assert_that!(host(&mut s, &slide, Some("absent"))["id"].as_str()).is_equal_to(Some("host-template"));
+}
+
+#[test]
+fn host_param_name_renames_the_template() {
+    let (mut s, slide) = editing();
+    host_param(&mut s, &slide, "name", json!("Renommé")).unwrap();
+    assert_that!(s.deck().slide(&slide).unwrap().name.as_deref()).is_equal_to(Some("Renommé"));
+}
+
+#[test]
+fn host_param_columns_undoes_one_change_at_a_time() {
+    let (mut s, slide) = editing();
+    host_param(&mut s, &slide, "columns", json!(6)).unwrap();
+    let after_first = s.deck().slide(&slide).unwrap().clone();
+    host_param(&mut s, &slide, "columns", json!(4)).unwrap();
+    s.handle(Request::Undo).unwrap();
+    assert_that!(s.deck().slide(&slide).unwrap().clone()).is_equal_to(after_first);
+}
+
+#[test]
+fn host_param_with_an_unknown_key_is_refused() {
+    let (mut s, slide) = editing();
+    let err = host_param(&mut s, &slide, "couleur", json!(1)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::HostKey);
+}
+
+#[test]
+fn host_param_outside_templates_mode_is_refused() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let err = host_param(&mut s, "s-libre", "name", json!("x")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::NotEditingTemplates);
+}
+
+#[test]
+fn set_widget_trial_request_leaves_the_deck_unchanged() {
+    let (mut s, _) = editing();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let before = s.deck().clone();
+    s.handle(Request::SetWidgetTrial { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
+    assert_that!(s.deck().clone()).is_equal_to(before);
 }

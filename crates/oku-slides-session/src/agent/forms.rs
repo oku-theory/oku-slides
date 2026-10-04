@@ -9,11 +9,13 @@
 use oku_slides_a2ui::{
     Action, ChoiceOption, Component, ComponentKind, Dynamic, ServerBody, ServerMessage, TextVariant,
 };
-use oku_slides_core::Op;
+use oku_slides_core::{Op, Paragraph};
 use oku_slides_i18n::Localizer;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+use crate::text::paragraphs_to_text;
 
 /// Où l'interface place une surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -129,6 +131,8 @@ pub enum FieldKind {
     Color,
     Select,
     Text,
+    /// Texte riche : paragraphes, montrés en markdown d'édition.
+    Rich,
 }
 
 /// Un champ de `show_params` et l'op qu'il applique.
@@ -376,15 +380,47 @@ pub fn param_key(i: usize) -> String {
     format!("f{i}")
 }
 
+/// Extras des réglages de l'hôte : clés des champs, lignes en lecture seule, « × ».
+pub(crate) struct FormExtras<'a> {
+    /// Clé de chaque champ, même ordre que les champs ; vide : pas de clé.
+    pub keys: &'a [String],
+    /// Lignes en légende, après les champs.
+    pub notes: &'a [String],
+    /// Bouton « × » (`dismiss`).
+    pub closable: bool,
+}
+
 /// `show_params` : surface ; chaque champ `f<i>` envoie `param {field, value}`.
 pub(crate) fn params(id: &str, spec: &ShowParams, palette: &[String], l: &Localizer) -> Surface {
+    params_with(id, spec, &FormExtras { keys: &[], notes: &[], closable: true }, palette, l)
+}
+
+/// `show_params` avec les extras de l'hôte : l'action d'un champ porte aussi
+/// `key` quand `extras.keys` en donne une.
+///
+/// Ne lit ni `spec.slide` ni les `op_template` : les réglages de l'hôte en ont des vides.
+pub(crate) fn params_with(
+    id: &str,
+    spec: &ShowParams,
+    extras: &FormExtras<'_>,
+    palette: &[String],
+    l: &Localizer,
+) -> Surface {
     let mut body: Vec<String> = vec!["title".into()];
     let mut components = vec![Component::text("title", spec.title.clone(), Some(TextVariant::H4))];
     let mut data = serde_json::Map::new();
     for (i, f) in spec.fields.iter().enumerate() {
         let key = param_key(i);
         let path = format!("/{key}");
-        let action = Some(Action::event("param", [("field", lit(json!(i))), ("value", Dynamic::path(&path))]));
+        let mut markdown: Option<String> = None;
+        let event = |value: &str| {
+            let mut context = vec![("field", lit(json!(i))), ("value", Dynamic::path(value))];
+            if let Some(k) = extras.keys.get(i) {
+                context.push(("key", lit(json!(k))));
+            }
+            Some(Action::event("param", context))
+        };
+        let action = event(&path);
         let label = Dynamic::Literal(f.label.clone());
         let kind = match f.kind {
             FieldKind::Stepper => ComponentKind::Stepper {
@@ -409,13 +445,34 @@ pub(crate) fn params(id: &str, spec: &ShowParams, palette: &[String], l: &Locali
                 ComponentKind::Select { label, value: Dynamic::path(&path), options: f.options.clone(), action }
             }
             FieldKind::Text => ComponentKind::TextField { label, value: Dynamic::path(&path), action },
+            FieldKind::Rich => {
+                let source = format!("{path}-source");
+                let paragraphs: Vec<Paragraph> = serde_json::from_value(f.value.clone()).unwrap_or_default();
+                data.insert(format!("{key}-source"), f.value.clone());
+                markdown = Some(paragraphs_to_text(&paragraphs));
+                let action = event(&source);
+                ComponentKind::RichTextField {
+                    label,
+                    value: Dynamic::path(&path),
+                    source: Dynamic::path(&source),
+                    palette: palette.to_vec(),
+                    action,
+                }
+            }
         };
         components.push(Component::new(&key, kind));
-        data.insert(key.clone(), f.value.clone());
+        data.insert(key.clone(), markdown.take().map_or_else(|| f.value.clone(), Value::from));
         body.push(key);
     }
-    components.push(Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss")));
-    body.push("close".into());
+    for (i, note) in extras.notes.iter().enumerate() {
+        let nid = format!("note-{i}");
+        components.push(Component::text(&nid, note.clone(), Some(TextVariant::Caption)));
+        body.push(nid);
+    }
+    if extras.closable {
+        components.push(Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss")));
+        body.push("close".into());
+    }
     let refs: Vec<&str> = body.iter().map(String::as_str).collect();
     components.insert(0, Component::column("body", &refs));
     components.insert(0, Component::card("root", "body"));

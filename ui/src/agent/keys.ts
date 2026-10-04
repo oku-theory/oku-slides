@@ -51,3 +51,17 @@ export function escapeAction({ selected, agentBusy }: { selected: boolean; agent
   if (selected) return "deselect";
   return agentBusy ? "agent-cancel" : null;
 }
+
+const TEXT_ENTRY = 'input, textarea, select, [contenteditable="true"]';
+
+/**
+ * Les touches du clavier appartiennent-elles à la cible, pas aux raccourcis de l'application ?
+ * Toujours pour une saisie de texte ; dans une surface A2UI ou le dock, pour les touches
+ * seules (Échap, flèches, Entrée) mais pas pour ⌘/Ctrl + touche : un bouton du dock
+ * (un stepper, par exemple) laisse donc passer ⌘Z.
+ */
+export function targetOwnsKeys(target: HTMLElement | null, e: { metaKey: boolean; ctrlKey: boolean }): boolean {
+  if (!target) return false;
+  if (target.closest(TEXT_ENTRY)) return true;
+  return !(e.metaKey || e.ctrlKey) && !!target.closest(".a2ui-surface, .agent-keys");
+}

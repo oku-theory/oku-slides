@@ -49,6 +49,7 @@ session-trial-fixed = “{ $param }” को पूर्वावलोकन 
 session-trial-too-long = “{ $param }” के लिए परीक्षण मान बहुत लंबा है।
 session-trial-value = “{ $param }” के लिए परीक्षण मान अस्वीकृत: { $reason }
 session-trial-encode = “{ $param }” का परीक्षण मान रखा नहीं जा सका।
+session-host-key = अज्ञात सेटिंग: { $key }
 widgets-edit-label = विजेट: { $name }
 widget-preview-plain = नमूना पाठ
 widget-preview-rich = विजेट को संदर्भ में देखने के लिए एक नमूना अनुच्छेद।
@@ -70,14 +71,23 @@ notice-unreadable-parts = इस प्रस्तुति के कुछ �
 log-document-opened = दस्तावेज़ खोला गया
 log-document-saved = दस्तावेज़ सहेजा गया
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = यह टेम्पलेट
 session-panel-name = नाम
 session-panel-description = विवरण
-session-panel-grid = ग्रिड
 session-panel-columns = कॉलम
 session-panel-rows = पंक्तियाँ
+session-widget-params = { $name } के पैरामीटर
+session-widget-no-params = इस विजेट में कोई पैरामीटर नहीं है।
+session-widget-param-fixed = { $name }: पूर्वावलोकन में समायोज्य नहीं
+session-widget-param-yes = हाँ
+session-widget-param-no = नहीं
+session-widget-invalid-file = अमान्य फ़ाइल: सेटिंग्स उपलब्ध नहीं
+session-undo-host-setting = टेम्पलेट सेटिंग
+session-undo-rename-template = टेम्पलेट का नाम बदलें
+session-undo-describe-template = टेम्पलेट का विवरण दें
+session-undo-grid = ग्रिड { $columns } × { $rows }
 
 ## Menu
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { dictationShortcut, escapeAction, typingShortcut } from "./keys";
+import "../test/dom";
+import { dictationShortcut, escapeAction, targetOwnsKeys, typingShortcut } from "./keys";
 
 const k = (
   key: string,
@@ -45,6 +46,32 @@ describe("Échap", () => {
   test("arrête l'agent quand rien n'est sélectionné", () =>
     expect(escapeAction({ selected: false, agentBusy: true })).toBe("agent-cancel"));
   test("ne fait rien sinon", () => expect(escapeAction({ selected: false, agentBusy: false })).toBeNull());
+});
+
+describe("touches d'une cible", () => {
+  const none = { metaKey: false, ctrlKey: false };
+  const mod = { metaKey: true, ctrlKey: false };
+  const inDom = (html: string) => {
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    return host.querySelector("[data-t]") as HTMLElement;
+  };
+  test("un champ de texte d'une surface garde ⌘Z", () => {
+    const input = inDom('<div class="a2ui-surface"><input data-t></div>');
+    expect(targetOwnsKeys(input, mod)).toBe(true);
+    expect(targetOwnsKeys(input, none)).toBe(true);
+  });
+  test("un bouton du dock laisse passer ⌘Z mais garde les touches seules", () => {
+    const button = inDom('<section class="agent-dock agent-keys"><div class="a2ui-surface"><button data-t>+</button></div></section>');
+    expect(targetOwnsKeys(button, mod)).toBe(false);
+    expect(targetOwnsKeys(button, { metaKey: false, ctrlKey: true })).toBe(false);
+    expect(targetOwnsKeys(button, none)).toBe(true);
+  });
+  test("hors surface, un bouton ne retient rien", () => {
+    const button = inDom("<div><button data-t>ok</button></div>");
+    expect(targetOwnsKeys(button, none)).toBe(false);
+    expect(targetOwnsKeys(null, none)).toBe(false);
+  });
 });
 
 describe("écrire à l'agent", () => {

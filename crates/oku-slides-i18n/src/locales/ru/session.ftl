@@ -49,6 +49,7 @@ session-trial-fixed = «{ $param }» нельзя задать в предпро
 session-trial-too-long = Пробное значение слишком длинное для «{ $param }».
 session-trial-value = Пробное значение отклонено для «{ $param }»: { $reason }
 session-trial-encode = Не удалось сохранить пробное значение «{ $param }».
+session-host-key = Неизвестная настройка: { $key }
 widgets-edit-label = Виджеты: { $name }
 widget-preview-plain = Пример текста
 widget-preview-rich = Пример абзаца, чтобы увидеть виджет в контексте.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Некоторые части этой презент�
 log-document-opened = Документ открыт
 log-document-saved = Документ сохранён
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Этот шаблон
 session-panel-name = Название
 session-panel-description = Описание
-session-panel-grid = Сетка
 session-panel-columns = Столбцы
 session-panel-rows = Строки
+session-widget-params = Параметры { $name }
+session-widget-no-params = У этого виджета нет параметров.
+session-widget-param-fixed = { $name }: не настраивается в предпросмотре
+session-widget-param-yes = Да
+session-widget-param-no = Нет
+session-widget-invalid-file = Недопустимый файл: настройки недоступны
+session-undo-host-setting = Настройка шаблона
+session-undo-rename-template = Переименовать шаблон
+session-undo-describe-template = Описать шаблон
+session-undo-grid = Сетка { $columns } × { $rows }
 
 ## Menu
 

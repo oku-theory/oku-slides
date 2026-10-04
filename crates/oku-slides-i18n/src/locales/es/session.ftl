@@ -49,6 +49,7 @@ session-trial-fixed = «{ $param }» no se puede ajustar en la vista previa.
 session-trial-too-long = Valor de prueba demasiado largo para «{ $param }».
 session-trial-value = Valor de prueba rechazado para «{ $param }»: { $reason }
 session-trial-encode = No se pudo conservar el valor de prueba de «{ $param }».
+session-host-key = Ajuste desconocido: { $key }
 widgets-edit-label = Widgets: { $name }
 widget-preview-plain = Texto de ejemplo
 widget-preview-rich = Un párrafo de ejemplo, para ver el widget en contexto.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Algunas partes de esta presentación no se pudieron le
 log-document-opened = Documento abierto
 log-document-saved = Documento guardado
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Esta plantilla
 session-panel-name = Nombre
 session-panel-description = Descripción
-session-panel-grid = Cuadrícula
 session-panel-columns = Columnas
 session-panel-rows = Filas
+session-widget-params = Parámetros de { $name }
+session-widget-no-params = Este widget no tiene parámetros.
+session-widget-param-fixed = { $name }: no ajustable en la vista previa
+session-widget-param-yes = Sí
+session-widget-param-no = No
+session-widget-invalid-file = Archivo no válido: ajustes no disponibles
+session-undo-host-setting = Ajuste de la plantilla
+session-undo-rename-template = Cambiar el nombre de la plantilla
+session-undo-describe-template = Describir la plantilla
+session-undo-grid = Cuadrícula { $columns } × { $rows }
 
 ## Menu
 

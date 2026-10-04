@@ -49,6 +49,7 @@ session-trial-fixed = “{ $param }”은(는) 미리보기에서 설정할 수 
 session-trial-too-long = “{ $param }”의 시험 값이 너무 깁니다.
 session-trial-value = “{ $param }”의 시험 값이 거부되었습니다: { $reason }
 session-trial-encode = “{ $param }”의 시험 값을 보관할 수 없었습니다.
+session-host-key = 알 수 없는 설정: { $key }
 widgets-edit-label = 위젯: { $name }
 widget-preview-plain = 샘플 텍스트
 widget-preview-rich = 위젯을 실제 맥락에서 보기 위한 샘플 단락입니다.
@@ -70,14 +71,23 @@ notice-unreadable-parts = 이 프레젠테이션의 일부를 읽을 수 없어 
 log-document-opened = 문서를 열었습니다
 log-document-saved = 문서를 저장했습니다
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = 이 템플릿
 session-panel-name = 이름
 session-panel-description = 설명
-session-panel-grid = 그리드
 session-panel-columns = 열
 session-panel-rows = 행
+session-widget-params = { $name }의 매개변수
+session-widget-no-params = 이 위젯에는 매개변수가 없습니다.
+session-widget-param-fixed = { $name }: 미리 보기에서 조정할 수 없음
+session-widget-param-yes = 예
+session-widget-param-no = 아니요
+session-widget-invalid-file = 잘못된 파일: 설정을 사용할 수 없음
+session-undo-host-setting = 템플릿 설정
+session-undo-rename-template = 템플릿 이름 바꾸기
+session-undo-describe-template = 템플릿 설명 작성
+session-undo-grid = 그리드 { $columns } × { $rows }
 
 ## Menu
 

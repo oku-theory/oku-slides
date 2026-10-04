@@ -504,6 +504,7 @@
                 "f2",
                 "f3",
                 "f4",
+                "f5",
                 "close"
               ]
             },
@@ -629,6 +630,32 @@
               }
             },
             {
+              "id": "f5",
+              "component": "RichTextField",
+              "label": "Corps",
+              "value": {
+                "path": "/f5"
+              },
+              "source": {
+                "path": "/f5-source"
+              },
+              "palette": [
+                "#c2573a",
+                "#1f4e79"
+              ],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 5,
+                    "value": {
+                      "path": "/f5-source"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "close",
               "component": "Button",
               "label": "Fermer",
@@ -650,7 +677,18 @@
             "f1": 16,
             "f2": "#c2573a",
             "f3": "a",
-            "f4": "Source : Insee"
+            "f4": "Source : Insee",
+            "f5-source": [
+              {
+                "runs": [
+                  {
+                    "t": "Un",
+                    "bold": true
+                  }
+                ]
+              }
+            ],
+            "f5": "**Un**"
           }
         }
       }
@@ -1137,6 +1175,119 @@
         "updateDataModel": {
           "surfaceId": "render-9",
           "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-widget",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-widget",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-widget",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "title",
+                "f0",
+                "f1",
+                "note-0"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Paramètres de citation",
+              "variant": "h4"
+            },
+            {
+              "id": "f0",
+              "component": "TextField",
+              "label": "Source",
+              "value": {
+                "path": "/f0"
+              },
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 0,
+                    "key": "source",
+                    "value": {
+                      "path": "/f0"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "f1",
+              "component": "RichTextField",
+              "label": "Corps",
+              "value": {
+                "path": "/f1"
+              },
+              "source": {
+                "path": "/f1-source"
+              },
+              "palette": [],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 1,
+                    "key": "body",
+                    "value": {
+                      "path": "/f1-source"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "note-0",
+              "component": "Text",
+              "text": "logo : non réglable dans l'aperçu",
+              "variant": "caption"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-widget",
+          "value": {
+            "f0": "Insee",
+            "f1-source": [
+              {
+                "runs": [
+                  {
+                    "t": "Un"
+                  }
+                ]
+              }
+            ],
+            "f1": "Un"
+          }
         }
       }
     ]

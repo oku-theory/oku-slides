@@ -1,81 +1,25 @@
 // Rendu et comportement des composants du catalogue v3, dans un DOM happy-dom.
 
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
+import { describe, expect, spyOn, test } from "bun:test";
 import "../test/dom";
-import { CATALOG_ID } from "./catalog";
 
 // react-dom cherche le DOM à son chargement, et Bun n'évalue pas les imports
 // statiques dans l'ordre écrit : React et la surface se chargent donc après
 // `../test/dom` (plus haut), par des imports dynamiques.
 const { act, createElement } = await import("react");
-const { createRoot } = await import("react-dom/client");
-const { SurfaceView } = await import("./SurfaceView");
+const { mountSurface, messagesOf } = await import("../test/surface");
 const { SlideThumbsContext } = await import("./slideThumbs");
 const { QuickHintsContext } = await import("./quickHints");
 const { t } = await import("../i18n");
 
-type Root = ReturnType<typeof createRoot>;
-let mounted: { root: Root; host: HTMLElement } | null = null;
-afterEach(async () => {
-  const m = mounted;
-  mounted = null;
-  if (!m) return;
-  await act(async () => m.root.unmount());
-  m.host.remove();
-});
-
-const messages = (components: unknown[], data: unknown = {}) =>
-  [
-    { version: "v0.9", createSurface: { surfaceId: "s", catalogId: CATALOG_ID } },
-    { version: "v0.9", updateComponents: { surfaceId: "s", components } },
-    { version: "v0.9", updateDataModel: { surfaceId: "s", value: data } },
-  ] as unknown as A2uiMessage[];
-
 /** Monte une surface d'un composant racine ; renvoie son hôte et les actions reçues. `hints` : elle reçoit les touches rapides. */
-async function mount(root: Record<string, unknown>, data: unknown = {}, hints = false) {
-  const actions: A2uiClientAction[] = [];
-  const errors: string[] = [];
-  const host = document.createElement("div");
-  document.body.append(host);
-  const r = createRoot(host);
-  mounted = { root: r, host };
-  await act(async () => {
-    r.render(
-      createElement(
-        QuickHintsContext.Provider,
-        { value: hints },
-        createElement(SurfaceView, {
-          messages: messages([{ id: "root", ...root }], data),
-          surfaceId: "s",
-          onAction: (a: A2uiClientAction) => actions.push(a),
-          onError: (m: string) => errors.push(m),
-        }),
-      ),
-    );
-  });
-  return { host, actions, errors };
-}
+const mount = (root: Record<string, unknown>, data: unknown = {}, hints = false) =>
+  mountSurface(messagesOf([{ id: "root", ...root }], data), (s) =>
+    createElement(QuickHintsContext.Provider, { value: hints }, s),
+  );
 
 /** Monte une surface de plusieurs composants (dont `root`) ; renvoie son hôte et les erreurs reçues. */
-async function mountAll(components: Record<string, unknown>[], data: unknown = {}) {
-  const errors: string[] = [];
-  const host = document.createElement("div");
-  document.body.append(host);
-  const r = createRoot(host);
-  mounted = { root: r, host };
-  await act(async () => {
-    r.render(
-      createElement(SurfaceView, {
-        messages: messages(components, data),
-        surfaceId: "s",
-        onAction: () => {},
-        onError: (m: string) => errors.push(m),
-      }),
-    );
-  });
-  return { host, errors };
-}
+const mountAll = (components: Record<string, unknown>[], data: unknown = {}) => mountSurface(messagesOf(components, data));
 
 /**
  * Change la valeur d'un champ comme le navigateur, puis émet `type`.
@@ -355,17 +299,10 @@ describe("composants du fil (v3)", () => {
 
   /** Monte un reçu sur la slide `s-4` (empreinte `h1`), avec ces miniatures. */
   async function mountReceipt(thumbs: import("./slideThumbs").SlideThumbs | null) {
-    const host = document.createElement("div");
-    document.body.append(host);
-    const r = createRoot(host);
-    mounted = { root: r, host };
-    const surface = createElement(SurfaceView, {
-      messages: messages([{ id: "root", component: "Receipt", title: "Fond", facts: ["a"], slide: { id: "s-4", hash: "h1" }, swatch: "#00154e" }]),
-      surfaceId: "s",
-      onAction: () => {},
-      onError: () => {},
-    });
-    await act(async () => r.render(createElement(SlideThumbsContext.Provider, { value: thumbs }, surface)));
+    const { host } = await mountSurface(
+      messagesOf([{ id: "root", component: "Receipt", title: "Fond", facts: ["a"], slide: { id: "s-4", hash: "h1" }, swatch: "#00154e" }]),
+      (surface) => createElement(SlideThumbsContext.Provider, { value: thumbs }, surface),
+    );
     return host;
   }
 
@@ -392,10 +329,10 @@ describe("composants du fil (v3)", () => {
   });
 
   test("Disclosure cache son enfant jusqu'au clic", async () => {
-    const { host } = await mountAll([
+    const { host } = await mountSurface(messagesOf([
       { id: "root", component: "Disclosure", summary: "Pourquoi", child: "why" },
       { id: "why", component: "Markdown", text: "Le modèle **content** n'a pas de fond." },
-    ]);
+    ]));
     expect(host.querySelector(".a2ui-md")).toBeNull();
     await click(host.querySelector(".a2ui-disclosure > button")!);
     expect(host.querySelector(".a2ui-md strong")?.textContent).toBe("content");
@@ -415,7 +352,8 @@ describe("composants du fil (v3)", () => {
     // @a2ui journalise l'erreur de validation : attendue ici (même précaution que le test d'erreur existant).
     const logged = spyOn(console, "error").mockImplementation(() => {});
     try {
-      const { host, errors } = await mountAll([{ id: "root", component: "Receipt", title: "x", facts: [], extra: 1 }]);
+      const receipt = { id: "root", component: "Receipt", title: "x", facts: [], extra: 1 };
+      const { host, errors } = await mountSurface(messagesOf([receipt]));
       expect(host.querySelector(".a2ui-receipt")).toBeNull();
       expect(errors.join("\n")).toContain("extra");
     } finally {

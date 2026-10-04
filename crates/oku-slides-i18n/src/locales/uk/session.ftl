@@ -49,6 +49,7 @@ session-trial-fixed = «{ $param }» не можна задати в попер�
 session-trial-too-long = Пробне значення задовге для «{ $param }».
 session-trial-value = Пробне значення відхилено для «{ $param }»: { $reason }
 session-trial-encode = Не вдалося зберегти пробне значення «{ $param }».
+session-host-key = Невідоме налаштування: { $key }
 widgets-edit-label = Віджети: { $name }
 widget-preview-plain = Приклад тексту
 widget-preview-rich = Приклад абзацу, щоб побачити віджет у контексті.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Деякі частини цієї презентац�
 log-document-opened = Документ відкрито
 log-document-saved = Документ збережено
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Цей шаблон
 session-panel-name = Назва
 session-panel-description = Опис
-session-panel-grid = Сітка
 session-panel-columns = Стовпці
 session-panel-rows = Рядки
+session-widget-params = Параметри { $name }
+session-widget-no-params = Цей віджет не має параметрів.
+session-widget-param-fixed = { $name }: не налаштовується в попередньому перегляді
+session-widget-param-yes = Так
+session-widget-param-no = Ні
+session-widget-invalid-file = Недійсний файл: налаштування недоступні
+session-undo-host-setting = Налаштування шаблону
+session-undo-rename-template = Перейменувати шаблон
+session-undo-describe-template = Описати шаблон
+session-undo-grid = Сітка { $columns } × { $rows }
 
 ## Menu
 

@@ -49,6 +49,7 @@ session-trial-fixed = “{ $param }” cannot be set in the preview.
 session-trial-too-long = Trial value too long for “{ $param }”.
 session-trial-value = Trial value refused for “{ $param }”: { $reason }
 session-trial-encode = The trial value of “{ $param }” could not be kept.
+session-host-key = Unknown setting: { $key }
 widgets-edit-label = Widgets: { $name }
 widget-preview-plain = Sample text
 widget-preview-rich = A sample paragraph, to see the widget in context.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Some parts of this presentation could not be read and 
 log-document-opened = Document opened
 log-document-saved = Document saved
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = This template
 session-panel-name = Name
 session-panel-description = Description
-session-panel-grid = Grid
 session-panel-columns = Columns
 session-panel-rows = Rows
+session-widget-params = Parameters of { $name }
+session-widget-no-params = This widget has no parameters.
+session-widget-param-fixed = { $name }: not adjustable in the preview
+session-widget-param-yes = Yes
+session-widget-param-no = No
+session-widget-invalid-file = Invalid file: settings unavailable
+session-undo-host-setting = Template setting
+session-undo-rename-template = Rename the template
+session-undo-describe-template = Describe the template
+session-undo-grid = Grid { $columns } × { $rows }
 
 ## Menu
 

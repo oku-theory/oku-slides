@@ -506,10 +506,9 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 .drop-line.end { position: relative; top: auto; display: block; margin-block: -9px; margin-inline: 22px 0; flex: none; }
 
-/* ---- Carte du panneau (surface A2UI) ---- */
-/* Colonnes A2UI : les cartes de la racine s'espacent comme dans le panneau, le contenu d'une carte se serre. */
+/* ---- Cartes des surfaces A2UI (réglages du dock, agent) ---- */
+/* Une surface ne fait pas de boîte : ses cartes se placent dans leur conteneur (tour, dock). */
 .a2ui-surface { display: contents; }
-.notes > .a2ui-surface > .a2ui-column { gap: var(--space-2); }
 .linkish:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
 .note-field { display: flex; flex-direction: column; gap: 2px; }
 .note-field input {
@@ -517,6 +516,14 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   background: color-mix(in oklab, var(--a2ui-surface) 70%, white); outline: none;
 }
 .note-field input:focus { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent); }
+.rich-field-editor {
+  min-height: 4.5em; max-height: 12em; overflow: auto; padding: 3px 6px; border-radius: 5px; font: 13px/18px var(--sans);
+  color: var(--ink); background: color-mix(in oklab, var(--a2ui-surface) 70%, white);
+}
+.rich-field-editor:focus-within { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent); }
+.rich-field-editor .cm-editor.cm-focused { outline: none; }
+.rich-field-editor .cm-scroller, .rich-field-editor .cm-content { font: inherit; }
+.rich-field-editor .cm-cursor, .rich-field-editor .cm-dropCursor { border-left-color: var(--accent); }
 .label.editing-templates .brand { color: var(--app-danger, var(--accent)); }
 .toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer; }
 .toggle-track {

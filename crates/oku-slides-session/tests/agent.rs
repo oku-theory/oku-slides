@@ -241,6 +241,39 @@ fn params_surface_valid_template_goes_to_the_thread() {
     assert_that!(json["messages"][2]["updateDataModel"]["value"]["f0"].as_str()).is_some().is_equal_to("papier");
 }
 
+fn rich_field(value: serde_json::Value) -> ParamField {
+    ParamField {
+        label: "Corps".into(),
+        kind: FieldKind::Rich,
+        value,
+        op_template: json!({ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" },
+            "param": "body", "value": "$value" }),
+        min: None,
+        max: None,
+        step: None,
+        options: vec![],
+    }
+}
+
+#[test]
+fn params_surface_rich_field_with_paragraphs_is_ok() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let field = rich_field(json!([{ "runs": [{ "t": "Un", "bold": true }] }]));
+    let spec = ShowParams { title: "Texte".into(), slide: "s-libre".into(), fields: vec![field] };
+    assert_that!(s.params_surface("show-rich", &spec)).is_ok();
+}
+
+#[test]
+fn params_surface_rich_field_without_paragraphs_returns_agent_form() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = ShowParams { title: "Texte".into(), slide: "s-libre".into(), fields: vec![rich_field(json!("Un"))] };
+    let err = s.params_surface("show-rich", &spec).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
+    assert_that!(err.one_line()).contains("fields[0]: a rich value must be a list of paragraphs");
+}
+
 #[test]
 fn params_surface_no_fields_returns_agent_form() {
     let mut s = session();

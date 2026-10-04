@@ -1,17 +1,22 @@
 //! Valeurs d'essai d'un widget : contrôle et écriture.
 //!
 //! Tout ou rien ; `null`, un texte vide ou la valeur de l'aperçu effacent
-//! l'essai. Les réglages de l'hôte (phase B) s'y ajoutent.
+//! l'essai. Les réglages d'essai de l'hôte (`widget_settings`) en montrent un champ
+//! par paramètre réglable.
 
+use oku_slides_a2ui::ChoiceOption;
 use oku_slides_core::{ParamSchema, ParamType, ParamValue, param_value};
-use serde_json::{Map, Value};
+use oku_slides_i18n::Localizer;
+use serde_json::{Map, Value, json};
 use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::agent::context::clipped;
+use crate::agent::{FieldKind, ParamField, ShowParams};
 use crate::error::{
     NotEditingTemplatesSnafu, TrialEncodeSnafu, TrialFixedSnafu, TrialTooLongSnafu, TrialUndeclaredSnafu,
     TrialValueSnafu, UnknownWidgetSnafu, WidgetInvalidSnafu,
 };
+use crate::panel::HostParams;
 use crate::widget_preview::preview_params;
 use crate::widgets_edit::parse_name;
 use crate::{Result, Session};
@@ -43,6 +48,95 @@ impl Session {
         }
         Ok(scratch.trials_of(&file).cloned().unwrap_or_default())
     }
+}
+
+impl Session {
+    /// Réglages d'essai du widget `name` ; `None` pour Commun.
+    pub(crate) fn widget_settings(&self, name: &str) -> Result<Option<HostParams>> {
+        let file = parse_name(name)?;
+        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        if file.is_common() {
+            return Ok(None);
+        }
+        let l = &self.localizer;
+        let title = l.tr_with("session-widget-params", &[("name", file.as_str().into())]);
+        let Some(schema) = self.valid_schema(&file)? else {
+            let spec = ShowParams { title, slide: String::new(), fields: Vec::new() };
+            return Ok(Some(HostParams { spec, keys: Vec::new(), notes: vec![l.tr("session-widget-invalid-file")] }));
+        };
+        let shown = preview_params(&schema, &self.preview_inputs(&file, &schema, &Map::new()), l);
+        let (mut fields, mut keys, mut notes) = (Vec::new(), Vec::new(), Vec::new());
+        for p in &schema.params {
+            match field(p, shown.get(&p.name), l) {
+                Some(f) => {
+                    keys.push(p.name.clone());
+                    fields.push(f);
+                }
+                None => notes.push(l.tr_with("session-widget-param-fixed", &[("name", label(p).into())])),
+            }
+        }
+        if schema.params.is_empty() {
+            notes.push(l.tr("session-widget-no-params"));
+        }
+        Ok(Some(HostParams { spec: ShowParams { title, slide: String::new(), fields }, keys, notes }))
+    }
+}
+
+fn label(p: &ParamSchema) -> String {
+    p.label.clone().unwrap_or_else(|| p.name.clone())
+}
+
+/// Le champ d'un paramètre réglable ; sa valeur est celle de l'aperçu.
+///
+/// Un `rich` montré est une liste de paragraphes : `params_with` en fait le markdown.
+fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<ParamField> {
+    if !settable(&p.ty) {
+        return None;
+    }
+    let option = |id: &str, label: &str| ChoiceOption { id: id.to_owned(), label: label.to_owned(), hint: None };
+    let (kind, min, max, step, options) = match &p.ty {
+        ParamType::Rich => (FieldKind::Rich, None, None, None, Vec::new()),
+        // Un curseur pour une vraie étendue ; des bornes vides ou inversées se règlent au clavier.
+        ParamType::Number { min: Some(a), max: Some(b) } if a < b => {
+            (FieldKind::Slider, Some(*a), Some(*b), Some(slider_step(b - a)), Vec::new())
+        }
+        ParamType::Choice { values } => {
+            (FieldKind::Select, None, None, None, values.iter().map(|v| option(v, v)).collect())
+        }
+        ParamType::Flag => (
+            FieldKind::Select,
+            None,
+            None,
+            None,
+            vec![option("true", &l.tr("session-widget-param-yes")), option("false", &l.tr("session-widget-param-no"))],
+        ),
+        // `plain`, et un nombre sans bornes (lu comme un nombre, `trial_value`).
+        _ => (FieldKind::Text, None, None, None, Vec::new()),
+    };
+    let value = match (&p.ty, shown) {
+        (ParamType::Number { .. }, Some(ParamValue::Value(v))) if kind == FieldKind::Slider => v.clone(),
+        (ParamType::Number { .. }, Some(ParamValue::Value(v))) => json!(v.to_string()),
+        (_, Some(ParamValue::Value(Value::Bool(b)))) => json!(b.to_string()),
+        (_, Some(v)) => serde_json::to_value(v).unwrap_or(Value::Null),
+        (_, None) => Value::Null,
+    };
+    Some(ParamField { label: label(p), kind, value, op_template: Value::Null, min, max, step, options })
+}
+
+/// Le pas d'un curseur sur une étendue `span > 0` : cent pas sur une petite étendue (opacité…),
+/// sinon des unités. Arrondi à six chiffres significatifs : `0.7 / 100` donne `0.007`, pas
+/// `0.006999999999999999`.
+fn slider_step(span: f64) -> f64 {
+    if span > 10.0 {
+        return 1.0;
+    }
+    let raw = span / 100.0;
+    // `raw` ≤ 0.1 : l'échelle est une puissance de dix positive, exacte en flottant.
+    let scale = 10f64.powi(5 - raw.log10().floor() as i32);
+    if !scale.is_finite() {
+        return raw;
+    }
+    (raw * scale).round() / scale
 }
 
 /// Vrai pour un type réglable dans l'aperçu.

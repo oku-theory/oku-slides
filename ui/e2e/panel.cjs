@@ -1,4 +1,4 @@
-// Panneau de droite (surface A2UI) : renommer un modèle et changer sa grille, puis annuler.
+// Réglages du modèle au dock de l'agent (surface A2UI) : renommer un modèle et changer sa grille, puis annuler.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (serveur neuf, port 4872).
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
@@ -7,9 +7,9 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
 const LIBRE = 5;
 const state = (p) => p.evaluate((LIBRE) => ({
-  cards: document.querySelectorAll('.notes .a2ui-card').length,
-  name: document.querySelector('.notes input')?.value,
-  grid: [...document.querySelectorAll('.notes .stepper-value')].map((e) => Number(e.textContent)),
+  cards: document.querySelectorAll('[data-surface-id="host-template"]').length,
+  name: document.querySelector('[data-surface-id="host-template"] input')?.value,
+  grid: [...document.querySelectorAll('[data-surface-id="host-template"] .stepper-value')].map((e) => Number(e.textContent)),
   thumb: document.querySelectorAll('.thumb')[LIBRE]?.parentElement?.innerText,
 }), LIBRE);
 (async () => {
@@ -20,18 +20,18 @@ const state = (p) => p.evaluate((LIBRE) => ({
   p.on('dialog', (d) => d.accept());
   await p.goto(URL);
   await p.waitForSelector('.stage img');
-  // Hors des modèles, le panneau est vide.
+  // Hors des modèles, aucune carte.
   assert.equal((await state(p)).cards, 0);
   // Les modèles s'ouvrent depuis le menu ⋯.
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Modèles' }).click();
-  await p.waitForSelector('.notes .a2ui-card');
+  await p.waitForSelector('[data-surface-id="host-template"]');
   await p.click(`.thumb >> nth=${LIBRE}`);
-  await p.waitForSelector('.notes .a2ui-card >> nth=1');
+  await p.waitForSelector('[data-surface-id="host-template"] .stepper-value');
   const before = await state(p);
-  assert.equal(before.cards, 2);
+  assert.equal(before.cards, 1);
   // Renommer : la vignette suit, l'annulation porte le libellé.
-  await p.locator('.notes input').first().fill('Texte A2UI');
+  await p.locator('[data-surface-id="host-template"] input').first().fill('Texte A2UI');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(700);
   assert.match((await state(p)).thumb, /Texte A2UI/);
@@ -39,7 +39,7 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.getByRole('button', { name: 'Colonnes : une de moins' }).click();
   await p.waitForTimeout(700);
   assert.deepEqual((await state(p)).grid, [before.grid[0] - 1, before.grid[1]]);
-  // Deux annulations : tout revient.
+  // Deux annulations, dès le clic sur le stepper (le bouton garde le focus) : tout revient.
   await p.keyboard.press('Control+z');
   await p.waitForTimeout(700);
   await p.keyboard.press('Control+z');
@@ -60,11 +60,11 @@ const state = (p) => p.evaluate((LIBRE) => ({
   assert.equal(await p.locator('.thumb >> nth=0').getAttribute('aria-current'), 'true');
   await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
   await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
-  // En quittant les modèles, le panneau se vide.
+  // En quittant les modèles, les cartes disparaissent.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await p.waitForTimeout(700);
   assert.equal((await state(p)).cards, 0);
   assert.deepEqual(errors, []);
-  console.log('panneau ok');
+  console.log('réglages du modèle ok');
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

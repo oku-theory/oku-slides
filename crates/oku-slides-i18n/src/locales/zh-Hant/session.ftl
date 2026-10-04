@@ -49,6 +49,7 @@ session-trial-fixed = 「{ $param }」 無法在預覽中設定。
 session-trial-too-long = 「{ $param }」 的試用值過長。
 session-trial-value = 「{ $param }」 的試用值被拒絕：{ $reason }
 session-trial-encode = 無法保留 「{ $param }」 的試用值。
+session-host-key = 未知的設定：{ $key }
 widgets-edit-label = 小工具：{ $name }
 widget-preview-plain = 範例文字
 widget-preview-rich = 一段範例文字，用於在實際情境中檢視小工具。
@@ -70,14 +71,23 @@ notice-unreadable-parts = 此簡報的部分內容無法讀取，已移出（{ $
 log-document-opened = 文件已開啟
 log-document-saved = 文件已儲存
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = 此範本
 session-panel-name = 名稱
 session-panel-description = 描述
-session-panel-grid = 格線
 session-panel-columns = 欄
 session-panel-rows = 列
+session-widget-params = { $name } 的參數
+session-widget-no-params = 此小工具沒有參數。
+session-widget-param-fixed = { $name }：無法在預覽中調整
+session-widget-param-yes = 是
+session-widget-param-no = 否
+session-widget-invalid-file = 檔案無效：設定無法使用
+session-undo-host-setting = 範本設定
+session-undo-rename-template = 重新命名範本
+session-undo-describe-template = 描述範本
+session-undo-grid = 格線 { $columns } × { $rows }
 
 ## Menu
 

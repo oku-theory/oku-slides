@@ -6,14 +6,14 @@
  * suivant (précédent). Le texte validé est celui que montre CodeMirror.
  */
 import { useEffectEvent, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { history, historyKeymap, insertNewline, isolateHistory, standardKeymap } from "@codemirror/commands";
+import { history, historyKeymap, insertNewline, standardKeymap } from "@codemirror/commands";
 import type { ChangeSpec } from "@codemirror/state";
 import { EditorState } from "@codemirror/state";
 import type { KeyBinding } from "@codemirror/view";
 import { EditorView, keymap } from "@codemirror/view";
 import { markdownDecorations } from "./markdownDecorations";
-import type { Edit } from "./textEdits";
-import { insertDictated, insertLink, minimalChange, toggleEmphasis } from "./textEdits";
+import { applyEdit, markdownFormatKeys } from "./markdownEditing";
+import { insertDictated } from "./textEdits";
 
 /** Ce que la scène peut demander à l'éditeur ouvert. */
 export interface TextEditorHandle {
@@ -82,24 +82,6 @@ export const singleLine = EditorState.transactionFilter.of((tr) => {
   return [tr, { changes: spaces, sequential: true }];
 });
 
-/** Applique une édition pure : seul le texte changé, en un pas d'annulation à part. */
-function applyEdit(
-  view: EditorView,
-  edit: (value: string, start: number, end: number) => Edit,
-  userEvent: string,
-): boolean {
-  const { from, to } = view.state.selection.main;
-  const before = view.state.doc.toString();
-  const e = edit(before, from, to);
-  view.dispatch({
-    changes: minimalChange(before, e.value),
-    selection: { anchor: e.start, head: e.end },
-    userEvent,
-    annotations: isolateHistory.of("full"),
-  });
-  return true;
-}
-
 /** Ne fait rien : la touche ne tombe pas dans la mise en forme native. */
 const nothing = () => true;
 
@@ -133,8 +115,6 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
       advance(view.state.doc.toString(), dir);
       return true;
     };
-    const format = (edit: (value: string, start: number, end: number) => Edit) => (view: EditorView) =>
-      applyEdit(view, edit, "input.format");
     // CodeMirror ignore déjà l'Entrée qui confirme une conversion IME (y compris
     // celle que WebKit envoie juste après compositionend) : pas de garde ici.
     const keys: KeyBinding[] = [
@@ -151,9 +131,7 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
           ]
         : [
             { key: "Enter", run: insertNewline, shift: insertNewline },
-            { key: "Mod-b", run: format((s, a, b) => toggleEmphasis(s, a, b, "bold")) },
-            { key: "Mod-i", run: format((s, a, b) => toggleEmphasis(s, a, b, "italic")) },
-            { key: "Mod-k", run: format(insertLink) },
+            ...markdownFormatKeys(),
           ]),
     ];
     const doc = plain ? initial.replaceAll("\n", " ") : initial;

@@ -261,6 +261,24 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector('[data-surface-id="show-9"] button.btn')).not.toBeNull();
   });
 
+  test("une question replie la carte du modèle (host-template) derrière « réglages », qu'un clic rouvre", async () => {
+    const { host } = await mount([surface("host-template", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
+    const item = '.agent-dock [data-surface-id="host-template"]';
+    const toggle = host.querySelector(`${item} button[aria-expanded]`) as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(host.querySelector(`${item} button.btn`)).toBeNull();
+    expect(host.querySelector('.agent-dock [data-surface-id="ask-8"]')).not.toBeNull();
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(host.querySelector(`${item} button.btn`)).not.toBeNull();
+  });
+
+  test("la carte de l'hôte au dock n'est pas annoncée à chaque reconstruction, la question l'est", async () => {
+    const { host } = await mount([surface("host-widget", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
+    expect(host.querySelector('.agent-dock [data-surface-id="host-widget"]')?.getAttribute("aria-live")).toBe("off");
+    expect(host.querySelector('.agent-dock [data-surface-id="ask-8"]')?.getAttribute("aria-live")).not.toBe("off");
+  });
+
   test("à une nouvelle question, les réglages ouverts se replient à nouveau", async () => {
     const settings = surface("show-9", "thread", { live: true, turn: 3 });
     const { host, rerender } = await mount([settings, realSurface("ask-8")]);

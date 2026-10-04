@@ -4,7 +4,8 @@
 
 use std::sync::Arc;
 
-use oku_slides_core::{Op, apply_all};
+use oku_slides_core::{Op, Paragraph, apply_all};
+use serde::Deserialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
@@ -42,7 +43,7 @@ fn parse_op(template: &Value, value: &Value) -> std::result::Result<Op, serde_js
     serde_json::from_value(fill_template(template, value))
 }
 
-/// Bornes d'un champ à curseur, cohérentes pour son `kind`.
+/// Valeur d'un champ riche (des paragraphes) et bornes d'un champ à curseur, cohérentes pour son `kind`.
 ///
 /// `options` n'est volontairement pas borné ici : le champ `theme_field` des
 /// tests d'intégration (brief t-104) construit un `Select` avec des options
@@ -50,6 +51,12 @@ fn parse_op(template: &Value, value: &Value) -> std::result::Result<Op, serde_js
 /// tests pour un cas qui reste inoffensif (une liste vide ne fait planter ni
 /// la sérialisation ni le rendu, seulement l'ergonomie du widget).
 fn check_field(i: usize, field: &ParamField) -> Result<()> {
+    if field.kind == FieldKind::Rich {
+        ensure!(
+            Vec::<Paragraph>::deserialize(&field.value).is_ok(),
+            AgentFormSnafu { reason: format!("fields[{i}]: a rich value must be a list of paragraphs") }
+        );
+    }
     if matches!(field.kind, FieldKind::Slider | FieldKind::Stepper) {
         let finite = [field.min, field.max].into_iter().flatten().all(|v| v.is_finite());
         ensure!(finite, AgentFormSnafu { reason: format!("fields[{i}]: min/max must be finite") });

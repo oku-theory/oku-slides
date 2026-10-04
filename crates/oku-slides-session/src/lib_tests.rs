@@ -140,7 +140,6 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "svg", "id": "s-1" }),
         json!({ "cmd": "schema" }),
         json!({ "cmd": "widgets" }),
-        json!({ "cmd": "panel", "slide": "s-1" }),
         json!({ "cmd": "templates" }),
         json!({ "cmd": "template_sets" }),
         json!({ "cmd": "ui", "slide": null, "grid": false, "ghosts": true }),
@@ -150,6 +149,8 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "widget_status" }),
         json!({ "cmd": "widget_source", "name": "kpi" }),
         json!({ "cmd": "preview_widget", "name": "kpi" }),
+        json!({ "cmd": "set_widget_trial", "name": "q", "param": "p", "value": 1 }),
+        json!({ "cmd": "host_settings", "slide": "s-1", "widget": null }),
     ];
     let changing: Vec<_> = reads
         .into_iter()
@@ -176,6 +177,7 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
         json!({ "cmd": "remove_widget", "name": "kpi" }),
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
+        json!({ "cmd": "host_param", "slide": "s-1", "key": "name", "value": "x" }),
     ];
     let kept: Vec<_> = edits
         .into_iter()

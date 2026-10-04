@@ -37,6 +37,8 @@ export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.p
 
 /** Une question de l'agent (les autres surfaces vivantes du fil sont des réglages). */
 export const isQuestion = (s: Surface) => s.question;
+/** Une surface de réglages de l'hôte (`host-template`, `host-widget`) : reconstruite à chaque relecture. */
+export const isHostSettings = (s: Surface) => s.id.startsWith("host-");
 
 /**
  * Un tour de l'agent est en cours et n'attend pas l'utilisateur : ⌘⇧D et Échap l'arrêtent.

@@ -49,6 +49,7 @@ session-trial-fixed = „{ $param }” nie można ustawić w podglądzie.
 session-trial-too-long = Wartość próbna jest zbyt długa dla „{ $param }”.
 session-trial-value = Wartość próbna odrzucona dla „{ $param }”: { $reason }
 session-trial-encode = Nie udało się zachować wartości próbnej „{ $param }”.
+session-host-key = Nieznane ustawienie: { $key }
 widgets-edit-label = Widżety: { $name }
 widget-preview-plain = Przykładowy tekst
 widget-preview-rich = Przykładowy akapit, aby zobaczyć widżet w kontekście.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Części tej prezentacji nie udało się odczytać i z
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Ten szablon
 session-panel-name = Nazwa
 session-panel-description = Opis
-session-panel-grid = Siatka
 session-panel-columns = Kolumny
 session-panel-rows = Wiersze
+session-widget-params = Parametry { $name }
+session-widget-no-params = Ten widżet nie ma parametrów.
+session-widget-param-fixed = { $name }: nie do ustawienia w podglądzie
+session-widget-param-yes = Tak
+session-widget-param-no = Nie
+session-widget-invalid-file = Nieprawidłowy plik: ustawienia niedostępne
+session-undo-host-setting = Ustawienie szablonu
+session-undo-rename-template = Zmień nazwę szablonu
+session-undo-describe-template = Opisz szablon
+session-undo-grid = Siatka { $columns } × { $rows }
 
 ## Menu
 

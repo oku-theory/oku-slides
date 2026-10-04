@@ -49,6 +49,7 @@ session-trial-fixed = 「{ $param }」 はプレビューでは設定できま�
 session-trial-too-long = 「{ $param }」 の試用値が長すぎます。
 session-trial-value = 「{ $param }」 の試用値が拒否されました：{ $reason }
 session-trial-encode = 「{ $param }」 の試用値を保持できませんでした。
+session-host-key = 不明な設定：{ $key }
 widgets-edit-label = ウィジェット：{ $name }
 widget-preview-plain = サンプルテキスト
 widget-preview-rich = ウィジェットを実際の文脈で確認するためのサンプル段落です。
@@ -70,14 +71,23 @@ notice-unreadable-parts = このプレゼンテーションの一部を読み取
 log-document-opened = ドキュメントを開きました
 log-document-saved = ドキュメントを保存しました
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = このテンプレート
 session-panel-name = 名前
 session-panel-description = 説明
-session-panel-grid = グリッド
 session-panel-columns = 列
 session-panel-rows = 行
+session-widget-params = { $name } のパラメーター
+session-widget-no-params = このウィジェットにはパラメーターがありません。
+session-widget-param-fixed = { $name }：プレビューでは調整できません
+session-widget-param-yes = はい
+session-widget-param-no = いいえ
+session-widget-invalid-file = 無効なファイル：設定を利用できません
+session-undo-host-setting = テンプレートの設定
+session-undo-rename-template = テンプレート名を変更
+session-undo-describe-template = テンプレートの説明を編集
+session-undo-grid = グリッド { $columns } × { $rows }
 
 ## Menu
 

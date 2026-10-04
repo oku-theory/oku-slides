@@ -412,7 +412,9 @@ type Request =
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
-  | { cmd: "panel"; slide: string }
+  | { cmd: "host_settings"; slide: string; widget: string | null }
+  | { cmd: "host_param"; slide: string; key: string; value: unknown }
+  | { cmd: "set_widget_trial"; name: string; param: string; value: unknown }
   | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -562,8 +564,10 @@ export function tabApi(tab: string) {
     saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
-    /** Surface A2UI du panneau de droite pour une slide (vide hors des modèles). */
-    panel: (slide: string) => call<A2uiMessage[]>({ cmd: "panel", slide }),
+    /** Surface A2UI des réglages du dock de l'agent pour une slide (vide hors des modèles). */
+    hostSettings: (slide: string, widget: string | null) => call<Surface | null>({ cmd: "host_settings", slide, widget }),
+    hostParam: (slide: string, key: string, value: unknown) => call<Snapshot>({ cmd: "host_param", slide, key, value }),
+    setWidgetTrial: (name: string, param: string, value: unknown) => call<Snapshot>({ cmd: "set_widget_trial", name, param, value }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),

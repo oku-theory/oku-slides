@@ -1945,6 +1945,8 @@ git commit -m "feat(ui) : un widget écrit par l'agent s'ouvre sans écraser les
 - Le catalogue v3 (`ui/src/a2ui/catalog.tsx`) : forme d'un composant, `CommonSchemas.DynamicValue`, le schéma `Hex`, la classe de légende des cartes (`a2ui-hint` ou `postit-hint`), le fichier CSS des cartes.
 - `routeSurfaces` → `Routed.dock` ; `AgentThread` et sa prop `dock` ; l'attribut `data-surface-id` posé sur chaque surface ; si le dock reconstruit une surface relue au lieu de mettre à jour son modèle de données (un brouillon en cours serait perdu).
 - `ui/e2e/panel.cjs` tel que t-416 l'a laissé (`.notes .a2ui-card`).
+
+Vérifié le 2026-10-04 sur `main` (50d19c79, t-416 = 39d34c50) : `Surface { id, place, anchor, turn, live, messages }`, `forms::params` → `Place::Thread`, `live: true`, ancre `None`, « × » `dismiss` ; `AgentThread` reçoit `dock` (`Pick<Routed, "turns" | "loose" | "dock">`) et rend `AgentDock`, qui pose `data-surface-id` ; un `ask-*` en attente replie les autres surfaces du dock ; catalogue v3 (`CATALOG_ID`), légende `a2ui-hint`, cartes dans `ui/src/a2ui/a2ui.css`, `Hex` dans `ui/src/a2ui/schemas.ts`, `CommonSchemas.DynamicValue` disponible ; `SurfaceView` reconstruit une surface dont la liste de messages ne prolonge pas la précédente ; `PanelSurface`, `Request::Panel`, `panel.rs` (messages bruts, pas de `Surface`) et `panelActions` sont toujours là ; `fromA2ui` vient de `./agent/quick` ; `run(p: Promise<Snapshot | null>)`, `say(text, error = false)`.
 - `fromA2ui` (`ui/src/agent/quick.ts`) et la forme d'une `A2uiClientAction`.
 - `CATALOG_ID` : un composant ajouté au catalogue v3 en demande-t-il une nouvelle version ? Décider ici et le noter dans la tâche 6.
 
@@ -2021,7 +2023,7 @@ fn params_with_a_rich_field_sends_its_source_paragraphs() {
     },
 ```
 
-`crates/oku-slides-a2ui/src/lib.rs` : `RichTextField` dans la liste des composants de la doc. `forms.rs` : `FieldKind` gagne `/// Texte riche : paragraphes, montrés en markdown d'édition. Rich,` ; dans `params`, le bras :
+`crates/oku-slides-a2ui/src/lib.rs` : `RichTextField` dans la liste des composants de la doc. Dans `message.rs`, les trois `match` exhaustifs sur `ComponentKind` (enfants, actions, gel `action: None`) reçoivent le bras `RichTextField` (pas d'enfant ; son action comme celle de `TextField`). `forms.rs` : `FieldKind` gagne `/// Texte riche : paragraphes, montrés en markdown d'édition. Rich,` ; dans `params`, le bras :
 
 ```rust
             FieldKind::Rich => {
@@ -2266,14 +2268,14 @@ export function RichTextField({ label, value, source, palette, onCommit }: RichT
 
   return (
     <div className="note-field rich-field" onKeyDown={(e) => e.stopPropagation()}>
-      <span className="postit-hint">{label}</span>
+      <span className="a2ui-hint">{label}</span>
       <div ref={host} className="rich-field-editor" />
     </div>
   );
 }
 ```
 
-(Classe de légende et fichier CSS : ceux du catalogue v3, vérifiés avant la phase B.) Dans `catalog.tsx`, à côté de `TextFieldApi` :
+(Vérifié avant la phase B : la légende des champs du catalogue v3 est `a2ui-hint`, les styles des cartes vivent dans `ui/src/a2ui/a2ui.css`, `Hex` s'importe de `./schemas`.) Dans `catalog.tsx`, à côté de `TextFieldApi` :
 
 ```tsx
 const RichTextFieldApi = {
@@ -2305,7 +2307,7 @@ const RichText = createComponentImplementation(RichTextFieldApi, ({ props }) => 
 ));
 ```
 
-et `RichText` dans la liste des composants. `styles.css` (près des cartes) : `.rich-field-editor { min-height: 4.5em; max-height: 12em; overflow: auto; }`. `useTemplateWidgets.ts`, garde des raccourcis ⌘W/⌘Z : `const inField = !inEditor && !!target?.closest?.('input, textarea, select, [contenteditable="true"]');` (comme `App.tsx`).
+et `RichText` dans la liste des composants. `ui/src/a2ui/a2ui.css` (près de `.note-field`) : `.rich-field-editor { min-height: 4.5em; max-height: 12em; overflow: auto; }`. `useTemplateWidgets.ts`, garde des raccourcis ⌘W/⌘Z : `const inField = !inEditor && !!target?.closest?.('input, textarea, select, [contenteditable="true"]');` (comme `App.tsx`).
 
 - [ ] **Step 8: Vérifier** — Run: `cargo nextest run -p oku-slides-a2ui -p oku-slides-session && cd ui && bun test && bunx tsc --noEmit -p .` — Expected: PASS.
 
@@ -3104,7 +3106,17 @@ export function useHostSettings(
     let alive = true;
     api
       .hostSettings(current, widget)
-      .then((surface) => alive && setShown(surface ? { surface, slide: current, widget } : null))
+      // Même contenu : la surface est gardée (SurfaceView reconstruit une surface reçue à nouveau).
+      .then((surface) =>
+        alive &&
+        setShown((prev) =>
+          surface && prev && prev.slide === current && prev.widget === widget && JSON.stringify(prev.surface) === JSON.stringify(surface)
+            ? prev
+            : surface
+              ? { surface, slide: current, widget }
+              : null,
+        ),
+      )
       .catch((e) => alive && say(String(e), true));
     return () => {
       alive = false;

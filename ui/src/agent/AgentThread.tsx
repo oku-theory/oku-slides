@@ -10,7 +10,7 @@ import { AgentDock } from "./AgentDock";
 import { useSpeech } from "./speech";
 import type { Routed } from "./surfaces";
 
-// @a2ui ne se charge qu'avec la première surface (comme le panneau des modèles).
+// @a2ui ne se charge qu'avec la première surface (comme les réglages du dock).
 const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
 
 /** Clés écrites en entier : `i18n-keys.test.ts` cherche chaque clé en littéral. */

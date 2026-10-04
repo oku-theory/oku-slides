@@ -3,7 +3,7 @@
 //! - [`ServerMessage`] : `createSurface`, `updateComponents`,
 //!   `updateDataModel`, `deleteSurface`, au format v0.9.
 //! - [`Component`] / [`ComponentKind`] : le catalogue [`CATALOG_ID`] (Column,
-//!   Row, Card, Text, TextField, Stepper, Button, ChoiceChips, Slider,
+//!   Row, Card, Text, TextField, RichTextField, Stepper, Button, ChoiceChips, Slider,
 //!   ColorField, Select, SlideThumb, DiffText, Prompt, Timeline, Receipt, Disclosure, Badge, Markdown), à plat, relié par identifiants.
 //! - [`Dynamic`] : une valeur littérale ou un chemin (JSON Pointer) dans le
 //!   modèle de données de la surface.

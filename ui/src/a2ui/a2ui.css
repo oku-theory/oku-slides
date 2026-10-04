@@ -51,6 +51,7 @@
 }
 
 /* Le fil de l'agent : les tours défilent, le dock des surfaces vivantes reste au-dessus du micro. */
+/* Le fil se dimensionne sur son contenu : le dock plafonne à 45 % du panneau (cqh, voir `.agent-dock`), pas du fil : un % du fil serait cyclique. */
 .agent-thread { display: flex; flex-direction: column; min-height: 0; padding: var(--space-1) var(--space-4) var(--space-2); gap: var(--space-1); }
 .agent-scroller { flex: 1; min-height: 0; overflow: auto; }
 .agent-turns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }

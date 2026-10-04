@@ -162,3 +162,92 @@ fn set_widget_trials_bumps_the_snapshot_revision() {
     s.set_widget_trials("tout", values(json!({ "title": "x" }))).unwrap();
     assert_that!(s.snapshot().widget_trials).is_greater_than(before);
 }
+
+fn settings(s: &crate::Session, name: &str) -> crate::panel::HostParams {
+    s.widget_settings(name).unwrap().unwrap()
+}
+
+#[test]
+fn widget_settings_keys_follow_the_schema_order() {
+    let (_d, s) = templates();
+    assert_that!(settings(&s, "tout").keys)
+        .is_equal_to(["title", "body", "count", "size", "tone", "on"].map(String::from).to_vec());
+}
+
+#[rstest]
+#[case::plain(0, crate::agent::FieldKind::Text)]
+#[case::rich(1, crate::agent::FieldKind::Rich)]
+#[case::bounded_number(2, crate::agent::FieldKind::Slider)]
+#[case::open_number(3, crate::agent::FieldKind::Text)]
+#[case::choice(4, crate::agent::FieldKind::Select)]
+#[case::flag(5, crate::agent::FieldKind::Select)]
+fn widget_settings_field_kind_matches_the_param_type(#[case] i: usize, #[case] kind: crate::agent::FieldKind) {
+    let (_d, s) = templates();
+    assert_that!(settings(&s, "tout").spec.fields.get(i).map(|f| f.kind)).is_equal_to(Some(kind));
+}
+
+#[test]
+fn widget_settings_lists_an_unsettable_param_as_a_note() {
+    let (_d, s) = templates();
+    assert_that!(settings(&s, "tout").notes.join(" ").as_str()).contains("logo");
+}
+
+#[test]
+fn widget_settings_value_is_the_preview_value() {
+    let (_d, s) = templates();
+    let l = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(settings(&s, "tout").spec.fields[0].value.clone()).is_equal_to(json!(l.tr("widget-preview-plain")));
+}
+
+#[test]
+fn widget_settings_value_shows_the_trial() {
+    let (_d, mut s) = templates();
+    s.set_widget_trials("tout", values(json!({ "on": "true" }))).unwrap();
+    assert_that!(settings(&s, "tout").spec.fields[5].value.clone()).is_equal_to(json!("true"));
+}
+
+#[test]
+fn widget_settings_slider_step_fits_a_small_range() {
+    let (_d, s) = templates();
+    assert_that!(settings(&s, "tout").spec.fields[2].step).is_equal_to(Some(0.08));
+}
+
+#[test]
+fn widget_settings_of_common_is_none() {
+    let (_d, mut s) = templates();
+    s.set_widget("_commun", "#let x = 1\n".into()).unwrap();
+    assert_that!(s.widget_settings("_commun").unwrap()).is_none();
+}
+
+#[test]
+fn widget_settings_of_a_broken_file_keeps_one_note() {
+    let (_d, mut s) = templates();
+    s.set_widget("tout", "#let widget = (".into()).unwrap();
+    let p = settings(&s, "tout");
+    assert_that!((p.spec.fields.len(), p.notes.len())).is_equal_to((0, 1));
+}
+
+/// Le champ d'un nombre borné `min..max`, montré à `min`.
+fn bounded(min: f64, max: f64) -> crate::agent::ParamField {
+    let p = oku_slides_core::ParamSchema {
+        name: "n".into(),
+        label: None,
+        ty: oku_slides_core::ParamType::Number { min: Some(min), max: Some(max) },
+        default: None,
+        bind: None,
+    };
+    let shown = oku_slides_core::ParamValue::Value(json!(min));
+    super::field(&p, Some(&shown), &oku_slides_i18n::Localizer::new(Some("fr"))).unwrap()
+}
+
+#[rstest]
+#[case::empty_range(3.0, 3.0)]
+#[case::reversed_range(5.0, 1.0)]
+fn widget_settings_bounds_without_a_range_give_a_text_field(#[case] min: f64, #[case] max: f64) {
+    assert_that!(bounded(min, max).kind).is_equal_to(crate::agent::FieldKind::Text);
+}
+
+#[test]
+fn widget_settings_slider_step_has_no_float_noise() {
+    assert_that!(bounded(0.3, 1.0).step).is_equal_to(Some(0.007));
+}

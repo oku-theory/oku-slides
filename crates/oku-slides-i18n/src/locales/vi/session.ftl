@@ -49,6 +49,7 @@ session-trial-fixed = Không thể đặt “{ $param }” trong bản xem trư�
 session-trial-too-long = Giá trị thử của “{ $param }” quá dài.
 session-trial-value = Giá trị thử của “{ $param }” bị từ chối: { $reason }
 session-trial-encode = Không thể giữ giá trị thử của “{ $param }”.
+session-host-key = Cài đặt không xác định: { $key }
 widgets-edit-label = Widget: { $name }
 widget-preview-plain = Văn bản mẫu
 widget-preview-rich = Một đoạn văn mẫu, để xem widget trong ngữ cảnh.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Một số phần của bản trình bày này không 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Mẫu này
 session-panel-name = Tên
 session-panel-description = Mô tả
-session-panel-grid = Lưới
 session-panel-columns = Cột
 session-panel-rows = Hàng
+session-widget-params = Tham số của { $name }
+session-widget-no-params = Tiện ích này không có tham số.
+session-widget-param-fixed = { $name }: không chỉnh được trong bản xem trước
+session-widget-param-yes = Có
+session-widget-param-no = Không
+session-widget-invalid-file = Tệp không hợp lệ: không có cài đặt
+session-undo-host-setting = Cài đặt mẫu
+session-undo-rename-template = Đổi tên mẫu
+session-undo-describe-template = Mô tả mẫu
+session-undo-grid = Lưới { $columns } × { $rows }
 
 ## Menu
 

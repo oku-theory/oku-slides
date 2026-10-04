@@ -49,6 +49,7 @@ session-trial-fixed = لا يمكن ضبط «{ $param }» في المعاينة.
 session-trial-too-long = قيمة التجربة طويلة جدًا لـ «{ $param }».
 session-trial-value = رُفضت قيمة التجربة لـ «{ $param }»: { $reason }
 session-trial-encode = تعذّر الاحتفاظ بقيمة التجربة لـ «{ $param }».
+session-host-key = إعداد غير معروف: { $key }
 widgets-edit-label = عناصر الواجهة: { $name }
 widget-preview-plain = نص تجريبي
 widget-preview-rich = فقرة تجريبية، لرؤية عنصر الواجهة في سياقه.
@@ -70,14 +71,23 @@ notice-unreadable-parts = تعذّرت قراءة بعض أجزاء هذا ال�
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = هذا القالب
 session-panel-name = الاسم
 session-panel-description = الوصف
-session-panel-grid = الشبكة
 session-panel-columns = الأعمدة
 session-panel-rows = الصفوف
+session-widget-params = معلمات { $name }
+session-widget-no-params = لا توجد معلمات لهذه الأداة.
+session-widget-param-fixed = { $name }: غير قابل للضبط في المعاينة
+session-widget-param-yes = نعم
+session-widget-param-no = لا
+session-widget-invalid-file = ملف غير صالح: الإعدادات غير متاحة
+session-undo-host-setting = إعداد القالب
+session-undo-rename-template = إعادة تسمية القالب
+session-undo-describe-template = وصف القالب
+session-undo-grid = شبكة { $columns } × { $rows }
 
 ## Menu
 

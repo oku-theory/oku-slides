@@ -49,6 +49,7 @@ session-trial-fixed = «{ $param }» non è impostabile nell'anteprima.
 session-trial-too-long = Valore di prova troppo lungo per «{ $param }».
 session-trial-value = Valore di prova rifiutato per «{ $param }»: { $reason }
 session-trial-encode = Non è stato possibile conservare il valore di prova di «{ $param }».
+session-host-key = Impostazione sconosciuta: { $key }
 widgets-edit-label = Widget: { $name }
 widget-preview-plain = Testo di esempio
 widget-preview-rich = Un paragrafo di esempio, per vedere il widget nel contesto.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Alcune parti di questa presentazione non sono state le
 log-document-opened = Documento aperto
 log-document-saved = Documento salvato
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Questo modello
 session-panel-name = Nome
 session-panel-description = Descrizione
-session-panel-grid = Griglia
 session-panel-columns = Colonne
 session-panel-rows = Righe
+session-widget-params = Parametri di { $name }
+session-widget-no-params = Questo widget non ha parametri.
+session-widget-param-fixed = { $name }: non regolabile nell'anteprima
+session-widget-param-yes = Sì
+session-widget-param-no = No
+session-widget-invalid-file = File non valido: impostazioni non disponibili
+session-undo-host-setting = Impostazione del modello
+session-undo-rename-template = Rinomina il modello
+session-undo-describe-template = Descrivi il modello
+session-undo-grid = Griglia { $columns } × { $rows }
 
 ## Menu
 

@@ -49,6 +49,7 @@ session-trial-fixed = ‘{ $param }’ kan niet in het voorbeeld worden ingestel
 session-trial-too-long = Proefwaarde te lang voor ‘{ $param }’.
 session-trial-value = Proefwaarde geweigerd voor ‘{ $param }’: { $reason }
 session-trial-encode = De proefwaarde van ‘{ $param }’ kon niet worden bewaard.
+session-host-key = Onbekende instelling: { $key }
 widgets-edit-label = Widgets: { $name }
 widget-preview-plain = Voorbeeldtekst
 widget-preview-rich = Een voorbeeldalinea, om de widget in context te zien.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Delen van deze presentatie konden niet worden gelezen 
 log-document-opened = Document geopend
 log-document-saved = Document opgeslagen
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Dit sjabloon
 session-panel-name = Naam
 session-panel-description = Beschrijving
-session-panel-grid = Raster
 session-panel-columns = Kolommen
 session-panel-rows = Rijen
+session-widget-params = Parameters van { $name }
+session-widget-no-params = Deze widget heeft geen parameters.
+session-widget-param-fixed = { $name }: niet instelbaar in de voorvertoning
+session-widget-param-yes = Ja
+session-widget-param-no = Nee
+session-widget-invalid-file = Ongeldig bestand: instellingen niet beschikbaar
+session-undo-host-setting = Sjablooninstelling
+session-undo-rename-template = Sjabloon hernoemen
+session-undo-describe-template = Sjabloon beschrijven
+session-undo-grid = Raster { $columns } × { $rows }
 
 ## Menu
 

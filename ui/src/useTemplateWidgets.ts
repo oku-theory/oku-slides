@@ -238,7 +238,7 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
       if (e.repeat || packRef.current === null || id === null || onRef.current.blocked()) return;
       const target = e.target as HTMLElement | null;
       const inEditor = !!target?.closest?.(".typst-editor");
-      const inField = !inEditor && !!target?.closest?.("input, textarea, select");
+      const inField = !inEditor && !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
       if (inField) return;
       const mod = e.metaKey || e.ctrlKey;
       if (tabShortcut(e, isMac)?.kind === "close-tab") close(id);

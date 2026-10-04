@@ -75,6 +75,24 @@ fn text_field_binds_value_and_sends_action_with_path_context() {
 }
 
 #[test]
+fn rich_text_field_binds_markdown_and_source() {
+    let c = Component::new(
+        "b",
+        ComponentKind::RichTextField {
+            label: Dynamic::Literal("Corps".into()),
+            value: Dynamic::path("/v"),
+            source: Dynamic::path("/v-source"),
+            palette: vec!["#112233".into()],
+            action: None,
+        },
+    );
+    assert_that!(serde_json::to_value(&c).unwrap()).is_equal_to(json!({
+        "id": "b", "component": "RichTextField", "label": "Corps",
+        "value": { "path": "/v" }, "source": { "path": "/v-source" }, "palette": ["#112233"]
+    }));
+}
+
+#[test]
 fn stepper_leaves_out_missing_bounds_and_action() {
     let stepper = Component::new(
         "cols",

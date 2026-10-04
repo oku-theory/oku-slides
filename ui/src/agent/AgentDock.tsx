@@ -6,7 +6,7 @@ import { QuickHintsContext } from "../a2ui/quickHints";
 import { Toggle } from "../a2ui/Toggle";
 import type { Surface } from "../api";
 import { t } from "../i18n";
-import { isQuestion } from "./surfaces";
+import { isHostSettings, isQuestion } from "./surfaces";
 
 /**
  * Les surfaces vivantes ; rien de visible (0 px) sans elles, mais la région annoncée reste
@@ -40,7 +40,14 @@ export function AgentDock({
         const settings = question !== null && !isQuestion(s);
         const folded = settings && !open;
         return (
-          <div key={s.id} className={`agent-dock-item${isQuestion(s) ? " ask" : ""}`} data-surface-id={s.id}>
+          // Les réglages de l'hôte, toujours là et reconstruits à chaque relecture, ne sont pas
+          // annoncés : seules les surfaces de l'agent le sont.
+          <div
+            key={s.id}
+            className={`agent-dock-item${isQuestion(s) ? " ask" : ""}`}
+            data-surface-id={s.id}
+            aria-live={isHostSettings(s) ? "off" : undefined}
+          >
             {settings && (
               <Toggle open={!folded} onToggle={() => setOpenFor(open ? null : question)} className="a2ui-hint">
                 {t("ui-agent-dock-settings")}

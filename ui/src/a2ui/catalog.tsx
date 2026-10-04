@@ -1,8 +1,8 @@
-// Catalogue A2UI d'Oku Slides (v3) : panneau et surfaces de l'agent. Rendu par
+// Catalogue A2UI d'Oku Slides (v3) : réglages du dock et surfaces de l'agent. Rendu par
 // @a2ui/react ; les messages sont validés contre ces schémas zod par
 // @a2ui/web_core.
 //
-// Noms et propriétés reprennent le catalogue de base v0.9 ; `Stepper`,
+// Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`,
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
 // `Receipt`, `Disclosure`, `Badge`, `Markdown` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
@@ -11,8 +11,10 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
+import type { Paragraph } from "../api";
 import { t } from "../i18n";
 import { QuickHintsContext } from "./quickHints";
+import { RichTextField } from "./RichTextField";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
@@ -28,6 +30,18 @@ const TextFieldApi = {
   name: "TextField",
   schema: z
     .object({ label: CommonSchemas.DynamicString, value: CommonSchemas.DynamicString, action: CommonSchemas.Action.optional() })
+    .strict(),
+};
+const RichTextFieldApi = {
+  name: "RichTextField",
+  schema: z
+    .object({
+      label: CommonSchemas.DynamicString,
+      value: CommonSchemas.DynamicString,
+      source: CommonSchemas.DynamicValue,
+      palette: z.array(Hex).readonly(),
+      action: CommonSchemas.Action.optional(),
+    })
     .strict(),
 };
 const StepperApi = {
@@ -164,6 +178,21 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
     </label>
   );
 });
+
+/** Texte riche multiligne : markdown et paragraphes écrits, puis l'action. */
+const RichText = createComponentImplementation(RichTextFieldApi, ({ props }) => (
+  <RichTextField
+    label={props.label}
+    value={props.value ?? ""}
+    source={Array.isArray(props.source) ? (props.source as Paragraph[]) : []}
+    palette={[...props.palette]}
+    onCommit={(markdown, paragraphs) => {
+      props.setValue(markdown);
+      props.setSource(paragraphs);
+      props.action?.();
+    }}
+  />
+));
 
 /** Petit compteur − valeur + ; l'action part à chaque pas. */
 const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
@@ -373,8 +402,8 @@ const DiffText = createComponentImplementation(DiffTextApi, ({ props }) => (
   </p>
 ));
 
-/** Le catalogue des surfaces d'Oku Slides : panneau de droite et agent. */
+/** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
-  Column, Row, Card, Text, TextField, Stepper, Button, ChoiceChips, Slider, ColorField, Select, SlideThumb, DiffText,
+  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, SlideThumb, DiffText,
   Prompt, Timeline, Receipt, Disclosure, Badge, Markdown,
 ]);

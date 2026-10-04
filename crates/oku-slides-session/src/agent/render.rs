@@ -91,6 +91,7 @@ fn check_content(i: usize, c: &Component) -> Result<()> {
         ComponentKind::Column { .. } | ComponentKind::Row { .. } | ComponentKind::Card { .. } => Ok(()),
         // Refusés avant : `check_available` et `agent_allowed`.
         ComponentKind::TextField { .. }
+        | ComponentKind::RichTextField { .. }
         | ComponentKind::Stepper { .. }
         | ComponentKind::Slider { .. }
         | ComponentKind::ColorField { .. }
@@ -108,6 +109,7 @@ fn check_available(i: usize, c: &Component, name: &str) -> Result<()> {
     let field = matches!(
         c.kind,
         ComponentKind::TextField { .. }
+            | ComponentKind::RichTextField { .. }
             | ComponentKind::Stepper { .. }
             | ComponentKind::Slider { .. }
             | ComponentKind::ColorField { .. }

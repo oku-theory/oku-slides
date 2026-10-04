@@ -29,13 +29,12 @@ import { Icon } from "./icons";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
-import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
-import { panelActionOps } from "./a2ui/panelActions";
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { SlideThumbsContext, type SlideThumbs } from "./a2ui/slideThumbs";
 import { AgentThread } from "./agent/AgentThread";
 import { subscribeHost } from "./agent/events";
 import type { DictationMode } from "./agent/keys";
-import { escapeAction } from "./agent/keys";
+import { escapeAction, targetOwnsKeys } from "./agent/keys";
 import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
 import { agentBusy, routeSurfaces, sendThenPrompt, surfacesReducer } from "./agent/surfaces";
@@ -46,21 +45,17 @@ import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
+import { useHostSettings } from "./useHostSettings";
 import WidgetPane from "./WidgetPane";
 import CodeSwitch from "./CodeSwitch";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
 
 
-// @a2ui/react (et zod, lit…) ne sert qu'au panneau des modèles : chargé à la demande.
-const PanelSurface = lazy(() => import("./a2ui/PanelSurface").then((m) => ({ default: m.PanelSurface })));
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
 const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
 const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
 const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
-
-/** Panneau vide (hors des modèles) : même tableau, pas de nouveau rendu. */
-const NO_PANEL: A2uiMessage[] = [];
 
 /** Titre de la présentation, modifiable sur place (clic, Entrée pour valider, Échap pour annuler). */
 function TitleField({ value, display, onCommit }: { value: string; display: string; onCommit: (v: string) => void }) {
@@ -388,17 +383,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     });
   };
 
-  // Panneau de droite : surface A2UI de la session, en édition des modèles.
-  const [panel, setPanel] = useState<A2uiMessage[]>(NO_PANEL);
-  useEffect(() => {
-    if (!current || !snap?.editing) return setPanel(NO_PANEL);
-    api.panel(current).then(setPanel).catch((e) => say(String(e), true));
-  }, [current, snap]);
-  const onPanelAction = (action: A2uiClientAction) => {
-    if (!view) return;
-    const change = panelActionOps(action, view.slide);
-    if (change) apply(change.label, change.ops);
-  };
+  // Réglages du modèle affiché, ou du widget du sous-onglet actif : au dock de l'agent.
+  const host = useHostSettings(api, snap, current, widgets.activeName, run, say);
 
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
@@ -417,7 +403,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       ),
     [surfaces, view, current],
   );
-  const { stage: sheet, drawer, modal } = routed;
+  const { stage: sheet, drawer, modal, dock } = routed;
+  const dockWithHost = useMemo(() => (host.surface ? [host.surface, ...dock] : dock), [host.surface, dock]);
   const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
   const touchedRef = useRef(widgets.touched);
   touchedRef.current = widgets.touched;
@@ -472,6 +459,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       .prompt(text, agentUi(current, selected, editField, widgets.activeName), answer)
       .catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
+    if (host.onAction(s, a)) return;
     const action = fromA2ui(a);
     // Une suite cliquée part vers l'agent, une fois l'action acceptée : une nouvelle consigne, qui ne répond à aucune question.
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
@@ -535,9 +523,9 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     const onKey = (e: KeyboardEvent) => {
       // Déjà prise par un composant (barre des sous-onglets, pile…) : pas deux actions pour une touche.
       if (e.defaultPrevented) return;
-      // Dans une surface A2UI (panneau, agent), une fiche de l'agent ou l'éditeur de texte, les touches sont les leurs.
+      // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      if (modal || editing || picking || (e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"], .a2ui-surface, .agent-keys')) return;
+      if (modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
       const mod = e.metaKey || e.ctrlKey;
       // Grille et fantômes se basculent partout, historique compris.
       if (viewOptions.handleKey(e)) return;
@@ -902,7 +890,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             state={agentState}
             turns={routed.turns}
             loose={routed.loose}
-            dock={routed.dock}
+            dock={dockWithHost}
             keysTo={keyed?.surface.id ?? null}
             resyncs={resyncs}
             onAction={onSurfaceAction}
@@ -921,11 +909,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onSend={sendDraft}
           onDiscard={closeDraft}
         />
-        {panel.length > 0 && (
-          <Suspense fallback={null}>
-            <PanelSurface messages={panel} onAction={onPanelAction} onError={(m) => say(m, true)} />
-          </Suspense>
-        )}
       </aside>
 
       {/* Entre pile et feuille, entre feuille et fil : de quoi régler les largeurs. */}

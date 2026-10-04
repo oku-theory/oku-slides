@@ -44,6 +44,7 @@ fn render_valid_composition_is_a_frozen_thread_surface() {
 #[case::other_action_name(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "param", "context": {"prompt": "x"}}}}]), "only suggest actions")]
 #[case::extra_context_key(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "suggest", "context": {"prompt": "x", "field": 1}}}}]), "only suggest actions")]
 #[case::text_field(json!([{"id": "root", "component": "TextField", "label": "Nom", "value": "x"}]), "TextField is not available in render")]
+#[case::rich_text_field(json!([{"id": "root", "component": "RichTextField", "label": "Corps", "value": "x", "source": [], "palette": []}]), "RichTextField is not available in render")]
 #[case::stepper(json!([{"id": "root", "component": "Stepper", "label": "n", "value": 1}]), "Stepper is not available in render")]
 #[case::slider(json!([{"id": "root", "component": "Slider", "label": "n", "value": 1.0, "min": 0.0, "max": 2.0}]), "Slider is not available in render")]
 #[case::color_field(json!([{"id": "root", "component": "ColorField", "label": "c", "value": "#fff", "palette": ["#000"]}]), "ColorField is not available in render")]

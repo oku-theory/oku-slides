@@ -1,4 +1,4 @@
-// Une surface A2UI (panneau de droite ou agent), rendue avec le catalogue v3.
+// Une surface A2UI (réglages du dock ou agent), rendue avec le catalogue v3.
 // Une liste de messages qui prolonge la précédente n'est traitée que pour sa
 // suite (la surface garde son état : détail ouvert, saisie) ; toute autre liste
 // recrée la surface et libère l'ancienne (ce qui était déplié le reste : `openMemory`).
@@ -64,11 +64,15 @@ export function SurfaceView({
   onAction: (action: A2uiClientAction) => void;
   onError: (message: string) => void;
 }) {
-  // Les gestionnaires changent à chaque rendu ; la surface, seulement avec les messages.
-  const handlers = useRef({ onAction, onError });
-  handlers.current = { onAction, onError };
+  // Les gestionnaires changent à chaque rendu ; la surface, seulement avec les messages. Ceux
+  // d'un rendu aux messages nouveaux n'en prennent la place qu'avec la surface qu'ils décrivent :
+  // un champ validé entre ce rendu et la reconstruction part avec la surface affichée.
+  const latest = useRef({ onAction, onError });
+  latest.current = { onAction, onError };
+  const handlers = useRef(latest.current);
   const [surface, setSurface] = useState<SurfaceModel<never> | null>(null);
   const live = useRef<Live | null>(null);
+  if (!live.current || live.current.done === messages) handlers.current = latest.current;
   // Ce qui est déplié survit aux reconstructions de la même surface (`openMemory`), pas à un changement d'identifiant.
   const opened = useRef<{ surfaceId: string; memory: OpenMemory } | null>(null);
   if (opened.current?.surfaceId !== surfaceId) opened.current = { surfaceId, memory: new Map() };
@@ -76,6 +80,7 @@ export function SurfaceView({
   // suivante, et ne peut pas savoir s'il y aura prolongation. Le corps libère l'ancienne quand il
   // reconstruit ; le second effet la libère au démontage.
   useEffect(() => {
+    handlers.current = latest.current;
     const current = live.current;
     if (current && current.surfaceId === surfaceId && prolongs(current.done, messages)) {
       try {

@@ -41,9 +41,23 @@ pub enum Request {
     Schema,
     /// Registre des widgets du deck ouvert (base, surchargée par son pack).
     Widgets,
-    /// Surface A2UI du panneau de droite pour une slide (messages v0.9).
-    Panel {
+    /// Réglages de l'hôte (surface ou `null`) : le widget s'il en a, sinon le modèle `slide`.
+    HostSettings {
         slide: String,
+        #[serde(default)]
+        widget: Option<String>,
+    },
+    /// Applique le réglage `key` du modèle `slide` (mode modèles, annulable).
+    HostParam {
+        slide: String,
+        key: String,
+        value: serde_json::Value,
+    },
+    /// Règle une valeur d'essai d'un widget ; ne change ni le deck ni les documents.
+    SetWidgetTrial {
+        name: String,
+        param: String,
+        value: serde_json::Value,
     },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
     ChartKind {
@@ -164,13 +178,15 @@ impl Request {
             | Self::PackUseMine
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
-            | Self::RenameWidget { .. } => true,
+            | Self::RenameWidget { .. }
+            | Self::HostParam { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Svg { .. }
             | Self::Schema
             | Self::Widgets
-            | Self::Panel { .. }
+            | Self::HostSettings { .. }
+            | Self::SetWidgetTrial { .. }
             | Self::Templates { .. }
             | Self::TemplateSets
             | Self::SaveTemplates { .. }
@@ -207,6 +223,8 @@ impl Request {
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
+                | Self::HostParam { .. }
+                | Self::SetWidgetTrial { .. }
         )
     }
 

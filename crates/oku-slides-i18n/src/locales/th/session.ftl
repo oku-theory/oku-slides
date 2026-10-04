@@ -49,6 +49,7 @@ session-trial-fixed = ตั้งค่า “{ $param }” ในตัวอ�
 session-trial-too-long = ค่าทดลองของ “{ $param }” ยาวเกินไป
 session-trial-value = ค่าทดลองของ “{ $param }” ถูกปฏิเสธ: { $reason }
 session-trial-encode = เก็บค่าทดลองของ “{ $param }” ไว้ไม่ได้
+session-host-key = การตั้งค่าที่ไม่รู้จัก: { $key }
 widgets-edit-label = วิดเจ็ต: { $name }
 widget-preview-plain = ข้อความตัวอย่าง
 widget-preview-rich = ย่อหน้าตัวอย่าง เพื่อดูวิดเจ็ตในบริบทจริง
@@ -70,14 +71,23 @@ notice-unreadable-parts = บางส่วนของงานนำเสน
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = เทมเพลตนี้
 session-panel-name = ชื่อ
 session-panel-description = คำอธิบาย
-session-panel-grid = เส้นตาราง
 session-panel-columns = คอลัมน์
 session-panel-rows = แถว
+session-widget-params = พารามิเตอร์ของ { $name }
+session-widget-no-params = วิดเจ็ตนี้ไม่มีพารามิเตอร์
+session-widget-param-fixed = { $name }: ปรับไม่ได้ในตัวอย่าง
+session-widget-param-yes = ใช่
+session-widget-param-no = ไม่
+session-widget-invalid-file = ไฟล์ไม่ถูกต้อง: ไม่มีการตั้งค่าให้ใช้
+session-undo-host-setting = การตั้งค่าเทมเพลต
+session-undo-rename-template = เปลี่ยนชื่อเทมเพลต
+session-undo-describe-template = อธิบายเทมเพลต
+session-undo-grid = เส้นตาราง { $columns } × { $rows }
 
 ## Menu
 

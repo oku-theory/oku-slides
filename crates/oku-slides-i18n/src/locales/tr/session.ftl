@@ -49,6 +49,7 @@ session-trial-fixed = “{ $param }” önizlemede ayarlanamaz.
 session-trial-too-long = “{ $param }” için deneme değeri çok uzun.
 session-trial-value = “{ $param }” için deneme değeri reddedildi: { $reason }
 session-trial-encode = “{ $param }” deneme değeri saklanamadı.
+session-host-key = Bilinmeyen ayar: { $key }
 widgets-edit-label = Widget'lar: { $name }
 widget-preview-plain = Örnek metin
 widget-preview-rich = Widget'ı bağlamında görmek için örnek bir paragraf.
@@ -70,14 +71,23 @@ notice-unreadable-parts = Bu sunumun bazı bölümleri okunamadı ve bir kenara 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = Bu şablon
 session-panel-name = Ad
 session-panel-description = Açıklama
-session-panel-grid = Izgara
 session-panel-columns = Sütunlar
 session-panel-rows = Satırlar
+session-widget-params = { $name } parametreleri
+session-widget-no-params = Bu widget'ın parametresi yok.
+session-widget-param-fixed = { $name }: önizlemede ayarlanamaz
+session-widget-param-yes = Evet
+session-widget-param-no = Hayır
+session-widget-invalid-file = Geçersiz dosya: ayarlar kullanılamıyor
+session-undo-host-setting = Şablon ayarı
+session-undo-rename-template = Şablonu yeniden adlandır
+session-undo-describe-template = Şablonu açıkla
+session-undo-grid = Izgara { $columns } × { $rows }
 
 ## Menu
 

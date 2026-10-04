@@ -49,6 +49,7 @@ session-trial-fixed = প্রিভিউতে “{ $param }” সেট ক
 session-trial-too-long = “{ $param }”-এর জন্য পরীক্ষামূলক মান খুব দীর্ঘ।
 session-trial-value = “{ $param }”-এর জন্য পরীক্ষামূলক মান প্রত্যাখ্যাত: { $reason }
 session-trial-encode = “{ $param }”-এর পরীক্ষামূলক মান রাখা যায়নি।
+session-host-key = অজানা সেটিং: { $key }
 widgets-edit-label = উইজেট: { $name }
 widget-preview-plain = নমুনা লেখা
 widget-preview-rich = উইজেটটি প্রসঙ্গে দেখার জন্য একটি নমুনা অনুচ্ছেদ।
@@ -70,14 +71,23 @@ notice-unreadable-parts = এই উপস্থাপনার কিছু অ
 log-document-opened = ডকুমেন্ট খোলা হয়েছে
 log-document-saved = ডকুমেন্ট সংরক্ষিত হয়েছে
 
-## Panneau de droite (surface A2UI)
+## Réglages de l'hôte (dock A2UI)
 
 session-panel-template = এই টেমপ্লেট
 session-panel-name = নাম
 session-panel-description = বিবরণ
-session-panel-grid = গ্রিড
 session-panel-columns = কলাম
 session-panel-rows = সারি
+session-widget-params = { $name }-এর প্যারামিটার
+session-widget-no-params = এই উইজেটের কোনো প্যারামিটার নেই।
+session-widget-param-fixed = { $name }: প্রিভিউতে সমন্বয়যোগ্য নয়
+session-widget-param-yes = হ্যাঁ
+session-widget-param-no = না
+session-widget-invalid-file = অবৈধ ফাইল: সেটিংস অনুপলব্ধ
+session-undo-host-setting = টেমপ্লেট সেটিং
+session-undo-rename-template = টেমপ্লেটের নাম বদলান
+session-undo-describe-template = টেমপ্লেটের বিবরণ দিন
+session-undo-grid = গ্রিড { $columns } × { $rows }
 
 ## Menu
 

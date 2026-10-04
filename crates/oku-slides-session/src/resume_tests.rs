@@ -379,3 +379,29 @@ fn write_snapshot_removes_orphan_packs() {
     assert_that!(packs.join(format!("{}.kpi.typ", v.hex())).exists()).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
+
+/// Un essai de widget ne touche pas aux documents : seul l'état de reprise est écrit.
+#[test]
+fn set_widget_trial_writes_no_resume_document() {
+    let data = crate::test_support::fresh_dir("oku-slides-trial-");
+    let dir = temp_dir();
+    let mut s = crate::test_support::opened_on(data.path());
+    assert_that!(s.resume(dir.clone())).is_true();
+    let set = s.deck().templates.clone().unwrap().id;
+    s.edit_templates(set).unwrap();
+    let source = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
+                  #let widget = widget(\"essai\", params: (title: p.plain()), (args, ctx) => args.title)\n";
+    s.handle(crate::Request::SetWidget { name: "essai".into(), source: source.into() }).unwrap();
+    s.flush_resume();
+    let docs = [dir.join(DECK_DIR).join("document.json"), dir.join(TEMPLATES_DIR).join("document.json")];
+    for d in &docs {
+        std::fs::remove_file(d).unwrap();
+    }
+    std::fs::remove_file(dir.join("state.json")).unwrap();
+    s.handle(crate::Request::SetWidgetTrial { name: "essai".into(), param: "title".into(), value: "Météo".into() })
+        .unwrap();
+    s.flush_resume();
+    assert_that!(dir.join("state.json").exists()).is_true();
+    assert_that!(docs.iter().filter(|d| d.exists()).count()).is_equal_to(0);
+    std::fs::remove_dir_all(&dir).ok();
+}
