@@ -624,9 +624,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   );
 
   // Hors édition, une dictée s'écrit dans le brouillon : « Insérer » l'écrit
-  // tel quel dans le deck, « Envoyer » la donne à l'agent.
-  const [draft, setDraft] = useState<{ text: string | null; dictations: number }>({ text: null, dictations: 0 });
+  // tel quel dans le deck, « Envoyer » la donne à l'agent. ⌘K l'ouvre pour écrire.
+  const [draft, setDraft] = useState<{ text: string | null; dictations: number; typing: number }>({ text: null, dictations: 0, typing: 0 });
   const closeDraft = () => setDraft((d) => ({ ...d, text: null }));
+  const typeDraft = () => setDraft((d) => ({ ...d, text: d.text ?? "", typing: d.typing + 1 }));
   const sendDraft = (text: string) => {
     closeDraft();
     promptAgent(text);
@@ -638,7 +639,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
   const onDictated = (text: string, mode: DictationMode) => {
     if (dictationRoute(mode, editing !== null) === "cursor") insertText(text);
-    else setDraft((d) => ({ text: appendDraft(d.text, text), dictations: d.dictations + 1 }));
+    else setDraft((d) => ({ ...d, text: appendDraft(d.text, text), dictations: d.dictations + 1 }));
   };
 
   /** Écrit un texte tel quel : au curseur, dans la zone sélectionnée ou en nouveau bloc. */
@@ -888,6 +889,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         <DictationDraft
           text={draft.text}
           dictations={draft.dictations}
+          typing={draft.typing}
           busy={busy}
           insertTo={insertTo}
           onChange={(text) => setDraft((d) => ({ ...d, text }))}
@@ -914,6 +916,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         onError={(m) => say(m, true)}
         agentBusy={busy}
         onAgentCancel={cancelAgent}
+        onType={typeDraft}
       />
 
       {picking && (

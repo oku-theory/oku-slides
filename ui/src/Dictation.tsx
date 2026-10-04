@@ -4,7 +4,7 @@ import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import type { DictationMode } from "./agent/keys";
-import { dictationShortcut } from "./agent/keys";
+import { dictationShortcut, typingShortcut } from "./agent/keys";
 
 const SILENCES = [1, 1.5, 2, 3, 5];
 
@@ -63,10 +63,12 @@ interface Props {
   agentBusy: boolean;
   /** Arrête le tour de l'agent. */
   onAgentCancel: () => void;
+  /** Ouvre le brouillon pour écrire une consigne au clavier (⌘K). */
+  onType: () => void;
 }
 
-/** L'appareil de dictée : micro, niveau, texte provisoire, réglages du modèle. */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel }: Props) {
+/** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle. */
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
@@ -75,8 +77,8 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   const [mode, setMode] = useState<DictationMode>("auto");
   // Lu par `receive` (stable) : la dictée qui se termine garde le mode de son début.
   const modeRef = useRef<DictationMode>("auto");
-  const handlers = useRef({ onText, onError, onAgentCancel });
-  handlers.current = { onText, onError, onAgentCancel };
+  const handlers = useRef({ onText, onError, onAgentCancel, onType });
+  handlers.current = { onText, onError, onAgentCancel, onType };
 
   const receive = useCallback((s: SttStatus) => {
     setStatus(s);
@@ -129,7 +131,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     [status, vocabulary, send],
   );
 
-  // ⌘D, ⌘⇧D brouillon (Ctrl ailleurs), partout, même pendant la saisie d'un texte.
+  // ⌘D, ⌘⇧D brouillon, ⌘K écrire (Ctrl ailleurs), partout, même pendant la saisie d'un texte.
   // Écouteur posé une fois : l'état change toutes les 90 ms pendant une écoute,
   // il est lu par des refs.
   const keys = useRef({ status, agentBusy, toggle, send });
@@ -138,7 +140,11 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     const onKey = (e: KeyboardEvent) => {
       const { status: now, agentBusy: busy, toggle: switchMode, send: post } = keys.current;
       const shortcut = dictationShortcut(e, { agentBusy: busy, recording: now?.state === "recording" });
-      if (shortcut) {
+      if (typingShortcut(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        handlers.current.onType();
+      } else if (shortcut) {
         e.preventDefault();
         e.stopPropagation();
         if (shortcut === "agent-cancel") handlers.current.onAgentCancel();
@@ -154,10 +160,25 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
+  // Écrire au lieu de dicter : ne dépend pas du moteur de dictée, toujours là.
+  const typeButton = (
+    <button
+      type="button"
+      className="token ghost dictation-type"
+      aria-label={t("ui-dictation-type")}
+      title={t("ui-dictation-type-title")}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => handlers.current.onType()}
+    >
+      {Icon.keyboard}
+    </button>
+  );
+
   if (!status) {
     return (
       <div className="device object" aria-label={t("ui-dictation")}>
         <button className="mic" disabled aria-label={t("ui-dictation-start")}>{MicIcon}</button>
+        {typeButton}
         <div className="spacer caption">{t("ui-dictation-preparing")}</div>
       </div>
     );
@@ -282,6 +303,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
           {StopIcon}
         </button>
       )}
+      {typeButton}
       {body}
       {state === "recording" || state === "downloading" ? (
         <button className="token ghost dictation-cancel" aria-label={t("ui-dictation-cancel")} title={t("ui-dictation-cancel")} onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{Icon.close}</button>

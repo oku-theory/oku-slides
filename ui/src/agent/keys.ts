@@ -1,4 +1,4 @@
-// Raccourcis de la dictée (⌘D, ⌘⇧D brouillon) et ce que fait Échap.
+// Raccourcis de la dictée (⌘D, ⌘⇧D brouillon), de la saisie (⌘K) et ce que fait Échap.
 
 /**
  * Où va une dictée : `auto` (⌘D) au curseur d'un texte en cours d'édition,
@@ -31,6 +31,15 @@ export function dictationShortcut(
   if (e.code !== "KeyD" && e.key.toLowerCase() !== "d") return null;
   if (!e.shiftKey) return "auto";
   return agentBusy && !recording ? "agent-cancel" : "draft";
+}
+
+/**
+ * ⌘K (Ctrl ailleurs) : ouvrir le brouillon pour écrire une consigne au clavier.
+ * La lettre est lue par sa position (`KeyK`), comme ⌘D.
+ */
+export function typingShortcut(e: KeyboardEventLike): boolean {
+  if (e.repeat || e.altKey || e.shiftKey || !(e.metaKey || e.ctrlKey)) return false;
+  return e.code === "KeyK" || e.key.toLowerCase() === "k";
 }
 
 /**

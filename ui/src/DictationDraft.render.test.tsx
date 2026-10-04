@@ -19,7 +19,10 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(text: string | null, { busy = false, insertTo = "dans le titre" as string | null } = {}) {
+async function mount(
+  text: string | null,
+  { busy = false, insertTo = "dans le titre" as string | null, typing = 0 } = {},
+) {
   const sent: string[] = [];
   const inserted: string[] = [];
   const changes: string[] = [];
@@ -33,6 +36,7 @@ async function mount(text: string | null, { busy = false, insertTo = "dans le ti
       createElement(DictationDraft, {
         text,
         dictations: 1,
+        typing,
         busy,
         insertTo,
         onInsert: (v: string) => inserted.push(v),
@@ -201,5 +205,36 @@ describe("brouillon de dictée", () => {
   test("DictationDraft pendant un tour de l'agent peut toujours insérer", async () => {
     const { insert } = await mount("Budget 2027", { busy: true });
     expect(insert().disabled).toBe(false);
+  });
+
+  test("DictationDraft ouvert pour écrire est un champ qui a le focus", async () => {
+    const { area, note } = await mount("", { typing: 1 });
+    expect(note()).toBeNull();
+    expect(document.activeElement).toBe(area());
+  });
+
+  test("DictationDraft ouvert pour écrire après une dictée met le curseur en fin", async () => {
+    const { area } = await mount("plus court", { typing: 1 });
+    expect(document.activeElement).toBe(area());
+    expect(area().selectionStart).toBe("plus court".length);
+  });
+
+  test("DictationDraft vide quitté se referme", async () => {
+    const { area, discarded } = await mount("", { typing: 1 });
+    await act(async () => area().blur());
+    expect(discarded()).toBe(1);
+  });
+
+  test("DictationDraft vide, Échap le referme", async () => {
+    const { area, discarded } = await mount("  ", { typing: 1 });
+    await act(async () => key(area(), { key: "Escape" }));
+    expect(discarded()).toBe(1);
+  });
+
+  test("DictationDraft écrit puis quitté reste ouvert", async () => {
+    const { area, note, discarded } = await mount("plus court", { typing: 1 });
+    await act(async () => area().blur());
+    expect(discarded()).toBe(0);
+    expect(note().textContent).toBe("plus court");
   });
 });

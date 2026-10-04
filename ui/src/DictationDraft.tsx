@@ -1,6 +1,7 @@
 // Le brouillon des dictées dans le panneau de droite : on relit, retouche ou
 // complète ce qu'on a dit, puis on choisit — l'insérer tel quel ou l'envoyer
 // à l'agent comme consigne. Il se lit sur une carte ; un clic l'ouvre en édition.
+// Ouvert au clavier (⌘K), il s'ouvre en édition pour écrire sans dicter.
 
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
@@ -10,6 +11,7 @@ import { Icon } from "./icons";
 export function DictationDraft({
   text,
   dictations,
+  typing,
   busy,
   insertTo,
   onChange,
@@ -21,6 +23,8 @@ export function DictationDraft({
   text: string | null;
   /** Nombre de dictées reçues : chacune ramène le curseur en fin de brouillon. */
   dictations: number;
+  /** Nombre de demandes d'écriture au clavier : chacune ouvre le champ, curseur en fin. */
+  typing: number;
   /** Un tour de l'agent est en cours : l'envoi attend sa fin, l'insertion non. */
   busy: boolean;
   /** Où « Insérer » écrira (« dans le titre »…) ; `null` : aucune zone choisie. */
@@ -38,6 +42,12 @@ export function DictationDraft({
     if (editing) toEnd(area.current);
     else note.current?.focus();
   }, [dictations]);
+  // Une demande d'écriture ouvre le champ (l'effet suivant y met le curseur).
+  useEffect(() => {
+    if (typing === 0) return;
+    if (editing) toEnd(area.current);
+    else setEditing(true);
+  }, [typing]);
   // Ouvert en édition : curseur en fin de texte. Refermé : le focus reste sur la carte.
   const opened = useRef(false);
   useEffect(() => {
@@ -48,6 +58,11 @@ export function DictationDraft({
 
   if (text === null) return null;
   const said = text.trim();
+  // Quitter un brouillon resté vide le referme : il n'y a rien à garder.
+  const leave = () => {
+    if (said === "") onDiscard();
+    else setEditing(false);
+  };
   const canInsert = said !== "" && insertTo !== null;
   const canSend = said !== "" && !busy;
   const insert = () => {
@@ -75,11 +90,11 @@ export function DictationDraft({
           value={text}
           rows={3}
           onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditing(false)}
+          onBlur={leave}
           onKeyDown={(e) => {
             if (e.key !== "Escape") return;
             e.stopPropagation();
-            setEditing(false);
+            leave();
           }}
         />
       ) : (

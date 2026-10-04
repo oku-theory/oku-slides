@@ -73,6 +73,7 @@ const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 async function mount(agentBusy = false, vocabulary: string[] = []) {
   const texts: [string, DictationMode][] = [];
   let cancels = 0;
+  let typed = 0;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -86,6 +87,7 @@ async function mount(agentBusy = false, vocabulary: string[] = []) {
         onError: () => {},
         agentBusy: busy,
         onAgentCancel: () => cancels++,
+        onType: () => typed++,
       }),
     );
   await act(async () => render(agentBusy));
@@ -94,6 +96,7 @@ async function mount(agentBusy = false, vocabulary: string[] = []) {
     host,
     texts,
     cancels: () => cancels,
+    typed: () => typed,
     rerender: async (busy: boolean) => {
       await act(async () => render(busy));
       await settle();
@@ -132,6 +135,23 @@ describe("dictée au repos", () => {
     const { host } = await mount();
     await press("d", { meta: true });
     expectIconOnly(host.querySelector(".dictation-cancel"));
+  });
+});
+
+describe("écrire à l'agent", () => {
+  test("Dictation keyboard button opens the draft, icon only", async () => {
+    const { host, typed } = await mount();
+    const button = host.querySelector(".dictation-type") as HTMLButtonElement;
+    expectIconOnly(button);
+    await act(async () => button.click());
+    expect(typed()).toBe(1);
+  });
+
+  test("⌘K ouvre le brouillon, même pendant un tour de l'agent", async () => {
+    const { typed } = await mount(true);
+    await press("k", { meta: true });
+    expect(typed()).toBe(1);
+    expect(engine.calls).toEqual([]);
   });
 });
 

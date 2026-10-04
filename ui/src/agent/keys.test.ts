@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dictationShortcut, escapeAction } from "./keys";
+import { dictationShortcut, escapeAction, typingShortcut } from "./keys";
 
 const k = (
   key: string,
@@ -45,4 +45,17 @@ describe("Échap", () => {
   test("arrête l'agent quand rien n'est sélectionné", () =>
     expect(escapeAction({ selected: false, agentBusy: true })).toBe("agent-cancel"));
   test("ne fait rien sinon", () => expect(escapeAction({ selected: false, agentBusy: false })).toBeNull());
+});
+
+describe("écrire à l'agent", () => {
+  test("⌘K ouvre le brouillon", () => expect(typingShortcut(k("k", { meta: true }))).toBe(true));
+  test("Ctrl+K aussi", () => expect(typingShortcut(k("k", { ctrl: true }))).toBe(true));
+  test("sur un clavier cyrillique, ⌘K est lu par sa position", () =>
+    expect(typingShortcut(k("л", { meta: true, code: "KeyK" }))).toBe(true));
+  test("K seul, ⌘⇧K, ⌘⌥K ou une touche maintenue ne font rien", () => {
+    expect(typingShortcut(k("k"))).toBe(false);
+    expect(typingShortcut(k("K", { meta: true, shift: true }))).toBe(false);
+    expect(typingShortcut(k("k", { meta: true, alt: true }))).toBe(false);
+    expect(typingShortcut(k("k", { meta: true, repeat: true }))).toBe(false);
+  });
 });
