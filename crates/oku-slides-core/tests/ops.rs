@@ -42,7 +42,7 @@ fn set_param(target: Target, param: &str, value: Value) -> Op {
 }
 
 fn add(slot: SlotRef, index: Option<usize>, element: Element) -> Op {
-    Op::AddElement { slot, index, element }
+    Op::AddElement { slot, index, defaults: false, element }
 }
 
 /// Applique `op` au deck avec le registre de base.
@@ -79,7 +79,7 @@ fn sample_ops() -> Vec<Op> {
         set_param(slide("s-libre"), "grid", json!({ "columns": 12, "rows": 6 })),
         set_param(slide("s-title"), "title", json!("Titre lié")),
         Op::SetKind { target: slide("s-ch1"), kind: "content".into() },
-        Op::AddSlide { index: Some(3), slide: Slide::new("s-nouvelle", "content") },
+        Op::AddSlide { index: Some(3), defaults: false, slide: Slide::new("s-nouvelle", "content") },
         Op::MoveSlide { slide: "s-fin".into(), index: 1 },
         Op::RemoveSlide { slide: "s-ch2".into() },
         Op::SetNotes { slide: "s-title".into(), notes: "Bonjour à tous".into() },
@@ -484,7 +484,7 @@ fn add_slide_with_too_deep_tree_returns_invalid_value() {
     }
     let s: Slide =
         serde_json::from_value(json!({ "id": "s-neuve", "kind": "blank", "params": { "elements": [tree] } })).unwrap();
-    let err = apply_err(&mut deck, Op::AddSlide { index: None, slide: s });
+    let err = apply_err(&mut deck, Op::AddSlide { index: None, defaults: false, slide: s });
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
 }
 
@@ -584,7 +584,7 @@ fn apply_all_add_slide_with_blank_prose_returns_canonical_deck() {
     let mut slide = Slide::new("s-neuve", "content");
     slide.params.set("title", ParamValue::Text(" ".into()));
     slide.notes = "\n".into();
-    apply_all(&mut deck, vec![Op::AddSlide { index: None, slide }], &registry()).unwrap();
+    apply_all(&mut deck, vec![Op::AddSlide { index: None, defaults: false, slide }], &registry()).unwrap();
     let added = deck.slide("s-neuve").unwrap();
     assert_that!(added.params.get("title")).is_none();
     assert_that!(added.notes).is_empty();
@@ -641,7 +641,10 @@ fn op_errors_localize_with_their_subject() {
         (set_param(slide("s-fin"), "titre", json!("x")), "Paramètre inconnu : titre"),
         (set_param(slide("s-constat"), "layout", json!("x")), "Valeur non permise pour layout"),
         (Op::SetKind { target: slide("s-fin"), kind: "text".into() }, "text ne peut pas être utilisé ici"),
-        (Op::AddSlide { index: None, slide: Slide::new("s-fin", "content") }, "Identifiant déjà utilisé : s-fin"),
+        (
+            Op::AddSlide { index: None, defaults: false, slide: Slide::new("s-fin", "content") },
+            "Identifiant déjà utilisé : s-fin",
+        ),
     ];
     for (op, expected) in cases {
         let mut deck = fixture();
@@ -740,7 +743,7 @@ fn add_slide_with_choice_out_of_values_returns_choice_out_of_range() {
     let mut deck = fixture();
     let s: Slide =
         serde_json::from_value(json!({ "id": "s-neuve", "kind": "content", "params": { "layout": "bogus" } })).unwrap();
-    let err = apply_err(&mut deck, Op::AddSlide { index: None, slide: s });
+    let err = apply_err(&mut deck, Op::AddSlide { index: None, defaults: false, slide: s });
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ChoiceOutOfRange);
     assert_that!(err.subject()).is_equal_to(Some("layout"));
 }
@@ -752,7 +755,7 @@ fn add_slide_with_wrong_typed_nested_param_returns_param_type() {
         { "id": "n", "kind": "card", "params": { "highlight": "oui" } }
     ] } }))
     .unwrap();
-    let err = apply_err(&mut deck, Op::AddSlide { index: None, slide: s });
+    let err = apply_err(&mut deck, Op::AddSlide { index: None, defaults: false, slide: s });
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
 }
 

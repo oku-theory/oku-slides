@@ -70,6 +70,33 @@ pub enum ParamType {
     Host {
         host: HostType,
     },
+    /// Liste d'items aux colonnes typées (`item`), saisie en tableau ;
+    /// items adressés par leur `id`.
+    List {
+        item: Vec<ParamSchema>,
+        #[serde(default, rename = "item-label")]
+        item_label: Option<String>,
+        #[serde(default)]
+        min: usize,
+        #[serde(default)]
+        max: Option<usize>,
+    },
+}
+
+/// Noms interdits à une colonne de `list` : clés de l'item et d'un élément.
+pub const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
+
+/// Types admis pour une colonne de `list` ; liste imbriquée : t-495.
+pub fn is_column_type(ty: &ParamType) -> bool {
+    matches!(
+        ty,
+        ParamType::Plain
+            | ParamType::Rich
+            | ParamType::Number { .. }
+            | ParamType::Flag
+            | ParamType::Choice { .. }
+            | ParamType::Asset
+    )
 }
 
 /// Un paramètre déclaré par un widget.
@@ -192,37 +219,80 @@ fn check_widget(w: &WidgetSchema) -> Result<(), WidgetError> {
         if !seen.insert(p.name.as_str()) {
             return Err(fault(w, SchemaFault::DuplicateParam));
         }
-        if p.bind.is_some() && p.ty != ParamType::Plain {
-            return Err(fault(w, SchemaFault::BindNotPlain));
+        check_param(w, p)?;
+    }
+    Ok(())
+}
+
+fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
+    if p.name.contains('/') {
+        return Err(fault(w, SchemaFault::ReservedName));
+    }
+    if p.bind.is_some() && p.ty != ParamType::Plain {
+        return Err(fault(w, SchemaFault::BindNotPlain));
+    }
+    match &p.ty {
+        ParamType::Choice { values } => {
+            if values.is_empty() {
+                return Err(fault(w, SchemaFault::EmptyChoice));
+            }
+            let in_values = |d: &Value| d.as_str().is_some_and(|d| values.iter().any(|v| v == d));
+            if p.default.as_ref().is_some_and(|d| !in_values(d)) {
+                return Err(fault(w, SchemaFault::DefaultNotInChoice));
+            }
         }
-        match &p.ty {
-            ParamType::Choice { values } => {
-                if values.is_empty() {
-                    return Err(fault(w, SchemaFault::EmptyChoice));
-                }
-                let in_values = |d: &Value| d.as_str().is_some_and(|d| values.iter().any(|v| v == d));
-                if p.default.as_ref().is_some_and(|d| !in_values(d)) {
-                    return Err(fault(w, SchemaFault::DefaultNotInChoice));
-                }
-            }
-            ParamType::Flag if p.default.as_ref().is_some_and(|d| !d.is_boolean()) => {
-                return Err(fault(w, SchemaFault::DefaultWrongType));
-            }
-            ParamType::Number { min, max }
-                if p.default.as_ref().is_some_and(|d| {
-                    !d.as_f64().is_some_and(|n| !min.is_some_and(|m| n < m) && !max.is_some_and(|m| n > m))
-                }) =>
-            {
-                return Err(fault(w, SchemaFault::DefaultWrongType));
-            }
-            ParamType::Plain if p.default.as_ref().is_some_and(|d| !d.is_string()) => {
-                return Err(fault(w, SchemaFault::DefaultWrongType));
-            }
-            ParamType::Grid if p.default.as_ref().is_some_and(|d| !d.is_object()) => {
-                return Err(fault(w, SchemaFault::DefaultWrongType));
-            }
-            _ => {}
+        ParamType::Flag if p.default.as_ref().is_some_and(|d| !d.is_boolean()) => {
+            return Err(fault(w, SchemaFault::DefaultWrongType));
         }
+        ParamType::Number { min, max }
+            if p.default.as_ref().is_some_and(|d| {
+                !d.as_f64().is_some_and(|n| !min.is_some_and(|m| n < m) && !max.is_some_and(|m| n > m))
+            }) =>
+        {
+            return Err(fault(w, SchemaFault::DefaultWrongType));
+        }
+        ParamType::Plain if p.default.as_ref().is_some_and(|d| !d.is_string()) => {
+            return Err(fault(w, SchemaFault::DefaultWrongType));
+        }
+        ParamType::Grid if p.default.as_ref().is_some_and(|d| !d.is_object()) => {
+            return Err(fault(w, SchemaFault::DefaultWrongType));
+        }
+        ParamType::List { item, min, max, .. } => {
+            if item.is_empty() {
+                return Err(fault(w, SchemaFault::EmptyList));
+            }
+            let mut names = BTreeSet::new();
+            for c in item {
+                if !is_column_type(&c.ty) {
+                    return Err(fault(w, SchemaFault::ColumnType));
+                }
+                if c.name.is_empty() || RESERVED_COLUMNS.contains(&c.name.as_str()) {
+                    return Err(fault(w, SchemaFault::ReservedName));
+                }
+                if !names.insert(c.name.as_str()) {
+                    return Err(fault(w, SchemaFault::DuplicateParam));
+                }
+                if c.bind.is_some() {
+                    return Err(fault(w, SchemaFault::BindNotPlain));
+                }
+                check_param(w, c)?;
+            }
+            if max.is_some_and(|m| m < *min) {
+                return Err(fault(w, SchemaFault::ListBounds));
+            }
+            let known = |o: &serde_json::Map<String, Value>| o.keys().all(|k| names.contains(k.as_str()));
+            let ok = match &p.default {
+                None => true,
+                Some(Value::Array(a)) => {
+                    !max.is_some_and(|m| a.len() > m) && a.iter().all(|x| x.as_object().is_some_and(known))
+                }
+                Some(_) => false,
+            };
+            if !ok || crate::ops::default_items(p).is_err() {
+                return Err(fault(w, SchemaFault::DefaultWrongType));
+            }
+        }
+        _ => {}
     }
     Ok(())
 }

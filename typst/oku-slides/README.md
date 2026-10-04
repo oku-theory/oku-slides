@@ -205,7 +205,7 @@ Pour ses couleurs et ses tailles, un widget lit les jetons du thème
 des valeurs en dur.
 
 `lib.typ` exporte tout ce dont un pack a besoin : `widget`, `field`,
-`by-name`, le module `params` (à importer `as p`), `free-area`,
+`by-name`, `list-item`, le module `params` (à importer `as p`), `free-area`,
 `zone-marker`, `grid-frame`, `default-grid`, `_paragraphs`, `_text-args`,
 `_text-over`.
 
@@ -224,6 +224,7 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 | `p.asset(label:)` | Identifiant d'asset `sha256:…` |
 | `p.slot(label:, mode:, accepts:)` | Éléments enfants ; `mode` : `"flow"` ou `"free"` ; `accepts` : noms de widgets admis, ou `none` |
 | `p.grid(label:, default:)` | Grille `(columns:, rows:, gap:)` |
+| `p.list(label:, item-label:, item:, min:, max:, default:)` | Liste d'items aux colonnes typées (`plain`, `rich`, `number`, `flag`, `choice`, `asset`), saisie en tableau ; liste absente = vide, `default` n'amorce qu'un objet créé |
 | `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`) |
 
 ### `widget(name, label:, category:, params:, render)`
@@ -247,6 +248,30 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 widget éditable en place dans l'app. `ctx.id` vaut `none` pour un objet
 (élément ou slide) sans `id` ; `field` rend alors `body` tel quel. La sonde
 de schéma n'appelle jamais `render` : `ctx.id` n'a rien à voir avec elle.
+
+### `list-item(ctx, name, it, body)`
+
+Rend un item d'une liste `p.list` : `it` est l'item (un dictionnaire de ses
+colonnes, plus `id`), `body` une fonction `c => contenu`. À l'intérieur, les
+champs s'émettent avec `field(c, "colonne", …)` (et non `ctx`) : `c` porte
+l'identité de l'item, ce qui rend chaque colonne éditable en place et
+l'item déplaçable dans l'app. Les noms `id`, `kind` et `/` sont réservés
+aux colonnes. Une colonne vide reste éditable avec
+`field(c, name, box(width: 3em, hide[0]), empty: true)`.
+
+```typ
+#let widget = widget("frise", params: (etapes: p.list(
+  label: "Étapes", item-label: "étape", max: 8,
+  item: (date: p.plain(label: "Date"), texte: p.plain(label: "Étape")),
+  default: ((date: "2019", texte: "Création"),))),
+  (args, ctx) => grid(columns: (1fr,) * args.etapes.len(),
+    ..args.etapes.map(e => list-item(ctx, "etapes", e,
+      c => stack(field(c, "date", e.date), field(c, "texte", e.texte))))))
+```
+
+Le widget de base `frise` (Frise chronologique) en est l'exemple complet.
+Une liste absente vaut la liste vide ; `default` n'amorce qu'un objet
+nouvellement créé.
 
 ### Champs vides
 
@@ -274,6 +299,8 @@ base doit rester valide pour celui du pack.
 - `bind` : identique à celui du paramètre de base (`none` inclus).
 - `p.choice()` : `values` du pack doit contenir celui de la base
   (sur-ensemble).
+- `p.list()` : une liste doit rester identique (mêmes colonnes, mêmes
+  types, même `item-label`, mêmes bornes).
 - Les autres types (`plain`, `rich`, `flag`, `asset`, `grid`, `host`)
   doivent être identiques.
 

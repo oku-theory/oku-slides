@@ -36,3 +36,14 @@ pub(crate) fn session_with_fixture() -> Session {
     s.open(&fixture_path()).unwrap();
     s
 }
+
+/// Un élément `frise` (id `fr`) aux items par défaut `d0`…`d3`, ajouté aux blocs de `s-constat`.
+pub(crate) fn add_frise() -> oku_slides_core::Op {
+    serde_json::from_value(serde_json::json!({
+        "op": "add_element",
+        "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "defaults": true,
+        "element": { "id": "fr", "kind": "frise" }
+    }))
+    .unwrap()
+}

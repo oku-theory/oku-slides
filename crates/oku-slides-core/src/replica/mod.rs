@@ -411,3 +411,7 @@ impl DeckReplica {
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod mod_tests;
+
+#[cfg(test)]
+#[path = "list_tests.rs"]
+mod list_tests;

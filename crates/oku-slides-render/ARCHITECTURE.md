@@ -14,7 +14,7 @@ le même document compilé donne SVG, PNG et PDF.
 - `Compiled` (`lib.rs`) : un document compilé — `svg`/`png`/`pdf`, `page_hash` (clé de cache),
   `layout()` (lu une fois dans le document, `OnceCell`).
 - `Layout` (`lib.rs`) : ce que le rendu dit du document — `SlidePage` (page de chaque slide),
-  `ElementBox` (boîte réelle), `FieldBox` (champ éditable), `ZoneBox`/`GridBox` (zone libre et
+  `ElementBox` (boîte réelle), `FieldBox` (champ éditable), `ItemBox` (item de liste, `list-item`), `ZoneBox`/`GridBox` (zone libre et
   sa grille), `TextStyle` (typographie mesurée) — rangés par page.
 - Champs (`typst/oku-slides`) : `field()` émet une boîte par champ, même vide ; `fields-stack`
   colle le marqueur d'un champ vide à l'item voisin, sans occuper de place ni recevoir

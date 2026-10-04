@@ -58,5 +58,6 @@ fn expected(ty: &ParamType) -> &'static str {
         ParamType::Number { .. } => "a number within its bounds",
         ParamType::Grid => "a grid",
         ParamType::Host { .. } => "a chart option",
+        ParamType::List { .. } => "a list of items",
     }
 }

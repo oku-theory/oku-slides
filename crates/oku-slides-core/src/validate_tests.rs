@@ -330,3 +330,105 @@ fn validate_issue_display_names_slide_and_element() {
     let d = content("blocks", json!([{ "id": "", "kind": "text" }]));
     assert_that!(run(&d)[0].to_string()).is_equal_to("[s/] empty identifier".to_owned());
 }
+
+/// Le registre de base, plus le widget `liste` des tests et un widget `bornes`
+/// à une liste bornée (1 à 2 items) et une liste à colonne `asset`.
+fn list_registry() -> WidgetRegistry {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let mut probe: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let liste: Value = serde_json::from_str(crate::test_registry::LISTE).unwrap();
+    let bornes = json!({ "name": "bornes", "category": "element", "params": [
+        { "name": "bornee", "type": "list", "min": 1, "max": 2, "item": [{ "name": "t", "type": "plain" }] },
+        { "name": "images", "type": "list", "item": [{ "name": "img", "type": "asset" }] }
+    ] });
+    probe["base"].as_array_mut().unwrap().extend([liste, bornes]);
+    WidgetRegistry::from_probe(probe).unwrap()
+}
+
+fn validate_element(element: Value, assets: Option<&HashSet<String>>) -> Vec<Issue> {
+    validate(&content("blocks", json!([element])), &list_registry(), assets)
+}
+
+#[test]
+fn validate_well_formed_list_has_no_issue() {
+    let issues = validate_element(
+        json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+            { "id": "a", "date": "2019", "fait": true }, { "id": "b", "texte": "x" }
+        ] } }),
+        None,
+    );
+    assert_that!(ids(&issues)).is_empty();
+}
+
+#[test]
+fn validate_list_with_duplicate_item_ids_reports_it() {
+    let issues = validate_element(
+        json!({ "id": "f", "kind": "liste", "params": { "etapes": [{ "id": "a" }, { "id": "a" }] } }),
+        None,
+    );
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-duplicate-item-id"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-duplicate-item-id", "param", "etapes"));
+    assert_that!(issues[0].element.clone()).is_equal_to(Some("f".to_owned()));
+}
+
+#[test]
+fn validate_list_with_empty_item_id_reports_it() {
+    let issues = validate_element(json!({ "id": "f", "kind": "liste", "params": { "etapes": [{ "id": "" }] } }), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-empty-item-id"]);
+}
+
+#[test]
+fn validate_list_above_max_reports_bounds() {
+    let three = json!([{ "id": "a" }, { "id": "b" }, { "id": "c" }]);
+    let issues = validate_element(json!({ "id": "f", "kind": "bornes", "params": { "bornee": three } }), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "bornee"));
+    let two = json!([{ "id": "a" }, { "id": "b" }]);
+    assert_that!(validate_element(json!({ "id": "f", "kind": "bornes", "params": { "bornee": two } }), None))
+        .is_empty();
+}
+
+#[test]
+fn validate_absent_or_empty_list_below_min_is_accepted() {
+    assert_that!(validate_element(json!({ "id": "f", "kind": "bornes" }), None)).is_empty();
+    assert_that!(validate_element(json!({ "id": "f", "kind": "bornes", "params": { "bornee": [] } }), None)).is_empty();
+}
+
+#[test]
+fn validate_list_column_of_wrong_type_reports_param_type() {
+    let issues = validate_element(
+        json!({ "id": "f", "kind": "liste", "params": { "etapes": [{ "id": "a", "date": 3 }] } }),
+        None,
+    );
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-param-type", "param", "etapes"));
+}
+
+#[test]
+fn validate_list_column_unknown_reports_param_type() {
+    let issues = validate_element(
+        json!({ "id": "f", "kind": "liste", "params": { "etapes": [{ "id": "a", "inconnue": "x" }] } }),
+        None,
+    );
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
+}
+
+#[test]
+fn validate_list_shaped_value_on_a_plain_param_reports_param_type() {
+    let d = content("blocks", json!([{ "id": "c", "kind": "card", "params": { "title": [{ "id": "a" }] } }]));
+    let issues = validate(&d, &list_registry(), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-param-type", "param", "title"));
+}
+
+#[test]
+fn validate_list_asset_column_missing_from_sources_reports_it() {
+    let element = json!({ "id": "f", "kind": "bornes", "params": { "images": [
+        { "id": "a", "img": "sha256:ab" }, { "id": "b", "img": "sha256:cd" }
+    ] } });
+    assert_that!(validate_element(element.clone(), None)).is_empty();
+    let present = HashSet::from(["sha256:ab".to_owned()]);
+    let issues = validate_element(element, Some(&present));
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-missing-asset"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-missing-asset", "asset", "sha256:cd"));
+}

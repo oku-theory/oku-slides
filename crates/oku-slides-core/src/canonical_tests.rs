@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::model::*;
-use crate::params::{ParamValue, Params};
+use crate::params::{ListItem, ParamValue, Params};
 use crate::{DeckReplica, SourceBundle};
 
 fn run(t: &str) -> Run {
@@ -162,6 +162,28 @@ fn canonicalize_slot_children_are_canonicalized() {
     let children = blocks(&d)[0].params.slot("children").unwrap_or_default();
     let body = children[0].params.rich("body").unwrap_or_default();
     assert_that!(body[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
+}
+
+#[test]
+fn canonicalize_empty_list_is_dropped() {
+    let mut d = deck_with(vec![]);
+    d.slides[0].params.set("l", ParamValue::List(vec![]));
+    assert_that!(canonical(d).slides[0].params.is_empty()).is_true();
+}
+
+#[test]
+fn canonicalize_list_item_values_are_canonicalized() {
+    let mut values = Params::default();
+    values.set("date", ParamValue::Text("  2019 ".into()));
+    values.set("vide", ParamValue::Text("  ".into()));
+    values.set("texte", ParamValue::Rich(vec![Paragraph { runs: vec![run("a"), run("b")], list: None }]));
+    let mut d = deck_with(vec![]);
+    d.slides[0].params.set("l", ParamValue::List(vec![ListItem { id: "a".into(), values }]));
+    let d = canonical(d);
+    let item = &d.slides[0].params.list("l").unwrap_or_default()[0];
+    assert_that!(item.values.text("date")).is_equal_to(Some("2019"));
+    assert_that!(item.values.get("vide")).is_none();
+    assert_that!(item.values.rich("texte").unwrap_or_default()[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
 }
 
 /// Cas de l'UI : une ligne vide de l'éditeur donne `[{t:""}]`.

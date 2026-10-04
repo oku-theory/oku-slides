@@ -18,7 +18,8 @@ use crate::replica::PARAGRAPH_SEPARATOR;
 /// - prose facultative faite d'espaces → `None`, autre prose rognée (même
 ///   règle que les ops `set_slide_field` et `set_deck_param`) ;
 /// - paramètres des slides et des éléments : texte simple rogné (vide →
-///   retiré), texte riche et slot vides retirés, `null` retiré ;
+///   retiré), texte riche, slot et liste vides retirés, valeurs des items canonisées
+///   comme des paramètres, `null` retiré ;
 /// - notes faites d'espaces → `""` (les autres gardent leurs bords) ;
 /// - prose riche : `U+2029` dans un run → `\n` (le contenu est gardé, sans
 ///   nouveau paragraphe), runs vides retirés, runs voisins de même format fusionnés ;
@@ -75,6 +76,10 @@ fn params(p: &mut Params) {
         ParamValue::Slot(list) => {
             list.iter_mut().for_each(|e| params(&mut e.params));
             !list.is_empty()
+        }
+        ParamValue::List(items) => {
+            items.iter_mut().for_each(|i| params(&mut i.values));
+            !items.is_empty()
         }
         ParamValue::Value(v) => {
             numbers(v);

@@ -10,7 +10,7 @@ import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
 import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
-import { fieldOps, findElement, freeCell, gridPlacement, instantiate, neighbourSlide, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, slot, textToParagraphs } from "./deck";
+import { fieldOps, findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
@@ -87,7 +87,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const { editing, editField, setEditing, editWhenShown, stage, leaveSlide } = useFieldEditing(view);
+  const { editing, editField, setEditing, editWhenShown, editKeyWhenShown, stage, leaveSlide } = useFieldEditing(view);
   /** Change de slide ; la saisie ouverte s'enregistre d'abord. */
   const showSlide = (id: string) => {
     leaveSlide(id);
@@ -239,9 +239,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   });
 
   const apply = useCallback(
-    async (label: string, ops: Op[], merge?: string) => {
-      await run(api.apply(label, ops, merge));
-    },
+    /** Vrai si l'hôte a appliqué les ops. */
+    async (label: string, ops: Op[], merge?: string) => (await run(api.apply(label, ops, merge))) !== null,
     [run],
   );
 
@@ -320,18 +319,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   /** Pose `element` sur la slide affichée, puis le sélectionne (et l'édite si `edit`). */
   const place = (element: Element, label: string, edit: boolean) => {
     if (!view) return;
-    const slide = view.slide;
-    const zone = view.zone;
-    const g = zone?.grid;
-    let ops: Op[];
-    const hasBlocks = slot(slide, "blocks").length > 0;
-    if (zone && g && !hasBlocks) {
-      // Sur la grille : le nouvel élément prend la moitié gauche de la première
-      // ligne libre sous les autres. (Une slide à blocs reçoit un bloc de plus.)
-      ops = [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "elements" }, element: { ...element, cell: freeCell(slide, g) } }];
-    } else {
-      ops = [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "blocks" }, element }];
-    }
+    const ops = newElementOps(view, element);
     apply(label, ops).then(() => {
       setSelected(element.id);
       if (edit) editWhenShown(element.id);
@@ -841,6 +829,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
             editing={readOnly ? null : editing}
             onSelect={readOnly ? noop : setSelected}
             onEdit={readOnly ? noop : setEditing}
+            onEditWhenShown={editKeyWhenShown}
             onApply={readOnly ? noop : apply}
             readOnly={readOnly}
             templates={!!snap.editing}

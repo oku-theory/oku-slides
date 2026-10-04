@@ -172,6 +172,26 @@ pub enum ComponentKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         action: Option<Action>,
     },
+    /// Le tableau d'une liste : une ligne par item de `rows` (objets à `id`),
+    /// une colonne par `columns`. Contrôlé : l'interface écrit le changement
+    /// (un `ListOp`, ou `{op: "replace", items}` au collage) dans `change`,
+    /// puis `action` part ; les lignes reviennent par `rows`. `markdown` donne
+    /// le markdown d'édition des colonnes `rich`, par id d'item puis colonne.
+    ListTable {
+        label: Dynamic<String>,
+        rows: Dynamic<Value>,
+        change: Dynamic<Value>,
+        markdown: Dynamic<Value>,
+        columns: Vec<ListColumn>,
+        min: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        item_label: Option<String>,
+        palette: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
     /// Miniature d'une slide rendue par la session (SVG), cliquable.
     SlideThumb {
         svg: String,
@@ -267,6 +287,36 @@ pub struct ChoiceOption {
     pub hint: Option<String>,
 }
 
+/// Une colonne d'un [`ComponentKind::ListTable`] : la clé de l'item, son
+/// libellé et sa saisie.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ListColumn {
+    pub key: String,
+    pub label: String,
+    pub kind: ColumnKind,
+    /// Options d'une colonne `select`.
+    #[serde(default)]
+    pub options: Vec<ChoiceOption>,
+}
+
+/// Saisie d'une colonne de liste.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColumnKind {
+    /// Texte sur une ligne.
+    Text,
+    /// Paragraphes, édités dans un popover.
+    Rich,
+    Number,
+    /// Case à cocher.
+    Flag,
+    /// Liste déroulante de `options`.
+    Select,
+    /// Identifiant d'asset, en lecture seule.
+    Asset,
+}
+
 /// Une slide telle que rendue à un instant : son identifiant et l'empreinte de sa page.
 /// L'interface en résout la miniature (son cache est indexé par empreinte) : le message
 /// ne porte jamais le rendu lui-même, sa taille ne dépend pas du contenu de la slide.
@@ -344,6 +394,7 @@ impl ComponentKind {
             | Self::Slider { .. }
             | Self::ColorField { .. }
             | Self::Select { .. }
+            | Self::ListTable { .. }
             | Self::SlideThumb { .. }
             | Self::DiffText { .. }
             | Self::Prompt { .. }
@@ -365,6 +416,7 @@ impl ComponentKind {
             | Self::Slider { action, .. }
             | Self::ColorField { action, .. }
             | Self::Select { action, .. }
+            | Self::ListTable { action, .. }
             | Self::SlideThumb { action, .. } => action.iter().collect(),
             // Sans `_` : un nouveau composant doit dire ici s'il envoie une action (la validation de `render` en dépend).
             Self::Column { .. }
@@ -396,6 +448,9 @@ impl ComponentKind {
             }
             Self::ColorField { label, value, palette, .. } => Self::ColorField { label, value, palette, action: None },
             Self::Select { label, value, options, .. } => Self::Select { label, value, options, action: None },
+            Self::ListTable { action: _, label, rows, change, markdown, columns, min, max, item_label, palette } => {
+                Self::ListTable { label, rows, change, markdown, columns, min, max, item_label, palette, action: None }
+            }
             Self::SlideThumb { svg, label, .. } => Self::SlideThumb { svg, label, action: None },
             // Sans `_` : un nouveau composant doit dire ici comment il se fige.
             kind @ (Self::Column { .. }

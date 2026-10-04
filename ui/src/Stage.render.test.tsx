@@ -35,7 +35,7 @@ afterEach(async () => {
 
 const style = { size: 20, leading: 6, tracking: 0, font: ["Inter"], weight: 400, fill: null, align: "left", case: null, bg: null } as const;
 const fv = (owner: string, field: string, text: string, y: number, extra: Partial<FieldView> = {}): FieldView => ({
-  owner, owner_kind: "element", widget: "card", field, kind: "plain", label: null, text, empty: false, side: null,
+  owner, owner_kind: "element", widget: "card", field, list: null, item: null, column: field, kind: "plain", label: null, text, empty: false, side: null,
   x: 10, y, w: 100, h: 20, ax: 10, aw: 300, style: { ...style }, ...extra,
 });
 const view = {
@@ -43,6 +43,7 @@ const view = {
   page: 1, hash: "h", width: 1920, height: 1080, zone: null,
   targets: [{ id: "c1", kind: "card", free: false, x: 0, y: 0, w: 400, h: 200 }],
   fields: [fv("c1", "kicker", "Sur", 20), fv("c1", "title", "Titre", 60)],
+  items: [], lists: [],
 } as unknown as SlideView;
 
 type StageProps = Parameters<typeof Stage>[0];
@@ -398,6 +399,98 @@ test("Stage Enter or Space on the focused tag button stays on the button: the wi
   }
   expect(seen).toEqual([]);
   expect(calls.edit).toEqual([]);
+});
+
+// --- Items de liste ---------------------------------------------------------
+
+const itemOf = (id: string, index: number, x: number) => ({
+  owner: "f", owner_kind: "element", list: "etapes", item: id, index, len: 2, min: 0, max: 8,
+  item_label: "étape", first_text: "date", x, y: 100, w: 100, h: 50,
+});
+/** Une frise de deux étapes côte à côte, chacune avec son champ `date`. */
+const frise = {
+  ...view,
+  slide: { id: "s", kind: "content", params: { blocks: [{ id: "f", kind: "frise", params: { etapes: [{ id: "a", date: "2019" }, { id: "b", date: "2020" }] } }] } },
+  targets: [{ id: "f", kind: "frise", free: false, x: 0, y: 100, w: 400, h: 200 }],
+  fields: [
+    fv("f", "etapes/a/date", "2019", 110, { list: "etapes", item: "a", column: "date", x: 0 }),
+    fv("f", "etapes/b/date", "2020", 110, { list: "etapes", item: "b", column: "date", x: 120 }),
+  ],
+  items: [itemOf("a", 0, 0), itemOf("b", 1, 120)],
+  lists: [],
+} as unknown as SlideView;
+
+/** Touche avec Alt, et Cmd (Mac) ou Ctrl (ailleurs) si `mod` : le `Mod` de CodeMirror. */
+const altKey = (el: Element, k: string, mod = true) =>
+  act(async () => {
+    const mac = /Mac/.test(navigator.platform);
+    el.dispatchEvent(new KeyboardEvent("keydown", {
+      key: k, altKey: true, metaKey: mod && mac, ctrlKey: mod && !mac, bubbles: true, cancelable: true,
+    }));
+  });
+
+test("Stage shows the item handles of the selected element", async () => {
+  const { host } = await mount({ view: frise, selected: "f" });
+  expect(host.querySelectorAll("[data-item-insert]").length).toBe(3);
+  expect(host.querySelectorAll("[data-item-remove]").length).toBe(2);
+});
+
+test("Stage read only shows no item handles", async () => {
+  const { host } = await mount({ view: frise, selected: "f", readOnly: true });
+  expect(host.querySelector(".items")).toBeNull();
+});
+
+test("Stage inserting an item asks to edit its first text field once shown", async () => {
+  const shown: string[] = [];
+  const { host, calls } = await mount({ view: frise, selected: "f", onEditWhenShown: (k: string) => shown.push(k) });
+  await act(async () => {
+    host.querySelector("[data-item-insert]")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  const change = ((calls.apply[0] as [string, { change: { id: string; index: number } }[]])[1][0]).change;
+  expect(change.index).toBe(0);
+  expect(shown).toEqual([`f\u001fetapes/${change.id}/date`]);
+});
+
+test("Stage Cmd/Ctrl+Alt+arrow along the list in an item field saves the text and moves the item", async () => {
+  const { host, calls } = await mount({ view: frise, selected: "f", editing: "f\u001fetapes/a/date" });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "2018");
+  await altKey(content, "ArrowRight");
+  expect(calls.apply.length).toBe(2);
+  expect((calls.apply[0] as unknown[])[1]).toEqual([
+    { op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes", change: { op: "set_field", item: "a", field: "date", value: "2018" } },
+  ]);
+  expect((calls.apply[1] as unknown[]).slice(0, 2)).toEqual([
+    "Déplacer étape",
+    [{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes", change: { op: "move", item: "a", to: 1 } }],
+  ]);
+  // L'éditeur reste ouvert sur le champ de l'item déplacé.
+  expect(calls.edit).toEqual([]);
+});
+
+test("Stage Cmd/Ctrl+Alt+arrow past the start of the list moves nothing", async () => {
+  const { host, calls } = await mount({ view: frise, selected: "f", editing: "f\u001fetapes/a/date" });
+  await altKey(host.querySelector(".editor .cm-content")!, "ArrowLeft");
+  expect(calls.apply).toEqual([]);
+});
+
+test("Stage Cmd/Ctrl+Alt+arrow across the list axis does not move the item", async () => {
+  const { host, calls } = await mount({ view: frise, selected: "f", editing: "f\u001fetapes/b/date" });
+  await altKey(host.querySelector(".editor .cm-content")!, "ArrowUp");
+  expect(calls.apply).toEqual([]);
+});
+
+test("Stage plain Alt+arrow in an item field does not move the item", async () => {
+  const { host, calls } = await mount({ view: frise, selected: "f", editing: "f\u001fetapes/a/date" });
+  await altKey(host.querySelector(".editor .cm-content")!, "ArrowRight", false);
+  expect(calls.apply).toEqual([]);
+});
+
+test("Stage Cmd/Ctrl+Alt+arrow in the only item of a list moves nothing", async () => {
+  const one = { ...frise, items: [{ ...itemOf("a", 0, 0), len: 1 }], fields: [frise.fields[0]] } as SlideView;
+  const { host, calls } = await mount({ view: one, selected: "f", editing: "f\u001fetapes/a/date" });
+  await altKey(host.querySelector(".editor .cm-content")!, "ArrowRight");
+  expect(calls.apply).toEqual([]);
 });
 
 // --- Mode aperçu (sous-onglet d'un widget) -----------------------------------

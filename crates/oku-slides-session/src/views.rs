@@ -12,6 +12,7 @@ use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
 use crate::fields::FieldView;
+use crate::items::{ItemView, ListView};
 use crate::pack::{PackInfo, Template};
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
@@ -344,6 +345,10 @@ pub struct SlideView<'a> {
     pub targets: Vec<Target<'a>>,
     /// Champs éditables, dans l'ordre de Tab.
     pub fields: Vec<FieldView<'a>>,
+    /// Items de liste de la page (poignées).
+    pub items: Vec<ItemView<'a>>,
+    /// Listes de la page, même vides (ajout à une liste vide).
+    pub lists: Vec<ListView<'a>>,
     /// Zone des éléments libres (pt, page), avec la grille résolue.
     pub zone: Option<&'a ZoneBox>,
 }

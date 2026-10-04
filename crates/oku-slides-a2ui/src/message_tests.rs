@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use crate::{
-    Action, CATALOG_ID, ChoiceOption, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ServerMessage,
-    SlideRef, StepStatus, TextVariant, TimelineStep,
+    Action, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ListColumn,
+    ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep,
 };
 
 fn to_json(msg: &ServerMessage) -> Option<Value> {
@@ -426,5 +426,34 @@ fn update_data_model_with_path_serializes_it() {
     assert_that!(serde_json::to_value(&m).unwrap()).is_equal_to(json!({
         "version": "v0.9",
         "updateDataModel": {"surfaceId": "turn-1", "path": "/narration", "value": "Je lis la slide"}
+    }));
+}
+
+#[test]
+fn list_table_carries_its_columns_and_leaves_out_missing_bounds() {
+    let c = Component::new(
+        "f0",
+        ComponentKind::ListTable {
+            label: Dynamic::Literal("Étapes".into()),
+            rows: Dynamic::path("/f0"),
+            change: Dynamic::path("/f0-change"),
+            markdown: Dynamic::path("/f0-markdown"),
+            columns: vec![ListColumn {
+                key: "date".into(),
+                label: "Date".into(),
+                kind: ColumnKind::Text,
+                options: vec![],
+            }],
+            min: 0,
+            max: None,
+            item_label: None,
+            palette: vec![],
+            action: None,
+        },
+    );
+    assert_that!(serde_json::to_value(&c).unwrap()).is_equal_to(json!({
+        "id": "f0", "component": "ListTable", "label": "Étapes", "rows": { "path": "/f0" },
+        "change": { "path": "/f0-change" }, "markdown": { "path": "/f0-markdown" }, "min": 0, "palette": [],
+        "columns": [{ "key": "date", "label": "Date", "kind": "text", "options": [] }]
     }));
 }

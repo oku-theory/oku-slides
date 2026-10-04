@@ -20,7 +20,7 @@ function typesOf(components: unknown[], data: unknown = {}) {
 
 const V3 = [
   "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select",
-  "SlideThumb", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown",
+  "ListTable", "SlideThumb", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown",
 ];
 
 describe("catalogue v3", () => {
@@ -36,6 +36,16 @@ describe("catalogue v3", () => {
       expect(model?.catalog.id).toBe(CATALOG_ID);
       expect(model?.componentsModel.get("root")).toBeDefined();
     }
+  });
+
+  test("le tableau d'une liste produit par la session Rust passe le schéma du catalogue", () => {
+    const host = (agentSurfaces as { id: string; messages: { updateComponents?: { components: Record<string, unknown>[] } }[] }[])
+      .find((s) => s.id === "host-widget");
+    const components = host?.messages.flatMap((m) => m.updateComponents?.components ?? []) ?? [];
+    const tables = components.filter((c) => c.component === "ListTable");
+    expect(tables).toHaveLength(1);
+    const { id: _id, component: _component, ...props } = tables[0];
+    expect(catalog.components.get("ListTable")?.schema.safeParse(props).success).toBe(true);
   });
 
   test("accepte les composants de l'agent", () => {

@@ -732,6 +732,17 @@
            "t": "  Move by 10 pt"
           }
          ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⌥←↑→↓",
+           "highlight": 1
+          },
+          {
+           "t": "  Move the item along the list axis"
+          }
+         ]
         }
        ]
       }
@@ -1882,6 +1893,49 @@
          "runs": [
           {
            "t": "Same name, same category, and every base parameter stays compatible: any value valid for the base must stay valid for the pack."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-listes",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Lists",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-typst-liste",
+      "kind": "card",
+      "params": {
+       "title": "Lists (p.list)",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "p.list(item: …, item-label:, min:, max:, default:) declares repeated items with typed columns: plain, rich, number, flag, choice, asset. Render each with list-item, fields with field(c, …)."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-typst-liste-app",
+      "kind": "card",
+      "params": {
+       "title": "In the app",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "In the widget editor, a table: add, remove, reorder (Alt+↑/↓ on a row), paste TSV. On the slide: + between items, × to remove, ⋮⋮ to drag. The agent edits by id with edit_list."
           }
          ]
         }

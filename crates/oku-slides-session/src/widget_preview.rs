@@ -33,7 +33,7 @@ use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{
     Category, Cell, Deck, Element, Paragraph, ParamType, ParamValue, Params, Slide, WidgetFile, WidgetRegistry,
-    WidgetSchema,
+    WidgetSchema, default_items,
 };
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_render::{FileProbe, Layout, PackWidgets, RenderError};
@@ -316,11 +316,12 @@ pub(crate) fn preview_params(schema: &WidgetSchema, given: &Map<String, Value>, 
     let mut params = Params::default();
     for p in &schema.params {
         let read = |v: &Value| serde_json::from_value::<ParamValue>(v.clone()).ok();
-        let value = given
-            .get(&p.name)
-            .and_then(read)
-            .or_else(|| p.default.as_ref().filter(|v| !v.is_null()).and_then(read))
-            .or_else(|| neutral(&p.ty, l));
+        // Le `default` d'une liste n'a pas d'ids : ce sont ses items amorcés (`d0`…).
+        let default = |p: &oku_slides_core::ParamSchema| match &p.ty {
+            ParamType::List { .. } => None,
+            _ => p.default.as_ref().filter(|v| !v.is_null()).and_then(read),
+        };
+        let value = given.get(&p.name).and_then(read).or_else(|| default(p)).or_else(|| neutral(p, l));
         if let Some(v) = value {
             params.set(p.name.clone(), v);
         }
@@ -328,14 +329,16 @@ pub(crate) fn preview_params(schema: &WidgetSchema, given: &Map<String, Value>, 
     params
 }
 
-/// La valeur d'exemple, ou neutre, d'un type de paramètre.
-fn neutral(ty: &ParamType, l: &Localizer) -> Option<ParamValue> {
-    match ty {
+/// La valeur d'exemple, ou neutre, d'un paramètre.
+fn neutral(p: &oku_slides_core::ParamSchema, l: &Localizer) -> Option<ParamValue> {
+    match &p.ty {
         ParamType::Plain => Some(ParamValue::Text(l.tr("widget-preview-plain"))),
         ParamType::Rich => Some(ParamValue::Rich(vec![Paragraph::plain(l.tr("widget-preview-rich"))])),
         ParamType::Flag => Some(ParamValue::Value(Value::Bool(false))),
         ParamType::Number { min, .. } => Some(ParamValue::Value(serde_json::json!(min.unwrap_or(0.0)))),
         ParamType::Choice { values } => values.first().map(|v| ParamValue::Text(v.clone())),
+        // Les items par défaut du schéma ; sans défaut, la liste reste absente (vide).
+        ParamType::List { .. } => default_items(p).ok().filter(|items| !items.is_empty()).map(ParamValue::List),
         ParamType::Asset | ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. } => None,
     }
 }
@@ -387,12 +390,14 @@ fn view_and_alerts(
         .iter()
         .filter(|tf| fields::owner_widget(slide, tf) == widget)
         .filter_map(|tf| {
-            let field = tf.param.name.as_str();
-            let empty = tf.param.bind.is_none() && fields::field_text(deck, slide, tf).trim().is_empty();
+            // Un item de liste : `liste/id/colonne`, comme son `FieldView`.
+            let field = tf.name();
+            let bound = tf.param.bind.is_some() && tf.list.is_none();
+            let empty = !bound && fields::field_text(deck, tf).trim().is_empty();
             let outside = fields.iter().any(|v| v.owner == tf.owner_id && v.field == field && !inside(v, frame));
             match (empty, outside) {
-                (true, _) => Some(ExampleAlert::Empty { field: field.to_owned() }),
-                (false, true) => Some(ExampleAlert::Overflow { field: field.to_owned() }),
+                (true, _) => Some(ExampleAlert::Empty { field: field.into_owned() }),
+                (false, true) => Some(ExampleAlert::Overflow { field: field.into_owned() }),
                 (false, false) => None,
             }
         })
@@ -405,6 +410,9 @@ fn view_and_alerts(
         height,
         targets: Vec::new(),
         fields,
+        // L'aperçu n'a pas de poignées d'items : ses listes se changent aux réglages.
+        items: Vec::new(),
+        lists: Vec::new(),
         zone: layout.zone_on(page),
     };
     let view = serde_json::to_value(view).map_err(|e| RenderError::frame(e.to_string()))?;

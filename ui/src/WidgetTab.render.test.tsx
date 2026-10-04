@@ -489,6 +489,19 @@ describe("WidgetTab, scène", () => {
     expect(m.host.querySelector(".editor")).toBeNull();
   });
 
+  test("un champ d'item de liste édité sur place : sa colonne changée dans la liste du cas courant", async () => {
+    const item = field("etapes/d0/date", "plain", "2019", 150, 230, { list: "etapes", item: "d0", column: "date" });
+    const { fake, written } = scene([item]);
+    const lists: unknown[][] = [];
+    stub(fake, "editExampleList", async (...a: never[]) => (lists.push(a), {} as Snapshot));
+    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "2020");
+    await blur(m.host);
+    expect(lists).toEqual([["kpi", "Long", "etapes", { op: "set_field", item: "d0", field: "date", value: "2020" }]]);
+    expect(written).toEqual([]);
+  });
+
   test("un champ riche : ses paragraphes, les lignes inchangées gardant leurs runs", async () => {
     const { fake, written } = scene();
     const m = await mount(fake, { name: "kpi" });

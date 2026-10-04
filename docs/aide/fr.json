@@ -732,6 +732,17 @@
            "t": "  Déplacer de 10 pt"
           }
          ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⌥←↑→↓",
+           "highlight": 1
+          },
+          {
+           "t": "  Déplacer l'item le long de la liste"
+          }
+         ]
         }
        ]
       }
@@ -1882,6 +1893,49 @@
          "runs": [
           {
            "t": "Même nom, même catégorie, et chaque paramètre de base reste compatible : toute valeur valide pour la base doit le rester pour le pack."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-listes",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Listes",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-typst-liste",
+      "kind": "card",
+      "params": {
+       "title": "Listes (p.list)",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "p.list(item: …, item-label:, min:, max:, default:) déclare des items répétés aux colonnes typées : plain, rich, number, flag, choice, asset. Rends chacun avec list-item, ses champs avec field(c, …)."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-typst-liste-app",
+      "kind": "card",
+      "params": {
+       "title": "Dans l'app",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Dans l'éditeur de widget, un tableau : ajouter, supprimer, réordonner (Alt+↑/↓ sur une ligne), coller du TSV. Sur la slide : + entre les items, × pour supprimer, ⋮⋮ pour glisser. L'agent édite par id avec edit_list."
           }
          ]
         }

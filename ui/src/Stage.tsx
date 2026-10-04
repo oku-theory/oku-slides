@@ -20,6 +20,8 @@ import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
 import { elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
 import GhostLayer from "./GhostLayer";
+import { ItemLayer } from "./ItemLayer";
+import { findItem, groupAxis, itemName, listOps } from "./stageItems";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -70,8 +72,13 @@ interface DeckProps extends CommonProps {
   mode?: "deck";
   selected: string | null;
   onSelect: (id: string | null) => void;
-  /** `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation. */
-  onApply: (label: string, ops: Op[], merge?: string) => void;
+  /** Ouvre le champ `key` dès qu'une vue le montre (champ d'un item tout juste inséré). */
+  onEditWhenShown?: (key: FieldKey) => void;
+  /**
+   * `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation.
+   * Rend éventuellement une promesse : `false` si l'hôte a refusé les ops.
+   */
+  onApply: (label: string, ops: Op[], merge?: string) => void | Promise<boolean>;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
   /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide ; `@param` : sous ce champ de la slide. */
@@ -160,7 +167,7 @@ export default function Stage(props: Props) {
   const deck = props.mode === "preview" ? null : props;
   const preview = deck === null;
   const {
-    selected = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
+    selected = null, onSelect = ignore, onEditWhenShown, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
     templates = false, showGhosts = false, packWidgets, onOpenWidget,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
@@ -297,6 +304,16 @@ export default function Stage(props: Props) {
     editNext(f);
   };
 
+  // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item, éditeur ouvert.
+  const editItem = deck && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;
+  const moveItem = (text: string, dir: 1 | -1) => {
+    if (!editField || !editItem) return;
+    save(editField, text);
+    const { it } = editItem;
+    const to = Math.max(0, Math.min(it.len - 1, it.index + dir));
+    if (to !== it.index) onApply(t("ui-undo-list-move", { item: itemName(it) }), listOps(view, it, { op: "move", item: it.item, to }));
+  };
+
   const box = (t: ObjectTarget) => {
     let { x, y, w, h } = t;
     if (drag && drag.id === t.id) {
@@ -417,6 +434,9 @@ export default function Stage(props: Props) {
               })}
             </div>
           )}
+          {deck && !readOnly && (
+            <ItemLayer view={view} scale={scale} active={editField?.owner ?? selected} onApply={onApply} onInserted={(k) => onEditWhenShown?.(k)} />
+          )}
           {editField && (() => {
             const hit = fieldHitBox(editField, scale, view.fields);
             return (
@@ -438,6 +458,8 @@ export default function Stage(props: Props) {
                   onCommit={commit}
                   onNext={next}
                   onCancel={() => onEdit(null)}
+                  moveAxis={editItem && editItem.it.len > 1 ? groupAxis(view, editItem.group) : undefined}
+                  onMove={moveItem}
                 />
                 <span className="editor-hint">
                   {t(editField.kind === "plain" ? "ui-stage-hint-plain" : "ui-stage-hint-rich")}

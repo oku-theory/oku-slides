@@ -28,6 +28,8 @@ pub enum OpErrorKind {
     UnknownParam,
     /// Valeur d'un autre type que celui du paramètre.
     ParamType,
+    /// Item absent d'une liste.
+    ItemNotFound,
     /// Valeur hors de la liste d'un `choice`.
     ChoiceOutOfRange,
     /// Le slot n'accepte pas ce widget (`accepts`).
@@ -67,6 +69,8 @@ pub(crate) enum OpInner {
     WrongCategory { kind: String, backtrace: Backtrace },
     #[snafu(display("{value} is not allowed for {param}"))]
     ChoiceOutOfRange { param: String, value: String, backtrace: Backtrace },
+    #[snafu(display("{list} has no item {item}"))]
+    ItemNotFound { list: String, item: String, backtrace: Backtrace },
 }
 
 impl OpError {
@@ -81,6 +85,7 @@ impl OpError {
             OpInner::UnknownWidget { .. } => OpErrorKind::UnknownWidget,
             OpInner::UnknownParam { .. } => OpErrorKind::UnknownParam,
             OpInner::ParamType { .. } => OpErrorKind::ParamType,
+            OpInner::ItemNotFound { .. } => OpErrorKind::ItemNotFound,
             OpInner::ChoiceOutOfRange { .. } => OpErrorKind::ChoiceOutOfRange,
             OpInner::SlotRejects { .. } => OpErrorKind::SlotRejects,
             OpInner::WrongCategory { .. } => OpErrorKind::WrongCategory,
@@ -102,6 +107,7 @@ impl OpError {
             OpInner::UnknownParam { param, .. }
             | OpInner::ParamType { param, .. }
             | OpInner::ChoiceOutOfRange { param, .. } => Some(param),
+            OpInner::ItemNotFound { item, .. } => Some(item),
             OpInner::IndexOutOfRange { .. } => None,
         }
     }
@@ -219,6 +225,7 @@ impl Localize for OpError {
             OpErrorKind::UnknownWidget => "op-unknown-widget",
             OpErrorKind::UnknownParam => "op-unknown-param",
             OpErrorKind::ParamType => "op-param-type",
+            OpErrorKind::ItemNotFound => "op-item-not-found",
             OpErrorKind::ChoiceOutOfRange => "op-choice-out-of-range",
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
@@ -346,6 +353,14 @@ pub enum SchemaFault {
     BindNotPlain,
     /// Un slot accepte un widget absent, ou qui n'est pas un élément.
     UnknownSlotKind,
+    /// Une liste sans colonne.
+    EmptyList,
+    /// Type de colonne de liste non admis.
+    ColumnType,
+    /// Nom de paramètre ou de colonne réservé (`id`, `kind`) ou contenant `/`.
+    ReservedName,
+    /// Le `max` d'une liste est sous son `min`.
+    ListBounds,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -359,6 +374,10 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::DefaultWrongType => "default wrong type",
             SchemaFault::BindNotPlain => "bind not plain",
             SchemaFault::UnknownSlotKind => "unknown slot kind",
+            SchemaFault::EmptyList => "list without columns",
+            SchemaFault::ColumnType => "column type not allowed in a list",
+            SchemaFault::ReservedName => "reserved parameter name",
+            SchemaFault::ListBounds => "list max below min",
         })
     }
 }
@@ -374,6 +393,10 @@ impl SchemaFault {
             SchemaFault::DefaultWrongType => "widget-fault-default-wrong-type",
             SchemaFault::BindNotPlain => "widget-fault-bind-not-plain",
             SchemaFault::UnknownSlotKind => "widget-fault-unknown-slot-kind",
+            SchemaFault::EmptyList => "widget-fault-empty-list",
+            SchemaFault::ColumnType => "widget-fault-column-type",
+            SchemaFault::ReservedName => "widget-fault-reserved-name",
+            SchemaFault::ListBounds => "widget-fault-list-bounds",
         }
     }
 }

@@ -12,7 +12,7 @@
 //!   [`Renderer::registry`]) sont ceux de base, surchargés par un [`PackWidgets`] ; rend un
 //!   [`Compiled`] (SVG, PNG, PDF, [`Layout`]).
 //! - [`Layout`] : ce que le rendu dit du document — [`SlidePage`], [`ElementBox`],
-//!   [`FieldBox`], [`FieldSide`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
+//!   [`FieldBox`], [`FieldSide`], [`ItemBox`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
 //!   compilé.
 //! - Le registre des widgets ([`load_registry`], [`Registries`]) se lit par une sonde
 //!   Typst (pack assemblé) ou fichier par fichier ([`probe_file`], [`assemble`]).
@@ -102,6 +102,22 @@ pub struct FieldBox {
     /// Champ vide sans place au rendu : dessiné avant ou après son ancre (`y`).
     #[serde(default)]
     pub side: Option<FieldSide>,
+}
+
+/// Boîte d'un item de liste (`list-item`), pour les poignées de la slide.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ItemBox {
+    /// Id de l'élément ou de la slide.
+    pub owner: String,
+    /// Nom du paramètre `list`.
+    pub list: String,
+    /// Id de l'item.
+    pub item: String,
+    pub page: usize,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
 }
 
 /// Où se dessine un champ vide sans place au rendu, par rapport à son ancre.
@@ -261,6 +277,9 @@ pub struct Layout {
     pub boxes: Vec<ElementBox>,
     /// Champs éditables, pour l'édition en place.
     pub fields: Vec<FieldBox>,
+    /// Boîtes des items de liste, pour leurs poignées.
+    #[serde(default)]
+    pub items: Vec<ItemBox>,
     /// Zones des éléments libres (une par slide qui en a), avec leur grille.
     pub zones: Vec<ZoneBox>,
     /// Jetons de design effectifs du deck (défauts, thème et surcharges fusionnés).
@@ -291,6 +310,13 @@ impl Layout {
         let start = self.fields.partition_point(|f| f.page < page);
         let end = self.fields.partition_point(|f| f.page <= page);
         &self.fields[start..end]
+    }
+
+    /// Boîtes des items de liste d'une page.
+    pub fn items_on(&self, page: usize) -> &[ItemBox] {
+        let start = self.items.partition_point(|i| i.page < page);
+        let end = self.items.partition_point(|i| i.page <= page);
+        &self.items[start..end]
     }
 }
 
@@ -394,9 +420,11 @@ impl Compiled {
             boxes.sort_by_key(|b| b.page);
             let mut fields: Vec<FieldBox> = parsed(values("oku-slides-field"));
             fields.sort_by_key(|f| f.page);
+            let mut items: Vec<ItemBox> = parsed(values("oku-slides-item"));
+            items.sort_by_key(|i| i.page);
             let zones = parsed(values("oku-slides-zone"));
             let tokens = values("oku-slides-tokens").into_iter().next();
-            Layout { slides, boxes, fields, zones, tokens }
+            Layout { slides, boxes, fields, items, zones, tokens }
         })
     }
 }

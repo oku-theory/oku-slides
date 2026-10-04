@@ -3,11 +3,13 @@
 //!
 //! Actions renvoyées par l'interface : `choose {choice}`, `confirm
 //! {confirmed}`, `permission {index}`, `rewrite {kept, text}`, `param
-//! {field, value}`, `variant {index}`, `dismiss`, `answer
-//! {text}` (réponse dictée à une question en attente).
+//! {field, value}` (`param {field, change}` pour une liste), `variant
+//! {index}`, `dismiss`, `answer {text}` (réponse dictée à une question en
+//! attente).
 
 use oku_slides_a2ui::{
-    Action, ChoiceOption, Component, ComponentKind, Dynamic, ServerBody, ServerMessage, TextVariant,
+    Action, ChoiceOption, ColumnKind, Component, ComponentKind, Dynamic, ListColumn, ServerBody, ServerMessage,
+    TextVariant,
 };
 use oku_slides_core::{Op, Paragraph};
 use oku_slides_i18n::Localizer;
@@ -133,6 +135,10 @@ pub enum FieldKind {
     Text,
     /// Texte riche : paragraphes, montrés en markdown d'édition.
     Rich,
+    /// Liste d'items, saisie en tableau : `value` = items. Réglages de l'hôte
+    /// seulement (absent du schéma des outils, refusé par `show_params`).
+    #[schemars(skip)]
+    List,
 }
 
 /// Un champ de `show_params` et l'op qu'il applique.
@@ -153,6 +159,14 @@ pub struct ParamField {
     /// Options d'un champ `select`.
     #[serde(default)]
     pub options: Vec<ChoiceOption>,
+    /// Colonnes d'un champ `list` (réglages de l'hôte).
+    #[serde(default)]
+    #[schemars(skip)]
+    pub columns: Vec<ListColumn>,
+    /// Nom d'un item d'un champ `list` (« étape ») ; sans lui, « élément ».
+    #[serde(default)]
+    #[schemars(skip)]
+    pub item_label: Option<String>,
 }
 
 /// `show_params` : une surface de réglages qui s'appliquent tout de suite.
@@ -459,6 +473,27 @@ pub(crate) fn params_with(
                     action,
                 }
             }
+            FieldKind::List => {
+                let change = format!("{path}-change");
+                data.insert(format!("{key}-change"), Value::Null);
+                data.insert(format!("{key}-markdown"), rich_markdown(&f.value, &f.columns));
+                let mut context = vec![("field", lit(json!(i))), ("change", Dynamic::path(&change))];
+                if let Some(k) = extras.keys.get(i) {
+                    context.push(("key", lit(json!(k))));
+                }
+                ComponentKind::ListTable {
+                    label,
+                    rows: Dynamic::path(&path),
+                    change: Dynamic::path(&change),
+                    markdown: Dynamic::path(format!("{path}-markdown")),
+                    columns: f.columns.clone(),
+                    min: f.min.map_or(0, |m| m.max(0.0) as u32),
+                    max: f.max.map(|m| m.max(0.0) as u32),
+                    item_label: f.item_label.clone(),
+                    palette: palette.to_vec(),
+                    action: Some(Action::event("param", context)),
+                }
+            }
         };
         components.push(Component::new(&key, kind));
         data.insert(key.clone(), markdown.take().map_or_else(|| f.value.clone(), Value::from));
@@ -477,6 +512,26 @@ pub(crate) fn params_with(
     components.insert(0, Component::column("body", &refs));
     components.insert(0, Component::card("root", "body"));
     surface(id, Place::Thread, None, components, Value::Object(data))
+}
+
+/// Markdown d'édition des cellules `rich` des items `rows` : `{id: {colonne: markdown}}`.
+fn rich_markdown(rows: &Value, columns: &[ListColumn]) -> Value {
+    let rich: Vec<&str> = columns.iter().filter(|c| c.kind == ColumnKind::Rich).map(|c| c.key.as_str()).collect();
+    let mut out = serde_json::Map::new();
+    for row in rows.as_array().into_iter().flatten() {
+        let Some(id) = row.get("id").and_then(Value::as_str) else { continue };
+        let cells: serde_json::Map<String, Value> = rich
+            .iter()
+            .filter_map(|&k| {
+                let paragraphs: Vec<Paragraph> = serde_json::from_value(row.get(k)?.clone()).ok()?;
+                Some((k.to_owned(), Value::from(paragraphs_to_text(&paragraphs))))
+            })
+            .collect();
+        if !cells.is_empty() {
+            out.insert(id.to_owned(), Value::Object(cells));
+        }
+    }
+    Value::Object(out)
 }
 
 /// `show_variants` : tiroir de miniatures ; `variant {index}` au clic.

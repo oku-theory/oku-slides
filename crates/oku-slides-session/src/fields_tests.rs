@@ -2,7 +2,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::lib_tests_support::{data_dir, fixture_path, session_in, session_with_fixture};
+use crate::lib_tests_support::{add_frise, data_dir, fixture_path, session_in, session_with_fixture};
 
 fn names(view: &crate::views::SlideView<'_>) -> Vec<String> {
     view.fields.iter().map(|f| format!("{}.{}", f.owner, f.field)).collect()
@@ -128,4 +128,39 @@ fn field_views_rich_slide_param_carries_its_markdown_text() {
     assert_that!(body.kind).is_equal_to(FieldKind::Rich);
     assert_that!(body.owner_kind).is_equal_to(OwnerKind::Slide);
     assert_that!(body.text.as_ref()).is_equal_to("Une note");
+}
+
+#[test]
+fn field_views_of_a_frise_carry_list_item_and_column() {
+    let mut s = session_with_fixture();
+    s.apply("frise", vec![add_frise()], None).unwrap();
+    let view = s.slide("s-constat").unwrap();
+    let f = view.fields.iter().find(|f| f.field == "etapes/d1/texte").unwrap();
+    assert_that!((f.list, f.item, f.column)).is_equal_to((Some("etapes"), Some("d1"), "texte"));
+    assert_that!(f.text.as_ref()).is_equal_to("Premier client");
+    assert_that!((f.owner, f.owner_kind)).is_equal_to(("fr", OwnerKind::Element));
+}
+
+#[test]
+fn field_views_of_a_plain_param_have_no_list_nor_item() {
+    let s = session_with_fixture();
+    let v = s.slide("s-priorites").unwrap();
+    let f = v.fields.iter().find(|f| f.owner == "c1" && f.field == "title").unwrap();
+    assert_that!((f.list, f.item, f.column)).is_equal_to((None, None, "title"));
+}
+
+#[test]
+fn field_views_of_a_freshly_inserted_frise_step_include_its_empty_date() {
+    let mut s = session_with_fixture();
+    s.apply("frise", vec![add_frise()], None).unwrap();
+    let insert = serde_json::from_value(serde_json::json!({
+        "op": "edit_list", "target": { "slide": "s-constat", "element": "fr" }, "param": "etapes",
+        "change": { "op": "insert", "index": 0, "id": "n" }
+    }))
+    .unwrap();
+    s.apply("insérer", vec![insert], None).unwrap();
+    let view = s.slide("s-constat").unwrap();
+    let f = view.fields.iter().find(|f| f.field == "etapes/n/date").unwrap();
+    assert_that!(f.empty).is_true();
+    assert_that!(f.w).is_greater_than(0.0);
 }

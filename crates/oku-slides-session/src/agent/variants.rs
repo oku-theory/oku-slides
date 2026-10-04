@@ -51,6 +51,11 @@ fn parse_op(template: &Value, value: &Value) -> std::result::Result<Op, serde_js
 /// tests pour un cas qui reste inoffensif (une liste vide ne fait planter ni
 /// la sérialisation ni le rendu, seulement l'ergonomie du widget).
 fn check_field(i: usize, field: &ParamField) -> Result<()> {
+    // Le tableau d'une liste envoie un changement, pas une valeur pour `op_template`.
+    ensure!(
+        field.kind != FieldKind::List,
+        AgentFormSnafu { reason: format!("fields[{i}]: a list field is not available in show_params") }
+    );
     if field.kind == FieldKind::Rich {
         ensure!(
             Vec::<Paragraph>::deserialize(&field.value).is_ok(),

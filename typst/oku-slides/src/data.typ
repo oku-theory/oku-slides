@@ -68,26 +68,49 @@
   else if ty == "number" { type(v) == int or type(v) == float }
   else if ty == "choice" { type(v) == str and v in d.values }
   else if ty == "grid" { type(v) == dictionary }
+  else if ty == "list" { type(v) == array and v.all(x => type(x) == dictionary) }
   else { true }
 }
 
+// Valeur prête à rendre d'un paramètre ou d'une colonne `d` (hors slot et liste).
+#let _ready(t, d, v, vars) = {
+  if d.type == "plain" { interp(v, vars) }
+  else if d.type == "rich" { if v == none or v == () { [] } else { _paragraphs(t, v, vars) } }
+  else { v }
+}
+
+// Items d'une liste : id (`d<i>` s'il manque ou n'est pas une chaîne),
+// colonnes au défaut, valeurs prêtes.
+#let _items(t, d, v, vars) = (if v == none { () } else { v }).enumerate().map(((i, it)) => {
+  let id = it.at("id", default: none)
+  let out = (id: if type(id) == str { id } else { "d" + str(i) })
+  for c in d.item {
+    let cv = it.at(c.name, default: c.default)
+    let cv = if cv == none or _fits(c, cv) { cv } else { c.default }
+    out.insert(c.name, _ready(t, c, cv, vars))
+  }
+  out
+})
+
 // Arguments d'un widget depuis son schéma : défauts, liens au deck, textes
-// interpolés, paragraphes rendus, slots rendus en entrées. Une valeur d'un
-// autre type que celui déclaré est remplacée par le défaut.
+// interpolés, paragraphes rendus, slots rendus en entrées, listes en items.
+// Une valeur d'un autre type que celui déclaré est remplacée par le défaut ;
+// une liste absente est vide (son défaut n'amorce qu'un objet créé).
 #let _args(t, schema, params, vars, deck-params, image-loader, widgets, render) = {
   let out = (:)
   for d in schema.params {
     let bind = d.at("bind", default: none)
-    let v = if bind != none { deck-params.at(bind, default: none) } else { params.at(d.name, default: d.default) }
-    let v = if v == none or _fits(d, v) { v } else { d.default }
-    out.insert(d.name, if d.type == "plain" { interp(v, vars) }
-      else if d.type == "rich" { if v == none or v == () { [] } else { _paragraphs(t, v, vars) } }
-      else if d.type == "slot" {
+    let v = if bind != none { deck-params.at(bind, default: none) }
+      else if d.type == "list" { params.at(d.name, default: none) }
+      else { params.at(d.name, default: d.default) }
+    let v = if v == none or _fits(d, v) { v } else if d.type == "list" { none } else { d.default }
+    out.insert(d.name, if d.type == "slot" {
         let list = if v == none { () } else { v }
         let entries = if d.mode == "free" { _placed } else { _flow }
         entries(t, list, vars, image-loader, widgets, deck-params, render)
       }
-      else { v })
+      else if d.type == "list" { _items(t, d, v, vars) }
+      else { _ready(t, d, v, vars) })
   }
   out
 }

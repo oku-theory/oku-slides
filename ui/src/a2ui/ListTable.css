@@ -1,0 +1,23 @@
+/* Tableau d'une liste au dock. Jetons Papier attendus ; les valeurs après la virgule sont des replis. */
+.lt { position: relative; }
+.lt-scroll { max-height: 18rem; overflow: auto; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); }
+.lt-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.lt-table th, .lt-table td { border-bottom: 1px solid var(--papier-border, #e7e2d8); padding: 0; }
+.lt-table th { position: sticky; top: 0; z-index: 1; padding: 4px 8px; text-align: left; font-weight: 600; background: var(--papier-surface-raised, #f5f2ec); }
+.lt-table td[data-invalid] { outline: 2px solid var(--papier-danger, #b3261e); outline-offset: -2px; }
+.lt-table tr[data-over] { box-shadow: inset 0 2px 0 var(--papier-accent, #2f5d8a); }
+.lt-gutter { width: 1%; white-space: nowrap; }
+.lt-input, .lt-select, .lt-rich { width: 100%; min-width: 6ch; box-sizing: border-box; border: 0; background: transparent; padding: 6px 8px; font: inherit; color: inherit; }
+.lt-number { text-align: right; }
+.lt-input:focus, .lt-select:focus, .lt-rich:focus-visible { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: -2px; background: var(--papier-surface, #fff); }
+.lt-rich { text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 16rem; }
+.lt-rich[aria-expanded="true"] { background: var(--papier-surface, #fff); }
+.lt-check { display: block; margin: 6px auto; accent-color: var(--papier-accent, #2f5d8a); cursor: pointer; }
+.lt-asset { display: block; padding: 6px 8px; color: var(--papier-text-muted, #6b665e); white-space: nowrap; }
+.lt-handle, .lt-remove { border: 0; background: transparent; color: var(--papier-text-muted, #6b665e); padding: 4px 6px; font: inherit; }
+.lt-handle { cursor: grab; touch-action: none; letter-spacing: -0.2em; }
+.lt-remove { cursor: pointer; opacity: 0; }
+.lt-table tr:hover .lt-remove, .lt-remove:focus-visible { opacity: 1; }
+.lt-remove:disabled { cursor: default; opacity: 0; }
+.lt-popover { padding: 8px; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); background: var(--papier-surface, #fff); box-shadow: var(--shadow-floating); }
+.lt-add { align-self: flex-start; }

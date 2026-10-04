@@ -215,7 +215,8 @@ fn templates_view_renders_previews_in_deck_theme() {
     for (i, t) in pro.iter().enumerate() {
         let mut slide = t.template.slide.clone();
         slide.id = format!("nouvelle-{i}");
-        assert_that!(s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, slide }], None)).is_ok();
+        assert_that!(s.apply("Nouvelle slide", vec![Op::AddSlide { index: None, defaults: false, slide }], None))
+            .is_ok();
     }
 }
 

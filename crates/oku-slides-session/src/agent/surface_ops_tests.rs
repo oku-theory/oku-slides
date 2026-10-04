@@ -82,6 +82,8 @@ fn params() -> Surface {
             max: None,
             step: None,
             options: vec![],
+            columns: vec![],
+            item_label: None,
         }],
     };
     forms::params("show-5", &spec, &[], &Localizer::new(Some("fr")))

@@ -8,6 +8,7 @@
 
 mod check;
 mod grid;
+mod list;
 mod value;
 
 use std::collections::{BTreeMap, HashSet};
@@ -32,6 +33,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
+pub use list::{ListOp, ListSpec, default_items};
 pub use value::{GRID_TRACKS, param_value};
 
 /// Refus d'une grille ou d'une cellule sur un slot `flow` : dit comment
@@ -148,12 +150,23 @@ pub enum Op {
         param: String,
         change: ChartDataOp,
     },
+    /// Modifie une liste (`list`) : items adressés par leur id. Remplacer
+    /// toute la liste : `set_param`.
+    EditList {
+        target: Target,
+        param: String,
+        change: ListOp,
+    },
     /// Ajoute un élément dans un slot d'une slide ou d'un élément.
     AddElement {
         slot: SlotRef,
         /// Position ; absent = à la fin.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
+        /// Amorce les listes absentes avec le défaut du schéma : objet nouveau,
+        /// pas un collage ni un déplacement.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        defaults: bool,
         element: Element,
     },
     RemoveElement {
@@ -169,6 +182,10 @@ pub enum Op {
     AddSlide {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
+        /// Amorce les listes absentes avec le défaut du schéma : objet nouveau,
+        /// pas un collage ni un déplacement.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        defaults: bool,
         slide: Slide,
     },
     RemoveSlide {
@@ -505,7 +522,11 @@ impl Op {
                 if let Some(id) = &target.element {
                     check_containing_accepts(registry, slide_ref(deck, &target.slide)?, id, &kind)?;
                 }
-                *target_mut(deck, &target)?.0 = kind;
+                let (k, params) = target_mut(deck, &target)?;
+                if *k != kind {
+                    list::seed_lists(registry, &kind, params);
+                    *k = kind;
+                }
                 Ok(())
             }
             Op::SetChartOption { target, param, patch } => {
@@ -523,6 +544,7 @@ impl Op {
                 let next = chart_data(read_chart(params, &param)?, change, subject)?;
                 write_chart(params, &param, &next)
             }
+            Op::EditList { target, param, change } => list::edit_list(deck, registry, &target, &param, change),
             Op::SetStyle { slide, element, style } => {
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
@@ -581,7 +603,9 @@ impl Op {
                 *e = element;
                 Ok(())
             }
-            Op::AddElement { slot, index, element } => add_element(deck, registry, slot, index, element),
+            Op::AddElement { slot, index, defaults, element } => {
+                add_element(deck, registry, slot, index, defaults, element)
+            }
             Op::RemoveElement { slide, element } => {
                 let s = slide_mut(deck, &slide)?;
                 let removed = s.params.slots_mut().find_map(|(_, list)| remove_from(list, &element));
@@ -595,7 +619,7 @@ impl Op {
                 }
                 Ok(())
             }
-            Op::AddSlide { index, slide } => {
+            Op::AddSlide { index, defaults, mut slide } => {
                 if deck.slide(&slide.id).is_some() {
                     return Err(DuplicateIdSnafu { id: slide.id }.build().into());
                 }
@@ -611,6 +635,10 @@ impl Op {
                     }
                 }
                 check_params(registry, &slide.kind, Category::Slide, &slide.params)?;
+                if defaults {
+                    list::seed_lists(registry, &slide.kind, &mut slide.params);
+                    list::seed_slots(registry, &mut slide.params);
+                }
                 let at = index.unwrap_or(deck.slides.len());
                 if at > deck.slides.len() {
                     return Err(IndexOutOfRangeSnafu { index: at, len: deck.slides.len() }.build().into());
@@ -714,7 +742,8 @@ fn add_element(
     registry: &WidgetRegistry,
     slot: SlotRef,
     index: Option<usize>,
-    element: Element,
+    defaults: bool,
+    mut element: Element,
 ) -> Result<(), OpError> {
     let SlotRef { owner, param } = slot;
     let at = {
@@ -751,6 +780,9 @@ fn add_element(
         }
         at
     };
+    if defaults {
+        list::seed_element(registry, &mut element);
+    }
     let s = slide_mut(deck, &owner.slide)?;
     let params = match &owner.element {
         None => &mut s.params,

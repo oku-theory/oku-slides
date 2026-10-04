@@ -21,6 +21,12 @@
 /// Éléments enfants. mode : "flow" (agencés par le widget) ou "free" (sur
 /// leur cadre ou leur cellule). accepts : noms de widgets admis, ou none.
 #let slot(label: none, mode: "flow", accepts: none) = _base("slot", label, none) + (mode: mode, accepts: accepts)
+/// Liste d'items aux colonnes typées (`item` : dictionnaire de descripteurs),
+/// saisie en tableau dans le dock. item-label : nom d'un item (« étape »).
+#let list(label: none, item-label: none, item: (:), min: 0, max: none, default: none) = (
+  _base("list", label, default)
+    + (item-label: item-label, item: item.pairs().map(((k, d)) => (name: k) + d), min: min, max: max)
+)
 /// Grille { columns, rows, gap }.
 #let grid(label: none, default: none) = _base("grid", label, default)
 /// Type fourni et validé par l'hôte (`"chart"`).

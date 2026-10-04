@@ -44,6 +44,8 @@ fn text_field(label: String, value: Value, op_template: Value) -> ParamField {
         max: None,
         step: None,
         options: Vec::new(),
+        columns: Vec::new(),
+        item_label: None,
     }
 }
 
@@ -73,6 +75,8 @@ pub(crate) fn template_params(slide: &Slide, grid: Option<Grid>, l: &Localizer) 
                 max: Some(f64::from(*GRID_TRACKS.end())),
                 step: None,
                 options: Vec::new(),
+                columns: Vec::new(),
+                item_label: None,
             });
             keys.push(key.to_owned());
         }

@@ -89,3 +89,43 @@ fn json_schema_is_a_free_object_and_keeps_ops_schema_generable() {
     assert_that!(schema.get("additionalProperties")).is_equal_to(Some(&json!(true)));
     assert_that!(crate::ops_schema().is_ok()).is_true();
 }
+
+#[test]
+fn deserialize_items_without_kind_gives_list() {
+    let p = params(json!({ "etapes": [{ "id": "a", "date": "2019" }, { "id": "b", "date": "2021" }] }));
+    let l = p.list("etapes").unwrap();
+    assert_that!(l.iter().map(|i| i.id.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["a", "b"]);
+    assert_that!(l[0].values.text("date")).is_equal_to(Some("2019"));
+}
+
+#[test]
+fn deserialize_item_with_rich_column_reads_paragraphs() {
+    let p = params(json!({ "l": [{ "id": "a", "texte": [{ "runs": [{ "t": "Hé" }] }] }] }));
+    assert_that!(p.list("l").unwrap()[0].values.rich("texte").map(<[_]>::len)).is_equal_to(Some(1));
+}
+
+#[test]
+fn deserialize_objects_with_id_and_kind_stay_a_slot() {
+    let p = params(json!({ "c": [{ "id": "e", "kind": "text" }] }));
+    assert_that!(p.list("c")).is_none();
+    assert_that!(p.slot("c").map(<[_]>::len)).is_equal_to(Some(1));
+}
+
+#[test]
+fn list_reads_an_empty_array_as_an_empty_list() {
+    let p = params(json!({ "l": [] }));
+    assert_that!(p.list("l").map(<[_]>::len)).is_equal_to(Some(0));
+}
+
+#[test]
+fn serialize_list_round_trips() {
+    let v = json!({ "l": [{ "id": "a", "date": "2019", "on": true }] });
+    assert_that!(serde_json::to_value(params(v.clone())).unwrap()).is_equal_to(v);
+}
+
+#[test]
+fn list_mut_turns_an_absent_param_into_an_empty_list() {
+    let mut p = Params::default();
+    p.list_mut("l").unwrap().push(crate::ListItem { id: "a".into(), values: Params::default() });
+    assert_that!(p.list("l").map(<[_]>::len)).is_equal_to(Some(1));
+}

@@ -7,6 +7,7 @@ import {
   gridPlacement,
   instantiate,
   neighbourSlide,
+  newElementOps,
   pasteOps,
   pickSlide,
   placeOnGridOps,
@@ -94,6 +95,7 @@ const box = (id: string, x: number, y: number, w: number, h: number) => ({
 const fv: FieldView = {
   owner: "s", owner_kind: "slide", widget: "content", field: "title", kind: "plain", label: null,
   text: "Titre", empty: false, side: null, x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
+  list: null, item: null, column: "title",
 };
 
 describe("fieldOps", () => {
@@ -140,6 +142,31 @@ describe("fieldOps", () => {
   });
 });
 
+describe("fieldOps d'un item de liste", () => {
+  const frise = (etapes: unknown[]) => view({ blocks: [{ id: "f", kind: "frise", params: { etapes } }] });
+  const itemField = (kind: "plain" | "rich", column: string, text = ""): FieldView => ({
+    ...fv, owner: "f", owner_kind: "element", field: `etapes/d0/${column}`, list: "etapes", item: "d0", column, kind, text,
+  });
+
+  test("fieldOps : un champ d'item plain → edit_list set_field", () => {
+    const ops = fieldOps(frise([{ id: "d0", date: "" }]), itemField("plain", "date"), "2020");
+    expect(ops).toEqual([{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes",
+      change: { op: "set_field", item: "d0", field: "date", value: "2020" } }]);
+  });
+
+  test("fieldOps : un champ d'item rich → paragraphes, les lignes inchangées gardent leurs runs", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const ops = fieldOps(frise([{ id: "d0", texte: [colored] }]), itemField("rich", "texte", "Rouge"), "Rouge\nB");
+    expect(ops).toEqual([{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes",
+      change: { op: "set_field", item: "d0", field: "texte", value: [colored, { runs: [{ t: "B" }] }] } }]);
+  });
+
+  test("fieldOps : un champ d'item d'une slide vise la slide", () => {
+    const ops = fieldOps(view({ etapes: [{ id: "d0" }] }), { ...itemField("plain", "date"), owner: "s", owner_kind: "slide" }, "x");
+    expect(ops[0]).toMatchObject({ op: "edit_list", target: { slide: "s" }, param: "etapes" });
+  });
+});
+
 describe("fieldValue", () => {
   test("fieldValue of a plain field is its text", () => {
     expect(fieldValue(view({}), fv, "Météo")).toBe("Météo");
@@ -153,6 +180,15 @@ describe("fieldValue", () => {
       colored,
       { runs: [{ t: "Point", bold: true }], list: "bullet" },
     ]);
+  });
+
+  test("fieldValue of a rich list item field keeps the runs of its column", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const v = view({ blocks: [{ id: "f", kind: "frise", params: { etapes: [{ id: "d0", texte: [colored] }] } }] });
+    const f: FieldView = {
+      ...fv, owner: "f", owner_kind: "element", field: "etapes/d0/texte", list: "etapes", item: "d0", column: "texte", kind: "rich", text: "Rouge",
+    };
+    expect(fieldValue(v, f, "Rouge\nB")).toEqual([colored, { runs: [{ t: "B" }] }]);
   });
 });
 
@@ -305,3 +341,21 @@ describe("pickSlide", () => {
   });
 });
 
+
+describe("amorce des listes (defaults)", () => {
+  test("newElementOps : un élément neuf de la bibliothèque demande l'amorce des listes", () => {
+    const ops = newElementOps(view({ blocks: [] }), { id: "w-1", kind: "frise" });
+    expect(ops).toEqual([{ op: "add_element", slot: { owner: { slide: "s" }, param: "elements" }, defaults: true,
+      element: { id: "w-1", kind: "frise", cell: expect.anything() } }]);
+  });
+
+  test("newElementOps : sur une slide à blocs, un bloc de plus, avec l'amorce", () => {
+    const ops = newElementOps(view({ blocks: [{ id: "b", kind: "text" }] }), { id: "w-1", kind: "frise" });
+    expect(ops).toEqual([{ op: "add_element", slot: { owner: { slide: "s" }, param: "blocks" }, defaults: true, element: { id: "w-1", kind: "frise" } }]);
+  });
+
+  test("pasteOps : une copie collée garde ses items, sans amorce", () => {
+    const { ops } = pasteOps(view({ blocks: [] }), { id: "f", kind: "frise", params: { etapes: [] } });
+    expect(ops[0]).not.toHaveProperty("defaults");
+  });
+});

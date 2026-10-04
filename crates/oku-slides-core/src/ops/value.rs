@@ -6,6 +6,7 @@ use snafu::ResultExt;
 
 use oku_slides_chart::parse_option;
 
+use super::list::{ListSpec, list_value};
 use crate::error::{ChartSnafu, ChoiceOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu};
 use crate::model::{Grid, Paragraph};
 use crate::params::ParamValue;
@@ -79,6 +80,7 @@ pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<P
             _ => Err(wrong("a chart option")),
         },
         ParamType::Slot { .. } => Err(wrong("elements, through add_element")),
+        ParamType::List { .. } => list_value(&ListSpec::of(param, ty).ok_or_else(|| wrong("a list of items"))?, value),
     }
 }
 

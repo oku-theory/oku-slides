@@ -11,6 +11,7 @@ import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { locale, t } from "../i18n";
 import { Icon } from "../icons";
+import { parseCell, parseCheck, parseTsv } from "../table/cells";
 import type { Cell, ChartDataOp } from "./chartTypes";
 import "./ChartDataGrid.css";
 
@@ -224,28 +225,6 @@ function display(c: Cell): string {
   if (typeof c === "number")
     return c.toLocaleString(locale(), { maximumFractionDigits: 10, useGrouping: false });
   return c;
-}
-
-/** "1 234,5" → 1234.5 ; vide → null ; sinon texte. */
-export function parseCell(raw: string): Cell {
-  const t = raw.trim();
-  if (t === "") return null;
-  const n = Number(t.replace(/[\s\u00a0\u202f]/g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : t;
-}
-
-/** Case collée : cochée sauf si vide ou fausse (« false », « faux », « 0 », « non »…). */
-export function parseCheck(raw: string): boolean {
-  const t = raw.trim().toLowerCase();
-  return t !== "" && !["false", "faux", "0", "non", "no"].includes(t);
-}
-
-export function parseTsv(text: string): string[][] {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .replace(/\n$/, "")
-    .split("\n")
-    .map((line) => line.split("\t"));
 }
 
 /** Colle un bloc à partir de (row, col), en agrandissant le tableau si besoin. */

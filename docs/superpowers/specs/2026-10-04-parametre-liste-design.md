@@ -64,9 +64,13 @@ Ces points priment sur les sections qui suivent.
   vide est indiscernable d'un `rich` vide une fois en JSON, et
   `canonicalize` retire les valeurs vides : une liste vide est donc
   **absente**, et une liste absente est **vide** (Typst rend `()`). Le
-  `default` du schéma n'amorce qu'un objet **créé** — `add_element`,
-  `add_slide`, `set_kind`, `replace_element`, sous-arbre compris — avec
-  des ids déterministes `d0`, `d1`… (`seed_lists`, cœur). L'aperçu de
+  `default` du schéma n'amorce qu'un objet **nouveau**, déclaré par
+  l'appelant — `add_element` et `add_slide` avec `defaults: true`
+  (création depuis la bibliothèque, ou par l'agent), `set_kind` qui
+  change de widget —, sous-arbre compris, avec des ids déterministes
+  `d0`, `d1`… (`seed_lists`, cœur). Un collage, un passage en grille ou
+  `replace_element` n'amorcent pas : ils feraient revenir le défaut
+  d'une liste vidée. L'aperçu de
   l'éditeur de widget montre le défaut (valeurs d'essai absentes).
   `set_param` à `null` vide la liste.
 - **A2. Conteneur du replica.** La lecture du replica se passe du

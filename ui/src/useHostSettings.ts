@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Snapshot, Surface, TabApi } from "./api";
+import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui } from "./agent/quick";
 
 /** Surface des réglages du modèle affiché. */
@@ -86,7 +87,7 @@ export function useHostSettings(
     void run(
       s.id === HOST_WIDGET && now.widget
         ? // Le cas d'exemple que montre la surface.
-          api.setExampleValue(now.widget, now.example, field, context.value)
+          exampleValue(api, now.widget, now.example, field, context)
         : api.hostParam(now.slide, field, context.value),
     ).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.
@@ -95,4 +96,23 @@ export function useHostSettings(
     return true;
   };
   return { surface: shown?.surface ?? null, onAction };
+}
+
+/**
+ * Un réglage du widget dans son cas d'exemple `example` : une valeur, ou le
+ * changement d'une liste (`change`, du tableau d'une liste) ; un collage
+ * remplace la liste entière.
+ */
+function exampleValue(
+  api: TabApi,
+  widget: string,
+  example: string | null,
+  param: string,
+  context: Record<string, unknown>,
+): Promise<Snapshot> {
+  const change = context.change as ListChange | null | undefined;
+  if (!change) return api.setExampleValue(widget, example, param, context.value);
+  return change.op === "replace"
+    ? api.setExampleValue(widget, example, param, change.items)
+    : api.editExampleList(widget, example, param, change);
 }

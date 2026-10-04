@@ -96,6 +96,7 @@ fn check_content(i: usize, c: &Component) -> Result<()> {
         | ComponentKind::Slider { .. }
         | ComponentKind::ColorField { .. }
         | ComponentKind::Select { .. }
+        | ComponentKind::ListTable { .. }
         | ComponentKind::ChoiceChips { .. }
         | ComponentKind::SlideThumb { .. }
         | ComponentKind::Prompt { .. }
@@ -114,6 +115,7 @@ fn check_available(i: usize, c: &Component, name: &str) -> Result<()> {
             | ComponentKind::Slider { .. }
             | ComponentKind::ColorField { .. }
             | ComponentKind::Select { .. }
+            | ComponentKind::ListTable { .. }
             | ComponentKind::ChoiceChips { .. }
     );
     ensure!(

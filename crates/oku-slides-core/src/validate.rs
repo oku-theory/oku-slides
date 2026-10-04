@@ -177,18 +177,43 @@ impl<'a> Validator<'a> {
                 Fit::WrongType => self.push(at, Message::new("issue-param-type").arg("param", name)),
                 Fit::OutOfChoice => self.push(at, Message::new("issue-choice-out-of-range").arg("param", name)),
             }
+            if let (ParamType::List { min, max, .. }, Some(items)) = (&p.ty, params.list(name)) {
+                let mut seen = HashSet::new();
+                for it in items {
+                    if it.id.is_empty() {
+                        self.push(at, Message::new("issue-empty-item-id").arg("param", name));
+                    } else if !seen.insert(it.id.as_str()) {
+                        self.push(at, Message::new("issue-duplicate-item-id").arg("param", name));
+                    }
+                }
+                if !items.is_empty() && (items.len() < *min || max.is_some_and(|m| items.len() > m)) {
+                    self.push(at, Message::new("issue-list-bounds").arg("param", name));
+                }
+            }
         }
     }
 
     /// Les assets des paramètres `asset` sont dans les sources.
     fn assets(&mut self, at: Place<'_>, schema: Option<&WidgetSchema>, params: &Params) {
         let (Some(schema), Some(assets)) = (schema, self.assets) else { return };
-        for p in schema.params.iter().filter(|p| p.ty == ParamType::Asset) {
-            if let Some(asset) = params.text(&p.name)
-                && !assets.contains(asset)
-            {
-                self.push(at, Message::new("issue-missing-asset").arg("asset", asset));
+        let missing = |p: &Params, name: &str| p.text(name).filter(|a| !assets.contains(*a)).map(str::to_owned);
+        let mut absent = Vec::new();
+        for p in &schema.params {
+            match &p.ty {
+                ParamType::Asset => absent.extend(missing(params, &p.name)),
+                ParamType::List { item, .. } => {
+                    let columns = item.iter().filter(|c| c.ty == ParamType::Asset);
+                    for c in columns {
+                        for it in params.list(&p.name).unwrap_or_default() {
+                            absent.extend(missing(&it.values, &c.name));
+                        }
+                    }
+                }
+                _ => {}
             }
+        }
+        for asset in absent {
+            self.push(at, Message::new("issue-missing-asset").arg("asset", asset));
         }
     }
 
@@ -246,6 +271,13 @@ pub(crate) fn fits(ty: &ParamType, value: &ParamValue) -> Fit {
         (ParamType::Number { min, max }, ParamValue::Value(v)) => {
             v.as_f64().is_some_and(|n| !min.is_some_and(|m| n < m) && !max.is_some_and(|m| n > m))
         }
+        (ParamType::List { item, .. }, ParamValue::List(items)) => items.iter().all(|it| {
+            it.values
+                .iter()
+                .all(|(k, v)| item.iter().find(|c| c.name == k).is_some_and(|c| matches!(fits(&c.ty, v), Fit::Ok)))
+        }),
+        (ParamType::List { .. }, ParamValue::Rich(p)) => p.is_empty(),
+        (ParamType::List { .. }, ParamValue::Slot(s)) => s.is_empty(),
         (ParamType::Grid, ParamValue::Value(v)) => v.is_object() && serde_json::from_value::<Grid>(v.clone()).is_ok(),
         (ParamType::Host { host: HostType::Chart }, ParamValue::Value(v)) => {
             serde_json::from_value::<oku_slides_chart::ChartOption>(v.clone())

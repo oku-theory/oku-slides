@@ -189,6 +189,15 @@ pub enum Request {
         param: String,
         value: serde_json::Value,
     },
+    /// Change la liste `param` du cas `example` (le premier pour `null`) ; sans
+    /// valeur gardée, elle part des items par défaut du schéma (mode modèles).
+    EditExampleList {
+        name: String,
+        #[serde(default)]
+        example: Option<String>,
+        param: String,
+        change: oku_slides_core::ListOp,
+    },
 }
 
 impl Request {
@@ -220,6 +229,7 @@ impl Request {
             | Self::RenameExample { .. }
             | Self::RemoveExample { .. }
             | Self::SetExampleValue { .. }
+            | Self::EditExampleList { .. }
             | Self::HostParam { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
@@ -269,6 +279,7 @@ impl Request {
                 | Self::RenameExample { .. }
                 | Self::RemoveExample { .. }
                 | Self::SetExampleValue { .. }
+                | Self::EditExampleList { .. }
         )
     }
 
@@ -294,6 +305,7 @@ impl Request {
                 | Self::RenameExample { .. }
                 | Self::RemoveExample { .. }
                 | Self::SetExampleValue { .. }
+                | Self::EditExampleList { .. }
         )
     }
 }

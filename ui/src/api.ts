@@ -327,8 +327,14 @@ export interface FieldView {
   owner_kind: "slide" | "element";
   /** Widget de l'objet. */
   widget: string;
-  /** Nom du paramètre. */
+  /** Nom du paramètre, ou `liste/id/colonne` pour un item de liste. */
   field: string;
+  /** Pour un item : le paramètre `list` qui le porte. */
+  list: string | null;
+  /** Pour un item : son id. */
+  item: string | null;
+  /** Paramètre, ou colonne de la liste pour un item. */
+  column: string;
   kind: "plain" | "rich";
   /** Libellé du paramètre dans le schéma du widget. */
   label: string | null;
@@ -350,6 +356,33 @@ export interface FieldView {
   style: TextStyle | null;
 }
 
+/** Un item de liste sur la page (boîte en pt), avec le rang et les bornes de sa liste. */
+export interface ItemView {
+  /** Id de la slide ou de l'élément qui porte la liste. */
+  owner: string;
+  owner_kind: "slide" | "element";
+  /** Nom du paramètre `list`. */
+  list: string;
+  /** Id de l'item. */
+  item: string;
+  index: number;
+  /** Nombre d'items de la liste. */
+  len: number;
+  min: number;
+  max: number | null;
+  /** Nom d'un item, au singulier (« étape »). */
+  item_label: string | null;
+  /** Première colonne texte : celle qu'un nouvel item reçoit à la saisie. */
+  first_text: string | null;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Une liste de la page, même vide (sans item, aucune boîte n'offre de poignée). */
+export type ListView = Omit<ItemView, "item" | "index" | "x" | "y" | "w" | "h">;
+
 export interface SlideView {
   slide: Slide;
   page: number;
@@ -359,6 +392,10 @@ export interface SlideView {
   targets: ObjectTarget[];
   /** Champs éditables, dans l'ordre de Tab. */
   fields: FieldView[];
+  /** Items des listes, dans l'ordre des boîtes du rendu. */
+  items: ItemView[];
+  /** Listes des objets de la page, une par paramètre `list`. */
+  lists: ListView[];
   /** Zone des éléments libres (pt, page) et sa grille résolue. */
   zone: ZoneView | null;
 }
@@ -440,6 +477,13 @@ export const stt = {
 
 export type Op = { op: string } & Record<string, unknown>;
 
+/** Changement d'une liste (`edit_list` du cœur) : insertion, retrait, déplacement, champ d'un item. */
+export type ListOp =
+  | { op: "insert"; index?: number; id: string; values?: Record<string, unknown> }
+  | { op: "remove"; item: string }
+  | { op: "move"; item: string; to: number }
+  | { op: "set_field"; item: string; field: string; value: unknown };
+
 type Request =
   | { cmd: "snapshot" }
   | { cmd: "save"; path: string | null; overwrite: boolean }
@@ -467,6 +511,7 @@ type Request =
   | { cmd: "rename_example"; name: string; from: string; to: string }
   | { cmd: "remove_example"; name: string; example: string }
   | { cmd: "set_example_value"; name: string; example: string | null; param: string; value: unknown }
+  | { cmd: "edit_example_list"; name: string; example: string | null; param: string; change: ListOp }
   | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -628,6 +673,9 @@ export function tabApi(tab: string) {
     removeExample: (name: string, example: string) => call<Snapshot>({ cmd: "remove_example", name, example }),
     setExampleValue: (name: string, example: string | null, param: string, value: unknown) =>
       call<Snapshot>({ cmd: "set_example_value", name, example, param, value }),
+    /** Change la liste `param` du cas `example` (`null` : le premier) ; sans valeur gardée, elle part des items par défaut du schéma. */
+    editExampleList: (name: string, example: string | null, param: string, change: ListOp) =>
+      call<Snapshot>({ cmd: "edit_example_list", name, example, param, change }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),

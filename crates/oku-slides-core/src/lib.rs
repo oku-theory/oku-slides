@@ -43,10 +43,15 @@ pub use error::{
 pub use fields::{FieldOwner, TextField};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
-pub use ops::{GRID_TRACKS, Op, SlideField, SlotRef, Target, apply_all, ops_schema, param_value};
+pub use ops::{
+    GRID_TRACKS, ListOp, ListSpec, Op, SlideField, SlotRef, Target, apply_all, default_items, ops_schema, param_value,
+};
 pub use pack::{COMMON_WIDGET_FILE, PackFiles, PackRef, PackVersion, WidgetFile};
-pub use params::{ParamValue, Params};
+pub use params::{ListItem, ParamValue, Params};
 pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};
-pub use widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
+pub use widget::{
+    Category, HostType, ParamSchema, ParamType, RESERVED_COLUMNS, SlotMode, WidgetRegistry, WidgetSchema,
+    is_column_type,
+};

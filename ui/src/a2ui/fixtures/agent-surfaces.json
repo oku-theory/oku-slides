@@ -1209,6 +1209,7 @@
                 "title",
                 "f0",
                 "f1",
+                "f2",
                 "note-0"
               ]
             },
@@ -1263,6 +1264,66 @@
               }
             },
             {
+              "id": "f2",
+              "component": "ListTable",
+              "label": "Étapes",
+              "rows": {
+                "path": "/f2"
+              },
+              "change": {
+                "path": "/f2-change"
+              },
+              "markdown": {
+                "path": "/f2-markdown"
+              },
+              "columns": [
+                {
+                  "key": "date",
+                  "label": "Date",
+                  "kind": "text",
+                  "options": []
+                },
+                {
+                  "key": "texte",
+                  "label": "Texte",
+                  "kind": "rich",
+                  "options": []
+                },
+                {
+                  "key": "ton",
+                  "label": "Ton",
+                  "kind": "select",
+                  "options": [
+                    {
+                      "id": "a",
+                      "label": "Deux colonnes"
+                    },
+                    {
+                      "id": "b",
+                      "label": "Citation",
+                      "hint": "sobre"
+                    }
+                  ]
+                }
+              ],
+              "min": 0,
+              "max": 8,
+              "item_label": "étape",
+              "palette": [],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "change": {
+                      "path": "/f2-change"
+                    },
+                    "field": 2,
+                    "key": "etapes"
+                  }
+                }
+              }
+            },
+            {
               "id": "note-0",
               "component": "Text",
               "text": "logo : non réglable dans l'aperçu",
@@ -1286,7 +1347,29 @@
                 ]
               }
             ],
-            "f1": "Un"
+            "f1": "Un",
+            "f2-change": null,
+            "f2-markdown": {
+              "d0": {
+                "texte": "Création"
+              }
+            },
+            "f2": [
+              {
+                "id": "d0",
+                "date": "2019",
+                "texte": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Création"
+                      }
+                    ]
+                  }
+                ],
+                "ton": "a"
+              }
+            ]
           }
         }
       }

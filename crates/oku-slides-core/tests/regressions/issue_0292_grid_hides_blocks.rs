@@ -58,7 +58,7 @@ fn set_param_grid_after_blocks_moved_to_elements_is_accepted() {
         let mut e = b;
         e.cell = Some(Cell { col: (i % 2) as u32, row: (i / 2) as u32, cols: 1, rows: 1 });
         let slot = SlotRef { owner: priorites(), param: "elements".into() };
-        ops.push(Op::AddElement { slot, index: None, element: e });
+        ops.push(Op::AddElement { slot, index: None, defaults: false, element: e });
     }
     assert_that!(apply_all(&mut deck, ops, &registry())).is_ok();
 }

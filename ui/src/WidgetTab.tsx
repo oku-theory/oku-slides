@@ -177,7 +177,13 @@ export default function WidgetTab({
   /** Écrit le brouillon d'un champ dans le cas courant : texte, ou paragraphes d'un `rich`. */
   const onField = (f: FieldView, text: string) => {
     if (!sceneView) return;
-    void write(api.setExampleValue(name, shownCase, f.field, fieldValue(sceneView, f, text)));
+    const value = fieldValue(sceneView, f, text);
+    // Un champ d'item de liste : sa colonne, dans la liste du cas.
+    void write(
+      f.list && f.item
+        ? api.editExampleList(name, shownCase, f.list, { op: "set_field", item: f.item, field: f.column, value })
+        : api.setExampleValue(name, shownCase, f.field, value),
+    );
   };
 
   /** Axe affiché : la feuille de style replie « à droite » dessous faute de largeur. */

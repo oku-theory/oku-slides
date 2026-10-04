@@ -6,7 +6,8 @@
 //
 // args : valeurs des paramètres, prêtes à rendre. Slot flow : entrées
 // (kind, id, body) ; slot free : entrées (kind, id, frame, cell, show),
-// `show(frame)` rendant l'enfant.
+// `show(frame)` rendant l'enfant. Liste : items (id, colonnes prêtes à
+// rendre), chacun rendu dans `list-item` pour que ses champs s'adressent à lui.
 // ctx : id (élément ou slide), tokens, vars, style (style de l'élément),
 // framed (l'élément a un cadre), load (chargeur d'image ou de graphique de
 // l'hôte, ou none) : `(ctx.load)(asset: …, fit: …)` pour une image,
@@ -14,7 +15,7 @@
 
 #import "core.typ": _measured, text-probe
 
-#let _types = ("plain", "rich", "flag", "number", "choice", "asset", "slot", "grid", "host")
+#let _types = ("plain", "rich", "flag", "number", "choice", "asset", "slot", "grid", "host", "list")
 
 /// Déclare un widget. category : "element" ou "slide".
 #let widget(name, label: none, category: "element", params: (:), render) = {
@@ -51,13 +52,22 @@
 /// lui donner de place. `empty` : le contenu est rendu mais vide (corps
 /// riche sans paragraphe) ; `auto` le déduit de `body`.
 #let field(ctx, name, body, style: (:), empty: auto) = if ctx.id == none { body } else {
-  let meta = (owner: str(ctx.id), field: name)
+  let meta = (owner: str(ctx.id), field: ctx.at("field-prefix", default: "") + name)
   if body == none or body == "" {
     metadata(meta + (oku-empty-field: true, style: style))
   } else {
     let empty = if empty == auto { _is-empty(body) } else { empty }
     _measured(meta + (empty: empty), "oku-slides-field", body, style)
   }
+}
+
+/// Item `it` de la liste `name` : boîte <oku-slides-item> (poignées de la
+/// slide) ; `body(c)` reçoit un ctx dont les champs s'adressent à l'item
+/// (`<liste>/<id>/<colonne>`).
+#let list-item(ctx, name, it, body) = if ctx.id == none { body(ctx) } else {
+  let id = str(it.id)
+  let c = ctx + (field-prefix: ctx.at("field-prefix", default: "") + name + "/" + id + "/")
+  _measured((owner: str(ctx.id), list: name, item: id), "oku-slides-item", body(c), (:))
 }
 
 // Boîte d'un champ vide, posée hors flux à la position verticale courante

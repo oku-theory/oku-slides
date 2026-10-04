@@ -13,7 +13,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
   ops et `validate` s'y réfèrent pour ce qu'un `kind` accepte.
 - `Op` + `apply_all` (`ops/mod.rs`) : opérations d'édition, appliquées atomiquement sur un
   `Deck` cloné avec le `WidgetRegistry` du deck (erreur → rien n'a bougé) ; tout sous-arbre
-  inséré est typé contre le registre (`ops/check.rs`). `ops/grid.rs` : `set_grid`, sur la
+  inséré est typé contre le registre (`ops/check.rs`). `ops/list.rs` : `ListOp` (`edit_list`, items par id ; `ParamType::List`, conteneur `{list}`). `ops/grid.rs` : `set_grid`, sur la
   grille résolue (`Slide::resolved_grid`).
 - `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, historique complet et identité
   (`deck_uid`). `apply(&Deck, label)` diffuse un `Deck` modifié en une étape d'annulation

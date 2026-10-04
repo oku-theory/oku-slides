@@ -44,7 +44,8 @@ fn slot(slide: &str, param: &str) -> SlotRef {
 
 #[test]
 fn canonicalize_charts_moves_inline_data_to_a_localized_dataset() {
-    let mut ops = vec![Op::AddElement { slot: slot("s", "blocks"), index: None, element: inline_chart("g") }];
+    let mut ops =
+        vec![Op::AddElement { slot: slot("s", "blocks"), index: None, defaults: false, element: inline_chart("g") }];
     canonicalize_charts(&mut ops, &french(), &registry());
     let Op::AddElement { element, .. } = &ops[0] else { panic!("add_element attendu") };
     assert_that!(header(element)).is_equal_to(vec![Cell::Text("Catégorie".into()), Cell::Text("Série 1".into())]);
@@ -58,7 +59,10 @@ fn canonicalize_charts_reaches_slot_children_and_new_slides() {
     .unwrap();
     let mut slide = Slide::new("s2", "content");
     slide.params.set("blocks", ParamValue::Slot(vec![inline_chart("g2")]));
-    let mut ops = vec![Op::ReplaceElement { slide: "s".into(), element: stack }, Op::AddSlide { index: None, slide }];
+    let mut ops = vec![
+        Op::ReplaceElement { slide: "s".into(), element: stack },
+        Op::AddSlide { index: None, defaults: false, slide },
+    ];
     canonicalize_charts(&mut ops, ChartLabels::english(), &registry());
     let Op::ReplaceElement { element, .. } = &ops[0] else { panic!("replace_element attendu") };
     let child = &element.params.slot("children").unwrap()[0];
@@ -71,8 +75,18 @@ fn canonicalize_charts_reaches_slot_children_and_new_slides() {
 fn canonicalize_charts_leaves_params_that_are_not_charts_alone() {
     // `option` n'est un graphique que pour un widget qui le déclare `host(chart)`.
     let mut ops = vec![
-        Op::AddElement { slot: slot("s", "blocks"), index: None, element: element("t", "text", "option") },
-        Op::AddElement { slot: slot("s", "blocks"), index: None, element: element("u", "inconnu", "option") },
+        Op::AddElement {
+            slot: slot("s", "blocks"),
+            index: None,
+            defaults: false,
+            element: element("t", "text", "option"),
+        },
+        Op::AddElement {
+            slot: slot("s", "blocks"),
+            index: None,
+            defaults: false,
+            element: element("u", "inconnu", "option"),
+        },
     ];
     let before = ops.clone();
     canonicalize_charts(&mut ops, &french(), &registry());

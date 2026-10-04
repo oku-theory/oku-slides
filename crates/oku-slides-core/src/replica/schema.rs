@@ -7,8 +7,8 @@
 
 use serde_json::Value;
 
-use crate::params::{is_elements, is_paragraphs};
-use crate::widget::{ParamType, WidgetSchema};
+use crate::params::{is_elements, is_items, is_paragraphs};
+use crate::widget::{ParamSchema, ParamType};
 
 /// Où l'on se trouve dans le deck.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,9 @@ pub(super) enum Kind {
     Rich,
     /// `LoroMovableList` de `LoroMap` à `id`.
     Collection(Ctx),
+    /// `LoroMap { list: LoroMovableList de LoroMap à id }` : items d'un
+    /// paramètre `list`, lisibles sans registre.
+    List,
     /// Une valeur JSON entière, LWW.
     Atom,
     /// Objet → `LoroMap` ; autre valeur → LWW.
@@ -46,6 +49,9 @@ pub(super) enum Kind {
 
 /// Clé de la carte d'un paramètre `rich`, qui porte son `LoroText`.
 pub(super) const RICH: &str = "rich";
+
+/// Clé de la carte d'un paramètre `list`, qui porte sa `LoroMovableList`.
+pub(super) const LIST: &str = "list";
 
 impl Ctx {
     /// Catégorie d'un champ fixe. `Ctx::Params` ne passe pas par ici : voir
@@ -94,6 +100,7 @@ fn declared_kind(ty: &ParamType) -> Kind {
         ParamType::Plain => Kind::Prose,
         ParamType::Rich => Kind::Rich,
         ParamType::Slot { .. } => Kind::Collection(Ctx::Element),
+        ParamType::List { .. } => Kind::List,
         _ => Kind::Atom,
     }
 }
@@ -103,6 +110,7 @@ fn shape_kind(value: &Value) -> Kind {
     match value {
         Value::String(_) => Kind::Prose,
         Value::Array(a) if is_elements(a) => Kind::Collection(Ctx::Element),
+        Value::Array(a) if is_items(a) => Kind::List,
         Value::Array(a) if is_paragraphs(a) => Kind::Rich,
         _ => Kind::Atom,
     }
@@ -114,29 +122,49 @@ fn fits(kind: Kind, value: &Value) -> bool {
         (Kind::Prose, Value::String(_)) | (Kind::Atom, _) => true,
         (Kind::Rich, Value::Array(a)) => is_paragraphs(a),
         (Kind::Collection(_), Value::Array(a)) => a.is_empty() || is_elements(a),
+        (Kind::List, Value::Array(a)) => a.is_empty() || is_items(a),
         _ => false,
     }
 }
 
-/// Catégorie du paramètre `name` de valeur `value` : le type déclaré par
-/// `schema` s'il y en a un et que la valeur y tient, sinon la forme de la
-/// valeur (paramètre inconnu, widget inconnu, valeur d'un autre type : rien
-/// ne se perd, `validate` le signale).
-pub(super) fn param_kind(schema: Option<&WidgetSchema>, name: &str, value: &Value) -> Kind {
-    schema
-        .and_then(|w| w.param(name))
+/// Catégorie du paramètre `name` de valeur `value` d'un widget aux
+/// paramètres `params` : le type déclaré s'il y en a un et que la valeur y
+/// tient, sinon la forme de la valeur (paramètre inconnu, widget inconnu,
+/// valeur d'un autre type : rien ne se perd, `validate` le signale).
+pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
+    params
+        .and_then(|ps| ps.iter().find(|p| p.name == name))
         .map(|p| declared_kind(&p.ty))
         .filter(|k| fits(*k, value))
         .unwrap_or_else(|| shape_kind(value))
 }
 
-/// Paramètres de `schema` à conteneur (`plain`, `rich`, `slot`), créés
+/// Catégorie de la colonne `name` d'un item aux colonnes `columns`, comme
+/// un paramètre ; mais une colonne n'est jamais une collection (liste imbriquée : t-495), et l'`id`
+/// d'un item est une valeur, clé de sa réconciliation.
+pub(super) fn column_kind(columns: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
+    match param_kind(columns, name, value) {
+        _ if name == "id" => Kind::Atom,
+        Kind::Collection(_) | Kind::List => Kind::Atom,
+        kind => kind,
+    }
+}
+
+/// Colonnes d'un paramètre `list` déclaré parmi `params`.
+pub(super) fn columns<'a>(params: Option<&'a [ParamSchema]>, name: &str) -> Option<&'a [ParamSchema]> {
+    match &params?.iter().find(|p| p.name == name)?.ty {
+        ParamType::List { item, .. } => Some(item.as_slice()),
+        _ => None,
+    }
+}
+
+/// Champs à conteneur de `params` (`plain`, `rich`, `slot`, `list`), créés
 /// d'avance : deux premières éditions concurrentes visent alors le même
 /// conteneur et fusionnent (parade t-188).
-pub(super) fn declared(schema: Option<&WidgetSchema>) -> impl Iterator<Item = (&str, Kind)> {
-    schema
+pub(super) fn declared(params: Option<&[ParamSchema]>) -> impl Iterator<Item = (&str, Kind)> {
+    params
         .into_iter()
-        .flat_map(|w| w.params.iter())
+        .flatten()
         .map(|p| (p.name.as_str(), declared_kind(&p.ty)))
         .filter(|(_, k)| !matches!(k, Kind::Atom))
 }

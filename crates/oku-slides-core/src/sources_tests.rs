@@ -303,7 +303,7 @@ fn roadmap_with_card() -> Deck {
         crate::SlotRef { owner: crate::Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
     crate::apply_all(
         &mut deck,
-        vec![crate::Op::AddElement { slot, index: None, element: card }],
+        vec![crate::Op::AddElement { slot, index: None, defaults: false, element: card }],
         &crate::test_registry::registry(),
     )
     .unwrap();
@@ -357,7 +357,7 @@ fn restore_of_a_version_with_a_missing_asset_returns_it() {
     image.params.set("asset", crate::ParamValue::Text("sha256:00".into()));
     let slot =
         crate::SlotRef { owner: crate::Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
-    let with_image = with_op(&deck, crate::Op::AddElement { slot, index: None, element: image });
+    let with_image = with_op(&deck, crate::Op::AddElement { slot, index: None, defaults: false, element: image });
     let mut b = SourceBundle::new(deck, crate::test_registry::shared()).unwrap();
     b.apply(with_image, "image", None).unwrap();
     let preview = b.history();

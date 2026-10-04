@@ -1,8 +1,8 @@
-use oku_slides_a2ui::ChoiceOption;
+use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
 use oku_slides_i18n::Localizer;
 use speculoos::prelude::*;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
@@ -91,6 +91,52 @@ fn params_with_not_closable_has_no_close_button() {
     let extras = FormExtras { keys: &[], notes: &[], closable: false };
     let json = serde_json::to_string(&params_with("host-widget", &host_spec(), &extras, &[], &fr()).messages).unwrap();
     assert_that!(json.contains("dismiss")).is_false();
+}
+
+fn list_spec() -> ShowParams {
+    serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [{
+        "label": "Étapes", "kind": "list", "value": [{ "id": "d0", "date": "2019" }], "op_template": null,
+        "columns": [{ "key": "date", "label": "Date", "kind": "text" }], "item_label": "étape", "min": 1.0, "max": 8.0
+    }] }))
+    .unwrap()
+}
+
+#[test]
+fn params_with_a_list_field_shows_a_list_table_whose_action_carries_the_change() {
+    let extras = FormExtras { keys: &["etapes".into()], notes: &[], closable: false };
+    let s = params_with("host-widget", &list_spec(), &extras, &[], &fr());
+    let messages = serde_json::to_value(&s.messages).unwrap();
+    let components = messages[1]["updateComponents"]["components"].as_array().cloned().unwrap_or_default();
+    let table = components.into_iter().find(|c| c["id"] == "f0").unwrap();
+    assert_that!(table["component"].clone()).is_equal_to(json!("ListTable"));
+    assert_that!(table["rows"].clone()).is_equal_to(json!({ "path": "/f0" }));
+    assert_that!(table["change"].clone()).is_equal_to(json!({ "path": "/f0-change" }));
+    assert_that!((table["min"].clone(), table["max"].clone(), table["item_label"].clone())).is_equal_to((
+        json!(1),
+        json!(8),
+        json!("étape"),
+    ));
+    assert_that!(table["columns"][0]["kind"].clone()).is_equal_to(json!("text"));
+    assert_that!(table["action"]["event"]["context"].clone()).is_equal_to(json!({
+        "field": 0, "change": { "path": "/f0-change" }, "key": "etapes"
+    }));
+    let data = &messages[2]["updateDataModel"]["value"];
+    assert_that!((data["f0"].clone(), data["f0-change"].clone()))
+        .is_equal_to((json!([{ "id": "d0", "date": "2019" }]), Value::Null));
+}
+
+#[test]
+fn params_with_a_list_field_gives_the_markdown_of_its_rich_cells() {
+    let spec: ShowParams = serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [{
+        "label": "Étapes", "kind": "list", "op_template": null,
+        "value": [{ "id": "d0", "date": "2019", "texte": [{ "runs": [{ "t": "Un", "bold": true }] }] }],
+        "columns": [{ "key": "date", "label": "Date", "kind": "text" }, { "key": "texte", "label": "Texte", "kind": "rich" }]
+    }] }))
+    .unwrap();
+    let s = params("show-1", &spec, &[], &fr());
+    let messages = serde_json::to_value(&s.messages).unwrap();
+    assert_that!(messages[2]["updateDataModel"]["value"]["f0-markdown"].clone())
+        .is_equal_to(json!({ "d0": { "texte": "**Un**" } }));
 }
 
 #[test]
@@ -258,6 +304,8 @@ fn every_form() -> Vec<super::Surface> {
         max: None,
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     };
     let show = ShowParams {
         title: "Réglages".into(),
@@ -349,9 +397,25 @@ fn every_form() -> Vec<super::Surface> {
                 op_template: serde_json::Value::Null,
                 ..field("Corps", FieldKind::Rich, json!([{ "runs": [{ "t": "Un" }] }]))
             },
+            ParamField {
+                op_template: serde_json::Value::Null,
+                min: Some(0.0),
+                max: Some(8.0),
+                item_label: Some("étape".into()),
+                columns: vec![
+                    ListColumn { key: "date".into(), label: "Date".into(), kind: ColumnKind::Text, options: vec![] },
+                    ListColumn { key: "texte".into(), label: "Texte".into(), kind: ColumnKind::Rich, options: vec![] },
+                    ListColumn { key: "ton".into(), label: "Ton".into(), kind: ColumnKind::Select, options: options() },
+                ],
+                ..field(
+                    "Étapes",
+                    FieldKind::List,
+                    json!([{ "id": "d0", "date": "2019", "texte": [{ "runs": [{ "t": "Création" }] }], "ton": "a" }]),
+                )
+            },
         ],
     };
-    let host_keys = ["source".to_owned(), "body".to_owned()];
+    let host_keys = ["source".to_owned(), "body".to_owned(), "etapes".to_owned()];
     let host_notes = ["logo : non réglable dans l'aperçu".to_owned()];
     let host_extras = FormExtras { keys: &host_keys, notes: &host_notes, closable: false };
     vec![

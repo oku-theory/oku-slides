@@ -38,7 +38,7 @@ fn set_param(slide: &str, element: &str, param: &str, value: serde_json::Value) 
 fn roadmap_with_block(e: Element) -> Deck {
     let deck = roadmap();
     let slot = SlotRef { owner: Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
-    with_ops(&deck, vec![Op::AddElement { slot, index: None, element: e }])
+    with_ops(&deck, vec![Op::AddElement { slot, index: None, defaults: false, element: e }])
 }
 
 /// L'élément `id` des blocs de `s-constat`.
@@ -620,7 +620,12 @@ fn concurrent_add_element_into_one_slot_keeps_both() {
     let (mut a, mut b) = peers(&deck);
     let add = |id: &str| {
         let slot = SlotRef { owner: Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
-        Op::AddElement { slot, index: None, element: Element::text(id, vec![crate::Paragraph::plain(id)]) }
+        Op::AddElement {
+            slot,
+            index: None,
+            defaults: false,
+            element: Element::text(id, vec![crate::Paragraph::plain(id)]),
+        }
     };
     a.apply(&with_ops(&deck, vec![add("de-a")]), "A", None).unwrap();
     b.apply(&with_ops(&deck, vec![add("de-b")]), "B", None).unwrap();
@@ -635,7 +640,7 @@ fn concurrent_add_element_and_set_kind_of_owner_keeps_the_child() {
     let deck = roadmap_with_block(Element::new("pile", "stack"));
     let (mut a, mut b) = peers(&deck);
     let slot = SlotRef { owner: target("s-constat", "pile"), param: "children".into() };
-    let add = Op::AddElement { slot, index: None, element: Element::text("enfant", vec![]) };
+    let add = Op::AddElement { slot, index: None, defaults: false, element: Element::text("enfant", vec![]) };
     a.apply(&with_ops(&deck, vec![add]), "A", None).unwrap();
     let to_canvas = Op::SetKind { target: target("s-constat", "pile"), kind: "canvas".into() };
     b.apply(&with_ops(&deck, vec![to_canvas]), "B", None).unwrap();
@@ -696,7 +701,12 @@ fn round_trip_elements_nested_to_the_slot_bound_is_identical() {
         let slot = SlotRef { owner: target("s-constat", &format!("pile-{}", i - 1)), param: "children".into() };
         deck = with_ops(
             &deck,
-            vec![Op::AddElement { slot, index: None, element: Element::new(format!("pile-{i}"), "stack") }],
+            vec![Op::AddElement {
+                slot,
+                index: None,
+                defaults: false,
+                element: Element::new(format!("pile-{i}"), "stack"),
+            }],
         );
     }
     let r = DeckReplica::new(&deck, registry()).unwrap();

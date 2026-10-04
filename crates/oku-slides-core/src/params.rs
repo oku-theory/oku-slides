@@ -11,6 +11,15 @@ use serde_json::Value;
 
 use crate::model::{Element, Paragraph};
 
+/// Un item de liste (`list`) : son id, unique dans la liste, et ses
+/// valeurs par colonne.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ListItem {
+    pub id: String,
+    #[serde(flatten)]
+    pub values: Params,
+}
+
 /// Une valeur de paramètre.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -22,6 +31,9 @@ pub enum ParamValue {
     Rich(Vec<Paragraph>),
     /// Éléments enfants (`slot`) : tableau non vide d'objets à `id` et `kind`.
     Slot(Vec<Element>),
+    /// Items d'une liste (`list`) : tableau non vide d'objets à `id` chaîne,
+    /// sans `kind`.
+    List(Vec<ListItem>),
     /// Toute autre valeur : booléen, nombre, grille, options de graphique…
     /// et tout tableau qui n'est ni l'un ni l'autre, gardé tel quel.
     Value(Value),
@@ -34,6 +46,9 @@ impl<'de> Deserialize<'de> for ParamValue {
             Value::String(s) => ParamValue::Text(s),
             Value::Array(a) if is_elements(&a) => {
                 ParamValue::Slot(serde_json::from_value(Value::Array(a)).map_err(serde::de::Error::custom)?)
+            }
+            Value::Array(a) if is_items(&a) => {
+                ParamValue::List(serde_json::from_value(Value::Array(a)).map_err(serde::de::Error::custom)?)
             }
             Value::Array(a) if is_paragraphs(&a) => {
                 ParamValue::Rich(serde_json::from_value(Value::Array(a)).map_err(serde::de::Error::custom)?)
@@ -53,6 +68,13 @@ pub(crate) fn is_elements(a: &[Value]) -> bool {
     let is_element =
         |x: &Value| x.get("id").is_some_and(Value::is_string) && x.get("kind").is_some_and(Value::is_string);
     !a.is_empty() && a.iter().all(is_element)
+}
+
+/// Items de liste : non vide, chacun avec `id` en chaîne et sans `kind`
+/// (un élément en a un).
+pub(crate) fn is_items(a: &[Value]) -> bool {
+    let is_item = |x: &Value| x.get("id").is_some_and(Value::is_string) && x.get("kind").is_none();
+    !a.is_empty() && a.iter().all(is_item)
 }
 
 /// Paragraphes : chaque objet n'a que des clés de [`Paragraph`], et ses
@@ -129,6 +151,37 @@ impl Params {
             // gardée pour ne pas paniquer (pas d'`unreachable!` hors tests).
             _ => None,
         }
+    }
+
+    /// Items d'une liste ; un texte riche ou un slot vide se lit comme une liste vide.
+    pub fn list(&self, name: &str) -> Option<&[ListItem]> {
+        match self.get(name)? {
+            ParamValue::List(l) => Some(l),
+            ParamValue::Rich(p) if p.is_empty() => Some(&[]),
+            ParamValue::Slot(s) if s.is_empty() => Some(&[]),
+            _ => None,
+        }
+    }
+
+    /// La liste `name`, créée vide si elle est absente ou porte une autre
+    /// valeur. Toujours `Some` (voir [`Params::slot_mut`]).
+    pub fn list_mut(&mut self, name: &str) -> Option<&mut Vec<ListItem>> {
+        let value = self.0.entry(name.to_owned()).or_insert_with(|| ParamValue::List(Vec::new()));
+        if !matches!(value, ParamValue::List(_)) {
+            *value = ParamValue::List(Vec::new());
+        }
+        match value {
+            ParamValue::List(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// Toutes les listes, avec leur nom.
+    pub fn lists(&self) -> impl Iterator<Item = (&str, &[ListItem])> {
+        self.0.iter().filter_map(|(k, v)| match v {
+            ParamValue::List(l) => Some((k.as_str(), l.as_slice())),
+            _ => None,
+        })
     }
 
     pub fn value(&self, name: &str) -> Option<&Value> {

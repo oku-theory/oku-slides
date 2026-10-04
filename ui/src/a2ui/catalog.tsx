@@ -2,7 +2,7 @@
 // @a2ui/react ; les messages sont validés contre ces schémas zod par
 // @a2ui/web_core.
 //
-// Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`,
+// Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`, `ListTable`,
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
 // `Receipt`, `Disclosure`, `Badge`, `Markdown` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
@@ -14,6 +14,7 @@ import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
 import { QuickHintsContext } from "./quickHints";
+import { ListTable, type ListRow } from "./ListTable";
 import { RichTextField } from "./RichTextField";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
@@ -107,6 +108,31 @@ const SelectApi = {
       label: CommonSchemas.DynamicString,
       value: CommonSchemas.DynamicString,
       options: z.array(Option),
+      action: CommonSchemas.Action.optional(),
+    })
+    .strict(),
+};
+const ListColumnSchema = z
+  .object({
+    key: z.string(),
+    label: z.string(),
+    kind: z.enum(["text", "rich", "number", "flag", "select", "asset"]),
+    options: z.array(Option),
+  })
+  .strict();
+const ListTableApi = {
+  name: "ListTable",
+  schema: z
+    .object({
+      label: CommonSchemas.DynamicString,
+      rows: CommonSchemas.DynamicValue,
+      change: CommonSchemas.DynamicValue,
+      markdown: CommonSchemas.DynamicValue,
+      columns: z.array(ListColumnSchema),
+      min: z.number().int(),
+      max: z.number().int().nullable().optional(),
+      item_label: z.string().nullable().optional(),
+      palette: z.array(Hex).readonly(),
       action: CommonSchemas.Action.optional(),
     })
     .strict(),
@@ -382,6 +408,33 @@ const Select = createComponentImplementation(SelectApi, ({ props }) => {
   );
 });
 
+/** Les items d'une liste : objets à `id` chaîne ; le reste est ignoré. */
+const listRows = (v: unknown): ListRow[] =>
+  Array.isArray(v) ? v.filter((r): r is ListRow => typeof r === "object" && r !== null && typeof r.id === "string") : [];
+
+/** Markdown des cellules riches, par id puis colonne (un objet, malgré le type de `DynamicValue`). */
+const listMarkdown = (v: unknown): Record<string, Record<string, string>> =>
+  typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, Record<string, string>>) : {};
+
+/** Le tableau d'une liste : le changement est écrit, puis l'action part. */
+const ListTableField = createComponentImplementation(ListTableApi, ({ props }) => (
+  <ListTable
+    label={props.label}
+    rows={listRows(props.rows)}
+    columns={props.columns}
+    min={props.min}
+    max={props.max ?? null}
+    itemLabel={props.item_label ?? null}
+    palette={[...props.palette]}
+    markdown={listMarkdown(props.markdown)}
+    onChange={(c) => {
+      // `DynamicValue` est typé sans objet ; le modèle de données en garde un tel quel.
+      (props.setChange as (v: unknown) => void)(c);
+      props.action?.();
+    }}
+  />
+));
+
 /** Miniature d'une slide rendue par la session ; image (le SVG n'est pas exécuté). */
 const SlideThumb = createComponentImplementation(SlideThumbApi, ({ props }) => {
   const src = useMemo(() => `data:image/svg+xml;utf8,${encodeURIComponent(props.svg)}`, [props.svg]);
@@ -404,6 +457,6 @@ const DiffText = createComponentImplementation(DiffTextApi, ({ props }) => (
 
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
-  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, SlideThumb, DiffText,
+  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, DiffText,
   Prompt, Timeline, Receipt, Disclosure, Badge, Markdown,
 ]);

@@ -98,26 +98,42 @@ export function fieldChanged(f: Pick<FieldView, "kind" | "text">, text: string):
   return text !== (f.kind === "plain" ? f.text.replaceAll("\n", " ") : f.text);
 }
 
+/** Paragraphes de la colonne `f.column` de l'item `f.item` dans la liste `f.list` de `owner`, ou `undefined`. */
+function itemRich(owner: { params?: Params } | undefined, f: FieldView): Paragraph[] | undefined {
+  const items = owner?.params?.[f.list ?? ""];
+  if (!Array.isArray(items)) return undefined;
+  const it = items.find((x): x is Record<string, unknown> => x !== null && typeof x === "object" && (x as { id?: unknown }).id === f.item);
+  const v = it?.[f.column];
+  return Array.isArray(v) ? (v as Paragraph[]) : undefined;
+}
+
 /**
  * Ops pour écrire le brouillon d'un champ : `set_param`, en paragraphes pour
  * un champ `rich` (les lignes inchangées gardent leurs runs, lus dans les
- * paramètres de la slide ou de l'élément).
+ * paramètres de la slide ou de l'élément) ; `edit_list` `set_field` pour un
+ * champ d'item de liste.
  */
 export function fieldOps(view: SlideView, f: FieldView, value: string): Op[] {
   const slide = view.slide;
   const target = f.owner_kind === "slide" ? { slide: slide.id } : { slide: slide.id, element: f.owner };
-  return [{ op: "set_param", target, param: f.field, value: fieldValue(view, f, value) }];
+  const v = fieldValue(view, f, value);
+  if (f.list && f.item) {
+    return [{ op: "edit_list", target, param: f.list, change: { op: "set_field", item: f.item, field: f.column, value: v } }];
+  }
+  return [{ op: "set_param", target, param: f.field, value: v }];
 }
 
 /**
  * Valeur du paramètre d'un champ pour son brouillon : le texte d'un champ
  * `plain`, les paragraphes d'un `rich` (les lignes inchangées gardent leurs
- * runs, lus dans les paramètres de la slide ou de l'élément).
+ * runs, lus dans les paramètres de la slide ou de l'élément ; pour un item de
+ * liste, dans sa colonne).
  */
 export function fieldValue(view: SlideView, f: FieldView, text: string): string | Paragraph[] {
   if (f.kind === "plain") return text;
   const owner = f.owner_kind === "slide" ? view.slide : findElement(view.slide, f.owner);
-  return textToParagraphs(text, { paragraphs: (owner && rich(owner, f.field)) ?? [], text: f.text });
+  const previous = f.list && f.item ? itemRich(owner, f) : owner && rich(owner, f.field);
+  return textToParagraphs(text, { paragraphs: previous ?? [], text: f.text });
 }
 
 // --- Sur la grille -----------------------------------------------------------
@@ -198,6 +214,21 @@ export function freeCell(slide: Slide, grid: GridSpec, span: { cols?: number; ro
   const below = placed.reduce((m, c) => Math.max(m, c.row + (c.rows ?? 1)), 0);
   const row = below < grid.rows ? below : 0;
   return { col: 0, row, cols: span.cols ?? Math.max(1, Math.round(grid.columns / 2)), rows: span.rows ?? 1 };
+}
+
+/**
+ * Ops qui posent un élément neuf de la bibliothèque sur la slide de `view` :
+ * sur la grille, la moitié gauche de la première ligne libre sous les autres ;
+ * une slide à blocs (ou sans grille) reçoit un bloc de plus. `defaults` : le
+ * cœur amorce ses listes avec le défaut du schéma (pas un collage).
+ */
+export function newElementOps(view: SlideView, element: Element): Op[] {
+  const slide = view.slide;
+  const g = view.zone?.grid;
+  if (g && slot(slide, "blocks").length === 0) {
+    return [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "elements" }, defaults: true, element: { ...element, cell: freeCell(slide, g) } }];
+  }
+  return [{ op: "add_element", slot: { owner: { slide: slide.id }, param: "blocks" }, defaults: true, element }];
 }
 
 /** Décalage d'un élément collé sur son original, hors grille (pt). */

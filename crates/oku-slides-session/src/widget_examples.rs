@@ -18,12 +18,13 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
-use oku_slides_core::{ParamType, WidgetFile};
+use oku_slides_core::{ListItem, ListOp, ListSpec, ParamType, WidgetFile, default_items};
 
 use crate::agent::context::clipped;
 use crate::error::{
     ExampleExistsSnafu, InvalidExampleNameSnafu, LastExampleSnafu, NotEditingTemplatesSnafu, PackJsonSnafu,
-    TooManyExamplesSnafu, TrialUndeclaredSnafu, UnknownExampleSnafu, UnknownWidgetSnafu, WidgetInvalidSnafu,
+    TooManyExamplesSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu, UnknownExampleSnafu,
+    UnknownWidgetSnafu, WidgetInvalidSnafu,
 };
 use crate::pack::{Example, PackManifest};
 use crate::widget_params::{checked_value, same_as};
@@ -190,6 +191,42 @@ impl Session {
                         None => x.values.remove(&param),
                     };
                 }
+                written = x.values.clone();
+            }
+            Ok(())
+        })?;
+        Ok(written)
+    }
+
+    /// Change la liste `param` du cas `example` de `widget` (le premier pour `None`) ;
+    /// sans valeur gardée, la liste part des items par défaut du schéma. Rend les
+    /// valeurs du cas après l'écriture.
+    pub fn edit_example_list(
+        &mut self,
+        widget: &str,
+        example: Option<&str>,
+        param: &str,
+        change: ListOp,
+    ) -> Result<Map<String, Value>> {
+        let file = parse_name(widget)?;
+        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
+        let schema = self.valid_schema(&file)?.context(WidgetInvalidSnafu { name: file.as_str() })?;
+        let p = schema.param(param).context(TrialUndeclaredSnafu { param: clipped(param, 80) })?;
+        let spec = ListSpec::of(&p.name, &p.ty).context(TrialUndeclaredSnafu { param: clipped(param, 80) })?;
+        let defaults = default_items(p).context(TrialValueSnafu { param })?;
+        let mut written = Map::new();
+        self.write_examples(widget, |list| {
+            let i = position(list, example)?;
+            if let Some(x) = list.get_mut(i) {
+                x.values.retain(|k, v| trial_fits(&schema, k, v));
+                let mut items: Vec<ListItem> = match x.values.get(param) {
+                    Some(v) => serde_json::from_value(v.clone()).unwrap_or_default(),
+                    None => defaults,
+                };
+                change.apply(&mut items, &spec).context(TrialValueSnafu { param })?;
+                let stored = serde_json::to_value(&items).context(TrialEncodeSnafu { param })?;
+                x.values.insert(param.to_owned(), stored);
                 written = x.values.clone();
             }
             Ok(())

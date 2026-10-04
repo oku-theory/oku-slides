@@ -5,8 +5,8 @@
 //! (`widget_settings`) montrent un champ par paramètre réglable, à la valeur
 //! du premier cas d'exemple.
 
-use oku_slides_a2ui::ChoiceOption;
-use oku_slides_core::{ParamSchema, ParamType, ParamValue, param_value};
+use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
+use oku_slides_core::{ParamSchema, ParamType, ParamValue, default_items, param_value};
 use oku_slides_i18n::Localizer;
 use serde_json::{Map, Value, json};
 use snafu::{ResultExt, ensure};
@@ -65,9 +65,28 @@ fn label(p: &ParamSchema) -> String {
 /// Le champ d'un paramètre réglable ; sa valeur est celle de l'aperçu.
 ///
 /// Un `rich` montré est une liste de paragraphes : `params_with` en fait le markdown.
+/// Une liste montre ses items (ceux d'essai, ou ceux du `default`, ids `d0`…).
 fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<ParamField> {
     if !settable(&p.ty) {
         return None;
+    }
+    if let ParamType::List { item, item_label, min, max } = &p.ty {
+        let value = match shown {
+            Some(v) => serde_json::to_value(v).unwrap_or(Value::Null),
+            None => default_items(p).ok().and_then(|items| serde_json::to_value(items).ok()).unwrap_or(Value::Null),
+        };
+        return Some(ParamField {
+            label: label(p),
+            kind: FieldKind::List,
+            value: if value.is_array() { value } else { json!([]) },
+            op_template: Value::Null,
+            min: Some(*min as f64),
+            max: max.map(|m| m as f64),
+            step: None,
+            options: Vec::new(),
+            columns: item.iter().filter_map(column).collect(),
+            item_label: item_label.clone(),
+        });
     }
     let option = |id: &str, label: &str| ChoiceOption { id: id.to_owned(), label: label.to_owned(), hint: None };
     let (kind, min, max, step, options) = match &p.ty {
@@ -96,7 +115,36 @@ fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<P
         (_, Some(v)) => serde_json::to_value(v).unwrap_or(Value::Null),
         (_, None) => Value::Null,
     };
-    Some(ParamField { label: label(p), kind, value, op_template: Value::Null, min, max, step, options })
+    Some(ParamField {
+        label: label(p),
+        kind,
+        value,
+        op_template: Value::Null,
+        min,
+        max,
+        step,
+        options,
+        columns: Vec::new(),
+        item_label: None,
+    })
+}
+
+/// La colonne du tableau d'une liste pour une colonne de son schéma ; `None`
+/// pour un type qu'une colonne n'admet pas (refusé à la validation du schéma).
+fn column(c: &ParamSchema) -> Option<ListColumn> {
+    let (kind, options) = match &c.ty {
+        ParamType::Plain => (ColumnKind::Text, Vec::new()),
+        ParamType::Rich => (ColumnKind::Rich, Vec::new()),
+        ParamType::Number { .. } => (ColumnKind::Number, Vec::new()),
+        ParamType::Flag => (ColumnKind::Flag, Vec::new()),
+        ParamType::Choice { values } => (
+            ColumnKind::Select,
+            values.iter().map(|v| ChoiceOption { id: v.clone(), label: v.clone(), hint: None }).collect(),
+        ),
+        ParamType::Asset => (ColumnKind::Asset, Vec::new()),
+        ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. } | ParamType::List { .. } => return None,
+    };
+    Some(ListColumn { key: c.name.clone(), label: label(c), kind, options })
 }
 
 /// Le pas d'un curseur sur une étendue `span > 0` : cent pas sur une petite étendue (opacité…),

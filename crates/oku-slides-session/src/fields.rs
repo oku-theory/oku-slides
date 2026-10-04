@@ -34,8 +34,14 @@ pub struct FieldView<'a> {
     pub owner_kind: OwnerKind,
     /// Widget de l'objet (`kind`).
     pub widget: &'a str,
-    /// Nom du paramètre.
-    pub field: &'a str,
+    /// Nom du champ : le paramètre, ou `liste/id/colonne` pour un item de liste.
+    pub field: Cow<'a, str>,
+    /// Pour un item : le paramètre `list` qui le porte.
+    pub list: Option<&'a str>,
+    /// Pour un item : son id.
+    pub item: Option<&'a str>,
+    /// Paramètre, ou colonne de la liste pour un item.
+    pub column: &'a str,
     pub kind: FieldKind,
     /// Libellé du paramètre dans le schéma du widget.
     pub label: Option<&'a str>,
@@ -82,17 +88,17 @@ pub(crate) fn owner_widget<'a>(slide: &'a Slide, tf: &TextField<'a>) -> &'a str 
 }
 
 /// Texte du champ `tf` de `slide`, tel que saisi ; markdown pour `rich`.
-pub(crate) fn field_text<'a>(deck: &'a Deck, slide: &'a Slide, tf: &TextField<'a>) -> Cow<'a, str> {
-    let name = tf.param.name.as_str();
-    let params = match tf.owner {
-        FieldOwner::Slide => &slide.params,
-        FieldOwner::Element(e) => &e.params,
-    };
+///
+/// Pour un item de liste : la colonne de l'item.
+pub(crate) fn field_text<'a>(deck: &'a Deck, tf: &TextField<'a>) -> Cow<'a, str> {
+    let column = tf.param.name.as_str();
     match tf.param.bind.as_deref() {
-        // Paramètre lié (`plain` seulement) : la valeur du deck, où les ops l'écrivent.
-        Some(key) => Cow::Borrowed(deck.params.field(key).unwrap_or_default()),
-        None if tf.param.ty == ParamType::Rich => Cow::Owned(paragraphs_to_text(params.rich(name).unwrap_or_default())),
-        None => Cow::Borrowed(params.text(name).unwrap_or_default()),
+        // Paramètre lié (`plain` seulement, jamais une colonne) : la valeur du deck, où les ops l'écrivent.
+        Some(key) if tf.list.is_none() => Cow::Borrowed(deck.params.field(key).unwrap_or_default()),
+        _ if tf.param.ty == ParamType::Rich => {
+            Cow::Owned(paragraphs_to_text(tf.values.rich(column).unwrap_or_default()))
+        }
+        _ => Cow::Borrowed(tf.values.text(column).unwrap_or_default()),
     }
 }
 
@@ -109,7 +115,7 @@ pub(crate) fn field_views<'a>(
         .text_fields(registry)
         .into_iter()
         .filter_map(|tf| {
-            let name = tf.param.name.as_str();
+            let name = tf.name();
             let b = boxes.iter().find(|b| b.owner == tf.owner_id && b.field == name)?;
             let rich = tf.param.ty == ParamType::Rich;
             let owner_kind = match tf.owner {
@@ -121,11 +127,14 @@ pub(crate) fn field_views<'a>(
                 owner_kind,
                 widget: owner_widget(slide, &tf),
                 field: name,
+                list: tf.list.map(|(l, _)| l),
+                item: tf.list.map(|(_, i)| i.id.as_str()),
+                column: tf.param.name.as_str(),
                 kind: if rich { FieldKind::Rich } else { FieldKind::Plain },
                 label: tf.param.label.as_deref(),
-                text: field_text(deck, slide, &tf),
+                text: field_text(deck, &tf),
                 empty: b.empty,
-                bound: tf.param.bind.is_some(),
+                bound: tf.param.bind.is_some() && tf.list.is_none(),
                 side: b.side,
                 x: b.x,
                 y: b.y,

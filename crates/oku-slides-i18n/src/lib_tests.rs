@@ -169,6 +169,26 @@ fn widgets_prompt_mentions_slide_category_and_optional_label_and_default_in_ever
 }
 
 #[test]
+fn widgets_prompt_documents_lists_and_their_ops_in_every_locale() {
+    for locale in crate::available() {
+        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
+        for part in ["p.list", "list-item", "edit_list", "set_param", "\"defaults\": true"] {
+            assert!(text.contains(part), "{locale} : « {part} » absent");
+        }
+    }
+}
+
+#[test]
+fn widgets_prompt_import_line_lists_list_item_in_every_locale() {
+    for locale in crate::available() {
+        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
+        let at = text.find("fields-stack").unwrap_or_else(|| panic!("{locale} : ligne d'import absente"));
+        let line: String = text[at..].chars().take(80).collect();
+        assert!(line.contains("list-item"), "{locale} : list-item absent de l'import : {line}");
+    }
+}
+
+#[test]
 fn agent_instructions_ask_for_report_not_suggest_next() {
     for lang in crate::available() {
         let text = Localizer::new(Some(lang)).tr("agent-instructions");

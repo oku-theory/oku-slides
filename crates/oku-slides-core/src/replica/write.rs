@@ -6,9 +6,9 @@ use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroValue, UpdateOptio
 use serde_json::{Map, Value};
 use snafu::ResultExt;
 
-use super::schema::{Ctx, Kind, RICH, declared, param_kind};
+use super::schema::{Ctx, Kind, LIST, RICH, column_kind, columns, declared, param_kind};
 use crate::error::{LoroSnafu, ReplicaInner, TextUpdateSnafu};
-use crate::widget::{WidgetRegistry, WidgetSchema};
+use crate::widget::{ParamSchema, WidgetRegistry};
 
 type Res = Result<(), ReplicaInner>;
 
@@ -76,6 +76,21 @@ fn rich_at(map: &LoroMap, key: &str) -> Result<LoroText, ReplicaInner> {
     text_at(&m, RICH)
 }
 
+/// La liste des items de la carte `{list: LoroMovableList}` d'un paramètre
+/// `list` : réutilisée si elle ne porte rien d'autre, remplacée sinon.
+fn items_at(map: &LoroMap, key: &str) -> Result<LoroMovableList, ReplicaInner> {
+    let m = match map.get(key) {
+        Some(ValueOrContainer::Container(Container::Map(m))) if m.keys().all(|k| &*k == LIST) => m,
+        _ => map.insert_container(key, LoroMap::new()).context(LoroSnafu)?,
+    };
+    list_at(&m, LIST)
+}
+
+/// Les objets d'une valeur tableau ; aucun pour une autre valeur.
+fn objects(value: &Value) -> &[Value] {
+    value.as_array().map(Vec::as_slice).unwrap_or_default()
+}
+
 /// Vide le conteneur `entry` de `map[key]` ; une valeur, ou une carte
 /// ordinaire, est retirée.
 fn empty_or_delete(map: &LoroMap, key: &str, entry: ValueOrContainer) -> Res {
@@ -84,6 +99,9 @@ fn empty_or_delete(map: &LoroMap, key: &str, entry: ValueOrContainer) -> Res {
         ValueOrContainer::Container(Container::MovableList(l)) => clear(&l),
         ValueOrContainer::Container(Container::Map(m)) if m.len() == 1 && m.get(RICH).is_some() => {
             super::rich::sync(&text_at(&m, RICH)?, &Value::Array(Vec::new()))
+        }
+        ValueOrContainer::Container(Container::Map(m)) if m.len() == 1 && m.get(LIST).is_some() => {
+            clear(&list_at(&m, LIST)?)
         }
         _ => map.delete(key).context(LoroSnafu),
     }
@@ -122,6 +140,7 @@ impl Writer<'_> {
                 Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
                 Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
                 Kind::Collection(_) => clear(&list_at(map, &key)?)?,
+                Kind::List => clear(&items_at(map, &key)?)?,
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
         }
@@ -131,7 +150,10 @@ impl Writer<'_> {
                 Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
                 Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
                 Kind::Collection(child) => {
-                    self.sync_list(&list_at(map, key)?, value.as_array().map(Vec::as_slice).unwrap_or_default(), child)?
+                    self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
+                }
+                Kind::List => {
+                    self.sync_list(&items_at(map, key)?, objects(value), &|m, o| self.sync_item(m, o, None))?
                 }
                 Kind::Atom => set_value(map, key, json_to_loro(value))?,
                 Kind::Nested(child) => match value {
@@ -146,38 +168,63 @@ impl Writer<'_> {
             let schema = obj.get("kind").and_then(Value::as_str).and_then(|k| self.registry.get(k));
             let empty = Map::new();
             let params = obj.get("params").and_then(Value::as_object).unwrap_or(&empty);
-            self.sync_params(&map_at(map, "params")?, params, schema)?;
+            self.sync_params(&map_at(map, "params")?, params, schema.map(|w| w.params.as_slice()))?;
         }
         Ok(())
     }
 
-    /// Amène les paramètres `map` d'un widget de schéma `schema` (s'il est
-    /// connu) à l'état de `obj`.
+    /// Amène les paramètres `map` d'un widget aux paramètres déclarés
+    /// `params` (s'il est connu) à l'état de `obj`.
+    fn sync_params(&self, map: &LoroMap, obj: &Map<String, Value>, params: Option<&[ParamSchema]>) -> Res {
+        self.sync_fields(map, obj, params, param_kind)
+    }
+
+    /// Amène l'item `map` d'une liste aux colonnes `columns` à l'état de
+    /// `obj` : son `id` en valeur (clé de réconciliation, voir [`item_id`]),
+    /// ses colonnes comme des paramètres.
+    fn sync_item(&self, map: &LoroMap, obj: &Map<String, Value>, columns: Option<&[ParamSchema]>) -> Res {
+        self.sync_fields(map, obj, columns, column_kind)
+    }
+
+    /// Amène les champs `map` (paramètres d'un widget ou colonnes d'un
+    /// item), déclarés par `fields`, à l'état de `obj` ; `kind` donne la
+    /// catégorie de chacun.
     ///
-    /// Un paramètre absent de `obj` est vidé s'il a un conteneur (texte,
-    /// texte riche, slot), retiré sinon ; chaque paramètre `plain`, `rich` ou
-    /// `slot` déclaré est présent, vide au besoin (parade t-188).
-    fn sync_params(&self, map: &LoroMap, obj: &Map<String, Value>, schema: Option<&WidgetSchema>) -> Res {
+    /// Un champ absent de `obj` est vidé s'il a un conteneur (texte, texte
+    /// riche, slot, liste), retiré sinon ; chaque champ `plain`, `rich`,
+    /// `slot` ou `list` déclaré est présent, vide au besoin (parade t-188).
+    fn sync_fields(
+        &self,
+        map: &LoroMap,
+        obj: &Map<String, Value>,
+        fields: Option<&[ParamSchema]>,
+        kind: fn(Option<&[ParamSchema]>, &str, &Value) -> Kind,
+    ) -> Res {
         let stale: Vec<String> = map.keys().map(|k| k.to_string()).filter(|k| !obj.contains_key(k)).collect();
         for key in stale {
             if let Some(entry) = map.get(&key) {
                 empty_or_delete(map, &key, entry)?;
             }
         }
-        for (name, kind) in declared(schema).filter(|(name, _)| !obj.contains_key(*name)) {
+        for (name, kind) in declared(fields).filter(|(name, _)| !obj.contains_key(*name)) {
             match kind {
                 Kind::Prose => drop(text_at(map, name)?),
                 Kind::Rich => drop(rich_at(map, name)?),
                 Kind::Collection(_) => drop(list_at(map, name)?),
+                Kind::List => drop(items_at(map, name)?),
                 Kind::Atom | Kind::Nested(_) => {}
             }
         }
         for (key, value) in obj {
-            match param_kind(schema, key, value) {
+            match kind(fields, key, value) {
                 Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
                 Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
                 Kind::Collection(child) => {
-                    self.sync_list(&list_at(map, key)?, value.as_array().map(Vec::as_slice).unwrap_or_default(), child)?
+                    self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
+                }
+                Kind::List => {
+                    let columns = columns(fields, key);
+                    self.sync_list(&items_at(map, key)?, objects(value), &|m, o| self.sync_item(m, o, columns))?
                 }
                 Kind::Atom | Kind::Nested(_) => set_value(map, key, json_to_loro(value))?,
             }
@@ -215,12 +262,18 @@ fn keyed(ids: &[String]) -> Vec<(String, usize)> {
 }
 
 impl Writer<'_> {
-    /// Réconcilie une collection à `id` : suppressions, puis insertions et déplacements.
+    /// Réconcilie une collection à `id` : suppressions, puis insertions et
+    /// déplacements ; `each` amène chaque objet à son état.
     ///
     /// Chaque `mov` part dans son propre commit (`split` juste avant) : Loro
     /// 1.16.2 défait mal un item d'annulation qui en porte plusieurs sur une
     /// liste de conteneurs (élément perdu, voire panique ; t-263).
-    fn sync_list(&self, list: &LoroMovableList, items: &[Value], ctx: Ctx) -> Res {
+    fn sync_list(
+        &self,
+        list: &LoroMovableList,
+        items: &[Value],
+        each: &dyn Fn(&LoroMap, &Map<String, Value>) -> Res,
+    ) -> Res {
         let id_of = |v: &Value| v.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
         let wanted: Vec<String> = items.iter().map(id_of).collect();
         let wanted_keys = keyed(&wanted);
@@ -249,7 +302,7 @@ impl Writer<'_> {
             if let (Some(ValueOrContainer::Container(Container::Map(m))), Some(obj)) =
                 (list.get(target), item.as_object())
             {
-                self.sync_map(&m, obj, ctx)?;
+                each(&m, obj)?;
             }
         }
         // Défense en profondeur : l'appariement par occurrence ci-dessus ne

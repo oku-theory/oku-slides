@@ -279,3 +279,82 @@ fn widget_error_names_the_refused_widget() {
     let unreadable = WidgetRegistry::from_probe(json!({ "pack": 1 })).unwrap_err();
     assert_that!(unreadable.widget()).is_none();
 }
+
+fn list_probe(params: Value) -> Result<WidgetRegistry, WidgetError> {
+    WidgetRegistry::from_probe(json!({ "base": [{ "name": "w", "category": "element", "params": params }] }))
+}
+
+fn col(name: &str, ty: &str) -> Value {
+    json!({ "name": name, "type": ty })
+}
+
+fn list(item: Value) -> Value {
+    json!([{ "name": "etapes", "type": "list", "item": item, "min": 0, "max": null }])
+}
+
+#[test]
+fn from_probe_list_reads_columns_and_bounds() {
+    let r = list_probe(json!([{ "name": "etapes", "type": "list", "item-label": "étape",
+        "item": [col("date", "plain"), col("texte", "rich")], "min": 1, "max": 5 }]))
+    .unwrap();
+    let p = r.get("w").unwrap().param("etapes").unwrap();
+    let ParamType::List { item, item_label, min, max } = &p.ty else { panic!("pas une liste") };
+    assert_that!(item.iter().map(|c| c.name.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["date", "texte"]);
+    assert_that!(item_label.as_deref()).is_equal_to(Some("étape"));
+    assert_that!((*min, *max)).is_equal_to((1, Some(5)));
+}
+
+#[rstest]
+#[case(list(json!([col("x", "slot")])))]
+#[case(list(json!([col("x", "list")])))]
+#[case(list(json!([col("x", "grid")])))]
+fn from_probe_list_with_excluded_column_type_fails(#[case] params: Value) {
+    assert_that!(list_probe(params)).is_err();
+}
+
+#[rstest]
+#[case(list(json!([col("id", "plain")])))]
+#[case(list(json!([col("kind", "plain")])))]
+#[case(list(json!([col("a/b", "plain")])))]
+#[case(json!([col("a/b", "plain")]))]
+fn from_probe_reserved_name_fails(#[case] params: Value) {
+    assert_that!(list_probe(params)).is_err();
+}
+
+#[test]
+fn from_probe_list_without_columns_fails() {
+    assert_that!(list_probe(list(json!([])))).is_err();
+}
+
+#[test]
+fn from_probe_list_with_max_below_min_fails() {
+    let p = json!([{ "name": "l", "type": "list", "item": [col("a", "plain")], "min": 3, "max": 2 }]);
+    assert_that!(list_probe(p)).is_err();
+}
+
+#[test]
+fn from_probe_list_with_wrong_column_default_fails() {
+    let p = list(json!([{ "name": "n", "type": "number", "default": "x" }]));
+    assert_that!(list_probe(p)).is_err();
+}
+
+#[test]
+fn from_probe_list_default_with_a_wrongly_typed_value_fails() {
+    let p = json!([{ "name": "l", "type": "list", "item": [col("date", "plain")], "min": 0, "max": null,
+        "default": [{ "date": 2019 }] }]);
+    assert_that!(list_probe(p)).is_err();
+}
+
+#[test]
+fn from_probe_list_column_with_a_bind_fails() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [{ "name": "a", "type": "plain", "bind": "title" }] }]);
+    assert_that!(list_probe(p)).is_err();
+}
+
+#[test]
+fn from_probe_list_default_with_unknown_column_fails() {
+    let p = json!([{ "name": "l", "type": "list", "item": [col("a", "plain")], "min": 0, "max": null,
+        "default": [{ "b": "x" }] }]);
+    assert_that!(list_probe(p)).is_err();
+}

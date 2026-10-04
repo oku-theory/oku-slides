@@ -44,6 +44,12 @@ interface TextEditorProps {
   onCancel: () => void;
   /** Validation puis champ suivant (`1`) ou précédent (`-1`), avec le texte affiché. */
   onNext: (text: string, dir: 1 | -1) => void;
+  /**
+   * Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de `moveAxis` déplace
+   * l'item d'un rang (`-1` vers le début), avec le texte affiché ; l'éditeur reste ouvert.
+   */
+  moveAxis?: "x" | "y";
+  onMove?: (text: string, dir: 1 | -1) => void;
   /** Poignée de la scène : insertion de la dictée, texte affiché, validation. */
   ref?: React.Ref<TextEditorHandle>;
 }
@@ -95,11 +101,12 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
   const commit = useEffectEvent((text: string) => props.onCommit(text));
   const cancel = useEffectEvent(() => props.onCancel());
   const advance = useEffectEvent((text: string, dir: 1 | -1) => props.onNext(text, dir));
+  const moveBy = useEffectEvent((text: string, dir: 1 | -1) => props.onMove?.(text, dir));
 
   useLayoutEffect(() => {
     const parent = host.current;
     if (!parent) return;
-    const { initial, plain, palette, label } = props;
+    const { initial, plain, palette, label, moveAxis } = props;
     // Une seule fin par montage ; StrictMode monte deux fois, l'état reste local à l'effet.
     let done = false;
     const finish = (view: EditorView, validate: boolean) => {
@@ -117,7 +124,13 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
     };
     // CodeMirror ignore déjà l'Entrée qui confirme une conversion IME (y compris
     // celle que WebKit envoie juste après compositionend) : pas de garde ici.
+    const moveItem = (dir: 1 | -1) => (view: EditorView) => {
+      if (!done) moveBy(view.state.doc.toString(), dir);
+      return true;
+    };
+    const [back, forth] = moveAxis === "y" ? ["Mod-Alt-ArrowUp", "Mod-Alt-ArrowDown"] : ["Mod-Alt-ArrowLeft", "Mod-Alt-ArrowRight"];
     const keys: KeyBinding[] = [
+      ...(moveAxis ? [{ key: back, run: moveItem(-1) }, { key: forth, run: moveItem(1) }] : []),
       { key: "Escape", run: (view) => finish(view, false) },
       { key: "Mod-Enter", run: (view) => finish(view, true) },
       { key: "Mod-u", run: nothing },

@@ -46,6 +46,7 @@ mod files;
 mod help;
 mod history;
 mod inline;
+mod items;
 #[cfg(test)]
 pub(crate) mod lib_tests_support;
 pub mod library;
@@ -81,6 +82,7 @@ use error::{
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
+pub use items::{ItemView, ListView};
 pub use library::{Library, StoredVersion, builtin_versions};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
@@ -591,6 +593,9 @@ impl Session {
             Request::SetExampleValue { name, example, param, value } => {
                 self.set_example_values(&name, example.as_deref(), serde_json::Map::from_iter([(param, value)]))?;
             }
+            Request::EditExampleList { name, example, param, change } => {
+                self.edit_example_list(&name, example.as_deref(), &param, change)?;
+            }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
@@ -904,6 +909,8 @@ impl Session {
             height: 1080.0,
             targets,
             fields,
+            items: items::item_views(slide, &self.registry, layout.items_on(page)),
+            lists: items::list_views(slide, &self.registry),
             zone: layout.zone_on(page),
         })
     }

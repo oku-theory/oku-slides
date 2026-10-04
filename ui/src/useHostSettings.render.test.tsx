@@ -161,6 +161,30 @@ describe("useHostSettings", () => {
     expect(sent).toEqual([["carte", "Long", "title", "Météo"]]);
   });
 
+  test("un changement de liste du widget part en edit_example_list, dans le cas de la surface", async () => {
+    const { fake } = memory({});
+    const sent: unknown[] = [];
+    stub(fake, "hostSettings", async () => surface(HOST_WIDGET));
+    stub(fake, "editExampleList", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(["value", ...a]), snapshot()));
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "frise", example: "Long" });
+    m.out.h!.onAction(m.out.h!.surface!, action({ key: "etapes", field: 0, change: { op: "remove", item: "d0" } }));
+    await wait(10);
+    expect(sent).toEqual([["frise", "Long", "etapes", { op: "remove", item: "d0" }]]);
+  });
+
+  test("un collage dans une liste du widget remplace la liste entière du cas", async () => {
+    const { fake } = memory({});
+    const sent: unknown[] = [];
+    const items = [{ id: "d0", date: "2020" }];
+    stub(fake, "hostSettings", async () => surface(HOST_WIDGET));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "frise" });
+    m.out.h!.onAction(m.out.h!.surface!, action({ key: "etapes", field: 0, change: { op: "replace", items } }));
+    await wait(10);
+    expect(sent).toEqual([["frise", null, "etapes", items]]);
+  });
+
   test("un réglage du modèle part en host_param avec sa clé", async () => {
     const { fake } = memory({});
     const sent: unknown[] = [];

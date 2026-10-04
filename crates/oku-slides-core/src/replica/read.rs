@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::DeckRead;
-use super::schema::{Ctx, Kind, RICH};
+use super::schema::{Ctx, Kind, LIST, RICH};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
@@ -96,6 +96,17 @@ fn rich_text(m: &LoroMap) -> Option<LoroText> {
     }
 }
 
+/// Une carte `{list: LoroMovableList}` : les items d'un paramètre `list`.
+fn list_items(m: &LoroMap) -> Option<LoroMovableList> {
+    if m.len() != 1 {
+        return None;
+    }
+    match m.get(LIST) {
+        Some(ValueOrContainer::Container(Container::MovableList(l))) => Some(l),
+        _ => None,
+    }
+}
+
 /// Texte non blanc ; vide = absent.
 fn prose(t: &LoroText) -> Option<Value> {
     let s = t.to_string();
@@ -152,7 +163,8 @@ impl Reader {
     }
 
     /// Paramètres d'un widget, sans registre : le type se lit dans le
-    /// conteneur. Un texte, un texte riche, un slot vides sont absents.
+    /// conteneur. Un texte, un texte riche, un slot, une liste vides sont
+    /// absents.
     ///
     /// La profondeur continue de croître à travers le cycle `params` →
     /// liste → élément → `params` : deux niveaux par slot. Un slot dont les
@@ -171,6 +183,13 @@ impl Reader {
                     Some(v) => v,
                     None => continue,
                 },
+                ValueOrContainer::Container(Container::Map(m)) if let Some(l) = list_items(&m) => {
+                    let items = self.read_items(&l, depth.deeper());
+                    if items.is_empty() {
+                        continue;
+                    }
+                    Value::Array(items)
+                }
                 ValueOrContainer::Container(Container::Map(m)) => match rich_text(&m) {
                     Some(t) => {
                         let paragraphs = super::rich::read(&t);
@@ -202,6 +221,23 @@ impl Reader {
                 _ => continue,
             };
             out.insert(key, value);
+        }
+        out
+    }
+
+    /// Les items d'une liste : chaque carte relue comme des paramètres (son
+    /// `id` en valeur). Un item sans `id` chaîne, ou qui porte un `kind`
+    /// (il se lirait comme un élément), est écarté et signalé.
+    fn read_items(&mut self, list: &LoroMovableList, depth: Depth) -> Vec<Value> {
+        let mut out = Vec::with_capacity(list.len());
+        for i in 0..list.len() {
+            let Some(ValueOrContainer::Container(Container::Map(m))) = list.get(i) else { continue };
+            let item = self.read_params(&m, depth.deeper());
+            if !item.get("id").is_some_and(Value::is_string) || item.contains_key("kind") {
+                self.issues.push(issue(None, None, Message::new("issue-unreadable-item")));
+                continue;
+            }
+            out.push(Value::Object(item));
         }
         out
     }

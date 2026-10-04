@@ -218,6 +218,8 @@ fn theme_field(template: serde_json::Value) -> ParamField {
         max: None,
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     }
 }
 
@@ -252,6 +254,8 @@ fn rich_field(value: serde_json::Value) -> ParamField {
         max: None,
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     }
 }
 
@@ -272,6 +276,17 @@ fn params_surface_rich_field_without_paragraphs_returns_agent_form() {
     let err = s.params_surface("show-rich", &spec).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
     assert_that!(err.one_line()).contains("fields[0]: a rich value must be a list of paragraphs");
+}
+
+#[test]
+fn params_surface_list_field_returns_agent_form() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let field = ParamField { kind: FieldKind::List, ..rich_field(json!([])) };
+    let spec = ShowParams { title: "Liste".into(), slide: "s-libre".into(), fields: vec![field] };
+    let err = s.params_surface("show-list", &spec).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
+    assert_that!(err.one_line()).contains("fields[0]: a list field is not available in show_params");
 }
 
 #[test]
@@ -322,6 +337,8 @@ fn params_surface_slider_with_inverted_bounds_returns_agent_form() {
         max: Some(2.0),
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1e", &spec).unwrap_err();
@@ -345,6 +362,8 @@ fn params_surface_slider_with_only_one_bound_still_rejects_an_implicit_inverted_
         max: None,
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1g", &spec).unwrap_err();
@@ -365,6 +384,8 @@ fn params_surface_stepper_with_non_finite_bound_returns_agent_form() {
         max: None,
         step: None,
         options: vec![],
+        columns: Vec::new(),
+        item_label: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1f", &spec).unwrap_err();
