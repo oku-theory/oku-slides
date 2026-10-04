@@ -106,10 +106,18 @@ export function fieldChanged(f: Pick<FieldView, "kind" | "text">, text: string):
 export function fieldOps(view: SlideView, f: FieldView, value: string): Op[] {
   const slide = view.slide;
   const target = f.owner_kind === "slide" ? { slide: slide.id } : { slide: slide.id, element: f.owner };
-  if (f.kind === "plain") return [{ op: "set_param", target, param: f.field, value }];
-  const owner = f.owner_kind === "slide" ? slide : findElement(slide, f.owner);
-  const previous = { paragraphs: (owner && rich(owner, f.field)) ?? [], text: f.text };
-  return [{ op: "set_param", target, param: f.field, value: textToParagraphs(value, previous) }];
+  return [{ op: "set_param", target, param: f.field, value: fieldValue(view, f, value) }];
+}
+
+/**
+ * Valeur du paramètre d'un champ pour son brouillon : le texte d'un champ
+ * `plain`, les paragraphes d'un `rich` (les lignes inchangées gardent leurs
+ * runs, lus dans les paramètres de la slide ou de l'élément).
+ */
+export function fieldValue(view: SlideView, f: FieldView, text: string): string | Paragraph[] {
+  if (f.kind === "plain") return text;
+  const owner = f.owner_kind === "slide" ? view.slide : findElement(view.slide, f.owner);
+  return textToParagraphs(text, { paragraphs: (owner && rich(owner, f.field)) ?? [], text: f.text });
 }
 
 // --- Sur la grille -----------------------------------------------------------

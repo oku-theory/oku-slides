@@ -8,6 +8,7 @@ use uuid::Uuid;
 use oku_slides_core::Op;
 
 use crate::views::UiState;
+use crate::widget_preview::PreviewLook;
 
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
 #[derive(Debug, Deserialize)]
@@ -50,17 +51,14 @@ pub enum Request {
         slide: String,
         #[serde(default)]
         widget: Option<String>,
+        /// Cas d'exemple du widget montré ; `None` (ou inconnu) : le premier.
+        #[serde(default)]
+        example: Option<String>,
     },
     /// Applique le réglage `key` du modèle `slide` (mode modèles, annulable).
     HostParam {
         slide: String,
         key: String,
-        value: serde_json::Value,
-    },
-    /// Règle une valeur d'essai d'un widget ; ne change ni le deck ni les documents.
-    SetWidgetTrial {
-        name: String,
-        param: String,
         value: serde_json::Value,
     },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
@@ -150,11 +148,46 @@ pub enum Request {
         from: String,
         to: String,
     },
-    /// Aperçu SVG d'un widget seul (`WidgetPreview`) ; `params` complète ses défauts.
+    /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs du cas
+    /// `example` (le premier par défaut) ; `params` les complète. `scheme`
+    /// (`light`, `dark`) et `ratio` (`16:9`, `4:3`) changent l'allure du
+    /// deck d'aperçu ; absents : celle du deck.
     PreviewWidget {
         name: String,
         #[serde(default)]
+        example: Option<String>,
+        #[serde(default)]
         params: serde_json::Map<String, serde_json::Value>,
+        #[serde(flatten)]
+        look: PreviewLook,
+    },
+    /// Ajoute le cas d'exemple `example` au widget `name`, aux valeurs de
+    /// `from` s'il est donné (mode modèles, dans le pack).
+    AddExample {
+        name: String,
+        example: String,
+        #[serde(default)]
+        from: Option<String>,
+    },
+    /// Renomme le cas d'exemple `from` du widget `name` (mode modèles).
+    RenameExample {
+        name: String,
+        from: String,
+        to: String,
+    },
+    /// Supprime un cas d'exemple ; refusé pour le dernier (mode modèles).
+    RemoveExample {
+        name: String,
+        example: String,
+    },
+    /// Règle une valeur du cas `example` (le premier pour `null`) ; `null`
+    /// ou un texte vide l'effacent (mode modèles).
+    SetExampleValue {
+        name: String,
+        #[serde(default)]
+        example: Option<String>,
+        param: String,
+        value: serde_json::Value,
     },
 }
 
@@ -183,6 +216,10 @@ impl Request {
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
+            | Self::AddExample { .. }
+            | Self::RenameExample { .. }
+            | Self::RemoveExample { .. }
+            | Self::SetExampleValue { .. }
             | Self::HostParam { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
@@ -191,7 +228,6 @@ impl Request {
             | Self::Schema
             | Self::Widgets
             | Self::HostSettings { .. }
-            | Self::SetWidgetTrial { .. }
             | Self::Templates { .. }
             | Self::TemplateSets
             | Self::SaveTemplates { .. }
@@ -229,7 +265,10 @@ impl Request {
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::HostParam { .. }
-                | Self::SetWidgetTrial { .. }
+                | Self::AddExample { .. }
+                | Self::RenameExample { .. }
+                | Self::RemoveExample { .. }
+                | Self::SetExampleValue { .. }
         )
     }
 
@@ -243,8 +282,18 @@ impl Request {
         self.changes_deck() && !matches!(self, Self::Save { .. }) && !self.is_widget_edit()
     }
 
-    /// Vrai pour une modification de widget : elle ne termine pas la séance des widgets.
+    /// Vrai pour une modification de widget (cas d'exemple compris) : elle ne
+    /// termine pas la séance des widgets.
     pub(crate) fn is_widget_edit(&self) -> bool {
-        matches!(self, Self::SetWidget { .. } | Self::RemoveWidget { .. } | Self::RenameWidget { .. })
+        matches!(
+            self,
+            Self::SetWidget { .. }
+                | Self::RemoveWidget { .. }
+                | Self::RenameWidget { .. }
+                | Self::AddExample { .. }
+                | Self::RenameExample { .. }
+                | Self::RemoveExample { .. }
+                | Self::SetExampleValue { .. }
+        )
     }
 }

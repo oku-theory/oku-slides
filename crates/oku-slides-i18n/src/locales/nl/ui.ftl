@@ -326,8 +326,10 @@ ui-widgets-errors = Fouten
 ui-widgets-empty = Dit pakket heeft nog geen widget.
 ui-widgets-preview = Widgetvoorbeeld
 ui-widgets-no-preview = Geen voorbeeld
+ui-widgets-field-bound = Gekoppeld aan de presentatie: hier alleen-lezen
 ui-widgets-source = Broncode
 ui-widgets-code-right = Code rechts
+ui-widgets-board = Overzicht
 ui-widgets-unsaved = Niet opgeslagen
 ui-widgets-in-error = Widgets met fouten
 ui-widgets-none-in-error = Geen enkele widget heeft fouten
@@ -341,3 +343,30 @@ ui-widgets-tabs = Sjabloontabbladen
 ui-widgets-templates-tab = Sjablonen
 ui-widgets-close-tab = { $name } sluiten
 ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.
+ui-examples = Voorbeeldgevallen
+ui-examples-add = Geval
+ui-examples-add-hint = Geval toevoegen, kopie van het huidige
+ui-examples-new-name = Geval { $n }
+ui-examples-name = Naam van het geval
+ui-examples-rename-hint = Dubbelklik om te hernoemen
+ui-examples-delete-named = Geval { $name } verwijderen
+ui-examples-confirm-delete = Geval ‘{ $name }’ verwijderen?
+ui-examples-delete = Verwijderen
+ui-examples-cancel = Annuleren
+ui-board = Overzicht van de gevallen
+ui-board-summary = { $cases ->
+    [one] { $cases } geval
+   *[other] { $cases } gevallen
+} · { $alerts ->
+    [one] { $alerts } waarschuwing
+   *[other] { $alerts } waarschuwingen
+}
+ui-board-scheme = Kleurenschema
+ui-board-light = Licht
+ui-board-dark = Donker
+ui-board-ratio = Formaat
+ui-board-ok = OK
+ui-board-empty = Leeg veld
+ui-board-overflow = Loopt over
+ui-board-new = Nieuw geval
+ui-board-open = Geval „{ $name }” openen in de scène

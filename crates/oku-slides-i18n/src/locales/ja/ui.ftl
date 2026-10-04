@@ -323,8 +323,10 @@ ui-widgets-errors = エラー
 ui-widgets-empty = このパックにはまだウィジェットがありません。
 ui-widgets-preview = ウィジェットのプレビュー
 ui-widgets-no-preview = プレビューなし
+ui-widgets-field-bound = プレゼンテーションにリンク：ここでは読み取り専用
 ui-widgets-source = ソースコード
 ui-widgets-code-right = コードを右に表示
+ui-widgets-board = ボード
 ui-widgets-unsaved = 未保存
 ui-widgets-in-error = エラーのあるウィジェット
 ui-widgets-none-in-error = エラーのあるウィジェットはありません
@@ -338,3 +340,28 @@ ui-widgets-tabs = テンプレートのタブ
 ui-widgets-templates-tab = テンプレート
 ui-widgets-close-tab = { $name } を閉じる
 ui-widgets-removed-by-agent = エージェントがウィジェット { $name } を削除しました。
+ui-examples = サンプルケース
+ui-examples-add = ケース
+ui-examples-add-hint = 現在のケースをコピーして追加
+ui-examples-new-name = ケース { $n }
+ui-examples-name = ケース名
+ui-examples-rename-hint = ダブルクリックで名前を変更
+ui-examples-delete-named = ケース { $name } を削除
+ui-examples-confirm-delete = ケース「{ $name }」を削除しますか？
+ui-examples-delete = 削除
+ui-examples-cancel = キャンセル
+ui-board = ケースのボード
+ui-board-summary = { $cases ->
+   *[other] { $cases } 件のケース
+} · { $alerts ->
+   *[other] { $alerts } 件の警告
+}
+ui-board-scheme = 配色
+ui-board-light = ライト
+ui-board-dark = ダーク
+ui-board-ratio = 比率
+ui-board-ok = OK
+ui-board-empty = 空のフィールド
+ui-board-overflow = はみ出し
+ui-board-new = 新しいケース
+ui-board-open = ケース「{ $name }」をシーンで開く

@@ -113,6 +113,8 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         code_height: Some(480),
         code_width: Some(640),
         folded: vec![PileSection::Widgets],
+        case: [("kpi".to_owned(), "Long".to_owned())].into(),
+        board: true,
     };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone(), help_theme: None })
         .unwrap();
@@ -143,6 +145,8 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         code_height: None,
         code_width: None,
         folded: Vec::new(),
+        case: std::collections::BTreeMap::new(),
+        board: false,
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -391,10 +395,10 @@ fn write_snapshot_removes_orphan_packs() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
-/// Un essai de widget ne touche pas aux documents : seul l'état de reprise est écrit.
+/// Un cas d'exemple est dans le pack : son écriture écrit les documents de reprise.
 #[test]
-fn set_widget_trial_writes_no_resume_document() {
-    let data = crate::test_support::fresh_dir("oku-slides-trial-");
+fn set_example_value_writes_the_resume_documents() {
+    let data = crate::test_support::fresh_dir("oku-slides-example-");
     let dir = temp_dir();
     let mut s = crate::test_support::opened_on(data.path());
     assert_that!(s.resume(dir.clone())).is_true();
@@ -408,11 +412,14 @@ fn set_widget_trial_writes_no_resume_document() {
     for d in &docs {
         std::fs::remove_file(d).unwrap();
     }
-    std::fs::remove_file(dir.join("state.json")).unwrap();
-    s.handle(crate::Request::SetWidgetTrial { name: "essai".into(), param: "title".into(), value: "Météo".into() })
-        .unwrap();
+    let req = crate::Request::SetExampleValue {
+        name: "essai".into(),
+        example: None,
+        param: "title".into(),
+        value: "Météo".into(),
+    };
+    s.handle(req).unwrap();
     s.flush_resume();
-    assert_that!(dir.join("state.json").exists()).is_true();
-    assert_that!(docs.iter().filter(|d| d.exists()).count()).is_equal_to(0);
+    assert_that!(docs.iter().filter(|d| d.exists()).count()).is_equal_to(2);
     std::fs::remove_dir_all(&dir).ok();
 }

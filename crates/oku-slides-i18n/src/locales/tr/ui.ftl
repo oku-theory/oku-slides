@@ -323,8 +323,10 @@ ui-widgets-errors = Hatalar
 ui-widgets-empty = Bu pakette henüz widget yok.
 ui-widgets-preview = Widget önizlemesi
 ui-widgets-no-preview = Önizleme yok
+ui-widgets-field-bound = Sunuya bağlı: burada salt okunur
 ui-widgets-source = Kaynak kod
 ui-widgets-code-right = Kod sağda
+ui-widgets-board = Pano
 ui-widgets-unsaved = Kaydedilmedi
 ui-widgets-in-error = Hatalı widget'lar
 ui-widgets-none-in-error = Hiçbir widget'ta hata yok
@@ -338,3 +340,30 @@ ui-widgets-tabs = Şablon sekmeleri
 ui-widgets-templates-tab = Şablonlar
 ui-widgets-close-tab = { $name } sekmesini kapat
 ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.
+ui-examples = Örnek durumlar
+ui-examples-add = Durum
+ui-examples-add-hint = Geçerli durumun kopyası olarak durum ekle
+ui-examples-new-name = Durum { $n }
+ui-examples-name = Durum adı
+ui-examples-rename-hint = Yeniden adlandırmak için çift tıklayın
+ui-examples-delete-named = { $name } durumunu sil
+ui-examples-confirm-delete = “{ $name }” durumu silinsin mi?
+ui-examples-delete = Sil
+ui-examples-cancel = İptal
+ui-board = Durum panosu
+ui-board-summary = { $cases ->
+    [one] { $cases } durum
+   *[other] { $cases } durum
+} · { $alerts ->
+    [one] { $alerts } uyarı
+   *[other] { $alerts } uyarı
+}
+ui-board-scheme = Renk şeması
+ui-board-light = Açık
+ui-board-dark = Koyu
+ui-board-ratio = Biçim
+ui-board-ok = Tamam
+ui-board-empty = Boş alan
+ui-board-overflow = Taşıyor
+ui-board-new = Yeni durum
+ui-board-open = “{ $name }” durumunu sahnede aç

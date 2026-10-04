@@ -321,8 +321,10 @@ ui-widgets-errors = 오류
 ui-widgets-empty = 이 팩에는 아직 위젯이 없습니다.
 ui-widgets-preview = 위젯 미리보기
 ui-widgets-no-preview = 미리보기 없음
+ui-widgets-field-bound = 프레젠테이션에 연결됨: 여기서는 읽기 전용
 ui-widgets-source = 소스 코드
 ui-widgets-code-right = 코드를 오른쪽에
+ui-widgets-board = 보드
 ui-widgets-unsaved = 저장되지 않음
 ui-widgets-in-error = 오류가 있는 위젯
 ui-widgets-none-in-error = 오류가 있는 위젯이 없습니다
@@ -336,3 +338,28 @@ ui-widgets-tabs = 템플릿 탭
 ui-widgets-templates-tab = 템플릿
 ui-widgets-close-tab = { $name } 닫기
 ui-widgets-removed-by-agent = 에이전트가 위젯 { $name }을(를) 삭제했습니다.
+ui-examples = 예시 케이스
+ui-examples-add = 케이스
+ui-examples-add-hint = 현재 케이스를 복사해 추가
+ui-examples-new-name = 케이스 { $n }
+ui-examples-name = 케이스 이름
+ui-examples-rename-hint = 두 번 클릭하여 이름 바꾸기
+ui-examples-delete-named = 케이스 { $name } 삭제
+ui-examples-confirm-delete = 케이스 “{ $name }”을(를) 삭제할까요?
+ui-examples-delete = 삭제
+ui-examples-cancel = 취소
+ui-board = 사례 보드
+ui-board-summary = { $cases ->
+   *[other] 사례 { $cases }개
+} · { $alerts ->
+   *[other] 경고 { $alerts }개
+}
+ui-board-scheme = 색 구성
+ui-board-light = 밝게
+ui-board-dark = 어둡게
+ui-board-ratio = 비율
+ui-board-ok = 정상
+ui-board-empty = 빈 필드
+ui-board-overflow = 넘침
+ui-board-new = 새 사례
+ui-board-open = 사례 “{ $name }”을(를) 장면에서 열기

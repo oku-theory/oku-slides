@@ -49,6 +49,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
         parent: None,
         created: "2026-10-01T00:00:00Z".into(),
         templates: vec![],
+        examples: BTreeMap::new(),
     };
     let files = manifest
         .to_files(BTreeMap::from([(

@@ -33,6 +33,7 @@ fn mixed_pack(data: &Path) -> PackRef {
         parent: None,
         created: "2026-10-02T10:00:00Z".into(),
         templates: Vec::new(),
+        examples: Default::default(),
     };
     let name = |n: &str| WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}"));
     let widgets = BTreeMap::from([(name("quote"), QUOTE.to_owned()), (name("casse"), BROKEN.to_owned())]);

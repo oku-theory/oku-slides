@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use serde::Serialize;
 
-use oku_slides_core::{Deck, FieldOwner, ParamType, Slide, WidgetRegistry};
+use oku_slides_core::{Deck, FieldOwner, ParamType, Slide, TextField, WidgetRegistry};
 use oku_slides_render::{FieldBox, FieldSide, TextStyle};
 
 use crate::text::paragraphs_to_text;
@@ -43,6 +43,8 @@ pub struct FieldView<'a> {
     pub text: Cow<'a, str>,
     /// Sans texte : placeholder à dessiner par l'interface.
     pub empty: bool,
+    /// Lié à un paramètre du deck (`bind`) : sa valeur est celle du deck.
+    pub bound: bool,
     /// Champ vide sans place au rendu : dessiné avant ou après son ancre.
     pub side: Option<FieldSide>,
     pub x: f64,
@@ -71,6 +73,29 @@ pub(crate) fn slide_text<'d>(
     }
 }
 
+/// Widget de l'objet qui porte le champ `tf` de `slide`.
+pub(crate) fn owner_widget<'a>(slide: &'a Slide, tf: &TextField<'a>) -> &'a str {
+    match tf.owner {
+        FieldOwner::Slide => &slide.kind,
+        FieldOwner::Element(e) => &e.kind,
+    }
+}
+
+/// Texte du champ `tf` de `slide`, tel que saisi ; markdown pour `rich`.
+pub(crate) fn field_text<'a>(deck: &'a Deck, slide: &'a Slide, tf: &TextField<'a>) -> Cow<'a, str> {
+    let name = tf.param.name.as_str();
+    let params = match tf.owner {
+        FieldOwner::Slide => &slide.params,
+        FieldOwner::Element(e) => &e.params,
+    };
+    match tf.param.bind.as_deref() {
+        // Paramètre lié (`plain` seulement) : la valeur du deck, où les ops l'écrivent.
+        Some(key) => Cow::Borrowed(deck.params.field(key).unwrap_or_default()),
+        None if tf.param.ty == ParamType::Rich => Cow::Owned(paragraphs_to_text(params.rich(name).unwrap_or_default())),
+        None => Cow::Borrowed(params.text(name).unwrap_or_default()),
+    }
+}
+
 /// Champs de `slide` dont le rendu a posé une boîte sur `boxes`, dans
 /// l'ordre de Tab. Un paramètre sans boîte (`author`, `date` de la
 /// couverture) n'est pas éditable en place : il est omis.
@@ -87,25 +112,20 @@ pub(crate) fn field_views<'a>(
             let name = tf.param.name.as_str();
             let b = boxes.iter().find(|b| b.owner == tf.owner_id && b.field == name)?;
             let rich = tf.param.ty == ParamType::Rich;
-            let (owner_kind, widget, params) = match tf.owner {
-                FieldOwner::Slide => (OwnerKind::Slide, slide.kind.as_str(), &slide.params),
-                FieldOwner::Element(e) => (OwnerKind::Element, e.kind.as_str(), &e.params),
-            };
-            let text = match tf.param.bind.as_deref() {
-                // Paramètre lié (`plain` seulement) : la valeur du deck, où les ops l'écrivent.
-                Some(key) => Cow::Borrowed(deck.params.field(key).unwrap_or_default()),
-                _ if rich => Cow::Owned(paragraphs_to_text(params.rich(name).unwrap_or_default())),
-                _ => Cow::Borrowed(params.text(name).unwrap_or_default()),
+            let owner_kind = match tf.owner {
+                FieldOwner::Slide => OwnerKind::Slide,
+                FieldOwner::Element(_) => OwnerKind::Element,
             };
             Some(FieldView {
                 owner: tf.owner_id,
                 owner_kind,
-                widget,
+                widget: owner_widget(slide, &tf),
                 field: name,
                 kind: if rich { FieldKind::Rich } else { FieldKind::Plain },
                 label: tf.param.label.as_deref(),
-                text,
+                text: field_text(deck, slide, &tf),
                 empty: b.empty,
+                bound: tf.param.bind.is_some(),
                 side: b.side,
                 x: b.x,
                 y: b.y,

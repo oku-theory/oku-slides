@@ -321,8 +321,10 @@ ui-widgets-errors = ข้อผิดพลาด
 ui-widgets-empty = แพ็กนี้ยังไม่มีวิดเจ็ต
 ui-widgets-preview = ตัวอย่างวิดเจ็ต
 ui-widgets-no-preview = ไม่มีตัวอย่าง
+ui-widgets-field-bound = เชื่อมกับงานนำเสนอ: อ่านอย่างเดียวที่นี่
 ui-widgets-source = ซอร์สโค้ด
 ui-widgets-code-right = โค้ดทางขวา
+ui-widgets-board = บอร์ด
 ui-widgets-unsaved = ยังไม่ได้บันทึก
 ui-widgets-in-error = วิดเจ็ตที่มีข้อผิดพลาด
 ui-widgets-none-in-error = ไม่มีวิดเจ็ตที่มีข้อผิดพลาด
@@ -336,3 +338,28 @@ ui-widgets-tabs = แท็บเทมเพลต
 ui-widgets-templates-tab = เทมเพลต
 ui-widgets-close-tab = ปิด { $name }
 ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต { $name } แล้ว
+ui-examples = กรณีตัวอย่าง
+ui-examples-add = กรณี
+ui-examples-add-hint = เพิ่มกรณี โดยคัดลอกกรณีปัจจุบัน
+ui-examples-new-name = กรณี { $n }
+ui-examples-name = ชื่อกรณี
+ui-examples-rename-hint = ดับเบิลคลิกเพื่อเปลี่ยนชื่อ
+ui-examples-delete-named = ลบกรณี { $name }
+ui-examples-confirm-delete = ลบกรณี “{ $name }” หรือไม่
+ui-examples-delete = ลบ
+ui-examples-cancel = ยกเลิก
+ui-board = บอร์ดกรณีตัวอย่าง
+ui-board-summary = { $cases ->
+   *[other] { $cases } กรณี
+} · { $alerts ->
+   *[other] { $alerts } คำเตือน
+}
+ui-board-scheme = โทนสี
+ui-board-light = สว่าง
+ui-board-dark = มืด
+ui-board-ratio = สัดส่วน
+ui-board-ok = ปกติ
+ui-board-empty = ช่องว่าง
+ui-board-overflow = ล้นกรอบ
+ui-board-new = กรณีใหม่
+ui-board-open = เปิดกรณี “{ $name }” ในฉาก

@@ -124,7 +124,8 @@ impl Session {
         }
         // Un nom invalide n'est pas cité : il vient tel quel de l'interface.
         if let Some(w) = ui.widget.as_deref().and_then(|w| parse_name(w).ok()) {
-            match self.scratch().and_then(|s| s.trials_of(&w)).filter(|m| !m.is_empty()) {
+            // Les valeurs de son premier cas d'exemple, celles de `set_widget_trial`.
+            match self.example_values(&w, None).ok().filter(|m| !m.is_empty()) {
                 Some(m) => {
                     let mut shown: Vec<String> = m
                         .iter()

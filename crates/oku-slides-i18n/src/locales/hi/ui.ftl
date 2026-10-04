@@ -323,8 +323,10 @@ ui-widgets-errors = त्रुटियाँ
 ui-widgets-empty = इस पैक में अभी कोई विजेट नहीं है।
 ui-widgets-preview = विजेट पूर्वावलोकन
 ui-widgets-no-preview = कोई पूर्वावलोकन नहीं
+ui-widgets-field-bound = प्रस्तुति से जुड़ा: यहाँ केवल पढ़ने के लिए
 ui-widgets-source = स्रोत कोड
 ui-widgets-code-right = कोड दाईं ओर
+ui-widgets-board = बोर्ड
 ui-widgets-unsaved = सहेजा नहीं गया
 ui-widgets-in-error = त्रुटि वाले विजेट
 ui-widgets-none-in-error = किसी विजेट में त्रुटि नहीं है
@@ -338,3 +340,30 @@ ui-widgets-tabs = टेम्पलेट टैब
 ui-widgets-templates-tab = टेम्पलेट
 ui-widgets-close-tab = { $name } बंद करें
 ui-widgets-removed-by-agent = एजेंट ने विजेट { $name } हटा दिया।
+ui-examples = उदाहरण केस
+ui-examples-add = केस
+ui-examples-add-hint = केस जोड़ें, वर्तमान की प्रति
+ui-examples-new-name = केस { $n }
+ui-examples-name = केस का नाम
+ui-examples-rename-hint = नाम बदलने के लिए डबल-क्लिक करें
+ui-examples-delete-named = केस { $name } हटाएँ
+ui-examples-confirm-delete = केस “{ $name }” हटाएँ?
+ui-examples-delete = हटाएँ
+ui-examples-cancel = रद्द करें
+ui-board = उदाहरणों का बोर्ड
+ui-board-summary = { $cases ->
+    [one] { $cases } उदाहरण
+   *[other] { $cases } उदाहरण
+} · { $alerts ->
+    [one] { $alerts } चेतावनी
+   *[other] { $alerts } चेतावनियाँ
+}
+ui-board-scheme = रंग योजना
+ui-board-light = हल्का
+ui-board-dark = गहरा
+ui-board-ratio = प्रारूप
+ui-board-ok = ठीक
+ui-board-empty = खाली फ़ील्ड
+ui-board-overflow = सीमा से बाहर
+ui-board-new = नया उदाहरण
+ui-board-open = उदाहरण “{ $name }” दृश्य में खोलें

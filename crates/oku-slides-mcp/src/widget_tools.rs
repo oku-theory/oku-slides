@@ -42,7 +42,8 @@ pub(crate) struct PreviewWidgetArgs {
 pub(crate) struct SetWidgetTrialArgs {
     /// Nom du widget.
     pub name: String,
-    /// Valeurs d'essai par paramètre ; `null`, un texte vide ou `[]` efface un essai.
+    /// Valeurs par paramètre, pour le premier cas d'exemple du widget ;
+    /// `null`, un texte vide ou `[]` efface une valeur.
     pub values: Map<String, Value>,
 }
 
@@ -148,13 +149,14 @@ impl Tools {
         }
     }
 
-    /// Valeurs d'essai d'un widget (mode modèles) ; l'utilisateur les voit dans ses réglages.
+    /// Valeurs du premier cas d'exemple d'un widget (mode modèles, dans le pack) ;
+    /// l'utilisateur les voit dans ses réglages et dans l'aperçu.
     pub(crate) async fn set_widget_trial(&self, args: Value) -> CallToolResult {
         let SetWidgetTrialArgs { name, values } = match parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        match self.with_widgets(move |s| s.set_widget_trials(&name, values)).await {
+        match self.with_widgets(move |s| s.set_example_values_by_agent(&name, values)).await {
             Ok(trials) => {
                 self.hub.emit(McpEvent::Changed);
                 self.json_text(&serde_json::json!({ "trials": trials }))
@@ -169,7 +171,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let preview = self.with_widgets(move |s| s.preview_widget(&name, &params, PreviewFormat::Png)).await;
+        let preview = self.with_widgets(move |s| s.preview_widget(&name, None, &params, PreviewFormat::Png)).await;
         let preview = match preview {
             Ok(p) => p,
             Err(e) => return fail(e),

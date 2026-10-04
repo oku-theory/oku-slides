@@ -1,6 +1,7 @@
 //! Vues envoyées à l'interface. Elles empruntent la session : sérialisées
 //! aussitôt, elles ne copient ni le deck ni le rendu.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -82,8 +83,11 @@ pub struct Snapshot<'a> {
     pub pack_widgets: Vec<&'a str>,
     /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
     pub add_widgets: Vec<AddWidget<'a>>,
-    /// Révision des essais de widgets : un changement relance les aperçus.
+    /// Révision des cas d'exemple des widgets (`widget_examples.rs`) : un changement relance les aperçus.
     pub widget_trials: u64,
+    /// Noms des cas d'exemple de chaque widget du pack édité, dans l'ordre
+    /// (`["Exemple"]` sans cas enregistrés) ; vide hors du mode modèles.
+    pub examples: BTreeMap<&'a str, Vec<String>>,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.
@@ -112,7 +116,8 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié, sa place et sa taille, sections repliées de la pile.
+/// sous-onglets de widgets, code source des widgets déplié, sa place et sa taille, sections repliées de la pile,
+/// cas d'exemple courant de chaque widget, vue Planche des widgets.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -150,6 +155,13 @@ pub struct UiState {
     /// Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut.
     #[serde(default)]
     pub folded: Vec<PileSection>,
+    /// Cas d'exemple montré de chaque widget, par nom de fichier ; absent : le premier.
+    #[serde(default)]
+    pub case: BTreeMap<String, String>,
+    /// Sous-onglets de widgets en Planche (tous les cas en vignettes) plutôt
+    /// qu'en Scène ; commun à tous les widgets, Scène par défaut.
+    #[serde(default)]
+    pub board: bool,
 }
 
 /// Place du code source d'un widget par rapport à son aperçu.
@@ -192,6 +204,8 @@ impl Default for UiState {
             code_height: None,
             code_width: None,
             folded: Vec::new(),
+            case: BTreeMap::new(),
+            board: false,
         }
     }
 }
@@ -200,16 +214,28 @@ impl Default for UiState {
 pub const MAX_WIDGET_TABS: usize = 64;
 
 impl UiState {
-    /// L'état admis : sections repliées sans doublon ; sous-onglets vidés hors du
-    /// mode modèles, sinon noms valides, sans doublon, au plus `MAX_WIDGET_TABS`, actif parmi eux.
+    /// L'état admis : sections repliées sans doublon ; sous-onglets et cas
+    /// courants vidés hors du mode modèles, sinon noms valides, sans doublon,
+    /// au plus `MAX_WIDGET_TABS`, actif parmi eux ; un cas courant par widget
+    /// valide (hors Commun), au nom de 1 à 40 caractères.
     pub fn sanitized(mut self, templates: bool) -> Self {
         let mut folded = std::collections::BTreeSet::new();
         self.folded.retain(|s| folded.insert(*s));
         if !templates {
             self.widgets.clear();
             self.widget = None;
+            self.case.clear();
             return self;
         }
+        let case = std::mem::take(&mut self.case);
+        self.case = case
+            .into_iter()
+            .filter(|(w, c)| {
+                WidgetFile::parse(w).is_some_and(|f| !f.is_common())
+                    && (1..=crate::widget_examples::EXAMPLE_NAME_MAX).contains(&c.chars().count())
+            })
+            .take(MAX_WIDGET_TABS)
+            .collect();
         let mut seen = std::collections::BTreeSet::new();
         self.widgets.retain(|n| WidgetFile::parse(n).is_some() && seen.insert(n.clone()));
         self.widgets.truncate(MAX_WIDGET_TABS);

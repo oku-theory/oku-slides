@@ -23,8 +23,8 @@ use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
 use crate::resume_writer::{Job, Writer};
+use crate::template_scratch::TemplateScratch;
 use crate::views::{TemplateMode, UiState};
-use crate::widget_trials::TemplateScratch;
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
 pub(crate) const VERSION: u32 = 1;

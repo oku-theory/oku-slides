@@ -326,8 +326,10 @@ ui-widgets-errors = Erros
 ui-widgets-empty = Este pacote ainda não tem widgets.
 ui-widgets-preview = Pré-visualização do widget
 ui-widgets-no-preview = Sem pré-visualização
+ui-widgets-field-bound = Ligado à apresentação: só leitura aqui
 ui-widgets-source = Código-fonte
 ui-widgets-code-right = Código à direita
+ui-widgets-board = Prancha
 ui-widgets-unsaved = Não salvo
 ui-widgets-in-error = Widgets com erros
 ui-widgets-none-in-error = Nenhum widget tem erros
@@ -341,3 +343,30 @@ ui-widgets-tabs = Separadores de modelos
 ui-widgets-templates-tab = Modelos
 ui-widgets-close-tab = Fechar { $name }
 ui-widgets-removed-by-agent = O agente excluiu o widget { $name }.
+ui-examples = Casos de exemplo
+ui-examples-add = Caso
+ui-examples-add-hint = Adicionar um caso, cópia do atual
+ui-examples-new-name = Caso { $n }
+ui-examples-name = Nome do caso
+ui-examples-rename-hint = Clique duplo para renomear
+ui-examples-delete-named = Excluir o caso { $name }
+ui-examples-confirm-delete = Excluir o caso “{ $name }”?
+ui-examples-delete = Excluir
+ui-examples-cancel = Cancelar
+ui-board = Prancha de casos
+ui-board-summary = { $cases ->
+    [one] { $cases } caso
+   *[other] { $cases } casos
+} · { $alerts ->
+    [one] { $alerts } alerta
+   *[other] { $alerts } alertas
+}
+ui-board-scheme = Esquema
+ui-board-light = Claro
+ui-board-dark = Escuro
+ui-board-ratio = Formato
+ui-board-ok = OK
+ui-board-empty = Campo vazio
+ui-board-overflow = Transborda
+ui-board-new = Novo caso
+ui-board-open = Abrir o caso “{ $name }” na cena

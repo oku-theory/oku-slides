@@ -326,8 +326,10 @@ ui-widgets-errors = Errors
 ui-widgets-empty = This pack has no widget yet.
 ui-widgets-preview = Widget preview
 ui-widgets-no-preview = No preview
+ui-widgets-field-bound = Linked to the presentation: read-only here
 ui-widgets-source = Source code
 ui-widgets-code-right = Code on the right
+ui-widgets-board = Board
 ui-widgets-unsaved = Not saved
 ui-widgets-in-error = Widgets with errors
 ui-widgets-none-in-error = No widget has errors
@@ -341,3 +343,30 @@ ui-widgets-tabs = Template tabs
 ui-widgets-templates-tab = Templates
 ui-widgets-close-tab = Close { $name }
 ui-widgets-removed-by-agent = The agent deleted widget { $name }.
+ui-examples = Example cases
+ui-examples-add = Case
+ui-examples-add-hint = Add a case, copying the current one
+ui-examples-new-name = Case { $n }
+ui-examples-name = Case name
+ui-examples-rename-hint = Double-click to rename
+ui-examples-delete-named = Delete case { $name }
+ui-examples-confirm-delete = Delete case “{ $name }”?
+ui-examples-delete = Delete
+ui-examples-cancel = Cancel
+ui-board = Case board
+ui-board-summary = { $cases ->
+    [one] { $cases } case
+   *[other] { $cases } cases
+} · { $alerts ->
+    [one] { $alerts } alert
+   *[other] { $alerts } alerts
+}
+ui-board-scheme = Scheme
+ui-board-light = Light
+ui-board-dark = Dark
+ui-board-ratio = Format
+ui-board-ok = OK
+ui-board-empty = Empty field
+ui-board-overflow = Overflows
+ui-board-new = New case
+ui-board-open = Open case “{ $name }” in the scene

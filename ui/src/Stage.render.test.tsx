@@ -399,3 +399,146 @@ test("Stage Enter or Space on the focused tag button stays on the button: the wi
   expect(seen).toEqual([]);
   expect(calls.edit).toEqual([]);
 });
+
+// --- Mode aperçu (sous-onglet d'un widget) -----------------------------------
+
+/** Slide d'aperçu d'un widget « kpi », recadrée : titre, corps riche, source liée au deck. */
+const pv = (field: string, kind: "plain" | "rich", text: string, y: number, extra: Partial<FieldView> = {}) =>
+  fv("apercu-el", field, text, y, { widget: "kpi", kind, ...extra });
+const previewView = {
+  slide: { id: "apercu", kind: "blank", params: { elements: [{ id: "apercu-el", kind: "kpi", params: { body: [{ runs: [{ t: "Corps" }] }] } }] } },
+  page: 1, hash: "h", width: 600, height: 300, zone: null, targets: [],
+  fields: [
+    pv("title", "plain", "Titre", 20),
+    pv("source", "plain", "Deck", 60, { bound: true }),
+    pv("body", "rich", "Corps", 100),
+  ],
+} as unknown as SlideView;
+
+async function mountPreview(props: Record<string, unknown> = {}) {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const calls: { edit: (string | null)[]; field: [string, string][] } = { edit: [], field: [] };
+  const root = createRoot(host);
+  mounted = { root, host };
+  const render = async (more: Record<string, unknown> = {}) => {
+    await act(async () => {
+      root.render(
+        createElement(Stage, {
+          mode: "preview", view: previewView, svgUrl: "blob:apercu", editing: null, palette: [],
+          onEdit: (k: string | null) => calls.edit.push(k),
+          onField: (f: FieldView, text: string) => calls.field.push([f.field, text]),
+          ...props,
+          ...more,
+        } as StageProps),
+      );
+    });
+  };
+  await render();
+  return { host, calls, render };
+}
+
+const dblclick = (el: Element) =>
+  act(async () => {
+    el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+
+test("Stage preview shows the image and the fields, without objects, grid or ghosts", async () => {
+  const withTarget = { ...previewView, targets: [{ id: "apercu-el", kind: "kpi", free: true, x: 0, y: 0, w: 600, h: 300 }] } as SlideView;
+  const { host } = await mountPreview({ view: withTarget });
+  expect(host.querySelector(".stage-wrap.stage-preview .stage > img")?.getAttribute("src")).toBe("blob:apercu");
+  expect(host.querySelector(".stage > img")?.getAttribute("alt")).toBe("Aperçu du widget");
+  expect(host.querySelector(".target")).toBeNull();
+  expect(host.querySelector(".grid-layer")).toBeNull();
+  expect(host.querySelectorAll(".field").length).toBe(3);
+});
+
+test("Stage preview fields are all hot, their empty placeholders shown without selection", async () => {
+  const empty = pv("title", "plain", "", 20, { empty: true, side: "before", h: 0, w: 0 });
+  const { host } = await mountPreview({ view: { ...previewView, fields: [empty, previewView.fields[2]] } as SlideView });
+  expect([...host.querySelectorAll(".field")].every((f) => f.classList.contains("hot"))).toBe(true);
+  expect(host.querySelector(".field-placeholder")?.textContent).toBe("Titre");
+});
+
+test("Stage preview double click on a plain field edits it on one line", async () => {
+  const { host, calls, render } = await mountPreview();
+  await dblclick(host.querySelector('.field[aria-label="Titre"]')!);
+  expect(calls.edit).toEqual(["apercu-el\u001ftitle"]);
+  await render({ editing: "apercu-el\u001ftitle" });
+  expect(host.querySelector(".editor .cm-content")?.getAttribute("aria-multiline")).toBe("false");
+});
+
+test("Stage preview editing a rich field opens a markdown editor", async () => {
+  const { host } = await mountPreview({ editing: "apercu-el\u001fbody" });
+  const content = host.querySelector(".editor .cm-content");
+  expect(content?.getAttribute("aria-multiline")).toBe("true");
+  expect(content?.textContent).toBe("Corps");
+});
+
+test("Stage preview blur sends the field and its text, never deck ops", async () => {
+  const { host, calls } = await mountPreview({ editing: "apercu-el\u001ftitle" });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "Météo");
+  await act(async () => {
+    content.dispatchEvent(new FocusEvent("blur"));
+  });
+  expect(calls.field).toEqual([["title", "Météo"]]);
+  expect(calls.edit).toEqual([null]);
+});
+
+test("Stage preview Tab sends the field and skips the bound one", async () => {
+  const { host, calls } = await mountPreview({ editing: "apercu-el\u001ftitle" });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "Neuf");
+  await key(content, "Tab");
+  expect(calls.field).toEqual([["title", "Neuf"]]);
+  expect(calls.edit).toEqual(["apercu-el\u001fbody"]);
+});
+
+test("Stage preview Escape closes the editor without sending anything", async () => {
+  const { host, calls } = await mountPreview({ editing: "apercu-el\u001ftitle" });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "Abandon");
+  await key(content, "Escape");
+  expect(calls.field).toEqual([]);
+  expect(calls.edit).toEqual([null]);
+});
+
+test("Stage preview field bound to the deck is shown read only, with its reason", async () => {
+  const { host, calls } = await mountPreview();
+  const bound = host.querySelector('.field[aria-label="source"]')!;
+  expect(bound.classList.contains("bound")).toBe(true);
+  expect(bound.classList.contains("hot")).toBe(false);
+  expect(bound.getAttribute("title")).toBe("Lié à la présentation : en lecture ici");
+  await dblclick(bound);
+  expect(calls.edit).toEqual([]);
+});
+
+test("Stage preview never edits a bound field, even asked to", async () => {
+  const { host } = await mountPreview({ editing: "apercu-el\u001fsource" });
+  expect(host.querySelector(".editor")).toBeNull();
+});
+
+test("Stage preview keeps the draft when the preview is rendered again", async () => {
+  const { host, calls, render } = await mountPreview({ editing: "apercu-el\u001ftitle" });
+  await type(host.querySelector(".editor .cm-content")!, "En cours");
+  await render({ view: { ...previewView, hash: "h2" } as SlideView, svgUrl: "blob:apercu-2" });
+  expect(host.querySelector(".editor .cm-content")?.textContent).toBe("En cours");
+  expect(calls.field).toEqual([]);
+});
+
+test("Stage preview is never drawn larger than the image itself (1 pt = 4/3 px)", async () => {
+  const proto = HTMLElement.prototype;
+  const w = Object.getOwnPropertyDescriptor(proto, "clientWidth");
+  const h = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+  Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => 4000 });
+  Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => 4000 });
+  try {
+    const { host } = await mountPreview();
+    const stage = host.querySelector<HTMLElement>(".stage")!;
+    expect([stage.style.width, stage.style.height]).toEqual(["800px", "400px"]);
+  } finally {
+    if (w) Object.defineProperty(proto, "clientWidth", w);
+    if (h) Object.defineProperty(proto, "clientHeight", h);
+  }
+});

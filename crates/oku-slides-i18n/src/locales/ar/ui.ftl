@@ -331,8 +331,10 @@ ui-widgets-errors = أخطاء
 ui-widgets-empty = لا تحتوي هذه الحزمة على أي عنصر واجهة بعد.
 ui-widgets-preview = معاينة عنصر الواجهة
 ui-widgets-no-preview = لا توجد معاينة
+ui-widgets-field-bound = مرتبط بالعرض: للقراءة فقط هنا
 ui-widgets-source = الشيفرة المصدرية
 ui-widgets-code-right = الشيفرة على اليمين
+ui-widgets-board = اللوحة
 ui-widgets-unsaved = غير محفوظ
 ui-widgets-in-error = الودجات التي بها أخطاء
 ui-widgets-none-in-error = لا توجد ودجات بها أخطاء
@@ -346,3 +348,38 @@ ui-widgets-tabs = علامات تبويب القوالب
 ui-widgets-templates-tab = القوالب
 ui-widgets-close-tab = إغلاق { $name }
 ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.
+ui-examples = حالات المثال
+ui-examples-add = حالة
+ui-examples-add-hint = إضافة حالة، نسخة من الحالية
+ui-examples-new-name = حالة { $n }
+ui-examples-name = اسم الحالة
+ui-examples-rename-hint = انقر نقرًا مزدوجًا لإعادة التسمية
+ui-examples-delete-named = حذف الحالة { $name }
+ui-examples-confirm-delete = حذف الحالة «{ $name }»؟
+ui-examples-delete = حذف
+ui-examples-cancel = إلغاء
+ui-board = لوحة الحالات
+ui-board-summary = { $cases ->
+    [zero] لا حالات
+    [one] حالة واحدة
+    [two] حالتان
+    [few] { $cases } حالات
+    [many] { $cases } حالة
+   *[other] { $cases } حالة
+} · { $alerts ->
+    [zero] لا تنبيهات
+    [one] تنبيه واحد
+    [two] تنبيهان
+    [few] { $alerts } تنبيهات
+    [many] { $alerts } تنبيهًا
+   *[other] { $alerts } تنبيه
+}
+ui-board-scheme = النمط
+ui-board-light = فاتح
+ui-board-dark = داكن
+ui-board-ratio = المقاس
+ui-board-ok = سليم
+ui-board-empty = حقل فارغ
+ui-board-overflow = يتجاوز الإطار
+ui-board-new = حالة جديدة
+ui-board-open = فتح الحالة «{ $name }» في المشهد

@@ -3,6 +3,7 @@ import type { Element, FieldView, Paragraph, SlideView } from "./api";
 import {
   fieldChanged,
   fieldOps,
+  fieldValue,
   gridPlacement,
   instantiate,
   neighbourSlide,
@@ -136,6 +137,22 @@ describe("fieldOps", () => {
   test("fieldOps of an element plain field sets its text", () => {
     const ops = fieldOps(view({}), { ...fv, owner: "c1", owner_kind: "element", field: "title", kind: "plain" }, "T");
     expect(ops).toEqual([{ op: "set_param", target: { slide: "s", element: "c1" }, param: "title", value: "T" }]);
+  });
+});
+
+describe("fieldValue", () => {
+  test("fieldValue of a plain field is its text", () => {
+    expect(fieldValue(view({}), fv, "Météo")).toBe("Météo");
+  });
+
+  test("fieldValue of a rich field is the paragraphs set_param would write, unchanged lines keeping their runs", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [colored] } }] });
+    const f = { ...fv, owner: "c1", owner_kind: "element" as const, field: "body", kind: "rich" as const, text: "Rouge" };
+    expect(fieldValue(v, f, "Rouge\n- **Point**")).toEqual([
+      colored,
+      { runs: [{ t: "Point", bold: true }], list: "bullet" },
+    ]);
   });
 });
 

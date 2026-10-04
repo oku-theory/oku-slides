@@ -4,7 +4,10 @@ use speculoos::prelude::*;
 use oku_slides_core::{ParamValue, WidgetFile, WidgetSchema};
 use oku_slides_render::RenderError;
 
-use super::{PreviewFormat, failure, preview_params};
+use super::{
+    ExampleAlert, PreviewFormat, PreviewLook, PreviewRatio, PreviewScheme, failure, preview_params, scheme_colors,
+};
+use crate::Appearance;
 use crate::test_support::{fresh_dir, opened_on, session_with, settings_on};
 use crate::widgets_edit::parse_name;
 
@@ -61,7 +64,7 @@ fn preview_widget_renders_an_svg_in_deck_mode() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.svg.unwrap_or_default().as_str()).starts_with("<svg");
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
 }
@@ -71,7 +74,7 @@ fn preview_widget_png_is_an_image_for_the_agent() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Png).unwrap();
+    let preview = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Png).unwrap();
     assert_that!(preview.png.unwrap_or_default().starts_with(b"\x89PNG")).is_true();
 }
 
@@ -80,9 +83,9 @@ fn preview_widget_after_a_worker_restart_still_renders() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     s.worker.kill_for_test();
-    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.svg.unwrap_or_default().as_str()).starts_with("<svg");
 }
 
@@ -91,7 +94,7 @@ fn preview_widget_of_a_broken_file_returns_its_diagnostics_without_image() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("casse", "#let widget = (".into()).unwrap();
-    let preview = s.preview_widget("casse", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("casse", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.svg).is_none();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_true();
 }
@@ -101,8 +104,8 @@ fn preview_widget_of_common_or_unknown_file_is_refused() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("_commun", "#let x = 1".into()).unwrap();
-    let common = s.preview_widget("_commun", &Map::new(), PreviewFormat::Svg).unwrap_err();
-    let unknown = s.preview_widget("absent", &Map::new(), PreviewFormat::Svg).unwrap_err();
+    let common = s.preview_widget("_commun", None, &Map::new(), PreviewFormat::Svg).unwrap_err();
+    let unknown = s.preview_widget("absent", None, &Map::new(), PreviewFormat::Svg).unwrap_err();
     assert_that!(common.kind()).is_equal_to(crate::SessionErrorKind::UnknownWidget);
     assert_that!(unknown.kind()).is_equal_to(crate::SessionErrorKind::UnknownWidget);
 }
@@ -112,7 +115,7 @@ fn preview_widget_that_fails_in_typst_returns_its_diagnostics() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("rate", FAILS_ON_RENDER.into()).unwrap();
-    let preview = s.preview_widget("rate", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("rate", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.svg).is_none();
     assert_that!(preview.diagnostics.iter().any(|d| d.error && d.message.contains("aperçu raté"))).is_true();
 }
@@ -124,7 +127,7 @@ fn preview_widget_that_loops_returns_a_diagnostic_and_keeps_the_pack() {
     settings.render.timeout_ms = 2000;
     let mut s = session_with(settings);
     s.set_widget("boucle", LOOP_ON_RENDER.into()).unwrap();
-    let preview = s.preview_widget("boucle", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("boucle", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.svg).is_none();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_true();
     // Le pack n'est pas écarté : le deck garde ses widgets.
@@ -164,7 +167,7 @@ fn preview_of_an_element_widget_gives_the_box_of_what_it_draws() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     let bbox = preview.bbox.unwrap();
     // Une ligne de texte : bien plus petite que la grille (1680 × 790 pt).
     assert_that!(bbox.w).is_greater_than(0.0);
@@ -180,7 +183,7 @@ fn preview_of_a_slide_widget_has_no_box() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("couverture", COVER.into()).unwrap();
-    let preview = s.preview_widget("couverture", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     assert_that!(preview.svg.is_some()).is_true();
     assert_that!(preview.bbox).is_none();
@@ -191,11 +194,11 @@ fn preview_keeps_the_bare_slide_png_between_previews() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let first = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let first = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     let kept = s.widget_preview.as_ref().and_then(|p| p.bare.clone()).unwrap();
     // Une autre source du widget montré : la slide sans éléments ne change pas.
     s.set_widget("quote", QUOTE.replace("emph", "strong")).unwrap();
-    let second = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    let second = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(s.widget_preview.as_ref().and_then(|p| p.bare.clone())).is_equal_to(Some(kept));
     assert_that!(first.bbox.is_some() && second.bbox.is_some()).is_true();
 }
@@ -205,7 +208,7 @@ fn png_preview_for_the_agent_has_no_box() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let preview = s.preview_widget("quote", &Map::new(), PreviewFormat::Png).unwrap();
+    let preview = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Png).unwrap();
     assert_that!(preview.png.is_some()).is_true();
     assert_that!(preview.bbox).is_none();
 }
@@ -232,7 +235,7 @@ fn preview_widget_shows_an_asset_of_the_deck() {
     s.set_widget("logo", LOGO.into()).unwrap();
     let id = s.doc.sources.add_asset(red_png());
     let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
-    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("logo", None, &given, PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     // L'image, pas le cadre « image manquante ».
     assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
@@ -247,7 +250,7 @@ fn preview_widget_in_templates_mode_shows_an_asset_of_the_set_aside_deck() {
     s.edit_templates(set).unwrap();
     s.set_widget("logo", LOGO.into()).unwrap();
     let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
-    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("logo", None, &given, PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
 }
@@ -263,7 +266,7 @@ fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
     // celle-ci y est, sans rendu qui l'aurait déjà envoyée au processus de rendu.
     let id = s.doc.sources.add_asset(red_png());
     let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
-    let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget("logo", None, &given, PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
 }
@@ -287,91 +290,341 @@ const QUOTE_V2: &str = r#"#import "/oku-slides/lib.typ": widget, field, params a
 "#;
 
 #[test]
-fn preview_widget_without_params_differs_once_a_trial_is_set() {
+fn preview_widget_without_params_differs_once_an_example_value_is_set() {
     let (_d, mut s) = in_templates_with_quote();
-    let plain = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
-    s.set_widget_trials("quote", body("Une autre")).unwrap();
-    let tried = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    let plain = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    s.set_example_values("quote", None, body("Une autre")).unwrap();
+    let tried = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap().svg;
     assert_that!(tried).is_not_equal_to(plain);
 }
 
 #[test]
-fn preview_widget_with_a_trial_renders_like_the_given_value() {
+fn preview_widget_with_an_example_value_renders_like_the_given_value() {
     let (_d, mut s) = in_templates_with_quote();
-    let explicit = s.preview_widget("quote", &body("Une autre"), PreviewFormat::Svg).unwrap().svg;
-    s.set_widget_trials("quote", body("Une autre")).unwrap();
-    let tried = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    let explicit = s.preview_widget("quote", None, &body("Une autre"), PreviewFormat::Svg).unwrap().svg;
+    s.set_example_values("quote", None, body("Une autre")).unwrap();
+    let tried = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap().svg;
     assert_that!(tried).is_equal_to(explicit);
 }
 
 #[test]
-fn preview_inputs_given_value_wins_over_the_trial() {
+fn preview_widget_of_a_named_example_uses_its_values() {
     let (_d, mut s) = in_templates_with_quote();
-    let quote = parse_name("quote").unwrap();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
-    let schema = s.valid_schema(&quote).unwrap().unwrap();
-    assert_that!(s.preview_inputs(&quote, &schema, &body("Donné")).get("body")).is_equal_to(body("Donné").get("body"));
+    let explicit = s.preview_widget("quote", None, &body("Long"), PreviewFormat::Svg).unwrap().svg;
+    s.add_example("quote", "Long", None).unwrap();
+    s.set_example_values("quote", Some("Long"), body("Long")).unwrap();
+    let named = s.preview_widget("quote", Some("Long"), &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    let first = s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    assert_that!(named).is_equal_to(&explicit);
+    assert_that!(first).is_not_equal_to(&explicit);
 }
 
 #[test]
-fn preview_widget_twice_keeps_the_trial_revision() {
+fn preview_widget_of_an_unknown_example_is_refused() {
     let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
+    let err = s.preview_widget("quote", Some("Absent"), &Map::new(), PreviewFormat::Svg).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::UnknownExample);
+}
+
+#[test]
+fn preview_inputs_given_value_wins_over_the_example() {
+    let (_d, mut s) = in_templates_with_quote();
+    let quote = parse_name("quote").unwrap();
+    s.set_example_values("quote", None, body("Essai")).unwrap();
+    let schema = s.valid_schema(&quote).unwrap().unwrap();
+    let inputs = s.preview_inputs(&quote, &schema, None, &body("Donné")).unwrap();
+    assert_that!(inputs.get("body")).is_equal_to(body("Donné").get("body"));
+}
+
+#[test]
+fn preview_widget_twice_keeps_the_examples_revision() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_example_values("quote", None, body("Essai")).unwrap();
     let before = s.snapshot().widget_trials;
-    s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
-    s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    s.preview_widget("quote", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(s.snapshot().widget_trials).is_equal_to(before);
 }
 
 #[test]
-fn set_widget_keeps_a_trial_still_valid() {
+fn set_widget_keeps_an_example_value_still_valid() {
     let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.set_example_values("quote", None, body("Essai")).unwrap();
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
-    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap()).map(|m| m.contains_key("body")))
-        .is_equal_to(Some(true));
+    let quote = parse_name("quote").unwrap();
+    assert_that!(s.example_values(&quote, None).unwrap().contains_key("body")).is_true();
 }
 
+/// Une valeur que le schéma n'admet plus reste dans le pack, mais l'aperçu l'ignore.
 #[test]
-fn set_widget_prunes_a_trial_whose_type_changed() {
+fn preview_inputs_ignore_an_example_value_whose_type_changed() {
     let (_d, mut s) = in_templates_with_quote();
     let values: Map<String, serde_json::Value> = serde_json::from_value(json!({ "source": "Livre" })).unwrap();
-    s.set_widget_trials("quote", values).unwrap();
+    s.set_example_values("quote", None, values).unwrap();
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
-    let kept = s.scratch().unwrap().trials_of(&parse_name("quote").unwrap()).map(|m| m.contains_key("source"));
-    assert_that!(kept.unwrap_or(false)).is_false();
+    let quote = parse_name("quote").unwrap();
+    let schema = s.valid_schema(&quote).unwrap().unwrap();
+    assert_that!(s.example_values(&quote, None).unwrap().contains_key("source")).is_true();
+    assert_that!(s.preview_inputs(&quote, &schema, None, &Map::new()).unwrap().contains_key("source")).is_false();
 }
 
 #[test]
-fn set_widget_with_empty_source_drops_its_trials() {
+fn rename_widget_moves_its_example_values() {
     let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
-    s.set_widget("quote", String::new()).unwrap();
-    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
-}
-
-#[test]
-fn rename_widget_moves_its_trials() {
-    let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.set_example_values("quote", None, body("Essai")).unwrap();
     s.rename_widget("quote", "citation").unwrap();
-    assert_that!(s.scratch().unwrap().trials_of(&parse_name("citation").unwrap())).is_some();
+    let citation = parse_name("citation").unwrap();
+    assert_that!(s.example_values(&citation, None).unwrap().contains_key("body")).is_true();
+}
+
+/// Un widget d'élément de 200 × 60 pt : un titre et un corps.
+const PANEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("panneau", params: (title: p.plain(), body: p.rich()),
+  (args, ctx) => block(width: 200pt, height: 60pt, {
+    field(ctx, "title", args.title)
+    field(ctx, "body", args.body)
+  }))
+"#;
+
+fn values(v: serde_json::Value) -> Map<String, serde_json::Value> {
+    serde_json::from_value(v).unwrap()
+}
+
+fn field_names(view: &serde_json::Value) -> Vec<String> {
+    view["fields"].as_array().unwrap().iter().map(|f| f["field"].as_str().unwrap().to_owned()).collect()
 }
 
 #[test]
-fn remove_widget_drops_its_trials() {
-    let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
-    s.remove_widget("quote").unwrap();
-    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
+fn preview_of_an_element_widget_gives_its_fields_inside_the_box() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("panneau", PANEL.into()).unwrap();
+    let preview = s.preview_widget("panneau", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    let bbox = preview.bbox.unwrap();
+    let view = preview.view.unwrap();
+    assert_that!(field_names(&view)).is_equal_to(vec!["title".to_owned(), "body".to_owned()]);
+    assert_that!(view["width"]).is_equal_to(json!(1920.0));
+    for f in view["fields"].as_array().unwrap() {
+        let (x, y) = (f["x"].as_f64().unwrap(), f["y"].as_f64().unwrap());
+        let (w, h) = (f["w"].as_f64().unwrap(), f["h"].as_f64().unwrap());
+        assert_that!(x).is_greater_than_or_equal_to(bbox.x - 1.0);
+        assert_that!(y).is_greater_than_or_equal_to(bbox.y - 1.0);
+        assert_that!(x + w).is_less_than_or_equal_to(bbox.x + bbox.w + 1.0);
+        assert_that!(y + h).is_less_than_or_equal_to(bbox.y + bbox.h + 1.0);
+        assert_that!(f["bound"]).is_equal_to(json!(false));
+    }
+    assert_that!(preview.alerts).is_empty();
 }
 
 #[test]
-fn edit_templates_again_starts_without_trials() {
-    let (_d, mut s) = in_templates_with_quote();
-    s.set_widget_trials("quote", body("Essai")).unwrap();
-    let set = s.snapshot().editing.unwrap().set;
-    s.close_templates().unwrap();
-    s.edit_templates(set).unwrap();
-    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
+fn preview_of_a_slide_widget_gives_its_fields() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let preview = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    let view = preview.view.unwrap();
+    assert_that!(field_names(&view)).is_equal_to(vec!["title".to_owned()]);
+    assert_that!(view["targets"]).is_equal_to(json!([]));
+}
+
+#[test]
+fn preview_of_an_empty_example_alerts_on_its_text_fields() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("panneau", PANEL.into()).unwrap();
+    let empty = values(json!({ "title": "", "body": [] }));
+    let preview = s.preview_widget("panneau", None, &empty, PreviewFormat::Svg).unwrap();
+    assert_that!(preview.alerts)
+        .is_equal_to(vec![ExampleAlert::Empty { field: "title".into() }, ExampleAlert::Empty { field: "body".into() }]);
+}
+
+#[test]
+fn preview_of_a_long_text_in_a_narrow_widget_alerts_on_overflow() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("panneau", PANEL.into()).unwrap();
+    let long = "Un texte bien trop long pour ce panneau étroit. ".repeat(200);
+    let given = values(json!({ "title": "Titre", "body": [{ "runs": [{ "t": long }] }] }));
+    let preview = s.preview_widget("panneau", None, &given, PreviewFormat::Svg).unwrap();
+    assert_that!(preview.alerts).is_equal_to(vec![ExampleAlert::Overflow { field: "body".into() }]);
+}
+
+#[test]
+fn preview_of_a_broken_widget_has_no_view_nor_alerts() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("casse", "#let widget = (".into()).unwrap();
+    let preview = s.preview_widget("casse", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    assert_that!(preview.view).is_none();
+    assert_that!(preview.alerts).is_empty();
+}
+
+#[test]
+fn png_preview_for_the_agent_has_no_view() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("panneau", PANEL.into()).unwrap();
+    let preview = s.preview_widget("panneau", None, &Map::new(), PreviewFormat::Png).unwrap();
+    assert_that!(preview.view).is_none();
+}
+
+#[test]
+fn example_alerts_serialize_with_their_kind() {
+    let alerts = vec![ExampleAlert::Empty { field: "title".into() }, ExampleAlert::Overflow { field: "body".into() }];
+    assert_that!(serde_json::to_value(alerts).unwrap()).is_equal_to(json!([
+        { "kind": "empty", "field": "title" },
+        { "kind": "overflow", "field": "body" }
+    ]));
+}
+
+fn look(scheme: Option<PreviewScheme>, ratio: Option<PreviewRatio>) -> PreviewLook {
+    PreviewLook { scheme, ratio }
+}
+
+/// La balise ouvrante du SVG : sa taille.
+fn svg_tag(svg: &str) -> &str {
+    &svg[..svg.find('>').unwrap()]
+}
+
+/// Le deck du fixture est au thème Papier : son schéma sombre est celui de `app-dark`.
+#[test]
+fn preview_in_dark_paints_the_slide_with_the_dark_colors_of_the_theme() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let light = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap().svg.unwrap();
+    let dark = s
+        .preview_widget_with("couverture", None, &Map::new(), PreviewFormat::Svg, look(Some(PreviewScheme::Dark), None))
+        .unwrap()
+        .svg
+        .unwrap();
+    assert_that!(light.as_str()).does_not_contain("#34312c");
+    assert_that!(dark.as_str()).contains("#34312c");
+}
+
+#[test]
+fn preview_in_light_of_a_light_deck_is_the_deck_as_is() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let plain = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    let light = s
+        .preview_widget_with(
+            "couverture",
+            None,
+            &Map::new(),
+            PreviewFormat::Svg,
+            look(Some(PreviewScheme::Light), None),
+        )
+        .unwrap();
+    assert_that!(light.svg).is_equal_to(plain.svg);
+}
+
+#[test]
+fn preview_in_four_thirds_renders_a_narrower_slide() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let preview = s
+        .preview_widget_with(
+            "couverture",
+            None,
+            &Map::new(),
+            PreviewFormat::Svg,
+            look(None, Some(PreviewRatio::Standard)),
+        )
+        .unwrap();
+    let svg = preview.svg.unwrap();
+    assert_that!(svg_tag(&svg)).contains("viewBox=\"0 0 1440 1080\"");
+    let view = preview.view.unwrap();
+    assert_that!(view["width"]).is_equal_to(json!(1440.0));
+    assert_that!(view["height"]).is_equal_to(json!(1080.0));
+}
+
+#[test]
+fn preview_of_an_element_widget_in_four_thirds_stays_inside_the_narrower_slide() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("panneau", PANEL.into()).unwrap();
+    let preview = s
+        .preview_widget_with("panneau", None, &Map::new(), PreviewFormat::Svg, look(None, Some(PreviewRatio::Standard)))
+        .unwrap();
+    let bbox = preview.bbox.unwrap();
+    assert_that!(bbox.x + bbox.w).is_less_than_or_equal_to(1440.0);
+    assert_that!(preview.view.unwrap()["width"]).is_equal_to(json!(1440.0));
+    assert_that!(preview.alerts).is_empty();
+}
+
+#[test]
+fn preview_in_sixteen_ninths_is_the_usual_slide() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    s.set_widget("couverture", COVER.into()).unwrap();
+    let plain = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
+    let wide = s
+        .preview_widget_with("couverture", None, &Map::new(), PreviewFormat::Svg, look(None, Some(PreviewRatio::Wide)))
+        .unwrap();
+    assert_that!(svg_tag(wide.svg.as_deref().unwrap())).contains("viewBox=\"0 0 1920 1080\"");
+    // Même page, même champs (l'empreinte de page suit les jetons posés).
+    let (wide, plain) = (wide.view.unwrap(), plain.view.unwrap());
+    assert_that!(wide["width"]).is_equal_to(json!(1920.0));
+    assert_that!(wide["fields"].clone()).is_equal_to(plain["fields"].clone());
+}
+
+fn appearance(scheme: &str, variants: &[(&str, &[(&str, &str)])]) -> Appearance {
+    let owned = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+    Appearance {
+        scheme: scheme.into(),
+        variants: variants.iter().map(|(s, pairs)| ((*s).to_owned(), owned(pairs))).collect(),
+        ..Appearance::default()
+    }
+}
+
+#[test]
+fn scheme_colors_of_the_scheme_of_the_deck_are_none() {
+    let light = appearance("light", &[]);
+    assert_that!(scheme_colors(&light, PreviewScheme::Light)).is_none();
+    // Sans rendu (apparence vide) : un deck clair.
+    assert_that!(scheme_colors(&Appearance::default(), PreviewScheme::Light)).is_none();
+    assert_that!(scheme_colors(&appearance("dark", &[]), PreviewScheme::Dark)).is_none();
+}
+
+#[test]
+fn scheme_colors_take_the_other_scheme_of_the_theme() {
+    let a = appearance("light", &[("dark", &[("piece", "#34312c"), ("sheet", "#2a2824"), ("ink", "#f1ece3")])]);
+    let colors = scheme_colors(&a, PreviewScheme::Dark).unwrap();
+    assert_that!(colors["bg"]).is_equal_to(json!("#34312c"));
+    assert_that!(colors["surface"]).is_equal_to(json!("#2a2824"));
+    assert_that!(colors["ink"]).is_equal_to(json!("#f1ece3"));
+    // Absente du thème : la couleur de repli du schéma.
+    assert_that!(colors["rule"].as_str().is_some_and(|c| c.starts_with('#'))).is_true();
+}
+
+#[test]
+fn scheme_colors_without_the_other_scheme_fall_back_to_neutral_colors() {
+    let dark = scheme_colors(&appearance("light", &[]), PreviewScheme::Dark).unwrap();
+    let light = scheme_colors(&appearance("dark", &[]), PreviewScheme::Light).unwrap();
+    for key in ["bg", "surface", "ink", "ink-muted", "rule"] {
+        assert_that!(dark.contains_key(key)).is_true();
+        assert_that!(light.contains_key(key)).is_true();
+    }
+    assert_that!(dark["bg"]).is_not_equal_to(light["bg"].clone());
+}
+
+#[test]
+fn preview_look_reads_from_the_request() {
+    let r: crate::Request =
+        serde_json::from_value(json!({ "cmd": "preview_widget", "name": "kpi", "scheme": "dark", "ratio": "4:3" }))
+            .unwrap();
+    assert_that!(matches!(
+        r,
+        crate::Request::PreviewWidget {
+            look: PreviewLook { scheme: Some(PreviewScheme::Dark), ratio: Some(PreviewRatio::Standard) },
+            ..
+        }
+    ))
+    .is_true();
+    let wide: PreviewLook = serde_json::from_value(json!({ "ratio": "16:9" })).unwrap();
+    assert_that!(wide).is_equal_to(look(None, Some(PreviewRatio::Wide)));
+    assert_that!(serde_json::from_value::<PreviewLook>(json!({ "ratio": "3:2" })).is_err()).is_true();
 }

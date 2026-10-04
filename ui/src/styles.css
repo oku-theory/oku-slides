@@ -863,13 +863,54 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
   align-items: center; justify-content: safe center;
 }
 .widget-tab-side > .widget-tab-broken, .widget-tab-side > .widget-tab-diagnostics { align-self: stretch; }
+/* Pastilles des cas d'exemple, au-dessus de l'aperçu ; la corbeille d'un cas paraît au survol ou au focus. */
+.example-pills { flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin-top: var(--space-2); }
+.example-pills-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-1); }
+.example-pill-wrap { display: inline-flex; align-items: center; }
+.example-pill-wrap .example-remove { width: 24px; height: 24px; opacity: 0; }
+.example-pill-wrap .example-remove svg { width: 14px; height: 14px; }
+.example-pill-wrap:hover .example-remove, .example-pill-wrap:focus-within .example-remove { opacity: 1; }
+.example-name input { width: 16ch; padding-inline: 10px; background-image: none; cursor: text; }
+.example-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); font-size: 13px; }
 /* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
    égales en haut et en bas, l'aperçu reste au centre. */
-.widget-tab-side img {
+.widget-tab-side > img {
   margin: calc(14px * var(--elev-sheet)) calc(10px * var(--elev-sheet));
   max-width: calc(100% - 20px * var(--elev-sheet)); max-height: calc(100% - 28px * var(--elev-sheet)); min-height: 0;
   object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
 }
+/* La scène de l'aperçu (champs éditables) : la place entre pastilles et réglages, la scène centrée
+   dedans à l'échelle qui y tient ; mêmes marges et même ombre que l'image seule. */
+.widget-tab-side > .stage-preview {
+  flex: 1 1 0; align-self: stretch; min-height: 96px;
+  margin: calc(14px * var(--elev-sheet)) calc(10px * var(--elev-sheet));
+}
+.stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
+/* Un champ lié au deck : en lecture, il le dit au survol. */
+.stage-preview .field.bound { cursor: help; }
+/* Planche des cas : bilan et bascules au-dessus, vignettes en grille ; la vignette cadrée au format choisi. */
+.widget-tab-side > .example-board { flex: 1 1 0; align-self: stretch; min-height: 96px; padding: var(--space-2) calc(10px * var(--elev-sheet)); }
+.board-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
+.board-toggles { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.board-toggles > [role="group"] { display: inline-flex; gap: 2px; }
+.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-4); }
+.board-card {
+  display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2); text-align: start; cursor: pointer;
+  border: 1px solid var(--rule); border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit;
+}
+.board-card:hover, .board-card:focus-visible { border-color: var(--accent-fill); }
+.board-card:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.board-card[aria-current="true"] { box-shadow: inset 0 0 0 1px var(--accent-fill); border-color: var(--accent-fill); }
+.board-frame { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--paper-200); overflow: hidden; }
+.board-frame[data-ratio="4:3"] { aspect-ratio: 4 / 3; }
+.board-thumb { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: var(--sheet-ring); }
+.board-name { font: 500 13px/18px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-badges { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+.board-badge { font-size: 11px; line-height: 18px; padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; }
+.board-badge.ok { color: var(--ink-muted); }
+.board-badge.empty, .board-badge.overflow { color: var(--danger); }
+.board-new { align-items: center; justify-content: center; min-height: 120px; color: var(--accent); border-style: dashed; }
+.board-new:disabled { cursor: default; opacity: .5; }
 /* Masqué, le code garde sa place nulle : il glisse au lieu d'apparaître d'un coup. */
 .widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
 .widget-tab-code[inert] { visibility: hidden; transition: visibility 0s 260ms; }
@@ -941,6 +982,6 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 }
 .widget-tab-side > .host-settings { flex: none; margin: 0 auto var(--space-4); }
 /* Avec des réglages dessous, l'aperçu rétrécit sans disparaître ; au-delà, la zone défile. */
-.widget-tab-side:has(> .host-settings) img { flex: 0 1 auto; min-height: 96px; }
+.widget-tab-side:has(> .host-settings) > img { flex: 0 1 auto; min-height: 96px; }
 .widget-pane > .widget-tab { flex: 1; }
 .templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }

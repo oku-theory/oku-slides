@@ -22,7 +22,9 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(fake: TabApi, widgets: string[], widget: string | null) {
+interface Cases { examples?: Record<string, string[]>; cases?: Record<string, string>; chosen?: string[][]; board?: boolean; boards?: boolean[] }
+
+async function mount(fake: TabApi, widgets: string[], widget: string | null, c: Cases = {}) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -35,7 +37,8 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   } as unknown as Snapshot;
   function Probe() {
     const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, layout: BELOW, onLayout: () => {} });
+    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, layout: BELOW, onLayout: () => {}, examples: c.examples ?? {}, cases: c.cases ?? {},
+      onCase: (w: string, n: string) => c.chosen?.push([w, n]), board: c.board ?? false, onBoard: (b: boolean) => c.boards?.push(b), run: async () => null, palette: [] });
   }
   await act(async () => root.render(createElement(Probe)));
   await wait(10);
@@ -58,5 +61,28 @@ describe("WidgetPane", () => {
     const host = await mount(fake, ["kpi"], null);
     expect(host.querySelectorAll(".widget-tab").length).toBe(1);
     expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(true);
+  });
+
+  test("chaque sous-onglet a ses cas et son cas gardé ; un widget absent du snapshot, le cas implicite", async () => {
+    const { fake } = memory({ kpi: "k", chart: "c" });
+    const chosen: string[][] = [];
+    const host = await mount(fake, ["kpi", "chart"], "kpi", { examples: { kpi: ["Exemple", "Long"] }, cases: { kpi: "Long" }, chosen });
+    const pills = (i: number) =>
+      [...host.querySelectorAll(".widget-tab")[i].querySelectorAll(".example-pill")].map((b) => `${b.textContent}:${b.getAttribute("aria-pressed")}`);
+    expect([pills(0), pills(1)]).toEqual([["Exemple:false", "Long:true"], ["Exemple:true"]]);
+    await act(async () => host.querySelector<HTMLButtonElement>(".example-pill")!.click());
+    expect(chosen).toEqual([["kpi", "Exemple"]]);
+  });
+
+  test("la planche, commune : seul l'onglet actif la montre ; une vignette choisit son cas et revient à la scène", async () => {
+    const { fake } = memory({ kpi: "k", chart: "c" });
+    const chosen: string[][] = [];
+    const boards: boolean[] = [];
+    const host = await mount(fake, ["kpi", "chart"], "kpi", { examples: { kpi: ["Exemple", "Long"] }, board: true, chosen, boards });
+    const tabs = [...host.querySelectorAll(".widget-tab")];
+    expect(tabs.map((t) => !!t.querySelector(".example-board"))).toEqual([true, false]);
+    const long = [...tabs[0].querySelectorAll<HTMLButtonElement>(".board-card")].find((b) => b.textContent?.startsWith("Long"))!;
+    await act(async () => long.click());
+    expect([chosen, boards]).toEqual([[["kpi", "Long"]], [false]]);
   });
 });

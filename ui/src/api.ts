@@ -68,8 +68,10 @@ export interface Snapshot {
   pack_widgets: string[];
   /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
   add_widgets: AddWidget[];
-  /** Révision des valeurs d'essai des widgets : change quand un essai est modifié. */
+  /** Révision des cas d'exemple des widgets : change quand un cas est modifié (tirée de la version du pack édité). */
   widget_trials: number;
+  /** Noms des cas d'exemple de chaque widget du pack édité, dans l'ordre (`["Exemple"]` sans cas enregistrés) ; vide hors du mode modèles. */
+  examples: Record<string, string[]>;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   /** L'aide de l'app : le deck se lit, il ne se modifie pas. */
@@ -112,7 +114,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, sections repliées, cas courants et planche, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -136,6 +138,10 @@ export interface UiState {
   code_width: number | null;
   /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
+  /** Cas d'exemple montré de chaque widget, par nom de fichier ; absent : le premier. */
+  case: Record<string, string>;
+  /** Sous-onglets de widgets en Planche (tous les cas en vignettes) plutôt qu'en Scène ; commun à tous. */
+  board: boolean;
 }
 
 /** Place du code source d'un widget par rapport à son aperçu. */
@@ -224,8 +230,25 @@ export interface WidgetPreview {
   svg: string | null;
   /** Ce que dessine un widget d'élément sur la slide (pt) ; `null` pour un widget de slide. */
   bbox?: Frame | null;
+  /**
+   * La slide d'aperçu entière, sans cibles ; champs en pt de la slide.
+   * L'image couvre `bbox` (un champ s'y place en `x - bbox.x`, `y - bbox.y`),
+   * ou toute la slide sans `bbox`. `null` sans rendu.
+   */
+  view?: SlideView | null;
+  /** Alertes du cas montré : champ texte vide, champ hors du cadre du widget. */
+  alerts?: ExampleAlert[];
   diagnostics: WidgetDiagnostic[];
 }
+
+/** Allure d'un aperçu de widget : schéma et format de page ; absents : ceux du deck. */
+export interface PreviewLook {
+  scheme?: "light" | "dark";
+  ratio?: "16:9" | "4:3";
+}
+
+/** Alerte sur un cas d'exemple, par champ texte du widget. */
+export type ExampleAlert = { kind: "empty"; field: string } | { kind: "overflow"; field: string };
 
 export interface Frame {
   x: number;
@@ -313,6 +336,8 @@ export interface FieldView {
   text: string;
   /** Sans texte rendu : placeholder à dessiner. */
   empty: boolean;
+  /** Lié à un paramètre du deck (`bind`) : en lecture dans l'atelier. */
+  bound: boolean;
   /** Champ vide sans place au rendu : dessiné avant ou après son ancre (`y`). */
   side: "before" | "after" | null;
   x: number;
@@ -436,9 +461,12 @@ type Request =
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
-  | { cmd: "host_settings"; slide: string; widget: string | null }
+  | { cmd: "host_settings"; slide: string; widget: string | null; example: string | null }
   | { cmd: "host_param"; slide: string; key: string; value: unknown }
-  | { cmd: "set_widget_trial"; name: string; param: string; value: unknown }
+  | { cmd: "add_example"; name: string; example: string; from: string | null }
+  | { cmd: "rename_example"; name: string; from: string; to: string }
+  | { cmd: "remove_example"; name: string; example: string }
+  | { cmd: "set_example_value"; name: string; example: string | null; param: string; value: unknown }
   | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -449,7 +477,7 @@ type Request =
   | { cmd: "set_widget"; name: string; source: string }
   | { cmd: "remove_widget"; name: string }
   | { cmd: "rename_widget"; from: string; to: string }
-  | { cmd: "preview_widget"; name: string; params: Record<string, unknown> }
+  | ({ cmd: "preview_widget"; name: string; example: string | null; params: Record<string, unknown> } & PreviewLook)
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
 
@@ -589,10 +617,17 @@ export function tabApi(tab: string) {
     saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
-    /** Surface A2UI des réglages du dock de l'agent pour une slide (vide hors des modèles). */
-    hostSettings: (slide: string, widget: string | null) => call<Surface | null>({ cmd: "host_settings", slide, widget }),
+    /** Surface A2UI des réglages de l'hôte pour une slide, ou du widget à son cas `example` (`null` : le premier) ; vide hors des modèles. */
+    hostSettings: (slide: string, widget: string | null, example: string | null = null) =>
+      call<Surface | null>({ cmd: "host_settings", slide, widget, example }),
     hostParam: (slide: string, key: string, value: unknown) => call<Snapshot>({ cmd: "host_param", slide, key, value }),
-    setWidgetTrial: (name: string, param: string, value: unknown) => call<Snapshot>({ cmd: "set_widget_trial", name, param, value }),
+    /** Cas d'exemple d'un widget, dans le pack (mode modèles) ; `example` `null` : le premier. */
+    addExample: (name: string, example: string, from: string | null = null) =>
+      call<Snapshot>({ cmd: "add_example", name, example, from }),
+    renameExample: (name: string, from: string, to: string) => call<Snapshot>({ cmd: "rename_example", name, from, to }),
+    removeExample: (name: string, example: string) => call<Snapshot>({ cmd: "remove_example", name, example }),
+    setExampleValue: (name: string, example: string | null, param: string, value: unknown) =>
+      call<Snapshot>({ cmd: "set_example_value", name, example, param, value }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),
@@ -610,8 +645,9 @@ export function tabApi(tab: string) {
     setWidget: (name: string, source: string) => call<WidgetChange>({ cmd: "set_widget", name, source }),
     removeWidget: (name: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name }),
     renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
-    previewWidget: (name: string, params: Record<string, unknown> = {}) =>
-      call<WidgetPreview>({ cmd: "preview_widget", name, params }),
+    /** Aperçu d'un widget aux valeurs du cas `example` (`null` : le premier), complétées par `params`. */
+    previewWidget: (name: string, example: string | null = null, params: Record<string, unknown> = {}, look: PreviewLook = {}) =>
+      call<WidgetPreview>({ cmd: "preview_widget", name, example, params, ...look }),
     /** Bandeau du pack : le deck passe à ma version courante (annulable). */
     packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
     /** Bandeau du pack : sa version devient ma version courante. */

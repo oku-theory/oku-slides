@@ -23,7 +23,7 @@ type Tabs = Pick<UiState, "widgets" | "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true,
-  code_place: "right", code_height: null, code_width: 640, folded: ["widgets"] };
+  code_place: "right", code_height: null, code_width: 640, folded: ["widgets"], case: { kpi: "Long" }, board: true };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -113,7 +113,7 @@ test("useViewOptions setColumns saves the new widths with the rest of the state"
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true,
-    code_place: "right", code_height: null, code_width: 640, folded: ["widgets"] });
+    code_place: "right", code_height: null, code_width: 640, folded: ["widgets"], case: { kpi: "Long" }, board: true });
 });
 
 test("useViewOptions premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -174,6 +174,49 @@ test("useViewOptions avec une nouvelle liste de même contenu ne sauve pas de no
   const n = out.saved.length;
   await render(kept, "s1", { widgets: ["kpi"], widget: null });
   expect(out.saved.length).toBe(n);
+});
+
+test("useViewOptions premier snapshot reprend les cas courants gardés par l'hôte", async () => {
+  const { out } = await mount();
+  expect(out.hook!.cases).toEqual({ kpi: "Long" });
+});
+
+test("useViewOptions un état gardé sans cas courants (hôte plus ancien) : aucun", async () => {
+  const { case: _, ...older } = kept;
+  const { out } = await mount(older as UiState);
+  expect(out.hook!.cases).toEqual({});
+});
+
+test("useViewOptions setCase choisit le cas d'un widget et le sauve avec le reste", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setCase("quote", "Court"); });
+  expect(out.hook!.cases).toEqual({ kpi: "Long", quote: "Court" });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", case: { kpi: "Long", quote: "Court" } });
+});
+
+test("useViewOptions setCase sur le cas déjà choisi ne sauve rien de plus", async () => {
+  const { out } = await mount();
+  const before = out.kept.length;
+  await act(async () => { out.hook!.setCase("kpi", "Long"); });
+  expect(out.kept.length).toBe(before);
+});
+
+test("useViewOptions premier snapshot reprend la planche gardée par l'hôte", async () => {
+  const { out } = await mount();
+  expect(out.hook!.board).toBe(true);
+});
+
+test("useViewOptions un état gardé sans planche (hôte plus ancien) : la scène", async () => {
+  const { board: _, ...older } = kept;
+  const { out } = await mount(older as UiState);
+  expect(out.hook!.board).toBe(false);
+});
+
+test("useViewOptions setBoard passe à la scène et le sauve avec le reste", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setBoard(false); });
+  expect(out.hook!.board).toBe(false);
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", board: false, case: { kpi: "Long" } });
 });
 
 test("useViewOptions handleKey leaves other keys alone", async () => {

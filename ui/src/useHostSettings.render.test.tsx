@@ -24,7 +24,7 @@ const snapshot = (o: Snap = {}): Snapshot =>
 const action = (context: Record<string, unknown>): A2uiClientAction =>
   ({ name: "param", surfaceId: HOST_WIDGET, sourceComponentId: "f0", timestamp: new Date(0).toISOString(), context }) as unknown as A2uiClientAction;
 
-interface Props { snap: Snapshot; current: string; widget: string | null }
+interface Props { snap: Snapshot; current: string; widget: string | null; example?: string | null }
 let unmount: (() => Promise<void>) | null = null;
 afterEach(async () => {
   await unmount?.();
@@ -44,7 +44,7 @@ async function mountHost(api: TabApi, first: Props) {
     }
   };
   function Probe(p: Props) {
-    out.h = useHostSettings(api, p.snap, p.current, p.widget, run, (m) => out.toasts.push(m));
+    out.h = useHostSettings(api, p.snap, p.current, p.widget, p.example ?? null, run, (m) => out.toasts.push(m));
     return null;
   }
   const host = document.body.appendChild(document.createElement("div"));
@@ -90,7 +90,7 @@ describe("useHostSettings", () => {
     expect(reads.n).toBe(1);
   });
 
-  test("la révision des essais relit la surface", async () => {
+  test("la révision des cas d'exemple relit la surface", async () => {
     const { fake, reads } = counted(HOST_WIDGET);
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte" });
     await m.render({ snap: snapshot({ trials: 1 }), current: "t-1", widget: "carte" });
@@ -121,18 +121,44 @@ describe("useHostSettings", () => {
     expect(m.out.h!.surface?.id).toBe(HOST_TEMPLATE);
   });
 
-  test("un réglage du widget part en essai, avec le widget de la surface montrée", async () => {
+  test("un réglage du widget part dans son premier cas d'exemple, avec le widget de la surface montrée", async () => {
     const { fake } = memory({});
     const sent: unknown[] = [];
     const later = deferred<Surface>();
     stub(fake, "hostSettings", (_s: string, w: string | null) => (w === "carte" ? Promise.resolve(surface(HOST_WIDGET)) : later.promise));
-    stub(fake, "setWidgetTrial", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(a), snapshot()));
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte" });
     const shown = m.out.h!.surface!;
     await m.render({ snap: snapshot(), current: "t-1", widget: "autre" });
     m.out.h!.onAction(shown, action({ key: "title", value: "Météo" }));
     await wait(10);
-    expect(sent).toEqual([["carte", "title", "Météo"]]);
+    expect(sent).toEqual([["carte", null, "title", "Météo"]]);
+  });
+
+  test("la surface du widget est lue pour le cas courant, et relue quand il change", async () => {
+    const { fake } = memory({});
+    const asked: unknown[][] = [];
+    stub(fake, "hostSettings", async (...a: unknown[]) => (asked.push(a), surface(HOST_WIDGET)));
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte", example: "Long" });
+    await m.render({ snap: snapshot(), current: "t-1", widget: "carte", example: "Court" });
+    expect(asked).toEqual([
+      ["t-1", "carte", "Long"],
+      ["t-1", "carte", "Court"],
+    ]);
+  });
+
+  test("un réglage du widget part dans le cas de la surface montrée", async () => {
+    const { fake } = memory({});
+    const sent: unknown[] = [];
+    const later = deferred<Surface>();
+    stub(fake, "hostSettings", (_s: string, _w: string | null, e: string | null) => (e === "Long" ? Promise.resolve(surface(HOST_WIDGET)) : later.promise));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte", example: "Long" });
+    const shown = m.out.h!.surface!;
+    await m.render({ snap: snapshot(), current: "t-1", widget: "carte", example: "Court" });
+    m.out.h!.onAction(shown, action({ key: "title", value: "Météo" }));
+    await wait(10);
+    expect(sent).toEqual([["carte", "Long", "title", "Météo"]]);
   });
 
   test("un réglage du modèle part en host_param avec sa clé", async () => {
@@ -162,7 +188,7 @@ describe("useHostSettings", () => {
   test("un refus de la session est dit en toast", async () => {
     const { fake } = memory({});
     stub(fake, "hostSettings", async () => surface(HOST_WIDGET));
-    stub(fake, "setWidgetTrial", async () => {
+    stub(fake, "setExampleValue", async () => {
       throw new Error("refusé");
     });
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte" });
@@ -173,7 +199,7 @@ describe("useHostSettings", () => {
 
   test("un refus de la session relit la surface et la reconstruit", async () => {
     const { fake, reads } = counted(HOST_WIDGET);
-    stub(fake, "setWidgetTrial", async () => {
+    stub(fake, "setExampleValue", async () => {
       throw new Error("refusé");
     });
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte" });
@@ -197,7 +223,7 @@ describe("useHostSettings", () => {
     const { fake } = memory({});
     const sent: unknown[] = [];
     stub(fake, "hostSettings", async (_s: string, w: string | null) => surface(w ? HOST_WIDGET : HOST_TEMPLATE));
-    stub(fake, "setWidgetTrial", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(a), snapshot()));
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "carte" });
     const old = m.out.h!.surface!;
     await m.render({ snap: snapshot(), current: "t-1", widget: "autre" });
@@ -231,10 +257,10 @@ describe("useHostSettings", () => {
         ],
       }) as unknown as Surface;
     stub(fake, "hostSettings", async (_s: string, w: string | null) => rich(w ?? ""));
-    stub(fake, "setWidgetTrial", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    stub(fake, "setExampleValue", async (...a: unknown[]) => (sent.push(a), snapshot()));
     const run = async (p: Promise<Snapshot>) => p.catch(() => null);
     function Dock({ widget }: { widget: string }) {
-      const h = useHostSettings(fake, snapshot(), "t-1", widget, run, () => {});
+      const h = useHostSettings(fake, snapshot(), "t-1", widget, null, run, () => {});
       const dock = h.surface ? [h.surface] : [];
       // L'éditeur perd le focus pendant le rendu qui remplace la surface (avant que l'ancienne soit libérée).
       useLayoutEffect(() => {

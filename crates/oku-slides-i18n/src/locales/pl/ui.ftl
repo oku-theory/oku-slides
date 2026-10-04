@@ -327,8 +327,10 @@ ui-widgets-errors = Błędy
 ui-widgets-empty = Ten pakiet nie ma jeszcze widżetów.
 ui-widgets-preview = Podgląd widżetu
 ui-widgets-no-preview = Brak podglądu
+ui-widgets-field-bound = Powiązane z prezentacją: tu tylko do odczytu
 ui-widgets-source = Kod źródłowy
 ui-widgets-code-right = Kod po prawej
+ui-widgets-board = Plansza
 ui-widgets-unsaved = Nie zapisano
 ui-widgets-in-error = Widgety z błędami
 ui-widgets-none-in-error = Żaden widget nie ma błędów
@@ -342,3 +344,34 @@ ui-widgets-tabs = Karty szablonów
 ui-widgets-templates-tab = Szablony
 ui-widgets-close-tab = Zamknij { $name }
 ui-widgets-removed-by-agent = Agent usunął widżet { $name }.
+ui-examples = Przypadki przykładowe
+ui-examples-add = Przypadek
+ui-examples-add-hint = Dodaj przypadek, kopię bieżącego
+ui-examples-new-name = Przypadek { $n }
+ui-examples-name = Nazwa przypadku
+ui-examples-rename-hint = Kliknij dwukrotnie, aby zmienić nazwę
+ui-examples-delete-named = Usuń przypadek { $name }
+ui-examples-confirm-delete = Usunąć przypadek „{ $name }”?
+ui-examples-delete = Usuń
+ui-examples-cancel = Anuluj
+ui-board = Plansza przypadków
+ui-board-summary = { $cases ->
+    [one] { $cases } przypadek
+    [few] { $cases } przypadki
+    [many] { $cases } przypadków
+   *[other] { $cases } przypadku
+} · { $alerts ->
+    [one] { $alerts } ostrzeżenie
+    [few] { $alerts } ostrzeżenia
+    [many] { $alerts } ostrzeżeń
+   *[other] { $alerts } ostrzeżenia
+}
+ui-board-scheme = Schemat
+ui-board-light = Jasny
+ui-board-dark = Ciemny
+ui-board-ratio = Format
+ui-board-ok = OK
+ui-board-empty = Puste pole
+ui-board-overflow = Wychodzi poza ramkę
+ui-board-new = Nowy przypadek
+ui-board-open = Otwórz przypadek „{ $name }” na scenie

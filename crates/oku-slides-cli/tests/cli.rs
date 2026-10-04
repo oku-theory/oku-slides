@@ -482,6 +482,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
         templates: Vec::new(),
+        examples: Default::default(),
     };
     let widgets = widgets
         .iter()

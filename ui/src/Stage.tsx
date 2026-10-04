@@ -1,5 +1,8 @@
 // La scène : le SVG rendu par Typst, et par-dessus la couche des objets
 // (sélection, glisser) et celle des champs (édition en place).
+// En aperçu (sous-onglet d'un widget) : l'image du cas d'exemple et ses
+// champs seulement, sans objets, glisser ni grille ; un champ lié au deck
+// reste en lecture.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -45,38 +48,61 @@ export interface StageHandle {
   commitEditing(): void;
 }
 
-interface Props {
+/** Ce que partagent la scène du deck et celle d'un aperçu de widget. */
+interface CommonProps {
   /** Poignée de l'application : valider la saisie avant de changer de slide. */
   ref?: React.Ref<StageHandle>;
   view: SlideView;
   svgUrl: string | null;
-  selected: string | null;
   /** Champ en édition. */
   editing: FieldKey | null;
-  onSelect: (id: string | null) => void;
   onEdit: (key: FieldKey | null) => void;
-  /** `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation. */
-  onApply: (label: string, ops: Op[], merge?: string) => void;
   /** Texte dicté à insérer au curseur de l'éditeur ouvert. */
   dictated?: { seq: number; text: string } | null;
+  /** Couleurs des pastilles dans l'éditeur (palette des graphiques du thème). */
+  palette: string[];
+  /** Message pour l'utilisateur (le champ en édition a disparu). */
+  onNotice?: (msg: string) => void;
+}
+
+/** La scène du deck : objets, sélection, glisser, grille. */
+interface DeckProps extends CommonProps {
+  mode?: "deck";
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  /** `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation. */
+  onApply: (label: string, ops: Op[], merge?: string) => void;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
   /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide ; `@param` : sous ce champ de la slide. */
   overlay?: { target: string; node: ReactNode };
-  /** Couleurs des pastilles dans l'éditeur (palette des graphiques du thème). */
-  palette: string[];
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
   /** Mode modèles : les placeholders de tous les champs vides se voient. */
   templates?: boolean;
   /** Fantômes : zone, objets et champs annotés ; placeholders de tous les champs vides. */
   showGhosts?: boolean;
-  /** Message pour l'utilisateur (le champ en édition a disparu). */
-  onNotice?: (msg: string) => void;
   /** Widgets du pack : leur étiquette ouvre le widget. */
   packWidgets?: ReadonlySet<string>;
   onOpenWidget?: (name: string) => void;
 }
+
+/**
+ * L'aperçu d'un widget : `view` dans le repère de l'image (recadrée), ses
+ * champs seulement. Jamais plus grande que l'image elle-même (1 pt = 4/3 px).
+ */
+interface PreviewProps extends CommonProps {
+  mode: "preview";
+  /** Écrit le brouillon d'un champ modifié (valeur du cas d'exemple). */
+  onField: (f: FieldView, text: string) => void;
+}
+
+type Props = DeckProps | PreviewProps;
+
+/** Échelle d'une image SVG à sa taille naturelle : 1 pt = 4/3 px CSS. */
+const NATURAL_SCALE = 4 / 3;
+/** Ne fait rien : la scène en aperçu n'a ni sélection ni ops. */
+const ignore = () => {};
 
 /** Cadre de l'élément après un glisser (en pt). Sur la grille, il saute de nœud en nœud. */
 function dragged(d: Drag): Frame {
@@ -129,10 +155,16 @@ function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSp
   );
 }
 
-export default function Stage({
-  ref, view, svgUrl, selected, editing, onSelect, onEdit, onApply, dictated, showGridAlways = false, overlay, palette,
-  readOnly = false, templates = false, showGhosts = false, onNotice, packWidgets, onOpenWidget,
-}: Props) {
+export default function Stage(props: Props) {
+  const { ref, view, svgUrl, editing, onEdit, dictated, palette, onNotice } = props;
+  const deck = props.mode === "preview" ? null : props;
+  const preview = deck === null;
+  const {
+    selected = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
+    templates = false, showGhosts = false, packWidgets, onOpenWidget,
+  } = deck ?? ({} as Partial<DeckProps>);
+  // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
+  const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
   const wrap = useRef<HTMLDivElement>(null);
   const editor = useRef<TextEditorHandle>(null);
   const [scale, setScale] = useState(0.5);
@@ -155,17 +187,17 @@ export default function Stage({
     const el = wrap.current;
     if (!el) return;
     const fit = () => {
-      const s = Math.min(el.clientWidth / view.width, el.clientHeight / view.height);
+      const s = Math.min(el.clientWidth / view.width, el.clientHeight / view.height, preview ? NATURAL_SCALE : Infinity);
       setScale(Math.max(0.1, s));
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [view.width, view.height]);
+  }, [view.width, view.height, preview]);
 
   // Relu à chaque vue : quand le rendu arrive, l'éditeur se recale sur le champ.
-  const editField = readOnly ? null : findField(view, editing);
+  const editField = readOnly ? null : findField(editable, editing);
   // Brouillon à l'ouverture, avant l'affichage : il ne sert qu'à la largeur d'un champ.
   // Il ne suit pas le serveur pendant l'édition : CodeMirror est la source de vérité.
   useLayoutEffect(() => {
@@ -240,7 +272,9 @@ export default function Stage({
 
   /** Écrit le brouillon d'un champ s'il a changé, dans la session de saisie. */
   const save = (f: FieldView, text: string) => {
-    if (fieldChanged(f, text)) onApply(t("ui-undo-edit-slide"), fieldOps(view, f, text), session.current ?? undefined);
+    if (!fieldChanged(f, text)) return;
+    if (deck) onApply(t("ui-undo-edit-slide"), fieldOps(view, f, text), session.current ?? undefined);
+    else if (props.mode === "preview") props.onField(f, text);
   };
   const commit = (text: string) => {
     if (editField) save(editField, text);
@@ -248,13 +282,13 @@ export default function Stage({
   };
   /** Passe au champ `f` ; la sélection suit s'il est d'un autre élément. */
   const editNext = (f: FieldView | null) => {
-    if (f?.owner_kind === "element" && f.owner !== selected) onSelect(f.owner);
+    if (deck && f?.owner_kind === "element" && f.owner !== selected) onSelect(f.owner);
     onEdit(f ? fieldKey(f) : null);
   };
   const next = (text: string, dir: 1 | -1) => {
     if (!editField || editing === null) return onEdit(null);
     save(editField, text);
-    editNext(nextField(view, editing, dir));
+    editNext(nextField(editable, editing, dir));
   };
   /** En édition, un clic sur un autre champ valide le courant et y passe. */
   const switchTo = (f: FieldView) => {
@@ -289,7 +323,7 @@ export default function Stage({
   const size = { width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) };
   return (
     // La slide garde ses coordonnées de gauche à droite, même dans une interface en arabe.
-    <div className="stage-wrap" dir="ltr" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
+    <div className={`stage-wrap${preview ? " stage-preview" : ""}`} dir="ltr" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
       {/* Cadre de la scène : même origine que la slide, sans rogner (la fiche de l'agent déborde). */}
       <div className="stage-frame" style={size}>
         <div
@@ -299,10 +333,10 @@ export default function Stage({
           onPointerUp={endDrag}
           onPointerCancel={() => setDrag(null)}
         >
-          {svgUrl && <img src={svgUrl} alt={t("ui-slide-alt", { n: view.page })} draggable={false} />}
+          {svgUrl && <img src={svgUrl} alt={preview ? t("ui-widgets-preview") : t("ui-slide-alt", { n: view.page })} draggable={false} />}
           {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
           {showGhosts && <GhostLayer view={view} scale={scale} hidden={drag?.id ?? null} />}
-          <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
+          {deck && <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
             {view.targets.map((tg) => {
               const sel = tg.id === selected;
               const label = kindLabel(tg.kind);
@@ -345,33 +379,36 @@ export default function Stage({
                 </div>
               );
             })}
-          </div>
+          </div>}
           {!readOnly && (
             <div className="fields" role="group" aria-label={t("ui-stage-fields")}>
               {view.fields.map((f) => {
                 const key = fieldKey(f);
-                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles ou fantômes.
-                const hot = templates || showGhosts || f.owner === selected || editField?.owner === f.owner;
+                const bound = preview && f.bound;
+                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles,
+                // fantômes ou aperçu (sauf un champ lié au deck).
+                const hot = !bound && (preview || templates || showGhosts || f.owner === selected || editField?.owner === f.owner);
                 const ghost = f.empty && key !== editing && hot;
                 return (
                   <div
                     key={key}
-                    className={`field${f.empty ? " empty" : ""}${hot ? " hot" : ""}`}
+                    className={`field${f.empty ? " empty" : ""}${hot ? " hot" : ""}${bound ? " bound" : ""}`}
                     style={fieldHitBox(f, scale, view.fields)}
                     aria-label={fieldLabel(f)}
+                    title={bound ? t("ui-widgets-field-bound") : undefined}
                     onPointerDown={(e) => {
                       if (editing) {
                         e.stopPropagation();
-                        if (key !== editing) switchTo(f);
+                        if (key !== editing && !bound) switchTo(f);
                         return;
                       }
                       // Hors édition, un clic sélectionne l'objet (un champ de slide : rien).
                       const owner = f.owner_kind === "element" ? view.targets.find((x) => x.id === f.owner) : undefined;
-                      if (owner) startDrag(e, owner, "move");
+                      if (deck && owner) startDrag(e, owner, "move");
                     }}
                     // En édition, le clic ne prend pas le focus : l'éditeur qui s'ouvre le garde.
                     onMouseDown={(e) => editing && e.preventDefault()}
-                    onDoubleClick={() => onEdit(key)}
+                    onDoubleClick={() => bound || onEdit(key)}
                   >
                     {/* Un champ vide qui garde un texte (surtitre sans titre) le montre grisé. */}
                     {ghost && <span className="field-placeholder" style={placeholderStyle(f, scale)}>{f.text || fieldLabel(f)}</span>}

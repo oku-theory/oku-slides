@@ -41,6 +41,16 @@ fn slide_view_bound_title_field_shows_the_deck_title() {
 }
 
 #[test]
+fn slide_view_marks_bound_fields_only() {
+    let s = session_with_fixture();
+    let cover = s.slide("s-title").unwrap();
+    let title = cover.fields.iter().find(|f| f.field == "title").unwrap();
+    assert_that!(title.bound).is_true();
+    let cards = s.slide("s-priorites").unwrap();
+    assert_that!(cards.fields.iter().any(|f| f.bound)).is_false();
+}
+
+#[test]
 fn slide_view_bound_title_field_wins_over_the_slide_own_param() {
     // Comme le rendu (`_args`) : le paramètre lié l'emporte sur celui de la slide.
     let data = data_dir();

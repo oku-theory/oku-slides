@@ -83,13 +83,20 @@ pub(crate) fn template_params(slide: &Slide, grid: Option<Grid>, l: &Localizer) 
 
 impl Session {
     /// Réglages de l'hôte : le widget `widget` s'il en a, sinon le modèle `slide`.
-    pub(crate) fn host_settings(&self, slide: &str, widget: Option<&str>) -> Result<Option<Surface>> {
+    pub(crate) fn host_settings(
+        &self,
+        slide: &str,
+        widget: Option<&str>,
+        example: Option<&str>,
+    ) -> Result<Option<Surface>> {
         if !self.in_templates() {
             return Ok(None);
         }
         let palette: Vec<String> = self.appearance.slide.values().cloned().collect();
-        // Un sous-onglet périmé (widget supprimé, renommé) donne la carte du modèle.
-        let widget = widget.and_then(|w| self.widget_settings(w).ok().flatten());
+        // Un sous-onglet périmé (widget supprimé, renommé) donne la carte du
+        // modèle ; un cas périmé, celle du premier cas.
+        let widget = widget
+            .and_then(|w| self.widget_settings(w, example).or_else(|_| self.widget_settings(w, None)).ok().flatten());
         if let Some(p) = widget {
             return Ok(Some(params_with(HOST_WIDGET, &p.spec, &p.extras(), &palette, &self.localizer)));
         }

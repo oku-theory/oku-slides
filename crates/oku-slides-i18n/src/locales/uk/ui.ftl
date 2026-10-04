@@ -327,8 +327,10 @@ ui-widgets-errors = Помилки
 ui-widgets-empty = У цьому пакеті ще немає віджетів.
 ui-widgets-preview = Попередній перегляд віджета
 ui-widgets-no-preview = Немає попереднього перегляду
+ui-widgets-field-bound = Пов’язано з презентацією: тут лише для читання
 ui-widgets-source = Вихідний код
 ui-widgets-code-right = Код праворуч
+ui-widgets-board = Дошка
 ui-widgets-unsaved = Не збережено
 ui-widgets-in-error = Віджети з помилками
 ui-widgets-none-in-error = Жоден віджет не має помилок
@@ -342,3 +344,34 @@ ui-widgets-tabs = Вкладки шаблонів
 ui-widgets-templates-tab = Шаблони
 ui-widgets-close-tab = Закрити { $name }
 ui-widgets-removed-by-agent = Агент видалив віджет { $name }.
+ui-examples = Приклади
+ui-examples-add = Приклад
+ui-examples-add-hint = Додати приклад — копію поточного
+ui-examples-new-name = Приклад { $n }
+ui-examples-name = Назва прикладу
+ui-examples-rename-hint = Двічі клацніть, щоб перейменувати
+ui-examples-delete-named = Видалити приклад { $name }
+ui-examples-confirm-delete = Видалити приклад «{ $name }»?
+ui-examples-delete = Видалити
+ui-examples-cancel = Скасувати
+ui-board = Дошка прикладів
+ui-board-summary = { $cases ->
+    [one] { $cases } приклад
+    [few] { $cases } приклади
+    [many] { $cases } прикладів
+   *[other] { $cases } прикладу
+} · { $alerts ->
+    [one] { $alerts } попередження
+    [few] { $alerts } попередження
+    [many] { $alerts } попереджень
+   *[other] { $alerts } попередження
+}
+ui-board-scheme = Схема
+ui-board-light = Світла
+ui-board-dark = Темна
+ui-board-ratio = Формат
+ui-board-ok = OK
+ui-board-empty = Порожнє поле
+ui-board-overflow = Виходить за межі
+ui-board-new = Новий приклад
+ui-board-open = Відкрити приклад «{ $name }» на сцені

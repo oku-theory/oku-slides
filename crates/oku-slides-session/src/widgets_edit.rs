@@ -130,7 +130,7 @@ fn with_render(mut statuses: Vec<WidgetStatus>, render: Vec<WidgetDiagnostic>, n
     statuses
 }
 
-/// L'essai `value` vaut-il encore pour le paramètre `param` de `schema` ?
+/// La valeur d'exemple `value` vaut-elle encore pour le paramètre `param` de `schema` ?
 pub(crate) fn trial_fits(schema: &WidgetSchema, param: &str, value: &Value) -> bool {
     schema.param(param).is_some_and(|p| param_value(&p.ty, param, value.clone()).is_ok())
 }
@@ -238,7 +238,11 @@ impl Session {
             widgets.insert(name.clone(), source);
         }
         let before = self.statuses(&t.version, t.files.widgets())?;
-        let (after, saved) = match self.commit_widgets(&t, widgets.clone()) {
+        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        if removing {
+            manifest.examples.remove(&name);
+        }
+        let (after, saved) = match self.commit_manifest(&t, manifest, widgets.clone()) {
             Ok((after, render)) => (with_render(after, render, &name), true),
             // Mode deck : rien n'a changé ; les statuts sont ceux de l'essai.
             Err(e) if e.render_error().is_some() => {
@@ -255,16 +259,13 @@ impl Session {
         let was_valid = |n: &WidgetFile| before.iter().any(|b| b.name == *n && b.is_valid());
         let broken = after.into_iter().filter(|s| s.name != name && !s.is_valid() && was_valid(&s.name)).collect();
         let change = WidgetChange { status, broken, saved };
+        // Un widget modifié garde ses cas : une valeur que le schéma n'admet plus est ignorée
+        // à l'aperçu, et retirée à la prochaine écriture de son cas (un widget supprimé perd les siens).
         if change.saved
+            && removing
             && let Some(scratch) = self.scratch_mut()
         {
-            if removing {
-                scratch.removed(&name);
-            } else if let Some(schema) = &change.status.schema {
-                // Un essai d'un paramètre retiré, ou dont le type a changé, ne vaut plus.
-                scratch.pruned(&name, |param, value| trial_fits(schema, param, value));
-            }
-            // Fichier invalide (pas de schéma) : les essais restent, `preview_inputs` les filtre par schéma.
+            scratch.removed(&name);
         }
         Ok(change)
     }
@@ -299,7 +300,9 @@ impl Session {
         self.ensure_unused(&t, &name)?;
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&name);
-        let statuses = self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &name))?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        manifest.examples.remove(&name);
+        let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &name))?;
         if let Some(scratch) = self.scratch_mut() {
             scratch.removed(&name);
         }
@@ -321,7 +324,11 @@ impl Session {
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&from);
         widgets.insert(to.clone(), renamed);
-        let statuses = self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &to))?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        if let Some(examples) = manifest.examples.remove(&from) {
+            manifest.examples.insert(to.clone(), examples);
+        }
+        let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &to))?;
         if let Some(scratch) = self.scratch_mut() {
             scratch.renamed(&from, &to);
         }
@@ -346,18 +353,24 @@ impl Session {
         Ok(())
     }
 
-    /// Enregistre `widgets` dans la version de la séance ; les statuts d'après.
+    /// Enregistre `manifest` et `widgets` dans la version de la séance ; les statuts d'après.
     ///
-    /// Mêmes fichiers : rien n'est enregistré. Rend aussi les diagnostics du
-    /// rendu qui a échoué après l'enregistrement (mode modèles). L'avis des
-    /// widgets écartés se tait pendant l'écriture : le panneau et l'agent
-    /// ont les statuts.
-    fn commit_widgets(&mut self, t: &WidgetTarget, widgets: BTreeMap<WidgetFile, String>) -> Result<Committed> {
+    /// Mêmes fichiers et même manifeste (date de création mise à part) :
+    /// rien n'est enregistré. Rend aussi les diagnostics du rendu qui a
+    /// échoué après l'enregistrement (mode modèles). L'avis des widgets
+    /// écartés se tait pendant l'écriture : le panneau et l'agent ont les
+    /// statuts.
+    pub(crate) fn commit_manifest(
+        &mut self,
+        t: &WidgetTarget,
+        mut manifest: PackManifest,
+        widgets: BTreeMap<WidgetFile, String>,
+    ) -> Result<Committed> {
         self.ensure_editable()?;
-        if widgets == *t.files.widgets() {
+        let before = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        if widgets == *t.files.widgets() && manifest == before {
             return Ok((self.statuses(&t.version, &widgets)?, Vec::new()));
         }
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
         manifest.created = now_created();
         self.widget_edit = true;
         let committed = self.commit_files(t, manifest, widgets);

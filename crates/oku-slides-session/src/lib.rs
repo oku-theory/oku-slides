@@ -59,14 +59,15 @@ mod request;
 mod resume;
 mod resume_writer;
 mod search;
+mod template_scratch;
 mod templates_mode;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod text;
 mod views;
+mod widget_examples;
 mod widget_params;
 mod widget_preview;
-mod widget_trials;
 mod widgets_deck;
 mod widgets_edit;
 mod workspace;
@@ -86,13 +87,15 @@ pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Templa
 pub use pack_notice::PackNoticeView;
 pub use request::Request;
 pub use search::SearchHit;
+use template_scratch::TemplateScratch;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
     AddWidget, CodePlace, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target,
     TemplateMode, TemplateView, TemplatesView, UiState,
 };
-pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
-use widget_trials::TemplateScratch;
+pub use widget_preview::{
+    ExampleAlert, PreviewBox, PreviewFormat, PreviewLook, PreviewRatio, PreviewScheme, WidgetPreview,
+};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
@@ -521,7 +524,6 @@ impl Session {
                     | Request::HistoryClose
                     | Request::PackMakeCurrent
                     | Request::PackNoticeClose
-                    | Request::SetWidgetTrial { .. }
             ),
         );
         // La séance des widgets du mode deck finit à la première autre modification.
@@ -533,7 +535,9 @@ impl Session {
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Search { query } => return json(&self.search(&query)),
             Request::Svg { id } => return json(&*self.svg(&id)?),
-            Request::HostSettings { slide, widget } => return json(&self.host_settings(&slide, widget.as_deref())?),
+            Request::HostSettings { slide, widget, example } => {
+                return json(&self.host_settings(&slide, widget.as_deref(), example.as_deref())?);
+            }
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
@@ -556,8 +560,14 @@ impl Session {
                 self.persist(true);
                 return json(&statuses);
             }
-            Request::PreviewWidget { name, params } => {
-                return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
+            Request::PreviewWidget { name, example, params, look } => {
+                return json(&self.preview_widget_with(
+                    &name,
+                    example.as_deref(),
+                    &params,
+                    PreviewFormat::Svg,
+                    look,
+                )?);
             }
             Request::DeleteTemplateSet { set } => {
                 ensure!(!Library::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
@@ -575,8 +585,11 @@ impl Session {
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
             Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
-            Request::SetWidgetTrial { name, param, value } => {
-                self.set_widget_trials(&name, serde_json::Map::from_iter([(param, value)]))?;
+            Request::AddExample { name, example, from } => self.add_example(&name, &example, from.as_deref())?,
+            Request::RenameExample { name, from, to } => self.rename_example(&name, &from, &to)?,
+            Request::RemoveExample { name, example } => self.remove_example(&name, &example)?,
+            Request::SetExampleValue { name, example, param, value } => {
+                self.set_example_values(&name, example.as_deref(), serde_json::Map::from_iter([(param, value)]))?;
             }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
@@ -842,7 +855,8 @@ impl Session {
             pack_notice: self.pack_notice_view(),
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),
-            widget_trials: self.scratch().map_or(0, TemplateScratch::revision),
+            widget_trials: self.examples_revision(),
+            examples: self.example_names(),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

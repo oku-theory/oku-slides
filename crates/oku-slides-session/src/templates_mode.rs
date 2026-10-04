@@ -27,7 +27,7 @@ use crate::error::{
 };
 use crate::library::{Library, StoredVersion};
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, Template, now_created};
-use crate::widget_trials::TemplateScratch;
+use crate::template_scratch::TemplateScratch;
 use crate::{Document, Mode, Result, Session, TemplateMode, TemplateView, TemplatesView, new_renderer};
 
 /// Préfixe de la clé d'étape d'annulation des enregistrements du pack.
@@ -134,7 +134,16 @@ impl Session {
     }
 
     /// Le `pack.json` que montre `deck`, le deck des modèles en cours d'édition.
-    fn edited_manifest(&self, deck: &Deck, id: Uuid, parent: Option<PackVersion>, description: String) -> PackManifest {
+    ///
+    /// `kept` : la dernière version enregistrée, dont la description et les cas d'exemple restent.
+    fn edited_manifest(
+        &self,
+        deck: &Deck,
+        id: Uuid,
+        parent: Option<PackVersion>,
+        kept: Option<PackManifest>,
+    ) -> PackManifest {
+        let (description, examples) = kept.map(|m| (m.description, m.examples)).unwrap_or_default();
         let name = deck
             .params
             .title
@@ -156,7 +165,7 @@ impl Session {
                 Template { id: s.id.clone(), name, description, slide }
             })
             .collect();
-        PackManifest { id, name, description, parent, created: now_created(), templates }
+        PackManifest { id, name, description, parent, created: now_created(), templates, examples }
     }
 
     /// Enregistre le pack édité dans la version de cette session d'édition.
@@ -178,13 +187,12 @@ impl Session {
             let name = self.localizer.tr_with("templates-copy-name", &[("name", edit.name.as_str().into())]);
             deck.params.title = Some(name);
         }
-        // Description et widgets : ceux de la dernière version enregistrée.
+        // Description, cas d'exemple et widgets : ceux de la dernière version enregistrée.
         let base = self.doc.sources.packs.get(&edit.base);
-        let description =
-            base.and_then(|f| PackManifest::from_files(f).ok()).map(|m| m.description).unwrap_or_default();
+        let kept = base.and_then(|f| PackManifest::from_files(f).ok());
         let widgets = base.map(|f| f.widgets().clone()).unwrap_or_default();
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.set, edit.parent.clone()) };
-        let manifest = self.edited_manifest(&deck, id, parent, description);
+        let manifest = self.edited_manifest(&deck, id, parent, kept);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new, None)?;
         self.doc.dirty = false;

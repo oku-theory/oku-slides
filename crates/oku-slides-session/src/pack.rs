@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use time::OffsetDateTime;
 use time::macros::format_description;
 use uuid::Uuid;
@@ -41,6 +41,34 @@ pub struct PackManifest {
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     pub created: String,
     pub templates: Vec<Template>,
+    /// Cas d'exemple de chaque widget, dans l'ordre de leurs pastilles.
+    ///
+    /// Un widget absent a un seul cas implicite, [`EXAMPLE_DEFAULT`], aux
+    /// valeurs neutres : il n'est écrit qu'à son premier changement. Vide,
+    /// la clé n'est pas écrite (les versions sans cas gardent leur empreinte).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub examples: BTreeMap<WidgetFile, Vec<Example>>,
+}
+
+/// Nom du cas implicite d'un widget qui n'a pas de cas enregistrés.
+pub const EXAMPLE_DEFAULT: &str = "Exemple";
+
+/// Un cas d'exemple d'un widget : des valeurs de paramètres, nommées.
+///
+/// Les valeurs ont la forme de celles de l'aperçu (texte riche : tableau de
+/// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Example {
+    pub name: String,
+    #[serde(default)]
+    pub values: Map<String, Value>,
+}
+
+impl Example {
+    /// Le cas implicite : [`EXAMPLE_DEFAULT`], sans valeurs.
+    pub fn implicit() -> Self {
+        Self { name: EXAMPLE_DEFAULT.to_owned(), values: Map::new() }
+    }
 }
 
 impl PackManifest {

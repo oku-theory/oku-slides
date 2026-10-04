@@ -323,8 +323,10 @@ ui-widgets-errors = ত্রুটি
 ui-widgets-empty = এই প্যাকে এখনও কোনো উইজেট নেই।
 ui-widgets-preview = উইজেটের প্রিভিউ
 ui-widgets-no-preview = প্রিভিউ নেই
+ui-widgets-field-bound = উপস্থাপনার সঙ্গে যুক্ত: এখানে শুধু পড়া যায়
 ui-widgets-source = সোর্স কোড
 ui-widgets-code-right = কোড ডানদিকে
+ui-widgets-board = বোর্ড
 ui-widgets-unsaved = সংরক্ষিত হয়নি
 ui-widgets-in-error = ত্রুটিযুক্ত উইজেট
 ui-widgets-none-in-error = কোনো উইজেটে ত্রুটি নেই
@@ -338,3 +340,30 @@ ui-widgets-tabs = টেমপ্লেট ট্যাব
 ui-widgets-templates-tab = টেমপ্লেট
 ui-widgets-close-tab = { $name } বন্ধ করুন
 ui-widgets-removed-by-agent = এজেন্ট উইজেট { $name } মুছে ফেলেছে।
+ui-examples = উদাহরণ কেস
+ui-examples-add = কেস
+ui-examples-add-hint = কেস যোগ করুন, বর্তমানটির অনুলিপি
+ui-examples-new-name = কেস { $n }
+ui-examples-name = কেসের নাম
+ui-examples-rename-hint = নাম বদলাতে ডাবল-ক্লিক করুন
+ui-examples-delete-named = কেস { $name } মুছুন
+ui-examples-confirm-delete = কেস “{ $name }” মুছবেন?
+ui-examples-delete = মুছুন
+ui-examples-cancel = বাতিল
+ui-board = উদাহরণের বোর্ড
+ui-board-summary = { $cases ->
+    [one] { $cases }টি উদাহরণ
+   *[other] { $cases }টি উদাহরণ
+} · { $alerts ->
+    [one] { $alerts }টি সতর্কতা
+   *[other] { $alerts }টি সতর্কতা
+}
+ui-board-scheme = রঙের ধরন
+ui-board-light = হালকা
+ui-board-dark = গাঢ়
+ui-board-ratio = আকার
+ui-board-ok = ঠিক আছে
+ui-board-empty = খালি ক্ষেত্র
+ui-board-overflow = সীমা ছাড়িয়ে যায়
+ui-board-new = নতুন উদাহরণ
+ui-board-open = উদাহরণ “{ $name }” দৃশ্যে খুলুন

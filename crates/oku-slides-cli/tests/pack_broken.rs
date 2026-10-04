@@ -22,6 +22,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackRef {
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
         templates: Vec::new(),
+        examples: Default::default(),
     };
     let widgets = widgets
         .iter()

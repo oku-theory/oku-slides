@@ -323,8 +323,10 @@ ui-widgets-errors = 错误
 ui-widgets-empty = 此包还没有小组件。
 ui-widgets-preview = 小组件预览
 ui-widgets-no-preview = 无预览
+ui-widgets-field-bound = 已关联到演示文稿：此处只读
 ui-widgets-source = 源代码
 ui-widgets-code-right = 代码在右侧
+ui-widgets-board = 看板
 ui-widgets-unsaved = 未保存
 ui-widgets-in-error = 有错误的小组件
 ui-widgets-none-in-error = 没有小组件有错误
@@ -338,3 +340,28 @@ ui-widgets-tabs = 模板标签页
 ui-widgets-templates-tab = 模板
 ui-widgets-close-tab = 关闭 { $name }
 ui-widgets-removed-by-agent = 智能体删除了小组件 { $name }。
+ui-examples = 示例用例
+ui-examples-add = 用例
+ui-examples-add-hint = 添加用例（复制当前用例）
+ui-examples-new-name = 用例 { $n }
+ui-examples-name = 用例名称
+ui-examples-rename-hint = 双击重命名
+ui-examples-delete-named = 删除用例 { $name }
+ui-examples-confirm-delete = 删除用例“{ $name }”？
+ui-examples-delete = 删除
+ui-examples-cancel = 取消
+ui-board = 用例看板
+ui-board-summary = { $cases ->
+   *[other] { $cases } 个用例
+} · { $alerts ->
+   *[other] { $alerts } 个警告
+}
+ui-board-scheme = 配色
+ui-board-light = 浅色
+ui-board-dark = 深色
+ui-board-ratio = 比例
+ui-board-ok = 正常
+ui-board-empty = 字段为空
+ui-board-overflow = 溢出
+ui-board-new = 新用例
+ui-board-open = 在场景中打开用例“{ $name }”

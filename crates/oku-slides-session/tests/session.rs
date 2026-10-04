@@ -327,7 +327,14 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": [], "case": {}, "board": false}));
+}
+
+#[test]
+fn ui_request_with_the_board_keeps_it_in_snapshot() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "board": true}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]["board"]).is_equal_to(json!(true));
 }
 
 #[test]
@@ -390,7 +397,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": [], "case": {}, "board": false}));
 }
 
 #[test]
@@ -400,7 +407,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
         .unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}),
+        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": [], "case": {}, "board": false}),
     );
 }
 
@@ -863,8 +870,17 @@ fn editing() -> (Isolated, String) {
 
 /// La surface de `host_settings`, en JSON.
 fn host(s: &mut Session, slide: &str, widget: Option<&str>) -> serde_json::Value {
+    host_on(s, slide, widget, None)
+}
+
+/// La surface de `host_settings` pour le cas `example` du widget, en JSON.
+fn host_on(s: &mut Session, slide: &str, widget: Option<&str>, example: Option<&str>) -> serde_json::Value {
     let reply = s
-        .handle(Request::HostSettings { slide: slide.into(), widget: widget.map(Into::into) })
+        .handle(Request::HostSettings {
+            slide: slide.into(),
+            widget: widget.map(Into::into),
+            example: example.map(Into::into),
+        })
         .unwrap_or_else(|e| panic!("réglages de l'hôte refusés : {}", e.one_line()));
     serde_json::from_str(&reply).unwrap_or_else(|e| panic!("réglages de l'hôte illisibles : {e}"))
 }
@@ -914,11 +930,39 @@ fn host_settings_of_a_template_with_blocks_has_no_grid_fields() {
 }
 
 #[test]
-fn host_settings_of_a_widget_shows_its_trial() {
+fn host_settings_of_a_widget_shows_its_first_example() {
     let (mut s, slide) = editing();
     s.set_widget("quote", QUOTE.into()).unwrap();
-    s.handle(Request::SetWidgetTrial { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
+    s.handle(Request::SetExampleValue {
+        name: "quote".into(),
+        example: None,
+        param: "source".into(),
+        value: json!("Essai"),
+    })
+    .unwrap();
     assert_that!(host(&mut s, &slide, Some("quote")).to_string().as_str()).contains("Essai");
+}
+
+#[test]
+fn host_settings_of_a_widget_shows_the_named_example() {
+    let (mut s, slide) = editing();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.add_example("quote", "Long", None).unwrap();
+    s.set_example_values("quote", Some("Long"), json!({ "source": "Du cas long" }).as_object().cloned().unwrap())
+        .unwrap();
+    assert_that!(host_on(&mut s, &slide, Some("quote"), Some("Long")).to_string().as_str()).contains("Du cas long");
+    assert_that!(host_on(&mut s, &slide, Some("quote"), None).to_string().as_str()).does_not_contain("Du cas long");
+}
+
+/// Un cas inconnu (renommé, supprimé entre-temps) montre le premier, sans refus.
+#[test]
+fn host_settings_of_an_unknown_example_shows_the_first() {
+    let (mut s, slide) = editing();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.set_example_values("quote", None, json!({ "source": "Le premier" }).as_object().cloned().unwrap()).unwrap();
+    let shown = host_on(&mut s, &slide, Some("quote"), Some("Absent"));
+    assert_that!(shown["id"].as_str()).is_equal_to(Some("host-widget"));
+    assert_that!(shown.to_string().as_str()).contains("Le premier");
 }
 
 #[test]
@@ -967,10 +1011,16 @@ fn host_param_outside_templates_mode_is_refused() {
 }
 
 #[test]
-fn set_widget_trial_request_leaves_the_deck_unchanged() {
+fn set_example_value_request_leaves_the_templates_unchanged() {
     let (mut s, _) = editing();
     s.set_widget("quote", QUOTE.into()).unwrap();
-    let before = s.deck().clone();
-    s.handle(Request::SetWidgetTrial { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
-    assert_that!(s.deck().clone()).is_equal_to(before);
+    let before = s.deck().slides.clone();
+    s.handle(Request::SetExampleValue {
+        name: "quote".into(),
+        example: None,
+        param: "source".into(),
+        value: json!("Essai"),
+    })
+    .unwrap();
+    assert_that!(s.deck().slides.clone()).is_equal_to(before);
 }

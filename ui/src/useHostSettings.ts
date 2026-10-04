@@ -1,7 +1,7 @@
 // Réglages de l'hôte en mode modèles (modèle affiché, ou widget du sous-onglet
-// actif) : une surface de réglages construite par la session, rendue au dock.
-// Chaque champ porte sa clé ; une action part avec la slide et le widget de la
-// surface affichée. Un réglage refusé relit la surface : le champ reprend la
+// actif, aux valeurs de son cas d'exemple courant) : une surface de réglages
+// construite par la session. Chaque champ porte sa clé ; une action part avec la
+// slide, le widget et le cas de la surface affichée. Un réglage refusé relit la surface : le champ reprend la
 // valeur de la session, celle que dessine l'aperçu.
 
 import { useEffect, useRef, useState } from "react";
@@ -24,17 +24,18 @@ export interface HostSettings {
   onAction(s: Surface, a: A2uiClientAction): boolean;
 }
 
-/** Réglages de l'hôte au dock : relus quand la slide, le widget ou le deck changent. */
+/** Réglages de l'hôte : relus quand la slide, le widget, son cas courant ou le deck changent. */
 export function useHostSettings(
   api: TabApi,
   snap: Snapshot | null,
   current: string | null,
   widget: string | null,
+  example: string | null,
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
 ): HostSettings {
   // `sync` : le numéro de relecture forcée qui a produit la surface.
-  const [shown, setShown] = useState<{ surface: Surface; slide: string; widget: string | null; sync: number } | null>(null);
+  const [shown, setShown] = useState<{ surface: Surface; slide: string; widget: string | null; example: string | null; sync: number } | null>(null);
   // Lue au moment de l'action : une surface remplacée depuis n'envoie rien, quel que soit le rendu
   // dont vient le gestionnaire appelé.
   const shownRef = useRef(shown);
@@ -44,13 +45,13 @@ export function useHostSettings(
   const [sync, setSync] = useState(0);
   const active = !!current && !!snap?.editing && !snap.history;
   const slide = snap?.slides.find((s) => s.id === current);
-  // Tout ce qui peut changer la carte : pack, essais, slide (rendu, nom), annulation.
+  // Tout ce qui peut changer la carte : pack, cas d'exemple, slide (rendu, nom), annulation.
   const key = [snap?.editing?.base, snap?.templates?.version, snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|");
   useEffect(() => {
     if (!active || !current) return setShown(null);
     let alive = true;
     api
-      .hostSettings(current, widget)
+      .hostSettings(current, widget, example)
       // Même contenu : la surface est gardée (SurfaceView reconstruit une surface reçue à nouveau),
       // sauf après un refus.
       .then((surface) =>
@@ -60,11 +61,12 @@ export function useHostSettings(
           prev &&
           prev.slide === current &&
           prev.widget === widget &&
+          prev.example === example &&
           prev.sync === sync &&
           JSON.stringify(prev.surface) === JSON.stringify(surface)
             ? prev
             : surface
-              ? { surface, slide: current, widget, sync }
+              ? { surface, slide: current, widget, example, sync }
               : null,
         ),
       )
@@ -73,7 +75,7 @@ export function useHostSettings(
       alive = false;
     };
     // `say` ne fait que poser un toast : son identité ne compte pas.
-  }, [api, active, current, widget, key, sync]);
+  }, [api, active, current, widget, example, key, sync]);
   const onAction = (s: Surface, a: A2uiClientAction): boolean => {
     if (s.id !== HOST_TEMPLATE && s.id !== HOST_WIDGET) return false;
     const now = shownRef.current;
@@ -83,7 +85,8 @@ export function useHostSettings(
     if (name !== "param" || typeof field !== "string") return true;
     void run(
       s.id === HOST_WIDGET && now.widget
-        ? api.setWidgetTrial(now.widget, field, context.value)
+        ? // Le cas d'exemple que montre la surface.
+          api.setExampleValue(now.widget, now.example, field, context.value)
         : api.hostParam(now.slide, field, context.value),
     ).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.

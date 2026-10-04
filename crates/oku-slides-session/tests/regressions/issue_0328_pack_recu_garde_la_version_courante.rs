@@ -27,6 +27,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         parent: parent.cloned(),
         created: created.into(),
         templates: Vec::new(),
+        examples: Default::default(),
     };
     m.to_files(BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }

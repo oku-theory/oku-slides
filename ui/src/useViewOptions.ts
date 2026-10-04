@@ -1,5 +1,6 @@
 // Options d'affichage : grille et fantômes de la scène, largeurs des colonnes, code des widgets (place, tailles),
-// sections repliées de la pile, gardés par l'hôte pour la reprise.
+// sections repliées de la pile, cas d'exemple courant de chaque widget, Scène ou Planche des widgets,
+// gardés par l'hôte pour la reprise.
 
 import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
@@ -40,6 +41,14 @@ export interface ViewOptions {
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
+  /** Cas d'exemple courant de chaque widget, par nom de fichier ; absent : le premier. */
+  cases: Record<string, string>;
+  /** Choisit le cas courant d'un widget (et le fait garder par l'hôte). */
+  setCase: (widget: string, name: string) => void;
+  /** Sous-onglets de widgets en Planche (tous les cas) plutôt qu'en Scène ; commun à tous. */
+  board: boolean;
+  /** Passe en Planche ou en Scène (et le fait garder par l'hôte). */
+  setBoard: (board: boolean) => void;
   entries: MenuEntry[];
   /** Prend ⌘' / ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
   handleKey: (e: KeyLike) => boolean;
@@ -64,6 +73,8 @@ export function useViewOptions(
   const [code, setCode] = useState(false);
   const [codeLayout, setCodeLayout] = useState<CodeLayout>({ code_place: "below", code_height: null, code_width: null });
   const [folded, setFoldedList] = useState<PileSectionName[]>([]);
+  const [cases, setCases] = useState<Record<string, string>>({});
+  const [board, setBoard] = useState(false);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
   const [restored, setRestored] = useState(false);
@@ -75,20 +86,25 @@ export function useViewOptions(
     setCode(kept.code);
     setCodeLayout({ code_place: kept.code_place, code_height: kept.code_height, code_width: kept.code_width });
     setFoldedList(kept.folded);
+    // Un hôte plus ancien n'en garde pas.
+    setCases(kept.case ?? {});
+    setBoard(kept.board ?? false);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, ...codeLayout, folded }).catch(() => {
+    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, ...codeLayout, folded, case: cases, board }).catch(() => {
       /* reprise facultative : l'édition continue */
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeLayout, folded]);
+  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeLayout, folded, cases, board]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
     setFoldedList((list) => (list.includes(section) === fold ? list : fold ? [...list, section] : list.filter((s) => s !== section)));
+  const setCase = (widget: string, name: string) =>
+    setCases((all) => (all[widget] === name ? all : { ...all, [widget]: name }));
   const flip = (which: "grid" | "ghosts") => (which === "grid" ? setGrid : setGhosts)((v) => !v);
   const entries: MenuEntry[] = [
     { kind: "item", label: t(grid ? "ui-toolbar-grid-hide" : "ui-toolbar-grid-show"), shortcut: "⌘'", onSelect: () => flip("grid") },
@@ -101,5 +117,5 @@ export function useViewOptions(
     flip(which);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, codeLayout, setCodeLayout, folded, setFolded, entries, handleKey };
+  return { grid, ghosts, columns, setColumns, code, setCode, codeLayout, setCodeLayout, folded, setFolded, cases, setCase, board, setBoard, entries, handleKey };
 }

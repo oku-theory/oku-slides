@@ -321,8 +321,10 @@ ui-widgets-errors = Lỗi
 ui-widgets-empty = Gói này chưa có widget nào.
 ui-widgets-preview = Xem trước widget
 ui-widgets-no-preview = Không có bản xem trước
+ui-widgets-field-bound = Liên kết với bản trình bày: chỉ đọc ở đây
 ui-widgets-source = Mã nguồn
 ui-widgets-code-right = Mã ở bên phải
+ui-widgets-board = Bảng
 ui-widgets-unsaved = Chưa lưu
 ui-widgets-in-error = Widget có lỗi
 ui-widgets-none-in-error = Không widget nào có lỗi
@@ -336,3 +338,28 @@ ui-widgets-tabs = Tab mẫu
 ui-widgets-templates-tab = Mẫu
 ui-widgets-close-tab = Đóng { $name }
 ui-widgets-removed-by-agent = Tác nhân AI đã xóa widget { $name }.
+ui-examples = Trường hợp mẫu
+ui-examples-add = Trường hợp
+ui-examples-add-hint = Thêm trường hợp, sao chép trường hợp hiện tại
+ui-examples-new-name = Trường hợp { $n }
+ui-examples-name = Tên trường hợp
+ui-examples-rename-hint = Nhấp đúp để đổi tên
+ui-examples-delete-named = Xóa trường hợp { $name }
+ui-examples-confirm-delete = Xóa trường hợp “{ $name }”?
+ui-examples-delete = Xóa
+ui-examples-cancel = Hủy
+ui-board = Bảng các trường hợp
+ui-board-summary = { $cases ->
+   *[other] { $cases } trường hợp
+} · { $alerts ->
+   *[other] { $alerts } cảnh báo
+}
+ui-board-scheme = Bảng màu
+ui-board-light = Sáng
+ui-board-dark = Tối
+ui-board-ratio = Tỷ lệ
+ui-board-ok = OK
+ui-board-empty = Trường trống
+ui-board-overflow = Tràn khung
+ui-board-new = Trường hợp mới
+ui-board-open = Mở trường hợp “{ $name }” trong cảnh

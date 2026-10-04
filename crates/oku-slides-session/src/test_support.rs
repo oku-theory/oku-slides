@@ -54,6 +54,7 @@ pub(crate) fn manifest(
         parent: parent.cloned(),
         created: created.into(),
         templates: Vec::new(),
+        examples: Default::default(),
     }
 }
 
