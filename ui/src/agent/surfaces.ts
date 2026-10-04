@@ -28,7 +28,7 @@ export function surfacesReducer(list: Surface[], e: McpEvent): Surface[] {
 export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.place === place);
 
 /** Une question de l'agent (les autres surfaces vivantes du fil sont des réglages). */
-export const isQuestion = (s: Surface) => s.id.startsWith("ask-");
+export const isQuestion = (s: Surface) => s.question;
 
 /** Une question de l'agent attend l'utilisateur : ⌘⇧D y répond au lieu d'arrêter le tour. */
 export const isAsking = (list: Surface[]) =>
@@ -59,7 +59,7 @@ export interface Routed {
 /**
  * Répartit les surfaces. `shown` : la slide affichée et ses cibles (`null`
  * pendant un changement de slide) ; une fiche n'y va que si son élément y est.
- * Au dock, les réglages d'abord et la question (`ask-…`) en dernier, au plus près du micro.
+ * Au dock, les réglages d'abord et la question (`question`) en dernier, au plus près du micro.
  */
 export function routeSurfaces(list: Surface[], shown: { slide: string; targets: string[] } | null): Routed {
   const sheets = byPlace(list, "sheet");

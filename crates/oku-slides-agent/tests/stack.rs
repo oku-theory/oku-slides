@@ -90,8 +90,10 @@ async fn prompt_while_question_waits_answers_it_instead_of_new_turn() {
     wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième" }))).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
-    let r = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "report-")).await;
-    assert_that!(r.1.to_string()).contains("la deuxième");
+    // La consigne est devenue la réponse de la question (rendue à l'agent), pas un nouveau tour.
+    let outs: Vec<String> = common::logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
+    assert_that!(outs).has_length(1);
+    assert_that!(outs[0]).contains("la deuxième");
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
 }
 

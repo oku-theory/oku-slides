@@ -207,17 +207,22 @@ impl Serving {
                     let routes = routes.clone();
                     async move |n: SessionNotification, _cx: ConnectionTo<Agent>| {
                         tracing::trace!(?n, "acp");
-                        let events = routes
+                        let route = routes
                             .lock()
                             .unwrap_or_else(PoisonError::into_inner)
                             .get(&(generation, n.session_id.clone()))
-                            .map(|r| r.events.clone());
-                        match events {
-                            Some(events) => {
-                                if let Some(event) = from_update(n.update) {
-                                    let _ = events.send(event);
+                            .map(|r| (r.events.clone(), r.hub.clone()));
+                        match route {
+                            // Rangée dans le tour ouvert : l'agent envoie les mises à jour d'un tour
+                            // avant d'en rendre la réponse, sur la même connexion. Hors tour : ignorée.
+                            Some((events, hub)) => match hub.turn() {
+                                Some(turn) => {
+                                    if let Some(event) = from_update(turn, n.update) {
+                                        let _ = events.send(event);
+                                    }
                                 }
-                            }
+                                None => tracing::debug!(session = ?n.session_id, "mise à jour hors tour : ignorée"),
+                            },
                             None => tracing::debug!(session = ?n.session_id, "notification d'une session inconnue"),
                         }
                         Ok(())

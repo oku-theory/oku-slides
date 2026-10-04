@@ -225,7 +225,7 @@ impl Agent {
                     if let Command::Prompt { text, .. } = cmd {
                         let n = self.hub.begin_turn();
                         relay.emit(&AgentEvent::UserText { turn: n, text });
-                        relay.emit(&AgentEvent::Error { message: message.clone() });
+                        relay.emit(&AgentEvent::Error { turn: n, message: message.clone() });
                     }
                 }
                 return;

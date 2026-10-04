@@ -18,12 +18,16 @@ use crate::pack::{PackInfo, Template};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PageHash(pub Option<u128>);
 
+impl PageHash {
+    /// L'empreinte écrite en 32 chiffres hexadécimaux ; vide si la page manque.
+    pub fn hex(self) -> String {
+        self.0.map(|h| format!("{h:032x}")).unwrap_or_default()
+    }
+}
+
 impl Serialize for PageHash {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        match self.0 {
-            Some(h) => s.collect_str(&format_args!("{h:032x}")),
-            None => s.serialize_str(""),
-        }
+        s.serialize_str(&self.hex())
     }
 }
 

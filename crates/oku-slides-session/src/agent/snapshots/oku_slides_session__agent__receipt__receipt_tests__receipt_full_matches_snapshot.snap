@@ -6,6 +6,7 @@ expression: s
   "id": "report-1",
   "place": "thread",
   "live": false,
+  "question": false,
   "messages": [
     {
       "version": "v0.9",
@@ -36,7 +37,10 @@ expression: s
               "titre en blanc",
               "surtitre bleu clair"
             ],
-            "thumb": "<svg/>",
+            "slide": {
+              "id": "s-4",
+              "hash": "0123456789abcdef0123456789abcdef"
+            },
             "swatch": "#00154e"
           },
           {

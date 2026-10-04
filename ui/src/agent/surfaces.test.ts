@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { agentBusy, byPlace, isAsking, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { agentBusy, byPlace, isAsking, isQuestion, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 
-const s = (id: string, place: Surface["place"]): Surface => ({ id, place, live: false, messages: [] });
+const s = (id: string, place: Surface["place"]): Surface => ({ id, place, live: false, question: false, messages: [] });
 
 describe("surfaces de l'agent", () => {
   test("une surface s'ajoute puis se ferme", () => {
@@ -44,8 +44,8 @@ describe("surfaces de l'agent", () => {
   });
 
   test("isAsking : une question vivante du fil en est une, figée non", () => {
-    expect(isAsking([{ ...s("ask-1", "thread"), live: true }])).toBe(true);
-    expect(isAsking([s("ask-1", "thread")])).toBe(false);
+    expect(isAsking([{ ...s("ask-1", "thread"), live: true, question: true }])).toBe(true);
+    expect(isAsking([{ ...s("ask-1", "thread"), question: true }])).toBe(false);
   });
 
   test("changed et focus ne touchent pas aux surfaces", () => {
@@ -127,11 +127,11 @@ test("surface_patch ajoute les messages et garde les précédents tels quels", (
 });
 
 /** Une surface du fil (`thread`), figée par défaut. */
-const ts = (id: string, extra: Partial<Surface>): Surface => ({ id, place: "thread", live: false, messages: [], ...extra }) as Surface;
+const ts = (id: string, extra: Partial<Surface>): Surface => ({ id, place: "thread", live: false, question: false, messages: [], ...extra });
 
 test("routeSurfaces met au dock les surfaces vivantes du fil, la question en dernier", () => {
   const params = ts("show-1", { live: true, turn: 1 });
-  const ask = ts("ask-2", { live: true, turn: 1 });
+  const ask = ts("ask-2", { live: true, turn: 1, question: true });
   const r = routeSurfaces([ask, params], null);
   expect(r.dock.map((x) => x.id)).toEqual(["show-1", "ask-2"]);
 });
@@ -153,9 +153,16 @@ test("routeSurfaces garde les fiches hors scène dans le fil", () => {
 });
 
 test("isAsking voit une question vivante du fil, pas des réglages", () => {
-  expect(isAsking([ts("ask-1", { live: true, turn: 1 })])).toBe(true);
+  expect(isAsking([ts("ask-1", { live: true, turn: 1, question: true })])).toBe(true);
   expect(isAsking([ts("show-1", { live: true, turn: 1 })])).toBe(false);
   expect(isAsking([ts("report-1", { turn: 1 })])).toBe(false);
+});
+
+test("isQuestion lit le champ typé `question`, pas le préfixe de l'identifiant", () => {
+  expect(isQuestion(ts("ask-1", { live: true, question: false }))).toBe(false);
+  expect(isQuestion(ts("confirm-1", { live: true, question: true }))).toBe(true);
+  expect(isAsking([ts("ask-1", { live: true, turn: 1, question: false })])).toBe(false);
+  expect(isAsking([ts("x-1", { live: true, turn: 1, question: true })])).toBe(true);
 });
 
 test("surface_patch d'une surface inconnue ne change rien", () => {

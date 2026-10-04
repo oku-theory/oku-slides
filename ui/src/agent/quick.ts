@@ -1,6 +1,7 @@
-// Clavier des surfaces de l'agent : 1–4 choisissent, Entrée valide, E retouche,
-// Échap abandonne. Les actions sont lues dans la surface elle-même (composants
-// et modèle de données) : ce que la touche envoie est ce que le clic enverrait.
+// Clavier des surfaces de l'agent : 1–4 choisissent, Entrée valide (bouton principal,
+// sinon l'option par défaut des pastilles), E retouche, Échap abandonne. Les actions
+// sont lues dans la surface elle-même (composants et modèle de données) : ce que la
+// touche envoie est ce que le clic enverrait.
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
@@ -121,17 +122,22 @@ export function quickAction(surface: Surface, key: string): QuickAction | null {
   if (key === "Escape") return { name: DISMISS, context: {} };
   const cs = components(surface);
   const model = dataModel(surface);
-  if (key === "Enter") return actionOf(cs.find((c) => c.component === "Button" && c.primary === true), model);
+  const chips = cs.find((c) => c.component === "ChoiceChips");
+  const options = Array.isArray(chips?.options) ? (chips.options as { id?: unknown }[]) : [];
+  /** Comme un clic : l'option choisie est écrite dans `value`, puis l'action la lit. */
+  const choose = (id: unknown) =>
+    chips && typeof id === "string" && isPath(chips.value) && options.some((o) => o.id === id)
+      ? actionOf(chips, model, { [chips.value.path]: id })
+      : null;
+  if (key === "Enter") {
+    const primary = cs.find((c) => c.component === "Button" && c.primary === true);
+    if (primary) return actionOf(primary, model);
+    // Sans bouton principal : l'option par défaut des pastilles (déjà dans le modèle), s'il y en a une.
+    return chips && isPath(chips.value) ? choose(read(model, chips.value.path)) : null;
+  }
   const n = Number(key);
   if (!Number.isInteger(n) || n < 1 || n > QUICK_KEYS) return null;
-  const chips = cs.find((c) => c.component === "ChoiceChips");
-  if (chips) {
-    // Comme un clic : l'option choisie est écrite dans `value`, puis l'action la lit.
-    const options = Array.isArray(chips.options) ? (chips.options as { id?: unknown }[]) : [];
-    const option = options[n - 1];
-    if (!option || typeof option.id !== "string" || !isPath(chips.value)) return null;
-    return actionOf(chips, model, { [chips.value.path]: option.id });
-  }
+  if (chips) return choose(options[n - 1]?.id);
   return actionOf(numbered(cs)[n - 1], model);
 }
 

@@ -97,11 +97,12 @@ impl Drop for CloseOnDrop<'_> {
     fn drop(&mut self) {
         self.hub.state().asks.retain(|a| a.id != self.id);
         let id = std::mem::take(&mut self.id);
-        let shown = self.freeze.take().is_some_and(|freeze| {
-            let mut frozen = freeze(self.answer.as_ref().unwrap_or(&Answer::Cancelled));
-            frozen.turn = self.turn;
-            self.hub.show_static(frozen)
-        });
+        let shown = match (self.freeze.take(), self.turn) {
+            (Some(freeze), Some(turn)) => {
+                self.hub.show_frozen(turn, freeze(self.answer.as_ref().unwrap_or(&Answer::Cancelled)))
+            }
+            _ => false,
+        };
         if !shown {
             // Pas de gel (question ordinaire), ou son tour a disparu / l'onglet est fermé : fermée.
             self.hub.emit(McpEvent::CloseSurface { id });
@@ -255,27 +256,29 @@ impl SurfaceHub {
     /// Sûr à l'annulation : si ce futur est abandonné avant la réponse,
     /// `CloseOnDrop` retire la question et ferme la surface à sa place.
     /// Onglet fermé (`close`) : `Cancelled` tout de suite, sans rien afficher.
+    /// Question hors du fil (fiche, fenêtre) : elle n'est rangée dans aucun tour.
     pub async fn ask(&self, surface: Surface) -> Answer {
-        self.ask_with(surface, None).await
+        self.ask_with(None, surface, None).await
     }
 
-    /// Comme `ask`, mais `freeze` remplace la question, figée, dans son tour.
-    pub async fn ask_then(&self, surface: Surface, freeze: Freeze) -> Answer {
-        self.ask_with(surface, Some(freeze)).await
+    /// Question du fil posée par un appel du tour `turn` (`None` : arrivé hors tour) ;
+    /// `freeze` la remplace, figée, dans ce tour. Si `turn` n'est plus le tour ouvert (appel
+    /// tardif d'un tour clos), `Cancelled` tout de suite, sans rien afficher.
+    pub async fn ask_then(&self, turn: Option<u32>, surface: Surface, freeze: Freeze) -> Answer {
+        self.ask_with(turn, surface, Some(freeze)).await
     }
 
-    async fn ask_with(&self, mut surface: Surface, freeze: Option<Freeze>) -> Answer {
+    async fn ask_with(&self, turn: Option<u32>, mut surface: Surface, freeze: Option<Freeze>) -> Answer {
         let (tx, rx) = oneshot::channel();
         let id = surface.id.clone();
         {
             let mut state = self.state();
-            if state.closed {
+            if state.closed || turn.is_some_and(|t| state.turn != Some(t)) {
                 return Answer::Cancelled;
             }
-            Self::tag_in(&state, &mut surface);
+            surface.turn = turn;
             state.asks.push(PendingAsk { id: id.clone(), tx, frozen: freeze.is_some() });
         }
-        let turn = surface.turn;
         self.emit(McpEvent::Surface { surface });
         let mut guard = CloseOnDrop { hub: self, id, turn, freeze, answer: None };
         let answer = rx.await.unwrap_or(Answer::Cancelled);
@@ -283,11 +286,17 @@ impl SurfaceHub {
         answer
     }
 
-    /// Réglages du fil ; ils restent vivants jusqu'à ce qu'on les fige, et figent les précédents.
-    pub fn show_params(&self, mut surface: Surface, spec: ShowParams) {
+    /// Réglages du fil, posés par un appel du tour `turn` (`None` : arrivé hors tour) ; ils
+    /// restent vivants jusqu'à ce qu'on les fige, et figent les précédents.
+    ///
+    /// Refusés (`false`) si `turn` n'est plus le tour ouvert (appel tardif d'un tour clos).
+    pub fn show_params(&self, turn: Option<u32>, mut surface: Surface, spec: ShowParams) -> bool {
         let previous: Vec<String> = {
             let mut state = self.state();
-            Self::tag_in(&state, &mut surface);
+            if turn.is_some_and(|t| state.turn != Some(t)) {
+                return false;
+            }
+            surface.turn = turn;
             let previous =
                 state.shows.iter().filter(|(_, s)| matches!(s, Shown::Params(_))).map(|(id, _)| id.clone()).collect();
             state.shows.insert(surface.id.clone(), Shown::Params(spec));
@@ -297,6 +306,7 @@ impl SurfaceHub {
             self.freeze(&id);
         }
         self.emit(McpEvent::Surface { surface });
+        true
     }
 
     /// Tiroir de variantes ; remplace le précédent.

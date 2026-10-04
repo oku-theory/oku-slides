@@ -468,6 +468,8 @@ export interface Surface {
   turn?: number;
   /** Vivante : dans le dock ; figée : dans son tour. */
   live: boolean;
+  /** Une question (`ask_*`, confirmation, permission) : elle attend la réponse de l'utilisateur. */
+  question: boolean;
   messages: A2uiMessage[];
 }
 

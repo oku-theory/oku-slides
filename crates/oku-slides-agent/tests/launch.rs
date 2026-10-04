@@ -26,7 +26,7 @@ async fn agent_without_http_mcp_is_refused_with_localized_error() {
     let mut rx = t.agent.subscribe();
     t.agent.prompt("bonjour".into(), Default::default());
     let e = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
-    let AgentEvent::Error { message } = e else { unreachable!() };
+    let AgentEvent::Error { message, .. } = e else { unreachable!() };
     assert_that!(message.contains("ne sait pas se connecter")).is_true();
     assert_that!(logged(&h.log, "session/new")).is_empty();
 }
@@ -37,7 +37,7 @@ async fn missing_command_reports_not_found_with_command() {
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
     t.agent.prompt("bonjour".into(), Default::default());
-    let AgentEvent::Error { message } = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await else {
+    let AgentEvent::Error { message, .. } = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await else {
         unreachable!()
     };
     assert_that!(message.contains("/chemin/sans/agent")).is_true();
@@ -52,7 +52,7 @@ async fn agent_that_never_gets_ready_is_stopped_and_the_next_start_works() {
     let message = within(std::time::Duration::from_secs(5), &mut rx, |e| matches!(e, AgentEvent::Error { .. }))
         .await
         .map(|e| match e {
-            AgentEvent::Error { message } => message,
+            AgentEvent::Error { message, .. } => message,
             _ => unreachable!(),
         });
     assert_that!(message).is_some().contains("L'agent s'est arrêté");
@@ -60,7 +60,7 @@ async fn agent_that_never_gets_ready_is_stopped_and_the_next_start_works() {
         .unwrap_or_else(|e| panic!("scénario : {e}"));
     t.agent.prompt("encore".into(), Default::default());
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "enfin".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 2, text: "enfin".into() });
 }
 
 #[tokio::test(flavor = "multi_thread")]

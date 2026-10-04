@@ -41,6 +41,9 @@ pub struct Surface {
     pub turn: Option<u32>,
     /// Vivante : dans le dock, elle attend ou agit encore ; figée : dans son tour.
     pub live: bool,
+    /// Une question (`ask_*`, confirmation, permission) : elle attend la réponse de
+    /// l'utilisateur. Sa version figée (question répondue) n'en est plus une.
+    pub question: bool,
     pub messages: Vec<ServerMessage>,
 }
 
@@ -198,12 +201,19 @@ pub(crate) fn surface(
         anchor,
         turn: None,
         live: true,
+        question: false,
         messages: vec![
             ServerMessage::create_surface(id),
             ServerMessage::update_components(id, components),
             ServerMessage::set_data_model(id, data),
         ],
     }
+}
+
+/// `s`, marquée comme une question (elle attend la réponse de l'utilisateur).
+fn question(mut s: Surface) -> Surface {
+    s.question = true;
+    s
 }
 
 pub(crate) fn lit(v: Value) -> Dynamic<Value> {
@@ -227,7 +237,7 @@ pub fn choice(id: &str, spec: &AskChoice, l: &Localizer) -> Surface {
         Component::button("cancel", l.tr("agent-surface-cancel"), false, Action::named("dismiss")),
     ];
     let place = if spec.anchor.is_some() { Place::Sheet } else { Place::Thread };
-    surface(id, place, spec.anchor.clone(), components, json!({ "choice": "" }))
+    question(surface(id, place, spec.anchor.clone(), components, json!({ "choice": "" })))
 }
 
 /// `ask_confirm` : fenêtre modale, confirmer ou annuler.
@@ -242,7 +252,7 @@ pub fn confirm(id: &str, spec: &AskConfirm, l: &Localizer) -> Surface {
         Component::button("yes", l.tr(yes), true, answer(true)).danger(spec.danger),
         Component::button("no", l.tr("agent-surface-cancel"), false, answer(false)),
     ];
-    surface(id, Place::Modal, None, components, json!({}))
+    question(surface(id, Place::Modal, None, components, json!({})))
 }
 
 /// La nature d'une option de permission (ACP `PermissionOptionKind`).
@@ -323,7 +333,7 @@ pub fn permission(id: &str, title: &str, options: &[PermissionChoice], l: &Local
         let action = Action::event("permission", [("index", lit(json!(i)))]);
         components.push(Component::button(bid, label, primary == Some(i), action).danger(option.kind.engages()));
     }
-    surface(id, Place::Modal, None, components, json!({}))
+    question(surface(id, Place::Modal, None, components, json!({})))
 }
 
 /// `ask_rewrite` : l'original et les propositions, différences surlignées.
@@ -358,7 +368,7 @@ pub(crate) fn rewrite(id: &str, spec: &AskRewrite, original: &str, l: &Localizer
     components.insert(0, Component::card("root", "body"));
     let anchor = Anchor { slide: spec.slide.clone(), element: spec.element.clone() };
     let draft = spec.proposals.first().cloned().unwrap_or_default();
-    surface(id, Place::Sheet, Some(anchor), components, json!({ "draft": draft }))
+    question(surface(id, Place::Sheet, Some(anchor), components, json!({ "draft": draft })))
 }
 
 /// Clé du champ `i` d'une surface `show_params` dans son modèle de données.

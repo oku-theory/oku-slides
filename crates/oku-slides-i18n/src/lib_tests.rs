@@ -177,3 +177,39 @@ fn agent_instructions_ask_for_report_not_suggest_next() {
         assert!(!text.contains("suggest_next"), "{lang} : suggest_next present");
     }
 }
+
+/// Le résumé d'un tour suit les règles de pluriel de chaque langue, pas seulement celles du français.
+#[test]
+fn agent_turn_summary_plurals_follow_each_language() {
+    for (locale, id, arg, n, expected) in [
+        ("en", "agent-turn-tools", "tools", 1, "1 tool"),
+        ("en", "agent-turn-tools", "tools", 2, "2 tools"),
+        ("en", "agent-turn-notes", "notes", 0, "0 notes"),
+        ("ru", "agent-turn-tools", "tools", 1, "1 инструмент"),
+        ("ru", "agent-turn-tools", "tools", 3, "3 инструмента"),
+        ("ru", "agent-turn-tools", "tools", 5, "5 инструментов"),
+        ("ru", "agent-turn-notes", "notes", 21, "21 заметка"),
+        ("pl", "agent-turn-tools", "tools", 2, "2 narzędzia"),
+        ("pl", "agent-turn-tools", "tools", 5, "5 narzędzi"),
+        ("pl", "agent-turn-notes", "notes", 22, "22 notatki"),
+        ("ar", "agent-turn-tools", "tools", 2, "أداتان"),
+        ("ar", "agent-turn-notes", "notes", 1, "ملاحظة واحدة"),
+        ("ar", "agent-turn-tools", "tools", 0, "لا أدوات"),
+        ("ar", "agent-turn-tools", "tools", 11, "11 أداة"),
+    ] {
+        let text = Localizer::new(Some(locale)).tr_with(id, &[(arg, n.into())]);
+        asserting(&format!("{locale} : {id} ({n})")).that(&text).is_equal_to(expected.to_owned());
+    }
+}
+
+/// En japonais, chinois et coréen, le compteur se colle au nombre (« 3個 », « 3秒 », « 3개 ») :
+/// aucune espace entre le chiffre et ce qui le suit dans le résumé d'un tour.
+#[test]
+fn agent_turn_counters_stick_to_the_number_in_cjk() {
+    for locale in ["ja", "ko", "zh-Hans", "zh-Hant"] {
+        for (id, arg) in [("agent-turn-tools", "tools"), ("agent-turn-notes", "notes"), ("agent-turn-secs", "secs")] {
+            let text = Localizer::new(Some(locale)).tr_with(id, &[(arg, 3.into())]);
+            asserting(&format!("{locale} : {id} = « {text} »")).that(&text.contains("3 ")).is_false();
+        }
+    }
+}

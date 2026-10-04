@@ -271,7 +271,12 @@ fn every_form() -> Vec<super::Surface> {
             prompt: Some("Essaie un vert sapin".into()),
         }],
     };
-    let mut report8 = crate::agent::receipt::receipt("report-8", &report, Some("<svg/>"), &l);
+    let mut report8 = crate::agent::receipt::receipt(
+        "report-8",
+        &report,
+        Some(&oku_slides_a2ui::SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() }),
+        &l,
+    );
     report8.turn = Some(3);
     let render_spec = crate::agent::Render {
         components: serde_json::from_value(json!([
@@ -341,4 +346,18 @@ fn set_value_updates_the_data_model_sent_on_resync() {
     let model = json["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap();
     assert_that!(model["value"]["f2"].clone()).is_equal_to(json!("#1f4e79"));
     assert_that!(model["value"]["f1"].clone()).is_equal_to(json!(16));
+}
+
+/// `question` (et non le préfixe `ask-` de l'identifiant) désigne ce qui attend une réponse.
+#[test]
+fn question_marks_exactly_the_surfaces_awaiting_an_answer() {
+    let questions: Vec<String> = every_form().into_iter().filter(|s| s.question).map(|s| s.id).collect();
+    // `ask-7` est la version figée d'une question répondue : ce n'en est plus une.
+    assert_that!(questions).is_equal_to(vec![
+        "ask-1".to_owned(),
+        "ask-2".to_owned(),
+        "perm-3".to_owned(),
+        "ask-4".to_owned(),
+        "ask-8".to_owned(),
+    ]);
 }

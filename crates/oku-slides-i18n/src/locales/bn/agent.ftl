@@ -41,12 +41,12 @@ agent-failed = এজেন্ট অনুরোধটি প্রত্যা
 agent-tool-failed = টুলটি অপ্রত্যাশিতভাবে ব্যর্থ হয়েছে।
 
 agent-turn-tools = { $tools ->
-   [one] { $tools } টুল
-  *[other] { $tools } টুল
+   [one] { $tools }টি টুল
+  *[other] { $tools }টি টুল
 }
 agent-turn-notes = { $notes ->
-   [one] { $notes } নোট
-  *[other] { $notes } নোট
+   [one] { $notes }টি নোট
+  *[other] { $notes }টি নোট
 }
 agent-turn-secs = { $secs } সে.
 agent-turn-stopped = থামানো হয়েছে।

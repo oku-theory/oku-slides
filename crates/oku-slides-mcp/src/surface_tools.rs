@@ -11,6 +11,13 @@ use crate::McpEvent;
 use crate::hub::{Answer, Freeze};
 use crate::tools::{Tools, fail, json_result, parse};
 
+/// Refus d'un `report` arrivé hors tour, ou dont le tour s'est clos avant l'affichage.
+const NO_TURN_REPORT: &str = "no turn in progress: report is only shown during a turn";
+/// Refus d'un `render`, comme `NO_TURN_REPORT`.
+const NO_TURN_RENDER: &str = "no turn in progress: render is only shown during a turn";
+/// Refus de réglages demandés par un tour clos entre l'appel et l'affichage.
+const TURN_OVER: &str = "the turn of this call is over: nothing was shown";
+
 impl Tools {
     /// Résultat commun : réponse dictée, abandon, ou `f` pour l'action attendue.
     fn answered(
@@ -26,7 +33,8 @@ impl Tools {
         }
     }
 
-    pub(crate) async fn ask_choice(&self, args: Value) -> CallToolResult {
+    /// `turn` : le tour de l'appel (`Tools::call`), où la question sans ancre est rangée.
+    pub(crate) async fn ask_choice(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: AskChoice = match parse(args) {
             Ok(a) => a,
             Err(r) => return r,
@@ -52,7 +60,7 @@ impl Tools {
                 };
                 forms::frozen_choice(&id, &question, label.as_deref(), &l)
             });
-            self.hub.ask_then(surface, freeze).await
+            self.hub.ask_then(turn, surface, freeze).await
         } else {
             self.hub.ask(surface).await
         };
@@ -118,7 +126,7 @@ impl Tools {
         json_result(&json!({ "kept": kept, "text": text }))
     }
 
-    pub(crate) async fn show_params(&self, args: Value) -> CallToolResult {
+    pub(crate) async fn show_params(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: ShowParams = match parse(args) {
             Ok(a) => a,
             Err(r) => return r,
@@ -130,8 +138,11 @@ impl Tools {
         };
         match built {
             Ok(surface) => {
-                self.hub.show_params(surface, spec);
-                json_result(&json!({ "shown": id }))
+                if self.hub.show_params(turn, surface, spec) {
+                    json_result(&json!({ "shown": id }))
+                } else {
+                    fail(TURN_OVER)
+                }
             }
             Err(e) => fail(e),
         }
@@ -156,11 +167,12 @@ impl Tools {
         }
     }
 
-    pub(crate) async fn report(&self, args: Value) -> CallToolResult {
+    pub(crate) async fn report(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: Report = match parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        let Some(turn) = turn else { return fail(NO_TURN_REPORT) };
         let id = self.hub.next_id("report");
         let built = {
             let (spec, id) = (spec.clone(), id.clone());
@@ -169,28 +181,29 @@ impl Tools {
         match built {
             // Pas de garde `if` qui déplacerait `report` (E0507) : le test se fait dans le bras.
             Ok(report) => {
-                if self.hub.show_report(report) {
+                if self.hub.show_report(turn, report) {
                     json_result(&json!({ "shown": id }))
                 } else {
-                    fail("no turn in progress: report is only shown during a turn")
+                    fail(NO_TURN_REPORT)
                 }
             }
             Err(e) => fail(e),
         }
     }
 
-    pub(crate) async fn render(&self, args: Value) -> CallToolResult {
+    pub(crate) async fn render(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: Render = match parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        let Some(turn) = turn else { return fail(NO_TURN_RENDER) };
         let id = self.hub.next_id("render");
         match render::render(&id, &spec) {
             Ok(surface) => {
-                if self.hub.show_static(surface) {
+                if self.hub.show_static(turn, surface) {
                     json_result(&json!({ "shown": id }))
                 } else {
-                    fail("no turn in progress: render is only shown during a turn")
+                    fail(NO_TURN_RENDER)
                 }
             }
             Err(e) => fail(e.one_line()),

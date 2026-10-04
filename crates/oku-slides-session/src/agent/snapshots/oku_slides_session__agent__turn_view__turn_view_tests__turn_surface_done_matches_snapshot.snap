@@ -7,6 +7,7 @@ expression: s
   "place": "thread",
   "turn": 3,
   "live": false,
+  "question": false,
   "messages": [
     {
       "version": "v0.9",

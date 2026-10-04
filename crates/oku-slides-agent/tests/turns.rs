@@ -33,7 +33,7 @@ async fn prompt_sends_instructions_context_then_text_and_streams_chunks() {
     let ui = AgentUi { slide: Some("s-libre".into()), ..Default::default() };
     t.agent.prompt("rends le titre plus court".into(), ui);
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "Je regarde.".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "Je regarde.".into() });
     until(&mut rx, ended).await;
     let blocks = logged(&h.log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
     assert_that!(blocks.len()).is_equal_to(4);
@@ -66,7 +66,7 @@ async fn cancel_during_turn_sends_cancel_and_ends_cancelled() {
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
     t.agent.cancel();
     let e = until(&mut rx, ended).await;
-    assert_that!(e).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(e).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
     assert_that!(logged(&h.log, "session/cancel")).has_length(1);
 }
 
@@ -79,7 +79,7 @@ async fn prompt_during_wait_cancel_turn_cancels_once_and_continues_same_session(
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
     t.agent.prompt("deux".into(), AgentUi::default());
     let first = until(&mut rx, ended).await;
-    assert_that!(first).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(first).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
     until(&mut rx, ended).await;
     assert_that!(logged(&h.log, "session/cancel")).has_length(1);
     assert_that!(logged(&h.log, "session/new")).has_length(1);
@@ -99,12 +99,12 @@ async fn new_conversation_then_prompt_during_wait_cancel_turn_reopens_session() 
     t.agent.new_conversation();
     t.agent.prompt("deux".into(), AgentUi::default());
     let first = until(&mut rx, ended).await;
-    assert_that!(first).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(first).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
     until(&mut rx, |e| matches!(e, AgentEvent::Conversation)).await;
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
     t.agent.cancel();
     let second = until(&mut rx, ended).await;
-    assert_that!(second).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(second).is_equal_to(AgentEvent::TurnEnded { turn: 2, stop: "cancelled".into() });
     assert_that!(logged(&h.log, "session/new")).has_length(2);
     assert_that!(logged(&h.log, "session/cancel")).has_length(2);
 }
@@ -158,7 +158,7 @@ async fn crash_mid_turn_reports_stopped_and_closes_group() {
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
     t.agent.prompt("puis plante".into(), AgentUi::default());
-    let AgentEvent::Error { message } = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await else {
+    let AgentEvent::Error { message, .. } = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await else {
         unreachable!()
     };
     assert_that!(message.as_str()).is_equal_to("L'agent s'est arrêté.");

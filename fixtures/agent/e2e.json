@@ -28,13 +28,24 @@
     },
     {
       "mcp": [
-        { "tool": "report", "args": { "title": "Fond bleu nuit", "facts": ["titre en blanc"], "actions": [{ "label": "Autre couleur" }] } }
+        { "tool": "report", "args": { "title": "Fond bleu nuit", "facts": ["titre en blanc"], "slide": "s-libre", "actions": [{ "label": "Autre couleur" }] } }
       ]
     },
     {
       "mcp": [
         { "tool": "ask_choice", "args": { "question": "Quelle couleur ?", "options": [
           { "id": "n", "label": "Nuit" }, { "id": "s", "label": "Sable" }
+        ] } }
+      ]
+    },
+    {
+      "parallel": true,
+      "mcp": [
+        { "tool": "ask_choice", "args": { "question": "Quel titre ?", "options": [
+          { "id": "c", "label": "Court" }, { "id": "l", "label": "Long" }
+        ] } },
+        { "tool": "ask_choice", "args": { "question": "Quelle police ?", "options": [
+          { "id": "s", "label": "Serif" }, { "id": "g", "label": "Grotesque" }
         ] } }
       ]
     }

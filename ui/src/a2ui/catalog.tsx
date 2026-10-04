@@ -6,12 +6,13 @@
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
 // `Receipt`, `Disclosure`, `Badge`, `Markdown` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import { t } from "../i18n";
+import { QuickHintsContext } from "./quickHints";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
@@ -243,27 +244,30 @@ const Button = createComponentImplementation(ButtonApi, ({ props }) => (
 /** Touches rapides montrées : 1 à 4 (Task 20 les lit). */
 const QUICK_KEYS = 4;
 
-/** Des pastilles, une seule choisie ; choisir écrit l'identifiant puis envoie l'action. */
-const ChoiceChips = createComponentImplementation(ChoiceChipsApi, ({ props }) => (
-  <div className="chips" role="radiogroup">
-    {props.options.map((o, i) => (
-      <button
-        key={`${i}-${o.id}`}
-        type="button"
-        role="radio"
-        aria-checked={props.value === o.id}
-        className={`chip${props.value === o.id ? " on" : ""}`}
-        title={o.hint}
-        onClick={() => {
-          props.setValue(o.id);
-          props.action?.();
-        }}
-      >
-        {i < QUICK_KEYS && <span className="chip-key" aria-hidden="true">{i + 1}</span>} {o.label}
-      </button>
-    ))}
-  </div>
-));
+/** Des pastilles, une seule choisie ; choisir écrit l'identifiant puis envoie l'action. Chiffres 1–4 : voir `QuickHintsContext`. */
+const ChoiceChips = createComponentImplementation(ChoiceChipsApi, ({ props }) => {
+  const hints = useContext(QuickHintsContext);
+  return (
+    <div className="chips" role="radiogroup">
+      {props.options.map((o, i) => (
+        <button
+          key={`${i}-${o.id}`}
+          type="button"
+          role="radio"
+          aria-checked={props.value === o.id}
+          className={`chip${props.value === o.id ? " on" : ""}`}
+          title={o.hint}
+          onClick={() => {
+            props.setValue(o.id);
+            props.action?.();
+          }}
+        >
+          {hints && i < QUICK_KEYS && <span className="chip-key" aria-hidden="true">{i + 1}</span>} {o.label}
+        </button>
+      ))}
+    </div>
+  );
+});
 
 /** Un curseur ; l'action part quand la valeur est validée (lâchée, ou à la sortie du champ). */
 const Slider = createComponentImplementation(SliderApi, ({ props }) => {

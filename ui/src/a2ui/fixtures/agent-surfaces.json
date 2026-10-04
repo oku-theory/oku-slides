@@ -7,6 +7,7 @@
       "element": "e-2"
     },
     "live": true,
+    "question": true,
     "messages": [
       {
         "version": "v0.9",
@@ -96,6 +97,7 @@
     "id": "ask-2",
     "place": "modal",
     "live": true,
+    "question": true,
     "messages": [
       {
         "version": "v0.9",
@@ -180,6 +182,7 @@
     "id": "perm-3",
     "place": "modal",
     "live": true,
+    "question": true,
     "messages": [
       {
         "version": "v0.9",
@@ -282,6 +285,7 @@
       "element": "@title"
     },
     "live": true,
+    "question": true,
     "messages": [
       {
         "version": "v0.9",
@@ -471,6 +475,7 @@
     "id": "show-5",
     "place": "thread",
     "live": true,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",
@@ -655,6 +660,7 @@
     "id": "show-6",
     "place": "drawer",
     "live": true,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",
@@ -746,6 +752,7 @@
     "place": "thread",
     "turn": 3,
     "live": false,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",
@@ -836,6 +843,7 @@
     "place": "thread",
     "turn": 3,
     "live": false,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",
@@ -891,6 +899,7 @@
     "place": "thread",
     "turn": 3,
     "live": true,
+    "question": true,
     "messages": [
       {
         "version": "v0.9",
@@ -981,6 +990,7 @@
     "place": "thread",
     "turn": 3,
     "live": false,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",
@@ -1011,7 +1021,10 @@
                 "titre en blanc",
                 "surtitre bleu clair"
               ],
-              "thumb": "<svg/>",
+              "slide": {
+                "id": "s-4",
+                "hash": "0123456789abcdef0123456789abcdef"
+              },
               "swatch": "#00154e"
             },
             {
@@ -1062,6 +1075,7 @@
     "place": "thread",
     "turn": 3,
     "live": false,
+    "question": false,
     "messages": [
       {
         "version": "v0.9",

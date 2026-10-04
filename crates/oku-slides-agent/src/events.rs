@@ -19,6 +19,10 @@ pub struct PlanItem {
 }
 
 /// Un évènement du fil (JSON `{"kind": …}`).
+///
+/// Tout ce qui arrive pendant un tour porte le numéro de ce tour (`turn`, donné par
+/// `SurfaceHub::begin_turn`) : le réducteur des tours range chaque évènement dans le sien,
+/// même si l'ouverture du tour (`UserText`) s'est perdue (relais en retard).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentEvent {
@@ -32,27 +36,33 @@ pub enum AgentEvent {
     },
     /// Un morceau de la réponse de l'agent.
     Chunk {
+        turn: u32,
         text: String,
     },
     ToolCall {
+        turn: u32,
         id: String,
         title: String,
         status: String,
     },
     ToolUpdate {
+        turn: u32,
         id: String,
         title: Option<String>,
         status: Option<String>,
     },
     Plan {
+        turn: u32,
         entries: Vec<PlanItem>,
     },
     /// Fin du tour : `end_turn`, `cancelled`, `max_tokens`…
     TurnEnded {
+        turn: u32,
         stop: String,
     },
     /// Message dans la langue de l'utilisateur.
     Error {
+        turn: u32,
         message: String,
     },
     /// Nouvelle conversation : le fil repart de zéro.
@@ -64,22 +74,27 @@ pub(crate) fn as_text<T: Serialize>(v: &T) -> String {
     serde_json::to_value(v).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default()
 }
 
-/// L'évènement d'une mise à jour de session ; `None` pour ce que le fil n'affiche pas.
-pub(crate) fn from_update(update: SessionUpdate) -> Option<AgentEvent> {
+/// L'évènement d'une mise à jour de session du tour `turn` ; `None` pour ce que le fil n'affiche pas.
+pub(crate) fn from_update(turn: u32, update: SessionUpdate) -> Option<AgentEvent> {
     match update {
         SessionUpdate::AgentMessageChunk(chunk) => match chunk.content {
-            ContentBlock::Text(t) => Some(AgentEvent::Chunk { text: t.text }),
+            ContentBlock::Text(t) => Some(AgentEvent::Chunk { turn, text: t.text }),
             _ => None,
         },
-        SessionUpdate::ToolCall(tc) => {
-            Some(AgentEvent::ToolCall { id: as_text(&tc.tool_call_id), title: tc.title, status: as_text(&tc.status) })
-        }
+        SessionUpdate::ToolCall(tc) => Some(AgentEvent::ToolCall {
+            turn,
+            id: as_text(&tc.tool_call_id),
+            title: tc.title,
+            status: as_text(&tc.status),
+        }),
         SessionUpdate::ToolCallUpdate(u) => Some(AgentEvent::ToolUpdate {
+            turn,
             id: as_text(&u.tool_call_id),
             title: u.fields.title,
             status: u.fields.status.as_ref().map(as_text),
         }),
         SessionUpdate::Plan(p) => Some(AgentEvent::Plan {
+            turn,
             entries: p
                 .entries
                 .iter()

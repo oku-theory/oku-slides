@@ -11,6 +11,8 @@ import { CATALOG_ID } from "./catalog";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { SurfaceView } = await import("./SurfaceView");
+const { SlideThumbsContext } = await import("./slideThumbs");
+const { t } = await import("../i18n");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -335,6 +337,44 @@ describe("composants du fil (v3)", () => {
     expect(host.querySelector(".a2ui-receipt .a2ui-hint")?.textContent).toBe("titre en blanc · surtitre bleu clair");
     // happy-dom garde la valeur telle qu'écrite (pas de conversion en rgb()).
     expect((host.querySelector(".a2ui-swatch") as HTMLElement).style.background).toBe("#00154e");
+  });
+
+  /** Monte un reçu sur la slide `s-4` (empreinte `h1`), avec ces miniatures. */
+  async function mountReceipt(thumbs: import("./slideThumbs").SlideThumbs | null) {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const r = createRoot(host);
+    mounted = { root: r, host };
+    const surface = createElement(SurfaceView, {
+      messages: messages([{ id: "root", component: "Receipt", title: "Fond", facts: ["a"], slide: { id: "s-4", hash: "h1" }, swatch: "#00154e" }]),
+      surfaceId: "s",
+      onAction: () => {},
+      onError: () => {},
+    });
+    await act(async () => r.render(createElement(SlideThumbsContext.Provider, { value: thumbs }, surface)));
+    return host;
+  }
+
+  test("Receipt avec une slide montre sa miniature résolue par empreinte, sans SVG dans le message", async () => {
+    const host = await mountReceipt({ cached: (h) => (h === "h1" ? "blob:h1" : null), svg: () => null, current: () => "h2" });
+    const img = host.querySelector<HTMLImageElement>(".a2ui-receipt-thumb");
+    expect(img?.getAttribute("src")).toBe("blob:h1");
+    expect(img?.classList.contains("changed")).toBe(false);
+    expect(host.querySelector(".a2ui-swatch")).toBeNull();
+  });
+
+  test("Receipt dont la slide a changé depuis montre son état actuel, marqué « modifiée depuis »", async () => {
+    const host = await mountReceipt({ cached: () => null, svg: (id, h) => `blob:${id}@${h}`, current: () => "h2" });
+    const img = host.querySelector<HTMLImageElement>(".a2ui-receipt-thumb");
+    expect(img?.getAttribute("src")).toBe("blob:s-4@h2");
+    expect(img?.classList.contains("changed")).toBe(true);
+    expect(img?.getAttribute("title")).toBe(t("ui-history-changed-since"));
+  });
+
+  test("Receipt dont la slide est introuvable montre sa pastille de couleur à la place", async () => {
+    const host = await mountReceipt(null);
+    expect(host.querySelector(".a2ui-receipt-thumb")).toBeNull();
+    expect(host.querySelector(".a2ui-swatch")).not.toBeNull();
   });
 
   test("Disclosure cache son enfant jusqu'au clic", async () => {

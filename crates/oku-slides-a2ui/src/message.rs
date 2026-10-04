@@ -174,12 +174,12 @@ pub enum ComponentKind {
     Prompt { text: Dynamic<String> },
     /// La progression d'un tour ; repliée en une ligne `summary` (hôte seul).
     Timeline { steps: Dynamic<Vec<TimelineStep>>, collapsed: Dynamic<bool>, summary: Dynamic<String> },
-    /// La conclusion d'un tour : titre, 1 à 4 faits, miniature et couleur facultatives.
+    /// La conclusion d'un tour : titre, 1 à 4 faits, slide (montrée en miniature) et couleur facultatives.
     Receipt {
         title: Dynamic<String>,
         facts: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        thumb: Option<String>,
+        slide: Option<SlideRef>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         swatch: Option<String>,
     },
@@ -254,6 +254,17 @@ pub struct ChoiceOption {
     pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+}
+
+/// Une slide telle que rendue à un instant : son identifiant et l'empreinte de sa page.
+/// L'interface en résout la miniature (son cache est indexé par empreinte) : le message
+/// ne porte jamais le rendu lui-même, sa taille ne dépend pas du contenu de la slide.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SlideRef {
+    pub id: String,
+    /// Empreinte de la page (32 chiffres hexadécimaux, comme `SlideSummary.hash`).
+    pub hash: String,
 }
 
 /// Un morceau de texte gardé, retiré ou ajouté.

@@ -20,7 +20,7 @@ pub(crate) struct Pending {
     pub prompt: Option<(String, AgentUi)>,
 }
 
-/// Joue un tour ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+/// Joue le tour `turn` ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
 #[expect(
     clippy::too_many_arguments,
     reason = "les paramètres viennent de la connexion ACP ; les regrouper ajouterait un type sans autre usage"
@@ -29,6 +29,7 @@ pub(crate) async fn run(
     ctx: &Ctx,
     cx: &ConnectionTo<Agent>,
     rx: &mut mpsc::UnboundedReceiver<Command>,
+    turn: u32,
     session: SessionId,
     text: String,
     ui: AgentUi,
@@ -92,7 +93,7 @@ pub(crate) async fn run(
     };
     ctx.end_turn().await;
     let stop = as_text(&response?.stop_reason);
-    ctx.emit(AgentEvent::TurnEnded { stop });
+    ctx.emit(AgentEvent::TurnEnded { turn, stop });
     ctx.emit(AgentEvent::Status { state: AgentState::Idle });
     Ok(pending)
 }

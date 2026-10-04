@@ -13,6 +13,7 @@ const { AgentThread } = await import("./AgentThread");
 const { realSurface } = await import("../a2ui/fixtures/agentSurfaces");
 const { expectIconOnly } = await import("../test/iconOnly");
 const { routeSurfaces } = await import("./surfaces");
+const { t } = await import("../i18n");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -29,6 +30,7 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
   id,
   place,
   live: false,
+  question: false,
   messages: [
     { version: "v0.9", createSurface: { surfaceId: id, catalogId: CATALOG_ID } },
     {
@@ -42,7 +44,9 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
   ...extra,
 });
 
-async function mount(surfaces: Surface[], state: "idle" | "working" = "idle") {
+type State = "idle" | "starting" | "working";
+
+async function mount(surfaces: Surface[], state: State = "idle") {
   const actions: [string, string][] = [];
   let fresh = 0;
   const host = document.createElement("div");
@@ -63,10 +67,10 @@ async function mount(surfaces: Surface[], state: "idle" | "working" = "idle") {
   // Les surfaces sont chargées à la demande (lazy) : laisser Suspense les résoudre.
   await act(async () => new Promise((r) => setTimeout(r, 0)));
   /** Remonte avec une autre liste de surfaces (même racine React : l'état local est gardé). */
-  const rerender = async (next: Surface[]) => {
+  const rerender = async (next: Surface[], keysTo?: string | null, nextState: State = state) => {
     const routed = routeSurfaces(next, null);
     await act(async () => {
-      root.render(createElement(AgentThread, { ...props(), ...routed, state }));
+      root.render(createElement(AgentThread, { ...props(), ...routed, state: nextState, keysTo }));
     });
     await act(async () => new Promise((r) => setTimeout(r, 0)));
   };
@@ -74,9 +78,61 @@ async function mount(surfaces: Surface[], state: "idle" | "working" = "idle") {
 }
 
 describe("fil de l'agent par tours", () => {
-  test("rien n'est rendu sans tour ni surface", async () => {
+  test("sans tour ni surface, rien de visible : seules les régions annoncées restent (0 px)", async () => {
     const { host } = await mount([]);
-    expect(host.querySelector(".agent-thread")).toBeNull();
+    const thread = host.querySelector(".agent-thread");
+    expect(thread?.classList.contains("vacant")).toBe(true);
+    expect(thread?.textContent).toBe("");
+    expect(host.querySelector(".agent-thread-head")).toBeNull();
+  });
+
+  test("une région polie persistante annonce les ajouts du fil, pas le dernier tour réannoncé", async () => {
+    const { host, rerender } = await mount([]);
+    const region = host.querySelector(".agent-turns");
+    expect(region?.getAttribute("aria-live")).toBe("polite");
+    expect(region?.getAttribute("aria-relevant")).toBe("additions");
+    await rerender([realSurface("turn-3")]);
+    // La même région, présente avant l'ajout : le premier tour est annoncé.
+    expect(host.querySelector(".agent-turns")).toBe(region);
+    expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(false);
+    expect(host.querySelectorAll(".agent-turn[aria-live]")).toHaveLength(0);
+  });
+
+  test("le dock est une région persistante qui annonce ses ajouts", async () => {
+    const { host, rerender } = await mount([realSurface("turn-3")]);
+    const dock = host.querySelector(".agent-dock");
+    expect(dock?.classList.contains("vacant")).toBe(true);
+    expect(dock?.getAttribute("aria-live")).toBe("polite");
+    expect(dock?.getAttribute("aria-relevant")).toBe("additions");
+    await rerender([realSurface("turn-3"), realSurface("ask-8")]);
+    expect(host.querySelector(".agent-dock")).toBe(dock);
+    expect(dock?.classList.contains("vacant")).toBe(false);
+  });
+
+  test("plusieurs questions au dock : seule la dernière (celle des touches) montre les chiffres 1–4", async () => {
+    const second = JSON.parse(JSON.stringify(realSurface("ask-8")).replaceAll('"ask-8"', '"ask-9"')) as Surface;
+    const { host } = await mount([realSurface("turn-3"), realSurface("ask-8"), second]);
+    const keys = (id: string) => host.querySelectorAll(`.agent-dock [data-surface-id="${id}"] .chip-key`).length;
+    expect(keys("ask-8")).toBe(0);
+    expect(keys("ask-9")).toBe(2);
+  });
+
+  test("une fiche ou une fenêtre prend les touches : la question du dock cache ses chiffres", async () => {
+    const { host, rerender } = await mount([realSurface("turn-3"), realSurface("ask-8")]);
+    expect(host.querySelectorAll(".agent-dock .chip-key")).toHaveLength(2);
+    await rerender([realSurface("turn-3"), realSurface("ask-8")], "ask-1");
+    expect(host.querySelectorAll(".agent-dock .chip-key")).toHaveLength(0);
+  });
+
+  test("plusieurs questions au dock : toutes visibles, chacune répond pour elle-même", async () => {
+    // Une autre question, mêmes messages sous un autre identifiant de surface.
+    const second = JSON.parse(JSON.stringify(realSurface("ask-8")).replaceAll('"ask-8"', '"ask-9"')) as Surface;
+    const { host, actions } = await mount([realSurface("turn-3"), realSurface("ask-8"), second]);
+    const asks = [...host.querySelectorAll<HTMLElement>(".agent-dock .agent-dock-item.ask")];
+    expect(asks.map((a) => a.dataset.surfaceId)).toEqual(["ask-8", "ask-9"]);
+    await act(async () => asks[1].querySelectorAll<HTMLElement>(".chip")[0].click());
+    await act(async () => asks[0].querySelectorAll<HTMLElement>(".chip")[1].click());
+    expect(actions).toEqual([["ask-9", "choose"], ["ask-8", "choose"]]);
   });
 
   test("un tour montre sa consigne puis son reçu", async () => {
@@ -89,9 +145,9 @@ describe("fil de l'agent par tours", () => {
     expect(prompt!.compareDocumentPosition(receipt!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  test("le dock n'est pas rendu quand rien n'est vivant", async () => {
+  test("le dock est vide quand rien n'est vivant", async () => {
     const { host } = await mount([realSurface("turn-3")]);
-    expect(host.querySelector(".agent-dock")).toBeNull();
+    expect(host.querySelector(".agent-dock")?.childElementCount).toBe(0);
   });
 
   test("une question vivante est au dock, sous les tours", async () => {
@@ -104,7 +160,7 @@ describe("fil de l'agent par tours", () => {
 
   test("une question figée reste dans son tour, pas au dock", async () => {
     const { host } = await mount([realSurface("turn-3"), realSurface("ask-7")]);
-    expect(host.querySelector(".agent-dock")).toBeNull();
+    expect(host.querySelector(".agent-dock")?.childElementCount).toBe(0);
     expect(host.querySelector('.agent-turn [data-surface-id="ask-7"]')?.textContent).toContain("✓ Deux colonnes");
   });
 
@@ -144,12 +200,84 @@ describe("fil de l'agent par tours", () => {
     // Remonté : l'écart au bas dépasse le seuil.
     Object.defineProperty(scroller, "scrollHeight", { value: 1000, configurable: true });
     Object.defineProperty(scroller, "clientHeight", { value: 100, configurable: true });
+    scroller.scrollTop = 900;
+    await act(async () => scroller.dispatchEvent(new Event("scroll")));
     scroller.scrollTop = 0;
     await act(async () => scroller.dispatchEvent(new Event("scroll")));
     const jump = host.querySelector(".agent-jump") as HTMLButtonElement;
     expect(jump).not.toBeNull();
     await act(async () => jump.click());
     expect(scroller.scrollTop).toBe(1000);
+    expect(host.querySelector(".agent-jump")).toBeNull();
+  });
+
+  test("un nouveau tour se suit à nouveau, même après être remonté", async () => {
+    const { host, rerender } = await mount([realSurface("turn-3")], "working");
+    const scroller = host.querySelector(".agent-scroller") as HTMLElement;
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000, configurable: true, writable: true });
+    Object.defineProperty(scroller, "clientHeight", { value: 100, configurable: true });
+    scroller.scrollTop = 900;
+    await act(async () => scroller.dispatchEvent(new Event("scroll")));
+    scroller.scrollTop = 0;
+    await act(async () => scroller.dispatchEvent(new Event("scroll")));
+    expect(host.querySelector(".agent-jump")).not.toBeNull();
+    // Le tour suivant arrive : le fil y retourne en bas et le bouton de retour se cache.
+    const next = JSON.parse(JSON.stringify(realSurface("turn-3")).replaceAll('"turn-3"', '"turn-4"')) as Surface;
+    Object.defineProperty(scroller, "scrollHeight", { value: 1400, configurable: true });
+    await rerender([realSurface("turn-3"), { ...next, turn: 4 }]);
+    expect(host.querySelectorAll(".agent-turn")).toHaveLength(2);
+    expect(scroller.scrollTop).toBe(1400);
+    expect(host.querySelector(".agent-jump")).toBeNull();
+  });
+
+  test("la légende d'état suit l'état de l'agent", async () => {
+    const { host, rerender } = await mount([realSurface("turn-3")], "starting");
+    const caption = () => host.querySelector(".agent-thread-head .caption")?.textContent;
+    expect(caption()).toBe(t("ui-agent-state-starting"));
+    await rerender([realSurface("turn-3")], undefined, "working");
+    expect(caption()).toBe(t("ui-agent-state-working"));
+    await rerender([realSurface("turn-3")], undefined, "idle");
+    expect(caption()).toBe(t("ui-agent-state-idle"));
+  });
+
+  test("le fil suivi reste en bas quand le dock grandit (la zone qui défile est observée)", async () => {
+    const observed: Element[] = [];
+    let fire = () => {};
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(cb: () => void) {
+        fire = cb;
+      }
+      observe(el: Element) {
+        observed.push(el);
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      const { host } = await mount([realSurface("turn-3")], "working");
+      const scroller = host.querySelector(".agent-scroller") as HTMLElement;
+      expect(observed).toContain(scroller);
+      // Le dock prend de la place : la zone rétrécit, le fil suivi revient en bas.
+      Object.defineProperty(scroller, "scrollHeight", { value: 800, configurable: true });
+      scroller.scrollTop = 100;
+      await act(async () => fire());
+      expect(scroller.scrollTop).toBe(800);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  test("le dock qui grandit après un retour en bas ne détache pas le fil (seul un geste vers le haut le fait)", async () => {
+    const { host } = await mount([realSurface("turn-3")], "working");
+    const scroller = host.querySelector(".agent-scroller") as HTMLElement;
+    Object.defineProperty(scroller, "scrollHeight", { value: 421, configurable: true });
+    Object.defineProperty(scroller, "clientHeight", { value: 308, configurable: true, writable: true });
+    scroller.scrollTop = 113; // en bas
+    await act(async () => scroller.dispatchEvent(new Event("scroll")));
+    // Le dock grandit avant que l'évènement du défilement ne soit lu : l'écart au bas dépasse le seuil.
+    Object.defineProperty(scroller, "clientHeight", { value: 274, configurable: true });
+    await act(async () => scroller.dispatchEvent(new Event("scroll")));
     expect(host.querySelector(".agent-jump")).toBeNull();
   });
 

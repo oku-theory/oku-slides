@@ -1,6 +1,6 @@
 // SVG des slides en URL d'objet, mis en cache par empreinte de rendu.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TabApi } from "./api";
 
 /**
@@ -8,12 +8,15 @@ import type { TabApi } from "./api";
  *
  * Pendant le rendu d'une nouvelle empreinte, la dernière image reçue de la
  * slide reste montrée : la scène et la pile ne se vident pas à chaque édition.
+ * `cached` ne rend que l'image d'une empreinte déjà reçue (miniature d'un reçu).
+ * L'objet rendu change d'identité à chaque image reçue : un contexte qui le
+ * porte prévient ses lecteurs.
  */
 export function useSvgCache(api: TabApi) {
   const cache = useRef(new Map<string, string>());
   /** Dernière image reçue de chaque slide, montrée en attendant la suivante. */
   const latest = useRef(new Map<string, string>());
-  const [, bump] = useState(0);
+  const [version, bump] = useState(0);
   const pending = useRef(new Set<string>());
   const alive = useRef(true);
   useEffect(() => {
@@ -48,5 +51,6 @@ export function useSvgCache(api: TabApi) {
     }
     return latest.current.get(id) ?? null;
   }, [api]);
-  return get;
+  const cached = useCallback((hash: string): string | null => cache.current.get(hash) ?? null, []);
+  return useMemo(() => ({ svg: get, cached, version }), [get, cached, version]);
 }

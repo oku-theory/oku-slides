@@ -1,12 +1,15 @@
 // Composants du fil de l'agent (catalogue v3) : consigne, timeline, reçu,
 // détail repliable, badge, Markdown. Hors de catalog.tsx : un concept par fichier.
 
-import { useState } from "react";
+import { useContext } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 import { Markdown as MarkdownView } from "../agent/Markdown";
+import { t } from "../i18n";
+import { useRememberedOpen } from "./openMemory";
 import { Hex, ToneSchema, toneClass } from "./schemas";
+import { SlideThumbsContext, resolveSlideThumb } from "./slideThumbs";
 import { Toggle } from "./Toggle";
 
 const Step = z.object({
@@ -29,7 +32,7 @@ const ReceiptApi = {
   schema: z.object({
     title: CommonSchemas.DynamicString,
     facts: z.array(z.string()).readonly(),
-    thumb: z.string().optional(),
+    slide: z.object({ id: z.string(), hash: z.string() }).strict().optional(),
     swatch: Hex.optional(),
   }).strict(),
 };
@@ -49,8 +52,8 @@ export const Prompt = createComponentImplementation(PromptApi, ({ props }) => (
 ));
 
 /** La progression d'un tour ; repliée, une ligne qui se déplie au clic. */
-export const Timeline = createComponentImplementation(TimelineApi, ({ props }) => {
-  const [open, setOpen] = useState(false);
+export const Timeline = createComponentImplementation(TimelineApi, ({ props, context }) => {
+  const [open, setOpen] = useRememberedOpen(context);
   // Une valeur liée par chemin n'est pas validée par zod : on ne garde que des étapes bien formées.
   const steps = (Array.isArray(props.steps) ? props.steps : []).filter((x): x is z.infer<typeof Step> => Step.safeParse(x).success);
   const shown = !props.collapsed || open;
@@ -74,21 +77,26 @@ export const Timeline = createComponentImplementation(TimelineApi, ({ props }) =
   );
 });
 
-/** La conclusion d'un tour. */
-export const Receipt = createComponentImplementation(ReceiptApi, ({ props }) => (
-  <div className="a2ui-card tone-accent a2ui-receipt">
-    {props.thumb && <img className="a2ui-receipt-thumb" alt="" src={`data:image/svg+xml;utf8,${encodeURIComponent(props.thumb)}`} />}
-    {!props.thumb && props.swatch && <span className="a2ui-swatch" style={{ background: props.swatch }} aria-hidden="true" />}
-    <div className="a2ui-receipt-text">
-      <span className="a2ui-title">{props.title}</span>
-      {props.facts.length > 0 && <span className="a2ui-hint">{props.facts.join(" · ")}</span>}
+/** La conclusion d'un tour ; la miniature de sa slide est résolue par empreinte (`slideThumbs`). */
+export const Receipt = createComponentImplementation(ReceiptApi, ({ props }) => {
+  const thumbs = useContext(SlideThumbsContext);
+  const thumb = props.slide ? resolveSlideThumb(thumbs, props.slide) : null;
+  const changed = thumb?.changed ? t("ui-history-changed-since") : undefined;
+  return (
+    <div className="a2ui-card tone-accent a2ui-receipt">
+      {thumb && <img className={`a2ui-receipt-thumb${thumb.changed ? " changed" : ""}`} alt={changed ?? ""} title={changed} src={thumb.url} />}
+      {!thumb && props.swatch && <span className="a2ui-swatch" style={{ background: props.swatch }} aria-hidden="true" />}
+      <div className="a2ui-receipt-text">
+        <span className="a2ui-title">{props.title}</span>
+        {props.facts.length > 0 && <span className="a2ui-hint">{props.facts.join(" · ")}</span>}
+      </div>
     </div>
-  </div>
-));
+  );
+});
 
-/** Un enfant replié derrière une ligne. */
-export const Disclosure = createComponentImplementation(DisclosureApi, ({ props, buildChild }) => {
-  const [open, setOpen] = useState(false);
+/** Un enfant replié derrière une ligne ; déplié, il le reste si la surface est reconstruite. */
+export const Disclosure = createComponentImplementation(DisclosureApi, ({ props, buildChild, context }) => {
+  const [open, setOpen] = useRememberedOpen(context);
   return (
     <div className="a2ui-disclosure">
       <Toggle open={open} onToggle={() => setOpen(!open)} className="a2ui-hint">{props.summary}</Toggle>

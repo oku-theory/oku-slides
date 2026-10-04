@@ -66,9 +66,7 @@ fn main() -> color_eyre::Result<()> {
                         break;
                     }
                 }
-                "mcp"
-                    if kind == "surface" && event["surface"]["id"].as_str().is_some_and(|i| i.starts_with("ask-")) =>
-                {
+                "mcp" if kind == "surface" && event["surface"]["question"].as_bool() == Some(true) => {
                     let surface = &event["surface"];
                     let id = surface["id"].as_str().unwrap_or_default().to_owned();
                     println!("surface {id} ({:?})", surface["place"]);

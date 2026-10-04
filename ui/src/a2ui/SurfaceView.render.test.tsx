@@ -71,12 +71,44 @@ test("une liste prolongée met les données à jour sans reconstruire la surface
 });
 
 test("une liste non prolongée reconstruit la surface", async () => {
-  const base = fresh();
-  const { host, root } = await mountView(base);
+  const { host, root } = await mountView(fresh());
+  expect(host.textContent).toContain("un");
+  const next = fresh();
+  (next[2] as unknown as { updateDataModel: { value: { n: string } } }).updateDataModel.value.n = "autre";
+  await act(async () => root.render(view(next)));
+  expect(host.textContent).toContain("autre"); // nouvelle liste : surface neuve, lue en entier
+});
+
+/** La même surface avec une suite (bouton `suggest`), comme un reçu avant l'expiration de ses actions. */
+const withSuggest = () => {
+  const messages = fresh();
+  const update = (messages[1] as unknown as { updateComponents: { components: Record<string, unknown>[] } }).updateComponents;
+  update.components[0] = { id: "root", component: "Column", children: ["d", "n", "go"] };
+  update.components.push({ id: "go", component: "Button", label: "Encore", action: { event: { name: "suggest", context: { prompt: "Encore" } } } });
+  return messages;
+};
+
+test("le détail ouvert le reste quand la surface est remplacée par sa version sans actions", async () => {
+  const { host, root } = await mountView(withSuggest());
   await act(async () => (host.querySelector(".a2ui-disclosure > button") as HTMLElement).click());
-  expect(host.textContent).toContain("parce que"); // ouverte avant la nouvelle liste
-  await act(async () => root.render(view([...base])));
-  expect(host.textContent).not.toContain("parce que"); // nouvelle liste (copie) : surface neuve, Disclosure fermée
+  expect(host.textContent).toContain("parce que");
+  // L'expiration des suites : mêmes composants sans le bouton, liste neuve (surface reconstruite).
+  await act(async () => root.render(view(fresh())));
+  expect(host.textContent).not.toContain("Encore");
+  expect(host.textContent).toContain("parce que");
+  expect(host.querySelector(".a2ui-disclosure > button")?.getAttribute("aria-expanded")).toBe("true");
+  // Refermé, il reste fermé à la reconstruction suivante.
+  await act(async () => (host.querySelector(".a2ui-disclosure > button") as HTMLElement).click());
+  await act(async () => root.render(view(fresh())));
+  expect(host.textContent).not.toContain("parce que");
+});
+
+test("une autre surface ne reprend pas l'ouverture du détail de la précédente", async () => {
+  const { host, root } = await mountView(fresh());
+  await act(async () => (host.querySelector(".a2ui-disclosure > button") as HTMLElement).click());
+  const other = JSON.parse(JSON.stringify(fresh()).replaceAll('"s"', '"t"')) as A2uiMessage[];
+  await act(async () => root.render(createElement(SurfaceView, { surfaceId: "t", messages: other, onAction: () => {}, onError: () => {} })));
+  expect(host.textContent).not.toContain("parce que");
 });
 
 test("un patch refusé est signalé une fois et la surface affichée reste", async () => {

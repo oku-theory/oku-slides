@@ -3,7 +3,7 @@ use speculoos::prelude::*;
 
 use crate::{
     Action, CATALOG_ID, ChoiceOption, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ServerMessage,
-    TextVariant,
+    SlideRef, StepStatus, TextVariant, TimelineStep,
 };
 
 fn to_json(msg: &ServerMessage) -> Option<Value> {
@@ -240,19 +240,88 @@ fn timeline_with_paths_serializes_them() {
 }
 
 #[test]
-fn receipt_without_thumb_and_swatch_omits_them() {
+fn receipt_without_slide_and_swatch_omits_them() {
     let c = Component::new(
         "r",
         ComponentKind::Receipt {
             title: Dynamic::Literal("Slide 4 : fond bleu nuit".into()),
             facts: vec!["titre en blanc".into()],
-            thumb: None,
+            slide: None,
             swatch: None,
         },
     );
     assert_that!(serde_json::to_value(&c).unwrap()).is_equal_to(json!({
         "id": "r", "component": "Receipt", "title": "Slide 4 : fond bleu nuit", "facts": ["titre en blanc"]
     }));
+}
+
+#[test]
+fn receipt_with_slide_serializes_its_reference_only() {
+    let slide = SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() };
+    let c = Component::new(
+        "r",
+        ComponentKind::Receipt { title: Dynamic::Literal("x".into()), facts: vec![], slide: Some(slide), swatch: None },
+    );
+    assert_that!(serde_json::to_value(&c).unwrap()).is_equal_to(json!({
+        "id": "r", "component": "Receipt", "title": "x", "facts": [],
+        "slide": { "id": "s-4", "hash": "0123456789abcdef0123456789abcdef" }
+    }));
+}
+
+/// Aller-retour Rust → JSON → Rust : ce que l'hôte émet se relit à l'identique.
+fn round_trip<T: serde::Serialize + serde::de::DeserializeOwned>(value: &T) -> T {
+    serde_json::from_value(serde_json::to_value(value).unwrap()).unwrap()
+}
+
+#[test]
+fn timeline_step_round_trips_with_every_status_and_optional_count() {
+    let steps: Vec<TimelineStep> =
+        [StepStatus::Pending, StepStatus::InProgress, StepStatus::Completed, StepStatus::Failed]
+            .into_iter()
+            .zip([None, Some(1), Some(6), None])
+            .map(|(status, count)| TimelineStep { label: "apply".into(), status, count })
+            .collect();
+    assert_that!(round_trip(&steps)).is_equal_to(&steps);
+    let timeline = Component::new(
+        "timeline",
+        ComponentKind::Timeline {
+            steps: Dynamic::Literal(steps),
+            collapsed: Dynamic::Literal(true),
+            summary: Dynamic::Literal("6 outils · 38 s".into()),
+        },
+    );
+    assert_that!(round_trip(&timeline)).is_equal_to(&timeline);
+}
+
+#[test]
+fn timeline_step_with_unknown_key_is_refused() {
+    let v = json!({"label": "apply", "status": "completed", "svg": "<svg/>"});
+    assert_that!(serde_json::from_value::<TimelineStep>(v)).is_err();
+}
+
+#[test]
+fn receipt_round_trips_with_and_without_its_slide_reference() {
+    let slide = SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() };
+    for (slide, swatch) in [(Some(slide), Some("#00154e".to_owned())), (None, None)] {
+        let c = Component::new(
+            "card",
+            ComponentKind::Receipt {
+                title: Dynamic::Literal("Slide 4 : fond bleu nuit".into()),
+                facts: vec!["titre en blanc".into(), "surtitre bleu clair".into()],
+                slide,
+                swatch,
+            },
+        );
+        assert_that!(round_trip(&c)).is_equal_to(&c);
+    }
+}
+
+/// t-450 : la slide d'un reçu est une référence ; l'ancienne forme (avec son rendu) ne se relit plus.
+#[test]
+fn receipt_slide_carrying_its_svg_is_refused() {
+    let v = json!({"id": "card", "component": "Receipt", "title": "x", "facts": [],
+        "slide": {"id": "s-4", "hash": "0123456789abcdef0123456789abcdef", "svg": "<svg/>"}});
+    assert_that!(serde_json::from_value::<Component>(v)).is_err();
 }
 
 #[test]
@@ -320,7 +389,7 @@ fn agent_allowed_for_host_only_components_is_false() {
     );
     let r = Component::new(
         "r",
-        ComponentKind::Receipt { title: Dynamic::Literal("x".into()), facts: vec![], thumb: None, swatch: None },
+        ComponentKind::Receipt { title: Dynamic::Literal("x".into()), facts: vec![], slide: None, swatch: None },
     );
     assert_that!(p.agent_allowed()).is_false();
     assert_that!(t.agent_allowed()).is_false();

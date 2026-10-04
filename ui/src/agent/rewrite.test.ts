@@ -9,6 +9,7 @@ const surface = (anchor?: { slide: string; element: string }): Surface => ({
   id: "ask-1",
   place: "sheet",
   live: false,
+  question: true,
   anchor,
   messages: [],
 });

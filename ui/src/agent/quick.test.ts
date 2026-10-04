@@ -9,6 +9,7 @@ const surface = (components: unknown[], data?: unknown, more: unknown[] = []): S
   id: "ask-1",
   place: "sheet",
   live: false,
+  question: true,
   messages: [
     { version: "v0.9", createSurface: { surfaceId: "ask-1", catalogId: "x" } },
     { version: "v0.9", updateComponents: { surfaceId: "ask-1", components } },
@@ -27,6 +28,13 @@ const chips = (n: number) =>
       action: { event: { name: "choose", context: { choice: { path: "/choice" } } } },
     },
   ]);
+
+/** Deux pastilles, `choice` déjà dans le modèle (option par défaut). */
+const chosen = (choice: string): Surface => {
+  const base = chips(2);
+  const update = { version: "v0.9", updateDataModel: { surfaceId: "ask-1", value: { choice } } };
+  return { ...base, messages: [...base.messages, update] as unknown as Surface["messages"] };
+};
 
 const rewrite = surface([
   { id: "pick-0", component: "Button", label: "Choisir 1", primary: true, action: { event: { name: "rewrite", context: { kept: 0, text: "Un" } } } },
@@ -52,6 +60,13 @@ describe("touches des surfaces", () => {
     expect(quickAction(rewrite, "Enter")).toEqual({ name: "rewrite", context: { kept: 0, text: "Un" } });
   });
   test("Entrée sans bouton principal ne fait rien", () => expect(quickAction(variants, "Enter")).toBeNull());
+  test("Entrée valide l'option par défaut d'une question à pastilles", () => {
+    expect(quickAction(chosen("b"), "Enter")).toEqual({ name: "choose", context: { choice: "b" } });
+  });
+  test("Entrée sans option par défaut (ou une option inconnue) ne fait rien", () => {
+    expect(quickAction(chosen(""), "Enter")).toBeNull();
+    expect(quickAction(chosen("z"), "Enter")).toBeNull();
+  });
   test("Échap abandonne", () => expect(quickAction(chips(2), "Escape")).toEqual({ name: "dismiss", context: {} }));
   test("un chiffre hors des options ne fait rien", () => expect(quickAction(chips(2), "4")).toBeNull());
   test("seuls 1 à 4 sont des touches rapides", () => {

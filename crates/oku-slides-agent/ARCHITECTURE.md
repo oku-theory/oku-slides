@@ -8,8 +8,8 @@ les consignes dictées relayées avec le contexte de l'interface.
 
 - `config` : `Launch` (commande, arguments, dossier de repli, `ready_within`).
 - `error` : `AgentError`, opaque, `Localize` (`agent-not-found`, `-no-http`, `-stopped`, `-failed`).
-- `events` : `AgentEvent` (`UserText` ouvre le tour `turn`), `AgentState`,
-  `PlanItem`, `from_update` (mise à jour ACP → évènement).
+- `events` : `AgentEvent` (`UserText` ouvre le tour `turn` ; chaque évènement d'un tour porte
+  son `turn`), `AgentState`, `PlanItem`, `from_update` (mise à jour ACP → évènement du tour).
 - `link` : `Link`, la connexion ACP partagée (sous-processus, poignée de main,
   notifications et permissions routées par lancement et `SessionId`).
 - `tab_agent` : `AgentHandle`, l'acteur d'un onglet (`prompt`, `cancel`,
@@ -23,7 +23,20 @@ les consignes dictées relayées avec le contexte de l'interface.
   en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`) ;
   fermé, son hub refuse toute question (`SurfaceHub::close`).
 - `turns` : `Turns`, réducteur des évènements en surfaces de tour A2UI (`TurnOut`) ; le relais les émet par le hub.
+  Chaque évènement ne touche que son tour : un tour dont `UserText` s'est perdu (relais en
+  retard, `Lagged`) s'ouvre sans consigne au premier évènement qui le porte ; l'évènement
+  tardif d'un tour clos est ignoré.
 - `bin/fake_agent` : agent ACP minimal piloté par un scénario JSON (`--script`, `--log`) ; tests seulement.
+
+## Tours
+
+Le hub (`SurfaceHub::begin_turn`) numérote les tours. L'acteur estampille ce qu'il émet
+(`UserText`, `TurnEnded`, `Error`) avec le numéro du tour qu'il joue ; `link` estampille
+les mises à jour ACP avec le tour ouvert du hub de la session (l'agent envoie les mises à
+jour d'un tour avant d'en rendre la réponse, sur la même connexion ; hors tour, ignorées).
+Porter le tour sur l'évènement plutôt que le déduire de l'ordre rend le réducteur sûr
+face aux pertes du canal `broadcast`. Les appels MCP, eux, prennent leur tour à l'arrivée
+(voir `oku-slides-mcp`, « Tour d'un appel d'outil ») : l'agent ne connaît pas nos numéros.
 
 ## Cycle de vie
 

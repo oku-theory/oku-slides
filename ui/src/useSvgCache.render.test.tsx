@@ -10,7 +10,8 @@ const { createRoot } = await import("react-dom/client");
 const { useSvgCache } = await import("./useSvgCache");
 const { deferred } = await import("./test/widgetApi");
 
-type Get = ReturnType<typeof useSvgCache>;
+type Cache = ReturnType<typeof useSvgCache>;
+type Get = Cache["svg"];
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 afterEach(async () => {
   const m = mounted;
@@ -34,15 +35,16 @@ function heldApi() {
   return { api, calls, release };
 }
 
-/** Monte le hook ; `out.get` est la fonction rendue au dernier rendu. */
+/** Monte le hook ; `out.cache` est le cache rendu au dernier rendu, `out.get` sa fonction `svg`. */
 async function mount(api: TabApi) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const out: { get: Get | null } = { get: null };
+  const out: { get: Get | null; cache: Cache | null } = { get: null, cache: null };
   function Probe() {
-    out.get = useSvgCache(api);
+    out.cache = useSvgCache(api);
+    out.get = out.cache.svg;
     return null;
   }
   await act(async () => root.render(createElement(Probe)));
@@ -78,6 +80,27 @@ describe("useSvgCache", () => {
     out.get!("s-1", "h1");
     await release(0, "<svg/>");
     expect(out.get!("s-2", "h9")).toBeNull();
+  });
+
+  test("useSvgCache cached rend l'image d'une empreinte déjà reçue, sans rien demander ni prêter", async () => {
+    const { api, calls, release } = heldApi();
+    const out = await mount(api);
+    expect(out.cache!.cached("h1")).toBeNull();
+    expect(calls.length).toBe(0);
+    out.get!("s-1", "h1");
+    await release(0, "<svg/>");
+    expect(out.cache!.cached("h1")).toBe(out.get!("s-1", "h1"));
+    // Une autre empreinte de la même slide : pas l'image précédente.
+    expect(out.cache!.cached("h2")).toBeNull();
+  });
+
+  test("useSvgCache change d'identité quand une image arrive", async () => {
+    const { api, release } = heldApi();
+    const out = await mount(api);
+    const before = out.cache;
+    out.get!("s-1", "h1");
+    await release(0, "<svg/>");
+    expect(out.cache).not.toBe(before);
   });
 
   test("useSvgCache demande une empreinte une seule fois tant qu'elle est en cours", async () => {

@@ -31,6 +31,7 @@ import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 import type { A2uiClientAction, A2uiMessage } from "@a2ui/web_core/v0_9";
 import { panelActionOps } from "./a2ui/panelActions";
+import { SlideThumbsContext, type SlideThumbs } from "./a2ui/slideThumbs";
 import { AgentThread } from "./agent/AgentThread";
 import { subscribeHost } from "./agent/events";
 import type { DictationMode } from "./agent/keys";
@@ -39,7 +40,7 @@ import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
 import { agentBusy, routeSurfaces, sendThenPrompt, surfacesReducer } from "./agent/surfaces";
 import { withRewriteParagraphs } from "./agent/rewrite";
-import { useQuickKeys } from "./agent/useQuickKeys";
+import { quickTarget, useQuickKeys } from "./agent/useQuickKeys";
 import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
@@ -126,7 +127,13 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     setCurrent(id);
   };
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
-  const svg = useSvgCache(api);
+  const svgs = useSvgCache(api);
+  // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
+  const slides = snap?.slides;
+  const slideThumbs = useMemo<SlideThumbs>(
+    () => ({ cached: svgs.cached, svg: svgs.svg, current: (id) => slides?.find((s) => s.id === id)?.hash }),
+    [svgs, slides],
+  );
 
   const say = (text: string, error = false) => {
     setToast({ text, error });
@@ -455,11 +462,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     // Une suite cliquée part vers l'agent comme une consigne dictée, une fois l'action acceptée.
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
-  useQuickKeys(
-    modal ? { surface: modal, kind: "modal" } : sheet ? { surface: sheet, kind: "sheet" } : drawer ? { surface: drawer, kind: "drawer" } : null,
-    !editing && !picking && !widgetActive,
-    sendAction,
-  );
+  const keysTarget = quickTarget({ modal, sheet, drawer, dock: routed.dock });
+  useQuickKeys(keysTarget, !editing && !picking && !widgetActive, sendAction);
 
   // --- Édition des modèles ------------------------------------------------
   const editTemplates = async (): Promise<boolean> => {
@@ -802,7 +806,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       <SlidePile
         slides={snap.slides}
         current={current}
-        svg={svg}
+        svg={svgs.svg}
         names={snap.editing ? templateNames : undefined}
         label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
         addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
@@ -825,7 +829,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           <Stage
             ref={stage}
             view={view}
-            svgUrl={cur ? svg(cur.id, cur.hash) : null}
+            svgUrl={cur ? svgs.svg(cur.id, cur.hash) : null}
             selected={history ? null : selected}
             editing={history ? null : editing}
             onSelect={history ? noop : setSelected}
@@ -877,15 +881,18 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
           />
         )}
-        <AgentThread
-          state={agentState}
-          turns={routed.turns}
-          loose={routed.loose}
-          dock={routed.dock}
-          onAction={onSurfaceAction}
-          onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
-          onError={(m) => say(m, true)}
-        />
+        <SlideThumbsContext.Provider value={slideThumbs}>
+          <AgentThread
+            state={agentState}
+            turns={routed.turns}
+            loose={routed.loose}
+            dock={routed.dock}
+            keysTo={keysTarget?.surface.id ?? null}
+            onAction={onSurfaceAction}
+            onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
+            onError={(m) => say(m, true)}
+          />
+        </SlideThumbsContext.Provider>
         <DictationDraft
           text={draft.text}
           dictations={draft.dictations}

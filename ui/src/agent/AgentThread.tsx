@@ -18,17 +18,23 @@ const STATE_KEY: Record<AgentState, string> = {
   working: "ui-agent-state-working",
 };
 
-/** Le fil et son dock ; rien tant qu'il n'y a ni tour ni surface. */
+/**
+ * Le fil et son dock. Sans tour ni surface, rien de visible (classe `vacant`, 0 px) : les
+ * régions annoncées (`aria-live`) restent montées, sans quoi le premier ajout ne serait pas lu.
+ */
 export function AgentThread({
   state,
   turns,
   loose,
   dock,
+  keysTo,
   onAction,
   onNewConversation,
   onError,
 }: {
   state: AgentState;
+  /** La surface qui reçoit les touches rapides (voir `AgentDock`). */
+  keysTo?: string | null;
   onAction: (surface: Surface, action: A2uiClientAction) => void;
   onNewConversation: () => void;
   onError: (message: string) => void;
@@ -37,6 +43,8 @@ export function AgentThread({
   const observer = useRef<ResizeObserver | null>(null);
   const [pinned, setPinned] = useState(true);
   const pinnedRef = useRef(pinned);
+  /** Dernière position lue : distingue un geste vers le haut d'un retour en bas programmé. */
+  const lastTop = useRef(0);
   pinnedRef.current = pinned;
   const lastTurn = turns.at(-1)?.turn;
   const toBottom = () => {
@@ -52,8 +60,8 @@ export function AgentThread({
     toBottom();
   }, [lastTurn]);
   // Le contenu A2UI grandit sans re-rendre ce composant (signaux internes) : on observe la taille
-  // de la liste entière. Ref de rappel : la liste n'existe pas tant que le fil est vide (le composant
-  // rend `null`), un effet sans dépendances ne la verrait jamais.
+  // de la liste entière, et celle de la zone qui défile (elle rétrécit quand le dock grandit).
+  // Ref de rappel : elle suit la liste si React la recrée.
   const list = useCallback((el: HTMLOListElement | null) => {
     observer.current?.disconnect();
     observer.current = null;
@@ -62,32 +70,40 @@ export function AgentThread({
       if (pinnedRef.current) toBottom();
     });
     watch.observe(el);
+    if (el.parentElement) watch.observe(el.parentElement);
     observer.current = watch;
   }, []);
-  if (turns.length === 0 && loose.length === 0 && dock.length === 0) return null;
+  const empty = turns.length === 0 && loose.length === 0 && dock.length === 0;
   const view = (s: Surface) => (
     <Suspense fallback={null}>
       <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
     </Suspense>
   );
   return (
-    <section className="agent-thread" aria-label={t("ui-agent-thread")}>
-      <header className="agent-thread-head">
-        <span className="caption">{t(STATE_KEY[state])}</span>
-        <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>
-      </header>
+    <section className={`agent-thread${empty ? " vacant" : ""}`} aria-label={t("ui-agent-thread")}>
+      {!empty && (
+        <header className="agent-thread-head">
+          <span className="caption">{t(STATE_KEY[state])}</span>
+          <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>
+        </header>
+      )}
       <div
         ref={scroller}
         className="agent-scroller"
         onScroll={(e) => {
+          // En bas : suivi. Détaché seulement par un geste vers le haut : un évènement de notre
+          // propre retour en bas, lu après que le dock a encore grandi, n'est pas un geste.
           const el = e.currentTarget;
-          setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 24);
+          const up = el.scrollTop < lastTop.current;
+          lastTop.current = el.scrollTop;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 24) setPinned(true);
+          else if (up) setPinned(false);
         }}
       >
-        <ol ref={list} className="agent-turns">
+        {/* Une seule région, persistante : chaque ajout (tour, surface, étape) est lu une fois ; rien n'est réannoncé. */}
+        <ol ref={list} className="agent-turns" aria-live="polite" aria-relevant="additions">
           {turns.map(({ turn, surfaces }) => (
-            // Seul le dernier tour est annoncé : les anciens ne changent plus.
-            <li key={turn} className="agent-turn" aria-live={turn === lastTurn ? "polite" : undefined}>
+            <li key={turn} className="agent-turn">
               {surfaces.map((s) => (
                 <div key={s.id} data-surface-id={s.id}>
                   {view(s)}
@@ -102,7 +118,7 @@ export function AgentThread({
           ))}
         </ol>
       </div>
-      {!pinned && state === "working" && (
+      {!empty && !pinned && state === "working" && (
         <button
           type="button"
           className="token agent-jump"
@@ -115,7 +131,7 @@ export function AgentThread({
           {t("ui-agent-jump")}
         </button>
       )}
-      <AgentDock surfaces={dock} view={view} />
+      <AgentDock surfaces={dock} view={view} keysTo={keysTo} />
     </section>
   );
 }

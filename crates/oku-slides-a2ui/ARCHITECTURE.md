@@ -11,6 +11,8 @@ ni rendu, ni accès au disque.
 - `Component { id, kind }` et `ComponentKind` : le catalogue (mise en page, texte, carte, boutons,
   `Receipt`, `Timeline`, `Prompt`, `DiffText`, `SlideThumb`…) ; constructeurs `card`, `column`, `row`,
   `text`, `button`. `Dynamic<T>` : une valeur littérale ou une liaison `{path}` au modèle de données.
+- `SlideRef { id, hash }` : la slide d'un `Receipt`, désignée par l'empreinte de sa page, jamais par son rendu
+  (l'interface résout la miniature ; choix « état au reçu ou actuel » décrit dans `oku-slides-session`).
 - Aides sur `ComponentKind` : `children` (identifiants enfants), `actions` (actions portées),
   `without_action` (le composant privé de son action, ou rien), `agent_allowed` (permis à `render` ;
   `Prompt`, `Timeline`, `Receipt`, `SlideThumb` sont réservés à l'hôte).

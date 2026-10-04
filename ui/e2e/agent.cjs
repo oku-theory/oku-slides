@@ -34,8 +34,10 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   assert.equal(await p.locator('.agent-sheet .diff-text').count(), 2);
   await p.keyboard.press('2');
   await p.waitForSelector('.agent-sheet', { state: 'detached' });
-  // Sans `report`, le tour se clôt par un reçu de repli (le texte de l'agent).
-  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
+  // Sans `report`, le tour se clôt par un reçu de repli titré par le texte de l'agent.
+  const rewritten = p.locator('.agent-turn', { hasText: 'rends ce texte plus clair' }).locator('.a2ui-receipt .a2ui-title');
+  await rewritten.waitFor();
+  assert.equal(await rewritten.innerText(), 'Texte reformulé.');
   assert.equal(await textOf(p), 'Un bloc libre');
   assert.equal((await api(p, { cmd: 'snapshot' })).undo_label, 'Agent : rends ce texte plus clair');
 
@@ -68,13 +70,17 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   assert.notEqual(tab2, 't-1');
   await p.reload();
   await p.waitForSelector('.stage img');
-  assert.equal(await p.locator('.agent-thread').count(), 0);
+  // Fil vide : rien de visible, seules ses régions annoncées restent montées (t-451).
+  assert.equal(await p.locator('.agent-turn').count(), 0);
+  assert.equal(await p.locator('.agent-thread.vacant').count(), 1);
 
   // Son tour (propre à cette session, voir e2e.json → sessions.2) applique un vrai
   // changement sur son propre deck vierge (slide « s-1 ») : le vérifier confirme que
   // l'onglet 2 a bien joué son tour, pas seulement reçu un morceau de texte.
   await prompt(p, 'bonjour', tab2);
-  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
+  const greeted = p.locator('.agent-turn', { hasText: 'bonjour' }).locator('.a2ui-receipt .a2ui-title');
+  await greeted.waitFor();
+  assert.equal(await greeted.innerText(), 'Titre changé.');
   const snap2 = await api(p, { cmd: 'snapshot' }, tab2);
   assert.equal(snap2.slides.find((s) => s.id === 's-1').title, 'Second onglet, bonjour');
   // Dans un tour, l'étiquette d'annulation est celle du tour (le prompt), pas celle
@@ -97,6 +103,9 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   await turn.locator('.a2ui-prompt').waitFor();
   await turn.locator('.a2ui-receipt .a2ui-title').waitFor();
   assert.equal(await turn.locator('.a2ui-receipt .a2ui-title').innerText(), 'Fond bleu nuit');
+  // Le reçu désigne sa slide ; l'interface en montre la miniature depuis son cache de SVG (t-450).
+  await turn.locator('.a2ui-receipt-thumb').waitFor();
+  assert.match(await turn.locator('.a2ui-receipt-thumb').getAttribute('src'), /^blob:/);
   await turn.locator('.a2ui-timeline-summary').waitFor({ state: 'visible' });
   assert.equal(await p.locator('.agent-turn').count(), before + 1);
 
@@ -105,8 +114,23 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   await p.waitForSelector('.agent-dock .chips .chip');
   assert.equal(await p.locator('.agent-dock .chips .chip').count(), 2);
   await p.locator('.agent-dock .chips .chip').nth(1).click();
-  await p.waitForSelector('.agent-dock', { state: 'detached' });
+  await p.waitForSelector('.agent-dock.vacant');
   await p.locator('.agent-turn', { hasText: '✓' }).filter({ hasText: 'Sable' }).first().waitFor();
+
+  // 7. Deux questions parallèles au dock (t-451) : toutes deux visibles ; « 2 » répond à la
+  // dernière (au plus près du micro), un clic à l'autre.
+  await prompt(p, 'titre et police ?');
+  await p.waitForFunction(() => document.querySelectorAll('.agent-dock .agent-dock-item.ask').length === 2);
+  // Les deux appels partent ensemble : l'ordre d'arrivée n'est pas fixé, on lit les libellés.
+  const asks = p.locator('.agent-dock .agent-dock-item.ask');
+  const label = async (ask, i) => (await asks.nth(ask).locator('.chip').nth(i).innerText()).replace(/^\d\s*/, '');
+  const [first, last] = [await label(0, 0), await label(1, 1)];
+  await p.keyboard.press('2');
+  await p.locator('.agent-turn', { hasText: '✓' }).filter({ hasText: last }).first().waitFor();
+  assert.equal(await asks.count(), 1);
+  await asks.first().locator('.chip').first().click();
+  await p.waitForSelector('.agent-dock.vacant');
+  await p.locator('.agent-turn', { hasText: '✓' }).filter({ hasText: first }).first().waitFor();
 
   assert.deepEqual(errors, []);
   await b.close();

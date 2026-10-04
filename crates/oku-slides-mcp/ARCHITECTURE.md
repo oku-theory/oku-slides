@@ -13,8 +13,12 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
   recopie un réglage) ; `resync` la renvoie entière (`McpEvent::Surfaces`),
   remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
   questions en attente et rend `Cancelled` à toute question ultérieure.
-- `hub_turns` : les tours du fil (numéros, rangement, gel des questions répondues, éviction,
-  `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à jour une surface ouverte.
+  Plusieurs questions peuvent attendre ensemble (appels `ask_*` parallèles) : chacune est
+  vivante au dock et répond à son identifiant (`act`) ; une réponse dictée (`answer_pending`)
+  va à la dernière ouverte.
+- `hub_turns` : les tours du fil (numéros, tour ouvert `turn`, rangement dans le tour de l'appel,
+  gel des questions répondues, éviction, `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à
+  jour une surface ouverte.
 - `surface_tools` : `report` (fin de tour, reçu ; hors tour : refusé) et `render` (composition A2UI
   libre, validée par `oku-slides-session`) avec les outils `ask_*` et `show_*`.
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
@@ -26,6 +30,35 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).
+
+## Tour d'un appel d'outil
+
+Une surface du fil va dans le tour **pendant lequel son appel est arrivé**, jamais dans celui
+qui est ouvert quand elle s'affiche. `Tools::call` lit le tour ouvert (`SurfaceHub::turn`)
+avant tout travail et le passe explicitement au hub : `show_static(turn, …)` (`render`),
+`show_report(turn, …)`, `ask_then(turn, …)` (question sans ancre), `show_params(turn, …)`.
+Le hub n'accepte une surface d'outil que si `turn` est encore le tour ouvert : l'appel tardif
+d'un tour annulé ou clos (resté bloqué sur la session pendant que le tour suivant s'ouvrait)
+est refusé, et ne touche jamais au reçu (de repli ou non) d'un autre tour. Seuls le gel d'une
+question et le reçu de repli (`end_turn`) visent un tour qui n'est plus ouvert, tant qu'il est
+dans le fil. Une question hors fil (`ask`) n'a pas de tour.
+`show_params` et une `ask_choice` sans ancre qui arrivent entre deux tours sont toujours acceptés, sans tour (comportement inchangé).
+
+Choix du mécanisme : un jeton de tour que l'agent renverrait à chaque appel (argument d'outil,
+ou une session MCP par tour) dépendrait de l'agent et alourdirait chaque schéma ; le serveur
+estampille donc l'appel à son arrivée. Reste une fenêtre étroite : une requête envoyée par
+l'agent avant la fin de son tour mais reçue après l'ouverture du suivant (en pratique, l'agent
+envoie ses appels avant de rendre la réponse du tour). Les évènements ACP, eux, portent leur
+tour (`oku-slides-agent`, `AgentEvent`).
+
+## Éviction d'un tour
+
+Au-delà de `KEPT_TURNS` tours (`oku-slides-agent`), le plus ancien est évincé : `close_turn`
+ferme **toutes** ses surfaces, vivantes comprises. Des réglages (`show_params`) restés au dock
+depuis ce tour disparaissent donc sans être figés (leur tour n'est plus là pour les recevoir) ;
+une action tardive sur eux est refusée. C'est voulu : un réglage n'appartient qu'à son tour, et
+ce cas suppose `KEPT_TURNS` tours sans nouveaux réglages ni fermeture. Une question en attente
+d'un tour évincé n'existe pas en pratique : chaque nouveau tour relâche les questions (`cancel_asks`).
 
 ## Points d'extension
 

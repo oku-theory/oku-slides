@@ -87,6 +87,31 @@ fn turn_patches_writes_only_the_changed_keys() {
     ]));
 }
 
+#[test]
+fn turn_patches_writes_one_update_per_changed_key() {
+    let sent = json!({"narration": "Je lis", "collapsed": false, "summary": "0 outil · 0 s"});
+    let data = json!({"narration": "", "collapsed": true, "summary": "0 outil · 0 s"});
+    let patches = serde_json::to_value(super::turn_patches(3, &sent, &data)).unwrap();
+    let paths: Vec<_> = patches.as_array().unwrap().iter().map(|m| m["updateDataModel"]["path"].clone()).collect();
+    // Dans l'ordre des clés du nouveau modèle ; `summary`, inchangé, ne repart pas.
+    assert_that!(paths).is_equal_to(vec![json!("/narration"), json!("/collapsed")]);
+}
+
+#[test]
+fn turn_patches_unchanged_data_writes_nothing() {
+    let data = json!({"narration": "Je lis", "collapsed": false, "steps": []});
+    assert_that!(super::turn_patches(3, &data, &data)).is_empty();
+}
+
+/// Un modèle qui n'est pas un objet n'a pas de clés racine : il est réécrit en entier.
+#[test]
+fn turn_patches_non_object_data_rewrites_the_whole_model() {
+    let patches = serde_json::to_value(super::turn_patches(3, &json!({"narration": "x"}), &json!([1]))).unwrap();
+    assert_that!(patches).is_equal_to(json!([
+        {"version": "v0.9", "updateDataModel": {"surfaceId": "turn-3", "value": [1]}}
+    ]));
+}
+
 #[rstest::rstest]
 #[case::max_turn_requests("max_turn_requests", "L'agent a atteint sa limite d'étapes.")]
 #[case::refusal("refusal", "L'agent a refusé.")]
@@ -102,6 +127,10 @@ fn turn_data_stop_reason_has_its_outcome(#[case] stop: &str, #[case] outcome: &s
 #[case::empty("", 4, "")]
 #[case::multibyte("éàüöß", 3, "éà…")]
 #[case::zero("abc", 0, "")]
+#[case::max_one_cut("abc", 1, "…")]
+#[case::max_one_fits("a", 1, "a")]
+#[case::blank("  \n\t \n ", 120, "")]
+#[case::blank_lines_then_text("\n   \n  Bleu nuit  \n", 120, "Bleu nuit")]
 fn first_line_edge_cases(#[case] text: &str, #[case] max: usize, #[case] expected: &str) {
     assert_that!(first_line(text, max)).is_equal_to(expected.to_owned());
 }
@@ -110,4 +139,14 @@ fn first_line_edge_cases(#[case] text: &str, #[case] max: usize, #[case] expecte
 fn first_line_with_newline_and_length_cuts() {
     assert_that!(first_line("\nBleu nuit.\nPuis…", 120)).is_equal_to("Bleu nuit.".to_owned());
     assert_that!(first_line("abcdef", 4)).is_equal_to("abc…".to_owned());
+}
+
+/// Un tour ouvert sans sa consigne (perdue par un relais en retard) n'affiche pas de bulle vide.
+#[test]
+fn turn_surface_without_prompt_has_no_prompt_component() {
+    let v = TurnView { prompt: String::new(), ..view(TurnState::Running) };
+    let json = serde_json::to_string(&turn_surface(&v, &fr())).unwrap();
+    assert_that!(json).does_not_contain("\"Prompt\"");
+    assert_that!(json).does_not_contain("\"prompt\"");
+    assert_that!(json).contains("\"Timeline\"");
 }

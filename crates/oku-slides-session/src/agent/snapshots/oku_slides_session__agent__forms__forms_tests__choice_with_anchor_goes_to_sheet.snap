@@ -10,6 +10,7 @@ expression: s
     "element": "e-2"
   },
   "live": true,
+  "question": true,
   "messages": [
     {
       "version": "v0.9",

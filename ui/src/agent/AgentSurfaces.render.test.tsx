@@ -14,12 +14,27 @@ const { AgentSheet } = await import("./AgentSheet");
 const { VariantDrawer } = await import("./VariantDrawer");
 const { ConfirmModal } = await import("./ConfirmModal");
 const { useQuickKeys, ARMING_MS } = await import("./useQuickKeys");
+const { AgentThread } = await import("./AgentThread");
+const { routeSurfaces } = await import("./surfaces");
+const { fromA2ui } = await import("./quick");
 
 const COMPONENT = { sheet: AgentSheet, drawer: VariantDrawer, modal: ConfirmModal };
 
-/** Comme App : la surface affichée, et les touches rapides branchées sur elle. */
+/** Comme App : la surface affichée, et les touches rapides branchées sur elle (une question du dock : dans le fil). */
 function Harness({ target, send }: { target: QuickTarget; send: (s: Surface, a: QuickAction) => void }) {
   useQuickKeys(target, true, send);
+  if (target.kind === "dock") {
+    const { turns, loose, dock } = routeSurfaces([target.surface], null);
+    return createElement(AgentThread, {
+      state: "working",
+      turns,
+      loose,
+      dock,
+      onAction: (s, a) => send(s, fromA2ui(a)),
+      onNewConversation: () => {},
+      onError: () => {},
+    });
+  }
   return createElement(COMPONENT[target.kind], { key: target.surface.id, surface: target.surface, onAction: send, onError: () => {} });
 }
 
@@ -51,6 +66,8 @@ async function mount(kind: QuickTarget["kind"], surface: Surface) {
   const render = (target: QuickTarget) =>
     act(async () => root.render(createElement("div", { onPointerDown: () => parentPointers++ }, createElement(Harness, { target, send }))));
   await render({ kind, surface });
+  // Le fil charge ses surfaces à la demande (lazy) : laisser Suspense les résoudre.
+  await act(async () => new Promise((r) => setTimeout(r, 0)));
   return { host, sent, parentPointers: () => parentPointers, rerender: render };
 }
 
@@ -137,6 +154,45 @@ describe("fiche d'une question ancrée", () => {
   });
 });
 
+describe("question du dock", () => {
+  test("1–4 choisissent l'option correspondante, où que soit le curseur (2 en AZERTY)", async () => {
+    const { sent } = await mount("dock", real("ask-8"));
+    await press("é", "Digit2");
+    expect(sent).toEqual([["ask-8", { name: "choose", context: { choice: "b" } }]]);
+  });
+
+  test("une touche tapée dans un champ texte reste au champ", async () => {
+    const { sent } = await mount("dock", real("ask-8"));
+    const field = document.createElement("textarea");
+    document.body.append(field);
+    try {
+      await press("1", "Digit1", field);
+      await press("Enter", "Enter", field);
+      expect(sent).toEqual([]);
+    } finally {
+      field.remove();
+    }
+  });
+
+  test("Entrée sur l'option qui a le focus la choisit, une seule fois", async () => {
+    const { host, sent } = await mount("dock", real("ask-8"));
+    const chip = host.querySelectorAll<HTMLButtonElement>(".agent-dock .chip")[1];
+    chip.focus();
+    // Entrée sur un bouton : le navigateur le clique ; la touche rapide s'efface.
+    const e = await press("Enter", "Enter", chip);
+    expect(e.defaultPrevented).toBe(false);
+    await act(async () => chip.click());
+    expect(sent).toEqual([["ask-8", { name: "choose", context: { choice: "b" } }]]);
+  });
+
+  test("Échap reste à l'app (désélectionner) : la question ne s'abandonne que par son bouton", async () => {
+    const { sent } = await mount("dock", real("ask-8"));
+    const e = await press("Escape", "Escape");
+    expect(e.defaultPrevented).toBe(false);
+    expect(sent).toEqual([]);
+  });
+});
+
 describe("tiroir des variantes", () => {
   test("2 choisit la seconde variante", async () => {
     const { host, sent } = await mount("drawer", real("show-6"));
@@ -219,8 +275,6 @@ describe("fenêtre de confirmation", () => {
 
 describe("réglages du fil", () => {
   test("une surface show-… vivante rend dans le dock, ses touches ignorées de l'app", async () => {
-    const { AgentThread } = await import("./AgentThread");
-    const { routeSurfaces } = await import("./surfaces");
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);

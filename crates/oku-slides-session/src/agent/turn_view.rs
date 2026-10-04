@@ -101,11 +101,15 @@ pub fn turn_data(v: &TurnView, l: &Localizer) -> Value {
 }
 
 /// La surface complète du tour (à son ouverture, ou pour une resynchronisation).
+///
+/// Sans consigne (son `UserText` perdu par un relais en retard), pas de bulle `prompt`.
 pub fn turn_surface(v: &TurnView, l: &Localizer) -> Surface {
     let id = turn_id(v.n);
-    let components = vec![
-        Component::column("root", &["prompt", "timeline", "narration", "outcome"]),
-        Component::new("prompt", ComponentKind::Prompt { text: Dynamic::Literal(v.prompt.clone()) }),
+    let prompt = !v.prompt.is_empty();
+    let children: &[&str] =
+        if prompt { &["prompt", "timeline", "narration", "outcome"] } else { &["timeline", "narration", "outcome"] };
+    let mut components = vec![
+        Component::column("root", children),
         Component::new(
             "timeline",
             ComponentKind::Timeline {
@@ -123,6 +127,10 @@ pub fn turn_surface(v: &TurnView, l: &Localizer) -> Surface {
             ComponentKind::Text { text: Dynamic::path("/outcome"), variant: Some(TextVariant::Note) },
         ),
     ];
+    if prompt {
+        let bubble = Component::new("prompt", ComponentKind::Prompt { text: Dynamic::Literal(v.prompt.clone()) });
+        components.insert(1, bubble);
+    }
     let mut s = surface(&id, Place::Thread, None, components, turn_data(v, l));
     s.turn = Some(v.n);
     s.live = false;

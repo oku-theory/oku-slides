@@ -43,7 +43,7 @@ async fn each_tab_receives_only_its_own_chunks() {
     let mut own = h.tab("t-1").agent.subscribe();
     h.tab("t-1").agent.prompt("un".into(), AgentUi::default());
     let chunk = until(&mut own, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "réponse".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "réponse".into() });
     wait_turn_ended(h.tab("t-1")).await;
     let leaked = within(Duration::from_millis(200), &mut other, |e| matches!(e, AgentEvent::Chunk { .. })).await;
     assert_that!(leaked).is_none();
@@ -60,11 +60,11 @@ async fn a_per_session_script_replaces_turns_for_that_session_only() {
     let mut second = h.tab("t-2").agent.subscribe();
     h.tab("t-1").agent.prompt("un".into(), AgentUi::default());
     let chunk = until(&mut first, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "global".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "global".into() });
     wait_turn_ended(h.tab("t-1")).await;
     h.tab("t-2").agent.prompt("deux".into(), AgentUi::default());
     let chunk = until(&mut second, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "propre".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "propre".into() });
     wait_turn_ended(h.tab("t-2")).await;
 }
 
@@ -113,12 +113,12 @@ async fn cancel_of_one_tab_leaves_the_other_tab_turn_running() {
     wait_status(&mut second, AgentState::Working).await;
     h.tab("t-1").agent.cancel();
     let ended = wait_turn_ended(h.tab("t-1")).await;
-    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
     let still = within(Duration::from_millis(400), &mut second, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
     assert_that!(still).is_none();
     h.tab("t-2").agent.cancel();
     let ended = wait_turn_ended(h.tab("t-2")).await;
-    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { stop: "cancelled".into() });
+    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
     assert_that!(logged(&h.log, "session/cancel")).has_length(2);
 }
 
@@ -132,7 +132,7 @@ async fn prompt_after_crash_relaunches_the_agent_with_a_new_session() {
     assert_that!(wait_error(&mut rx).await).contains("arrêté");
     h.tab("t-1").agent.prompt("encore".into(), AgentUi::default());
     let ended = wait_turn_ended(h.tab("t-1")).await;
-    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { stop: "end_turn".into() });
+    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { turn: 3, stop: "end_turn".into() });
     assert_that!(logged(&h.log, "initialize")).has_length(2);
     assert_that!(logged(&h.log, "session/new")).has_length(2);
 }
@@ -161,7 +161,7 @@ async fn stale_tab_does_not_unroute_a_reused_session_id_after_relaunch() {
     let mut later = h.tab("t-2").agent.subscribe();
     h.tab("t-2").agent.prompt("f".into(), AgentUi::default());
     let chunk = until(&mut later, |e| matches!(e, AgentEvent::Chunk { .. })).await;
-    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { text: "deux".into() });
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 5, text: "deux".into() });
     wait_turn_ended(h.tab("t-2")).await;
     let ids: Vec<_> = read_log(&h.log)
         .into_iter()
@@ -181,7 +181,7 @@ async fn refused_prompt_reports_the_error_and_keeps_the_session() {
     assert_that!(message).contains("pas maintenant");
     h.tab("t-1").agent.prompt("deux".into(), AgentUi::default());
     let ended = wait_turn_ended(h.tab("t-1")).await;
-    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { stop: "end_turn".into() });
+    assert_that!(ended).is_equal_to(AgentEvent::TurnEnded { turn: 2, stop: "end_turn".into() });
     assert_that!(logged(&h.log, "session/new")).has_length(1);
     assert_that!(logged(&h.log, "initialize")).has_length(1);
 }

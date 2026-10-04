@@ -1,3 +1,4 @@
+use oku_slides_a2ui::SlideRef;
 use oku_slides_i18n::Localizer;
 use speculoos::prelude::*;
 
@@ -20,7 +21,8 @@ fn full() -> Report {
 
 #[test]
 fn receipt_full_matches_snapshot() {
-    let s = receipt("report-1", &full(), Some("<svg/>"), &fr());
+    let slide = SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() };
+    let s = receipt("report-1", &full(), Some(&slide), &fr());
     assert_that!(s.live).is_false();
     insta::assert_json_snapshot!(s);
 }

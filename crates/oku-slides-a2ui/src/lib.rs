@@ -17,6 +17,6 @@ mod message;
 
 pub use message::{
     Action, CATALOG_ID, ChoiceOption, Component, ComponentKind, CreateSurface, DeleteSurface, DiffKind, DiffSegment,
-    Dynamic, Event, ServerBody, ServerMessage, StepStatus, TextVariant, TimelineStep, Tone, UpdateComponents,
+    Dynamic, Event, ServerBody, ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep, Tone, UpdateComponents,
     UpdateDataModel, Version,
 };

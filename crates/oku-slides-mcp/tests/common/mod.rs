@@ -13,7 +13,7 @@ use rust_mcp_sdk::schema::{
     CallToolRequestParams, CallToolResult, ClientCapabilities, Implementation, InitializeRequestParams, ProtocolVersion,
 };
 use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use tokio_util::sync::CancellationToken;
 
 /// Un dossier neuf, supprimé au `drop`.
@@ -177,6 +177,73 @@ pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
     (h, tabs)
 }
 
+/// Un `Sessions` qui retient le prochain accès à la session jusqu'à ce que le test le relâche
+/// (voir [`Gate`]) : de quoi faire durer un appel d'outil pendant que les tours changent.
+#[derive(Debug)]
+pub struct GatedTabs {
+    session: Arc<Mutex<Session>>,
+    hold: Mutex<Option<Hold>>,
+}
+
+#[derive(Debug)]
+struct Hold {
+    entered: tokio::sync::oneshot::Sender<()>,
+    release: std::sync::mpsc::Receiver<()>,
+}
+
+/// Côté test d'un accès retenu : `entered` l'attend, `release` le laisse passer.
+#[derive(Debug)]
+pub struct Gate {
+    entered: tokio::sync::oneshot::Receiver<()>,
+    release: std::sync::mpsc::Sender<()>,
+}
+
+impl Gate {
+    /// Attend que l'accès retenu soit commencé (l'outil est donc déjà appelé).
+    pub async fn entered(&mut self) {
+        tokio::time::timeout(std::time::Duration::from_secs(10), &mut self.entered)
+            .await
+            .unwrap_or_else(|_| panic!("aucun accès à la session"))
+            .unwrap_or_else(|e| panic!("accès retenu perdu : {e}"));
+    }
+
+    /// Laisse passer l'accès retenu.
+    pub fn release(self) {
+        let _ = self.release.send(());
+    }
+}
+
+impl GatedTabs {
+    /// Retient le prochain accès à la session.
+    pub fn hold_next(&self) -> Gate {
+        let (entered_tx, entered) = tokio::sync::oneshot::channel();
+        let (release, release_rx) = std::sync::mpsc::channel();
+        *self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some(Hold { entered: entered_tx, release: release_rx });
+        Gate { entered, release }
+    }
+}
+
+impl Sessions for GatedTabs {
+    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
+        let hold = self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+        if let Some(hold) = hold {
+            let _ = hold.entered.send(());
+            let _ = hold.release.recv();
+        }
+        self.session.with(tab, f)
+    }
+}
+
+/// Un serveur dont les accès à la session peuvent être retenus (voir [`GatedTabs`]).
+pub async fn start_gated() -> (Harness, Arc<GatedTabs>) {
+    let (platform, session, data) = prepared().await;
+    let session = Arc::new(Mutex::new(session));
+    let tabs = Arc::new(GatedTabs { session: session.clone(), hold: Mutex::default() });
+    let h = start_with((platform, data), tabs.clone(), session).await;
+    (h, tabs)
+}
+
 /// Un serveur dont l'onglet est fermé : tout outil sur la session échoue.
 pub async fn start_closed() -> Harness {
     let (platform, session, data) = prepared().await;
@@ -243,11 +310,53 @@ pub fn json_of(r: &CallToolResult) -> Value {
     serde_json::from_str(&text_of(r)).unwrap_or(Value::Null)
 }
 
+/// Attente bornée d'un évènement du hub.
+pub const EVENT_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Le premier évènement du hub que `pick` retient, dans `EVENT_WAIT` ; sinon le test échoue
+/// (au lieu d'attendre sans fin un évènement qui ne vient pas).
+pub async fn wait_event<T>(
+    rx: &mut tokio::sync::broadcast::Receiver<McpEvent>,
+    mut pick: impl FnMut(McpEvent) -> Option<T>,
+) -> T {
+    tokio::time::timeout(EVENT_WAIT, async {
+        loop {
+            let event = rx.recv().await.unwrap_or_else(|e| panic!("évènement du hub : {e}"));
+            if let Some(found) = pick(event) {
+                return found;
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("évènement du hub attendu non reçu en {EVENT_WAIT:?}"))
+}
+
 /// Prochaine surface poussée par le hub.
 pub async fn next_surface(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> oku_slides_session::agent::Surface {
-    loop {
-        if let McpEvent::Surface { surface } = rx.recv().await.unwrap_or_else(|e| panic!("évènement du hub : {e}")) {
-            return surface;
-        }
+    wait_event(rx, |e| match e {
+        McpEvent::Surface { surface } => Some(surface),
+        _ => None,
+    })
+    .await
+}
+
+/// Une action de l'utilisateur sur une surface.
+pub fn action(surface: &str, name: &str, context: Value) -> oku_slides_mcp::SurfaceAction {
+    oku_slides_mcp::SurfaceAction {
+        surface: surface.into(),
+        name: name.into(),
+        context: context.as_object().cloned().unwrap_or_else(Map::new),
     }
+}
+
+/// Identifiants des surfaces que le hub tient pour ouvertes.
+pub fn open_ids(h: &Harness) -> Vec<String> {
+    h.hub.surfaces().into_iter().map(|s| s.id).collect()
+}
+
+/// Les composants d'un `render` minimal : un bouton qui suggère « Encore ».
+pub fn render_args() -> Value {
+    json!({ "components": [
+        { "id": "root", "component": "Button", "label": "Encore", "action": { "event": { "name": "suggest", "context": { "prompt": "Encore" } } } }
+    ] })
 }

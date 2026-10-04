@@ -1,13 +1,15 @@
 // Une surface A2UI (panneau de droite ou agent), rendue avec le catalogue v3.
 // Une liste de messages qui prolonge la précédente n'est traitée que pour sa
 // suite (la surface garde son état : détail ouvert, saisie) ; toute autre liste
-// recrée la surface et libère l'ancienne.
+// recrée la surface et libère l'ancienne (ce qui était déplié le reste : `openMemory`).
 
 import { useEffect, useRef, useState } from "react";
 import { A2uiSurface } from "@a2ui/react/v0_9";
 import type { A2uiClientAction, A2uiMessage, ComponentApi, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { catalog } from "./catalog";
+import type { OpenMemory } from "./openMemory";
+import { OpenMemoryContext } from "./openMemory";
 
 /** Une surface construite (et son processeur, pour la prolonger), ou l'erreur de validation de ses messages. */
 export interface Built {
@@ -67,6 +69,9 @@ export function SurfaceView({
   handlers.current = { onAction, onError };
   const [surface, setSurface] = useState<SurfaceModel<never> | null>(null);
   const live = useRef<Live | null>(null);
+  // Ce qui est déplié survit aux reconstructions de la même surface (`openMemory`), pas à un changement d'identifiant.
+  const opened = useRef<{ surfaceId: string; memory: OpenMemory } | null>(null);
+  if (opened.current?.surfaceId !== surfaceId) opened.current = { surfaceId, memory: new Map() };
   // Aucun nettoyage d'effet ne libère la surface : il voit la liste du rendu précédent, jamais la
   // suivante, et ne peut pas savoir s'il y aura prolongation. Le corps libère l'ancienne quand il
   // reconstruit ; le second effet la libère au démontage.
@@ -108,7 +113,9 @@ export function SurfaceView({
   // `.a2ui-surface` : les raccourcis de l'app ignorent les touches tapées dans une surface.
   return surface ? (
     <div className="a2ui-surface">
-      <A2uiSurface surface={surface} />
+      <OpenMemoryContext.Provider value={opened.current.memory}>
+        <A2uiSurface surface={surface} />
+      </OpenMemoryContext.Provider>
     </div>
   ) : null;
 }

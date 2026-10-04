@@ -53,7 +53,9 @@ créées.
   `UpdateDataModel` pour chaque étape ou chunk (`/steps`, `/narration`,
   `/state`). Le rejeu d'un onglet renvoie les surfaces des tours gardés.
 - `SurfaceHub` (mcp) : `begin_turn(n)` est appelé par `turn.rs` au début de
-  chaque tour ; toute surface créée ensuite porte `turn: Some(n)`.
+  chaque tour ; toute surface du fil créée par un appel d'outil arrivé pendant
+  ce tour porte `turn: Some(n)`, même si elle s'affiche après l'ouverture du
+  tour suivant (t-449 : le tour est lu à l'arrivée de l'appel et passé au hub).
 - `Surface` gagne `turn: Option<u32>` et `live: bool`. `Place` devient
   `Sheet | Drawer | Modal | Thread` (`Postit` et `Suggestions` supprimés).
 - Fin de tour (`turn_ended`) : `turn-N` passe à « terminé », la timeline se
@@ -83,7 +85,7 @@ Nouveaux :
 |---|---|---|
 | `Prompt` | `text` | Consigne de l'utilisateur, bulle alignée à droite. Hôte seul. |
 | `Timeline` | `steps` (lien → `{label, status, count?}[]`), `collapsed` (bool dynamique), `summary` (texte dynamique) | Progression d'un tour ; repliée en une ligne dépliable. Hôte seul. |
-| `Receipt` | `title`, `facts[1-4]`, `thumb?` (SVG), `swatch?` (hex), `child?` | Carte de conclusion d'un tour. |
+| `Receipt` | `title`, `facts[1-4]`, `slide?` (`{id, hash}` : référence, jamais le SVG ; t-450), `swatch?` (hex), `child?` | Carte de conclusion d'un tour. |
 | `Disclosure` | `summary`, `child` | Contenu replié par défaut (« ▸ pourquoi »). |
 | `Badge` | `text`, `tone` | Compteur ou statut. |
 | `Markdown` | `text` | Texte riche, rendu par `Markdown.tsx` (pas de HTML brut). |
@@ -98,7 +100,10 @@ Nouveaux :
 - **`report`** — appelé en dernier, au plus une fois par tour (un second
   appel remplace le premier) :
   `{ title, facts[1-4], slide?, swatch?, why?, actions?[0-4]{label, prompt?} }`.
-  L'hôte assemble Receipt, SlideThumb de la slide (rendue par l'hôte),
+  L'hôte assemble Receipt (la slide y est une référence `{id, hash}` :
+  identifiant et empreinte de sa page ; l'interface en résout la miniature
+  par son cache de SVG, état au moment du reçu si connu, sinon état actuel
+  marqué « modifiée depuis » ; t-450),
   Disclosure(`why` en Markdown) et la rangée d'actions. Surface figée
   (`live: false`) ; ses actions restent cliquables tant que c'est le
   dernier tour, et envoient `prompt` (ou `label`) comme nouveau tour,

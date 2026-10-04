@@ -9,13 +9,14 @@ use super::{AgentEvent, PlanItem, from_update};
 #[test]
 fn from_update_text_chunk_gives_chunk() {
     let u = SessionUpdate::AgentMessageChunk(ContentChunk::new(ContentBlock::Text(TextContent::new("salut"))));
-    assert_that!(from_update(u)).is_equal_to(Some(AgentEvent::Chunk { text: "salut".into() }));
+    assert_that!(from_update(4, u)).is_equal_to(Some(AgentEvent::Chunk { turn: 4, text: "salut".into() }));
 }
 
 #[test]
 fn from_update_tool_call_keeps_id_title_and_snake_case_status() {
     let u = SessionUpdate::ToolCall(ToolCall::new("t1", "Lire la slide").status(ToolCallStatus::InProgress));
-    assert_that!(from_update(u)).is_equal_to(Some(AgentEvent::ToolCall {
+    assert_that!(from_update(4, u)).is_equal_to(Some(AgentEvent::ToolCall {
+        turn: 4,
         id: "t1".into(),
         title: "Lire la slide".into(),
         status: "in_progress".into(),
@@ -29,7 +30,8 @@ fn from_update_plan_gives_items() {
         PlanEntryPriority::High,
         PlanEntryStatus::Completed,
     )]));
-    assert_that!(from_update(u)).is_equal_to(Some(AgentEvent::Plan {
+    assert_that!(from_update(4, u)).is_equal_to(Some(AgentEvent::Plan {
+        turn: 4,
         entries: vec![PlanItem { content: "Lire".into(), status: "completed".into() }],
     }));
 }

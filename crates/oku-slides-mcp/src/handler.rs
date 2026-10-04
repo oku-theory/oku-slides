@@ -40,7 +40,11 @@ impl ServerHandler for Tools {
 
 impl Tools {
     /// Un appel d'outil ; une erreur revient à l'agent en `isError`.
+    ///
+    /// Le tour de l'appel est lu ici, avant tout travail : les surfaces du fil qu'il crée y sont
+    /// rangées, même si un autre tour s'est ouvert entre-temps (voir `SurfaceHub::turn`).
     pub(crate) async fn call(&self, name: &str, args: Value) -> CallToolResult {
+        let turn = self.hub.turn();
         match name {
             "deck_outline" => self.deck_outline().await,
             "widgets" => self.widgets().await,
@@ -59,13 +63,13 @@ impl Tools {
             "preview_widget" => self.preview_widget(args).await,
             "set_widget_trial" => self.set_widget_trial(args).await,
             "focus" => self.focus(args),
-            "ask_choice" => self.ask_choice(args).await,
+            "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,
             "ask_rewrite" => self.ask_rewrite(args).await,
-            "show_params" => self.show_params(args).await,
+            "show_params" => self.show_params(turn, args).await,
             "show_variants" => self.show_variants(args).await,
-            "report" => self.report(args).await,
-            "render" => self.render(args).await,
+            "report" => self.report(turn, args).await,
+            "render" => self.render(turn, args).await,
             "save" => self.save(args).await,
             "open" => self.open(args).await,
             "new" => self.new_deck().await,

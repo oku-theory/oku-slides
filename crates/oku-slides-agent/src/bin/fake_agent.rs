@@ -4,7 +4,7 @@
 //!
 //! Scénario : `{ "http": true, "turns": [ { "plan": [{"content","status"}],
 //! "tool_calls": [{"id","title"}], "mcp": [{"tool","args"}], "chunks": ["…"],
-//! "wait_cancel": false, "crash": false, "delay_ms": 0, "error": null } ],
+//! "wait_cancel": false, "crash": false, "delay_ms": 0, "error": null, "parallel": false } ],
 //! "sessions": { "<n>": [ <turns> ] }, "crash_on_session": null }` ; le
 //! n-ième prompt d'une session joue le tour n de cette session (modulo le
 //! nombre de tours de `sessions.<n>` si présent pour son numéro, sinon de
@@ -16,8 +16,10 @@
 //! réponse ; `crash_on_session` (1 = la première session créée) fait quitter
 //! le processus au premier prompt de la n-ième session, comme `crash`.
 //! `error` fait répondre au prompt par une erreur JSON-RPC avec ce message
-//! (l'agent continue). Le résultat de chaque appel MCP est noté
-//! (`mcp/result` : `session`, `tool`, `out`). `"hang_initialize": true` (au niveau du scénario) ne
+//! (l'agent continue). `parallel` lance les appels MCP du tour en même temps
+//! (questions parallèles) ; leurs résultats sont notés dans l'ordre du scénario. Le résultat de chaque appel MCP est noté
+//! (`mcp/result` : `session`, `tool`, `out`), jamais raconté : comme un vrai agent, le texte du tour
+//! n'est que ses `chunks` (le reçu de repli en prend la première phrase). `"hang_initialize": true` (au niveau du scénario) ne
 //! répond jamais à `initialize` (démarrage bloqué).
 
 use std::collections::HashMap;
@@ -85,6 +87,9 @@ struct Turn {
     /// Répondre au prompt par une erreur JSON-RPC portant ce message.
     #[serde(default)]
     error: Option<String>,
+    /// Lancer les appels MCP du tour en même temps (des questions parallèles), au lieu de l'un après l'autre.
+    #[serde(default)]
+    parallel: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -216,13 +221,32 @@ async fn play(
     }
     let session_key = session.0.to_string();
     let mcp = state.mcp.lock().ok().and_then(|m| m.get(&session_key).cloned());
-    for step in &turn.mcp {
-        let out = match &mcp {
-            Some((url, auth)) => call_tool(url, auth, &step.tool, &step.args).await,
-            None => "no mcp server".to_owned(),
-        };
-        state.log("mcp/result", serde_json::json!({ "session": session_key, "tool": step.tool, "out": out }));
-        cx.send_notification(chunk(session, format!("tool:{} {out}", step.tool)))?;
+    if turn.parallel {
+        let calls: Vec<_> = turn
+            .mcp
+            .iter()
+            .map(|step| {
+                let (mcp, tool, args) = (mcp.clone(), step.tool.clone(), step.args.clone());
+                tokio::spawn(async move {
+                    match mcp {
+                        Some((url, auth)) => call_tool(&url, &auth, &tool, &args).await,
+                        None => "no mcp server".to_owned(),
+                    }
+                })
+            })
+            .collect();
+        for (step, call) in turn.mcp.iter().zip(calls) {
+            let out = call.await.unwrap_or_else(|e| format!("mcp call failed: {e}"));
+            state.log("mcp/result", serde_json::json!({ "session": session_key, "tool": step.tool, "out": out }));
+        }
+    } else {
+        for step in &turn.mcp {
+            let out = match &mcp {
+                Some((url, auth)) => call_tool(url, auth, &step.tool, &step.args).await,
+                None => "no mcp server".to_owned(),
+            };
+            state.log("mcp/result", serde_json::json!({ "session": session_key, "tool": step.tool, "out": out }));
+        }
     }
     for text in &turn.chunks {
         cx.send_notification(chunk(session, text.clone()))?;

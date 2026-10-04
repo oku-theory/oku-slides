@@ -169,7 +169,7 @@ impl TabAgent {
         let live = match self.link.connect().await {
             Ok(live) => live,
             Err(e) => {
-                self.failed(&e);
+                self.failed(n, &e);
                 return None;
             }
         };
@@ -181,13 +181,13 @@ impl TabAgent {
                 match self.open(&live).await {
                     Ok(id) => (id, true),
                     Err(e) => {
-                        self.request_failed(&live, e).await;
+                        self.request_failed(n, &live, e).await;
                         return None;
                     }
                 }
             }
         };
-        match crate::turn::run(&self.ctx, &live.cx, rx, id, text, ui, fresh).await {
+        match crate::turn::run(&self.ctx, &live.cx, rx, n, id, text, ui, fresh).await {
             Ok(pending) => {
                 if pending.new_conversation {
                     self.new_conversation();
@@ -195,7 +195,7 @@ impl TabAgent {
                 pending.prompt.map(|(text, ui)| Command::Prompt { text, ui })
             }
             Err(e) => {
-                self.request_failed(&live, e).await;
+                self.request_failed(n, &live, e).await;
                 None
             }
         }
@@ -224,22 +224,23 @@ impl TabAgent {
         Ok(r.session_id)
     }
 
-    /// Une requête a échoué. Connexion finie : l'agent est arrêté, la session
+    /// Une requête du tour `turn` a échoué. Connexion finie : l'agent est arrêté, la session
     /// oubliée. Sinon l'agent a refusé la requête : erreur montrée, session gardée.
-    async fn request_failed(&mut self, live: &Live, e: agent_client_protocol::Error) {
+    async fn request_failed(&mut self, turn: u32, live: &Live, e: agent_client_protocol::Error) {
         if agent_client_protocol::is_incoming_transport_closed(&e) || live.closed.is_cancelled() {
             let _ = tokio::time::timeout(CLOSE_GRACE, live.closed.cancelled()).await;
             self.forget();
-            self.failed(&StoppedSnafu { message: e.to_string() }.build().into());
+            self.failed(turn, &StoppedSnafu { message: e.to_string() }.build().into());
         } else {
-            self.failed(&RequestSnafu { message: e.to_string() }.build().into());
+            self.failed(turn, &RequestSnafu { message: e.to_string() }.build().into());
         }
     }
 
-    fn failed(&self, e: &AgentError) {
+    /// Le tour `turn` a échoué : l'erreur s'affiche dans ce tour.
+    fn failed(&self, turn: u32, e: &AgentError) {
         tracing::warn!(tab = %self.ctx.tab.tab(), error = %e.one_line(), "agent : échec");
         self.ctx.hub.cancel_asks();
-        self.ctx.emit(AgentEvent::Error { message: e.localize(&self.ctx.localizer) });
+        self.ctx.emit(AgentEvent::Error { turn, message: e.localize(&self.ctx.localizer) });
         self.ctx.emit(AgentEvent::Status { state: AgentState::Idle });
     }
 }

@@ -6,6 +6,10 @@
 //! général `/narration` seule pendant que l'agent écrit). Un tour dont la fin
 //! s'est perdue (relais en retard) est clos par le retour de l'agent au repos,
 //! ou interrompu par l'ouverture du tour suivant.
+//!
+//! Chaque évènement d'un tour porte son numéro : il ne met à jour que ce tour-là.
+//! Un tour dont l'ouverture (`UserText`) s'est perdue s'ouvre, sans consigne, au
+//! premier évènement qui le porte ; un évènement d'un tour clos ou évincé est ignoré.
 
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::time::Instant;
@@ -57,6 +61,9 @@ struct Turn {
 #[derive(Debug, Default)]
 pub(crate) struct Turns {
     turns: VecDeque<Turn>,
+    /// Le plus grand numéro de tour ouvert, même oublié depuis (`Conversation`) : seul un
+    /// tour plus récent peut encore s'ouvrir sans sa consigne.
+    last: u32,
 }
 
 fn status(s: &str) -> StepStatus {
@@ -135,22 +142,35 @@ impl Turn {
 impl Turns {
     /// Applique `e` ; rend ce que le relais doit émettre.
     pub fn apply(&mut self, e: &AgentEvent, now: Instant, l: &Localizer) -> Vec<TurnOut> {
-        match e {
+        let n = match e {
             AgentEvent::UserText { turn, text } => return self.open(*turn, text, now, l),
             // Le hub a déjà été vidé par l'acteur (`clear_thread`, synchrone) : on oublie les tours.
             AgentEvent::Conversation => {
                 self.turns.clear();
                 return Vec::new();
             }
-            _ => {}
-        }
-        let Some(t) = self.turns.back_mut() else { return Vec::new() };
+            // Le repos ne porte pas de tour : il clôt le dernier s'il tourne encore (fin perdue).
+            AgentEvent::Status { state: AgentState::Idle } => match self.turns.back() {
+                Some(t) => t.view.n,
+                None => return Vec::new(),
+            },
+            AgentEvent::Status { .. } => return Vec::new(),
+            AgentEvent::Chunk { turn, .. }
+            | AgentEvent::ToolCall { turn, .. }
+            | AgentEvent::ToolUpdate { turn, .. }
+            | AgentEvent::Plan { turn, .. }
+            | AgentEvent::TurnEnded { turn, .. }
+            | AgentEvent::Error { turn, .. } => *turn,
+        };
+        // L'ouverture de ce tour s'est perdue (relais en retard) : il s'ouvre ici, sans consigne.
+        let mut out = if n > self.last { self.open(n, "", now, l) } else { Vec::new() };
+        let Some(t) = self.turns.iter_mut().find(|t| t.view.n == n) else { return out };
         if t.view.state != TurnState::Running {
-            return Vec::new();
+            return out;
         }
         let mut ended = None;
         match e {
-            AgentEvent::Chunk { text } => {
+            AgentEvent::Chunk { text, .. } => {
                 // Au-delà de `WHY_MAX` caractères, la suite ne s'affiche plus nulle part : on ne la garde pas
                 // (un seul morceau trop long est coupé, lui aussi).
                 let room = WHY_MAX.saturating_sub(t.view.narration.chars().count());
@@ -160,7 +180,7 @@ impl Turns {
                     t.in_tools = false;
                 }
             }
-            AgentEvent::ToolCall { id, title, status: s } => {
+            AgentEvent::ToolCall { id, title, status: s, .. } => {
                 if t.tools.contains_key(id) {
                     // Un même appel annoncé deux fois : traité comme une mise à jour.
                     let step = t.tools[id].0;
@@ -188,8 +208,8 @@ impl Turns {
                     }
                 }
             }
-            AgentEvent::ToolUpdate { id, title, status: s } => {
-                let Some((step, st)) = t.tools.get_mut(id) else { return Vec::new() };
+            AgentEvent::ToolUpdate { id, title, status: s, .. } => {
+                let Some((step, st)) = t.tools.get_mut(id) else { return out };
                 let step = *step;
                 if let Some(s) = s {
                     *st = status(s);
@@ -199,7 +219,7 @@ impl Turns {
                 }
                 t.settle_step(step);
             }
-            AgentEvent::Plan { entries } => {
+            AgentEvent::Plan { entries, .. } => {
                 t.view.plan = entries
                     .iter()
                     .take(STEPS_MAX)
@@ -210,7 +230,7 @@ impl Turns {
                     })
                     .collect();
             }
-            AgentEvent::TurnEnded { stop } => {
+            AgentEvent::TurnEnded { stop, .. } => {
                 let secs = t.secs(now);
                 let state = if stop == "end_turn" {
                     TurnState::Done { secs }
@@ -224,16 +244,15 @@ impl Turns {
                 let secs = t.secs(now);
                 ended = Some(t.finish(TurnState::Done { secs }));
             }
-            AgentEvent::Error { message } => {
+            AgentEvent::Error { message, .. } => {
                 let secs = t.secs(now);
                 t.finish(TurnState::Failed { message: message.clone(), secs });
                 // Pas de reçu de repli pour un échec, mais le hub doit savoir que le tour est clos.
                 ended = Some(String::new());
             }
-            AgentEvent::Status { .. } | AgentEvent::UserText { .. } | AgentEvent::Conversation => return Vec::new(),
+            AgentEvent::Status { .. } | AgentEvent::UserText { .. } | AgentEvent::Conversation => return out,
         }
-        let n = t.view.n;
-        let mut out: Vec<TurnOut> = t.patch(l).into_iter().collect();
+        out.extend(t.patch(l));
         if let Some(narration) = ended {
             out.push(TurnOut::Ended { turn: n, narration });
         }
@@ -242,6 +261,7 @@ impl Turns {
 
     fn open(&mut self, n: u32, prompt: &str, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let mut out = Vec::new();
+        self.last = self.last.max(n);
         // Un tour précédent resté ouvert (fin perdue) est clos comme interrompu.
         if let Some(prev) = self.turns.back_mut()
             && prev.view.state == TurnState::Running

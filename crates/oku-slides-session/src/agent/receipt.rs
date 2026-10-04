@@ -2,8 +2,11 @@
 //! a pas fait (sa dernière narration, première phrase en titre).
 //!
 //! Les boutons de suite envoient l'action `suggest {prompt}` à l'interface (comme ceux de `render`).
+//!
+//! La slide d'un reçu est une référence (identifiant, empreinte de sa page au moment du reçu) que
+//! l'interface résout en miniature : le reçu ne porte jamais le rendu de la slide (t-450).
 
-use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic};
+use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, SlideRef};
 use oku_slides_i18n::Localizer;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -15,6 +18,7 @@ use super::check_len;
 use super::forms::{Place, Surface, lit, surface};
 use super::turn_view::first_line;
 use crate::error::{AgentFormSnafu, NoSlideSnafu};
+use crate::views::PageHash;
 use crate::{Result, Session};
 
 /// `report` : la conclusion d'un tour.
@@ -54,14 +58,14 @@ pub const FACTS: (usize, usize) = (1, 4);
 pub const ACTIONS: (usize, usize) = (0, 4);
 
 /// Le reçu : carte, puis « pourquoi » replié, puis les suites.
-pub fn receipt(id: &str, spec: &Report, thumb: Option<&str>, l: &Localizer) -> Surface {
+pub fn receipt(id: &str, spec: &Report, slide: Option<&SlideRef>, l: &Localizer) -> Surface {
     let mut body = vec!["card".to_owned()];
     let mut components = vec![Component::new(
         "card",
         ComponentKind::Receipt {
             title: Dynamic::Literal(spec.title.clone()),
             facts: spec.facts.clone(),
-            thumb: thumb.map(str::to_owned),
+            slide: slide.cloned(),
             swatch: spec.swatch.clone(),
         },
     )];
@@ -133,10 +137,14 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
 }
 
 impl Session {
-    /// Surface `report` : bornes vérifiées, miniature de la slide rendue.
+    /// Surface `report` : bornes vérifiées, slide désignée par l'empreinte de sa page.
     pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
         ensure!(!spec.title.trim().is_empty(), AgentFormSnafu { reason: "title: must not be empty".to_string() });
-        ensure!(!spec.facts.is_empty(), AgentFormSnafu { reason: "facts: give at least one fact".to_string() });
+        // Des faits tous blancs ne disent rien : le reçu montrerait une ligne vide.
+        ensure!(
+            spec.facts.iter().any(|f| !f.trim().is_empty()),
+            AgentFormSnafu { reason: "facts: give at least one fact".to_string() }
+        );
         check_len("facts", spec.facts.len(), FACTS)?;
         check_len("actions", spec.actions.len(), ACTIONS)?;
         check_text("title", &spec.title, TEXT_MAX)?;
@@ -155,17 +163,26 @@ impl Session {
         if let Some(c) = &spec.swatch {
             check_hex("swatch", c)?;
         }
-        let thumb = match &spec.slide {
+        let slide = match &spec.slide {
             Some(slide) => {
                 self.deck().slide(slide).context(NoSlideSnafu { id: slide })?;
-                Some(self.svg(slide)?)
+                self.slide_ref(slide)
             }
             None => None,
         };
-        let surface = receipt(id, spec, thumb.as_deref(), &self.localizer);
+        let surface = receipt(id, spec, slide.as_ref(), &self.localizer);
         let plain = (!spec.actions.is_empty())
-            .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, thumb.as_deref(), &self.localizer));
+            .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, slide.as_ref(), &self.localizer));
         Ok(ReceiptSurfaces { surface, plain })
+    }
+}
+
+impl Session {
+    /// La slide `id` telle que rendue maintenant ; `None` tant qu'elle n'a pas de page rendue.
+    fn slide_ref(&self, id: &str) -> Option<SlideRef> {
+        let page = self.page_of(id)?;
+        let hash = self.compiled.as_ref()?.page_hash(page.checked_sub(1)?)?;
+        Some(SlideRef { id: id.to_owned(), hash: PageHash(Some(hash)).hex() })
     }
 }
 

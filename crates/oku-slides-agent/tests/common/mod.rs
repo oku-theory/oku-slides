@@ -197,7 +197,7 @@ pub async fn wait_status(rx: &mut broadcast::Receiver<AgentEvent>, state: AgentS
 /// Attend une erreur (10 s au plus) ; rend son message.
 pub async fn wait_error(rx: &mut broadcast::Receiver<AgentEvent>) -> String {
     match within(Duration::from_secs(10), rx, |e| matches!(e, AgentEvent::Error { .. })).await {
-        Some(AgentEvent::Error { message }) => message,
+        Some(AgentEvent::Error { message, .. }) => message,
         _ => panic!("erreur attendue non reçue"),
     }
 }

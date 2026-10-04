@@ -1,7 +1,7 @@
 use oku_slides_core::{Op, OpErrorKind, Paragraph, Run, Target};
 use oku_slides_session::SessionErrorKind;
 use oku_slides_session::agent::{
-    AgentUi, AskRewrite, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface, Variant,
+    AgentUi, AskRewrite, FieldKind, ParamField, Place, Report, ShowParams, ShowVariants, Surface, Variant,
 };
 use serde_json::json;
 use speculoos::prelude::*;
@@ -22,6 +22,72 @@ fn png_of_slide_returns_png_bytes() {
 fn png_of_unknown_slide_returns_no_slide() {
     let mut s = session();
     assert_that!(s.png("inconnue").unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
+}
+
+/// t-450 : le reçu désigne la slide (identifiant, empreinte de sa page) ; il ne porte pas son rendu.
+#[test]
+fn report_surface_on_a_slide_carries_its_reference_not_its_svg() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let snap = serde_json::to_value(s.snapshot()).unwrap();
+    let hash = snap["slides"].as_array().unwrap().iter().find(|x| x["id"] == "s-libre").unwrap()["hash"].clone();
+    assert_that!(hash.as_str().unwrap().len()).is_equal_to(32);
+    let spec = Report {
+        title: "Fait".into(),
+        facts: vec!["a".into()],
+        slide: Some("s-libre".into()),
+        swatch: None,
+        why: None,
+        actions: vec![oku_slides_session::agent::NextStep { label: "Encore".into(), prompt: None }],
+    };
+    let r = s.report_surface("report-1", &spec).unwrap();
+    for surface in [&r.surface, r.plain.as_ref().unwrap()] {
+        let json = serde_json::to_value(surface).unwrap();
+        let text = json.to_string();
+        assert_that!(text.contains("<svg")).is_false();
+        let card = &json["messages"][1]["updateComponents"]["components"][1];
+        assert_that!(card["slide"]).is_equal_to(json!({ "id": "s-libre", "hash": hash }));
+    }
+}
+
+fn report(title: &str, facts: &[&str], swatch: Option<&str>) -> Report {
+    Report {
+        title: title.into(),
+        facts: facts.iter().map(|f| (*f).into()).collect(),
+        slide: None,
+        swatch: swatch.map(str::to_owned),
+        why: None,
+        actions: Vec::new(),
+    }
+}
+
+/// Les bornes de `report`, vérifiées au niveau de la session (là où l'outil les fait respecter).
+#[rstest::rstest]
+#[case::swatch_not_hex(report("Fait", &["a"], Some("bleu")), "swatch: bleu is not a hex color")]
+#[case::swatch_without_hash(report("Fait", &["a"], Some("00154e")), "is not a hex color")]
+#[case::swatch_bad_length(report("Fait", &["a"], Some("#00154")), "is not a hex color")]
+#[case::long_title(report(&"x".repeat(121), &["a"], None), "title: 121 characters, at most 120")]
+#[case::long_fact(report("Fait", &["a", &"é".repeat(121)], None), "facts[1]: 121 characters, at most 120")]
+#[case::bidi_title(report("Fait\u{202E}", &["a"], None), "title: invisible or bidirectional")]
+#[case::bidi_fact(report("Fait", &["\u{2066}a"], None), "facts[0]: invisible or bidirectional")]
+#[case::blank_facts(report("Fait", &["  ", "", "\t"], None), "facts: give at least one fact")]
+fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case] reason: &str) {
+    let mut s = session();
+    let err = s.report_surface("report-1", &spec).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
+    assert_that!(err.to_string()).contains(reason);
+}
+
+#[rstest::rstest]
+#[case::six_digits("#00154e")]
+#[case::three_digits("#fff")]
+#[case::eight_digits("#00154eCC")]
+fn report_surface_with_a_hex_swatch_shows_it(#[case] swatch: &str) {
+    let mut s = session();
+    let r = s.report_surface("report-1", &report(&"x".repeat(120), &["a"], Some(swatch))).unwrap();
+    let card = &serde_json::to_value(&r.surface).unwrap()["messages"][1]["updateComponents"]["components"][1];
+    assert_that!(card["swatch"].clone()).is_equal_to(json!(swatch));
+    assert_that!(r.plain).is_none();
 }
 
 #[test]

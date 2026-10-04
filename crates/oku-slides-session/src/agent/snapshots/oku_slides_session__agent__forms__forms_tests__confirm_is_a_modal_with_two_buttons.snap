@@ -6,6 +6,7 @@ expression: s
   "id": "ask-3",
   "place": "modal",
   "live": true,
+  "question": true,
   "messages": [
     {
       "version": "v0.9",

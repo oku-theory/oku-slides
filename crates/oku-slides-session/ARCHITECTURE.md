@@ -26,6 +26,17 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente
   (`with_session`, `open_elsewhere`, `open_beside`). Un tour = un groupe d'annulation (`begin_turn`).
 - `agent::turn_view` (surface d'un tour : consigne, timeline, note, issue), `receipt` (`report` et reçu de repli), `render` (composition libre validée) : constructeurs purs, formes A2UI de `oku-slides-a2ui`.
+- Miniature d'un reçu (t-450) : le reçu ne porte jamais le rendu de la slide, seulement `SlideRef { id, hash }`
+  (empreinte de sa page au moment du `report`, écrite comme `SlideSummary.hash`) ; sa taille ne dépend pas du
+  contenu de la slide, ni dans le hub, ni dans l'état de l'interface, ni à chaque resynchronisation.
+  L'interface (`ui/src/a2ui/slideThumbs.ts`) résout la référence avec son cache de SVG indexé par empreinte
+  (celui de la pile, commande `svg` : Tauri et serveur de développement). **Choix** : l'état de la slide au
+  moment du reçu tant que l'image de cette empreinte est connue (en cache, ou slide inchangée depuis) ; sinon
+  (slide modifiée depuis et cache perdu, par exemple après un rechargement) son état **actuel**, estompé et
+  marqué « modifiée depuis » : la session ne garde que le rendu des pages présentes (`svg_cache`), l'ancien
+  n'est plus demandable. Slide supprimée : pas de miniature (la couleur `swatch`, s'il y en a une).
+- `agent::forms::Surface` : `place`, `turn` (rempli par le hub, au tour de l'appel), `live`, et `question` (attend la
+  réponse de l'utilisateur : `ask_*`, confirmation, permission ; marqué par leurs constructeurs, jamais déduit de l'identifiant).
 
 ## Verrous
 

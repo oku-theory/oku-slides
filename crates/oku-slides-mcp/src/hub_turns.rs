@@ -1,12 +1,21 @@
-//! Tours du fil : numéros, rangement, gel, éviction, expiration des suites.
+//! Tours du fil : numéros, rangement (dans le tour de l'appel), gel, éviction, expiration des suites.
 
+use oku_slides_session::agent::Surface;
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
-use oku_slides_session::agent::{Place, Surface};
 
 use super::{HubState, McpEvent, Shown, SurfaceHub};
 
 /// Ce qui remplace une question du fil une fois répondue (ou annulée).
 pub type Freeze = Box<dyn FnOnce(&super::Answer) -> Surface + Send>;
+
+/// Quels tours peuvent encore recevoir une surface figée.
+#[derive(Debug, Clone, Copy)]
+enum Admit {
+    /// Le tour ouvert seulement : surfaces des outils (`render`, `report`).
+    Open,
+    /// Tout tour encore dans le fil : question figée, reçu de repli (le tour vient de finir).
+    InThread,
+}
 
 /// Surfaces figées gardées au plus par tour (`render`, questions répondues) : contre un agent qui en empile.
 pub const STATIC_PER_TURN: usize = 8;
@@ -26,25 +35,44 @@ impl SurfaceHub {
         n
     }
 
-    /// Range `surface` dans le tour en cours si elle est du fil et n'en a pas (verrou déjà pris).
-    pub(super) fn tag_in(state: &HubState, surface: &mut Surface) {
-        if surface.place == Place::Thread && surface.turn.is_none() {
-            surface.turn = state.turn;
-        }
+    /// Le tour ouvert, `None` entre deux tours : le jeton qu'un appel d'outil prend en arrivant.
+    ///
+    /// Une surface du fil créée par un outil est rangée dans le tour de son appel, jamais dans
+    /// celui qui est ouvert quand elle arrive : `Tools::call` lit ce tour avant tout travail et
+    /// le passe à `show_static`, `show_report`, `ask_then` ou `show_params`.
+    pub fn turn(&self) -> Option<u32> {
+        self.state().turn
     }
 
-    /// Une surface figée (composition `render`, question répondue) dans son tour.
+    /// Le tour `turn` peut-il encore recevoir une surface (verrou déjà pris) ?
+    fn admits(state: &HubState, turn: u32, admit: Admit) -> bool {
+        let open = match admit {
+            Admit::Open => state.turn == Some(turn),
+            Admit::InThread => true,
+        };
+        open && !state.closed && state.live_turns.contains(&turn)
+    }
+
+    /// Une composition `render` dans le tour `turn` de son appel.
     ///
-    /// Refusée (`false`) si l'onglet est fermé, si aucun tour n'est ouvert, ou si son tour a
-    /// quitté le fil : la décision et l'insertion se font sous le même verrou.
-    pub fn show_static(&self, mut surface: Surface) -> bool {
+    /// Refusée (`false`) si l'onglet est fermé ou si `turn` n'est plus le tour ouvert (appel
+    /// tardif d'un tour annulé ou clos) : la décision et l'insertion se font sous le même verrou.
+    pub fn show_static(&self, turn: u32, surface: Surface) -> bool {
+        self.put_static(turn, surface, Admit::Open)
+    }
+
+    /// Une question répondue (ou annulée), figée dans son tour, tant que ce tour est dans le fil.
+    pub(super) fn show_frozen(&self, turn: u32, surface: Surface) -> bool {
+        self.put_static(turn, surface, Admit::InThread)
+    }
+
+    fn put_static(&self, turn: u32, mut surface: Surface, admit: Admit) -> bool {
         let oldest = {
             let mut state = self.state();
-            Self::tag_in(&state, &mut surface);
-            let Some(turn) = surface.turn else { return false };
-            if state.closed || !state.live_turns.contains(&turn) {
+            if !Self::admits(&state, turn, admit) {
                 return false;
             }
+            surface.turn = Some(turn);
             surface.live = false;
             let plain = surface.has_actions().then(|| surface.without_actions());
             state
@@ -86,18 +114,22 @@ impl SurfaceHub {
         self.emit(McpEvent::Surface { surface: frozen });
     }
 
-    /// Le reçu du tour en cours ; remplace un reçu déjà montré pour ce tour.
+    /// Le reçu du tour `turn` de son appel ; remplace un reçu déjà montré pour ce tour.
     ///
-    /// Refusé (`false`) comme `show_static` : onglet fermé, aucun tour ouvert, ou tour sorti du fil.
-    pub fn show_report(&self, report: ReceiptSurfaces) -> bool {
+    /// Refusé (`false`) comme `show_static` : onglet fermé, ou `turn` n'est plus le tour ouvert.
+    /// Un appel tardif ne touche donc jamais au reçu (de repli ou non) d'un autre tour.
+    pub fn show_report(&self, turn: u32, report: ReceiptSurfaces) -> bool {
+        self.put_report(turn, report, Admit::Open)
+    }
+
+    fn put_report(&self, turn: u32, report: ReceiptSurfaces, admit: Admit) -> bool {
         let ReceiptSurfaces { mut surface, plain } = report;
         let old: Vec<String> = {
             let mut state = self.state();
-            Self::tag_in(&state, &mut surface);
-            let Some(turn) = surface.turn else { return false };
-            if state.closed || !state.live_turns.contains(&turn) {
+            if !Self::admits(&state, turn, admit) {
                 return false;
             }
+            surface.turn = Some(turn);
             surface.live = false;
             let old: Vec<String> = state
                 .shows
@@ -134,7 +166,7 @@ impl SurfaceHub {
     /// Fin du tour `turn` : plus de tour en cours, et reçu de repli si l'agent n'en a pas fait.
     pub fn end_turn(&self, turn: u32, narration: &str) {
         {
-            // Une surface qui arriverait encore (outil tardif d'un tour annulé) n'est rangée dans aucun tour : refusée.
+            // Plus de tour ouvert : un appel tardif de ce tour est refusé (voir `turn`).
             let mut state = self.state();
             if state.turn == Some(turn) {
                 state.turn = None;
@@ -144,13 +176,19 @@ impl SurfaceHub {
             return;
         }
         let id = self.next_id("report");
-        if let Some(mut surface) = fallback(&id, narration, &self.localizer) {
-            surface.turn = Some(turn);
-            self.show_report(ReceiptSurfaces { surface, plain: None });
+        if let Some(surface) = fallback(&id, narration, &self.localizer) {
+            // Le tour n'est plus ouvert, mais son reçu de repli y va tant qu'il est dans le fil.
+            self.put_report(turn, ReceiptSurfaces { surface, plain: None }, Admit::InThread);
         }
     }
 
     /// Ferme les surfaces du tour `n` (tour évincé du fil).
+    ///
+    /// Toutes, vivantes comprises : des réglages (`show_params`) encore au dock quand leur tour
+    /// est évincé sont **fermés, pas figés** (leur tour n'est plus dans le fil pour les recevoir),
+    /// et une action en retard sur eux est refusée (`unknown surface`). Cas rare : il faut
+    /// `KEPT_TURNS` tours sans nouveaux réglages ni fermeture. Une question en attente n'y survit
+    /// pas non plus, mais elle est déjà relâchée par le tour suivant (`cancel_asks`).
     pub fn close_turn(&self, n: u32) {
         let ids = {
             let mut state = self.state();
