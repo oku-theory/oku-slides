@@ -9,22 +9,26 @@ const field = (owner: string, owner_kind: "slide" | "element", name: string): Fi
 
 describe("agentUi", () => {
   test("agentUi with a slide field in edition gives the field without element", () => {
-    expect(agentUi("s-1", null, field("s-1", "slide", "title"))).toEqual({ slide: "s-1", element: null, field: "title", editing: true });
+    expect(agentUi("s-1", null, field("s-1", "slide", "title"), null)).toEqual({ slide: "s-1", element: null, field: "title", editing: true, widget: null });
   });
 
   test("agentUi with a card field in edition gives the card and the field", () => {
-    expect(agentUi("s-1", "c1", field("c1", "element", "body"))).toEqual({ slide: "s-1", element: "c1", field: "body", editing: true });
+    expect(agentUi("s-1", "c1", field("c1", "element", "body"), null)).toEqual({ slide: "s-1", element: "c1", field: "body", editing: true, widget: null });
   });
 
   test("agentUi with a field in edition follows the field, not the selection", () => {
-    expect(agentUi("s-1", "e-9", field("c1", "element", "body")).element).toBe("c1");
+    expect(agentUi("s-1", "e-9", field("c1", "element", "body"), null).element).toBe("c1");
   });
 
   test("agentUi with a selection only gives the element", () => {
-    expect(agentUi("s-1", "c1", null)).toEqual({ slide: "s-1", element: "c1", field: null, editing: false });
+    expect(agentUi("s-1", "c1", null, null)).toEqual({ slide: "s-1", element: "c1", field: null, editing: false, widget: null });
   });
 
   test("agentUi with nothing selected gives the slide only", () => {
-    expect(agentUi(null, null, null)).toEqual({ slide: null, element: null, field: null, editing: false });
+    expect(agentUi(null, null, null, null)).toEqual({ slide: null, element: null, field: null, editing: false, widget: null });
+  });
+
+  test("agentUi transmet le widget ouvert", () => {
+    expect(agentUi("s-1", null, null, "carte").widget).toBe("carte");
   });
 });

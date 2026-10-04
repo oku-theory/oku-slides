@@ -49,6 +49,11 @@ pub enum McpEvent {
         id: String,
         messages: Vec<oku_slides_a2ui::ServerMessage>,
     },
+    /// Fichier de widget écrit ou supprimé par l'agent (mode modèles) : l'éditeur le suit.
+    WidgetTouched {
+        name: String,
+        removed: bool,
+    },
 }
 
 /// Réponse de l'utilisateur à une surface `ask_*`.
@@ -220,7 +225,7 @@ impl SurfaceHub {
                 Some(open) => open.apply_patch(messages),
                 None => tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée"),
             },
-            McpEvent::Changed | McpEvent::Focus { .. } => {}
+            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } => {}
         }
         let _ = self.events.send(event);
     }

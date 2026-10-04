@@ -1,10 +1,11 @@
 /** Sous-onglets de widgets du mode modèles, pour `App`. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isMac, type Snapshot, type TabApi } from "./api";
+import { t } from "./i18n";
 import { tabShortcut } from "./tabs";
 import type { EditorCommands, EditorHistory } from "./TypstEditor";
 import { useWidgetFiles, type WidgetFiles } from "./useWidgetFiles";
-import { NO_TABS, activated, activeName, closed, kept, opened, pruned, renamed, withRestored, type KeptTabs, type WidgetTabs } from "./widgetTabs";
+import { NO_TABS, activated, activeName, closed, kept, opened, placeTouched, pruned, renamed, withRestored, type KeptTabs, type WidgetTabs } from "./widgetTabs";
 
 export interface TemplateWidgets {
   files: WidgetFiles;
@@ -19,6 +20,8 @@ export interface TemplateWidgets {
   activate(id: number | null): void;
   close(id: number): void;
   removed(name: string): void;
+  /** L'agent a écrit (ou supprimé) `name` : l'ouvrir, sans écraser les frappes. */
+  touched(name: string, removed: boolean): void;
   undo(): void;
   redo(): void;
   /** Profondeurs d'annulation de l'éditeur actif. */
@@ -36,6 +39,8 @@ export interface TemplateWidgets {
 interface Callbacks {
   changed(): void;
   error(message: string): void;
+  /** Information (pas une erreur) pour l'utilisateur. */
+  notice(message: string): void;
   /** Vrai quand une fenêtre, l'historique ou une saisie prend le clavier. */
   blocked(): boolean;
 }
@@ -70,8 +75,11 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   /** Ouvert dès l'entrée en mode modèles (`enterAndOpen`). */
   const [pending, setPending] = useState<string | null>(null);
   const [pileFocus, setPileFocus] = useState(0);
+  /** Écrits par l'agent, pas encore dans la liste des fichiers : ouverts quand elle les contient. */
+  const [awaiting, setAwaiting] = useState<ReadonlySet<string>>(new Set());
   if (pack !== seenPack) {
     setSeenPack(pack);
+    setAwaiting(new Set());
     // La demande de focus ne vaut que pour l'entrée qui l'a faite : la pile, remontée à la prochaine, ne la reprend pas.
     if (pack === null) setPileFocus(0);
     // `next` continue : un id ne resservira pas à un autre fichier.
@@ -86,6 +94,11 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
     setPending(null);
   } else if (pack !== null && files.statuses && files.statusesFor === revision) {
     const names = new Set(files.statuses.map((s) => s.name));
+    const arrived = [...awaiting].filter((n) => names.has(n));
+    if (arrived.length > 0 && restoredFor === pack) {
+      setTabs((s) => arrived.reduce((acc, n) => placeTouched(acc, n, files.pending), s));
+      setAwaiting((a) => new Set([...a].filter((n) => !names.has(n))));
+    }
     if (restoredFor !== pack) {
       const host = hostTabs ?? NONE;
       setTabs((s) => pruned(withRestored(s, host.widgets, host.widget), names));
@@ -176,6 +189,22 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
       }),
     [],
   );
+  const touched = useCallback(
+    (name: string, gone: boolean) => {
+      if (packRef.current === null) return;
+      if (gone) {
+        files.forget(name);
+        removed(name);
+        setAwaiting((a) => (a.has(name) ? new Set([...a].filter((n) => n !== name)) : a));
+        onRef.current.notice(t("ui-widgets-removed-by-agent", { name }));
+        return;
+      }
+      if (files.pending(name)) files.keep(name);
+      if (files.statuses?.some((s) => s.name === name)) setTabs((s) => placeTouched(s, name, files.pending));
+      else setAwaiting((a) => (a.has(name) ? a : new Set(a).add(name)));
+    },
+    [files.forget, files.keep, files.pending, files.statuses, removed],
+  );
   const undo = useCallback(() => {
     if (activeRef.current !== null) commands.current.get(activeRef.current)?.undo();
   }, []);
@@ -238,6 +267,7 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
     activate,
     close,
     removed,
+    touched,
     undo,
     redo,
     history: shown.id === active ? shown.h : ZERO,

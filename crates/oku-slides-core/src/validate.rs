@@ -68,7 +68,7 @@ pub fn validate(deck: &Deck, registry: &WidgetRegistry, assets: Option<&HashSet<
         v.assets(at, slide_schema, &s.params);
         v.rich(at, &s.params);
         v.binds(at, slide_schema);
-        let grid = s.grid();
+        let grid = s.resolved_grid(registry);
         // Genre de chaque propriétaire de slot déjà vu (parents avant enfants).
         let mut kinds: HashMap<&str, &str> = HashMap::new();
         let mut seen = HashSet::new();

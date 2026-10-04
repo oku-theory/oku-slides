@@ -34,7 +34,7 @@ use oku_slides_render_worker::RenderSlot;
 use crate::error::{RegistrySnafu, RenderSnafu, UnknownWidgetSnafu};
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
 use crate::templates_mode::styled_like;
-use crate::widgets_edit::{WidgetDiagnostic, parse_name};
+use crate::widgets_edit::{WidgetDiagnostic, parse_name, trial_fits};
 use crate::{Document, Mode, Result, Session};
 
 /// Identifiant de la slide d'aperçu.
@@ -245,8 +245,25 @@ impl Session {
             return Ok(broken(file));
         }
         let Some(schema) = probe.registry.get(name.as_str()).cloned() else { return Ok(no_schema(&name)) };
-        let deck = self.preview_deck(&schema, params);
+        let inputs = self.preview_inputs(&name, &schema, params);
+        let deck = self.preview_deck(&schema, &inputs);
         self.render_preview(&name, probe.pack.as_ref(), probe.registry.clone(), &deck, format)
+    }
+
+    /// Valeurs d'aperçu de `name` : ses essais encore valides, puis `given`.
+    pub(crate) fn preview_inputs(
+        &self,
+        name: &WidgetFile,
+        schema: &WidgetSchema,
+        given: &Map<String, Value>,
+    ) -> Map<String, Value> {
+        let mut inputs: Map<String, Value> = self
+            .scratch()
+            .and_then(|s| s.trials_of(name))
+            .map(|m| m.iter().filter(|(k, v)| trial_fits(schema, k, v)).map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+        inputs.extend(given.iter().map(|(k, v)| (k.clone(), v.clone())));
+        inputs
     }
 
     /// Le deck d'aperçu : la slide du widget, ou une `blank` qui porte l'élément.
@@ -260,7 +277,7 @@ impl Session {
             }
             Category::Element => {
                 let mut slide = Slide::new(PREVIEW_SLIDE, "blank");
-                let grid = slide.grid();
+                let grid = slide.resolved_grid(&self.registry);
                 let mut element = Element::new(PREVIEW_ELEMENT, &schema.name);
                 element.params = params;
                 element.cell = Some(Cell { col: 0, row: 0, cols: grid.columns, rows: grid.rows });

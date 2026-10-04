@@ -14,7 +14,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
   pack → version courante du pack par défaut ; `SetTemplates` embarque depuis la bibliothèque.
   `library.rs` : `Library` versionnée (`<data>/templates/<uuid>/{current, versions/<hex>/}`).
-- `widgets_edit.rs` (`set/remove/rename_widget`, `adopt_session_version`), `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance), `widget_preview.rs` (`preview_widget`).
+- `widgets_edit.rs`, `widget_preview.rs` : fichiers de widgets, statuts, aperçu ; `widget_trials.rs`, `widget_params.rs` : valeurs d'essai du mode modèles. `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance).
 - Rendu borné : un `RenderWorker` par `Session`, un `RenderSlot` par rendu (deck, modèles, variantes, polices) ; `resolve_widgets` sonde les packs par lui.
   `fall_back_to_base` : pack fautif (`is_bounded`) → base + avis `session-pack-disabled` et un second essai (deck, aperçus, variantes ; `usable_pack` avant d'ouvrir un emplacement). `with_compiled` : export sur une poignée `Stale` (travailleur relancé) → re-rendu une fois, puis réessai.
 - `merge.rs` : fusion d'un autre PDF du même deck (`merge_file`) ; `save_checked` : même deck changé sur disque → fusion puis écriture, autre deck → refusé.

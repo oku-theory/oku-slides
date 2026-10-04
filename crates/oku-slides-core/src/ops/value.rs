@@ -11,8 +11,8 @@ use crate::model::{Grid, Paragraph};
 use crate::params::ParamValue;
 use crate::widget::{HostType, ParamType};
 
-/// Bornes du nombre de colonnes et de lignes d'une grille.
-const GRID_TRACKS: std::ops::RangeInclusive<u32> = 1..=24;
+/// Pistes d'une grille : 1 à 24 colonnes ou lignes.
+pub const GRID_TRACKS: std::ops::RangeInclusive<u32> = 1..=24;
 
 /// Convertit `value` pour le paramètre `param` de type `ty`. `Ok(None)` :
 /// retirer le paramètre (`null`, texte blanc, texte riche vide).

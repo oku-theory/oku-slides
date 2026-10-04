@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NO_TABS, activated, activeName, closed, kept, opened, pruned, renamed, withRestored } from "./widgetTabs";
+import { NO_TABS, activated, activeName, closed, kept, opened, openedBehind, placeTouched, pruned, renamed, withRestored } from "./widgetTabs";
 
 const names = (s: { tabs: { name: string }[] }) => s.tabs.map((t) => t.name);
 
@@ -73,5 +73,24 @@ describe("widgetTabs", () => {
   test("après withRestored, opened donne un id neuf", () => {
     const s = opened(withRestored(NO_TABS, ["a", "b"], null), "c");
     expect(new Set(s.tabs.map((t) => t.id)).size).toBe(3);
+  });
+
+  test("openedBehind ajoute en fin sans changer l'actif", () => {
+    const s = openedBehind(opened(NO_TABS, "a"), "b");
+    expect(names(s)).toEqual(["a", "b"]);
+    expect(activeName(s)).toBe("a");
+  });
+
+  test("openedBehind d'un nom déjà ouvert ne change rien", () => {
+    const s = opened(opened(NO_TABS, "a"), "b");
+    expect(openedBehind(s, "a")).toBe(s);
+  });
+
+  test("placeTouched active le widget si l'actif n'attend rien", () => {
+    expect(activeName(placeTouched(opened(NO_TABS, "a"), "b", () => false))).toBe("b");
+  });
+
+  test("placeTouched ouvre derrière si l'actif a des frappes en attente", () => {
+    expect(activeName(placeTouched(opened(NO_TABS, "a"), "b", (n) => n === "a"))).toBe("a");
   });
 });

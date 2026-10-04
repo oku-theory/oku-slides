@@ -326,3 +326,4 @@ ui-widgets-rename-hint = নাম বদলাতে ডাবল-ক্লি�
 ui-widgets-tabs = টেমপ্লেট ট্যাব
 ui-widgets-templates-tab = টেমপ্লেট
 ui-widgets-close-tab = { $name } বন্ধ করুন
+ui-widgets-removed-by-agent = এজেন্ট উইজেট { $name } মুছে ফেলেছে।

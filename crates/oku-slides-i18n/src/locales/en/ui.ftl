@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Double-click or F2 to rename
 ui-widgets-tabs = Template tabs
 ui-widgets-templates-tab = Templates
 ui-widgets-close-tab = Close { $name }
+ui-widgets-removed-by-agent = The agent deleted widget { $name }.

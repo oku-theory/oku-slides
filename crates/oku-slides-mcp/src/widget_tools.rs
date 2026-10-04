@@ -38,6 +38,14 @@ pub(crate) struct PreviewWidgetArgs {
     pub params: Map<String, Value>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct SetWidgetTrialArgs {
+    /// Nom du widget.
+    pub name: String,
+    /// Valeurs d'essai par paramètre ; `null`, un texte vide ou `[]` efface un essai.
+    pub values: Map<String, Value>,
+}
+
 /// La tâche de la session a échoué (panique, annulation) : journalisé, puis
 /// dit dans la langue de l'utilisateur.
 fn task_failed(l: &Localizer, e: &tokio::task::JoinError) -> String {
@@ -59,21 +67,16 @@ impl Tools {
             .map_err(|e| task_failed(&self.localizer, &e))?
     }
 
-    /// Une requête de widgets, sa réponse JSON telle quelle ; `Changed` si `changes`.
-    async fn widget_request(&self, req: Request, changes: bool) -> CallToolResult {
+    /// Une requête de widgets, sa réponse JSON telle quelle.
+    async fn widget_request(&self, req: Request) -> CallToolResult {
         match self.with_widgets(move |s| s.handle(req)).await {
-            Ok(json) => {
-                if changes {
-                    self.hub.emit(McpEvent::Changed);
-                }
-                text(json)
-            }
+            Ok(json) => text(json),
             Err(e) => fail(e),
         }
     }
 
     pub(crate) async fn widget_sources(&self) -> CallToolResult {
-        self.widget_request(Request::WidgetStatus, false).await
+        self.widget_request(Request::WidgetStatus).await
     }
 
     pub(crate) async fn widget_source(&self, args: Value) -> CallToolResult {
@@ -86,17 +89,77 @@ impl Tools {
         }
     }
 
-    pub(crate) async fn set_widget(&self, args: Value) -> CallToolResult {
-        match parse::<SetWidgetArgs>(args) {
-            Ok(SetWidgetArgs { name, source }) => self.widget_request(Request::SetWidget { name, source }, true).await,
-            Err(r) => r,
+    /// Le résultat JSON d'une valeur, ou l'erreur de réponse de la session.
+    fn json_text<T: serde::Serialize>(&self, value: &T) -> CallToolResult {
+        match serde_json::to_string(value) {
+            Ok(json) => text(json),
+            Err(e) => {
+                tracing::warn!(error = %e, "réponse d'outil de widget non sérialisable");
+                fail(self.localizer.tr("session-response"))
+            }
         }
     }
 
+    pub(crate) async fn set_widget(&self, args: Value) -> CallToolResult {
+        let SetWidgetArgs { name, source } = match parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let removing = source.is_empty();
+        let done = {
+            let name = name.clone();
+            self.with_widgets(move |s| s.set_widget_by_agent(&name, source).map(|c| (c, s.in_templates()))).await
+        };
+        let (change, templates) = match done {
+            Ok(d) => d,
+            Err(e) => return fail(e),
+        };
+        // Le texte de l'utilisateur est mis en file avant que l'instantané soit relu.
+        if templates && change.saved {
+            self.hub.emit(McpEvent::WidgetTouched { name, removed: removing });
+        }
+        self.hub.emit(McpEvent::Changed);
+        self.json_text(&change)
+    }
+
     pub(crate) async fn remove_widget(&self, args: Value) -> CallToolResult {
-        match parse::<WidgetName>(args) {
-            Ok(WidgetName { name }) => self.widget_request(Request::RemoveWidget { name }, true).await,
-            Err(r) => r,
+        let WidgetName { name } = match parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let done = {
+            let name = name.clone();
+            // Le mode est lu sous le même verrou que la suppression.
+            self.with_widgets(move |s| {
+                let templates = s.in_templates();
+                s.handle(Request::RemoveWidget { name }).map(|json| (json, templates))
+            })
+            .await
+        };
+        match done {
+            Ok((json, templates)) => {
+                self.hub.emit(McpEvent::Changed);
+                if templates {
+                    self.hub.emit(McpEvent::WidgetTouched { name, removed: true });
+                }
+                text(json)
+            }
+            Err(e) => fail(e),
+        }
+    }
+
+    /// Valeurs d'essai d'un widget (mode modèles) ; l'utilisateur les voit dans ses réglages.
+    pub(crate) async fn set_widget_trial(&self, args: Value) -> CallToolResult {
+        let SetWidgetTrialArgs { name, values } = match parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        match self.with_widgets(move |s| s.set_widget_trials(&name, values)).await {
+            Ok(trials) => {
+                self.hub.emit(McpEvent::Changed);
+                self.json_text(&serde_json::json!({ "trials": trials }))
+            }
+            Err(e) => fail(e),
         }
     }
 

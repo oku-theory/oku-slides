@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Double-clic ou F2 pour renommer
 ui-widgets-tabs = Onglets des modèles
 ui-widgets-templates-tab = Modèles
 ui-widgets-close-tab = Fermer { $name }
+ui-widgets-removed-by-agent = L'agent a supprimé le widget { $name }.

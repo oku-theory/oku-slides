@@ -326,3 +326,4 @@ ui-widgets-rename-hint = ダブルクリックまたは F2 で名前を変更
 ui-widgets-tabs = テンプレートのタブ
 ui-widgets-templates-tab = テンプレート
 ui-widgets-close-tab = { $name } を閉じる
+ui-widgets-removed-by-agent = エージェントがウィジェット { $name } を削除しました。

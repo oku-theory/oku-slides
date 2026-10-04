@@ -40,6 +40,18 @@ export function opened(s: WidgetTabs, name: string): WidgetTabs {
   return { tabs: [...s.tabs, { id: s.next, name }], active: s.next, next: s.next + 1 };
 }
 
+/** Ouvre `name` en fin de barre sans l'activer (déjà ouvert : inchangé). */
+export function openedBehind(s: WidgetTabs, name: string): WidgetTabs {
+  if (s.tabs.some((t) => t.name === name)) return s;
+  return { ...s, tabs: [...s.tabs, { id: s.next, name }], next: s.next + 1 };
+}
+
+/** Ouvre `name` écrit par l'agent : devant, sauf si l'actif a des frappes en attente. */
+export function placeTouched(s: WidgetTabs, name: string, pending: (name: string) => boolean): WidgetTabs {
+  const current = activeName(s);
+  return current !== null && current !== name && pending(current) ? openedBehind(s, name) : opened(s, name);
+}
+
 /** Ferme `id` ; s'il était actif, son voisin de gauche le devient (aucun : « Modèles »). */
 export function closed(s: WidgetTabs, id: number): WidgetTabs {
   const i = s.tabs.findIndex((t) => t.id === id);

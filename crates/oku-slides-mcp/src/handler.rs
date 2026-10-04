@@ -57,6 +57,7 @@ impl Tools {
             "set_widget" => self.set_widget(args).await,
             "remove_widget" => self.remove_widget(args).await,
             "preview_widget" => self.preview_widget(args).await,
+            "set_widget_trial" => self.set_widget_trial(args).await,
             "focus" => self.focus(args),
             "ask_choice" => self.ask_choice(args).await,
             "ask_confirm" => self.ask_confirm(args).await,

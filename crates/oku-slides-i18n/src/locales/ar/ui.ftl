@@ -334,3 +334,4 @@ ui-widgets-rename-hint = انقر نقرًا مزدوجًا أو اضغط F2 ل�
 ui-widgets-tabs = علامات تبويب القوالب
 ui-widgets-templates-tab = القوالب
 ui-widgets-close-tab = إغلاق { $name }
+ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.

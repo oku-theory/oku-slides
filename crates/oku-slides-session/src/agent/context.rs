@@ -6,7 +6,9 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
+use crate::widgets_edit::parse_name;
 use crate::{Mode, Session};
 
 /// Longueur du début de consigne dans le libellé d'annulation.
@@ -23,18 +25,30 @@ pub struct AgentUi {
     pub field: Option<String>,
     #[serde(default)]
     pub editing: bool,
+    /// Sous-onglet de widget actif (mode modèles).
+    #[serde(default)]
+    pub widget: Option<String>,
 }
 
 /// Début de la consigne, coupé à 40 caractères.
 pub(crate) fn turn_label(prompt: &str) -> String {
-    let prompt = prompt.trim();
-    if prompt.chars().count() <= LABEL_CHARS {
-        return prompt.to_owned();
+    clipped(prompt.trim(), LABEL_CHARS)
+}
+
+/// Les `max` premiers caractères de `s`, suivis de `…` s'il est plus long.
+pub(crate) fn clipped(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_owned();
     }
-    let mut cut: String = prompt.chars().take(LABEL_CHARS).collect();
+    let mut cut: String = s.chars().take(max).collect();
     cut.push('…');
     cut
 }
+
+/// Essais cités au contexte, au plus.
+const TRIALS_SHOWN: usize = 10;
+/// Longueur d'une valeur d'essai citée au contexte.
+const TRIAL_CHARS: usize = 80;
 
 impl Session {
     /// Ouvre le groupe d'annulation d'un tour de l'agent.
@@ -107,6 +121,31 @@ impl Session {
                 ui.field.as_deref().unwrap_or("-"),
                 ui.editing
             );
+        }
+        // Un nom invalide n'est pas cité : il vient tel quel de l'interface.
+        if let Some(w) = ui.widget.as_deref().and_then(|w| parse_name(w).ok()) {
+            match self.scratch().and_then(|s| s.trials_of(&w)).filter(|m| !m.is_empty()) {
+                Some(m) => {
+                    let mut shown: Vec<String> = m
+                        .iter()
+                        .take(TRIALS_SHOWN)
+                        .map(|(k, v)| {
+                            format!(
+                                "{} = {}",
+                                Value::from(k.as_str()),
+                                clipped(&v.to_string().replace('<', "\\u003c"), TRIAL_CHARS)
+                            )
+                        })
+                        .collect();
+                    if m.len() > TRIALS_SHOWN {
+                        shown.push("…".into());
+                    }
+                    let _ = writeln!(out, "widget: {} · trial: {}", w.as_str(), shown.join(", "));
+                }
+                None => {
+                    let _ = writeln!(out, "widget: {}", w.as_str());
+                }
+            }
         }
         if !self.agent_notes.is_empty() {
             out.push_str("since_last_turn:\n");

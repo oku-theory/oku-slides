@@ -3,7 +3,14 @@ import type { TabApi } from "./api";
 import type { TemplateWidgets } from "./useTemplateWidgets";
 import WidgetTab from "./WidgetTab";
 
-export default function WidgetPane({ api, widgets }: { api: TabApi; widgets: TemplateWidgets }) {
+interface Props {
+  api: TabApi;
+  widgets: TemplateWidgets;
+  /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
+  trials: number;
+}
+
+export default function WidgetPane({ api, widgets, trials }: Props) {
   return (
     <div className="widget-pane" hidden={widgets.tabs.active === null}>
       {widgets.tabs.tabs.map((tab) => (
@@ -14,6 +21,7 @@ export default function WidgetPane({ api, widgets }: { api: TabApi; widgets: Tem
           id={tab.id}
           name={tab.name}
           revision={widgets.revision}
+          trials={trials}
           active={tab.id === widgets.tabs.active}
           onOpen={widgets.open}
           onCommands={widgets.commandsOf(tab.id)}

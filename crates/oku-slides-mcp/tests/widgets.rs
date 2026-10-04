@@ -3,6 +3,7 @@
 mod common;
 
 use common::*;
+use oku_slides_mcp::McpEvent;
 use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::ContentBlock;
 use serde_json::{Value, json};
@@ -21,11 +22,12 @@ fn json_of(r: &rust_mcp_sdk::schema::CallToolResult) -> Value {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_five_widget_tools_are_listed() {
+async fn the_six_widget_tools_are_listed() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
-    for tool in ["widget_sources", "widget_source", "set_widget", "remove_widget", "preview_widget"] {
+    for tool in ["widget_sources", "widget_source", "set_widget", "remove_widget", "preview_widget", "set_widget_trial"]
+    {
         assert_that!(names.contains(&tool.to_owned())).named(tool).is_true();
     }
 }
@@ -140,4 +142,90 @@ async fn widget_tools_on_a_closed_tab_answer_in_the_user_language() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let text = error_text(&c, "widget_sources", json!({})).await;
     assert_that!(text).is_equal_to("Cet onglet n'est plus ouvert.".to_owned());
+}
+
+const SET: &str = "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10";
+
+async fn in_templates_with_kpi(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>) {
+    call(c, "edit_templates", json!({ "set": SET })).await;
+    call(c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    call(c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+}
+
+fn touched(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<(String, bool)> {
+    let mut seen = Vec::new();
+    while let Ok(e) = rx.try_recv() {
+        if let McpEvent::WidgetTouched { name, removed } = e {
+            seen.push((name, removed));
+        }
+    }
+    seen
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_trial_in_templates_mode_returns_the_trials() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    in_templates_with_kpi(&c).await;
+    let r = json_of(&call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await);
+    assert_that!(r["trials"]["value"].as_str()).is_equal_to(Some("12"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_trial_in_templates_mode_emits_changed() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    in_templates_with_kpi(&c).await;
+    let mut rx = h.hub.subscribe();
+    call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
+    let mut changed = false;
+    while let Ok(e) = rx.try_recv() {
+        changed |= matches!(e, McpEvent::Changed);
+    }
+    assert_that!(changed).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_trial_in_deck_mode_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    let msg = error_text(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
+    assert_that!(msg.as_str()).contains("modèles");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_and_remove_widget_in_templates_mode_emit_widget_touched() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_templates", json!({ "set": SET })).await;
+    let mut rx = h.hub.subscribe();
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    call(&c, "remove_widget", json!({ "name": "kpi" })).await;
+    assert_that!(touched(&mut rx)).is_equal_to(vec![
+        ("_commun".to_owned(), false),
+        ("kpi".to_owned(), false),
+        ("kpi".to_owned(), true),
+    ]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_in_deck_mode_emits_no_widget_touched() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let mut rx = h.hub.subscribe();
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    assert_that!(touched(&mut rx)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_refused_emits_no_widget_touched() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_templates", json!({ "set": SET })).await;
+    let mut rx = h.hub.subscribe();
+    call(&c, "set_widget", json!({ "name": "kpi", "source": "a\0b" })).await;
+    assert_that!(touched(&mut rx)).is_empty();
 }

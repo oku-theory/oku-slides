@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Dubbelklik of F2 om te hernoemen
 ui-widgets-tabs = Sjabloontabbladen
 ui-widgets-templates-tab = Sjablonen
 ui-widgets-close-tab = { $name } sluiten
+ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.

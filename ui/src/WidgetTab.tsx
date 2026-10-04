@@ -22,6 +22,8 @@ export interface WidgetTabProps {
   /** Nom courant du fichier ; un renommage le change sans remonter le composant. */
   name: string;
   revision: string;
+  /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
+  trials: number;
   /** Seul l'actif est visible, relit sa source et demande un aperçu. */
   active: boolean;
   /** Commun : ouvre le widget cliqué. */
@@ -30,7 +32,7 @@ export interface WidgetTabProps {
   onHistory: (h: EditorHistory) => void;
 }
 
-export default function WidgetTab({ api, files, id, name, revision, active, onOpen, onCommands, onHistory }: WidgetTabProps) {
+export default function WidgetTab({ api, files, id, name, revision, trials, active, onOpen, onCommands, onHistory }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -84,7 +86,7 @@ export default function WidgetTab({ api, files, id, name, revision, active, onOp
         if (seq === previewSeq.current) setPreview(p);
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
-  }, [api, active, name, written, ready, editorKey]);
+  }, [api, active, name, written, ready, editorKey, trials]);
 
   // Redevenu visible : l'éditeur caché se remesure.
   useEffect(() => {

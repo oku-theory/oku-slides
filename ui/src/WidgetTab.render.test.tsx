@@ -21,7 +21,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -30,11 +30,11 @@ async function mount(fake: TabApi, first: Shown) {
   mounted = { root, host };
   const opened: string[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r" }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0 }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active,
+      api: fake, files: f, id: 1, name, revision, active, trials,
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }

@@ -7,6 +7,7 @@
 //! ([`param_value`]), slot qui accepte l'élément.
 
 mod check;
+mod grid;
 mod value;
 
 use std::collections::{BTreeMap, HashSet};
@@ -31,7 +32,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
-pub use value::param_value;
+pub use value::{GRID_TRACKS, param_value};
 
 /// Refus d'une grille ou d'une cellule sur un slot `flow` : dit comment
 /// passer ses éléments sur la grille.
@@ -117,6 +118,16 @@ pub enum Op {
         slide: String,
         element: String,
         cell: Option<Cell>,
+    },
+    /// Change la grille d'une slide et recadre les éléments de ses slots libres.
+    SetGrid {
+        slide: String,
+        /// Colonnes, de 1 à 24 ; absent : inchangé.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        columns: Option<u32>,
+        /// Lignes, de 1 à 24 ; absent : inchangé.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rows: Option<u32>,
     },
     /// Remplace un élément entier (même `id`).
     ReplaceElement {
@@ -543,7 +554,7 @@ impl Op {
                     if containing_slot(registry, s, &l).is_some_and(|(mode, _)| mode == SlotMode::Flow) {
                         return Err(InvalidValueSnafu { field: "cell", reason: BLOCKS_OFF_GRID }.build().into());
                     }
-                    if !c.fits(&s.grid()) {
+                    if !c.fits(&s.resolved_grid(registry)) {
                         return Err(InvalidValueSnafu { field: "cell", reason: "outside the grid" }.build().into());
                     }
                 }
@@ -552,6 +563,7 @@ impl Op {
                 e.cell = cell;
                 Ok(())
             }
+            Op::SetGrid { slide, columns, rows } => grid::set_grid(deck, registry, &slide, columns, rows),
             Op::ReplaceElement { slide, element } => {
                 check_charts(registry, &element)?;
                 {

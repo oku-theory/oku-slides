@@ -62,7 +62,9 @@ mod templates_mode;
 pub(crate) mod test_support;
 mod text;
 mod views;
+mod widget_params;
 mod widget_preview;
+mod widget_trials;
 mod widgets_deck;
 mod widgets_edit;
 mod workspace;
@@ -88,6 +90,7 @@ pub use views::{
     TemplatesView, UiState,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
+use widget_trials::TemplateScratch;
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
@@ -139,6 +142,8 @@ pub(crate) enum Mode {
         /// Le deck mis de côté, retrouvé tel quel à la fin.
         stash: Box<Document>,
         edit: TemplateMode,
+        /// Brouillon (essais), remis à zéro à chaque entrée.
+        scratch: TemplateScratch,
     },
     History {
         /// Le deck mis de côté ; ses images et polices sont prêtées à l'aperçu.
@@ -523,6 +528,7 @@ impl Session {
             Request::WidgetSource { name } => return json(&self.widget_source(&name)?),
             Request::SetWidget { name, source } => {
                 let change = self.set_widget(&name, source)?;
+                self.noted_user_write(&name, change.saved);
                 self.persist(true);
                 return json(&change);
             }
@@ -816,6 +822,7 @@ impl Session {
             pack_notice: self.pack_notice_view(),
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),
+            widget_trials: self.scratch().map_or(0, TemplateScratch::revision),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

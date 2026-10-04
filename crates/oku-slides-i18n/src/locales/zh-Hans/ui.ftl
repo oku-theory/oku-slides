@@ -326,3 +326,4 @@ ui-widgets-rename-hint = 双击或按 F2 重命名
 ui-widgets-tabs = 模板标签页
 ui-widgets-templates-tab = 模板
 ui-widgets-close-tab = 关闭 { $name }
+ui-widgets-removed-by-agent = 智能体删除了小组件 { $name }。

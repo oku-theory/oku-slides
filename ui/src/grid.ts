@@ -127,22 +127,6 @@ export function resizeCell(zone: ZoneView, g: GridSpec, cell: Cell, handle: Hand
 export const sameCell = (a: Cell, b: Cell) =>
   a.col === b.col && a.row === b.row && span(a).cols === span(b).cols && span(a).rows === span(b).rows;
 
-/**
- * Nouvelle place d'une cellule quand la grille change de taille : mêmes
- * proportions, arrondies aux nouvelles pistes, toujours dans la grille.
- */
-export function rescaleCell(cell: Cell, from: { columns: number; rows: number }, to: { columns: number; rows: number }): Cell {
-  const { cols, rows } = span(cell);
-  const fit = (start: number, len: number, n: number, m: number) => {
-    const s = clamp(Math.round((start * m) / n), 0, m - 1);
-    const e = clamp(Math.round(((start + len) * m) / n), s + 1, m);
-    return [s, e - s] as const;
-  };
-  const [col, c] = fit(cell.col, cols, from.columns, to.columns);
-  const [row, r] = fit(cell.row, rows, from.rows, to.rows);
-  return { col, row, cols: c, rows: r };
-}
-
 /** Libellé court : « colonnes 1–8, lignes 1–6 ». */
 export function cellLabel(cell: Cell): string {
   const { cols, rows } = span(cell);

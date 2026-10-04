@@ -165,6 +165,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const widgets = useTemplateWidgets(api, snap, {
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
+    notice: (m) => say(m),
     blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history,
   });
   const widgetActive = !!snap?.editing && widgets.tabs.active !== null;
@@ -379,10 +380,6 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     });
   };
 
-  // Toute slide à zone libre a une grille, résolue par le rendu (celle par
-  // défaut si la slide n'en précise pas) ; l'accrochage est automatique.
-  const slideGrid = view?.zone?.grid ?? undefined;
-
   // Panneau de droite : surface A2UI de la session, en édition des modèles.
   const [panel, setPanel] = useState<A2uiMessage[]>(NO_PANEL);
   useEffect(() => {
@@ -391,7 +388,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   }, [current, snap]);
   const onPanelAction = (action: A2uiClientAction) => {
     if (!view) return;
-    const change = panelActionOps(action, view.slide, slideGrid);
+    const change = panelActionOps(action, view.slide);
     if (change) apply(change.label, change.ops);
   };
 
@@ -413,6 +410,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   );
   const { stage: sheet, drawer, modal } = routed;
   const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
+  const touchedRef = useRef(widgets.touched);
+  touchedRef.current = widgets.touched;
   useEffect(
     () =>
       subscribeHost(tab, {
@@ -423,6 +422,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             showSlide(e.slide);
             setSelected(e.element);
           }
+          if (e.kind === "widget_touched") touchedRef.current(e.name, e.removed);
         },
         onAgent: onAgentEvent,
         onError: (m) => console.warn(m),
@@ -449,7 +449,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   };
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur. */
   const promptAgent = (text: string) =>
-    agent.prompt(text, agentUi(current, selected, editField)).catch((err) => say(String(err), true));
+    agent.prompt(text, agentUi(current, selected, editField, widgets.activeName)).catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
     const action = fromA2ui(a);
     // Une suite cliquée part vers l'agent comme une consigne dictée, une fois l'action acceptée.
@@ -856,7 +856,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} />}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />

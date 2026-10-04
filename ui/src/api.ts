@@ -68,6 +68,8 @@ export interface Snapshot {
   pack_widgets: string[];
   /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
   add_widgets: AddWidget[];
+  /** Révision des valeurs d'essai des widgets : change quand un essai est modifié. */
+  widget_trials: number;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   ui: UiState;
@@ -445,6 +447,7 @@ export interface AgentUi {
   element: string | null;
   field: string | null;
   editing: boolean;
+  widget: string | null;
 }
 
 /** L'agent au repos, en lancement, ou en plein tour. */
@@ -475,7 +478,8 @@ export type McpEvent =
   | { kind: "close_surface"; id: string }
   | { kind: "focus"; slide: string; element: string | null }
   | { kind: "surfaces"; list: Surface[] }
-  | { kind: "surface_patch"; id: string; messages: A2uiMessage[] };
+  | { kind: "surface_patch"; id: string; messages: A2uiMessage[] }
+  | { kind: "widget_touched"; name: string; removed: boolean };
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =

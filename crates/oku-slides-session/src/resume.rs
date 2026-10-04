@@ -24,6 +24,7 @@ use oku_slides_platform::storage::{Storage, StorageError};
 use crate::files::read_document;
 use crate::resume_writer::{Job, Writer};
 use crate::views::{TemplateMode, UiState};
+use crate::widget_trials::TemplateScratch;
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
 pub(crate) const VERSION: u32 = 1;
@@ -599,7 +600,7 @@ impl Session {
         self.load_document(deck).context(SessionSnafu)?;
         if let Some((doc, edit)) = templates {
             let stash = std::mem::replace(&mut self.doc, doc);
-            self.mode = Mode::Templates { stash: Box::new(stash), edit };
+            self.mode = Mode::Templates { stash: Box::new(stash), edit, scratch: TemplateScratch::default() };
             self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }
@@ -640,7 +641,7 @@ impl Session {
         // à l'aperçu.
         let (deck, blobs, mode) = match &self.mode {
             Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck),
-            Mode::Templates { stash, edit } => (&**stash, &**stash, SavedMode::Templates(edit.clone())),
+            Mode::Templates { stash, edit, .. } => (&**stash, &**stash, SavedMode::Templates(edit.clone())),
             Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck),
         };
         let mut docs = Vec::new();

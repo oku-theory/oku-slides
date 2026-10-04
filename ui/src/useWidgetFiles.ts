@@ -47,6 +47,12 @@ export interface WidgetFiles {
   remove(name: string): Promise<boolean>;
   /** Dit une erreur (toast du parent). */
   fail(e: unknown): void;
+  /** Frappes non envoyées, écriture en cours, ou dernière écriture non enregistrée. */
+  pending(name: string): boolean;
+  /** Les frappes de `name` gagnent : envoyées tout de suite, ou le dernier texte tenté renvoyé. */
+  keep(name: string): void;
+  /** Abandonne les frappes de `name` et ses écritures en file (fichier supprimé ailleurs). */
+  forget(name: string): void;
 }
 
 type Push = ReturnType<typeof debounced<[string]>>;
@@ -101,6 +107,10 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
   const pushes = useRef(new Map<string, Push>());
   /** Par fichier : le dernier texte tapé, tant qu'il attend son délai. */
   const typing = useRef(new Map<string, string>());
+  /** Dernier texte tenté par fichier (enregistré ou non). */
+  const attempted = useRef(new Map<string, string>());
+  /** Génération d'abandon par fichier : une écriture en file d'une génération passée ne part pas. */
+  const forgotten = useRef(new Map<string, number>());
   const refreshSeq = useRef(0);
   /** Une relecture des statuts est en vol. */
   const reading = useRef(false);
@@ -131,7 +141,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     reading.current = false;
     pushes.current.forEach((p) => p.cancel());
     pushes.current.clear();
-    for (const r of [sent, unsent, edits, writing, moves, trials, reread, typing]) r.current.clear();
+    for (const r of [sent, unsent, edits, writing, moves, trials, reread, typing, attempted]) r.current.clear();
     unsavedNow.current.clear();
     setStatuses(null);
     setStatusesFor(null);
@@ -205,6 +215,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
   /** Écrit `text` dans `name` : statuts, essai, marque, compte des écritures. */
   const write = useCallback(
     (name: string, text: string, live: () => boolean) => {
+      attempted.current.set(name, text);
       bump(writing.current, name, 1);
       return apiRef.current
         .setWidget(name, text)
@@ -236,6 +247,19 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     [check, markUnsaved, invalidate],
   );
 
+  /**
+   * Met en file l'écriture `task` de `names` (le fichier tapé, et sa cible s'il est renommé) :
+   * elle ne part pas si l'un d'eux est oublié (`forget`) avant son tour.
+   */
+  const enqueueWrite = useCallback(
+    (names: string[], task: (live: () => boolean) => Promise<unknown>) => {
+      const born = names.map((n) => forgotten.current.get(n) ?? 0);
+      const kept = () => names.every((n, i) => (forgotten.current.get(n) ?? 0) === born[i]);
+      return enqueue((live) => (kept() ? task(live) : Promise.resolve(false)));
+    },
+    [enqueue],
+  );
+
   /** Le délai de frappe de `name`, créé au premier besoin. */
   const pushOf = useCallback(
     (name: string): Push => {
@@ -248,13 +272,15 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
           if (text === "") return;
           bump(edits.current, name, 1);
           const move = moves.current.get(name);
-          void enqueue((live) => (move?.done ? write(move.to, declaredAs(text, name, move.to), live) : write(name, text, live)));
+          void enqueueWrite(move ? [name, move.to] : [name], (live) =>
+            move?.done ? write(move.to, declaredAs(text, name, move.to), live) : write(name, text, live),
+          );
         }, PREVIEW_DELAY_MS);
         pushes.current.set(name, p);
       }
       return p;
     },
-    [enqueue, write],
+    [enqueueWrite, write],
   );
   // Démontage : les frappes partent quand même.
   useEffect(() => () => pushes.current.forEach((p) => p.flush()), []);
@@ -273,6 +299,39 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     if (name === undefined) pushes.current.forEach((p) => p.flush());
     else pushes.current.get(name)?.flush();
   }, []);
+
+  const pending = useCallback(
+    (name: string) => unsent.current.has(name) || unsavedNow.current.has(name) || (writing.current.get(name) ?? 0) > 0,
+    [],
+  );
+  const keep = useCallback(
+    (name: string) => {
+      if (unsent.current.has(name)) {
+        pushes.current.get(name)?.flush();
+        return;
+      }
+      // Non enregistrée, ou en vol (l'agent a pu écrire après) : le dernier texte tenté
+      // repart, en file derrière l'écriture en vol (au pire une écriture de trop).
+      const last = attempted.current.get(name);
+      const inFlight = (writing.current.get(name) ?? 0) > 0;
+      if ((unsavedNow.current.has(name) || inFlight) && last !== undefined) {
+        edit(name, last);
+        pushes.current.get(name)?.flush();
+      }
+    },
+    [edit],
+  );
+  const forget = useCallback(
+    (name: string) => {
+      forgotten.current.set(name, (forgotten.current.get(name) ?? 0) + 1);
+      pushes.current.get(name)?.cancel();
+      pushes.current.delete(name);
+      // `moves` aussi : un renommage en cours de `name` ne redirigera plus sa frappe vers le nouveau nom.
+      for (const r of [unsent, typing, sent, attempted, moves, trials, reread]) r.current.delete(name);
+      markUnsaved(name, false);
+    },
+    [markUnsaved],
+  );
 
   const settle = useCallback(async () => {
     // Une opération mise en file (ou une frappe arrivée) pendant l'attente est attendue aussi.
@@ -381,12 +440,12 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
         if (held && born === generation.current && (edits.current.get(name) ?? 0) === typedAt) {
           markUnsaved(name, true);
           bump(edits.current, name, 1);
-          void enqueue((live) => write(name, held, live));
+          void enqueueWrite([name], (live) => write(name, held, live));
         }
         return false;
       });
     },
-    [enqueue, markUnsaved, invalidate, write],
+    [enqueue, enqueueWrite, markUnsaved, invalidate, write],
   );
 
   const loaded = useCallback(
@@ -412,8 +471,8 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
   return useMemo(
     () => ({
       statuses, statusesFor, unsaved, checked, writes, rewrites,
-      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, remove, fail,
+      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, keep, forget,
     }),
-    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, remove, fail],
+    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, keep, forget],
   );
 }

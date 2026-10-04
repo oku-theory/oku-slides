@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Yeniden adlandırmak için çift tıklayın veya F2'ye 
 ui-widgets-tabs = Şablon sekmeleri
 ui-widgets-templates-tab = Şablonlar
 ui-widgets-close-tab = { $name } sekmesini kapat
+ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.

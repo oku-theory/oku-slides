@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Doble clic o F2 para renombrar
 ui-widgets-tabs = Pestañas de plantillas
 ui-widgets-templates-tab = Plantillas
 ui-widgets-close-tab = Cerrar { $name }
+ui-widgets-removed-by-agent = El agente eliminó el widget { $name }.

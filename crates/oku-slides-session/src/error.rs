@@ -70,6 +70,18 @@ pub enum SessionErrorKind {
     WidgetInUse,
     /// Fichier de widget introuvable.
     UnknownWidget,
+    /// Le fichier du widget ne compile pas.
+    WidgetInvalid,
+    /// Essai d'un paramètre que le widget ne déclare pas.
+    TrialUndeclared,
+    /// Essai d'un paramètre non réglable dans l'aperçu.
+    TrialFixed,
+    /// Valeur d'essai trop longue.
+    TrialTooLong,
+    /// Valeur d'essai refusée pour le type du paramètre.
+    TrialValue,
+    /// Valeur d'essai impossible à garder.
+    TrialEncode,
 }
 
 #[derive(Debug, Snafu)]
@@ -151,6 +163,18 @@ pub(crate) enum SessionInner {
     WidgetInUse { name: String, templates: Vec<String>, backtrace: Backtrace },
     #[snafu(display("widget not found: {name}"))]
     UnknownWidget { name: String, backtrace: Backtrace },
+    #[snafu(display("widget file does not compile: {name}"))]
+    WidgetInvalid { name: String, backtrace: Backtrace },
+    #[snafu(display("{param} is not a parameter of this widget"))]
+    TrialUndeclared { param: String, backtrace: Backtrace },
+    #[snafu(display("{param} cannot be set in the preview"))]
+    TrialFixed { param: String, backtrace: Backtrace },
+    #[snafu(display("trial value too long for {param}"))]
+    TrialTooLong { param: String, backtrace: Backtrace },
+    #[snafu(display("trial value refused for {param}"))]
+    TrialValue { param: String, source: oku_slides_core::OpError, backtrace: Backtrace },
+    #[snafu(display("trial value of {param} cannot be stored"))]
+    TrialEncode { param: String, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("widget already exists: {name}"))]
     WidgetExists { name: String, backtrace: Backtrace },
 }
@@ -195,6 +219,12 @@ impl SessionError {
             | WidgetExists { .. } => SessionErrorKind::InvalidWidget,
             WidgetInUse { .. } => SessionErrorKind::WidgetInUse,
             UnknownWidget { .. } => SessionErrorKind::UnknownWidget,
+            WidgetInvalid { .. } => SessionErrorKind::WidgetInvalid,
+            TrialUndeclared { .. } => SessionErrorKind::TrialUndeclared,
+            TrialFixed { .. } => SessionErrorKind::TrialFixed,
+            TrialTooLong { .. } => SessionErrorKind::TrialTooLong,
+            TrialValue { .. } => SessionErrorKind::TrialValue,
+            TrialEncode { .. } => SessionErrorKind::TrialEncode,
         }
     }
 
@@ -292,6 +322,15 @@ impl Localize for SessionError {
                 &[("name", name.as_str().into()), ("templates", templates.join(", ").into())],
             ),
             UnknownWidget { name, .. } => l.tr_with("session-unknown-widget", &[("name", name.as_str().into())]),
+            WidgetInvalid { name, .. } => l.tr_with("session-widget-invalid", &[("name", name.as_str().into())]),
+            TrialUndeclared { param, .. } => l.tr_with("session-trial-undeclared", &[("param", param.as_str().into())]),
+            TrialFixed { param, .. } => l.tr_with("session-trial-fixed", &[("param", param.as_str().into())]),
+            TrialTooLong { param, .. } => l.tr_with("session-trial-too-long", &[("param", param.as_str().into())]),
+            TrialValue { param, source, .. } => l.tr_with(
+                "session-trial-value",
+                &[("param", param.as_str().into()), ("reason", source.localize(l).into())],
+            ),
+            TrialEncode { param, .. } => l.tr_with("session-trial-encode", &[("param", param.as_str().into())]),
             WidgetExists { name, .. } => l.tr_with("session-widget-exists", &[("name", name.as_str().into())]),
         }
     }

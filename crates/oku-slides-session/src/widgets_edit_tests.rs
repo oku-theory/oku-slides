@@ -318,3 +318,49 @@ fn a_widget_broken_before_a_common_change_is_not_listed_as_broken_by_it() {
     let broken: Vec<&str> = change.broken.iter().map(|b| b.name.as_str()).collect();
     assert_that!(broken).is_equal_to(vec!["cadre"]);
 }
+
+fn user_write(s: &mut Session, source: String) {
+    s.handle(Request::SetWidget { name: "quote".into(), source }).unwrap();
+}
+
+fn notes(s: &mut Session) -> String {
+    s.agent_context(&crate::agent::AgentUi::default())
+}
+
+#[test]
+fn noted_user_write_after_agent_write_tells_the_agent() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget_by_agent("quote", QUOTE.into()).unwrap();
+    user_write(&mut s, format!("{QUOTE}// v2\n"));
+    assert_that!(notes(&mut s).as_str()).contains("user edited widget quote after you");
+}
+
+#[test]
+fn noted_user_write_twice_tells_the_agent_once() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget_by_agent("quote", QUOTE.into()).unwrap();
+    user_write(&mut s, format!("{QUOTE}// v2\n"));
+    notes(&mut s);
+    user_write(&mut s, format!("{QUOTE}// v3\n"));
+    assert_that!(notes(&mut s).contains("after you")).is_false();
+}
+
+#[test]
+fn noted_user_write_without_agent_write_says_nothing() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    user_write(&mut s, QUOTE.into());
+    assert_that!(notes(&mut s).contains("after you")).is_false();
+}
+
+#[test]
+fn set_widget_by_agent_deleting_leaves_no_mark() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget_by_agent("quote", QUOTE.into()).unwrap();
+    s.set_widget_by_agent("quote", String::new()).unwrap();
+    user_write(&mut s, QUOTE.into());
+    assert_that!(notes(&mut s).contains("after you")).is_false();
+}

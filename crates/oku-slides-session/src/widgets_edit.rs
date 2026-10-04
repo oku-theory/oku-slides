@@ -13,10 +13,11 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
+use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackRef, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema};
+use oku_slides_core::{PackFiles, PackRef, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema, param_value};
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, Severity};
 
@@ -128,6 +129,11 @@ fn with_render(mut statuses: Vec<WidgetStatus>, render: Vec<WidgetDiagnostic>, n
     statuses
 }
 
+/// L'essai `value` vaut-il encore pour le paramètre `param` de `schema` ?
+pub(crate) fn trial_fits(schema: &WidgetSchema, param: &str, value: &Value) -> bool {
+    schema.param(param).is_some_and(|p| param_value(&p.ty, param, value.clone()).is_ok())
+}
+
 /// Le pack dont on édite les widgets : id, version et fichiers.
 pub(crate) struct WidgetTarget {
     pub(crate) id: Uuid,
@@ -189,6 +195,14 @@ impl Session {
         self.statuses(&t.version, t.files.widgets())
     }
 
+    /// Le schéma de `name` si son fichier est valide, lu dans les statuts.
+    pub(crate) fn valid_schema(&self, name: &WidgetFile) -> Result<Option<WidgetSchema>> {
+        let t = self.widget_target()?;
+        ensure!(t.files.widget(name).is_some(), UnknownWidgetSnafu { name: name.as_str() });
+        let statuses = self.statuses(&t.version, t.files.widgets())?;
+        Ok(statuses.into_iter().find(|s| &s.name == name).filter(WidgetStatus::is_valid).and_then(|s| s.schema))
+    }
+
     /// Source du fichier `name` du pack en cours.
     pub fn widget_source(&self, name: &str) -> Result<String> {
         let name = parse_name(name)?;
@@ -203,9 +217,10 @@ impl Session {
     /// version écrite en mode modèles : ses diagnostics sont dans le statut.
     pub fn set_widget(&mut self, name: &str, source: String) -> Result<WidgetChange> {
         let name = parse_name(name)?;
+        let removing = source.is_empty();
         let t = self.widget_target()?;
         let mut widgets = t.files.widgets().clone();
-        if source.is_empty() {
+        if removing {
             ensure!(widgets.contains_key(&name), UnknownWidgetSnafu { name: name.as_str() });
             self.ensure_unused(&t, &name)?;
             widgets.remove(&name);
@@ -237,7 +252,41 @@ impl Session {
         });
         let was_valid = |n: &WidgetFile| before.iter().any(|b| b.name == *n && b.is_valid());
         let broken = after.into_iter().filter(|s| s.name != name && !s.is_valid() && was_valid(&s.name)).collect();
-        Ok(WidgetChange { status, broken, saved })
+        let change = WidgetChange { status, broken, saved };
+        if change.saved
+            && let Some(scratch) = self.scratch_mut()
+        {
+            if removing {
+                scratch.removed(&name);
+            } else if let Some(schema) = &change.status.schema {
+                // Un essai d'un paramètre retiré, ou dont le type a changé, ne vaut plus.
+                scratch.pruned(&name, |param, value| trial_fits(schema, param, value));
+            }
+            // Fichier invalide (pas de schéma) : les essais restent, `preview_inputs` les filtre par schéma.
+        }
+        Ok(change)
+    }
+
+    /// Écriture de l'agent (outil `set_widget`) : écrite, persistée, marquée.
+    pub fn set_widget_by_agent(&mut self, name: &str, source: String) -> Result<WidgetChange> {
+        let removing = source.is_empty();
+        let change = self.set_widget(name, source)?;
+        if change.saved
+            && !removing
+            && let Some(scratch) = self.scratch_mut()
+        {
+            scratch.mark_agent(&change.status.name);
+        }
+        self.persist(true);
+        Ok(change)
+    }
+
+    /// Écriture enregistrée de l'utilisateur sur un widget de l'agent : l'agent l'apprendra.
+    pub(crate) fn noted_user_write(&mut self, name: &str, saved: bool) {
+        let Ok(file) = parse_name(name) else { return };
+        if saved && self.scratch_mut().is_some_and(|s| s.take_agent_mark(&file)) {
+            self.note(format!("user edited widget {} after you", file.as_str()));
+        }
     }
 
     /// Supprime le fichier `name` ; refusé si un modèle du pack l'utilise.
@@ -248,7 +297,11 @@ impl Session {
         self.ensure_unused(&t, &name)?;
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&name);
-        self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &name))
+        let statuses = self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &name))?;
+        if let Some(scratch) = self.scratch_mut() {
+            scratch.removed(&name);
+        }
+        Ok(statuses)
     }
 
     /// Renomme `from` en `to` dans la version éditée ; le nom déclaré suit.
@@ -266,7 +319,11 @@ impl Session {
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&from);
         widgets.insert(to.clone(), renamed);
-        self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &to))
+        let statuses = self.commit_widgets(&t, widgets).map(|s| with_render(s.0, s.1, &to))?;
+        if let Some(scratch) = self.scratch_mut() {
+            scratch.renamed(&from, &to);
+        }
+        Ok(statuses)
     }
 
     /// Refuse si un modèle du pack (enregistré, ou en cours d'édition) utilise `name`.

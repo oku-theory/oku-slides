@@ -20,8 +20,9 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
   (`nest_schema` adapte JSON Schema à MCP 1.x).
 - `read_tools` : outils de lecture (`deck_outline`, `slide`, `render_slide`, `templates`, `widgets`, `settings`).
-- `widget_tools` : outils des widgets du pack (`widget_sources`, `widget_source`, `set_widget`,
-  `remove_widget`, `preview_widget`), dans les deux modes.
+- `widget_tools.rs` : sources, écriture (`widget_touched` en mode modèles), aperçu et essais
+  (`set_widget_trial`) des widgets. Un `widget_touched` perdu quand le relais prend du retard n'est
+  pas rejoué (seuls `Changed` et `Surfaces` le sont) ; le widget s'ouvre alors au prochain clic.
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).

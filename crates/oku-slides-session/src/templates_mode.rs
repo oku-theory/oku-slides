@@ -26,6 +26,7 @@ use crate::error::{
 };
 use crate::library::{Library, StoredVersion};
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, Template, now_created};
+use crate::widget_trials::TemplateScratch;
 use crate::{Document, Mode, Result, Session, TemplateMode, TemplateView, TemplatesView, new_renderer};
 
 /// Préfixe de la clé d'étape d'annulation des enregistrements du pack.
@@ -111,9 +112,13 @@ impl Session {
             // Déjà en édition : on change de pack, le deck reste de côté.
             Mode::Templates { stash, .. } => {
                 self.doc = templates;
-                Mode::Templates { stash, edit }
+                Mode::Templates { stash, edit, scratch: TemplateScratch::default() }
             }
-            Mode::Deck => Mode::Templates { stash: Box::new(std::mem::replace(&mut self.doc, templates)), edit },
+            Mode::Deck => Mode::Templates {
+                stash: Box::new(std::mem::replace(&mut self.doc, templates)),
+                edit,
+                scratch: TemplateScratch::default(),
+            },
             // L'historique ouvert se ferme d'abord (`handle` refuse avant d'arriver ici).
             history @ Mode::History { .. } => {
                 self.mode = history;
@@ -228,7 +233,7 @@ impl Session {
         self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         let label = self.localizer.tr_with("templates-adopt-label", &[("name", manifest.name.as_str().into())]);
         let merge = adopt_merge_key(id, parent.as_ref());
-        if let Mode::Templates { stash, edit } = &mut self.mode {
+        if let Mode::Templates { stash, edit, .. } = &mut self.mode {
             // Le deck mis de côté embarque la version et y passe, en une étape d'annulation.
             stash.sources.add_pack(files);
             let mut user = stash.sources.deck().clone();

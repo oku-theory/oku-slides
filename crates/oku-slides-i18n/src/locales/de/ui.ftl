@@ -326,3 +326,4 @@ ui-widgets-rename-hint = Doppelklick oder F2 zum Umbenennen
 ui-widgets-tabs = Vorlagen-Tabs
 ui-widgets-templates-tab = Vorlagen
 ui-widgets-close-tab = { $name } schließen
+ui-widgets-removed-by-agent = Der Agent hat das Widget { $name } gelöscht.

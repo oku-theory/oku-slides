@@ -12,6 +12,7 @@ use serde_json::Value;
 
 use crate::pack::PackRef;
 use crate::params::{ParamValue, Params};
+use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
 pub const DECK_VERSION: u32 = 3;
@@ -144,13 +145,32 @@ impl Slide {
         }
     }
 
-    /// La grille de la slide : son paramètre `grid`, sinon celle par défaut.
-    /// Toute slide en a une ; les éléments libres s'y accrochent.
-    pub fn grid(&self) -> Grid {
+    /// Le paramètre `grid` de la slide, sinon la grille 12 × 6 par défaut : ce n'est
+    /// pas toujours la grille rendue, car elle ignore le défaut déclaré par le widget
+    /// (voir `resolved_grid`).
+    pub(crate) fn grid(&self) -> Grid {
         self.params
             .value("grid")
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_else(|| DEFAULT_GRID.clone())
+    }
+
+    /// Grille d'une slide : paramètre, défaut déclaré par son widget, sinon 12 × 6.
+    pub fn resolved_grid(&self, registry: &WidgetRegistry) -> Grid {
+        if self.params.value("grid").is_some() {
+            return self.grid();
+        }
+        self.declared_grid(registry).and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(|| self.grid())
+    }
+
+    /// Défaut du paramètre `grid` déclaré par le widget de la slide, tel qu'écrit.
+    pub fn declared_grid(&self, registry: &WidgetRegistry) -> Option<Value> {
+        registry
+            .get(&self.kind)
+            .and_then(|w| w.param("grid"))
+            .filter(|p| matches!(p.ty, ParamType::Grid))
+            .and_then(|p| p.default.clone())
+            .filter(|v| v.is_object())
     }
 }
 

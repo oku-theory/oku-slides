@@ -330,3 +330,4 @@ ui-widgets-rename-hint = Дважды щёлкните или нажмите F2,
 ui-widgets-tabs = Вкладки шаблонов
 ui-widgets-templates-tab = Шаблоны
 ui-widgets-close-tab = Закрыть { $name }
+ui-widgets-removed-by-agent = Агент удалил виджет { $name }.

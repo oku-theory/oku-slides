@@ -78,6 +78,8 @@ pub struct Snapshot<'a> {
     pub pack_widgets: Vec<&'a str>,
     /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
     pub add_widgets: Vec<AddWidget<'a>>,
+    /// Révision des essais de widgets : un changement relance les aperçus.
+    pub widget_trials: u64,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.

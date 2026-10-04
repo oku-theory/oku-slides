@@ -324,3 +324,4 @@ ui-widgets-rename-hint = Nhấp đúp hoặc nhấn F2 để đổi tên
 ui-widgets-tabs = Tab mẫu
 ui-widgets-templates-tab = Mẫu
 ui-widgets-close-tab = Đóng { $name }
+ui-widgets-removed-by-agent = Tác tử đã xóa widget { $name }.

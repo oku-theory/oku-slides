@@ -61,7 +61,7 @@ export function memory(files: Record<string, string>) {
       return { svg: null, diagnostics: [] };
     },
   } as unknown as TabApi;
-  return { fake, log, calls };
+  return { fake, log, calls, files };
 }
 
 /** Remplace la méthode `key` de l'api `fake`. */

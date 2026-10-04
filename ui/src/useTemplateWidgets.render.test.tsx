@@ -10,6 +10,7 @@ const { EditorView } = await import("@codemirror/view");
 const { isMac } = await import("./api");
 const { PREVIEW_DELAY_MS } = await import("./debounce");
 const { useTemplateWidgets } = await import("./useTemplateWidgets");
+const { t } = await import("./i18n");
 const WidgetPane = (await import("./WidgetPane")).default;
 const TemplateTabs = (await import("./TemplateTabs")).default;
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
@@ -43,6 +44,7 @@ interface Out {
   /** À chaque rendu : en mode modèles, et ce qui serait gardé. */
   renders: { editing: boolean; widgets: string[] }[];
   blocked: boolean;
+  notices: string[];
 }
 
 async function mount(fake: TabApi, first: Snapshot, strict = false) {
@@ -50,18 +52,23 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const out: Out = { w: null, setSnap: null, renders: [], blocked: false };
+  const out: Out = { w: null, setSnap: null, renders: [], blocked: false, notices: [] };
   function Probe() {
     const [snap, setSnap] = useState(first);
     out.setSnap = setSnap;
-    const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, blocked: () => out.blocked });
+    const w = useTemplateWidgets(fake, snap, {
+      changed: () => {},
+      error: () => {},
+      notice: (m: string) => out.notices.push(m),
+      blocked: () => out.blocked,
+    });
     out.w = w;
     out.renders.push({ editing: !!snap.editing, widgets: w.kept.widgets });
     return createElement(
       Fragment,
       null,
       createElement(TemplateTabs, { tabs: w.tabs.tabs, active: w.tabs.active, unsaved: w.files.unsaved, onActivate: w.activate, onClose: w.close }),
-      createElement(WidgetPane, { api: fake, widgets: w }),
+      createElement(WidgetPane, { api: fake, widgets: w, trials: snap.widget_trials ?? 0 }),
     );
   }
   const probe = createElement(Probe);
@@ -450,5 +457,127 @@ describe("useTemplateWidgets, revue finale", () => {
     await press(editor, "w");
     expect(m.names()).toEqual([]);
     expect(document.activeElement?.id).toBe("widget-tab-0");
+  });
+});
+
+describe("useTemplateWidgets, l'agent écrit", () => {
+  test("touched ouvre et active le widget écrit", async () => {
+    const { fake } = memory({ kpi: "k", quote: "q" });
+    const m = await mount(fake, snapOf({}));
+    await act(async () => m.out.w!.touched("quote", false));
+    expect(m.out.w!.activeName).toBe("quote");
+  });
+
+  test("touched ouvre derrière si l'actif a des frappes en attente", async () => {
+    const { fake } = memory({ kpi: "k", quote: "q" });
+    const m = await mount(fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    await m.typeIn("kpi", "k2"); // < PREVIEW_DELAY_MS (400 ms) : la frappe attend encore
+    await act(async () => m.out.w!.touched("quote", false));
+    expect(m.out.w!.activeName).toBe("kpi");
+    expect(m.names()).toEqual(["kpi", "quote"]);
+  });
+
+  test("après Changed puis touched, les frappes en attente l'emportent sur l'agent", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    await m.typeIn("kpi", "tapé"); // < PREVIEW_DELAY_MS : en attente au moment de touched
+    mem.files.kpi = "agent";
+    await m.render(snapOf({ version: "v2" }));
+    await act(async () => m.out.w!.touched("kpi", false));
+    await later();
+    expect(mem.files.kpi).toBe("tapé");
+  });
+
+  test("touched renvoie la dernière frappe refusée par-dessus l'écriture de l'agent", async () => {
+    const mem = memory({ kpi: "k" });
+    const real = mem.fake.setWidget;
+    let refuse = true;
+    stub(mem.fake, "setWidget", async (name: string, text: string) => {
+      if (!refuse) return real(name, text);
+      refuse = false;
+      return { status: { name, schema: null, diagnostics: [] }, broken: [], saved: false };
+    });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    await m.typeIn("kpi", "tapé");
+    await later(); // la frappe part et est refusée : non enregistrée
+    mem.files.kpi = "agent";
+    await act(async () => m.out.w!.touched("kpi", false));
+    await later();
+    expect(mem.files.kpi).toBe("tapé");
+  });
+
+  test("après touched, la relecture ne remet pas le texte de l'agent", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    await m.typeIn("kpi", "tapé"); // < PREVIEW_DELAY_MS : en attente au moment de touched
+    mem.files.kpi = "agent";
+    await act(async () => m.out.w!.touched("kpi", false));
+    await later();
+    await m.render(snapOf({ version: "v3" }));
+    expect(m.text("kpi")).toBe("tapé");
+  });
+
+  test("touched d'un widget nouveau l'ouvre une fois la liste relue", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    mem.files.carte = "c";
+    await act(async () => m.out.w!.touched("carte", false));
+    await m.render(snapOf({ version: "v2" }));
+    expect(m.names()).toEqual(["carte"]);
+  });
+
+  test("touched removed ferme le sous-onglet", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    delete mem.files.kpi;
+    await act(async () => m.out.w!.touched("kpi", true));
+    expect(m.names()).toEqual([]);
+  });
+
+  test("touched removed abandonne les frappes en attente", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    await m.typeIn("kpi", "tapé"); // < PREVIEW_DELAY_MS : en attente au moment de touched
+    delete mem.files.kpi;
+    await act(async () => m.out.w!.touched("kpi", true));
+    await later();
+    expect(mem.log.some((l) => l.startsWith("set kpi:"))).toBe(false);
+  });
+
+  test("touched removed prévient l'utilisateur", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({}));
+    await act(async () => m.out.w!.touched("kpi", true));
+    expect(m.out.notices).toEqual([t("ui-widgets-removed-by-agent", { name: "kpi" })]);
+  });
+
+  test("hors mode modèles, touched ne laisse rien à ouvrir plus tard", async () => {
+    const mem = memory({ kpi: "k" });
+    const m = await mount(mem.fake, snapOf({ set: null }));
+    await act(async () => m.out.w!.touched("kpi", false));
+    await m.render(snapOf({}));
+    expect(m.names()).toEqual([]);
+  });
+
+  test("l'aperçu actif est redemandé quand la révision des essais change", async () => {
+    const { fake, calls } = memory({ kpi: "k" });
+    const m = await mount(fake, snapOf({}));
+    await act(async () => m.out.w!.open("kpi"));
+    await wait(10);
+    const before = calls.filter((c) => c === "preview").length;
+    await m.render({ ...snapOf({}), widget_trials: 1 } as Snapshot);
+    expect(calls.filter((c) => c === "preview").length).toBe(before + 1);
   });
 });

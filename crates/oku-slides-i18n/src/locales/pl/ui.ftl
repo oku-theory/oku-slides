@@ -330,3 +330,4 @@ ui-widgets-rename-hint = Kliknij dwukrotnie lub naciśnij F2, aby zmienić nazw�
 ui-widgets-tabs = Karty szablonów
 ui-widgets-templates-tab = Szablony
 ui-widgets-close-tab = Zamknij { $name }
+ui-widgets-removed-by-agent = Agent usunął widżet { $name }.

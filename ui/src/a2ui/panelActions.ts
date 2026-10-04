@@ -2,11 +2,9 @@
 //
 // La session décrit le panneau (requête `panel`) ; ses composants renvoient
 // `rename_template`, `describe_template` et `set_grid`, avec la slide visée
-// dans le contexte. Changer la grille déplace aussi les éléments accrochés.
+// dans le contexte. La session recadre les éléments accrochés (`set_grid`).
 
 import type { Op, SlideView } from "../api";
-import { slot } from "../deck";
-import { rescaleCell } from "../grid";
 import { t } from "../i18n";
 
 /** Action reçue d'une surface : son nom et son contexte, chemins déjà lus. */
@@ -19,7 +17,6 @@ export interface PanelAction {
 export function panelActionOps(
   action: PanelAction,
   slide: SlideView["slide"],
-  grid: { columns: number; rows: number } | undefined,
 ): { label: string; ops: Op[] } | null {
   const ctx = action.context ?? {};
   if (ctx.slide !== slide.id) return null;
@@ -33,16 +30,9 @@ export function panelActionOps(
         ops: [{ op: "set_slide_field", slide: slide.id, field: "description", value: text() }],
       };
     case "set_grid": {
-      if (!grid) return null;
-      const columns = Number(ctx.columns);
-      const rows = Number(ctx.rows);
-      const next = { ...(slide.params?.grid as object | undefined ?? {}), columns, rows };
-      const ops: Op[] = [{ op: "set_param", target: { slide: slide.id }, param: "grid", value: next }];
-      // Les éléments gardent leurs proportions sur la nouvelle grille.
-      for (const e of slot(slide, "elements")) {
-        if (e.cell) ops.push({ op: "set_cell", slide: slide.id, element: e.id, cell: rescaleCell(e.cell, grid, next) });
-      }
-      return { label: t("ui-undo-grid", { columns, rows }), ops };
+      const { columns, rows } = ctx;
+      if (typeof columns !== "number" || typeof rows !== "number") return null;
+      return { label: t("ui-undo-grid", { columns, rows }), ops: [{ op: "set_grid", slide: slide.id, columns, rows }] };
     }
     default:
       return null;

@@ -682,3 +682,76 @@ describe("useWidgetFiles, revue finale", () => {
     expect(log).toEqual(["set kpi:k3"]);
   });
 });
+
+describe("useWidgetFiles, l'agent écrit", () => {
+  test("forget abandonne une écriture déjà en file", async () => {
+    const { fake, log } = memory({ kpi: "k" });
+    const { out } = await mount(fake);
+    const h = held(fake, "setWidget");
+    let creating!: Promise<boolean>;
+    await act(async () => {
+      creating = out.files!.create("autre");
+    });
+    await typed(out, "kpi", "tapé");
+    await act(async () => out.files!.flush("kpi"));
+    expect(out.files!.pending("kpi")).toBe(false); // envoyée : en file derrière `create`, pas encore partie
+    await act(async () => out.files!.forget("kpi"));
+    await h.release();
+    await act(async () => { await creating; });
+    await later();
+    expect(log.some((l) => l.startsWith("set kpi:"))).toBe(false);
+  });
+
+  test("keep renvoie le dernier texte tenté et non enregistré", async () => {
+    const { fake, log } = memory({ kpi: "k" });
+    const real = fake.setWidget;
+    let refuse = true;
+    stub(fake, "setWidget", async (name: string, text: string): Promise<WidgetChange> => {
+      if (!refuse) return real(name, text);
+      log.push(`refused ${name}:${text}`);
+      return { status: { name, schema: null, diagnostics: [] }, broken: [], saved: false };
+    });
+    const { out } = await mount(fake);
+    await typed(out, "kpi", "tapé");
+    await later();
+    expect(out.files!.pending("kpi")).toBe(true);
+    refuse = false;
+    await act(async () => out.files!.keep("kpi"));
+    await later();
+    expect(log).toEqual(["refused kpi:tapé", "set kpi:tapé"]);
+    expect(out.files!.pending("kpi")).toBe(false);
+  });
+
+  test("keep : une écriture en vol écrasée ensuite par l'agent est renvoyée", async () => {
+    const mem = memory({ kpi: "k" });
+    const real = mem.fake.setWidget;
+    const gate = deferred<void>();
+    let first = true;
+    stub(mem.fake, "setWidget", async (name: string, text: string) => {
+      const change = await real(name, text);
+      if (first) {
+        first = false;
+        // La session a écrit la frappe, puis l'agent a écrasé le fichier ; la réponse n'est pas encore revenue.
+        mem.files.kpi = "agent";
+        await gate.promise;
+      }
+      return change;
+    });
+    const { out } = await mount(mem.fake);
+    await typed(out, "kpi", "tapé");
+    await act(async () => out.files!.flush("kpi"));
+    expect(out.files!.pending("kpi")).toBe(true); // écriture en vol
+    await act(async () => out.files!.keep("kpi"));
+    await act(async () => gate.resolve());
+    await later();
+    expect(mem.files.kpi).toBe("tapé");
+  });
+
+  test("pending : frappe en attente", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { out } = await mount(fake);
+    expect(out.files!.pending("kpi")).toBe(false);
+    await typed(out, "kpi", "tapé"); // < PREVIEW_DELAY_MS : encore en attente
+    expect(out.files!.pending("kpi")).toBe(true);
+  });
+});

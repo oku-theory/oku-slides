@@ -615,7 +615,8 @@ fn ops_schema_generates_schema_naming_ops() {
         assert_that!(s.as_str()).contains(name);
     }
     assert_that!(s.as_str()).does_not_contain("\"set_text\"");
-    assert_that!(s.as_str()).does_not_contain("\"set_grid\"");
+    // t-423 : `set_grid` redevient une op (grille et recadrage des éléments).
+    assert_that!(s.as_str()).contains("\"set_grid\"");
 }
 
 #[test]

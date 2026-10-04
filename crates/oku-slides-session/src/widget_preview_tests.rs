@@ -6,6 +6,7 @@ use oku_slides_render::RenderError;
 
 use super::{PreviewFormat, failure, preview_params};
 use crate::test_support::{fresh_dir, opened_on, session_with, settings_on};
+use crate::widgets_edit::parse_name;
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -265,4 +266,112 @@ fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
     let preview = s.preview_widget("logo", &given, PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
+}
+fn in_templates_with_quote() -> (tempfile::TempDir, crate::Session) {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    let set = s.deck().templates.clone().unwrap().id;
+    s.edit_templates(set).unwrap();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    (data, s)
+}
+
+fn body(t: &str) -> Map<String, serde_json::Value> {
+    serde_json::from_value(json!({ "body": [{ "runs": [{ "t": t }] }] })).unwrap()
+}
+
+/// `QUOTE` : `source` devient un nombre, `body` reste.
+const QUOTE_V2: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("quote", params: (body: p.rich(), source: p.number()),
+  (args, ctx) => field(ctx, "body", emph(args.body)))
+"#;
+
+#[test]
+fn preview_widget_without_params_differs_once_a_trial_is_set() {
+    let (_d, mut s) = in_templates_with_quote();
+    let plain = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    s.set_widget_trials("quote", body("Une autre")).unwrap();
+    let tried = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    assert_that!(tried).is_not_equal_to(plain);
+}
+
+#[test]
+fn preview_widget_with_a_trial_renders_like_the_given_value() {
+    let (_d, mut s) = in_templates_with_quote();
+    let explicit = s.preview_widget("quote", &body("Une autre"), PreviewFormat::Svg).unwrap().svg;
+    s.set_widget_trials("quote", body("Une autre")).unwrap();
+    let tried = s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap().svg;
+    assert_that!(tried).is_equal_to(explicit);
+}
+
+#[test]
+fn preview_inputs_given_value_wins_over_the_trial() {
+    let (_d, mut s) = in_templates_with_quote();
+    let quote = parse_name("quote").unwrap();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    let schema = s.valid_schema(&quote).unwrap().unwrap();
+    assert_that!(s.preview_inputs(&quote, &schema, &body("Donné")).get("body")).is_equal_to(body("Donné").get("body"));
+}
+
+#[test]
+fn preview_widget_twice_keeps_the_trial_revision() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    let before = s.snapshot().widget_trials;
+    s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    s.preview_widget("quote", &Map::new(), PreviewFormat::Svg).unwrap();
+    assert_that!(s.snapshot().widget_trials).is_equal_to(before);
+}
+
+#[test]
+fn set_widget_keeps_a_trial_still_valid() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.set_widget("quote", QUOTE_V2.into()).unwrap();
+    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap()).map(|m| m.contains_key("body")))
+        .is_equal_to(Some(true));
+}
+
+#[test]
+fn set_widget_prunes_a_trial_whose_type_changed() {
+    let (_d, mut s) = in_templates_with_quote();
+    let values: Map<String, serde_json::Value> = serde_json::from_value(json!({ "source": "Livre" })).unwrap();
+    s.set_widget_trials("quote", values).unwrap();
+    s.set_widget("quote", QUOTE_V2.into()).unwrap();
+    let kept = s.scratch().unwrap().trials_of(&parse_name("quote").unwrap()).map(|m| m.contains_key("source"));
+    assert_that!(kept.unwrap_or(false)).is_false();
+}
+
+#[test]
+fn set_widget_with_empty_source_drops_its_trials() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.set_widget("quote", String::new()).unwrap();
+    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
+}
+
+#[test]
+fn rename_widget_moves_its_trials() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.rename_widget("quote", "citation").unwrap();
+    assert_that!(s.scratch().unwrap().trials_of(&parse_name("citation").unwrap())).is_some();
+}
+
+#[test]
+fn remove_widget_drops_its_trials() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    s.remove_widget("quote").unwrap();
+    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
+}
+
+#[test]
+fn edit_templates_again_starts_without_trials() {
+    let (_d, mut s) = in_templates_with_quote();
+    s.set_widget_trials("quote", body("Essai")).unwrap();
+    let set = s.snapshot().editing.unwrap().set;
+    s.close_templates().unwrap();
+    s.edit_templates(set).unwrap();
+    assert_that!(s.scratch().unwrap().trials_of(&parse_name("quote").unwrap())).is_none();
 }

@@ -491,7 +491,13 @@ fn agent_context_describes_mode_slide_selection_and_drains_notes() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.note("variant picked: \"image à gauche\" (s-libre)");
-    let ui = AgentUi { slide: Some("s-libre".into()), element: Some("e-texte".into()), field: None, editing: false };
+    let ui = AgentUi {
+        slide: Some("s-libre".into()),
+        element: Some("e-texte".into()),
+        field: None,
+        editing: false,
+        widget: None,
+    };
     let ctx = s.agent_context(&ui);
     insta::assert_snapshot!(ctx);
     assert_that!(s.agent_context(&ui).contains("since_last_turn")).is_false();

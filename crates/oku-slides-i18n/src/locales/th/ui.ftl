@@ -324,3 +324,4 @@ ui-widgets-rename-hint = ดับเบิลคลิกหรือกด F2 
 ui-widgets-tabs = แท็บเทมเพลต
 ui-widgets-templates-tab = เทมเพลต
 ui-widgets-close-tab = ปิด { $name }
+ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต { $name } แล้ว

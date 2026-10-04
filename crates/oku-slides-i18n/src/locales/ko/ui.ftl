@@ -324,3 +324,4 @@ ui-widgets-rename-hint = 이름을 바꾸려면 두 번 클릭하거나 F2를 �
 ui-widgets-tabs = 템플릿 탭
 ui-widgets-templates-tab = 템플릿
 ui-widgets-close-tab = { $name } 닫기
+ui-widgets-removed-by-agent = 에이전트가 위젯 { $name }을(를) 삭제했습니다.

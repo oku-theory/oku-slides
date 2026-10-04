@@ -3,21 +3,17 @@
 //! En édition des modèles, le panneau montre le nom et la description du
 //! modèle, et sa grille. L'interface rend la surface et renvoie ses actions :
 //! `rename_template` et `describe_template` (contexte `slide`, `value`),
-//! `set_grid` (contexte `slide`, `columns`, `rows`) ; l'interface en fait un
-//! `set_param` du paramètre `grid` de la slide (l'action garde son nom).
+//! `set_grid` (contexte `slide`, `columns`, `rows`) ; l'interface en fait l'op
+//! `set_grid`.
 
 use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, ServerMessage, TextVariant};
-use oku_slides_core::Slide;
+use oku_slides_core::{GRID_TRACKS, Slide};
 use oku_slides_i18n::Localizer;
 use oku_slides_render::GridBox;
 use serde_json::{Value, json};
 
 /// Identifiant de la surface du panneau.
 pub const PANEL_SURFACE: &str = "panel";
-
-/// Bornes des compteurs de la grille.
-const GRID_MIN: i64 = 1;
-const GRID_MAX: i64 = 24;
 
 /// Messages qui décrivent le panneau pour `slide` ; rien hors des modèles.
 pub(crate) fn panel(slide: &Slide, grid: Option<&GridBox>, editing: bool, l: &Localizer) -> Vec<ServerMessage> {
@@ -84,8 +80,8 @@ fn grid_card(slide: &Slide, l: &Localizer) -> Vec<Component> {
             ComponentKind::Stepper {
                 label: Dynamic::Literal(l.tr(label)),
                 value: Dynamic::path(path),
-                min: Some(GRID_MIN),
-                max: Some(GRID_MAX),
+                min: Some(i64::from(*GRID_TRACKS.start())),
+                max: Some(i64::from(*GRID_TRACKS.end())),
                 action: Some(action),
             },
         )
