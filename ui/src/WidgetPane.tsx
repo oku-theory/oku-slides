@@ -1,4 +1,5 @@
 /** Les sous-onglets ouverts, montés ; seul l'actif est visible. */
+import type { ReactNode } from "react";
 import type { TabApi } from "./api";
 import type { TemplateWidgets } from "./useTemplateWidgets";
 import type { CodeLayout } from "./useViewOptions";
@@ -16,9 +17,11 @@ interface Props {
   /** Place du code et tailles choisies, communes à tous les sous-onglets. */
   layout: CodeLayout;
   onLayout: (layout: CodeLayout) => void;
+  /** Réglages de l'hôte du widget actif, posés sous son aperçu. */
+  settings?: ReactNode;
 }
 
-export default function WidgetPane({ api, widgets, trials, look, code, layout, onLayout }: Props) {
+export default function WidgetPane({ api, widgets, trials, look, code, layout, onLayout, settings = null }: Props) {
   return (
     <div className="widget-pane" hidden={widgets.tabs.active === null}>
       {widgets.tabs.tabs.map((tab) => (
@@ -34,6 +37,7 @@ export default function WidgetPane({ api, widgets, trials, look, code, layout, o
           code={code}
           layout={layout}
           onLayout={onLayout}
+          settings={tab.id === widgets.tabs.active ? settings : null}
           active={tab.id === widgets.tabs.active}
           onOpen={widgets.open}
           onCommands={widgets.commandsOf(tab.id)}

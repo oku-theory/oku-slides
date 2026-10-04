@@ -26,6 +26,9 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Modèles' }).click();
   await p.waitForSelector('[data-surface-id="host-template"]');
+  // Sous la slide qu'ils règlent, pas au dock de l'agent.
+  assert.equal(await p.locator('.templates-panel [data-surface-id="host-template"]').count(), 1);
+  assert.equal(await p.locator('.notes [data-surface-id="host-template"]').count(), 0);
   await p.click(`.thumb >> nth=${LIBRE}`);
   await p.waitForSelector('[data-surface-id="host-template"] .stepper-value');
   const before = await state(p);

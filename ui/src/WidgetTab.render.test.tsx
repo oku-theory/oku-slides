@@ -25,7 +25,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout; look?: string }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout; look?: string; settings?: boolean }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -35,11 +35,11 @@ async function mount(fake: TabApi, first: Shown) {
   const opened: string[] = [];
   const layouts: CodeLayout[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW, look = "clair" }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW, look = "clair", settings = false }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, look, onLayout: (l: CodeLayout) => layouts.push(l),
+      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onLayout: (l: CodeLayout) => layouts.push(l),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -308,6 +308,14 @@ describe("WidgetTab, disposition", () => {
     const { fake } = memory({ _commun: "c" });
     const m = await mount(fake, { name: "_commun" });
     expect(order(m.host)).toEqual(["widget-tab-side", "code-divider", "widget-tab-code"]);
+  });
+
+  test("les réglages passés sont dans la zone de l'aperçu, après lui", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", settings: true });
+    const side = [...m.host.querySelectorAll(".widget-tab-side > *")].map((el) => el.className);
+    expect(side.indexOf("probe-settings")).toBeGreaterThan(-1);
+    expect(side.indexOf("probe-settings")).toBe(side.length - 2);
   });
 
   test("code replié : pas de séparateur", async () => {

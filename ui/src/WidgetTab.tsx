@@ -10,7 +10,7 @@
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
  * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import type { TabApi, WidgetPreview } from "./api";
 import { t } from "./i18n";
@@ -42,13 +42,15 @@ export interface WidgetTabProps {
   layout: CodeLayout;
   /** Retient une nouvelle taille réglée au séparateur. */
   onLayout: (layout: CodeLayout) => void;
+  /** Réglages de l'hôte (paramètres d'essai), posés sous l'aperçu ; `null` : aucun. */
+  settings?: ReactNode;
   /** Commun : ouvre le widget cliqué. */
   onOpen: (name: string) => void;
   onCommands: (c: EditorCommands | null) => void;
   onHistory: (h: EditorHistory) => void;
 }
 
-export default function WidgetTab({ api, files, id, name, revision, trials, look, active, code, layout, onLayout, onOpen, onCommands, onHistory }: WidgetTabProps) {
+export default function WidgetTab({ api, files, id, name, revision, trials, look, active, code, layout, onLayout, settings = null, onOpen, onCommands, onHistory }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -195,6 +197,7 @@ export default function WidgetTab({ api, files, id, name, revision, trials, look
         ) : (
           <p className="caption">{t("ui-widgets-no-preview")}</p>
         )}
+        {settings}
         <ul className="widget-tab-diagnostics">
           {listedDiagnostics(status, preview?.diagnostics ?? []).map((d, i) => {
             const place = diagnosticPlace(d);

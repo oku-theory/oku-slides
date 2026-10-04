@@ -46,7 +46,8 @@ import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
 import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
-import { useHostSettings } from "./useHostSettings";
+import HostSettings from "./HostSettings";
+import { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import WidgetPane from "./WidgetPane";
 import CodePlaceSwitch from "./CodePlaceSwitch";
 import CodeSwitch from "./CodeSwitch";
@@ -413,7 +414,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     [surfaces, view, current],
   );
   const { stage: sheet, drawer, modal, dock } = routed;
-  const dockWithHost = useMemo(() => (host.surface ? [host.surface, ...dock] : dock), [host.surface, dock]);
   const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
   const touchedRef = useRef(widgets.touched);
   touchedRef.current = widgets.touched;
@@ -911,8 +911,11 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
+        {/* Réglages du modèle affiché, sous lui (pas au dock de l'agent). */}
+        {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} />}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} layout={viewOptions.codeLayout} onLayout={viewOptions.setCodeLayout} />}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} layout={viewOptions.codeLayout} onLayout={viewOptions.setCodeLayout}
+          settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} /> : null} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} hints={hintsOn(drawer)} onAction={sendAction} onError={(m) => say(m, true)} />
@@ -938,7 +941,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
             state={agentState}
             turns={routed.turns}
             loose={routed.loose}
-            dock={dockWithHost}
+            dock={dock}
             keysTo={keyed?.surface.id ?? null}
             resyncs={resyncs}
             onAction={onSurfaceAction}

@@ -32,6 +32,9 @@ const svgOf = (p) => p.evaluate(async (sel) => {
     before = now;
   }
   assert.ok(settled, "l'aperçu ne se stabilise pas");
+  // Sous l'aperçu du widget, pas au dock de l'agent.
+  assert.equal(await p.locator('.widget-tab:not([hidden]) .widget-tab-side [data-surface-id="host-widget"]').count(), 1);
+  assert.equal(await p.locator('.notes [data-surface-id="host-widget"]').count(), 0);
   const field = p.locator('[data-surface-id="host-widget"] input').first();
   await field.fill('Météo du jour');
   await field.press('Enter');

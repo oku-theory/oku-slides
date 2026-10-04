@@ -814,8 +814,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 .widget-tab-side { grid-area: side; }
 .widget-tab-code { grid-area: code; }
-/* Code dessous : l'aperçu remonte dans le quart du haut, sauf hauteur réglée (--code-h, posée par WidgetTab). */
-.widget-tab[data-code="shown"] { grid-template-rows: minmax(120px, 1fr) 12px var(--code-h, minmax(0, 3fr)); }
+/* Code dessous : l'aperçu (et ses réglages) prend les 2/5 du haut, sauf hauteur réglée (--code-h, posée par WidgetTab). */
+.widget-tab[data-code="shown"] { grid-template-rows: minmax(120px, 2fr) 12px var(--code-h, minmax(0, 3fr)); }
 /* Code à droite, s'il reste de la largeur ; sinon dessous. --code-axis dit au séparateur l'axe affiché. */
 .widget-pane { container-type: inline-size; }
 @container (min-width: 560px) {
@@ -914,5 +914,16 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
 .templates-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
+/* Modèles : la scène prend la place, les réglages du modèle dessous (au plus 40 %, défilant seuls). */
+.templates-panel { flex-direction: column; }
+.templates-panel > .host-settings { flex: none; max-height: 40%; overflow-y: auto; margin: var(--space-2) auto var(--space-4); }
+/* Réglages de l'hôte sous leur aperçu : une fiche posée, pas du verre flottant. */
+.host-settings {
+  width: min(100% - 2 * var(--space-4), 560px); box-sizing: border-box; padding: var(--space-2);
+  background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
+}
+.widget-tab-side > .host-settings { flex: none; margin: 0 auto var(--space-4); }
+/* Avec des réglages dessous, l'aperçu rétrécit sans disparaître ; au-delà, la zone défile. */
+.widget-tab-side:has(> .host-settings) img { flex: 0 1 auto; min-height: 96px; }
 .widget-pane > .widget-tab { flex: 1; }
 .templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }
