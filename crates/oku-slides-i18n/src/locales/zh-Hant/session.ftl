@@ -25,6 +25,8 @@ session-unsaved = 「{ $title }」有未儲存的變更。
 session-bad-request = 要求無效：{ $reason }
 session-history-not-open = 歷程記錄未開啟
 session-in-history = 請先關閉歷程記錄再修改簡報
+session-read-only = 說明為唯讀：無法修改
+session-help-deck = 無法讀取說明簡報
 session-agent-form = AI 代理的請求無效：{ $reason }
 
 deck-untitled = 未命名

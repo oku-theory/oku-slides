@@ -25,6 +25,8 @@ session-unsaved = “{ $title }”-এ অসংরক্ষিত পরিব�
 session-bad-request = অবৈধ অনুরোধ: { $reason }
 session-history-not-open = ইতিহাস খোলা নেই
 session-in-history = উপস্থাপনা পরিবর্তনের আগে ইতিহাস বন্ধ করুন
+session-read-only = সহায়িকা শুধু পড়ার জন্য: এটি পরিবর্তন করা যায় না
+session-help-deck = সহায়িকার উপস্থাপনা পড়া যায়নি
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 
 deck-untitled = শিরোনামহীন

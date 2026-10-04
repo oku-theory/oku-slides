@@ -118,16 +118,18 @@ impl Session {
         }
     }
 
-    /// Refuse (`InHistory`) ce qui changerait le deck pendant l'historique.
-    /// `handle` filtre déjà les requêtes ; l'agent, lui, appelle les méthodes
-    /// directement (`TabSession::with`) : chacune se garde avant tout changement.
-    pub(crate) fn ensure_not_in_history(&self) -> Result<()> {
+    /// Refuse ce qui changerait le deck pendant l'historique (`InHistory`)
+    /// ou dans l'aide (`ReadOnly`). `handle` filtre déjà les requêtes ;
+    /// l'agent, lui, appelle les méthodes directement (`TabSession::with`) :
+    /// chacune se garde avant tout changement.
+    pub(crate) fn ensure_editable(&self) -> Result<()> {
         snafu::ensure!(!matches!(self.mode, Mode::History { .. }), InHistorySnafu);
-        Ok(())
+        self.ensure_not_help()
     }
 
     /// Ouvre l'historique sur la dernière version ; le deck est mis de côté.
     pub fn history_open(&mut self) -> Result<()> {
+        self.ensure_not_help()?;
         match self.mode {
             Mode::Deck => {}
             Mode::Templates { .. } => return EditingTemplatesSnafu.fail()?,

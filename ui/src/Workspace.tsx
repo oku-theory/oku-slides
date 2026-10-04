@@ -202,6 +202,7 @@ export default function Workspace() {
       e.preventDefault();
       const ids = w.tabs.map((x) => x.id);
       if (action.kind === "new-tab") run(workspace.newTab(label));
+      else if (action.kind === "help") run(workspace.openHelp(label));
       else if (action.kind === "close-tab") {
         if (inTauri || ids.length > 1) closeTab(w.active);
       } else if (action.kind === "new-window") run(workspace.newWindow());
@@ -254,6 +255,8 @@ export default function Workspace() {
           nonce={nonce}
           notice={mergeNotice}
           onOpen={onOpen}
+          onHelp={() => run(workspace.openHelp(label))}
+          onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
           onChange={inTauri ? undefined : reread}
         />
       </div>

@@ -28,6 +28,7 @@ Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.
 | `assets/fonts` | Polices livrées (Newsreader, Instrument Sans, Inter) |
 | `typst/oku-slides` | Bibliothèque Typst de slides (structure, jetons, thèmes `papier` et `pro`) |
 | `fixtures/` | Decks d'exemple |
+| `docs/aide/` | Aide de l'app : un deck JSON par langue (fr, en), compilé dans l'app, ouvert en lecture seule (⌘?) |
 
 ## Outil en ligne de commande
 
@@ -73,6 +74,7 @@ just          # toutes les commandes
 | Suppr | Supprime l'élément sélectionné |
 | ⌘Z, ⇧⌘Z | Annuler, rétablir (un geste = une annulation) |
 | ⌘S, ⇧⌘S, ⌘O | Enregistrer, enregistrer sous, ouvrir |
+| ⌘? | Aide de l'app (deck en lecture seule, `docs/aide/`) |
 
 
 ### Grille, modèles, ordre des slides

@@ -88,6 +88,8 @@ pub struct Snapshot<'a> {
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.
     pub history: Option<HistoryView<'a>>,
+    /// L'aide de l'app : le deck se lit, il ne se modifie pas.
+    pub read_only: bool,
 }
 
 /// Un widget de pack qu'on ajoute à une slide : son nom (`kind`) et son label.
@@ -242,6 +244,9 @@ pub struct TabInfo {
     /// reconnaît sans réveiller l'onglet. Absente d'un `workspace.json` plus ancien.
     #[serde(default)]
     pub deck_uid: Option<String>,
+    /// Langue de l'aide que montre l'onglet ; `None` : un deck.
+    #[serde(default)]
+    pub help: Option<String>,
 }
 
 /// Édition d'un pack de modèles : chaque slide est un modèle.

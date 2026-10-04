@@ -35,6 +35,9 @@ export const Icon = {
   code: stroke(<><path d="M8.5 7.5L4 12l4.5 4.5" /><path d="M15.5 7.5L20 12l-4.5 4.5" /><path d="M13.5 5l-3 14" /></>),
   codeRight: stroke(<><rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M13 5v14" /></>),
   back: stroke(<><path d="M10 6l-6 6 6 6" /><path d="M4 12h16" /></>),
+  // Slide précédente, suivante (aide en lecture seule).
+  previous: stroke(<path d="M14.5 6l-6 6 6 6" />),
+  next: stroke(<path d="M9.5 6l6 6-6 6" />),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
   addRow: stroke(<><rect x="4" y="4" width="16" height="10" rx="1.5" /><path d="M4 9h16" /><path d="M12 16.5v4M10 18.5h4" /></>),
   addColumn: stroke(<><rect x="4" y="4" width="10" height="16" rx="1.5" /><path d="M9 4v16" /><path d="M16.5 12h4M18.5 10v4" /></>),

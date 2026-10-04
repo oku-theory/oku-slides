@@ -54,9 +54,10 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::Close { .. }
         | WorkspaceRequest::Reorder { .. }
         | WorkspaceRequest::CloseWindow { .. } => (true, false),
-        WorkspaceRequest::OpenTab { .. } | WorkspaceRequest::NewWindow | WorkspaceRequest::MoveTab { .. } => {
-            (true, true)
-        }
+        WorkspaceRequest::OpenTab { .. }
+        | WorkspaceRequest::OpenHelp { .. }
+        | WorkspaceRequest::NewWindow
+        | WorkspaceRequest::MoveTab { .. } => (true, true),
     }
 }
 

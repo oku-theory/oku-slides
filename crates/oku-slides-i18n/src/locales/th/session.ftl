@@ -25,6 +25,8 @@ session-unsaved = “{ $title }” มีการเปลี่ยนแปล
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }
 session-history-not-open = ไม่ได้เปิดประวัติ
 session-in-history = ปิดประวัติก่อนแก้ไขงานนำเสนอ
+session-read-only = ความช่วยเหลือเป็นแบบอ่านอย่างเดียว: แก้ไขไม่ได้
+session-help-deck = อ่านงานนำเสนอความช่วยเหลือไม่ได้
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 
 deck-untitled = ไม่มีชื่อ

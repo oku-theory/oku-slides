@@ -56,6 +56,7 @@ impl Session {
     /// d'autres pairs) ; le document devient modifié et l'avis de fusion part
     /// avec le prochain snapshot. Refusée pendant l'édition des modèles.
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
+        self.ensure_not_help()?;
         ensure!(matches!(self.mode, Mode::Deck), EditingTemplatesSnafu);
         let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);
@@ -133,7 +134,7 @@ impl Session {
     /// rien n'est écrit et le prochain snapshot le signale — sauf `overwrite`.
     pub fn save_checked(&mut self, path: Option<&Path>, overwrite: bool) -> Result<Saved> {
         // L'historique montre une version passée : elle ne s'écrit jamais.
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         let path = self.save_path(path)?;
         let on_disk = if overwrite { OnDisk::Unchanged } else { self.on_disk(&path) };
         match on_disk {
@@ -174,7 +175,7 @@ impl Session {
     /// Écrit une copie à `path` ; le document garde son fichier et ses
     /// modifications à enregistrer.
     pub fn save_copy(&mut self, path: &Path) -> Result<()> {
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         let path = self.save_path(Some(path))?;
         self.write_file(&path).map(|_| ())
     }

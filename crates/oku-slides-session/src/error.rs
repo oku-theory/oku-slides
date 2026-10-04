@@ -66,6 +66,8 @@ pub enum SessionErrorKind {
     HistoryNotOpen,
     /// Modifier, enregistrer ou fusionner pendant que l'historique est ouvert.
     InHistory,
+    /// Modifier l'aide, montrée en lecture seule.
+    ReadOnly,
     /// Nom, taille ou nombre de fichiers de widgets refusé.
     InvalidWidget,
     /// Widget utilisé par un modèle du pack.
@@ -153,6 +155,10 @@ pub(crate) enum SessionInner {
     HistoryNotOpen { backtrace: Backtrace },
     #[snafu(display("close the history first"))]
     InHistory { backtrace: Backtrace },
+    #[snafu(display("the help is read-only"))]
+    ReadOnly { backtrace: Backtrace },
+    #[snafu(display("unreadable help deck"))]
+    HelpDeck { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
     Version { source: oku_slides_core::ReplicaError, backtrace: Backtrace },
     #[snafu(display("invalid widget name: {name}"))]
@@ -217,6 +223,8 @@ impl SessionError {
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
             HistoryNotOpen { .. } => SessionErrorKind::HistoryNotOpen,
             InHistory { .. } => SessionErrorKind::InHistory,
+            ReadOnly { .. } => SessionErrorKind::ReadOnly,
+            HelpDeck { .. } => SessionErrorKind::InvalidDocument,
             InvalidWidgetName { .. }
             | WidgetTooLarge { .. }
             | WidgetHasNul { .. }
@@ -314,6 +322,8 @@ impl Localize for SessionError {
             MergeUnrelated { .. } => l.tr("replica-unrelated"),
             HistoryNotOpen { .. } => l.tr("session-history-not-open"),
             InHistory { .. } => l.tr("session-in-history"),
+            ReadOnly { .. } => l.tr("session-read-only"),
+            HelpDeck { .. } => l.tr("session-help-deck"),
             Version { source, .. } => source.localize(l),
             InvalidWidgetName { name, .. } => {
                 l.tr_with("session-invalid-widget-name", &[("name", name.as_str().into())])

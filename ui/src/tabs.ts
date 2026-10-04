@@ -33,7 +33,8 @@ type TabAction =
   | { kind: "close-tab" }
   | { kind: "new-window" }
   | { kind: "cycle"; delta: 1 | -1 }
-  | { kind: "nth"; n: number };
+  | { kind: "nth"; n: number }
+  | { kind: "help" };
 
 type Keys = Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "repeat">;
 
@@ -52,6 +53,8 @@ export function tabShortcut(e: Keys, mac: boolean): TabAction | null {
   if (letter === "t" && !e.shiftKey) return { kind: "new-tab" };
   if (letter === "w" && !e.shiftKey) return { kind: "close-tab" };
   if (letter === "n" && e.shiftKey) return { kind: "new-window" };
+  // L'aide : ⌘? comme sur macOS, ⌘/ aussi ; par caractère, où qu'il soit sur le clavier.
+  if (e.key === "?" || e.key === "/") return { kind: "help" };
   const digit = /^Digit([1-9])$/.exec(e.code);
   return digit && !e.shiftKey ? { kind: "nth", n: Number(digit[1]) } : null;
 }

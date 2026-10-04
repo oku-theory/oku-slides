@@ -61,6 +61,8 @@ type Result<T, E = ResumeError> = std::result::Result<T, E>;
 pub(crate) enum SavedMode {
     Deck,
     Templates(TemplateMode),
+    /// L'aide, dans cette langue : relue depuis l'app, aucun document gardé.
+    Help(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -584,10 +586,15 @@ impl Session {
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
+        if let SavedMode::Help(locale) = &state.mode {
+            self.open_help(locale).context(SessionSnafu)?;
+            self.ui = state.ui.sanitized(false);
+            return Ok(());
+        }
         let max = self.source_limits.replica_bytes;
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
         let templates = match state.mode {
-            SavedMode::Deck => None,
+            SavedMode::Deck | SavedMode::Help(_) => None,
             SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, &self.doc_defaults, max, &self.registry)
             {
                 Ok(doc) => Some((doc, edit)),
@@ -636,6 +643,12 @@ impl Session {
     /// journalisé, et ce document n'est pas écrit.
     pub(crate) fn persist(&mut self, documents: bool) {
         let Some(writer) = &self.resume else { return };
+        // L'aide se relit depuis l'app : seule sa langue est gardée.
+        if let Some(locale) = self.help {
+            let state = State { version: VERSION, mode: SavedMode::Help(locale.to_owned()), ui: self.ui.clone() };
+            writer.send(Job { docs: Vec::new(), state });
+            return;
+        }
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
         // onglet rouvert n'y revient pas), avec les images et polices prêtées
         // à l'aperçu.

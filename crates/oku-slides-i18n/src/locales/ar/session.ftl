@@ -25,6 +25,8 @@ session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }
 session-history-not-open = السجل غير مفتوح
 session-in-history = أغلق السجل قبل تعديل العرض التقديمي
+session-read-only = التعليمات للقراءة فقط: لا يمكن تعديلها
+session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 
 deck-untitled = بلا عنوان

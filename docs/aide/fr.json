@@ -1,0 +1,2417 @@
+{
+ "version": 3,
+ "theme": "papier",
+ "params": {
+  "title": "Aide d'Oku Slides",
+  "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
+  "author": "Oku Slides",
+  "lang": "fr",
+  "numbering": "{n} / {total}",
+  "toc-title": "Sommaire"
+ },
+ "slides": [
+  {
+   "id": "s-titre",
+   "kind": "title"
+  },
+  {
+   "id": "s-sommaire",
+   "kind": "toc"
+  },
+  {
+   "id": "s-ch-ergonomie",
+   "kind": "chapter",
+   "params": {
+    "title": "Ergonomie",
+    "subtitle": "La table de travail, l'édition, la dictée et l'agent"
+   }
+  },
+  {
+   "id": "s-table",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "La table de travail",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-table-pile",
+      "kind": "card",
+      "params": {
+       "title": "La pile",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "À gauche : les miniatures des slides. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un modèle."
+          }
+         ]
+        }
+       ],
+       "kicker": "Gauche"
+      }
+     },
+     {
+      "id": "b-table-feuille",
+      "kind": "card",
+      "params": {
+       "title": "La feuille",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Au centre : la slide, telle qu'elle sera imprimée. On y sélectionne, déplace et modifie les éléments en place."
+          }
+         ]
+        }
+       ],
+       "kicker": "Centre"
+      }
+     },
+     {
+      "id": "b-table-fil",
+      "kind": "card",
+      "params": {
+       "title": "Le fil",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "À droite : la conversation avec l'agent et le brouillon de dictée. En haut à droite, le menu de tout ce qui sert rarement."
+          }
+         ]
+        }
+       ],
+       "kicker": "Droite"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-editer",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Éditer à la main",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-editer",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Clic",
+           "bold": true
+          },
+          {
+           "t": " : sélectionne un élément, ou un champ (titre, surtitre…)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Double-clic ou Entrée",
+           "bold": true
+          },
+          {
+           "t": " : modifie le texte. Une ligne par paragraphe ; « - » en tête fait une puce."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Glisser, poignées",
+           "bold": true
+          },
+          {
+           "t": " : déplacent ou redimensionnent un élément libre, de case en case sur la grille."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Barre du bas",
+           "bold": true
+          },
+          {
+           "t": " : ajoute un texte, une carte, une forme, un graphique ou un widget du pack ; annuler, rétablir."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Copier, couper, coller",
+           "bold": true
+          },
+          {
+           "t": " : un élément, ou du texte venu d'ailleurs qui devient un élément texte."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Un geste, une annulation",
+           "bold": true
+          },
+          {
+           "t": " : ⌘Z défait le dernier geste entier, quel qu'il soit."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-grille",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Grille, modèles, thème",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-grille",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Grille",
+           "bold": true
+          },
+          {
+           "t": " : 12 × 6 cases par défaut, réglée dans le modèle. L'accrochage ne se désactive pas ; ⌘' montre les nœuds."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Ensembles de modèles",
+           "bold": true
+          },
+          {
+           "t": " : « Nouvelle slide » propose les modèles de l'ensemble du deck (Essentiel, Grilles, ou les vôtres)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Éditer les modèles",
+           "bold": true
+          },
+          {
+           "t": " : menu ▸ Modèles. Chaque modèle devient une slide ; « Terminer » ramène au deck."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Widgets",
+           "bold": true
+          },
+          {
+           "t": " : menu ▸ Éditer les widgets ouvre leur code Typst, avec un aperçu en direct."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Thème",
+           "bold": true
+          },
+          {
+           "t": " : Papier ou Pro, au menu. Il est indépendant de l'ensemble de modèles."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-dicter",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Dicter",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-dicter",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Sur la machine",
+           "bold": true
+          },
+          {
+           "t": " : Whisper tourne en local ; le modèle se télécharge une fois, au premier appui sur le micro."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Phrase par phrase",
+           "bold": true
+          },
+          {
+           "t": " : chaque pause clôt une phrase, transcrite avec le vocabulaire du deck en contexte."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Au curseur ou au brouillon",
+           "bold": true
+          },
+          {
+           "t": " : en éditant un texte, ⌘D écrit au curseur ; sinon la dictée va au brouillon."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Le brouillon",
+           "bold": true
+          },
+          {
+           "t": " : on relit, on retouche, puis Insérer (⌘⇧↩) ou Envoyer à l'agent (⌘↩). Une pause ne décide jamais à votre place."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-agent",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "L'agent",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-agent-annule",
+      "kind": "card",
+      "params": {
+       "title": "Tout s'annule",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Un tour de l'agent est une seule entrée ⌘Z. Il n'a ni fichiers ni terminal : seulement les outils d'Oku Slides."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-agent-confirme",
+      "kind": "card",
+      "params": {
+       "title": "Rien d'irréversible sans vous",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Enregistrer, ouvrir, supprimer un ensemble, changer un réglage : il demande, et il faut cliquer, jamais Entrée."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-agent-decide",
+      "kind": "card",
+      "params": {
+       "title": "Vous décidez",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Questions dans une fiche sous l'élément (1–4, Entrée, E, Échap), variantes dans un tiroir, réglages dans un post-it."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-fichiers",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Fichiers, onglets, historique",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-fichiers",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Enregistrement automatique",
+           "bold": true
+          },
+          {
+           "t": " : chaque modification part au fichier ; un deck neuf va dans Documents/Oku Slides."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Onglets",
+           "bold": true
+          },
+          {
+           "t": " : un deck par onglet, plusieurs fenêtres ; tout est retrouvé au prochain lancement."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Historique",
+           "bold": true
+          },
+          {
+           "t": " : menu ▸ Historique. Un curseur parcourt toutes les versions du fichier ; Restaurer en fait la version courante."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Fusion",
+           "bold": true
+          },
+          {
+           "t": " : deux copies du même deck, modifiées chacune de leur côté, se fusionnent sans conflit (menu ▸ Fusionner avec un PDF…)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Aide",
+           "bold": true
+          },
+          {
+           "t": " : ⌘? ouvre ce deck, en lecture seule, dans la langue de l'interface."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-ch-raccourcis",
+   "kind": "chapter",
+   "params": {
+    "title": "Raccourcis clavier",
+    "subtitle": "⌘ sur Mac, Ctrl ailleurs"
+   }
+  },
+  {
+   "id": "s-rac-document",
+   "kind": "content",
+   "params": {
+    "kicker": "Raccourcis",
+    "title": "Document et onglets",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-rac-document",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⌘O",
+           "highlight": 1
+          },
+          {
+           "t": "  Ouvrir"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘S",
+           "highlight": 1
+          },
+          {
+           "t": "  Enregistrer tout de suite"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧S",
+           "highlight": 1
+          },
+          {
+           "t": "  Enregistrer une copie"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘Z",
+           "highlight": 1
+          },
+          {
+           "t": "  Annuler"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧Z",
+           "highlight": 1
+          },
+          {
+           "t": "  Rétablir"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘?",
+           "highlight": 1
+          },
+          {
+           "t": "  Aide"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-rac-onglets",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⌘T",
+           "highlight": 1
+          },
+          {
+           "t": "  Nouvel onglet"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘W",
+           "highlight": 1
+          },
+          {
+           "t": "  Fermer l'onglet"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧N",
+           "highlight": 1
+          },
+          {
+           "t": "  Nouvelle fenêtre"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘1",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "…",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "⌘9",
+           "highlight": 1
+          },
+          {
+           "t": "  Aller à l'onglet n (9 : le dernier)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌃Tab",
+           "highlight": 1
+          },
+          {
+           "t": "  Onglet suivant"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌃⇧Tab",
+           "highlight": 1
+          },
+          {
+           "t": "  Onglet précédent"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-rac-edition",
+   "kind": "content",
+   "params": {
+    "kicker": "Raccourcis",
+    "title": "Édition",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-rac-edition",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Entrée",
+           "highlight": 1
+          },
+          {
+           "t": "  Modifier le texte de l'élément"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "Échap",
+           "highlight": 1
+          },
+          {
+           "t": "  Désélectionner"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "Suppr",
+           "highlight": 1
+          },
+          {
+           "t": "  Supprimer l'élément"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "←",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "↑",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "→",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "↓",
+           "highlight": 1
+          },
+          {
+           "t": "  Déplacer d'une case, ou de 1 pt"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⇧",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "+",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "←↑→↓",
+           "highlight": 1
+          },
+          {
+           "t": "  Déplacer de 10 pt"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-rac-slides",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⌥↑",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "⌥↓",
+           "highlight": 1
+          },
+          {
+           "t": "  Monter, descendre la slide"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘'",
+           "highlight": 1
+          },
+          {
+           "t": "  Montrer la grille"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧G",
+           "highlight": 1
+          },
+          {
+           "t": "  Montrer les fantômes"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘C",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "⌘X",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "⌘V",
+           "highlight": 1
+          },
+          {
+           "t": "  Copier, couper, coller"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-rac-voix",
+   "kind": "content",
+   "params": {
+    "kicker": "Raccourcis",
+    "title": "Dictée et agent",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-rac-dictee",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⌘D",
+           "highlight": 1
+          },
+          {
+           "t": "  Commencer, finir la dictée"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧D",
+           "highlight": 1
+          },
+          {
+           "t": "  Dicter dans le brouillon"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘K",
+           "highlight": 1
+          },
+          {
+           "t": "  Écrire une consigne"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Insérer le brouillon"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Envoyer à l'agent"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-rac-agent",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Échap",
+           "highlight": 1
+          },
+          {
+           "t": "  Abandonner l'écoute, arrêter l'agent"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧D",
+           "highlight": 1
+          },
+          {
+           "t": "  Arrêter le tour de l'agent"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "1",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "…",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "4",
+           "highlight": 1
+          },
+          {
+           "t": "  Choisir une réponse"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "E",
+           "highlight": 1
+          },
+          {
+           "t": "  Retoucher une proposition"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-rac-lecture",
+   "kind": "content",
+   "params": {
+    "kicker": "Raccourcis",
+    "title": "Historique et aide",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-rac-historique",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "←",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "→",
+           "highlight": 1
+          },
+          {
+           "t": "  Version précédente, suivante"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⇧←",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "⇧→",
+           "highlight": 1
+          },
+          {
+           "t": "  Début de session précédent, suivant"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-rac-aide",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "←",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "→",
+           "highlight": 1
+          },
+          {
+           "t": "  Slide précédente, suivante"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "Espace",
+           "highlight": 1
+          },
+          {
+           "t": "  Slide suivante"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "Début",
+           "highlight": 1
+          },
+          {
+           "t": " "
+          },
+          {
+           "t": "Fin",
+           "highlight": 1
+          },
+          {
+           "t": "  Première, dernière slide"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-ch-typst",
+   "kind": "chapter",
+   "params": {
+    "title": "Bibliothèque Typst",
+    "subtitle": "oku-slides : slides structurées, pilotées par des jetons"
+   }
+  },
+  {
+   "id": "s-typst-principes",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Les principes",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-principes",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Structure imposée",
+           "bold": true
+          },
+          {
+           "t": " : titre, sommaire, chapitres, slides de contenu avec en-tête et pied, fin."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "16:9, 1920 × 1080 pt",
+           "bold": true
+          },
+          {
+           "t": " : les cadres des éléments se donnent en points."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Jetons",
+           "bold": true
+          },
+          {
+           "t": " : tout le style passe par eux ; un thème n'est qu'un jeu de jetons."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Deux entrées",
+           "bold": true
+          },
+          {
+           "t": " : du Typst écrit à la main, ou le deck JSON de l'app via render-deck."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "typst/oku-slides",
+           "bold": true
+          },
+          {
+           "t": " : la bibliothèque, ses thèmes (papier, pro) et ses exemples."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-demarrer",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Démarrer en Typst",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-demarrer",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "#import \"lib.typ\": *"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": " "
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#show: deck.with("
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  theme: papier,"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  tokens: (color: (accent: \"#8a5a1c\")),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  title: \"Feuille de route {{annee}}\","
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  vars: (client: \"Acme\", annee: 2027),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": ")"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": " "
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#title-slide()"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#toc()"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#chapter(\"Contexte\")"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#slide(title: \"Trois priorités\", layout: \"columns\")[Fiabilité][Vitesse][Clients]"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#end-slide[Merci]"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "font": "mono",
+       "size": "caption",
+       "leading": "tight"
+      }
+     },
+     {
+      "id": "b-typst-json",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Depuis un deck JSON : "
+          },
+          {
+           "t": "#render-deck(json(\"deck.json\"), theme: papier)"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "size": "small"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-slides",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Types de slides",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-slides",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "title-slide",
+           "highlight": 1
+          },
+          {
+           "t": "  Couverture ; reprend les paramètres du deck"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "toc",
+           "highlight": 1
+          },
+          {
+           "t": "  Sommaire des chapitres, liens cliquables"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "chapter",
+           "highlight": 1
+          },
+          {
+           "t": "  Ouvre un chapitre : alimente sommaire et en-tête"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "slide",
+           "highlight": 1
+          },
+          {
+           "t": "  Contenu : default, columns, split, center, quote"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "end-slide",
+           "highlight": 1
+          },
+          {
+           "t": "  Slide de fin"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "blank-slide",
+           "highlight": 1
+          },
+          {
+           "t": "  Page libre, avec ou sans en-tête et pied"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "card",
+           "highlight": 1
+          },
+          {
+           "t": "  Carte à filet d'accent ; highlight la passe sur fond sombre"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-parametres",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Paramètres et variables",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-typst-params",
+      "kind": "card",
+      "params": {
+       "title": "Paramètres du deck",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "title, subtitle, author, date, organization, logo, lang"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "numbering : « {n} / {total} », « {n} » ou none"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "chapter-numbering, toc-title, header, footer"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-typst-vars",
+      "kind": "card",
+      "params": {
+       "title": "Variables",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "vars: (client: \"Acme\")"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "puis #var(\"client\") dans le contenu, ou {{client}} dans les titres, les paramètres et les textes JSON."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-jetons",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Jetons et thèmes",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-jetons",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Fusion en profondeur",
+           "bold": true
+          },
+          {
+           "t": " : default-tokens ← theme ← tokens."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "color, font",
+           "bold": true
+          },
+          {
+           "t": " : hex ou nom d'une autre couleur ; familles de repli."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "size, space, radius, stroke, weight, leading",
+           "bold": true
+          },
+          {
+           "t": " : en pt (em pour leading), ou nom d'un autre jeton."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "component.*",
+           "bold": true
+          },
+          {
+           "t": " : header, footer, kicker, title, title-slide, chapter, toc, card, end-slide, list, quote, columns."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Thèmes fournis",
+           "bold": true
+          },
+          {
+           "t": " : papier (Newsreader, Instrument Sans, vert sauge) et pro (Inter, navy et cyan)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-widgets",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Widgets",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-widgets",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Un composant et son schéma",
+           "bold": true
+          },
+          {
+           "t": " : chaque slide et chaque élément du deck JSON nomme son widget (kind)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "13 widgets de base",
+           "bold": true
+          },
+          {
+           "t": " : text, card, image, shape, chart, stack, canvas, title, toc, chapter, content, end, blank."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Widgets d'un pack",
+           "bold": true
+          },
+          {
+           "t": " : un fichier par widget, widgets/<nom>.typ ; le code partagé va dans widgets/_commun.typ."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Robuste",
+           "bold": true
+          },
+          {
+           "t": " : un widget qui ne compile pas est écarté avec ses diagnostics ; les autres restent."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Thème d'abord",
+           "bold": true
+          },
+          {
+           "t": " : un widget lit ses couleurs et tailles dans les jetons (color-of, size-of)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-kpi",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Déclarer un widget",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-typst-kpi",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "#import \"/oku-slides/lib.typ\": widget, field, fields-stack, params as p, color-of, size-of"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#import \"_commun.typ\": carte"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": " "
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "#let widget = widget(\"kpi\", label: \"KPI\","
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  params: (value: p.plain(default: \"42 %\"), label: p.plain(),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "           trend: p.choice(\"up\", \"down\", \"flat\")),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  (args, ctx) => carte(ctx.tokens, fields-stack(spacing: 8pt,"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "    field(ctx, \"value\", { set text(size: size-of(ctx.tokens, \"display\")); args.value }),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "    field(ctx, \"label\", { set text(size: size-of(ctx.tokens, \"body\")); args.label }),"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  )))"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "font": "mono",
+       "size": "caption",
+       "leading": "tight"
+      }
+     },
+     {
+      "id": "b-typst-kpi-note",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "render reçoit (args, ctx) ; ctx porte id, tokens, vars, style, framed et load (images, graphiques de l'hôte)."
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "size": "small"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-p",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Descripteurs de paramètres",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-typst-p1",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "p.plain",
+           "highlight": 1
+          },
+          {
+           "t": "  Une ligne ; bind la lie au deck"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.rich",
+           "highlight": 1
+          },
+          {
+           "t": "  Paragraphes à runs"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.flag",
+           "highlight": 1
+          },
+          {
+           "t": "  Booléen"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.number",
+           "highlight": 1
+          },
+          {
+           "t": "  Nombre borné (min, max)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.choice",
+           "highlight": 1
+          },
+          {
+           "t": "  Une valeur parmi une liste"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-typst-p2",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "p.asset",
+           "highlight": 1
+          },
+          {
+           "t": "  Image : sha256:…"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.slot",
+           "highlight": 1
+          },
+          {
+           "t": "  Enfants, flow ou free"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.grid",
+           "highlight": 1
+          },
+          {
+           "t": "  Grille (columns, rows, gap)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "p.host",
+           "highlight": 1
+          },
+          {
+           "t": "  Type fourni par l'hôte (chart)"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-typst-champs",
+   "kind": "content",
+   "params": {
+    "kicker": "oku-slides",
+    "title": "Champs éditables et surcharges",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-typst-field",
+      "kind": "card",
+      "params": {
+       "title": "field(ctx, name, body)",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Étiquette la boîte d'un paramètre (<oku-slides-field>) : c'est ce qui rend un texte de widget éditable en place. Pour empiler des champs, fields-stack plutôt que stack."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-typst-surcharge",
+      "kind": "card",
+      "params": {
+       "title": "Surcharger un widget de base",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Même nom, même catégorie, et chaque paramètre de base reste compatible : toute valeur valide pour la base doit le rester pour le pack."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-ch-format",
+   "kind": "chapter",
+   "params": {
+    "title": "Le format .oku-slides.pdf",
+    "subtitle": "Un PDF ordinaire qui garde ses sources"
+   }
+  },
+  {
+   "id": "s-format-principe",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Un PDF qui contient ses sources",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-format-lire",
+      "kind": "card",
+      "params": {
+       "title": "Se lit partout",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "N'importe quel lecteur PDF l'affiche et l'imprime. Les sources n'apparaissent pas dans ses pièces jointes."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-format-editer",
+      "kind": "card",
+      "params": {
+       "title": "Se rouvre pour éditer",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Oku Slides y relit le deck, ses images, ses polices et son pack de modèles, avec tout son historique."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-format-propre",
+      "kind": "card",
+      "params": {
+       "title": "Se partage propre",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "oku-slides strip en retire les sources : il reste un PDF sans historique."
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-format-piece",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Où sont rangées les sources",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-format-piece",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Catalog"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "└─ /PieceInfo"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "   └─ /OkuSlides"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "      ├─ /LastModified (D:…)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "      └─ /Private"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "         ├─ /Format (oku-slides-sources)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "         ├─ /Version 2"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "         ├─ /SHA256 (hex du zip)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "         └─ /Sources → flux = zip des sources"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "font": "mono",
+       "size": "caption",
+       "leading": "tight"
+      }
+     },
+     {
+      "id": "b-format-piece-note",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Le dictionnaire de pièce de page du catalogue (ISO 32000, § 14.5) : un flux privé, vérifié par son empreinte SHA-256."
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "size": "small"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-format-zip",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Le zip des sources (version 5)",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-format-zip",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 5 }"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "deck.loro                       snapshot complet du replica Loro du deck"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "assets/<hex>                    images, telles quelles"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "fonts/<nom>                     polices, telles quelles"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "packs/<hex>/pack.json           version du pack de modèles"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "packs/<hex>/widgets/<nom>.typ   un fichier par widget, _commun compris"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "font": "mono",
+       "size": "caption",
+       "leading": "tight"
+      }
+     },
+     {
+      "id": "b-format-zip-note",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "<hex> : SHA-256 du contenu. Une image s'appelle sha256:<hex> dans le deck."
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "size": "small"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-format-loro",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Le deck est un CRDT Loro",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-format-loro",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Historique dans le fichier",
+           "bold": true
+          },
+          {
+           "t": " : chaque version passée se revoit et se restaure à partir du seul PDF."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Fusion sans conflit",
+           "bold": true
+          },
+          {
+           "t": " : deux copies modifiées séparément se recombinent ; un PDF changé sur disque est fusionné à l'enregistrement."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Le JSON n'est qu'une vue",
+           "bold": true
+          },
+          {
+           "t": " : le deck JSON v3 est la relecture canonique du replica."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Quatre sortes de champs",
+           "bold": true
+          },
+          {
+           "t": " : listes ordonnées à id, prose, prose riche à marques, et le reste en dernier écrivain gagne."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-format-json",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Le deck JSON (version 3)",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-format-json",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "{"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  \"version\": 3, \"theme\": \"papier\","
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  \"params\": { \"title\": \"Feuille de route\", \"author\": \"Matthieu\" },"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  \"vars\": { \"client\": \"Acme\" },"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  \"slides\": ["
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "    { \"id\": \"s1\", \"kind\": \"title\" },"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "    { \"id\": \"s2\", \"kind\": \"content\", \"params\": { \"title\": \"Priorités\","
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "      \"blocks\": [ { \"id\": \"b1\", \"kind\": \"text\", \"params\": { \"body\": ["
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "        { \"list\": \"bullet\", \"runs\": [ { \"t\": \"Fiabilité\", \"bold\": true } ] } ] } } ] } }"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "  ]"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "}"
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "font": "mono",
+       "size": "caption",
+       "leading": "tight"
+      }
+     },
+     {
+      "id": "b-format-json-note",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Un élément libre porte un frame { x, y, w, h } en pt, ou une cell de la grille. Le schéma des opérations : oku-slides schema."
+          }
+         ]
+        }
+       ]
+      },
+      "style": {
+       "size": "small"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-format-versions",
+   "kind": "content",
+   "params": {
+    "kicker": ".oku-slides.pdf",
+    "title": "Versions, limites, outils",
+    "layout": "columns",
+    "blocks": [
+     {
+      "id": "b-format-versions",
+      "kind": "card",
+      "params": {
+       "title": "Versions",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Enveloppe /Version 2, zip version 5. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-format-limites",
+      "kind": "card",
+      "params": {
+       "title": "Limites",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Historique : 32 Mio ; sources décompressées : 256 Mio. Réglables dans [sources] de config.toml."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "b-format-outils",
+      "kind": "card",
+      "params": {
+       "title": "En ligne de commande",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "oku-slides check | render | save | open | strip | schema"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-fin",
+   "kind": "end",
+   "params": {
+    "text": "Bonnes présentations"
+   }
+  }
+ ]
+}

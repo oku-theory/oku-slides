@@ -43,6 +43,7 @@ import { answerTarget, quickTarget, useQuickKeys } from "./agent/useQuickKeys";
 import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
+import HelpBar from "./HelpBar";
 import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
 import { useHostSettings } from "./useHostSettings";
@@ -98,7 +99,7 @@ function TitleField({ value, display, onCommit }: { value: string; display: stri
 }
 
 /** Un onglet : le deck de la session `tab`. */
-export default function App({ tab, nonce, notice, onOpen, onChange }: {
+export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onChange }: {
   tab: string;
   /** Change à chaque vue diffusée : le snapshot est relu (un avis a pu arriver). */
   nonce: number;
@@ -106,6 +107,10 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   notice?: string | null;
   /** Ouvrir un fichier : l'espace de travail choisit l'onglet. */
   onOpen: (path: string) => void;
+  /** Montrer l'aide de l'app : l'espace de travail ouvre (ou retrouve) son onglet. */
+  onHelp: () => void;
+  /** Fermer cet onglet (bandeau de l'aide) ; absent : le dernier onglet reste. */
+  onClose?: () => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
   onChange?: () => void;
 }) {
@@ -171,7 +176,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
-    blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history,
+    blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
   const widgetActive = !!snap?.editing && widgets.tabs.active !== null;
 
@@ -227,7 +232,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   const clip = useRef<{ element: Element; text: string } | null>(null);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || widgetActive || !view || snap?.history || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
+    const skip = (e: ClipboardEvent) => editing || picking || widgetActive || !view || snap?.history || snap?.read_only || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected) return false;
       const element = findElement(view.slide, selected);
@@ -528,6 +533,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
       if (modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
+      // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
+      if (snap?.read_only) return;
       const mod = e.metaKey || e.ctrlKey;
       // Grille et fantômes se basculent partout, historique compris.
       if (viewOptions.handleKey(e)) return;
@@ -706,6 +713,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "separator" },
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
+        { kind: "separator" },
+        { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ]
     : [
         { kind: "item", label: t("ui-toolbar-open"), shortcut: "⌘O", onSelect: open },
@@ -722,11 +731,15 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         { kind: "separator" },
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
+        { kind: "separator" },
+        { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ];
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
   const history = snap.history;
+  // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
+  const readOnly = !!history || snap.read_only;
   const noop = () => {};
 
   const pileView = (
@@ -740,11 +753,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       marks={history ? pileMarks(history.changes) : undefined}
       // Un sous-onglet widget ouvert cède la place au modèle cliqué.
       onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); widgets.activate(null); }}
-      onMove={history ? undefined : moveSlide}
-      onAdd={history ? undefined : addSlide}
+      onMove={readOnly ? undefined : moveSlide}
+      onAdd={readOnly ? undefined : addSlide}
       removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
       canRemove={canRemoveSlide(snap.slides.length)}
-      onRemove={history ? undefined : removeSlide}
+      onRemove={readOnly ? undefined : removeSlide}
     />
   );
 
@@ -757,6 +770,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onRestore={() => { cursor.cancel(); run(api.historyRestore()); }}
           onBack={() => { cursor.cancel(); run(api.historyClose()); }}
         />
+      ) : snap.read_only ? (
+        <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} onClose={onClose} />
       ) : (<>
       {snap.pack_notice && (
         <PackNoticeBar
@@ -855,7 +870,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       ) : pileView}
 
       {/* La feuille, posée au centre. */}
-      <main className={`sheet-area${history ? " read-only" : ""}`}>
+      <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
         <div id="templates-panel" className="templates-panel" role={snap.editing ? "tabpanel" : undefined} aria-labelledby={snap.editing ? "widget-tab-0" : undefined} hidden={widgetActive}>
         {view && view.slide.id === current ? (
@@ -863,19 +878,20 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             ref={stage}
             view={view}
             svgUrl={cur ? svgs.svg(cur.id, cur.hash) : null}
-            selected={history ? null : selected}
-            editing={history ? null : editing}
-            onSelect={history ? noop : setSelected}
-            onEdit={history ? noop : setEditing}
-            onApply={history ? noop : apply}
-            readOnly={!!history}
+            selected={readOnly ? null : selected}
+            editing={readOnly ? null : editing}
+            onSelect={readOnly ? noop : setSelected}
+            onEdit={readOnly ? noop : setEditing}
+            onApply={readOnly ? noop : apply}
+            readOnly={readOnly}
             templates={!!snap.editing}
             packWidgets={packWidgets}
             onOpenWidget={(name) => void widgets.enterAndOpen(editTemplates, name)}
             onNotice={(m) => say(m, true)}
             dictated={dictated}
-            showGridAlways={viewOptions.grid}
-            showGhosts={viewOptions.ghosts}
+            // L'aide se lit comme une présentation : sans grille ni fantômes.
+            showGridAlways={viewOptions.grid && !snap.read_only}
+            showGhosts={viewOptions.ghosts && !snap.read_only}
             overlay={
               sheet?.anchor
                 ? {
@@ -905,7 +921,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       {/* Cartes à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
         {/* Données du graphique sélectionné : hors de la feuille, pour ne rien masquer. */}
-        {view && !history && selectedElement?.kind === "chart" && (
+        {view && !readOnly && selectedElement?.kind === "chart" && (
           <ChartPanel
             slide={view.slide.id}
             element={selectedElement}
@@ -914,6 +930,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
           />
         )}
+        {!snap.read_only && (<>
         <SlideThumbsContext.Provider value={slideThumbs}>
           <AgentThread
             state={agentState}
@@ -938,6 +955,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           onSend={sendDraft}
           onDiscard={closeDraft}
         />
+        </>)}
       </aside>
 
       {/* Entre pile et feuille, entre feuille et fil : de quoi régler les largeurs. */}
@@ -945,7 +963,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
       {/* Appareil de dictée, posé devant la feuille. */}
       {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}
-      <Dictation
+      {!snap.read_only && <Dictation
         destination={destination}
         vocabulary={dictationVocabulary}
         onText={onDictated}
@@ -953,7 +971,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         agentBusy={busy}
         onAgentCancel={cancelAgent}
         onType={typeDraft}
-      />
+      />}
 
       {picking && (
         <TemplatePicker

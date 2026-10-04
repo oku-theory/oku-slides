@@ -25,6 +25,8 @@ session-unsaved = “{ $title }”에 저장하지 않은 변경 사항이 있�
 session-bad-request = 잘못된 요청입니다: { $reason }
 session-history-not-open = 기록이 열려 있지 않습니다
 session-in-history = 프레젠테이션을 변경하기 전에 기록을 닫으세요
+session-read-only = 도움말은 읽기 전용입니다: 변경할 수 없습니다
+session-help-deck = 도움말 프레젠테이션을 읽을 수 없습니다
 session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
 
 deck-untitled = 제목 없음

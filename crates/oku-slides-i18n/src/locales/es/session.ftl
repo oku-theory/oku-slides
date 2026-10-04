@@ -25,6 +25,8 @@ session-unsaved = «{ $title }» tiene cambios sin guardar.
 session-bad-request = Solicitud no válida: { $reason }
 session-history-not-open = El historial no está abierto
 session-in-history = Cierre el historial antes de modificar la presentación
+session-read-only = La ayuda es de solo lectura: no se puede modificar
+session-help-deck = No se puede leer la presentación de ayuda
 session-agent-form = La solicitud del agente no es válida: { $reason }
 
 deck-untitled = Sin título

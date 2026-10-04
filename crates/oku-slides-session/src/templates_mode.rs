@@ -82,10 +82,8 @@ impl Session {
     /// deck garde son thème, ses jetons et ses variables ; les modèles ne
     /// portent pas d'assets (un pack n'en enregistre pas).
     pub fn edit_templates(&mut self, id: Uuid) -> Result<()> {
-        if matches!(self.mode, Mode::History { .. }) {
-            // L'historique ouvert se ferme d'abord (`handle` refuse avant d'arriver ici).
-            return InHistorySnafu.fail()?;
-        }
+        // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais aux modèles.
+        self.ensure_editable()?;
         let stored = self.library.current_version(id).context(UnknownPackSnafu { id })?;
         let r = PackRef { id, version: stored.version.clone() };
         let slides = stored.manifest.templates.iter().cloned().map(template_slide).collect();

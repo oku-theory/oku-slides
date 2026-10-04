@@ -25,6 +25,8 @@ session-unsaved = “{ $title }” has unsaved changes.
 session-bad-request = Invalid request: { $reason }
 session-history-not-open = The history is not open
 session-in-history = Close the history before changing the presentation
+session-read-only = The help is read-only: it cannot be changed
+session-help-deck = The help presentation is unreadable
 session-agent-form = The agent's request is invalid: { $reason }
 
 deck-untitled = Untitled

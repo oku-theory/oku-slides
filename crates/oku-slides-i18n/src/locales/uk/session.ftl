@@ -25,6 +25,8 @@ session-unsaved = У «{ $title }» є незбережені зміни.
 session-bad-request = Недопустимий запит: { $reason }
 session-history-not-open = Історію не відкрито
 session-in-history = Закрийте історію, перш ніж змінювати презентацію
+session-read-only = Довідка лише для читання: її не можна змінити
+session-help-deck = Не вдається прочитати презентацію довідки
 session-agent-form = Запит агента недійсний: { $reason }
 
 deck-untitled = Без назви

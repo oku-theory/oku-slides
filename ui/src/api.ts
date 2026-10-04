@@ -72,6 +72,8 @@ export interface Snapshot {
   widget_trials: number;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
+  /** L'aide de l'app : le deck se lit, il ne se modifie pas. */
+  read_only: boolean;
   ui: UiState;
 }
 
@@ -656,6 +658,7 @@ type WorkspaceRequest =
   | { cmd: "set_scheme"; scheme: "light" | "dark" | null }
   | { cmd: "new_tab"; window: string }
   | { cmd: "open_tab"; window: string; path: string }
+  | { cmd: "open_help"; window: string }
   | { cmd: "same_deck"; path: string }
   | { cmd: "activate"; tab: string }
   | { cmd: "close"; tab: string; discard: boolean }
@@ -678,6 +681,8 @@ export const workspace = {
   setScheme: (scheme: "light" | "dark" | null) => ws<SchemeSetting>({ cmd: "set_scheme", scheme }),
   newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
   openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
+  /** L'aide de l'app, en lecture seule : son onglet s'il est ouvert, sinon un nouveau. */
+  openHelp: (window: string) => ws<WorkspaceView>({ cmd: "open_help", window }),
   /** L'onglet qui tient déjà le deck de `path` sous un autre fichier ; ne change rien. */
   sameDeck: (path: string) => ws<{ tab: string | null; title: string | null }>({ cmd: "same_deck", path }),
   activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),

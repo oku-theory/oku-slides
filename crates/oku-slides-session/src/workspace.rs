@@ -91,6 +91,12 @@ pub enum WorkspaceRequest {
         /// Le fichier (normalisé à la réception).
         path: PathBuf,
     },
+    /// L'aide de l'app, en lecture seule, dans la langue de l'interface :
+    /// son onglet s'il est déjà ouvert, sinon un nouvel onglet.
+    OpenHelp {
+        /// Fenêtre d'arrivée d'un nouvel onglet.
+        window: String,
+    },
     /// L'onglet qui tient déjà le deck de `path` sous un autre fichier :
     /// `{ "tab": "t-3" | null, "title": … | null }` ; ne change rien.
     SameDeck {
@@ -306,6 +312,8 @@ struct Pending {
     path: Option<PathBuf>,
     /// Onglet vierge à fermer une fois le nouveau prêt.
     replace: Option<String>,
+    /// Langue de l'aide à montrer à la place d'un deck.
+    help: Option<&'static str>,
     fonts: Fonts,
     platform: Platform,
     dir: Option<PathBuf>,
@@ -320,6 +328,9 @@ impl Pending {
         let mut session = tab_session(&self.fonts, &self.platform)?;
         if let Some(path) = &self.path {
             session.open(path)?;
+        }
+        if let Some(locale) = self.help {
+            session.open_help(locale)?;
         }
         if let Some(dir) = &self.dir
             && !session.resume_fresh(dir.join(TABS_DIR).join(&self.id))
@@ -634,6 +645,20 @@ impl Workspace {
                     let active = w.layout.windows[w.window_index(&window)?].active.clone();
                     w.pending(Some(window), Some(path), Some(active))
                 }
+                WorkspaceRequest::OpenHelp { window } => {
+                    // Comme `OpenTab` : refusé une fois la fin engagée.
+                    if w.is_closed() {
+                        return Err(UnknownWindowSnafu { label: window }.build().into());
+                    }
+                    let locale = w.help_language();
+                    if let Some(id) = w.tab_with_help(locale) {
+                        w.activate(&id)?;
+                        w.save_layout();
+                        return w.view_json().map(WorkspaceOutcome::Applied);
+                    }
+                    w.window_index(&window)?;
+                    w.help_pending(window, locale)
+                }
                 WorkspaceRequest::NewWindow => w.pending(None, None, None),
                 WorkspaceRequest::CloseWindow { window, discard } => {
                     let idx = w.window_index(&window)?;
@@ -670,7 +695,7 @@ impl Workspace {
     /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
     /// rend aussi l'onglet du fichier (le nouveau, ou celui qui l'avait déjà).
     fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<(WorkspaceOutcome, String)> {
-        let Pending { id, window, path, replace, .. } = pending;
+        let Pending { id, window, path, replace, help, .. } = pending;
         let mut w = Self::lock(ws);
         // `settle` passé pendant la construction : refusé comme avant elle ;
         // la session construite pour rien part à la corbeille.
@@ -682,7 +707,10 @@ impl Workspace {
         }
         // Le même fichier a pu être ouvert pendant la construction (Finder et
         // seconde instance, double clic) : le premier onglet reste, seul.
-        if let Some(existing) = path.as_deref().and_then(|p| w.tab_with_path(p)) {
+        // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
+        let existing =
+            path.as_deref().and_then(|p| w.tab_with_path(p)).or_else(|| help.and_then(|l| w.tab_with_help(l)));
+        if let Some(existing) = existing {
             let activated = w.activate(&existing);
             w.save_layout();
             let (json, trash) = (w.view_json(), w.trash());
@@ -800,6 +828,7 @@ impl Workspace {
             window,
             path,
             replace,
+            help: None,
             fonts: self.fonts.clone(),
             platform: self.platform.clone(),
             dir: self.dir.clone(),
@@ -833,6 +862,7 @@ impl Workspace {
             | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
+            | WorkspaceRequest::OpenHelp { .. }
             | WorkspaceRequest::NewWindow
             // Traitée directement dans `apply` (décision atomique de la
             // dernière fenêtre, sous le même verrou) : jamais atteinte ici.
@@ -904,6 +934,9 @@ mod same_deck;
 
 #[path = "workspace_scheme.rs"]
 mod scheme;
+
+#[path = "workspace_help.rs"]
+mod help;
 
 #[path = "workspace_agent.rs"]
 mod agent;

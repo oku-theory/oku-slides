@@ -185,7 +185,7 @@ impl Session {
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         // `set_templates` à `null` : le pack par défaut, référencé dans sa version courante.
         for op in &mut ops {
             if let Op::SetTemplates { templates: t @ None } = op {

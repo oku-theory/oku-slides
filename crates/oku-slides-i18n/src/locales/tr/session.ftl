@@ -25,6 +25,8 @@ session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }
 session-history-not-open = Geçmiş açık değil
 session-in-history = Sunumu değiştirmeden önce geçmişi kapatın
+session-read-only = Yardım salt okunurdur: değiştirilemez
+session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 
 deck-untitled = Adsız

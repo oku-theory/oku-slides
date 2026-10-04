@@ -216,6 +216,7 @@ impl Session {
     /// rendu du deck en échec ne change rien en mode deck, et laisse la
     /// version écrite en mode modèles : ses diagnostics sont dans le statut.
     pub fn set_widget(&mut self, name: &str, source: String) -> Result<WidgetChange> {
+        self.ensure_editable()?;
         let name = parse_name(name)?;
         let removing = source.is_empty();
         let t = self.widget_target()?;
@@ -351,7 +352,7 @@ impl Session {
     /// widgets écartés se tait pendant l'écriture : le panneau et l'agent
     /// ont les statuts.
     fn commit_widgets(&mut self, t: &WidgetTarget, widgets: BTreeMap<WidgetFile, String>) -> Result<Committed> {
-        ensure!(!matches!(self.mode, Mode::History { .. }), InHistorySnafu);
+        self.ensure_editable()?;
         if widgets == *t.files.widgets() {
             return Ok((self.statuses(&t.version, &widgets)?, Vec::new()));
         }

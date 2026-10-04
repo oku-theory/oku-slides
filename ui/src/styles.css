@@ -732,6 +732,11 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .history-title { font: 500 16px/22px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-version .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-actions { display: flex; gap: var(--space-2); }
+/* L'aide : le même bandeau, sans curseur des versions. */
+.help-bar { grid-template-columns: minmax(0, 1fr) auto; }
+/* Ni agent ni dictée dans l'aide : la feuille prend la place du fil. */
+.table:has(> .help-bar) { grid-template-columns: var(--pile-w) minmax(0, 1fr) var(--space-6); }
+.table:has(> .help-bar) > .notes, .table:has(> .help-bar) > .col-divider[data-side="notes"] { display: none; }
 /* ---- Bandeau du pack : une barre sous le titre, sur toute la largeur ---- */
 /* Une rangée de plus sur la table, entre le titre et la feuille ; la pile et le fil commencent dessous. */
 .table:has(> .pack-notice) {

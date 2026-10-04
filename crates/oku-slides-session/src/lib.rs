@@ -43,6 +43,7 @@ mod deck_widgets;
 mod error;
 mod fields;
 mod files;
+mod help;
 mod history;
 mod inline;
 #[cfg(test)]
@@ -73,7 +74,7 @@ pub use appearance::{Appearance, appearance};
 pub use deck_pack::adopt_default_pack;
 use error::{
     BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, InHistorySnafu, NoChartSnafu, NoSlideSnafu,
-    NotRenderedSnafu, PdfSnafu, RegistrySnafu, RenderSnafu, ResponseSnafu, SourcesSnafu, WriteSnafu,
+    NotRenderedSnafu, PdfSnafu, ReadOnlySnafu, RegistrySnafu, RenderSnafu, ResponseSnafu, SourcesSnafu, WriteSnafu,
 };
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
@@ -156,6 +157,8 @@ pub(crate) enum Mode {
 pub struct Session {
     doc: Document,
     mode: Mode,
+    /// Langue de l'aide montrée en lecture seule ; `None` : un deck à éditer.
+    help: Option<&'static str>,
     library: Library,
     /// Où s'enregistre un deck sans fichier ; `None` : il faut choisir (CLI, tests).
     decks_dir: Option<PathBuf>,
@@ -293,6 +296,7 @@ impl Session {
         let mut s = Self {
             doc: Document { blank: true, ..Document::new(blank, None, &doc_defaults) },
             mode: Mode::Deck,
+            help: None,
             library,
             decks_dir: None,
             storage,
@@ -427,12 +431,14 @@ impl Session {
             editing_templates: self.editing().is_some(),
             path: deck.path.as_deref().map(oku_slides_platform::storage::resolve),
             pristine: matches!(self.mode, Mode::Deck)
+                && self.help.is_none()
                 && deck.blank
                 && deck.path.is_none()
                 && !deck.dirty
                 && !deck.sources.replica().can_undo()
                 && !deck.sources.replica().can_redo(),
             deck_uid: Some(deck.sources.replica().deck_uid()),
+            help: self.help.map(str::to_owned),
         }
     }
 
@@ -490,6 +496,10 @@ impl Session {
         }
         if matches!(self.mode, Mode::History { .. }) && req.edits() {
             return InHistorySnafu.fail()?;
+        }
+        // L'aide ne change ni le deck ni la bibliothèque : ni historique, ni pack courant.
+        if self.help.is_some() && (req.edits() || matches!(req, Request::HistoryOpen | Request::PackMakeCurrent)) {
+            return ReadOnlySnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
@@ -603,7 +613,7 @@ impl Session {
 
     /// Charge un document (déjà lu) dans la session.
     pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         self.load_document(Document::new(sources, path, &self.doc_defaults))
     }
 
@@ -751,7 +761,7 @@ impl Session {
     /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn undo(&mut self) -> Result<()> {
         self.end_widget_session();
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.sync_widgets()?;
@@ -763,7 +773,7 @@ impl Session {
     /// Rétablit par le replica ; un rendu raté garde l'état et remonte l'erreur.
     pub fn redo(&mut self) -> Result<()> {
         self.end_widget_session();
-        self.ensure_not_in_history()?;
+        self.ensure_editable()?;
         if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.sync_widgets()?;
@@ -832,6 +842,7 @@ impl Session {
                 Mode::History { history, .. } => Some(history.view()),
                 _ => None,
             },
+            read_only: self.help.is_some(),
         }
     }
 

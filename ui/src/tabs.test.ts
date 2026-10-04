@@ -63,6 +63,15 @@ describe("barre d'onglets", () => {
     expect(tabShortcut(key("KeyZ", "w", { metaKey: true }), true)).toEqual({ kind: "close-tab" });
   });
 
+  test("tabShortcut reconnaît ⌘? (QWERTY : ⌘⇧/) et ⌘/ pour l'aide", () => {
+    expect(tabShortcut(key("Slash", "?", { metaKey: true, shiftKey: true }), true)).toEqual({ kind: "help" });
+    expect(tabShortcut(key("Slash", "/", { metaKey: true }), true)).toEqual({ kind: "help" });
+  });
+
+  test("tabShortcut en AZERTY : ⌘? se tape sur la touche physique KeyM", () => {
+    expect(tabShortcut(key("KeyM", "?", { metaKey: true, shiftKey: true }), true)).toEqual({ kind: "help" });
+  });
+
   test("tabShortcut ignore les répétitions, Alt, ⌘⇧T et ⌘⇧W", () => {
     expect(tabShortcut(key("KeyW", "w", { metaKey: true, repeat: true }), true)).toBeNull();
     expect(tabShortcut(key("KeyT", "t", { metaKey: true, altKey: true }), true)).toBeNull();

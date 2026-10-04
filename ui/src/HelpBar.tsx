@@ -1,0 +1,56 @@
+// Bandeau de l'aide : le deck livré avec l'app, en lecture seule. Il dit où
+// l'on est, fait passer d'une slide à l'autre (boutons et clavier) et ferme
+// l'onglet. Même habit que le bandeau de l'historique (`history-bar`).
+
+import { useEffect, useRef } from "react";
+import { helpStep, helpTarget } from "./helpNav";
+import { t } from "./i18n";
+import { Icon } from "./icons";
+
+const TEXT_ENTRY = "input, textarea, select, [contenteditable]";
+
+export default function HelpBar({ title, slides, current, onShow, onClose }: {
+  title: string;
+  slides: readonly { id: string }[];
+  /** Slide montrée ; `null` avant la première. */
+  current: string | null;
+  onShow: (id: string) => void;
+  /** Fermer l'onglet ; absent : il ne se ferme pas d'ici (le dernier onglet reste). */
+  onClose?: () => void;
+}) {
+  const index = slides.findIndex((s) => s.id === current);
+  const go = (to: number | null) => to !== null && onShow(slides[to].id);
+
+  // Les touches de navigation, sauf dans une saisie ; Espace reste au bouton qui a le focus.
+  const keys = useRef({ index, count: slides.length, go });
+  keys.current = { index, count: slides.length, go };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.defaultPrevented || target?.closest?.(TEXT_ENTRY)) return;
+      const k = keys.current;
+      const to = helpTarget(e, k.index, k.count, !!target?.closest?.("button, a, [role=button]"));
+      if (to === null) return;
+      e.preventDefault();
+      k.go(to);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const shown = Math.max(0, index);
+  return (
+    <section className="history-bar help-bar" aria-label={t("ui-help")}>
+      <div className="history-version" role="status">
+        <span className="brand">{t("ui-help")}</span>
+        <span className="history-title">{title}</span>
+        <span className="caption">{t("ui-help-caption", { index: shown + 1, count: slides.length })}</span>
+      </div>
+      <div className="history-actions">
+        <button className="object token" aria-label={t("ui-help-previous")} title={t("ui-help-previous")} disabled={helpStep(index, -1, slides.length) === null} onClick={() => go(helpStep(index, -1, slides.length))}>{Icon.previous}</button>
+        <button className="object token" aria-label={t("ui-help-next")} title={t("ui-help-next")} disabled={helpStep(index, 1, slides.length) === null} onClick={() => go(helpStep(index, 1, slides.length))}>{Icon.next}</button>
+        {onClose && <button className="object token history-back" aria-label={t("ui-help-close")} title={t("ui-help-close")} onClick={onClose}>{Icon.close}</button>}
+      </div>
+    </section>
+  );
+}

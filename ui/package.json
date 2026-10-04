@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "test": "bun test --path-ignore-patterns='**/*.render.test.tsx' && bun test .render.test.",
-    "e2e": "bun e2e/editor.cjs && bun e2e/toolbar.cjs && bun e2e/panel.cjs && bun e2e/tabs.cjs && bun e2e/agent.cjs && bun e2e/layout.cjs && bun e2e/fields.cjs && bun e2e/widget-shadow.cjs && bun e2e/widgets.cjs && bun e2e/code-layout.cjs"
+    "e2e": "bun e2e/editor.cjs && bun e2e/toolbar.cjs && bun e2e/panel.cjs && bun e2e/tabs.cjs && bun e2e/help.cjs && bun e2e/agent.cjs && bun e2e/layout.cjs && bun e2e/fields.cjs && bun e2e/widget-shadow.cjs && bun e2e/widgets.cjs && bun e2e/code-layout.cjs"
   },
   "dependencies": {
     "@a2ui/react": "0.11.1",

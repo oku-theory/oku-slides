@@ -9,6 +9,8 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   `UndoManager`, non persistée), ses modèles, sa reprise (`resume.rs`, fil `resume_writer.rs`).
   `Mode::{Templates, History}` mettent le deck de côté (`stash`) : `templates_mode.rs`, `history.rs`
   (`HistoryOpen/Seek/Restore/Close/Versions` ; restaurer = un commit annulable ; refus `HistoryNotOpen` / `InHistory`).
+  `help.rs` : l'aide (`docs/aide/<langue>.json`, pack par défaut livré) en lecture seule ; chaque
+  méthode qui modifie se garde (`ensure_editable` : `InHistory` / `ReadOnly`) ; `workspace_help.rs` : `OpenHelp`.
 - `deck_widgets.rs` : la base surchargée par les widgets **valides** de la version embarquée
   (`SourceBundle.packs[deck.templates.version]`, jamais la bibliothèque ; sonde par fichier, avis
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
