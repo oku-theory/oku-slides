@@ -42,13 +42,17 @@ Reproduit par `set_widget_by_agent_in_templates_turn_can_be_undone`
    La bibliothèque garde « une version par séance » à l'écriture
    (`replace_version`) ; une version atteinte par annuler ou rétablir y est
    remise (`add_version`, sans effet si elle y est). Le deck mis de côté
-   garde sa règle actuelle (fusionnée → retirée de ses sources).
+   garde sa règle actuelle (fusionnée → retirée de ses sources). Une
+   version devenue inaccessible après une nouvelle écriture reste dans la
+   bibliothèque (pas de nettoyage, accepté).
 5. **Le deck mis de côté suit le document des modèles.** Après un annuler
    ou un rétablir en mode modèles qui change la version du pack, le deck
    mis de côté passe à cette version (`apply` avec la même clé de séance) :
    à la fermeture, le deck embarque la version que l'utilisateur voyait.
 6. **La bibliothèque garde la version créée** à l'annulation (comme en mode
-   deck) : annuler ne change pas sa version courante.
+   deck) : annuler ne change pas sa version courante. Après un annuler, la version
+   courante de la bibliothèque reste donc celle qui a été annulée : rouvrir
+   les modèles montre cette version, comme en mode deck.
 7. **Interface : rien à ajouter.** `useTemplateWidgets` relit les fichiers
    quand `editing.base` change (`revision`) ; avec la décision 3, un annuler
    recharge les onglets de widgets.

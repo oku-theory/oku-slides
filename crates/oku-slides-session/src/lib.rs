@@ -768,6 +768,7 @@ impl Session {
         self.ensure_editable()?;
         if self.doc.sources.undo().context(SourcesSnafu)? {
             self.doc.dirty = true;
+            self.realign_templates()?;
             self.sync_widgets()?;
             self.rerender()?;
         }
@@ -780,6 +781,7 @@ impl Session {
         self.ensure_editable()?;
         if self.doc.sources.redo().context(SourcesSnafu)? {
             self.doc.dirty = true;
+            self.realign_templates()?;
             self.sync_widgets()?;
             self.rerender()?;
         }

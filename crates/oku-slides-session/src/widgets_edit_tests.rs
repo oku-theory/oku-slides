@@ -224,12 +224,14 @@ fn set_widget_with_the_same_source_commits_nothing() {
 }
 
 #[test]
-fn successive_writes_in_templates_mode_keep_only_the_session_version_in_the_sources() {
+fn successive_writes_in_templates_mode_keep_only_the_session_version_in_the_stash_sources() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let count = |s: &Session| {
         let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
-        (s.doc.sources.packs.len(), stash.sources.packs.len())
+        // Le document des modèles garde ses versions (une étape peut y ramener) ;
+        // le deck mis de côté, lui, n'a que celle de la séance.
+        stash.sources.packs.len()
     };
     s.set_widget("kpi", KPI.into()).unwrap();
     let first = count(&s);
@@ -363,4 +365,110 @@ fn set_widget_by_agent_deleting_leaves_no_mark() {
     s.set_widget_by_agent("quote", String::new()).unwrap();
     user_write(&mut s, QUOTE.into());
     assert_that!(notes(&mut s).contains("after you")).is_false();
+}
+
+#[test]
+fn set_widget_by_agent_in_templates_turn_can_be_undone() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.begin_turn("widget kpi");
+    s.set_widget_by_agent("kpi", KPI.into()).unwrap();
+    s.end_turn();
+    assert_that!(s.snapshot().can_undo).is_true();
+}
+
+#[test]
+fn two_widget_writes_in_templates_turn_are_one_step_labelled_by_the_turn() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.begin_turn("deux écritures");
+    s.set_widget_by_agent("kpi", KPI.into()).unwrap();
+    s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
+    s.end_turn();
+    assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : deux écritures"));
+}
+
+#[test]
+fn two_widget_writes_in_templates_mode_outside_a_turn_merge_into_one_step() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("kpi", KPI.into()).unwrap();
+    let steps = s.doc.sources.undo_steps();
+    s.set_widget("kpi", KPI_V2.into()).unwrap();
+    assert_that!(s.doc.sources.undo_steps()).is_equal_to(steps);
+}
+
+/// Une écriture hors tour (V1), puis un tour de l'agent (V2) ; rend la base V1.
+fn written_then_agent_turn(s: &mut Session) -> oku_slides_core::PackVersion {
+    s.set_widget("kpi", KPI.into()).unwrap();
+    let v1 = s.snapshot().editing.unwrap().base.clone();
+    s.begin_turn("v2");
+    s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
+    s.end_turn();
+    v1
+}
+
+#[test]
+fn undo_of_a_templates_turn_restores_the_widget_source() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    written_then_agent_turn(&mut s);
+    s.undo().unwrap();
+    assert_that!(s.widget_source("kpi").unwrap()).is_equal_to(KPI.to_owned());
+}
+
+#[test]
+fn undo_of_a_templates_turn_brings_the_replaced_version_back_to_the_library() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    let v1 = written_then_agent_turn(&mut s);
+    s.undo().unwrap();
+    assert_that!(crate::test_support::library_of(&s).version(DEFAULT_PACK, &v1).is_some()).is_true();
+}
+
+#[test]
+fn redo_of_a_templates_turn_restores_the_turn_source() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    written_then_agent_turn(&mut s);
+    s.undo().unwrap();
+    s.redo().unwrap();
+    assert_that!(s.widget_source("kpi").unwrap()).is_equal_to(KPI_V2.to_owned());
+}
+
+#[test]
+fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    let parent = s.snapshot().editing.unwrap().parent.clone();
+    s.begin_turn("kpi");
+    s.set_widget_by_agent("kpi", KPI.into()).unwrap();
+    s.end_turn();
+    s.undo().unwrap();
+    s.close_templates().unwrap();
+    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(parent);
+}
+
+#[test]
+fn undo_to_the_parent_clears_the_session_version() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.begin_turn("kpi");
+    s.set_widget_by_agent("kpi", KPI.into()).unwrap();
+    s.end_turn();
+    s.undo().unwrap();
+    assert_that!(s.snapshot().editing.unwrap().session_version).is_none();
+}
+
+#[test]
+fn undo_of_a_widget_write_made_before_a_silent_save_restores_its_source() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = editing(data.path());
+    s.set_widget("kpi", KPI.into()).unwrap();
+    s.begin_turn("v2");
+    s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
+    s.end_turn();
+    s.save_templates(false).unwrap();
+    s.undo().unwrap();
+    assert_that!(s.widget_source("kpi").unwrap()).is_equal_to(KPI.to_owned());
 }

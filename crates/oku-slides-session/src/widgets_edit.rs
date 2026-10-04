@@ -3,8 +3,9 @@
 //! Le pack en cours : en mode modèles, la dernière version enregistrée du
 //! pack édité (`TemplateMode::base`) ; sinon celle qu'embarque le deck.
 //! Chaque modification produit une version selon la règle de t-328 (une
-//! version par séance) : `adopt_session_version` en mode modèles,
-//! `commit_deck_widgets` (`widgets_deck.rs`) en mode deck.
+//! version par séance) : `adopt_session_version` en mode modèles (une étape
+//! d'annulation du document des modèles), `commit_deck_widgets`
+//! (`widgets_deck.rs`) en mode deck.
 //!
 //! Limites (`[render]`) : `max_widget_kib` par fichier, `max_widgets`
 //! fichiers par version, `_commun` compris. Un fichier vide vaut absent :
@@ -380,9 +381,10 @@ impl Session {
             Mode::Templates { edit, .. } => {
                 let edit = edit.clone();
                 manifest.parent = edit.parent.clone();
+                let label = self.localizer.tr_with("widgets-edit-label", &[("name", manifest.name.as_str().into())]);
                 let files = manifest.to_files(widgets).context(PackJsonSnafu { id: t.id })?;
                 let deck = self.doc.sources.deck().clone();
-                self.adopt_session_version(deck, files, &edit, false)?;
+                self.adopt_session_version(deck, files, &edit, false, Some(&label))?;
                 match self.rerender() {
                     Ok(()) => Ok(Vec::new()),
                     Err(e) if e.render_error().is_some() => Ok(render_diagnostics(&e)),

@@ -64,7 +64,7 @@ async fn set_widget_on_common_reports_diagnostics_and_broken_widgets() {
 async fn widget_tools_work_in_templates_mode_and_remove_refuses_a_used_widget() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10" })).await;
+    call(&c, "edit_templates", json!({ "set": SET })).await;
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     assert_that!(call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await.is_error)
         .is_not_equal_to(Some(true));
@@ -228,4 +228,24 @@ async fn set_widget_refused_emits_no_widget_touched() {
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget", json!({ "name": "kpi", "source": "a\0b" })).await;
     assert_that!(touched(&mut rx)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_twice_in_a_templates_turn_is_one_undo_step() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_templates", json!({ "set": SET })).await;
+    h.session.lock().unwrap().begin_turn("deux widgets");
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    let session = std::sync::Arc::clone(&h.session);
+    tokio::task::spawn_blocking(move || {
+        let mut s = session.lock().unwrap();
+        s.end_turn();
+        assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : deux widgets"));
+        s.undo().unwrap();
+        assert_that!(s.snapshot().can_undo).is_false();
+    })
+    .await
+    .unwrap();
 }

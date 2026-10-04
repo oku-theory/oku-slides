@@ -22,7 +22,8 @@ use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle
 use oku_slides_i18n::Localize;
 
 use crate::error::{
-    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu,
+    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, RenderSnafu, SourcesSnafu,
+    UnknownPackSnafu,
 };
 use crate::library::{Library, StoredVersion};
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, Template, now_created};
@@ -185,7 +186,7 @@ impl Session {
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.set, edit.parent.clone()) };
         let manifest = self.edited_manifest(&deck, id, parent, description);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
-        self.adopt_session_version(deck, files, &edit, as_new)?;
+        self.adopt_session_version(deck, files, &edit, as_new, None)?;
         self.doc.dirty = false;
         // La version est adoptée : un rendu raté ne l'annule pas, son avis le dit.
         match self.rerender() {
@@ -202,7 +203,8 @@ impl Session {
     ///
     /// Créée la première fois (ou toujours, pour une copie `as_new`),
     /// remplacée ensuite, rendue courante ; `deck` (le document des modèles)
-    /// et le deck mis de côté y passent, celui-ci en une étape d'annulation.
+    /// y passe en une étape `step` (silencieux sans), et le deck mis de côté
+    /// en une étape d'annulation.
     /// Sans rendu : l'appelant rend ensuite le document des modèles.
     pub(crate) fn adopt_session_version(
         &mut self,
@@ -210,6 +212,7 @@ impl Session {
         files: PackFiles,
         edit: &TemplateMode,
         as_new: bool,
+        step: Option<&str>,
     ) -> Result<PackVersion> {
         let manifest = PackManifest::from_files(&files).context(PackJsonSnafu { id: edit.set })?;
         let (id, parent) = (manifest.id, manifest.parent.clone());
@@ -225,12 +228,19 @@ impl Session {
             }
         };
         let r = PackRef { id, version: version.clone() };
-        // Le document des modèles passe à la nouvelle version, sans étape d'annulation.
+        let merge = adopt_merge_key(id, parent.as_ref());
+        // Le document des modèles passe à la nouvelle version : une étape pour
+        // une écriture de widget (clé de séance, ou groupe du tour), rien pour
+        // un enregistrement. Ses versions restent dans ses sources : une
+        // étape peut y ramener.
         self.doc.sources.add_pack(files.clone());
         deck.templates = Some(r.clone());
-        self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
+        match step {
+            Some(label) => self.doc.sources.apply(deck, label, Some(&merge)),
+            None => self.doc.sources.apply_silent(deck),
+        }
+        .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("templates-adopt-label", &[("name", manifest.name.as_str().into())]);
-        let merge = adopt_merge_key(id, parent.as_ref());
         if let Mode::Templates { stash, edit, .. } = &mut self.mode {
             // Le deck mis de côté embarque la version et y passe, en une étape d'annulation.
             stash.sources.add_pack(files);
@@ -241,9 +251,9 @@ impl Session {
             stash.dirty = true;
             if let Some(old) = replaced.filter(|old| **old != version && Some(*old) != parent.as_ref()) {
                 if stash.sources.undo_steps() == steps {
-                    // Fusionnée dans l'étape qui l'avait introduite : plus atteignable.
+                    // Fusionnée dans l'étape qui l'avait introduite : plus
+                    // atteignable depuis le deck mis de côté.
                     stash.sources.packs.remove(old);
-                    self.doc.sources.packs.remove(old);
                 } else if let Some(files) = stash.sources.packs.get(old) {
                     // Nouvelle étape : annuler y revient ; la bibliothèque la retrouve.
                     if let Err(e) = self.library.add_version(id, files) {
@@ -263,6 +273,40 @@ impl Session {
         self.sync_widgets()?;
         self.template_cache = None;
         Ok(version)
+    }
+
+    /// Réaligne l'édition des modèles sur la version du document, après annuler ou rétablir.
+    ///
+    /// La bibliothèque retrouve cette version (une écriture de la séance l'a
+    /// peut-être remplacée), sans qu'elle devienne courante ; le deck mis de
+    /// côté y passe, dans l'étape de la séance.
+    pub(crate) fn realign_templates(&mut self) -> Result<()> {
+        let Some(r) = self.doc.sources.deck().templates.clone() else { return Ok(()) };
+        let Mode::Templates { stash, edit, .. } = &mut self.mode else { return Ok(()) };
+        if r.id != edit.set || r.version == edit.base {
+            return Ok(());
+        }
+        let files = self
+            .doc
+            .sources
+            .packs
+            .get(&r.version)
+            .cloned()
+            .context(PackVersionMissingSnafu { id: r.id, version: r.version.clone() })?;
+        if let Err(e) = self.library.add_version(r.id, &files) {
+            tracing::error!(error = %e.one_line(), "version rétablie absente de la bibliothèque");
+        }
+        edit.base = r.version.clone();
+        edit.session_version = (edit.parent.as_ref() != Some(&r.version)).then(|| r.version.clone());
+        let label = self.localizer.tr_with("templates-adopt-label", &[("name", edit.name.as_str().into())]);
+        let merge = adopt_merge_key(edit.set, edit.parent.as_ref());
+        stash.sources.add_pack(files);
+        let mut user = stash.sources.deck().clone();
+        user.templates = Some(r);
+        stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
+        stash.dirty = true;
+        self.template_cache = None;
+        Ok(())
     }
 
     /// Quitte l'édition des modèles ; les changements non enregistrés sont perdus.
