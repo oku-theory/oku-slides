@@ -10,15 +10,11 @@ function attr(svg: string, name: string): string | undefined {
 }
 
 describe("croppedSvg", () => {
-  test("un widget d'élément : la vue est sa boîte, avec une marge", () => {
+  test("un widget d'élément : la vue est sa boîte, sans marge", () => {
     const svg = croppedSvg(SVG, { x: 124, y: 150, w: 736, h: 30 });
-    const [x, y, w, h] = (attr(svg, "viewBox") ?? "").split(" ").map(Number);
-    // La marge est la même des quatre côtés, et la boîte y tient.
-    const m = 124 - (x ?? 0);
-    expect(m).toBeGreaterThan(0);
-    expect([x, y, w, h]).toEqual([124 - m, 150 - m, 736 + 2 * m, 30 + 2 * m]);
-    expect(attr(svg, "width")).toBe(`${736 + 2 * m}pt`);
-    expect(attr(svg, "height")).toBe(`${30 + 2 * m}pt`);
+    expect(attr(svg, "viewBox")).toBe("124 150 736 30");
+    expect(attr(svg, "width")).toBe("736pt");
+    expect(attr(svg, "height")).toBe("30pt");
     // Le contenu ne change pas.
     expect(svg).toContain('<path d="M0 0"/>');
   });

@@ -223,10 +223,8 @@ describe("WidgetTab, aperçu", () => {
       const m = await mount(fake, { name: "kpi" });
       expect(m.host.querySelector("img")?.getAttribute("src")).toBe("blob:apercu");
       const svg = await blobs.at(-1)?.text();
-      const box = /viewBox="([^"]*)"/.exec(svg ?? "")?.[1]?.split(" ").map(Number) ?? [];
-      const margin = 100 - (box[0] ?? 0);
-      expect(margin).toBeGreaterThan(0);
-      expect(box).toEqual([100 - margin, 100 - margin, 200 + 2 * margin, 100 + 2 * margin]);
+      // Au plus près : la vue est la boîte, sans marge.
+      expect(/viewBox="([^"]*)"/.exec(svg ?? "")?.[1]).toBe("100 100 200 100");
     } finally {
       URL.createObjectURL = create;
     }
