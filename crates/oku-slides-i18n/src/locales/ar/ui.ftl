@@ -324,6 +324,7 @@ ui-widgets-errors = أخطاء
 ui-widgets-empty = لا تحتوي هذه الحزمة على أي عنصر واجهة بعد.
 ui-widgets-preview = معاينة عنصر الواجهة
 ui-widgets-no-preview = لا توجد معاينة
+ui-widgets-source = الشيفرة المصدرية
 ui-widgets-unsaved = غير محفوظ
 ui-widgets-in-error = الودجات التي بها أخطاء
 ui-widgets-none-in-error = لا توجد ودجات بها أخطاء

@@ -320,6 +320,7 @@ ui-widgets-errors = Błędy
 ui-widgets-empty = Ten pakiet nie ma jeszcze widżetów.
 ui-widgets-preview = Podgląd widżetu
 ui-widgets-no-preview = Brak podglądu
+ui-widgets-source = Kod źródłowy
 ui-widgets-unsaved = Nie zapisano
 ui-widgets-in-error = Widgety z błędami
 ui-widgets-none-in-error = Żaden widget nie ma błędów

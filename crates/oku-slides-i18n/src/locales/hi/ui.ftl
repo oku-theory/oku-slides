@@ -316,6 +316,7 @@ ui-widgets-errors = त्रुटियाँ
 ui-widgets-empty = इस पैक में अभी कोई विजेट नहीं है।
 ui-widgets-preview = विजेट पूर्वावलोकन
 ui-widgets-no-preview = कोई पूर्वावलोकन नहीं
+ui-widgets-source = स्रोत कोड
 ui-widgets-unsaved = सहेजा नहीं गया
 ui-widgets-in-error = त्रुटि वाले विजेट
 ui-widgets-none-in-error = किसी विजेट में त्रुटि नहीं है

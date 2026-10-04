@@ -30,6 +30,7 @@ export const Icon = {
   insert: stroke(<><path d="M12 4v11" /><path d="M7.5 10.5L12 15l4.5-4.5" /><path d="M5 20h14" /></>),
   keyboard: stroke(<><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 10h.01M10.5 10h.01M14 10h.01M17 10h.01M8 14h8" /></>),
   restore: stroke(<><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /><path d="M12 8v4l3 2" /></>),
+  code: stroke(<><path d="M8.5 7.5L4 12l4.5 4.5" /><path d="M15.5 7.5L20 12l-4.5 4.5" /><path d="M13.5 5l-3 14" /></>),
   back: stroke(<><path d="M10 6l-6 6 6 6" /><path d="M4 12h16" /></>),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
   addRow: stroke(<><rect x="4" y="4" width="16" height="10" rx="1.5" /><path d="M4 9h16" /><path d="M12 16.5v4M10 18.5h4" /></>),

@@ -47,6 +47,7 @@ import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
 import WidgetPane from "./WidgetPane";
+import CodeSwitch from "./CodeSwitch";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
 
@@ -786,9 +787,11 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>
-          {/* Sous-onglet widget : l'historique de son éditeur. */}
+          {/* Sous-onglet widget : l'historique de son éditeur, puis son code. */}
           <button className="token ghost" aria-label={t("ui-toolbar-undo")} title={t("ui-toolbar-undo")} disabled={widgets.history.undo === 0} onClick={widgets.undo}>{Icon.undo}</button>
           <button className="token ghost" aria-label={t("ui-toolbar-redo")} title={t("ui-toolbar-redo")} disabled={widgets.history.redo === 0} onClick={widgets.redo}>{Icon.redo}</button>
+          <span className="tools-sep" aria-hidden />
+          <CodeSwitch checked={viewOptions.code} controls={`widget-code-${widgets.tabs.active}`} onChange={viewOptions.setCode} />
         </>) : (<>
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
@@ -862,7 +865,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} />}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} code={viewOptions.code} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />

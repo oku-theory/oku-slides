@@ -314,6 +314,7 @@ ui-widgets-errors = ข้อผิดพลาด
 ui-widgets-empty = แพ็กนี้ยังไม่มีวิดเจ็ต
 ui-widgets-preview = ตัวอย่างวิดเจ็ต
 ui-widgets-no-preview = ไม่มีตัวอย่าง
+ui-widgets-source = ซอร์สโค้ด
 ui-widgets-unsaved = ยังไม่ได้บันทึก
 ui-widgets-in-error = วิดเจ็ตที่มีข้อผิดพลาด
 ui-widgets-none-in-error = ไม่มีวิดเจ็ตที่มีข้อผิดพลาด

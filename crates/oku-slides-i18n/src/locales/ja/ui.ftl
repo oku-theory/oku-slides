@@ -316,6 +316,7 @@ ui-widgets-errors = エラー
 ui-widgets-empty = このパックにはまだウィジェットがありません。
 ui-widgets-preview = ウィジェットのプレビュー
 ui-widgets-no-preview = プレビューなし
+ui-widgets-source = ソースコード
 ui-widgets-unsaved = 未保存
 ui-widgets-in-error = エラーのあるウィジェット
 ui-widgets-none-in-error = エラーのあるウィジェットはありません

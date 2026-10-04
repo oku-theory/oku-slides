@@ -8,9 +8,11 @@ interface Props {
   widgets: TemplateWidgets;
   /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
   trials: number;
+  /** Code source affiché, commun à tous les sous-onglets. */
+  code: boolean;
 }
 
-export default function WidgetPane({ api, widgets, trials }: Props) {
+export default function WidgetPane({ api, widgets, trials, code }: Props) {
   return (
     <div className="widget-pane" hidden={widgets.tabs.active === null}>
       {widgets.tabs.tabs.map((tab) => (
@@ -22,6 +24,7 @@ export default function WidgetPane({ api, widgets, trials }: Props) {
           name={tab.name}
           revision={widgets.revision}
           trials={trials}
+          code={code}
           active={tab.id === widgets.tabs.active}
           onOpen={widgets.open}
           onCommands={widgets.commandsOf(tab.id)}

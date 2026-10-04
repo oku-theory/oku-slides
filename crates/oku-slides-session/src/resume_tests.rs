@@ -106,6 +106,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         notes: Some(520),
         widgets: vec!["_commun".into(), "kpi".into()],
         widget: Some("kpi".into()),
+        code: true,
     };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
     let back = r.read_state().unwrap().unwrap();
@@ -130,6 +131,7 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         notes: None,
         widgets: Vec::new(),
         widget: None,
+        code: false,
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }

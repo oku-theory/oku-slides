@@ -316,6 +316,7 @@ ui-widgets-errors = Hatalar
 ui-widgets-empty = Bu pakette henüz widget yok.
 ui-widgets-preview = Widget önizlemesi
 ui-widgets-no-preview = Önizleme yok
+ui-widgets-source = Kaynak kod
 ui-widgets-unsaved = Kaydedilmedi
 ui-widgets-in-error = Hatalı widget'lar
 ui-widgets-none-in-error = Hiçbir widget'ta hata yok

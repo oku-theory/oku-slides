@@ -314,6 +314,7 @@ ui-widgets-errors = Lỗi
 ui-widgets-empty = Gói này chưa có widget nào.
 ui-widgets-preview = Xem trước widget
 ui-widgets-no-preview = Không có bản xem trước
+ui-widgets-source = Mã nguồn
 ui-widgets-unsaved = Chưa lưu
 ui-widgets-in-error = Widget có lỗi
 ui-widgets-none-in-error = Không widget nào có lỗi

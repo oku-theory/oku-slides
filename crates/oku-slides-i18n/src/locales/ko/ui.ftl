@@ -314,6 +314,7 @@ ui-widgets-errors = 오류
 ui-widgets-empty = 이 팩에는 아직 위젯이 없습니다.
 ui-widgets-preview = 위젯 미리보기
 ui-widgets-no-preview = 미리보기 없음
+ui-widgets-source = 소스 코드
 ui-widgets-unsaved = 저장되지 않음
 ui-widgets-in-error = 오류가 있는 위젯
 ui-widgets-none-in-error = 오류가 있는 위젯이 없습니다

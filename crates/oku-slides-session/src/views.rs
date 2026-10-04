@@ -110,7 +110,7 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets.
+/// sous-onglets de widgets, code source des widgets déplié.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -133,6 +133,9 @@ pub struct UiState {
     /// Sous-onglet actif ; `None` : « Modèles ».
     #[serde(default)]
     pub widget: Option<String>,
+    /// Code source des widgets déplié sous l'aperçu ; replié par défaut.
+    #[serde(default)]
+    pub code: bool,
 }
 
 fn shown() -> bool {
@@ -141,7 +144,16 @@ fn shown() -> bool {
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { slide: None, grid: true, ghosts: false, pile: None, notes: None, widgets: Vec::new(), widget: None }
+        Self {
+            slide: None,
+            grid: true,
+            ghosts: false,
+            pile: None,
+            notes: None,
+            widgets: Vec::new(),
+            widget: None,
+            code: false,
+        }
     }
 }
 

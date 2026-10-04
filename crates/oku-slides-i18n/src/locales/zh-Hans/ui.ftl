@@ -316,6 +316,7 @@ ui-widgets-errors = 错误
 ui-widgets-empty = 此包还没有小组件。
 ui-widgets-preview = 小组件预览
 ui-widgets-no-preview = 无预览
+ui-widgets-source = 源代码
 ui-widgets-unsaved = 未保存
 ui-widgets-in-error = 有错误的小组件
 ui-widgets-none-in-error = 没有小组件有错误

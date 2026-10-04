@@ -316,6 +316,7 @@ ui-widgets-errors = Fouten
 ui-widgets-empty = Dit pakket heeft nog geen widget.
 ui-widgets-preview = Widgetvoorbeeld
 ui-widgets-no-preview = Geen voorbeeld
+ui-widgets-source = Broncode
 ui-widgets-unsaved = Niet opgeslagen
 ui-widgets-in-error = Widgets met fouten
 ui-widgets-none-in-error = Geen enkele widget heeft fouten

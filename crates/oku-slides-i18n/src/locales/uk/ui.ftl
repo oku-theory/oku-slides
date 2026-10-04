@@ -320,6 +320,7 @@ ui-widgets-errors = Помилки
 ui-widgets-empty = У цьому пакеті ще немає віджетів.
 ui-widgets-preview = Попередній перегляд віджета
 ui-widgets-no-preview = Немає попереднього перегляду
+ui-widgets-source = Вихідний код
 ui-widgets-unsaved = Не збережено
 ui-widgets-in-error = Віджети з помилками
 ui-widgets-none-in-error = Жоден віджет не має помилок

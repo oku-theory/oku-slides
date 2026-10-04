@@ -208,6 +208,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
 .add-group { display: flex; align-items: center; gap: 2px; }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
+/* Enfoncé : le code est affiché, même survolé (la règle de survol de .ghost vient plus tard, dans glass.css). */
+.tools-tray .code-switch.on, .tools-tray .code-switch.on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
 .tools-sep { width: 1px; height: 20px; margin-inline: var(--space-1); background: color-mix(in oklab, var(--edge) 55%, transparent); }
 .select {
   appearance: none; -webkit-appearance: none; height: 32px; padding-block: 0; padding-inline: 10px 30px; border: 0; border-radius: var(--radius-sm);
@@ -779,20 +781,35 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .cm-diag-marker { color: var(--danger); cursor: help; }
 
 /* Aperçu en haut (40 % au plus), code dessous sur le reste de la hauteur. */
-.widget-tab { display: grid; grid-template-rows: fit-content(40%) minmax(0, 1fr); gap: var(--space-4); height: 100%; min-height: 0; }
-.widget-tab[hidden] { display: none; }
-.widget-tab-editor { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
-.widget-tab-side { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; }
-.widget-tab-side > .widget-tab-broken, .widget-tab-side > .widget-tab-diagnostics { align-self: stretch; }
-/* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small). */
-.widget-tab-side img {
-  margin: calc(6px * var(--elev-sheet)) calc(10px * var(--elev-sheet)) calc(14px * var(--elev-sheet));
-  max-width: calc(100% - 20px * var(--elev-sheet)); max-height: 32vh; object-fit: contain;
-  border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
+.widget-tab {
+  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 0fr); gap: var(--space-2); height: 100%; min-height: 0;
+  transition: grid-template-rows 260ms cubic-bezier(0.2, 0, 0, 1);
 }
+/* Code affiché : l'aperçu remonte dans le quart du haut, le code prend le reste. */
+.widget-tab[data-code="shown"] { grid-template-rows: minmax(0, 1fr) minmax(0, 3fr); }
+.widget-tab[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .widget-tab { transition: none; } }
+/* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
+.widget-tab-side {
+  min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column;
+  align-items: center; justify-content: safe center;
+}
+.widget-tab-side > .widget-tab-broken, .widget-tab-side > .widget-tab-diagnostics { align-self: stretch; }
+/* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
+   égales en haut et en bas, l'aperçu reste au centre. */
+.widget-tab-side img {
+  margin: calc(14px * var(--elev-sheet)) calc(10px * var(--elev-sheet));
+  max-width: calc(100% - 20px * var(--elev-sheet)); max-height: calc(100% - 28px * var(--elev-sheet)); min-height: 0;
+  object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
+}
+/* Masqué, le code garde sa place nulle : il glisse au lieu d'apparaître d'un coup. */
+.widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
+.widget-tab-code[inert] { visibility: hidden; transition: visibility 0s 260ms; }
 .widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }
 .widget-tab-broken ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .widget-tab-diagnostics { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 12px; }
+/* Vide, elle ne décale pas l'aperçu centré. */
+.widget-tab-diagnostics:empty { display: none; }
 .widget-tab-diagnostics .error { color: var(--danger); }
 
 /* Section « Widgets » de la pile des modèles. */

@@ -21,7 +21,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -30,11 +30,11 @@ async function mount(fake: TabApi, first: Shown) {
   mounted = { root, host };
   const opened: string[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0 }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials,
+      api: fake, files: f, id: 1, name, revision, active, trials, code,
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -289,12 +289,34 @@ describe("WidgetTab, disposition", () => {
   test("un widget : l'aperçu en haut, le code dessous", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
-    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-editor"]);
+    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
   });
 
   test("Commun : les widgets en erreur en haut, le code dessous", async () => {
     const { fake } = memory({ _commun: "c" });
     const m = await mount(fake, { name: "_commun" });
-    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-editor"]);
+    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
+  });
+});
+
+describe("WidgetTab, code source masquable", () => {
+  const editor = (host: HTMLElement) => host.querySelector<HTMLElement>(".widget-tab-code")!;
+
+  test("masqué : l'éditeur reste monté mais inerte", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", code: false });
+    expect([editor(m.host).hasAttribute("inert"), m.text()]).toEqual([true, "k"]);
+  });
+
+  test("affiché : l'éditeur est actif", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", code: true });
+    expect(editor(m.host).hasAttribute("inert")).toBe(false);
+  });
+
+  test("l'éditeur porte l'id que l'interrupteur de la barre désigne", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi" });
+    expect(editor(m.host).id).toBe("widget-code-1");
   });
 });

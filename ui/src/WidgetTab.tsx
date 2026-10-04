@@ -1,6 +1,10 @@
 /**
  * Sous-onglet d'un fichier de widget : aperçu et diagnostics en haut, éditeur dessous.
  *
+ * L'interrupteur de la barre d'outils affiche le code (masqué par défaut, choix
+ * commun gardé par l'hôte) : masqué, l'aperçu est centré ; affiché, il remonte et
+ * le code glisse dessous. Masqué, l'éditeur reste monté (inerte) : frappes et
+ * historique demeurent.
  * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
  * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
@@ -26,13 +30,15 @@ export interface WidgetTabProps {
   trials: number;
   /** Seul l'actif est visible, relit sa source et demande un aperçu. */
   active: boolean;
+  /** Code source affiché ; masqué, l'éditeur reste monté mais inerte. */
+  code: boolean;
   /** Commun : ouvre le widget cliqué. */
   onOpen: (name: string) => void;
   onCommands: (c: EditorCommands | null) => void;
   onHistory: (h: EditorHistory) => void;
 }
 
-export default function WidgetTab({ api, files, id, name, revision, trials, active, onOpen, onCommands, onHistory }: WidgetTabProps) {
+export default function WidgetTab({ api, files, id, name, revision, trials, active, code, onOpen, onCommands, onHistory }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -88,12 +94,12 @@ export default function WidgetTab({ api, files, id, name, revision, trials, acti
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
   }, [api, active, name, written, ready, editorKey, trials]);
 
-  // Redevenu visible : l'éditeur caché se remesure.
+  // Redevenu visible (onglet actif, code déplié) : l'éditeur caché se remesure.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !code) return;
     const el = host.current?.querySelector(".cm-content");
     if (el) EditorView.findFromDOM(el as HTMLElement)?.requestMeasure();
-  }, [active]);
+  }, [active, code]);
 
   const status = files.statuses?.find((s) => s.name === name);
   const diagnostics = useMemo(() => fileDiagnostics(status, name), [status, name]);
@@ -120,6 +126,7 @@ export default function WidgetTab({ api, files, id, name, revision, trials, acti
       role="tabpanel"
       id={`widget-panel-${id}`}
       aria-labelledby={`widget-tab-${id}`}
+      data-code={code ? "shown" : "folded"}
     >
       <aside className="widget-tab-side" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
         {name === COMMON ? (
@@ -156,7 +163,7 @@ export default function WidgetTab({ api, files, id, name, revision, trials, acti
           })}
         </ul>
       </aside>
-      <div className="widget-tab-editor">
+      <div className="widget-tab-code" id={`widget-code-${id}`} inert={!code}>
         {source !== null && (
           <TypstEditor
             key={editorKey}

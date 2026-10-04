@@ -22,7 +22,7 @@ afterEach(async () => {
 type Tabs = Pick<UiState, "widgets" | "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null };
+const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -111,7 +111,18 @@ test("useViewOptions first snapshot restores the column widths kept by the host"
 test("useViewOptions setColumns saves the new widths with the rest of the state", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
-  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null });
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true });
+});
+
+test("useViewOptions premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
+  const { out } = await mount();
+  expect(out.hook!.code).toBe(true);
+});
+
+test("useViewOptions setCode sauve le code replié avec le reste", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setCode(false); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: false });
 });
 
 test("useViewOptions sauve les sous-onglets passés avec le reste", async () => {

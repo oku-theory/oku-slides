@@ -102,7 +102,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes et sous-onglets de widgets, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets et code des widgets, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -116,6 +116,8 @@ export interface UiState {
   widgets: string[];
   /** Sous-onglet actif ; `null` : « Modèles ». */
   widget: string | null;
+  /** Code source des widgets déplié sous l'aperçu ; replié par défaut. */
+  code: boolean;
 }
 
 /** Un pack de modèles à une version donnée. */

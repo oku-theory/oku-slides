@@ -316,6 +316,7 @@ ui-widgets-errors = 錯誤
 ui-widgets-empty = 此套件還沒有小工具。
 ui-widgets-preview = 小工具預覽
 ui-widgets-no-preview = 無預覽
+ui-widgets-source = 原始碼
 ui-widgets-unsaved = 未儲存
 ui-widgets-in-error = 有錯誤的小工具
 ui-widgets-none-in-error = 沒有小工具有錯誤

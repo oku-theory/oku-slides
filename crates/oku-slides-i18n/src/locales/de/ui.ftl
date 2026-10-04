@@ -316,6 +316,7 @@ ui-widgets-errors = Fehler
 ui-widgets-empty = Dieses Paket hat noch kein Widget.
 ui-widgets-preview = Widget-Vorschau
 ui-widgets-no-preview = Keine Vorschau
+ui-widgets-source = Quellcode
 ui-widgets-unsaved = Nicht gespeichert
 ui-widgets-in-error = Widgets mit Fehlern
 ui-widgets-none-in-error = Kein Widget hat Fehler
