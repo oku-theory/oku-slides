@@ -85,8 +85,8 @@ pub use pack_notice::PackNoticeView;
 pub use request::Request;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    AddWidget, HistoryView, PageHash, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode, TemplateView,
-    TemplatesView, UiState,
+    AddWidget, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode,
+    TemplateView, TemplatesView, UiState,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 use widget_trials::TemplateScratch;

@@ -8,6 +8,9 @@ import { COMMON, nameAvailable, nameIssue, stateOf, widgetLabel, widgetSlug } fr
 
 export interface PileWidgetsProps {
   files: WidgetFiles;
+  /** Section ouverte (gardé par l'hôte) ; `onOpenChange` la replie ou la rouvre. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   /** Fichier du sous-onglet actif ; `null` : « Modèles ». */
   current: string | null;
   onOpen: (name: string) => void;
@@ -19,9 +22,8 @@ export interface PileWidgetsProps {
   confirm?: (message: string) => boolean;
 }
 
-export default function PileWidgets({ files, current, onOpen, onRemoved, focus, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
+export default function PileWidgets({ files, open, onOpenChange, current, onOpen, onRemoved, focus, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
   const [naming, setNaming] = useState<{ from: string | null; value: string } | null>(null);
-  const [open, setOpen] = useState(true);
   const title = useRef<HTMLButtonElement>(null);
   const issueId = useId();
   const rows = useRef(new Map<string, HTMLButtonElement>());
@@ -29,7 +31,7 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
   const refocus = useRef<string | null>(null);
   useEffect(() => {
     if (focus === 0) return;
-    setOpen(true);
+    onOpenChange(true);
     title.current?.focus();
   }, [focus]);
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
       title={t("ui-widgets-section")}
       label={t("ui-widgets-files")}
       open={open}
-      onToggle={() => setOpen((o) => !o)}
+      onToggle={() => onOpenChange(!open)}
       toggleRef={title}
       actions={
         <button
@@ -105,7 +107,7 @@ export default function PileWidgets({ files, current, onOpen, onRemoved, focus, 
           title={t("ui-widgets-new")}
           disabled={files.statuses === null}
           // Nommer un widget dans une section repliée : on la rouvre.
-          onClick={() => { setOpen(true); setNaming({ from: null, value: "" }); }}
+          onClick={() => { onOpenChange(true); setNaming({ from: null, value: "" }); }}
         >
           {Icon.add}
         </button>

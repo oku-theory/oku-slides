@@ -1,9 +1,9 @@
 // Options d'affichage : grille et fantômes de la scène, largeurs des colonnes, code des widgets,
-// gardés par l'hôte pour la reprise.
+// sections repliées de la pile, gardés par l'hôte pour la reprise.
 
 import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
-import type { UiState } from "./api";
+import type { PileSectionName, UiState } from "./api";
 import { t } from "./i18n";
 import type { KeptTabs } from "./widgetTabs";
 
@@ -30,13 +30,17 @@ export interface ViewOptions {
   code: boolean;
   /** Déplie ou replie le code (et le fait garder par l'hôte). */
   setCode: (code: boolean) => void;
+  /** Sections repliées de la pile du mode modèles. */
+  folded: PileSectionName[];
+  /** Replie ou rouvre une section (et le fait garder par l'hôte). */
+  setFolded: (section: PileSectionName, folded: boolean) => void;
   entries: MenuEntry[];
   /** Prend ⌘' / ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
   handleKey: (e: KeyLike) => boolean;
 }
 
 /**
- * Grille, fantômes, colonnes et code des widgets, repris de l'état gardé `kept` au premier
+ * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
  * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement.
  * `tabs` : sous-onglets à garder avec le reste.
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
@@ -52,6 +56,7 @@ export function useViewOptions(
   const [ghosts, setGhosts] = useState(false);
   const [columns, setColumns] = useState<ColumnWidths>({ pile: null, notes: null });
   const [code, setCode] = useState(false);
+  const [folded, setFoldedList] = useState<PileSectionName[]>([]);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
   const [restored, setRestored] = useState(false);
@@ -61,17 +66,21 @@ export function useViewOptions(
     setGhosts(kept.ghosts);
     setColumns({ pile: kept.pile, notes: kept.notes });
     setCode(kept.code);
+    setFoldedList(kept.folded);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns, ...tabs, code }).catch(() => {
+    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, folded }).catch(() => {
       /* reprise facultative : l'édition continue */
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code]);
+  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, folded]);
 
+  // Même état : même tableau, pas de nouvelle sauvegarde.
+  const setFolded = (section: PileSectionName, fold: boolean) =>
+    setFoldedList((list) => (list.includes(section) === fold ? list : fold ? [...list, section] : list.filter((s) => s !== section)));
   const flip = (which: "grid" | "ghosts") => (which === "grid" ? setGrid : setGhosts)((v) => !v);
   const entries: MenuEntry[] = [
     { kind: "item", label: t(grid ? "ui-toolbar-grid-hide" : "ui-toolbar-grid-show"), shortcut: "⌘'", onSelect: () => flip("grid") },
@@ -84,5 +93,5 @@ export function useViewOptions(
     flip(which);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, entries, handleKey };
+  return { grid, ghosts, columns, setColumns, code, setCode, folded, setFolded, entries, handleKey };
 }

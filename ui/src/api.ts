@@ -102,7 +102,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets et code des widgets, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -118,7 +118,12 @@ export interface UiState {
   widget: string | null;
   /** Code source des widgets déplié sous l'aperçu ; replié par défaut. */
   code: boolean;
+  /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
+  folded: PileSectionName[];
 }
+
+/** Section repliable de la pile du mode modèles. */
+export type PileSectionName = "templates" | "widgets";
 
 /** Un pack de modèles à une version donnée. */
 export interface PackRef {

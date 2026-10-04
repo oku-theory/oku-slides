@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
-const { act, createElement } = await import("react");
+const { act, createElement, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: TemplatePile } = await import("./TemplatePile");
 
@@ -23,13 +23,17 @@ async function mount() {
   document.body.appendChild(host);
   const root = createRoot(host);
   mounted = { root, host };
-  await act(async () =>
-    root.render(createElement(TemplatePile, {
+  const Probe = () => {
+    const [open, setOpen] = useState(true);
+    return createElement(TemplatePile, {
       title: "Modèles",
+      open,
+      onToggle: () => setOpen((o) => !o),
       slides: createElement("nav", { id: "slides" }),
       widgets: createElement("section", { id: "widgets" }),
-    })),
-  );
+    });
+  };
+  await act(async () => root.render(createElement(Probe)));
   return host;
 }
 

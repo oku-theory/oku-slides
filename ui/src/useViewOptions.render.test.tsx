@@ -22,7 +22,7 @@ afterEach(async () => {
 type Tabs = Pick<UiState, "widgets" | "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true };
+const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true, folded: ["widgets"] };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -111,7 +111,7 @@ test("useViewOptions first snapshot restores the column widths kept by the host"
 test("useViewOptions setColumns saves the new widths with the rest of the state", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
-  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true });
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true, folded: ["widgets"] });
 });
 
 test("useViewOptions premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -123,6 +123,30 @@ test("useViewOptions setCode sauve le code replié avec le reste", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setCode(false); });
   expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: false });
+});
+
+test("useViewOptions premier snapshot reprend les sections repliées gardées par l'hôte", async () => {
+  const { out } = await mount();
+  expect(out.hook!.folded).toEqual(["widgets"]);
+});
+
+test("useViewOptions setFolded replie une section et la sauve avec le reste", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setFolded("templates", true); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", folded: ["widgets", "templates"] });
+});
+
+test("useViewOptions setFolded rouvre une section repliée", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setFolded("widgets", false); });
+  expect(out.kept.at(-1)).toMatchObject({ folded: [] });
+});
+
+test("useViewOptions setFolded sur l'état déjà en place ne sauve rien de plus", async () => {
+  const { out } = await mount();
+  const before = out.kept.length;
+  await act(async () => { out.hook!.setFolded("widgets", true); });
+  expect(out.kept.length).toBe(before);
 });
 
 test("useViewOptions sauve les sous-onglets passés avec le reste", async () => {

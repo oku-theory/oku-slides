@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use super::{MAX_WIDGET_TABS, UiState};
+use super::{MAX_WIDGET_TABS, PileSection, UiState};
 
 fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
     UiState {
@@ -33,4 +33,19 @@ fn sanitized_in_templates_caps_the_list() {
 #[test]
 fn sanitized_with_an_active_tab_not_open_drops_it() {
     assert_that!(tabs(&["kpi"], Some("quote")).sanitized(true).widget).is_none();
+}
+
+#[test]
+fn sanitized_drops_duplicate_folded_sections() {
+    let ui = UiState {
+        folded: vec![PileSection::Widgets, PileSection::Templates, PileSection::Widgets],
+        ..UiState::default()
+    };
+    assert_that!(ui.sanitized(true).folded).is_equal_to(vec![PileSection::Widgets, PileSection::Templates]);
+}
+
+#[test]
+fn sanitized_outside_templates_keeps_folded_sections() {
+    let ui = UiState { folded: vec![PileSection::Templates], ..UiState::default() };
+    assert_that!(ui.sanitized(false).folded).is_equal_to(vec![PileSection::Templates]);
 }

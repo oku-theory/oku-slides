@@ -110,7 +110,7 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié.
+/// sous-onglets de widgets, code source des widgets déplié, sections repliées de la pile.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -136,6 +136,19 @@ pub struct UiState {
     /// Code source des widgets déplié sous l'aperçu ; replié par défaut.
     #[serde(default)]
     pub code: bool,
+    /// Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut.
+    #[serde(default)]
+    pub folded: Vec<PileSection>,
+}
+
+/// Section repliable de la pile du mode modèles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PileSection {
+    /// Les miniatures des modèles.
+    Templates,
+    /// Les fichiers de widgets du pack.
+    Widgets,
 }
 
 fn shown() -> bool {
@@ -153,6 +166,7 @@ impl Default for UiState {
             widgets: Vec::new(),
             widget: None,
             code: false,
+            folded: Vec::new(),
         }
     }
 }
@@ -161,9 +175,11 @@ impl Default for UiState {
 pub const MAX_WIDGET_TABS: usize = 64;
 
 impl UiState {
-    /// L'état admis : sous-onglets vidés hors du mode modèles, sinon noms
-    /// valides, sans doublon, au plus `MAX_WIDGET_TABS`, actif parmi eux.
+    /// L'état admis : sections repliées sans doublon ; sous-onglets vidés hors du
+    /// mode modèles, sinon noms valides, sans doublon, au plus `MAX_WIDGET_TABS`, actif parmi eux.
     pub fn sanitized(mut self, templates: bool) -> Self {
+        let mut folded = std::collections::BTreeSet::new();
+        self.folded.retain(|s| folded.insert(*s));
         if !templates {
             self.widgets.clear();
             self.widget = None;

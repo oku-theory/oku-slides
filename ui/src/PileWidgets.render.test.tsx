@@ -5,7 +5,7 @@ import "./test/dom";
 import type { TabApi, WidgetChange } from "./api";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
-const { act, createElement } = await import("react");
+const { act, createElement, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { PREVIEW_DELAY_MS } = await import("./debounce");
 const { default: PileWidgets } = await import("./PileWidgets");
@@ -27,6 +27,7 @@ afterEach(async () => {
 interface Over {
   confirm?: (m: string) => boolean;
   focus?: number;
+  open?: boolean;
 }
 
 async function mount(fake: TabApi, over: Over = {}) {
@@ -42,8 +43,12 @@ async function mount(fake: TabApi, over: Over = {}) {
       renamed: (from, to) => renamed.push(`${from}>${to}`),
     });
     box.files = files;
+    // L'état ouvert est tenu par le parent (gardé par l'hôte dans l'app).
+    const [open, setOpen] = useState(over.open ?? true);
     return createElement(PileWidgets, {
       files,
+      open,
+      onOpenChange: setOpen,
       current: null,
       onOpen: (n: string) => opened.push(n),
       onRemoved: (n: string) => removed.push(n),
@@ -296,6 +301,12 @@ describe("PileWidgets", () => {
     await act(async () => toggle(host).click());
     await act(async () => add(host).click());
     expect(nameInput(host)).not.toBeNull();
+  });
+
+  test("open à faux : la section est repliée dès le rendu", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake, { open: false });
+    expect(rows(host).length).toBe(0);
   });
 
   test("repliée : le bouton Nouveau widget reste là", async () => {

@@ -829,8 +829,20 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       {snap.editing && !history ? (
         <TemplatePile
           title={t("ui-pile-templates")}
+          open={!viewOptions.folded.includes("templates")}
+          onToggle={() => viewOptions.setFolded("templates", !viewOptions.folded.includes("templates"))}
           slides={pileView}
-          widgets={<PileWidgets files={widgets.files} current={widgets.activeName} onOpen={widgets.open} onRemoved={widgets.removed} focus={widgets.pileFocus} />}
+          widgets={
+            <PileWidgets
+              files={widgets.files}
+              open={!viewOptions.folded.includes("widgets")}
+              onOpenChange={(open) => viewOptions.setFolded("widgets", !open)}
+              current={widgets.activeName}
+              onOpen={widgets.open}
+              onRemoved={widgets.removed}
+              focus={widgets.pileFocus}
+            />
+          }
         />
       ) : pileView}
 
