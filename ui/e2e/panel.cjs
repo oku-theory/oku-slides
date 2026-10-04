@@ -46,6 +46,20 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.waitForTimeout(700);
   const after = await state(p);
   assert.deepEqual([after.name, after.grid], [before.name, before.grid]);
+  // Un widget ouvert, une miniature cliquée : retour au sous-onglet Modèles, sur ce modèle.
+  const panelHidden = () => p.evaluate(() => document.getElementById('templates-panel').hidden);
+  // Créé, il s'ouvre dans son sous-onglet.
+  await p.click('.pile-widgets-head button');
+  await p.fill('.pile-widgets-name .select', 'essai-pile');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.widget-tab:not([hidden])');
+  assert.equal(await panelHidden(), true);
+  await p.click('.thumb >> nth=0');
+  await p.waitForTimeout(300);
+  assert.equal(await panelHidden(), false);
+  assert.equal(await p.locator('.thumb >> nth=0').getAttribute('aria-current'), 'true');
+  await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
+  await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
   // En quittant les modèles, le panneau se vide.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await p.waitForTimeout(700);

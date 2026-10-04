@@ -811,7 +811,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
         addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
         marks={history ? pileMarks(history.changes) : undefined}
-        onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); }}
+        // Un sous-onglet widget ouvert cède la place au modèle cliqué.
+        onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); widgets.activate(null); }}
         onMove={history ? undefined : moveSlide}
         onAdd={history ? undefined : addSlide}
         removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
