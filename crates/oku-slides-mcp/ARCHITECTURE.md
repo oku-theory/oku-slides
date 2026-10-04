@@ -14,8 +14,10 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
   remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
   questions en attente et rend `Cancelled` à toute question ultérieure.
   Plusieurs questions peuvent attendre ensemble (appels `ask_*` parallèles) : chacune est
-  vivante au dock et répond à son identifiant (`act`) ; une réponse dictée (`answer_pending`)
-  va à la dernière ouverte.
+  vivante au dock et répond à son identifiant (`act`) ; une consigne en réponse (`answer`)
+  nomme aussi la question : celle que l'interface désigne aux touches 1–4 (`quickTarget`), le
+  hub ne devine pas (il ne voit pas la slide affichée). Une question entre dans la liste des
+  ouvertes sous le verrou qui l'enregistre : une question en attente est toujours affichée.
 - `hub_turns` : les tours du fil (numéros, tour ouvert `turn`, rangement dans le tour de l'appel,
   gel des questions répondues, éviction, `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à
   jour une surface ouverte.

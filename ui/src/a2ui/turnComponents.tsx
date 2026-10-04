@@ -9,7 +9,7 @@ import { Markdown as MarkdownView } from "../agent/Markdown";
 import { t } from "../i18n";
 import { useRememberedOpen } from "./openMemory";
 import { Hex, ToneSchema, toneClass } from "./schemas";
-import { SlideThumbsContext, resolveSlideThumb } from "./slideThumbs";
+import { SlideRefSchema, SlideThumbsContext, resolveSlideThumb } from "./slideThumbs";
 import { Toggle } from "./Toggle";
 
 const Step = z.object({
@@ -32,7 +32,7 @@ const ReceiptApi = {
   schema: z.object({
     title: CommonSchemas.DynamicString,
     facts: z.array(z.string()).readonly(),
-    slide: z.object({ id: z.string(), hash: z.string() }).strict().optional(),
+    slide: SlideRefSchema.optional(),
     swatch: Hex.optional(),
   }).strict(),
 };

@@ -20,9 +20,13 @@ const { fromA2ui } = await import("./quick");
 
 const COMPONENT = { sheet: AgentSheet, drawer: VariantDrawer, modal: ConfirmModal };
 
-/** Comme App : la surface affichée, et les touches rapides branchées sur elle (une question du dock : dans le fil). */
-function Harness({ target, send }: { target: QuickTarget; send: (s: Surface, a: QuickAction) => void }) {
-  useQuickKeys(target, true, send);
+/**
+ * Comme App : la surface affichée, et les touches rapides branchées sur elle (une question du dock :
+ * dans le fil). `keysOn` faux : touches coupées (édition, pointage, widget actif), sans rappel affiché.
+ */
+function Harness({ target, send, keysOn }: { target: QuickTarget; send: (s: Surface, a: QuickAction) => void; keysOn: boolean }) {
+  const keyed = keysOn ? target : null;
+  useQuickKeys(keyed, send);
   if (target.kind === "dock") {
     const { turns, loose, dock } = routeSurfaces([target.surface], null);
     return createElement(AgentThread, {
@@ -30,12 +34,13 @@ function Harness({ target, send }: { target: QuickTarget; send: (s: Surface, a: 
       turns,
       loose,
       dock,
+      keysTo: keyed?.surface.id ?? null,
       onAction: (s, a) => send(s, fromA2ui(a)),
       onNewConversation: () => {},
       onError: () => {},
     });
   }
-  return createElement(COMPONENT[target.kind], { key: target.surface.id, surface: target.surface, onAction: send, onError: () => {} });
+  return createElement(COMPONENT[target.kind], { key: target.surface.id, surface: target.surface, hints: !!keyed, onAction: send, onError: () => {} });
 }
 
 type Root = ReturnType<typeof createRoot>;
@@ -55,7 +60,7 @@ afterEach(async () => {
 });
 
 /** Monte la surface dans un parent qui compte les pointeurs reçus ; renvoie les actions envoyées. */
-async function mount(kind: QuickTarget["kind"], surface: Surface) {
+async function mount(kind: QuickTarget["kind"], surface: Surface, keysOn = true) {
   const sent: [string, QuickAction][] = [];
   let parentPointers = 0;
   const host = document.createElement("div");
@@ -64,7 +69,7 @@ async function mount(kind: QuickTarget["kind"], surface: Surface) {
   mounted = { root, host };
   const send = (s: Surface, a: QuickAction) => sent.push([s.id, a]);
   const render = (target: QuickTarget) =>
-    act(async () => root.render(createElement("div", { onPointerDown: () => parentPointers++ }, createElement(Harness, { target, send }))));
+    act(async () => root.render(createElement("div", { onPointerDown: () => parentPointers++ }, createElement(Harness, { target, send, keysOn }))));
   await render({ kind, surface });
   // Le fil charge ses surfaces à la demande (lazy) : laisser Suspense les résoudre.
   await act(async () => new Promise((r) => setTimeout(r, 0)));
@@ -145,6 +150,20 @@ describe("fiche d'une question ancrée", () => {
     expect(sent).toEqual([["ask-4", { name: "rewrite", context: { kept: 0, text: "Nos paris pour 2027" } }]]);
   });
 
+  test("touches coupées (édition, pointage, widget actif) : ni chiffres ni rappel, et 2 ne choisit rien", async () => {
+    const { host, sent } = await mount("sheet", real("ask-1"), false);
+    expect(host.querySelectorAll(".chip-key")).toHaveLength(0);
+    expect(host.querySelector(".caption")).toBeNull();
+    await press("2", "Digit2");
+    expect(sent).toEqual([]);
+  });
+
+  test("touches actives : chiffres et rappel des touches", async () => {
+    const { host } = await mount("sheet", real("ask-1"));
+    expect(host.querySelectorAll(".chip-key").length).toBeGreaterThan(0);
+    expect(host.querySelector(".caption")).not.toBeNull();
+  });
+
   test("un clic dans la fiche ne désélectionne pas l'élément dessous", async () => {
     const { host, parentPointers } = await mount("sheet", real("ask-1"));
     await act(async () => {
@@ -185,10 +204,57 @@ describe("question du dock", () => {
     expect(sent).toEqual([["ask-8", { name: "choose", context: { choice: "b" } }]]);
   });
 
-  test("Échap reste à l'app (désélectionner) : la question ne s'abandonne que par son bouton", async () => {
+  /** Les Échap que reçoit l'app : son écouteur de fenêtre (phase de bouillonnement) ignore un évènement déjà traité. */
+  const appEscapes = () => {
+    const seen: KeyboardEvent[] = [];
+    const listen = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) seen.push(e);
+    };
+    window.addEventListener("keydown", listen);
+    return { count: () => seen.length, stop: () => window.removeEventListener("keydown", listen) };
+  };
+
+  test("Échap hors du dock reste à l'app (désélectionner)", async () => {
     const { sent } = await mount("dock", real("ask-8"));
-    const e = await press("Escape", "Escape");
+    const app = appEscapes();
+    try {
+      const e = await press("Escape", "Escape");
+      expect(e.defaultPrevented).toBe(false);
+      expect(app.count()).toBe(1);
+      expect(sent).toEqual([]);
+    } finally {
+      app.stop();
+    }
+  });
+
+  test("Échap avec le focus dans le dock abandonne la question, comme sur une fiche ; l'app ne le reçoit pas", async () => {
+    const { host, sent } = await mount("dock", real("ask-8"));
+    const chip = host.querySelector<HTMLButtonElement>(".agent-dock .chip") as HTMLButtonElement;
+    chip.focus();
+    const app = appEscapes();
+    try {
+      const e = await press("Escape", "Escape", chip);
+      expect(e.defaultPrevented).toBe(true);
+      expect(app.count()).toBe(0);
+      expect(sent).toEqual([["ask-8", { name: "dismiss", context: {} }]]);
+    } finally {
+      app.stop();
+    }
+  });
+
+  test("Entrée hors du dock reste à l'app, même si le modèle contient déjà une option", async () => {
+    const base = real("ask-8");
+    const preset = { version: "v0.9", updateDataModel: { surfaceId: "ask-8", path: "/choice", value: "b" } };
+    const { sent } = await mount("dock", { ...base, messages: [...base.messages, preset] as unknown as Surface["messages"] });
+    const e = await press("Enter", "Enter");
     expect(e.defaultPrevented).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  test("touches coupées : la question du dock ne montre pas ses chiffres et ne les prend pas", async () => {
+    const { host, sent } = await mount("dock", real("ask-8"), false);
+    expect(host.querySelectorAll(".agent-dock .chip-key")).toHaveLength(0);
+    await press("1", "Digit1");
     expect(sent).toEqual([]);
   });
 });

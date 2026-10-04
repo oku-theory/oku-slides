@@ -12,6 +12,7 @@ const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { SurfaceView } = await import("./SurfaceView");
 const { SlideThumbsContext } = await import("./slideThumbs");
+const { QuickHintsContext } = await import("./quickHints");
 const { t } = await import("../i18n");
 
 type Root = ReturnType<typeof createRoot>;
@@ -31,8 +32,8 @@ const messages = (components: unknown[], data: unknown = {}) =>
     { version: "v0.9", updateDataModel: { surfaceId: "s", value: data } },
   ] as unknown as A2uiMessage[];
 
-/** Monte une surface d'un composant racine ; renvoie son hôte et les actions reçues. */
-async function mount(root: Record<string, unknown>, data: unknown = {}) {
+/** Monte une surface d'un composant racine ; renvoie son hôte et les actions reçues. `hints` : elle reçoit les touches rapides. */
+async function mount(root: Record<string, unknown>, data: unknown = {}, hints = false) {
   const actions: A2uiClientAction[] = [];
   const errors: string[] = [];
   const host = document.createElement("div");
@@ -41,12 +42,16 @@ async function mount(root: Record<string, unknown>, data: unknown = {}) {
   mounted = { root: r, host };
   await act(async () => {
     r.render(
-      createElement(SurfaceView, {
-        messages: messages([{ id: "root", ...root }], data),
-        surfaceId: "s",
-        onAction: (a: A2uiClientAction) => actions.push(a),
-        onError: (m: string) => errors.push(m),
-      }),
+      createElement(
+        QuickHintsContext.Provider,
+        { value: hints },
+        createElement(SurfaceView, {
+          messages: messages([{ id: "root", ...root }], data),
+          surfaceId: "s",
+          onAction: (a: A2uiClientAction) => actions.push(a),
+          onError: (m: string) => errors.push(m),
+        }),
+      ),
     );
   });
   return { host, actions, errors };
@@ -162,6 +167,7 @@ describe("rendu du catalogue v3", () => {
         action: { event: { name: "choose", context: { choice: { path: "/choice" } } } },
       },
       { choice: "" },
+      true,
     );
     expect(host.querySelector('[role="radiogroup"]')).not.toBeNull();
     const chips = [...host.querySelectorAll('[role="radio"]')];
@@ -170,6 +176,14 @@ describe("rendu du catalogue v3", () => {
     await click(chips[1]);
     expect(actions.map((a) => a.context)).toEqual([{ choice: "b" }]);
     expect(host.querySelectorAll('[role="radio"]')[1].getAttribute("aria-checked")).toBe("true");
+  });
+
+  test("ChoiceChips : sans fournisseur des touches rapides, aucun chiffre 1–4", async () => {
+    const { host } = await mountAll([
+      { id: "root", component: "ChoiceChips", value: { path: "/choice" }, options: [{ id: "a", label: "A" }, { id: "b", label: "B" }] },
+    ]);
+    expect(host.querySelectorAll('[role="radio"]')).toHaveLength(2);
+    expect(host.querySelectorAll(".chip-key")).toHaveLength(0);
   });
 
   test("ColorField : glisser dans le sélecteur n'envoie qu'une action, à sa fermeture", async () => {

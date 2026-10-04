@@ -1,6 +1,6 @@
 // Rendu du fil de l'agent dans un DOM happy-dom.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import "../test/dom";
 import type { Surface } from "../api";
@@ -13,7 +13,15 @@ const { AgentThread } = await import("./AgentThread");
 const { realSurface } = await import("../a2ui/fixtures/agentSurfaces");
 const { expectIconOnly } = await import("../test/iconOnly");
 const { routeSurfaces } = await import("./surfaces");
-const { t } = await import("../i18n");
+const { t, setMessages } = await import("../i18n");
+const { resetMessages } = await import("../test/messages");
+
+const ftl = (lang: string) =>
+  Bun.file(new URL(`../../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
+const { QUIET_MS } = await import("./speech");
+
+// Les autres tests du fichier (et des fichiers suivants) attendent les identifiants bruts.
+afterEach(resetMessages);
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -67,14 +75,16 @@ async function mount(surfaces: Surface[], state: State = "idle") {
   // Les surfaces sont chargées à la demande (lazy) : laisser Suspense les résoudre.
   await act(async () => new Promise((r) => setTimeout(r, 0)));
   /** Remonte avec une autre liste de surfaces (même racine React : l'état local est gardé). */
-  const rerender = async (next: Surface[], keysTo?: string | null, nextState: State = state) => {
-    const routed = routeSurfaces(next, null);
-    await act(async () => {
-      root.render(createElement(AgentThread, { ...props(), ...routed, state: nextState, keysTo }));
+  /** Remonte sans attendre (minuteries simulées : les surfaces sont déjà chargées). */
+  const renderNow = (next: Surface[], keysTo?: string | null, nextState: State = state, resyncs = 0) =>
+    act(async () => {
+      root.render(createElement(AgentThread, { ...props(), ...routeSurfaces(next, null), state: nextState, keysTo, resyncs }));
     });
+  const rerender = async (next: Surface[], keysTo?: string | null, nextState: State = state, resyncs = 0) => {
+    await renderNow(next, keysTo, nextState, resyncs);
     await act(async () => new Promise((r) => setTimeout(r, 0)));
   };
-  return { host, actions, fresh: () => fresh, rerender };
+  return { host, actions, fresh: () => fresh, rerender, renderNow };
 }
 
 describe("fil de l'agent par tours", () => {
@@ -86,16 +96,65 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector(".agent-thread-head")).toBeNull();
   });
 
-  test("une région polie persistante annonce les ajouts du fil, pas le dernier tour réannoncé", async () => {
+  test("une région polie persistante annonce les ajouts du fil ; la liste elle-même n'est pas annoncée", async () => {
     const { host, rerender } = await mount([]);
-    const region = host.querySelector(".agent-turns");
+    const region = host.querySelector(".agent-announce");
     expect(region?.getAttribute("aria-live")).toBe("polite");
     expect(region?.getAttribute("aria-relevant")).toBe("additions");
     await rerender([realSurface("turn-3")]);
     // La même région, présente avant l'ajout : le premier tour est annoncé.
-    expect(host.querySelector(".agent-turns")).toBe(region);
+    expect(host.querySelector(".agent-announce")).toBe(region);
+    expect(region?.textContent).toContain("Change le fond de la slide quatre.");
     expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(false);
-    expect(host.querySelectorAll(".agent-turn[aria-live]")).toHaveLength(0);
+    // Les reconstructions A2UI de la liste ne sont jamais relues.
+    expect(host.querySelectorAll(".agent-turns[aria-live], .agent-turn[aria-live]")).toHaveLength(0);
+  });
+
+  test("la région lit une fois ce qui est nouveau ; reçu sans ses suites ou resynchronisation identique : rien", async () => {
+    const { host, rerender, renderNow } = await mount([]);
+    const said = () => [...host.querySelectorAll(".agent-announce > *")].map((p) => p.textContent);
+    await rerender([realSurface("turn-3")]);
+    // Surfaces chargées : la suite sous minuteries simulées (une phrase inachevée attend un silence).
+    jest.useFakeTimers();
+    const quiet = () => act(async () => void jest.advanceTimersByTime(QUIET_MS));
+    try {
+      await quiet();
+      const afterTurn = said().length;
+      expect(afterTurn).toBeGreaterThan(0);
+      await renderNow([realSurface("turn-3"), realSurface("report-8")]);
+      await quiet();
+      expect(said().slice(afterTurn)).toEqual(["Slide 4 : fond bleu nuit titre en blanc surtitre bleu clair"]);
+    const count = said().length;
+    // Le reçu remplacé par sa version sans suites (tour suivant ouvert).
+    const report = realSurface("report-8");
+    type Msg = { updateComponents?: { components: { id: string; children?: string[] }[] } };
+    const plain = structuredClone(report);
+    for (const m of plain.messages as unknown as Msg[]) {
+      const u = m.updateComponents;
+      if (!u) continue;
+      u.components = u.components.filter((c) => !c.id.startsWith("next"));
+      for (const c of u.components) if (c.children) c.children = c.children.filter((id) => id !== "next");
+    }
+      await renderNow([realSurface("turn-3"), plain]);
+      // Mêmes surfaces, nouveaux objets (le réducteur garde d'ordinaire les objets : voir surfaces.test).
+      await renderNow([structuredClone(realSurface("turn-3")), structuredClone(plain)]);
+      await quiet();
+      expect(said()).toHaveLength(count);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("ce qui est déjà là au montage n'est pas lu", async () => {
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")]);
+    expect(host.querySelectorAll(".agent-announce > *")).toHaveLength(0);
+  });
+
+  test("fil monté vide puis rempli par la resynchronisation (onglet rouvert) : rien n'est lu", async () => {
+    const { host, rerender } = await mount([]);
+    await rerender([realSurface("turn-3"), realSurface("ask-7"), realSurface("report-8")], undefined, "idle", 1);
+    await act(async () => new Promise((r) => setTimeout(r, QUIET_MS)));
+    expect(host.querySelectorAll(".agent-announce > *")).toHaveLength(0);
   });
 
   test("le dock est une région persistante qui annonce ses ajouts", async () => {
@@ -122,6 +181,24 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelectorAll(".agent-dock .chip-key")).toHaveLength(2);
     await rerender([realSurface("turn-3"), realSurface("ask-8")], "ask-1");
     expect(host.querySelectorAll(".agent-dock .chip-key")).toHaveLength(0);
+  });
+
+  test("une fiche hors de la slide (dans le fil) ne reçoit pas les touches : ni chiffres, la question du dock les garde", async () => {
+    // Une fiche-question dont l'élément n'est pas à l'écran : elle va dans le fil (`loose`).
+    const sheet = { ...JSON.parse(JSON.stringify(realSurface("ask-8")).replaceAll('"ask-8"', '"ask-9"')), place: "sheet" } as Surface;
+    const { host, rerender } = await mount([realSurface("turn-3")]);
+    await rerender([realSurface("turn-3"), realSurface("ask-8"), sheet], "ask-8");
+    expect(host.querySelectorAll('.agent-turns [data-surface-id="ask-9"] .chip')).toHaveLength(2);
+    expect(host.querySelectorAll('.agent-turns [data-surface-id="ask-9"] .chip-key')).toHaveLength(0);
+    expect(host.querySelectorAll('.agent-dock [data-surface-id="ask-8"] .chip-key')).toHaveLength(2);
+  });
+
+  test("touches coupées : aucune surface du fil ni du dock ne montre de chiffres", async () => {
+    const sheet = { ...JSON.parse(JSON.stringify(realSurface("ask-8")).replaceAll('"ask-8"', '"ask-9"')), place: "sheet" } as Surface;
+    const { host, rerender } = await mount([realSurface("turn-3")]);
+    await rerender([realSurface("turn-3"), realSurface("ask-8"), sheet], null);
+    expect(host.querySelectorAll(".chip")).toHaveLength(4);
+    expect(host.querySelectorAll(".chip-key")).toHaveLength(0);
   });
 
   test("plusieurs questions au dock : toutes visibles, chacune répond pour elle-même", async () => {
@@ -230,14 +307,16 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector(".agent-jump")).toBeNull();
   });
 
-  test("la légende d'état suit l'état de l'agent", async () => {
+  test("la légende d'état suit l'état de l'agent, en toutes lettres", async () => {
+    // Les vraies traductions (et non les identifiants bruts) : le texte montré est vérifié.
+    setMessages("fr", [await ftl("en"), await ftl("fr")]);
     const { host, rerender } = await mount([realSurface("turn-3")], "starting");
     const caption = () => host.querySelector(".agent-thread-head .caption")?.textContent;
-    expect(caption()).toBe(t("ui-agent-state-starting"));
+    expect(caption()).toBe("L'agent démarre…");
     await rerender([realSurface("turn-3")], undefined, "working");
-    expect(caption()).toBe(t("ui-agent-state-working"));
+    expect(caption()).toBe("L'agent travaille…");
     await rerender([realSurface("turn-3")], undefined, "idle");
-    expect(caption()).toBe(t("ui-agent-state-idle"));
+    expect(caption()).toBe("Agent");
   });
 
   test("le fil suivi reste en bas quand le dock grandit (la zone qui défile est observée)", async () => {
@@ -258,6 +337,7 @@ describe("fil de l'agent par tours", () => {
       const { host } = await mount([realSurface("turn-3")], "working");
       const scroller = host.querySelector(".agent-scroller") as HTMLElement;
       expect(observed).toContain(scroller);
+      expect(observed).toContain(host.querySelector(".agent-turns") as HTMLElement);
       // Le dock prend de la place : la zone rétrécit, le fil suivi revient en bas.
       Object.defineProperty(scroller, "scrollHeight", { value: 800, configurable: true });
       scroller.scrollTop = 100;

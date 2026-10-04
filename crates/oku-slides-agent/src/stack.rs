@@ -28,6 +28,10 @@ pub enum AgentCommand {
         text: String,
         #[serde(default)]
         ui: AgentUi,
+        /// La question à laquelle cette consigne répond : celle qui reçoit les touches 1–4
+        /// (`quickTarget`). Absente, ou question qui n'attend plus : une consigne ordinaire.
+        #[serde(default)]
+        answer: Option<String>,
     },
     Cancel {
         tab: String,
@@ -132,11 +136,13 @@ impl Stack {
             return Ok(());
         }
         match cmd {
-            AgentCommand::Prompt { tab, text, ui } => {
+            AgentCommand::Prompt { tab, text, ui, answer } => {
                 // Fermé entre-temps : ignorée, comme ci-dessus.
                 let Some(t) = self.open(&tab) else { return Ok(()) };
-                // Consigne dictée : réponse à la question en attente, sinon nouveau tour.
-                if !t.hub.answer_pending(&text) {
+                // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
+                // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
+                // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
+                if !answer.is_some_and(|id| t.hub.answer(&id, &text)) {
                     t.send(Command::Prompt { text, ui });
                 }
             }

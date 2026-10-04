@@ -1,4 +1,4 @@
-# Tác tử: bề mặt, xác nhận, luồng.
+# Tác nhân AI: bề mặt, xác nhận, luồng.
 
 agent-instructions = Bạn chỉnh sửa một bản trình bày Oku Slides cho người dùng đang trò chuyện với bạn. Chỉ hành động thông qua các công cụ oku-slides. Hãy đọc deck bằng deck_outline, slide và render_slide trước khi thay đổi; thay đổi bằng apply (mọi thay đổi đều có thể hoàn tác). Khi quyết định thuộc về người dùng, hãy hỏi bằng ask_choice, ask_confirm hoặc ask_rewrite; đề xuất bố cục bằng show_variants và các tinh chỉnh trực tiếp bằng show_params. Kết thúc mỗi lượt bằng report: một tiêu đề một dòng, 1 đến 4 dữ kiện ngắn, lời giải thích của bạn trong why và 0 đến 4 bước tiếp theo trong actions. Văn bản tự do của bạn chỉ được hiển thị dưới dạng ghi chú tiến độ một dòng: hãy viết như vậy, ngắn gọn và bằng ngôn ngữ của người dùng. Chỉ dùng render khi không có công cụ nào khác phù hợp. Mỗi tin nhắn bắt đầu bằng một khối <oku-slides-context> mô tả những gì người dùng đang thấy. Trước khi thêm một phần tử, hãy đọc công cụ widgets để biết các loại có sẵn và tham số của chúng. Để đổi lưới của một slide, hãy dùng op set_grid: các phần tử đã đặt sẽ đi theo.
 
@@ -14,12 +14,12 @@ agent-surface-edit = Chỉnh sửa trước khi áp dụng
 agent-surface-close = Đóng
 agent-surface-variants = Các biến thể
 agent-surface-permission-always = vĩnh viễn
-agent-surface-permission-title = Tác tử xin một quyền
-agent-undo-turn = Tác tử: { $text }
+agent-surface-permission-title = Tác nhân AI xin một quyền
+agent-undo-turn = Tác nhân AI: { $text }
 
-agent-tools-unavailable = Không thể khởi động các công cụ của tác tử.
+agent-tools-unavailable = Không thể khởi động các công cụ của tác nhân AI.
 
-agent-undo-apply = Thay đổi của tác tử
+agent-undo-apply = Thay đổi của tác nhân AI
 agent-undo-variant = Biến thể: { $label }
 agent-undo-param = Cài đặt: { $label }
 agent-undo-rewrite = Diễn đạt lại
@@ -34,10 +34,10 @@ agent-confirm-save-templates = Lưu bộ mẫu “{ $name }”?
 agent-confirm-delete-set = Xóa bộ mẫu “{ $name }”? Không thể hoàn tác thao tác này.
 agent-confirm-setting = Thay đổi { $key }: { $old } → { $new }?
 
-agent-not-found = Không tìm thấy tác tử: { $command }. Cài đặt [agent] command.
-agent-no-http = Tác tử này không thể kết nối với các công cụ của Oku Slides.
-agent-stopped = Tác tử đã dừng.
-agent-failed = Tác tử đã từ chối yêu cầu: { $message }
+agent-not-found = Không tìm thấy tác nhân AI: { $command }. Cài đặt [agent] command.
+agent-no-http = Tác nhân AI này không thể kết nối với các công cụ của Oku Slides.
+agent-stopped = Tác nhân AI đã dừng.
+agent-failed = Tác nhân AI đã từ chối yêu cầu: { $message }
 agent-tool-failed = Công cụ gặp lỗi ngoài dự kiến.
 
 agent-turn-tools = { $tools } công cụ
@@ -45,9 +45,9 @@ agent-turn-notes = { $notes } ghi chú
 agent-turn-secs = { $secs } giây
 agent-turn-stopped = Đã dừng.
 agent-turn-interrupted = Đã bị gián đoạn.
-agent-turn-max-tokens = Tác tử đã đạt giới hạn độ dài.
-agent-turn-max-turns = Tác tử đã đạt giới hạn số bước.
-agent-turn-refusal = Tác tử đã từ chối.
+agent-turn-max-tokens = Tác nhân AI đã đạt giới hạn độ dài.
+agent-turn-max-turns = Tác nhân AI đã đạt giới hạn số bước.
+agent-turn-refusal = Tác nhân AI đã từ chối.
 agent-turn-ended = Kết thúc lượt ({ $stop }).
 agent-choice-cancelled = Câu hỏi đã bị hủy
 agent-choice-answered = ✓ { $answer }

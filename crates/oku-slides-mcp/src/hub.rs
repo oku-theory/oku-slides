@@ -10,7 +10,11 @@
 //! temps que la session. `prune` prend la session puis `state` ; `act`
 //! relâche `state` avant d'appliquer quoi que ce soit sur la session.
 //! `emit` prend `state` (liste des surfaces ouvertes) : jamais appelé
-//! avec `state` déjà tenu.
+//! avec `state` déjà tenu (sous le verrou : `record_and_send`).
+//!
+//! Une consigne qui répond à une question (`answer`) nomme cette question :
+//! l'interface la désigne, la même qui reçoit ses touches 1–4 (`quickTarget`).
+//! Le hub ne devine pas laquelle, il ne voit pas la slide affichée.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -136,7 +140,7 @@ enum Shown {
 #[derive(Debug, Default)]
 struct HubState {
     next: u64,
-    /// Dans l'ordre d'ouverture : une réponse dictée va à la dernière.
+    /// Questions en attente, dans l'ordre d'ouverture.
     asks: Vec<PendingAsk>,
     shows: HashMap<String, Shown>,
     /// Surfaces ouvertes, dans l'ordre d'ouverture. Ouverture et fermeture
@@ -167,9 +171,10 @@ impl HubState {
         ask
     }
 
-    fn take_last_ask(&mut self) -> Option<PendingAsk> {
-        let last = self.asks.len().checked_sub(1)?;
-        Some(self.take_ask(last))
+    /// Retire la question `id` si elle attend encore.
+    fn take_ask_id(&mut self, id: &str) -> Option<PendingAsk> {
+        let i = self.asks.iter().position(|a| a.id == id)?;
+        Some(self.take_ask(i))
     }
 
     fn take_asks(&mut self) -> Vec<PendingAsk> {
@@ -208,8 +213,13 @@ impl SurfaceHub {
     /// Tient aussi la liste des surfaces ouvertes, et remplit celle d'un
     /// `Surfaces` : liste et évènement sont faits sous le même verrou, dans
     /// le même ordre.
-    pub fn emit(&self, mut event: McpEvent) {
-        let mut state = self.state();
+    pub fn emit(&self, event: McpEvent) {
+        self.record_and_send(&mut self.state(), event);
+    }
+
+    /// [`emit`](Self::emit), verrou déjà pris : la liste des ouvertes et l'évènement suivent
+    /// l'ordre des sections critiques.
+    fn record_and_send(&self, state: &mut HubState, mut event: McpEvent) {
         match &mut event {
             // Le relais, en retard, peut émettre la surface d'un tour effacé par une nouvelle conversation.
             McpEvent::Surface { surface } if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) => {
@@ -278,8 +288,11 @@ impl SurfaceHub {
             }
             surface.turn = turn;
             state.asks.push(PendingAsk { id: id.clone(), tx, frozen: freeze.is_some() });
+            // Sous le même verrou : deux questions parallèles entrent dans `open` (et partent vers
+            // l'interface) dans l'ordre où elles sont enregistrées ; une question en attente est
+            // toujours affichée.
+            self.record_and_send(&mut state, McpEvent::Surface { surface });
         }
-        self.emit(McpEvent::Surface { surface });
         let mut guard = CloseOnDrop { hub: self, id, turn, freeze, answer: None };
         let answer = rx.await.unwrap_or(Answer::Cancelled);
         guard.answer = Some(answer.clone());
@@ -338,9 +351,11 @@ impl SurfaceHub {
         !self.state().asks.is_empty()
     }
 
-    /// Une réponse dictée pour la dernière question en attente.
-    pub fn answer_pending(&self, text: &str) -> bool {
-        let Some(ask) = self.state().take_last_ask() else { return false };
+    /// Une consigne (dictée ou tapée) en réponse à la question `id`, celle que l'interface
+    /// désigne ; `false` si elle n'attend plus (répondue, annulée, inconnue) : aucune autre
+    /// n'est répondue à sa place.
+    pub fn answer(&self, id: &str, text: &str) -> bool {
+        let Some(ask) = self.state().take_ask_id(id) else { return false };
         let mut context = Map::new();
         context.insert("text".into(), Value::String(text.to_owned()));
         ask.tx.send(Answer::Action { name: "answer".into(), context }).is_ok()
@@ -376,11 +391,7 @@ impl SurfaceHub {
     /// Une action de l'interface : réponse à une question, ou changement
     /// d'une surface persistante (appliqué ici, noté pour l'agent).
     pub fn act(&self, action: SurfaceAction) -> Result<(), String> {
-        let ask = {
-            let mut state = self.state();
-            let i = state.asks.iter().position(|a| a.id == action.surface);
-            i.map(|i| state.take_ask(i))
-        };
+        let ask = self.state().take_ask_id(&action.surface);
         if let Some(ask) = ask {
             let answer = if action.name == "dismiss" {
                 Answer::Cancelled
@@ -517,7 +528,7 @@ impl SurfaceHub {
 
     /// Permission demandée par l'agent (ACP) : l'index de l'option choisie, dans
     /// l'ordre de l'agent. Seul un clic sur une option répond : Échap, une
-    /// nouvelle conversation ou une réponse dictée (`answer_pending`, nommée
+    /// nouvelle conversation ou une consigne en réponse (`answer`, action nommée
     /// `answer`) donnent `None`, que la connexion transmet comme un refus.
     pub async fn permission(&self, title: &str, options: &[PermissionChoice]) -> Option<usize> {
         let id = self.next_id("permission");
@@ -531,3 +542,7 @@ impl SurfaceHub {
 #[path = "hub_turns.rs"]
 mod turns;
 pub use turns::{Freeze, STATIC_PER_TURN};
+
+#[cfg(test)]
+#[path = "hub_tests.rs"]
+mod tests;

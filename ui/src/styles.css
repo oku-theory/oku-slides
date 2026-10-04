@@ -555,7 +555,10 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .chip:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* --- Fil de l'agent ------------------------------------------------------- */
-/* Même couche que les cartes : la feuille peut déborder sur la colonne des notes.
+/* Ce z-index n'ordonne le fil qu'entre ses voisins de la colonne des notes (carte du graphique,
+   brouillon, panneau) : `.notes` (`container-type: size` implique `contain: layout`)
+   forme son propre contexte d'empilement et rogne ce qui déborde. Il ne pose pas le fil
+   au-dessus de la feuille.
    Sans fond, posé sur la table ; les cartes se bordent d'un filet intérieur (pas
    d'ombre portée à rogner) et le défilement se fait dans `.agent-scroller`. */
 .agent-thread { position: relative; z-index: 3; }

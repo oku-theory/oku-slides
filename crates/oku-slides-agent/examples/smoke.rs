@@ -45,7 +45,7 @@ fn main() -> color_eyre::Result<()> {
         let _ = tx.send((name, json));
     });
     stack
-        .handle(AgentCommand::Prompt { tab: TAB.to_owned(), text: prompt, ui: AgentUi::default() })
+        .handle(AgentCommand::Prompt { tab: TAB.to_owned(), text: prompt, ui: AgentUi::default(), answer: None })
         .map_err(|e| color_eyre::eyre::eyre!(e))?;
 
     let mut worked = false;

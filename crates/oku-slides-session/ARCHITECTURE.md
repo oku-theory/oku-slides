@@ -35,6 +35,15 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   (slide modifiée depuis et cache perdu, par exemple après un rechargement) son état **actuel**, estompé et
   marqué « modifiée depuis » : la session ne garde que le rendu des pages présentes (`svg_cache`), l'ancien
   n'est plus demandable. Slide supprimée : pas de miniature (la couleur `swatch`, s'il y en a une).
+  **Mode historique** : `svg` et les empreintes du snapshot (`SlideSummary.hash`) sont alors ceux de la version
+  montrée (le deck attend de côté). Un reçu dont l'image est en cache la garde ; sinon il montre la slide telle
+  qu'elle est **dans la version montrée**, marquée « modifiée depuis » si l'empreinte diffère (plus ancienne ou
+  plus récente que le reçu : la marque dit seulement « pas l'état du reçu ») ; slide absente de cette version :
+  pas de miniature. En refermant l'historique, les empreintes du deck reviennent et la miniature avec.
+  **États transitoires** (côté interface) : image pas encore reçue → pas de miniature (la couleur `swatch`
+  en attendant, s'il y en a une), puis l'image dès sa réception ; slide en cours de re-rendu → la dernière
+  image reçue de la slide reste montrée (`useSvgCache`), marquée d'après l'empreinte actuelle, jusqu'à la
+  suivante ; snapshot pas encore chargé → pas de miniature.
 - `agent::forms::Surface` : `place`, `turn` (rempli par le hub, au tour de l'appel), `live`, et `question` (attend la
   réponse de l'utilisateur : `ask_*`, confirmation, permission ; marqué par leurs constructeurs, jamais déduit de l'identifiant).
 

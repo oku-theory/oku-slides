@@ -45,9 +45,21 @@ fn report_surface_on_a_slide_carries_its_reference_not_its_svg() {
         let json = serde_json::to_value(surface).unwrap();
         let text = json.to_string();
         assert_that!(text.contains("<svg")).is_false();
-        let card = &json["messages"][1]["updateComponents"]["components"][1];
-        assert_that!(card["slide"]).is_equal_to(json!({ "id": "s-libre", "hash": hash }));
+        assert_that!(receipt_card(&json)["slide"]).is_equal_to(json!({ "id": "s-libre", "hash": hash }));
     }
+}
+
+/// La carte `Receipt` d'une surface de reçu, cherchée par son type (et non par sa position).
+fn receipt_card(surface: &serde_json::Value) -> serde_json::Value {
+    let components = surface["messages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m["updateComponents"]["components"].as_array())
+        .flatten();
+    let cards: Vec<_> = components.filter(|c| c["component"] == "Receipt").collect();
+    assert_that!(cards.len()).named("cartes Receipt").is_equal_to(1);
+    cards[0].clone()
 }
 
 fn report(title: &str, facts: &[&str], swatch: Option<&str>) -> Report {
@@ -78,6 +90,15 @@ fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case]
     assert_that!(err.to_string()).contains(reason);
 }
 
+/// t-458 : un fait blanc parmi des faits non blancs est écarté (pas de ligne vide sur la carte).
+#[test]
+fn report_surface_drops_blank_facts_among_others() {
+    let mut s = session();
+    let r = s.report_surface("report-1", &report("Fait", &["a", "  ", "b", "\t"], None)).unwrap();
+    let json = serde_json::to_value(&r.surface).unwrap();
+    assert_that!(receipt_card(&json)["facts"].clone()).is_equal_to(json!(["a", "b"]));
+}
+
 #[rstest::rstest]
 #[case::six_digits("#00154e")]
 #[case::three_digits("#fff")]
@@ -85,8 +106,8 @@ fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case]
 fn report_surface_with_a_hex_swatch_shows_it(#[case] swatch: &str) {
     let mut s = session();
     let r = s.report_surface("report-1", &report(&"x".repeat(120), &["a"], Some(swatch))).unwrap();
-    let card = &serde_json::to_value(&r.surface).unwrap()["messages"][1]["updateComponents"]["components"][1];
-    assert_that!(card["swatch"].clone()).is_equal_to(json!(swatch));
+    let json = serde_json::to_value(&r.surface).unwrap();
+    assert_that!(receipt_card(&json)["swatch"].clone()).is_equal_to(json!(swatch));
     assert_that!(r.plain).is_none();
 }
 

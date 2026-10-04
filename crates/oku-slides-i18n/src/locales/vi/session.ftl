@@ -25,7 +25,7 @@ session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }
 session-history-not-open = Lịch sử chưa được mở
 session-in-history = Hãy đóng lịch sử trước khi thay đổi bản trình bày
-session-agent-form = Yêu cầu của tác tử không hợp lệ: { $reason }
+session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
 
 deck-untitled = Không có tiêu đề
 deck-new-title = Bản trình bày mới

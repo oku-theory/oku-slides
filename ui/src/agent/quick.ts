@@ -1,5 +1,5 @@
-// Clavier des surfaces de l'agent : 1–4 choisissent, Entrée valide (bouton principal,
-// sinon l'option par défaut des pastilles), E retouche, Échap abandonne. Les actions
+// Clavier des surfaces de l'agent : 1–4 choisissent, Entrée valide (bouton principal),
+// E retouche, Échap abandonne. Les actions
 // sont lues dans la surface elle-même (composants et modèle de données) : ce que la
 // touche envoie est ce que le clic enverrait.
 
@@ -11,7 +11,8 @@ export type QuickAction = { name: string; context: Record<string, unknown> };
 /** Touche rapide, indépendante de la disposition du clavier. */
 export type QuickKey = "1" | "2" | "3" | "4" | "Enter" | "Escape" | "e";
 
-type Component = { id: string; component: string; [k: string]: unknown };
+/** Un composant A2UI tel qu'écrit dans les messages. */
+export type Component = { id: string; component: string; [k: string]: unknown };
 type ActionEvent = { name: string; context?: Record<string, unknown> };
 type Message = {
   updateComponents?: { components?: unknown };
@@ -51,7 +52,7 @@ export function quickKey(e: {
 }
 
 /** Composants de la surface, les mises à jour successives appliquées (la dernière gagne). */
-function components(s: Surface): Component[] {
+export function components(s: Surface): Component[] {
   const byId = new Map<string, Component>();
   for (const m of s.messages as unknown as Message[]) {
     const list = m.updateComponents?.components;
@@ -64,7 +65,7 @@ function components(s: Surface): Component[] {
 }
 
 /** Modèle de données de la surface, les mises à jour successives appliquées. */
-function dataModel(s: Surface): Record<string, unknown> {
+export function dataModel(s: Surface): Record<string, unknown> {
   let root: Record<string, unknown> = {};
   for (const m of s.messages as unknown as Message[]) {
     const u = m.updateDataModel;
@@ -76,7 +77,7 @@ function dataModel(s: Surface): Record<string, unknown> {
 }
 
 /** La valeur d'un chemin (`/a/b`) dans le modèle ; `undefined` si absente. */
-function read(model: Record<string, unknown>, path: string): unknown {
+export function read(model: Record<string, unknown>, path: string): unknown {
   let v: unknown = model;
   for (const part of path.split("/").filter(Boolean)) {
     if (!v || typeof v !== "object") return undefined;
@@ -85,7 +86,7 @@ function read(model: Record<string, unknown>, path: string): unknown {
   return v;
 }
 
-const isPath = (v: unknown): v is { path: string } =>
+export const isPath = (v: unknown): v is { path: string } =>
   !!v && typeof v === "object" && typeof (v as { path?: unknown }).path === "string";
 
 function eventOf(c: Component | undefined): ActionEvent | null {
@@ -130,10 +131,10 @@ export function quickAction(surface: Surface, key: string): QuickAction | null {
       ? actionOf(chips, model, { [chips.value.path]: id })
       : null;
   if (key === "Enter") {
+    // Le bouton principal seulement : des pastilles n'ont pas d'option par défaut (`ask_choice`
+    // part d'un choix vide), Entrée ne choisit jamais à la place de l'utilisateur.
     const primary = cs.find((c) => c.component === "Button" && c.primary === true);
-    if (primary) return actionOf(primary, model);
-    // Sans bouton principal : l'option par défaut des pastilles (déjà dans le modèle), s'il y en a une.
-    return chips && isPath(chips.value) ? choose(read(model, chips.value.path)) : null;
+    return primary ? actionOf(primary, model) : null;
   }
   const n = Number(key);
   if (!Number.isInteger(n) || n < 1 || n > QUICK_KEYS) return null;

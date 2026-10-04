@@ -65,7 +65,7 @@ async fn dictated_answer_never_grants_a_permission() {
         let hub = h.hub.clone();
         async move { hub.permission("Écrire le fichier ?", &choices()).await }
     });
-    next_surface(&mut rx).await;
-    assert_that!(h.hub.answer_pending("oui, toujours")).is_true();
+    let asked = next_surface(&mut rx).await;
+    assert_that!(h.hub.answer(&asked.id, "oui, toujours")).is_true();
     assert_that!(asking.await.unwrap_or_else(|e| panic!("{e}"))).is_none();
 }

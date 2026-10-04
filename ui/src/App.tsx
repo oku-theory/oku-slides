@@ -40,7 +40,7 @@ import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
 import { agentBusy, routeSurfaces, sendThenPrompt, surfacesReducer } from "./agent/surfaces";
 import { withRewriteParagraphs } from "./agent/rewrite";
-import { quickTarget, useQuickKeys } from "./agent/useQuickKeys";
+import { answerTarget, quickTarget, useQuickKeys } from "./agent/useQuickKeys";
 import { agentUi } from "./agent/ui";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
@@ -405,7 +405,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
   const agent = useMemo(() => agentApi(tab), [tab]);
   const [agentState, onAgentEvent] = useReducer((_: AgentState, e: AgentEvent) => e.state, "idle" as AgentState);
   const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
-  const busy = agentBusy(agentState, surfaces);
+  /** Listes entières reçues (`surfaces`, après un abonnement ou une reconnexion) : le fil ne les relit pas. */
+  const [resyncs, countResync] = useReducer((n: number) => n + 1, 0);
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
   // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
   const routed = useMemo(
@@ -425,6 +426,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       subscribeHost(tab, {
         onMcp: (e: McpEvent) => {
           onSurfaceEvent(e);
+          if (e.kind === "surfaces") countResync();
           if (e.kind === "changed") run(api.snapshot());
           if (e.kind === "focus") {
             showSlide(e.slide);
@@ -455,16 +457,26 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
       },
     );
   };
-  /** Une consigne pour l'agent, avec ce que voit l'utilisateur. */
-  const promptAgent = (text: string) =>
-    agent.prompt(text, agentUi(current, selected, editField, widgets.activeName)).catch((err) => say(String(err), true));
+  const keysTarget = quickTarget({ modal, sheet, drawer, dock: routed.dock });
+  /**
+   * La surface qui reçoit les touches 1–4, Entrée, Échap et montre leur rappel ; aucune pendant
+   * l'édition d'un texte, le pointage ou un widget actif. Une consigne répond toujours à `keysTarget`.
+   */
+  const keyed = !editing && !picking && !widgetActive ? keysTarget : null;
+  /** Un tour en cours qui n'attend pas l'utilisateur (aucune question ne reçoit la consigne) : ⌘⇧D et Échap l'arrêtent. */
+  const busy = agentBusy(agentState, answerTarget(keysTarget));
+  const hintsOn = (s: Surface) => keyed?.surface.id === s.id;
+  /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
+  const promptAgent = (text: string, answer = answerTarget(keysTarget)) =>
+    agent
+      .prompt(text, agentUi(current, selected, editField, widgets.activeName), answer)
+      .catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
     const action = fromA2ui(a);
-    // Une suite cliquée part vers l'agent comme une consigne dictée, une fois l'action acceptée.
+    // Une suite cliquée part vers l'agent, une fois l'action acceptée : une nouvelle consigne, qui ne répond à aucune question.
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
-  const keysTarget = quickTarget({ modal, sheet, drawer, dock: routed.dock });
-  useQuickKeys(keysTarget, !editing && !picking && !widgetActive, sendAction);
+  useQuickKeys(keyed, sendAction);
 
   // --- Édition des modèles ------------------------------------------------
   const editTemplates = async (): Promise<boolean> => {
@@ -853,7 +865,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
                     target: sheet.anchor.element,
                     node: (
                       <Suspense fallback={null}>
-                        <AgentSheet key={sheet.id} surface={sheet} onAction={sendAction} onError={(m) => say(m, true)} />
+                        <AgentSheet key={sheet.id} surface={sheet} hints={hintsOn(sheet)} onAction={sendAction} onError={(m) => say(m, true)} />
                       </Suspense>
                     ),
                   }
@@ -868,7 +880,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} code={viewOptions.code} />}
         {drawer && (
           <Suspense fallback={null}>
-            <VariantDrawer key={drawer.id} surface={drawer} onAction={sendAction} onError={(m) => say(m, true)} />
+            <VariantDrawer key={drawer.id} surface={drawer} hints={hintsOn(drawer)} onAction={sendAction} onError={(m) => say(m, true)} />
           </Suspense>
         )}
       </main>
@@ -891,7 +903,8 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
             turns={routed.turns}
             loose={routed.loose}
             dock={routed.dock}
-            keysTo={keysTarget?.surface.id ?? null}
+            keysTo={keyed?.surface.id ?? null}
+            resyncs={resyncs}
             onAction={onSurfaceAction}
             onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
             onError={(m) => say(m, true)}
@@ -944,7 +957,7 @@ export default function App({ tab, nonce, notice, onOpen, onChange }: {
 
       {modal && (
         <Suspense fallback={null}>
-          <ConfirmModal key={modal.id} surface={modal} onAction={sendAction} onError={(m) => say(m, true)} />
+          <ConfirmModal key={modal.id} surface={modal} hints={hintsOn(modal)} onAction={sendAction} onError={(m) => say(m, true)} />
         </Suspense>
       )}
 

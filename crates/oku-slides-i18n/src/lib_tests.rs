@@ -196,6 +196,8 @@ fn agent_turn_summary_plurals_follow_each_language() {
         ("ar", "agent-turn-notes", "notes", 1, "ملاحظة واحدة"),
         ("ar", "agent-turn-tools", "tools", 0, "لا أدوات"),
         ("ar", "agent-turn-tools", "tools", 11, "11 أداة"),
+        ("th", "agent-turn-tools", "tools", 3, "เครื่องมือ 3 รายการ"),
+        ("th", "agent-turn-notes", "notes", 2, "บันทึก 2 รายการ"),
     ] {
         let text = Localizer::new(Some(locale)).tr_with(id, &[(arg, n.into())]);
         asserting(&format!("{locale} : {id} ({n})")).that(&text).is_equal_to(expected.to_owned());
@@ -203,13 +205,33 @@ fn agent_turn_summary_plurals_follow_each_language() {
 }
 
 /// En japonais, chinois et coréen, le compteur se colle au nombre (« 3個 », « 3秒 », « 3개 ») :
-/// aucune espace entre le chiffre et ce qui le suit dans le résumé d'un tour.
+/// aucun blanc, quel qu'il soit, entre le chiffre et ce qui le suit — dans le résumé d'un tour
+/// comme dans les messages de la ligne de commande, pour un compteur reçu en paramètre comme pour
+/// un nombre écrit dans le message (« 1枚あたり »). Les autres paramètres reçoivent un texte
+/// sans chiffre : une unité latine (« 12 KB ») n'est pas un compteur et garde son espace.
 #[test]
-fn agent_turn_counters_stick_to_the_number_in_cjk() {
+fn counters_stick_to_the_number_in_cjk() {
+    let messages: [(&str, &[&str], &[&str]); 9] = [
+        ("agent-turn-tools", &["tools"], &[]),
+        ("agent-turn-notes", &["notes"], &[]),
+        ("agent-turn-secs", &["secs"], &[]),
+        ("cli-deck-valid", &["slides"], &[]),
+        ("cli-rendered", &["pages"], &["out", "compile", "svg"]),
+        ("cli-saved", &["pages"], &["path", "pdf", "sources"]),
+        ("cli-opened", &["slides", "assets", "fonts"], &["path"]),
+        ("cli-bench-first", &["pages"], &["time"]),
+        ("cli-bench-svg", &[], &["time", "each"]),
+    ];
     for locale in ["ja", "ko", "zh-Hans", "zh-Hant"] {
-        for (id, arg) in [("agent-turn-tools", "tools"), ("agent-turn-notes", "notes"), ("agent-turn-secs", "secs")] {
-            let text = Localizer::new(Some(locale)).tr_with(id, &[(arg, 3.into())]);
-            asserting(&format!("{locale} : {id} = « {text} »")).that(&text.contains("3 ")).is_false();
+        for (id, counters, others) in messages {
+            let args: Vec<(&str, FluentValue<'_>)> = counters
+                .iter()
+                .map(|arg| (*arg, 3.into()))
+                .chain(others.iter().map(|arg| (*arg, "x".into())))
+                .collect();
+            let text = Localizer::new(Some(locale)).tr_with(id, &args);
+            let spaced = text.chars().zip(text.chars().skip(1)).any(|(a, b)| a.is_ascii_digit() && b.is_whitespace());
+            asserting(&format!("{locale} : {id} = « {text} »")).that(&spaced).is_false();
         }
     }
 }

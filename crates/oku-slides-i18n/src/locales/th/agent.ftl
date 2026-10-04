@@ -40,8 +40,8 @@ agent-stopped = เอเจนต์หยุดทำงานแล้ว
 agent-failed = เอเจนต์ปฏิเสธคำขอ: { $message }
 agent-tool-failed = เครื่องมือทำงานล้มเหลวโดยไม่คาดคิด
 
-agent-turn-tools = { $tools } เครื่องมือ
-agent-turn-notes = { $notes } บันทึก
+agent-turn-tools = เครื่องมือ { $tools } รายการ
+agent-turn-notes = บันทึก { $notes } รายการ
 agent-turn-secs = { $secs } วินาที
 agent-turn-stopped = หยุดแล้ว
 agent-turn-interrupted = ถูกขัดจังหวะ

@@ -5,7 +5,8 @@ import type { QuickAction } from "./quick";
 
 /**
  * Applique un évènement des outils aux surfaces.
- * Une surface remplacée garde sa place ; `surfaces` (liste de l'hôte, prise telle quelle) remplace tout.
+ * Une surface remplacée garde sa place ; `surfaces` (liste de l'hôte) remplace tout, une surface
+ * inchangée gardant son objet.
  */
 export function surfacesReducer(list: Surface[], e: McpEvent): Surface[] {
   switch (e.kind) {
@@ -15,8 +16,15 @@ export function surfacesReducer(list: Surface[], e: McpEvent): Surface[] {
     }
     case "close_surface":
       return list.filter((s) => s.id !== e.id);
-    case "surfaces":
-      return e.list;
+    case "surfaces": {
+      // Une surface inchangée garde son objet : sa vue (`SurfaceView`) n'est pas reconstruite,
+      // et rien n'est relu (resynchronisation après une reconnexion).
+      const before = new Map(list.map((s) => [s.id, s]));
+      return e.list.map((s) => {
+        const old = before.get(s.id);
+        return old && JSON.stringify(old) === JSON.stringify(s) ? old : s;
+      });
+    }
     case "surface_patch":
       return list.map((s) => (s.id === e.id ? { ...s, messages: [...s.messages, ...e.messages] } : s));
     default:
@@ -30,15 +38,12 @@ export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.p
 /** Une question de l'agent (les autres surfaces vivantes du fil sont des réglages). */
 export const isQuestion = (s: Surface) => s.question;
 
-/** Une question de l'agent attend l'utilisateur : ⌘⇧D y répond au lieu d'arrêter le tour. */
-export const isAsking = (list: Surface[]) =>
-  list.some((s) => s.place === "sheet" || s.place === "modal" || (s.place === "thread" && s.live && isQuestion(s)));
-
 /**
- * Un tour de l'agent est en cours et n'attend pas l'utilisateur : ⌘⇧D et
- * Échap l'arrêtent. Pendant une question, ⌘⇧D y répond (Stack::prompt).
+ * Un tour de l'agent est en cours et n'attend pas l'utilisateur : ⌘⇧D et Échap l'arrêtent.
+ * `answer` : la question qui recevrait la consigne (`answerTarget`) ; avec elle, ⌘⇧D y répond.
+ * Une question invisible (fiche hors de la slide affichée) n'attend donc pas : ⌘⇧D arrête le tour.
  */
-export const agentBusy = (state: AgentState, list: Surface[]) => state !== "idle" && !isAsking(list);
+export const agentBusy = (state: AgentState, answer: string | null) => state !== "idle" && answer === null;
 
 /** Où s'affichent les surfaces ouvertes ; aucune n'est jamais invisible. */
 export interface Routed {
@@ -96,13 +101,17 @@ export function suggestedPrompt(a: QuickAction): string | null {
   return typeof prompt === "string" && prompt.trim() ? prompt : null;
 }
 
-/** Envoie l'action au hub, puis la consigne d'une suite à l'agent, seulement si le hub l'a acceptée (une suite d'un tour passé est refusée). */
+/**
+ * Envoie l'action au hub, puis la consigne d'une suite à l'agent, seulement si le hub l'a acceptée
+ * (une suite d'un tour passé est refusée). Une suite est une nouvelle consigne : elle ne répond à
+ * aucune question en attente (`answer` nul).
+ */
 export async function sendThenPrompt(
   action: QuickAction,
   send: () => Promise<boolean>,
-  prompt: (text: string) => unknown,
+  prompt: (text: string, answer: null) => unknown,
 ): Promise<void> {
   const text = suggestedPrompt(action);
   const accepted = await send();
-  if (accepted && text) prompt(text);
+  if (accepted && text) prompt(text, null);
 }

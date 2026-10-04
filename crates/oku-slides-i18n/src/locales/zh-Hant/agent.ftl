@@ -1,4 +1,4 @@
-# 智慧代理：介面、確認、對話串。
+# AI 代理：介面、確認、對話串。
 
 agent-instructions = 你為與你對話的使用者編輯一份 Oku Slides 簡報。只透過 oku-slides 工具行事。修改之前，先用 deck_outline、slide 和 render_slide 閱讀投影片組；用 apply 修改（一切都可以復原）。當決定權在使用者時，用 ask_choice、ask_confirm 或 ask_rewrite 詢問；用 show_variants 提供版面，用 show_params 提供即時設定。每一輪都以 report 結束：一行標題、1～4條簡短事實、在 why 中寫你的說明，以及在 actions 中給出0～4個後續步驟。你的自由文字只會顯示為一行進度說明：請照此簡短書寫，並使用使用者的語言。只有在沒有其他工具適用時才使用 render。每則訊息都以描述使用者所見內容的 <oku-slides-context> 區塊開頭。新增元素之前，先閱讀 widgets 工具，了解可用的種類及其參數。 要變更投影片的格線，請使用 set_grid 操作：已放置的元素會隨之調整。
 
@@ -14,12 +14,12 @@ agent-surface-edit = 套用前編輯
 agent-surface-close = 關閉
 agent-surface-variants = 變體
 agent-surface-permission-always = 永久
-agent-surface-permission-title = 智慧代理請求一項權限
-agent-undo-turn = 智慧代理：{ $text }
+agent-surface-permission-title = AI 代理請求一項權限
+agent-undo-turn = AI 代理：{ $text }
 
-agent-tools-unavailable = 智慧代理的工具未能啟動。
+agent-tools-unavailable = AI 代理的工具未能啟動。
 
-agent-undo-apply = 智慧代理變更
+agent-undo-apply = AI 代理變更
 agent-undo-variant = 變體：{ $label }
 agent-undo-param = 設定：{ $label }
 agent-undo-rewrite = 改寫
@@ -34,10 +34,10 @@ agent-confirm-save-templates = 要儲存範本組「{ $name }」嗎？
 agent-confirm-delete-set = 要刪除範本組「{ $name }」嗎？此操作無法復原。
 agent-confirm-setting = 要變更{ $key }：{ $old } → { $new }嗎？
 
-agent-not-found = 找不到智慧代理：{ $command }。設定 [agent] command。
-agent-no-http = 此智慧代理無法連線到 Oku Slides 的工具。
-agent-stopped = 智慧代理已停止。
-agent-failed = 智慧代理拒絕了請求：{ $message }
+agent-not-found = 找不到 AI 代理：{ $command }。設定 [agent] command。
+agent-no-http = 此 AI 代理無法連線到 Oku Slides 的工具。
+agent-stopped = AI 代理已停止。
+agent-failed = AI 代理拒絕了請求：{ $message }
 agent-tool-failed = 此工具意外失敗。
 
 agent-turn-tools = { $tools }個工具
@@ -45,9 +45,9 @@ agent-turn-notes = { $notes }則備註
 agent-turn-secs = { $secs }秒
 agent-turn-stopped = 已停止。
 agent-turn-interrupted = 已中斷。
-agent-turn-max-tokens = 智慧代理已達到長度上限。
-agent-turn-max-turns = 智慧代理已達到步數上限。
-agent-turn-refusal = 智慧代理已拒絕。
+agent-turn-max-tokens = AI 代理已達到長度上限。
+agent-turn-max-turns = AI 代理已達到步數上限。
+agent-turn-refusal = AI 代理已拒絕。
 agent-turn-ended = 本輪結束（{ $stop }）。
 agent-choice-cancelled = 問題已取消
 agent-choice-answered = ✓ { $answer }

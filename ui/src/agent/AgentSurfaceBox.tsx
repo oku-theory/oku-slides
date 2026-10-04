@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { QuickHintsContext } from "../a2ui/quickHints";
 import { SurfaceView } from "../a2ui/SurfaceView";
 import type { Surface } from "../api";
 import type { QuickAction } from "./quick";
@@ -11,6 +12,8 @@ import { ARMING_MS } from "./useQuickKeys";
 /** Ce que reçoit une surface de l'agent : sa description et où envoyer ses actions. */
 export interface SurfaceProps {
   surface: Surface;
+  /** La surface reçoit les touches rapides (`useQuickKeys`) : ses chiffres 1–4 et le rappel des touches s'affichent. */
+  hints: boolean;
   onAction: (surface: Surface, action: QuickAction) => void;
   onError: (message: string) => void;
 }
@@ -26,6 +29,7 @@ const FOCUSABLE = "button:not([disabled]), input, select, textarea, [tabindex]:n
  */
 export function AgentSurfaceBox({
   surface,
+  hints,
   onAction,
   onError,
   className,
@@ -82,8 +86,10 @@ export function AgentSurfaceBox({
       onKeyDown={onKeyDown}
       onClickCapture={onClickCapture}
     >
-      <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, fromA2ui(a))} onError={onError} />
-      {caption && <p className="caption">{caption}</p>}
+      <QuickHintsContext.Provider value={hints}>
+        <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, fromA2ui(a))} onError={onError} />
+      </QuickHintsContext.Provider>
+      {hints && caption && <p className="caption">{caption}</p>}
     </div>
   );
 }

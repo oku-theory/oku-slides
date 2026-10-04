@@ -94,3 +94,28 @@ fn receipt_fallback_why_is_capped() {
 fn receipt_fallback_without_narration_is_none() {
     assert_that!(fallback("report-1", "   ", &fr())).is_none();
 }
+
+/// t-458 : une slide sans page rendue (son rendu a échoué, le dernier rendu installé ne la connaît
+/// pas) donne un reçu sans référence de slide, et non une erreur (avant t-450 : l'échec du rendu
+/// de la miniature faisait échouer `report`).
+#[test]
+fn report_surface_on_a_slide_without_a_rendered_page_has_no_slide_reference() {
+    let mut s = crate::lib_tests_support::session_with_fixture();
+    let mut deck = s.deck().clone();
+    let mut slide = deck.slides[0].clone();
+    slide.id = "s-sans-page".into();
+    deck.slides.push(slide);
+    // Les sources changent sans rendu : le rendu installé reste celui d'avant, sans cette slide.
+    s.doc.sources.apply(deck, "Sans rendu", None).unwrap();
+    let spec = Report { slide: Some("s-sans-page".into()), ..full() };
+    let r = s.report_surface("report-1", &spec).unwrap();
+    for surface in [&r.surface, r.plain.as_ref().unwrap()] {
+        let json = serde_json::to_value(surface).unwrap();
+        let messages = json["messages"].as_array().unwrap();
+        let mut components = messages.iter().filter_map(|m| m["updateComponents"]["components"].as_array()).flatten();
+        let card = components.find(|c| c["id"] == "card").unwrap();
+        assert_that!(card["component"].as_str()).is_equal_to(Some("Receipt"));
+        assert_that!(card.get("slide")).is_none();
+        assert_that!(card["title"].as_str()).is_equal_to(Some("Slide 4 : fond bleu nuit"));
+    }
+}

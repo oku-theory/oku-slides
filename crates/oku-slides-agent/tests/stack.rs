@@ -82,19 +82,40 @@ async fn tab_closed_during_a_turn_releases_its_questions_and_other_tabs_go_on() 
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn prompt_while_question_waits_answers_it_instead_of_new_turn() {
+async fn prompt_answering_a_waiting_question_answers_it_instead_of_new_turn() {
     let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
         { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "mcp": [ask] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
-    wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
-    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième" }))).unwrap();
+    let asked = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
+    let id = asked.1["event"]["surface"]["id"].clone();
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième", "answer": id }))).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     // La consigne est devenue la réponse de la question (rendue à l'agent), pas un nouveau tour.
     let outs: Vec<String> = common::logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
     assert_that!(outs).has_length(1);
     assert_that!(outs[0]).contains("la deuxième");
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_answering_a_question_no_longer_waiting_runs_as_an_instruction() {
+    let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
+        { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
+    let script = json!({ "turns": [{ "mcp": [ask] }, { "chunks": ["ok"] }] });
+    let (stack, rx, log) = stack_with_sink_and_log(script, &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
+    wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
+    // La question désignée a été répondue (ou annulée) entre-temps : la consigne n'est pas perdue.
+    let late = cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième", "answer": "ask-999" }));
+    assert_that!(stack.handle(late)).is_ok();
+    wait_turn_done(&rx, "t-1", 2).await;
+    let prompts = common::logged(&log, "session/prompt");
+    assert_that!(prompts).has_length(2);
+    assert_that!(prompts[1].to_string().contains("la deuxième")).is_true();
+    // Elle n'a répondu à aucune autre question : celle qui attendait est relâchée, sans ce texte.
+    let outs: Vec<String> = common::logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
+    assert_that!(outs.iter().any(|o| o.contains("la deuxième"))).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]

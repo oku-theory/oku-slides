@@ -1,11 +1,13 @@
 // Le fil de l'agent : ses tours (surfaces A2UI de l'hôte) et le dock des surfaces vivantes.
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { QuickHintsContext } from "../a2ui/quickHints";
 import type { AgentState, Surface } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
 import { AgentDock } from "./AgentDock";
+import { useSpeech } from "./speech";
 import type { Routed } from "./surfaces";
 
 // @a2ui ne se charge qu'avec la première surface (comme le panneau des modèles).
@@ -28,11 +30,14 @@ export function AgentThread({
   loose,
   dock,
   keysTo,
+  resyncs = 0,
   onAction,
   onNewConversation,
   onError,
 }: {
   state: AgentState;
+  /** Nombre de listes entières reçues de l'hôte (resynchronisations) : leur contenu n'est pas lu. */
+  resyncs?: number;
   /** La surface qui reçoit les touches rapides (voir `AgentDock`). */
   keysTo?: string | null;
   onAction: (surface: Surface, action: A2uiClientAction) => void;
@@ -40,7 +45,6 @@ export function AgentThread({
   onError: (message: string) => void;
 } & Pick<Routed, "turns" | "loose" | "dock">) {
   const scroller = useRef<HTMLDivElement>(null);
-  const observer = useRef<ResizeObserver | null>(null);
   const [pinned, setPinned] = useState(true);
   const pinnedRef = useRef(pinned);
   /** Dernière position lue : distingue un geste vers le haut d'un retour en bas programmé. */
@@ -61,24 +65,28 @@ export function AgentThread({
   }, [lastTurn]);
   // Le contenu A2UI grandit sans re-rendre ce composant (signaux internes) : on observe la taille
   // de la liste entière, et celle de la zone qui défile (elle rétrécit quand le dock grandit).
-  // Ref de rappel : elle suit la liste si React la recrée.
-  const list = useCallback((el: HTMLOListElement | null) => {
-    observer.current?.disconnect();
-    observer.current = null;
-    if (!el || typeof ResizeObserver === "undefined") return;
+  // Les deux sont toujours montées : une fois suffit.
+  const list = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(() => {
-      if (pinnedRef.current) toBottom();
+      const el = scroller.current;
+      if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
     });
-    watch.observe(el);
-    if (el.parentElement) watch.observe(el.parentElement);
-    observer.current = watch;
+    for (const el of [list.current, scroller.current]) if (el) watch.observe(el);
+    return () => watch.disconnect();
   }, []);
+  // Ce que lit la région annoncée : le texte nouveau des surfaces du fil (`speech.ts`).
+  const threadSurfaces = useMemo(() => [...turns.flatMap((x) => x.surfaces), ...loose], [turns, loose]);
+  const spoken = useSpeech(threadSurfaces, dock, resyncs);
   const empty = turns.length === 0 && loose.length === 0 && dock.length === 0;
   const view = (s: Surface) => (
     <Suspense fallback={null}>
       <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
     </Suspense>
   );
+  /** Une surface du fil (tour, fiche hors de la slide) : chiffres 1–4 seulement si elle reçoit les touches. */
+  const threadView = (s: Surface) => <QuickHintsContext.Provider value={s.id === keysTo}>{view(s)}</QuickHintsContext.Provider>;
   return (
     <section className={`agent-thread${empty ? " vacant" : ""}`} aria-label={t("ui-agent-thread")}>
       {!empty && (
@@ -100,20 +108,19 @@ export function AgentThread({
           else if (up) setPinned(false);
         }}
       >
-        {/* Une seule région, persistante : chaque ajout (tour, surface, étape) est lu une fois ; rien n'est réannoncé. */}
-        <ol ref={list} className="agent-turns" aria-live="polite" aria-relevant="additions">
+        <ol ref={list} className="agent-turns">
           {turns.map(({ turn, surfaces }) => (
             <li key={turn} className="agent-turn">
               {surfaces.map((s) => (
                 <div key={s.id} data-surface-id={s.id}>
-                  {view(s)}
+                  {threadView(s)}
                 </div>
               ))}
             </li>
           ))}
           {loose.map((s) => (
             <li key={s.id} className="agent-turn" data-surface-id={s.id}>
-              {view(s)}
+              {threadView(s)}
             </li>
           ))}
         </ol>
@@ -131,6 +138,13 @@ export function AgentThread({
           {t("ui-agent-jump")}
         </button>
       )}
+      {/* Une seule région, persistante et masquée : le texte nouveau de chaque surface est lu une
+          fois ; une surface reconstruite à l'identique (resynchronisation, reçu sans ses suites) ne l'est pas. */}
+      <div className="agent-announce" aria-live="polite" aria-relevant="additions">
+        {spoken.map((x) => (
+          <p key={x.key}>{x.text}</p>
+        ))}
+      </div>
       <AgentDock surfaces={dock} view={view} keysTo={keysTo} />
     </section>
   );

@@ -29,7 +29,7 @@ const chips = (n: number) =>
     },
   ]);
 
-/** Deux pastilles, `choice` déjà dans le modèle (option par défaut). */
+/** Deux pastilles, `choice` déjà dans le modèle. */
 const chosen = (choice: string): Surface => {
   const base = chips(2);
   const update = { version: "v0.9", updateDataModel: { surfaceId: "ask-1", value: { choice } } };
@@ -60,12 +60,11 @@ describe("touches des surfaces", () => {
     expect(quickAction(rewrite, "Enter")).toEqual({ name: "rewrite", context: { kept: 0, text: "Un" } });
   });
   test("Entrée sans bouton principal ne fait rien", () => expect(quickAction(variants, "Enter")).toBeNull());
-  test("Entrée valide l'option par défaut d'une question à pastilles", () => {
-    expect(quickAction(chosen("b"), "Enter")).toEqual({ name: "choose", context: { choice: "b" } });
-  });
-  test("Entrée sans option par défaut (ou une option inconnue) ne fait rien", () => {
+  // Aucune question à pastilles n'a d'option par défaut (`ask_choice` part de `""`) : Entrée ne
+  // choisit jamais à la place de l'utilisateur, même si le modèle contient déjà une option.
+  test("Entrée sur des pastilles ne choisit rien, même une option déjà dans le modèle", () => {
+    expect(quickAction(chosen("b"), "Enter")).toBeNull();
     expect(quickAction(chosen(""), "Enter")).toBeNull();
-    expect(quickAction(chosen("z"), "Enter")).toBeNull();
   });
   test("Échap abandonne", () => expect(quickAction(chips(2), "Escape")).toEqual({ name: "dismiss", context: {} }));
   test("un chiffre hors des options ne fait rien", () => expect(quickAction(chips(2), "4")).toBeNull());

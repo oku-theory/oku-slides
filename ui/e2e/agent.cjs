@@ -14,6 +14,36 @@ const post = (p, endpoint, req) =>
   );
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
 const prompt = (p, text, tab = 't-1') => post(p, '/api/agent', { cmd: 'prompt', tab, text, ui: {} });
+/** Le compteur d'outils du résumé d'un tour (« ▸ 2 outils · 0 s » : le premier nombre, quelle que soit la langue). */
+const toolCount = async (turn) => {
+  const summary = turn.locator('.a2ui-timeline-summary');
+  await summary.waitFor({ state: 'visible' });
+  return Number((await summary.innerText()).match(/\d+/)?.[0]);
+};
+/** Titre et faits (joints par « · ») du reçu d'un tour. */
+const receiptOf = async (turn) => {
+  const card = turn.locator('.a2ui-receipt');
+  await card.locator('.a2ui-title').waitFor();
+  return { title: await card.locator('.a2ui-title').innerText(), facts: await card.locator('.a2ui-hint').innerText() };
+};
+/** Fil, dock vides et région annoncée : aucune place (au plus 1 px, et le retirer ne déplace rien
+ * autour : hors du flux, donc hors du `gap` du panneau), mais ni masqués ni retirés de l'arbre
+ * d'accessibilité (`checkVisibility` : ni `display: none` ni `visibility: hidden`). */
+const assertUnobtrusive = async (p, selector) => {
+  const seen = await p.locator(selector).evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const shown = el.checkVisibility({ visibilityProperty: true });
+    const others = [...el.parentElement.children].filter((x) => x !== el);
+    const at = () => others.map((x) => JSON.stringify(x.getBoundingClientRect()));
+    const before = at();
+    el.style.display = 'none';
+    const moved = at().some((b, i) => b !== before[i]);
+    el.style.display = '';
+    return { w: r.width, h: r.height, shown, moved };
+  });
+  assert.ok(seen.w <= 1 && seen.h <= 1 && !seen.moved, `${selector} prend de la place : ${JSON.stringify(seen)}`);
+  assert.ok(seen.shown, `${selector} est retiré de l'arbre d'accessibilité`);
+};
 const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fields.find((f) => f.owner === 'e-texte').text;
 
 (async () => {
@@ -38,6 +68,7 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   const rewritten = p.locator('.agent-turn', { hasText: 'rends ce texte plus clair' }).locator('.a2ui-receipt .a2ui-title');
   await rewritten.waitFor();
   assert.equal(await rewritten.innerText(), 'Texte reformulé.');
+  assert.equal(await toolCount(p.locator('.agent-turn', { hasText: 'rends ce texte plus clair' })), 1);
   assert.equal(await textOf(p), 'Un bloc libre');
   assert.equal((await api(p, { cmd: 'snapshot' })).undo_label, 'Agent : rends ce texte plus clair');
 
@@ -49,6 +80,9 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   await p.waitForSelector('.variant-drawer', { state: 'detached' });
   assert.equal(await textOf(p), 'Variante deux');
   assert.equal((await api(p, { cmd: 'snapshot' })).undo_label, 'Variante : Deux');
+  const variants = p.locator('.agent-turn', { hasText: 'propose deux variantes' });
+  assert.deepEqual(await receiptOf(variants), { title: 'Deux variantes proposées', facts: 'Un : texte court · Deux : texte long' });
+  assert.equal(await toolCount(variants), 2);
 
   // 3. Deux annulations : la variante, puis tout le premier tour.
   await p.locator('.stage').click({ position: { x: 5, y: 5 } });
@@ -73,14 +107,15 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   // Fil vide : rien de visible, seules ses régions annoncées restent montées (t-451).
   assert.equal(await p.locator('.agent-turn').count(), 0);
   assert.equal(await p.locator('.agent-thread.vacant').count(), 1);
+  for (const selector of ['.agent-thread.vacant', '.agent-dock.vacant', '.agent-announce']) await assertUnobtrusive(p, selector);
 
   // Son tour (propre à cette session, voir e2e.json → sessions.2) applique un vrai
   // changement sur son propre deck vierge (slide « s-1 ») : le vérifier confirme que
   // l'onglet 2 a bien joué son tour, pas seulement reçu un morceau de texte.
   await prompt(p, 'bonjour', tab2);
-  const greeted = p.locator('.agent-turn', { hasText: 'bonjour' }).locator('.a2ui-receipt .a2ui-title');
-  await greeted.waitFor();
-  assert.equal(await greeted.innerText(), 'Titre changé.');
+  const greeted = p.locator('.agent-turn', { hasText: 'bonjour' });
+  assert.deepEqual(await receiptOf(greeted), { title: 'Titre du second onglet', facts: '« Second onglet, bonjour »' });
+  assert.equal(await toolCount(greeted), 1);
   const snap2 = await api(p, { cmd: 'snapshot' }, tab2);
   assert.equal(snap2.slides.find((s) => s.id === 's-1').title, 'Second onglet, bonjour');
   // Dans un tour, l'étiquette d'annulation est celle du tour (le prompt), pas celle
@@ -96,7 +131,9 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   // La question du troisième tour attend encore : on y répond, il se clôt, puis le tour suivant part.
   await p.locator('.agent-sheet .chips .chip').first().click();
   await p.waitForSelector('.agent-sheet', { state: 'detached' });
-  await p.locator('.agent-turn .a2ui-receipt').first().waitFor();
+  const anchored = p.locator('.agent-turn', { hasText: 'et si je changeais' });
+  assert.deepEqual(await receiptOf(anchored), { title: 'Choix noté', facts: 'la réponse sera suivie' });
+  assert.equal(await toolCount(anchored), 1);
   const before = await p.locator('.agent-turn').count();
   await prompt(p, 'change le fond');
   const turn = p.locator('.agent-turn', { hasText: 'change le fond' });
@@ -106,16 +143,25 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   // Le reçu désigne sa slide ; l'interface en montre la miniature depuis son cache de SVG (t-450).
   await turn.locator('.a2ui-receipt-thumb').waitFor();
   assert.match(await turn.locator('.a2ui-receipt-thumb').getAttribute('src'), /^blob:/);
-  await turn.locator('.a2ui-timeline-summary').waitFor({ state: 'visible' });
+  assert.equal(await toolCount(turn), 2);
   assert.equal(await p.locator('.agent-turn').count(), before + 1);
 
   // 6. Une question sans ancre : elle vit dans le dock ; répondre la fige dans le tour.
   await prompt(p, 'quelle couleur ?');
   await p.waitForSelector('.agent-dock .chips .chip');
   assert.equal(await p.locator('.agent-dock .chips .chip').count(), 2);
+  // En Verre, le dock flotte comme une fiche : marge intérieure, coins arrondis, pas de filet.
+  const glass = await p.locator('.agent-dock').evaluate((el) => {
+    const c = getComputedStyle(el);
+    return { pad: parseFloat(c.paddingTop), radius: parseFloat(c.borderTopLeftRadius), rule: parseFloat(c.borderTopWidth) };
+  });
+  assert.ok(glass.pad > 0 && glass.radius > 0 && glass.rule === 0, `dock en Verre : ${JSON.stringify(glass)}`);
   await p.locator('.agent-dock .chips .chip').nth(1).click();
   await p.waitForSelector('.agent-dock.vacant');
   await p.locator('.agent-turn', { hasText: '✓' }).filter({ hasText: 'Sable' }).first().waitFor();
+  const colour = p.locator('.agent-turn', { hasText: 'quelle couleur ?' });
+  assert.deepEqual(await receiptOf(colour), { title: 'Couleur retenue', facts: 'le fond suivra' });
+  assert.equal(await toolCount(colour), 1);
 
   // 7. Deux questions parallèles au dock (t-451) : toutes deux visibles ; « 2 » répond à la
   // dernière (au plus près du micro), un clic à l'autre.
@@ -123,6 +169,25 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   await p.waitForFunction(() => document.querySelectorAll('.agent-dock .agent-dock-item.ask').length === 2);
   // Les deux appels partent ensemble : l'ordre d'arrivée n'est pas fixé, on lit les libellés.
   const asks = p.locator('.agent-dock .agent-dock-item.ask');
+  // La hauteur du dock se mesure au panneau entier (45 % de sa hauteur), pas au fil ni à la fenêtre :
+  // panneau rétréci de moitié, plafond du dock rétréci d'autant.
+  const dockCap = () =>
+    p.locator('.agent-dock').evaluate((el) => {
+      const notes = el.closest('.notes');
+      const c = getComputedStyle(notes);
+      const inner = notes.clientHeight - parseFloat(c.paddingTop) - parseFloat(c.paddingBottom);
+      return { cap: parseFloat(getComputedStyle(el).maxHeight), inner, height: el.getBoundingClientRect().height };
+    });
+  for (const height of [900, 520]) {
+    await p.setViewportSize({ width: 1440, height });
+    await p.waitForTimeout(100);
+    const seen = await dockCap();
+    assert.ok(Math.abs(seen.cap - 0.45 * seen.inner) < 1, `plafond du dock à ${height} px : ${JSON.stringify(seen)}`);
+    assert.ok(seen.height <= seen.cap + 0.5, `dock plus haut que son plafond : ${JSON.stringify(seen)}`);
+    // Fenêtre basse : les deux questions dépassent le plafond, le dock s'y arrête (et défile).
+    if (height === 520) assert.ok(seen.cap - seen.height < 1, `dock non plafonné à ${height} px : ${JSON.stringify(seen)}`);
+  }
+  await p.setViewportSize({ width: 1440, height: 900 });
   const label = async (ask, i) => (await asks.nth(ask).locator('.chip').nth(i).innerText()).replace(/^\d\s*/, '');
   const [first, last] = [await label(0, 0), await label(1, 1)];
   await p.keyboard.press('2');

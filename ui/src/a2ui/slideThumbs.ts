@@ -5,12 +5,11 @@
 // rendu passe par la même commande `svg` de l'hôte.
 
 import { createContext } from "react";
+import { z } from "zod";
 
 /** La slide d'un reçu : identifiant et empreinte de sa page au moment du reçu. */
-export interface SlideRef {
-  id: string;
-  hash: string;
-}
+export const SlideRefSchema = z.object({ id: z.string(), hash: z.string() }).strict();
+export type SlideRef = z.infer<typeof SlideRefSchema>;
 
 /** Ce dont le reçu a besoin pour montrer une miniature ; fourni par l'app. */
 export interface SlideThumbs {

@@ -137,7 +137,7 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
 }
 
 impl Session {
-    /// Surface `report` : bornes vérifiées, slide désignée par l'empreinte de sa page.
+    /// Surface `report` : bornes vérifiées, faits blancs écartés, slide désignée par l'empreinte de sa page.
     pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
         ensure!(!spec.title.trim().is_empty(), AgentFormSnafu { reason: "title: must not be empty".to_string() });
         // Des faits tous blancs ne disent rien : le reçu montrerait une ligne vide.
@@ -170,14 +170,15 @@ impl Session {
             }
             None => None,
         };
-        let surface = receipt(id, spec, slide.as_ref(), &self.localizer);
+        // Un fait blanc parmi d'autres est écarté : la carte ne montre pas de ligne vide (t-458).
+        let facts = spec.facts.iter().filter(|f| !f.trim().is_empty()).cloned().collect();
+        let spec = Report { facts, ..spec.clone() };
+        let surface = receipt(id, &spec, slide.as_ref(), &self.localizer);
         let plain = (!spec.actions.is_empty())
             .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, slide.as_ref(), &self.localizer));
         Ok(ReceiptSurfaces { surface, plain })
     }
-}
 
-impl Session {
     /// La slide `id` telle que rendue maintenant ; `None` tant qu'elle n'a pas de page rendue.
     fn slide_ref(&self, id: &str) -> Option<SlideRef> {
         let page = self.page_of(id)?;

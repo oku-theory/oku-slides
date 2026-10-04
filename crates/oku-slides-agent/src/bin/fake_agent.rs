@@ -133,6 +133,11 @@ impl State {
         }
     }
 
+    /// Le résultat d'un appel d'outil MCP du script (`mcp/result`).
+    fn log_result(&self, session: &str, step: &McpStep, out: &str) {
+        self.log("mcp/result", serde_json::json!({ "session": session, "tool": step.tool, "out": out }));
+    }
+
     /// Notify de la session, créée au besoin.
     fn notify_for(&self, session: &str) -> Arc<Notify> {
         let Ok(mut map) = self.wait_cancel.lock() else { return Arc::new(Notify::new()) };
@@ -148,6 +153,14 @@ impl State {
 struct Noop;
 #[async_trait]
 impl ClientHandler for Noop {}
+
+/// Un appel d'outil MCP du script, sur le serveur de la session (`mcp` : URL et `Authorization`) s'il y en a un.
+async fn run_step(mcp: Option<&(String, String)>, step: &McpStep) -> String {
+    match mcp {
+        Some((url, auth)) => call_tool(url, auth, &step.tool, &step.args).await,
+        None => "no mcp server".to_owned(),
+    }
+}
 
 /// Appelle un outil MCP et renvoie son résultat en JSON (texte).
 async fn call_tool(url: &str, auth: &str, tool: &str, args: &Value) -> String {
@@ -221,31 +234,26 @@ async fn play(
     }
     let session_key = session.0.to_string();
     let mcp = state.mcp.lock().ok().and_then(|m| m.get(&session_key).cloned());
+    // En séquence, chaque résultat est journalisé avant l'appel suivant : un appel qui attend
+    // l'utilisateur (une question) ne retient pas le résultat des précédents.
     if turn.parallel {
         let calls: Vec<_> = turn
             .mcp
             .iter()
             .map(|step| {
-                let (mcp, tool, args) = (mcp.clone(), step.tool.clone(), step.args.clone());
-                tokio::spawn(async move {
-                    match mcp {
-                        Some((url, auth)) => call_tool(&url, &auth, &tool, &args).await,
-                        None => "no mcp server".to_owned(),
-                    }
-                })
+                // `spawn` veut des valeurs possédées : chaque tâche a sa copie.
+                let (mcp, step) = (mcp.clone(), step.clone());
+                tokio::spawn(async move { run_step(mcp.as_ref(), &step).await })
             })
             .collect();
         for (step, call) in turn.mcp.iter().zip(calls) {
             let out = call.await.unwrap_or_else(|e| format!("mcp call failed: {e}"));
-            state.log("mcp/result", serde_json::json!({ "session": session_key, "tool": step.tool, "out": out }));
+            state.log_result(&session_key, step, &out);
         }
     } else {
         for step in &turn.mcp {
-            let out = match &mcp {
-                Some((url, auth)) => call_tool(url, auth, &step.tool, &step.args).await,
-                None => "no mcp server".to_owned(),
-            };
-            state.log("mcp/result", serde_json::json!({ "session": session_key, "tool": step.tool, "out": out }));
+            let out = run_step(mcp.as_ref(), step).await;
+            state.log_result(&session_key, step, &out);
         }
     }
     for text in &turn.chunks {

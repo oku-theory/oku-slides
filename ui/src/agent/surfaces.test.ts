@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { agentBusy, byPlace, isAsking, isQuestion, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { byPlace, isQuestion, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 
@@ -32,22 +32,6 @@ describe("surfaces de l'agent", () => {
     expect(byPlace(list, "thread").map((x) => x.id)).toEqual(["a", "c"]);
   });
 
-  test("isAsking : une question ouverte, pas un tiroir", () => {
-    expect(isAsking([s("show-1", "thread"), s("b", "drawer")])).toBe(false);
-    expect(isAsking([s("a", "thread"), s("c", "sheet")])).toBe(true);
-    expect(isAsking([s("m", "modal")])).toBe(true);
-    expect(isAsking([])).toBe(false);
-  });
-
-  test("isAsking : des réglages vivants du fil ne sont pas une question", () => {
-    expect(isAsking([{ ...s("show-1", "thread"), live: true }])).toBe(false);
-  });
-
-  test("isAsking : une question vivante du fil en est une, figée non", () => {
-    expect(isAsking([{ ...s("ask-1", "thread"), live: true, question: true }])).toBe(true);
-    expect(isAsking([{ ...s("ask-1", "thread"), question: true }])).toBe(false);
-  });
-
   test("changed et focus ne touchent pas aux surfaces", () => {
     const list = [s("a", "thread")];
     expect(surfacesReducer(list, { kind: "changed" })).toBe(list);
@@ -59,15 +43,17 @@ describe("surfaces de l'agent", () => {
     expect(surfacesReducer(list, { kind: "surfaces", list: [s("c", "modal")] }).map((x) => x.id)).toEqual(["c"]);
   });
 
-  test("surfaces vide ferme tout", () => {
-    expect(surfacesReducer([s("a", "thread"), s("b", "sheet")], { kind: "surfaces", list: [] })).toEqual([]);
+  test("une resynchronisation garde l'objet d'une surface inchangée : sa vue n'est pas reconstruite", () => {
+    const [a, b] = [s("a", "thread"), { ...s("b", "thread"), live: true }];
+    const [sameA, frozenB] = surfacesReducer([a, b], { kind: "surfaces", list: [structuredClone(a), { ...structuredClone(b), live: false }] });
+    expect(sameA).toBe(a);
+    // Changée (ici figée) : le nouvel objet.
+    expect(frozenB).not.toBe(b);
+    expect(frozenB.live).toBe(false);
   });
 
-  test("agentBusy : un tour en cours sans question ouverte", () => {
-    expect(agentBusy("working", [s("p", "thread")])).toBe(true);
-    expect(agentBusy("starting", [])).toBe(true);
-    expect(agentBusy("working", [s("q", "sheet")])).toBe(false);
-    expect(agentBusy("idle", [])).toBe(false);
+  test("surfaces vide ferme tout", () => {
+    expect(surfacesReducer([s("a", "thread"), s("b", "sheet")], { kind: "surfaces", list: [] })).toEqual([]);
   });
 
   const sheet = (id: string, slide: string, element: string): Surface => ({ ...s(id, "sheet"), anchor: { slide, element } });
@@ -152,17 +138,9 @@ test("routeSurfaces garde les fiches hors scène dans le fil", () => {
   expect(routeSurfaces([sheet], null).loose).toEqual([sheet]);
 });
 
-test("isAsking voit une question vivante du fil, pas des réglages", () => {
-  expect(isAsking([ts("ask-1", { live: true, turn: 1, question: true })])).toBe(true);
-  expect(isAsking([ts("show-1", { live: true, turn: 1 })])).toBe(false);
-  expect(isAsking([ts("report-1", { turn: 1 })])).toBe(false);
-});
-
 test("isQuestion lit le champ typé `question`, pas le préfixe de l'identifiant", () => {
   expect(isQuestion(ts("ask-1", { live: true, question: false }))).toBe(false);
   expect(isQuestion(ts("confirm-1", { live: true, question: true }))).toBe(true);
-  expect(isAsking([ts("ask-1", { live: true, turn: 1, question: false })])).toBe(false);
-  expect(isAsking([ts("x-1", { live: true, turn: 1, question: true })])).toBe(true);
 });
 
 test("surface_patch d'une surface inconnue ne change rien", () => {
@@ -176,6 +154,11 @@ describe("sendThenPrompt", () => {
     const sent: string[] = [];
     await sendThenPrompt(suggest, async () => true, (t) => sent.push(t));
     expect(sent).toEqual(["En barres"]);
+  });
+  test("une suite est une nouvelle consigne : elle ne répond à aucune question en attente", async () => {
+    const sent: [string, string | null | undefined][] = [];
+    await sendThenPrompt(suggest, async () => true, (t, answer) => sent.push([t, answer]));
+    expect(sent).toEqual([["En barres", null]]);
   });
   test("n'envoie rien quand le hub refuse l'action", async () => {
     const sent: string[] = [];

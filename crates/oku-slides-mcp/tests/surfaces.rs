@@ -75,7 +75,7 @@ async fn ask_choice_dismissed_returns_cancelled_and_freezes_the_question() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn answer_pending_turns_dictation_into_answer_text() {
+async fn answer_turns_the_prompt_into_answer_text() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
@@ -83,9 +83,9 @@ async fn answer_pending_turns_dictation_into_answer_text() {
         let c = c.clone();
         async move { call(&c, "ask_choice", choice_args()).await }
     });
-    next_surface(&mut rx).await;
+    let asked = next_surface(&mut rx).await;
     assert_that!(h.hub.has_pending_ask()).is_true();
-    assert_that!(h.hub.answer_pending("la deuxième")).is_true();
+    assert_that!(h.hub.answer(&asked.id, "la deuxième")).is_true();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "answer_text": "la deuxième" }));
     assert_that!(h.hub.has_pending_ask()).is_false();
 }

@@ -487,7 +487,7 @@ export type McpEvent =
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
-  | { cmd: "prompt"; tab: string; text: string; ui: AgentUi }
+  | { cmd: "prompt"; tab: string; text: string; ui: AgentUi; answer: string | null }
   | { cmd: "cancel"; tab: string }
   | { cmd: "new_conversation"; tab: string }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
@@ -498,7 +498,11 @@ const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agen
 /** Consigne, arrêt du tour, nouvelle conversation, réponse à une surface, liste des surfaces. */
 export function agentApi(tab: string) {
   return {
-    prompt: (text: string, ui: AgentUi) => agentCall({ cmd: "prompt", tab, text, ui }),
+    /**
+     * `answer` : la question à laquelle la consigne répond (`answerTarget`) ; sans elle,
+     * ou si elle n'attend plus, une consigne ordinaire.
+     */
+    prompt: (text: string, ui: AgentUi, answer: string | null) => agentCall({ cmd: "prompt", tab, text, ui, answer }),
     cancel: () => agentCall({ cmd: "cancel", tab }),
     newConversation: () => agentCall({ cmd: "new_conversation", tab }),
     surfaceAction: (surface: string, name: string, context: Record<string, unknown>) =>

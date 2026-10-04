@@ -14,7 +14,7 @@ async fn apply_changes_deck_and_emits_changed() {
     let r = call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": "pro" }] })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(h.session.lock().unwrap().deck().theme.as_deref()).is_equal_to(Some("pro"));
-    assert_that!(matches!(rx.recv().await.unwrap(), McpEvent::Changed)).is_true();
+    assert_that!(matches!(wait_event(&mut rx, Some).await, McpEvent::Changed)).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -75,7 +75,7 @@ async fn focus_emits_focus_event_without_changing_deck() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "focus", json!({ "slide": "s-libre", "element": "e-texte" })).await;
-    match rx.recv().await.unwrap() {
+    match wait_event(&mut rx, Some).await {
         McpEvent::Focus { slide, element } => {
             assert_that!(slide.as_str()).is_equal_to("s-libre");
             assert_that!(element.as_deref()).is_equal_to(Some("e-texte"));

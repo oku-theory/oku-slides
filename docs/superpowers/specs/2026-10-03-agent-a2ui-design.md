@@ -137,9 +137,11 @@ Panneau : en-tête · fil des tours (défile) · dock (fixe) · micro.
   dernier).
 - **Dock** : les surfaces `live`, au plus deux par construction (un `ask_*`
   bloque l'agent ; `show_params` remplace le précédent). La question est la
-  plus proche du micro (réponse vocale possible via `answer_pending`), les
-  réglages au-dessus. Hauteur ≤ 45 % du panneau ; au-delà, les réglages se
-  replient en une ligne d'en-tête. Pas de défilement interne. Les réglages
+  plus proche du micro (réponse dictée possible : la consigne nomme la question
+  qui reçoit les touches, `answer`), les
+  réglages au-dessus. Quand une question attend, les réglages se replient en
+  une ligne d'en-tête (qui les rouvre). Hauteur ≤ 45 % du panneau : au-delà,
+  le dock s'arrête à son plafond et défile (`overflow: auto`). Les réglages
   ont un « × » (→ `live: false`) ; une question ne se ferme pas. Vide : 0 px.
 - **Vivant → figé** : même `id`, mêmes `messages`, `live` change ; la
   surface rejoint son tour. Transition courte si le tour est visible,
@@ -273,3 +275,6 @@ Précisées par le plan (`docs/superpowers/plans/2026-10-03-agent-a2ui.md`) et s
 - **Expiration des suites** : celles d'une carte `render` expirent au tour suivant, comme celles d'un reçu.
 - **Question figée** : elle montre la question (en légende) et la réponse (« ✓ … »), pas la réponse seule ; elle garde sa place dans le fil.
 - **Mises à jour du tour** : une écriture par clé du modèle qui change (`/narration` pendant que l'agent écrit) ; narration gardée bornée à 4000 caractères, 60 étapes au plus par tour.
+- **Clavier d'une question du dock** (t-457) : 1–4 où que soit le focus ; Échap l'abandonne seulement avec le focus dans le dock (ailleurs, Échap reste à l'app : désélectionner) ; Entrée reste à l'app, et sur une pastille qui a le focus, c'est son clic. Entrée ne choisit jamais une « option par défaut » des pastilles : `ask_choice` part d'un choix vide et `render` refuse les pastilles, ce chemin n'avait pas d'usage. Touches coupées (édition d'un texte, pointage, widget actif) : aucune surface ne montre de rappel des touches ; une consigne répond toujours à la question qui les recevrait.
+- **L'agent attend l'utilisateur** (t-454) : seulement quand une question reçoit la consigne (`answerTarget`, la même que les touches). ⌘⇧D et Échap y répondent alors ; sinon, pendant un tour, ils l'arrêtent. Une question invisible (fiche dont l'élément n'est pas sur la slide affichée) n'attend donc pas : une consigne ne lui répond pas, ⌘⇧D arrête le tour.
+- **Annonces du fil** (t-457) : la liste des tours n'est pas une région `aria-live` (une surface A2UI reconstruite recrée tout son DOM). Une région masquée persistante lit, pour chaque surface du fil, son texte lisible nouveau (textes, consigne, badge, titre et faits d'un reçu ; ni boutons, ni détail replié, ni timeline ; d'une narration qui grandit, la suite seulement) : un reçu remplacé par sa version sans suites, ou une resynchronisation identique, ne lit rien. Le texte nouveau se lit d'un coup à une fin de phrase, sinon après une seconde sans nouveau texte (une narration en flux n'est pas lue morceau par morceau) ; une ligne coupée par l'hôte (« … ») dont le début est lu n'est pas relue. Une liste entière reçue (resynchronisation : onglet rouvert, reconnexion) est tenue pour lue ; une question du dock qui se fige dans son tour ne relit que sa réponse. Une resynchronisation garde l'objet d'une surface inchangée (`surfacesReducer`), dont la vue n'est donc pas reconstruite.
