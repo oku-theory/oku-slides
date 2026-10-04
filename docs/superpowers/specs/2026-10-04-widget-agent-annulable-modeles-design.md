@@ -29,18 +29,20 @@ Reproduit par `set_widget_by_agent_in_templates_turn_can_be_undone`
 2. **L'enregistrement des modèles (`save_templates`) reste silencieux** :
    il fige l'état, il ne le change pas (les modèles édités sont déjà des
    étapes). Hors périmètre de cette tâche.
-3. **La version éditée se relit dans le document**, plus dans un champ :
-   `TemplateMode::base` = la version de `deck.templates` du document des
-   modèles ; `session_version` = cette version si elle n'est pas `parent`,
-   sinon `None`. Un annuler ou un rétablir les remet donc d'aplomb sans code
-   propre. `TemplateMode` reste la vue envoyée à l'interface (`editing`),
-   calculée à la demande ; seuls `set`, `name`, `builtin` et `parent` sont
-   gardés.
-4. **Versions remplacées : la règle du deck mis de côté, appliquée aux deux
-   documents.** Écriture fusionnée dans l'étape d'avant → la version
-   remplacée n'est plus atteignable, elle quitte les sources. Nouvelle étape
-   → annuler y revient : elle reste dans les sources et revient dans la
-   bibliothèque (`add_version`) si `replace_version` l'en avait retirée.
+3. **La version éditée suit le document.** La seule source est
+   `deck.templates` du document des modèles. `TemplateMode` garde ses
+   champs (vue `editing` et reprise `SavedMode::Templates`, format
+   inchangé), mais après chaque annuler ou rétablir en mode modèles,
+   `realign_templates` les réaligne : `base` = cette version ;
+   `session_version` = cette version si elle n'est pas `parent`, sinon
+   `None`.
+4. **Versions remplacées.** Le document des modèles ne retire plus aucune
+   version de ses sources pendant la séance : une étape peut toujours y
+   ramener (un rétablir après un enregistrement silencieux, par exemple).
+   La bibliothèque garde « une version par séance » à l'écriture
+   (`replace_version`) ; une version atteinte par annuler ou rétablir y est
+   remise (`add_version`, sans effet si elle y est). Le deck mis de côté
+   garde sa règle actuelle (fusionnée → retirée de ses sources).
 5. **Le deck mis de côté suit le document des modèles.** Après un annuler
    ou un rétablir en mode modèles qui change la version du pack, le deck
    mis de côté passe à cette version (`apply` avec la même clé de séance) :
@@ -50,6 +52,8 @@ Reproduit par `set_widget_by_agent_in_templates_turn_can_be_undone`
 7. **Interface : rien à ajouter.** `useTemplateWidgets` relit les fichiers
    quand `editing.base` change (`revision`) ; avec la décision 3, un annuler
    recharge les onglets de widgets.
+
+Plan : `docs/superpowers/plans/2026-10-04-widget-agent-annulable-modeles.md`.
 
 ## Comportement attendu
 
