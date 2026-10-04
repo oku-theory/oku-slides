@@ -37,6 +37,7 @@ fn state(slide: &str) -> State {
         version: VERSION,
         mode: SavedMode::Deck,
         ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false, ..UiState::default() },
+        help_theme: None,
     }
 }
 

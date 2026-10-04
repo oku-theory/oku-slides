@@ -26,6 +26,8 @@ session-bad-request = Requête invalide : { $reason }
 session-history-not-open = L'historique n'est pas ouvert
 session-in-history = Fermez l'historique avant de modifier la présentation
 session-read-only = L'aide est en lecture seule : elle ne se modifie pas
+session-not-help = Cet onglet n'est pas l'aide
+session-unknown-theme = Thème inconnu : { $theme }
 session-help-deck = La présentation d'aide est illisible
 session-agent-form = La demande de l'agent est invalide : { $reason }
 

@@ -10,12 +10,13 @@ use std::borrow::Cow;
 
 use oku_slides_core::{Deck, PackRef, SourceBundle};
 use oku_slides_i18n::platform_keys;
-use snafu::{OptionExt, ResultExt};
+use oku_slides_render::THEMES;
+use snafu::{OptionExt, ResultExt, ensure};
 
-use crate::error::{HelpDeckSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu};
+use crate::error::{HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu, UnknownThemeSnafu};
 use crate::library::builtin_versions;
 use crate::pack::DEFAULT_PACK;
-use crate::{Result, Session};
+use crate::{Mode, Result, Session};
 
 /// Les decks d'aide livrés, par langue ; le premier sert aux autres langues.
 const HELP_DECKS: [(&str, &str); 2] =
@@ -46,11 +47,13 @@ pub(crate) fn help_deck_with(locale: &str, keys: fn(&str) -> Cow<'_, str>) -> Re
 }
 
 impl Session {
-    /// Montre l'aide dans la langue `locale` (sinon en anglais), en lecture seule.
+    /// Montre l'aide dans la langue `locale` (sinon en anglais), en lecture
+    /// seule, au thème `theme` (celui du deck d'où on l'ouvre ; inconnu ou
+    /// absent : le sien).
     ///
     /// Pour une session neuve (onglet d'aide, reprise) : le deck ouvert est
     /// remplacé sans question.
-    pub fn open_help(&mut self, locale: &str) -> Result<()> {
+    pub fn open_help(&mut self, locale: &str, theme: Option<&str>) -> Result<()> {
         let locale = help_locale(locale);
         let builtin = builtin_versions()
             .iter()
@@ -60,9 +63,30 @@ impl Session {
         let version = sources.add_pack(builtin.files.clone());
         let mut deck = sources.deck().clone();
         deck.templates = Some(PackRef { id: DEFAULT_PACK, version });
+        if let Some(theme) = theme.filter(|t| THEMES.contains(t)) {
+            deck.theme = Some(theme.to_owned());
+        }
         sources.apply_silent(deck).context(SourcesSnafu)?;
         self.load(sources, None)?;
         self.help = Some(locale);
+        Ok(())
+    }
+
+    /// L'aide prend le thème `theme` (celui du deck d'où on la rouvre).
+    ///
+    /// Ni annulable ni à enregistrer : l'aide reste en lecture seule. Hors de
+    /// l'aide, ou thème inconnu : refusé.
+    pub fn set_help_theme(&mut self, theme: &str) -> Result<()> {
+        ensure!(self.help.is_some() && matches!(self.mode, Mode::Deck), NotHelpSnafu);
+        ensure!(THEMES.contains(&theme), UnknownThemeSnafu { theme });
+        let mut deck = self.doc.sources.deck().clone();
+        if deck.theme.as_deref() == Some(theme) {
+            return Ok(());
+        }
+        deck.theme = Some(theme.to_owned());
+        self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
+        self.rerender()?;
+        self.persist(false);
         Ok(())
     }
 

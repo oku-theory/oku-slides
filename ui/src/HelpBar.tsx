@@ -1,20 +1,25 @@
 // Bandeau de l'aide : le deck livré avec l'app, en lecture seule. Il dit où
-// l'on est, fait passer d'une slide à l'autre (boutons et clavier) et ferme
-// l'onglet. Même habit que le bandeau de l'historique (`history-bar`).
+// l'on est, cherche dans les slides (⌘F), fait passer d'une slide à l'autre
+// (boutons et clavier) et ferme l'onglet. Même habit que le bandeau de
+// l'historique (`history-bar`).
 
 import { useEffect, useRef } from "react";
+import type { SearchHit } from "./api";
 import { helpStep, helpTarget } from "./helpNav";
+import HelpSearch, { type HelpSearchHandle } from "./HelpSearch";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 
 const TEXT_ENTRY = "input, textarea, select, [contenteditable]";
 
-export default function HelpBar({ title, slides, current, onShow, onClose }: {
+export default function HelpBar({ title, slides, current, onShow, search, onClose }: {
   title: string;
   slides: readonly { id: string }[];
   /** Slide montrée ; `null` avant la première. */
   current: string | null;
   onShow: (id: string) => void;
+  /** Les slides où un texte apparaît (requête `search` de la session). */
+  search: (query: string) => Promise<SearchHit[]>;
   /** Fermer l'onglet ; absent : il ne se ferme pas d'ici (le dernier onglet reste). */
   onClose?: () => void;
 }) {
@@ -24,10 +29,18 @@ export default function HelpBar({ title, slides, current, onShow, onClose }: {
   // Les touches de navigation, sauf dans une saisie ; Espace reste au bouton qui a le focus.
   const keys = useRef({ index, count: slides.length, go });
   keys.current = { index, count: slides.length, go };
+  const finder = useRef<HelpSearchHandle>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (e.defaultPrevented || target?.closest?.(TEXT_ENTRY)) return;
+      if (e.defaultPrevented) return;
+      // ⌘F (Ctrl+F) : la recherche de l'aide, partout dans l'onglet.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        finder.current?.focus();
+        return;
+      }
+      if (target?.closest?.(TEXT_ENTRY)) return;
       const k = keys.current;
       const to = helpTarget(e, k.index, k.count, !!target?.closest?.("button, a, [role=button]"));
       if (to === null) return;
@@ -46,6 +59,7 @@ export default function HelpBar({ title, slides, current, onShow, onClose }: {
         <span className="history-title">{title}</span>
         <span className="caption">{t("ui-help-caption", { index: shown + 1, count: slides.length })}</span>
       </div>
+      <HelpSearch ref={finder} search={search} onShow={onShow} />
       <div className="history-actions">
         <button className="object token" aria-label={t("ui-help-previous")} title={t("ui-help-previous")} disabled={helpStep(index, -1, slides.length) === null} onClick={() => go(helpStep(index, -1, slides.length))}>{Icon.previous}</button>
         <button className="object token" aria-label={t("ui-help-next")} title={t("ui-help-next")} disabled={helpStep(index, 1, slides.length) === null} onClick={() => go(helpStep(index, 1, slides.length))}>{Icon.next}</button>

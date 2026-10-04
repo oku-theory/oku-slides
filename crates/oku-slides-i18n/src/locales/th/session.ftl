@@ -26,6 +26,8 @@ session-bad-request = คำขอไม่ถูกต้อง: { $reason }
 session-history-not-open = ไม่ได้เปิดประวัติ
 session-in-history = ปิดประวัติก่อนแก้ไขงานนำเสนอ
 session-read-only = ความช่วยเหลือเป็นแบบอ่านอย่างเดียว: แก้ไขไม่ได้
+session-not-help = แท็บนี้ไม่ใช่ความช่วยเหลือ
+session-unknown-theme = ธีมที่ไม่รู้จัก: { $theme }
 session-help-deck = อ่านงานนำเสนอความช่วยเหลือไม่ได้
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 

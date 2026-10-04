@@ -26,6 +26,8 @@ session-bad-request = Yêu cầu không hợp lệ: { $reason }
 session-history-not-open = Lịch sử chưa được mở
 session-in-history = Hãy đóng lịch sử trước khi thay đổi bản trình bày
 session-read-only = Trợ giúp chỉ để đọc: không thể thay đổi
+session-not-help = Thẻ này không phải trợ giúp
+session-unknown-theme = Chủ đề không xác định: { $theme }
 session-help-deck = Không đọc được bản trình bày trợ giúp
 session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
 

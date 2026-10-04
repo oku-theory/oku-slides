@@ -247,6 +247,9 @@ pub struct TabInfo {
     /// Langue de l'aide que montre l'onglet ; `None` : un deck.
     #[serde(default)]
     pub help: Option<String>,
+    /// Thème du deck (`papier`, `pro`) : l'aide ouverte depuis cet onglet le prend.
+    #[serde(default)]
+    pub theme: Option<String>,
 }
 
 /// Édition d'un pack de modèles : chaque slide est un modèle.

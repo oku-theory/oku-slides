@@ -26,6 +26,8 @@ session-bad-request = Недопустимый запрос: { $reason }
 session-history-not-open = История не открыта
 session-in-history = Закройте историю, прежде чем изменять презентацию
 session-read-only = Справка доступна только для чтения: её нельзя изменить
+session-not-help = Эта вкладка — не справка
+session-unknown-theme = Неизвестная тема: { $theme }
 session-help-deck = Не удаётся прочитать презентацию справки
 session-agent-form = Запрос агента недопустим: { $reason }
 

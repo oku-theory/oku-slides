@@ -314,6 +314,8 @@ struct Pending {
     replace: Option<String>,
     /// Langue de l'aide à montrer à la place d'un deck.
     help: Option<&'static str>,
+    /// Thème de l'aide : celui du deck d'où on l'ouvre.
+    help_theme: Option<String>,
     fonts: Fonts,
     platform: Platform,
     dir: Option<PathBuf>,
@@ -330,7 +332,7 @@ impl Pending {
             session.open(path)?;
         }
         if let Some(locale) = self.help {
-            session.open_help(locale)?;
+            session.open_help(locale, self.help_theme.as_deref())?;
         }
         if let Some(dir) = &self.dir
             && !session.resume_fresh(dir.join(TABS_DIR).join(&self.id))
@@ -651,14 +653,20 @@ impl Workspace {
                     if w.is_closed() {
                         return Err(UnknownWindowSnafu { label: window }.build().into());
                     }
-                    let locale = w.help_language();
+                    w.window_index(&window)?;
+                    let (locale, theme) = (w.help_language(), w.help_theme(&window));
                     if let Some(id) = w.tab_with_help(locale) {
                         w.activate(&id)?;
                         w.save_layout();
-                        return w.view_json().map(WorkspaceOutcome::Applied);
+                        // L'aide rouverte prend le thème du deck d'où on vient,
+                        // hors du verrou de l'espace de travail.
+                        drop(w);
+                        if let Some(theme) = theme {
+                            Self::retheme_help(ws, &id, &theme);
+                        }
+                        return Self::lock(ws).view_json().map(WorkspaceOutcome::Applied);
                     }
-                    w.window_index(&window)?;
-                    w.help_pending(window, locale)
+                    w.help_pending(window, locale, theme)
                 }
                 WorkspaceRequest::NewWindow => w.pending(None, None, None),
                 WorkspaceRequest::CloseWindow { window, discard } => {
@@ -830,6 +838,7 @@ impl Workspace {
             path,
             replace,
             help: None,
+            help_theme: None,
             fonts: self.fonts.clone(),
             platform: self.platform.clone(),
             dir: self.dir.clone(),

@@ -307,6 +307,13 @@ ui-help-caption = Diapositiva { $index } de { $count } · solo lectura
 ui-help-previous = Diapositiva anterior
 ui-help-next = Diapositiva siguiente
 ui-help-close = Cerrar la ayuda
+ui-help-search = Buscar en la ayuda
+ui-help-search-placeholder = Buscar…
+ui-help-search-empty = Sin resultados
+ui-help-search-count = { $count ->
+    [one] 1 resultado
+   *[other] { $count } resultados
+}
 ui-pack-notice-close = Cerrar
 ui-widgets-files = Archivos de widgets
 ui-widgets-common = Común

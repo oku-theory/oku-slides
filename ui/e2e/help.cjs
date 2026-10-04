@@ -42,6 +42,15 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   assert.equal(await p.locator('.stage img').getAttribute('src'), before);
   await caption('Slide 4 sur');
 
+  // Recherche : ⌘F, un mot, Entrée montre la slide trouvée.
+  await p.keyboard.press(`${mod}+f`);
+  await p.keyboard.type('grille');
+  await p.waitForSelector('.help-search-results [role="option"]');
+  await p.keyboard.press('Enter');
+  await caption('Slide 6 sur');
+  await p.keyboard.press('Escape');
+  await p.evaluate(() => document.activeElement?.blur());
+
   // ⌘/ dans l'aide : le même onglet, pas un second.
   await p.keyboard.press(`${mod}+Slash`);
   await p.waitForTimeout(300);

@@ -8,6 +8,7 @@ use oku_slides_core::Op;
 use super::*;
 use crate::agent::TabSession;
 use crate::lib_tests_support::{data_dir, session_in};
+use crate::search::SEARCH_EXCERPT;
 use crate::{Request, SessionErrorKind};
 
 fn req(v: serde_json::Value) -> Request {
@@ -17,7 +18,7 @@ fn req(v: serde_json::Value) -> Request {
 fn help_session(locale: &str) -> (crate::lib_tests_support::Data, Session) {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    s.open_help(locale).unwrap();
+    s.open_help(locale, None).unwrap();
     (data, s)
 }
 
@@ -101,7 +102,7 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     let dir = data.0.join("tabs").join("t-1");
     {
         let mut s = session_in(&data.0);
-        s.open_help("en").unwrap();
+        s.open_help("en", Some("pro")).unwrap();
         assert_that!(s.resume_fresh(dir.clone())).is_true();
         s.handle(req(json!({"cmd": "ui", "slide": "s-sommaire"}))).unwrap();
         s.flush_resume();
@@ -111,6 +112,7 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     assert_that!(s.snapshot().read_only).is_true();
     assert_that!(s.tab_info().help).is_equal_to(Some("en".to_owned()));
     assert_that!(s.snapshot().ui.slide.as_deref()).is_equal_to(Some("s-sommaire"));
+    assert_that!(s.snapshot().theme).is_equal_to(Some("pro"));
 }
 
 #[test]
@@ -172,7 +174,7 @@ fn open_help_uses_the_builtin_default_pack_not_the_users_current_one() {
     let mine = manifest(crate::DEFAULT_PACK, "Mon Essentiel", Some(&builtin), "2027-01-01T00:00:00Z");
     let r = add_version(library_of(&s), &mine, &[("title", "#let widget = none")]);
     library_of(&s).set_current(crate::DEFAULT_PACK, &r.version).unwrap();
-    s.open_help("fr").unwrap();
+    s.open_help("fr", None).unwrap();
     let used = s.deck().templates.clone().unwrap();
     assert_that!(used.version).is_equal_to(builtin);
 }
@@ -191,4 +193,89 @@ fn help_deck_for_windows_and_linux_writes_ctrl_not_command() {
 fn help_deck_for_macos_keeps_the_symbols() {
     let json = serde_json::to_string(&help_deck_with("fr", |s| std::borrow::Cow::Borrowed(s)).unwrap()).unwrap();
     assert_that!(json.contains("⌘⇧S")).is_true();
+}
+
+#[test]
+fn open_help_with_a_theme_shows_the_help_in_that_theme() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    s.open_help("fr", Some("pro")).unwrap();
+    assert_that!(s.snapshot().theme).is_equal_to(Some("pro"));
+    assert_that!(s.tab_info().theme).is_equal_to(Some("pro".to_owned()));
+}
+
+#[test]
+fn open_help_with_an_unknown_theme_keeps_the_help_theme() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    s.open_help("fr", Some("inconnu")).unwrap();
+    assert_that!(s.snapshot().theme).is_equal_to(Some("papier"));
+}
+
+#[test]
+fn set_help_theme_changes_the_theme_without_undo_nor_unsaved_work() {
+    let (_data, mut s) = help_session("fr");
+    s.set_help_theme("pro").unwrap();
+    let snap = s.snapshot();
+    assert_that!(snap.theme).is_equal_to(Some("pro"));
+    assert_that!(snap.can_undo).is_false();
+    assert_that!(snap.dirty).is_false();
+}
+
+#[test]
+fn set_help_theme_outside_the_help_is_refused() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    s.new_deck().unwrap();
+    assert_that!(s.set_help_theme("pro")).is_err();
+}
+
+#[test]
+fn search_finds_a_word_of_a_slide_body_without_case_nor_accents() {
+    let (_data, s) = help_session("fr");
+    let hits = s.search("FUSION SANS CONFLIT");
+    assert_that!(hits.iter().any(|h| h.slide == "s-format-loro")).is_true();
+    let hits = s.search("depot");
+    assert_that!(hits.is_empty()).is_true();
+    let hits = s.search("theme");
+    assert_that!(hits.iter().any(|h| h.slide == "s-grille")).is_true();
+}
+
+#[test]
+fn search_puts_title_matches_first_with_their_slide_title() {
+    let (_data, s) = help_session("fr");
+    let hits = s.search("historique");
+    assert_that!(hits.first().map(|h| h.slide)).is_equal_to(Some("s-fichiers"));
+    assert_that!(hits[0].title.as_deref()).is_equal_to(Some("Fichiers, onglets, historique"));
+}
+
+#[test]
+fn search_excerpt_is_the_matching_line_shortened_around_the_match() {
+    let (_data, s) = help_session("en");
+    let hits = s.search("canonical read-back");
+    let hit = hits.iter().find(|h| h.slide == "s-format-loro").unwrap();
+    let excerpt = hit.excerpt.as_deref().unwrap();
+    assert_that!(excerpt.contains("canonical read-back")).is_true();
+    assert_that!(excerpt.chars().count()).is_less_than_or_equal_to(SEARCH_EXCERPT + 2);
+}
+
+#[test]
+fn search_with_a_blank_query_finds_nothing() {
+    let (_data, s) = help_session("en");
+    assert_that!(s.search("  ").is_empty()).is_true();
+}
+
+#[test]
+fn search_is_allowed_in_the_help_through_handle() {
+    let (_data, mut s) = help_session("fr");
+    let out = s.handle(req(json!({"cmd": "search", "query": "grille"}))).unwrap();
+    assert_that!(out.contains("s-grille")).is_true();
+}
+
+#[test]
+fn search_with_only_the_title_matching_has_no_excerpt() {
+    let (_data, s) = help_session("fr");
+    let hits = s.search("onglets, historique");
+    let hit = hits.iter().find(|h| h.slide == "s-fichiers").unwrap();
+    assert_that!(hit.excerpt.as_deref()).is_none();
 }

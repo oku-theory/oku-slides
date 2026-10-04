@@ -26,6 +26,8 @@ session-bad-request = 请求无效：{ $reason }
 session-history-not-open = 历史记录未打开
 session-in-history = 请先关闭历史记录再修改演示文稿
 session-read-only = 帮助为只读：无法修改
+session-not-help = 此标签页不是帮助
+session-unknown-theme = 未知主题：{ $theme }
 session-help-deck = 无法读取帮助演示文稿
 session-agent-form = 智能体的请求无效：{ $reason }
 

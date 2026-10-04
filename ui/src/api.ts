@@ -77,6 +77,14 @@ export interface Snapshot {
   ui: UiState;
 }
 
+/** Une slide où le texte cherché apparaît. */
+export interface SearchHit {
+  slide: string;
+  title: string | null;
+  /** La ligne du corps trouvée, raccourcie autour de la correspondance ; `null` : seul le titre correspond. */
+  excerpt: string | null;
+}
+
 /** Une version du deck (un commit), de la plus ancienne à la plus récente. */
 export interface Version {
   /** Nom de la session qui l'a faite ; `null` : anonyme. */
@@ -442,7 +450,8 @@ type Request =
   | { cmd: "remove_widget"; name: string }
   | { cmd: "rename_widget"; from: string; to: string }
   | { cmd: "preview_widget"; name: string; params: Record<string, unknown> }
-  | { cmd: "history_versions" };
+  | { cmd: "history_versions" }
+  | { cmd: "search"; query: string };
 
 /** Schéma de l'interface gardé par l'hôte ; `null` : celui du système. */
 export interface SchemeSetting {
@@ -617,6 +626,8 @@ export function tabApi(tab: string) {
     /** Referme l'historique : le deck courant, intact. */
     historyClose: () => call<Snapshot>({ cmd: "history_close" }),
     historyVersions: () => call<Version[]>({ cmd: "history_versions" }),
+    /** Les slides où le texte apparaît (sans casse ni accents), titres d'abord. */
+    search: (query: string) => call<SearchHit[]>({ cmd: "search", query }),
   };
 }
 

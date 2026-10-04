@@ -26,6 +26,8 @@ session-bad-request = अमान्य अनुरोध: { $reason }
 session-history-not-open = इतिहास खुला नहीं है
 session-in-history = प्रस्तुति बदलने से पहले इतिहास बंद करें
 session-read-only = सहायता केवल पढ़ने के लिए है: इसे बदला नहीं जा सकता
+session-not-help = यह टैब सहायता नहीं है
+session-unknown-theme = अज्ञात थीम: { $theme }
 session-help-deck = सहायता प्रस्तुति पढ़ी नहीं जा सकी
 session-agent-form = एजेंट का अनुरोध अमान्य है: { $reason }
 

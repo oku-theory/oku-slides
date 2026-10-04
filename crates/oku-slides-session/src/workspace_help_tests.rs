@@ -79,7 +79,7 @@ fn open_help_built_twice_concurrently_keeps_a_single_help_tab() {
     let (first, second) = {
         let mut w = Workspace::lock(&ws);
         let locale = w.help_language();
-        (w.help_pending("w-1".into(), locale), w.help_pending("w-1".into(), locale))
+        (w.help_pending("w-1".into(), locale, None), w.help_pending("w-1".into(), locale, None))
     };
     let (a, b) = (first.build().unwrap(), second.build().unwrap());
     Workspace::finish(&ws, first, a).unwrap();
@@ -98,4 +98,46 @@ fn messages_write_shortcuts_in_the_platform_notation() {
     let mac = cfg!(target_os = "macos");
     assert_that!(json.contains("⌘Z")).is_equal_to(mac);
     assert_that!(json.contains("Ctrl+Z")).is_equal_to(!mac);
+}
+
+fn set_theme(ws: &Mutex<Workspace>, tab: &str, theme: &str) {
+    let req =
+        serde_json::from_value(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}));
+    let (out, _) = Workspace::with_session(ws, tab, |s| s.handle(req.unwrap()).map(|_| ()));
+    out.unwrap().unwrap();
+}
+
+fn help_tab(v: &WorkspaceView) -> &crate::TabView {
+    v.windows[0].tabs.iter().find(|t| t.info.help.is_some()).unwrap()
+}
+
+#[test]
+fn open_help_from_a_pro_deck_shows_the_help_in_pro() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    set_theme(&ws, "t-1", "pro");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("pro"));
+}
+
+#[test]
+fn open_help_again_from_another_deck_takes_its_theme() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    set_theme(&ws, "t-1", "pro");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    set_theme(&ws, "t-1", "papier");
+    send(&ws, json!({"cmd": "activate", "tab": "t-1"}));
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("papier"));
+}
+
+#[test]
+fn open_help_from_the_help_tab_keeps_its_theme() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    set_theme(&ws, "t-1", "pro");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("pro"));
 }

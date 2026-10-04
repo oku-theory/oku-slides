@@ -25,6 +25,10 @@ pub enum Request {
     Slide {
         id: String,
     },
+    /// Les slides où `query` apparaît (tableau de `SearchHit`), titres d'abord.
+    Search {
+        query: String,
+    },
     Svg {
         id: String,
     },
@@ -182,6 +186,7 @@ impl Request {
             | Self::HostParam { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
+            | Self::Search { .. }
             | Self::Svg { .. }
             | Self::Schema
             | Self::Widgets

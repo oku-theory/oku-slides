@@ -26,6 +26,8 @@ session-bad-request = Geçersiz istek: { $reason }
 session-history-not-open = Geçmiş açık değil
 session-in-history = Sunumu değiştirmeden önce geçmişi kapatın
 session-read-only = Yardım salt okunurdur: değiştirilemez
+session-not-help = Bu sekme yardım değil
+session-unknown-theme = Bilinmeyen tema: { $theme }
 session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 

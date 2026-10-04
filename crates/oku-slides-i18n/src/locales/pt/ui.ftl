@@ -307,6 +307,13 @@ ui-help-caption = Diapositivo { $index } de { $count } · só de leitura
 ui-help-previous = Diapositivo anterior
 ui-help-next = Diapositivo seguinte
 ui-help-close = Fechar a ajuda
+ui-help-search = Pesquisar na ajuda
+ui-help-search-placeholder = Pesquisar…
+ui-help-search-empty = Sem resultados
+ui-help-search-count = { $count ->
+    [one] 1 resultado
+   *[other] { $count } resultados
+}
 ui-pack-notice-close = Fechar
 ui-widgets-files = Arquivos de widgets
 ui-widgets-common = Comum

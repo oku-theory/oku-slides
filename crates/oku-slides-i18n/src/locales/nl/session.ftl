@@ -26,6 +26,8 @@ session-bad-request = Ongeldig verzoek: { $reason }
 session-history-not-open = De geschiedenis is niet geopend
 session-in-history = Sluit de geschiedenis voordat u de presentatie wijzigt
 session-read-only = De help is alleen-lezen: hij kan niet worden gewijzigd
+session-not-help = Dit tabblad is niet de help
+session-unknown-theme = Onbekend thema: { $theme }
 session-help-deck = De helppresentatie is onleesbaar
 session-agent-form = Het verzoek van de agent is ongeldig: { $reason }
 

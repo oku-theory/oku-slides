@@ -68,6 +68,10 @@ pub enum SessionErrorKind {
     InHistory,
     /// Modifier l'aide, montrée en lecture seule.
     ReadOnly,
+    /// Requête réservée à l'aide.
+    NotHelp,
+    /// Thème inconnu.
+    UnknownTheme,
     /// Nom, taille ou nombre de fichiers de widgets refusé.
     InvalidWidget,
     /// Widget utilisé par un modèle du pack.
@@ -157,6 +161,10 @@ pub(crate) enum SessionInner {
     InHistory { backtrace: Backtrace },
     #[snafu(display("the help is read-only"))]
     ReadOnly { backtrace: Backtrace },
+    #[snafu(display("this tab is not the help"))]
+    NotHelp { backtrace: Backtrace },
+    #[snafu(display("unknown theme: {theme}"))]
+    UnknownTheme { theme: String, backtrace: Backtrace },
     #[snafu(display("unreadable help deck"))]
     HelpDeck { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
@@ -224,6 +232,8 @@ impl SessionError {
             HistoryNotOpen { .. } => SessionErrorKind::HistoryNotOpen,
             InHistory { .. } => SessionErrorKind::InHistory,
             ReadOnly { .. } => SessionErrorKind::ReadOnly,
+            NotHelp { .. } => SessionErrorKind::NotHelp,
+            UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
             HelpDeck { .. } => SessionErrorKind::InvalidDocument,
             InvalidWidgetName { .. }
             | WidgetTooLarge { .. }
@@ -323,6 +333,8 @@ impl Localize for SessionError {
             HistoryNotOpen { .. } => l.tr("session-history-not-open"),
             InHistory { .. } => l.tr("session-in-history"),
             ReadOnly { .. } => l.tr("session-read-only"),
+            NotHelp { .. } => l.tr("session-not-help"),
+            UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
             HelpDeck { .. } => l.tr("session-help-deck"),
             Version { source, .. } => source.localize(l),
             InvalidWidgetName { name, .. } => {

@@ -307,6 +307,13 @@ ui-help-caption = Slide { $index } sur { $count } · lecture seule
 ui-help-previous = Slide précédente
 ui-help-next = Slide suivante
 ui-help-close = Fermer l'aide
+ui-help-search = Rechercher dans l'aide
+ui-help-search-placeholder = Rechercher…
+ui-help-search-empty = Aucun résultat
+ui-help-search-count = { $count ->
+    [one] 1 résultat
+   *[other] { $count } résultats
+}
 ui-pack-notice-close = Fermer
 ui-widgets-files = Fichiers de widgets
 ui-widgets-common = Commun

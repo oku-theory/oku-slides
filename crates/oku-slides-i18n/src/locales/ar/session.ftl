@@ -26,6 +26,8 @@ session-bad-request = طلب غير صالح: { $reason }
 session-history-not-open = السجل غير مفتوح
 session-in-history = أغلق السجل قبل تعديل العرض التقديمي
 session-read-only = التعليمات للقراءة فقط: لا يمكن تعديلها
+session-not-help = هذا التبويب ليس التعليمات
+session-unknown-theme = سمة غير معروفة: { $theme }
 session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 

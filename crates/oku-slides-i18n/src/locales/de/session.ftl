@@ -26,6 +26,8 @@ session-bad-request = Ungültige Anfrage: { $reason }
 session-history-not-open = Der Verlauf ist nicht geöffnet
 session-in-history = Schließen Sie den Verlauf, bevor Sie die Präsentation ändern
 session-read-only = Die Hilfe ist schreibgeschützt: Sie kann nicht geändert werden
+session-not-help = Dieser Tab ist nicht die Hilfe
+session-unknown-theme = Unbekanntes Design: { $theme }
 session-help-deck = Die Hilfe-Präsentation ist nicht lesbar
 session-agent-form = Die Anfrage des Agenten ist ungültig: { $reason }
 

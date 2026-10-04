@@ -773,7 +773,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           onBack={() => { cursor.cancel(); run(api.historyClose()); }}
         />
       ) : snap.read_only ? (
-        <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} onClose={onClose} />
+        <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />
       ) : (<>
       {snap.pack_notice && (
         <PackNoticeBar

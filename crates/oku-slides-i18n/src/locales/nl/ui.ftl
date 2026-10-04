@@ -307,6 +307,13 @@ ui-help-caption = Dia { $index } van { $count } · alleen-lezen
 ui-help-previous = Vorige dia
 ui-help-next = Volgende dia
 ui-help-close = Help sluiten
+ui-help-search = Zoeken in de help
+ui-help-search-placeholder = Zoeken…
+ui-help-search-empty = Geen resultaten
+ui-help-search-count = { $count ->
+    [one] 1 resultaat
+   *[other] { $count } resultaten
+}
 ui-pack-notice-close = Sluiten
 ui-widgets-files = Widgetbestanden
 ui-widgets-common = Gedeeld

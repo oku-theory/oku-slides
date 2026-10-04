@@ -32,6 +32,7 @@ async function mount(current: string | null, calls: string[] = [], closable = tr
     slides: SLIDES,
     current,
     onShow: (id: string) => calls.push(id),
+    search: async () => [],
     onClose: closable ? () => calls.push("close") : undefined,
   };
   await act(async () => root.render(createElement(HelpBar, props)));

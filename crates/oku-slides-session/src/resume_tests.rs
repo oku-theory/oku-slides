@@ -114,7 +114,8 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         code_width: Some(640),
         folded: vec![PileSection::Widgets],
     };
-    r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
+    r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone(), help_theme: None })
+        .unwrap();
     let back = r.read_state().unwrap().unwrap();
     assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);

@@ -71,6 +71,9 @@ pub(crate) struct State {
     pub mode: SavedMode,
     #[serde(default)]
     pub ui: UiState,
+    /// Thème de l'aide (`SavedMode::Help`), relu avec elle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help_theme: Option<String>,
 }
 
 /// Octets d'un document (images, polices, packs), partagés d'un envoi au
@@ -587,7 +590,7 @@ impl Session {
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
         if let SavedMode::Help(locale) = &state.mode {
-            self.open_help(locale).context(SessionSnafu)?;
+            self.open_help(locale, state.help_theme.as_deref()).context(SessionSnafu)?;
             self.ui = state.ui.sanitized(false);
             return Ok(());
         }
@@ -645,7 +648,12 @@ impl Session {
         let Some(writer) = &self.resume else { return };
         // L'aide se relit depuis l'app : seule sa langue est gardée.
         if let Some(locale) = self.help {
-            let state = State { version: VERSION, mode: SavedMode::Help(locale.to_owned()), ui: self.ui.clone() };
+            let state = State {
+                version: VERSION,
+                mode: SavedMode::Help(locale.to_owned()),
+                ui: self.ui.clone(),
+                help_theme: self.doc.sources.deck().theme.clone(),
+            };
             writer.send(Job { docs: Vec::new(), state });
             return;
         }
@@ -672,7 +680,7 @@ impl Session {
                 }
             }
         }
-        writer.send(Job { docs, state: State { version: VERSION, mode, ui: self.ui.clone() } });
+        writer.send(Job { docs, state: State { version: VERSION, mode, ui: self.ui.clone(), help_theme: None } });
     }
 }
 

@@ -58,6 +58,7 @@ mod render_fonts;
 mod request;
 mod resume;
 mod resume_writer;
+mod search;
 mod templates_mode;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -84,6 +85,7 @@ pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
 pub use request::Request;
+pub use search::SearchHit;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
     AddWidget, CodePlace, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target,
@@ -439,6 +441,7 @@ impl Session {
                 && !deck.sources.replica().can_redo(),
             deck_uid: Some(deck.sources.replica().deck_uid()),
             help: self.help.map(str::to_owned),
+            theme: deck.sources.deck().theme.clone(),
         }
     }
 
@@ -528,6 +531,7 @@ impl Session {
         match req {
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
+            Request::Search { query } => return json(&self.search(&query)),
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::HostSettings { slide, widget } => return json(&self.host_settings(&slide, widget.as_deref())?),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
