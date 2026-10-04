@@ -141,3 +141,24 @@ fn open_help_from_the_help_tab_keeps_its_theme() {
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
     assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("pro"));
 }
+
+/// L'aide déjà ouverte dans une autre fenêtre : ⌘? y active son onglet et
+/// cette fenêtre devient celle du premier plan (`focused`, que l'hôte montre).
+#[test]
+fn open_help_open_in_another_window_activates_it_and_focuses_that_window() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    send(&ws, json!({"cmd": "new_window"}));
+    let second = view(&ws).focused.clone();
+    send(&ws, json!({"cmd": "open_help", "window": second}));
+    let help = view(&ws).windows.iter().find(|w| w.label == second).unwrap().active.clone();
+    send(&ws, json!({"cmd": "activate", "tab": "t-1"}));
+    assert_that!(view(&ws).focused.as_str()).is_equal_to("w-1");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    let v = view(&ws);
+    assert_that!(v.focused).is_equal_to(second.clone());
+    let w2 = v.windows.iter().find(|w| w.label == second).unwrap();
+    assert_that!(w2.active).is_equal_to(help);
+    let helps: usize = v.windows.iter().map(|w| w.tabs.iter().filter(|t| t.info.help.is_some()).count()).sum();
+    assert_that!(helps).is_equal_to(1);
+}
