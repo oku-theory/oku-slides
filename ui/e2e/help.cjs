@@ -7,6 +7,8 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
+// Délai du premier rendu de l'aide (deck entier), en ms.
+const FIRST_RENDER_MS = 120_000;
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
@@ -24,6 +26,10 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await count(tabs + 1);
   await p.waitForSelector('.help-bar');
   await caption('Slide 1 sur');
+  // Premier rendu : les 32 slides de l'aide se compilent d'un coup. Il peut
+  // dépasser les 30 s par défaut sur une machine chargée (juste après une
+  // compilation, t-523) ; ensuite, chaque slide sort du cache.
+  await p.waitForSelector('.stage img', { timeout: FIRST_RENDER_MS });
   // Lecture seule : ni outils, ni agent, ni dictée, ni ajout de slide.
   for (const sel of ['.tools-tray', '.notes', '.tray']) assert.equal(await p.locator(sel).isVisible(), false, sel);
   assert.equal(await p.getByRole('button', { name: 'Nouvelle slide' }).count(), 0);
