@@ -327,7 +327,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -345,6 +345,22 @@ fn ui_request_with_code_shown_keeps_it_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "code": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["code"]).is_equal_to(json!(true));
+}
+
+/// La place et les tailles du code des widgets sont gardées.
+#[test]
+fn ui_request_with_code_layout_keeps_it_in_snapshot() {
+    let mut s = session();
+    s.handle(req(
+        json!({"cmd": "ui", "slide": null, "grid": true, "code_place": "right", "code_height": 300, "code_width": 640}),
+    ))
+    .unwrap();
+    let ui = snapshot_json(&mut s)["ui"].clone();
+    assert_that!((ui["code_place"].clone(), ui["code_height"].clone(), ui["code_width"].clone())).is_equal_to((
+        json!("right"),
+        json!(300),
+        json!(640),
+    ));
 }
 
 /// Les sections repliées de la pile sont gardées.
@@ -374,7 +390,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "folded": []}));
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -384,7 +400,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
         .unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "folded": []}),
+        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_place": "below", "code_height": null, "code_width": null, "folded": []}),
     );
 }
 

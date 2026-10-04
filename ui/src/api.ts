@@ -116,11 +116,20 @@ export interface UiState {
   widgets: string[];
   /** Sous-onglet actif ; `null` : « Modèles ». */
   widget: string | null;
-  /** Code source des widgets déplié sous l'aperçu ; replié par défaut. */
+  /** Code source des widgets déplié ; replié par défaut. */
   code: boolean;
+  /** Place du code déplié : sous l'aperçu ou à sa droite. */
+  code_place: CodePlace;
+  /** Hauteur du code dessous en px, choisie au séparateur ; `null` : proportion par défaut. */
+  code_height: number | null;
+  /** Largeur du code à droite en px, choisie au séparateur ; `null` : proportion par défaut. */
+  code_width: number | null;
   /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
 }
+
+/** Place du code source d'un widget par rapport à son aperçu. */
+export type CodePlace = "below" | "right";
 
 /** Section repliable de la pile du mode modèles. */
 export type PileSectionName = "templates" | "widgets";

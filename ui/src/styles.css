@@ -790,13 +790,37 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }
 
-/* Aperçu en haut (40 % au plus), code dessous sur le reste de la hauteur. */
+/* Aperçu, séparateur, code, en zones nommées : sans séparateur (code replié), sa piste reste vide.
+   Replié, l'aperçu prend toute la place. */
 .widget-tab {
-  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 0fr); gap: var(--space-2); height: 100%; min-height: 0;
+  display: grid; grid-template-areas: "side" "split" "code"; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 0px minmax(0, 0fr); height: 100%; min-height: 0;
   transition: grid-template-rows 260ms cubic-bezier(0.2, 0, 0, 1);
 }
-/* Code affiché : l'aperçu remonte dans le quart du haut, le code prend le reste. */
-.widget-tab[data-code="shown"] { grid-template-rows: minmax(0, 1fr) minmax(0, 3fr); }
+.widget-tab-side { grid-area: side; }
+.widget-tab-code { grid-area: code; }
+/* Code dessous : l'aperçu remonte dans le quart du haut, sauf hauteur réglée (--code-h, posée par WidgetTab). */
+.widget-tab[data-code="shown"] { grid-template-rows: minmax(120px, 1fr) 12px var(--code-h, minmax(0, 3fr)); }
+/* Code à droite, s'il reste de la largeur ; sinon dessous. --code-axis dit au séparateur l'axe affiché. */
+.widget-pane { container-type: inline-size; }
+@container (min-width: 560px) {
+  .widget-tab[data-code="shown"][data-place="right"] {
+    --code-axis: right; grid-template-areas: "side split code"; grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(120px, 1fr) 12px var(--code-w, minmax(0, 1fr)); transition: none;
+  }
+}
+/* Séparateur entre aperçu et code, comme ceux des colonnes : un trait au survol, accentué au glisser. */
+.code-divider { grid-area: split; position: relative; cursor: row-resize; touch-action: none; outline: none; }
+.code-divider[data-axis="right"] { cursor: col-resize; }
+.code-divider::before {
+  content: ""; position: absolute; inset-inline: var(--space-6); inset-block-start: 5.5px; height: 1px; border-radius: 1px;
+  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.code-divider[data-axis="right"]::before { inset-inline: 5.5px auto; inset-block: var(--space-6); width: 1px; height: auto; }
+.code-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
+.code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
+body:has(.code-divider.active) { cursor: row-resize; user-select: none; -webkit-user-select: none; }
+body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .widget-tab[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .widget-tab { transition: none; } }
 /* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */

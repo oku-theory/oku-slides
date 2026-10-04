@@ -1,6 +1,7 @@
 /** Les sous-onglets ouverts, montés ; seul l'actif est visible. */
 import type { TabApi } from "./api";
 import type { TemplateWidgets } from "./useTemplateWidgets";
+import type { CodeLayout } from "./useViewOptions";
 import WidgetTab from "./WidgetTab";
 
 interface Props {
@@ -10,9 +11,12 @@ interface Props {
   trials: number;
   /** Code source affiché, commun à tous les sous-onglets. */
   code: boolean;
+  /** Place du code et tailles choisies, communes à tous les sous-onglets. */
+  layout: CodeLayout;
+  onLayout: (layout: CodeLayout) => void;
 }
 
-export default function WidgetPane({ api, widgets, trials, code }: Props) {
+export default function WidgetPane({ api, widgets, trials, code, layout, onLayout }: Props) {
   return (
     <div className="widget-pane" hidden={widgets.tabs.active === null}>
       {widgets.tabs.tabs.map((tab) => (
@@ -25,6 +29,8 @@ export default function WidgetPane({ api, widgets, trials, code }: Props) {
           revision={widgets.revision}
           trials={trials}
           code={code}
+          layout={layout}
+          onLayout={onLayout}
           active={tab.id === widgets.tabs.active}
           onOpen={widgets.open}
           onCommands={widgets.commandsOf(tab.id)}

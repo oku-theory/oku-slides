@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
+import type { CodeLayout } from "./useViewOptions";
 import type { Snapshot, TabApi } from "./api";
 
 const { act, createElement, Fragment, StrictMode, useState } = await import("react");
@@ -14,6 +15,8 @@ const { t } = await import("./i18n");
 const WidgetPane = (await import("./WidgetPane")).default;
 const TemplateTabs = (await import("./TemplateTabs")).default;
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
+
+const BELOW: CodeLayout = { code_place: "below", code_height: null, code_width: null };
 
 type Widgets = ReturnType<typeof useTemplateWidgets>;
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -68,7 +71,7 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
       Fragment,
       null,
       createElement(TemplateTabs, { tabs: w.tabs.tabs, active: w.tabs.active, unsaved: w.files.unsaved, onActivate: w.activate, onClose: w.close }),
-      createElement(WidgetPane, { api: fake, widgets: w, trials: snap.widget_trials ?? 0 }),
+      createElement(WidgetPane, { api: fake, widgets: w, trials: snap.widget_trials ?? 0, code: false, layout: BELOW, onLayout: () => {} }),
     );
   }
   const probe = createElement(Probe);

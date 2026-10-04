@@ -2,6 +2,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::test_support::registry;
+use crate::views::CodePlace;
 use crate::views::PileSection;
 use oku_slides_core::{Deck, Op, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
@@ -108,6 +109,9 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         widgets: vec!["_commun".into(), "kpi".into()],
         widget: Some("kpi".into()),
         code: true,
+        code_place: CodePlace::Right,
+        code_height: Some(480),
+        code_width: Some(640),
         folded: vec![PileSection::Widgets],
     };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone() }).unwrap();
@@ -134,6 +138,9 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         widgets: Vec::new(),
         widget: None,
         code: false,
+        code_place: CodePlace::Below,
+        code_height: None,
+        code_width: None,
         folded: Vec::new(),
     });
     std::fs::remove_dir_all(&r.dir).ok();

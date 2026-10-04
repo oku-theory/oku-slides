@@ -3,12 +3,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { TabApi, WidgetStatus } from "./api";
+import { codeTrack } from "./codeSplit";
+import type { CodeLayout } from "./useViewOptions";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { EditorView } = await import("@codemirror/view");
 const { PREVIEW_DELAY_MS } = await import("./debounce");
 const { useWidgetFiles } = await import("./useWidgetFiles");
+
+const BELOW: CodeLayout = { code_place: "below", code_height: null, code_width: null };
 const WidgetTab = (await import("./WidgetTab")).default;
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
 
@@ -21,7 +25,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -29,12 +33,13 @@ async function mount(fake: TabApi, first: Shown) {
   const root = createRoot(host);
   mounted = { root, host };
   const opened: string[] = [];
+  const layouts: CodeLayout[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials, code,
+      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, onLayout: (l: CodeLayout) => layouts.push(l),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -48,7 +53,7 @@ async function mount(fake: TabApi, first: Shown) {
       v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert }, userEvent: "input.type" });
     });
   const text = () => host.querySelector(".cm-content")?.textContent;
-  return { host, render, view, typeText, text, opened, files };
+  return { host, render, view, typeText, text, opened, files, layouts };
 }
 const later = () => wait(PREVIEW_DELAY_MS + 50);
 const status = (name: string, error = false): WidgetStatus => ({
@@ -284,16 +289,44 @@ describe("WidgetTab, disposition", () => {
   const order = (host: HTMLElement) =>
     [...host.querySelectorAll(".widget-tab > *")].map((el) => el.className);
 
-  test("un widget : l'aperçu en haut, le code dessous", async () => {
+  test("un widget : l'aperçu, le séparateur, puis le code", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
+    expect(order(m.host)).toEqual(["widget-tab-side", "code-divider", "widget-tab-code"]);
+  });
+
+  test("Commun : les widgets en erreur, le séparateur, puis le code", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun" });
+    expect(order(m.host)).toEqual(["widget-tab-side", "code-divider", "widget-tab-code"]);
+  });
+
+  test("code replié : pas de séparateur", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", code: false });
     expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
   });
 
-  test("Commun : les widgets en erreur en haut, le code dessous", async () => {
-    const { fake } = memory({ _commun: "c" });
-    const m = await mount(fake, { name: "_commun" });
-    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
+  test("la place choisie est posée sur le sous-onglet", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", layout: { ...BELOW, code_place: "right" } });
+    expect(m.host.querySelector<HTMLElement>(".widget-tab")!.dataset.place).toBe("right");
+  });
+
+  test("les tailles choisies sont posées en pistes bornées sur le sous-onglet", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", layout: { code_place: "below", code_height: 300, code_width: null } });
+    const style = m.host.querySelector<HTMLElement>(".widget-tab")!.style;
+    expect([style.getPropertyValue("--code-h"), style.getPropertyValue("--code-w")]).toEqual([codeTrack(300), ""]);
+  });
+
+  test("double-clic sur le séparateur, code dessous : hauteur par défaut", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", layout: { code_place: "below", code_height: 300, code_width: 500 } });
+    await act(async () => {
+      m.host.querySelector(".code-divider")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    expect(m.layouts).toEqual([{ code_place: "below", code_height: null, code_width: 500 }]);
   });
 });
 

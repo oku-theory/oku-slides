@@ -1,4 +1,4 @@
-// Options d'affichage : grille et fantômes de la scène, largeurs des colonnes, code des widgets,
+// Options d'affichage : grille et fantômes de la scène, largeurs des colonnes, code des widgets (place, tailles),
 // sections repliées de la pile, gardés par l'hôte pour la reprise.
 
 import { useEffect, useState } from "react";
@@ -19,6 +19,9 @@ type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
 /** Largeurs choisies aux séparateurs, en px ; `null` : largeur par défaut. */
 export type ColumnWidths = Pick<UiState, "pile" | "notes">;
 
+/** Place du code des widgets et ses tailles choisies au séparateur, une par place. */
+export type CodeLayout = Pick<UiState, "code_place" | "code_height" | "code_width">;
+
 /** Grille et fantômes de la scène, leurs entrées de menu et leurs raccourcis, colonnes, code des widgets. */
 export interface ViewOptions {
   grid: boolean;
@@ -30,6 +33,9 @@ export interface ViewOptions {
   code: boolean;
   /** Déplie ou replie le code (et le fait garder par l'hôte). */
   setCode: (code: boolean) => void;
+  codeLayout: CodeLayout;
+  /** Retient une nouvelle place ou taille du code (et la fait garder par l'hôte). */
+  setCodeLayout: (layout: CodeLayout) => void;
   /** Sections repliées de la pile du mode modèles. */
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
@@ -56,6 +62,7 @@ export function useViewOptions(
   const [ghosts, setGhosts] = useState(false);
   const [columns, setColumns] = useState<ColumnWidths>({ pile: null, notes: null });
   const [code, setCode] = useState(false);
+  const [codeLayout, setCodeLayout] = useState<CodeLayout>({ code_place: "below", code_height: null, code_width: null });
   const [folded, setFoldedList] = useState<PileSectionName[]>([]);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
@@ -66,17 +73,18 @@ export function useViewOptions(
     setGhosts(kept.ghosts);
     setColumns({ pile: kept.pile, notes: kept.notes });
     setCode(kept.code);
+    setCodeLayout({ code_place: kept.code_place, code_height: kept.code_height, code_width: kept.code_width });
     setFoldedList(kept.folded);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, folded }).catch(() => {
+    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, ...codeLayout, folded }).catch(() => {
       /* reprise facultative : l'édition continue */
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, folded]);
+  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeLayout, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
@@ -93,5 +101,5 @@ export function useViewOptions(
     flip(which);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, folded, setFolded, entries, handleKey };
+  return { grid, ghosts, columns, setColumns, code, setCode, codeLayout, setCodeLayout, folded, setFolded, entries, handleKey };
 }

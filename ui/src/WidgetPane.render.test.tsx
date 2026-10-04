@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
+import type { CodeLayout } from "./useViewOptions";
 import type { Snapshot, TabApi } from "./api";
 
 const { act, createElement } = await import("react");
@@ -9,6 +10,8 @@ const { createRoot } = await import("react-dom/client");
 const { useTemplateWidgets } = await import("./useTemplateWidgets");
 const WidgetPane = (await import("./WidgetPane")).default;
 const { memory, wait } = await import("./test/widgetApi");
+
+const BELOW: CodeLayout = { code_place: "below", code_height: null, code_width: null };
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 afterEach(async () => {
@@ -32,7 +35,7 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   } as unknown as Snapshot;
   function Probe() {
     const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0 });
+    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, code: false, layout: BELOW, onLayout: () => {} });
   }
   await act(async () => root.render(createElement(Probe)));
   await wait(10);

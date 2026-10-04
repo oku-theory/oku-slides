@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use super::{MAX_WIDGET_TABS, PileSection, UiState};
+use super::{CodePlace, MAX_WIDGET_TABS, PileSection, UiState};
 
 fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
     UiState {
@@ -33,6 +33,20 @@ fn sanitized_in_templates_caps_the_list() {
 #[test]
 fn sanitized_with_an_active_tab_not_open_drops_it() {
     assert_that!(tabs(&["kpi"], Some("quote")).sanitized(true).widget).is_none();
+}
+
+#[test]
+fn code_place_serializes_in_lowercase() {
+    assert_that!(serde_json::to_string(&CodePlace::Right).unwrap()).is_equal_to(r#""right""#.to_owned());
+    assert_that!(serde_json::from_str::<CodePlace>(r#""below""#).unwrap()).is_equal_to(CodePlace::Below);
+}
+
+#[test]
+fn ui_state_default_places_the_code_below_at_default_sizes() {
+    let ui = UiState::default();
+    assert_that!(ui.code_place).is_equal_to(CodePlace::Below);
+    assert_that!(ui.code_height).is_none();
+    assert_that!(ui.code_width).is_none();
 }
 
 #[test]

@@ -110,7 +110,7 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié, sections repliées de la pile.
+/// sous-onglets de widgets, code source des widgets déplié, sa place et sa taille, sections repliées de la pile.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -136,9 +136,29 @@ pub struct UiState {
     /// Code source des widgets déplié sous l'aperçu ; replié par défaut.
     #[serde(default)]
     pub code: bool,
+    /// Place du code déplié : sous l'aperçu ou à sa droite.
+    #[serde(default)]
+    pub code_place: CodePlace,
+    /// Hauteur du code dessous en px, choisie au séparateur ; `None` : proportion par défaut.
+    #[serde(default)]
+    pub code_height: Option<u32>,
+    /// Largeur du code à droite en px, choisie au séparateur ; `None` : proportion par défaut.
+    #[serde(default)]
+    pub code_width: Option<u32>,
     /// Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut.
     #[serde(default)]
     pub folded: Vec<PileSection>,
+}
+
+/// Place du code source d'un widget par rapport à son aperçu.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CodePlace {
+    /// Sous l'aperçu.
+    #[default]
+    Below,
+    /// À droite de l'aperçu.
+    Right,
 }
 
 /// Section repliable de la pile du mode modèles.
@@ -166,6 +186,9 @@ impl Default for UiState {
             widgets: Vec::new(),
             widget: None,
             code: false,
+            code_place: CodePlace::Below,
+            code_height: None,
+            code_width: None,
             folded: Vec::new(),
         }
     }
