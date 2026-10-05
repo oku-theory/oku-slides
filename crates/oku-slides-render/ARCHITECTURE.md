@@ -34,6 +34,7 @@ le même document compilé donne SVG, PNG et PDF.
   deck, assets, pack) et polices (`Fonts`, `fonts.rs`) sans police système.
 - `charts` (privé) : élément à `host("chart")` → SVG rendu par `oku-slides-chart`, servi sous
   `/charts/<empreinte>.svg` ; l'empreinte couvre options, taille, police, palette, libellés.
+  Dessiné à la taille de sa boîte (relevée à la compilation hors cadre), jamais mis à l'échelle.
 - `diagnostic` : messages Typst localisés ; `palette` : couleurs nommées, palette des graphiques.
 
 ## Points d'extension

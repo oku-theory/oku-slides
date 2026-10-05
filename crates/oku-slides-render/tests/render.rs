@@ -329,3 +329,23 @@ fn render_deck_tokens_override_the_chart_palette() {
     r.render(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().to_vec()).is_equal_to(vec!["#010203".to_owned(), "#3f6b5e".to_owned()]);
 }
+
+/// SVG du premier graphique embarqué dans une page.
+fn embedded_chart(page: &str) -> String {
+    use base64::Engine;
+    const PREFIX: &str = "data:image/svg+xml;base64,";
+    let start = page.find(PREFIX).unwrap_or_else(|| panic!("graphique absent")) + PREFIX.len();
+    let end = start + page[start..].find('"').unwrap_or_else(|| panic!("data URI non fermée"));
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&page[start..end]).unwrap_or_else(|e| panic!("{e}"));
+    String::from_utf8(bytes).unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn render_chart_texts_take_the_body_size_of_the_theme() {
+    let mut deck = themed_chart_deck("papier");
+    deck.tokens = serde_json::json!({ "size": { "body": 27 } });
+    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let doc = r.render(&deck, &BTreeMap::new()).unwrap();
+    let chart = embedded_chart(&doc.svg(1).unwrap());
+    assert_that!(chart).contains("font-size=\"27\"");
+}

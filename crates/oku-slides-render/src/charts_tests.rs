@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 
 use oku_slides_core::WidgetRegistry;
 
-use super::{Charts, SVG_FIELD};
+use super::{Charts, SVG_FIELD, TextSizes, text_sizes};
 use crate::fonts::Fonts;
 use crate::world::file_id;
 
@@ -152,4 +152,31 @@ fn attach_pack_widget_with_a_host_chart_param_renders_it() {
     let mut charts = Charts::default();
     charts.attach(&mut d, None, &Fonts::default(), &reg).unwrap();
     assert_that!(d["slides"][0]["params"]["elements"][0][SVG_FIELD].as_str()).is_some();
+}
+
+#[test]
+fn text_sizes_reads_body_and_lead_from_the_size_tokens() {
+    let tokens = json!({ "size": { "body": 32, "lead": 40, "caption": 22 } });
+    assert_that!(text_sizes(&tokens)).is_equal_to(Some(TextSizes { body: 32.0, title: 40.0 }));
+}
+
+#[test]
+fn text_sizes_without_body_or_lead_is_none() {
+    assert_that!(text_sizes(&json!({ "size": { "body": 32 } }))).is_none();
+    assert_that!(text_sizes(&json!({ "color": {} }))).is_none();
+}
+
+#[test]
+fn attach_after_set_text_sizes_draws_axes_and_legend_at_the_body_size() {
+    let mut charts = Charts::default();
+    assert_that!(charts.set_text_sizes(Some(TextSizes { body: 32.0, title: 40.0 }))).is_true();
+    assert_that!(charts.set_text_sizes(Some(TextSizes { body: 32.0, title: 40.0 }))).is_false();
+    let mut option = bars();
+    option["title"] = json!({ "text": "Ventes" });
+    let mut d = deck(option, None);
+    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    let svg = svg(&charts, &key(&d).unwrap());
+    assert_that!(svg).contains("font-size=\"40\"");
+    assert_that!(svg).contains("font-size=\"32\"");
+    assert_that!(svg).does_not_contain("font-size=\"12\"");
 }

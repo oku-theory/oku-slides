@@ -210,6 +210,13 @@ impl ChartsRsRenderer {
         base.is_light = true;
         base.background_color = t.background.as_deref().map(color).unwrap_or_else(transparent);
 
+        // Hauteurs que charts-rs réserve au titre, au sous-titre et à l'axe X :
+        // ses défauts (30, 20, 30) valent pour des textes de 18, 13 et 12 ;
+        // elles suivent les tailles du thème avec la même marge.
+        base.title_height = t.title_size + 12.0;
+        base.sub_title_height = t.subtitle_size + 7.0;
+        base.x_axis_height = t.axis_size + 18.0;
+
         base.title_text = model.title.clone();
         base.title_align = align(model.title_align);
         base.title_font_size = t.title_size;

@@ -213,3 +213,56 @@ fn render_waterfall_draws_the_total_color_only_for_rows_marked_total() {
     assert_that!(has_color(&render_waterfall_with_total(true), "#111111")).is_true();
     assert_that!(has_color(&render_waterfall_with_total(false), "#111111")).is_false();
 }
+
+/// Graphique en barres titré, avec les tailles de texte d'un thème de slides.
+fn large_text_bars() -> String {
+    register_fonts(&[include_bytes!("../../../assets/fonts/inter-400.ttf")]).unwrap_or_else(|e| panic!("{e}"));
+    let theme = ChartTheme {
+        font_family: "Inter".into(),
+        title_size: 40.0,
+        subtitle_size: 32.0,
+        legend_size: 32.0,
+        axis_size: 32.0,
+        label_size: 32.0,
+        ..ChartTheme::default()
+    };
+    let option = parse_option(&json!({
+        "title": { "text": "Ventes", "subtext": "2026" },
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 3], ["Fév", 5]] },
+        "xAxis": { "type": "category" }, "series": [{ "type": "bar" }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Bornes verticales (haut, bas) de chaque `<text>` d'un SVG charts-rs.
+fn text_extents(svg: &str) -> Vec<(f32, f32)> {
+    let attr = |tag: &str, name: &str| -> Option<f32> {
+        let key = format!(" {name}=\"");
+        let start = tag.find(&key)? + key.len();
+        tag[start..start + tag[start..].find('"')?].parse().ok()
+    };
+    svg.split("<text")
+        .skip(1)
+        .filter_map(|rest| {
+            let tag = &rest[..rest.find('>')?];
+            let (size, y) = (attr(tag, "font-size")?, attr(tag, "y")?);
+            Some(if tag.contains("dominant-baseline=\"middle\"") {
+                let center = y + attr(tag, "dy").unwrap_or(0.0);
+                (center - size / 2.0, center + size / 2.0)
+            } else {
+                // `y` est la ligne de base : les jambages sont ignorés.
+                (y - size * 0.75, y)
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn render_large_theme_texts_stay_inside_the_chart() {
+    let extents = text_extents(&large_text_bars());
+    assert_that!(extents.len()).is_greater_than(4);
+    for (top, bottom) in extents {
+        asserting(&format!("texte de {top} à {bottom}")).that(&(top >= 0.0 && bottom <= SIZE.height)).is_true();
+    }
+}

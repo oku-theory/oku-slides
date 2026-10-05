@@ -105,6 +105,5 @@ pub(crate) fn render(
 fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck) -> Result<Rendered> {
     let mut renderer = Renderer::new(fonts)?;
     renderer.set_language(l)?;
-    renderer.set_deck(deck, &bundle.assets)?;
-    Ok(Rendered::Local(renderer.compile()?))
+    Ok(Rendered::Local(renderer.render(deck, &bundle.assets)?))
 }

@@ -226,15 +226,17 @@ impl Renderer {
         self.world.set_deck(deck, assets, &self.registry)
     }
 
-    /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette
-    /// de la compilation précédente : si les jetons compilés en donnent une
-    /// autre (thème changé, jetons surchargés), ils sont redessinés et le deck
-    /// recompilé une fois.
+    /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette,
+    /// les tailles de texte et de boîte de la compilation précédente : si les
+    /// jetons compilés en donnent d'autres (thème changé, jetons surchargés) ou si la boîte
+    /// d'un graphique a une autre taille (graphique dans le flux ou sur une
+    /// cellule), ils sont redessinés et le deck recompilé une fois.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<Compiled, RenderError> {
         self.set_deck(deck, assets)?;
         let compiled = self.compile()?;
-        let palette = compiled.layout().tokens.as_ref().map(chart_palette).unwrap_or_default();
-        if self.world.set_chart_palette(palette, &self.registry)? {
+        let layout = compiled.layout();
+        let boxes = layout.boxes.iter().map(|b| (b.id.as_str(), b.w, b.h));
+        if self.world.fit_charts(layout.tokens.as_ref(), boxes, &self.registry)? {
             return self.compile();
         }
         Ok(compiled)

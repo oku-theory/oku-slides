@@ -2,8 +2,14 @@
 //! `host("chart")` est rendu en SVG par `oku-slides-chart` et servi à Typst
 //! sous `/charts/<empreinte>.svg`.
 //!
-//! L'empreinte couvre les options, la taille, la police, la palette et les libellés : un
-//! graphique inchangé n'est pas redessiné d'un rendu à l'autre.
+//! L'empreinte couvre les options, la taille, le thème (police, palette,
+//! tailles de texte) et les libellés : un graphique inchangé n'est pas
+//! redessiné d'un rendu à l'autre.
+//!
+//! Un graphique est dessiné à la taille de sa boîte, jamais mis à l'échelle :
+//! ses textes gardent la taille du thème. Hors cadre (dans le flux, sur une
+//! cellule de la grille), seule la compilation donne cette taille : elle est
+//! relevée dans les boîtes ([`Charts::set_measured`]) et le graphique redessiné.
 
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -28,9 +34,12 @@ pub(crate) const SVG_FIELD: &str = "chart-svg";
 pub(crate) const DEFAULT_SIZE: Size = Size { width: 800.0, height: 450.0 };
 
 /// Côtés du dessin, en pt. Sous ce minimum, charts-rs panique ; Typst met
-/// ensuite le dessin à l'échelle de son cadre.
+/// alors le dessin à l'échelle de sa boîte.
 const MIN_SIDE: f32 = 160.0;
 const MAX_SIDE: f32 = 4000.0;
+
+/// Écart (pt) entre la boîte et le dessin au-delà duquel il est redessiné.
+const SIZE_TOLERANCE: f32 = 0.5;
 
 /// Au-delà, le graphique n'est pas dessiné : un cadre de repli le remplace.
 const MAX_VALUES: usize = 20_000;
@@ -49,6 +58,24 @@ fn body_font(theme: Option<&str>) -> &'static str {
     }
 }
 
+/// Tailles des textes des graphiques, en pt, tirées des jetons `size`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct TextSizes {
+    /// Axes, légende, étiquettes et sous-titre : le texte courant (`size.body`).
+    pub(crate) body: f32,
+    /// Titre du graphique (`size.lead`).
+    pub(crate) title: f32,
+}
+
+/// Tailles de texte des jetons résolus ; aucune s'il manque `body` ou `lead`.
+pub(crate) fn text_sizes(tokens: &Json) -> Option<TextSizes> {
+    let size = |name: &str| {
+        let v = tokens.get("size")?.get(name)?.as_f64()? as f32;
+        (v.is_finite() && v > 0.0).then_some(v)
+    };
+    Some(TextSizes { body: size("body")?, title: size("lead")? })
+}
+
 /// SVG des graphiques du deck courant.
 #[derive(Debug, Default)]
 pub(crate) struct Charts {
@@ -56,6 +83,12 @@ pub(crate) struct Charts {
     labels: ChartLabels,
     /// Palette des séries, tirée des jetons du thème ; vide = celle par défaut.
     palette: Vec<String>,
+    /// Tailles de texte du thème ; aucune = celles par défaut du moteur.
+    text: Option<TextSizes>,
+    /// Taille de la boîte des graphiques sans cadre, relevée à la compilation.
+    measured: HashMap<String, Size>,
+    /// Taille du dessin de chaque graphique du deck courant, par élément.
+    drawn: HashMap<String, Size>,
 }
 
 impl Charts {
@@ -77,8 +110,33 @@ impl Charts {
         changed
     }
 
+    /// Tailles de texte (jetons `size`). Elles entrent dans l'empreinte ;
+    /// `true` si elles ont changé.
+    pub(crate) fn set_text_sizes(&mut self, text: Option<TextSizes>) -> bool {
+        let changed = text != self.text;
+        self.text = text;
+        changed
+    }
+
     pub(crate) fn palette(&self) -> &[String] {
         &self.palette
+    }
+
+    /// Boîtes compilées `(élément, largeur, hauteur)` en pt. Celles des
+    /// graphiques dessinés à une autre taille sont retenues pour le prochain
+    /// `attach` ; `true` s'il y en a.
+    pub(crate) fn set_measured<'a>(&mut self, boxes: impl IntoIterator<Item = (&'a str, f64, f64)>) -> bool {
+        let mut changed = false;
+        for (id, w, h) in boxes {
+            let Some(drawn) = self.drawn.get(id) else { continue };
+            let Some(size) = clamped(w, h) else { continue };
+            let off = |a: f32, b: f32| (a - b).abs() > SIZE_TOLERANCE;
+            if off(size.width, drawn.width) || off(size.height, drawn.height) {
+                self.measured.insert(id.to_owned(), size);
+                changed = true;
+            }
+        }
+        changed
     }
 
     /// Rend les graphiques de `deck` (JSON) et note l'empreinte de chacun
@@ -94,16 +152,11 @@ impl Charts {
         registry: &WidgetRegistry,
     ) -> Result<(), RenderError> {
         let family = register_font(fonts, body_font(theme));
-        let renderer = ChartsRsRenderer {
-            theme: if self.palette.is_empty() {
-                ChartTheme { font_family: family, ..ChartTheme::default() }
-            } else {
-                ChartTheme { font_family: family, palette: self.palette.clone(), ..ChartTheme::default() }
-            },
-            labels: self.labels.clone(),
-        };
+        let renderer = ChartsRsRenderer { theme: self.theme(family), labels: self.labels.clone() };
         let mut wanted = HashSet::new();
         let mut failure = None;
+        let measured = &self.measured;
+        let mut drawn = HashMap::new();
         for_each_element(deck, &mut |e| {
             // Une empreinte d'un rendu précédent ne vaut plus rien.
             e.remove(SVG_FIELD);
@@ -111,7 +164,9 @@ impl Charts {
                 return;
             };
             let Some(option) = e.get("params").and_then(|p| p.get(param)) else { return };
-            let size = frame_size(e).unwrap_or(DEFAULT_SIZE);
+            let element = e.get("id").and_then(Json::as_str).unwrap_or_default().to_owned();
+            let size = drawing_size(e, measured.get(&element).copied());
+            drawn.insert(element, size);
             let key = fingerprint(option, size, &renderer);
             let id = match file_id(&format!("/charts/{key}.svg")) {
                 Ok(id) => id,
@@ -136,7 +191,27 @@ impl Charts {
             e.insert(SVG_FIELD.to_owned(), Json::String(key));
         });
         self.files.retain(|id, _| wanted.contains(id));
+        self.measured.retain(|id, _| drawn.contains_key(id));
+        self.drawn = drawn;
         failure.map_or(Ok(()), Err)
+    }
+}
+
+impl Charts {
+    /// Thème du moteur : police `family`, palette et tailles du thème du deck.
+    fn theme(&self, family: String) -> ChartTheme {
+        let mut theme = ChartTheme { font_family: family, ..ChartTheme::default() };
+        if !self.palette.is_empty() {
+            theme.palette.clone_from(&self.palette);
+        }
+        if let Some(t) = self.text {
+            theme.title_size = t.title;
+            theme.subtitle_size = t.body;
+            theme.legend_size = t.body;
+            theme.axis_size = t.body;
+            theme.label_size = t.body;
+        }
+        theme
     }
 }
 
@@ -187,14 +262,26 @@ fn count_values(v: &Json) -> usize {
     }
 }
 
-/// Taille du dessin : celle du cadre, ramenée dans [MIN_SIDE, MAX_SIDE].
+/// Taille du dessin : celle du cadre (sauf sur une cellule de la grille, qui
+/// le remplace), sinon celle relevée à la compilation, sinon 16:9.
+fn drawing_size(e: &Map<String, Json>, measured: Option<Size>) -> Size {
+    let on_cell = e.get("cell").is_some_and(|c| !c.is_null());
+    let framed = if on_cell { None } else { frame_size(e) };
+    framed.or(measured).unwrap_or(DEFAULT_SIZE)
+}
+
 fn frame_size(e: &Map<String, Json>) -> Option<Size> {
     let frame = e.get("frame")?;
-    let side = |key: &str| {
-        let v = frame.get(key)?.as_f64()? as f32;
+    clamped(frame.get("w")?.as_f64()?, frame.get("h")?.as_f64()?)
+}
+
+/// Une taille ramenée dans [MIN_SIDE, MAX_SIDE] ; aucune si un côté n'est pas fini.
+fn clamped(w: f64, h: f64) -> Option<Size> {
+    let side = |v: f64| {
+        let v = v as f32;
         v.is_finite().then(|| v.clamp(MIN_SIDE, MAX_SIDE))
     };
-    Some(Size { width: side("w")?, height: side("h")? })
+    Some(Size { width: side(w)?, height: side(h)? })
 }
 
 fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String {
@@ -202,8 +289,7 @@ fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String
     option.to_string().hash(&mut h);
     size.width.to_bits().hash(&mut h);
     size.height.to_bits().hash(&mut h);
-    renderer.theme.font_family.hash(&mut h);
-    renderer.theme.palette.hash(&mut h);
+    serde_json::to_string(&renderer.theme).unwrap_or_default().hash(&mut h);
     renderer.labels.hash(&mut h);
     format!("{:016x}", h.finish())
 }

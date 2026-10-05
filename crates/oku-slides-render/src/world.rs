@@ -18,10 +18,11 @@ use oku_slides_chart::ChartLabels;
 use oku_slides_i18n::Localizer;
 
 use crate::THEMES;
-use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD};
+use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD, text_sizes};
 use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
+use crate::palette::chart_palette;
 use crate::registry::PackWidgets;
 
 macro_rules! lib_files {
@@ -268,14 +269,20 @@ impl OkuSlidesWorld {
         Ok(())
     }
 
-    /// Palette des graphiques (jetons du thème) ; s'ils changent, les
-    /// graphiques du deck courant sont redessinés. `true` si elle a changé.
-    pub(crate) fn set_chart_palette(
+    /// Ce qu'une compilation dit des graphiques : les jetons résolus du
+    /// thème (palette, tailles de texte) et les boîtes `(élément, largeur,
+    /// hauteur)`. Si l'un d'eux change pour un graphique, les graphiques du
+    /// deck courant sont redessinés ; `true` dans ce cas.
+    pub(crate) fn fit_charts<'a>(
         &mut self,
-        palette: Vec<String>,
+        tokens: Option<&serde_json::Value>,
+        boxes: impl IntoIterator<Item = (&'a str, f64, f64)>,
         registry: &WidgetRegistry,
     ) -> Result<bool, RenderError> {
-        if !self.charts.set_palette(palette) {
+        let palette = tokens.map(chart_palette).unwrap_or_default();
+        let repainted = self.charts.set_palette(palette) | self.charts.set_text_sizes(tokens.and_then(text_sizes));
+        let resized = self.charts.set_measured(boxes);
+        if !(repainted || resized) {
             return Ok(false);
         }
         self.redraw_charts(registry)?;
