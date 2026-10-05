@@ -28,7 +28,7 @@ const boxes = (p) => p.evaluate((sel) => {
   const add = p.getByRole('button', { name: 'Nouveau widget' });
   if (!(await add.isVisible())) {
     await p.getByRole('button', { name: 'Menu' }).click();
-    await p.getByRole('menuitem', { name: 'Modèles et widgets' }).click();
+    await p.getByRole('menuitem', { name: 'Atelier' }).click();
   }
   await add.click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });

@@ -674,7 +674,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         { kind: "item", label: t("ui-menu-move"), onSelect: moveFile },
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
-        { kind: "item", label: t("ui-toolbar-templates"), onSelect: () => void editTemplates() },
+        { kind: "item", label: t("ui-menu-workshop"), onSelect: () => void editTemplates() },
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
