@@ -43,7 +43,6 @@ export type ListTableProps = {
 /** Ligne tirée par sa poignée : son fantôme suit le pointeur, en px dans le tableau. */
 type Drag = {
   id: string;
-  from: number;
   grabY: number;
   top: number;
   height: number;
@@ -77,6 +76,12 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
     dragging.current = d;
     setDragState(d);
   };
+  const ghost = useRef<HTMLDivElement>(null);
+  // La ligne tirée a disparu (retirée ailleurs, annulée) : le geste s'arrête.
+  const gone = drag !== null && !rows.some((row) => row.id === drag.id);
+  useEffect(() => {
+    if (gone) setDrag(null);
+  }, [gone]);
 
   const lt = useRef<HTMLDivElement>(null);
 
@@ -143,7 +148,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       }
       case "asset": {
         const id = typeof value === "string" ? value : "";
-        return <span className="lt-asset" title={id}>{id.length > 16 ? `${id.slice(0, 15)}…` : id}</span>;
+        return <span className="lt-asset" title={id}>{assetLabel(id)}</span>;
       }
       default:
         return (
@@ -187,31 +192,45 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   /** La ligne sous le pointeur. */
   const rowAt = (e: PointerEvent) =>
     document.elementFromPoint?.(e.clientX, e.clientY)?.closest("tr[data-row]")?.getAttribute("data-row") ?? null;
-  const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string, from: number) => {
+  /** Rang actuel de la ligne `id` ; -1 si elle n'est plus là. */
+  const indexOf = (id: string) => rows.findIndex((row) => row.id === id);
+  const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string) => {
+    if (e.button !== 0) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const row = e.currentTarget.closest("tr");
     const tr = row?.getBoundingClientRect();
     const box = lt.current?.getBoundingClientRect();
     const grabY = e.clientY - (tr?.top ?? e.clientY);
     const widths = [...(row?.cells ?? [])].map((td) => td.getBoundingClientRect().width);
-    setDrag({ id, from, grabY, top: e.clientY - grabY - (box?.top ?? 0), height: tr?.height ?? 0, widths, over: null, moved: false });
+    setDrag({ id, grabY, top: e.clientY - grabY - (box?.top ?? 0), height: tr?.height ?? 0, widths, over: null, moved: false });
   };
+  /**
+   * Le fantôme suit le pointeur sans rendu React (style écrit par la ref), borné à la boîte
+   * du tableau ; l'état ne change que quand la ligne visée change, ou au premier mouvement.
+   */
   const dragTo = (e: PointerEvent) => {
-    const top = e.clientY - (lt.current?.getBoundingClientRect().top ?? 0);
-    const over = rowAt(e);
     const d = dragging.current;
-    if (d) setDrag({ ...d, top: top - d.grabY, over, moved: true });
+    if (!d) return;
+    const box = lt.current?.getBoundingClientRect();
+    const scroll = lt.current?.querySelector(".lt-scroll")?.getBoundingClientRect();
+    let top = e.clientY - d.grabY - (box?.top ?? 0);
+    if (box && scroll) top = Math.min(Math.max(top, scroll.top - box.top), scroll.bottom - box.top - d.height);
+    const over = rowAt(e);
+    if (ghost.current) ghost.current.style.top = `${top}px`;
+    if (over !== d.over || !d.moved) setDrag({ ...d, top, over, moved: true });
+    else dragging.current = { ...d, top };
   };
   const endDrag = (e: PointerEvent) => {
     const d = dragging.current;
-    const target = rowAt(e);
-    if (d && target) move(d.id, rows.findIndex((row) => row.id === target));
     setDrag(null);
+    const target = d?.moved ? rowAt(e) : null;
+    if (d && target && indexOf(d.id) >= 0) move(d.id, indexOf(target));
   };
   /** Où la ligne tirée tomberait par rapport à la ligne `r` : avant en remontant, après en descendant. */
   const dropAt = (id: string, r: number) => {
-    if (!drag?.moved || drag.over !== id || r === drag.from) return undefined;
-    return r < drag.from ? "before" : "after";
+    const from = drag ? indexOf(drag.id) : -1;
+    if (!drag?.moved || drag.over !== id || from < 0 || r === from) return undefined;
+    return r < from ? "before" : "after";
   };
   const lifted = drag?.moved ? rows.find((row) => row.id === drag.id) : undefined;
 
@@ -251,7 +270,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
                     aria-label={t("ui-list-move", { item })}
                     title={t("ui-list-move", { item })}
                     onKeyDown={(e) => onHandleKey(e, row.original.id, row.index)}
-                    onPointerDown={(e) => startDrag(e, row.original.id, row.index)}
+                    onPointerDown={(e) => startDrag(e, row.original.id)}
                     onPointerMove={dragTo}
                     onPointerUp={endDrag}
                     onPointerCancel={() => setDrag(null)}
@@ -284,7 +303,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
         </table>
       </div>
       {lifted && drag && (
-        <div className="lt-ghost" aria-hidden style={{ top: drag.top, minHeight: drag.height }}>
+        <div ref={ghost} className="lt-ghost" aria-hidden style={{ top: drag.top, minHeight: drag.height }}>
           <span className="lt-handle" style={{ width: drag.widths[0] }}>⋮⋮</span>
           {columns.map((c, ci) => (
             <span key={c.key} className="lt-ghost-cell" style={{ width: drag.widths[ci + 1] }}>
@@ -376,9 +395,22 @@ function cellText(c: ListColumn, v: unknown): string {
       return c.options.find((o) => o.id === v)?.label ?? "";
     case "rich":
       return plainText(v).split("\n")[0];
-    default:
+    case "asset":
+      return assetLabel(typeof v === "string" ? v : "");
+    case "text":
+    case "number":
       return display(v);
+    default: {
+      // Un nouveau type de colonne doit dire ici ce que montre son fantôme.
+      const unknown: never = c.kind;
+      return String(unknown);
+    }
   }
+}
+
+/** Id d'un asset raccourci à 16 caractères, comme dans sa cellule. */
+function assetLabel(id: string): string {
+  return id.length > 16 ? `${id.slice(0, 15)}…` : id;
 }
 
 function display(v: unknown): string {

@@ -10,7 +10,8 @@
 }
 .lt-table td[data-invalid] { outline: 2px solid var(--danger); outline-offset: -2px; }
 .lt-gutter { width: 1%; white-space: nowrap; }
-/* Cellules à plat : `.lt` est aussi un `.note-field`, dont les champs sont des pastilles. */
+/* Cellules à plat. `.lt` est aussi un `.note-field`, dont les `input` sont des pastilles :
+   les champs et la case à cocher (des `input`) ont besoin du préfixe `.lt` pour l'emporter. */
 .lt .lt-input, .lt-select, .lt-rich {
   width: 100%; min-width: 6ch; box-sizing: border-box; border: 0; border-radius: 0; box-shadow: none;
   background: transparent; padding: 6px 8px; font: inherit; color: var(--ink);
@@ -22,7 +23,9 @@
 .lt-select option { background: var(--paper-200); color: var(--ink); }
 .lt-rich { text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 16rem; }
 .lt-rich[aria-expanded="true"] { background: var(--a2ui-surface); }
-.lt .lt-check { display: block; width: auto; margin: 6px auto; padding: 0; accent-color: var(--accent-fill); cursor: pointer; }
+.lt .lt-check { display: block; width: auto; margin: 6px auto; padding: 0; border-radius: 0; background: none; accent-color: var(--accent-fill); cursor: pointer; }
+.lt .lt-check:focus { box-shadow: none; }
+.lt .lt-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lt-asset { display: block; padding: 6px 8px; color: var(--ink-muted); white-space: nowrap; }
 .lt-handle, .lt-remove { border: 0; background: transparent; color: var(--ink-muted); padding: 4px 6px; font: inherit; }
 .lt-handle { cursor: grab; touch-action: none; letter-spacing: -0.2em; }
