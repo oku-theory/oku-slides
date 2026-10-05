@@ -114,7 +114,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, sections repliées, cas courants et planche, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, sections repliées et cas courants, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -128,24 +128,15 @@ export interface UiState {
   widgets: string[];
   /** Sous-onglet actif ; `null` : « Modèles ». */
   widget: string | null;
-  /** Code source des widgets déplié ; replié par défaut. */
+  /** Code source des widgets déplié à droite de l'aperçu ; replié par défaut. */
   code: boolean;
-  /** Place du code déplié : sous l'aperçu ou à sa droite. */
-  code_place: CodePlace;
-  /** Hauteur du code dessous en px, choisie au séparateur ; `null` : proportion par défaut. */
-  code_height: number | null;
-  /** Largeur du code à droite en px, choisie au séparateur ; `null` : proportion par défaut. */
+  /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
   code_width: number | null;
   /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
   /** Cas d'exemple montré de chaque widget, par nom de fichier ; absent : le premier. */
   case: Record<string, string>;
-  /** Sous-onglets de widgets en Planche (tous les cas en vignettes) plutôt qu'en Scène ; commun à tous. */
-  board: boolean;
 }
-
-/** Place du code source d'un widget par rapport à son aperçu. */
-export type CodePlace = "below" | "right";
 
 /** Section repliable de la pile du mode modèles. */
 export type PileSectionName = "templates" | "widgets";
@@ -236,19 +227,8 @@ export interface WidgetPreview {
    * ou toute la slide sans `bbox`. `null` sans rendu.
    */
   view?: SlideView | null;
-  /** Alertes du cas montré : champ texte vide, champ hors du cadre du widget. */
-  alerts?: ExampleAlert[];
   diagnostics: WidgetDiagnostic[];
 }
-
-/** Allure d'un aperçu de widget : schéma et format de page ; absents : ceux du deck. */
-export interface PreviewLook {
-  scheme?: "light" | "dark";
-  ratio?: "16:9" | "4:3";
-}
-
-/** Alerte sur un cas d'exemple, par champ texte du widget. */
-export type ExampleAlert = { kind: "empty"; field: string } | { kind: "overflow"; field: string };
 
 export interface Frame {
   x: number;
@@ -522,7 +502,7 @@ type Request =
   | { cmd: "set_widget"; name: string; source: string }
   | { cmd: "remove_widget"; name: string }
   | { cmd: "rename_widget"; from: string; to: string }
-  | ({ cmd: "preview_widget"; name: string; example: string | null; params: Record<string, unknown> } & PreviewLook)
+  | { cmd: "preview_widget"; name: string; example: string | null }
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
 
@@ -693,9 +673,9 @@ export function tabApi(tab: string) {
     setWidget: (name: string, source: string) => call<WidgetChange>({ cmd: "set_widget", name, source }),
     removeWidget: (name: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name }),
     renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
-    /** Aperçu d'un widget aux valeurs du cas `example` (`null` : le premier), complétées par `params`. */
-    previewWidget: (name: string, example: string | null = null, params: Record<string, unknown> = {}, look: PreviewLook = {}) =>
-      call<WidgetPreview>({ cmd: "preview_widget", name, example, params, ...look }),
+    /** Aperçu d'un widget aux valeurs du cas `example` (`null` : le premier), sans `params` (ceux de l'agent) : la session les prend vides. */
+    previewWidget: (name: string, example: string | null = null) =>
+      call<WidgetPreview>({ cmd: "preview_widget", name, example }),
     /** Bandeau du pack : le deck passe à ma version courante (annulable). */
     packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
     /** Bandeau du pack : sa version devient ma version courante. */

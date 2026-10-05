@@ -14,7 +14,7 @@ import { Icon } from "./icons";
 /** Nom du cas implicite d'un widget sans cas enregistrés (`EXAMPLE_DEFAULT` côté session). */
 export const EXAMPLE_DEFAULT = "Exemple";
 /** Cas d'exemple d'un widget, au plus (`EXAMPLES_MAX` côté session). */
-export const EXAMPLES_MAX = 12;
+const EXAMPLES_MAX = 12;
 
 /** Le cas montré : le cas gardé s'il existe encore, sinon le premier. */
 export function currentCase(names: string[], kept: string | null | undefined): string {
@@ -27,21 +27,6 @@ export function newCaseName(names: string[]): string {
     const name = t("ui-examples-new-name", { n });
     if (!names.includes(name)) return name;
   }
-}
-
-/**
- * Ajoute au widget `widget` un cas au nom libre, copie du cas `from` ; rend
- * son nom, ou `null` si l'écriture est refusée (`run` le dit en toast).
- */
-export async function addCase(
-  api: TabApi,
-  widget: string,
-  names: string[],
-  from: string,
-  run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
-): Promise<string | null> {
-  const name = newCaseName(names);
-  return (await run(api.addExample(widget, name, from))) ? name : null;
 }
 
 export interface ExamplePillsProps {
@@ -62,7 +47,11 @@ export default function ExamplePills({ api, widget, names, current, onSelect, ru
   const [naming, setNaming] = useState<{ from: string; value: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const add = () => void addCase(api, widget, names, current, run).then((name) => name && onSelect(name));
+  // Ajoute un cas au nom libre, copie du courant, et le montre ; refusé, `run` le dit en toast.
+  const add = () => {
+    const name = newCaseName(names);
+    void run(api.addExample(widget, name, current)).then((snap) => snap && onSelect(name));
+  };
   const commit = () => {
     if (!naming) return;
     const { from } = naming;

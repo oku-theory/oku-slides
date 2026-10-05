@@ -4,10 +4,7 @@ use speculoos::prelude::*;
 use oku_slides_core::{ParamValue, WidgetFile, WidgetSchema};
 use oku_slides_render::RenderError;
 
-use super::{
-    ExampleAlert, PreviewFormat, PreviewLook, PreviewRatio, PreviewScheme, failure, preview_params, scheme_colors,
-};
-use crate::Appearance;
+use super::{PreviewFormat, failure, preview_params};
 use crate::test_support::{fresh_dir, opened_on, session_with, settings_on};
 use crate::widgets_edit::parse_name;
 
@@ -386,10 +383,6 @@ const PANEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
   }))
 "#;
 
-fn values(v: serde_json::Value) -> Map<String, serde_json::Value> {
-    serde_json::from_value(v).unwrap()
-}
-
 fn field_names(view: &serde_json::Value) -> Vec<String> {
     view["fields"].as_array().unwrap().iter().map(|f| f["field"].as_str().unwrap().to_owned()).collect()
 }
@@ -413,7 +406,6 @@ fn preview_of_an_element_widget_gives_its_fields_inside_the_box() {
         assert_that!(y + h).is_less_than_or_equal_to(bbox.y + bbox.h + 1.0);
         assert_that!(f["bound"]).is_equal_to(json!(false));
     }
-    assert_that!(preview.alerts).is_empty();
 }
 
 #[test]
@@ -428,35 +420,12 @@ fn preview_of_a_slide_widget_gives_its_fields() {
 }
 
 #[test]
-fn preview_of_an_empty_example_alerts_on_its_text_fields() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("panneau", PANEL.into()).unwrap();
-    let empty = values(json!({ "title": "", "body": [] }));
-    let preview = s.preview_widget("panneau", None, &empty, PreviewFormat::Svg).unwrap();
-    assert_that!(preview.alerts)
-        .is_equal_to(vec![ExampleAlert::Empty { field: "title".into() }, ExampleAlert::Empty { field: "body".into() }]);
-}
-
-#[test]
-fn preview_of_a_long_text_in_a_narrow_widget_alerts_on_overflow() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("panneau", PANEL.into()).unwrap();
-    let long = "Un texte bien trop long pour ce panneau étroit. ".repeat(200);
-    let given = values(json!({ "title": "Titre", "body": [{ "runs": [{ "t": long }] }] }));
-    let preview = s.preview_widget("panneau", None, &given, PreviewFormat::Svg).unwrap();
-    assert_that!(preview.alerts).is_equal_to(vec![ExampleAlert::Overflow { field: "body".into() }]);
-}
-
-#[test]
-fn preview_of_a_broken_widget_has_no_view_nor_alerts() {
+fn preview_of_a_broken_widget_has_no_view() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("casse", "#let widget = (".into()).unwrap();
     let preview = s.preview_widget("casse", None, &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.view).is_none();
-    assert_that!(preview.alerts).is_empty();
 }
 
 #[test]
@@ -468,163 +437,11 @@ fn png_preview_for_the_agent_has_no_view() {
     assert_that!(preview.view).is_none();
 }
 
+/// Un client d'avant t-526 envoie encore le schéma et le format de l'aperçu : la requête reste lisible.
 #[test]
-fn example_alerts_serialize_with_their_kind() {
-    let alerts = vec![ExampleAlert::Empty { field: "title".into() }, ExampleAlert::Overflow { field: "body".into() }];
-    assert_that!(serde_json::to_value(alerts).unwrap()).is_equal_to(json!([
-        { "kind": "empty", "field": "title" },
-        { "kind": "overflow", "field": "body" }
-    ]));
-}
-
-fn look(scheme: Option<PreviewScheme>, ratio: Option<PreviewRatio>) -> PreviewLook {
-    PreviewLook { scheme, ratio }
-}
-
-/// La balise ouvrante du SVG : sa taille.
-fn svg_tag(svg: &str) -> &str {
-    &svg[..svg.find('>').unwrap()]
-}
-
-/// Le deck du fixture est au thème Papier : son schéma sombre est celui de `app-dark`.
-#[test]
-fn preview_in_dark_paints_the_slide_with_the_dark_colors_of_the_theme() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("couverture", COVER.into()).unwrap();
-    let light = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap().svg.unwrap();
-    let dark = s
-        .preview_widget_with("couverture", None, &Map::new(), PreviewFormat::Svg, look(Some(PreviewScheme::Dark), None))
-        .unwrap()
-        .svg
-        .unwrap();
-    assert_that!(light.as_str()).does_not_contain("#34312c");
-    assert_that!(dark.as_str()).contains("#34312c");
-}
-
-#[test]
-fn preview_in_light_of_a_light_deck_is_the_deck_as_is() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("couverture", COVER.into()).unwrap();
-    let plain = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
-    let light = s
-        .preview_widget_with(
-            "couverture",
-            None,
-            &Map::new(),
-            PreviewFormat::Svg,
-            look(Some(PreviewScheme::Light), None),
-        )
-        .unwrap();
-    assert_that!(light.svg).is_equal_to(plain.svg);
-}
-
-#[test]
-fn preview_in_four_thirds_renders_a_narrower_slide() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("couverture", COVER.into()).unwrap();
-    let preview = s
-        .preview_widget_with(
-            "couverture",
-            None,
-            &Map::new(),
-            PreviewFormat::Svg,
-            look(None, Some(PreviewRatio::Standard)),
-        )
-        .unwrap();
-    let svg = preview.svg.unwrap();
-    assert_that!(svg_tag(&svg)).contains("viewBox=\"0 0 1440 1080\"");
-    let view = preview.view.unwrap();
-    assert_that!(view["width"]).is_equal_to(json!(1440.0));
-    assert_that!(view["height"]).is_equal_to(json!(1080.0));
-}
-
-#[test]
-fn preview_of_an_element_widget_in_four_thirds_stays_inside_the_narrower_slide() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("panneau", PANEL.into()).unwrap();
-    let preview = s
-        .preview_widget_with("panneau", None, &Map::new(), PreviewFormat::Svg, look(None, Some(PreviewRatio::Standard)))
-        .unwrap();
-    let bbox = preview.bbox.unwrap();
-    assert_that!(bbox.x + bbox.w).is_less_than_or_equal_to(1440.0);
-    assert_that!(preview.view.unwrap()["width"]).is_equal_to(json!(1440.0));
-    assert_that!(preview.alerts).is_empty();
-}
-
-#[test]
-fn preview_in_sixteen_ninths_is_the_usual_slide() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget("couverture", COVER.into()).unwrap();
-    let plain = s.preview_widget("couverture", None, &Map::new(), PreviewFormat::Svg).unwrap();
-    let wide = s
-        .preview_widget_with("couverture", None, &Map::new(), PreviewFormat::Svg, look(None, Some(PreviewRatio::Wide)))
-        .unwrap();
-    assert_that!(svg_tag(wide.svg.as_deref().unwrap())).contains("viewBox=\"0 0 1920 1080\"");
-    // Même page, même champs (l'empreinte de page suit les jetons posés).
-    let (wide, plain) = (wide.view.unwrap(), plain.view.unwrap());
-    assert_that!(wide["width"]).is_equal_to(json!(1920.0));
-    assert_that!(wide["fields"].clone()).is_equal_to(plain["fields"].clone());
-}
-
-fn appearance(scheme: &str, variants: &[(&str, &[(&str, &str)])]) -> Appearance {
-    let owned = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
-    Appearance {
-        scheme: scheme.into(),
-        variants: variants.iter().map(|(s, pairs)| ((*s).to_owned(), owned(pairs))).collect(),
-        ..Appearance::default()
-    }
-}
-
-#[test]
-fn scheme_colors_of_the_scheme_of_the_deck_are_none() {
-    let light = appearance("light", &[]);
-    assert_that!(scheme_colors(&light, PreviewScheme::Light)).is_none();
-    // Sans rendu (apparence vide) : un deck clair.
-    assert_that!(scheme_colors(&Appearance::default(), PreviewScheme::Light)).is_none();
-    assert_that!(scheme_colors(&appearance("dark", &[]), PreviewScheme::Dark)).is_none();
-}
-
-#[test]
-fn scheme_colors_take_the_other_scheme_of_the_theme() {
-    let a = appearance("light", &[("dark", &[("piece", "#34312c"), ("sheet", "#2a2824"), ("ink", "#f1ece3")])]);
-    let colors = scheme_colors(&a, PreviewScheme::Dark).unwrap();
-    assert_that!(colors["bg"]).is_equal_to(json!("#34312c"));
-    assert_that!(colors["surface"]).is_equal_to(json!("#2a2824"));
-    assert_that!(colors["ink"]).is_equal_to(json!("#f1ece3"));
-    // Absente du thème : la couleur de repli du schéma.
-    assert_that!(colors["rule"].as_str().is_some_and(|c| c.starts_with('#'))).is_true();
-}
-
-#[test]
-fn scheme_colors_without_the_other_scheme_fall_back_to_neutral_colors() {
-    let dark = scheme_colors(&appearance("light", &[]), PreviewScheme::Dark).unwrap();
-    let light = scheme_colors(&appearance("dark", &[]), PreviewScheme::Light).unwrap();
-    for key in ["bg", "surface", "ink", "ink-muted", "rule"] {
-        assert_that!(dark.contains_key(key)).is_true();
-        assert_that!(light.contains_key(key)).is_true();
-    }
-    assert_that!(dark["bg"]).is_not_equal_to(light["bg"].clone());
-}
-
-#[test]
-fn preview_look_reads_from_the_request() {
-    let r: crate::Request =
-        serde_json::from_value(json!({ "cmd": "preview_widget", "name": "kpi", "scheme": "dark", "ratio": "4:3" }))
-            .unwrap();
-    assert_that!(matches!(
-        r,
-        crate::Request::PreviewWidget {
-            look: PreviewLook { scheme: Some(PreviewScheme::Dark), ratio: Some(PreviewRatio::Standard) },
-            ..
-        }
-    ))
-    .is_true();
-    let wide: PreviewLook = serde_json::from_value(json!({ "ratio": "16:9" })).unwrap();
-    assert_that!(wide).is_equal_to(look(None, Some(PreviewRatio::Wide)));
-    assert_that!(serde_json::from_value::<PreviewLook>(json!({ "ratio": "3:2" })).is_err()).is_true();
+fn preview_widget_request_with_the_removed_look_still_parses() {
+    let request = serde_json::from_value::<crate::Request>(
+        json!({ "cmd": "preview_widget", "name": "kpi", "scheme": "dark", "ratio": "4:3" }),
+    );
+    assert_that!(matches!(request, Ok(crate::Request::PreviewWidget { ref name, .. }) if name == "kpi")).is_true();
 }

@@ -2,7 +2,6 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::test_support::registry;
-use crate::views::CodePlace;
 use crate::views::PileSection;
 use oku_slides_core::{Deck, Op, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
@@ -109,12 +108,9 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         widgets: vec!["_commun".into(), "kpi".into()],
         widget: Some("kpi".into()),
         code: true,
-        code_place: CodePlace::Right,
-        code_height: Some(480),
         code_width: Some(640),
         folded: vec![PileSection::Widgets],
         case: [("kpi".to_owned(), "Long".to_owned())].into(),
-        board: true,
     };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone(), help_theme: None })
         .unwrap();
@@ -141,14 +137,29 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         widgets: Vec::new(),
         widget: None,
         code: false,
-        code_place: CodePlace::Below,
-        code_height: None,
         code_width: None,
         folded: Vec::new(),
         case: std::collections::BTreeMap::new(),
-        board: false,
     });
     std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Couche fichier : un `state.json` écrit avant t-526 (planche, place et hauteur du code)
+/// se relit par la reprise, ces champs ignorés (la couche serde : `views_tests`).
+#[test]
+fn read_state_with_the_removed_board_and_code_place_keeps_the_rest() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-");
+    let r = Resume::new(Storage::local().unwrap(), data.path().to_path_buf());
+    let ui = r#"{"slide":"s-1","code":true,"code_place":"right","code_height":480,"code_width":640,"board":true}"#;
+    let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{ui}}}"#);
+    std::fs::write(r.dir.join("state.json"), state).unwrap();
+    let back = r.read_state().unwrap().unwrap();
+    assert_that!(back.ui).is_equal_to(UiState {
+        slide: Some("s-1".into()),
+        code: true,
+        code_width: Some(640),
+        ..UiState::default()
+    });
 }
 
 #[test]

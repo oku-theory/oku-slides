@@ -1,5 +1,12 @@
 # Atelier de widget : Scène et Planche — design
 
+> **Note du 2026-10-04 (t-526)** : la Planche est retirée. Plus de vue
+> Planche ni de bascule Scène / Planche (`ExampleBoard`, `BoardSwitch`,
+> `UiState.board`), plus d'allure d'aperçu (`PreviewLook` : clair / sombre,
+> 16:9 / 4:3) ni d'alertes « Champ vide » / « Déborde » (`ExampleAlert`).
+> Restent la Scène (édition sur l'aperçu), les pastilles des cas et les
+> réglages sous l'aperçu. Le texte ci-dessous décrit l'état de t-497.
+
 Date : 2026-10-04 · Tâche : t-497
 
 Maquette : https://claude.ai/artifact/E1NrXEUe4f5NFe5R4YJpRv (propositions A + C).

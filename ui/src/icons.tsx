@@ -33,9 +33,6 @@ export const Icon = {
   keyboard: stroke(<><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 10h.01M10.5 10h.01M14 10h.01M17 10h.01M8 14h8" /></>),
   restore: stroke(<><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /><path d="M12 8v4l3 2" /></>),
   code: stroke(<><path d="M8.5 7.5L4 12l4.5 4.5" /><path d="M15.5 7.5L20 12l-4.5 4.5" /><path d="M13.5 5l-3 14" /></>),
-  // Planche des cas : une grille 2 × 2 de vignettes.
-  board: stroke(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>),
-  codeRight: stroke(<><rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M13 5v14" /></>),
   back: stroke(<><path d="M10 6l-6 6 6 6" /><path d="M4 12h16" /></>),
   // Slide précédente, suivante (aide en lecture seule).
   previous: stroke(<path d="M14.5 6l-6 6 6 6" />),

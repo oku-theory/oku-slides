@@ -840,41 +840,30 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }
 
-/* Aperçu, séparateur, code, en zones nommées : sans séparateur (code replié), sa piste reste vide.
-   Replié, l'aperçu prend toute la place. */
+/* Aperçu, séparateur, code, en zones nommées, le code toujours à droite : sans séparateur
+   (code replié), sa piste reste vide et l'aperçu prend toute la place.
+   Les pistes repliées à `0px` supposent `.widget-tab-code` sans padding ni bordure :
+   sinon il déborderait de sa piste nulle. */
 .widget-tab {
-  display: grid; grid-template-areas: "side" "split" "code"; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 0px minmax(0, 0fr); height: 100%; min-height: 0;
-  transition: grid-template-rows 260ms cubic-bezier(0.2, 0, 0, 1);
+  display: grid; grid-template-areas: "side split code"; grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 0px 0px; height: 100%; min-height: 0;
 }
 .widget-tab-side { grid-area: side; }
 .widget-tab-code { grid-area: code; }
-/* Code dessous : l'aperçu (et ses réglages) prend les 2/5 du haut, sauf hauteur réglée (--code-h, posée par WidgetTab). */
-.widget-tab[data-code="shown"] { grid-template-rows: minmax(120px, 2fr) 12px var(--code-h, minmax(0, 3fr)); }
-/* Code à droite, s'il reste de la largeur ; sinon dessous. --code-axis dit au séparateur l'axe affiché. */
-.widget-pane { container-type: inline-size; }
-@container (min-width: 560px) {
-  .widget-tab[data-code="shown"][data-place="right"] {
-    --code-axis: right; grid-template-areas: "side split code"; grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(120px, 1fr) 12px var(--code-w, minmax(0, 1fr)); transition: none;
-  }
-}
+/* Code déplié : moitié / moitié, sauf largeur réglée (--code-w, posée par WidgetTab) ;
+   l'aperçu garde PREVIEW_MIN (240px) et le séparateur SPLIT (12px), comme codeSplit.ts. */
+.widget-tab[data-code="shown"] { grid-template-columns: minmax(240px, 1fr) 12px var(--code-w, minmax(0, 1fr)); }
 /* Séparateur entre aperçu et code, comme ceux des colonnes : un trait au survol, accentué au glisser. */
-.code-divider { grid-area: split; position: relative; cursor: row-resize; touch-action: none; outline: none; }
-.code-divider[data-axis="right"] { cursor: col-resize; }
+.code-divider { grid-area: split; position: relative; cursor: col-resize; touch-action: none; outline: none; }
 .code-divider::before {
-  content: ""; position: absolute; inset-inline: var(--space-6); inset-block-start: 5.5px; height: 1px; border-radius: 1px;
+  content: ""; position: absolute; inset-inline: 5.5px auto; inset-block: var(--space-6); width: 1px; border-radius: 1px;
   background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
 }
-.code-divider[data-axis="right"]::before { inset-inline: 5.5px auto; inset-block: var(--space-6); width: 1px; height: auto; }
 .code-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
 .code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
-body:has(.code-divider.active) { cursor: row-resize; user-select: none; -webkit-user-select: none; }
-body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
-.code-divider::after { left: 50%; top: 4px; width: 32px; height: 4px; margin-left: -16px; }
-.code-divider[data-axis="right"]::after { left: 4px; top: 50%; width: 4px; height: 32px; margin: -16px 0 0; }
+body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+.code-divider::after { inset-inline-start: 4px; top: 50%; width: 4px; height: 32px; margin-top: -16px; }
 .widget-tab[hidden] { display: none; }
-@media (prefers-reduced-motion: reduce) { .widget-tab { transition: none; } }
 /* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
 .widget-tab-side {
   min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column;
@@ -896,7 +885,7 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .example-add svg { width: 14px; height: 14px; }
 .example-name input { width: 14ch; height: 26px; padding-inline: 8px; background-image: none; cursor: text; font-size: 13px; }
 .example-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 13px; }
-/* Contrôle segmenté (cas, schéma, format) : un rail creusé, l'élément choisi posé dessus.
+/* Contrôle segmenté (cas d'exemple) : un rail creusé, l'élément choisi posé dessus.
    Neutre : l'accent reste à l'action principale de la vue. */
 .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--ink) 6%, transparent); }
 .seg-item {
@@ -922,39 +911,9 @@ body:has(.code-divider.active[data-axis="right"]) { cursor: col-resize; }
 .stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
 /* Un champ lié au deck : en lecture, il le dit au survol. */
 .stage-preview .field.bound { cursor: help; }
-/* Planche des cas : les bascules en haut à droite ; des vignettes comme des
-   feuilles posées, le nom et les alertes dessous. Pas de cadre : l'ombre suffit. */
-.widget-tab-side > .example-board { flex: 1 1 0; align-self: stretch; min-height: 96px; padding: var(--space-2) calc(10px * var(--elev-sheet)) var(--space-6); }
-.board-bar { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
-.board-toggles { display: flex; gap: var(--space-2); }
-.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-6) var(--space-4); }
-.board-card { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.board-frame {
-  display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; overflow: hidden;
-  border-radius: var(--radius-sm); background: var(--paper-200); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
-  transition: box-shadow 160ms ease-out, transform 160ms ease-out;
-}
-.board-frame[data-ratio="4:3"] { aspect-ratio: 4 / 3; }
-.board-card:hover .board-frame { transform: translateY(-1px); box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
-.board-card[aria-current="true"] .board-frame { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-small); }
-.board-card:focus-visible { outline: none; }
-.board-card:focus-visible .board-frame { box-shadow: 0 0 0 2px var(--accent-fill), var(--shadow-sheet-small); }
-/* Un widget d'élément est cadré au plus près : une marge le fait respirer dans sa vignette. */
-.board-thumb { width: 100%; height: 100%; object-fit: contain; padding: 8% 10%; box-sizing: border-box; }
-.board-card > .board-name { display: flex; }
-.board-name { font: 400 13px/18px var(--sans); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.board-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -4px; }
-.board-badges:empty { display: none; }
-.board-badge { font-size: 11px; line-height: 18px; padding: 0 6px; border-radius: 4px; color: var(--danger); background: color-mix(in oklab, var(--danger) 10%, transparent); }
-/* Nouveau cas : une vignette en pointillés, du même format. */
-.board-new .board-frame { background: transparent; box-shadow: none; border: 1px dashed color-mix(in oklab, var(--ink) 25%, transparent); color: var(--ink-muted); }
-.board-new .board-frame svg { width: 20px; height: 20px; }
-.board-new .board-name { color: var(--ink-muted); }
-.board-new:hover .board-frame { transform: none; border-color: color-mix(in oklab, var(--ink) 45%, transparent); color: var(--ink); box-shadow: none; }
-.board-new:disabled { cursor: default; opacity: .5; }
-/* Masqué, le code garde sa place nulle : il glisse au lieu d'apparaître d'un coup. */
+/* Masqué, le code reste monté dans sa piste nulle, invisible. */
 .widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
-.widget-tab-code[inert] { visibility: hidden; transition: visibility 0s 260ms; }
+.widget-tab-code[inert] { visibility: hidden; }
 .widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }
 .widget-tab-broken ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .widget-tab-diagnostics { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 12px; }

@@ -3,8 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { FieldView, SlideView, Snapshot, TabApi, WidgetStatus } from "./api";
-import { codeTrack } from "./codeSplit";
-import type { CodeLayout } from "./useViewOptions";
+import { codeTrack, PREVIEW_MIN, SPLIT } from "./codeSplit";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -12,7 +11,6 @@ const { EditorView } = await import("@codemirror/view");
 const { PREVIEW_DELAY_MS } = await import("./debounce");
 const { useWidgetFiles } = await import("./useWidgetFiles");
 
-const BELOW: CodeLayout = { code_place: "below", code_height: null, code_width: null };
 const WidgetTab = (await import("./WidgetTab")).default;
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
 
@@ -25,7 +23,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; layout?: CodeLayout; look?: string; settings?: boolean; examples?: string[]; example?: string | null; board?: boolean }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; codeWidth?: number | null; look?: string; settings?: boolean; examples?: string[]; example?: string | null }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -33,16 +31,15 @@ async function mount(fake: TabApi, first: Shown) {
   const root = createRoot(host);
   mounted = { root, host };
   const opened: string[] = [];
-  const layouts: CodeLayout[] = [];
+  const widths: (number | null)[] = [];
   const chosen: string[] = [];
-  const boards: boolean[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true, layout = BELOW, look = "clair", settings = false, examples, example = null, board = false }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false, examples, example = null }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials, code, layout, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onLayout: (l: CodeLayout) => layouts.push(l),
-      examples, example, onExample: (n: string) => chosen.push(n), board, onBoard: (b: boolean) => boards.push(b),
+      api: fake, files: f, id: 1, name, revision, active, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
+      examples, example, onExample: (n: string) => chosen.push(n),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -56,7 +53,7 @@ async function mount(fake: TabApi, first: Shown) {
       v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert }, userEvent: "input.type" });
     });
   const text = () => host.querySelector(".cm-content")?.textContent;
-  return { host, render, view, typeText, text, opened, files, layouts, chosen, boards };
+  return { host, render, view, typeText, text, opened, files, widths, chosen };
 }
 const later = () => wait(PREVIEW_DELAY_MS + 50);
 const status = (name: string, error = false): WidgetStatus => ({
@@ -327,26 +324,71 @@ describe("WidgetTab, disposition", () => {
     expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
   });
 
-  test("la place choisie est posée sur le sous-onglet", async () => {
+  test("code déplié : le séparateur entre l'aperçu et le code est vertical", async () => {
     const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, { name: "kpi", layout: { ...BELOW, code_place: "right" } });
-    expect(m.host.querySelector<HTMLElement>(".widget-tab")!.dataset.place).toBe("right");
+    const m = await mount(fake, { name: "kpi" });
+    expect(m.host.querySelector(".code-divider")!.getAttribute("aria-orientation")).toBe("vertical");
   });
 
-  test("les tailles choisies sont posées en pistes bornées sur le sous-onglet", async () => {
+  test("la largeur choisie est posée en piste bornée sur le sous-onglet", async () => {
     const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, { name: "kpi", layout: { code_place: "below", code_height: 300, code_width: null } });
-    const style = m.host.querySelector<HTMLElement>(".widget-tab")!.style;
-    expect([style.getPropertyValue("--code-h"), style.getPropertyValue("--code-w")]).toEqual([codeTrack(300), ""]);
+    const m = await mount(fake, { name: "kpi", codeWidth: 300 });
+    expect(m.host.querySelector<HTMLElement>(".widget-tab")!.style.getPropertyValue("--code-w")).toBe(codeTrack(300)!);
   });
 
-  test("double-clic sur le séparateur, code dessous : hauteur par défaut", async () => {
+  /** Sous-onglet de 1000 px dont 400 au code (happy-dom ne mesure rien), et un geste de pointeur sur le séparateur. */
+  function measured(host: HTMLElement) {
+    const tab = host.querySelector<HTMLElement>(".widget-tab")!;
+    Object.defineProperty(tab, "clientWidth", { configurable: true, value: 1000 });
+    Object.defineProperty(host.querySelector(".widget-tab-code")!, "offsetWidth", { configurable: true, value: 400 });
+    const divider = host.querySelector<HTMLElement>(".code-divider")!;
+    divider.setPointerCapture = () => {};
+    const pointer = (type: string, at: number) =>
+      act(async () => {
+        divider.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: at, clientY: 0 }));
+      });
+    return { tab, pointer };
+  }
+
+  test("pendant le glisser, la largeur n'est posée que sur le sous-onglet, sans être retenue", async () => {
     const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, { name: "kpi", layout: { code_place: "below", code_height: 300, code_width: 500 } });
+    const m = await mount(fake, { name: "kpi" });
+    const { tab, pointer } = measured(m.host);
+    await pointer("pointerdown", 500);
+    await pointer("pointermove", 460);
+    expect([tab.style.getPropertyValue("--code-w"), m.widths]).toEqual([codeTrack(440)!, []]);
+  });
+
+  test("au relâcher, la largeur bornée est retenue une fois", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi" });
+    const { pointer } = measured(m.host);
+    await pointer("pointerdown", 500);
+    await pointer("pointermove", 0);
+    await pointer("pointerup", -1000);
+    expect(m.widths).toEqual([1000 - SPLIT - PREVIEW_MIN]);
+  });
+
+  test("sans largeur mesurée, le glisser ne règle rien", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi" });
+    const divider = m.host.querySelector<HTMLElement>(".code-divider")!;
+    divider.setPointerCapture = () => {};
+    for (const [type, at] of [["pointerdown", 500], ["pointermove", 460], ["pointerup", 400]] as const)
+      await act(async () => {
+        divider.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: at, clientY: 0 }));
+      });
+    const tab = m.host.querySelector<HTMLElement>(".widget-tab")!;
+    expect([tab.style.getPropertyValue("--code-w"), m.widths]).toEqual(["", []]);
+  });
+
+  test("double-clic sur le séparateur : largeur par défaut", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "kpi", codeWidth: 500 });
     await act(async () => {
       m.host.querySelector(".code-divider")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     });
-    expect(m.layouts).toEqual([{ code_place: "below", code_height: null, code_width: 500 }]);
+    expect(m.widths).toEqual([null]);
   });
 });
 
@@ -545,72 +587,5 @@ describe("WidgetTab, scène", () => {
     const m = await mount(fake, { name: "kpi" });
     await open(fieldsOf(m.host)[0]);
     expect(m.host.querySelector(".editor")).toBeNull();
-  });
-});
-
-describe("WidgetTab, planche", () => {
-  /** L'api en mémoire, dont chaque aperçu note le cas et l'allure demandés. */
-  function board() {
-    const { fake } = memory({ kpi: "k", _commun: "c" });
-    const asked: [string | null, unknown][] = [];
-    stub(fake, "previewWidget", async (_n: string, example: string | null, _p: unknown, look: unknown) => (
-      asked.push([example, look]),
-      { svg: '<svg viewBox="0 0 1920 1080" width="1920pt" height="1080pt"></svg>', bbox: null, view: null, alerts: [], diagnostics: [] }
-    ));
-    return { fake, asked };
-  }
-  const shownSide = (host: HTMLElement) => [...host.querySelectorAll(".widget-tab-side > *")].map((el) => el.className);
-
-  test("en planche : les pastilles puis la planche, sans scène ni réglages", async () => {
-    const { fake } = board();
-    const m = await mount(fake, { name: "kpi", examples: ["Court", "Long"], board: true, settings: true });
-    const side = shownSide(m.host);
-    expect(side.slice(0, 2)).toEqual(["example-pills", "example-board"]);
-    expect(m.host.querySelector(".stage-preview")).toBeNull();
-    expect(m.host.querySelector(".probe-settings")).toBeNull();
-    expect(m.host.querySelectorAll(".board-card:not(.board-new)").length).toBe(2);
-  });
-
-  test("en planche : toute la hauteur, le code déplié se replie (inerte, sans séparateur)", async () => {
-    const { fake } = board();
-    const m = await mount(fake, { name: "kpi", examples: ["Court"], board: true, code: true });
-    const tab = m.host.querySelector<HTMLElement>(".widget-tab")!;
-    expect([tab.dataset.code, m.host.querySelector(".widget-tab-code")!.hasAttribute("inert"), m.host.querySelector(".code-divider")]).toEqual([
-      "folded",
-      true,
-      null,
-    ]);
-  });
-
-  test("en planche : un aperçu par cas, pas celui de la scène", async () => {
-    const { fake, asked } = board();
-    await mount(fake, { name: "kpi", examples: ["Court", "Long"], board: true });
-    expect(asked).toEqual([
-      ["Court", { scheme: "light", ratio: "16:9" }],
-      ["Long", { scheme: "light", ratio: "16:9" }],
-    ]);
-  });
-
-  test("en scène : les réglages, pas de planche", async () => {
-    const { fake } = board();
-    const m = await mount(fake, { name: "kpi", examples: ["Court"], settings: true });
-    expect(m.host.querySelector(".example-board")).toBeNull();
-    expect(m.host.querySelector(".probe-settings")).not.toBeNull();
-  });
-
-  test("un clic sur une vignette choisit son cas et revient à la scène", async () => {
-    const { fake } = board();
-    const m = await mount(fake, { name: "kpi", examples: ["Court", "Long"], example: "Court", board: true });
-    const long = [...m.host.querySelectorAll<HTMLButtonElement>(".board-card")].find((c) => c.textContent?.startsWith("Long"))!;
-    await act(async () => long.click());
-    expect(m.chosen).toEqual(["Long"]);
-    expect(m.boards).toEqual([false]);
-  });
-
-  test("Commun : jamais de planche", async () => {
-    const { fake } = board();
-    const m = await mount(fake, { name: "_commun", board: true });
-    expect(m.host.querySelector(".example-board")).toBeNull();
-    expect(m.host.querySelector(".widget-tab-broken")).not.toBeNull();
   });
 });

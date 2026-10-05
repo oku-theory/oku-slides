@@ -23,7 +23,7 @@ type Tabs = Pick<UiState, "widgets" | "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true,
-  code_place: "right", code_height: null, code_width: 640, folded: ["widgets"], case: { kpi: "Long" }, board: true };
+  code_width: 640, folded: ["widgets"], case: { kpi: "Long" } };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
 async function mount(first: UiState | null = kept) {
@@ -113,7 +113,7 @@ test("useViewOptions setColumns saves the new widths with the rest of the state"
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true,
-    code_place: "right", code_height: null, code_width: 640, folded: ["widgets"], case: { kpi: "Long" }, board: true });
+    code_width: 640, folded: ["widgets"], case: { kpi: "Long" } });
 });
 
 test("useViewOptions premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -127,15 +127,21 @@ test("useViewOptions setCode sauve le code replié avec le reste", async () => {
   expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: false });
 });
 
-test("useViewOptions premier snapshot reprend la place et les tailles du code gardées par l'hôte", async () => {
+test("useViewOptions premier snapshot reprend la largeur du code gardée par l'hôte", async () => {
   const { out } = await mount();
-  expect(out.hook!.codeLayout).toEqual({ code_place: "right", code_height: null, code_width: 640 });
+  expect(out.hook!.codeWidth).toBe(640);
 });
 
-test("useViewOptions setCodeLayout sauve la place et les tailles du code avec le reste", async () => {
+test("useViewOptions setCodeWidth sauve la largeur du code avec le reste", async () => {
   const { out } = await mount();
-  await act(async () => { out.hook!.setCodeLayout({ code_place: "below", code_height: 320, code_width: 640 }); });
-  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: true, code_place: "below", code_height: 320, code_width: 640 });
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: true, code_width: 320 });
+});
+
+test("useViewOptions setCodeWidth(null) sauve la proportion par défaut", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setCodeWidth(null); });
+  expect([out.hook!.codeWidth, out.kept.at(-1)?.code_width]).toEqual([null, null]);
 });
 
 test("useViewOptions premier snapshot reprend les sections repliées gardées par l'hôte", async () => {
@@ -199,24 +205,6 @@ test("useViewOptions setCase sur le cas déjà choisi ne sauve rien de plus", as
   const before = out.kept.length;
   await act(async () => { out.hook!.setCase("kpi", "Long"); });
   expect(out.kept.length).toBe(before);
-});
-
-test("useViewOptions premier snapshot reprend la planche gardée par l'hôte", async () => {
-  const { out } = await mount();
-  expect(out.hook!.board).toBe(true);
-});
-
-test("useViewOptions un état gardé sans planche (hôte plus ancien) : la scène", async () => {
-  const { board: _, ...older } = kept;
-  const { out } = await mount(older as UiState);
-  expect(out.hook!.board).toBe(false);
-});
-
-test("useViewOptions setBoard passe à la scène et le sauve avec le reste", async () => {
-  const { out } = await mount();
-  await act(async () => { out.hook!.setBoard(false); });
-  expect(out.hook!.board).toBe(false);
-  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", board: false, case: { kpi: "Long" } });
 });
 
 test("useViewOptions handleKey leaves other keys alone", async () => {

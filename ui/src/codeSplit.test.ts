@@ -24,3 +24,11 @@ test("codeTrack with a size keeps the preview minimum in CSS", () => {
 test("codeTrack without a size returns null", () => {
   expect(codeTrack(null)).toBeNull();
 });
+
+test("fitCode in a narrow tab keeps 240 px for the preview", () => {
+  expect(fitCode(600, 500)).toBe(600 - 240 - SPLIT);
+});
+
+test("fitCode with no room at all never returns a negative width", () => {
+  expect([fitCode(0, 0), fitCode(5, 300)]).toEqual([0, 0]);
+});

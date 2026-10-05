@@ -365,10 +365,13 @@ fn set_example_values_with_null_resets_to_the_preview_text() {
 }
 
 #[test]
-fn preview_of_an_example_with_an_emptied_field_alerts_it_empty() {
+fn preview_of_an_example_with_an_emptied_field_shows_it_empty() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", None, values(json!({"value": ""}))).unwrap();
     let p = s.preview_widget("kpi", None, &Map::new(), crate::PreviewFormat::Svg).unwrap();
-    let alerts = serde_json::to_value(&p).unwrap()["alerts"].clone();
-    assert_that!(alerts).is_equal_to(json!([{"kind": "empty", "field": "value"}]));
+    // Pas le texte d'exemple : la valeur vidée, telle quelle, sur l'élément d'aperçu.
+    // Lue dans les paramètres de la slide de la vue, pas dans `fields` : un champ
+    // vide ne dessine rien, la mise en page n'en donne pas de boîte.
+    let view = p.view.unwrap();
+    assert_that!(view["slide"]["params"]["elements"][0]["params"]["value"]).is_equal_to(json!(""));
 }

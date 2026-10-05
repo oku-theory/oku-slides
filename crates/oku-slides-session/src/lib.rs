@@ -92,12 +92,10 @@ pub use search::SearchHit;
 use template_scratch::TemplateScratch;
 pub use text::{interp, paragraphs_to_text};
 pub use views::{
-    AddWidget, CodePlace, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target,
-    TemplateMode, TemplateView, TemplatesView, UiState,
+    AddWidget, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode,
+    TemplateView, TemplatesView, UiState,
 };
-pub use widget_preview::{
-    ExampleAlert, PreviewBox, PreviewFormat, PreviewLook, PreviewRatio, PreviewScheme, WidgetPreview,
-};
+pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
@@ -562,14 +560,8 @@ impl Session {
                 self.persist(true);
                 return json(&statuses);
             }
-            Request::PreviewWidget { name, example, params, look } => {
-                return json(&self.preview_widget_with(
-                    &name,
-                    example.as_deref(),
-                    &params,
-                    PreviewFormat::Svg,
-                    look,
-                )?);
+            Request::PreviewWidget { name, example, params } => {
+                return json(&self.preview_widget(&name, example.as_deref(), &params, PreviewFormat::Svg)?);
             }
             Request::DeleteTemplateSet { set } => {
                 ensure!(!Library::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
@@ -905,8 +897,8 @@ impl Session {
             slide,
             page,
             hash: PageHash(compiled.page_hash(page - 1)),
-            width: 1920.0,
-            height: 1080.0,
+            width: views::SLIDE_WIDTH,
+            height: views::SLIDE_HEIGHT,
             targets,
             fields,
             items: items::item_views(slide, &self.registry, layout.items_on(page)),

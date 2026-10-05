@@ -781,7 +781,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>
-          <WidgetTools tab={widgets.tabs.active} widget={activeWidget} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
+          <WidgetTools tab={widgets.tabs.active} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
         </>) : (<>
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
@@ -860,9 +860,9 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         {/* Réglages du modèle affiché, sous lui (pas au dock de l'agent). */}
         {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} />}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} layout={viewOptions.codeLayout} onLayout={viewOptions.setCodeLayout}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} codeWidth={viewOptions.codeWidth} onCodeWidth={viewOptions.setCodeWidth}
           examples={snap.examples ?? {}} cases={viewOptions.cases} onCase={viewOptions.setCase}
-          board={viewOptions.board} onBoard={viewOptions.setBoard} scheme={snap.appearance.scheme === "dark" ? "dark" : "light"} run={run} palette={snap.appearance.chart_palette}
+          run={run} palette={snap.appearance.chart_palette}
           settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} /> : null} />}
         {drawer && (
           <Suspense fallback={null}>

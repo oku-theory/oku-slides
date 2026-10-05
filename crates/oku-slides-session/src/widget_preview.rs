@@ -12,13 +12,6 @@
 //! Les assets sont ceux du deck de l'utilisateur (mis de côté en mode
 //! modèles) : un paramètre `asset` montre l'image du deck.
 //!
-//! Une planche peut demander un autre schéma (clair, sombre) ou un autre
-//! format de page (16:9, 4:3) que ceux du deck (`PreviewLook`) : les slides
-//! n'ont pas de schéma, l'aperçu en change les couleurs de base (`color`),
-//! prises dans l'autre schéma de l'interface du thème (`app-dark`,
-//! `app-light`) ou, faute de mieux, dans une palette neutre ; le format
-//! change la largeur de la page (`page.width`), hauteur gardée.
-//!
 //! Seul le pack rendu par `probe_pack` (widgets valides) est posé, avant
 //! chaque rendu : après une relance du travailleur, l'emplacement d'essai
 //! le retrouve. Un pack écarté malgré tout donne un diagnostic explicite.
@@ -27,7 +20,7 @@ use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Map, Value};
 use snafu::{ResultExt, ensure};
 
@@ -39,12 +32,11 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_render::{FileProbe, Layout, PackWidgets, RenderError};
 use oku_slides_render_worker::RenderSlot;
 
-use crate::appearance::Appearance;
 use crate::error::{RegistrySnafu, RenderSnafu, UnknownWidgetSnafu};
-use crate::fields::{self, FieldView};
+use crate::fields;
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
 use crate::templates_mode::styled_like;
-use crate::views::{PageHash, SlideView};
+use crate::views::{PageHash, SLIDE_HEIGHT, SLIDE_WIDTH, SlideView};
 use crate::widgets_edit::{WidgetDiagnostic, parse_name, trial_fits};
 use crate::{Document, Mode, Result, Session};
 
@@ -64,125 +56,6 @@ pub enum PreviewFormat {
     Png,
 }
 
-/// Schéma de couleurs demandé pour un aperçu.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PreviewScheme {
-    Light,
-    Dark,
-}
-
-impl PreviewScheme {
-    fn name(self) -> &'static str {
-        match self {
-            Self::Light => "light",
-            Self::Dark => "dark",
-        }
-    }
-
-    /// Couleurs de repli, quand le thème n'a pas ce schéma pour l'interface.
-    fn fallback(self) -> &'static [(&'static str, &'static str)] {
-        match self {
-            // Celles de `default-tokens` (tokens.typ).
-            Self::Light => &[
-                ("bg", "#ffffff"),
-                ("surface", "#f4f3f0"),
-                ("ink", "#1d1c1a"),
-                ("ink-muted", "#5f5b55"),
-                ("rule", "#d9d6d0"),
-            ],
-            Self::Dark => &[
-                ("bg", "#1f1e1c"),
-                ("surface", "#2a2926"),
-                ("ink", "#f1efea"),
-                ("ink-muted", "#a8a39b"),
-                ("rule", "#3d3a35"),
-            ],
-        }
-    }
-}
-
-/// Format de page demandé pour un aperçu : 16:9 (1920 × 1080) ou 4:3 (1440 × 1080).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-pub enum PreviewRatio {
-    #[serde(rename = "16:9")]
-    Wide,
-    #[serde(rename = "4:3")]
-    Standard,
-}
-
-impl PreviewRatio {
-    /// Largeur de la page en pt ; la hauteur reste celle de la grille (1080).
-    fn width(self) -> f64 {
-        match self {
-            Self::Wide => SLIDE_WIDTH,
-            Self::Standard => SLIDE_HEIGHT * 4.0 / 3.0,
-        }
-    }
-}
-
-/// Allure d'un aperçu : schéma et format ; `None` : ceux du deck.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-pub struct PreviewLook {
-    #[serde(default)]
-    pub scheme: Option<PreviewScheme>,
-    #[serde(default)]
-    pub ratio: Option<PreviewRatio>,
-}
-
-/// Taille de la page de `deck` en pt : ses jetons `page`, sinon 1920 × 1080.
-fn page_size(deck: &Deck) -> (f64, f64) {
-    let page = |k: &str, or: f64| deck.tokens.get("page").and_then(|p| p.get(k)).and_then(Value::as_f64).unwrap_or(or);
-    (page("width", SLIDE_WIDTH), page("height", SLIDE_HEIGHT))
-}
-
-/// Les couleurs de base (`color`) de `scheme` pour un deck d'apparence
-/// `appearance`, `None` si c'est déjà le schéma du deck (un deck sans rendu
-/// est clair).
-///
-/// Prises dans les couleurs d'interface de l'autre schéma du thème (`piece`
-/// pour le fond, `sheet` pour la surface, `ink`, `ink-muted`, `rule`,
-/// `accent-soft`), sinon dans une palette neutre.
-pub(crate) fn scheme_colors(appearance: &Appearance, scheme: PreviewScheme) -> Option<Map<String, Value>> {
-    let deck = if appearance.scheme == "dark" { PreviewScheme::Dark } else { PreviewScheme::Light };
-    if deck == scheme {
-        return None;
-    }
-    let mut colors: Map<String, Value> =
-        scheme.fallback().iter().map(|(k, v)| ((*k).to_owned(), Value::from(*v))).collect();
-    if let Some(theme) = appearance.variants.get(scheme.name()) {
-        let from = [
-            ("piece", "bg"),
-            ("sheet", "surface"),
-            ("ink", "ink"),
-            ("ink-muted", "ink-muted"),
-            ("rule", "rule"),
-            ("accent-soft", "accent-soft"),
-        ];
-        for (app, slide) in from {
-            if let Some(c) = theme.get(app) {
-                colors.insert(slide.to_owned(), Value::from(c.as_str()));
-            }
-        }
-    }
-    Some(colors)
-}
-
-/// Pose `values` dans le bloc de jetons `block` de `tokens`, par-dessus.
-fn overlay(tokens: &mut Value, block: &str, values: Map<String, Value>) {
-    if !tokens.is_object() {
-        *tokens = Value::Object(Map::new());
-    }
-    let Some(all) = tokens.as_object_mut() else { return };
-    let entry = all.entry(block).or_insert_with(|| Value::Object(Map::new()));
-    if !entry.is_object() {
-        *entry = Value::Object(Map::new());
-    }
-    if let Some(map) = entry.as_object_mut() {
-        map.extend(values);
-    }
-}
-
 /// L'aperçu d'un widget : son image, ou les diagnostics qui l'en empêchent.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct WidgetPreview {
@@ -196,39 +69,14 @@ pub struct WidgetPreview {
     /// La slide d'aperçu entière, comme `Session::slide` (une `SlideView`
     /// sérialisée : le deck d'aperçu ne survit pas à l'appel), sans cibles.
     ///
-    /// Ses champs (`fields`) sont en pt de la slide (1920 × 1080), origine
+    /// Ses champs (`fields`) sont en pt de la slide (`SLIDE_WIDTH` × `SLIDE_HEIGHT`), origine
     /// en haut à gauche. L'image couvre `bbox` pour un widget d'élément :
     /// un champ s'y place en `(x - bbox.x, y - bbox.y)` ; sans `bbox`
     /// (widget de slide), l'image couvre toute la slide. `None` pour
     /// l'aperçu PNG de l'agent et sans rendu.
     pub view: Option<Value>,
-    /// Alertes du cas montré, dans l'ordre des champs ; vides sans rendu.
-    pub alerts: Vec<ExampleAlert>,
     pub diagnostics: Vec<WidgetDiagnostic>,
 }
-
-/// Une alerte sur le cas d'exemple montré, par champ texte du widget.
-///
-/// Le débordement est géométrique : la boîte rendue d'un champ qui sort de
-/// plus de [`OVERFLOW_TOLERANCE`] du cadre du widget (la cellule de
-/// l'élément d'aperçu, toute la grille ; la slide pour un widget de slide).
-/// Un texte qui déborde d'un bloc interne au widget sans sortir de ce
-/// cadre, ou un contenu rogné (`clip`), n'est pas vu : le rendu ne le
-/// signale pas.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum ExampleAlert {
-    /// Un champ texte (`plain`, `rich`) sans valeur, hors champ lié au deck.
-    Empty { field: String },
-    /// Un champ dont la boîte sort du cadre du widget.
-    Overflow { field: String },
-}
-
-/// Marge, en pt, d'une boîte de champ hors du cadre avant l'alerte.
-const OVERFLOW_TOLERANCE: f64 = 1.0;
-/// Taille de la slide d'aperçu, en pt.
-const SLIDE_WIDTH: f64 = 1920.0;
-const SLIDE_HEIGHT: f64 = 1080.0;
 
 /// Boîte d'un élément sur la slide d'aperçu, en pt.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -367,62 +215,31 @@ fn without_elements(deck: &Deck) -> Deck {
     bare
 }
 
-/// La vue de la slide d'aperçu de `deck` et les alertes du widget `widget`.
-///
-/// `frame` : le cadre du widget (sa cellule), `None` pour un widget de slide.
-fn view_and_alerts(
+/// La vue de la slide d'aperçu de `deck`, sans cibles.
+fn preview_view(
     deck: &Deck,
     registry: &WidgetRegistry,
     layout: &Layout,
     hash: Option<u128>,
-    widget: &str,
-    frame: Option<PreviewBox>,
-) -> std::result::Result<(Option<Value>, Vec<ExampleAlert>), RenderError> {
-    let (width, height) = page_size(deck);
-    let Some(slide) = deck.slide(PREVIEW_SLIDE) else { return Ok((None, Vec::new())) };
+) -> std::result::Result<Option<Value>, RenderError> {
+    let Some(slide) = deck.slide(PREVIEW_SLIDE) else { return Ok(None) };
     // La seule page du deck d'aperçu : un widget de slide ne la déclare pas
     // toujours dans `layout.slides`.
     let page = 1;
-    let fields = fields::field_views(deck, slide, registry, layout.fields_on(page));
-    let frame = frame.unwrap_or(PreviewBox { x: 0.0, y: 0.0, w: width, h: height });
-    let alerts = slide
-        .text_fields(registry)
-        .iter()
-        .filter(|tf| fields::owner_widget(slide, tf) == widget)
-        .filter_map(|tf| {
-            // Un item de liste : `liste/id/colonne`, comme son `FieldView`.
-            let field = tf.name();
-            let bound = tf.param.bind.is_some() && tf.list.is_none();
-            let empty = !bound && fields::field_text(deck, tf).trim().is_empty();
-            let outside = fields.iter().any(|v| v.owner == tf.owner_id && v.field == field && !inside(v, frame));
-            match (empty, outside) {
-                (true, _) => Some(ExampleAlert::Empty { field: field.into_owned() }),
-                (false, true) => Some(ExampleAlert::Overflow { field: field.into_owned() }),
-                (false, false) => None,
-            }
-        })
-        .collect();
     let view = SlideView {
         slide,
         page,
         hash: PageHash(hash),
-        width,
-        height,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
         targets: Vec::new(),
-        fields,
+        fields: fields::field_views(deck, slide, registry, layout.fields_on(page)),
         // L'aperçu n'a pas de poignées d'items : ses listes se changent aux réglages.
         items: Vec::new(),
         lists: Vec::new(),
         zone: layout.zone_on(page),
     };
-    let view = serde_json::to_value(view).map_err(|e| RenderError::frame(e.to_string()))?;
-    Ok((Some(view), alerts))
-}
-
-/// La boîte du champ `v` tient dans `frame`, à la tolérance près.
-fn inside(v: &FieldView<'_>, frame: PreviewBox) -> bool {
-    let t = OVERFLOW_TOLERANCE;
-    v.x >= frame.x - t && v.y >= frame.y - t && v.x + v.w <= frame.x + frame.w + t && v.y + v.h <= frame.y + frame.h + t
+    serde_json::to_value(view).map(Some).map_err(|e| RenderError::frame(e.to_string()))
 }
 
 /// Un fichier qui ne se charge pas : ses diagnostics, sans image.
@@ -461,18 +278,6 @@ impl Session {
         params: &Map<String, Value>,
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
-        self.preview_widget_with(name, example, params, format, PreviewLook::default())
-    }
-
-    /// Comme `preview_widget`, au schéma et au format de `look`.
-    pub fn preview_widget_with(
-        &mut self,
-        name: &str,
-        example: Option<&str>,
-        params: &Map<String, Value>,
-        format: PreviewFormat,
-        look: PreviewLook,
-    ) -> Result<WidgetPreview> {
         let name = parse_name(name)?;
         let t = self.widget_target()?;
         // `_commun` n'est pas un widget : rien à montrer.
@@ -485,7 +290,7 @@ impl Session {
         }
         let Some(schema) = probe.registry.get(name.as_str()).cloned() else { return Ok(no_schema(&name)) };
         let inputs = self.preview_inputs(&name, &schema, example, params)?;
-        let deck = self.preview_deck(&schema, &inputs, look);
+        let deck = self.preview_deck(&schema, &inputs);
         self.render_preview(&name, probe.pack.as_ref(), probe.registry.clone(), &deck, format)
     }
 
@@ -504,8 +309,8 @@ impl Session {
     }
 
     /// Le deck d'aperçu : la slide du widget, ou une `blank` qui porte
-    /// l'élément, au schéma et au format de `look`.
-    fn preview_deck(&self, schema: &WidgetSchema, given: &Map<String, Value>, look: PreviewLook) -> Deck {
+    /// l'élément, au style du deck.
+    fn preview_deck(&self, schema: &WidgetSchema, given: &Map<String, Value>) -> Deck {
         let params = preview_params(schema, given, &self.localizer);
         let slide = match schema.category {
             Category::Slide => {
@@ -523,15 +328,7 @@ impl Session {
                 slide
             }
         };
-        let mut deck = styled_like(self.user_deck(), vec![slide]);
-        if let Some(colors) = look.scheme.and_then(|s| scheme_colors(&self.appearance, s)) {
-            overlay(&mut deck.tokens, "color", colors);
-        }
-        if let Some(ratio) = look.ratio {
-            let page = [("width", ratio.width()), ("height", SLIDE_HEIGHT)];
-            overlay(&mut deck.tokens, "page", page.into_iter().map(|(k, v)| (k.to_owned(), Value::from(v))).collect());
-        }
-        deck
+        styled_like(self.user_deck(), vec![slide])
     }
 
     /// Rend `deck` dans l'emplacement d'essai, avec les widgets valides `pack`.
@@ -569,9 +366,8 @@ impl Session {
             let mut out = match format {
                 PreviewFormat::Svg => {
                     let hash = compiled.page_hash(0);
-                    let (view, alerts) =
-                        view_and_alerts(deck, &registry, compiled.layout(), hash, name.as_str(), cell)?;
-                    WidgetPreview { svg: Some(compiled.svg(0)?), view, alerts, diagnostics, ..Default::default() }
+                    let view = preview_view(deck, &registry, compiled.layout(), hash)?;
+                    WidgetPreview { svg: Some(compiled.svg(0)?), view, diagnostics, ..Default::default() }
                 }
                 // L'agent voit la slide entière : pas de recadrage.
                 PreviewFormat::Png => {

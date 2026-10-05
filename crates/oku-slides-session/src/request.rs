@@ -8,7 +8,6 @@ use uuid::Uuid;
 use oku_slides_core::Op;
 
 use crate::views::UiState;
-use crate::widget_preview::PreviewLook;
 
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
 #[derive(Debug, Deserialize)]
@@ -149,17 +148,13 @@ pub enum Request {
         to: String,
     },
     /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs du cas
-    /// `example` (le premier par défaut) ; `params` les complète. `scheme`
-    /// (`light`, `dark`) et `ratio` (`16:9`, `4:3`) changent l'allure du
-    /// deck d'aperçu ; absents : celle du deck.
+    /// `example` (le premier par défaut) ; `params` les complète.
     PreviewWidget {
         name: String,
         #[serde(default)]
         example: Option<String>,
         #[serde(default)]
         params: serde_json::Map<String, serde_json::Value>,
-        #[serde(flatten)]
-        look: PreviewLook,
     },
     /// Ajoute le cas d'exemple `example` au widget `name`, aux valeurs de
     /// `from` s'il est donné (mode modèles, dans le pack).

@@ -1,4 +1,4 @@
-// Barre d'outils d'un sous-onglet de widget : historique de l'éditeur, code, place du code, planche.
+// Barre d'outils d'un sous-onglet de widget : historique de l'éditeur et code.
 
 import { afterEach, expect, test } from "bun:test";
 import "./test/dom";
@@ -18,9 +18,9 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Options = Pick<ViewOptions, "code" | "setCode" | "codeLayout" | "setCodeLayout" | "board" | "setBoard">;
+type Options = Pick<ViewOptions, "code" | "setCode">;
 
-async function mount(widget: string, code: boolean, history = { undo: 1, redo: 0 }) {
+async function mount(code: boolean, history = { undo: 1, redo: 0 }) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -29,16 +29,11 @@ async function mount(widget: string, code: boolean, history = { undo: 1, redo: 0
   const options: Options = {
     code,
     setCode: (v) => calls.push(`code ${v}`),
-    codeLayout: { code_place: "below", code_height: null, code_width: null },
-    setCodeLayout: (l) => calls.push(`place ${l.code_place}`),
-    board: false,
-    setBoard: (v) => calls.push(`board ${v}`),
   };
   await act(async () =>
     root.render(
       createElement(WidgetTools, {
         tab: 3,
-        widget,
         history,
         onUndo: () => calls.push("undo"),
         onRedo: () => calls.push("redo"),
@@ -51,28 +46,20 @@ async function mount(widget: string, code: boolean, history = { undo: 1, redo: 0
   return { host, calls, labels, press };
 }
 
-test("WidgetTools code replié : historique, code et planche, sans place du code", async () => {
-  const { labels } = await mount("kpi", false);
-  expect(labels()).toEqual(["ui-toolbar-undo", "ui-toolbar-redo", "ui-widgets-source", "ui-widgets-board"]);
-});
-
-test("WidgetTools code déplié : la place du code apparaît après lui", async () => {
-  const { labels } = await mount("kpi", true);
-  expect(labels()).toEqual(["ui-toolbar-undo", "ui-toolbar-redo", "ui-widgets-source", "ui-widgets-code-right", "ui-widgets-board"]);
-});
-
-test("WidgetTools sur Commun : pas de planche", async () => {
-  const { labels } = await mount("_commun", false);
-  expect(labels()).not.toContain("ui-widgets-board");
-});
+for (const code of [false, true]) {
+  test(`WidgetTools code ${code ? "déplié" : "replié"} : affiche l'historique et le code seulement`, async () => {
+    const { labels } = await mount(code);
+    expect(labels()).toEqual(["ui-toolbar-undo", "ui-toolbar-redo", "ui-widgets-source"]);
+  });
+}
 
 test("WidgetTools rétablir désactivé sans pas à rétablir", async () => {
-  const { host } = await mount("kpi", false);
+  const { host } = await mount(false);
   expect(host.querySelector<HTMLButtonElement>('button[aria-label="ui-toolbar-redo"]')!.disabled).toBe(true);
 });
 
 test("WidgetTools chaque bouton appelle son action", async () => {
-  const { calls, press } = await mount("kpi", true);
-  for (const l of ["ui-toolbar-undo", "ui-widgets-source", "ui-widgets-code-right", "ui-widgets-board"]) await press(l);
-  expect(calls).toEqual(["undo", "code false", "place right", "board true"]);
+  const { calls, press } = await mount(true);
+  for (const l of ["ui-toolbar-undo", "ui-widgets-source"]) await press(l);
+  expect(calls).toEqual(["undo", "code false"]);
 });

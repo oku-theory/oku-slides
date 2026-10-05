@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use super::{CodePlace, MAX_WIDGET_TABS, PileSection, UiState};
+use super::{MAX_WIDGET_TABS, PileSection, UiState};
 
 fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
     UiState {
@@ -36,20 +36,6 @@ fn sanitized_with_an_active_tab_not_open_drops_it() {
 }
 
 #[test]
-fn code_place_serializes_in_lowercase() {
-    assert_that!(serde_json::to_string(&CodePlace::Right).unwrap()).is_equal_to(r#""right""#.to_owned());
-    assert_that!(serde_json::from_str::<CodePlace>(r#""below""#).unwrap()).is_equal_to(CodePlace::Below);
-}
-
-#[test]
-fn ui_state_default_places_the_code_below_at_default_sizes() {
-    let ui = UiState::default();
-    assert_that!(ui.code_place).is_equal_to(CodePlace::Below);
-    assert_that!(ui.code_height).is_none();
-    assert_that!(ui.code_width).is_none();
-}
-
-#[test]
 fn sanitized_drops_duplicate_folded_sections() {
     let ui = UiState {
         folded: vec![PileSection::Widgets, PileSection::Templates, PileSection::Widgets],
@@ -69,8 +55,9 @@ fn cases(pairs: &[(&str, &str)]) -> UiState {
 }
 
 #[test]
-fn ui_state_default_has_no_current_case() {
-    assert_that!(UiState::default().case.is_empty()).is_true();
+fn ui_state_default_has_no_current_case_and_the_code_at_its_default_width() {
+    let ui = UiState::default();
+    assert_that!((ui.case.is_empty(), ui.code_width)).is_equal_to((true, None));
 }
 
 #[test]
@@ -106,21 +93,13 @@ fn ui_state_without_case_reads_as_none() {
     assert_that!(ui.case.is_empty()).is_true();
 }
 
+/// Couche serde : un `UiState` écrit avant t-526 (planche, place et hauteur du code) se relit,
+/// ces champs ignorés ; la largeur du code est gardée (la couche fichier : `resume_tests`).
 #[test]
-fn ui_state_default_shows_the_scene() {
-    assert_that!(UiState::default().board).is_false();
-}
-
-#[test]
-fn ui_state_without_board_reads_as_the_scene() {
-    let ui: UiState = serde_json::from_str(r#"{"slide":null}"#).unwrap();
-    assert_that!(ui.board).is_false();
-}
-
-/// La planche est commune à tous les widgets : gardée hors du mode modèles aussi.
-#[test]
-fn sanitized_keeps_the_board_in_and_out_of_templates() {
-    let ui = UiState { board: true, ..UiState::default() };
-    assert_that!(ui.clone().sanitized(true).board).is_true();
-    assert_that!(ui.sanitized(false).board).is_true();
+fn ui_state_with_the_removed_board_and_code_place_still_reads() {
+    let ui: UiState = serde_json::from_str(
+        r#"{"slide":null,"code":true,"board":true,"code_place":"right","code_height":300,"code_width":640}"#,
+    )
+    .unwrap();
+    assert_that!(ui).is_equal_to(UiState { code: true, code_width: Some(640), ..UiState::default() });
 }

@@ -1,19 +1,18 @@
-// Code d'un widget à droite de l'aperçu, élargi au séparateur, retrouvé après rechargement ;
-// faute de largeur, il repasse dessous. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
+// Code d'un widget, toujours à droite de l'aperçu, élargi au séparateur, retrouvé après
+// rechargement ; dans une fenêtre étroite, l'aperçu garde sa place minimale. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
 
-/** Boîtes de l'aperçu et du code du sous-onglet visible, place et axe affichés. */
+/** Boîtes de l'aperçu et du code du sous-onglet visible. */
 const boxes = (p) => p.evaluate((sel) => {
   const tab = document.querySelector(sel);
   const r = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
   return {
-    place: tab.dataset.place,
-    axis: getComputedStyle(tab).getPropertyValue('--code-axis').trim() || 'below',
     side: r(tab.querySelector('.widget-tab-side')),
     code: r(tab.querySelector('.widget-tab-code')),
+    overflow: tab.scrollWidth - tab.clientWidth,
   };
 }, TAB);
 
@@ -36,41 +35,44 @@ const boxes = (p) => p.evaluate((sel) => {
   await name.press('Enter');
   await p.waitForSelector(`${TAB} .widget-tab-side`);
 
-  // Code affiché, puis à droite : l'aperçu à gauche, le code à sa droite.
+  // Code affiché : l'aperçu à gauche, le code à sa droite, sans place à choisir.
   await p.getByRole('button', { name: 'Code source' }).click();
-  await p.getByRole('button', { name: 'Code à droite' }).click();
-  await p.waitForSelector(`${TAB}[data-place="right"] .code-divider[data-axis="right"]`);
+  await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider[aria-orientation="vertical"]`);
   let r = await boxes(p);
-  assert.equal(r.axis, 'right');
   assert.ok(r.code.left >= r.side.right, `code pas à droite de l'aperçu : ${JSON.stringify(r)}`);
 
-  // Glisser le séparateur de 120 px vers la gauche élargit le code d'autant.
+  // Glisser le séparateur de 60 px vers la gauche élargit le code d'autant (l'aperçu garde ses 240 px).
   const before = r.code.width;
   const d = await p.locator(`${TAB} .code-divider`).boundingBox();
   await p.mouse.move(d.x + d.width / 2, d.y + d.height / 2);
   await p.mouse.down();
-  await p.mouse.move(d.x + d.width / 2 - 120, d.y + d.height / 2, { steps: 6 });
+  await p.mouse.move(d.x + d.width / 2 - 60, d.y + d.height / 2, { steps: 6 });
   await p.mouse.up();
   r = await boxes(p);
-  assert.ok(Math.abs(r.code.width - before - 120) <= 2, `largeur ${r.code.width}, attendue ${before + 120}`);
+  assert.ok(Math.abs(r.code.width - before - 60) <= 2, `largeur ${r.code.width}, attendue ${before + 60}`);
   const wide = r.code.width;
   // La sauvegarde chez l'hôte part après le rendu.
   await p.waitForTimeout(500);
 
-  // Rechargé : même place, même largeur.
+  // Rechargé : même largeur.
   await p.reload();
-  await p.waitForSelector(`${TAB}[data-place="right"] .code-divider`);
+  await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider`);
   r = await boxes(p);
   assert.ok(Math.abs(r.code.width - wide) <= 2, `largeur reprise ${r.code.width}, attendue ${wide}`);
 
-  // Fenêtre étroite : le choix reste « à droite », le code s'affiche dessous.
+  // Fenêtre étroite, code tiré au plus large : l'aperçu garde ses 240 px (PREVIEW_MIN), rien ne déborde.
   await p.setViewportSize({ width: 1100, height: 900 });
-  await p.waitForFunction((sel) => !getComputedStyle(document.querySelector(sel)).getPropertyValue('--code-axis').trim(), TAB);
+  const n = await p.locator(`${TAB} .code-divider`).boundingBox();
+  await p.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(0, n.y + n.height / 2, { steps: 6 });
+  await p.mouse.up();
   r = await boxes(p);
-  assert.equal(r.place, 'right');
-  assert.ok(r.code.top >= r.side.bottom, `code pas sous l'aperçu : ${JSON.stringify(r)}`);
-  // L'axe du séparateur suit au redimensionnement suivant (ResizeObserver).
-  await p.waitForSelector(`${TAB} .code-divider[aria-orientation="horizontal"]`, { timeout: 3000 });
+  assert.ok(r.side.width >= 240 - 1, `aperçu trop étroit : ${r.side.width}`);
+  assert.ok(r.overflow <= 0, `le sous-onglet déborde de ${r.overflow} px`);
+  // Retour à la proportion par défaut, pour les tests suivants.
+  await p.locator(`${TAB} .code-divider`).dblclick();
+  await p.waitForTimeout(500);
 
   assert.deepEqual(errors, []);
   console.log('disposition du code ok');

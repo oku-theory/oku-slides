@@ -117,8 +117,11 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié, sa place et sa taille, sections repliées de la pile,
-/// cas d'exemple courant de chaque widget, vue Planche des widgets.
+/// sous-onglets de widgets, code source des widgets déplié et sa largeur, sections repliées de la pile,
+/// cas d'exemple courant de chaque widget.
+///
+/// Les champs inconnus d'un `state.json` plus ancien (`board`, `code_place`,
+/// `code_height`, retirés par t-526) sont ignorés à la lecture.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     #[serde(default)]
@@ -141,16 +144,10 @@ pub struct UiState {
     /// Sous-onglet actif ; `None` : « Modèles ».
     #[serde(default)]
     pub widget: Option<String>,
-    /// Code source des widgets déplié sous l'aperçu ; replié par défaut.
+    /// Code source des widgets déplié à droite de l'aperçu ; replié par défaut.
     #[serde(default)]
     pub code: bool,
-    /// Place du code déplié : sous l'aperçu ou à sa droite.
-    #[serde(default)]
-    pub code_place: CodePlace,
-    /// Hauteur du code dessous en px, choisie au séparateur ; `None` : proportion par défaut.
-    #[serde(default)]
-    pub code_height: Option<u32>,
-    /// Largeur du code à droite en px, choisie au séparateur ; `None` : proportion par défaut.
+    /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
     /// Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut.
@@ -159,21 +156,6 @@ pub struct UiState {
     /// Cas d'exemple montré de chaque widget, par nom de fichier ; absent : le premier.
     #[serde(default)]
     pub case: BTreeMap<String, String>,
-    /// Sous-onglets de widgets en Planche (tous les cas en vignettes) plutôt
-    /// qu'en Scène ; commun à tous les widgets, Scène par défaut.
-    #[serde(default)]
-    pub board: bool,
-}
-
-/// Place du code source d'un widget par rapport à son aperçu.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CodePlace {
-    /// Sous l'aperçu.
-    #[default]
-    Below,
-    /// À droite de l'aperçu.
-    Right,
 }
 
 /// Section repliable de la pile du mode modèles.
@@ -201,12 +183,9 @@ impl Default for UiState {
             widgets: Vec::new(),
             widget: None,
             code: false,
-            code_place: CodePlace::Below,
-            code_height: None,
             code_width: None,
             folded: Vec::new(),
             case: BTreeMap::new(),
-            board: false,
         }
     }
 }
@@ -334,6 +313,11 @@ impl<'a> Target<'a> {
         Self { id: &b.id, kind, free, x: b.x, y: b.y, w: b.w, h: b.h }
     }
 }
+
+/// Largeur d'une slide, en pt : le repère des vues (`SlideView`), slide comme aperçu.
+pub(crate) const SLIDE_WIDTH: f64 = 1920.0;
+/// Hauteur d'une slide, en pt.
+pub(crate) const SLIDE_HEIGHT: f64 = 1080.0;
 
 #[derive(Debug, Serialize)]
 pub struct SlideView<'a> {

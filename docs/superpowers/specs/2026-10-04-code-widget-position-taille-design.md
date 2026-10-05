@@ -1,5 +1,13 @@
 # Position et taille du code d'un widget, gardées par l'hôte — design
 
+> **Note du 2026-10-04 (t-526)** : le code est désormais toujours à droite
+> de l'aperçu. La bascule de place (`CodePlaceSwitch`, `UiState.code_place`),
+> le code dessous et sa hauteur (`code_height`), le repli dessous faute de
+> largeur et l'axe du séparateur sont retirés ; restent la largeur réglée au
+> séparateur (`code_width`) et l'interrupteur `</>` ; l'aperçu garde au moins
+> 240 px (le code, 120). Le texte ci-dessous
+> décrit l'état de t-474.
+
 Date : 2026-10-04 · Tâche : t-474
 
 ## Objectif

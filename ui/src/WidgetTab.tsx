@@ -1,19 +1,16 @@
 /**
- * Sous-onglet d'un fichier de widget : aperçu et diagnostics en haut, éditeur dessous.
+ * Sous-onglet d'un fichier de widget : aperçu, réglages et diagnostics à gauche, éditeur à droite.
  *
  * L'interrupteur de la barre d'outils affiche le code (masqué par défaut, choix
- * commun gardé par l'hôte) : masqué, l'aperçu est centré ; affiché, le code se
- * place dessous ou à droite (repli dessous faute de largeur), à la taille réglée
- * au séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
+ * commun gardé par l'hôte) : masqué, l'aperçu prend tout le sous-onglet ;
+ * affiché, le code se place toujours à droite, à la largeur réglée au
+ * séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
  * historique demeurent.
  * Au-dessus de l'aperçu, les pastilles des cas d'exemple : l'aperçu montre le
  * cas courant (le premier si le cas gardé n'existe plus).
  * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
  * s'éditent sur place, comme sur la slide, et s'écrivent dans le cas courant
  * (un champ lié au deck reste en lecture). Sans vue (échec), l'image seule.
- * En Planche (bascule de la barre d'outils, commune aux widgets), tous les
- * cas en vignettes (`ExampleBoard`) à la place de la scène et des réglages ;
- * un clic sur une vignette ouvre son cas dans la scène.
  * Pour Commun, les widgets en erreur à la place de l'aperçu (sans pastilles). Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
  * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
@@ -24,11 +21,9 @@ import type { FieldView, Snapshot, TabApi, WidgetPreview } from "./api";
 import { fieldValue } from "./deck";
 import { t } from "./i18n";
 import CodeDivider from "./CodeDivider";
-import ExampleBoard from "./ExampleBoard";
 import ExamplePills, { EXAMPLE_DEFAULT, currentCase } from "./ExamplePills";
-import { type CodeAxis, codeTrack } from "./codeSplit";
+import { codeTrack } from "./codeSplit";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
-import type { CodeLayout } from "./useViewOptions";
 import type { WidgetFiles } from "./useWidgetFiles";
 import Stage from "./Stage";
 import { useFieldEditing } from "./useFieldEditing";
@@ -51,10 +46,10 @@ export interface WidgetTabProps {
   active: boolean;
   /** Code source affiché ; masqué, l'éditeur reste monté mais inerte. */
   code: boolean;
-  /** Place du code et tailles choisies, communes à tous les sous-onglets. */
-  layout: CodeLayout;
-  /** Retient une nouvelle taille réglée au séparateur. */
-  onLayout: (layout: CodeLayout) => void;
+  /** Largeur du code choisie, commune à tous les sous-onglets ; `null` : proportion par défaut. */
+  codeWidth: number | null;
+  /** Retient une nouvelle largeur réglée au séparateur. */
+  onCodeWidth: (width: number | null) => void;
   /** Réglages de l'hôte (valeurs du cas courant), posés sous l'aperçu ; `null` : aucun. */
   settings?: ReactNode;
   /** Noms des cas d'exemple du widget, dans l'ordre ; défaut : le cas implicite seul. */
@@ -63,12 +58,6 @@ export interface WidgetTabProps {
   example?: string | null;
   /** Choisit le cas montré. */
   onExample?: (name: string) => void;
-  /** Planche (tous les cas) plutôt que scène ; jamais pour Commun. */
-  board?: boolean;
-  /** Passe en planche ou en scène. */
-  onBoard?: (board: boolean) => void;
-  /** Schéma du deck (`Appearance.scheme`) : celui de la planche au départ. */
-  scheme?: "light" | "dark";
   /** Envoie une écriture des cas (refus en toast) ; défaut : le refus passe par les fichiers. */
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Couleurs des pastilles dans l'éditeur d'un champ (palette des graphiques du thème). */
@@ -83,12 +72,10 @@ const IMPLICIT = [EXAMPLE_DEFAULT];
 const NO_PALETTE: string[] = [];
 
 export default function WidgetTab({
-  api, files, id, name, revision, trials, look, active, code: codeOn, layout, onLayout, settings = null,
-  examples = IMPLICIT, example = null, onExample = () => {}, board = false, onBoard = () => {}, scheme, run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
+  api, files, id, name, revision, trials, look, active, code, codeWidth, onCodeWidth, settings = null,
+  examples = IMPLICIT, example = null, onExample = () => {}, run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const shownCase = currentCase(examples, example);
-  // La planche prend toute la hauteur : le code déplié s'y replie, et revient avec la scène.
-  const code = codeOn && !(board && name !== COMMON);
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -130,12 +117,11 @@ export default function WidgetTab({
     };
   }, [api, revision, active]);
 
-  // Aperçu : actif et en scène seulement, après la source puis chaque écriture enregistrée.
+  // Aperçu : actif seulement, après la source puis chaque écriture enregistrée.
   const written = files.writes.get(name) ?? 0;
   const ready = source !== null;
-  const boardShown = board && name !== COMMON;
   useEffect(() => {
-    if (!active || name === COMMON || !ready || boardShown) return;
+    if (!active || name === COMMON || !ready) return;
     const seq = ++previewSeq.current;
     api
       .previewWidget(name, shownCase)
@@ -143,7 +129,8 @@ export default function WidgetTab({
         if (seq === previewSeq.current) setPreview(p);
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
-  }, [api, active, name, written, ready, editorKey, trials, look, shownCase, boardShown]);
+    // `trials` et `look` ne sont pas lus : ils relancent l'aperçu quand les essais ou le style du deck changent.
+  }, [api, active, name, written, ready, editorKey, trials, look, shownCase]);
 
   // Redevenu visible (onglet actif, code déplié) : l'éditeur caché se remesure.
   useEffect(() => {
@@ -188,37 +175,15 @@ export default function WidgetTab({
     );
   };
 
-  /** Axe affiché : la feuille de style replie « à droite » dessous faute de largeur. */
-  const axisOf = (el: HTMLElement): CodeAxis =>
-    getComputedStyle(el).getPropertyValue("--code-axis").trim() === "right" ? "right" : "below";
-  // Relu après chaque changement de place et quand le sous-onglet change de taille.
-  const [axis, setAxis] = useState<CodeAxis>("below");
-  useLayoutEffect(() => {
-    const el = host.current;
-    if (!el || !code) return;
-    const read = () => setAxis(axisOf(el));
-    read();
-    if (typeof ResizeObserver === "undefined") return;
-    const watch = new ResizeObserver(read);
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, [code, layout.code_place]);
-  /** Axe affiché et tailles mesurées, au début d'un geste. */
+  /** Largeurs du sous-onglet et du code, au début d'un geste. */
   const measure = () => {
     const el = host.current;
     const codeEl = el?.querySelector<HTMLElement>(".widget-tab-code");
-    if (!el || !codeEl) return { axis, total: 0, size: 0 };
-    const shown = axisOf(el);
-    return shown === "right"
-      ? { axis: shown, total: el.clientWidth, size: codeEl.offsetWidth }
-      : { axis: shown, total: el.clientHeight, size: codeEl.offsetHeight };
+    return el && codeEl ? { total: el.clientWidth, size: codeEl.offsetWidth } : { total: 0, size: 0 };
   };
-  /** Taille de l'axe affiché, gardée par l'hôte sous `code_height` ou `code_width`. */
-  const sizeKey = (axis: CodeAxis) => (axis === "right" ? "code_width" : "code_height");
-  /** Pendant le glisser, la taille ne touche que le DOM. */
-  const show = (axis: CodeAxis, size: number) =>
-    host.current?.style.setProperty(axis === "right" ? "--code-w" : "--code-h", codeTrack(size));
-  const tracks = { "--code-h": codeTrack(layout.code_height) ?? undefined, "--code-w": codeTrack(layout.code_width) ?? undefined };
+  /** Pendant le glisser, la largeur ne touche que le DOM. */
+  const show = (size: number) => host.current?.style.setProperty("--code-w", codeTrack(size));
+  const tracks = { "--code-w": codeTrack(codeWidth) ?? undefined };
 
   const inError = (files.statuses ?? []).filter((s) => s.name !== COMMON && stateOf(s) === "errors");
 
@@ -231,7 +196,6 @@ export default function WidgetTab({
       id={`widget-panel-${id}`}
       aria-labelledby={`widget-tab-${id}`}
       data-code={code ? "shown" : "folded"}
-      data-place={layout.code_place}
       style={tracks as React.CSSProperties}
     >
       <aside className="widget-tab-side" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
@@ -262,24 +226,6 @@ export default function WidgetTab({
               </ul>
             )}
           </div>
-        ) : boardShown ? (
-          // Montée seulement dans l'onglet actif : ses aperçus ne partent pas d'un onglet caché.
-          active && (
-            <ExampleBoard
-              api={api}
-              widget={name}
-              names={examples}
-              current={shownCase}
-              trials={trials}
-              look={look}
-              scheme={scheme}
-              onOpen={(n) => {
-                onExample(n);
-                onBoard(false);
-              }}
-              run={write}
-            />
-          )
         ) : sceneView ? (
           <Stage
             mode="preview"
@@ -295,7 +241,7 @@ export default function WidgetTab({
         ) : (
           <p className="caption">{t("ui-widgets-no-preview")}</p>
         )}
-        {!boardShown && settings}
+        {settings}
         <ul className="widget-tab-diagnostics">
           {listedDiagnostics(status, preview?.diagnostics ?? []).map((d, i) => {
             const place = diagnosticPlace(d);
@@ -310,15 +256,10 @@ export default function WidgetTab({
       </aside>
       {code && (
         <CodeDivider
-          axis={axis}
           label={t("ui-divider-code")}
           measure={measure}
-          onResize={(size, done) => {
-            const shown = measure().axis;
-            if (done) onLayout({ ...layout, [sizeKey(shown)]: size });
-            else show(shown, size);
-          }}
-          onReset={() => onLayout({ ...layout, [sizeKey(measure().axis)]: null })}
+          onResize={(size, done) => (done ? onCodeWidth(size) : show(size))}
+          onReset={() => onCodeWidth(null)}
         />
       )}
       <div className="widget-tab-code" id={`widget-code-${id}`} inert={!code}>

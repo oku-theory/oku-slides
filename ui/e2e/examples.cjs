@@ -1,5 +1,5 @@
-// Atelier de widget (t-497) : un cas ajouté en pastille, un champ vidé sur la scène, l'alerte
-// « Champ vide » sur la planche, les cas retrouvés après rechargement (ils sont dans le pack).
+// Atelier de widget (t-497) : un cas ajouté en pastille, un champ vidé sur la scène, resté vide
+// (l'autre cas intact), les cas retrouvés après rechargement (ils sont dans le pack).
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -32,6 +32,19 @@ const TAB = '.widget-tab:not([hidden])';
   await pills.getByRole('button', { name: 'Ajouter un cas, copie du cas courant' }).click();
   await pills.getByRole('button', { name: 'Cas 2', pressed: true }).waitFor();
 
+  // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
+  // la surface des réglages est reconstruite à chaque relecture.
+  const title = p.locator(`${TAB} .host-settings`).getByRole('textbox', { name: 'title', exact: true });
+  const titleUntil = async (ok, what) => {
+    for (let t = 0; t < 50; t++) {
+      const v = await title.inputValue({ timeout: 1000 }).catch(() => null);
+      if (v !== null && ok(v)) return v;
+      await p.waitForTimeout(100);
+    }
+    assert.fail(`réglage du titre : ${what} attendu, « ${await title.inputValue({ timeout: 1000 }).catch(() => '?')} »`);
+  };
+  await titleUntil((v) => v !== '', 'une valeur');
+
   // Scène : le titre se vide sur l'aperçu, comme un champ de slide.
   const field = p.locator(`${TAB} .stage-preview .field`).first();
   await field.waitFor();
@@ -43,22 +56,19 @@ const TAB = '.widget-tab:not([hidden])';
   await p.keyboard.press('Enter');
   await editor.waitFor({ state: 'detached' });
 
-  // Planche : une vignette par cas ; « Cas 2 » signale son champ vide, « Exemple » n'a pas d'alerte.
-  await p.getByRole('button', { name: 'Planche' }).click();
-  const card = (n) => p.locator(`${TAB} .board-card`, { has: p.locator('.board-name', { hasText: new RegExp(`^${n}$`) }) });
-  await card('Cas 2').locator('.board-badge', { hasText: 'Champ vide' }).waitFor();
-  await card('Exemple').locator('.board-thumb').waitFor();
-  assert.equal(await card('Exemple').locator('.board-badge').count(), 0);
-
-  // Un clic sur une vignette ramène à la scène, sur ce cas.
-  await card('Exemple').click();
+  // Le champ vidé le reste (pas de texte d'exemple) ; le cas « Exemple », lui, garde son titre.
+  await titleUntil((v) => v === '', 'vide');
+  await pills.getByRole('button', { name: 'Exemple', exact: true }).click();
   await pills.getByRole('button', { name: 'Exemple', pressed: true }).waitFor();
-  await p.locator(`${TAB} .stage-preview`).waitFor();
+  await titleUntil((v) => v !== '', 'une valeur');
 
-  // Rechargé : les deux cas sont toujours là.
+  // Rechargé : les deux cas sont toujours là, « Cas 2 » toujours vidé.
   await p.reload();
   await pills.getByRole('button', { name: 'Cas 2', exact: true }).waitFor();
   assert.equal(await pills.getByRole('button', { name: 'Exemple', exact: true }).count(), 1);
+  await pills.getByRole('button', { name: 'Cas 2', exact: true }).click();
+  await pills.getByRole('button', { name: 'Cas 2', pressed: true }).waitFor();
+  await titleUntil((v) => v === '', 'vide');
 
   assert.deepEqual(errors, []);
   console.log('cas d\'exemple ok');
