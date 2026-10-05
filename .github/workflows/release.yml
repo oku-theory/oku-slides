@@ -1,10 +1,17 @@
 # Releases de l'app de bureau (Windows, macOS, Linux), lancées à la main depuis l'onglet Actions.
-# Chaque plateforme construit ses paquets avec `cargo tauri build` et les dépose dans une même
-# release brouillon `v<version>` (version de src-tauri/tauri.conf.json), à relire puis publier.
+# Le job version monte la version (patch, minor ou major) et pousse ce commit sur main ; chaque
+# plateforme construit ensuite ses paquets depuis ce commit (`cargo tauri build`) et les dépose
+# dans une même release brouillon `v<version>`, publiée une fois les quatre plateformes construites.
 name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Partie de la version à monter
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   contents: write
@@ -15,11 +22,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Un build en échec se relance avec « Re-run failed jobs » : la version déjà montée est réutilisée.
+  # Relancer tout le workflow la monterait une seconde fois.
+  version:
+    name: Version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.bump.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Version montée et poussée
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          version=$(.github/scripts/bump-version.sh "$BUMP")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release) : v$version"
+          git push origin HEAD:main
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.name }}
+    needs: version
     strategy:
       # Une plateforme en échec n'annule pas les autres : le run passe quand même en rouge et la
-      # release reste un brouillon, à ne publier qu'avec les quatre jeux de paquets.
+      # release reste un brouillon (le job publish ne tourne pas).
       fail-fast: false
       matrix:
         include:
@@ -40,6 +74,7 @@ jobs:
       # Les polices embarquées (bundle.resources) sont en Git LFS.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version.outputs.sha }}
           lfs: true
 
       # Une police restée pointeur LFS (quota dépassé…) partirait telle quelle dans les paquets.
@@ -132,3 +167,18 @@ jobs:
           releaseBody: Paquets Windows, macOS et Linux construits par le workflow Release.
           releaseDraft: true
           prerelease: false
+
+  # Les quatre plateformes ont déposé leurs paquets : le brouillon est publié, ce qui crée le tag
+  # `v<version>` sur le commit de la version. Un build en échec saute ce job (needs) et laisse le
+  # brouillon tel quel.
+  publish:
+    name: Publication
+    needs: [version, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Brouillon publié
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.version.outputs.version }}
+          SHA: ${{ needs.version.outputs.sha }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --target "$SHA"
