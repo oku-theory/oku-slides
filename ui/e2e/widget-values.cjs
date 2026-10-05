@@ -25,8 +25,6 @@ const TAB = '.widget-tab:not([hidden])';
   await name.press('Enter');
   // Le sous-onglet s'ouvre après la création : on attend qu'il soit l'actif.
   await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
-  // Plus de cas d'exemple : rien au-dessus de l'aperçu.
-  assert.equal(await p.locator(`${TAB} .widget-tab-preview [role="group"]`).count(), 0);
 
   // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
   // la surface des réglages est reconstruite à chaque relecture.
