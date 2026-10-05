@@ -11,14 +11,16 @@
 //! (`commit_manifest` → version de la séance, une étape d'annulation du
 //! deck mis de côté). Les valeurs se contrôlent comme celles des réglages
 //! (`widget_params.rs`) ; une valeur que le schéma n'admet plus est ignorée
-//! à l'aperçu et retirée à la prochaine écriture de son cas.
+//! à l'aperçu et retirée à la prochaine écriture de son cas. Une liste gardée
+//! que le schéma ne lit plus repart, au geste suivant sur elle
+//! (`edit_example_list`), des items par défaut que montre l'aperçu.
 
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
-use oku_slides_core::{ListItem, ListOp, ListSpec, ParamType, WidgetFile, default_items};
+use oku_slides_core::{ListItem, ListOp, ListSpec, ParamType, ParamValue, WidgetFile, default_items, param_value};
 
 use crate::agent::context::clipped;
 use crate::error::{
@@ -156,8 +158,8 @@ impl Session {
 
     /// Règle des valeurs du cas `example` de `widget` (le premier pour `None`), tout ou rien.
     ///
-    /// `null` ou la valeur neutre effacent une valeur ; un texte vidé reste vide (le cas
-    /// « Vide »), voir `emptied` ; les
+    /// `null` ou la valeur neutre effacent une valeur ; un texte vidé ou une liste vidée
+    /// (`[]`) restent vides (le cas « Vide »), voir `emptied` ; les
     /// valeurs gardées que le schéma n'admet plus sont retirées. Rend les
     /// valeurs du cas après l'écriture.
     pub fn set_example_values(
@@ -199,8 +201,10 @@ impl Session {
     }
 
     /// Change la liste `param` du cas `example` de `widget` (le premier pour `None`) ;
-    /// sans valeur gardée, la liste part des items par défaut du schéma. Rend les
-    /// valeurs du cas après l'écriture.
+    /// sans valeur gardée, ou gardée mais que le schéma ne lit plus (colonne renommée,
+    /// `max` abaissé), la liste part des items par défaut du schéma — ce que montrent
+    /// l'aperçu et le tableau ; une valeur gardée qui n'est pas une liste est refusée.
+    /// Vidée, la liste reste `[]`. Rend les valeurs du cas après l'écriture.
     pub fn edit_example_list(
         &mut self,
         widget: &str,
@@ -219,11 +223,20 @@ impl Session {
         self.write_examples(widget, |list| {
             let i = position(list, example)?;
             if let Some(x) = list.get_mut(i) {
-                x.values.retain(|k, v| trial_fits(&schema, k, v));
+                // Lue avant le tri des valeurs gardées : une liste que le schéma ne lit plus repart
+                // des défauts (ce que montrent l'aperçu et le tableau) ; une non-liste est une erreur.
                 let mut items: Vec<ListItem> = match x.values.get(param) {
-                    Some(v) => serde_json::from_value(v.clone()).unwrap_or_default(),
+                    Some(v @ Value::Array(_)) => match param_value(&p.ty, param, v.clone()) {
+                        Ok(Some(ParamValue::List(items))) => items,
+                        Ok(_) | Err(_) => defaults,
+                    },
+                    Some(v) => match param_value(&p.ty, param, v.clone()).context(TrialValueSnafu { param })? {
+                        Some(ParamValue::List(items)) => items,
+                        _ => Vec::new(),
+                    },
                     None => defaults,
                 };
+                x.values.retain(|k, v| trial_fits(&schema, k, v));
                 change.apply(&mut items, &spec).context(TrialValueSnafu { param })?;
                 let stored = serde_json::to_value(&items).context(TrialEncodeSnafu { param })?;
                 x.values.insert(param.to_owned(), stored);
@@ -272,11 +285,17 @@ impl Session {
 #[path = "widget_examples_tests.rs"]
 mod widget_examples_tests;
 
-/// Un texte vidé dans un cas : gardé vide (le cas « Vide »), et non remis au texte d'exemple
-/// de l'aperçu comme le ferait `checked_value`. Seul `null` remet la valeur d'aperçu.
+#[cfg(test)]
+#[path = "widget_examples_list_tests.rs"]
+mod widget_examples_list_tests;
+
+/// Un texte ou une liste vidés dans un cas : gardés vides (le cas « Vide »), et non remis
+/// à la valeur de l'aperçu comme le ferait `checked_value`. Seul `null` remet la valeur
+/// d'aperçu. Une liste vidée sous son `min` passe par `checked_value`, qui la refuse.
 fn emptied(ty: &ParamType, value: &Value) -> Option<Value> {
     let blank = |v: &Value| v.as_str().is_some_and(|s| s.trim().is_empty());
     match ty {
+        ParamType::List { min: 0, .. } if value.as_array().is_some_and(Vec::is_empty) => Some(Value::Array(Vec::new())),
         ParamType::Plain if blank(value) => Some(Value::String(String::new())),
         ParamType::Rich if blank(value) || value.as_array().is_some_and(|ps| ps.iter().all(paragraph_is_empty)) => {
             Some(Value::Array(Vec::new()))

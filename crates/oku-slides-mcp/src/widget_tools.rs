@@ -43,7 +43,8 @@ pub(crate) struct SetWidgetTrialArgs {
     /// Nom du widget.
     pub name: String,
     /// Valeurs par paramètre, pour le premier cas d'exemple du widget ;
-    /// `null`, un texte vide ou `[]` efface une valeur.
+    /// `null` efface une valeur (retour à celle de l'aperçu) ; un texte vide ou
+    /// `[]` (texte riche ou liste) la gardent vide.
     pub values: Map<String, Value>,
 }
 

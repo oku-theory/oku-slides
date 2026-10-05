@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use crate::model::{Element, Slide};
 use crate::params::{ListItem, Params};
-use crate::widget::{ParamSchema, ParamType, WidgetRegistry};
+use crate::widget::{ParamSchema, ParamType, WidgetRegistry, is_text};
 
 /// Objet qui porte un champ.
 #[derive(Debug, Clone, Copy)]
@@ -38,10 +38,6 @@ impl<'a> TextField<'a> {
             None => Cow::Borrowed(self.param.name.as_str()),
         }
     }
-}
-
-fn is_text(ty: &ParamType) -> bool {
-    matches!(ty, ParamType::Plain | ParamType::Rich)
 }
 
 /// Les champs d'un objet de `kind` : un par paramètre texte, dans l'ordre du

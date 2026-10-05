@@ -191,56 +191,6 @@
       ]
     },
     {
-      "name": "frise",
-      "label": "Frise chronologique",
-      "category": "element",
-      "params": [
-        {
-          "name": "etapes",
-          "label": "Étapes",
-          "type": "list",
-          "item": [
-            {
-              "name": "date",
-              "label": "Date",
-              "type": "plain",
-              "default": null,
-              "bind": null
-            },
-            {
-              "name": "texte",
-              "label": "Étape",
-              "type": "plain",
-              "default": "Nouvelle étape",
-              "bind": null
-            }
-          ],
-          "item-label": "étape",
-          "min": 0,
-          "max": 8,
-          "default": [
-            {
-              "date": "2019",
-              "texte": "Création"
-            },
-            {
-              "date": "2021",
-              "texte": "Premier client"
-            },
-            {
-              "date": "2023",
-              "texte": "International"
-            },
-            {
-              "date": "2025",
-              "texte": "Série B"
-            }
-          ],
-          "bind": null
-        }
-      ]
-    },
-    {
       "name": "image",
       "label": null,
       "category": "element",

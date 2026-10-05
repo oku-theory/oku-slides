@@ -66,6 +66,7 @@ widget-fault-empty-list = 小组件 { $widget }：列表至少需要一列
 widget-fault-column-type = 小组件 { $widget }：列表的列可以是 plain、rich、number、flag、choice 或 asset；若每项需要自由内容，请使用带子小组件的 p.slot
 widget-fault-reserved-name = 小组件 { $widget }：保留名称：id、kind，或包含 / 的名称
 widget-fault-list-bounds = 小组件 { $widget }：列表的最大值小于其最小值
+widget-fault-list-default-too-large = 小组件 { $widget }：列表的默认值超出列表的大小限制
 widget-incompatible-override = 小组件 { $widget } 替换了内置小组件，但更改或删除了其参数 { $param }
 widget-incompatible-category = 小组件 { $widget } 以不同的类别替换了内置小组件
 issue-empty-item-id = 列表 { $param } 中有项目没有标识符

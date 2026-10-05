@@ -14,6 +14,7 @@ use snafu::ResultExt;
 use crate::error::{
     BadSchemaSnafu, IncompatibleCategorySnafu, IncompatibleOverrideSnafu, SchemaFault, UnreadableSnafu, WidgetError,
 };
+use crate::ops::{DefaultFault, default_fault};
 
 /// Ce qu'un widget rend : une slide entière, ou un élément de slide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,10 +85,15 @@ pub enum ParamType {
 }
 
 /// Noms interdits à une colonne de `list` : clés de l'item et d'un élément.
-pub const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
+pub(crate) const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
+
+/// Un paramètre ou une colonne de texte (`plain` ou `rich`) ?
+pub fn is_text(ty: &ParamType) -> bool {
+    matches!(ty, ParamType::Plain | ParamType::Rich)
+}
 
 /// Types admis pour une colonne de `list` ; liste imbriquée : t-495.
-pub fn is_column_type(ty: &ParamType) -> bool {
+pub(crate) fn is_column_type(ty: &ParamType) -> bool {
     matches!(
         ty,
         ParamType::Plain
@@ -283,13 +289,13 @@ fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
             let known = |o: &serde_json::Map<String, Value>| o.keys().all(|k| names.contains(k.as_str()));
             let ok = match &p.default {
                 None => true,
-                Some(Value::Array(a)) => {
-                    !max.is_some_and(|m| a.len() > m) && a.iter().all(|x| x.as_object().is_some_and(known))
-                }
+                Some(Value::Array(a)) => a.iter().all(|x| x.as_object().is_some_and(known)),
                 Some(_) => false,
             };
-            if !ok || crate::ops::default_items(p).is_err() {
-                return Err(fault(w, SchemaFault::DefaultWrongType));
+            match (ok, default_fault(p)) {
+                (false, _) | (_, Some(DefaultFault::WrongType)) => return Err(fault(w, SchemaFault::DefaultWrongType)),
+                (true, Some(DefaultFault::TooLarge)) => return Err(fault(w, SchemaFault::ListDefaultTooLarge)),
+                (true, None) => {}
             }
         }
         _ => {}

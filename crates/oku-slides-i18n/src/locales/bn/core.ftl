@@ -66,6 +66,7 @@ widget-fault-empty-list = উইজেট { $widget }: একটি তালি
 widget-fault-column-type = উইজেট { $widget }: তালিকার কলাম plain, rich, number, flag, choice বা asset হতে পারে; প্রতিটি আইটেমের মুক্ত কনটেন্টের জন্য চাইল্ড উইজেটসহ p.slot ব্যবহার করুন
 widget-fault-reserved-name = উইজেট { $widget }: সংরক্ষিত নাম: id, kind, অথবা / আছে এমন নাম
 widget-fault-list-bounds = উইজেট { $widget }: তালিকার সর্বোচ্চ মান তার সর্বনিম্ন মানের নিচে
+widget-fault-list-default-too-large = উইজেট { $widget }: একটি তালিকার ডিফল্ট মান তালিকার আকারের সীমা ছাড়িয়ে যায়
 widget-incompatible-override = উইজেট { $widget } মূল উইজেটটি প্রতিস্থাপন করে কিন্তু এর { $param } প্যারামিটার পরিবর্তন বা বাদ দেয়
 widget-incompatible-category = উইজেট { $widget } মূল উইজেটটিকে ভিন্ন শ্রেণির উইজেট দিয়ে প্রতিস্থাপন করে
 issue-empty-item-id = { $param } তালিকার একটি আইটেমের শনাক্তকারী নেই

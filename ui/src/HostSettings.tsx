@@ -5,6 +5,7 @@
  */
 import { lazy, Suspense } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
+import { ActionOutcomeContext, type ActionOutcome } from "./a2ui/actionOutcome";
 import type { Surface } from "./api";
 
 // Même morceau que le fil de l'agent : chargé une fois.
@@ -13,14 +14,18 @@ const SurfaceView = lazy(() => import("./a2ui/SurfaceView").then((m) => ({ defau
 interface Props {
   surface: Surface;
   onAction: (s: Surface, a: A2uiClientAction) => void;
+  /** Issue des actions, posée par le routeur pendant leur envoi (`useHostSettings`). */
+  outcome: ActionOutcome;
   onError: (message: string) => void;
 }
 
-export default function HostSettings({ surface, onAction, onError }: Props) {
+export default function HostSettings({ surface, onAction, outcome, onError }: Props) {
   return (
     <div className="host-settings" data-surface-id={surface.id} aria-live="off">
       <Suspense fallback={null}>
-        <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, a)} onError={onError} />
+        <ActionOutcomeContext.Provider value={outcome}>
+          <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, a)} onError={onError} />
+        </ActionOutcomeContext.Provider>
       </Suspense>
     </div>
   );

@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use super::schema::{Ctx, Kind, LIST, RICH, column_kind, columns, declared, param_kind};
-use crate::error::{LoroSnafu, ReplicaInner, TextUpdateSnafu};
+use crate::error::{ListOutsideParamsSnafu, LoroSnafu, ReplicaInner, TextUpdateSnafu};
 use crate::widget::{ParamSchema, WidgetRegistry};
 
 type Res = Result<(), ReplicaInner>;
@@ -140,7 +140,8 @@ impl Writer<'_> {
                 Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
                 Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
                 Kind::Collection(_) => clear(&list_at(map, &key)?)?,
-                Kind::List => clear(&items_at(map, &key)?)?,
+                // Jamais rendu par `Ctx::kind` : une liste n'existe que dans les paramètres.
+                Kind::List => return ListOutsideParamsSnafu.fail(),
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
         }
@@ -152,9 +153,8 @@ impl Writer<'_> {
                 Kind::Collection(child) => {
                     self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
                 }
-                Kind::List => {
-                    self.sync_list(&items_at(map, key)?, objects(value), &|m, o| self.sync_item(m, o, None))?
-                }
+                // Jamais rendu par `Ctx::kind` : une liste n'existe que dans les paramètres.
+                Kind::List => return ListOutsideParamsSnafu.fail(),
                 Kind::Atom => set_value(map, key, json_to_loro(value))?,
                 Kind::Nested(child) => match value {
                     Value::Object(o) => self.sync_map(&map_at(map, key)?, o, child)?,

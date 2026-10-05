@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { FieldView, SlideView } from "./api";
+import type { FieldView, ItemView, ListView, SlideView } from "./api";
 import { croppedSvg, croppedView } from "./widgetPreview";
 
 const SVG = '<svg viewBox="0 0 1920 1080" width="1920pt" height="1080pt" xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>';
@@ -29,11 +29,18 @@ const field = (owner: string, widget: string, x: number, y: number): FieldView =
   owner, owner_kind: "element", widget, field: "title", kind: "plain", label: null, text: "T", empty: false,
   bound: false, side: null, x, y, w: 50, h: 20, ax: x - 10, aw: 300, style: null,
 });
-const slideView = (fields: FieldView[]) => ({
+const slideView = (fields: FieldView[], items: ItemView[] = [], lists: ListView[] = []) => ({
   slide: { id: "apercu", kind: "blank", params: {} }, page: 1, hash: "h", width: 1920, height: 1080,
-  targets: [{ id: "x", kind: "kpi", free: false, x: 0, y: 0, w: 1, h: 1 }], fields,
+  targets: [{ id: "x", kind: "kpi", free: false, x: 0, y: 0, w: 1, h: 1 }], fields, items, lists,
   zone: { page: 1, x: 0, y: 0, w: 1920, h: 1080, grid: null },
 }) as unknown as SlideView;
+const item = (owner: string, owner_kind: "element" | "slide", x: number, y: number): ItemView => ({
+  owner, owner_kind, list: "etapes", item: "d0", index: 0, len: 1, min: 0, max: 8, item_label: null, first_text: "date",
+  x, y, w: 100, h: 50,
+});
+const list = (owner: string, owner_kind: "element" | "slide"): ListView => ({
+  owner, owner_kind, list: "etapes", len: 1, min: 0, max: 8, item_label: null, first_text: "date",
+});
 
 describe("croppedView", () => {
   test("un widget d'élément : ses champs dans le repère de sa boîte, à sa taille", () => {
@@ -53,5 +60,17 @@ describe("croppedView", () => {
     expect(v.fields.map((f) => f.widget)).toEqual(["kpi"]);
     expect(v.targets).toEqual([]);
     expect(v.zone).toBeNull();
+  });
+
+  test("un widget d'élément : ses items dans le repère de sa boîte, l'élément pour seule cible, sur toute l'image", () => {
+    const v = croppedView(slideView([], [item("e", "element", 150, 230)], [list("e", "element")]), { x: 100, y: 200, w: 600, h: 300 }, "kpi");
+    expect(v.items.map((it) => [it.x, it.y, it.w, it.h])).toEqual([[50, 30, 100, 50]]);
+    expect(v.targets).toEqual([{ id: "e", kind: "kpi", free: false, x: 0, y: 0, w: 600, h: 300 }]);
+  });
+
+  test("un widget de slide : ses items tels quels, sans cible", () => {
+    const v = croppedView(slideView([], [item("apercu", "slide", 150, 230)], [list("apercu", "slide")]), null, "titre");
+    expect(v.items.map((it) => [it.x, it.y])).toEqual([[150, 230]]);
+    expect(v.targets).toEqual([]);
   });
 });

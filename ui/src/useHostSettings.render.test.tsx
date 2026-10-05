@@ -221,6 +221,30 @@ describe("useHostSettings", () => {
     expect(m.out.toasts).toEqual(["Error: refusé"]);
   });
 
+  test("l'issue d'un réglage est posée pendant l'envoi : fausse si la session refuse, vraie sinon", async () => {
+    const { fake } = memory({});
+    let refuse = true;
+    stub(fake, "hostSettings", async () => surface(HOST_WIDGET));
+    stub(fake, "editExampleList", async () => {
+      if (refuse) throw new Error("refusé");
+      return snapshot();
+    });
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "frise" });
+    const change = action({ key: "etapes", field: 0, change: { op: "remove", item: "d0" } });
+    m.out.h!.onAction(m.out.h!.surface!, change);
+    expect(await m.out.h!.outcome.current).toBe(false);
+    refuse = false;
+    m.out.h!.onAction(m.out.h!.surface!, change);
+    expect(await m.out.h!.outcome.current).toBe(true);
+  });
+
+  test("une action d'une surface remplacée a une issue fausse", async () => {
+    const { fake } = counted(HOST_WIDGET);
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "frise" });
+    m.out.h!.onAction(surface(HOST_WIDGET), action({ key: "title", value: "x" }));
+    expect(await m.out.h!.outcome.current).toBe(false);
+  });
+
   test("un refus de la session relit la surface et la reconstruit", async () => {
     const { fake, reads } = counted(HOST_WIDGET);
     stub(fake, "setExampleValue", async () => {

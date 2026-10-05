@@ -69,6 +69,7 @@ mod views;
 mod widget_examples;
 mod widget_params;
 mod widget_preview;
+mod widget_preview_items;
 mod widgets_deck;
 mod widgets_edit;
 mod workspace;

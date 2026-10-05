@@ -1,7 +1,7 @@
 //! Contrôle d'un sous-arbre inséré (`add_element`, `add_slide`,
 //! `replace_element`) : chaque paramètre déclaré et de la forme de son type,
 //! chaque genre connu et de la bonne catégorie, chaque enfant accepté par
-//! son slot. La profondeur est contrôlée avant ([`check_depth`](super)) :
+//! son slot, chaque liste dans ses bornes de taille. La profondeur est contrôlée avant ([`check_depth`](super)) :
 //! la récursion est bornée par [`MAX_SLOT_DEPTH`](crate::MAX_SLOT_DEPTH).
 
 use crate::error::{ChoiceOutOfRangeSnafu, OpError, ParamTypeSnafu, SlotRejectsSnafu};
@@ -9,6 +9,7 @@ use crate::params::{ParamValue, Params};
 use crate::validate::{Fit, fits};
 use crate::widget::{Category, ParamType, WidgetRegistry};
 
+use super::list::ListSpec;
 use super::{declared, widget_of};
 
 /// Contrôle `params` contre le widget `kind` (de catégorie `category`), puis
@@ -28,6 +29,9 @@ pub(super) fn check_params(
                 return Err(ChoiceOutOfRangeSnafu { param: name, value: s }.build().into());
             }
             _ => return Err(ParamTypeSnafu { param: name, expected: expected(&p.ty) }.build().into()),
+        }
+        if let (Some(spec), ParamValue::List(items)) = (ListSpec::of(name, &p.ty), value) {
+            spec.sizes_fit(items)?;
         }
         if let (ParamType::Slot { accepts, .. }, ParamValue::Slot(children)) = (&p.ty, value) {
             for child in children {

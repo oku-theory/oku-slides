@@ -37,17 +37,42 @@ const surface: Surface = {
   ] as unknown as A2uiMessage[],
 };
 
-async function mount() {
+/** Un tableau de liste d'une ligne, lié à `/f0`, dont l'action part avec le changement. */
+const listSurface: Surface = {
+  ...surface,
+  messages: [
+    surface.messages[0],
+    {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "host-widget",
+        components: [{
+          id: "root", component: "ListTable", label: "Étapes", rows: { path: "/f0" }, change: { path: "/f0-change" },
+          markdown: { path: "/f0-markdown" }, columns: [{ key: "date", label: "date", kind: "text", options: [] }], min: 0,
+          palette: [], action: { event: { name: "param", context: { change: { path: "/f0-change" }, key: "etapes" } } },
+        }],
+      },
+    },
+    { version: "v0.9", updateDataModel: { surfaceId: "host-widget", value: { f0: [{ id: "d0", date: "2019" }], "f0-change": null, "f0-markdown": {} } } },
+  ] as unknown as A2uiMessage[],
+};
+
+async function mount(shown: Surface = surface, answer: Promise<boolean> | null = null) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const actions: [string, string][] = [];
+  const outcome = { current: null as Promise<boolean> | null };
   await act(async () =>
     root.render(
       createElement(HostSettings, {
-        surface,
-        onAction: (s: Surface, a: A2uiClientAction) => actions.push([s.id, a.name]),
+        surface: shown,
+        onAction: (s: Surface, a: A2uiClientAction) => {
+          actions.push([s.id, a.name]);
+          outcome.current = answer;
+        },
+        outcome,
         onError: () => {},
       }),
     ),
@@ -67,4 +92,17 @@ test("HostSettings rend la surface et route ses actions avec elle", async () => 
   const { host, actions } = await mount();
   await act(async () => host.querySelector("button")!.click());
   expect(actions).toEqual([["host-widget", "param"]]);
+});
+
+test("HostSettings rend aux champs l'issue de leurs actions : une cellule refusée revient à sa valeur", async () => {
+  const { host, actions } = await mount(listSurface, Promise.resolve(false));
+  const cell = host.querySelector<HTMLInputElement>("tbody input")!;
+  await act(async () => {
+    cell.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(cell, "2020");
+    cell.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => cell.blur());
+  expect(actions).toEqual([["host-widget", "param"]]);
+  expect(host.querySelector<HTMLInputElement>("tbody input")!.value).toBe("2019");
 });

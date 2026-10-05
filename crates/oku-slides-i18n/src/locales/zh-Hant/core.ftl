@@ -66,6 +66,7 @@ widget-fault-empty-list = 小工具 { $widget }：清單至少需要一欄
 widget-fault-column-type = 小工具 { $widget }：清單的欄可以是 plain、rich、number、flag、choice 或 asset；若每項需要自由內容，請使用帶子小工具的 p.slot
 widget-fault-reserved-name = 小工具 { $widget }：保留名稱：id、kind，或包含 / 的名稱
 widget-fault-list-bounds = 小工具 { $widget }：清單的最大值小於其最小值
+widget-fault-list-default-too-large = 小工具 { $widget }：清單的預設值超出清單的大小限制
 widget-incompatible-override = 小工具 { $widget } 取代了內建小工具，但更改或移除了其參數 { $param }
 widget-incompatible-category = 小工具 { $widget } 以不同的類別取代了內建小工具
 issue-empty-item-id = 清單 { $param } 中有項目沒有識別碼

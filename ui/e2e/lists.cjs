@@ -1,8 +1,12 @@
-// Frise : ajouter une étape sur la slide, la saisir, la déplacer (clavier et glisser ⋮⋮),
-// la supprimer puis annuler. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
-// (avant widgets.cjs : le serveur n'est pas encore en mode modèles ; la frise reste sur s-constat).
+// Frise (widget de pack des tests, fixtures/widgets/frise-test.typ) : ajouter une étape sur la
+// slide, la saisir, la déplacer (clavier et glisser ⋮⋮), la supprimer puis annuler.
+// Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
+// (avant widgets.cjs : l'onglet est encore en mode deck ; la frise reste sur s-constat).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const FRISE = fs.readFileSync(path.join(__dirname, '../../fixtures/widgets/frise-test.typ'), 'utf8');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -32,7 +36,10 @@ const waitLen = (p, n, why) => until(p, async () => (await ids(p)).length === n,
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
-  // La frise est créée par l'API, avec ses quatre étapes par défaut (d0…d3).
+  // Le widget `frise` est écrit dans le pack du deck (set_widget en mode deck), puis
+  // l'élément est créé par l'API, avec ses quatre étapes par défaut (d0…d3).
+  const set = await post(p, '/api', { tab: 't-1', req: { cmd: 'set_widget', name: 'frise', source: FRISE } });
+  assert.ok(!set?.error, JSON.stringify(set));
   const made = await post(p, '/api', {
     tab: 't-1',
     req: {
@@ -45,7 +52,7 @@ const waitLen = (p, n, why) => until(p, async () => (await ids(p)).length === n,
   assert.ok(!made.error, JSON.stringify(made));
   await p.reload();
   await p.waitForSelector('.stage img');
-  assert.deepEqual(await ids(p), ['d0', 'd1', 'd2', 'd3']);
+  assert.deepEqual(await ids(p), ['d0', 'd1', 'd2', 'd3'], 'les quatre étapes par défaut sont amorcées');
 
   // Aller à s-constat, sélectionner la frise.
   const order = (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).slides.map((s) => s.id);

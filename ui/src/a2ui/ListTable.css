@@ -19,5 +19,6 @@
 .lt-remove { cursor: pointer; opacity: 0; }
 .lt-table tr:hover .lt-remove, .lt-remove:focus-visible { opacity: 1; }
 .lt-remove:disabled { cursor: default; opacity: 0; }
-.lt-popover { padding: 8px; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); background: var(--papier-surface, #fff); box-shadow: var(--shadow-floating); }
+/* Sous sa cellule (place calculée par RichPopover), sans déborder du tableau. */
+.lt-popover { position: absolute; z-index: 3; left: 0; top: 0; width: min(24rem, 100%); box-sizing: border-box; padding: 8px; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); background: var(--papier-surface, #fff); box-shadow: var(--shadow-floating); }
 .lt-add { align-self: flex-start; }

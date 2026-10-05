@@ -1,18 +1,22 @@
 // Poignées des items de liste sur la scène : « + » entre les items, « × »
 // et ⋮⋮ sur l'item survolé ; « + » au centre d'un objet dont la liste est
-// vide. Montrées pour l'élément sélectionné ou en édition.
+// vide. Montrées pour l'élément sélectionné ou en édition, sinon pour la slide.
+// Chaque geste rend un changement de liste (`onListOp`) : la scène du deck
+// l'applique au deck, l'aperçu d'un widget au cas d'exemple affiché.
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import type { ItemView, ListView, Op, SlideView } from "./api";
+import type { ItemView, ListView, SlideView } from "./api";
 import { newId } from "./deck";
 import { t } from "./i18n";
 import type { FieldKey } from "./stageFields";
 import { fieldKey } from "./stageFields";
-import type { Axis } from "./stageItems";
-import { dropIndex, groupAxis, groups, insertPoints, itemName, listOps } from "./stageItems";
+import type { Axis, OnListOp } from "./stageItems";
+import { dropTarget, groupAxis, groups, insertPoints, itemName, moveItemTo, within } from "./stageItems";
 
 /** Marge autour d'un item où ses poignées restent visibles (px écran). */
 const HOVER_SLACK = 16;
+/** Côté d'un « + » (px écran, voir `.item-insert`). */
+const INSERT_SIZE = 24;
 
 // Les ids semés (d0…) se répètent d'une liste à l'autre : la liste fait partie de la clé.
 const handleKey = (it: ItemView) => `${it.list}/${it.item}`;
@@ -28,13 +32,13 @@ interface Drag {
 /** Ces poignées ne commencent ni sélection ni glisser d'objet en dessous. */
 const stop = (e: React.PointerEvent) => e.stopPropagation();
 
-export function ItemLayer({ view, scale, active, onApply, onInserted }: {
+export function ItemLayer({ view, scale, active, onListOp, onInserted }: {
   view: SlideView;
   scale: number;
   /** Élément sélectionné, ou propriétaire du champ en édition. */
   active: string | null;
-  /** Rend éventuellement une promesse : `false` si l'hôte a refusé les ops. */
-  onApply: (label: string, ops: Op[]) => void | Promise<boolean>;
+  /** Un changement de liste ; rend éventuellement une promesse : `false` si l'hôte l'a refusé. */
+  onListOp: OnListOp;
   /** Champ du nouvel item à ouvrir, dès qu'une vue le montre. */
   onInserted: (key: FieldKey) => void;
 }) {
@@ -76,15 +80,13 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
 
   const insert = (l: Omit<ListView, "len" | "min" | "max">, index: number) => {
     const id = newId("i");
-    const done = onApply(t("ui-undo-list-add", { item: itemName(l) }), listOps(view, l, { op: "insert", index, id }));
+    const done = onListOp(l, l.list, { op: "insert", index, id }, t("ui-undo-list-add", { item: itemName(l) }));
     // Le champ du nouvel item ne s'ouvre qu'une fois l'insertion acceptée.
     void Promise.resolve(done).then((ok) => {
       if (ok !== false && l.first_text) onInserted(fieldKey({ owner: l.owner, field: `${l.list}/${id}/${l.first_text}` }));
     });
   };
-  const move = (it: ItemView, to: number) => {
-    if (to !== it.index) onApply(t("ui-undo-list-move", { item: itemName(it) }), listOps(view, it, { op: "move", item: it.item, to }));
-  };
+  const move = (it: ItemView, to: number) => moveItemTo(onListOp, it, to);
   const along = (e: React.PointerEvent, axis: Axis) => {
     const r = layer.current?.getBoundingClientRect();
     return axis === "x" ? (e.clientX - (r?.left ?? 0)) / scale : (e.clientY - (r?.top ?? 0)) / scale;
@@ -92,8 +94,8 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
   const endDrag = () => {
     if (!drag) return;
     setDrag(null);
-    // Le rang final se compte parmi les autres items : l'item glissé n'y est plus.
-    move(drag.it, dropIndex(drag.group.filter((x) => x.item !== drag.it.item), drag.axis, drag.at));
+    const target = dropTarget(drag.group, drag.it, drag.axis, drag.at);
+    if (target) move(drag.it, target.index);
   };
 
   const plus = (key: string, x: number, y: number, label: string, onClick: () => void) => (
@@ -102,7 +104,8 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
       type="button"
       className="item-insert"
       data-item-insert
-      style={{ left: px(x), top: px(y) }}
+      // Centré sur son point, sans sortir de la page.
+      style={{ left: within(px(x), px(view.width), INSERT_SIZE), top: within(px(y), px(view.height), INSERT_SIZE) }}
       aria-label={label}
       title={label}
       onPointerDown={stop}
@@ -112,18 +115,15 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
     </button>
   );
 
-  // Repère du glisser : le point d'insertion le plus proche du pointeur.
+  // Repère du glisser : le point d'insertion du rang où le lâcher mettrait l'item.
   const marker = (() => {
-    if (!drag) return null;
-    const pts = insertPoints(drag.group, drag.axis);
-    const key = drag.axis === "x" ? "x" : "y";
-    const best = pts.reduce((a, b) => (Math.abs(b[key] - drag.at) < Math.abs(a[key] - drag.at) ? b : a), pts[0]);
-    if (!best) return null;
+    const best = drag && dropTarget(drag.group, drag.it, drag.axis, drag.at);
+    if (!drag || !best) return null;
     const size = drag.axis === "x" ? { width: 3, height: px(drag.it.h) } : { width: px(drag.it.w), height: 3 };
     return <span className="item-drop" style={{ left: px(best.x), top: px(best.y), ...size }} />;
   })();
 
-  const empty = view.lists.filter((l) => l.owner === active && l.len === 0 && (l.max === null || l.max > 0));
+  const empty = view.lists.filter((l) => l.owner === active && l.len === 0 && l.max > 0);
 
   return (
     <div className="items" ref={layer}>
@@ -131,7 +131,7 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
         const first = g[0];
         const axis = groupAxis(view, g);
         const name = itemName(first);
-        const full = first.max !== null && first.len >= first.max;
+        const full = first.len >= first.max;
         const removable = first.len > first.min;
         const moveLabel = t("ui-list-move", { item: name });
         const removeLabel = t("ui-list-remove", { item: name });
@@ -154,7 +154,7 @@ export function ItemLayer({ view, scale, active, onApply, onInserted }: {
                     aria-label={removeLabel}
                     title={removeLabel}
                     onPointerDown={stop}
-                    onClick={() => onApply(t("ui-undo-list-remove", { item: name }), listOps(view, it, { op: "remove", item: it.item }))}
+                    onClick={() => onListOp(it, it.list, { op: "remove", item: it.item }, t("ui-undo-list-remove", { item: name }))}
                   >
                     ×
                   </button>

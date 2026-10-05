@@ -124,3 +124,112 @@ fn list_value_null_clears_and_duplicates_fail() {
     assert_that!(list_value(&spec, json!([{ "id": "a" }, { "id": "a" }]))).is_err();
     assert_that!(list_value(&spec, json!([{ "date": "x" }]))).is_err();
 }
+
+/// Une liste à une colonne `plain` (`t`) et une colonne `rich` (`r`).
+fn texts(max: Option<usize>) -> ParamType {
+    ParamType::List {
+        item: vec![column("t", ParamType::Plain, None), column("r", ParamType::Rich, None)],
+        item_label: None,
+        min: 0,
+        max,
+    }
+}
+fn set(field: &str, value: serde_json::Value) -> ListOp {
+    ListOp::SetField { item: "a".into(), field: field.into(), value }
+}
+fn insert_with(field: &str, value: serde_json::Value) -> ListOp {
+    let mut values = Map::new();
+    values.insert(field.into(), value);
+    ListOp::Insert { index: None, id: "n".into(), values }
+}
+/// `n` paragraphes d'un caractère.
+fn paragraphs(n: usize) -> serde_json::Value {
+    json!((0..n).map(|_| json!({ "runs": [{ "t": "x" }] })).collect::<Vec<_>>())
+}
+/// Un paragraphe dont le JSON fait `bytes` octets.
+fn rich_of_bytes(bytes: usize) -> serde_json::Value {
+    let overhead = json!([{ "runs": [{ "t": "" }] }]).to_string().len();
+    json!([{ "runs": [{ "t": "x".repeat(bytes - overhead) }] }])
+}
+fn rows(n: usize) -> serde_json::Value {
+    json!((0..n).map(|i| json!({ "id": format!("i{i}") })).collect::<Vec<_>>())
+}
+
+#[rstest::rstest]
+#[case::plain_at_limit("t", json!("x".repeat(PLAIN_MAX)), true)]
+#[case::plain_over_limit("t", json!("x".repeat(PLAIN_MAX + 1)), false)]
+#[case::rich_paragraphs_at_limit("r", paragraphs(RICH_PARAGRAPHS_MAX), true)]
+#[case::rich_paragraphs_over_limit("r", paragraphs(RICH_PARAGRAPHS_MAX + 1), false)]
+#[case::rich_bytes_at_limit("r", rich_of_bytes(RICH_BYTES_MAX), true)]
+#[case::rich_bytes_over_limit("r", rich_of_bytes(RICH_BYTES_MAX + 1), false)]
+fn apply_cell_size_is_bounded_on_set_field_and_insert(
+    #[case] field: &str,
+    #[case] value: serde_json::Value,
+    #[case] accepted: bool,
+) {
+    let ty = texts(None);
+    let spec = ListSpec::of("l", &ty).unwrap();
+    let mut l = items(&["a"]);
+    assert_that!(set(field, value.clone()).apply(&mut l, &spec).is_ok()).is_equal_to(accepted);
+    assert_that!(insert_with(field, value.clone()).apply(&mut l, &spec).is_ok()).is_equal_to(accepted);
+    let mut row = json!({ "id": "a" });
+    row[field] = value;
+    assert_that!(list_value(&spec, json!([row])).is_ok()).is_equal_to(accepted);
+}
+
+#[test]
+fn apply_cell_over_limit_keeps_items_and_says_invalid_value() {
+    let ty = texts(None);
+    let spec = ListSpec::of("l", &ty).unwrap();
+    let mut l = items(&["a"]);
+    let e = set("t", json!("x".repeat(PLAIN_MAX + 1))).apply(&mut l, &spec).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(crate::OpErrorKind::InvalidValue);
+    assert_that!(l).is_equal_to(items(&["a"]));
+}
+
+#[rstest::rstest]
+#[case::at_limit(ITEM_ID_MAX, true)]
+#[case::over_limit(ITEM_ID_MAX + 1, false)]
+fn apply_insert_id_length_is_bounded(#[case] chars: usize, #[case] accepted: bool) {
+    let ty = texts(None);
+    let spec = ListSpec::of("l", &ty).unwrap();
+    // Des caractères de deux octets : la borne compte des caractères.
+    let id = "é".repeat(chars);
+    let mut l = Vec::new();
+    let op = ListOp::Insert { index: None, id: id.clone(), values: Map::new() };
+    assert_that!(op.apply(&mut l, &spec).is_ok()).is_equal_to(accepted);
+    assert_that!(list_value(&spec, json!([{ "id": id }])).is_ok()).is_equal_to(accepted);
+}
+
+#[rstest::rstest]
+#[case::default_bound_at_limit(None, LIST_ITEMS_MAX, true)]
+#[case::default_bound_over_limit(None, LIST_ITEMS_MAX + 1, false)]
+#[case::schema_max_at_limit(Some(3), 3, true)]
+#[case::schema_max_over_limit(Some(3), 4, false)]
+fn list_value_item_count_is_bounded(#[case] max: Option<usize>, #[case] n: usize, #[case] accepted: bool) {
+    let ty = texts(max);
+    let spec = ListSpec::of("l", &ty).unwrap();
+    assert_that!(list_value(&spec, rows(n)).is_ok()).is_equal_to(accepted);
+}
+
+#[test]
+fn apply_insert_into_a_list_at_the_default_bound_fails() {
+    let ty = texts(None);
+    let spec = ListSpec::of("l", &ty).unwrap();
+    let mut l: Vec<ListItem> =
+        (0..LIST_ITEMS_MAX).map(|i| ListItem { id: format!("i{i}"), values: Params::default() }).collect();
+    assert_that!(insert(None, "n").apply(&mut l, &spec)).is_err();
+    assert_that!(l.len()).is_equal_to(LIST_ITEMS_MAX);
+}
+
+#[test]
+fn default_items_with_a_cell_over_limit_fails() {
+    let p = ParamSchema {
+        name: "l".into(),
+        label: None,
+        ty: texts(None),
+        default: Some(json!([{ "t": "x".repeat(PLAIN_MAX + 1) }])),
+        bind: None,
+    };
+    assert_that!(default_items(&p)).is_err();
+}

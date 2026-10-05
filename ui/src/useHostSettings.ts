@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Snapshot, Surface, TabApi } from "./api";
+import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui } from "./agent/quick";
 
@@ -23,6 +24,11 @@ export interface HostSettings {
    * est la surface affichée et porte une clé ; une surface remplacée n'envoie rien.
    */
   onAction(s: Surface, a: A2uiClientAction): boolean;
+  /**
+   * Issue de l'action en cours d'envoi, posée par `onAction` (à fournir aux champs par
+   * `ActionOutcomeContext`) : vraie si la session l'a acceptée ; fausse si refusée ou si rien n'est parti.
+   */
+  outcome: ActionOutcome;
 }
 
 /** Réglages de l'hôte : relus quand la slide, le widget, son cas courant ou le deck changent. */
@@ -44,6 +50,7 @@ export function useHostSettings(
   // Relecture forcée après un refus : la surface est reconstruite même si son contenu n'a pas changé
   // (le modèle de données du champ porte la valeur refusée).
   const [sync, setSync] = useState(0);
+  const outcome = useRef<Promise<boolean> | null>(null);
   const active = !!current && !!snap?.editing && !snap.history;
   const slide = snap?.slides.find((s) => s.id === current);
   // Tout ce qui peut changer la carte : pack, cas d'exemple, slide (rendu, nom), annulation.
@@ -80,11 +87,12 @@ export function useHostSettings(
   const onAction = (s: Surface, a: A2uiClientAction): boolean => {
     if (s.id !== HOST_TEMPLATE && s.id !== HOST_WIDGET) return false;
     const now = shownRef.current;
+    outcome.current = Promise.resolve(false);
     if (!now || s !== now.surface) return true;
     const { name, context } = fromA2ui(a);
     const field = context.key;
     if (name !== "param" || typeof field !== "string") return true;
-    void run(
+    outcome.current = run(
       s.id === HOST_WIDGET && now.widget
         ? // Le cas d'exemple que montre la surface.
           exampleValue(api, now.widget, now.example, field, context)
@@ -92,10 +100,11 @@ export function useHostSettings(
     ).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.
       if (!done) setSync((n) => n + 1);
+      return !!done;
     });
     return true;
   };
-  return { surface: shown?.surface ?? null, onAction };
+  return { surface: shown?.surface ?? null, onAction, outcome };
 }
 
 /**

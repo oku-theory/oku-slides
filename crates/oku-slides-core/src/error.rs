@@ -298,6 +298,8 @@ pub(crate) enum ReplicaInner {
     Export { source: loro::LoroEncodeError, backtrace: Backtrace },
     #[snafu(display("deck (de)serialization failed"))]
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("list outside the widget params"))]
+    ListOutsideParams { backtrace: Backtrace },
     #[snafu(display("the two replicas have no common origin"))]
     Unrelated { backtrace: Backtrace },
     #[snafu(display("unsupported deck version: {found}"))]
@@ -316,6 +318,7 @@ impl ReplicaError {
             ReplicaInner::Loro { .. }
             | ReplicaInner::TextUpdate { .. }
             | ReplicaInner::Export { .. }
+            | ReplicaInner::ListOutsideParams { .. }
             | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
         }
     }
@@ -361,6 +364,8 @@ pub enum SchemaFault {
     ReservedName,
     /// Le `max` d'une liste est sous son `min`.
     ListBounds,
+    /// Le défaut d'une liste dépasse ses bornes de taille (items, cellules).
+    ListDefaultTooLarge,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -378,6 +383,7 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::ColumnType => "column type not allowed in a list",
             SchemaFault::ReservedName => "reserved parameter name",
             SchemaFault::ListBounds => "list max below min",
+            SchemaFault::ListDefaultTooLarge => "list default exceeds the list size limits",
         })
     }
 }
@@ -397,6 +403,7 @@ impl SchemaFault {
             SchemaFault::ColumnType => "widget-fault-column-type",
             SchemaFault::ReservedName => "widget-fault-reserved-name",
             SchemaFault::ListBounds => "widget-fault-list-bounds",
+            SchemaFault::ListDefaultTooLarge => "widget-fault-list-default-too-large",
         }
     }
 }

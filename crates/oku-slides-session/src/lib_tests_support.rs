@@ -37,8 +37,9 @@ pub(crate) fn session_with_fixture() -> Session {
     s
 }
 
-/// Un élément `frise` (id `fr`) aux items par défaut `d0`…`d3`, ajouté aux blocs de `s-constat`.
-pub(crate) fn add_frise() -> oku_slides_core::Op {
+/// Un élément `frise` (widget de pack des tests, id `fr`) aux items par défaut
+/// `d0`…`d3`, ajouté aux blocs de `s-constat`.
+fn add_frise() -> oku_slides_core::Op {
     serde_json::from_value(serde_json::json!({
         "op": "add_element",
         "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
@@ -46,4 +47,17 @@ pub(crate) fn add_frise() -> oku_slides_core::Op {
         "element": { "id": "fr", "kind": "frise" }
     }))
     .unwrap()
+}
+
+/// Le fixture, avec le widget de pack `frise` des tests et un élément `fr` sur `s-constat`.
+pub(crate) fn session_with_frise() -> Session {
+    let mut s = session_with_fixture();
+    crate::test_support::set_frise_widget(&mut s);
+    add_frise_to(&mut s);
+    s
+}
+
+/// Ajoute l'élément `fr` (widget `frise`) sur `s-constat`.
+pub(crate) fn add_frise_to(s: &mut Session) {
+    s.apply("frise", vec![add_frise()], None).unwrap();
 }

@@ -1935,7 +1935,7 @@
         {
          "runs": [
           {
-           "t": "In the widget editor, a table: add, remove, reorder (Alt+↑/↓ on a row), paste TSV. On the slide: + between items, × to remove, ⋮⋮ to drag. The agent edits by id with edit_list."
+           "t": "In the widget editor, a table: add, remove, reorder (⌥↑/↓ on a row), paste TSV. On the slide: + between items, × to remove, ⋮⋮ to drag. The agent edits by id with edit_list."
           }
          ]
         }

@@ -331,22 +331,8 @@ fn validate_issue_display_names_slide_and_element() {
     assert_that!(run(&d)[0].to_string()).is_equal_to("[s/] empty identifier".to_owned());
 }
 
-/// Le registre de base, plus le widget `liste` des tests et un widget `bornes`
-/// à une liste bornée (1 à 2 items) et une liste à colonne `asset`.
-fn list_registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let mut probe: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let liste: Value = serde_json::from_str(crate::test_registry::LISTE).unwrap();
-    let bornes = json!({ "name": "bornes", "category": "element", "params": [
-        { "name": "bornee", "type": "list", "min": 1, "max": 2, "item": [{ "name": "t", "type": "plain" }] },
-        { "name": "images", "type": "list", "item": [{ "name": "img", "type": "asset" }] }
-    ] });
-    probe["base"].as_array_mut().unwrap().extend([liste, bornes]);
-    WidgetRegistry::from_probe(probe).unwrap()
-}
-
 fn validate_element(element: Value, assets: Option<&HashSet<String>>) -> Vec<Issue> {
-    validate(&content("blocks", json!([element])), &list_registry(), assets)
+    validate(&content("blocks", json!([element])), &crate::test_registry::with_list(), assets)
 }
 
 #[test]
@@ -416,7 +402,7 @@ fn validate_list_column_unknown_reports_param_type() {
 #[test]
 fn validate_list_shaped_value_on_a_plain_param_reports_param_type() {
     let d = content("blocks", json!([{ "id": "c", "kind": "card", "params": { "title": [{ "id": "a" }] } }]));
-    let issues = validate(&d, &list_registry(), None);
+    let issues = validate(&d, &crate::test_registry::with_list(), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-param-type", "param", "title"));
 }
@@ -431,4 +417,88 @@ fn validate_list_asset_column_missing_from_sources_reports_it() {
     let issues = validate_element(element, Some(&present));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-missing-asset"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-missing-asset", "asset", "sha256:cd"));
+}
+
+/// Un item de liste dont la colonne `note` porte un seul run.
+fn noted(id: &str, run_: Value) -> Value {
+    json!({ "id": id, "note": [{ "runs": [run_] }] })
+}
+
+/// Un lien non sûr dans la cellule rich d'un item d'une liste d'élément : une issue, portée par l'élément.
+#[rstest]
+#[case::javascript("javascript:alert(1)")]
+#[case::data("data:text/html,x")]
+#[case::vbscript("vbscript:x")]
+#[case::leading_space(" javascript:alert(1)")]
+#[case::uppercase("JAVASCRIPT:alert(1)")]
+fn validate_list_cell_with_unsafe_link_is_reported_on_the_element(#[case] link: &str) {
+    let element = json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+        noted("a", json!({ "t": "x", "link": link }))
+    ] } });
+    let issues = validate_element(element, None);
+    assert_that!(issues.len()).is_equal_to(1);
+    assert_that!(issues[0].message).is_equal_to(message("issue-unsupported-link", "link", link));
+    assert_that!(issues[0].slide.as_deref()).is_equal_to(Some("s"));
+    assert_that!(issues[0].element.as_deref()).is_equal_to(Some("f"));
+}
+
+#[test]
+fn validate_list_cell_with_safe_links_has_no_issue() {
+    let element = json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+        noted("a", json!({ "t": "x", "link": "https://oku.test" })),
+        noted("b", json!({ "t": "y", "link": "MAILTO:a@b.c" }))
+    ] } });
+    assert_that!(validate_element(element, None)).is_empty();
+}
+
+#[test]
+fn validate_list_cell_with_highlight_zero_is_reported_on_the_element() {
+    let element = json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+        noted("a", json!({ "t": "x", "highlight": 0 }))
+    ] } });
+    let issues = validate_element(element, None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-highlight-zero"]);
+    assert_that!(issues[0].element.as_deref()).is_equal_to(Some("f"));
+}
+
+#[test]
+fn validate_list_cell_with_valid_highlight_has_no_issue() {
+    let element = json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+        noted("a", json!({ "t": "x", "highlight": 1 }))
+    ] } });
+    assert_that!(validate_element(element, None)).is_empty();
+}
+
+#[test]
+fn validate_list_walks_every_item() {
+    let element = json!({ "id": "f", "kind": "liste", "params": { "etapes": [
+        noted("a", json!({ "t": "ok", "link": "https://oku.test" })),
+        noted("b", json!({ "t": "x", "link": "javascript:b" }))
+    ] } });
+    let issues = validate_element(element, None);
+    assert_that!(issues.len()).is_equal_to(1);
+    assert_that!(issues[0].message).is_equal_to(message("issue-unsupported-link", "link", "javascript:b"));
+}
+
+#[test]
+fn validate_list_on_a_slide_reports_unsafe_links_of_both_rich_columns_on_the_slide() {
+    let d = deck(json!([{ "id": "s", "kind": "chrono", "params": { "etapes": [
+        { "id": "a", "note": [{ "runs": [{ "t": "x", "link": "javascript:n" }] }],
+          "suite": [{ "runs": [{ "t": "y", "link": "data:s" }] }] }
+    ] } }]));
+    let issues = validate(&d, &crate::test_registry::with_list(), None);
+    assert_that!(issues.len()).is_equal_to(2);
+    assert_that!(issues[0].message).is_equal_to(message("issue-unsupported-link", "link", "javascript:n"));
+    assert_that!(issues[1].message).is_equal_to(message("issue-unsupported-link", "link", "data:s"));
+    assert_that!(issues.iter().all(|i| i.slide.as_deref() == Some("s") && i.element.is_none())).is_true();
+}
+
+#[rstest]
+#[case::empty_list(json!({ "etapes": [] }))]
+#[case::absent_list(json!({}))]
+#[case::empty_rich_cell(json!({ "etapes": [{ "id": "a", "note": [] }] }))]
+#[case::paragraph_without_runs(json!({ "etapes": [{ "id": "a", "note": [{ "runs": [] }] }] }))]
+fn validate_list_without_rich_content_has_no_issue(#[case] params: Value) {
+    let element = json!({ "id": "f", "kind": "liste", "params": params });
+    assert_that!(validate_element(element, None)).is_empty();
 }

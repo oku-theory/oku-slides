@@ -33,7 +33,10 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
-pub use list::{ListOp, ListSpec, default_items};
+pub(crate) use list::{DefaultFault, default_fault};
+pub use list::{
+    ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
+};
 pub use value::{GRID_TRACKS, param_value};
 
 /// Refus d'une grille ou d'une cellule sur un slot `flow` : dit comment

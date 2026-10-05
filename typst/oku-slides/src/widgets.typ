@@ -3,7 +3,7 @@
 
 #import "tokens.typ": *
 #import "params.typ" as p
-#import "widget.typ": widget, field, list-item, _is-empty
+#import "widget.typ": widget, field, _is-empty
 #import "content.typ": _text-args, _text-over
 #import "slides.typ": card, slide, title-slide, chapter, toc, end-slide, blank-slide
 #import "zone.typ": free-area, zone-marker, default-grid
@@ -88,44 +88,6 @@
   }
 })
 
-// Frise chronologique : une colonne par étape (date, point, texte), une ligne
-// d'accent passant par les points.
-#let _frise = widget("frise", label: "Frise chronologique",
-  params: (etapes: p.list(label: "Étapes", item-label: "étape", min: 0, max: 8,
-    item: (date: p.plain(label: "Date"), texte: p.plain(label: "Étape", default: "Nouvelle étape")),
-    default: ((date: "2019", texte: "Création"), (date: "2021", texte: "Premier client"),
-      (date: "2023", texte: "International"), (date: "2025", texte: "Série B")))),
-  (args, ctx) => {
-    let t = ctx.tokens
-    let accent = color-of(t, "accent")
-    set text(size: size-of(t, "body"))
-    let (date-h, gap, r) = (2.4em, 0.5em, 0.45em)
-    // Un champ vide (étape tout juste ajoutée) garde une boîte d'une ligne,
-    // mesurée et marquée vide : l'app y pose son placeholder et l'édite.
-    let cell(c, name, v) = if v == none or v == "" {
-      field(c, name, box(width: 3em, hide[0]), empty: true)
-    } else { field(c, name, v) }
-    // Une étape : date en gras au-dessus, point, texte ; centrée dans sa colonne.
-    let step(date, texte) = block(width: 100%, align(center, stack(spacing: gap,
-      box(height: date-h, align(bottom, text(weight: "bold", date))),
-      circle(radius: r, fill: accent),
-      texte)))
-    block(width: 100%, {
-      // La ligne passe par le centre des points : sous la date et l'espacement.
-      place(top + left, dy: date-h + gap + r, line(length: 100%, stroke: 1.5pt + accent))
-      if args.etapes.len() == 0 {
-        // Sans étape, la frise garde la hauteur d'une rangée : l'élément reste
-        // sélectionnable et la ligne passe là où seraient les points.
-        hide(step("0", "0"))
-      } else {
-        // Chaque item occupe toute sa colonne : sa boîte couvre l'étape centrée.
-        grid(columns: (1fr,) * args.etapes.len(), column-gutter: 0.5em,
-          ..args.etapes.map(e => list-item(ctx, "etapes", e,
-            c => step(cell(c, "date", e.at("date", default: none)), cell(c, "texte", e.at("texte", default: none))))))
-      }
-    })
-  })
-
 // Champs d'une slide : `wrap` des fonctions de slide, posé par le widget.
 #let _fields(ctx) = (name, body, style) => field(ctx, name, body, style: style)
 
@@ -183,5 +145,5 @@
   params: (grid: p.grid(default: default-grid), elements: p.slot(mode: "free")),
   (args, ctx) => blank-slide(free-area(ctx.tokens, args.elements, grid: args.grid), id: ctx.id))
 
-#let registry = (_text, _card, _image, _shape, _chart, _stack, _canvas, _frise,
+#let registry = (_text, _card, _image, _shape, _chart, _stack, _canvas,
   _title, _toc, _chapter, _content, _end, _blank)

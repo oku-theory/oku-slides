@@ -6,7 +6,11 @@ import "../test/dom";
 // Voir catalog.render.test.tsx : React et la surface se chargent après le DOM.
 const { act } = await import("react");
 const { EditorView } = await import("@codemirror/view");
+const { createElement } = await import("react");
 const { mountSurface, messagesOf } = await import("../test/surface");
+const { ActionOutcomeContext } = await import("./actionOutcome");
+const { deferred } = await import("../test/widgetApi");
+const { popoverPlace } = await import("./ListTable");
 
 type Change = { op: string } & Record<string, unknown>;
 
@@ -31,8 +35,19 @@ function table(o: { rows: unknown[]; min?: number; max?: number; columns?: unkno
   return messagesOf([root], { f0: o.rows, "f0-change": null, "f0-markdown": o.markdown ?? {} });
 }
 
-async function mount(messages: ReturnType<typeof table>) {
-  const m = await mountSurface(messages);
+/**
+ * Monte le tableau ; `outcome` rend l'issue de chaque action, comme les réglages de l'hôte
+ * (sans lui, aucun fournisseur : toute action est acceptée).
+ */
+async function mount(messages: ReturnType<typeof table>, outcome?: () => Promise<boolean>) {
+  const box = { current: null as Promise<boolean> | null };
+  const m = outcome
+    ? await mountSurface(
+        messages,
+        (s) => createElement(ActionOutcomeContext.Provider, { value: box }, s),
+        () => (box.current = outcome()),
+      )
+    : await mountSurface(messages);
   /** Les changements reçus par l'action, dans l'ordre. */
   const changes = () => m.actions.map((a) => a.context?.change as Change);
   return { ...m, changes };
@@ -161,6 +176,43 @@ describe("ListTable", () => {
     expect(changes().map((c) => c.op)).toEqual(["insert"]);
   });
 
+  test("ListTable : saisie refusée par la session → la cellule revient à la valeur des lignes", async () => {
+    const { host, changes } = await mount(table({ rows: [{ id: "d0", date: "2019" }] }), async () => false);
+    const el = input(host, 0, "date");
+    await typeInto(el, "2020");
+    await blur(el);
+    expect(changes()).toEqual([{ op: "set_field", item: "d0", field: "date", value: "2020" }]);
+    expect(input(host, 0, "date").value).toBe("2019");
+  });
+
+  test("ListTable : Entrée sur la dernière ligne attend l'enregistrement de la cellule avant d'insérer", async () => {
+    const saved = deferred<boolean>();
+    const { host, changes } = await mount(table({ rows: [{ id: "d0", date: "2019" }] }), () => saved.promise);
+    const el = input(host, 0, "date");
+    await typeInto(el, "2020");
+    await key(el, "Enter");
+    expect(changes().map((c) => c.op)).toEqual(["set_field"]);
+    await act(async () => saved.resolve(true));
+    expect(changes().map((c) => c.op)).toEqual(["set_field", "insert"]);
+  });
+
+  test("ListTable : Entrée sur la dernière ligne n'insère rien si l'enregistrement est refusé", async () => {
+    const { host, changes } = await mount(table({ rows: [{ id: "d0", date: "2019" }] }), async () => false);
+    const el = input(host, 0, "date");
+    await typeInto(el, "2020");
+    await key(el, "Enter");
+    expect(changes().map((c) => c.op)).toEqual(["set_field"]);
+  });
+
+  test("ListTable : Entrée sur la dernière ligne n'insère rien si la saisie est invalide", async () => {
+    const columns = [{ key: "n", label: "n", kind: "number", options: [] }];
+    const { host, changes } = await mount(table({ rows: [{ id: "d0", n: 1 }], columns }));
+    const el = input(host, 0, "n");
+    await typeInto(el, "abc");
+    await key(el, "Enter");
+    expect(changes()).toEqual([]);
+  });
+
   test("ListTable : Alt+↓ sur une ligne → move à l'index suivant", async () => {
     const { host, changes } = await mount(table({ rows: [{ id: "d0" }, { id: "d1" }, { id: "d2" }] }));
     const handles = host.querySelectorAll("[data-list-handle]");
@@ -204,6 +256,8 @@ describe("ListTable", () => {
     expect(open.textContent).toBe("Un");
     expect(host.querySelector(".lt-popover")).toBeNull();
     await click(open);
+    // Ancré à sa cellule : il porte son adresse et se place sous elle.
+    expect(host.querySelector(".lt-popover")?.getAttribute("data-anchor")).toBe("d0/texte");
     const content = host.querySelector(".lt-popover .rich-field .cm-content") as HTMLElement;
     const view = EditorView.findFromDOM(content)!;
     expect(view.state.doc.toString()).toBe("**Un**\nDeux");
@@ -212,6 +266,13 @@ describe("ListTable", () => {
     expect(changes()).toEqual([
       { op: "set_field", item: "d0", field: "texte", value: [rows[0].texte[0], { runs: [{ t: "Trois" }] }] },
     ]);
+  });
+
+  test("popoverPlace : sous la cellule, ramené à gauche plutôt que de déborder du tableau", () => {
+    const box = { left: 100, top: 50, width: 300 } as DOMRect;
+    expect(popoverPlace(box, { left: 150, bottom: 90 } as DOMRect, 200)).toEqual({ left: 50, top: 40 });
+    expect(popoverPlace(box, { left: 350, bottom: 120 } as DOMRect, 200)).toEqual({ left: 100, top: 70 });
+    expect(popoverPlace(box, { left: 100, bottom: 90 } as DOMRect, 400)).toEqual({ left: 0, top: 40 });
   });
 
   test("ListTable : colonne asset en lecture seule", async () => {

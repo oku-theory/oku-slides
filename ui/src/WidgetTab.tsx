@@ -11,7 +11,9 @@
  * cas courant (le premier si le cas gardé n'existe plus).
  * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
  * s'éditent sur place, comme sur la slide, et s'écrivent dans le cas courant
- * (un champ lié au deck reste en lecture). Sans vue (échec), l'image seule.
+ * (un champ lié au deck reste en lecture) ; les poignées de ses listes
+ * (« + », « × », ⋮⋮) changent les listes du cas courant, jamais le deck.
+ * Sans vue (échec), l'image seule.
  * Pour Commun, les widgets en erreur à la place de l'aperçu (sans pastilles). Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
  * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
@@ -28,6 +30,7 @@ import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEdi
 import type { WidgetFiles } from "./useWidgetFiles";
 import Stage from "./Stage";
 import { useFieldEditing } from "./useFieldEditing";
+import type { OnListOp } from "./stageItems";
 import { croppedSvg, croppedView } from "./widgetPreview";
 import { COMMON, diagnosticPlace, fileDiagnostics, listedDiagnostics, stateOf, widgetLabel } from "./widgetList";
 
@@ -160,7 +163,7 @@ export default function WidgetTab({
     () => (preview?.view ? croppedView(preview.view, preview.bbox ?? null, name) : null),
     [preview, name],
   );
-  const { editing, setEditing } = useFieldEditing(sceneView);
+  const { editing, setEditing, editKeyWhenShown } = useFieldEditing(sceneView);
   // Un autre cas montré : le champ ouvert était celui du cas d'avant.
   useEffect(() => setEditing(null), [shownCase]); // eslint-disable-line react-hooks/exhaustive-deps
   const write = run ?? ((p: Promise<Snapshot>) => p.catch((e: unknown) => (filesRef.current.fail(e), null)));
@@ -175,6 +178,10 @@ export default function WidgetTab({
         : api.setExampleValue(name, shownCase, f.field, value),
     );
   };
+
+  /** Un geste sur les poignées d'une liste : le changement, dans la liste du cas courant ; `false` si refusé. */
+  const onListOp: OnListOp = (_owner, list, change) =>
+    write(api.editExampleList(name, shownCase, list, change)).then((done) => done !== null);
 
   /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */
   const measure = () => {
@@ -235,6 +242,8 @@ export default function WidgetTab({
             editing={editing}
             onEdit={setEditing}
             onField={onField}
+            onListOp={onListOp}
+            onEditWhenShown={editKeyWhenShown}
             palette={palette}
           />
         ) : previewUrl ? (

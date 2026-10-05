@@ -1,3 +1,6 @@
+mod common;
+
+use common::list_registry;
 use oku_slides_core::*;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -6,35 +9,6 @@ fn fixture() -> Deck {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
     let json = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("fixture {path} illisible : {e}"));
     Deck::from_json(&json).unwrap_or_else(|e| panic!("fixture {path} invalide : {e}"))
-}
-
-/// Le registre de base, plus un widget d'élément `liste` à une liste `etapes`.
-fn list_registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let mut probe: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let liste = json!({
-        "name": "liste",
-        "category": "element",
-        "params": [{
-            "name": "etapes",
-            "type": "list",
-            "item": [
-                { "name": "date", "type": "plain" },
-                { "name": "texte", "type": "plain", "default": "Nouvelle étape" }
-            ],
-            "default": [{ "date": "2019" }]
-        }, {
-            "name": "bornee",
-            "type": "list",
-            "min": 1,
-            "max": 2,
-            "item": [{ "name": "t", "type": "plain" }]
-        }]
-    });
-    probe["base"].as_array_mut().unwrap_or_else(|| panic!("sonde : base attendu")).push(liste);
-    let probe = serde_json::from_value(probe).unwrap_or_else(|e| panic!("sonde : {e}"));
-    WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
 fn op(v: Value) -> Op {
@@ -184,7 +158,7 @@ fn set_param_with_a_valid_array_converts_the_values() {
 #[test]
 fn set_param_outside_the_bounds_is_refused() {
     let mut deck = fixture();
-    apply(&mut deck, add(json!({ "id": "f", "kind": "liste" }))).unwrap();
+    apply(&mut deck, add(json!({ "id": "f", "kind": "bornes" }))).unwrap();
     let too_many = json!([{ "id": "a" }, { "id": "b" }, { "id": "c" }]);
     let kind = apply_err(&mut deck, set_param(at("s-constat", "f"), "bornee", too_many));
     assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
@@ -279,4 +253,60 @@ fn add_slide_rejects_an_element_with_a_list_column_of_the_wrong_type() {
     let mut deck = fixture();
     let kind = apply_err(&mut deck, add_slide(bad_steps()));
     assert_that!(kind).is_equal_to(OpErrorKind::ParamType);
+}
+
+/// Des étapes dont la date dépasse la borne d'une cellule `plain` (4096 octets).
+fn long_steps() -> Value {
+    json!([{ "id": "a", "date": "x".repeat(4097) }])
+}
+
+#[test]
+fn set_param_with_a_cell_too_long_is_refused_and_keeps_the_deck() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap();
+    let before = deck.clone();
+    let kind = apply_err(&mut deck, set_param(at("s-constat", "f"), "etapes", long_steps()));
+    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(deck).is_equal_to(before);
+}
+
+#[test]
+fn edit_list_set_field_too_long_is_refused_and_keeps_the_deck() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap();
+    let before = deck.clone();
+    let change = json!({ "op": "set_field", "item": "d0", "field": "date", "value": "x".repeat(4097) });
+    let kind = apply_err(&mut deck, edit("f", "etapes", change));
+    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(deck).is_equal_to(before);
+}
+
+#[test]
+fn edit_list_insert_with_an_id_too_long_is_refused_and_keeps_the_deck() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap();
+    let before = deck.clone();
+    let kind = apply_err(&mut deck, edit("f", "etapes", json!({ "op": "insert", "id": "i".repeat(65) })));
+    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(deck).is_equal_to(before);
+}
+
+#[rstest::rstest]
+#[case::add_element(add(liste_with(long_steps())))]
+#[case::add_slide(add_slide(long_steps()))]
+#[case::too_many_items(add(liste_with(json!((0..257).map(|i| json!({ "id": format!("i{i}") })).collect::<Vec<_>>()))))]
+fn inserting_a_list_beyond_its_size_bounds_is_refused_and_keeps_the_deck(#[case] op: Op) {
+    let mut deck = fixture();
+    let before = deck.clone();
+    assert_that!(apply_err(&mut deck, op)).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(deck).is_equal_to(before);
+}
+
+#[test]
+fn replace_element_with_a_list_beyond_its_size_bounds_is_refused() {
+    let mut deck = fixture();
+    apply(&mut deck, add(json!({ "id": "f", "kind": "liste" }))).unwrap();
+    let before = deck.clone();
+    assert_that!(apply_err(&mut deck, replace(liste_with(long_steps())))).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(deck).is_equal_to(before);
 }

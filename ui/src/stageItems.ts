@@ -4,6 +4,7 @@
  */
 import type { ItemView, ListOp, ListView, Op, SlideView } from "./api";
 import { t } from "./i18n";
+import type { FieldKey } from "./stageFields";
 
 export type Axis = "x" | "y";
 
@@ -67,13 +68,80 @@ export function dropIndex(group: ItemView[], axis: Axis, at: number): number {
   return Math.max(0, Math.min(before, len - 1));
 }
 
+/**
+ * Cible d'un glisser de `it` à `at` : le rang final, compté parmi les autres items du groupe
+ * (l'item glissé n'y est plus), et le point d'insertion qui le montre, sur le même ensemble.
+ */
+export function dropTarget(group: ItemView[], it: ItemView, axis: Axis, at: number): { index: number; x: number; y: number } | null {
+  const others = group.filter((x) => x.item !== it.item);
+  const index = dropIndex(others, axis, at);
+  // Le point de rang `index` précède le `index`-ième des autres (le dernier suit le dernier).
+  const point = insertPoints(others, axis)[index];
+  return point ? { ...point, index } : null;
+}
+
+/** Centre `at` d'un bouton de `size` ramené dans `[0, extent]` : le bouton entier reste dedans. */
+export const within = (at: number, extent: number, size: number) => Math.max(size / 2, Math.min(at, extent - size / 2));
+
 /** Nom d'un item de la liste (« étape »), sinon le mot générique. */
 export const itemName = (l: Pick<ListView, "item_label">) => l.item_label ?? t("ui-list-item");
+
+/** Propriétaire d'une liste : la slide ou l'un de ses éléments. */
+export type ListOwner = Pick<ListView, "owner" | "owner_kind">;
+
+/**
+ * Un changement de la liste `list` de `owner`, nommé `label` (étape
+ * d'annulation) ; rend éventuellement une promesse : `false` si l'hôte l'a refusé.
+ */
+export type OnListOp = (owner: ListOwner, list: string, change: ListOp, label: string) => void | Promise<boolean>;
+
+/** Déplace `it` au rang `to` de sa liste par `onListOp` (rien s'il y est déjà) : la poignée ⋮⋮ et Cmd/Ctrl+Alt+flèche. */
+export function moveItemTo(onListOp: OnListOp, it: ItemView, to: number) {
+  if (to !== it.index) void onListOp(it, it.list, { op: "move", item: it.item, to }, t("ui-undo-list-move", { item: itemName(it) }));
+}
 
 /** Ops d'un changement de la liste `l` de la slide de `view`. */
 export function listOps(view: SlideView, l: Pick<ListView, "owner" | "owner_kind" | "list">, change: ListOp): Op[] {
   const target = l.owner_kind === "slide" ? { slide: view.slide.id } : { slide: view.slide.id, element: l.owner };
   return [{ op: "edit_list", target, param: l.list, change }];
+}
+
+/** Les changements de liste de la scène du deck : des ops `edit_list` sur la slide de `view`, nommées par leur geste. */
+export const deckListOp = (view: SlideView, onApply: (label: string, ops: Op[]) => void | Promise<boolean>): OnListOp =>
+  (owner, list, change, label) => onApply(label, listOps(view, { ...owner, list }, change));
+
+/** Ce que reçoit la couche des poignées de liste (`ItemLayer`), outre la vue et l'échelle. */
+export interface ItemHandles {
+  /** Propriétaire dont les poignées sont montrées. */
+  active: string | null;
+  onListOp: OnListOp;
+  /** Champ du nouvel item à ouvrir, dès qu'une vue le montre. */
+  onInserted: (key: FieldKey) => void;
+}
+
+/** D'où viennent les poignées : la scène du deck, ou l'aperçu d'un widget. */
+export type HandlesSource =
+  | {
+      mode: "deck";
+      readOnly: boolean;
+      selected: string | null;
+      /** Propriétaire du champ en édition. */
+      editing: string | null;
+      onApply: (label: string, ops: Op[]) => void | Promise<boolean>;
+      onEditWhenShown?: (key: FieldKey) => void;
+    }
+  | { mode: "preview"; onListOp?: OnListOp; onEditWhenShown?: (key: FieldKey) => void };
+
+/**
+ * Poignées de liste de la scène : sur le deck, en ops sur la slide (aucune en lecture
+ * seule) ; en aperçu, dans le cas d'exemple (les listes de son seul widget), aucune sans `onListOp`.
+ */
+export function itemHandles(view: SlideView, src: HandlesSource): ItemHandles | null {
+  const onInserted = (key: FieldKey) => src.onEditWhenShown?.(key);
+  if (src.mode === "deck") {
+    return src.readOnly ? null : { active: activeOwner(view, src.selected, src.editing), onListOp: deckListOp(view, src.onApply), onInserted };
+  }
+  return src.onListOp ? { active: view.lists[0]?.owner ?? null, onListOp: src.onListOp, onInserted } : null;
 }
 
 /** Axe d'un groupe d'items de la vue : un item seul suit la place que lui laisse son objet (la page pour une slide). */
@@ -88,4 +156,12 @@ export function findItem(view: SlideView, owner: string, list: string, item: str
   const group = groups(view.items.filter((x) => x.owner === owner && x.list === list))[0];
   const it = group?.find((x) => x.item === item);
   return group && it ? { it, group } : null;
+}
+
+/**
+ * Propriétaire dont les poignées de liste sont montrées : celui du champ en
+ * édition, sinon l'élément sélectionné, sinon la slide (ses listes propres).
+ */
+export function activeOwner(view: Pick<SlideView, "slide">, selected: string | null, editing: string | null): string {
+  return editing ?? selected ?? view.slide.id;
 }

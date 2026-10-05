@@ -3,7 +3,7 @@
 
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import "./test/dom";
-import type { ItemView, ListView, Op, SlideView } from "./api";
+import type { ItemView, ListOp, ListView, Op, SlideView } from "./api";
 import { setMessages } from "./i18n";
 import { resetMessages } from "./test/messages";
 
@@ -11,6 +11,7 @@ import { resetMessages } from "./test/messages";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { ItemLayer } = await import("./ItemLayer");
+const { deckListOp } = await import("./stageItems");
 
 const ftl = (lang: string) =>
   Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -50,14 +51,22 @@ async function mount(view: SlideView, active: string | null = "f", result?: Prom
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const calls: { apply: [string, Op[]][]; inserted: string[] } = { apply: [], inserted: [] };
+  // `listOp` : les changements tels que rendus ; `apply` : les ops qu'en fait la scène du deck.
+  const calls: { listOp: [string, string, string, ListOp, string][]; apply: [string, Op[]][]; inserted: string[] } = {
+    listOp: [], apply: [], inserted: [],
+  };
+  // Comme la scène du deck : l'adaptateur réel, qui fait des ops `edit_list`.
+  const apply = deckListOp(view, (label, ops) => {
+    calls.apply.push([label, ops]);
+    return result;
+  });
   await act(async () =>
     root.render(
       createElement(ItemLayer, {
         view, scale: 1, active,
-        onApply: (label: string, ops: Op[]) => {
-          calls.apply.push([label, ops]);
-          return result;
+        onListOp: (owner: Pick<ListView, "owner" | "owner_kind">, list: string, change: ListOp, label: string) => {
+          calls.listOp.push([owner.owner, owner.owner_kind, list, change, label]);
+          return apply(owner, list, change, label);
         },
         onInserted: (key: string) => calls.inserted.push(key),
       }),
@@ -140,8 +149,8 @@ test("ItemLayer a slide list targets the slide", async () => {
   expect((calls.apply[0][1][0] as { target: unknown }).target).toEqual({ slide: "s" });
 });
 
-/** Glisse la poignée ⋮⋮ de `el` jusqu'à `x` (pt, à l'échelle 1). */
-async function dragTo(el: HTMLElement, x: number) {
+/** Glisse la poignée ⋮⋮ de `el` jusqu'à `x` (pt, à l'échelle 1) ; `during` voit la scène avant le lâcher. */
+async function dragTo(el: HTMLElement, x: number, during: () => void = () => {}) {
   el.setPointerCapture = () => {};
   const fire = (type: string, clientX: number) =>
     act(async () => {
@@ -149,6 +158,7 @@ async function dragTo(el: HTMLElement, x: number) {
     });
   await fire("pointerdown", 50);
   await fire("pointermove", x);
+  during();
   await fire("pointerup", x);
 }
 
@@ -166,6 +176,34 @@ test("ItemLayer dragging an item past the last one moves it to the end", async (
   const { host, calls } = await mount(three());
   await dragTo(host.querySelectorAll<HTMLElement>("[data-item-move]")[0], 400);
   expect((calls.apply[0][1][0] as { change: unknown }).change).toEqual({ op: "move", item: "a", to: 2 });
+});
+
+test("ItemLayer the drop marker shows the index the drop applies, with items of unequal sizes", async () => {
+  // a large, b étroit, c large : à 181, le point entre b et c (125) est plus proche que celui après c (240),
+  // mais le lâcher, compté sur les centres des autres items, met a après c.
+  const view = viewOf([item("a", 0, 0, { len: 3 }), item("b", 1, 110, { len: 3, w: 10 }), item("c", 2, 130, { len: 3 })]);
+  const { host, calls } = await mount(view);
+  let marker = "";
+  await dragTo(host.querySelectorAll<HTMLElement>("[data-item-move]")[0], 181, () => {
+    marker = host.querySelector<HTMLElement>(".item-drop")?.style.left ?? "";
+  });
+  expect(marker).toBe("240px");
+  expect((calls.apply[0][1][0] as { change: unknown }).change).toEqual({ op: "move", item: "a", to: 2 });
+});
+
+test("ItemLayer an insert at the left or top edge of the page stays inside it", async () => {
+  const { host } = await mount(viewOf([item("a", 0, 0, { len: 2, y: 0, h: 10 }), item("b", 1, 120, { len: 2, y: 0, h: 10 })]));
+  const first = host.querySelectorAll<HTMLElement>("[data-item-insert]")[0];
+  // Avant a : 10 pt à gauche de la page, à 5 pt du haut ; ramené à un demi-bouton (12 px) des bords.
+  expect([first.style.left, first.style.top]).toEqual(["12px", "12px"]);
+});
+
+test("ItemLayer an insert at the right or bottom edge of the page stays inside it", async () => {
+  const { host } = await mount(viewOf([item("a", 0, 780, { len: 2, y: 590, h: 10 }), item("b", 1, 900, { len: 2, y: 590, h: 10 })]));
+  const plus = host.querySelectorAll<HTMLElement>("[data-item-insert]");
+  const last = plus[plus.length - 1];
+  // Après b : 1010 pt sur une page de 1000 × 600, à 595 pt du haut.
+  expect([last.style.left, last.style.top]).toEqual(["988px", "588px"]);
 });
 
 test("ItemLayer dropping an item where it was moves nothing", async () => {
@@ -245,4 +283,10 @@ test("ItemLayer two lists sharing an item id show handles only on the hovered on
   });
   const shown = [...host.querySelectorAll<HTMLElement>(".item-handles")].map((e) => e.classList.contains("shown"));
   expect(shown).toEqual([false, true]);
+});
+
+test("ItemLayer a remove gives the owner, the list and the change, without building deck ops", async () => {
+  const { host, calls } = await mount(two());
+  await click(host.querySelectorAll("[data-item-remove]")[0]);
+  expect(calls.listOp).toEqual([["f", "element", "etapes", { op: "remove", item: "a" }, "Supprimer étape"]]);
 });

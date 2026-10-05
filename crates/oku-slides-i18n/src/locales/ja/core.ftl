@@ -66,6 +66,7 @@ widget-fault-empty-list = ウィジェット { $widget }：リストには少な
 widget-fault-column-type = ウィジェット { $widget }：リストの列は plain、rich、number、flag、choice、asset のいずれかです。項目ごとに自由な内容が必要な場合は、子ウィジェットを持つ p.slot を使ってください
 widget-fault-reserved-name = ウィジェット { $widget }：予約された名前：id、kind、または / を含む名前
 widget-fault-list-bounds = ウィジェット { $widget }：リストの最大値が最小値を下回っています
+widget-fault-list-default-too-large = ウィジェット { $widget }：リストの既定値がリストのサイズ上限を超えています
 widget-incompatible-override = ウィジェット { $widget } は組み込みのものを置き換えますが、パラメーター { $param } を変更または削除しています
 widget-incompatible-category = ウィジェット { $widget } は組み込みのものを異なるカテゴリで置き換えています
 issue-empty-item-id = リスト { $param } に識別子のない項目があります

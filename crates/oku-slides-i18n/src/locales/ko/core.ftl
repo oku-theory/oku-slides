@@ -66,6 +66,7 @@ widget-fault-empty-list = 위젯 { $widget }: 목록에는 최소 한 개의 열
 widget-fault-column-type = 위젯 { $widget }: 목록 열은 plain, rich, number, flag, choice, asset 중 하나여야 합니다. 항목별 자유 콘텐츠에는 자식 위젯과 함께 p.slot을 사용하세요
 widget-fault-reserved-name = 위젯 { $widget }: 예약된 이름: id, kind 또는 /를 포함하는 이름
 widget-fault-list-bounds = 위젯 { $widget }: 목록의 최댓값이 최솟값보다 작습니다
+widget-fault-list-default-too-large = 위젯 { $widget }: 목록의 기본값이 목록 크기 제한을 초과합니다
 widget-incompatible-override = 위젯 { $widget }이(가) 기본 위젯을 대체하지만 매개변수 { $param }을(를) 변경하거나 제거합니다
 widget-incompatible-category = 위젯 { $widget }이(가) 기본 위젯을 다른 범주로 대체합니다
 issue-empty-item-id = 목록 { $param }에 식별자가 없는 항목이 있습니다

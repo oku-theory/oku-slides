@@ -122,10 +122,3 @@ fn serialize_list_round_trips() {
     let v = json!({ "l": [{ "id": "a", "date": "2019", "on": true }] });
     assert_that!(serde_json::to_value(params(v.clone())).unwrap()).is_equal_to(v);
 }
-
-#[test]
-fn list_mut_turns_an_absent_param_into_an_empty_list() {
-    let mut p = Params::default();
-    p.list_mut("l").unwrap().push(crate::ListItem { id: "a".into(), values: Params::default() });
-    assert_that!(p.list("l").map(<[_]>::len)).is_equal_to(Some(1));
-}

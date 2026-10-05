@@ -66,6 +66,7 @@ widget-fault-empty-list = Widget { $widget }: een lijst heeft minstens één kol
 widget-fault-column-type = Widget { $widget }: een lijstkolom kan plain, rich, number, flag, choice of asset zijn; gebruik voor vrije inhoud per item p.slot met een kind-widget
 widget-fault-reserved-name = Widget { $widget }: gereserveerde naam: id, kind of een naam met /
 widget-fault-list-bounds = Widget { $widget }: het maximum van een lijst ligt onder het minimum
+widget-fault-list-default-too-large = Widget { $widget }: de standaardwaarde van een lijst overschrijdt de groottegrenzen van lijsten
 widget-incompatible-override = Widget { $widget } vervangt de ingebouwde widget maar wijzigt of verwijdert de parameter { $param }
 widget-incompatible-category = Widget { $widget } vervangt de ingebouwde widget met een andere categorie
 issue-empty-item-id = lijst { $param } heeft een item zonder id

@@ -163,19 +163,6 @@ impl Params {
         }
     }
 
-    /// La liste `name`, créée vide si elle est absente ou porte une autre
-    /// valeur. Toujours `Some` (voir [`Params::slot_mut`]).
-    pub fn list_mut(&mut self, name: &str) -> Option<&mut Vec<ListItem>> {
-        let value = self.0.entry(name.to_owned()).or_insert_with(|| ParamValue::List(Vec::new()));
-        if !matches!(value, ParamValue::List(_)) {
-            *value = ParamValue::List(Vec::new());
-        }
-        match value {
-            ParamValue::List(list) => Some(list),
-            _ => None,
-        }
-    }
-
     /// Toutes les listes, avec leur nom.
     pub fn lists(&self) -> impl Iterator<Item = (&str, &[ListItem])> {
         self.0.iter().filter_map(|(k, v)| match v {

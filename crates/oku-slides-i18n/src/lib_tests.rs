@@ -255,3 +255,67 @@ fn counters_stick_to_the_number_in_cjk() {
         }
     }
 }
+
+/// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).
+const LIST_KEYS: [&str; 18] = [
+    "widget-fault-empty-list",
+    "widget-fault-column-type",
+    "widget-fault-reserved-name",
+    "widget-fault-list-bounds",
+    "widget-fault-list-default-too-large",
+    "op-item-not-found",
+    "issue-empty-item-id",
+    "issue-duplicate-item-id",
+    "issue-list-bounds",
+    "issue-unreadable-item",
+    "ui-list-item",
+    "ui-list-add",
+    "ui-list-remove",
+    "ui-list-move",
+    "ui-list-full",
+    "ui-undo-list-add",
+    "ui-undo-list-remove",
+    "ui-undo-list-move",
+];
+
+/// Source brute d'un message d'une ligne, telle qu'écrite dans les fichiers de la langue.
+fn source_of(locale: &str, id: &str) -> String {
+    let (_, sources) = LOCALES.iter().find(|(l, _)| *l == locale).unwrap();
+    let prefix = format!("{id} = ");
+    sources
+        .iter()
+        .flat_map(|s| s.lines())
+        .find_map(|line| line.strip_prefix(&prefix).map(str::to_owned))
+        .unwrap_or_else(|| panic!("{locale} : {id} absent"))
+}
+
+/// Variables Fluent (`$x`) citées par un message.
+fn variables(source: &str) -> BTreeSet<String> {
+    source
+        .split('$')
+        .skip(1)
+        .map(|rest| rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect())
+        .collect()
+}
+
+#[test]
+fn list_messages_use_the_reference_variables_in_every_locale() {
+    for id in LIST_KEYS {
+        let reference = variables(&source_of(REFERENCE, id));
+        for locale in crate::available() {
+            asserting(&format!("{locale} : {id}")).that(&variables(&source_of(locale, id))).is_equal_to(&reference);
+        }
+    }
+}
+
+#[test]
+fn widgets_prompt_lists_sentence_keeps_its_code_tokens_in_every_locale() {
+    for locale in crate::available() {
+        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
+        let at = text.find("p.list(").unwrap_or_else(|| panic!("{locale} : phrase des listes absente"));
+        let sentence = &text[at..];
+        for token in ["p.list", "list-item", "edit_list", "defaults", "set_param"] {
+            assert!(sentence.contains(token), "{locale} : « {token} » absent de la phrase des listes");
+        }
+    }
+}

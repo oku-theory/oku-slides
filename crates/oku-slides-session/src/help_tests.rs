@@ -190,6 +190,18 @@ fn help_deck_for_windows_and_linux_writes_ctrl_not_command() {
 }
 
 #[test]
+fn help_deck_list_shortcuts_read_ctrl_alt_on_windows_and_linux_and_symbols_on_macos() {
+    for locale in help_locales() {
+        let pc = serde_json::to_string(&help_deck_with(locale, oku_slides_i18n::pc_keys).unwrap()).unwrap();
+        assert_that!(pc.contains("\"Ctrl+Alt+←↑→↓\"")).named(locale).is_true();
+        assert_that!(pc.contains("(Alt+↑/↓ ")).named(locale).is_true();
+        let mac = serde_json::to_string(&help_deck_with(locale, |s| std::borrow::Cow::Borrowed(s)).unwrap()).unwrap();
+        assert_that!(mac.contains("\"⌘⌥←↑→↓\"")).named(locale).is_true();
+        assert_that!(mac.contains("(⌥↑/↓ ")).named(locale).is_true();
+    }
+}
+
+#[test]
 fn help_deck_for_macos_keeps_the_symbols() {
     let json = serde_json::to_string(&help_deck_with("fr", |s| std::borrow::Cow::Borrowed(s)).unwrap()).unwrap();
     assert_that!(json.contains("⌘⇧S")).is_true();

@@ -6,7 +6,7 @@
 // TanStack Table v9 (`useTable` + `tableFeatures`), comme ChartDataGrid ; la
 // poignée et « × » sont hors des colonnes du schéma.
 
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import type { ListOp, Paragraph } from "../api";
 import { newId, textToParagraphs } from "../deck";
@@ -35,7 +35,8 @@ export type ListTableProps = {
   palette: string[];
   /** Markdown d'édition des cellules `rich`, par id d'item puis colonne. */
   markdown: Record<string, Record<string, string>>;
-  onChange: (change: ListChange) => void;
+  /** Émet un changement ; rend `true` une fois accepté par la session, `false` si refusé. */
+  onChange: (change: ListChange) => Promise<boolean>;
 };
 
 /** Durée du signalement d'une cellule refusée. */
@@ -58,11 +59,13 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   const [over, setOver] = useState<string | null>(null);
   const dragged = useRef<string | null>(null);
 
+  const lt = useRef<HTMLDivElement>(null);
+
   const add = () => {
-    if (!full) onChange({ op: "insert", id: newId("i") });
+    if (!full) void onChange({ op: "insert", id: newId("i") });
   };
   const move = (id: string, to: number) => {
-    if (to >= 0 && to < rows.length && rows[to].id !== id) onChange({ op: "move", item: id, to });
+    if (to >= 0 && to < rows.length && rows[to].id !== id) void onChange({ op: "move", item: id, to });
   };
   const set = (row: ListRow, c: ListColumn, value: unknown) => onChange({ op: "set_field", item: row.id, field: c.key, value });
 
@@ -85,7 +88,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       });
     });
     flagged(bad);
-    onChange({ op: "replace", items });
+    void onChange({ op: "replace", items });
   };
 
   /** Le contenu d'une cellule ; lu par les colonnes, qui ne changent qu'avec le schéma. */
@@ -97,13 +100,13 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       case "flag":
         return (
           <input type="checkbox" className="lt-check" aria-label={c.label} checked={value === true}
-            onChange={(e) => set(row, c, e.currentTarget.checked)} />
+            onChange={(e) => void set(row, c, e.currentTarget.checked)} />
         );
       case "select": {
         const known = c.options.some((o) => o.id === value);
         return (
           <select className="lt-select" aria-label={c.label} value={known ? String(value) : ""}
-            onChange={(e) => set(row, c, e.currentTarget.value)}>
+            onChange={(e) => void set(row, c, e.currentTarget.value)}>
             {!known && <option value="" disabled />}
             {c.options.map((o, i) => <option key={`${i}-${o.id}`} value={o.id}>{o.label}</option>)}
           </select>
@@ -113,7 +116,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
         const paragraphs = Array.isArray(value) ? (value as Paragraph[]) : [];
         const where = at(row.id, c.key);
         return (
-          <button type="button" className="lt-rich" data-list-rich aria-label={c.label} aria-expanded={rich === where}
+          <button type="button" className="lt-rich" data-list-rich={where} aria-label={c.label} aria-expanded={rich === where}
             onClick={() => setRich(rich === where ? null : where)}>
             {paragraphs[0]?.runs.map((run) => run.t).join("") ?? ""}
           </button>
@@ -176,7 +179,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   const open = rich ? openCell(rich, rows, columns) : null;
 
   return (
-    <div className="lt note-field">
+    <div ref={lt} className="lt note-field">
       <span className="a2ui-hint">{label}</span>
       <div className="lt-scroll">
         <table className="lt-table">
@@ -232,7 +235,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
                     aria-label={t("ui-list-remove", { item })}
                     title={t("ui-list-remove", { item })}
                     disabled={rows.length <= min}
-                    onClick={() => onChange({ op: "remove", item: row.original.id })}
+                    onClick={() => void onChange({ op: "remove", item: row.original.id })}
                   >
                     ×
                   </button>
@@ -245,11 +248,13 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       {open && (
         <RichPopover
           key={rich}
+          anchor={rich ?? ""}
+          container={lt}
           label={open.column.label}
           value={markdown[open.row.id]?.[open.column.key] ?? plainText(open.row[open.column.key])}
           source={Array.isArray(open.row[open.column.key]) ? (open.row[open.column.key] as Paragraph[]) : []}
           palette={palette}
-          onCommit={(paragraphs) => set(open.row, open.column, paragraphs)}
+          onCommit={(paragraphs) => void set(open.row, open.column, paragraphs)}
           onClose={() => setRich(null)}
         />
       )}
@@ -303,6 +308,11 @@ function openCell(where: string, rows: ListRow[], columns: readonly ListColumn[]
   return row && column ? { row, column } : null;
 }
 
+/** Place du popover dans le tableau `box` : sous la cellule, à son bord gauche, sans déborder à droite. */
+export function popoverPlace(box: DOMRect, cell: DOMRect, width: number): { left: number; top: number } {
+  return { left: Math.max(0, Math.min(cell.left - box.left, box.width - width)), top: cell.bottom - box.top };
+}
+
 /** Texte brut de paragraphes (repli sans markdown de la session). */
 function plainText(v: unknown): string {
   return Array.isArray(v) ? (v as Paragraph[]).map((p) => p.runs.map((r) => r.t).join("")).join("\n") : "";
@@ -317,31 +327,47 @@ function display(v: unknown): string {
 type CellTextProps = {
   value: unknown;
   column: ListColumn;
-  onCommit: (value: unknown) => void;
+  /** Enregistre la valeur ; rend `false` si la session l'a refusée. */
+  onCommit: (value: unknown) => Promise<boolean>;
   onInvalid: () => void;
   onEnter: () => void;
   onPasteGrid: (grid: string[][]) => void;
 };
 
-/** Cellule texte ou nombre : validée à la sortie ou sur Entrée, Échap rétablit. */
+/**
+ * Cellule texte ou nombre : validée à la sortie ou sur Entrée, Échap rétablit. Une saisie
+ * refusée (invalide, ou par la session) revient à la valeur des lignes ; Entrée ne
+ * passe à la suite (`onEnter`) qu'une fois la saisie enregistrée.
+ */
 function CellText({ value, column, onCommit, onInvalid, onEnter, onPasteGrid }: CellTextProps) {
   const shown = display(value);
   const number = column.kind === "number";
-  const commit = (el: HTMLInputElement) => {
+  // Entrée valide elle-même : la sortie qu'elle provoque ne revalide pas.
+  const committing = useRef(false);
+  const commit = (el: HTMLInputElement): Promise<boolean> => {
     const v = cellValue(column, el.value);
     if (!v.ok) {
       el.value = shown;
       onInvalid();
-      return;
+      return Promise.resolve(false);
     }
-    if (display(v.value) !== shown) onCommit(v.value);
+    if (display(v.value) === shown) return Promise.resolve(true);
+    return onCommit(v.value).then((ok) => {
+      // Refusé : les lignes n'ont pas changé, la clé non plus ; le brouillon est effacé ici.
+      if (!ok) el.value = shown;
+      return ok;
+    });
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     // Les raccourcis de l'app ne doivent pas voir la saisie.
     e.stopPropagation();
     if (e.key === "Enter") {
-      e.currentTarget.blur();
-      onEnter();
+      const el = e.currentTarget;
+      const saved = commit(el);
+      committing.current = true;
+      el.blur();
+      committing.current = false;
+      void saved.then((ok) => ok && onEnter());
     } else if (e.key === "Escape") {
       e.currentTarget.value = shown;
       e.currentTarget.blur();
@@ -361,7 +387,9 @@ function CellText({ value, column, onCommit, onInvalid, onEnter, onPasteGrid }: 
       aria-label={column.label}
       className={number ? "lt-input lt-number" : "lt-input"}
       inputMode={number ? "decimal" : "text"}
-      onBlur={(e) => commit(e.currentTarget)}
+      onBlur={(e) => {
+        if (!committing.current) void commit(e.currentTarget);
+      }}
       onKeyDown={onKeyDown}
       onPaste={onPaste}
     />
@@ -369,6 +397,10 @@ function CellText({ value, column, onCommit, onInvalid, onEnter, onPasteGrid }: 
 }
 
 type RichPopoverProps = {
+  /** Adresse de la cellule (`id/colonne`) sous laquelle il se place. */
+  anchor: string;
+  /** Le tableau, dont il ne déborde pas. */
+  container: RefObject<HTMLDivElement | null>;
   label: string;
   value: string;
   source: Paragraph[];
@@ -377,9 +409,26 @@ type RichPopoverProps = {
   onClose: () => void;
 };
 
-/** Popover d'une cellule riche ; un clic ailleurs le ferme (le champ valide à sa sortie). */
-function RichPopover({ label, value, source, palette, onCommit, onClose }: RichPopoverProps) {
+/**
+ * Popover d'une cellule riche, sous sa cellule et dans le tableau ; un clic ailleurs le ferme
+ * (le champ valide à sa sortie).
+ */
+function RichPopover({ anchor, container, label, value, source, palette, onCommit, onClose }: RichPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
+  // Placé sous la cellule, borné au tableau ; replacé quand le tableau défile.
+  useLayoutEffect(() => {
+    const box = container.current;
+    const scroller = box?.querySelector(".lt-scroll");
+    const update = () => {
+      const cell = box?.querySelector(`[data-list-rich="${CSS.escape(anchor)}"]`)?.closest("td");
+      if (!box || !cell || !ref.current) return;
+      setPlace(popoverPlace(box.getBoundingClientRect(), cell.getBoundingClientRect(), ref.current.offsetWidth));
+    };
+    update();
+    scroller?.addEventListener("scroll", update);
+    return () => scroller?.removeEventListener("scroll", update);
+  }, [anchor, container]);
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -392,7 +441,7 @@ function RichPopover({ label, value, source, palette, onCommit, onClose }: RichP
     return () => document.removeEventListener("pointerdown", outside);
   }, []);
   return (
-    <div ref={ref} className="lt-popover">
+    <div ref={ref} className="lt-popover" data-anchor={anchor} style={place ?? undefined}>
       <RichTextField label={label} value={value} source={source} palette={palette} onCommit={(_md, paragraphs) => onCommit(paragraphs)} />
     </div>
   );

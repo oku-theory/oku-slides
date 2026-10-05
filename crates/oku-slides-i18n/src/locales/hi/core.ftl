@@ -66,6 +66,7 @@ widget-fault-empty-list = विजेट { $widget }: सूची में �
 widget-fault-column-type = विजेट { $widget }: सूची का कॉलम plain, rich, number, flag, choice या asset हो सकता है; प्रति आइटम मुक्त सामग्री के लिए चाइल्ड विजेट के साथ p.slot का उपयोग करें
 widget-fault-reserved-name = विजेट { $widget }: आरक्षित नाम: id, kind, या / वाला नाम
 widget-fault-list-bounds = विजेट { $widget }: सूची का अधिकतम उसके न्यूनतम से कम है
+widget-fault-list-default-too-large = विजेट { $widget }: किसी सूची का डिफ़ॉल्ट सूचियों की आकार सीमाओं से अधिक है
 widget-incompatible-override = विजेट { $widget } मूल विजेट को बदलता है लेकिन उसके पैरामीटर { $param } को बदलता या हटाता है
 widget-incompatible-category = विजेट { $widget } मूल विजेट को एक अलग श्रेणी से बदलता है
 issue-empty-item-id = सूची { $param } में एक आइटम की पहचान नहीं है

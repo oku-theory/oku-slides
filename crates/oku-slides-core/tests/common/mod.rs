@@ -19,13 +19,14 @@ pub fn shared() -> std::sync::Arc<WidgetRegistry> {
     std::sync::Arc::new(registry())
 }
 
-/// Le registre de base, plus un widget d'élément `liste` à une liste
-/// `etapes` (colonnes `date` et `texte`, `plain`).
+/// Le registre de base, plus les widgets de liste : `liste` (une liste `etapes`
+/// aux colonnes `date` et `texte` `plain`, `note` `rich`), `bornes` (une liste
+/// bornée de 1 à 2 items).
 pub fn list_registry() -> WidgetRegistry {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let liste = serde_json::json!({
+    let widgets = serde_json::json!([{
         "name": "liste",
         "category": "element",
         "params": [{
@@ -33,12 +34,18 @@ pub fn list_registry() -> WidgetRegistry {
             "type": "list",
             "item": [
                 { "name": "date", "type": "plain" },
-                { "name": "texte", "type": "plain", "default": "Nouvelle étape" }
+                { "name": "texte", "type": "plain", "default": "Nouvelle étape" },
+                { "name": "note", "type": "rich" }
             ],
             "default": [{ "date": "2019" }]
         }]
-    });
-    probe["base"].as_array_mut().unwrap_or_else(|| panic!("sonde : base attendu")).push(liste);
+    }, {
+        "name": "bornes",
+        "category": "element",
+        "params": [{ "name": "bornee", "type": "list", "min": 1, "max": 2, "item": [{ "name": "t", "type": "plain" }] }]
+    }]);
+    let Some(base) = probe["base"].as_array_mut() else { panic!("sonde : base attendu") };
+    base.extend(widgets.as_array().cloned().unwrap_or_default());
     let probe = serde_json::from_value(probe).unwrap_or_else(|e| panic!("sonde : {e}"));
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}"))
 }

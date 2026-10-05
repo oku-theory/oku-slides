@@ -269,7 +269,8 @@ aux colonnes. Une colonne vide reste éditable avec
       c => stack(field(c, "date", e.date), field(c, "texte", e.texte))))))
 ```
 
-Le widget de base `frise` (Frise chronologique) en est l'exemple complet.
+Un exemple complet, frise vide et champs vides compris, se trouve dans le
+dépôt Oku Slides (`fixtures/widgets/frise-test.typ`).
 Une liste absente vaut la liste vide ; `default` n'amorce qu'un objet
 nouvellement créé.
 

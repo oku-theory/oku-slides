@@ -13,6 +13,7 @@ import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
+import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
 import { RichTextField } from "./RichTextField";
@@ -416,24 +417,27 @@ const listRows = (v: unknown): ListRow[] =>
 const listMarkdown = (v: unknown): Record<string, Record<string, string>> =>
   typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, Record<string, string>>) : {};
 
-/** Le tableau d'une liste : le changement est écrit, puis l'action part. */
-const ListTableField = createComponentImplementation(ListTableApi, ({ props }) => (
-  <ListTable
-    label={props.label}
-    rows={listRows(props.rows)}
-    columns={props.columns}
-    min={props.min}
-    max={props.max ?? null}
-    itemLabel={props.item_label ?? null}
-    palette={[...props.palette]}
-    markdown={listMarkdown(props.markdown)}
-    onChange={(c) => {
-      // `DynamicValue` est typé sans objet ; le modèle de données en garde un tel quel.
-      (props.setChange as (v: unknown) => void)(c);
-      props.action?.();
-    }}
-  />
-));
+/** Le tableau d'une liste : le changement est écrit, puis l'action part ; son issue revient au tableau. */
+const ListTableField = createComponentImplementation(ListTableApi, ({ props }) => {
+  const outcome = useContext(ActionOutcomeContext);
+  return (
+    <ListTable
+      label={props.label}
+      rows={listRows(props.rows)}
+      columns={props.columns}
+      min={props.min}
+      max={props.max ?? null}
+      itemLabel={props.item_label ?? null}
+      palette={[...props.palette]}
+      markdown={listMarkdown(props.markdown)}
+      onChange={(c) => {
+        // `DynamicValue` est typé sans objet ; le modèle de données en garde un tel quel.
+        (props.setChange as (v: unknown) => void)(c);
+        return sendWithOutcome(outcome, () => props.action?.());
+      }}
+    />
+  );
+});
 
 /** Miniature d'une slide rendue par la session ; image (le SVG n'est pas exécuté). */
 const SlideThumb = createComponentImplementation(SlideThumbApi, ({ props }) => {

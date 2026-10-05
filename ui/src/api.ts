@@ -222,9 +222,10 @@ export interface WidgetPreview {
   /** Ce que dessine un widget d'élément sur la slide (pt) ; `null` pour un widget de slide. */
   bbox?: Frame | null;
   /**
-   * La slide d'aperçu entière, sans cibles ; champs en pt de la slide.
-   * L'image couvre `bbox` (un champ s'y place en `x - bbox.x`, `y - bbox.y`),
-   * ou toute la slide sans `bbox`. `null` sans rendu.
+   * La slide d'aperçu entière, sans cibles ; champs et items (ceux du seul
+   * widget montré, comme `lists`) en pt de la slide. L'image couvre `bbox`
+   * (un champ s'y place en `x - bbox.x`, `y - bbox.y`), ou toute la slide
+   * sans `bbox`. `null` sans rendu.
    */
   view?: SlideView | null;
   diagnostics: WidgetDiagnostic[];
@@ -349,7 +350,8 @@ export interface ItemView {
   /** Nombre d'items de la liste. */
   len: number;
   min: number;
-  max: number | null;
+  /** Items au plus : le `max` du schéma, sinon la borne du cœur. */
+  max: number;
   /** Nom d'un item, au singulier (« étape »). */
   item_label: string | null;
   /** Première colonne texte : celle qu'un nouvel item reçoit à la saisie. */

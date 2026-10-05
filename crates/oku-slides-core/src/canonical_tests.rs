@@ -244,8 +244,89 @@ fn with(kind: &str, params: Vec<(&str, Option<ParamValue>)>) -> Element {
     e
 }
 
+/// Le texte d'une cellule `plain` : vide compris, bords à rogner, bien en deçà de `PLAIN_MAX`.
+fn cell_text() -> impl Strategy<Value = Option<ParamValue>> {
+    proptest::option::of("[ ab\né😀]{0,6}".prop_map(ParamValue::Text))
+}
+
+/// Une liste aux ids uniques (de 0 à `max` items) dont chaque item prend ses valeurs de `columns` ;
+/// `None` (paramètre omis) ou `Some` de zéro item (liste vide) en font partie.
+fn list_param(max: usize, columns: BoxedStrategy<Params>) -> impl Strategy<Value = Option<ParamValue>> {
+    proptest::option::of(proptest::collection::btree_set("[a-z0-9-]{1,6}", 0..=max).prop_flat_map(move |ids| {
+        let n = ids.len();
+        proptest::collection::vec(columns.clone(), n).prop_map(move |rows| {
+            let items = ids.iter().cloned().zip(rows).map(|(id, values)| ListItem { id, values }).collect();
+            ParamValue::List(items)
+        })
+    }))
+}
+
+fn row(cells: Vec<(&'static str, Option<ParamValue>)>) -> Params {
+    let mut params = Params::default();
+    for (name, value) in cells {
+        if let Some(v) = value {
+            params.set(name, v);
+        }
+    }
+    params
+}
+
+fn steps() -> impl Strategy<Value = Option<ParamValue>> {
+    let columns = (cell_text(), cell_text(), paragraphs(), any::<bool>(), any::<bool>()).prop_map(
+        |(date, texte, note, with_note, fait)| {
+            row(vec![
+                ("date", date),
+                ("texte", texte),
+                ("note", with_note.then(|| ParamValue::Rich(note))),
+                ("fait", fait.then(|| ParamValue::Value(Value::Bool(true)))),
+            ])
+        },
+    );
+    list_param(3, columns.boxed())
+}
+
+/// La liste `etapes` d'une slide `chrono` : deux colonnes riches.
+fn chrono_steps() -> impl Strategy<Value = Option<ParamValue>> {
+    let columns = (paragraphs(), paragraphs()).prop_map(|(note, suite)| {
+        row(vec![("note", Some(ParamValue::Rich(note))), ("suite", Some(ParamValue::Rich(suite)))])
+    });
+    list_param(3, columns.boxed())
+}
+
+/// Une cellule `number` : entier, flottant ou entier au-delà d'`i64` (que la forme canonique rend flottant).
+fn number_cell() -> impl Strategy<Value = Option<ParamValue>> {
+    proptest::option::of(
+        prop_oneof![
+            any::<i64>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
+            (-1e6f64..1e6).prop_map(Value::from),
+        ]
+        .prop_map(ParamValue::Value),
+    )
+}
+
+/// La liste `lignes` de `mesures` : une colonne `choice` et une colonne `number`.
+fn measures() -> impl Strategy<Value = Option<ParamValue>> {
+    let level = proptest::option::of(prop_oneof![Just("bas"), Just("haut")].prop_map(|v| ParamValue::Text(v.into())));
+    let columns = (level, number_cell()).prop_map(|(niveau, valeur)| row(vec![("niveau", niveau), ("valeur", valeur)]));
+    list_param(3, columns.boxed())
+}
+
+fn images() -> impl Strategy<Value = Option<ParamValue>> {
+    let columns =
+        proptest::option::of(Just(ParamValue::Text("sha256:00".into()))).prop_map(|img| row(vec![("img", img)]));
+    list_param(2, columns.boxed())
+}
+
 fn leaf() -> impl Strategy<Value = Element> {
     prop_oneof![
+        steps().prop_map(|etapes| with("liste", vec![("etapes", etapes)])),
+        measures().prop_map(|lignes| with("mesures", vec![("lignes", lignes)])),
+        (cell_text(), images()).prop_map(|(t, images)| {
+            let bornee =
+                t.map(|t| ParamValue::List(vec![ListItem { id: "b".into(), values: row(vec![("t", Some(t))]) }]));
+            with("bornes", vec![("bornee", bornee), ("images", images)])
+        }),
         paragraphs().prop_map(|p| with("text", vec![("body", Some(ParamValue::Rich(p)))])),
         (text_param(), text_param(), any::<bool>(), paragraphs()).prop_map(|(title, kicker, highlight, body)| {
             let highlight = highlight.then(|| ParamValue::Value(Value::Bool(true)));
@@ -294,9 +375,16 @@ fn slide() -> impl Strategy<Value = Slide> {
         (prose(), prose(), text_param(), text_param(), text_param()),
         "[ a\n]{0,3}",
         proptest::collection::vec(element(), 0..3),
+        proptest::option::of(chrono_steps()),
     )
-        .prop_map(|((name, description, title, subtitle, kicker), notes, blocks)| {
+        .prop_map(|((name, description, title, subtitle, kicker), notes, blocks, chrono)| {
             let mut s = Slide { name, description, notes, ..Slide::new("", "content") };
+            if let Some(etapes) = chrono {
+                s.kind = "chrono".into();
+                if let Some(etapes) = etapes {
+                    s.params.set("etapes", etapes);
+                }
+            }
             for (k, v) in [("title", title), ("subtitle", subtitle), ("kicker", kicker)] {
                 if let Some(v) = v {
                     s.params.set(k, v);
@@ -336,13 +424,54 @@ fn deck() -> impl Strategy<Value = Deck> {
         })
 }
 
+/// Garde-fou : la stratégie produit bien des listes non vides, vides et absentes, et des cellules `number` et `choice`.
+#[test]
+fn deck_strategy_generates_list_states_and_number_and_choice_cells() {
+    use proptest::strategy::ValueTree;
+    use proptest::test_runner::{Config, RngAlgorithm, TestRng, TestRunner};
+    let mut runner = TestRunner::new_with_rng(Config::default(), TestRng::from_seed(RngAlgorithm::ChaCha, &[7; 32]));
+    let (mut filled, mut empty, mut absent, mut numbers, mut big, mut floats, mut choices) = (0, 0, 0, 0, 0, 0, 0);
+    for _ in 0..200 {
+        let deck = deck().new_tree(&mut runner).expect("la stratégie produit un deck").current();
+        for slide in &deck.slides {
+            for e in slide.params.slot("blocks").expect("blocks est posé") {
+                let state = match e.kind.as_str() {
+                    "liste" => e.params.get("etapes"),
+                    "mesures" => e.params.get("lignes"),
+                    _ => continue,
+                };
+                match state {
+                    Some(ParamValue::List(items)) if items.is_empty() => empty += 1,
+                    Some(ParamValue::List(items)) => {
+                        filled += 1;
+                        for cell in items.iter().filter_map(|i| i.values.get("valeur")) {
+                            let ParamValue::Value(v) = cell else { panic!("valeur non numérique : {cell:?}") };
+                            numbers += 1;
+                            big += usize::from(v.as_i64().is_none() && v.is_u64());
+                            floats += usize::from(v.is_f64());
+                        }
+                        choices += items.iter().filter(|i| i.values.get("niveau").is_some()).count();
+                    }
+                    _ => absent += 1,
+                }
+            }
+        }
+    }
+    let seen = format!("{filled} {empty} {absent} {numbers} {big} {floats} {choices}");
+    assert!(
+        filled > 0 && empty > 0 && absent > 0,
+        "listes (pleines, vides, absentes, nombres, > i64, flottants, choix) : {seen}"
+    );
+    assert!(numbers > 0 && big > 0 && floats > 0 && choices > 0, "cellules : {seen}");
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]
 
     #[test]
     fn canonical_deck_reads_back_unchanged(d in deck()) {
         let d = canonical(d);
-        let (back, issues) = DeckReplica::new(&d, crate::test_registry::shared()).unwrap().deck();
+        let (back, issues) = DeckReplica::new(&d, crate::test_registry::with_list()).unwrap().deck();
         prop_assert!(issues.is_empty());
         prop_assert_eq!(back, d);
     }
@@ -357,7 +486,7 @@ proptest! {
     #[test]
     fn canonical_deck_reconciled_over_another_reads_back_unchanged(a in deck(), b in deck()) {
         let (a, b) = (canonical(a), canonical(b));
-        let mut bundle = SourceBundle::new(a, crate::test_registry::shared()).unwrap();
+        let mut bundle = SourceBundle::new(a, crate::test_registry::with_list()).unwrap();
         bundle.apply(b.clone(), "test", None).unwrap();
         prop_assert_eq!(bundle.replica().deck().0, b);
     }

@@ -120,6 +120,26 @@ fn widget_error_unreadable_builds_from_a_json_error() {
     widget("w", "element", json!([{ "name": "a", "type": "grid", "default": "nope" }])),
     SchemaFault::DefaultWrongType
 )]
+#[case::list_default_wrong_type(
+    widget("w", "element", json!([{ "name": "l", "type": "list", "item": [{ "name": "t", "type": "plain" }],
+        "default": [{ "t": 3 }] }])),
+    SchemaFault::DefaultWrongType
+)]
+#[case::list_default_beyond_the_item_bound(
+    widget("w", "element", json!([{ "name": "l", "type": "list", "item": [{ "name": "t", "type": "plain" }],
+        "default": (0..=crate::LIST_ITEMS_MAX).map(|_| json!({})).collect::<Vec<_>>() }])),
+    SchemaFault::ListDefaultTooLarge
+)]
+#[case::list_default_beyond_its_max(
+    widget("w", "element", json!([{ "name": "l", "type": "list", "max": 1, "item": [{ "name": "t", "type": "plain" }],
+        "default": [{}, {}] }])),
+    SchemaFault::ListDefaultTooLarge
+)]
+#[case::list_default_cell_too_long(
+    widget("w", "element", json!([{ "name": "l", "type": "list", "item": [{ "name": "t", "type": "plain" }],
+        "default": [{ "t": "x".repeat(crate::PLAIN_MAX + 1) }] }])),
+    SchemaFault::ListDefaultTooLarge
+)]
 fn from_probe_bad_widget_returns_its_fault(#[case] bad: Value, #[case] fault: SchemaFault) {
     let err = WidgetRegistry::from_probe(probe(vec![card(), bad], None)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(fault));

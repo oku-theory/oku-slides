@@ -66,6 +66,7 @@ widget-fault-empty-list = Widget { $widget }: uma lista precisa de pelo menos um
 widget-fault-column-type = Widget { $widget }: uma coluna de lista pode ser plain, rich, number, flag, choice ou asset; para conteúdo livre por item, use p.slot com um widget filho
 widget-fault-reserved-name = Widget { $widget }: nome reservado: id, kind ou um nome que contém /
 widget-fault-list-bounds = Widget { $widget }: o máximo de uma lista está abaixo do seu mínimo
+widget-fault-list-default-too-large = Widget { $widget }: o valor padrão de uma lista excede os limites de tamanho das listas
 widget-incompatible-override = O widget { $widget } substitui o widget base, mas altera ou remove seu parâmetro { $param }
 widget-incompatible-category = O widget { $widget } substitui o widget base por uma categoria diferente
 issue-empty-item-id = a lista { $param } tem um item sem identificador

@@ -30,9 +30,14 @@ export const messagesOf = (components: unknown[], data: unknown = {}) =>
 
 /**
  * Monte la surface `s` ; renvoie son hôte, les actions et les erreurs reçues.
- * `wrap` l'entoure (un fournisseur de contexte, par exemple).
+ * `wrap` l'entoure (un fournisseur de contexte, par exemple) ; `respond` voit chaque action
+ * pendant son envoi, comme le routeur de l'app.
  */
-export async function mountSurface(messages: A2uiMessage[], wrap: (surface: ReactElement) => ReactElement = (s) => s) {
+export async function mountSurface(
+  messages: A2uiMessage[],
+  wrap: (surface: ReactElement) => ReactElement = (s) => s,
+  respond: (a: A2uiClientAction) => void = () => {},
+) {
   const actions: A2uiClientAction[] = [];
   const errors: string[] = [];
   const host = document.createElement("div");
@@ -45,7 +50,10 @@ export async function mountSurface(messages: A2uiMessage[], wrap: (surface: Reac
         createElement(SurfaceView, {
           messages,
           surfaceId: "s",
-          onAction: (a: A2uiClientAction) => actions.push(a),
+          onAction: (a: A2uiClientAction) => {
+            actions.push(a);
+            respond(a);
+          },
           onError: (m: string) => errors.push(m),
         }),
       ),

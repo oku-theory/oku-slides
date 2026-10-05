@@ -217,9 +217,10 @@ impl<'a> Validator<'a> {
         }
     }
 
-    /// Liens et pastilles de tous les textes riches.
+    /// Liens et pastilles de tous les textes riches, y compris les colonnes rich des items de liste.
     fn rich(&mut self, at: Place<'_>, params: &Params) {
-        let runs = || params.riches().flat_map(|(_, ps)| ps).flat_map(|p: &Paragraph| &p.runs);
+        let cells = || params.lists().flat_map(|(_, items)| items).flat_map(|it| it.values.riches());
+        let runs = || params.riches().chain(cells()).flat_map(|(_, ps)| ps).flat_map(|p: &Paragraph| &p.runs);
         for link in runs().filter_map(|r| r.link.as_deref()).filter(|l| !is_safe_link(l)) {
             self.push(at, Message::new("issue-unsupported-link").arg("link", link));
         }

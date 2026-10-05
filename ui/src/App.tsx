@@ -858,12 +858,12 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
         {/* Réglages du modèle affiché, sous lui (pas au dock de l'agent). */}
-        {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} />}
+        {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} />}
         </div>
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} codeWidth={viewOptions.codeWidth} onCodeWidth={viewOptions.setCodeWidth}
           examples={snap.examples ?? {}} cases={viewOptions.cases} onCase={viewOptions.setCase}
           run={run} palette={snap.appearance.chart_palette}
-          settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} onError={(m) => say(m, true)} /> : null} />}
+          settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null} />}
         {drawer && (
           <Suspense fallback={null}>
             <VariantDrawer key={drawer.id} surface={drawer} hints={hintsOn(drawer)} onAction={sendAction} onError={(m) => say(m, true)} />

@@ -1,12 +1,13 @@
 //! Paramètres `list` : items rendus par `list-item`, boîtes d'item et champs adressés à l'item.
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
+mod common;
 
-use oku_slides_core::{Deck, ParamType, WidgetFile};
-use oku_slides_render::{Fonts, Layout, PackWidgets, Renderer, load_registry};
+use oku_slides_core::ParamType;
+use oku_slides_render::{Fonts, Layout, load_registry};
 use serde_json::json;
 use speculoos::prelude::*;
+
+use common::{compile_with_pack, frise_pack, pack, render_with_pack};
 
 const FRISE: &str = r#"#import "/oku-slides/lib.typ": widget, field, list-item, params as p
 #let widget = widget("mini", params: (etapes: p.list(item: (date: p.plain(), texte: p.plain()),
@@ -18,17 +19,7 @@ const FRISE: &str = r#"#import "/oku-slides/lib.typ": widget, field, list-item, 
 /// Rend un deck d'une slide `content` dont l'unique bloc est `element`, avec le
 /// widget de pack `mini` défini par `src`.
 fn render_pack_deck(src: &str, element: serde_json::Value) -> Layout {
-    let name = WidgetFile::parse("mini").unwrap_or_else(|| panic!("nom de widget invalide"));
-    let pack = PackWidgets::new("mini", BTreeMap::from([(name, src.to_owned())])).unwrap_or_else(|e| panic!("{e}"));
-    let registry = Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap_or_else(|e| panic!("{e}")));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_widgets(Some(&pack), registry).unwrap_or_else(|e| panic!("{e}"));
-    let deck = json!({
-        "version": 3, "params": { "title": "T" },
-        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [element] } }]
-    });
-    let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
-    r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().clone()
+    render_with_pack(&pack("mini", &[("mini", src)]), json!([element]))
 }
 
 #[test]
@@ -81,14 +72,20 @@ fn list_item_with_non_string_id_gets_d_index() {
 }
 
 #[test]
-fn base_registry_has_frise_with_a_list_param() {
+fn base_registry_has_no_frise() {
     let r = load_registry(&Fonts::default(), None).unwrap();
+    assert_that!(r.get("frise").is_none()).is_true();
+}
+
+#[test]
+fn pack_frise_has_a_list_param() {
+    let r = load_registry(&Fonts::default(), Some(&frise_pack())).unwrap();
     assert_that!(matches!(r.get("frise").unwrap().param("etapes").unwrap().ty, ParamType::List { .. })).is_true();
 }
 
 #[test]
-fn base_frise_renders_one_item_box_per_step_covering_its_column() {
-    let layout = render_base_deck(json!([
+fn pack_frise_renders_one_item_box_per_step_covering_its_column() {
+    let layout = render_frise_deck(json!([
         { "id": "f", "kind": "frise", "params": { "etapes": [
             { "id": "a", "date": "2019", "texte": "Création" },
             { "id": "b", "date": "2021", "texte": "Premier client" },
@@ -105,20 +102,14 @@ fn base_frise_renders_one_item_box_per_step_covering_its_column() {
     assert_that!(layout.fields.iter().any(|f| f.owner == "f" && f.field == "etapes/c/texte")).is_true();
 }
 
-/// Rend un deck dont les blocs de l'unique slide `content` sont `blocks`, avec les widgets de base.
-fn render_base_deck(blocks: serde_json::Value) -> Layout {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
-    let deck = json!({
-        "version": 3, "params": { "title": "T" },
-        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }]
-    });
-    let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
-    r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().clone()
+/// Rend un deck dont les blocs de l'unique slide `content` sont `blocks`, avec la frise de test.
+fn render_frise_deck(blocks: serde_json::Value) -> Layout {
+    render_with_pack(&frise_pack(), blocks)
 }
 
 #[test]
-fn base_frise_without_steps_keeps_the_height_of_one_row() {
-    let layout = render_base_deck(json!([
+fn pack_frise_without_steps_keeps_the_height_of_one_row() {
+    let layout = render_frise_deck(json!([
         { "id": "vide", "kind": "frise" },
         { "id": "une", "kind": "frise", "params": { "etapes": [{ "id": "a", "date": "2019", "texte": "Création" }] } }
     ]));
@@ -142,8 +133,8 @@ fn list_item_called_with_an_integer_id_uses_it_as_text() {
 }
 
 #[test]
-fn base_frise_empty_item_field_is_measured_and_flagged_empty() {
-    let layout = render_base_deck(json!([
+fn pack_frise_empty_item_field_is_measured_and_flagged_empty() {
+    let layout = render_frise_deck(json!([
         { "id": "f", "kind": "frise", "params": { "etapes": [
             { "id": "a", "date": "2019", "texte": "Création" },
             { "id": "n", "date": "", "texte": "Nouvelle étape" } ] } }
@@ -156,4 +147,20 @@ fn base_frise_empty_item_field_is_measured_and_flagged_empty() {
     assert_that!(date.h).is_greater_than(0.0);
     let full = layout.fields.iter().find(|f| f.field == "etapes/a/date").unwrap();
     assert_that!(full.empty).is_false();
+}
+
+#[test]
+fn list_rich_cell_with_unsafe_link_renders_no_pdf_link_but_a_safe_one_does() {
+    let src = r#"#import "/oku-slides/lib.typ": widget, field, list-item, params as p
+#let widget = widget("notes", params: (lignes: p.list(item: (note: p.rich()))),
+  (args, ctx) => stack(..args.lignes.map(e => list-item(ctx, "lignes", e, c => field(c, "note", e.note)))))
+"#;
+    let pdf_of = |link: &str| {
+        let element = json!({ "id": "n", "kind": "notes", "params": { "lignes": [
+            { "id": "a", "note": [{ "runs": [{ "t": "site", "link": link }] }] } ] } });
+        compile_with_pack(&pack("notes", &[("notes", src)]), json!([element])).pdf().unwrap()
+    };
+    let contains = |pdf: &[u8], needle: &[u8]| pdf.windows(needle.len()).any(|w| w == needle);
+    assert_that!(contains(&pdf_of("javascript:alert(1)"), b"javascript:")).is_false();
+    assert_that!(contains(&pdf_of("https://example.com/oku"), b"https://example.com/oku")).is_true();
 }

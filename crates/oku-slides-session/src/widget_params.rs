@@ -1,12 +1,16 @@
 //! Valeurs d'exemple d'un widget : contrôle, et réglages de l'hôte.
 //!
 //! `null` ou la valeur de l'aperçu effacent une valeur ; dans un cas d'exemple, un
-//! texte vidé reste vide (son écriture : `widget_examples.rs`). Les réglages de l'hôte
-//! (`widget_settings`) montrent un champ par paramètre réglable, à la valeur
-//! du premier cas d'exemple.
+//! texte ou une liste vidés restent vides (leur écriture : `widget_examples.rs`). Les
+//! cellules d'une liste ont les bornes de taille du cœur (`oku_slides_core::ListSpec`).
+//! Les réglages de l'hôte (`widget_settings`) montrent un champ par paramètre
+//! réglable, à la valeur du premier cas d'exemple.
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
-use oku_slides_core::{ParamSchema, ParamType, ParamValue, default_items, param_value};
+use oku_slides_core::{
+    LIST_ITEMS_MAX, PLAIN_MAX, ParamSchema, ParamType, ParamValue, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
+    param_value,
+};
 use oku_slides_i18n::Localizer;
 use serde_json::{Map, Value, json};
 use snafu::{ResultExt, ensure};
@@ -17,13 +21,6 @@ use crate::panel::HostParams;
 use crate::widget_preview::preview_params;
 use crate::widgets_edit::parse_name;
 use crate::{Result, Session};
-
-/// Longueur d'un texte `plain` d'exemple, en octets.
-const PLAIN_MAX: usize = 4096;
-/// Paragraphes d'un `rich` d'exemple.
-const RICH_PARAGRAPHS_MAX: usize = 64;
-/// Taille JSON d'un `rich` d'exemple, en octets.
-const RICH_BYTES_MAX: usize = 16384;
 
 impl Session {
     /// Réglages du widget `name`, aux valeurs de son cas `example` (le premier
@@ -81,7 +78,7 @@ fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<P
             value: if value.is_array() { value } else { json!([]) },
             op_template: Value::Null,
             min: Some(*min as f64),
-            max: max.map(|m| m as f64),
+            max: Some(max.unwrap_or(LIST_ITEMS_MAX) as f64),
             step: None,
             options: Vec::new(),
             columns: item.iter().filter_map(column).collect(),

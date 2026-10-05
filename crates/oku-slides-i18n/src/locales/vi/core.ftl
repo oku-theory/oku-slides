@@ -66,6 +66,7 @@ widget-fault-empty-list = Widget { $widget }: danh sách cần ít nhất một 
 widget-fault-column-type = Widget { $widget }: cột của danh sách có thể là plain, rich, number, flag, choice hoặc asset; với nội dung tự do cho mỗi mục, hãy dùng p.slot với một widget con
 widget-fault-reserved-name = Widget { $widget }: tên dành riêng: id, kind hoặc tên chứa /
 widget-fault-list-bounds = Widget { $widget }: giá trị tối đa của danh sách thấp hơn giá trị tối thiểu
+widget-fault-list-default-too-large = Widget { $widget }: giá trị mặc định của danh sách vượt quá giới hạn kích thước danh sách
 widget-incompatible-override = Widget { $widget } thay thế widget có sẵn nhưng thay đổi hoặc bỏ tham số { $param }
 widget-incompatible-category = Widget { $widget } thay thế widget có sẵn bằng một danh mục khác
 issue-empty-item-id = danh sách { $param } có một mục không có mã định danh

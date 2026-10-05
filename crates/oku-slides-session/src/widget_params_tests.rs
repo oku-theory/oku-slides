@@ -295,21 +295,12 @@ fn widget_settings_slider_step_has_no_float_noise() {
     assert_that!(bounded(0.3, 1.0).step).is_equal_to(Some(0.007));
 }
 
-const FRISE2: &str = r#"#import "/oku-slides/lib.typ": widget, field, list-item, params as p
-#let widget = widget("frise2", params: (
-  etapes: p.list(item-label: "étape", min: 0, max: 3,
-    item: (date: p.plain(), texte: p.plain(default: "Nouvelle")),
-    default: ((date: "2019", texte: "Création"), (date: "2021", texte: "Client"))),
-  titre: p.plain()),
-  (args, ctx) => field(ctx, "titre", args.titre))
-"#;
-
 fn templates_with_list() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
     let set = s.deck().templates.clone().unwrap().id;
     s.edit_templates(set).unwrap();
-    s.set_widget("frise2", FRISE2.into()).unwrap();
+    crate::test_support::set_frise_widget(&mut s);
     (data, s)
 }
 
@@ -318,7 +309,19 @@ fn list_trial(s: &crate::Session) -> Option<Value> {
 }
 
 fn list_of(s: &crate::Session, example: Option<&str>) -> Option<Value> {
-    s.example_values(&parse_name("frise2").unwrap(), example).unwrap().get("etapes").cloned()
+    s.example_values(&parse_name("frise").unwrap(), example).unwrap().get("etapes").cloned()
+}
+
+/// Ids des étapes par défaut de la frise de test.
+const DEFAULT_IDS: [&str; 4] = ["d0", "d1", "d2", "d3"];
+
+fn strings(ids: &[&str]) -> Vec<String> {
+    ids.iter().map(|i| (*i).to_owned()).collect()
+}
+
+/// Les étapes par défaut, suivies de `id`.
+fn with_last(id: &str) -> Vec<String> {
+    DEFAULT_IDS.iter().copied().chain([id]).map(String::from).collect()
 }
 
 fn ids(v: &Value) -> Vec<String> {
@@ -332,7 +335,7 @@ fn insert(id: &str) -> ListOp {
 #[test]
 fn widget_settings_lists_a_list_param_as_a_list_field() {
     let (_d, s) = templates_with_list();
-    let p = settings(&s, "frise2");
+    let p = settings(&s, "frise");
     let f = &p.spec.fields[0];
     assert_that!(p.keys.first().cloned()).is_equal_to(Some("etapes".to_owned()));
     assert_that!(f.kind).is_equal_to(crate::agent::FieldKind::List);
@@ -342,66 +345,81 @@ fn widget_settings_lists_a_list_param_as_a_list_field() {
         ("date".to_owned(), oku_slides_a2ui::ColumnKind::Text),
         ("texte".to_owned(), oku_slides_a2ui::ColumnKind::Text),
     ]);
-    assert_that!(ids(&f.value)).is_equal_to(vec!["d0".to_owned(), "d1".to_owned()]);
+    assert_that!(ids(&f.value)).is_equal_to(strings(&DEFAULT_IDS));
     assert_that!(f.value[0]["texte"].clone()).is_equal_to(json!("Création"));
-    assert_that!((f.item_label.clone(), f.min, f.max)).is_equal_to((Some("étape".to_owned()), Some(0.0), Some(3.0)));
+    assert_that!((f.item_label.clone(), f.min, f.max)).is_equal_to((Some("étape".to_owned()), Some(0.0), Some(8.0)));
+}
+
+#[test]
+fn widget_settings_list_field_without_max_reports_the_core_limit() {
+    let (_d, mut s) = templates_with_list();
+    s.set_widget("frise", crate::test_support::FRISE_TEST.replace(" max: 8,", "")).unwrap();
+    let f = &settings(&s, "frise").spec.fields[0];
+    assert_that!(f.max).is_equal_to(Some(oku_slides_core::LIST_ITEMS_MAX as f64));
 }
 
 #[test]
 fn widget_settings_list_value_shows_the_example_list() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise2", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
-    assert_that!(ids(&settings(&s, "frise2").spec.fields[0].value)).is_equal_to(vec!["d1".to_owned()]);
+    s.edit_example_list("frise", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
+    assert_that!(ids(&settings(&s, "frise").spec.fields[0].value)).is_equal_to(strings(&DEFAULT_IDS[1..]));
 }
 
 #[test]
 fn edit_example_list_inserts_into_the_default_items() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise2", None, "etapes", insert("i-1")).unwrap();
+    s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
     let all = ids(&list_trial(&s).unwrap());
-    assert_that!(all).is_equal_to(vec!["d0".to_owned(), "d1".to_owned(), "i-1".to_owned()]);
+    assert_that!(all).is_equal_to(with_last("i-1"));
     // Une colonne absente reçoit son défaut.
-    assert_that!(list_trial(&s).unwrap()[2]["texte"].clone()).is_equal_to(json!("Nouvelle"));
+    assert_that!(list_trial(&s).unwrap()[4]["texte"].clone()).is_equal_to(json!("Nouvelle étape"));
 }
 
 #[test]
 fn edit_example_list_continues_from_the_previous_trial() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise2", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
+    s.edit_example_list("frise", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
     s.edit_example_list(
-        "frise2",
+        "frise",
         None,
         "etapes",
         ListOp::SetField { item: "d1".into(), field: "texte".into(), value: json!("Changé") },
     )
     .unwrap();
     let t = list_trial(&s).unwrap();
-    assert_that!(ids(&t)).is_equal_to(vec!["d1".to_owned()]);
+    assert_that!(ids(&t)).is_equal_to(strings(&DEFAULT_IDS[1..]));
     assert_that!(t[0]["texte"].clone()).is_equal_to(json!("Changé"));
 }
 
 #[test]
 fn edit_example_list_returns_the_values_of_the_example() {
     let (_d, mut s) = templates_with_list();
-    let trials = s.edit_example_list("frise2", None, "etapes", insert("i-1")).unwrap();
+    let trials = s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
     assert_that!(trials.contains_key("etapes")).is_true();
 }
 
 #[test]
 fn edit_example_list_over_the_max_is_refused_and_keeps_the_trial() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise2", None, "etapes", insert("i-1")).unwrap();
-    let err = s.edit_example_list("frise2", None, "etapes", insert("i-2")).unwrap_err();
+    for i in 0..4 {
+        s.edit_example_list("frise", None, "etapes", insert(&format!("i-{i}"))).unwrap();
+    }
+    let err = s.edit_example_list("frise", None, "etapes", insert("i-4")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
-    assert_that!(ids(&list_trial(&s).unwrap()).len()).is_equal_to(3);
+    assert_that!(ids(&list_trial(&s).unwrap()).len()).is_equal_to(8);
 }
 
 #[rstest]
-#[case::not_a_list("titre", SessionErrorKind::TrialUndeclared)]
-#[case::undeclared("absent", SessionErrorKind::TrialUndeclared)]
-fn edit_example_list_on_a_non_list_is_refused(#[case] param: &str, #[case] kind: SessionErrorKind) {
+#[case::not_a_list("tout", "title", SessionErrorKind::TrialUndeclared)]
+#[case::undeclared("frise", "absent", SessionErrorKind::TrialUndeclared)]
+fn edit_example_list_on_a_non_list_is_refused(
+    #[case] widget: &str,
+    #[case] param: &str,
+    #[case] kind: SessionErrorKind,
+) {
     let (_d, mut s) = templates_with_list();
-    let err = s.edit_example_list("frise2", None, param, insert("i-1")).unwrap_err();
+    s.set_widget("tout", ALL.into()).unwrap();
+    let err = s.edit_example_list(widget, None, param, insert("i-1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(kind);
 }
 
@@ -409,7 +427,7 @@ fn edit_example_list_on_a_non_list_is_refused(#[case] param: &str, #[case] kind:
 fn edit_example_list_outside_templates_mode_is_refused() {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
-    let err = s.edit_example_list("frise2", None, "etapes", insert("i-1")).unwrap_err();
+    let err = s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
 }
 
@@ -417,7 +435,7 @@ fn edit_example_list_outside_templates_mode_is_refused() {
 fn edit_example_list_through_a_request_is_accepted() {
     let (_d, mut s) = templates_with_list();
     let req: crate::Request = serde_json::from_value(json!({
-        "cmd": "edit_example_list", "name": "frise2", "param": "etapes",
+        "cmd": "edit_example_list", "name": "frise", "param": "etapes",
         "change": { "op": "insert", "id": "i-1" }
     }))
     .unwrap();
@@ -428,13 +446,9 @@ fn edit_example_list_through_a_request_is_accepted() {
 #[test]
 fn edit_example_list_changes_only_the_named_example() {
     let (_d, mut s) = templates_with_list();
-    s.add_example("frise2", "Long", None).unwrap();
-    s.edit_example_list("frise2", Some("Long"), "etapes", insert("i-1")).unwrap();
-    assert_that!(ids(&list_of(&s, Some("Long")).unwrap())).is_equal_to(vec![
-        "d0".to_owned(),
-        "d1".to_owned(),
-        "i-1".to_owned(),
-    ]);
+    s.add_example("frise", "Long", None).unwrap();
+    s.edit_example_list("frise", Some("Long"), "etapes", insert("i-1")).unwrap();
+    assert_that!(ids(&list_of(&s, Some("Long")).unwrap())).is_equal_to(with_last("i-1"));
     assert_that!(list_of(&s, None)).is_none();
 }
 
@@ -442,7 +456,7 @@ fn edit_example_list_changes_only_the_named_example() {
 fn set_example_values_accepts_a_whole_list() {
     let (_d, mut s) = templates_with_list();
     let whole = json!([{ "id": "a", "date": "1999", "texte": "Un" }, { "id": "b", "date": "2000", "texte": "Deux" }]);
-    s.set_example_values("frise2", None, values(json!({ "etapes": whole.clone() }))).unwrap();
+    s.set_example_values("frise", None, values(json!({ "etapes": whole.clone() }))).unwrap();
     assert_that!(list_trial(&s)).is_equal_to(Some(whole));
 }
 
@@ -450,29 +464,31 @@ fn set_example_values_accepts_a_whole_list() {
 fn set_example_values_refuses_a_list_with_a_duplicate_id() {
     let (_d, mut s) = templates_with_list();
     let bad = json!([{ "id": "a", "texte": "Un" }, { "id": "a", "texte": "Deux" }]);
-    let err = s.set_example_values("frise2", None, values(json!({ "etapes": bad }))).unwrap_err();
+    let err = s.set_example_values("frise", None, values(json!({ "etapes": bad }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
 }
 
 #[test]
 fn set_example_values_pasting_the_default_list_erases_the_trial() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise2", None, "etapes", insert("i-1")).unwrap();
+    s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
     let default = json!([
         { "id": "d0", "date": "2019", "texte": "Création" },
-        { "id": "d1", "date": "2021", "texte": "Client" }
+        { "id": "d1", "date": "2021", "texte": "Premier client" },
+        { "id": "d2", "date": "2023", "texte": "International" },
+        { "id": "d3", "date": "2025", "texte": "Série B" }
     ]);
-    s.set_example_values("frise2", None, values(json!({ "etapes": default }))).unwrap();
+    s.set_example_values("frise", None, values(json!({ "etapes": default }))).unwrap();
     assert_that!(list_trial(&s)).is_none();
 }
 
 #[test]
 fn widget_preview_params_of_a_list_are_its_default_items() {
     let (_d, s) = templates_with_list();
-    let schema = s.valid_schema(&parse_name("frise2").unwrap()).unwrap().unwrap();
+    let schema = s.valid_schema(&parse_name("frise").unwrap()).unwrap().unwrap();
     let params =
         crate::widget_preview::preview_params(&schema, &Map::new(), &oku_slides_i18n::Localizer::new(Some("fr")));
     let items = params.list("etapes").unwrap();
-    assert_that!(items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["d0", "d1"]);
-    assert_that!(items[1].values.text("texte")).is_equal_to(Some("Client"));
+    assert_that!(items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>()).is_equal_to(DEFAULT_IDS.to_vec());
+    assert_that!(items[1].values.text("texte")).is_equal_to(Some("Premier client"));
 }

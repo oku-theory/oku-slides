@@ -14,6 +14,17 @@ use crate::error::{
 };
 use crate::{Deck, Element, ListItem, ParamSchema, ParamType, ParamValue, Params, WidgetRegistry};
 
+/// Longueur d'une cellule `plain`, en octets.
+pub const PLAIN_MAX: usize = 4096;
+/// Paragraphes d'une cellule `rich`.
+pub const RICH_PARAGRAPHS_MAX: usize = 64;
+/// Taille JSON d'une cellule `rich`, en octets.
+pub const RICH_BYTES_MAX: usize = 16384;
+/// Longueur d'un id d'item, en caractères.
+pub const ITEM_ID_MAX: usize = 64;
+/// Items d'une liste dont le schéma ne donne pas de `max`.
+pub const LIST_ITEMS_MAX: usize = 256;
+
 /// Un changement d'une liste ; la liste entière se remplace par `set_param`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
@@ -68,8 +79,59 @@ impl<'a> ListSpec<'a> {
             .ok_or_else(|| UnknownParamSnafu { widget: self.name, param: field }.build().into())
     }
 
+    /// Items au plus : le `max` du schéma, sinon [`LIST_ITEMS_MAX`].
+    pub fn max_items(&self) -> usize {
+        self.max.unwrap_or(LIST_ITEMS_MAX)
+    }
+
     fn full(&self, len: usize) -> bool {
-        self.max.is_some_and(|m| len >= m)
+        len >= self.max_items()
+    }
+
+    fn too_many(&self, len: usize) -> Result<(), OpError> {
+        if len > self.max_items() {
+            return Err(InvalidValueSnafu { field: self.name, reason: "the list has too many items" }.build().into());
+        }
+        Ok(())
+    }
+
+    /// La valeur de la colonne `c`, convertie et dans ses bornes de taille.
+    fn cell(&self, c: &ParamSchema, raw: Value) -> Result<Option<ParamValue>, OpError> {
+        let v = param_value(&c.ty, &c.name, raw)?;
+        if let Some(v) = &v {
+            self.cell_fits(c, v)?;
+        }
+        Ok(v)
+    }
+
+    /// Refuse une cellule `plain` ou `rich` trop longue.
+    fn cell_fits(&self, c: &ParamSchema, v: &ParamValue) -> Result<(), OpError> {
+        let too_long = match (&c.ty, v) {
+            (ParamType::Plain, ParamValue::Text(s)) => s.len() > PLAIN_MAX,
+            (ParamType::Rich, ParamValue::Rich(ps)) => {
+                ps.len() > RICH_PARAGRAPHS_MAX || serde_json::to_vec(ps).map_or(true, |b| b.len() > RICH_BYTES_MAX)
+            }
+            _ => false,
+        };
+        if too_long {
+            return Err(InvalidValueSnafu { field: self.name, reason: "a list cell is too long" }.build().into());
+        }
+        Ok(())
+    }
+
+    /// Bornes de taille d'items déjà convertis (sous-arbre inséré) : nombre
+    /// d'items, longueur des ids et des cellules.
+    pub(crate) fn sizes_fit(&self, items: &[ListItem]) -> Result<(), OpError> {
+        self.too_many(items.len())?;
+        for it in items {
+            id_fits(self, &it.id)?;
+            for (name, v) in it.values.iter() {
+                if let Some(c) = self.columns.iter().find(|c| c.name == name) {
+                    self.cell_fits(c, v)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -81,7 +143,7 @@ fn item_values(spec: &ListSpec<'_>, values: &Map<String, Value>) -> Result<Param
     let mut out = Params::default();
     for c in spec.columns {
         let raw = values.get(&c.name).cloned().or_else(|| c.default.clone()).unwrap_or(Value::Null);
-        if let Some(v) = param_value(&c.ty, &c.name, raw)? {
+        if let Some(v) = spec.cell(c, raw)? {
             out.set(c.name.clone(), v);
         }
     }
@@ -94,8 +156,16 @@ fn check_id(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<(), OpE
             .build()
             .into());
     }
+    id_fits(spec, id)?;
     if items.iter().any(|i| i.id == id) {
         return Err(DuplicateIdSnafu { id }.build().into());
+    }
+    Ok(())
+}
+
+fn id_fits(spec: &ListSpec<'_>, id: &str) -> Result<(), OpError> {
+    if id.chars().count() > ITEM_ID_MAX {
+        return Err(InvalidValueSnafu { field: spec.name, reason: "an item id is too long" }.build().into());
     }
     Ok(())
 }
@@ -140,7 +210,7 @@ impl ListOp {
             ListOp::SetField { item, field, value } => {
                 let i = position(spec, items, &item)?;
                 let c = spec.column(&field)?;
-                match param_value(&c.ty, &field, value)? {
+                match spec.cell(c, value)? {
                     Some(v) => drop(items[i].values.set(field, v)),
                     None => drop(items[i].values.remove(&field)),
                 }
@@ -154,6 +224,7 @@ impl ListOp {
 pub fn default_items(p: &ParamSchema) -> Result<Vec<ListItem>, OpError> {
     let Some(spec) = ListSpec::of(&p.name, &p.ty) else { return Ok(Vec::new()) };
     let Some(Value::Array(rows)) = &p.default else { return Ok(Vec::new()) };
+    spec.too_many(rows.len())?;
     rows.iter()
         .enumerate()
         .map(|(i, row)| {
@@ -164,6 +235,38 @@ pub fn default_items(p: &ParamSchema) -> Result<Vec<ListItem>, OpError> {
         .collect()
 }
 
+/// Faute du défaut d'une liste, pour le contrôle du schéma.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DefaultFault {
+    /// Une valeur n'a pas le type de sa colonne (ou une ligne n'est pas un objet).
+    WrongType,
+    /// Les valeurs ont le bon type mais dépassent les bornes de taille (items, cellules).
+    TooLarge,
+}
+
+/// La faute du défaut de la liste `p`, types contrôlés avant les tailles ;
+/// `None` pour un défaut absent, qui n'est pas un tableau, ou valable.
+pub(crate) fn default_fault(p: &ParamSchema) -> Option<DefaultFault> {
+    let spec = ListSpec::of(&p.name, &p.ty)?;
+    let Some(Value::Array(rows)) = &p.default else { return None };
+    let mut too_large = spec.too_many(rows.len()).is_err();
+    for row in rows {
+        let Some(obj) = row.as_object() else { return Some(DefaultFault::WrongType) };
+        if obj.keys().any(|k| !spec.columns.iter().any(|c| &c.name == k)) {
+            return Some(DefaultFault::WrongType);
+        }
+        for c in spec.columns {
+            let raw = obj.get(&c.name).cloned().or_else(|| c.default.clone()).unwrap_or(Value::Null);
+            match param_value(&c.ty, &c.name, raw) {
+                Err(_) => return Some(DefaultFault::WrongType),
+                Ok(Some(v)) => too_large |= spec.cell_fits(c, &v).is_err(),
+                Ok(None) => {}
+            }
+        }
+    }
+    too_large.then_some(DefaultFault::TooLarge)
+}
+
 /// `set_param` d'une liste entière : ids uniques, colonnes converties,
 /// bornes respectées ; `null` vide la liste.
 pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<ParamValue>, OpError> {
@@ -172,6 +275,7 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         Value::Array(rows) => rows,
         _ => return Err(ParamTypeSnafu { param: spec.name, expected: "a list of items or null" }.build().into()),
     };
+    spec.too_many(rows.len())?;
     let mut items: Vec<ListItem> = Vec::with_capacity(rows.len());
     for row in rows {
         let Value::Object(mut obj) = row else {
@@ -185,7 +289,7 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         let values = item_values(spec, &obj)?;
         items.push(ListItem { id, values });
     }
-    if items.len() < spec.min || spec.max.is_some_and(|m| items.len() > m) {
+    if items.len() < spec.min {
         return Err(InvalidValueSnafu { field: spec.name, reason: "the list is outside its bounds" }.build().into());
     }
     Ok(if items.is_empty() { None } else { Some(ParamValue::List(items)) })

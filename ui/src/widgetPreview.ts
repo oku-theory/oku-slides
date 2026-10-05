@@ -16,9 +16,11 @@ export function croppedSvg(svg: string, box: Frame | null): string {
 
 /**
  * La vue de la slide d'aperçu sur l'image recadrée (`croppedSvg`) : les
- * champs du widget `widget` seulement, dans le repère de `box` (pt), à sa
- * taille ; la slide entière sans boîte. Ni cibles ni zone : la scène en
- * aperçu n'a que ses champs.
+ * champs et items du widget `widget` seulement, dans le repère de `box`
+ * (pt), à sa taille ; la slide entière sans boîte. Pas de zone ; pour
+ * cibles, l'élément d'aperçu seul, sur toute l'image : le cadre où se
+ * placent les poignées de ses listes (« + » d'une liste vide, axe d'un
+ * item seul).
  */
 export function croppedView(view: SlideView, box: Frame | null, widget: string): SlideView {
   const dx = box?.x ?? 0;
@@ -27,8 +29,11 @@ export function croppedView(view: SlideView, box: Frame | null, widget: string):
     ...view,
     width: box?.w ?? view.width,
     height: box?.h ?? view.height,
-    targets: [],
+    targets: [...new Set(view.lists.filter((l) => l.owner_kind === "element").map((l) => l.owner))].map((id) => ({
+      id, kind: widget, free: false, x: 0, y: 0, w: box?.w ?? view.width, h: box?.h ?? view.height,
+    })),
     zone: null,
+    items: view.items.map((it) => ({ ...it, x: it.x - dx, y: it.y - dy })),
     fields: view.fields
       .filter((f) => f.widget === widget)
       .map((f) => ({ ...f, x: f.x - dx, y: f.y - dy, ax: f.ax - dx })),

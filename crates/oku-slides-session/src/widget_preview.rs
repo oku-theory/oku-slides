@@ -37,6 +37,7 @@ use crate::fields;
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
 use crate::templates_mode::styled_like;
 use crate::views::{PageHash, SLIDE_HEIGHT, SLIDE_WIDTH, SlideView};
+use crate::widget_preview_items::preview_items;
 use crate::widgets_edit::{WidgetDiagnostic, parse_name, trial_fits};
 use crate::{Document, Mode, Result, Session};
 
@@ -69,7 +70,8 @@ pub struct WidgetPreview {
     /// La slide d'aperçu entière, comme `Session::slide` (une `SlideView`
     /// sérialisée : le deck d'aperçu ne survit pas à l'appel), sans cibles.
     ///
-    /// Ses champs (`fields`) sont en pt de la slide (`SLIDE_WIDTH` × `SLIDE_HEIGHT`), origine
+    /// Ses champs (`fields`) et items (`items`, ceux du seul widget montré,
+    /// comme `lists`) sont en pt de la slide (`SLIDE_WIDTH` × `SLIDE_HEIGHT`), origine
     /// en haut à gauche. L'image couvre `bbox` pour un widget d'élément :
     /// un champ s'y place en `(x - bbox.x, y - bbox.y)` ; sans `bbox`
     /// (widget de slide), l'image couvre toute la slide. `None` pour
@@ -215,17 +217,20 @@ fn without_elements(deck: &Deck) -> Deck {
     bare
 }
 
-/// La vue de la slide d'aperçu de `deck`, sans cibles.
+/// La vue de la slide d'aperçu de `deck`, sans cibles, avec les items du
+/// seul widget `widget`.
 fn preview_view(
     deck: &Deck,
     registry: &WidgetRegistry,
     layout: &Layout,
     hash: Option<u128>,
+    widget: &str,
 ) -> std::result::Result<Option<Value>, RenderError> {
     let Some(slide) = deck.slide(PREVIEW_SLIDE) else { return Ok(None) };
     // La seule page du deck d'aperçu : un widget de slide ne la déclare pas
     // toujours dans `layout.slides`.
     let page = 1;
+    let (items, lists) = preview_items(slide, registry, layout.items_on(page), widget);
     let view = SlideView {
         slide,
         page,
@@ -234,9 +239,9 @@ fn preview_view(
         height: SLIDE_HEIGHT,
         targets: Vec::new(),
         fields: fields::field_views(deck, slide, registry, layout.fields_on(page)),
-        // L'aperçu n'a pas de poignées d'items : ses listes se changent aux réglages.
-        items: Vec::new(),
-        lists: Vec::new(),
+        // Les poignées des listes du widget : l'interface les écrit dans le cas affiché.
+        items,
+        lists,
         zone: layout.zone_on(page),
     };
     serde_json::to_value(view).map(Some).map_err(|e| RenderError::frame(e.to_string()))
@@ -366,7 +371,7 @@ impl Session {
             let mut out = match format {
                 PreviewFormat::Svg => {
                     let hash = compiled.page_hash(0);
-                    let view = preview_view(deck, &registry, compiled.layout(), hash)?;
+                    let view = preview_view(deck, &registry, compiled.layout(), hash, name.as_str())?;
                     WidgetPreview { svg: Some(compiled.svg(0)?), view, diagnostics, ..Default::default() }
                 }
                 // L'agent voit la slide entière : pas de recadrage.

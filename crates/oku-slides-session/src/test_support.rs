@@ -82,6 +82,16 @@ pub(crate) fn add_version(
     oku_slides_core::PackRef { id: manifest.id, version: files.version() }
 }
 
+/// Source du widget de pack `frise` des tests (`fixtures/widgets/frise-test.typ`) :
+/// liste `etapes` (date, texte), quatre étapes par défaut, `max: 8`.
+pub(crate) const FRISE_TEST: &str = include_str!("../../../fixtures/widgets/frise-test.typ");
+
+/// Écrit le widget `frise` des tests dans le pack en cours de `s` (celui du deck,
+/// ou celui des modèles en cours d'édition).
+pub(crate) fn set_frise_widget(s: &mut Session) {
+    s.set_widget("frise", FRISE_TEST.into()).unwrap_or_else(|e| panic!("frise : {}", e.one_line()));
+}
+
 /// Les réglages de test sur `data` : en français, decks dans `data/decks`.
 pub(crate) fn settings_on(data: &std::path::Path) -> Settings {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));

@@ -1,8 +1,8 @@
 // La scène : le SVG rendu par Typst, et par-dessus la couche des objets
 // (sélection, glisser) et celle des champs (édition en place).
-// En aperçu (sous-onglet d'un widget) : l'image du cas d'exemple et ses
-// champs seulement, sans objets, glisser ni grille ; un champ lié au deck
-// reste en lecture.
+// En aperçu (sous-onglet d'un widget) : l'image du cas d'exemple, ses
+// champs et les poignées de ses listes, sans objets, glisser ni grille ;
+// un champ lié au deck reste en lecture.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -11,8 +11,9 @@ import { editorBackground } from "./color";
 import type { GridPlacement } from "./deck";
 import { fieldChanged, fieldOps, findElement, gridPlacement, isBlock, placeOnGridOps } from "./deck";
 import { editorGeometry, placeholderStyle } from "./editorGeometry";
-import type { Cell, GridSpec, ZoneView } from "./grid";
-import { cellRect, moveCell, resizeCell, sameCell, tracks } from "./grid";
+import type { Cell } from "./grid";
+import { cellRect, moveCell, resizeCell, sameCell } from "./grid";
+import GridLayer from "./GridLayer";
 import { t } from "./i18n";
 import { sheetPosition } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
@@ -21,7 +22,8 @@ import type { FieldKey } from "./stageFields";
 import { elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
 import GhostLayer from "./GhostLayer";
 import { ItemLayer } from "./ItemLayer";
-import { findItem, groupAxis, itemName, listOps } from "./stageItems";
+import type { OnListOp } from "./stageItems";
+import { findItem, groupAxis, itemHandles, moveItemTo } from "./stageItems";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -102,6 +104,10 @@ interface PreviewProps extends CommonProps {
   mode: "preview";
   /** Écrit le brouillon d'un champ modifié (valeur du cas d'exemple). */
   onField: (f: FieldView, text: string) => void;
+  /** Change une liste du cas d'exemple (poignées d'items) ; sans elle, pas de poignées. */
+  onListOp?: OnListOp;
+  /** Ouvre le champ `key` dès qu'une vue le montre (champ d'un item tout juste inséré). */
+  onEditWhenShown?: (key: FieldKey) => void;
 }
 
 type Props = DeckProps | PreviewProps;
@@ -144,22 +150,6 @@ function dragged(d: Drag): Frame {
       break;
   }
   return { x: Math.round(f.x), y: Math.round(f.y), w: Math.round(f.w), h: Math.round(f.h) };
-}
-
-/** La grille : un petit point sur chaque nœud (coins des cases), et la place visée. */
-function GridLayer({ zone, grid, scale, target }: { zone: ZoneView; grid: GridSpec; scale: number; target: Cell | null }) {
-  const t = tracks(zone, grid);
-  const px = (v: number) => v * scale;
-  const hot = target ? cellRect(zone, grid, target) : null;
-  // Nœuds : là où les bords des colonnes croisent ceux des lignes ; c'est là que tout s'accroche.
-  const xs = t.cols.flatMap((c) => [c.start, c.end]).map(px);
-  const ys = t.rows.flatMap((r) => [r.start, r.end]).map(px);
-  return (
-    <svg className="grid-layer" aria-hidden width={px(zone.w)} height={px(zone.h)} style={{ left: px(zone.x), top: px(zone.y) }}>
-      {hot && <rect className="grid-hot" x={px(hot.x)} y={px(hot.y)} width={px(hot.w)} height={px(hot.h)} rx={4} />}
-      {ys.map((y, i) => xs.map((x, j) => <circle key={`${i}-${j}`} className="grid-node" cx={x} cy={y} r={1.6} />))}
-    </svg>
-  );
 }
 
 export default function Stage(props: Props) {
@@ -304,14 +294,18 @@ export default function Stage(props: Props) {
     editNext(f);
   };
 
-  // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item, éditeur ouvert.
-  const editItem = deck && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;
+  // Poignées de liste : en ops sur la scène du deck ; en aperçu, dans le cas d'exemple.
+  const itemProps = itemHandles(view, props.mode === "preview"
+    ? { mode: "preview", onListOp: props.onListOp, onEditWhenShown: props.onEditWhenShown }
+    : { mode: "deck", readOnly, selected, editing: editField?.owner ?? null, onApply, onEditWhenShown });
+
+  // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item (même chemin que ⋮⋮), éditeur ouvert.
+  const editItem = itemProps && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;
   const moveItem = (text: string, dir: 1 | -1) => {
-    if (!editField || !editItem) return;
+    if (!editField || !editItem || !itemProps) return;
     save(editField, text);
     const { it } = editItem;
-    const to = Math.max(0, Math.min(it.len - 1, it.index + dir));
-    if (to !== it.index) onApply(t("ui-undo-list-move", { item: itemName(it) }), listOps(view, it, { op: "move", item: it.item, to }));
+    moveItemTo(itemProps.onListOp, it, Math.max(0, Math.min(it.len - 1, it.index + dir)));
   };
 
   const box = (t: ObjectTarget) => {
@@ -434,9 +428,7 @@ export default function Stage(props: Props) {
               })}
             </div>
           )}
-          {deck && !readOnly && (
-            <ItemLayer view={view} scale={scale} active={editField?.owner ?? selected} onApply={onApply} onInserted={(k) => onEditWhenShown?.(k)} />
-          )}
+          {itemProps && <ItemLayer view={view} scale={scale} {...itemProps} />}
           {editField && (() => {
             const hit = fieldHitBox(editField, scale, view.fields);
             return (

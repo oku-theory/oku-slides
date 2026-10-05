@@ -2,7 +2,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::lib_tests_support::{add_frise, data_dir, fixture_path, session_in, session_with_fixture};
+use crate::lib_tests_support::{data_dir, fixture_path, session_in, session_with_fixture, session_with_frise};
 
 fn names(view: &crate::views::SlideView<'_>) -> Vec<String> {
     view.fields.iter().map(|f| format!("{}.{}", f.owner, f.field)).collect()
@@ -132,8 +132,7 @@ fn field_views_rich_slide_param_carries_its_markdown_text() {
 
 #[test]
 fn field_views_of_a_frise_carry_list_item_and_column() {
-    let mut s = session_with_fixture();
-    s.apply("frise", vec![add_frise()], None).unwrap();
+    let s = session_with_frise();
     let view = s.slide("s-constat").unwrap();
     let f = view.fields.iter().find(|f| f.field == "etapes/d1/texte").unwrap();
     assert_that!((f.list, f.item, f.column)).is_equal_to((Some("etapes"), Some("d1"), "texte"));
@@ -151,8 +150,7 @@ fn field_views_of_a_plain_param_have_no_list_nor_item() {
 
 #[test]
 fn field_views_of_a_freshly_inserted_frise_step_include_its_empty_date() {
-    let mut s = session_with_fixture();
-    s.apply("frise", vec![add_frise()], None).unwrap();
+    let mut s = session_with_frise();
     let insert = serde_json::from_value(serde_json::json!({
         "op": "edit_list", "target": { "slide": "s-constat", "element": "fr" }, "param": "etapes",
         "change": { "op": "insert", "index": 0, "id": "n" }
