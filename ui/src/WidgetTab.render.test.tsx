@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { FieldView, SlideView, Snapshot, TabApi, WidgetStatus } from "./api";
-import { codeTrack, PREVIEW_MIN, SPLIT } from "./codeSplit";
+import { codeTrack, SIDE_MIN, SPLIT } from "./codeSplit";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -298,33 +298,32 @@ describe("WidgetTab, disposition", () => {
   const order = (host: HTMLElement) =>
     [...host.querySelectorAll(".widget-tab > *")].map((el) => el.className);
 
-  test("un widget : l'aperçu, le séparateur, puis le code", async () => {
+  test("un widget : l'aperçu, puis les réglages, le séparateur et le code", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
-    expect(order(m.host)).toEqual(["widget-tab-side", "code-divider", "widget-tab-code"]);
+    expect(order(m.host)).toEqual(["widget-tab-preview", "widget-tab-side", "code-divider", "widget-tab-code"]);
   });
 
-  test("Commun : les widgets en erreur, le séparateur, puis le code", async () => {
+  test("Commun : les widgets en erreur à la place de l'aperçu", async () => {
     const { fake } = memory({ _commun: "c" });
     const m = await mount(fake, { name: "_commun" });
-    expect(order(m.host)).toEqual(["widget-tab-side", "code-divider", "widget-tab-code"]);
+    expect(m.host.querySelector(".widget-tab-preview > .widget-tab-broken")).not.toBeNull();
   });
 
-  test("les réglages passés sont dans la zone de l'aperçu, après lui", async () => {
+  test("les réglages passés sont sous l'aperçu, avant les diagnostics", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi", settings: true });
     const side = [...m.host.querySelectorAll(".widget-tab-side > *")].map((el) => el.className);
-    expect(side.indexOf("probe-settings")).toBeGreaterThan(-1);
-    expect(side.indexOf("probe-settings")).toBe(side.length - 2);
+    expect(side).toEqual(["probe-settings", "widget-tab-diagnostics"]);
   });
 
   test("code replié : pas de séparateur", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi", code: false });
-    expect(order(m.host)).toEqual(["widget-tab-side", "widget-tab-code"]);
+    expect(order(m.host)).toEqual(["widget-tab-preview", "widget-tab-side", "widget-tab-code"]);
   });
 
-  test("code déplié : le séparateur entre l'aperçu et le code est vertical", async () => {
+  test("code déplié : le séparateur entre les réglages et le code est vertical", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
     expect(m.host.querySelector(".code-divider")!.getAttribute("aria-orientation")).toBe("vertical");
@@ -366,7 +365,7 @@ describe("WidgetTab, disposition", () => {
     await pointer("pointerdown", 500);
     await pointer("pointermove", 0);
     await pointer("pointerup", -1000);
-    expect(m.widths).toEqual([1000 - SPLIT - PREVIEW_MIN]);
+    expect(m.widths).toEqual([1000 - SPLIT - SIDE_MIN]);
   });
 
   test("sans largeur mesurée, le glisser ne règle rien", async () => {
@@ -426,7 +425,7 @@ describe("WidgetTab, cas d'exemple", () => {
   test("les pastilles des cas, dans la zone de l'aperçu, avant lui", async () => {
     const { fake } = previews();
     const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
-    const side = [...m.host.querySelectorAll(".widget-tab-side > *")].map((el) => el.className);
+    const side = [...m.host.querySelectorAll(".widget-tab-preview > *")].map((el) => el.className);
     expect(side[0]).toBe("example-pills");
     const pressed = [...m.host.querySelectorAll(".example-pill")].map((b) => b.getAttribute("aria-pressed"));
     expect(pressed).toEqual(["false", "true"]);
@@ -492,7 +491,7 @@ describe("WidgetTab, scène", () => {
     stub(fake, "setExampleValue", async (...a: never[]) => (written.push(a), {} as Snapshot));
     return { fake, calls, written };
   }
-  const fieldsOf = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".widget-tab-side .stage-preview .field")];
+  const fieldsOf = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".widget-tab-preview .stage-preview .field")];
   const open = (el: Element) => act(async () => void el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
   const blur = (host: HTMLElement) =>
     act(async () => void host.querySelector(".editor .cm-content")!.dispatchEvent(new FocusEvent("blur")));
@@ -505,8 +504,8 @@ describe("WidgetTab, scène", () => {
   test("un aperçu avec sa vue : la scène sur l'image recadrée, champs placés dans le repère de la boîte", async () => {
     const { fake } = scene();
     const m = await mount(fake, { name: "kpi" });
-    expect(m.host.querySelector(".widget-tab-side > img")).toBeNull();
-    expect(m.host.querySelector(".widget-tab-side .stage-preview .stage > img")).not.toBeNull();
+    expect(m.host.querySelector(".widget-tab-preview > img")).toBeNull();
+    expect(m.host.querySelector(".widget-tab-preview .stage-preview .stage > img")).not.toBeNull();
     // Scène non mesurée (happy-dom) : échelle 0,1 ; le titre est à (150 − 100, 230 − 200) pt de la boîte.
     const [title] = fieldsOf(m.host);
     expect([title.style.left, title.style.top]).toEqual(["5px", "3px"]);
@@ -516,7 +515,7 @@ describe("WidgetTab, scène", () => {
     const { fake } = memory({ kpi: "k" });
     stub(fake, "previewWidget", async () => ({ svg: "<svg/>", diagnostics: [] }));
     const m = await mount(fake, { name: "kpi" });
-    expect(m.host.querySelector(".widget-tab-side > img")).not.toBeNull();
+    expect(m.host.querySelector(".widget-tab-preview > img")).not.toBeNull();
     expect(m.host.querySelector(".stage-wrap")).toBeNull();
   });
 

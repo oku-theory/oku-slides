@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const IMG = '.widget-tab:not([hidden]) .widget-tab-side img';
+const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
 const svgOf = (p) => p.evaluate(async (sel) => {
   const img = document.querySelector(sel);
   return img ? (await fetch(img.src)).text() : null;

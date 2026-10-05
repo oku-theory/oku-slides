@@ -7,7 +7,7 @@ import "./test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: CodeDivider } = await import("./CodeDivider");
-const { CODE_MIN, PREVIEW_MIN, SPLIT } = await import("./codeSplit");
+const { CODE_MIN, SIDE_MIN, SPLIT } = await import("./codeSplit");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -149,7 +149,7 @@ test("CodeDivider arrow right at the code minimum stays there", async () => {
 });
 
 test("CodeDivider arrow left at the preview minimum stays there", async () => {
-  const widest = 1000 - SPLIT - PREVIEW_MIN;
+  const widest = 1000 - SPLIT - SIDE_MIN;
   const { resized, press } = await mount({ measured: { total: 1000, size: widest } });
   await press("ArrowLeft");
   expect(resized).toEqual([[widest, true]]);

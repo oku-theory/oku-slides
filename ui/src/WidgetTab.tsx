@@ -1,10 +1,11 @@
 /**
- * Sous-onglet d'un fichier de widget : aperçu, réglages et diagnostics à gauche, éditeur à droite.
+ * Sous-onglet d'un fichier de widget : l'aperçu en haut, sur toute la largeur ;
+ * dessous, réglages et diagnostics à gauche, éditeur à droite.
  *
  * L'interrupteur de la barre d'outils affiche le code (masqué par défaut, choix
- * commun gardé par l'hôte) : masqué, l'aperçu prend tout le sous-onglet ;
- * affiché, le code se place toujours à droite, à la largeur réglée au
- * séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
+ * commun gardé par l'hôte) : masqué, les réglages prennent toute la largeur
+ * sous l'aperçu ; affiché, le code se place à leur droite, à la largeur réglée
+ * au séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
  * historique demeurent.
  * Au-dessus de l'aperçu, les pastilles des cas d'exemple : l'aperçu montre le
  * cas courant (le premier si le cas gardé n'existe plus).
@@ -50,7 +51,7 @@ export interface WidgetTabProps {
   codeWidth: number | null;
   /** Retient une nouvelle largeur réglée au séparateur. */
   onCodeWidth: (width: number | null) => void;
-  /** Réglages de l'hôte (valeurs du cas courant), posés sous l'aperçu ; `null` : aucun. */
+  /** Réglages de l'hôte (valeurs du cas courant), sous l'aperçu à gauche du code ; `null` : aucun. */
   settings?: ReactNode;
   /** Noms des cas d'exemple du widget, dans l'ordre ; défaut : le cas implicite seul. */
   examples?: string[];
@@ -175,7 +176,7 @@ export default function WidgetTab({
     );
   };
 
-  /** Largeurs du sous-onglet et du code, au début d'un geste. */
+  /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */
   const measure = () => {
     const el = host.current;
     const codeEl = el?.querySelector<HTMLElement>(".widget-tab-code");
@@ -198,7 +199,7 @@ export default function WidgetTab({
       data-code={code ? "shown" : "folded"}
       style={tracks as React.CSSProperties}
     >
-      <aside className="widget-tab-side" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
+      <section className="widget-tab-preview" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
         {name !== COMMON && (
           <ExamplePills
             api={api}
@@ -241,6 +242,8 @@ export default function WidgetTab({
         ) : (
           <p className="caption">{t("ui-widgets-no-preview")}</p>
         )}
+      </section>
+      <div className="widget-tab-side">
         {settings}
         <ul className="widget-tab-diagnostics">
           {listedDiagnostics(status, preview?.diagnostics ?? []).map((d, i) => {
@@ -253,7 +256,7 @@ export default function WidgetTab({
             );
           })}
         </ul>
-      </aside>
+      </div>
       {code && (
         <CodeDivider
           label={t("ui-divider-code")}

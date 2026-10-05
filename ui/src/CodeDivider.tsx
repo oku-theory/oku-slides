@@ -1,4 +1,4 @@
-// Séparateur vertical entre l'aperçu d'un widget et son code, à sa droite :
+// Séparateur vertical entre les réglages d'un widget et son code, à leur droite :
 // on le glisse pour régler la largeur du code, on le double-clique pour
 // revenir à la proportion par défaut.
 //

@@ -29,7 +29,7 @@ const post = (p, endpoint, req) =>
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('jalons');
   await name.press('Enter');
-  const IMG = '.widget-tab:not([hidden]) .widget-tab-side img';
+  const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
   await p.waitForSelector(IMG);
   const svgOf = () => p.evaluate(async (sel) => {
     const img = document.querySelector(sel);

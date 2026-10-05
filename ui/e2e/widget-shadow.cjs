@@ -14,13 +14,14 @@ const img = `<img src="data:image/svg+xml,${svg}">`;
 const page = (preview) => `<!doctype html><style>${css}</style>
 <div style="height:600px;width:800px;display:flex;flex-direction:column">
   <section class="widget-tab" data-code="folded">
-    <aside class="widget-tab-side">${preview}<ul class="widget-tab-diagnostics"></ul></aside>
+    <section class="widget-tab-preview">${preview}</section>
+    <div class="widget-tab-side"><ul class="widget-tab-diagnostics"></ul></div>
     <div class="widget-tab-code" inert></div>
   </section>
 </div>`;
 const scene = `<div class="stage-wrap stage-preview" dir="ltr"><div class="stage-frame"><div class="stage">${img}</div></div></div>`;
 const CASES = [
-  { name: 'image', html: page(img), sheet: '.widget-tab-side > img' },
+  { name: 'image', html: page(img), sheet: '.widget-tab-preview > img' },
   { name: 'scène', html: page(scene), sheet: '.stage-preview .stage' },
 ];
 
@@ -44,7 +45,7 @@ const fitScene = () => {
     await p.evaluate(fitScene);
     const r = await p.evaluate((sel) => {
       const img = document.querySelector(sel);
-      const side = document.querySelector('.widget-tab-side');
+      const side = document.querySelector('.widget-tab-preview');
       // Étendue de l'ombre de chaque côté : flou + étalement, décalés.
       const ext = { top: 0, right: 0, bottom: 0, left: 0 };
       for (const layer of getComputedStyle(img).boxShadow.split(/,(?![^(]*\))/)) {
