@@ -251,19 +251,6 @@ describe("useTemplateWidgets, entrée depuis le deck", () => {
     expect(m.out.w!.activeName).toBeNull();
   });
 
-  test("enterAndOpen sans nom : pileFocus augmente", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, snapOf({ set: null }));
-    const before = m.out.w!.pileFocus;
-    const enter = async () => {
-      m.out.setSnap!(snapOf({}));
-      return true;
-    };
-    await act(async () => m.out.w!.enterAndOpen(enter, null));
-    await wait(10);
-    expect(m.out.w!.pileFocus).toBe(before + 1);
-    expect(m.names()).toEqual([]);
-  });
 });
 
 describe("useTemplateWidgets, fermer, supprimer, renommer", () => {
@@ -418,22 +405,6 @@ describe("useTemplateWidgets, revue finale", () => {
     await wait(10);
     expect(m.out.w!.tabs.tabs).toEqual([{ id, name: "kpi2" }]);
     expect(m.out.w!.activeName).toBe("kpi2");
-  });
-
-  test("pileFocus ne sert qu'une fois : sortie puis entrée par un autre chemin, pas de focus", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, snapOf({ set: null }));
-    const enter = async () => {
-      m.out.setSnap!(snapOf({}));
-      return true;
-    };
-    await act(async () => m.out.w!.enterAndOpen(enter, null));
-    await wait(10);
-    expect(m.out.w!.pileFocus).toBeGreaterThan(0);
-    await m.render(snapOf({ set: null }));
-    expect(m.out.w!.pileFocus).toBe(0);
-    await m.render(snapOf({}));
-    expect(m.out.w!.pileFocus).toBe(0);
   });
 
   test("Suppr sur un sous-onglet : le focus va au sous-onglet devenu actif", async () => {

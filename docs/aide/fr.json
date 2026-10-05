@@ -223,7 +223,7 @@
            "bold": true
           },
           {
-           "t": " : menu ▸ Modèles. Chaque modèle devient une slide ; « Terminer » ramène au deck."
+           "t": " : menu ▸ Modèles et widgets. Chaque modèle devient une slide ; « Terminer » ramène au deck."
           }
          ],
          "list": "bullet"
@@ -235,7 +235,7 @@
            "bold": true
           },
           {
-           "t": " : menu ▸ Éditer les widgets ouvre leur code Typst, avec un aperçu en direct."
+           "t": " : en mode modèles, la section Widgets de la pile ouvre leur code Typst, avec un aperçu en direct."
           }
          ],
          "list": "bullet"

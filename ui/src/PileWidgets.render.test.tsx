@@ -26,7 +26,6 @@ afterEach(async () => {
 
 interface Over {
   confirm?: (m: string) => boolean;
-  focus?: number;
   open?: boolean;
 }
 
@@ -36,7 +35,7 @@ async function mount(fake: TabApi, over: Over = {}) {
   const errors: string[] = [];
   const renamed: string[] = [];
   const box: { files: Files | null } = { files: null };
-  const Probe = ({ focus }: { focus: number }) => {
+  const Probe = () => {
     const files = useWidgetFiles(fake, "p", "r", {
       changed: () => {},
       error: (m) => errors.push(m),
@@ -52,7 +51,6 @@ async function mount(fake: TabApi, over: Over = {}) {
       current: null,
       onOpen: (n: string) => opened.push(n),
       onRemoved: (n: string) => removed.push(n),
-      focus,
       confirm: over.confirm,
     });
   };
@@ -60,9 +58,8 @@ async function mount(fake: TabApi, over: Over = {}) {
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  await act(async () => root.render(createElement(Probe, { focus: over.focus ?? 0 })));
-  const rerender = (focus: number) => act(async () => root.render(createElement(Probe, { focus })));
-  return { host, opened, removed, errors, renamed, box, rerender };
+  await act(async () => root.render(createElement(Probe)));
+  return { host, opened, removed, errors, renamed, box };
 }
 
 const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".pile-widgets-file")];
@@ -276,23 +273,6 @@ describe("PileWidgets", () => {
     const { fake } = memory({});
     const { host } = await mount(fake);
     expect(host.querySelector(".pile-widgets .caption")?.textContent).toBe("ui-widgets-empty");
-  });
-
-  test("focus change : le titre de la section prend le focus", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const { host, rerender } = await mount(fake);
-    expect(document.activeElement).not.toBe(toggle(host));
-    await rerender(1);
-    expect(document.activeElement).toBe(toggle(host));
-  });
-
-  test("focus change : une section repliée se rouvre", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const { host, rerender } = await mount(fake);
-    await act(async () => toggle(host).click());
-    expect(rows(host).length).toBe(0);
-    await rerender(1);
-    expect(rows(host).length).toBe(1);
   });
 
   test("repliée : + rouvre la section sur le champ du nom", async () => {

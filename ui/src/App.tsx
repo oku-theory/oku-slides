@@ -675,7 +675,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
         { kind: "item", label: t("ui-toolbar-templates"), onSelect: () => void editTemplates() },
-        { kind: "item", label: t("ui-widgets-edit"), onSelect: () => void widgets.enterAndOpen(editTemplates, null) },
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         ...viewOptions.entries,
@@ -803,7 +802,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
               current={widgets.activeName}
               onOpen={widgets.open}
               onRemoved={widgets.removed}
-              focus={widgets.pileFocus}
             />
           }
         />

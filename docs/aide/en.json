@@ -223,7 +223,7 @@
            "bold": true
           },
           {
-           "t": ": menu ▸ Templates. Each template becomes a slide; “Done” brings the deck back."
+           "t": ": menu ▸ Templates and widgets. Each template becomes a slide; “Done” brings the deck back."
           }
          ],
          "list": "bullet"
@@ -235,7 +235,7 @@
            "bold": true
           },
           {
-           "t": ": menu ▸ Edit widgets opens their Typst code, with a live preview."
+           "t": ": in template mode, the Widgets section of the pile opens their Typst code, with a live preview."
           }
          ],
          "list": "bullet"

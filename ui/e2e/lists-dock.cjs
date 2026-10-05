@@ -25,7 +25,7 @@ const post = (p, endpoint, req) =>
   const add = p.getByRole('button', { name: 'Nouveau widget' });
   if (!(await add.isVisible())) {
     await p.getByRole('button', { name: 'Menu' }).click();
-    await p.getByRole('menuitem', { name: 'Éditer les widgets' }).click();
+    await p.getByRole('menuitem', { name: 'Modèles et widgets' }).click();
   }
   await add.click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });

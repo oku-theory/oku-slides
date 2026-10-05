@@ -28,10 +28,8 @@ export interface TemplateWidgets {
   history: EditorHistory;
   commandsOf(id: number): (c: EditorCommands | null) => void;
   historyOf(id: number): (h: EditorHistory) => void;
-  /** Demande de focus sur la section Widgets : augmente à chaque demande, remis à 0 hors mode modèles (une seule fois). */
-  pileFocus: number;
-  /** Entre en mode modèles par `enter`, puis ouvre `name` ou met le focus sur la pile. */
-  enterAndOpen(enter: () => Promise<boolean>, name: string | null): Promise<void>;
+  /** Entre en mode modèles par `enter`, puis ouvre `name`. */
+  enterAndOpen(enter: () => Promise<boolean>, name: string): Promise<void>;
   /** Frappes écrites et file vide, puis `close` (✓). */
   finish(close: () => Promise<unknown>): Promise<void>;
 }
@@ -74,14 +72,11 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   const [hostTabs, setHostTabs] = useState<KeptTabs | null>(() => (pack === null ? null : keptOf(snap!)));
   /** Ouvert dès l'entrée en mode modèles (`enterAndOpen`). */
   const [pending, setPending] = useState<string | null>(null);
-  const [pileFocus, setPileFocus] = useState(0);
   /** Écrits par l'agent, pas encore dans la liste des fichiers : ouverts quand elle les contient. */
   const [awaiting, setAwaiting] = useState<ReadonlySet<string>>(new Set());
   if (pack !== seenPack) {
     setSeenPack(pack);
     setAwaiting(new Set());
-    // La demande de focus ne vaut que pour l'entrée qui l'a faite : la pile, remontée à la prochaine, ne la reprend pas.
-    if (pack === null) setPileFocus(0);
     // `next` continue : un id ne resservira pas à un autre fichier.
     setTabs((s) => ({ ...NO_TABS, next: s.next }));
     setRestoredFor(null);
@@ -213,10 +208,9 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   }, []);
 
   const enterAndOpen = useCallback(
-    async (enter: () => Promise<boolean>, name: string | null) => {
+    async (enter: () => Promise<boolean>, name: string) => {
       if (packRef.current === null && !(await enter())) return;
-      if (name === null) setPileFocus((n) => n + 1);
-      else if (packRef.current !== null) open(name);
+      if (packRef.current !== null) open(name);
       // Le mode modèles n'est pas encore rendu : ouvert au rendu qui l'apporte.
       else setPending(name);
     },
@@ -273,7 +267,6 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
     history: shown.id === active ? shown.h : ZERO,
     commandsOf,
     historyOf,
-    pileFocus,
     enterAndOpen,
     finish,
   };

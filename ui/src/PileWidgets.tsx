@@ -16,24 +16,16 @@ export interface PileWidgetsProps {
   onOpen: (name: string) => void;
   /** Après une suppression réussie (le sous-onglet se ferme). */
   onRemoved: (name: string) => void;
-  /** Change : la section se rouvre, le focus va à son titre (☰ « Éditer les widgets »). */
-  focus: number;
   /** Confirmation (injectable pour les tests) ; défaut : `window.confirm`. */
   confirm?: (message: string) => boolean;
 }
 
-export default function PileWidgets({ files, open, onOpenChange, current, onOpen, onRemoved, focus, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
+export default function PileWidgets({ files, open, onOpenChange, current, onOpen, onRemoved, confirm = (m) => window.confirm(m) }: PileWidgetsProps) {
   const [naming, setNaming] = useState<{ from: string | null; value: string } | null>(null);
-  const title = useRef<HTMLButtonElement>(null);
   const issueId = useId();
   const rows = useRef(new Map<string, HTMLButtonElement>());
   /** Ligne à refocaliser après le champ du nom. */
   const refocus = useRef<string | null>(null);
-  useEffect(() => {
-    if (focus === 0) return;
-    onOpenChange(true);
-    title.current?.focus();
-  }, [focus]);
   useEffect(() => {
     if (naming || !refocus.current) return;
     // Un renommage n'a pas encore sa ligne : on attend le rendu qui la porte.
@@ -99,7 +91,6 @@ export default function PileWidgets({ files, open, onOpenChange, current, onOpen
       label={t("ui-widgets-files")}
       open={open}
       onToggle={() => onOpenChange(!open)}
-      toggleRef={title}
       actions={
         <button
           className="token ghost"

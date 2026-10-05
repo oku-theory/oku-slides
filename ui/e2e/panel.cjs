@@ -24,7 +24,7 @@ const state = (p) => p.evaluate((LIBRE) => ({
   assert.equal((await state(p)).cards, 0);
   // Les modèles s'ouvrent depuis le menu ⋯.
   await p.getByRole('button', { name: 'Menu' }).click();
-  await p.getByRole('menuitem', { name: 'Modèles' }).click();
+  await p.getByRole('menuitem', { name: 'Modèles et widgets' }).click();
   await p.waitForSelector('[data-surface-id="host-template"]');
   // Sous la slide qu'ils règlent, pas au dock de l'agent.
   assert.equal(await p.locator('.templates-panel [data-surface-id="host-template"]').count(), 1);

@@ -16,7 +16,7 @@ const svgOf = (p) => p.evaluate(async (sel) => {
   await p.goto(URL);
   await p.waitForSelector('.stage img');
   await p.getByRole('button', { name: 'Menu' }).click();
-  await p.getByRole('menuitem', { name: 'Éditer les widgets' }).click();
+  await p.getByRole('menuitem', { name: 'Modèles et widgets' }).click();
   await p.getByRole('button', { name: 'Nouveau widget' }).click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('carte');
