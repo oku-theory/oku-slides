@@ -97,6 +97,15 @@ describe("ListTable", () => {
     expect(actions[0].context?.key).toBe("etapes");
   });
 
+  test("ListTable : « Ajouter » est un pictogramme nommé par son libellé", async () => {
+    const { host } = await mount(table({ rows: [{ id: "d0" }], max: 3 }));
+    const add = host.querySelector("[data-list-add]") as HTMLButtonElement;
+    expect(add.querySelector("svg")).not.toBeNull();
+    expect(add.textContent).toBe("");
+    expect(add.getAttribute("aria-label")).toBe("ui-list-add");
+    expect(add.title).toBe("ui-list-add");
+  });
+
   test("ListTable : « Ajouter » désactivé à max, « × » désactivé à min", async () => {
     const full = await mount(table({ rows: [{ id: "d0" }, { id: "d1" }], min: 2, max: 2 }));
     const add = full.host.querySelector("[data-list-add]") as HTMLButtonElement;
@@ -225,6 +234,47 @@ describe("ListTable", () => {
       { op: "move", item: "d0", to: 1 },
       { op: "move", item: "d2", to: 1 },
     ]);
+  });
+
+  test("ListTable : glisser une poignée → fantôme de la ligne, source estompée, repère sur la cible, puis move", async () => {
+    const rows = [{ id: "d0", date: "2018", texte: "Fondation" }, { id: "d1" }, { id: "d2" }];
+    const { host, changes } = await mount(table({ rows }));
+    const handle = host.querySelectorAll("[data-list-handle]")[0];
+    const target = cell(host, 2, "date");
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => target;
+    const pointer = (el: Element, type: string) =>
+      act(async () => void el.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: 10, clientY: 90 })));
+    try {
+      await pointer(handle, "pointerdown");
+      await pointer(handle, "pointermove");
+      const trs = host.querySelectorAll("tbody tr");
+      expect(host.querySelector(".lt-ghost")?.textContent).toContain("Fondation");
+      expect(trs[0].hasAttribute("data-lifted")).toBe(true);
+      expect(trs[2].getAttribute("data-drop")).toBe("after");
+      await pointer(handle, "pointerup");
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(changes()).toEqual([{ op: "move", item: "d0", to: 2 }]);
+    expect(host.querySelector(".lt-ghost")).toBeNull();
+    expect(host.querySelector("[data-lifted], [data-drop]")).toBeNull();
+  });
+
+  test("ListTable : glisser sans rendu entre les événements → move quand même", async () => {
+    const { host, changes } = await mount(table({ rows: [{ id: "d0" }, { id: "d1" }, { id: "d2" }] }));
+    const handle = host.querySelectorAll("[data-list-handle]")[2];
+    const target = cell(host, 0, "date");
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => target;
+    const fire = (type: string) => handle.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1 }));
+    try {
+      // Un geste vif : React n'a pas rendu entre l'appui, le déplacement et le relâcher.
+      await act(async () => ["pointerdown", "pointermove", "pointerup"].forEach(fire));
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(changes()).toEqual([{ op: "move", item: "d2", to: 0 }]);
   });
 
   test("ListTable : collage TSV de deux lignes → un seul changement de liste entière", async () => {

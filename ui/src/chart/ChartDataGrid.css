@@ -1,33 +1,33 @@
-/* Jetons Papier attendus ; les valeurs après la virgule sont des replis. */
-.cdg { display: flex; flex-direction: column; gap: 8px; font: inherit; color: var(--papier-text, #1f1d1a); }
-.cdg-scroll { overflow: auto; max-height: 60vh; border: 1px solid var(--papier-border, #e7e2d8); border-radius: var(--papier-radius, 6px); }
+/* Grille des données d'un graphique, aux jetons de l'app (styles.css). */
+.cdg { display: flex; flex-direction: column; gap: 8px; font: inherit; color: var(--ink); }
+.cdg-scroll { overflow: auto; max-height: 60vh; border: 1px solid var(--rule); border-radius: var(--radius-sm); }
 .cdg table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-.cdg th, .cdg td { border-bottom: 1px solid var(--papier-border, #e7e2d8); padding: 0; }
-.cdg th { position: sticky; top: 0; background: var(--papier-surface-raised, #f5f2ec); font-weight: 600; z-index: 1; }
+.cdg th, .cdg td { border-bottom: 1px solid var(--rule); padding: 0; }
+.cdg th { position: sticky; top: 0; background: var(--a2ui-surface); font-weight: 600; z-index: 1; }
 .cdg-head { display: flex; align-items: center; }
 .cdg-input { width: 100%; min-width: 6ch; box-sizing: border-box; border: 0; background: transparent; padding: 6px 8px; font: inherit; color: inherit; }
 .cdg-number { text-align: right; }
-.cdg-input:focus { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: -2px; background: var(--papier-surface, #fff); }
-.cdg-check { display: block; margin: 6px auto; accent-color: var(--papier-accent, #2f5d8a); cursor: pointer; }
+.cdg-input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--paper-200); }
+.cdg-check { display: block; margin: 6px auto; accent-color: var(--accent); cursor: pointer; }
 .cdg-gutter { width: 1%; }
-.cdg-remove { border: 0; background: transparent; color: var(--papier-text-muted, #6b665e); cursor: pointer; padding: 4px 8px; opacity: 0; }
+.cdg-remove { border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; padding: 4px 8px; opacity: 0; }
 tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { opacity: 1; }
 .cdg-actions { display: flex; gap: 8px; }
-.cdg-actions button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; color: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: var(--papier-surface, #fff); border-radius: var(--papier-radius, 6px); cursor: pointer; }
+.cdg-actions button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; color: inherit; border: 1px solid var(--rule); background: var(--paper-200); border-radius: var(--radius-sm); cursor: pointer; }
 .cdg-actions button svg, .chart-options button svg { width: 20px; height: 20px; }
 
 /* Panneau du graphique sélectionné, en tête de la colonne des notes. */
-.chart-panel { position: relative; flex: none; max-height: 60%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper, #fff); border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-floating); z-index: 5; }
+.chart-panel { position: relative; flex: none; max-height: 60%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper-200); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); z-index: 5; }
 .chart-kinds, .chart-options { display: flex; flex-wrap: wrap; gap: 6px; }
-.chart-kinds button, .chart-options button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; color: inherit; cursor: pointer; }
+.chart-kinds button, .chart-options button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; border: 1px solid var(--rule); background: transparent; border-radius: 999px; color: inherit; cursor: pointer; }
 .chart-kinds button svg { width: 20px; height: 20px; }
 .chart-kinds button:disabled { opacity: 0.4; cursor: default; }
-.chart-kinds button.on, .chart-options button.on { background: var(--papier-accent, #2f5d8a); border-color: transparent; color: #fff; }
+.chart-kinds button.on, .chart-options button.on { background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
 .series-colors { display: flex; flex-wrap: wrap; gap: 6px; }
 .series-color { display: flex; flex-direction: column; gap: 4px; }
-.series-chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; border: 1px solid var(--papier-border, #e7e2d8); background: transparent; border-radius: 999px; padding: 3px 10px 3px 4px; cursor: pointer; }
-.series-chip.on { border-color: var(--papier-accent, #2f5d8a); }
+.series-chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; border: 1px solid var(--rule); background: transparent; border-radius: 999px; padding: 3px 10px 3px 4px; cursor: pointer; }
+.series-chip.on { border-color: var(--accent); }
 .swatches { display: flex; gap: 4px; }
 .swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.15); padding: 0; flex: none; }
 button.swatch { cursor: pointer; }
-.swatch.on { outline: 2px solid var(--papier-accent, #2f5d8a); outline-offset: 1px; }
+.swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }

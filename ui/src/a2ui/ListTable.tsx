@@ -11,6 +11,7 @@ import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-tab
 import type { ListOp, Paragraph } from "../api";
 import { newId, textToParagraphs } from "../deck";
 import { locale, t } from "../i18n";
+import { Icon } from "../icons";
 import { coerce, parseTsv, type ColumnKind } from "../table/cells";
 import { RichTextField } from "./RichTextField";
 import "./ListTable.css";
@@ -39,6 +40,19 @@ export type ListTableProps = {
   onChange: (change: ListChange) => Promise<boolean>;
 };
 
+/** Ligne tirée par sa poignée : son fantôme suit le pointeur, en px dans le tableau. */
+type Drag = {
+  id: string;
+  from: number;
+  grabY: number;
+  top: number;
+  height: number;
+  /** Largeurs des cellules de la ligne (poignée comprise), pour que le fantôme s'y aligne. */
+  widths: number[];
+  over: string | null;
+  moved: boolean;
+};
+
 /** Durée du signalement d'une cellule refusée. */
 const INVALID_MS = 2000;
 
@@ -56,8 +70,13 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   const full = max !== null && rows.length >= max;
   const [invalid, flagged] = useInvalid();
   const [rich, setRich] = useState<string | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-  const dragged = useRef<string | null>(null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  // Le geste est lu par les gestionnaires dans la ref : un geste vif précède le rendu.
+  const dragging = useRef<Drag | null>(null);
+  const setDrag = (d: Drag | null) => {
+    dragging.current = d;
+    setDragState(d);
+  };
 
   const lt = useRef<HTMLDivElement>(null);
 
@@ -168,18 +187,38 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   /** La ligne sous le pointeur. */
   const rowAt = (e: PointerEvent) =>
     document.elementFromPoint?.(e.clientX, e.clientY)?.closest("tr[data-row]")?.getAttribute("data-row") ?? null;
-  const endDrag = (e: PointerEvent) => {
-    const id = dragged.current;
-    dragged.current = null;
-    setOver(null);
-    const target = rowAt(e);
-    if (id && target) move(id, rows.findIndex((row) => row.id === target));
+  const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string, from: number) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const row = e.currentTarget.closest("tr");
+    const tr = row?.getBoundingClientRect();
+    const box = lt.current?.getBoundingClientRect();
+    const grabY = e.clientY - (tr?.top ?? e.clientY);
+    const widths = [...(row?.cells ?? [])].map((td) => td.getBoundingClientRect().width);
+    setDrag({ id, from, grabY, top: e.clientY - grabY - (box?.top ?? 0), height: tr?.height ?? 0, widths, over: null, moved: false });
   };
+  const dragTo = (e: PointerEvent) => {
+    const top = e.clientY - (lt.current?.getBoundingClientRect().top ?? 0);
+    const over = rowAt(e);
+    const d = dragging.current;
+    if (d) setDrag({ ...d, top: top - d.grabY, over, moved: true });
+  };
+  const endDrag = (e: PointerEvent) => {
+    const d = dragging.current;
+    const target = rowAt(e);
+    if (d && target) move(d.id, rows.findIndex((row) => row.id === target));
+    setDrag(null);
+  };
+  /** Où la ligne tirée tomberait par rapport à la ligne `r` : avant en remontant, après en descendant. */
+  const dropAt = (id: string, r: number) => {
+    if (!drag?.moved || drag.over !== id || r === drag.from) return undefined;
+    return r < drag.from ? "before" : "after";
+  };
+  const lifted = drag?.moved ? rows.find((row) => row.id === drag.id) : undefined;
 
   const open = rich ? openCell(rich, rows, columns) : null;
 
   return (
-    <div ref={lt} className="lt note-field">
+    <div ref={lt} className="lt note-field" data-dragging={lifted ? "" : undefined}>
       <span className="a2ui-hint">{label}</span>
       <div className="lt-scroll">
         <table className="lt-table">
@@ -198,7 +237,12 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.original.id} data-row={row.original.id} data-over={over === row.original.id ? "" : undefined}>
+              <tr
+                key={row.original.id}
+                data-row={row.original.id}
+                data-lifted={lifted?.id === row.original.id ? "" : undefined}
+                data-drop={dropAt(row.original.id, row.index)}
+              >
                 <td className="lt-gutter">
                   <button
                     type="button"
@@ -207,16 +251,10 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
                     aria-label={t("ui-list-move", { item })}
                     title={t("ui-list-move", { item })}
                     onKeyDown={(e) => onHandleKey(e, row.original.id, row.index)}
-                    onPointerDown={(e) => {
-                      e.currentTarget.setPointerCapture?.(e.pointerId);
-                      dragged.current = row.original.id;
-                    }}
-                    onPointerMove={(e) => dragged.current && setOver(rowAt(e))}
+                    onPointerDown={(e) => startDrag(e, row.original.id, row.index)}
+                    onPointerMove={dragTo}
                     onPointerUp={endDrag}
-                    onPointerCancel={() => {
-                      dragged.current = null;
-                      setOver(null);
-                    }}
+                    onPointerCancel={() => setDrag(null)}
                   >
                     ⋮⋮
                   </button>
@@ -245,6 +283,16 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
           </tbody>
         </table>
       </div>
+      {lifted && drag && (
+        <div className="lt-ghost" aria-hidden style={{ top: drag.top, minHeight: drag.height }}>
+          <span className="lt-handle" style={{ width: drag.widths[0] }}>⋮⋮</span>
+          {columns.map((c, ci) => (
+            <span key={c.key} className="lt-ghost-cell" style={{ width: drag.widths[ci + 1] }}>
+              {cellText(c, lifted[c.key])}
+            </span>
+          ))}
+        </div>
+      )}
       {open && (
         <RichPopover
           key={rich}
@@ -260,13 +308,14 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       )}
       <button
         type="button"
-        className="object btn lt-add"
+        className="token ghost lt-add"
         data-list-add
         disabled={full}
-        title={full ? t("ui-list-full", { max: max ?? 0 }) : undefined}
+        aria-label={t("ui-list-add", { item })}
+        title={full ? t("ui-list-full", { max: max ?? 0 }) : t("ui-list-add", { item })}
         onClick={add}
       >
-        {t("ui-list-add", { item })}
+        {Icon.addRow}
       </button>
     </div>
   );
@@ -316,6 +365,20 @@ export function popoverPlace(box: DOMRect, cell: DOMRect, width: number): { left
 /** Texte brut de paragraphes (repli sans markdown de la session). */
 function plainText(v: unknown): string {
   return Array.isArray(v) ? (v as Paragraph[]).map((p) => p.runs.map((r) => r.t).join("")).join("\n") : "";
+}
+
+/** Ce qu'une cellule montre, en texte (fantôme d'une ligne tirée). */
+function cellText(c: ListColumn, v: unknown): string {
+  switch (c.kind) {
+    case "flag":
+      return v === true ? "✓" : "";
+    case "select":
+      return c.options.find((o) => o.id === v)?.label ?? "";
+    case "rich":
+      return plainText(v).split("\n")[0];
+    default:
+      return display(v);
+  }
 }
 
 function display(v: unknown): string {
