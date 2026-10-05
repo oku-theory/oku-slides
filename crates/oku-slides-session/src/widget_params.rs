@@ -1,10 +1,9 @@
 //! Valeurs d'exemple d'un widget : contrôle, et réglages de l'hôte.
 //!
-//! `null` ou la valeur de l'aperçu effacent une valeur ; dans un cas d'exemple, un
-//! texte ou une liste vidés restent vides (leur écriture : `widget_examples.rs`). Les
-//! cellules d'une liste ont les bornes de taille du cœur (`oku_slides_core::ListSpec`).
-//! Les réglages de l'hôte (`widget_settings`) montrent un champ par paramètre
-//! réglable, à la valeur du premier cas d'exemple.
+//! `null` ou la valeur de l'aperçu effacent une valeur ; un texte ou une liste vidés
+//! restent vides (leur écriture : `widget_examples.rs`). Les cellules d'une liste ont
+//! les bornes de taille du cœur (`oku_slides_core::ListSpec`). Les réglages de l'hôte
+//! (`widget_settings`) montrent un champ par paramètre réglable, à sa valeur d'exemple.
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
 use oku_slides_core::{
@@ -23,9 +22,8 @@ use crate::widgets_edit::parse_name;
 use crate::{Result, Session};
 
 impl Session {
-    /// Réglages du widget `name`, aux valeurs de son cas `example` (le premier
-    /// pour `None`) ; `None` pour Commun.
-    pub(crate) fn widget_settings(&self, name: &str, example: Option<&str>) -> Result<Option<HostParams>> {
+    /// Réglages du widget `name`, à ses valeurs d'exemple ; `None` pour Commun.
+    pub(crate) fn widget_settings(&self, name: &str) -> Result<Option<HostParams>> {
         let file = parse_name(name)?;
         ensure!(self.in_templates(), NotEditingTemplatesSnafu);
         if file.is_common() {
@@ -37,7 +35,7 @@ impl Session {
             let spec = ShowParams { title, slide: String::new(), fields: Vec::new() };
             return Ok(Some(HostParams { spec, keys: Vec::new(), notes: vec![l.tr("session-widget-invalid-file")] }));
         };
-        let shown = preview_params(&schema, &self.preview_inputs(&file, &schema, example, &Map::new())?, l);
+        let shown = preview_params(&schema, &self.preview_inputs(&file, &schema, &Map::new())?, l);
         let (mut fields, mut keys, mut notes) = (Vec::new(), Vec::new(), Vec::new());
         for p in &schema.params {
             match field(p, shown.get(&p.name), l) {

@@ -23,7 +23,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; codeWidth?: number | null; look?: string; settings?: boolean; examples?: string[]; example?: string | null }
+interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; codeWidth?: number | null; look?: string; settings?: boolean }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -32,14 +32,12 @@ async function mount(fake: TabApi, first: Shown) {
   mounted = { root, host };
   const opened: string[] = [];
   const widths: (number | null)[] = [];
-  const chosen: string[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false, examples, example = null }: Shown) {
+  function Probe({ name, active = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false }: Shown) {
     const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
       api: fake, files: f, id: 1, name, revision, active, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
-      examples, example, onExample: (n: string) => chosen.push(n),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -53,7 +51,7 @@ async function mount(fake: TabApi, first: Shown) {
       v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert }, userEvent: "input.type" });
     });
   const text = () => host.querySelector(".cm-content")?.textContent;
-  return { host, render, view, typeText, text, opened, files, widths, chosen };
+  return { host, render, view, typeText, text, opened, files, widths };
 }
 const later = () => wait(PREVIEW_DELAY_MS + 50);
 const status = (name: string, error = false): WidgetStatus => ({
@@ -413,56 +411,15 @@ describe("WidgetTab, code source masquable", () => {
   });
 });
 
-describe("WidgetTab, cas d'exemple", () => {
-  /** L'api en mémoire, dont chaque aperçu note le cas demandé dans `asked`. */
-  function previews() {
-    const { fake } = memory({ kpi: "k", _commun: "c" });
-    const asked: (string | null)[] = [];
-    stub(fake, "previewWidget", async (_n: string, example: string | null) => (asked.push(example), { svg: null, diagnostics: [] }));
-    return { fake, asked };
-  }
-
-  test("les pastilles des cas, dans la zone de l'aperçu, avant lui", async () => {
-    const { fake } = previews();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
-    const side = [...m.host.querySelectorAll(".widget-tab-preview > *")].map((el) => el.className);
-    expect(side[0]).toBe("example-pills");
-    const pressed = [...m.host.querySelectorAll(".example-pill")].map((b) => b.getAttribute("aria-pressed"));
-    expect(pressed).toEqual(["false", "true"]);
-  });
-
-  test("sans liste de cas : le cas implicite seul", async () => {
-    const { fake } = previews();
+describe("WidgetTab, valeurs d'exemple", () => {
+  test("l'aperçu est demandé au seul nom du widget, ses valeurs d'exemple prises par la session", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const asked: unknown[][] = [];
+    stub(fake, "previewWidget", async (...a: never[]) => (asked.push(a), { svg: null, diagnostics: [] }));
     const m = await mount(fake, { name: "kpi" });
-    expect([...m.host.querySelectorAll(".example-pill")].map((b) => b.textContent)).toEqual(["Exemple"]);
-  });
-
-  test("Commun : pas de pastilles", async () => {
-    const { fake } = previews();
-    const m = await mount(fake, { name: "_commun", examples: ["Exemple"] });
-    expect(m.host.querySelector(".example-pills")).toBeNull();
-  });
-
-  test("un clic sur une pastille choisit le cas", async () => {
-    const { fake } = previews();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Exemple" });
-    await act(async () => m.host.querySelectorAll<HTMLButtonElement>(".example-pill")[1].click());
-    expect(m.chosen).toEqual(["Long"]);
-  });
-
-  test("l'aperçu est demandé pour le cas courant, et redemandé quand il change", async () => {
-    const { fake, asked } = previews();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
-    expect(asked).toEqual(["Long"]);
-    await m.render({ name: "kpi", examples: ["Exemple", "Long"], example: "Exemple" });
-    await wait(10);
-    expect(asked).toEqual(["Long", "Exemple"]);
-  });
-
-  test("un cas gardé inconnu : l'aperçu du premier", async () => {
-    const { fake, asked } = previews();
-    await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Supprimé" });
-    expect(asked).toEqual(["Exemple"]);
+    expect(asked).toEqual([["kpi"]]);
+    // Rien avant l'aperçu dans sa zone.
+    expect(m.host.querySelector(".widget-tab-preview [role=group]")).toBeNull();
   });
 });
 
@@ -478,7 +435,7 @@ describe("WidgetTab, scène", () => {
   }) as unknown as SlideView;
   const FIELDS = [field("title", "plain", "Titre", 150, 230), field("body", "rich", "Corps", 150, 300)];
 
-  /** L'api en mémoire : un aperçu recadré avec ses champs ; chaque écriture d'un cas notée dans `written`. */
+  /** L'api en mémoire : un aperçu recadré avec ses champs ; chaque écriture d'une valeur d'exemple notée dans `written`. */
   function scene(fields: FieldView[] = FIELDS, items: ItemView[] = [], lists: ListView[] = []) {
     const { fake, calls } = memory({ kpi: "k" });
     const written: unknown[][] = [];
@@ -519,27 +476,27 @@ describe("WidgetTab, scène", () => {
     expect(m.host.querySelector(".stage-wrap")).toBeNull();
   });
 
-  test("un champ simple édité sur place : sa valeur écrite dans le cas courant", async () => {
+  test("un champ simple édité sur place : sa valeur écrite dans les valeurs d'exemple", async () => {
     const { fake, written } = scene();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
+    const m = await mount(fake, { name: "kpi" });
     await open(fieldsOf(m.host)[0]);
     expect(m.host.querySelector(".editor .cm-content")?.textContent).toBe("Titre");
     await typeIn(m.host, "Météo");
     await blur(m.host);
-    expect(written).toEqual([["kpi", "Long", "title", "Météo"]]);
+    expect(written).toEqual([["kpi", "title", "Météo"]]);
     expect(m.host.querySelector(".editor")).toBeNull();
   });
 
-  test("un champ d'item de liste édité sur place : sa colonne changée dans la liste du cas courant", async () => {
+  test("un champ d'item de liste édité sur place : sa colonne changée dans la liste des valeurs d'exemple", async () => {
     const item = field("etapes/d0/date", "plain", "2019", 150, 230, { list: "etapes", item: "d0", column: "date" });
     const { fake, written } = scene([item]);
     const lists: unknown[][] = [];
     stub(fake, "editExampleList", async (...a: never[]) => (lists.push(a), {} as Snapshot));
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
+    const m = await mount(fake, { name: "kpi" });
     await open(fieldsOf(m.host)[0]);
     await typeIn(m.host, "2020");
     await blur(m.host);
-    expect(lists).toEqual([["kpi", "Long", "etapes", { op: "set_field", item: "d0", field: "date", value: "2020" }]]);
+    expect(lists).toEqual([["kpi", "etapes", { op: "set_field", item: "d0", field: "date", value: "2020" }]]);
     expect(written).toEqual([]);
   });
 
@@ -550,7 +507,7 @@ describe("WidgetTab, scène", () => {
     await typeIn(m.host, "Corps\n- **Point**");
     await blur(m.host);
     expect(written).toEqual([
-      ["kpi", "Exemple", "body", [{ runs: [{ t: "Corps", italic: true }] }, { runs: [{ t: "Point", bold: true }], list: "bullet" }]],
+      ["kpi", "body", [{ runs: [{ t: "Corps", italic: true }] }, { runs: [{ t: "Point", bold: true }], list: "bullet" }]],
     ]);
   });
 
@@ -562,23 +519,13 @@ describe("WidgetTab, scène", () => {
     await act(async () =>
       void m.host.querySelector(".editor .cm-content")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })),
     );
-    expect(written).toEqual([["kpi", "Exemple", "title", "Neuf"]]);
+    expect(written).toEqual([["kpi", "title", "Neuf"]]);
     expect(m.host.querySelector(".editor .cm-content")?.textContent).toBe("Corps");
     await typeIn(m.host, "En cours");
-    // L'écriture change la révision des cas : l'aperçu est redemandé.
+    // L'écriture change la révision des valeurs d'exemple : l'aperçu est redemandé.
     await m.render({ name: "kpi", trials: 1 });
     await wait(10);
     expect(m.host.querySelector(".editor .cm-content")?.textContent).toBe("En cours");
-  });
-
-  test("un autre cas choisi : l'éditeur ouvert se ferme", async () => {
-    const { fake } = scene();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Exemple" });
-    await open(fieldsOf(m.host)[0]);
-    expect(m.host.querySelector(".editor")).not.toBeNull();
-    await m.render({ name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
-    await wait(10);
-    expect(m.host.querySelector(".editor")).toBeNull();
   });
 
   /** Un item de la liste `etapes` de l'élément d'aperçu, en pt de la slide. */
@@ -590,7 +537,7 @@ describe("WidgetTab, scène", () => {
     owner: "apercu-el", owner_kind: "element", list: "etapes", len: 2, min: 0, max: 8, item_label: "étape", first_text: "date", ...more,
   });
   const ITEMS = [itemOf("d0", 0, 150), itemOf("d1", 1, 300)];
-  /** La scène à deux items ; les changements de liste du cas notés dans `lists`, les ops de deck dans `applied`. */
+  /** La scène à deux items ; les changements de liste des valeurs d'exemple notés dans `lists`, les ops de deck dans `applied`. */
   function listScene(items: ItemView[] = ITEMS, lists: ListView[] = [listOf()]) {
     const sc = scene([], items, lists);
     const edits: unknown[][] = [];
@@ -601,36 +548,36 @@ describe("WidgetTab, scène", () => {
   }
   const press = (el: Element) => act(async () => void el.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 
-  test("un « + » sur l'aperçu insère un item dans la liste du cas affiché, sans op de deck", async () => {
+  test("un « + » sur l'aperçu insère un item dans la liste des valeurs d'exemple, sans op de deck", async () => {
     const { fake, edits, applied } = listScene();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
+    const m = await mount(fake, { name: "kpi" });
     const plus = [...m.host.querySelectorAll(".stage-preview [data-item-insert]")];
     expect(plus.length).toBe(3);
     await press(plus[1]);
-    const change = (edits[0]?.[3] ?? {}) as { id?: string };
-    expect(edits).toEqual([["kpi", "Long", "etapes", { op: "insert", index: 1, id: change.id }]]);
+    const change = (edits[0]?.[2] ?? {}) as { id?: string };
+    expect(edits).toEqual([["kpi", "etapes", { op: "insert", index: 1, id: change.id }]]);
     expect(change.id).toMatch(/^i-/);
     expect(applied).toEqual([]);
   });
 
-  test("un « × » sur l'aperçu retire l'item du cas affiché", async () => {
+  test("un « × » sur l'aperçu retire l'item des valeurs d'exemple", async () => {
     const { fake, edits, applied } = listScene();
-    const m = await mount(fake, { name: "kpi", examples: ["Exemple", "Long"], example: "Long" });
+    const m = await mount(fake, { name: "kpi" });
     await press(m.host.querySelectorAll(".stage-preview [data-item-remove]")[1]);
-    expect(edits).toEqual([["kpi", "Long", "etapes", { op: "remove", item: "d1" }]]);
+    expect(edits).toEqual([["kpi", "etapes", { op: "remove", item: "d1" }]]);
     expect(applied).toEqual([]);
   });
 
-  test("⋮⋮ sur l'aperçu déplace l'item dans le cas affiché", async () => {
+  test("⋮⋮ sur l'aperçu déplace l'item dans les valeurs d'exemple", async () => {
     const { fake, edits, applied } = listScene();
     const m = await mount(fake, { name: "kpi" });
     const handle = m.host.querySelectorAll(".stage-preview [data-item-move]")[0];
     await act(async () => void handle.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
-    expect(edits).toEqual([["kpi", "Exemple", "etapes", { op: "move", item: "d0", to: 1 }]]);
+    expect(edits).toEqual([["kpi", "etapes", { op: "move", item: "d0", to: 1 }]]);
     expect(applied).toEqual([]);
   });
 
-  test("Cmd/Ctrl+Alt+flèche dans un champ d'item de l'aperçu déplace l'item dans le cas affiché", async () => {
+  test("Cmd/Ctrl+Alt+flèche dans un champ d'item de l'aperçu déplace l'item dans les valeurs d'exemple", async () => {
     const dates = ITEMS.map((it) =>
       field(`etapes/${it.item}/date`, "plain", it.item, it.x, 250, { list: "etapes", item: it.item, column: "date" }));
     const sc = scene(dates, ITEMS, [listOf()]);
@@ -642,7 +589,7 @@ describe("WidgetTab, scène", () => {
     await act(async () => void m.host.querySelector(".editor .cm-content")!.dispatchEvent(new KeyboardEvent("keydown", {
       key: "ArrowRight", altKey: true, metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true,
     })));
-    expect(edits).toEqual([["kpi", "Exemple", "etapes", { op: "move", item: "d0", to: 1 }]]);
+    expect(edits).toEqual([["kpi", "etapes", { op: "move", item: "d0", to: 1 }]]);
   });
 
   test("une liste pleine sur l'aperçu n'offre pas de « + »", async () => {
@@ -660,14 +607,14 @@ describe("WidgetTab, scène", () => {
     // Échelle 0,1 (happy-dom) : le centre de la boîte de 600 × 300 pt.
     expect([plus[0].style.left, plus[0].style.top]).toEqual(["30px", "15px"]);
     await press(plus[0]);
-    expect((edits[0]?.[3] as { op: string; index: number }).index).toBe(0);
+    expect((edits[0]?.[2] as { op: string; index: number }).index).toBe(0);
   });
 
   test("un item inséré sur l'aperçu : son premier champ texte s'ouvre au rendu qui le montre", async () => {
     const { fake, edits } = listScene();
     const m = await mount(fake, { name: "kpi" });
     await press(m.host.querySelectorAll(".stage-preview [data-item-insert]")[2]);
-    const id = (edits[0][3] as { id: string }).id;
+    const id = (edits[0][2] as { id: string }).id;
     // Pas encore dans la vue : rien ne s'ouvre.
     expect(m.host.querySelector(".editor")).toBeNull();
     const added = itemOf(id, 2, 450, { len: 3 });
@@ -678,7 +625,7 @@ describe("WidgetTab, scène", () => {
       view: slideView([f], [...ITEMS.map((it) => ({ ...it, len: 3 })), added], [listOf({ len: 3 })]),
       diagnostics: [],
     }));
-    // L'écriture change la révision des cas : l'aperçu est redemandé.
+    // L'écriture change la révision des valeurs d'exemple : l'aperçu est redemandé.
     await m.render({ name: "kpi", trials: 1 });
     await wait(10);
     expect(m.host.querySelector(".editor")).not.toBeNull();

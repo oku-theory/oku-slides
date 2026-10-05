@@ -1,7 +1,7 @@
 // La scène : le SVG rendu par Typst, et par-dessus la couche des objets
 // (sélection, glisser) et celle des champs (édition en place).
-// En aperçu (sous-onglet d'un widget) : l'image du cas d'exemple, ses
-// champs et les poignées de ses listes, sans objets, glisser ni grille ;
+// En aperçu (sous-onglet d'un widget) : l'image du widget à ses valeurs d'exemple,
+// ses champs et les poignées de ses listes, sans objets, glisser ni grille ;
 // un champ lié au deck reste en lecture.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
@@ -102,9 +102,9 @@ interface DeckProps extends CommonProps {
  */
 interface PreviewProps extends CommonProps {
   mode: "preview";
-  /** Écrit le brouillon d'un champ modifié (valeur du cas d'exemple). */
+  /** Écrit le brouillon d'un champ modifié (valeur d'exemple du widget). */
   onField: (f: FieldView, text: string) => void;
-  /** Change une liste du cas d'exemple (poignées d'items) ; sans elle, pas de poignées. */
+  /** Change une liste des valeurs d'exemple du widget (poignées d'items) ; sans elle, pas de poignées. */
   onListOp?: OnListOp;
   /** Ouvre le champ `key` dès qu'une vue le montre (champ d'un item tout juste inséré). */
   onEditWhenShown?: (key: FieldKey) => void;
@@ -294,7 +294,7 @@ export default function Stage(props: Props) {
     editNext(f);
   };
 
-  // Poignées de liste : en ops sur la scène du deck ; en aperçu, dans le cas d'exemple.
+  // Poignées de liste : en ops sur la scène du deck ; en aperçu, dans les valeurs d'exemple du widget.
   const itemProps = itemHandles(view, props.mode === "preview"
     ? { mode: "preview", onListOp: props.onListOp, onEditWhenShown: props.onEditWhenShown }
     : { mode: "deck", readOnly, selected, editing: editField?.owner ?? null, onApply, onEditWhenShown });

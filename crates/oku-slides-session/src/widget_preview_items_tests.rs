@@ -17,9 +17,9 @@ fn editing() -> (tempfile::TempDir, Session) {
     (data, s)
 }
 
-/// La vue de l'aperçu de la frise, au cas `example` (le premier pour `None`).
-fn preview_view(s: &mut Session, example: Option<&str>) -> Value {
-    let preview = s.preview_widget("frise", example, &Map::new(), PreviewFormat::Svg).unwrap();
+/// La vue de l'aperçu de la frise, à ses valeurs d'exemple.
+fn preview_view(s: &mut Session) -> Value {
+    let preview = s.preview_widget("frise", &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     preview.view.unwrap()
 }
@@ -39,7 +39,7 @@ fn insert(id: &str, index: usize) -> ListOp {
 #[test]
 fn preview_items_of_a_list_widget_give_its_items_and_list() {
     let (_d, mut s) = editing();
-    let view = preview_view(&mut s, None);
+    let view = preview_view(&mut s);
     assert_that!(strings(&view, "items", "item")).is_equal_to(vec![
         "d0".to_owned(),
         "d1".to_owned(),
@@ -72,7 +72,7 @@ fn preview_items_have_the_boxes_of_the_same_element_on_a_slide() {
     });
     s.apply("Modèle", vec![serde_json::from_value(slide).unwrap()], None).unwrap();
     let on_slide = serde_json::to_value(s.slide("t-frise").unwrap().items).unwrap();
-    let view = preview_view(&mut s, None);
+    let view = preview_view(&mut s);
     assert_that!(boxes(&view["items"])).is_equal_to(boxes(&on_slide));
 }
 
@@ -81,22 +81,21 @@ fn preview_items_of_an_emptied_list_keep_the_list_without_items() {
     let (_d, mut s) = editing();
     let mut values = Map::new();
     values.insert("etapes".into(), json!([]));
-    s.set_example_values("frise", None, values).unwrap();
-    let view = preview_view(&mut s, None);
+    s.set_example_values("frise", values).unwrap();
+    let view = preview_view(&mut s);
     assert_that!(view["items"]).is_equal_to(json!([]));
     assert_that!(strings(&view, "lists", "list")).is_equal_to(vec!["etapes".to_owned()]);
     assert_that!(view["lists"][0]["len"]).is_equal_to(json!(0));
 }
 
 #[test]
-fn preview_items_follow_the_shown_example() {
+fn preview_items_follow_the_example_values() {
     let (_d, mut s) = editing();
-    s.add_example("frise", "Court", None).unwrap();
-    s.edit_example_list("frise", Some("Court"), "etapes", insert("neuf", 0)).unwrap();
-    let view = preview_view(&mut s, Some("Court"));
+    assert_that!(preview_view(&mut s)["lists"][0]["len"]).is_equal_to(json!(4));
+    s.edit_example_list("frise", "etapes", insert("neuf", 0)).unwrap();
+    let view = preview_view(&mut s);
     assert_that!(strings(&view, "items", "item").first().cloned()).is_equal_to(Some("neuf".to_owned()));
     assert_that!(view["lists"][0]["len"]).is_equal_to(json!(5));
-    assert_that!(preview_view(&mut s, None)["lists"][0]["len"]).is_equal_to(json!(4));
 }
 
 #[test]
@@ -104,13 +103,13 @@ fn preview_list_edit_never_changes_the_deck() {
     // Hors mode modèles : refusé, la frise du deck reste telle quelle.
     let mut s = crate::lib_tests_support::session_with_frise();
     let before = s.deck().clone();
-    let err = s.edit_example_list("frise", None, "etapes", insert("neuf", 0)).unwrap_err();
+    let err = s.edit_example_list("frise", "etapes", insert("neuf", 0)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
     assert_that!(s.deck()).is_equal_to(&before);
-    // En mode modèles : seul le cas change, ni les modèles ni le deck mis de côté.
+    // En mode modèles : seules les valeurs d'exemple changent, ni les modèles ni le deck mis de côté.
     let (_d, mut s) = editing();
     let (templates, user) = (s.deck().slides.clone(), s.user_deck().slides.clone());
-    s.edit_example_list("frise", None, "etapes", insert("neuf", 0)).unwrap();
+    s.edit_example_list("frise", "etapes", insert("neuf", 0)).unwrap();
     assert_that!(s.deck().slides).is_equal_to(templates);
     assert_that!(s.user_deck().slides).is_equal_to(user);
 }
@@ -118,6 +117,6 @@ fn preview_list_edit_never_changes_the_deck() {
 #[test]
 fn preview_items_of_common_are_refused() {
     let (_d, mut s) = editing();
-    let err = s.edit_example_list("_commun", None, "etapes", insert("neuf", 0)).unwrap_err();
+    let err = s.edit_example_list("_commun", "etapes", insert("neuf", 0)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWidget);
 }

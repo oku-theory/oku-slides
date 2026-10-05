@@ -29,7 +29,7 @@ fn values(v: Value) -> Map<String, Value> {
 }
 
 fn stored(s: &crate::Session, param: &str) -> Option<Value> {
-    s.example_values(&parse_name("tout").unwrap(), None).unwrap().get(param).cloned()
+    s.example_values(&parse_name("tout").unwrap()).unwrap().get(param).cloned()
 }
 
 fn para(t: &str) -> Value {
@@ -39,28 +39,28 @@ fn para(t: &str) -> Value {
 #[test]
 fn set_example_values_stores_a_plain_value() {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ "title": "Météo" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "title": "Météo" }))).unwrap();
     assert_that!(stored(&s, "title")).is_equal_to(Some(json!("Météo")));
 }
 
 #[test]
 fn set_example_values_reads_a_flag_option_as_a_boolean() {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ "on": "true" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "on": "true" }))).unwrap();
     assert_that!(stored(&s, "on")).is_equal_to(Some(json!(true)));
 }
 
 #[test]
 fn set_example_values_reads_number_text_as_a_number() {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ "size": "12.5" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "size": "12.5" }))).unwrap();
     assert_that!(stored(&s, "size")).is_equal_to(Some(json!(12.5)));
 }
 
 #[test]
 fn set_example_values_stores_rich_paragraphs() {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ "body": para("Un") }))).unwrap();
+    s.set_example_values("tout", values(json!({ "body": para("Un") }))).unwrap();
     assert_that!(stored(&s, "body")).is_equal_to(Some(para("Un")));
 }
 
@@ -74,7 +74,7 @@ fn set_example_values_stores_rich_paragraphs_as_the_preview_stage_writes_them() 
         { "runs": [{ "t": "Point" }], "list": "bullet" },
         { "runs": [{ "t": "lien", "link": "https://exemple.fr" }, { "t": " marqué", "highlight": 1 }], "list": "number" },
     ]);
-    s.set_example_values("tout", None, values(json!({ "body": body.clone() }))).unwrap();
+    s.set_example_values("tout", values(json!({ "body": body.clone() }))).unwrap();
     assert_that!(stored(&s, "body")).is_equal_to(Some(body));
 }
 
@@ -85,12 +85,12 @@ fn set_example_values_stores_rich_paragraphs_as_the_preview_stage_writes_them() 
 #[case::null("title", json!("x"), Value::Null)]
 fn set_example_values_preview_or_null_value_erases(#[case] param: &str, #[case] set: Value, #[case] reset: Value) {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ param: set }))).unwrap();
-    s.set_example_values("tout", None, values(json!({ param: reset }))).unwrap();
+    s.set_example_values("tout", values(json!({ param: set }))).unwrap();
+    s.set_example_values("tout", values(json!({ param: reset }))).unwrap();
     assert_that!(stored(&s, param)).is_none();
 }
 
-/// Un texte vidé reste vide dans le cas (t-497 : le cas « Vide »), au lieu d'être effacé.
+/// Un texte vidé reste vide dans les valeurs d'exemple (t-497), au lieu d'être effacé.
 #[rstest]
 #[case::empty_text("title", json!("x"), json!(""), json!(""))]
 #[case::blank_text("title", json!("x"), json!("  "), json!(""))]
@@ -103,8 +103,8 @@ fn set_example_values_emptied_text_stays_empty(
     #[case] kept: Value,
 ) {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ param: set }))).unwrap();
-    s.set_example_values("tout", None, values(json!({ param: emptied }))).unwrap();
+    s.set_example_values("tout", values(json!({ param: set }))).unwrap();
+    s.set_example_values("tout", values(json!({ param: emptied }))).unwrap();
     assert_that!(stored(&s, param)).is_equal_to(Some(kept));
 }
 
@@ -121,21 +121,21 @@ fn set_example_values_emptied_text_stays_empty(
 #[case::rich_too_big("body", para(&"x".repeat(16400)), SessionErrorKind::TrialTooLong)]
 fn set_example_values_bad_value_is_refused(#[case] param: &str, #[case] value: Value, #[case] kind: SessionErrorKind) {
     let (_d, mut s) = templates();
-    let err = s.set_example_values("tout", None, values(json!({ param: value }))).unwrap_err();
+    let err = s.set_example_values("tout", values(json!({ param: value }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(kind);
 }
 
 #[test]
 fn set_example_values_refusal_names_the_param() {
     let (_d, mut s) = templates();
-    let err = s.set_example_values("tout", None, values(json!({ "count": 12 }))).unwrap_err();
+    let err = s.set_example_values("tout", values(json!({ "count": 12 }))).unwrap_err();
     assert_that!(err.to_string().as_str()).contains("count");
 }
 
 #[test]
 fn set_example_values_undeclared_key_is_clipped_in_the_error() {
     let (_d, mut s) = templates();
-    let err = s.set_example_values("tout", None, values(json!({ "k".repeat(300): "x" }))).unwrap_err();
+    let err = s.set_example_values("tout", values(json!({ "k".repeat(300): "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialUndeclared);
     assert_that!(err.to_string().chars().count()).is_less_than(200);
 }
@@ -145,19 +145,19 @@ fn set_example_values_undeclared_key_is_clipped_in_the_error() {
 #[case::max(9)]
 fn set_example_values_number_at_a_bound_is_accepted(#[case] n: i64) {
     let (_d, mut s) = templates();
-    assert_that!(s.set_example_values("tout", None, values(json!({ "count": n })))).is_ok();
+    assert_that!(s.set_example_values("tout", values(json!({ "count": n })))).is_ok();
 }
 
 #[test]
 fn set_example_values_plain_at_the_limit_is_accepted() {
     let (_d, mut s) = templates();
-    assert_that!(s.set_example_values("tout", None, values(json!({ "title": "x".repeat(4096) })))).is_ok();
+    assert_that!(s.set_example_values("tout", values(json!({ "title": "x".repeat(4096) })))).is_ok();
 }
 
 #[test]
 fn set_example_values_with_one_bad_value_stores_nothing() {
     let (_d, mut s) = templates();
-    assert_that!(s.set_example_values("tout", None, values(json!({ "title": "A", "count": 99 })))).is_err();
+    assert_that!(s.set_example_values("tout", values(json!({ "title": "A", "count": 99 })))).is_err();
     assert_that!(stored(&s, "title")).is_none();
 }
 
@@ -165,7 +165,7 @@ fn set_example_values_with_one_bad_value_stores_nothing() {
 fn set_example_values_on_a_broken_file_is_refused_as_invalid() {
     let (_d, mut s) = templates();
     s.set_widget("tout", "#let widget = (".into()).unwrap();
-    let err = s.set_example_values("tout", None, values(json!({ "title": "x" }))).unwrap_err();
+    let err = s.set_example_values("tout", values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInvalid);
 }
 
@@ -175,7 +175,7 @@ fn set_example_values_on_a_broken_file_is_refused_as_invalid() {
 fn set_example_values_on_a_non_widget_is_refused_as_unknown(#[case] name: &str) {
     let (_d, mut s) = templates();
     s.set_widget("_commun", "#let x = 1\n".into()).unwrap();
-    let err = s.set_example_values(name, None, values(json!({ "title": "x" }))).unwrap_err();
+    let err = s.set_example_values(name, values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWidget);
 }
 
@@ -184,7 +184,7 @@ fn set_example_values_outside_templates_mode_is_refused() {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
     s.set_widget("tout", ALL.into()).unwrap();
-    let err = s.set_example_values("tout", None, values(json!({ "title": "x" }))).unwrap_err();
+    let err = s.set_example_values("tout", values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
 }
 
@@ -192,12 +192,12 @@ fn set_example_values_outside_templates_mode_is_refused() {
 fn set_example_values_changes_the_snapshot_revision() {
     let (_d, mut s) = templates();
     let before = s.snapshot().widget_trials;
-    s.set_example_values("tout", None, values(json!({ "title": "x" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "title": "x" }))).unwrap();
     assert_that!(s.snapshot().widget_trials).is_not_equal_to(before);
 }
 
 fn settings(s: &crate::Session, name: &str) -> crate::panel::HostParams {
-    s.widget_settings(name, None).unwrap().unwrap()
+    s.widget_settings(name).unwrap().unwrap()
 }
 
 #[test]
@@ -233,20 +233,10 @@ fn widget_settings_value_is_the_preview_value() {
 }
 
 #[test]
-fn widget_settings_value_shows_the_first_example() {
+fn widget_settings_value_shows_the_example_value() {
     let (_d, mut s) = templates();
-    s.set_example_values("tout", None, values(json!({ "on": "true" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "on": "true" }))).unwrap();
     assert_that!(settings(&s, "tout").spec.fields[5].value.clone()).is_equal_to(json!("true"));
-}
-
-#[test]
-fn widget_settings_value_shows_the_named_example() {
-    let (_d, mut s) = templates();
-    s.add_example("tout", "Long", None).unwrap();
-    s.set_example_values("tout", Some("Long"), values(json!({ "on": "true" }))).unwrap();
-    let named = s.widget_settings("tout", Some("Long")).unwrap().unwrap();
-    assert_that!(named.spec.fields[5].value.clone()).is_equal_to(json!("true"));
-    assert_that!(settings(&s, "tout").spec.fields[5].value.clone()).is_not_equal_to(json!("true"));
 }
 
 #[test]
@@ -259,7 +249,7 @@ fn widget_settings_slider_step_fits_a_small_range() {
 fn widget_settings_of_common_is_none() {
     let (_d, mut s) = templates();
     s.set_widget("_commun", "#let x = 1\n".into()).unwrap();
-    assert_that!(s.widget_settings("_commun", None).unwrap()).is_none();
+    assert_that!(s.widget_settings("_commun").unwrap()).is_none();
 }
 
 #[test]
@@ -305,11 +295,7 @@ fn templates_with_list() -> (tempfile::TempDir, crate::Session) {
 }
 
 fn list_trial(s: &crate::Session) -> Option<Value> {
-    list_of(s, None)
-}
-
-fn list_of(s: &crate::Session, example: Option<&str>) -> Option<Value> {
-    s.example_values(&parse_name("frise").unwrap(), example).unwrap().get("etapes").cloned()
+    s.example_values(&parse_name("frise").unwrap()).unwrap().get("etapes").cloned()
 }
 
 /// Ids des étapes par défaut de la frise de test.
@@ -361,14 +347,14 @@ fn widget_settings_list_field_without_max_reports_the_core_limit() {
 #[test]
 fn widget_settings_list_value_shows_the_example_list() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
+    s.edit_example_list("frise", "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
     assert_that!(ids(&settings(&s, "frise").spec.fields[0].value)).is_equal_to(strings(&DEFAULT_IDS[1..]));
 }
 
 #[test]
 fn edit_example_list_inserts_into_the_default_items() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
+    s.edit_example_list("frise", "etapes", insert("i-1")).unwrap();
     let all = ids(&list_trial(&s).unwrap());
     assert_that!(all).is_equal_to(with_last("i-1"));
     // Une colonne absente reçoit son défaut.
@@ -378,10 +364,9 @@ fn edit_example_list_inserts_into_the_default_items() {
 #[test]
 fn edit_example_list_continues_from_the_previous_trial() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise", None, "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
+    s.edit_example_list("frise", "etapes", ListOp::Remove { item: "d0".into() }).unwrap();
     s.edit_example_list(
         "frise",
-        None,
         "etapes",
         ListOp::SetField { item: "d1".into(), field: "texte".into(), value: json!("Changé") },
     )
@@ -392,9 +377,9 @@ fn edit_example_list_continues_from_the_previous_trial() {
 }
 
 #[test]
-fn edit_example_list_returns_the_values_of_the_example() {
+fn edit_example_list_returns_the_widget_values() {
     let (_d, mut s) = templates_with_list();
-    let trials = s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
+    let trials = s.edit_example_list("frise", "etapes", insert("i-1")).unwrap();
     assert_that!(trials.contains_key("etapes")).is_true();
 }
 
@@ -402,9 +387,9 @@ fn edit_example_list_returns_the_values_of_the_example() {
 fn edit_example_list_over_the_max_is_refused_and_keeps_the_trial() {
     let (_d, mut s) = templates_with_list();
     for i in 0..4 {
-        s.edit_example_list("frise", None, "etapes", insert(&format!("i-{i}"))).unwrap();
+        s.edit_example_list("frise", "etapes", insert(&format!("i-{i}"))).unwrap();
     }
-    let err = s.edit_example_list("frise", None, "etapes", insert("i-4")).unwrap_err();
+    let err = s.edit_example_list("frise", "etapes", insert("i-4")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
     assert_that!(ids(&list_trial(&s).unwrap()).len()).is_equal_to(8);
 }
@@ -419,7 +404,7 @@ fn edit_example_list_on_a_non_list_is_refused(
 ) {
     let (_d, mut s) = templates_with_list();
     s.set_widget("tout", ALL.into()).unwrap();
-    let err = s.edit_example_list(widget, None, param, insert("i-1")).unwrap_err();
+    let err = s.edit_example_list(widget, param, insert("i-1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(kind);
 }
 
@@ -427,7 +412,7 @@ fn edit_example_list_on_a_non_list_is_refused(
 fn edit_example_list_outside_templates_mode_is_refused() {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
-    let err = s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap_err();
+    let err = s.edit_example_list("frise", "etapes", insert("i-1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
 }
 
@@ -444,19 +429,10 @@ fn edit_example_list_through_a_request_is_accepted() {
 }
 
 #[test]
-fn edit_example_list_changes_only_the_named_example() {
-    let (_d, mut s) = templates_with_list();
-    s.add_example("frise", "Long", None).unwrap();
-    s.edit_example_list("frise", Some("Long"), "etapes", insert("i-1")).unwrap();
-    assert_that!(ids(&list_of(&s, Some("Long")).unwrap())).is_equal_to(with_last("i-1"));
-    assert_that!(list_of(&s, None)).is_none();
-}
-
-#[test]
 fn set_example_values_accepts_a_whole_list() {
     let (_d, mut s) = templates_with_list();
     let whole = json!([{ "id": "a", "date": "1999", "texte": "Un" }, { "id": "b", "date": "2000", "texte": "Deux" }]);
-    s.set_example_values("frise", None, values(json!({ "etapes": whole.clone() }))).unwrap();
+    s.set_example_values("frise", values(json!({ "etapes": whole.clone() }))).unwrap();
     assert_that!(list_trial(&s)).is_equal_to(Some(whole));
 }
 
@@ -464,21 +440,21 @@ fn set_example_values_accepts_a_whole_list() {
 fn set_example_values_refuses_a_list_with_a_duplicate_id() {
     let (_d, mut s) = templates_with_list();
     let bad = json!([{ "id": "a", "texte": "Un" }, { "id": "a", "texte": "Deux" }]);
-    let err = s.set_example_values("frise", None, values(json!({ "etapes": bad }))).unwrap_err();
+    let err = s.set_example_values("frise", values(json!({ "etapes": bad }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
 }
 
 #[test]
 fn set_example_values_pasting_the_default_list_erases_the_trial() {
     let (_d, mut s) = templates_with_list();
-    s.edit_example_list("frise", None, "etapes", insert("i-1")).unwrap();
+    s.edit_example_list("frise", "etapes", insert("i-1")).unwrap();
     let default = json!([
         { "id": "d0", "date": "2019", "texte": "Création" },
         { "id": "d1", "date": "2021", "texte": "Premier client" },
         { "id": "d2", "date": "2023", "texte": "International" },
         { "id": "d3", "date": "2025", "texte": "Série B" }
     ]);
-    s.set_example_values("frise", None, values(json!({ "etapes": default }))).unwrap();
+    s.set_example_values("frise", values(json!({ "etapes": default }))).unwrap();
     assert_that!(list_trial(&s)).is_none();
 }
 

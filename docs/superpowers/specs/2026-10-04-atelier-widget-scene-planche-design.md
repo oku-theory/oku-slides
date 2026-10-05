@@ -1,5 +1,15 @@
 # Atelier de widget : Scène et Planche — design
 
+> **Note du 2026-10-05 (t-541)** : les cas d'exemple sont retirés. Plus de
+> pastilles au-dessus de l'aperçu (`ExamplePills`), plus de cas nommés ni
+> de cas courant gardé (`UiState.case`), plus de requêtes `add_example`,
+> `rename_example`, `remove_example`. Chaque widget garde **un seul** jeu
+> de valeurs d'exemple dans le pack (`pack.json` :
+> `"examples": {"<widget>": {"<param>": valeur}}`), qu'utilisent l'aperçu
+> éditable, les réglages « Paramètres de … » et l'outil `set_widget_trial`.
+> Un `pack.json` à l'ancienne liste de cas se lit encore : le premier cas
+> donne les valeurs. Le texte ci-dessous décrit l'état de t-497.
+
 > **Note du 2026-10-04 (t-526)** : la Planche est retirée. Plus de vue
 > Planche ni de bascule Scène / Planche (`ExampleBoard`, `BoardSwitch`,
 > `UiState.board`), plus d'allure d'aperçu (`PreviewLook` : clair / sombre,

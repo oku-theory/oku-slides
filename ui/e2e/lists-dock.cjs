@@ -1,6 +1,6 @@
 // Liste au dock d'un widget du pack : le tableau (ajout, retrait) ; l'aperçu revient à l'identique.
 // Le popover d'une cellule riche s'ouvre sous sa cellule, dans le tableau.
-// Puis un ajout par le « + » de l'aperçu : un item de plus au cas, au tableau comme sur l'aperçu.
+// Puis un ajout par le « + » de l'aperçu : un item de plus aux valeurs d'exemple, au tableau comme sur l'aperçu.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après widgets.cjs).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -82,7 +82,7 @@ const post = (p, endpoint, req) =>
   await p.locator(`${table} thead th`).first().click(); // un clic ailleurs le ferme
   await pop.waitFor({ state: 'detached' });
 
-  // Les poignées de liste sur l'aperçu : le « + » après le dernier item en ajoute un au cas affiché.
+  // Les poignées de liste sur l'aperçu : le « + » après le dernier item en ajoute un aux valeurs d'exemple.
   const STAGE = '.widget-tab:not([hidden]) .stage-preview';
   const handles = (n) => p.waitForFunction(([sel, n]) => document.querySelectorAll(`${sel} .item-handles`).length === n, [STAGE, n], { timeout: 15000 });
   await handles(3);

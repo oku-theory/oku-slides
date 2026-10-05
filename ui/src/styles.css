@@ -879,31 +879,6 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-tab-preview > .widget-tab-broken { align-self: stretch; }
 /* Réglages et diagnostics sous l'aperçu : en haut de leur zone, qui défile seule. */
 .widget-tab-side { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
-/* Cas d'exemple : un contrôle segmenté discret, aligné sur le bord gauche de l'aperçu ;
-   « + » en icône ; la croix d'un cas paraît au survol ou au focus. */
-.example-pills {
-  flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1);
-  padding: var(--space-2) calc(10px * var(--elev-sheet)) 0;
-}
-.example-pills-row { flex-wrap: wrap; }
-.example-pill-wrap { display: inline-flex; align-items: center; position: relative; }
-.example-pill-wrap .example-remove { position: absolute; inset-inline-end: -6px; top: -6px; width: 18px; height: 18px; padding: 0; opacity: 0; background: var(--paper-100); box-shadow: var(--shadow-object); }
-.example-pill-wrap .example-remove svg { width: 10px; height: 10px; }
-.example-pill-wrap:hover .example-remove, .example-pill-wrap:focus-within .example-remove { opacity: 1; }
-.example-add { width: 26px; height: 26px; min-height: 0; padding: 0; margin-inline-start: 2px; }
-.example-add svg { width: 14px; height: 14px; }
-.example-name input { width: 14ch; height: 26px; padding-inline: 8px; background-image: none; cursor: text; font-size: 13px; }
-.example-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 13px; }
-/* Contrôle segmenté (cas d'exemple) : un rail creusé, l'élément choisi posé dessus.
-   Neutre : l'accent reste à l'action principale de la vue. */
-.seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--ink) 6%, transparent); }
-.seg-item {
-  border: 0; background: transparent; color: var(--ink-muted); font: 400 13px/20px var(--sans); padding: 3px 10px;
-  border-radius: calc(var(--radius-sm) - 2px); cursor: pointer; white-space: nowrap;
-}
-.seg-item:hover { color: var(--ink); }
-.seg-item[aria-pressed="true"] { background: var(--paper-200); color: var(--ink); box-shadow: var(--shadow-object); }
-.seg-item:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: 1px; }
 /* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
    égales en haut et en bas, l'aperçu reste au centre. */
 .widget-tab-preview > img {

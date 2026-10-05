@@ -536,8 +536,8 @@ impl Session {
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Search { query } => return json(&self.search(&query)),
             Request::Svg { id } => return json(&*self.svg(&id)?),
-            Request::HostSettings { slide, widget, example } => {
-                return json(&self.host_settings(&slide, widget.as_deref(), example.as_deref())?);
+            Request::HostSettings { slide, widget } => {
+                return json(&self.host_settings(&slide, widget.as_deref())?);
             }
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
@@ -561,8 +561,8 @@ impl Session {
                 self.persist(true);
                 return json(&statuses);
             }
-            Request::PreviewWidget { name, example, params } => {
-                return json(&self.preview_widget(&name, example.as_deref(), &params, PreviewFormat::Svg)?);
+            Request::PreviewWidget { name, params } => {
+                return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
             }
             Request::DeleteTemplateSet { set } => {
                 ensure!(!Library::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
@@ -580,14 +580,11 @@ impl Session {
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
             Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
-            Request::AddExample { name, example, from } => self.add_example(&name, &example, from.as_deref())?,
-            Request::RenameExample { name, from, to } => self.rename_example(&name, &from, &to)?,
-            Request::RemoveExample { name, example } => self.remove_example(&name, &example)?,
-            Request::SetExampleValue { name, example, param, value } => {
-                self.set_example_values(&name, example.as_deref(), serde_json::Map::from_iter([(param, value)]))?;
+            Request::SetExampleValue { name, param, value } => {
+                self.set_example_values(&name, serde_json::Map::from_iter([(param, value)]))?;
             }
-            Request::EditExampleList { name, example, param, change } => {
-                self.edit_example_list(&name, example.as_deref(), &param, change)?;
+            Request::EditExampleList { name, param, change } => {
+                self.edit_example_list(&name, &param, change)?;
             }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::Undo => self.undo()?,
@@ -854,7 +851,6 @@ impl Session {
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),
             widget_trials: self.examples_revision(),
-            examples: self.example_names(),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

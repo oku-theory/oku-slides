@@ -50,47 +50,9 @@ fn sanitized_outside_templates_keeps_folded_sections() {
     assert_that!(ui.sanitized(false).folded).is_equal_to(vec![PileSection::Templates]);
 }
 
-fn cases(pairs: &[(&str, &str)]) -> UiState {
-    UiState { case: pairs.iter().map(|(w, c)| ((*w).to_owned(), (*c).to_owned())).collect(), ..UiState::default() }
-}
-
 #[test]
-fn ui_state_default_has_no_current_case_and_the_code_at_its_default_width() {
-    let ui = UiState::default();
-    assert_that!((ui.case.is_empty(), ui.code_width)).is_equal_to((true, None));
-}
-
-#[test]
-fn sanitized_in_templates_keeps_the_current_cases() {
-    let ui = cases(&[("kpi", "Long"), ("quote", "Exemple")]).sanitized(true);
-    assert_that!(ui.case.get("kpi").map(String::as_str)).is_equal_to(Some("Long"));
-    assert_that!(ui.case.len()).is_equal_to(2);
-}
-
-#[test]
-fn sanitized_outside_templates_clears_the_current_cases() {
-    assert_that!(cases(&[("kpi", "Long")]).sanitized(false).case.is_empty()).is_true();
-}
-
-#[test]
-fn sanitized_drops_cases_of_invalid_widgets_or_with_bad_names() {
-    let long = "x".repeat(41);
-    let ui = cases(&[("../x", "Long"), ("_commun", "Long"), ("kpi", ""), ("quote", &long), ("carte", "Court")])
-        .sanitized(true);
-    assert_that!(ui.case.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec!["carte".to_owned()]);
-}
-
-#[test]
-fn sanitized_caps_the_current_cases() {
-    let names: Vec<String> = (0..MAX_WIDGET_TABS + 10).map(|i| format!("w{i}")).collect();
-    let pairs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "Long")).collect();
-    assert_that!(cases(&pairs).sanitized(true).case.len()).is_equal_to(MAX_WIDGET_TABS);
-}
-
-#[test]
-fn ui_state_without_case_reads_as_none() {
-    let ui: UiState = serde_json::from_str(r#"{"slide":null}"#).unwrap();
-    assert_that!(ui.case.is_empty()).is_true();
+fn ui_state_default_has_the_code_at_its_default_width() {
+    assert_that!(UiState::default().code_width).is_none();
 }
 
 /// Couche serde : un `UiState` écrit avant t-526 (planche, place et hauteur du code) se relit,
@@ -102,4 +64,17 @@ fn ui_state_with_the_removed_board_and_code_place_still_reads() {
     )
     .unwrap();
     assert_that!(ui).is_equal_to(UiState { code: true, code_width: Some(640), ..UiState::default() });
+}
+
+/// Couche serde : un `UiState` écrit avant t-541 (cas d'exemple courant de chaque widget)
+/// se relit, `case` ignoré ; les autres champs sont gardés.
+#[test]
+fn ui_state_with_the_removed_current_cases_still_reads() {
+    let ui: UiState =
+        serde_json::from_str(r#"{"slide":null,"widgets":["kpi"],"widget":"kpi","case":{"kpi":"Long"}}"#).unwrap();
+    assert_that!(ui).is_equal_to(UiState {
+        widgets: vec!["kpi".to_owned()],
+        widget: Some("kpi".to_owned()),
+        ..UiState::default()
+    });
 }

@@ -259,8 +259,8 @@ impl Session {
         let was_valid = |n: &WidgetFile| before.iter().any(|b| b.name == *n && b.is_valid());
         let broken = after.into_iter().filter(|s| s.name != name && !s.is_valid() && was_valid(&s.name)).collect();
         let change = WidgetChange { status, broken, saved };
-        // Un widget modifié garde ses cas : une valeur que le schéma n'admet plus est ignorée
-        // à l'aperçu, et retirée à la prochaine écriture de son cas (un widget supprimé perd les siens).
+        // Un widget modifié garde ses valeurs d'exemple : une valeur que le schéma n'admet plus est
+        // ignorée à l'aperçu, et retirée à la prochaine écriture du widget (un widget supprimé perd les siennes).
         if change.saved
             && removing
             && let Some(scratch) = self.scratch_mut()

@@ -90,16 +90,6 @@ pub enum SessionErrorKind {
     TrialValue,
     /// Valeur d'essai impossible à garder.
     TrialEncode,
-    /// Nom de cas d'exemple vide ou trop long.
-    InvalidExampleName,
-    /// Un cas d'exemple du widget porte déjà ce nom.
-    ExampleExists,
-    /// Cas d'exemple introuvable.
-    UnknownExample,
-    /// Le widget a déjà le nombre maximal de cas d'exemple.
-    TooManyExamples,
-    /// Le dernier cas d'exemple d'un widget ne se supprime pas.
-    LastExample,
 }
 
 #[derive(Debug, Snafu)]
@@ -205,16 +195,6 @@ pub(crate) enum SessionInner {
     TrialEncode { param: String, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("widget already exists: {name}"))]
     WidgetExists { name: String, backtrace: Backtrace },
-    #[snafu(display("an example name holds 1 to {max} characters"))]
-    InvalidExampleName { max: usize, backtrace: Backtrace },
-    #[snafu(display("example already exists: {name}"))]
-    ExampleExists { name: String, backtrace: Backtrace },
-    #[snafu(display("example not found: {name}"))]
-    UnknownExample { name: String, backtrace: Backtrace },
-    #[snafu(display("a widget holds at most {max} examples"))]
-    TooManyExamples { max: usize, backtrace: Backtrace },
-    #[snafu(display("the last example of a widget cannot be removed"))]
-    LastExample { backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -268,11 +248,6 @@ impl SessionError {
             TrialTooLong { .. } => SessionErrorKind::TrialTooLong,
             TrialValue { .. } => SessionErrorKind::TrialValue,
             TrialEncode { .. } => SessionErrorKind::TrialEncode,
-            InvalidExampleName { .. } => SessionErrorKind::InvalidExampleName,
-            ExampleExists { .. } => SessionErrorKind::ExampleExists,
-            UnknownExample { .. } => SessionErrorKind::UnknownExample,
-            TooManyExamples { .. } => SessionErrorKind::TooManyExamples,
-            LastExample { .. } => SessionErrorKind::LastExample,
         }
     }
 
@@ -385,11 +360,6 @@ impl Localize for SessionError {
             ),
             TrialEncode { param, .. } => l.tr_with("session-trial-encode", &[("param", param.as_str().into())]),
             WidgetExists { name, .. } => l.tr_with("session-widget-exists", &[("name", name.as_str().into())]),
-            InvalidExampleName { max, .. } => l.tr_with("session-example-name", &[("max", (*max).into())]),
-            ExampleExists { name, .. } => l.tr_with("session-example-exists", &[("name", name.as_str().into())]),
-            UnknownExample { name, .. } => l.tr_with("session-unknown-example", &[("name", name.as_str().into())]),
-            TooManyExamples { max, .. } => l.tr_with("session-too-many-examples", &[("max", (*max).into())]),
-            LastExample { .. } => l.tr("session-last-example"),
         }
     }
 }

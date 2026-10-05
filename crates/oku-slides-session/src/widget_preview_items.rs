@@ -2,8 +2,8 @@
 //! (ajouter, retirer, déplacer) de l'aperçu, comme sur la scène
 //! (`items.rs`), pour le seul widget montré.
 //!
-//! La slide d'aperçu porte les valeurs du cas affiché : l'interface écrit
-//! chaque changement dans ce cas (`edit_example_list`), jamais dans le deck.
+//! La slide d'aperçu porte les valeurs d'exemple du widget : l'interface y
+//! écrit chaque changement (`edit_example_list`), jamais dans le deck.
 
 use oku_slides_core::{Slide, WidgetRegistry};
 use oku_slides_render::ItemBox;

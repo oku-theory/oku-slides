@@ -2,7 +2,7 @@
 // et ⋮⋮ sur l'item survolé ; « + » au centre d'un objet dont la liste est
 // vide. Montrées pour l'élément sélectionné ou en édition, sinon pour la slide.
 // Chaque geste rend un changement de liste (`onListOp`) : la scène du deck
-// l'applique au deck, l'aperçu d'un widget au cas d'exemple affiché.
+// l'applique au deck, l'aperçu d'un widget à ses valeurs d'exemple.
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { ItemView, ListView, SlideView } from "./api";

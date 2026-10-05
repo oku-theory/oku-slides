@@ -49,8 +49,6 @@ import { useTemplateWidgets } from "./useTemplateWidgets";
 import HostSettings from "./HostSettings";
 import { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import WidgetPane from "./WidgetPane";
-import { EXAMPLE_DEFAULT, currentCase } from "./ExamplePills";
-import { COMMON } from "./widgetList";
 import WidgetTools from "./WidgetTools";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
@@ -344,13 +342,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     });
   };
 
-  // Réglages du modèle affiché, ou du widget du sous-onglet actif à son cas courant.
-  const activeWidget = widgets.activeName;
-  const activeCase =
-    activeWidget && activeWidget !== COMMON
-      ? currentCase(snap?.examples?.[activeWidget] ?? [EXAMPLE_DEFAULT], viewOptions.cases[activeWidget])
-      : null;
-  const host = useHostSettings(api, snap, current, activeWidget, activeCase, run, say);
+  // Réglages du modèle affiché, ou du widget du sous-onglet actif à ses valeurs d'exemple.
+  const host = useHostSettings(api, snap, current, widgets.activeName, run, say);
 
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
@@ -861,7 +854,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} />}
         </div>
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} codeWidth={viewOptions.codeWidth} onCodeWidth={viewOptions.setCodeWidth}
-          examples={snap.examples ?? {}} cases={viewOptions.cases} onCase={viewOptions.setCase}
           run={run} palette={snap.appearance.chart_palette}
           settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null} />}
         {drawer && (

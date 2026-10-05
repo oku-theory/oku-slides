@@ -177,10 +177,7 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "remove_widget", "name": "kpi" }),
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
         json!({ "cmd": "host_param", "slide": "s-1", "key": "name", "value": "x" }),
-        json!({ "cmd": "add_example", "name": "kpi", "example": "Court", "from": null }),
-        json!({ "cmd": "rename_example", "name": "kpi", "from": "Exemple", "to": "Court" }),
-        json!({ "cmd": "remove_example", "name": "kpi", "example": "Court" }),
-        json!({ "cmd": "set_example_value", "name": "kpi", "example": null, "param": "p", "value": 1 }),
+        json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
     ];
     let kept: Vec<_> = edits
         .into_iter()
@@ -197,10 +194,7 @@ fn is_widget_edit_widget_writes_return_true_and_others_false() {
         json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
         json!({ "cmd": "remove_widget", "name": "kpi" }),
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
-        json!({ "cmd": "add_example", "name": "kpi", "example": "Court", "from": null }),
-        json!({ "cmd": "rename_example", "name": "kpi", "from": "Exemple", "to": "Court" }),
-        json!({ "cmd": "remove_example", "name": "kpi", "example": "Court" }),
-        json!({ "cmd": "set_example_value", "name": "kpi", "example": null, "param": "p", "value": 1 }),
+        json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
     ];
     assert_that!(writes.into_iter().map(request).all(|r| r.is_widget_edit())).is_true();
     let others = [json!({ "cmd": "widget_status" }), json!({ "cmd": "undo" }), json!({ "cmd": "save_templates" })];

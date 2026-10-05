@@ -1,5 +1,5 @@
-// Atelier de widget (t-497) : un cas ajouté en pastille, un champ vidé sur la scène, resté vide
-// (l'autre cas intact), les cas retrouvés après rechargement (ils sont dans le pack).
+// Atelier de widget (t-497, t-541) : un champ vidé sur la scène de l'aperçu reste vide dans les
+// réglages du widget, et le reste après rechargement (ses valeurs d'exemple sont dans le pack).
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -23,14 +23,10 @@ const TAB = '.widget-tab:not([hidden])';
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('fiche');
   await name.press('Enter');
-  // Le sous-onglet s'ouvre après la création : on attend qu'il soit l'actif avant de viser ses pastilles.
+  // Le sous-onglet s'ouvre après la création : on attend qu'il soit l'actif.
   await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
-
-  // Un cas « Exemple » d'office ; « + Cas » en ajoute un, copie du courant, et l'affiche.
-  const pills = p.locator(`${TAB} [role="group"][aria-label="Cas d'exemple"]`);
-  await pills.getByRole('button', { name: 'Exemple', pressed: true }).waitFor();
-  await pills.getByRole('button', { name: 'Ajouter un cas, copie du cas courant' }).click();
-  await pills.getByRole('button', { name: 'Cas 2', pressed: true }).waitFor();
+  // Plus de cas d'exemple : rien au-dessus de l'aperçu.
+  assert.equal(await p.locator(`${TAB} .widget-tab-preview [role="group"]`).count(), 0);
 
   // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
   // la surface des réglages est reconstruite à chaque relecture.
@@ -56,21 +52,15 @@ const TAB = '.widget-tab:not([hidden])';
   await p.keyboard.press('Enter');
   await editor.waitFor({ state: 'detached' });
 
-  // Le champ vidé le reste (pas de texte d'exemple) ; le cas « Exemple », lui, garde son titre.
+  // Le champ vidé le reste dans les réglages (pas de texte d'exemple).
   await titleUntil((v) => v === '', 'vide');
-  await pills.getByRole('button', { name: 'Exemple', exact: true }).click();
-  await pills.getByRole('button', { name: 'Exemple', pressed: true }).waitFor();
-  await titleUntil((v) => v !== '', 'une valeur');
 
-  // Rechargé : les deux cas sont toujours là, « Cas 2 » toujours vidé.
+  // Rechargé : le sous-onglet revient, le titre toujours vidé.
   await p.reload();
-  await pills.getByRole('button', { name: 'Cas 2', exact: true }).waitFor();
-  assert.equal(await pills.getByRole('button', { name: 'Exemple', exact: true }).count(), 1);
-  await pills.getByRole('button', { name: 'Cas 2', exact: true }).click();
-  await pills.getByRole('button', { name: 'Cas 2', pressed: true }).waitFor();
+  await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
   await titleUntil((v) => v === '', 'vide');
 
   assert.deepEqual(errors, []);
-  console.log('cas d\'exemple ok');
+  console.log('valeurs d\'exemple ok');
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -41,34 +41,52 @@ pub struct PackManifest {
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     pub created: String,
     pub templates: Vec<Template>,
-    /// Cas d'exemple de chaque widget, dans l'ordre de leurs pastilles.
+    /// Valeurs d'exemple de chaque widget : celles de son aperçu et de ses réglages.
     ///
-    /// Un widget absent a un seul cas implicite, [`EXAMPLE_DEFAULT`], aux
-    /// valeurs neutres : il n'est écrit qu'à son premier changement. Vide,
-    /// la clé n'est pas écrite (les versions sans cas gardent leur empreinte).
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub examples: BTreeMap<WidgetFile, Vec<Example>>,
+    /// Les valeurs ont la forme de celles de l'aperçu (texte riche : tableau de
+    /// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée. Un
+    /// widget sans valeurs n'a pas d'entrée ; vide, la clé n'est pas écrite (les
+    /// versions sans valeurs gardent leur empreinte). Lu aussi dans sa forme
+    /// d'avant t-541 (voir [`lenient_examples`]).
+    #[serde(default, deserialize_with = "lenient_examples", skip_serializing_if = "BTreeMap::is_empty")]
+    pub examples: BTreeMap<WidgetFile, Map<String, Value>>,
 }
 
-/// Nom du cas implicite d'un widget qui n'a pas de cas enregistrés.
-pub const EXAMPLE_DEFAULT: &str = "Exemple";
+/// Les valeurs d'exemple d'un widget dans `pack.json`, telles qu'écrites.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredValues {
+    /// Forme actuelle : les valeurs.
+    Values(Map<String, Value>),
+    /// Forme d'avant t-541 : une liste de cas nommés (`{"name", "values"}`).
+    Cases(Vec<StoredCase>),
+}
 
-/// Un cas d'exemple d'un widget : des valeurs de paramètres, nommées.
-///
-/// Les valeurs ont la forme de celles de l'aperçu (texte riche : tableau de
-/// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Example {
-    pub name: String,
+/// Un cas nommé d'avant t-541 : seules ses valeurs comptent.
+#[derive(Deserialize)]
+struct StoredCase {
     #[serde(default)]
-    pub values: Map<String, Value>,
+    values: Map<String, Value>,
 }
 
-impl Example {
-    /// Le cas implicite : [`EXAMPLE_DEFAULT`], sans valeurs.
-    pub fn implicit() -> Self {
-        Self { name: EXAMPLE_DEFAULT.to_owned(), values: Map::new() }
-    }
+/// Lit `examples` sans rendre illisible un pack d'avant t-541 : d'une liste de cas,
+/// le premier donne les valeurs du widget (celles que montraient l'aperçu et les
+/// réglages par défaut), les autres sont oubliés. Les valeurs vides sont omises.
+fn lenient_examples<'de, D>(de: D) -> std::result::Result<BTreeMap<WidgetFile, Map<String, Value>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let stored = BTreeMap::<WidgetFile, StoredValues>::deserialize(de)?;
+    Ok(stored
+        .into_iter()
+        .filter_map(|(w, v)| {
+            let values = match v {
+                StoredValues::Values(m) => m,
+                StoredValues::Cases(cases) => cases.into_iter().next().map(|c| c.values).unwrap_or_default(),
+            };
+            (!values.is_empty()).then_some((w, values))
+        })
+        .collect())
 }
 
 impl PackManifest {

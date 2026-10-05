@@ -1,7 +1,7 @@
 // Réglages de l'hôte en mode modèles (modèle affiché, ou widget du sous-onglet
-// actif, aux valeurs de son cas d'exemple courant) : une surface de réglages
-// construite par la session. Chaque champ porte sa clé ; une action part avec la
-// slide, le widget et le cas de la surface affichée. Un réglage refusé relit la surface : le champ reprend la
+// actif, à ses valeurs d'exemple) : une surface de réglages construite par la
+// session. Chaque champ porte sa clé ; une action part avec la slide et le
+// widget de la surface affichée. Un réglage refusé relit la surface : le champ reprend la
 // valeur de la session, celle que dessine l'aperçu.
 
 import { useEffect, useRef, useState } from "react";
@@ -31,18 +31,17 @@ export interface HostSettings {
   outcome: ActionOutcome;
 }
 
-/** Réglages de l'hôte : relus quand la slide, le widget, son cas courant ou le deck changent. */
+/** Réglages de l'hôte : relus quand la slide, le widget, ses valeurs d'exemple ou le deck changent. */
 export function useHostSettings(
   api: TabApi,
   snap: Snapshot | null,
   current: string | null,
   widget: string | null,
-  example: string | null,
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
 ): HostSettings {
   // `sync` : le numéro de relecture forcée qui a produit la surface.
-  const [shown, setShown] = useState<{ surface: Surface; slide: string; widget: string | null; example: string | null; sync: number } | null>(null);
+  const [shown, setShown] = useState<{ surface: Surface; slide: string; widget: string | null; sync: number } | null>(null);
   // Lue au moment de l'action : une surface remplacée depuis n'envoie rien, quel que soit le rendu
   // dont vient le gestionnaire appelé.
   const shownRef = useRef(shown);
@@ -53,13 +52,13 @@ export function useHostSettings(
   const outcome = useRef<Promise<boolean> | null>(null);
   const active = !!current && !!snap?.editing && !snap.history;
   const slide = snap?.slides.find((s) => s.id === current);
-  // Tout ce qui peut changer la carte : pack, cas d'exemple, slide (rendu, nom), annulation.
+  // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
   const key = [snap?.editing?.base, snap?.templates?.version, snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|");
   useEffect(() => {
     if (!active || !current) return setShown(null);
     let alive = true;
     api
-      .hostSettings(current, widget, example)
+      .hostSettings(current, widget)
       // Même contenu : la surface est gardée (SurfaceView reconstruit une surface reçue à nouveau),
       // sauf après un refus.
       .then((surface) =>
@@ -69,12 +68,11 @@ export function useHostSettings(
           prev &&
           prev.slide === current &&
           prev.widget === widget &&
-          prev.example === example &&
           prev.sync === sync &&
           JSON.stringify(prev.surface) === JSON.stringify(surface)
             ? prev
             : surface
-              ? { surface, slide: current, widget, example, sync }
+              ? { surface, slide: current, widget, sync }
               : null,
         ),
       )
@@ -83,7 +81,7 @@ export function useHostSettings(
       alive = false;
     };
     // `say` ne fait que poser un toast : son identité ne compte pas.
-  }, [api, active, current, widget, example, key, sync]);
+  }, [api, active, current, widget, key, sync]);
   const onAction = (s: Surface, a: A2uiClientAction): boolean => {
     if (s.id !== HOST_TEMPLATE && s.id !== HOST_WIDGET) return false;
     const now = shownRef.current;
@@ -94,8 +92,8 @@ export function useHostSettings(
     if (name !== "param" || typeof field !== "string") return true;
     outcome.current = run(
       s.id === HOST_WIDGET && now.widget
-        ? // Le cas d'exemple que montre la surface.
-          exampleValue(api, now.widget, now.example, field, context)
+        ? // Le widget que montre la surface.
+          exampleValue(api, now.widget, field, context)
         : api.hostParam(now.slide, field, context.value),
     ).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.
@@ -108,20 +106,19 @@ export function useHostSettings(
 }
 
 /**
- * Un réglage du widget dans son cas d'exemple `example` : une valeur, ou le
+ * Un réglage des valeurs d'exemple du widget : une valeur, ou le
  * changement d'une liste (`change`, du tableau d'une liste) ; un collage
  * remplace la liste entière.
  */
 function exampleValue(
   api: TabApi,
   widget: string,
-  example: string | null,
   param: string,
   context: Record<string, unknown>,
 ): Promise<Snapshot> {
   const change = context.change as ListChange | null | undefined;
-  if (!change) return api.setExampleValue(widget, example, param, context.value);
+  if (!change) return api.setExampleValue(widget, param, context.value);
   return change.op === "replace"
-    ? api.setExampleValue(widget, example, param, change.items)
-    : api.editExampleList(widget, example, param, change);
+    ? api.setExampleValue(widget, param, change.items)
+    : api.editExampleList(widget, param, change);
 }

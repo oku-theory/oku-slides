@@ -19,9 +19,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Cases { examples?: Record<string, string[]>; cases?: Record<string, string>; chosen?: string[][] }
-
-async function mount(fake: TabApi, widgets: string[], widget: string | null, c: Cases = {}) {
+async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -34,8 +32,8 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null, c: 
   } as unknown as Snapshot;
   function Probe() {
     const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {}, examples: c.examples ?? {}, cases: c.cases ?? {},
-      onCase: (w: string, n: string) => c.chosen?.push([w, n]), run: async () => null, palette: [] });
+    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {},
+      run: async () => null, palette: [] });
   }
   await act(async () => root.render(createElement(Probe)));
   await wait(10);
@@ -58,16 +56,5 @@ describe("WidgetPane", () => {
     const host = await mount(fake, ["kpi"], null);
     expect(host.querySelectorAll(".widget-tab").length).toBe(1);
     expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(true);
-  });
-
-  test("chaque sous-onglet a ses cas et son cas gardé ; un widget absent du snapshot, le cas implicite", async () => {
-    const { fake } = memory({ kpi: "k", chart: "c" });
-    const chosen: string[][] = [];
-    const host = await mount(fake, ["kpi", "chart"], "kpi", { examples: { kpi: ["Exemple", "Long"] }, cases: { kpi: "Long" }, chosen });
-    const pills = (i: number) =>
-      [...host.querySelectorAll(".widget-tab")[i].querySelectorAll(".example-pill")].map((b) => `${b.textContent}:${b.getAttribute("aria-pressed")}`);
-    expect([pills(0), pills(1)]).toEqual([["Exemple:false", "Long:true"], ["Exemple:true"]]);
-    await act(async () => host.querySelector<HTMLButtonElement>(".example-pill")!.click());
-    expect(chosen).toEqual([["kpi", "Exemple"]]);
   });
 });

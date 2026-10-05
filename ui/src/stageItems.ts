@@ -134,7 +134,7 @@ export type HandlesSource =
 
 /**
  * Poignées de liste de la scène : sur le deck, en ops sur la slide (aucune en lecture
- * seule) ; en aperçu, dans le cas d'exemple (les listes de son seul widget), aucune sans `onListOp`.
+ * seule) ; en aperçu, dans les valeurs d'exemple du widget (les listes de son seul widget), aucune sans `onListOp`.
  */
 export function itemHandles(view: SlideView, src: HandlesSource): ItemHandles | null {
   const onInserted = (key: FieldKey) => src.onEditWhenShown?.(key);

@@ -110,7 +110,6 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         code: true,
         code_width: Some(640),
         folded: vec![PileSection::Widgets],
-        case: [("kpi".to_owned(), "Long".to_owned())].into(),
     };
     r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone(), help_theme: None })
         .unwrap();
@@ -139,7 +138,6 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         code: false,
         code_width: None,
         folded: Vec::new(),
-        case: std::collections::BTreeMap::new(),
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -158,6 +156,24 @@ fn read_state_with_the_removed_board_and_code_place_keeps_the_rest() {
         slide: Some("s-1".into()),
         code: true,
         code_width: Some(640),
+        ..UiState::default()
+    });
+}
+
+/// Couche fichier : un `state.json` écrit avant t-541 (cas d'exemple courant de chaque widget)
+/// se relit par la reprise, `case` ignoré (la couche serde : `views_tests`).
+#[test]
+fn read_state_with_the_removed_current_cases_keeps_the_rest() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-");
+    let r = Resume::new(Storage::local().unwrap(), data.path().to_path_buf());
+    let ui = r#"{"slide":"s-1","widgets":["kpi"],"widget":"kpi","case":{"kpi":"Long"}}"#;
+    let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{ui}}}"#);
+    std::fs::write(r.dir.join("state.json"), state).unwrap();
+    let back = r.read_state().unwrap().unwrap();
+    assert_that!(back.ui).is_equal_to(UiState {
+        slide: Some("s-1".into()),
+        widgets: vec!["kpi".into()],
+        widget: Some("kpi".into()),
         ..UiState::default()
     });
 }
@@ -406,7 +422,7 @@ fn write_snapshot_removes_orphan_packs() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
-/// Un cas d'exemple est dans le pack : son écriture écrit les documents de reprise.
+/// Les valeurs d'exemple sont dans le pack : leur écriture écrit les documents de reprise.
 #[test]
 fn set_example_value_writes_the_resume_documents() {
     let data = crate::test_support::fresh_dir("oku-slides-example-");
@@ -423,12 +439,7 @@ fn set_example_value_writes_the_resume_documents() {
     for d in &docs {
         std::fs::remove_file(d).unwrap();
     }
-    let req = crate::Request::SetExampleValue {
-        name: "essai".into(),
-        example: None,
-        param: "title".into(),
-        value: "Météo".into(),
-    };
+    let req = crate::Request::SetExampleValue { name: "essai".into(), param: "title".into(), value: "Météo".into() };
     s.handle(req).unwrap();
     s.flush_resume();
     assert_that!(docs.iter().filter(|d| d.exists()).count()).is_equal_to(2);

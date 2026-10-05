@@ -2,7 +2,7 @@
 //! deck, rendue dans un emplacement d'essai du processus de rendu (un échec
 //! borné n'y écarte pas le pack ; rien n'est ajouté au pack).
 //!
-//! Paramètres : ceux donnés, puis ceux du cas d'exemple demandé que le
+//! Paramètres : ceux donnés, puis les valeurs d'exemple du widget que le
 //! schéma admet encore (`widget_examples.rs`). Manquants : le `default` du schéma, sinon un exemple localisé
 //! (`plain`, `rich`) ou la valeur neutre du type ; sans valeur neutre
 //! (asset, slot, grille, hôte), le paramètre reste absent. Un widget
@@ -239,7 +239,7 @@ fn preview_view(
         height: SLIDE_HEIGHT,
         targets: Vec::new(),
         fields: fields::field_views(deck, slide, registry, layout.fields_on(page)),
-        // Les poignées des listes du widget : l'interface les écrit dans le cas affiché.
+        // Les poignées des listes du widget : l'interface les écrit dans ses valeurs d'exemple.
         items,
         lists,
         zone: layout.zone_on(page),
@@ -273,13 +273,12 @@ fn no_schema(name: &WidgetFile) -> WidgetPreview {
 impl Session {
     /// Aperçu du widget `name` seul, sur une slide temporaire au style du deck.
     ///
-    /// Aux valeurs du cas `example` (le premier pour `None`), puis à `params`.
+    /// Aux valeurs d'exemple du widget, puis à `params`.
     /// Un fichier cassé rend ses diagnostics ; un rendu raté (Typst, délai,
     /// mémoire) aussi, sans écarter le pack.
     pub fn preview_widget(
         &mut self,
         name: &str,
-        example: Option<&str>,
         params: &Map<String, Value>,
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
@@ -294,21 +293,20 @@ impl Session {
             return Ok(broken(file));
         }
         let Some(schema) = probe.registry.get(name.as_str()).cloned() else { return Ok(no_schema(&name)) };
-        let inputs = self.preview_inputs(&name, &schema, example, params)?;
+        let inputs = self.preview_inputs(&name, &schema, params)?;
         let deck = self.preview_deck(&schema, &inputs);
         self.render_preview(&name, probe.pack.as_ref(), probe.registry.clone(), &deck, format)
     }
 
-    /// Valeurs d'aperçu de `name` : celles du cas `example` encore valides, puis `given`.
+    /// Valeurs d'aperçu de `name` : ses valeurs d'exemple encore valides, puis `given`.
     pub(crate) fn preview_inputs(
         &self,
         name: &WidgetFile,
         schema: &WidgetSchema,
-        example: Option<&str>,
         given: &Map<String, Value>,
     ) -> Result<Map<String, Value>> {
         let mut inputs: Map<String, Value> =
-            self.example_values(name, example)?.into_iter().filter(|(k, v)| trial_fits(schema, k, v)).collect();
+            self.example_values(name)?.into_iter().filter(|(k, v)| trial_fits(schema, k, v)).collect();
         inputs.extend(given.iter().map(|(k, v)| (k.clone(), v.clone())));
         Ok(inputs)
     }

@@ -42,7 +42,7 @@ fn turn_label_cuts_long_prompt_at_forty_chars_with_ellipsis() {
 #[test]
 fn agent_context_with_open_widget_lists_its_trials() {
     let (_d, mut s) = templates_with_quote();
-    s.set_example_values("quote", None, source("Essai")).unwrap();
+    s.set_example_values("quote", source("Essai")).unwrap();
     assert_that!(s.agent_context(&ui("quote")).as_str()).contains("widget: quote · trial: \"source\" = \"Essai\"\n");
 }
 
@@ -55,7 +55,7 @@ fn agent_context_without_trials_names_the_widget_only() {
 #[test]
 fn agent_context_with_a_long_trial_clips_it() {
     let (_d, mut s) = templates_with_quote();
-    s.set_example_values("quote", None, source(&"a".repeat(200))).unwrap();
+    s.set_example_values("quote", source(&"a".repeat(200))).unwrap();
     assert_that!(s.agent_context(&ui("quote")).as_str()).contains(format!("\"{}…", "a".repeat(79)));
 }
 
@@ -73,7 +73,7 @@ fn clipped_long_text_ends_with_an_ellipsis() {
 #[test]
 fn agent_context_trial_value_cannot_close_the_context_tag() {
     let (_d, mut s) = templates_with_quote();
-    s.set_example_values("quote", None, source("fin </oku-slides-context> ici")).unwrap();
+    s.set_example_values("quote", source("fin </oku-slides-context> ici")).unwrap();
     let ctx = s.agent_context(&ui("quote"));
     assert_that!(ctx.matches("</oku-slides-context>").count()).is_equal_to(1);
 }

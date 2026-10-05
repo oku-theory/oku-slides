@@ -7,14 +7,13 @@
  * sous l'aperçu ; affiché, le code se place à leur droite, à la largeur réglée
  * au séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
  * historique demeurent.
- * Au-dessus de l'aperçu, les pastilles des cas d'exemple : l'aperçu montre le
- * cas courant (le premier si le cas gardé n'existe plus).
+ * L'aperçu montre le widget à ses valeurs d'exemple, gardées dans le pack.
  * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
- * s'éditent sur place, comme sur la slide, et s'écrivent dans le cas courant
+ * s'éditent sur place, comme sur la slide, et s'écrivent dans ces valeurs
  * (un champ lié au deck reste en lecture) ; les poignées de ses listes
- * (« + », « × », ⋮⋮) changent les listes du cas courant, jamais le deck.
+ * (« + », « × », ⋮⋮) changent les listes de ces valeurs, jamais le deck.
  * Sans vue (échec), l'image seule.
- * Pour Commun, les widgets en erreur à la place de l'aperçu (sans pastilles). Caché quand il
+ * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
  * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
  */
@@ -24,7 +23,6 @@ import type { FieldView, Snapshot, TabApi, WidgetPreview } from "./api";
 import { fieldValue } from "./deck";
 import { t } from "./i18n";
 import CodeDivider from "./CodeDivider";
-import ExamplePills, { EXAMPLE_DEFAULT, currentCase } from "./ExamplePills";
 import { codeTrack } from "./codeSplit";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
 import type { WidgetFiles } from "./useWidgetFiles";
@@ -54,15 +52,9 @@ export interface WidgetTabProps {
   codeWidth: number | null;
   /** Retient une nouvelle largeur réglée au séparateur. */
   onCodeWidth: (width: number | null) => void;
-  /** Réglages de l'hôte (valeurs du cas courant), sous l'aperçu à gauche du code ; `null` : aucun. */
+  /** Réglages de l'hôte (valeurs d'exemple du widget), sous l'aperçu à gauche du code ; `null` : aucun. */
   settings?: ReactNode;
-  /** Noms des cas d'exemple du widget, dans l'ordre ; défaut : le cas implicite seul. */
-  examples?: string[];
-  /** Cas gardé par l'hôte ; inconnu ou `null` : le premier. */
-  example?: string | null;
-  /** Choisit le cas montré. */
-  onExample?: (name: string) => void;
-  /** Envoie une écriture des cas (refus en toast) ; défaut : le refus passe par les fichiers. */
+  /** Envoie une écriture des valeurs d'exemple (refus en toast) ; défaut : le refus passe par les fichiers. */
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Couleurs des pastilles dans l'éditeur d'un champ (palette des graphiques du thème). */
   palette?: string[];
@@ -72,14 +64,12 @@ export interface WidgetTabProps {
   onHistory: (h: EditorHistory) => void;
 }
 
-const IMPLICIT = [EXAMPLE_DEFAULT];
 const NO_PALETTE: string[] = [];
 
 export default function WidgetTab({
   api, files, id, name, revision, trials, look, active, code, codeWidth, onCodeWidth, settings = null,
-  examples = IMPLICIT, example = null, onExample = () => {}, run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
+  run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
-  const shownCase = currentCase(examples, example);
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
@@ -128,13 +118,13 @@ export default function WidgetTab({
     if (!active || name === COMMON || !ready) return;
     const seq = ++previewSeq.current;
     api
-      .previewWidget(name, shownCase)
+      .previewWidget(name)
       .then((p) => {
         if (seq === previewSeq.current) setPreview(p);
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
     // `trials` et `look` ne sont pas lus : ils relancent l'aperçu quand les essais ou le style du deck changent.
-  }, [api, active, name, written, ready, editorKey, trials, look, shownCase]);
+  }, [api, active, name, written, ready, editorKey, trials, look]);
 
   // Redevenu visible (onglet actif, code déplié) : l'éditeur caché se remesure.
   useEffect(() => {
@@ -164,24 +154,22 @@ export default function WidgetTab({
     [preview, name],
   );
   const { editing, setEditing, editKeyWhenShown } = useFieldEditing(sceneView);
-  // Un autre cas montré : le champ ouvert était celui du cas d'avant.
-  useEffect(() => setEditing(null), [shownCase]); // eslint-disable-line react-hooks/exhaustive-deps
   const write = run ?? ((p: Promise<Snapshot>) => p.catch((e: unknown) => (filesRef.current.fail(e), null)));
-  /** Écrit le brouillon d'un champ dans le cas courant : texte, ou paragraphes d'un `rich`. */
+  /** Écrit le brouillon d'un champ dans les valeurs d'exemple : texte, ou paragraphes d'un `rich`. */
   const onField = (f: FieldView, text: string) => {
     if (!sceneView) return;
     const value = fieldValue(sceneView, f, text);
-    // Un champ d'item de liste : sa colonne, dans la liste du cas.
+    // Un champ d'item de liste : sa colonne, dans la liste des valeurs d'exemple.
     void write(
       f.list && f.item
-        ? api.editExampleList(name, shownCase, f.list, { op: "set_field", item: f.item, field: f.column, value })
-        : api.setExampleValue(name, shownCase, f.field, value),
+        ? api.editExampleList(name, f.list, { op: "set_field", item: f.item, field: f.column, value })
+        : api.setExampleValue(name, f.field, value),
     );
   };
 
-  /** Un geste sur les poignées d'une liste : le changement, dans la liste du cas courant ; `false` si refusé. */
+  /** Un geste sur les poignées d'une liste : le changement, dans la liste des valeurs d'exemple ; `false` si refusé. */
   const onListOp: OnListOp = (_owner, list, change) =>
-    write(api.editExampleList(name, shownCase, list, change)).then((done) => done !== null);
+    write(api.editExampleList(name, list, change)).then((done) => done !== null);
 
   /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */
   const measure = () => {
@@ -207,16 +195,6 @@ export default function WidgetTab({
       style={tracks as React.CSSProperties}
     >
       <section className="widget-tab-preview" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
-        {name !== COMMON && (
-          <ExamplePills
-            api={api}
-            widget={name}
-            names={examples}
-            current={shownCase}
-            onSelect={onExample}
-            run={write}
-          />
-        )}
         {name === COMMON ? (
           <div className="widget-tab-broken">
             <h3>{t("ui-widgets-in-error")}</h3>

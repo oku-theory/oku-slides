@@ -50,9 +50,6 @@ pub enum Request {
         slide: String,
         #[serde(default)]
         widget: Option<String>,
-        /// Cas d'exemple du widget montré ; `None` (ou inconnu) : le premier.
-        #[serde(default)]
-        example: Option<String>,
     },
     /// Applique le réglage `key` du modèle `slide` (mode modèles, annulable).
     HostParam {
@@ -147,49 +144,24 @@ pub enum Request {
         from: String,
         to: String,
     },
-    /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs du cas
-    /// `example` (le premier par défaut) ; `params` les complète.
+    /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs d'exemple
+    /// du widget ; `params` les complète.
     PreviewWidget {
         name: String,
         #[serde(default)]
-        example: Option<String>,
-        #[serde(default)]
         params: serde_json::Map<String, serde_json::Value>,
     },
-    /// Ajoute le cas d'exemple `example` au widget `name`, aux valeurs de
-    /// `from` s'il est donné (mode modèles, dans le pack).
-    AddExample {
-        name: String,
-        example: String,
-        #[serde(default)]
-        from: Option<String>,
-    },
-    /// Renomme le cas d'exemple `from` du widget `name` (mode modèles).
-    RenameExample {
-        name: String,
-        from: String,
-        to: String,
-    },
-    /// Supprime un cas d'exemple ; refusé pour le dernier (mode modèles).
-    RemoveExample {
-        name: String,
-        example: String,
-    },
-    /// Règle une valeur du cas `example` (le premier pour `null`) ; `null`
-    /// ou un texte vide l'effacent (mode modèles).
+    /// Règle une valeur d'exemple du widget `name` ; `null` ou la valeur neutre
+    /// l'effacent, un texte vidé reste vide (mode modèles, dans le pack).
     SetExampleValue {
         name: String,
-        #[serde(default)]
-        example: Option<String>,
         param: String,
         value: serde_json::Value,
     },
-    /// Change la liste `param` du cas `example` (le premier pour `null`) ; sans
-    /// valeur gardée, elle part des items par défaut du schéma (mode modèles).
+    /// Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle
+    /// part des items par défaut du schéma (mode modèles).
     EditExampleList {
         name: String,
-        #[serde(default)]
-        example: Option<String>,
         param: String,
         change: oku_slides_core::ListOp,
     },
@@ -220,9 +192,6 @@ impl Request {
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
-            | Self::AddExample { .. }
-            | Self::RenameExample { .. }
-            | Self::RemoveExample { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::HostParam { .. } => true,
@@ -270,9 +239,6 @@ impl Request {
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::HostParam { .. }
-                | Self::AddExample { .. }
-                | Self::RenameExample { .. }
-                | Self::RemoveExample { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )
@@ -288,7 +254,7 @@ impl Request {
         self.changes_deck() && !matches!(self, Self::Save { .. }) && !self.is_widget_edit()
     }
 
-    /// Vrai pour une modification de widget (cas d'exemple compris) : elle ne
+    /// Vrai pour une modification de widget (valeurs d'exemple comprises) : elle ne
     /// termine pas la séance des widgets.
     pub(crate) fn is_widget_edit(&self) -> bool {
         matches!(
@@ -296,9 +262,6 @@ impl Request {
             Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
-                | Self::AddExample { .. }
-                | Self::RenameExample { .. }
-                | Self::RemoveExample { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )

@@ -68,10 +68,8 @@ export interface Snapshot {
   pack_widgets: string[];
   /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
   add_widgets: AddWidget[];
-  /** Révision des cas d'exemple des widgets : change quand un cas est modifié (tirée de la version du pack édité). */
+  /** Révision des valeurs d'exemple des widgets : change quand une valeur est modifiée (tirée de la version du pack édité). */
   widget_trials: number;
-  /** Noms des cas d'exemple de chaque widget du pack édité, dans l'ordre (`["Exemple"]` sans cas enregistrés) ; vide hors du mode modèles. */
-  examples: Record<string, string[]>;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   /** L'aide de l'app : le deck se lit, il ne se modifie pas. */
@@ -114,7 +112,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, sections repliées et cas courants, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -134,8 +132,6 @@ export interface UiState {
   code_width: number | null;
   /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
-  /** Cas d'exemple montré de chaque widget, par nom de fichier ; absent : le premier. */
-  case: Record<string, string>;
 }
 
 /** Section repliable de la pile du mode modèles. */
@@ -487,13 +483,10 @@ type Request =
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
-  | { cmd: "host_settings"; slide: string; widget: string | null; example: string | null }
+  | { cmd: "host_settings"; slide: string; widget: string | null }
   | { cmd: "host_param"; slide: string; key: string; value: unknown }
-  | { cmd: "add_example"; name: string; example: string; from: string | null }
-  | { cmd: "rename_example"; name: string; from: string; to: string }
-  | { cmd: "remove_example"; name: string; example: string }
-  | { cmd: "set_example_value"; name: string; example: string | null; param: string; value: unknown }
-  | { cmd: "edit_example_list"; name: string; example: string | null; param: string; change: ListOp }
+  | { cmd: "set_example_value"; name: string; param: string; value: unknown }
+  | { cmd: "edit_example_list"; name: string; param: string; change: ListOp }
   | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -504,7 +497,7 @@ type Request =
   | { cmd: "set_widget"; name: string; source: string }
   | { cmd: "remove_widget"; name: string }
   | { cmd: "rename_widget"; from: string; to: string }
-  | { cmd: "preview_widget"; name: string; example: string | null }
+  | { cmd: "preview_widget"; name: string }
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
 
@@ -644,20 +637,15 @@ export function tabApi(tab: string) {
     saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
-    /** Surface A2UI des réglages de l'hôte pour une slide, ou du widget à son cas `example` (`null` : le premier) ; vide hors des modèles. */
-    hostSettings: (slide: string, widget: string | null, example: string | null = null) =>
-      call<Surface | null>({ cmd: "host_settings", slide, widget, example }),
+    /** Surface A2UI des réglages de l'hôte pour une slide, ou du widget à ses valeurs d'exemple ; vide hors des modèles. */
+    hostSettings: (slide: string, widget: string | null) => call<Surface | null>({ cmd: "host_settings", slide, widget }),
     hostParam: (slide: string, key: string, value: unknown) => call<Snapshot>({ cmd: "host_param", slide, key, value }),
-    /** Cas d'exemple d'un widget, dans le pack (mode modèles) ; `example` `null` : le premier. */
-    addExample: (name: string, example: string, from: string | null = null) =>
-      call<Snapshot>({ cmd: "add_example", name, example, from }),
-    renameExample: (name: string, from: string, to: string) => call<Snapshot>({ cmd: "rename_example", name, from, to }),
-    removeExample: (name: string, example: string) => call<Snapshot>({ cmd: "remove_example", name, example }),
-    setExampleValue: (name: string, example: string | null, param: string, value: unknown) =>
-      call<Snapshot>({ cmd: "set_example_value", name, example, param, value }),
-    /** Change la liste `param` du cas `example` (`null` : le premier) ; sans valeur gardée, elle part des items par défaut du schéma. */
-    editExampleList: (name: string, example: string | null, param: string, change: ListOp) =>
-      call<Snapshot>({ cmd: "edit_example_list", name, example, param, change }),
+    /** Règle une valeur d'exemple d'un widget, dans le pack (mode modèles). */
+    setExampleValue: (name: string, param: string, value: unknown) =>
+      call<Snapshot>({ cmd: "set_example_value", name, param, value }),
+    /** Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle part des items par défaut du schéma. */
+    editExampleList: (name: string, param: string, change: ListOp) =>
+      call<Snapshot>({ cmd: "edit_example_list", name, param, change }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),
@@ -675,9 +663,8 @@ export function tabApi(tab: string) {
     setWidget: (name: string, source: string) => call<WidgetChange>({ cmd: "set_widget", name, source }),
     removeWidget: (name: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name }),
     renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
-    /** Aperçu d'un widget aux valeurs du cas `example` (`null` : le premier), sans `params` (ceux de l'agent) : la session les prend vides. */
-    previewWidget: (name: string, example: string | null = null) =>
-      call<WidgetPreview>({ cmd: "preview_widget", name, example }),
+    /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
+    previewWidget: (name: string) => call<WidgetPreview>({ cmd: "preview_widget", name }),
     /** Bandeau du pack : le deck passe à ma version courante (annulable). */
     packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
     /** Bandeau du pack : sa version devient ma version courante. */

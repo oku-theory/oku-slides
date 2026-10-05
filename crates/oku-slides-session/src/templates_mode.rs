@@ -135,7 +135,7 @@ impl Session {
 
     /// Le `pack.json` que montre `deck`, le deck des modèles en cours d'édition.
     ///
-    /// `kept` : la dernière version enregistrée, dont la description et les cas d'exemple restent.
+    /// `kept` : la dernière version enregistrée, dont la description et les valeurs d'exemple restent.
     fn edited_manifest(
         &self,
         deck: &Deck,
@@ -188,7 +188,7 @@ impl Session {
             let name = self.localizer.tr_with("templates-copy-name", &[("name", edit.name.as_str().into())]);
             deck.params.title = Some(name);
         }
-        // Description, cas d'exemple et widgets : ceux de la dernière version enregistrée.
+        // Description, valeurs d'exemple et widgets : ceux de la dernière version enregistrée.
         let base = self.doc.sources.packs.get(&edit.base);
         let kept = base.and_then(|f| PackManifest::from_files(f).ok());
         let widgets = base.map(|f| f.widgets().clone()).unwrap_or_default();
