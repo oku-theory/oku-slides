@@ -235,20 +235,26 @@ fn large_text_bars() -> String {
     ChartsRsRenderer::new(theme).render(&option, SIZE).unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// Valeur numérique de l'attribut `name` d'une balise SVG.
+fn attr(tag: &str, name: &str) -> Option<f32> {
+    let key = format!(" {name}=\"");
+    let start = tag.find(&key)? + key.len();
+    tag[start..start + tag[start..].find('"')?].parse().ok()
+}
+
+/// Ordonnée du centre d'un `<text>` centré verticalement.
+fn middle(tag: &str) -> Option<f32> {
+    tag.contains("dominant-baseline=\"middle\"").then(|| Some(attr(tag, "y")? + attr(tag, "dy").unwrap_or(0.0)))?
+}
+
 /// Bornes verticales (haut, bas) de chaque `<text>` d'un SVG charts-rs.
 fn text_extents(svg: &str) -> Vec<(f32, f32)> {
-    let attr = |tag: &str, name: &str| -> Option<f32> {
-        let key = format!(" {name}=\"");
-        let start = tag.find(&key)? + key.len();
-        tag[start..start + tag[start..].find('"')?].parse().ok()
-    };
     svg.split("<text")
         .skip(1)
         .filter_map(|rest| {
             let tag = &rest[..rest.find('>')?];
             let (size, y) = (attr(tag, "font-size")?, attr(tag, "y")?);
-            Some(if tag.contains("dominant-baseline=\"middle\"") {
-                let center = y + attr(tag, "dy").unwrap_or(0.0);
+            Some(if let Some(center) = middle(tag) {
                 (center - size / 2.0, center + size / 2.0)
             } else {
                 // `y` est la ligne de base : les jambages sont ignorés.
@@ -265,4 +271,22 @@ fn render_large_theme_texts_stay_inside_the_chart() {
     for (top, bottom) in extents {
         asserting(&format!("texte de {top} à {bottom}")).that(&(top >= 0.0 && bottom <= SIZE.height)).is_true();
     }
+}
+
+#[test]
+fn render_legend_marker_scales_with_the_legend_text_and_is_centered_on_it() {
+    let svg = large_text_bars();
+    let legend = svg
+        .split("<text")
+        .skip(1)
+        .find(|t| t.contains("font-size=\"32\"") && t.split('>').nth(1).is_some_and(|c| c.trim().starts_with("Ventes")))
+        .unwrap_or_else(|| panic!("texte de légende absent"));
+    let center = middle(&legend[..legend.find('>').unwrap_or(0)]).unwrap_or_else(|| panic!("légende non centrée"));
+    let marker = svg
+        .split("<circle")
+        .skip(1)
+        .filter_map(|c| Some((attr(c, "cy")?, attr(c, "r")?)))
+        .find(|(cy, _)| (cy - center).abs() < 1.0);
+    let (_, r) = marker.unwrap_or_else(|| panic!("aucun repère centré sur la légende ({center})"));
+    assert_that!(r).is_greater_than_or_equal_to(32.0 * 0.4);
 }

@@ -3,17 +3,18 @@
 //! même [`ChartModel`].
 
 use charts_rs::{
-    Align, BarChart, ChartBase, HorizontalBarChart, LineChart, PieChart, RadarChart, RadarIndicator, ScatterChart,
-    Series, SeriesCategory, WaterfallChart, WaterfallData, YAxisConfig,
+    BarChart, ChartBase, HorizontalBarChart, LineChart, PieChart, RadarChart, RadarIndicator, ScatterChart, Series,
+    SeriesCategory, WaterfallChart, WaterfallData, YAxisConfig,
 };
 use serde_json::json;
 
 use snafu::ResultExt;
 
 use crate::error::{RenderSnafu, Result};
+use crate::header::{Header, append};
 use crate::labels::ChartLabels;
 use crate::model::*;
-use crate::option::{ChartOption, HAlign};
+use crate::option::ChartOption;
 use crate::theme::{ChartTheme, color, transparent};
 
 /// Taille du cadre du graphique, en points (1 pt Typst = 1 unité SVG).
@@ -42,7 +43,7 @@ impl ChartsRsRenderer {
     }
 
     pub fn render_model(&self, model: &ChartModel, size: Size) -> Result<String> {
-        let svg = match &model.kind {
+        let (svg, header) = match &model.kind {
             ChartKind::Cartesian(c) if c.horizontal => {
                 let series = c.series.iter().map(cartesian_series).collect();
                 let mut chart = HorizontalBarChart::new_with_theme(series, c.categories.clone(), "light");
@@ -51,7 +52,8 @@ impl ChartsRsRenderer {
                 self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
                 set_bounds(&mut axes, c.value_min, c.value_max);
                 chart.y_axis_configs = axes;
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Cartesian(c) if c.series.iter().all(|s| s.mark == CartesianMark::Line) => {
                 let series = c.series.iter().map(cartesian_series).collect();
@@ -63,7 +65,8 @@ impl ChartsRsRenderer {
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
                 chart.series_fill = c.area;
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Cartesian(c) => {
                 let series = c.series.iter().map(cartesian_series).collect();
@@ -75,7 +78,8 @@ impl ChartsRsRenderer {
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
                 chart.series_fill = c.area;
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Pie(p) => {
                 // Une série charts-rs par part (≠ ECharts : une série, n parts).
@@ -94,7 +98,8 @@ impl ChartsRsRenderer {
                 if !p.label {
                     chart.series_label_formatter = " ".into();
                 }
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Scatter(s) => {
                 let series = s
@@ -114,7 +119,8 @@ impl ChartsRsRenderer {
                 self.axis_style(&mut chart.x_axis_config);
                 chart.x_axis_config.axis_min = s.x_min.map(|v| v as f32);
                 chart.x_axis_config.axis_max = s.x_max.map(|v| v as f32);
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Radar(r) => {
                 let series = r
@@ -135,11 +141,12 @@ impl ChartsRsRenderer {
                 self.frame(&mut chart.base, &mut axes, model, size);
                 chart.y_axis_configs = axes;
                 chart.series_fill = r.area;
-                chart.svg()
+                let header = self.header(&mut chart.base, model);
+                (chart.svg(), header)
             }
             ChartKind::Waterfall(w) => return self.waterfall(w, model, size),
         };
-        Ok(svg.context(RenderSnafu)?)
+        Ok(append(svg.context(RenderSnafu)?, &header))
     }
 
     /// Cascade : le WaterfallChart de charts-rs. Son axe n'est réglable que
@@ -182,7 +189,8 @@ impl ChartsRsRenderer {
         if let Some(c) = palette(2) {
             chart.increase_color = c;
         }
-        Ok(chart.svg().context(RenderSnafu)?)
+        let header = self.header(&mut chart.base, model);
+        Ok(append(chart.svg().context(RenderSnafu)?, &header))
     }
 
     /// Palette des séries : celle des options, sinon celle du thème.
@@ -201,7 +209,20 @@ impl ChartsRsRenderer {
             .collect();
     }
 
-    /// Taille, titre, légende et thème, communs à tous les graphiques.
+    /// En-tête (titre, sous-titre, légende) dessiné hors de charts-rs, une
+    /// fois les séries et leurs couleurs posées ; à ajouter au SVG.
+    fn header(&self, base: &mut ChartBase, model: &ChartModel) -> String {
+        Header {
+            title: &model.title,
+            subtitle: &model.subtitle,
+            title_align: model.title_align,
+            legend: model.legend_show,
+            legend_align: model.legend_align,
+        }
+        .place(base, &self.theme)
+    }
+
+    /// Taille, axes, séries et thème, communs à tous les graphiques.
     fn frame(&self, base: &mut ChartBase, axes: &mut [YAxisConfig], model: &ChartModel, size: Size) {
         let t = &self.theme;
         base.width = size.width;
@@ -210,32 +231,9 @@ impl ChartsRsRenderer {
         base.is_light = true;
         base.background_color = t.background.as_deref().map(color).unwrap_or_else(transparent);
 
-        // Hauteurs que charts-rs réserve au titre, au sous-titre et à l'axe X :
-        // ses défauts (30, 20, 30) valent pour des textes de 18, 13 et 12 ;
-        // elles suivent les tailles du thème avec la même marge.
-        base.title_height = t.title_size + 12.0;
-        base.sub_title_height = t.subtitle_size + 7.0;
+        // Hauteur que charts-rs réserve à l'axe X : son défaut (30) vaut pour
+        // un texte de 12 ; elle suit la taille du thème avec la même marge.
         base.x_axis_height = t.axis_size + 18.0;
-
-        base.title_text = model.title.clone();
-        base.title_align = align(model.title_align);
-        base.title_font_size = t.title_size;
-        base.title_font_color = color(&t.text);
-        base.sub_title_text = model.subtitle.clone();
-        base.sub_title_align = align(model.title_align);
-        base.sub_title_font_size = t.subtitle_size;
-        base.sub_title_font_color = color(&t.text_muted);
-
-        base.legend_show = Some(model.legend_show);
-        base.legend_align = align(model.legend_align);
-        base.legend_font_size = t.legend_size;
-        base.legend_font_color = color(&t.text);
-        if model.legend_show && !model.title.is_empty() {
-            // Sous le titre plutôt que par-dessus.
-            let mut m = base.legend_margin.unwrap_or_default();
-            m.top = base.title_height + if model.subtitle.is_empty() { 0.0 } else { base.sub_title_height };
-            base.legend_margin = Some(m);
-        }
 
         base.x_axis_font_size = t.axis_size;
         base.x_axis_font_color = color(&t.text_muted);
@@ -279,14 +277,6 @@ fn set_bounds(axes: &mut [YAxisConfig], min: Option<f64>, max: Option<f64>) {
     if let Some(a) = axes.first_mut() {
         a.axis_min = min.map(|v| v as f32);
         a.axis_max = max.map(|v| v as f32);
-    }
-}
-
-fn align(a: HAlign) -> Align {
-    match a {
-        HAlign::Left => Align::Left,
-        HAlign::Center => Align::Center,
-        HAlign::Right => Align::Right,
     }
 }
 

@@ -13,6 +13,7 @@ mod canonical;
 mod convert;
 mod data_ops;
 mod error;
+mod header;
 mod labels;
 mod model;
 mod option;
