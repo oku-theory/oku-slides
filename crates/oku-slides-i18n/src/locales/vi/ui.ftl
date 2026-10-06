@@ -160,7 +160,6 @@ ui-list-add = Thêm { $item }
 ui-list-remove = Xóa { $item }
 ui-list-move = Di chuyển { $item }
 ui-list-full = Danh sách đã đầy ({ $max })
-ui-undo-list-add = Thêm { $item }
 ui-undo-list-remove = Xóa { $item }
 ui-undo-list-move = Di chuyển { $item }
 ui-agent-color-other = Màu khác

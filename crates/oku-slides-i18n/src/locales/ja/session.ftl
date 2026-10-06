@@ -92,6 +92,34 @@ session-undo-host-setting = テンプレートの設定
 session-undo-rename-template = テンプレート名を変更
 session-undo-describe-template = テンプレートの説明を編集
 session-undo-grid = グリッド { $columns } × { $rows }
+session-undo-param = 設定：{ $label }
+session-target-bound = { $name } はプレゼンテーションの変数「{ $var }」に従います
+session-widget-kind-card = カード
+session-widget-kind-chapter = 章
+session-widget-kind-content = コンテンツ
+session-widget-kind-end = 終わり
+session-widget-kind-image = 画像
+session-widget-kind-shape = 図形
+session-widget-kind-stack = スタック
+session-widget-kind-text = テキスト
+session-widget-kind-toc = 目次
+session-param-card-kicker = キッカー
+session-param-card-title = タイトル
+session-param-card-body = 本文
+session-param-card-highlight = 強調
+session-param-chapter-title = タイトル
+session-param-chapter-subtitle = サブタイトル
+session-param-content-kicker = キッカー
+session-param-content-title = タイトル
+session-param-content-layout = レイアウト
+session-param-end-text = テキスト
+session-param-image-fit = フィット
+session-param-shape-shape = 図形
+session-param-stack-layout = レイアウト
+session-param-stack-count = 項目数
+session-param-stack-gap = 間隔
+session-param-text-body = 本文
+session-param-toc-title = タイトル
 
 ## Menu
 

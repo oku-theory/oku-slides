@@ -1,7 +1,8 @@
 /**
- * Réglages de l'hôte en mode modèles (« Ce modèle », « Paramètres de <widget> »), posés sous
- * l'aperçu qu'ils règlent plutôt qu'au dock de l'agent. La surface et le routage de ses actions
- * viennent de `useHostSettings` ; elle est reconstruite à chaque relecture, donc pas annoncée.
+ * Une surface de réglages de l'hôte, en fiche : en mode modèles (« Ce modèle », « Paramètres de
+ * <widget> »), posée sous l'aperçu qu'elle règle plutôt qu'au dock de l'agent ; ou les paramètres
+ * de la cible, en tête des notes (`TargetPanel`). La surface et le routage de ses actions viennent
+ * de `useHostSettings` ou `useTargetSettings` ; elle est reconstruite à chaque relecture, donc pas annoncée.
  */
 import { lazy, Suspense } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
@@ -14,7 +15,7 @@ const SurfaceView = lazy(() => import("./a2ui/SurfaceView").then((m) => ({ defau
 interface Props {
   surface: Surface;
   onAction: (s: Surface, a: A2uiClientAction) => void;
-  /** Issue des actions, posée par le routeur pendant leur envoi (`useHostSettings`). */
+  /** Issue des actions, posée par le routeur pendant leur envoi (`useSessionSurface`). */
   outcome: ActionOutcome;
   onError: (message: string) => void;
 }

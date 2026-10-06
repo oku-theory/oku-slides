@@ -162,7 +162,6 @@ ui-list-add = { $item }を追加
 ui-list-remove = { $item }を削除
 ui-list-move = { $item }を移動
 ui-list-full = リストがいっぱいです（{ $max }）
-ui-undo-list-add = { $item }を追加
 ui-undo-list-remove = { $item }を削除
 ui-undo-list-move = { $item }を移動
 ui-agent-color-other = その他の色

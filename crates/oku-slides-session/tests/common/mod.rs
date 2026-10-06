@@ -85,6 +85,7 @@ pub fn session() -> Isolated {
     Isolated { session: session_in(&data), data }
 }
 
+#[allow(dead_code, reason = "lu par certains binaires de test seulement")]
 pub fn set_theme(theme: &str) -> Request {
     req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
 }
@@ -93,6 +94,7 @@ pub fn req(v: serde_json::Value) -> Request {
     serde_json::from_value(v).unwrap_or_else(|e| panic!("requête invalide : {e}"))
 }
 
+#[allow(dead_code, reason = "lu par certains binaires de test seulement")]
 pub fn snapshot_json(s: &mut Session) -> serde_json::Value {
     let reply = s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("snapshot refusé : {}", e.one_line()));
     serde_json::from_str(&reply).unwrap_or_else(|e| panic!("snapshot illisible : {e}"))

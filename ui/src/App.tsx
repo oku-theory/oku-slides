@@ -24,7 +24,6 @@ import { availableLocales, changeLocale, chosenLocale, languageName, t } from ".
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { appendDraft, dictationRoute } from "./draft";
-import { ChartPanel } from "./chart/ChartPanel";
 import { Icon } from "./icons";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
@@ -48,6 +47,8 @@ import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
 import HostSettings from "./HostSettings";
 import { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } from "./useHostSettings";
+import { TargetPanel } from "./TargetPanel";
+import { useTargetSettings } from "./useTargetSettings";
 import WidgetPane from "./WidgetPane";
 import WidgetTools from "./WidgetTools";
 import TemplateTabs from "./TemplateTabs";
@@ -85,7 +86,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const { editing, editField, setEditing, editWhenShown, editKeyWhenShown, stage, leaveSlide } = useFieldEditing(view);
+  const { editing, editField, setEditing, editWhenShown, stage, leaveSlide } = useFieldEditing(view);
   /** Change de slide ; la saisie ouverte s'enregistre d'abord. */
   const showSlide = (id: string) => {
     leaveSlide(id);
@@ -344,6 +345,9 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
   // Réglages du modèle affiché, ou du widget du sous-onglet actif à ses valeurs d'exemple.
   const host = useHostSettings(api, snap, current, widgets.activeName, run, say);
+  const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
+  // Paramètres de l'élément sélectionné (résolu dans la vue), ou du widget de la slide.
+  const target = useTargetSettings(api, snap, current, selectedElement ?? null, widgetActive, run, say);
 
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
@@ -417,7 +421,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       .prompt(text, agentUi(current, selected, editField, widgets.activeName), answer)
       .catch((err) => say(String(err), true));
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
-    if (host.onAction(s, a)) return;
+    if (host.onAction(s, a) || target.onAction(s, a)) return;
     const action = fromA2ui(a);
     // Une suite cliquée part vers l'agent, une fois l'action acceptée : une nouvelle consigne, qui ne répond à aucune question.
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
@@ -568,7 +572,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
   // --- Dictée : où va le texte ----------------------------------------------
   const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
-  const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
   // Hors édition, la dictée écrit dans le premier champ de l'élément sélectionné.
   const writable = view && selected ? primaryFieldOf(view, selected) : null;
   // Où « Insérer » écrit le brouillon ; `null` : aucune zone où écrire.
@@ -820,7 +823,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
             editing={readOnly ? null : editing}
             onSelect={readOnly ? noop : setSelected}
             onEdit={readOnly ? noop : setEditing}
-            onEditWhenShown={editKeyWhenShown}
             onApply={readOnly ? noop : apply}
             readOnly={readOnly}
             templates={!!snap.editing}
@@ -863,16 +865,11 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
       {/* Cartes à droite de la feuille. */}
       <aside className="notes" aria-label={t("ui-notes")}>
-        {/* Données du graphique sélectionné : hors de la feuille, pour ne rien masquer. */}
-        {view && !readOnly && selectedElement?.kind === "chart" && (
-          <ChartPanel
-            slide={view.slide.id}
-            element={selectedElement}
-            palette={snap.appearance.chart_palette}
-            onApply={apply}
-            onKind={(kind) => run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
-          />
-        )}
+        <TargetPanel
+          view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
+          onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
+          onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+        />
         {!snap.read_only && (<>
         <SlideThumbsContext.Provider value={slideThumbs}>
           <AgentThread

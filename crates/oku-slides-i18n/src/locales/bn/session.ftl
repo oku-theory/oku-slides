@@ -92,6 +92,34 @@ session-undo-host-setting = টেমপ্লেট সেটিং
 session-undo-rename-template = টেমপ্লেটের নাম বদলান
 session-undo-describe-template = টেমপ্লেটের বিবরণ দিন
 session-undo-grid = গ্রিড { $columns } × { $rows }
+session-undo-param = সেটিং: { $label }
+session-target-bound = { $name } প্রেজেন্টেশনের ভেরিয়েবল “{ $var }” অনুসরণ করে
+session-widget-kind-card = কার্ড
+session-widget-kind-chapter = অধ্যায়
+session-widget-kind-content = বিষয়বস্তু
+session-widget-kind-end = সমাপ্তি
+session-widget-kind-image = ছবি
+session-widget-kind-shape = আকৃতি
+session-widget-kind-stack = স্ট্যাক
+session-widget-kind-text = টেক্সট
+session-widget-kind-toc = সূচিপত্র
+session-param-card-kicker = কিকার
+session-param-card-title = শিরোনাম
+session-param-card-body = মূল অংশ
+session-param-card-highlight = হাইলাইট
+session-param-chapter-title = শিরোনাম
+session-param-chapter-subtitle = উপশিরোনাম
+session-param-content-kicker = কিকার
+session-param-content-title = শিরোনাম
+session-param-content-layout = বিন্যাস
+session-param-end-text = টেক্সট
+session-param-image-fit = ফিট
+session-param-shape-shape = আকৃতি
+session-param-stack-layout = বিন্যাস
+session-param-stack-count = উপাদানের সংখ্যা
+session-param-stack-gap = ব্যবধান
+session-param-text-body = মূল অংশ
+session-param-toc-title = শিরোনাম
 
 ## Menu
 

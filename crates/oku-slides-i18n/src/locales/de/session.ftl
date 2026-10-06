@@ -92,6 +92,34 @@ session-undo-host-setting = Vorlageneinstellung
 session-undo-rename-template = Vorlage umbenennen
 session-undo-describe-template = Vorlage beschreiben
 session-undo-grid = Raster { $columns } × { $rows }
+session-undo-param = Einstellung: { $label }
+session-target-bound = { $name } folgt der Präsentationsvariable „{ $var }“
+session-widget-kind-card = Karte
+session-widget-kind-chapter = Kapitel
+session-widget-kind-content = Inhalt
+session-widget-kind-end = Ende
+session-widget-kind-image = Bild
+session-widget-kind-shape = Form
+session-widget-kind-stack = Stapel
+session-widget-kind-text = Text
+session-widget-kind-toc = Inhaltsverzeichnis
+session-param-card-kicker = Dachzeile
+session-param-card-title = Titel
+session-param-card-body = Textkörper
+session-param-card-highlight = Hervorhebung
+session-param-chapter-title = Titel
+session-param-chapter-subtitle = Untertitel
+session-param-content-kicker = Dachzeile
+session-param-content-title = Titel
+session-param-content-layout = Layout
+session-param-end-text = Text
+session-param-image-fit = Einpassung
+session-param-shape-shape = Form
+session-param-stack-layout = Layout
+session-param-stack-count = Anzahl der Elemente
+session-param-stack-gap = Abstand
+session-param-text-body = Textkörper
+session-param-toc-title = Titel
 
 ## Menu
 

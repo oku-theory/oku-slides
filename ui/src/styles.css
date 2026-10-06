@@ -272,15 +272,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .items { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 .item-handles { position: absolute; pointer-events: none; }
 /* Pastille de 20 px dans une cible de 24 px. */
-.item-insert, .item-remove, .item-move {
+.item-remove, .item-move {
   position: absolute; width: 24px; height: 24px; padding: 2px; display: grid; place-items: center; pointer-events: auto;
   border: 0; border-radius: 50%; background: var(--accent-fill); background-clip: content-box; color: var(--on-accent);
   font-weight: 600; font-size: 13px; line-height: 1; cursor: pointer; transform: translate(-50%, -50%); box-shadow: var(--shadow-rest);
   transition: opacity 120ms ease-out;
 }
-/* Les « + » se montrent au survol de la scène ; × et ⋮⋮ sur l'item survolé (ou au clavier). */
-.item-insert { opacity: 0; }
-.stage:hover .item-insert, .item-insert:focus-visible { opacity: 1; }
+/* × et ⋮⋮ se montrent sur l'item survolé (ou au clavier). */
 .item-remove { left: 100%; top: 0; }
 .item-move { left: 0; top: 0; cursor: grab; letter-spacing: -2px; }
 .item-move:active { cursor: grabbing; }
@@ -318,6 +316,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- Cartes autour de la feuille ---- */
 /* Conteneur de taille : le dock de l'agent mesure sa hauteur maximale au panneau entier (`cqh`). */
 .notes { grid-area: notes; container-type: size; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
+/* La carte de la cible en tête des notes (paramètres, ou panneau d'un graphique) : au plus 60 %,
+   défilant seule, et c'est elle qui cède la place au dock de l'agent. */
+.notes > .host-settings { flex: 0 1 auto; min-height: 0; width: auto; max-height: 60%; overflow: auto; }
+.notes > .chart-panel { flex: 0 1 auto; min-height: 0; max-height: 60%; overflow: auto; }
 /* ---- Séparateurs des colonnes ---- */
 /* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol. */
 .col-divider {

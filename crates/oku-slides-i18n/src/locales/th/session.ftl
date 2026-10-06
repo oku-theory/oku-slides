@@ -92,6 +92,34 @@ session-undo-host-setting = การตั้งค่าเทมเพลต
 session-undo-rename-template = เปลี่ยนชื่อเทมเพลต
 session-undo-describe-template = อธิบายเทมเพลต
 session-undo-grid = เส้นตาราง { $columns } × { $rows }
+session-undo-param = การตั้งค่า: { $label }
+session-target-bound = { $name } ตามตัวแปรของงานนำเสนอ “{ $var }”
+session-widget-kind-card = การ์ด
+session-widget-kind-chapter = บท
+session-widget-kind-content = หน้าเนื้อหา
+session-widget-kind-end = ตอนจบ
+session-widget-kind-image = รูปภาพ
+session-widget-kind-shape = รูปร่าง
+session-widget-kind-stack = สแตก
+session-widget-kind-text = ข้อความ
+session-widget-kind-toc = สารบัญ
+session-param-card-kicker = คำนำ
+session-param-card-title = ชื่อเรื่อง
+session-param-card-body = เนื้อหา
+session-param-card-highlight = ไฮไลต์
+session-param-chapter-title = ชื่อเรื่อง
+session-param-chapter-subtitle = ชื่อรอง
+session-param-content-kicker = คำนำ
+session-param-content-title = ชื่อเรื่อง
+session-param-content-layout = เลย์เอาต์
+session-param-end-text = ข้อความ
+session-param-image-fit = การปรับพอดี
+session-param-shape-shape = รูปร่าง
+session-param-stack-layout = เลย์เอาต์
+session-param-stack-count = จำนวนรายการ
+session-param-stack-gap = ระยะห่าง
+session-param-text-body = เนื้อหา
+session-param-toc-title = ชื่อเรื่อง
 
 ## Menu
 

@@ -92,6 +92,34 @@ session-undo-host-setting = 模板设置
 session-undo-rename-template = 重命名模板
 session-undo-describe-template = 描述模板
 session-undo-grid = 网格 { $columns } × { $rows }
+session-undo-param = 设置：{ $label }
+session-target-bound = { $name } 跟随演示文稿变量“{ $var }”
+session-widget-kind-card = 卡片
+session-widget-kind-chapter = 章节
+session-widget-kind-content = 内容
+session-widget-kind-end = 结尾
+session-widget-kind-image = 图片
+session-widget-kind-shape = 形状
+session-widget-kind-stack = 堆叠
+session-widget-kind-text = 文本
+session-widget-kind-toc = 目录
+session-param-card-kicker = 眉题
+session-param-card-title = 标题
+session-param-card-body = 正文
+session-param-card-highlight = 突出显示
+session-param-chapter-title = 标题
+session-param-chapter-subtitle = 副标题
+session-param-content-kicker = 眉题
+session-param-content-title = 标题
+session-param-content-layout = 布局
+session-param-end-text = 文本
+session-param-image-fit = 适应方式
+session-param-shape-shape = 形状
+session-param-stack-layout = 布局
+session-param-stack-count = 项目数
+session-param-stack-gap = 间距
+session-param-text-body = 正文
+session-param-toc-title = 标题
 
 ## Menu
 

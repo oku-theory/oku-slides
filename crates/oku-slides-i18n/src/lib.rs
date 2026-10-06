@@ -151,6 +151,15 @@ impl Localizer {
         self.format(id, None)
     }
 
+    /// Un message sans paramètre, ou `None` s'il n'existe ni dans cette langue
+    /// ni en anglais (là où `tr` rendrait l'identifiant).
+    pub fn try_tr(&self, id: &str) -> Option<String> {
+        if self.bundle.get_message(id).and_then(|m| m.value()).is_some() {
+            return Some(self.tr(id));
+        }
+        self.fallback.as_ref().and_then(|f| f.try_tr(id))
+    }
+
     /// Un message et ses paramètres : `l.tr_with("cli-deck-valid", &[("slides", 8.into())])`.
     pub fn tr_with(&self, id: &str, args: &[(&str, FluentValue<'_>)]) -> String {
         let mut fluent = FluentArgs::with_capacity(args.len());

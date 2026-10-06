@@ -11,7 +11,7 @@
  * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
  * s'éditent sur place, comme sur la slide, et s'écrivent dans ces valeurs
  * (un champ lié au deck reste en lecture) ; les poignées de ses listes
- * (« + », « × », ⋮⋮) changent les listes de ces valeurs, jamais le deck.
+ * (« × », ⋮⋮) changent les listes de ces valeurs, jamais le deck.
  * Sans vue (échec), l'image seule.
  * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
@@ -153,7 +153,7 @@ export default function WidgetTab({
     () => (preview?.view ? croppedView(preview.view, preview.bbox ?? null, name) : null),
     [preview, name],
   );
-  const { editing, setEditing, editKeyWhenShown } = useFieldEditing(sceneView);
+  const { editing, setEditing } = useFieldEditing(sceneView);
   const write = run ?? ((p: Promise<Snapshot>) => p.catch((e: unknown) => (filesRef.current.fail(e), null)));
   /** Écrit le brouillon d'un champ dans les valeurs d'exemple : texte, ou paragraphes d'un `rich`. */
   const onField = (f: FieldView, text: string) => {
@@ -167,9 +167,8 @@ export default function WidgetTab({
     );
   };
 
-  /** Un geste sur les poignées d'une liste : le changement, dans la liste des valeurs d'exemple ; `false` si refusé. */
-  const onListOp: OnListOp = (_owner, list, change) =>
-    write(api.editExampleList(name, list, change)).then((done) => done !== null);
+  /** Un geste sur les poignées d'une liste : le changement, dans la liste des valeurs d'exemple. */
+  const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
   /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */
   const measure = () => {
@@ -221,7 +220,6 @@ export default function WidgetTab({
             onEdit={setEditing}
             onField={onField}
             onListOp={onListOp}
-            onEditWhenShown={editKeyWhenShown}
             palette={palette}
           />
         ) : previewUrl ? (

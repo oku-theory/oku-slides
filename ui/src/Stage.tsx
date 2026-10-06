@@ -74,8 +74,6 @@ interface DeckProps extends CommonProps {
   mode?: "deck";
   selected: string | null;
   onSelect: (id: string | null) => void;
-  /** Ouvre le champ `key` dès qu'une vue le montre (champ d'un item tout juste inséré). */
-  onEditWhenShown?: (key: FieldKey) => void;
   /**
    * `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation.
    * Rend éventuellement une promesse : `false` si l'hôte a refusé les ops.
@@ -106,8 +104,6 @@ interface PreviewProps extends CommonProps {
   onField: (f: FieldView, text: string) => void;
   /** Change une liste des valeurs d'exemple du widget (poignées d'items) ; sans elle, pas de poignées. */
   onListOp?: OnListOp;
-  /** Ouvre le champ `key` dès qu'une vue le montre (champ d'un item tout juste inséré). */
-  onEditWhenShown?: (key: FieldKey) => void;
 }
 
 type Props = DeckProps | PreviewProps;
@@ -157,7 +153,7 @@ export default function Stage(props: Props) {
   const deck = props.mode === "preview" ? null : props;
   const preview = deck === null;
   const {
-    selected = null, onSelect = ignore, onEditWhenShown, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
+    selected = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
     templates = false, showGhosts = false, packWidgets, onOpenWidget,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
@@ -296,8 +292,8 @@ export default function Stage(props: Props) {
 
   // Poignées de liste : en ops sur la scène du deck ; en aperçu, dans les valeurs d'exemple du widget.
   const itemProps = itemHandles(view, props.mode === "preview"
-    ? { mode: "preview", onListOp: props.onListOp, onEditWhenShown: props.onEditWhenShown }
-    : { mode: "deck", readOnly, selected, editing: editField?.owner ?? null, onApply, onEditWhenShown });
+    ? { mode: "preview", onListOp: props.onListOp }
+    : { mode: "deck", readOnly, selected, editing: editField?.owner ?? null, onApply });
 
   // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item (même chemin que ⋮⋮), éditeur ouvert.
   const editItem = itemProps && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;

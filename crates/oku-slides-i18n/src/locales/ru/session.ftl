@@ -92,6 +92,34 @@ session-undo-host-setting = Настройка шаблона
 session-undo-rename-template = Переименовать шаблон
 session-undo-describe-template = Описать шаблон
 session-undo-grid = Сетка { $columns } × { $rows }
+session-undo-param = Настройка: { $label }
+session-target-bound = { $name } следует переменной презентации «{ $var }»
+session-widget-kind-card = Карточка
+session-widget-kind-chapter = Глава
+session-widget-kind-content = Содержимое
+session-widget-kind-end = Конец
+session-widget-kind-image = Изображение
+session-widget-kind-shape = Фигура
+session-widget-kind-stack = Стопка
+session-widget-kind-text = Текст
+session-widget-kind-toc = Оглавление
+session-param-card-kicker = Надзаголовок
+session-param-card-title = Заголовок
+session-param-card-body = Основной текст
+session-param-card-highlight = Выделение
+session-param-chapter-title = Заголовок
+session-param-chapter-subtitle = Подзаголовок
+session-param-content-kicker = Надзаголовок
+session-param-content-title = Заголовок
+session-param-content-layout = Макет
+session-param-end-text = Текст
+session-param-image-fit = Вписывание
+session-param-shape-shape = Фигура
+session-param-stack-layout = Макет
+session-param-stack-count = Количество элементов
+session-param-stack-gap = Отступ
+session-param-text-body = Основной текст
+session-param-toc-title = Заголовок
 
 ## Menu
 

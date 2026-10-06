@@ -35,11 +35,11 @@ const slideView = (fields: FieldView[], items: ItemView[] = [], lists: ListView[
   zone: { page: 1, x: 0, y: 0, w: 1920, h: 1080, grid: null },
 }) as unknown as SlideView;
 const item = (owner: string, owner_kind: "element" | "slide", x: number, y: number): ItemView => ({
-  owner, owner_kind, list: "etapes", item: "d0", index: 0, len: 1, min: 0, max: 8, item_label: null, first_text: "date",
+  owner, owner_kind, list: "etapes", item: "d0", index: 0, len: 1, min: 0, max: 8, item_label: null,
   x, y, w: 100, h: 50,
 });
 const list = (owner: string, owner_kind: "element" | "slide"): ListView => ({
-  owner, owner_kind, list: "etapes", len: 1, min: 0, max: 8, item_label: null, first_text: "date",
+  owner, owner_kind, list: "etapes", len: 1, min: 0, max: 8, item_label: null,
 });
 
 describe("croppedView", () => {

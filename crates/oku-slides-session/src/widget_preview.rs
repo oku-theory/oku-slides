@@ -34,6 +34,7 @@ use oku_slides_render_worker::RenderSlot;
 
 use crate::error::{RegistrySnafu, RenderSnafu, UnknownWidgetSnafu};
 use crate::fields;
+use crate::param_fields::schema_default;
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
 use crate::templates_mode::styled_like;
 use crate::views::{PageHash, SLIDE_HEIGHT, SLIDE_WIDTH, SlideView};
@@ -167,11 +168,7 @@ pub(crate) fn preview_params(schema: &WidgetSchema, given: &Map<String, Value>, 
     for p in &schema.params {
         let read = |v: &Value| serde_json::from_value::<ParamValue>(v.clone()).ok();
         // Le `default` d'une liste n'a pas d'ids : ce sont ses items amorcés (`d0`…).
-        let default = |p: &oku_slides_core::ParamSchema| match &p.ty {
-            ParamType::List { .. } => None,
-            _ => p.default.as_ref().filter(|v| !v.is_null()).and_then(read),
-        };
-        let value = given.get(&p.name).and_then(read).or_else(|| default(p)).or_else(|| neutral(p, l));
+        let value = given.get(&p.name).and_then(read).or_else(|| schema_default(p)).or_else(|| neutral(p, l));
         if let Some(v) = value {
             params.set(p.name.clone(), v);
         }

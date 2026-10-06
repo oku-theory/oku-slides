@@ -92,6 +92,34 @@ session-undo-host-setting = Template setting
 session-undo-rename-template = Rename the template
 session-undo-describe-template = Describe the template
 session-undo-grid = Grid { $columns } × { $rows }
+session-undo-param = Setting: { $label }
+session-target-bound = { $name } follows the deck variable “{ $var }”
+session-widget-kind-card = Card
+session-widget-kind-chapter = Chapter
+session-widget-kind-content = Content
+session-widget-kind-end = End
+session-widget-kind-image = Image
+session-widget-kind-shape = Shape
+session-widget-kind-stack = Stack
+session-widget-kind-text = Text
+session-widget-kind-toc = Table of contents
+session-param-card-kicker = Kicker
+session-param-card-title = Title
+session-param-card-body = Body
+session-param-card-highlight = Highlight
+session-param-chapter-title = Title
+session-param-chapter-subtitle = Subtitle
+session-param-content-kicker = Kicker
+session-param-content-title = Title
+session-param-content-layout = Layout
+session-param-end-text = Text
+session-param-image-fit = Fit
+session-param-shape-shape = Shape
+session-param-stack-layout = Layout
+session-param-stack-count = Number of items
+session-param-stack-gap = Spacing
+session-param-text-body = Body
+session-param-toc-title = Title
 
 ## Menu
 

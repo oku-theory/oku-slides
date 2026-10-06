@@ -92,6 +92,34 @@ session-undo-host-setting = Ustawienie szablonu
 session-undo-rename-template = Zmień nazwę szablonu
 session-undo-describe-template = Opisz szablon
 session-undo-grid = Siatka { $columns } × { $rows }
+session-undo-param = Ustawienie: { $label }
+session-target-bound = { $name } podąża za zmienną prezentacji „{ $var }”
+session-widget-kind-card = Karta
+session-widget-kind-chapter = Rozdział
+session-widget-kind-content = Zawartość
+session-widget-kind-end = Koniec
+session-widget-kind-image = Obraz
+session-widget-kind-shape = Kształt
+session-widget-kind-stack = Stos
+session-widget-kind-text = Tekst
+session-widget-kind-toc = Spis treści
+session-param-card-kicker = Nadtytuł
+session-param-card-title = Tytuł
+session-param-card-body = Treść
+session-param-card-highlight = Wyróżnienie
+session-param-chapter-title = Tytuł
+session-param-chapter-subtitle = Podtytuł
+session-param-content-kicker = Nadtytuł
+session-param-content-title = Tytuł
+session-param-content-layout = Układ
+session-param-end-text = Tekst
+session-param-image-fit = Dopasowanie
+session-param-shape-shape = Kształt
+session-param-stack-layout = Układ
+session-param-stack-count = Liczba elementów
+session-param-stack-gap = Odstęp
+session-param-text-body = Treść
+session-param-toc-title = Tytuł
 
 ## Menu
 

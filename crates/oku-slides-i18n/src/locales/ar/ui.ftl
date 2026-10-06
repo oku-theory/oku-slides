@@ -170,7 +170,6 @@ ui-list-add = إضافة { $item }
 ui-list-remove = إزالة { $item }
 ui-list-move = نقل { $item }
 ui-list-full = القائمة ممتلئة ({ $max })
-ui-undo-list-add = إضافة { $item }
 ui-undo-list-remove = إزالة { $item }
 ui-undo-list-move = نقل { $item }
 ui-agent-color-other = لون آخر

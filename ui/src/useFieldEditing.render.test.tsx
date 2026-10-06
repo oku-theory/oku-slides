@@ -52,38 +52,3 @@ test("useFieldEditing leaveSlide to the shown slide keeps editing", async () => 
   expect(out.commits).toBe(0);
   expect(out.hook!.editing).toBe("c1\u001ftitle");
 });
-
-/** Monte le hook sur une vue qu'on peut changer (`show`). */
-async function mountOn(v: SlideView) {
-  const host = document.createElement("div");
-  document.body.append(host);
-  const root = createRoot(host);
-  mounted = { root, host };
-  const out: { hook: Hook | null } = { hook: null };
-  function Probe({ v }: { v: SlideView }) {
-    out.hook = useFieldEditing(v);
-    return null;
-  }
-  const show = (next: SlideView) => act(async () => root.render(createElement(Probe, { v: next })));
-  await show(v);
-  return { out, show };
-}
-
-const itemKey = "f\u001fetapes/i-1/date";
-const withItem = { ...view, fields: [...view.fields, { owner: "f", field: "etapes/i-1/date", empty: true, kind: "plain" }] } as unknown as SlideView;
-
-test("useFieldEditing editKeyWhenShown opens the field once a view shows it", async () => {
-  const { out, show } = await mountOn(view);
-  await act(async () => out.hook!.editKeyWhenShown(itemKey));
-  expect(out.hook!.editing).toBeNull();
-  await show(withItem);
-  expect(out.hook!.editing).toBe(itemKey);
-});
-
-test("useFieldEditing setEditing forgets a pending field key", async () => {
-  const { out, show } = await mountOn(view);
-  await act(async () => out.hook!.editKeyWhenShown(itemKey));
-  await act(async () => out.hook!.setEditing(null));
-  await show(withItem);
-  expect(out.hook!.editing).toBeNull();
-});

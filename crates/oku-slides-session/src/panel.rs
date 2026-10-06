@@ -16,6 +16,8 @@ use crate::{Result, Session};
 pub(crate) const HOST_TEMPLATE: &str = "host-template";
 /// Surface des réglages du widget du sous-onglet actif.
 pub(crate) const HOST_WIDGET: &str = "host-widget";
+/// Surface des réglages de la cible : l'élément sélectionné, sinon le widget de la slide.
+pub(crate) const HOST_TARGET: &str = "host-target";
 
 /// Réglages de l'hôte : champs, leurs clés et des lignes en lecture seule.
 #[derive(Debug)]
@@ -29,7 +31,7 @@ pub(crate) struct HostParams {
 }
 
 impl HostParams {
-    fn extras(&self) -> FormExtras<'_> {
+    pub(crate) fn extras(&self) -> FormExtras<'_> {
         FormExtras { keys: &self.keys, notes: &self.notes, closable: false }
     }
 }
@@ -86,12 +88,17 @@ pub(crate) fn template_params(slide: &Slide, grid: Option<Grid>, l: &Localizer) 
 }
 
 impl Session {
+    /// Les couleurs de la slide (champs couleur des surfaces).
+    pub(crate) fn slide_palette(&self) -> Vec<String> {
+        self.appearance.slide.values().cloned().collect()
+    }
+
     /// Réglages de l'hôte : le widget `widget` s'il en a, sinon le modèle `slide`.
     pub(crate) fn host_settings(&self, slide: &str, widget: Option<&str>) -> Result<Option<Surface>> {
         if !self.in_templates() {
             return Ok(None);
         }
-        let palette: Vec<String> = self.appearance.slide.values().cloned().collect();
+        let palette = self.slide_palette();
         // Un sous-onglet périmé (widget supprimé, renommé) donne la carte du modèle.
         let widget = widget.and_then(|w| self.widget_settings(w).ok().flatten());
         if let Some(p) = widget {

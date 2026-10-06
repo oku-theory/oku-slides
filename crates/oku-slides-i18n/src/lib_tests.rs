@@ -55,6 +55,14 @@ fn tr_unknown_id_returns_the_id() {
 }
 
 #[test]
+fn try_tr_unknown_id_is_none_and_known_id_falls_back_to_english() {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(fr.try_tr("does-not-exist")).is_none();
+    assert_that!(fr.try_tr("session-widget-param-yes")).is_equal_to(Some("Oui".to_owned()));
+    assert_that!(english().try_tr("session-widget-param-yes")).is_equal_to(Some("Yes".to_owned()));
+}
+
+#[test]
 fn ui_messages_give_english_then_the_chosen_language() {
     let en = include_str!("locales/en/ui.ftl");
     let fr = include_str!("locales/fr/ui.ftl");
@@ -297,7 +305,7 @@ fn counters_stick_to_the_number_in_cjk() {
 }
 
 /// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).
-const LIST_KEYS: [&str; 23] = [
+const LIST_KEYS: [&str; 22] = [
     "widget-fault-empty-list",
     "widget-fault-column-type",
     "widget-fault-reserved-name",
@@ -318,7 +326,6 @@ const LIST_KEYS: [&str; 23] = [
     "ui-list-remove",
     "ui-list-move",
     "ui-list-full",
-    "ui-undo-list-add",
     "ui-undo-list-remove",
     "ui-undo-list-move",
 ];

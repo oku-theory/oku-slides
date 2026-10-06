@@ -105,7 +105,7 @@ impl Session {
             apply_all(&mut deck, vec![op], &self.registry)
                 .map_err(|e| AgentFormSnafu { reason: format!("fields[{i}]: {e}") }.build())?;
         }
-        let palette: Vec<String> = self.appearance.slide.values().cloned().collect();
+        let palette = self.slide_palette();
         Ok(forms::params(id, spec, &palette, &self.localizer))
     }
 

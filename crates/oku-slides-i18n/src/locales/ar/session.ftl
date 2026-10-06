@@ -92,6 +92,34 @@ session-undo-host-setting = إعداد القالب
 session-undo-rename-template = إعادة تسمية القالب
 session-undo-describe-template = وصف القالب
 session-undo-grid = شبكة { $columns } × { $rows }
+session-undo-param = ضبط: { $label }
+session-target-bound = يتبع { $name } متغير العرض التقديمي «{ $var }»
+session-widget-kind-card = بطاقة
+session-widget-kind-chapter = فصل
+session-widget-kind-content = محتوى
+session-widget-kind-end = نهاية
+session-widget-kind-image = صورة
+session-widget-kind-shape = شكل
+session-widget-kind-stack = مكدس
+session-widget-kind-text = نص
+session-widget-kind-toc = جدول المحتويات
+session-param-card-kicker = العنوان التمهيدي
+session-param-card-title = العنوان
+session-param-card-body = المتن
+session-param-card-highlight = إبراز
+session-param-chapter-title = العنوان
+session-param-chapter-subtitle = العنوان الفرعي
+session-param-content-kicker = العنوان التمهيدي
+session-param-content-title = العنوان
+session-param-content-layout = التخطيط
+session-param-end-text = النص
+session-param-image-fit = الملاءمة
+session-param-shape-shape = شكل
+session-param-stack-layout = التخطيط
+session-param-stack-count = عدد العناصر
+session-param-stack-gap = التباعد
+session-param-text-body = المتن
+session-param-toc-title = العنوان
 
 ## Menu
 

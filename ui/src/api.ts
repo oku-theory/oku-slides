@@ -350,8 +350,6 @@ export interface ItemView {
   max: number;
   /** Nom d'un item, au singulier (« étape »). */
   item_label: string | null;
-  /** Première colonne texte : celle qu'un nouvel item reçoit à la saisie. */
-  first_text: string | null;
   x: number;
   y: number;
   w: number;
@@ -487,6 +485,9 @@ type Request =
   | { cmd: "host_param"; slide: string; key: string; value: unknown }
   | { cmd: "set_example_value"; name: string; param: string; value: unknown }
   | { cmd: "edit_example_list"; name: string; param: string; change: ListOp }
+  | { cmd: "target_settings"; slide: string; element: string | null }
+  | { cmd: "target_param"; slide: string; element: string | null; key: string; value: unknown }
+  | { cmd: "target_list"; slide: string; element: string | null; key: string; change: ListOp }
   | ({ cmd: "ui" } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -646,6 +647,15 @@ export function tabApi(tab: string) {
     /** Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle part des items par défaut du schéma. */
     editExampleList: (name: string, param: string, change: ListOp) =>
       call<Snapshot>({ cmd: "edit_example_list", name, param, change }),
+    /** Surface des paramètres de l'élément `element` (ou, sans élément, du widget de la slide) ; vide si rien n'est réglable. */
+    targetSettings: (slide: string, element: string | null) =>
+      call<Surface | null>({ cmd: "target_settings", slide, element }),
+    /** Règle le paramètre `key` de la cible (pour une liste, `value` porte tous ses items) : un pas d'annulation. */
+    targetParam: (slide: string, element: string | null, key: string, value: unknown) =>
+      call<Snapshot>({ cmd: "target_param", slide, element, key, value }),
+    /** Change la liste `key` de la cible : un pas d'annulation. */
+    targetList: (slide: string, element: string | null, key: string, change: ListOp) =>
+      call<Snapshot>({ cmd: "target_list", slide, element, key, change }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),

@@ -92,6 +92,34 @@ session-undo-host-setting = Cài đặt mẫu
 session-undo-rename-template = Đổi tên mẫu
 session-undo-describe-template = Mô tả mẫu
 session-undo-grid = Lưới { $columns } × { $rows }
+session-undo-param = Cài đặt: { $label }
+session-target-bound = { $name } theo biến của bản trình bày “{ $var }”
+session-widget-kind-card = Thẻ
+session-widget-kind-chapter = Chương
+session-widget-kind-content = Trang nội dung
+session-widget-kind-end = Kết thúc
+session-widget-kind-image = Hình ảnh
+session-widget-kind-shape = Hình
+session-widget-kind-stack = Ngăn xếp
+session-widget-kind-text = Văn bản
+session-widget-kind-toc = Mục lục
+session-param-card-kicker = Dòng dẫn
+session-param-card-title = Tiêu đề
+session-param-card-body = Nội dung
+session-param-card-highlight = Làm nổi bật
+session-param-chapter-title = Tiêu đề
+session-param-chapter-subtitle = Phụ đề
+session-param-content-kicker = Dòng dẫn
+session-param-content-title = Tiêu đề
+session-param-content-layout = Bố cục
+session-param-end-text = Văn bản
+session-param-image-fit = Vừa khung
+session-param-shape-shape = Hình
+session-param-stack-layout = Bố cục
+session-param-stack-count = Số mục
+session-param-stack-gap = Khoảng cách
+session-param-text-body = Nội dung
+session-param-toc-title = Tiêu đề
 
 ## Menu
 

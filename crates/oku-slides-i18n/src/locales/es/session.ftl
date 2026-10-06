@@ -92,6 +92,34 @@ session-undo-host-setting = Ajuste de la plantilla
 session-undo-rename-template = Cambiar el nombre de la plantilla
 session-undo-describe-template = Describir la plantilla
 session-undo-grid = Cuadrícula { $columns } × { $rows }
+session-undo-param = Ajuste: { $label }
+session-target-bound = { $name } sigue la variable de la presentación «{ $var }»
+session-widget-kind-card = Tarjeta
+session-widget-kind-chapter = Capítulo
+session-widget-kind-content = Contenido
+session-widget-kind-end = Fin
+session-widget-kind-image = Imagen
+session-widget-kind-shape = Forma
+session-widget-kind-stack = Pila
+session-widget-kind-text = Texto
+session-widget-kind-toc = Índice
+session-param-card-kicker = Antetítulo
+session-param-card-title = Título
+session-param-card-body = Cuerpo
+session-param-card-highlight = Destacado
+session-param-chapter-title = Título
+session-param-chapter-subtitle = Subtítulo
+session-param-content-kicker = Antetítulo
+session-param-content-title = Título
+session-param-content-layout = Disposición
+session-param-end-text = Texto
+session-param-image-fit = Ajuste
+session-param-shape-shape = Forma
+session-param-stack-layout = Disposición
+session-param-stack-count = Número de elementos
+session-param-stack-gap = Espaciado
+session-param-text-body = Cuerpo
+session-param-toc-title = Título
 
 ## Menu
 

@@ -54,12 +54,14 @@ mod merge;
 pub mod pack;
 mod pack_notice;
 mod panel;
+mod param_fields;
 mod preview_crop;
 mod render_fonts;
 mod request;
 mod resume;
 mod resume_writer;
 mod search;
+mod target_params;
 mod template_scratch;
 mod templates_mode;
 #[cfg(test)]
@@ -515,7 +517,14 @@ impl Session {
         // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
         // L'historique ne change pas le deck mis de côté, sauf `HistoryRestore`.
         let (changes, documents) = (
-            !matches!(req, Request::Snapshot | Request::Apply { .. } | Request::HostParam { .. }),
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Apply { .. }
+                    | Request::HostParam { .. }
+                    | Request::TargetParam { .. }
+                    | Request::TargetList { .. }
+            ),
             !matches!(
                 req,
                 Request::Snapshot
@@ -538,6 +547,9 @@ impl Session {
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::HostSettings { slide, widget } => {
                 return json(&self.host_settings(&slide, widget.as_deref())?);
+            }
+            Request::TargetSettings { slide, element } => {
+                return json(&self.target_settings(&slide, element.as_deref())?);
             }
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
@@ -580,6 +592,12 @@ impl Session {
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
             Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
+            Request::TargetParam { slide, element, key, value } => {
+                self.target_param(&slide, element.as_deref(), &key, value)?;
+            }
+            Request::TargetList { slide, element, key, change } => {
+                self.target_list(&slide, element.as_deref(), &key, change)?;
+            }
             Request::SetExampleValue { name, param, value } => {
                 self.set_example_values(&name, serde_json::Map::from_iter([(param, value)]))?;
             }

@@ -10,14 +10,13 @@ fn item_views_follow_list_order_with_bounds() {
     let items: Vec<(&str, usize)> = view.items.iter().map(|i| (i.item, i.index)).collect();
     assert_that!(items).is_equal_to(vec![("d0", 0), ("d1", 1), ("d2", 2), ("d3", 3)]);
     let i = &view.items[0];
-    assert_that!((i.owner, i.list, i.len, i.min, i.max, i.item_label, i.first_text)).is_equal_to((
+    assert_that!((i.owner, i.list, i.len, i.min, i.max, i.item_label)).is_equal_to((
         "fr",
         "etapes",
         4,
         0,
         8,
         Some("étape"),
-        Some("date"),
     ));
     assert_that!(i.w).is_greater_than(0.0);
 }
@@ -34,14 +33,13 @@ fn list_views_of_a_seeded_frise_count_its_items() {
     let view = s.slide("s-constat").unwrap();
     assert_that!(view.lists.len()).is_equal_to(1);
     let l = &view.lists[0];
-    assert_that!((l.owner, l.list, l.len, l.min, l.max, l.item_label, l.first_text)).is_equal_to((
+    assert_that!((l.owner, l.list, l.len, l.min, l.max, l.item_label)).is_equal_to((
         "fr",
         "etapes",
         4,
         0,
         8,
         Some("étape"),
-        Some("date"),
     ));
 }
 

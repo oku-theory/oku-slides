@@ -92,6 +92,34 @@ session-undo-host-setting = 範本設定
 session-undo-rename-template = 重新命名範本
 session-undo-describe-template = 描述範本
 session-undo-grid = 格線 { $columns } × { $rows }
+session-undo-param = 設定：{ $label }
+session-target-bound = { $name } 跟隨簡報變數「{ $var }」
+session-widget-kind-card = 卡片
+session-widget-kind-chapter = 章節
+session-widget-kind-content = 內容
+session-widget-kind-end = 結尾
+session-widget-kind-image = 圖片
+session-widget-kind-shape = 形狀
+session-widget-kind-stack = 堆疊
+session-widget-kind-text = 文字
+session-widget-kind-toc = 目錄
+session-param-card-kicker = 眉標
+session-param-card-title = 標題
+session-param-card-body = 正文
+session-param-card-highlight = 醒目顯示
+session-param-chapter-title = 標題
+session-param-chapter-subtitle = 副標題
+session-param-content-kicker = 眉標
+session-param-content-title = 標題
+session-param-content-layout = 版面配置
+session-param-end-text = 文字
+session-param-image-fit = 適應方式
+session-param-shape-shape = 形狀
+session-param-stack-layout = 版面配置
+session-param-stack-count = 項目數
+session-param-stack-gap = 間距
+session-param-text-body = 正文
+session-param-toc-title = 標題
 
 ## Menu
 

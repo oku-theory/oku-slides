@@ -92,6 +92,34 @@ session-undo-host-setting = टेम्पलेट सेटिंग
 session-undo-rename-template = टेम्पलेट का नाम बदलें
 session-undo-describe-template = टेम्पलेट का विवरण दें
 session-undo-grid = ग्रिड { $columns } × { $rows }
+session-undo-param = सेटिंग: { $label }
+session-target-bound = { $name } प्रस्तुति के वेरिएबल “{ $var }” का अनुसरण करता है
+session-widget-kind-card = कार्ड
+session-widget-kind-chapter = अध्याय
+session-widget-kind-content = सामग्री
+session-widget-kind-end = समापन
+session-widget-kind-image = इमेज
+session-widget-kind-shape = आकृति
+session-widget-kind-stack = स्टैक
+session-widget-kind-text = टेक्स्ट
+session-widget-kind-toc = विषय-सूची
+session-param-card-kicker = किकर
+session-param-card-title = शीर्षक
+session-param-card-body = मुख्य भाग
+session-param-card-highlight = हाइलाइट
+session-param-chapter-title = शीर्षक
+session-param-chapter-subtitle = उपशीर्षक
+session-param-content-kicker = किकर
+session-param-content-title = शीर्षक
+session-param-content-layout = लेआउट
+session-param-end-text = टेक्स्ट
+session-param-image-fit = फ़िट
+session-param-shape-shape = आकृति
+session-param-stack-layout = लेआउट
+session-param-stack-count = आइटम की संख्या
+session-param-stack-gap = अंतराल
+session-param-text-body = मुख्य भाग
+session-param-toc-title = शीर्षक
 
 ## Menu
 

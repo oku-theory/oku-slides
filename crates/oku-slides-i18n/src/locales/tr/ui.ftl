@@ -162,7 +162,6 @@ ui-list-add = { $item } ekle
 ui-list-remove = { $item } kaldır
 ui-list-move = { $item } taşı
 ui-list-full = Liste dolu ({ $max })
-ui-undo-list-add = { $item } ekle
 ui-undo-list-remove = { $item } kaldır
 ui-undo-list-move = { $item } taşı
 ui-agent-color-other = Başka renk

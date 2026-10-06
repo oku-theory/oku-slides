@@ -92,6 +92,34 @@ session-undo-host-setting = Configuração do modelo
 session-undo-rename-template = Renomear o modelo
 session-undo-describe-template = Descrever o modelo
 session-undo-grid = Grade { $columns } × { $rows }
+session-undo-param = Configuração: { $label }
+session-target-bound = { $name } segue a variável da apresentação «{ $var }»
+session-widget-kind-card = Cartão
+session-widget-kind-chapter = Capítulo
+session-widget-kind-content = Conteúdo
+session-widget-kind-end = Fim
+session-widget-kind-image = Imagem
+session-widget-kind-shape = Forma
+session-widget-kind-stack = Pilha
+session-widget-kind-text = Texto
+session-widget-kind-toc = Sumário
+session-param-card-kicker = Chamada
+session-param-card-title = Título
+session-param-card-body = Corpo
+session-param-card-highlight = Destaque
+session-param-chapter-title = Título
+session-param-chapter-subtitle = Subtítulo
+session-param-content-kicker = Chamada
+session-param-content-title = Título
+session-param-content-layout = Disposição
+session-param-end-text = Texto
+session-param-image-fit = Ajuste
+session-param-shape-shape = Forma
+session-param-stack-layout = Disposição
+session-param-stack-count = Número de elementos
+session-param-stack-gap = Espaçamento
+session-param-text-body = Corpo
+session-param-toc-title = Título
 
 ## Menu
 

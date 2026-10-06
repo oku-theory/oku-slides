@@ -406,7 +406,7 @@ test("Stage Enter or Space on the focused tag button stays on the button: the wi
 
 const itemOf = (id: string, index: number, x: number) => ({
   owner: "f", owner_kind: "element", list: "etapes", item: id, index, len: 2, min: 0, max: 8,
-  item_label: "étape", first_text: "date", x, y: 100, w: 100, h: 50,
+  item_label: "étape", x, y: 100, w: 100, h: 50,
 });
 /** Une frise de deux étapes côte à côte, chacune avec son champ `date`. */
 const frise = {
@@ -432,7 +432,6 @@ const altKey = (el: Element, k: string, mod = true) =>
 
 test("Stage shows the item handles of the selected element", async () => {
   const { host } = await mount({ view: frise, selected: "f" });
-  expect(host.querySelectorAll("[data-item-insert]").length).toBe(3);
   expect(host.querySelectorAll("[data-item-remove]").length).toBe(2);
 });
 
@@ -452,21 +451,21 @@ const withSlideList = {
   ],
 } as unknown as SlideView;
 const handlesOf = (host: HTMLElement) => host.querySelectorAll("[data-item-remove]").length;
-const insertsOf = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>("[data-item-insert]")];
+/** Hauteur (px, échelle 0,1) de l'item de chaque « × » : 10px la frise, 30px la liste `points` de la slide, 50px `notes`. */
+const removeTops = (host: HTMLElement) =>
+  [...host.querySelectorAll<HTMLElement>("[data-item-remove]")].map((b) => (b.parentElement as HTMLElement).style.top);
 
 test("Stage shows the handles of a slide list when nothing is selected", async () => {
   const { host } = await mount({ view: withSlideList });
-  // Deux items de la slide : deux ×, trois +; ceux de la frise restent cachés.
+  // Deux items de la slide : deux × ; ceux de la frise restent cachés.
   expect(handlesOf(host)).toBe(2);
-  expect(insertsOf(host).length).toBe(3);
+  expect(removeTops(host)).toEqual(["30px", "30px"]);
 });
 
 test("Stage hides the handles of a slide list once an element is selected", async () => {
   const { host } = await mount({ view: withSlideList, selected: "f" });
-  const slideTop = "32.5px";
-  // Les + de la frise (items à y = 100) seuls : aucun à la hauteur de la liste de la slide (y = 300).
-  expect(insertsOf(host).length).toBe(3);
-  expect(insertsOf(host).filter((p) => p.style.top === slideTop)).toEqual([]);
+  // Les × de la frise (items à y = 100) seuls : aucun à la hauteur de la liste de la slide (y = 300).
+  expect(removeTops(host)).toEqual(["10px", "10px"]);
 });
 
 /** Une slide à deux listes propres (`points` à y = 300, `notes` à y = 500), sans élément sélectionné. */
@@ -481,23 +480,26 @@ const withTwoSlideLists = {
 
 test("Stage shows the handles of both slide lists when nothing is selected", async () => {
   const { host } = await mount({ view: withTwoSlideLists });
-  // Deux listes de la slide à deux items : quatre ×, six + ; ceux de la frise restent cachés.
+  // Deux listes de la slide à deux items : quatre × ; ceux de la frise restent cachés.
   expect(handlesOf(host)).toBe(4);
-  const tops = insertsOf(host).map((p) => p.style.top);
-  expect(tops.length).toBe(6);
-  expect(new Set(tops).size).toBe(2);
-  expect(tops).toContain("32.5px");
+  expect(removeTops(host).sort()).toEqual(["30px", "30px", "50px", "50px"]);
 });
 
 test("Stage editing a slide-list field shows the slide handles though an element is selected", async () => {
   const { host } = await mount({ view: withSlideList, selected: "f", editing: fieldKey({ owner: "s", field: "points/p/text" }) });
-  expect(handlesOf(host)).toBe(2);
-  expect(insertsOf(host).map((p) => p.style.top)).toEqual(["32.5px", "32.5px", "32.5px"]);
+  expect(removeTops(host)).toEqual(["30px", "30px"]);
+});
+
+test("Stage a slide list shows remove and move handles but no plus", async () => {
+  const { host } = await mount({ view: withSlideList });
+  expect(host.querySelector("[data-item-insert]")).toBeNull();
+  expect(host.querySelectorAll(".item-remove").length).toBe(2);
+  expect(host.querySelectorAll(".item-move").length).toBe(2);
 });
 
 test("Stage hides the handles of an element list when nothing is selected", async () => {
   const { host } = await mount({ view: frise });
-  expect(host.querySelector("[data-item-insert]")).toBeNull();
+  expect(host.querySelector("[data-item-remove]")).toBeNull();
 });
 
 test("Stage read only shows no handles of a slide list", async () => {
@@ -505,25 +507,14 @@ test("Stage read only shows no handles of a slide list", async () => {
   expect(host.querySelector(".items")).toBeNull();
 });
 
-test("Stage the plus of a slide list targets the slide only", async () => {
+test("Stage the remove of a slide list targets the slide only", async () => {
   const { host, calls } = await mount({ view: withSlideList });
   await act(async () => {
-    insertsOf(host)[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    host.querySelectorAll("[data-item-remove]")[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   const op = (calls.apply[0][1] as { target: unknown; param: string }[])[0];
   expect(op.target).toEqual({ slide: "s" });
   expect(op.param).toBe("points");
-});
-
-test("Stage inserting an item asks to edit its first text field once shown", async () => {
-  const shown: string[] = [];
-  const { host, calls } = await mount({ view: frise, selected: "f", onEditWhenShown: (k: string) => shown.push(k) });
-  await act(async () => {
-    host.querySelector("[data-item-insert]")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-  const change = ((calls.apply[0] as [string, { change: { id: string; index: number } }[]])[1][0]).change;
-  expect(change.index).toBe(0);
-  expect(shown).toEqual([`f\u001fetapes/${change.id}/date`]);
 });
 
 test("Stage Cmd/Ctrl+Alt+arrow along the list in an item field saves the text and moves the item", async () => {

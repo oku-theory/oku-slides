@@ -92,6 +92,34 @@ session-undo-host-setting = Sjablooninstelling
 session-undo-rename-template = Sjabloon hernoemen
 session-undo-describe-template = Sjabloon beschrijven
 session-undo-grid = Raster { $columns } × { $rows }
+session-undo-param = Instelling: { $label }
+session-target-bound = { $name } volgt de presentatievariabele ‘{ $var }’
+session-widget-kind-card = Kaart
+session-widget-kind-chapter = Hoofdstuk
+session-widget-kind-content = Inhoud
+session-widget-kind-end = Einde
+session-widget-kind-image = Afbeelding
+session-widget-kind-shape = Vorm
+session-widget-kind-stack = Stapel
+session-widget-kind-text = Tekst
+session-widget-kind-toc = Inhoudsopgave
+session-param-card-kicker = Bovenregel
+session-param-card-title = Titel
+session-param-card-body = Hoofdtekst
+session-param-card-highlight = Uitlichten
+session-param-chapter-title = Titel
+session-param-chapter-subtitle = Ondertitel
+session-param-content-kicker = Bovenregel
+session-param-content-title = Titel
+session-param-content-layout = Indeling
+session-param-end-text = Tekst
+session-param-image-fit = Passing
+session-param-shape-shape = Vorm
+session-param-stack-layout = Indeling
+session-param-stack-count = Aantal elementen
+session-param-stack-gap = Tussenruimte
+session-param-text-body = Hoofdtekst
+session-param-toc-title = Titel
 
 ## Menu
 

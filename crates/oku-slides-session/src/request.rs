@@ -57,6 +57,29 @@ pub enum Request {
         key: String,
         value: serde_json::Value,
     },
+    /// Réglages de la cible (surface ou `null`) : l'élément `element`, sinon le widget de la slide.
+    TargetSettings {
+        slide: String,
+        #[serde(default)]
+        element: Option<String>,
+    },
+    /// Règle le paramètre `key` de la cible (annulable) ; pour une liste, `value`
+    /// est le tableau de ses items.
+    TargetParam {
+        slide: String,
+        #[serde(default)]
+        element: Option<String>,
+        key: String,
+        value: serde_json::Value,
+    },
+    /// Change la liste `key` de la cible (annulable).
+    TargetList {
+        slide: String,
+        #[serde(default)]
+        element: Option<String>,
+        key: String,
+        change: oku_slides_core::ListOp,
+    },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
     ChartKind {
         label: String,
@@ -194,7 +217,9 @@ impl Request {
             | Self::RenameWidget { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
-            | Self::HostParam { .. } => true,
+            | Self::HostParam { .. }
+            | Self::TargetParam { .. }
+            | Self::TargetList { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Search { .. }
@@ -202,6 +227,7 @@ impl Request {
             | Self::Schema
             | Self::Widgets
             | Self::HostSettings { .. }
+            | Self::TargetSettings { .. }
             | Self::Templates { .. }
             | Self::TemplateSets
             | Self::SaveTemplates { .. }
@@ -239,6 +265,8 @@ impl Request {
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::HostParam { .. }
+                | Self::TargetParam { .. }
+                | Self::TargetList { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )

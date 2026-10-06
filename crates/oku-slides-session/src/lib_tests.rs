@@ -150,6 +150,8 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "widget_source", "name": "kpi" }),
         json!({ "cmd": "preview_widget", "name": "kpi" }),
         json!({ "cmd": "host_settings", "slide": "s-1", "widget": null }),
+        json!({ "cmd": "target_settings", "slide": "s-1" }),
+        json!({ "cmd": "target_settings", "slide": "s-1", "element": "e" }),
     ];
     let changing: Vec<_> = reads
         .into_iter()
@@ -178,6 +180,8 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
         json!({ "cmd": "host_param", "slide": "s-1", "key": "name", "value": "x" }),
         json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
+        json!({ "cmd": "target_param", "slide": "s-1", "key": "title", "value": "x" }),
+        json!({ "cmd": "target_list", "slide": "s-1", "element": "e", "key": "k", "change": { "op": "remove", "item": "i" } }),
     ];
     let kept: Vec<_> = edits
         .into_iter()
@@ -185,6 +189,15 @@ fn changes_deck_edit_requests_return_true() {
         .filter(|r| !r.changes_deck())
         .collect();
     assert_that!(kept).is_empty();
+}
+
+#[test]
+fn edits_target_param_and_target_list_return_true_target_settings_false() {
+    let classify = |v: serde_json::Value| serde_json::from_value::<Request>(v).unwrap().edits();
+    assert_that!(classify(json!({ "cmd": "target_param", "slide": "s-1", "key": "title", "value": "x" }))).is_true();
+    let list = json!({ "cmd": "target_list", "slide": "s-1", "key": "k", "change": { "op": "remove", "item": "i" } });
+    assert_that!(classify(list)).is_true();
+    assert_that!(classify(json!({ "cmd": "target_settings", "slide": "s-1" }))).is_false();
 }
 
 #[test]

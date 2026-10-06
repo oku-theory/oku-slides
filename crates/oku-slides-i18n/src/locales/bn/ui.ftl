@@ -162,7 +162,6 @@ ui-list-add = { $item } যোগ করুন
 ui-list-remove = { $item } সরান
 ui-list-move = { $item } সরিয়ে নিন
 ui-list-full = তালিকা পূর্ণ ({ $max })
-ui-undo-list-add = { $item } যোগ করুন
 ui-undo-list-remove = { $item } সরান
 ui-undo-list-move = { $item } সরিয়ে নিন
 ui-agent-color-other = অন্য রং

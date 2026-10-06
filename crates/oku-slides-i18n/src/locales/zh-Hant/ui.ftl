@@ -162,7 +162,6 @@ ui-list-add = 新增{ $item }
 ui-list-remove = 刪除{ $item }
 ui-list-move = 移動{ $item }
 ui-list-full = 清單已滿（{ $max }）
-ui-undo-list-add = 新增{ $item }
 ui-undo-list-remove = 刪除{ $item }
 ui-undo-list-move = 移動{ $item }
 ui-agent-color-other = 其他顏色

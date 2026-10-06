@@ -92,6 +92,34 @@ session-undo-host-setting = Şablon ayarı
 session-undo-rename-template = Şablonu yeniden adlandır
 session-undo-describe-template = Şablonu açıkla
 session-undo-grid = Izgara { $columns } × { $rows }
+session-undo-param = Ayar: { $label }
+session-target-bound = { $name }, sunum değişkeni “{ $var }” değerini izler
+session-widget-kind-card = Kart
+session-widget-kind-chapter = Bölüm
+session-widget-kind-content = İçerik
+session-widget-kind-end = Son
+session-widget-kind-image = Görsel
+session-widget-kind-shape = Şekil
+session-widget-kind-stack = Yığın
+session-widget-kind-text = Metin
+session-widget-kind-toc = İçindekiler
+session-param-card-kicker = Üst başlık
+session-param-card-title = Başlık
+session-param-card-body = Gövde
+session-param-card-highlight = Vurgu
+session-param-chapter-title = Başlık
+session-param-chapter-subtitle = Alt başlık
+session-param-content-kicker = Üst başlık
+session-param-content-title = Başlık
+session-param-content-layout = Düzen
+session-param-end-text = Metin
+session-param-image-fit = Sığdırma
+session-param-shape-shape = Şekil
+session-param-stack-layout = Düzen
+session-param-stack-count = Öğe sayısı
+session-param-stack-gap = Aralık
+session-param-text-body = Gövde
+session-param-toc-title = Başlık
 
 ## Menu
 

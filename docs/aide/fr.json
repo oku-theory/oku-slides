@@ -1935,7 +1935,7 @@
         {
          "runs": [
           {
-           "t": "Dans l'éditeur de widget, un tableau : ajouter, supprimer, réordonner (⌥↑/↓ sur une ligne), coller du TSV. Sur la slide : + entre les items, × pour supprimer, ⋮⋮ pour glisser. L'agent édite par id avec edit_list."
+           "t": "Dans le panneau des paramètres, à droite (et dans l'éditeur de widget), un tableau : ajouter, supprimer, réordonner (⌥↑/↓ sur une ligne), coller du TSV. Sur la slide : × pour supprimer, ⋮⋮ pour glisser ; l'ajout se fait dans le tableau. L'agent édite par id avec edit_list."
           }
          ]
         }

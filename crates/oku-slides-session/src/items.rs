@@ -1,8 +1,8 @@
 //! Items de liste d'une page : boîte, rang et bornes de leur liste, pour les
-//! poignées de la scène (ajouter, retirer, déplacer) ; et les listes elles-mêmes,
-//! pour ajouter à une liste vide, où aucun item n'offre de poignée.
+//! poignées de la scène (retirer, déplacer) ; et les listes elles-mêmes, même
+//! vides.
 
-use oku_slides_core::{ListSpec, ParamSchema, ParamType, Params, Slide, WidgetRegistry, is_text};
+use oku_slides_core::{ListSpec, ParamSchema, ParamType, Params, Slide, WidgetRegistry};
 use oku_slides_render::ItemBox;
 use serde::Serialize;
 
@@ -27,8 +27,6 @@ pub struct ItemView<'a> {
     pub max: usize,
     /// Nom d'un item, au singulier (« étape »).
     pub item_label: Option<&'a str>,
-    /// Première colonne texte : celle qu'un nouvel item reçoit à la saisie.
-    pub first_text: Option<&'a str>,
     pub x: f64,
     pub y: f64,
     pub w: f64,
@@ -48,22 +46,19 @@ pub struct ListView<'a> {
     /// Items au plus : le `max` du schéma, sinon la borne du cœur (`LIST_ITEMS_MAX`).
     pub max: usize,
     pub item_label: Option<&'a str>,
-    pub first_text: Option<&'a str>,
 }
 
 /// Colonnes, bornes et libellé d'un paramètre `list`.
 struct Shape<'a> {
     spec: ListSpec<'a>,
     item_label: Option<&'a str>,
-    first_text: Option<&'a str>,
 }
 
 impl<'a> Shape<'a> {
     fn of(p: &'a ParamSchema) -> Option<Self> {
         let spec = ListSpec::of(&p.name, &p.ty)?;
         let ParamType::List { item_label, .. } = &p.ty else { return None };
-        let first_text = spec.columns.iter().find(|c| is_text(&c.ty)).map(|c| c.name.as_str());
-        Some(Self { spec, item_label: item_label.as_deref(), first_text })
+        Some(Self { spec, item_label: item_label.as_deref() })
     }
 }
 
@@ -96,7 +91,6 @@ pub(crate) fn item_views<'a>(
                 min: shape.spec.min,
                 max: shape.spec.max_items(),
                 item_label: shape.item_label,
-                first_text: shape.first_text,
                 x: b.x,
                 y: b.y,
                 w: b.w,
@@ -125,7 +119,6 @@ pub(crate) fn list_views<'a>(slide: &'a Slide, registry: &'a WidgetRegistry) -> 
                     min: shape.spec.min,
                     max: shape.spec.max_items(),
                     item_label: shape.item_label,
-                    first_text: shape.first_text,
                 })
             })
         })

@@ -1,5 +1,5 @@
-// Poignées des items de liste sur la scène : « + » entre les items, « × » et
-// ⋮⋮ sur chaque item, « + » au centre d'une liste vide.
+// Poignées des items de liste sur la scène : « × » et ⋮⋮ sur chaque item,
+// repère du glisser ; pas de « + » (l'ajout passe par le tableau du panneau).
 
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import "./test/dom";
@@ -33,7 +33,7 @@ afterEach(async () => {
 
 const item = (id: string, index: number, x: number, more: Partial<ItemView> = {}): ItemView => ({
   owner: "f", owner_kind: "element", list: "etapes", item: id, index, len: 2, min: 0, max: 8,
-  item_label: "étape", first_text: "date", x, y: 100, w: 100, h: 50, ...more,
+  item_label: "étape", x, y: 100, w: 100, h: 50, ...more,
 });
 
 const viewOf = (items: ItemView[], lists: ListView[] = []) =>
@@ -46,29 +46,23 @@ const viewOf = (items: ItemView[], lists: ListView[] = []) =>
 
 const two = (more: Partial<ItemView> = {}) => viewOf([item("a", 0, 0, more), item("b", 1, 120, more)]);
 
-async function mount(view: SlideView, active: string | null = "f", result?: Promise<boolean>) {
+async function mount(view: SlideView, active: string | null = "f") {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   // `listOp` : les changements tels que rendus ; `apply` : les ops qu'en fait la scène du deck.
-  const calls: { listOp: [string, string, string, ListOp, string][]; apply: [string, Op[]][]; inserted: string[] } = {
-    listOp: [], apply: [], inserted: [],
-  };
+  const calls: { listOp: [string, string, string, ListOp, string][]; apply: [string, Op[]][] } = { listOp: [], apply: [] };
   // Comme la scène du deck : l'adaptateur réel, qui fait des ops `edit_list`.
-  const apply = deckListOp(view, (label, ops) => {
-    calls.apply.push([label, ops]);
-    return result;
-  });
+  const apply = deckListOp(view, (label, ops) => void calls.apply.push([label, ops]));
   await act(async () =>
     root.render(
       createElement(ItemLayer, {
         view, scale: 1, active,
         onListOp: (owner: Pick<ListView, "owner" | "owner_kind">, list: string, change: ListOp, label: string) => {
           calls.listOp.push([owner.owner, owner.owner_kind, list, change, label]);
-          return apply(owner, list, change, label);
+          apply(owner, list, change, label);
         },
-        onInserted: (key: string) => calls.inserted.push(key),
       }),
     ),
   );
@@ -80,45 +74,9 @@ const click = (el: Element) =>
     el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 
-test("ItemLayer two items of the active element offer three inserts, before, between and after", async () => {
-  const { host } = await mount(two());
-  const plus = [...host.querySelectorAll<HTMLElement>("[data-item-insert]")];
-  expect(plus.length).toBe(3);
-  expect(plus.map((p) => p.getAttribute("aria-label"))).toEqual(["Ajouter étape", "Ajouter étape", "Ajouter étape"]);
-  // Entre les deux items (100 → 120) : au milieu, à mi-hauteur.
-  expect(plus[1].style.left).toBe("110px");
-  expect(plus[1].style.top).toBe("125px");
-});
-
-test("ItemLayer clicking an insert inserts an item at that index and asks to edit its first text", async () => {
-  const { host, calls } = await mount(two());
-  await click(host.querySelectorAll("[data-item-insert]")[1]);
-  expect(calls.apply.length).toBe(1);
-  const [label, ops] = calls.apply[0];
-  expect(label).toBe("Ajouter étape");
-  const change = (ops[0] as { change: { id: string } }).change;
-  expect(ops).toEqual([{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes", change: { op: "insert", index: 1, id: change.id } }]);
-  expect(change.id).toMatch(/^i-/);
-  expect(calls.inserted).toEqual([`f\u001fetapes/${change.id}/date`]);
-});
-
-test("ItemLayer a list without text column inserts without asking to edit", async () => {
-  const { host, calls } = await mount(two({ first_text: null }));
-  await click(host.querySelector("[data-item-insert]")!);
-  expect(calls.apply.length).toBe(1);
-  expect(calls.inserted).toEqual([]);
-});
-
-test("ItemLayer a full list offers no insert", async () => {
-  const { host } = await mount(two({ max: 2 }));
-  expect(host.querySelector("[data-item-insert]")).toBeNull();
-  expect(host.querySelectorAll("[data-item-remove]").length).toBe(2);
-});
-
 test("ItemLayer a list at its minimum offers no remove", async () => {
   const { host } = await mount(two({ min: 2 }));
   expect(host.querySelector("[data-item-remove]")).toBeNull();
-  expect(host.querySelectorAll("[data-item-insert]").length).toBe(3);
 });
 
 test("ItemLayer clicking a remove removes that item", async () => {
@@ -140,7 +98,7 @@ test("ItemLayer shows nothing for an element neither selected nor edited", async
 
 test("ItemLayer an item without label is named by the generic word", async () => {
   const { host } = await mount(two({ item_label: null }));
-  expect(host.querySelector("[data-item-insert]")?.getAttribute("aria-label")).toBe("Ajouter élément");
+  expect(host.querySelector("[data-item-remove]")?.getAttribute("aria-label")).toBe("Supprimer élément");
 });
 
 test("ItemLayer a slide list targets the slide", async () => {
@@ -191,21 +149,6 @@ test("ItemLayer the drop marker shows the index the drop applies, with items of 
   expect((calls.apply[0][1][0] as { change: unknown }).change).toEqual({ op: "move", item: "a", to: 2 });
 });
 
-test("ItemLayer an insert at the left or top edge of the page stays inside it", async () => {
-  const { host } = await mount(viewOf([item("a", 0, 0, { len: 2, y: 0, h: 10 }), item("b", 1, 120, { len: 2, y: 0, h: 10 })]));
-  const first = host.querySelectorAll<HTMLElement>("[data-item-insert]")[0];
-  // Avant a : 10 pt à gauche de la page, à 5 pt du haut ; ramené à un demi-bouton (12 px) des bords.
-  expect([first.style.left, first.style.top]).toEqual(["12px", "12px"]);
-});
-
-test("ItemLayer an insert at the right or bottom edge of the page stays inside it", async () => {
-  const { host } = await mount(viewOf([item("a", 0, 780, { len: 2, y: 590, h: 10 }), item("b", 1, 900, { len: 2, y: 590, h: 10 })]));
-  const plus = host.querySelectorAll<HTMLElement>("[data-item-insert]");
-  const last = plus[plus.length - 1];
-  // Après b : 1010 pt sur une page de 1000 × 600, à 595 pt du haut.
-  expect([last.style.left, last.style.top]).toEqual(["988px", "588px"]);
-});
-
 test("ItemLayer dropping an item where it was moves nothing", async () => {
   const { host, calls } = await mount(three());
   await dragTo(host.querySelectorAll<HTMLElement>("[data-item-move]")[1], 160);
@@ -213,29 +156,20 @@ test("ItemLayer dropping an item where it was moves nothing", async () => {
 });
 
 const emptyList = (more: Partial<ListView> = {}): ListView => ({
-  owner: "f", owner_kind: "element", list: "etapes", len: 0, min: 0, max: 8, item_label: "étape", first_text: "date", ...more,
+  owner: "f", owner_kind: "element", list: "etapes", len: 0, min: 0, max: 8, item_label: "étape", ...more,
 });
 
-test("ItemLayer an empty list of the active element offers one insert at the centre of the element", async () => {
-  const { host, calls } = await mount(viewOf([], [emptyList()]));
-  const plus = [...host.querySelectorAll<HTMLElement>("[data-item-insert]")];
-  expect(plus.length).toBe(1);
-  expect(plus[0].style.left).toBe("200px");
-  expect(plus[0].style.top).toBe("200px");
-  await click(plus[0]);
-  const change = (calls.apply[0][1][0] as { change: { id: string } }).change;
-  expect(calls.apply[0][1]).toEqual([{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes", change: { op: "insert", index: 0, id: change.id } }]);
-  expect(calls.inserted).toEqual([`f\u001fetapes/${change.id}/date`]);
-});
-
-test("ItemLayer an empty list that allows no item offers no insert", async () => {
-  const { host } = await mount(viewOf([], [emptyList({ max: 0 })]));
+test("ItemLayer a list shows remove and move handles but no plus", async () => {
+  const { host } = await mount(viewOf(three().items, [emptyList({ list: "vide" })]));
   expect(host.querySelector("[data-item-insert]")).toBeNull();
+  expect(host.querySelectorAll(".item-remove").length).toBe(3);
+  expect(host.querySelectorAll(".item-move").length).toBe(3);
 });
 
-test("ItemLayer a list with items draws no centre insert", async () => {
-  const { host } = await mount(viewOf([item("a", 0, 0, { len: 1 })], [emptyList({ len: 1 })]));
-  expect(host.querySelectorAll("[data-item-insert]").length).toBe(2);
+test("ItemLayer a full list still offers remove and move", async () => {
+  const { host } = await mount(two({ max: 2 }));
+  expect(host.querySelectorAll("[data-item-remove]").length).toBe(2);
+  expect(host.querySelectorAll("[data-item-move]").length).toBe(2);
 });
 
 test("ItemLayer arrow keys along the list on a move handle move the item by one", async () => {
@@ -248,19 +182,6 @@ test("ItemLayer arrow keys along the list on a move handle move the item by one"
     handle.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
   });
   expect(calls.apply.map(([, ops]) => (ops[0] as { change: unknown }).change)).toEqual([{ op: "move", item: "b", to: 0 }]);
-});
-
-test("ItemLayer an insert refused by the host asks to edit nothing", async () => {
-  const { host, calls } = await mount(two(), "f", Promise.resolve(false));
-  await click(host.querySelector("[data-item-insert]")!);
-  expect(calls.apply.length).toBe(1);
-  expect(calls.inserted).toEqual([]);
-});
-
-test("ItemLayer an insert accepted by the host asks to edit the new field", async () => {
-  const { host, calls } = await mount(two(), "f", Promise.resolve(true));
-  await click(host.querySelector("[data-item-insert]")!);
-  expect(calls.inserted.length).toBe(1);
 });
 
 test("ItemLayer a pointer inside an item shows its handles even within the slack of the previous one", async () => {

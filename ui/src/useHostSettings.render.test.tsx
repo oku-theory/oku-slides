@@ -184,6 +184,13 @@ describe("useHostSettings", () => {
     expect(m.out.h!.onAction(surface("show-1"), action({ key: "name", value: "x" }))).toBe(false);
   });
 
+  test("useHostSettings ignores host-target", async () => {
+    const { fake } = counted(HOST_TEMPLATE);
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: null });
+    expect(m.out.h!.onAction(surface("host-target"), action({ key: "titre", value: "x" }))).toBe(false);
+    expect(m.out.runs).toBe(0);
+  });
+
   test("une action sans clé n'envoie rien", async () => {
     const { fake } = counted(HOST_TEMPLATE);
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: null });

@@ -3,17 +3,17 @@
 //! `null` ou la valeur de l'aperçu effacent une valeur ; un texte ou une liste vidés
 //! restent vides (leur écriture : `widget_examples.rs`). Les cellules d'une liste ont
 //! les bornes de taille du cœur (`oku_slides_core::ListSpec`). Les réglages de l'hôte
-//! (`widget_settings`) montrent un champ par paramètre réglable, à sa valeur d'exemple.
+//! (`widget_settings`) montrent un champ par paramètre réglable, à sa valeur d'exemple
+//! (les champs : `param_fields.rs`).
 
-use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
-use oku_slides_core::{LIST_ITEMS_MAX, ParamSchema, ParamType, ParamValue, default_items, param_value, text_fits};
-use oku_slides_i18n::Localizer;
-use serde_json::{Map, Value, json};
+use oku_slides_core::{ParamSchema, ParamValue, param_value, text_fits};
+use serde_json::{Map, Value};
 use snafu::{ResultExt, ensure};
 
-use crate::agent::{FieldKind, ParamField, ShowParams};
+use crate::agent::ShowParams;
 use crate::error::{NotEditingTemplatesSnafu, TrialEncodeSnafu, TrialFixedSnafu, TrialTooLongSnafu, TrialValueSnafu};
 use crate::panel::HostParams;
+use crate::param_fields::{coerce, field, label, settable};
 use crate::widget_preview::preview_params;
 use crate::widgets_edit::parse_name;
 use crate::{Result, Session};
@@ -50,131 +50,11 @@ impl Session {
     }
 }
 
-fn label(p: &ParamSchema) -> String {
-    p.label.clone().unwrap_or_else(|| p.name.clone())
-}
-
-/// Le champ d'un paramètre réglable ; sa valeur est celle de l'aperçu.
-///
-/// Un `rich` montré est une liste de paragraphes : `params_with` en fait le markdown.
-/// Une liste montre ses items (ceux d'essai, ou ceux du `default`, ids `d0`…).
-fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<ParamField> {
-    if !settable(&p.ty) {
-        return None;
-    }
-    if let ParamType::List { item, item_label, min, max } = &p.ty {
-        let value = match shown {
-            Some(v) => serde_json::to_value(v).unwrap_or(Value::Null),
-            None => default_items(p).ok().and_then(|items| serde_json::to_value(items).ok()).unwrap_or(Value::Null),
-        };
-        return Some(ParamField {
-            label: label(p),
-            kind: FieldKind::List,
-            value: if value.is_array() { value } else { json!([]) },
-            op_template: Value::Null,
-            min: Some(*min as f64),
-            max: Some(max.unwrap_or(LIST_ITEMS_MAX) as f64),
-            step: None,
-            options: Vec::new(),
-            columns: item.iter().filter_map(column).collect(),
-            item_label: item_label.clone(),
-        });
-    }
-    let option = |id: &str, label: &str| ChoiceOption { id: id.to_owned(), label: label.to_owned(), hint: None };
-    let (kind, min, max, step, options) = match &p.ty {
-        ParamType::Rich => (FieldKind::Rich, None, None, None, Vec::new()),
-        // Un curseur pour une vraie étendue ; des bornes vides ou inversées se règlent au clavier.
-        ParamType::Number { min: Some(a), max: Some(b) } if a < b => {
-            (FieldKind::Slider, Some(*a), Some(*b), Some(slider_step(b - a)), Vec::new())
-        }
-        ParamType::Choice { values } => {
-            (FieldKind::Select, None, None, None, values.iter().map(|v| option(v, v)).collect())
-        }
-        ParamType::Flag => (
-            FieldKind::Select,
-            None,
-            None,
-            None,
-            vec![option("true", &l.tr("session-widget-param-yes")), option("false", &l.tr("session-widget-param-no"))],
-        ),
-        // `plain`, et un nombre sans bornes (lu comme un nombre, `checked_value`).
-        _ => (FieldKind::Text, None, None, None, Vec::new()),
-    };
-    let value = match (&p.ty, shown) {
-        (ParamType::Number { .. }, Some(ParamValue::Value(v))) if kind == FieldKind::Slider => v.clone(),
-        (ParamType::Number { .. }, Some(ParamValue::Value(v))) => json!(v.to_string()),
-        (_, Some(ParamValue::Value(Value::Bool(b)))) => json!(b.to_string()),
-        (_, Some(v)) => serde_json::to_value(v).unwrap_or(Value::Null),
-        (_, None) => Value::Null,
-    };
-    Some(ParamField {
-        label: label(p),
-        kind,
-        value,
-        op_template: Value::Null,
-        min,
-        max,
-        step,
-        options,
-        columns: Vec::new(),
-        item_label: None,
-    })
-}
-
-/// La colonne du tableau d'une liste pour une colonne de son schéma ; `None`
-/// pour un type qu'une colonne n'admet pas (refusé à la validation du schéma).
-fn column(c: &ParamSchema) -> Option<ListColumn> {
-    let (kind, options) = match &c.ty {
-        ParamType::Plain => (ColumnKind::Text, Vec::new()),
-        ParamType::Rich => (ColumnKind::Rich, Vec::new()),
-        ParamType::Number { .. } => (ColumnKind::Number, Vec::new()),
-        ParamType::Flag => (ColumnKind::Flag, Vec::new()),
-        ParamType::Choice { values } => (
-            ColumnKind::Select,
-            values.iter().map(|v| ChoiceOption { id: v.clone(), label: v.clone(), hint: None }).collect(),
-        ),
-        ParamType::Asset => (ColumnKind::Asset, Vec::new()),
-        ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. } | ParamType::List { .. } => return None,
-    };
-    Some(ListColumn { key: c.name.clone(), label: label(c), kind, options })
-}
-
-/// Le pas d'un curseur sur une étendue `span > 0` : cent pas sur une petite étendue (opacité…),
-/// sinon des unités. Arrondi à six chiffres significatifs : `0.7 / 100` donne `0.007`, pas
-/// `0.006999999999999999`.
-fn slider_step(span: f64) -> f64 {
-    if span > 10.0 {
-        return 1.0;
-    }
-    let raw = span / 100.0;
-    // `raw` ≤ 0.1 : l'échelle est une puissance de dix positive, exacte en flottant.
-    let scale = 10f64.powi(5 - raw.log10().floor() as i32);
-    if !scale.is_finite() {
-        return raw;
-    }
-    (raw * scale).round() / scale
-}
-
-/// Vrai pour un type réglable dans l'aperçu.
-pub(crate) fn settable(ty: &ParamType) -> bool {
-    !matches!(ty, ParamType::Asset | ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. })
-}
-
 /// La valeur d'exemple retenue pour `p` ; `None` efface la valeur.
 pub(crate) fn checked_value(p: &ParamSchema, value: Value) -> Result<Option<Value>> {
     let param = p.name.as_str();
     ensure!(settable(&p.ty), TrialFixedSnafu { param });
-    let value = match (&p.ty, value) {
-        (_, Value::Null) => return Ok(None),
-        (_, Value::String(s)) if s.trim().is_empty() => return Ok(None),
-        // Un champ de sélection renvoie le texte de l'option.
-        (ParamType::Flag, Value::String(s)) if s == "true" || s == "false" => Value::Bool(s == "true"),
-        // Un nombre sans bornes se règle dans un champ texte.
-        (ParamType::Number { .. }, Value::String(s)) => {
-            s.trim().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map_or(Value::String(s), Value::Number)
-        }
-        (_, v) => v,
-    };
+    let Some(value) = coerce(p, value) else { return Ok(None) };
     // Des paragraphes vides : `param_value` ne donne rien, la valeur s'efface.
     let Some(checked) = param_value(&p.ty, param, value).context(TrialValueSnafu { param })? else { return Ok(None) };
     // Comme le cœur, la taille se mesure sur la valeur convertie.

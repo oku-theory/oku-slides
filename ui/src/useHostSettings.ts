@@ -40,25 +40,61 @@ export function useHostSettings(
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
 ): HostSettings {
+  const slide = snap?.slides.find((s) => s.id === current);
+  return useSessionSurface({
+    ids: HOST_IDS,
+    active: !!current && !!snap?.editing && !snap.history,
+    scope: { slide: current ?? "", widget },
+    // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
+    key: [current, widget, snap?.editing?.base, snap?.templates?.version, snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|"),
+    fetch: (scope) => api.hostSettings(scope.slide, scope.widget),
+    send: (scope, field, context, surface) =>
+      surface.id === HOST_WIDGET && scope.widget
+        ? // Le widget que montre la surface.
+          exampleValue(api, scope.widget, field, context)
+        : api.hostParam(scope.slide, field, context.value),
+    run,
+    say,
+  });
+}
+
+const HOST_IDS = [HOST_TEMPLATE, HOST_WIDGET] as const;
+
+/**
+ * Le cycle d'une surface de réglages construite par la session : lue quand `key` change,
+ * gardée si son contenu est le même (sauf après un refus, qui force une relecture : le
+ * modèle de données du champ porte la valeur refusée). Chaque action part vers la portée
+ * de la surface affichée, gardée avec elle ; une surface remplacée n'envoie rien.
+ */
+export function useSessionSurface<S>(opts: {
+  /** Ids des surfaces réclamées par ce hook. */
+  ids: readonly string[];
+  active: boolean;
+  /** La portée lue : la surface reçue est rattachée à elle (envoi des actions). */
+  scope: S;
+  /** Tout ce qui peut changer la surface, en une chaîne. */
+  key: string;
+  fetch: (scope: S) => Promise<Surface | null>;
+  /** Envoie le réglage `field` ; `surface` : la surface affichée d'où part l'action. */
+  send: (scope: S, field: string, context: Record<string, unknown>, surface: Surface) => Promise<Snapshot>;
+  run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
+  say: (m: string, error?: boolean) => void;
+}): HostSettings {
+  const { ids, active, scope, key, fetch, send, run, say } = opts;
   // `sync` : le numéro de relecture forcée qui a produit la surface.
-  const [shown, setShown] = useState<{ surface: Surface; slide: string; widget: string | null; sync: number } | null>(null);
+  const [shown, setShown] = useState<{ surface: Surface; scope: S; sync: number } | null>(null);
   // Lue au moment de l'action : une surface remplacée depuis n'envoie rien, quel que soit le rendu
   // dont vient le gestionnaire appelé.
   const shownRef = useRef(shown);
   shownRef.current = shown;
-  // Relecture forcée après un refus : la surface est reconstruite même si son contenu n'a pas changé
-  // (le modèle de données du champ porte la valeur refusée).
+  // Relecture forcée après un refus : la surface est reconstruite même si son contenu n'a pas changé.
   const [sync, setSync] = useState(0);
   const outcome = useRef<Promise<boolean> | null>(null);
-  const active = !!current && !!snap?.editing && !snap.history;
-  const slide = snap?.slides.find((s) => s.id === current);
-  // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
-  const key = [snap?.editing?.base, snap?.templates?.version, snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|");
   useEffect(() => {
-    if (!active || !current) return setShown(null);
+    if (!active) return setShown(null);
     let alive = true;
-    api
-      .hostSettings(current, widget)
+    const same = JSON.stringify(scope);
+    fetch(scope)
       // Même contenu : la surface est gardée (SurfaceView reconstruit une surface reçue à nouveau),
       // sauf après un refus.
       .then((surface) =>
@@ -66,13 +102,12 @@ export function useHostSettings(
         setShown((prev) =>
           surface &&
           prev &&
-          prev.slide === current &&
-          prev.widget === widget &&
+          JSON.stringify(prev.scope) === same &&
           prev.sync === sync &&
           JSON.stringify(prev.surface) === JSON.stringify(surface)
             ? prev
             : surface
-              ? { surface, slide: current, widget, sync }
+              ? { surface, scope, sync }
               : null,
         ),
       )
@@ -80,22 +115,18 @@ export function useHostSettings(
     return () => {
       alive = false;
     };
-    // `say` ne fait que poser un toast : son identité ne compte pas.
-  }, [api, active, current, widget, key, sync]);
+    // `key` porte la portée et tout ce qui change la surface ; `fetch` et `say` changent
+    // d'identité à chaque rendu sans rien changer d'autre.
+  }, [active, key, sync]);
   const onAction = (s: Surface, a: A2uiClientAction): boolean => {
-    if (s.id !== HOST_TEMPLATE && s.id !== HOST_WIDGET) return false;
+    if (!ids.includes(s.id)) return false;
     const now = shownRef.current;
     outcome.current = Promise.resolve(false);
     if (!now || s !== now.surface) return true;
     const { name, context } = fromA2ui(a);
     const field = context.key;
     if (name !== "param" || typeof field !== "string") return true;
-    outcome.current = run(
-      s.id === HOST_WIDGET && now.widget
-        ? // Le widget que montre la surface.
-          exampleValue(api, now.widget, field, context)
-        : api.hostParam(now.slide, field, context.value),
-    ).then((done) => {
+    outcome.current = run(send(now.scope, field, context, s)).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.
       if (!done) setSync((n) => n + 1);
       return !!done;
@@ -106,19 +137,30 @@ export function useHostSettings(
 }
 
 /**
- * Un réglage des valeurs d'exemple du widget : une valeur, ou le
- * changement d'une liste (`change`, du tableau d'une liste) ; un collage
- * remplace la liste entière.
+ * Route un réglage de surface : une valeur (`setValue`), ou le changement d'une liste
+ * (`change`, du tableau d'une liste) vers `editList` ; un collage (`replace`) remplace la
+ * liste entière par ses items (`setValue`).
  */
+export function routeListChange(
+  context: Record<string, unknown>,
+  setValue: (value: unknown) => Promise<Snapshot>,
+  editList: (change: Exclude<ListChange, { op: "replace" }>) => Promise<Snapshot>,
+): Promise<Snapshot> {
+  const change = context.change as ListChange | null | undefined;
+  if (!change) return setValue(context.value);
+  return change.op === "replace" ? setValue(change.items) : editList(change);
+}
+
+/** Un réglage des valeurs d'exemple du widget (`routeListChange`). */
 function exampleValue(
   api: TabApi,
   widget: string,
   param: string,
   context: Record<string, unknown>,
 ): Promise<Snapshot> {
-  const change = context.change as ListChange | null | undefined;
-  if (!change) return api.setExampleValue(widget, param, context.value);
-  return change.op === "replace"
-    ? api.setExampleValue(widget, param, change.items)
-    : api.editExampleList(widget, param, change);
+  return routeListChange(
+    context,
+    (value) => api.setExampleValue(widget, param, value),
+    (change) => api.editExampleList(widget, param, change),
+  );
 }

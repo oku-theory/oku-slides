@@ -18,9 +18,8 @@ export function croppedSvg(svg: string, box: Frame | null): string {
  * La vue de la slide d'aperçu sur l'image recadrée (`croppedSvg`) : les
  * champs et items du widget `widget` seulement, dans le repère de `box`
  * (pt), à sa taille ; la slide entière sans boîte. Pas de zone ; pour
- * cibles, l'élément d'aperçu seul, sur toute l'image : le cadre où se
- * placent les poignées de ses listes (« + » d'une liste vide, axe d'un
- * item seul).
+ * cibles, l'élément d'aperçu seul, sur toute l'image : le cadre qui donne
+ * l'axe d'un item seul de ses listes.
  */
 export function croppedView(view: SlideView, box: Frame | null, widget: string): SlideView {
   const dx = box?.x ?? 0;

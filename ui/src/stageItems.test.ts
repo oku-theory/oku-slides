@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import type { SlideView } from "./api";
-import { activeOwner, axisOf, dropIndex, dropTarget, groups, insertPoints, itemHandles, within } from "./stageItems";
+import { activeOwner, axisOf, dropIndex, dropTarget, groups, insertPoints, itemHandles } from "./stageItems";
 
 const item = (item: string, index: number, x: number, y = 0, owner = "f") =>
   ({ owner, owner_kind: "element", list: "etapes", item, index, len: 3, min: 0, max: 256,
-     item_label: null, first_text: "date", x, y, w: 100, h: 50 }) as const;
+     item_label: null, x, y, w: 100, h: 50 }) as const;
 
 test("axisOf : items côte à côte → x, empilés → y", () => {
   expect(axisOf([item("a", 0, 0), item("b", 1, 120)])).toBe("x");
@@ -59,14 +59,6 @@ test("dropTarget : repère et rang comptés parmi les autres items, même avec d
   expect(dropTarget(g, g[0], "x", 50)).toEqual({ index: 0, x: 100, y: 25 });
 });
 
-test("within : un bouton de `size` centré en `at` reste dans [0, extent]", () => {
-  expect(within(-10, 1000, 24)).toBe(12);
-  expect(within(5, 1000, 24)).toBe(12);
-  expect(within(500, 1000, 24)).toBe(500);
-  expect(within(995, 1000, 24)).toBe(988);
-  expect(within(1010, 1000, 24)).toBe(988);
-});
-
 const handlesView = { slide: { id: "s" }, lists: [{ owner: "w" }] } as unknown as SlideView;
 
 test("itemHandles : deck → propriétaire actif et ops sur la slide ; lecture seule → aucune", () => {
@@ -81,12 +73,9 @@ test("itemHandles : deck → propriétaire actif et ops sur la slide ; lecture s
 
 test("itemHandles : aperçu → propriétaire de sa liste et changement passé tel quel ; sans onListOp → aucune", () => {
   const seen: unknown[] = [];
-  const edited: unknown[] = [];
-  const h = itemHandles(handlesView, { mode: "preview", onListOp: (...a) => void seen.push(a), onEditWhenShown: (k) => void edited.push(k) });
+  const h = itemHandles(handlesView, { mode: "preview", onListOp: (...a) => void seen.push(a) });
   expect(h?.active).toBe("w");
   h?.onListOp({ owner: "w", owner_kind: "element" }, "etapes", { op: "remove", item: "d0" }, "Supprimer");
-  h?.onInserted("k" as never);
   expect(seen).toEqual([[{ owner: "w", owner_kind: "element" }, "etapes", { op: "remove", item: "d0" }, "Supprimer"]]);
-  expect(edited).toEqual(["k"]);
   expect(itemHandles(handlesView, { mode: "preview" })).toBeNull();
 });
