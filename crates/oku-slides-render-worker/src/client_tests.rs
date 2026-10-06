@@ -154,6 +154,25 @@ fn worker_with(timeout_ms: u64, max_widgets: usize) -> RenderWorker {
     RenderWorker::new(RenderLaunch::InProcess, settings)
 }
 
+/// Un travailleur au délai `timeout_ms` dont le budget de sonde est épuisé
+/// d'emblée : un seul fichier exécuté par appel, quelle que soit la durée réelle.
+fn worker_without_budget(timeout_ms: u64) -> RenderWorker {
+    let settings = RenderSettings {
+        timeout_ms,
+        probe_budget_ms: 0,
+        memory_mib: 4096,
+        max_frame_mib: 64,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
+    RenderWorker::new(RenderLaunch::InProcess, settings)
+}
+
+/// Les fichiers non sondés de `probe`, par nom.
+fn unprobed(probe: &PackProbe) -> Vec<&str> {
+    probe.unprobed.iter().map(oku_slides_core::WidgetFile::as_str).collect()
+}
+
 fn wf(name: &str) -> oku_slides_core::WidgetFile {
     oku_slides_core::WidgetFile::parse(name).unwrap()
 }
@@ -205,15 +224,16 @@ fn probe_pack_keeps_a_bounded_number_of_probes_per_file() {
 
 #[test]
 fn probe_pack_with_a_file_that_loops_gives_a_diagnostic_and_accuses_nothing() {
-    let w = worker(300);
+    let w = worker_without_budget(300);
     let pack = PackWidgets::new("boucle", files(&[("boucle", LOOP_ON_IMPORT), ("quote", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("boucle")].is_valid()).is_false();
+    assert_that!(unprobed(&probe)).is_equal_to(vec!["quote"]);
     assert_that!(w.is_faulty(&pack)).is_false();
-    // Gardé : la même sonde ne coûte plus le délai, et `quote` est sondé.
-    let started = std::time::Instant::now();
+    // Gardé : le seul fichier exécuté de l'appel est `quote`, pas `boucle` de nouveau.
     let probe = w.probe_pack(&pack).unwrap();
-    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_millis(300));
+    assert_that!(probe.files[&wf("boucle")].is_valid()).is_false();
+    assert_that!(probe.unprobed.is_empty()).is_true();
     assert_that!(probe.files[&wf("quote")].is_valid()).is_true();
     assert_that!(w.is_faulty(probe.pack.as_ref().unwrap())).is_false();
 }
@@ -225,20 +245,17 @@ fn looping_file(name: &str) -> String {
 
 #[test]
 fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed() {
-    let w = worker(300);
-    // La langue des diagnostics, construite une fois par travailleur, hors de la durée mesurée.
-    w.localizer();
+    let w = worker_without_budget(300);
     let (a, b, c) = (looping_file("a"), looping_file("b"), looping_file("c"));
     let pack = PackWidgets::new("boucles", files(&[("a", &a), ("b", &b), ("c", &c)])).unwrap();
-    let started = std::time::Instant::now();
     let probe = w.probe_pack(&pack).unwrap();
-    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_millis(800));
     assert_that!(probe.files[&wf("c")].diagnostics[0].message.as_str()).starts_with("Not checked yet");
     assert_that!(probe.files.values().all(|p| !p.is_valid())).is_true();
-    assert_that!(probe.unprobed.iter().map(oku_slides_core::WidgetFile::as_str).collect::<Vec<_>>())
-        .is_equal_to(vec!["b", "c"]);
-    // Non gardés : sondés au prochain appel, chacun dans son budget.
-    w.probe_pack(&pack).unwrap();
+    assert_that!(unprobed(&probe)).is_equal_to(vec!["b", "c"]);
+    // Un seul délai dépensé : seule la sonde de `a` est gardée.
+    assert_that!(w.1.file_probes.lock().unwrap().len()).is_equal_to(1);
+    // Non gardés : sondés aux appels suivants, un par appel.
+    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["c"]);
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("c")].diagnostics[0].message.as_str()).does_not_contain("Not checked yet");
     // Un délai gardé : cassé, plus « non sondé ».
@@ -247,21 +264,12 @@ fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed()
 
 #[test]
 fn probe_pack_with_a_zero_budget_probes_one_file_per_call() {
-    let settings = RenderSettings {
-        timeout_ms: 10_000,
-        probe_budget_ms: 0,
-        memory_mib: 4096,
-        max_frame_mib: 64,
-        max_widget_kib: 256,
-        max_widgets: 64,
-    };
-    let w = RenderWorker::new(RenderLaunch::InProcess, settings);
+    let w = worker_without_budget(10_000);
     let pack =
         PackWidgets::new("casses", files(&[("a", "#let a = ("), ("b", "#let b = ("), ("c", "#let c = (")])).unwrap();
-    let unprobed = |probe: &PackProbe| probe.unprobed.iter().map(|n| n.as_str().to_owned()).collect::<Vec<_>>();
     // Le budget épuisé d'emblée n'empêche pas un fichier par appel ; les sondés sont gardés.
-    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["b".to_owned(), "c".to_owned()]);
-    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["c".to_owned()]);
+    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["b", "c"]);
+    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["c"]);
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.unprobed.is_empty()).is_true();
     assert_that!(probe.files.values().all(|p| !p.is_valid())).is_true();
@@ -343,8 +351,7 @@ fn probe_pack_whose_link_cannot_start_leaves_its_files_unprobed() {
     let pack = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     // Panne du lien, pas du fichier : non sondé, repris au prochain appel.
-    assert_that!(probe.unprobed.iter().map(oku_slides_core::WidgetFile::as_str).collect::<Vec<_>>())
-        .is_equal_to(vec!["quote"]);
+    assert_that!(unprobed(&probe)).is_equal_to(vec!["quote"]);
     assert_that!(probe.files[&wf("quote")].is_valid()).is_false();
     assert_that!(w.1.file_probes.lock().unwrap().len()).is_equal_to(0);
 }
@@ -363,10 +370,9 @@ fn probe_pack_limit_diagnostics_speak_the_language_of_the_slots() {
 
 #[test]
 fn probe_pack_unprobed_diagnostic_speaks_the_language_of_the_slots() {
-    let w = worker(300);
+    let w = worker_without_budget(10_000);
     let _fr = slot(&w);
-    let (a, b) = (looping_file("a"), looping_file("b"));
-    let pack = PackWidgets::new("boucles", files(&[("a", &a), ("b", &b)])).unwrap();
+    let pack = PackWidgets::new("casses", files(&[("a", "#let a = ("), ("b", "#let b = (")])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("b")].diagnostics[0].message.as_str()).starts_with("Pas encore vérifié");
 }

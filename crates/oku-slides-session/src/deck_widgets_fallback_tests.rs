@@ -43,14 +43,23 @@ fn apply_set_templates_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_n
 #[test]
 fn a_pack_that_looped_is_not_retried_in_the_session() {
     let data = data_dir();
-    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
-    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_IMPORT)]);
+    let mut settings = crate::test_support::settings_on(&data.0);
+    settings.render.timeout_ms = LOOP_TIMEOUT_MS;
+    // Budget nul : un seul fichier exécuté par sonde, quelle que soit la durée réelle.
+    settings.render.probe_budget_ms = 0;
+    let mut s = crate::test_support::session_with(settings);
+    s.open(&fixture_path()).unwrap();
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_IMPORT), ("quote", QUOTE)]);
+    // `boucle` dépasse le délai ; `quote`, après lui, n'est pas sondé.
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
-    let started = std::time::Instant::now();
+    assert_that!(s.widgets_unprobed.iter().map(oku_slides_core::WidgetFile::as_str).collect::<Vec<_>>())
+        .is_equal_to(vec!["quote"]);
     s.apply("Pack", vec![set_templates(None)], None).unwrap();
     s.apply("Pack", vec![set_templates(Some(&looping))], None).unwrap();
-    // Une nouvelle sonde coûterait au moins le délai.
-    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_millis(LOOP_TIMEOUT_MS));
+    // `boucle` n'est pas sondé de nouveau : la seule sonde de l'appel va à `quote`.
+    assert_that!(s.widgets_unprobed.is_empty()).is_true();
+    assert_that!(s.registry.get("quote")).is_some();
+    assert_registry_agrees(&s);
 }
 // ---- Relance du travailleur et repli hors du rendu du deck ----------------------------
 
