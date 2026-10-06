@@ -7,8 +7,14 @@ op-unknown-widget = Unknown widget: { $subject }
 op-unknown-param = Unknown parameter: { $subject }
 op-param-type = Invalid value for { $subject }
 op-item-not-found = No item { $subject }
-op-list-full = The list { $subject } is full ({ $max } items at most)
-op-list-minimum = The list { $subject } needs at least { $min } items
+op-list-full = The list { $subject } is full ({ $max ->
+   [one] { $max } item
+  *[other] { $max } items
+} at most)
+op-list-minimum = The list { $subject } needs at least { $min ->
+   [one] { $min } item
+  *[other] { $min } items
+}
 op-list-cell-too-long = A cell of the list { $subject } is too long (column { $column })
 op-list-id-too-long = An item id of the list { $subject } is too long
 op-list-too-many-items = The list { $subject } has too many items ({ $max } at most)

@@ -7,8 +7,14 @@ op-unknown-widget = Unbekanntes Widget: { $subject }
 op-unknown-param = Unbekannter Parameter: { $subject }
 op-param-type = Ungültiger Wert für { $subject }
 op-item-not-found = Kein Eintrag { $subject }
-op-list-full = Die Liste { $subject } ist voll (höchstens { $max } Einträge)
-op-list-minimum = Die Liste { $subject } braucht mindestens { $min } Einträge
+op-list-full = Die Liste { $subject } ist voll (höchstens { $max ->
+   [one] { $max } Eintrag
+  *[other] { $max } Einträge
+})
+op-list-minimum = Die Liste { $subject } braucht mindestens { $min ->
+   [one] { $min } Eintrag
+  *[other] { $min } Einträge
+}
 op-list-cell-too-long = Eine Zelle der Liste { $subject } ist zu lang (Spalte { $column })
 op-list-id-too-long = Eine Eintrags-ID der Liste { $subject } ist zu lang
 op-list-too-many-items = Die Liste { $subject } hat zu viele Einträge (höchstens { $max })

@@ -45,7 +45,7 @@ pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, Op, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX,
-    SlideField, SlotRef, Target, apply_all, default_items, ops_schema, param_value,
+    SlideField, SlotRef, Target, apply_all, default_items, ops_schema, param_value, text_fits,
 };
 pub use pack::{COMMON_WIDGET_FILE, PackFiles, PackRef, PackVersion, WidgetFile};
 pub use params::{ListItem, ParamValue, Params};

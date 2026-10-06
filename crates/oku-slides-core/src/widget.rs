@@ -286,12 +286,8 @@ fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
             if max.is_some_and(|m| m < *min) {
                 return Err(fault(w, SchemaFault::ListBounds));
             }
-            let known = |o: &serde_json::Map<String, Value>| o.keys().all(|k| names.contains(k.as_str()));
-            let ok = match &p.default {
-                None => true,
-                Some(Value::Array(a)) => a.iter().all(|x| x.as_object().is_some_and(known)),
-                Some(_) => false,
-            };
+            // Types, colonnes connues et tailles : `default_fault` ; ici, seulement « un tableau ».
+            let ok = p.default.as_ref().is_none_or(Value::is_array);
             match (ok, default_fault(p)) {
                 (false, _) | (_, Some(DefaultFault::WrongType)) => return Err(fault(w, SchemaFault::DefaultWrongType)),
                 (true, Some(DefaultFault::TooLarge)) => return Err(fault(w, SchemaFault::ListDefaultTooLarge)),

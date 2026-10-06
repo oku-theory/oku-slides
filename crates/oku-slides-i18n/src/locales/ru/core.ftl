@@ -7,8 +7,18 @@ op-unknown-widget = Неизвестный виджет: { $subject }
 op-unknown-param = Неизвестный параметр: { $subject }
 op-param-type = Недопустимое значение для { $subject }
 op-item-not-found = Нет пункта { $subject }
-op-list-full = Список { $subject } заполнен (не более { $max } пунктов)
-op-list-minimum = В списке { $subject } должно быть не менее { $min } пунктов
+op-list-full = Список { $subject } заполнен (не более { $max ->
+   [one] { $max } пункта
+   [few] { $max } пунктов
+   [many] { $max } пунктов
+  *[other] { $max } пункта
+})
+op-list-minimum = В списке { $subject } должно быть не менее { $min ->
+   [one] { $min } пункта
+   [few] { $min } пунктов
+   [many] { $min } пунктов
+  *[other] { $min } пункта
+}
 op-list-cell-too-long = Ячейка списка { $subject } слишком длинная (столбец { $column })
 op-list-id-too-long = Идентификатор пункта списка { $subject } слишком длинный
 op-list-too-many-items = В списке { $subject } слишком много пунктов (не более { $max })

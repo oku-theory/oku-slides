@@ -7,8 +7,22 @@ op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-param = معامل غير معروف: { $subject }
 op-param-type = قيمة غير صالحة لـ { $subject }
 op-item-not-found = لا يوجد بند { $subject }
-op-list-full = القائمة { $subject } ممتلئة ({ $max } بنود على الأكثر)
-op-list-minimum = يجب أن تحتوي القائمة { $subject } على { $min } بنود على الأقل
+op-list-full = القائمة { $subject } ممتلئة ({ $max ->
+   [zero] { $max } بند
+   [one] بند واحد
+   [two] بندان
+   [few] { $max } بنود
+   [many] { $max } بندًا
+  *[other] { $max } بند
+} على الأكثر)
+op-list-minimum = يجب أن تحتوي القائمة { $subject } على { $min ->
+   [zero] { $min } بند
+   [one] بند واحد
+   [two] بندين
+   [few] { $min } بنود
+   [many] { $min } بندًا
+  *[other] { $min } بند
+} على الأقل
 op-list-cell-too-long = إحدى خلايا القائمة { $subject } طويلة جدًا (العمود { $column })
 op-list-id-too-long = معرّف أحد بنود القائمة { $subject } طويل جدًا
 op-list-too-many-items = تحتوي القائمة { $subject } على عدد كبير جدًا من البنود ({ $max } على الأكثر)

@@ -7,8 +7,18 @@ op-unknown-widget = Nieznany widżet: { $subject }
 op-unknown-param = Nieznany parametr: { $subject }
 op-param-type = Nieprawidłowa wartość dla { $subject }
 op-item-not-found = Brak pozycji { $subject }
-op-list-full = Lista { $subject } jest pełna (najwyżej { $max } pozycji)
-op-list-minimum = Lista { $subject } musi mieć co najmniej { $min } pozycji
+op-list-full = Lista { $subject } jest pełna (najwyżej { $max ->
+   [one] { $max } pozycja
+   [few] { $max } pozycje
+   [many] { $max } pozycji
+  *[other] { $max } pozycji
+})
+op-list-minimum = Lista { $subject } musi mieć co najmniej { $min ->
+   [one] { $min } pozycję
+   [few] { $min } pozycje
+   [many] { $min } pozycji
+  *[other] { $min } pozycji
+}
 op-list-cell-too-long = Komórka listy { $subject } jest za długa (kolumna { $column })
 op-list-id-too-long = Identyfikator pozycji listy { $subject } jest za długi
 op-list-too-many-items = Lista { $subject } ma zbyt wiele pozycji (najwyżej { $max })

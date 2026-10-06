@@ -233,3 +233,21 @@ fn default_items_with_a_cell_over_limit_fails() {
     };
     assert_that!(default_items(&p)).is_err();
 }
+
+#[rstest::rstest]
+#[case::plain_at_limit(ParamType::Plain, ParamValue::Text("x".repeat(PLAIN_MAX)), true)]
+#[case::plain_over_limit(ParamType::Plain, ParamValue::Text("x".repeat(PLAIN_MAX + 1)), false)]
+#[case::other_type_unbounded(ParamType::Flag, ParamValue::Text("x".repeat(PLAIN_MAX + 1)), true)]
+fn text_fits_plain_is_bounded_at_exact_limits(#[case] ty: ParamType, #[case] v: ParamValue, #[case] fits: bool) {
+    assert_that!(text_fits(&ty, &v)).is_equal_to(fits);
+}
+
+#[rstest::rstest]
+#[case::paragraphs_at_limit(paragraphs(RICH_PARAGRAPHS_MAX), true)]
+#[case::paragraphs_over_limit(paragraphs(RICH_PARAGRAPHS_MAX + 1), false)]
+#[case::bytes_at_limit(rich_of_bytes(RICH_BYTES_MAX), true)]
+#[case::bytes_over_limit(rich_of_bytes(RICH_BYTES_MAX + 1), false)]
+fn text_fits_rich_is_bounded_at_exact_limits(#[case] raw: serde_json::Value, #[case] fits: bool) {
+    let v = param_value(&ParamType::Rich, "r", raw).unwrap().unwrap();
+    assert_that!(text_fits(&ParamType::Rich, &v)).is_equal_to(fits);
+}

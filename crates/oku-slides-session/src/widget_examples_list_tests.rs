@@ -214,5 +214,5 @@ fn edit_example_list_under_the_min_says_the_minimum() {
     let (_d, mut s) = editing();
     let err = s.edit_example_list("bornee", "items", ListOp::Remove { item: "d0".into() }).unwrap_err();
     let fr = err.localize(&Localizer::new(Some("fr")));
-    assert_that!(fr.contains("La liste items doit garder au moins 1 items")).is_true();
+    assert_that!(fr.contains("La liste items doit garder au moins 1 item")).is_true();
 }

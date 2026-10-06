@@ -41,15 +41,15 @@ pub enum OpErrorKind {
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ListBound {
     /// La liste a déjà `max` items.
     Full { max: usize },
     /// La liste doit garder au moins `min` items.
     Minimum { min: usize },
-    /// Une cellule dépasse sa longueur permise.
-    CellTooLong,
+    /// Une cellule de la colonne `column` dépasse sa longueur permise.
+    CellTooLong { column: String },
     /// Un id d'item dépasse [`ITEM_ID_MAX`](crate::ITEM_ID_MAX) caractères.
     IdTooLong,
     /// Plus de `max` items d'un coup (liste entière, sous-arbre inséré).
@@ -89,16 +89,15 @@ pub(crate) enum OpInner {
     ChoiceOutOfRange { param: String, value: String, backtrace: Backtrace },
     #[snafu(display("{list} has no item {item}"))]
     ItemNotFound { list: String, item: String, backtrace: Backtrace },
-    /// `column` : la colonne de la cellule trop longue, sinon vide.
-    #[snafu(display("{list}: {}", bound_reason(*bound, column)))]
-    ListBound { list: String, bound: ListBound, column: String, backtrace: Backtrace },
+    #[snafu(display("{list}: {}", bound_reason(bound)))]
+    ListBound { list: String, bound: ListBound, backtrace: Backtrace },
 }
 
-fn bound_reason(bound: ListBound, column: &str) -> String {
+fn bound_reason(bound: &ListBound) -> String {
     match bound {
         ListBound::Full { max } => format!("the list is full ({max} items)"),
         ListBound::Minimum { min } => format!("the list needs at least {min} items"),
-        ListBound::CellTooLong => format!("the cell {column} is too long"),
+        ListBound::CellTooLong { column } => format!("the cell {column} is too long"),
         ListBound::IdTooLong => "an item id is too long".to_owned(),
         ListBound::TooManyItems { max } => format!("the list has more than {max} items"),
     }
@@ -142,6 +141,14 @@ impl OpError {
             OpInner::ItemNotFound { item, .. } => Some(item),
             OpInner::ListBound { list, .. } => Some(list),
             OpInner::IndexOutOfRange { .. } => None,
+        }
+    }
+
+    /// La borne de liste refusée, pour une erreur [`OpErrorKind::ListBound`].
+    pub fn list_bound(&self) -> Option<&ListBound> {
+        match &*self.0 {
+            OpInner::ListBound { bound, .. } => Some(bound),
+            _ => None,
         }
     }
 }
@@ -248,17 +255,19 @@ impl Localize for OpError {
                 &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())],
             );
         }
-        if let OpInner::ListBound { list, bound, column, .. } = &*self.0 {
+        if let OpInner::ListBound { list, bound, .. } = &*self.0 {
             let list = list.as_str().into();
-            return match *bound {
-                ListBound::Full { max } => l.tr_with("op-list-full", &[("subject", list), ("max", max.into())]),
-                ListBound::Minimum { min } => l.tr_with("op-list-minimum", &[("subject", list), ("min", min.into())]),
-                ListBound::CellTooLong => {
+            return match bound {
+                ListBound::Full { max } => l.tr_with("op-list-full", &[("subject", list), ("max", (*max).into())]),
+                ListBound::Minimum { min } => {
+                    l.tr_with("op-list-minimum", &[("subject", list), ("min", (*min).into())])
+                }
+                ListBound::CellTooLong { column } => {
                     l.tr_with("op-list-cell-too-long", &[("subject", list), ("column", column.as_str().into())])
                 }
                 ListBound::IdTooLong => l.tr_with("op-list-id-too-long", &[("subject", list)]),
                 ListBound::TooManyItems { max } => {
-                    l.tr_with("op-list-too-many-items", &[("subject", list), ("max", max.into())])
+                    l.tr_with("op-list-too-many-items", &[("subject", list), ("max", (*max).into())])
                 }
             };
         }

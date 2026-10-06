@@ -7,8 +7,18 @@ op-unknown-widget = Невідомий віджет: { $subject }
 op-unknown-param = Невідомий параметр: { $subject }
 op-param-type = Недопустиме значення для { $subject }
 op-item-not-found = Немає пункту { $subject }
-op-list-full = Список { $subject } заповнено (не більше { $max } пунктів)
-op-list-minimum = У списку { $subject } має бути щонайменше { $min } пунктів
+op-list-full = Список { $subject } заповнено (не більше { $max ->
+   [one] { $max } пункту
+   [few] { $max } пунктів
+   [many] { $max } пунктів
+  *[other] { $max } пункту
+})
+op-list-minimum = У списку { $subject } має бути щонайменше { $min ->
+   [one] { $min } пункт
+   [few] { $min } пункти
+   [many] { $min } пунктів
+  *[other] { $min } пункту
+}
 op-list-cell-too-long = Клітинка списку { $subject } надто довга (стовпець { $column })
 op-list-id-too-long = Ідентифікатор пункту списку { $subject } надто довгий
 op-list-too-many-items = У списку { $subject } надто багато пунктів (не більше { $max })

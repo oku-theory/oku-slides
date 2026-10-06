@@ -126,6 +126,14 @@ fn set_example_values_bad_value_is_refused(#[case] param: &str, #[case] value: V
 }
 
 #[test]
+fn set_example_values_plain_of_max_chars_padded_with_spaces_is_accepted() {
+    let (_d, mut s) = templates();
+    let padded = format!("  {}  ", "x".repeat(oku_slides_core::PLAIN_MAX));
+    s.set_example_values("tout", values(json!({ "title": padded }))).unwrap();
+    assert_that!(stored(&s, "title")).is_equal_to(Some(json!("x".repeat(oku_slides_core::PLAIN_MAX))));
+}
+
+#[test]
 fn set_example_values_refusal_names_the_param() {
     let (_d, mut s) = templates();
     let err = s.set_example_values("tout", values(json!({ "count": 12 }))).unwrap_err();

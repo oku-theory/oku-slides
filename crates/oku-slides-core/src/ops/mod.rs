@@ -36,6 +36,7 @@ use check::{check_accepts, check_params};
 pub(crate) use list::{DefaultFault, default_fault};
 pub use list::{
     ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
+    text_fits,
 };
 pub use value::{GRID_TRACKS, param_value};
 

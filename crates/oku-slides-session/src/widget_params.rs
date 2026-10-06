@@ -6,10 +6,7 @@
 //! (`widget_settings`) montrent un champ par paramètre réglable, à sa valeur d'exemple.
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
-use oku_slides_core::{
-    LIST_ITEMS_MAX, PLAIN_MAX, ParamSchema, ParamType, ParamValue, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
-    param_value,
-};
+use oku_slides_core::{LIST_ITEMS_MAX, ParamSchema, ParamType, ParamValue, default_items, param_value, text_fits};
 use oku_slides_i18n::Localizer;
 use serde_json::{Map, Value, json};
 use snafu::{ResultExt, ensure};
@@ -178,16 +175,10 @@ pub(crate) fn checked_value(p: &ParamSchema, value: Value) -> Result<Option<Valu
         }
         (_, v) => v,
     };
-    let too_long = match (&p.ty, &value) {
-        (ParamType::Plain, Value::String(s)) => s.len() > PLAIN_MAX,
-        (ParamType::Rich, Value::Array(ps)) => {
-            ps.len() > RICH_PARAGRAPHS_MAX || serde_json::to_vec(&value).map_or(true, |b| b.len() > RICH_BYTES_MAX)
-        }
-        _ => false,
-    };
-    ensure!(!too_long, TrialTooLongSnafu { param });
     // Des paragraphes vides : `param_value` ne donne rien, la valeur s'efface.
     let Some(checked) = param_value(&p.ty, param, value).context(TrialValueSnafu { param })? else { return Ok(None) };
+    // Comme le cœur, la taille se mesure sur la valeur convertie.
+    ensure!(text_fits(&p.ty, &checked), TrialTooLongSnafu { param });
     Ok(serde_json::to_value(checked).map(Some).context(TrialEncodeSnafu { param })?)
 }
 

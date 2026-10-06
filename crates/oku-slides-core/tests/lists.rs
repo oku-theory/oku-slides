@@ -326,41 +326,63 @@ fn bounded_deck() -> Deck {
 #[case::full(
     edit("b", "bornee", json!({ "op": "insert", "id": "c" })),
     "La liste bornee est pleine (2 items au plus)",
-    "The list bornee is full (2 items at most)"
+    "The list bornee is full (2 items at most)",
+    ListBound::Full { max: 2 }
 )]
 #[case::minimum(
     edit("m", "bornee", json!({ "op": "remove", "item": "a" })),
-    "La liste bornee doit garder au moins 1 items",
-    "The list bornee needs at least 1 items"
+    "La liste bornee doit garder au moins 1 item",
+    "The list bornee needs at least 1 item",
+    ListBound::Minimum { min: 1 }
 )]
 #[case::minimum_by_set_param(
     set_param(at("s-constat", "b"), "bornee", json!([])),
-    "La liste bornee doit garder au moins 1 items",
-    "The list bornee needs at least 1 items"
+    "La liste bornee doit garder au moins 1 item",
+    "The list bornee needs at least 1 item",
+    ListBound::Minimum { min: 1 }
 )]
 #[case::cell_too_long(
     edit("f", "etapes", json!({ "op": "set_field", "item": "d0", "field": "date", "value": "x".repeat(4097) })),
     "Une cellule de la liste etapes est trop longue (colonne date)",
-    "A cell of the list etapes is too long (column date)"
+    "A cell of the list etapes is too long (column date)",
+    ListBound::CellTooLong { column: "date".to_owned() }
 )]
 #[case::id_too_long(
     edit("f", "etapes", json!({ "op": "insert", "id": "i".repeat(65) })),
     "Un identifiant d'item de la liste etapes est trop long",
-    "An item id of the list etapes is too long"
+    "An item id of the list etapes is too long",
+    ListBound::IdTooLong
 )]
 #[case::too_many_items(
     set_param(at("s-constat", "f"), "etapes", json!((0..257).map(|i| json!({ "id": format!("i{i}") })).collect::<Vec<_>>())),
     "La liste etapes a trop d'items (256 au plus)",
-    "The list etapes has too many items (256 at most)"
+    "The list etapes has too many items (256 at most)",
+    ListBound::TooManyItems { max: 256 }
 )]
-fn list_bound_refusals_say_which_bound_in_french_and_english(#[case] op: Op, #[case] fr: &str, #[case] en: &str) {
+fn list_bound_refusals_say_which_bound_in_french_and_english(
+    #[case] op: Op,
+    #[case] fr: &str,
+    #[case] en: &str,
+    #[case] bound: ListBound,
+) {
     use oku_slides_i18n::{Localize, Localizer};
     let mut deck = bounded_deck();
     let Err(err) = apply(&mut deck, op) else { panic!("l'op devait être refusée") };
     let err = err.op_error();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ListBound);
+    assert_that!(err.list_bound()).is_equal_to(Some(&bound));
     // Les espaces insécables que Fluent isole autour des arguments sont retirés.
     let say = |l: &str| err.localize(&Localizer::new(Some(l))).replace(['\u{2068}', '\u{2069}'], "");
     assert_that!(say("fr")).is_equal_to(fr.to_owned());
     assert_that!(say("en")).is_equal_to(en.to_owned());
+}
+
+#[test]
+fn list_bound_of_an_error_other_than_a_list_bound_is_none() {
+    let mut deck = bounded_deck();
+    let Err(err) = apply(&mut deck, edit("f", "etapes", json!({ "op": "remove", "item": "absent" }))) else {
+        panic!("l'op devait être refusée")
+    };
+    assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::ItemNotFound);
+    assert_that!(err.op_error().list_bound()).is_none();
 }

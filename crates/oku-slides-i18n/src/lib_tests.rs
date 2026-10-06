@@ -224,6 +224,43 @@ fn agent_turn_summary_plurals_follow_each_language() {
     }
 }
 
+/// Les refus de liste accordent « item » au plafond ou au plancher selon les règles de pluriel
+/// de chaque langue (t-537).
+#[test]
+fn list_refusals_plurals_follow_each_language() {
+    for (locale, id, arg, n, expected) in [
+        ("fr", "op-list-full", "max", 1, "La liste L est pleine (1 item au plus)"),
+        ("fr", "op-list-full", "max", 5, "La liste L est pleine (5 items au plus)"),
+        ("fr", "op-list-minimum", "min", 1, "La liste L doit garder au moins 1 item"),
+        ("fr", "op-list-minimum", "min", 5, "La liste L doit garder au moins 5 items"),
+        ("en", "op-list-full", "max", 1, "The list L is full (1 item at most)"),
+        ("en", "op-list-full", "max", 5, "The list L is full (5 items at most)"),
+        ("en", "op-list-minimum", "min", 1, "The list L needs at least 1 item"),
+        ("en", "op-list-minimum", "min", 5, "The list L needs at least 5 items"),
+        ("ru", "op-list-full", "max", 1, "Список L заполнен (не более 1 пункта)"),
+        ("ru", "op-list-full", "max", 2, "Список L заполнен (не более 2 пунктов)"),
+        ("ru", "op-list-full", "max", 5, "Список L заполнен (не более 5 пунктов)"),
+        ("ru", "op-list-minimum", "min", 1, "В списке L должно быть не менее 1 пункта"),
+        ("ru", "op-list-minimum", "min", 2, "В списке L должно быть не менее 2 пунктов"),
+        ("ru", "op-list-minimum", "min", 5, "В списке L должно быть не менее 5 пунктов"),
+        ("pl", "op-list-full", "max", 1, "Lista L jest pełna (najwyżej 1 pozycja)"),
+        ("pl", "op-list-full", "max", 2, "Lista L jest pełna (najwyżej 2 pozycje)"),
+        ("pl", "op-list-full", "max", 5, "Lista L jest pełna (najwyżej 5 pozycji)"),
+        ("pl", "op-list-minimum", "min", 1, "Lista L musi mieć co najmniej 1 pozycję"),
+        ("pl", "op-list-minimum", "min", 2, "Lista L musi mieć co najmniej 2 pozycje"),
+        ("pl", "op-list-minimum", "min", 5, "Lista L musi mieć co najmniej 5 pozycji"),
+        ("ar", "op-list-full", "max", 1, "القائمة L ممتلئة (بند واحد على الأكثر)"),
+        ("ar", "op-list-full", "max", 2, "القائمة L ممتلئة (بندان على الأكثر)"),
+        ("ar", "op-list-full", "max", 5, "القائمة L ممتلئة (5 بنود على الأكثر)"),
+        ("ar", "op-list-minimum", "min", 1, "يجب أن تحتوي القائمة L على بند واحد على الأقل"),
+        ("ar", "op-list-minimum", "min", 2, "يجب أن تحتوي القائمة L على بندين على الأقل"),
+        ("ar", "op-list-minimum", "min", 5, "يجب أن تحتوي القائمة L على 5 بنود على الأقل"),
+    ] {
+        let text = Localizer::new(Some(locale)).tr_with(id, &[("subject", "L".into()), (arg, n.into())]);
+        asserting(&format!("{locale} : {id} ({n})")).that(&text).is_equal_to(expected.to_owned());
+    }
+}
+
 /// En japonais, chinois et coréen, le compteur se colle au nombre (« 3個 », « 3秒 », « 3개 ») :
 /// aucun blanc, quel qu'il soit, entre le chiffre et ce qui le suit — dans le résumé d'un tour
 /// comme dans les messages de la ligne de commande, pour un compteur reçu en paramètre comme pour
@@ -231,7 +268,7 @@ fn agent_turn_summary_plurals_follow_each_language() {
 /// sans chiffre : une unité latine (« 12 KB ») n'est pas un compteur et garde son espace.
 #[test]
 fn counters_stick_to_the_number_in_cjk() {
-    let messages: [(&str, &[&str], &[&str]); 9] = [
+    let messages: [(&str, &[&str], &[&str]); 12] = [
         ("agent-turn-tools", &["tools"], &[]),
         ("agent-turn-notes", &["notes"], &[]),
         ("agent-turn-secs", &["secs"], &[]),
@@ -241,6 +278,9 @@ fn counters_stick_to_the_number_in_cjk() {
         ("cli-opened", &["slides", "assets", "fonts"], &["path"]),
         ("cli-bench-first", &["pages"], &["time"]),
         ("cli-bench-svg", &[], &["time", "each"]),
+        ("op-list-full", &["max"], &["subject"]),
+        ("op-list-minimum", &["min"], &["subject"]),
+        ("op-list-too-many-items", &["max"], &["subject"]),
     ];
     for locale in ["ja", "ko", "zh-Hans", "zh-Hant"] {
         for (id, counters, others) in messages {
@@ -283,15 +323,17 @@ const LIST_KEYS: [&str; 23] = [
     "ui-undo-list-move",
 ];
 
-/// Source brute d'un message d'une ligne, telle qu'écrite dans les fichiers de la langue.
+/// Source brute d'un message, telle qu'écrite dans les fichiers de la langue, lignes de
+/// continuation comprises (variantes d'un sélecteur de pluriel, accolade fermante).
 fn source_of(locale: &str, id: &str) -> String {
     let (_, sources) = LOCALES.iter().find(|(l, _)| *l == locale).unwrap();
     let prefix = format!("{id} = ");
-    sources
-        .iter()
-        .flat_map(|s| s.lines())
+    let mut lines = sources.iter().flat_map(|s| s.lines());
+    let first = lines
         .find_map(|line| line.strip_prefix(&prefix).map(str::to_owned))
-        .unwrap_or_else(|| panic!("{locale} : {id} absent"))
+        .unwrap_or_else(|| panic!("{locale} : {id} absent"));
+    let continuation = lines.take_while(|line| line.starts_with(' ') || line.starts_with('}'));
+    std::iter::once(first).chain(continuation.map(str::to_owned)).collect::<Vec<_>>().join("\n")
 }
 
 /// Variables Fluent (`$x`) citées par un message.

@@ -84,8 +84,8 @@ impl<'a> ListSpec<'a> {
         self.max.unwrap_or(LIST_ITEMS_MAX)
     }
 
-    fn refuse(&self, bound: ListBound, column: &str) -> OpError {
-        ListBoundSnafu { list: self.name, bound, column }.build().into()
+    fn refuse(&self, bound: ListBound) -> OpError {
+        ListBoundSnafu { list: self.name, bound }.build().into()
     }
 
     fn full(&self, len: usize) -> bool {
@@ -94,7 +94,7 @@ impl<'a> ListSpec<'a> {
 
     fn too_many(&self, len: usize) -> Result<(), OpError> {
         if len > self.max_items() {
-            return Err(self.refuse(ListBound::TooManyItems { max: self.max_items() }, ""));
+            return Err(self.refuse(ListBound::TooManyItems { max: self.max_items() }));
         }
         Ok(())
     }
@@ -110,15 +110,8 @@ impl<'a> ListSpec<'a> {
 
     /// Refuse une cellule `plain` ou `rich` trop longue.
     fn cell_fits(&self, c: &ParamSchema, v: &ParamValue) -> Result<(), OpError> {
-        let too_long = match (&c.ty, v) {
-            (ParamType::Plain, ParamValue::Text(s)) => s.len() > PLAIN_MAX,
-            (ParamType::Rich, ParamValue::Rich(ps)) => {
-                ps.len() > RICH_PARAGRAPHS_MAX || serde_json::to_vec(ps).map_or(true, |b| b.len() > RICH_BYTES_MAX)
-            }
-            _ => false,
-        };
-        if too_long {
-            return Err(self.refuse(ListBound::CellTooLong, &c.name));
+        if !text_fits(&c.ty, v) {
+            return Err(self.refuse(ListBound::CellTooLong { column: c.name.clone() }));
         }
         Ok(())
     }
@@ -136,6 +129,20 @@ impl<'a> ListSpec<'a> {
             }
         }
         Ok(())
+    }
+}
+
+/// La valeur `v` tient-elle dans les bornes de taille d'un texte de type `ty` ?
+/// `plain` : `PLAIN_MAX` octets ; `rich` : `RICH_PARAGRAPHS_MAX` paragraphes et
+/// `RICH_BYTES_MAX` octets. Les autres types n'ont pas de borne de texte.
+#[must_use]
+pub fn text_fits(ty: &ParamType, v: &ParamValue) -> bool {
+    match (ty, v) {
+        (ParamType::Plain, ParamValue::Text(s)) => s.len() <= PLAIN_MAX,
+        (ParamType::Rich, ParamValue::Rich(ps)) => {
+            ps.len() <= RICH_PARAGRAPHS_MAX && serde_json::to_vec(ps).is_ok_and(|b| b.len() <= RICH_BYTES_MAX)
+        }
+        _ => true,
     }
 }
 
@@ -169,7 +176,7 @@ fn check_id(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<(), OpE
 
 fn id_fits(spec: &ListSpec<'_>, id: &str) -> Result<(), OpError> {
     if id.chars().count() > ITEM_ID_MAX {
-        return Err(spec.refuse(ListBound::IdTooLong, ""));
+        return Err(spec.refuse(ListBound::IdTooLong));
     }
     Ok(())
 }
@@ -185,7 +192,7 @@ impl ListOp {
             ListOp::Insert { index, id, values } => {
                 check_id(spec, items, &id)?;
                 if spec.full(items.len()) {
-                    return Err(spec.refuse(ListBound::Full { max: spec.max_items() }, ""));
+                    return Err(spec.refuse(ListBound::Full { max: spec.max_items() }));
                 }
                 let at = index.unwrap_or(items.len());
                 if at > items.len() {
@@ -197,7 +204,7 @@ impl ListOp {
             ListOp::Remove { item } => {
                 let i = position(spec, items, &item)?;
                 if items.len() <= spec.min {
-                    return Err(spec.refuse(ListBound::Minimum { min: spec.min }, ""));
+                    return Err(spec.refuse(ListBound::Minimum { min: spec.min }));
                 }
                 items.remove(i);
             }
@@ -251,7 +258,7 @@ pub(crate) enum DefaultFault {
 pub(crate) fn default_fault(p: &ParamSchema) -> Option<DefaultFault> {
     let spec = ListSpec::of(&p.name, &p.ty)?;
     let Some(Value::Array(rows)) = &p.default else { return None };
-    let mut too_large = spec.too_many(rows.len()).is_err();
+    let mut too_large = rows.len() > spec.max_items();
     for row in rows {
         let Some(obj) = row.as_object() else { return Some(DefaultFault::WrongType) };
         if obj.keys().any(|k| !spec.columns.iter().any(|c| &c.name == k)) {
@@ -261,7 +268,7 @@ pub(crate) fn default_fault(p: &ParamSchema) -> Option<DefaultFault> {
             let raw = obj.get(&c.name).cloned().or_else(|| c.default.clone()).unwrap_or(Value::Null);
             match param_value(&c.ty, &c.name, raw) {
                 Err(_) => return Some(DefaultFault::WrongType),
-                Ok(Some(v)) => too_large |= spec.cell_fits(c, &v).is_err(),
+                Ok(Some(v)) => too_large |= !text_fits(&c.ty, &v),
                 Ok(None) => {}
             }
         }
@@ -292,7 +299,7 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         items.push(ListItem { id, values });
     }
     if items.len() < spec.min {
-        return Err(spec.refuse(ListBound::Minimum { min: spec.min }, ""));
+        return Err(spec.refuse(ListBound::Minimum { min: spec.min }));
     }
     Ok(if items.is_empty() { None } else { Some(ParamValue::List(items)) })
 }
