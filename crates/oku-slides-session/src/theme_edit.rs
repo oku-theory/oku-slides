@@ -16,6 +16,8 @@
 //! du deck est adoptée telle quelle. Le deck mis de côté l'embarque et y
 //! passe, dans l'étape d'annulation du pack.
 
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
@@ -51,6 +53,10 @@ pub struct ThemeEditView {
     pub builtin: bool,
     /// Le brouillon diffère de sa base (jetons ou nom).
     pub dirty: bool,
+    /// Empreinte des jetons du brouillon : change avec eux, quelle que soit
+    /// la voie (réglage, annulation, reprise). Les aperçus des widgets s'y
+    /// règlent : deux réglages du même jeton ont le même libellé d'annulation.
+    pub revision: String,
 }
 
 /// Un changement de base (`set_edited_theme`) et les jetons avant et après :
@@ -148,6 +154,13 @@ impl Session {
         Ok((ThemeEdit { base, name: manifest.name }, manifest.tokens))
     }
 
+    /// L'empreinte des jetons du deck de travail (stable dans une même version de l'app).
+    fn draft_revision(&self) -> String {
+        let mut hasher = DefaultHasher::new();
+        self.doc.sources.deck().tokens.to_string().hash(&mut hasher);
+        format!("{:016x}", hasher.finish())
+    }
+
     /// Le brouillon diffère-t-il de sa base (jetons ou nom) ?
     fn theme_dirty(&self, edit: &ThemeEdit) -> bool {
         let Some(base) = self.base_manifest() else { return true };
@@ -162,6 +175,7 @@ impl Session {
             name: theme.name.clone(),
             builtin: ThemeLibrary::is_builtin(theme.base.id),
             dirty: self.theme_dirty(theme),
+            revision: self.draft_revision(),
         };
         Some(EditingView { mode: edit, theme: view })
     }

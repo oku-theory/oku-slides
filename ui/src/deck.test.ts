@@ -363,8 +363,8 @@ describe("amorce des listes (defaults)", () => {
 
 describe("previewLook", () => {
   type Source = Parameters<typeof previewLook>[0];
-  const draft = (dirty: boolean, version = "v1") => ({
-    theme: { base: { id: "t", version }, name: "Papier", builtin: true, dirty },
+  const draft = (dirty: boolean, version = "v1", revision = "r1") => ({
+    theme: { base: { id: "t", version }, name: "Papier", builtin: true, dirty, revision },
   }) as Source["editing"];
   // Mode modèles : le deck de travail n'a pas de thème, le brouillon en tient lieu.
   const snap = (over: Partial<Source> = {}): Source => ({
@@ -387,6 +387,12 @@ describe("previewLook", () => {
   test("previewLook_undo_or_redo_changes_the_key", () => {
     const before = previewLook(snap({ undo_label: "Jeton" }));
     expect(previewLook(snap({ undo_label: null, redo_label: "Jeton" }))).not.toBe(before);
+  });
+
+  test("previewLook_new_draft_revision_with_same_labels_changes_the_key", () => {
+    // Deux réglages successifs du même jeton (taille 16 → 18 → 20) : même libellé, même `dirty`.
+    const at = (revision: string) => previewLook(snap({ editing: draft(true, "v1", revision), undo_label: "Jeton" }));
+    expect(at("r2")).not.toBe(at("r1"));
   });
 
   test("previewLook_same_snapshot_keeps_the_key", () => {

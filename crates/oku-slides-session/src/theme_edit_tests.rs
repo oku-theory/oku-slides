@@ -331,6 +331,68 @@ fn theme_edit_view_reports_dirty_after_a_token_edit_or_a_rename() {
     assert_that!((view.dirty, view.name.as_str())).is_equal_to((true, "Autre"));
 }
 
+/// La révision du brouillon vue par le snapshot.
+fn revision(s: &Session) -> String {
+    s.snapshot().editing.unwrap().theme.revision
+}
+
+/// Applique `op` au brouillon et rend la révision d'avant et d'après.
+fn revisions_around(s: &mut Session, op: Op) -> (String, String) {
+    let before = revision(s);
+    s.apply("x", vec![op], None).unwrap();
+    (before, revision(s))
+}
+
+fn set_body_size(size: i64) -> Op {
+    Op::SetToken { path: p(&["size", "body"]), value: json!(size) }
+}
+
+#[test]
+fn theme_edit_revision_changes_on_each_set_token_of_the_same_token() {
+    let mut s = session_with_theme(PAPIER_THEME);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.apply("x", vec![set_body_size(16)], None).unwrap();
+    let (r18, r20) = (revisions_around(&mut s, set_body_size(18)), revisions_around(&mut s, set_body_size(20)));
+    assert_that!(r18.0).is_not_equal_to(r18.1.clone());
+    assert_that!(r20.0).is_not_equal_to(r20.1);
+}
+
+#[test]
+fn theme_edit_revision_changes_on_unset_token() {
+    let mut s = session_with_theme(PAPIER_THEME);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    let (before, after) = revisions_around(&mut s, Op::UnsetToken { path: p(&["color", "accent"]) });
+    assert_that!(before).is_not_equal_to(after);
+}
+
+#[test]
+fn theme_edit_revision_changes_on_set_tokens() {
+    let mut s = session_with_theme(PAPIER_THEME);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    let (before, after) = revisions_around(&mut s, Op::SetTokens { tokens: json!({ "size": { "body": 30 } }) });
+    assert_that!(before).is_not_equal_to(after);
+}
+
+#[test]
+fn theme_edit_revision_changes_on_undo_and_redo_between_same_label_steps() {
+    let mut s = session_with_theme(PAPIER_THEME);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.apply("x", vec![set_body_size(18)], None).unwrap();
+    s.apply("x", vec![set_body_size(20)], None).unwrap();
+    let at20 = revision(&s);
+    s.undo().unwrap();
+    let at18 = revision(&s);
+    s.redo().unwrap();
+    assert_that!((at18.as_str() != at20.as_str(), revision(&s))).is_equal_to((true, at20));
+}
+
+#[test]
+fn theme_edit_revision_is_stable_without_change() {
+    let mut s = session_with_theme(PAPIER_THEME);
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    assert_that!(revision(&s)).is_equal_to(revision(&s));
+}
+
 #[test]
 fn rename_edited_theme_with_blank_name_keeps_the_base_name() {
     let mut s = session_with_theme(PAPIER_THEME);

@@ -200,6 +200,8 @@ export interface ThemeEditView {
   builtin: boolean;
   /** Le brouillon diffère de sa base (jetons ou nom). */
   dirty: boolean;
+  /** Empreinte des jetons du brouillon : change avec eux. */
+  revision: string;
 }
 
 export interface PackInfo {

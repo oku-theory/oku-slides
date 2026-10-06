@@ -284,8 +284,9 @@ type LookSource = Pick<Snapshot, "theme" | "appearance" | "editing" | "undo_labe
  * Style du deck vu par les aperçus de widgets : un changement le relance.
  *
  * En mode modèles, le deck de travail n'a pas de thème : le brouillon (base,
- * nom, modifié) et les étapes d'annulation (une modification de l'agent, une
- * annulation) en tiennent lieu.
+ * nom, modifié, révision de ses jetons) et les étapes d'annulation (une
+ * modification de l'agent, une annulation) en tiennent lieu. La révision
+ * distingue deux réglages successifs du même jeton, que rien d'autre ne sépare.
  */
 export function previewLook(snap: LookSource): string {
   return JSON.stringify([
