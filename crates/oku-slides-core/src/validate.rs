@@ -8,6 +8,7 @@ use oku_slides_i18n::{Localize, Localizer, Message};
 
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{Deck, DeckParams, Grid, Paragraph};
+use crate::ops::ListSpec;
 use crate::pack::PackVersion;
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
@@ -177,7 +178,7 @@ impl<'a> Validator<'a> {
                 Fit::WrongType => self.push(at, Message::new("issue-param-type").arg("param", name)),
                 Fit::OutOfChoice => self.push(at, Message::new("issue-choice-out-of-range").arg("param", name)),
             }
-            if let (ParamType::List { min, max, .. }, Some(items)) = (&p.ty, params.list(name)) {
+            if let (Some(spec), Some(items)) = (ListSpec::of(name, &p.ty), params.list(name)) {
                 let mut seen = HashSet::new();
                 for it in items {
                     if it.id.is_empty() {
@@ -186,7 +187,7 @@ impl<'a> Validator<'a> {
                         self.push(at, Message::new("issue-duplicate-item-id").arg("param", name));
                     }
                 }
-                if !items.is_empty() && (items.len() < *min || max.is_some_and(|m| items.len() > m)) {
+                if !items.is_empty() && (items.len() < spec.min || items.len() > spec.max_items()) {
                     self.push(at, Message::new("issue-list-bounds").arg("param", name));
                 }
             }

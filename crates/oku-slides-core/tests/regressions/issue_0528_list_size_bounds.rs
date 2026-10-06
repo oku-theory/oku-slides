@@ -27,7 +27,7 @@ fn refused(op: Value) -> OpErrorKind {
 fn set_param_list_beyond_the_default_item_bound_is_refused() {
     let rows: Vec<Value> = (0..=LIST_ITEMS_MAX).map(|i| json!({ "id": format!("i{i}") })).collect();
     let op = json!({ "op": "set_param", "target": { "slide": "s", "element": "n" }, "param": "etapes", "value": rows });
-    assert_that!(refused(op)).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(refused(op)).is_equal_to(OpErrorKind::ListBound);
 }
 
 #[test]
@@ -35,5 +35,5 @@ fn edit_list_rich_cell_beyond_the_paragraph_bound_is_refused() {
     let paragraphs: Vec<Value> = (0..=RICH_PARAGRAPHS_MAX).map(|_| json!({ "runs": [{ "t": "x" }] })).collect();
     let op = json!({ "op": "edit_list", "target": { "slide": "s", "element": "n" }, "param": "etapes",
         "change": { "op": "set_field", "item": "a", "field": "note", "value": paragraphs } });
-    assert_that!(refused(op)).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(refused(op)).is_equal_to(OpErrorKind::ListBound);
 }

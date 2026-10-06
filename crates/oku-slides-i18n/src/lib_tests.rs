@@ -257,13 +257,18 @@ fn counters_stick_to_the_number_in_cjk() {
 }
 
 /// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).
-const LIST_KEYS: [&str; 18] = [
+const LIST_KEYS: [&str; 23] = [
     "widget-fault-empty-list",
     "widget-fault-column-type",
     "widget-fault-reserved-name",
     "widget-fault-list-bounds",
     "widget-fault-list-default-too-large",
     "op-item-not-found",
+    "op-list-full",
+    "op-list-minimum",
+    "op-list-cell-too-long",
+    "op-list-id-too-long",
+    "op-list-too-many-items",
     "issue-empty-item-id",
     "issue-duplicate-item-id",
     "issue-list-bounds",

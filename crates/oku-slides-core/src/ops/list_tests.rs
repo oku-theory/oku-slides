@@ -183,7 +183,7 @@ fn apply_cell_over_limit_keeps_items_and_says_invalid_value() {
     let spec = ListSpec::of("l", &ty).unwrap();
     let mut l = items(&["a"]);
     let e = set("t", json!("x".repeat(PLAIN_MAX + 1))).apply(&mut l, &spec).unwrap_err();
-    assert_that!(e.kind()).is_equal_to(crate::OpErrorKind::InvalidValue);
+    assert_that!(e.kind()).is_equal_to(crate::OpErrorKind::ListBound);
     assert_that!(l).is_equal_to(items(&["a"]));
 }
 

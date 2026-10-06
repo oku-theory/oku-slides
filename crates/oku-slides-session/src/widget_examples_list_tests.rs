@@ -193,3 +193,26 @@ fn edit_example_list_on_a_stored_value_that_is_not_a_list_is_refused() {
     let err = s.edit_example_list("souple", "items", insert).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
 }
+
+#[rstest]
+#[case::ui(Path::Ui)]
+#[case::agent(Path::Agent)]
+fn set_example_values_with_a_cell_too_long_says_which_cell_is_too_long(#[case] path: Path) {
+    use oku_slides_i18n::{Localize, Localizer};
+    let (_d, mut s) = editing();
+    let long = json!([{ "id": "a", "texte": "x".repeat(PLAIN_MAX + 1) }]);
+    let err = set_list(&mut s, path, "frise", "etapes", long).unwrap_err();
+    let fr = err.localize(&Localizer::new(Some("fr")));
+    assert_that!(fr.contains("Une cellule de la liste etapes est trop longue (colonne texte)")).is_true();
+    let en = err.localize(&Localizer::new(Some("en")));
+    assert_that!(en.contains("A cell of the list etapes is too long (column texte)")).is_true();
+}
+
+#[test]
+fn edit_example_list_under_the_min_says_the_minimum() {
+    use oku_slides_i18n::{Localize, Localizer};
+    let (_d, mut s) = editing();
+    let err = s.edit_example_list("bornee", "items", ListOp::Remove { item: "d0".into() }).unwrap_err();
+    let fr = err.localize(&Localizer::new(Some("fr")));
+    assert_that!(fr.contains("La liste items doit garder au moins 1 items")).is_true();
+}

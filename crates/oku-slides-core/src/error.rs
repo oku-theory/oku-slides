@@ -36,6 +36,24 @@ pub enum OpErrorKind {
     SlotRejects,
     /// Widget d'une autre catégorie (slide au lieu d'élément, ou l'inverse).
     WrongCategory,
+    /// Une borne de liste refusée (taille, cellule, id) ; voir [`ListBound`].
+    ListBound,
+}
+
+/// La borne d'une liste qu'une opération dépasserait.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ListBound {
+    /// La liste a déjà `max` items.
+    Full { max: usize },
+    /// La liste doit garder au moins `min` items.
+    Minimum { min: usize },
+    /// Une cellule dépasse sa longueur permise.
+    CellTooLong,
+    /// Un id d'item dépasse [`ITEM_ID_MAX`](crate::ITEM_ID_MAX) caractères.
+    IdTooLong,
+    /// Plus de `max` items d'un coup (liste entière, sous-arbre inséré).
+    TooManyItems { max: usize },
 }
 
 #[derive(Debug, Snafu)]
@@ -71,6 +89,19 @@ pub(crate) enum OpInner {
     ChoiceOutOfRange { param: String, value: String, backtrace: Backtrace },
     #[snafu(display("{list} has no item {item}"))]
     ItemNotFound { list: String, item: String, backtrace: Backtrace },
+    /// `column` : la colonne de la cellule trop longue, sinon vide.
+    #[snafu(display("{list}: {}", bound_reason(*bound, column)))]
+    ListBound { list: String, bound: ListBound, column: String, backtrace: Backtrace },
+}
+
+fn bound_reason(bound: ListBound, column: &str) -> String {
+    match bound {
+        ListBound::Full { max } => format!("the list is full ({max} items)"),
+        ListBound::Minimum { min } => format!("the list needs at least {min} items"),
+        ListBound::CellTooLong => format!("the cell {column} is too long"),
+        ListBound::IdTooLong => "an item id is too long".to_owned(),
+        ListBound::TooManyItems { max } => format!("the list has more than {max} items"),
+    }
 }
 
 impl OpError {
@@ -89,6 +120,7 @@ impl OpError {
             OpInner::ChoiceOutOfRange { .. } => OpErrorKind::ChoiceOutOfRange,
             OpInner::SlotRejects { .. } => OpErrorKind::SlotRejects,
             OpInner::WrongCategory { .. } => OpErrorKind::WrongCategory,
+            OpInner::ListBound { .. } => OpErrorKind::ListBound,
         }
     }
 
@@ -108,6 +140,7 @@ impl OpError {
             | OpInner::ParamType { param, .. }
             | OpInner::ChoiceOutOfRange { param, .. } => Some(param),
             OpInner::ItemNotFound { item, .. } => Some(item),
+            OpInner::ListBound { list, .. } => Some(list),
             OpInner::IndexOutOfRange { .. } => None,
         }
     }
@@ -215,6 +248,20 @@ impl Localize for OpError {
                 &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())],
             );
         }
+        if let OpInner::ListBound { list, bound, column, .. } = &*self.0 {
+            let list = list.as_str().into();
+            return match *bound {
+                ListBound::Full { max } => l.tr_with("op-list-full", &[("subject", list), ("max", max.into())]),
+                ListBound::Minimum { min } => l.tr_with("op-list-minimum", &[("subject", list), ("min", min.into())]),
+                ListBound::CellTooLong => {
+                    l.tr_with("op-list-cell-too-long", &[("subject", list), ("column", column.as_str().into())])
+                }
+                ListBound::IdTooLong => l.tr_with("op-list-id-too-long", &[("subject", list)]),
+                ListBound::TooManyItems { max } => {
+                    l.tr_with("op-list-too-many-items", &[("subject", list), ("max", max.into())])
+                }
+            };
+        }
         let id = match self.kind() {
             OpErrorKind::SlideNotFound => "op-slide-not-found",
             OpErrorKind::ElementNotFound => "op-element-not-found",
@@ -229,6 +276,8 @@ impl Localize for OpError {
             OpErrorKind::ChoiceOutOfRange => "op-choice-out-of-range",
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
+            // Traité plus haut : les bornes de liste portent leurs arguments.
+            OpErrorKind::ListBound => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }

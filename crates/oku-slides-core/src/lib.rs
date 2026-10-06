@@ -37,7 +37,7 @@ pub mod widget;
 
 pub use canonical::canonicalize;
 pub use error::{
-    OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError,
+    ListBound, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError,
     SourcesErrorKind, TransactionError, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};

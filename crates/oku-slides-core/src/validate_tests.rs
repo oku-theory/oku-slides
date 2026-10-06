@@ -374,6 +374,15 @@ fn validate_list_above_max_reports_bounds() {
         .is_empty();
 }
 
+#[rstest]
+#[case::at_default_cap(crate::LIST_ITEMS_MAX, &[])]
+#[case::over_default_cap(crate::LIST_ITEMS_MAX + 1, &["issue-list-bounds"])]
+fn validate_list_without_schema_max_applies_default_cap(#[case] count: usize, #[case] expected: &[&str]) {
+    let items: Vec<Value> = (0..count).map(|i| json!({ "id": format!("i{i}") })).collect();
+    let issues = validate_element(json!({ "id": "f", "kind": "liste", "params": { "etapes": items } }), None);
+    assert_that!(ids(&issues)).is_equal_to(expected.to_vec());
+}
+
 #[test]
 fn validate_absent_or_empty_list_below_min_is_accepted() {
     assert_that!(validate_element(json!({ "id": "f", "kind": "bornes" }), None)).is_empty();

@@ -9,8 +9,8 @@ use serde_json::{Map, Value};
 use super::value::param_value;
 use super::{Target, declared, target_mut, target_ref, widget};
 use crate::error::{
-    DuplicateIdSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, ItemNotFoundSnafu, OpError, ParamTypeSnafu,
-    UnknownParamSnafu,
+    DuplicateIdSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, ItemNotFoundSnafu, ListBound, ListBoundSnafu, OpError,
+    ParamTypeSnafu, UnknownParamSnafu,
 };
 use crate::{Deck, Element, ListItem, ParamSchema, ParamType, ParamValue, Params, WidgetRegistry};
 
@@ -84,13 +84,17 @@ impl<'a> ListSpec<'a> {
         self.max.unwrap_or(LIST_ITEMS_MAX)
     }
 
+    fn refuse(&self, bound: ListBound, column: &str) -> OpError {
+        ListBoundSnafu { list: self.name, bound, column }.build().into()
+    }
+
     fn full(&self, len: usize) -> bool {
         len >= self.max_items()
     }
 
     fn too_many(&self, len: usize) -> Result<(), OpError> {
         if len > self.max_items() {
-            return Err(InvalidValueSnafu { field: self.name, reason: "the list has too many items" }.build().into());
+            return Err(self.refuse(ListBound::TooManyItems { max: self.max_items() }, ""));
         }
         Ok(())
     }
@@ -114,7 +118,7 @@ impl<'a> ListSpec<'a> {
             _ => false,
         };
         if too_long {
-            return Err(InvalidValueSnafu { field: self.name, reason: "a list cell is too long" }.build().into());
+            return Err(self.refuse(ListBound::CellTooLong, &c.name));
         }
         Ok(())
     }
@@ -165,7 +169,7 @@ fn check_id(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<(), OpE
 
 fn id_fits(spec: &ListSpec<'_>, id: &str) -> Result<(), OpError> {
     if id.chars().count() > ITEM_ID_MAX {
-        return Err(InvalidValueSnafu { field: spec.name, reason: "an item id is too long" }.build().into());
+        return Err(spec.refuse(ListBound::IdTooLong, ""));
     }
     Ok(())
 }
@@ -181,7 +185,7 @@ impl ListOp {
             ListOp::Insert { index, id, values } => {
                 check_id(spec, items, &id)?;
                 if spec.full(items.len()) {
-                    return Err(InvalidValueSnafu { field: spec.name, reason: "the list is full" }.build().into());
+                    return Err(spec.refuse(ListBound::Full { max: spec.max_items() }, ""));
                 }
                 let at = index.unwrap_or(items.len());
                 if at > items.len() {
@@ -193,9 +197,7 @@ impl ListOp {
             ListOp::Remove { item } => {
                 let i = position(spec, items, &item)?;
                 if items.len() <= spec.min {
-                    return Err(InvalidValueSnafu { field: spec.name, reason: "the list has its minimum of items" }
-                        .build()
-                        .into());
+                    return Err(spec.refuse(ListBound::Minimum { min: spec.min }, ""));
                 }
                 items.remove(i);
             }
@@ -290,7 +292,7 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         items.push(ListItem { id, values });
     }
     if items.len() < spec.min {
-        return Err(InvalidValueSnafu { field: spec.name, reason: "the list is outside its bounds" }.build().into());
+        return Err(spec.refuse(ListBound::Minimum { min: spec.min }, ""));
     }
     Ok(if items.is_empty() { None } else { Some(ParamValue::List(items)) })
 }

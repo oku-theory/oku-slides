@@ -161,9 +161,9 @@ fn set_param_outside_the_bounds_is_refused() {
     apply(&mut deck, add(json!({ "id": "f", "kind": "bornes" }))).unwrap();
     let too_many = json!([{ "id": "a" }, { "id": "b" }, { "id": "c" }]);
     let kind = apply_err(&mut deck, set_param(at("s-constat", "f"), "bornee", too_many));
-    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
     let kind = apply_err(&mut deck, set_param(at("s-constat", "f"), "bornee", json!([])));
-    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn set_param_with_a_cell_too_long_is_refused_and_keeps_the_deck() {
     apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap();
     let before = deck.clone();
     let kind = apply_err(&mut deck, set_param(at("s-constat", "f"), "etapes", long_steps()));
-    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -277,7 +277,7 @@ fn edit_list_set_field_too_long_is_refused_and_keeps_the_deck() {
     let before = deck.clone();
     let change = json!({ "op": "set_field", "item": "d0", "field": "date", "value": "x".repeat(4097) });
     let kind = apply_err(&mut deck, edit("f", "etapes", change));
-    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -287,7 +287,7 @@ fn edit_list_insert_with_an_id_too_long_is_refused_and_keeps_the_deck() {
     apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap();
     let before = deck.clone();
     let kind = apply_err(&mut deck, edit("f", "etapes", json!({ "op": "insert", "id": "i".repeat(65) })));
-    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -298,7 +298,7 @@ fn edit_list_insert_with_an_id_too_long_is_refused_and_keeps_the_deck() {
 fn inserting_a_list_beyond_its_size_bounds_is_refused_and_keeps_the_deck(#[case] op: Op) {
     let mut deck = fixture();
     let before = deck.clone();
-    assert_that!(apply_err(&mut deck, op)).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(apply_err(&mut deck, op)).is_equal_to(OpErrorKind::ListBound);
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -307,6 +307,60 @@ fn replace_element_with_a_list_beyond_its_size_bounds_is_refused() {
     let mut deck = fixture();
     apply(&mut deck, add(json!({ "id": "f", "kind": "liste" }))).unwrap();
     let before = deck.clone();
-    assert_that!(apply_err(&mut deck, replace(liste_with(long_steps())))).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(apply_err(&mut deck, replace(liste_with(long_steps())))).is_equal_to(OpErrorKind::ListBound);
     assert_that!(deck).is_equal_to(before);
+}
+
+fn bounded_deck() -> Deck {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "f", "kind": "liste" }))).unwrap_or_else(|e| panic!("{e}"));
+    let rows = json!([{ "id": "a" }, { "id": "b" }]);
+    let element = json!({ "id": "b", "kind": "bornes", "params": { "bornee": rows } });
+    apply(&mut deck, add(element)).unwrap_or_else(|e| panic!("{e}"));
+    let one = json!({ "id": "m", "kind": "bornes", "params": { "bornee": [{ "id": "a" }] } });
+    apply(&mut deck, add(one)).unwrap_or_else(|e| panic!("{e}"));
+    deck
+}
+
+#[rstest::rstest]
+#[case::full(
+    edit("b", "bornee", json!({ "op": "insert", "id": "c" })),
+    "La liste bornee est pleine (2 items au plus)",
+    "The list bornee is full (2 items at most)"
+)]
+#[case::minimum(
+    edit("m", "bornee", json!({ "op": "remove", "item": "a" })),
+    "La liste bornee doit garder au moins 1 items",
+    "The list bornee needs at least 1 items"
+)]
+#[case::minimum_by_set_param(
+    set_param(at("s-constat", "b"), "bornee", json!([])),
+    "La liste bornee doit garder au moins 1 items",
+    "The list bornee needs at least 1 items"
+)]
+#[case::cell_too_long(
+    edit("f", "etapes", json!({ "op": "set_field", "item": "d0", "field": "date", "value": "x".repeat(4097) })),
+    "Une cellule de la liste etapes est trop longue (colonne date)",
+    "A cell of the list etapes is too long (column date)"
+)]
+#[case::id_too_long(
+    edit("f", "etapes", json!({ "op": "insert", "id": "i".repeat(65) })),
+    "Un identifiant d'item de la liste etapes est trop long",
+    "An item id of the list etapes is too long"
+)]
+#[case::too_many_items(
+    set_param(at("s-constat", "f"), "etapes", json!((0..257).map(|i| json!({ "id": format!("i{i}") })).collect::<Vec<_>>())),
+    "La liste etapes a trop d'items (256 au plus)",
+    "The list etapes has too many items (256 at most)"
+)]
+fn list_bound_refusals_say_which_bound_in_french_and_english(#[case] op: Op, #[case] fr: &str, #[case] en: &str) {
+    use oku_slides_i18n::{Localize, Localizer};
+    let mut deck = bounded_deck();
+    let Err(err) = apply(&mut deck, op) else { panic!("l'op devait être refusée") };
+    let err = err.op_error();
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::ListBound);
+    // Les espaces insécables que Fluent isole autour des arguments sont retirés.
+    let say = |l: &str| err.localize(&Localizer::new(Some(l))).replace(['\u{2068}', '\u{2069}'], "");
+    assert_that!(say("fr")).is_equal_to(fr.to_owned());
+    assert_that!(say("en")).is_equal_to(en.to_owned());
 }

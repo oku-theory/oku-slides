@@ -73,8 +73,10 @@ describe("RichTextField", () => {
     const m = await editor();
     m.content.focus();
     await m.type("Un\nTrois");
-    const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
-    await m.key("Enter", mod);
+    // « Mod » dépend de la plateforme lue par CodeMirror à son premier chargement
+    // (Mac avant l'enregistrement happy-dom, autre après) : on tente les deux.
+    await m.key("Enter", { metaKey: true });
+    await m.key("Enter", { ctrlKey: true });
     expect(m.actions).toHaveLength(1);
   });
 
