@@ -1,6 +1,5 @@
 {
- "version": 3,
- "theme": "papier",
+ "version": 4,
  "params": {
   "title": "Aide d'Oku Slides",
   "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
@@ -247,7 +246,7 @@
            "bold": true
           },
           {
-           "t": " : Papier ou Pro, au menu. Il est indépendant de l'ensemble de modèles."
+           "t": " : Papier, Pro ou les vôtres, au menu. Il est indépendant de l'ensemble de modèles. En mode modèles, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
           }
          ],
          "list": "bullet"
@@ -2291,7 +2290,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 3, \"theme\": \"papier\","
+           "t": "  \"version\": 4,"
           }
          ]
         },

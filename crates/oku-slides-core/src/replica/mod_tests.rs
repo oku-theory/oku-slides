@@ -779,3 +779,42 @@ fn merge_of_concurrent_templates_keeps_one_whole_pack_ref() {
     let merged = a.deck().0.templates;
     assert_that!(merged == Some(only_version) || merged == Some(only_id)).is_true();
 }
+
+/// t-554 : la référence de thème est un atome, et un `null` posé dans
+/// `tokens` (« vider » une clé) survit à l'écriture et à la relecture.
+#[test]
+fn theme_ref_is_an_atom_and_tokens_keep_null() {
+    use crate::{PackVersion, ThemeRef};
+    let mut d = roadmap();
+    let version = PackVersion::from_hex(&"a".repeat(64)).unwrap();
+    d.theme = Some(ThemeRef { id: uuid::Uuid::from_u128(5), version });
+    d.tokens = json!({"component": {"header": {"left": null}}});
+    let r = DeckReplica::new(&d, registry()).unwrap();
+    assert_that!(r.deck().0).is_equal_to(&d);
+    let snap = r.snapshot().unwrap();
+    let back = DeckReplica::from_snapshot(&snap, 1 << 24, registry()).unwrap().0;
+    assert_that!(back.deck().0).is_equal_to(d);
+}
+
+/// Deux pairs changent chacun un champ différent du thème : la fusion garde
+/// une référence entière.
+#[test]
+fn merge_of_concurrent_themes_keeps_one_whole_theme_ref() {
+    use crate::{PackVersion, ThemeRef};
+    let v = |c: &str| PackVersion::from_hex(&c.repeat(64)).unwrap();
+    let (id1, id2) = (uuid::Uuid::from_u128(1), uuid::Uuid::from_u128(2));
+    let mut base = Deck::empty();
+    base.theme = Some(ThemeRef { id: id1, version: v("a") });
+    let (mut a, mut b) = peers(&base);
+    let only_version = ThemeRef { id: id1, version: v("b") };
+    let only_id = ThemeRef { id: id2, version: v("a") };
+    let mut da = base.clone();
+    da.theme = Some(only_version.clone());
+    a.apply(&da, "A", None).unwrap();
+    let mut db = base.clone();
+    db.theme = Some(only_id.clone());
+    b.apply(&db, "B", None).unwrap();
+    a.merge(&b).unwrap();
+    let merged = a.deck().0.theme;
+    assert_that!(merged == Some(only_version) || merged == Some(only_id)).is_true();
+}

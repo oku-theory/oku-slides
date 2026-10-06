@@ -5,7 +5,8 @@
 //! (`deck/`, `templates/`) tient dans un `deck.loro` (le replica : deck,
 //! identité et historique complet ; pas la pile d'annulation) et un
 //! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets,
-//! polices et packs (`<hex>.json`, `<hex>.<nom>.typ`), écrits une fois par nom.
+//! polices, packs (`<hex>.json`, `<hex>.<nom>.typ`) et thèmes (`themes/<hex>.json`),
+//! écrits une fois par nom.
 //!
 //! Un seul écrivain par dossier : la session de l'onglet. L'espace de travail
 //! (`workspace.rs`) écrit seul `workspace.json`, au-dessus.
@@ -24,6 +25,7 @@ use oku_slides_platform::storage::{Storage, StorageError};
 use crate::files::read_document;
 use crate::resume_writer::{Job, Writer};
 use crate::template_scratch::TemplateScratch;
+use crate::theme_edit::ThemeEdit;
 use crate::views::{TemplateMode, UiState};
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
@@ -71,28 +73,33 @@ pub(crate) struct State {
     pub mode: SavedMode,
     #[serde(default)]
     pub ui: UiState,
-    /// Thème de l'aide (`SavedMode::Help`), relu avec elle.
+    /// Id du thème de l'aide (`SavedMode::Help`), relu avec elle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub help_theme: Option<String>,
+    pub help_theme: Option<uuid::Uuid>,
+    /// Le thème édité (`SavedMode::Templates`) ; absent : celui du deck.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_edit: Option<ThemeEdit>,
 }
 
-/// Octets d'un document (images, polices, packs), partagés d'un envoi au
+/// Octets d'un document (images, polices, packs, thèmes), partagés d'un envoi au
 /// suivant tant qu'ils ne changent pas : une commande ne les recopie pas.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct Blobs {
     pub assets: BTreeMap<String, Vec<u8>>,
     pub fonts: BTreeMap<String, Vec<u8>>,
     pub packs: BTreeMap<PackVersion, PackFiles>,
+    pub themes: BTreeMap<PackVersion, PackFiles>,
 }
 
 impl Blobs {
-    /// Mêmes octets que `sources` ? Un asset ou un pack est nommé par son
+    /// Mêmes octets que `sources` ? Un asset, un pack ou un thème est nommé par son
     /// empreinte : ses clés suffisent. Une police est nommée par son
     /// fichier : ses octets comptent aussi.
     fn matches(&self, sources: &SourceBundle) -> bool {
         self.assets.keys().eq(sources.assets.keys())
             && self.fonts == sources.fonts
             && self.packs.keys().eq(sources.packs.keys())
+            && self.themes.keys().eq(sources.themes.keys())
     }
 }
 
@@ -136,6 +143,7 @@ impl DocSnapshot {
                     assets: sources.assets.clone(),
                     fonts: sources.fonts.clone(),
                     packs: sources.packs.clone(),
+                    themes: sources.themes.clone(),
                 });
                 // Deck et ensemble de modèles : deux documents au plus.
                 if cache.len() >= 2 {
@@ -300,6 +308,17 @@ impl Resume {
             keep_packs.extend(files.widgets().keys().map(|n| format!("{hex}.{}", n.file_name())));
         }
 
+        // Les thèmes aussi : `<hex>.json`, le `theme.json` de la version.
+        let themes_dir = dir.join("themes");
+        let mut keep_themes = BTreeSet::new();
+        for (version, files) in &doc.blobs.themes {
+            let json = themes_dir.join(format!("{}.json", version.hex()));
+            if !self.storage.exists(&json).context(AccessSnafu { path: &json })? {
+                self.put(&json, files.pack_json().context(JsonSnafu { path: &json })?)?;
+            }
+            keep_themes.insert(format!("{}.json", version.hex()));
+        }
+
         self.put(&dir.join("deck.loro"), doc.replica.clone())?;
         let path = dir.join("document.json");
         let bytes = serde_json::to_vec(&out).context(JsonSnafu { path: &path })?;
@@ -308,6 +327,7 @@ impl Resume {
         self.prune(&dir.join("assets"), &keep_assets)?;
         self.prune(&dir.join("fonts"), &keep_fonts)?;
         self.prune(&packs_dir, &keep_packs)?;
+        self.prune(&themes_dir, &keep_themes)?;
         Ok(())
     }
 
@@ -463,16 +483,25 @@ impl Resume {
                 .iter()
                 .filter_map(|(n, b)| WidgetFile::from_file_name(n.strip_prefix(&prefix)?).map(|w| (w, b.as_slice())));
             // Vérifiée par son empreinte : un pack altéré est ignoré.
-            let checked = PackVersion::from_hex(hex)
-                .and_then(|v| PackFiles::from_bytes(bytes, widgets).filter(|f| f.matches(&v)).map(|f| (v, f)));
-            match checked {
+            match PackFiles::verified(hex, bytes, widgets) {
                 Some((version, files)) => {
                     packs.insert(version, files);
                 }
                 None => tracing::warn!(version = hex, "pack de reprise altéré ignoré"),
             }
         }
-        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs);
+        let mut themes = BTreeMap::new();
+        for (name, bytes) in self.read_files(&dir.join("themes"))? {
+            let Some(hex) = name.strip_suffix(".json") else { continue };
+            // Vérifié par son empreinte : un thème altéré est ignoré.
+            match PackFiles::verified(hex, &bytes, []) {
+                Some((version, files)) => {
+                    themes.insert(version, files);
+                }
+                None => tracing::warn!(version = hex, "thème de reprise altéré ignoré"),
+            }
+        }
+        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes);
         for issue in &issues {
             tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
         }
@@ -590,7 +619,7 @@ impl Session {
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         let Some(state) = resume.read_state()? else { return Ok(()) };
         if let SavedMode::Help(locale) = &state.mode {
-            self.open_help(locale, state.help_theme.as_deref()).context(SessionSnafu)?;
+            self.open_help(locale, state.help_theme).context(SessionSnafu)?;
             self.ui = state.ui.sanitized(false);
             return Ok(());
         }
@@ -609,8 +638,19 @@ impl Session {
         };
         self.load_document(deck).context(SessionSnafu)?;
         if let Some((doc, edit)) = templates {
+            let theme = match state.theme_edit {
+                Some(theme) => theme,
+                None => self.initial_theme_edit().context(SessionSnafu)?.0,
+            };
             let stash = std::mem::replace(&mut self.doc, doc);
-            self.mode = Mode::Templates { stash: Box::new(stash), edit, scratch: TemplateScratch::default() };
+            self.mode = Mode::Templates {
+                stash: Box::new(stash),
+                edit,
+                scratch: TemplateScratch::default(),
+                theme,
+                switches: Vec::new(),
+            };
+            self.embed_theme_base();
             self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }
@@ -652,7 +692,8 @@ impl Session {
                 version: VERSION,
                 mode: SavedMode::Help(locale.to_owned()),
                 ui: self.ui.clone(),
-                help_theme: self.doc.sources.deck().theme.clone(),
+                help_theme: self.doc.sources.deck().theme.as_ref().map(|t| t.id),
+                theme_edit: None,
             };
             writer.send(Job { docs: Vec::new(), state });
             return;
@@ -660,10 +701,12 @@ impl Session {
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
         // onglet rouvert n'y revient pas), avec les images et polices prêtées
         // à l'aperçu.
-        let (deck, blobs, mode) = match &self.mode {
-            Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck),
-            Mode::Templates { stash, edit, .. } => (&**stash, &**stash, SavedMode::Templates(edit.clone())),
-            Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck),
+        let (deck, blobs, mode, theme_edit) = match &self.mode {
+            Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck, None),
+            Mode::Templates { stash, edit, theme, .. } => {
+                (&**stash, &**stash, SavedMode::Templates(edit.clone()), Some(theme.clone()))
+            }
+            Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck, None),
         };
         let mut docs = Vec::new();
         if documents {
@@ -680,7 +723,8 @@ impl Session {
                 }
             }
         }
-        writer.send(Job { docs, state: State { version: VERSION, mode, ui: self.ui.clone(), help_theme: None } });
+        let state = State { version: VERSION, mode, ui: self.ui.clone(), help_theme: None, theme_edit };
+        writer.send(Job { docs, state });
     }
 }
 

@@ -9,6 +9,9 @@ le même document compilé donne SVG, PNG et PDF.
 - `Renderer` (`lib.rs`) : garde un monde Typst vivant entre deux rendus (compilation
   incrémentale). `render`/`set_deck` compilent le deck ; `set_widgets` charge les widgets de
   base surchargés par un `PackWidgets` ; `set_language` change la langue des cadres de repli.
+  `set_theme` pose les jetons du thème, résolus par la session (servis sous `/theme.json`,
+  passés à `render-deck(…, theme:)`) : le rendu ne lit pas `deck.theme`, ni de bibliothèque de
+  thèmes ; sans thème, les jetons par défaut.
   Les graphiques sont redessinés avant Typst si la palette du thème compilé diffère de celle
   utilisée pour les dessiner (un second passage).
 - `Compiled` (`lib.rs`) : un document compilé — `svg`/`png`/`pdf`, `page_hash` (clé de cache),
@@ -31,7 +34,7 @@ le même document compilé donne SVG, PNG et PDF.
   `RenderError`/`RegistryError`, pour le tube du travailleur ; `Layout` est aussi sérialisable ; `Fonts::files` expose
   les octets des polices pour les empreintes et le rejeu.
 - `OkuSlidesWorld` (`world.rs`, privé) : système de fichiers virtuel (bibliothèque embarquée,
-  deck, assets, pack) et polices (`Fonts`, `fonts.rs`) sans police système.
+  avec ses données JSON `src/default-tokens.json` et `themes/*.json` ; deck, thème, assets, pack) et polices (`Fonts`, `fonts.rs`) sans police système.
 - `charts` (privé) : élément à `host("chart")` → SVG rendu par `oku-slides-chart`, servi sous
   `/charts/<empreinte>.svg` ; l'empreinte couvre options, taille, police, palette, libellés.
   Dessiné à la taille de sa boîte (relevée à la compilation hors cadre), jamais mis à l'échelle.

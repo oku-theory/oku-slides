@@ -10,14 +10,14 @@ fn from_json_version_1_deck_returns_an_error() {
 
 #[test]
 fn from_json_newer_version_returns_an_error() {
-    assert_that!(Deck::from_json(r#"{"version": 4, "slides": []}"#)).is_err();
+    assert_that!(Deck::from_json(r#"{"version": 5, "slides": []}"#)).is_err();
 }
 
 const REF: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#;
 
 #[test]
 fn deck_from_json_reads_templates_as_a_pack_ref() {
-    let deck = Deck::from_json(&format!(r#"{{"version":3,"templates":{REF},"slides":[]}}"#)).unwrap();
+    let deck = Deck::from_json(&format!(r#"{{"version":4,"templates":{REF},"slides":[]}}"#)).unwrap();
     let r = deck.templates.unwrap();
     assert_that!(r.id.to_string()).is_equal_to("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10".to_owned());
     assert_that!(r.version.hex()).is_equal_to(&*"a".repeat(64));
@@ -25,7 +25,25 @@ fn deck_from_json_reads_templates_as_a_pack_ref() {
 
 #[test]
 fn deck_from_json_with_a_slug_templates_is_refused() {
-    assert_that!(Deck::from_json(r#"{"version":3,"templates":"essentiel","slides":[]}"#).is_err()).is_true();
+    assert_that!(Deck::from_json(r#"{"version":4,"templates":"essentiel","slides":[]}"#).is_err()).is_true();
+}
+
+#[test]
+fn deck_from_json_reads_theme_as_a_theme_ref() {
+    let deck = Deck::from_json(&format!(r#"{{"version":4,"theme":{REF},"slides":[]}}"#)).unwrap();
+    let r = deck.theme.unwrap();
+    assert_that!(r.id.to_string()).is_equal_to("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10".to_owned());
+    assert_that!(r.version.hex()).is_equal_to(&*"a".repeat(64));
+}
+
+#[test]
+fn deck_from_json_with_a_theme_name_is_refused() {
+    assert_that!(Deck::from_json(r#"{"version":4,"theme":"papier","slides":[]}"#).is_err()).is_true();
+}
+
+#[test]
+fn deck_from_json_version_3_is_refused() {
+    assert_that!(Deck::from_json(r#"{"version":3,"slides":[]}"#).is_err()).is_true();
 }
 
 #[test]
@@ -35,7 +53,7 @@ fn deck_from_json_version_2_is_refused() {
 
 #[test]
 fn from_json_current_version_reads_the_deck() {
-    let deck = Deck::from_json(r#"{"version": 3, "slides": [{"id": "s", "kind": "content"}]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version": 4, "slides": [{"id": "s", "kind": "content"}]}"#).unwrap();
     assert_that!(deck.slides.len()).is_equal_to(1);
 }
 

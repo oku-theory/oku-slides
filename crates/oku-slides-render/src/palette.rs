@@ -1,15 +1,17 @@
 //! Couleurs des jetons résolus par Typst : suivre un nom de couleur jusqu'à
 //! son hex, et lire la palette des graphiques (`chart.palette`).
 
+use oku_slides_core::is_hex_color;
 use serde_json::{Map, Value};
 
-/// Couleur : hex, ou nom d'une couleur du thème (références suivies, huit
-/// au plus : une boucle ne donne rien).
+/// Couleur : hex (`#rgb`, `#rrggbb`, `#rrggbbaa`), ou nom d'une couleur du
+/// thème (références suivies, huit au plus : une boucle ne donne rien). Une
+/// chaîne en `#` qui n'est pas un hex valide ne donne rien (t-194).
 pub fn resolve_color(colors: &Map<String, Value>, v: &Value) -> Option<String> {
     let mut v = v.as_str()?;
     for _ in 0..8 {
         if v.starts_with('#') {
-            return Some(v.to_ascii_lowercase());
+            return is_hex_color(v).then(|| v.to_ascii_lowercase());
         }
         v = colors.get(v)?.as_str()?;
     }
@@ -17,16 +19,18 @@ pub fn resolve_color(colors: &Map<String, Value>, v: &Value) -> Option<String> {
 }
 
 /// Palette des graphiques des jetons, en `#rgb` ou `#rrggbb` minuscules ;
-/// une entrée qui ne se résout pas en couleur est ignorée.
+/// une entrée qui ne se résout pas en couleur opaque est ignorée.
 pub fn chart_palette(tokens: &Value) -> Vec<String> {
     let empty = Map::new();
     let colors = tokens.get("color").and_then(Value::as_object).unwrap_or(&empty);
     let Some(entries) = tokens.pointer("/chart/palette").and_then(Value::as_array) else { return Vec::new() };
-    entries.iter().filter_map(|e| resolve_color(colors, e)).filter(|c| is_hex(c)).collect()
+    entries.iter().filter_map(|e| resolve_color(colors, e)).filter(|c| c.len() != 9).collect()
 }
 
-fn is_hex(c: &str) -> bool {
-    c.strip_prefix('#').is_some_and(|h| matches!(h.len(), 3 | 6) && h.chars().all(|ch| ch.is_ascii_hexdigit()))
+/// Première famille de `font.body` des jetons ; `None` si absente ou vide.
+pub(crate) fn body_font(tokens: &Value) -> Option<String> {
+    let first = tokens.pointer("/font/body")?.as_array()?.first()?.as_str()?.trim();
+    (!first.is_empty()).then(|| first.to_owned())
 }
 
 #[cfg(test)]

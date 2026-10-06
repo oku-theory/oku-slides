@@ -26,9 +26,9 @@ const TABS = [
 async function mount(over: Record<string, unknown> = {}) {
   const props = {
     tabs: TABS,
-    active: null as number | null,
+    active: null as number | "theme" | null,
     unsaved: new Set<string>(),
-    onActivate: mock((_id: number | null) => {}),
+    onActivate: mock((_id: number | "theme" | null) => {}),
     onClose: mock((_id: number) => {}),
     ...over,
   };
@@ -51,18 +51,46 @@ const press = (el: HTMLElement, key: string) =>
   });
 
 describe("TemplateTabs", () => {
-  test("Modèles en premier, puis les widgets, Commun libellé « Commun »", async () => {
+  test("Modèles en premier, puis Thème, puis les widgets, Commun libellé « Commun »", async () => {
     const { host } = await mount();
     const all = tabs(host);
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(4);
     expect(all[0].id).toBe("widget-tab-0");
-    expect(all[1].textContent).toContain(widgetLabel("_commun"));
-    expect(all[2].textContent).toContain("titre");
+    expect(all[1].id).toBe("widget-tab-theme");
+    expect(all[2].textContent).toContain(widgetLabel("_commun"));
+    expect(all[3].textContent).toContain("titre");
+  });
+
+  test("clic sur Thème : onActivate(\"theme\") ; Thème n'a pas de ×", async () => {
+    const { host, props } = await mount();
+    await act(async () => tabs(host)[1].click());
+    expect(props.onActivate).toHaveBeenLastCalledWith("theme");
+    expect(tabs(host)[1].closest(".template-tab-slot")).toBeNull();
+  });
+
+  test("TemplateTabs ArrowRight from Templates activates Theme tab", async () => {
+    const { host, props } = await mount();
+    await press(tabs(host)[0], "ArrowRight");
+    expect(props.onActivate).toHaveBeenLastCalledWith("theme");
+    expect(document.activeElement).toBe(tabs(host)[1]);
+    await press(tabs(host)[1], "ArrowRight");
+    expect(props.onActivate).toHaveBeenLastCalledWith(1);
+    await press(tabs(host)[2], "ArrowLeft");
+    expect(props.onActivate).toHaveBeenLastCalledWith("theme");
+  });
+
+  test("Thème actif : aria-selected, tabIndex 0 ; Suppr sur Thème ne ferme rien", async () => {
+    const { host, props } = await mount({ active: "theme" });
+    const all = tabs(host);
+    expect(all.map((el) => el.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false"]);
+    expect(all[1].tabIndex).toBe(0);
+    await press(all[1], "Delete");
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   test("clic : onActivate(id) ; clic sur Modèles : onActivate(null)", async () => {
     const { host, props } = await mount({ active: 1 });
-    await act(async () => tabs(host)[2].click());
+    await act(async () => tabs(host)[3].click());
     expect(props.onActivate).toHaveBeenLastCalledWith(2);
     await act(async () => tabs(host)[0].click());
     expect(props.onActivate).toHaveBeenLastCalledWith(null);
@@ -78,7 +106,7 @@ describe("TemplateTabs", () => {
   test("clic du milieu (auxclick, button 1) : onClose(id)", async () => {
     const { host, props } = await mount();
     await act(async () => {
-      tabs(host)[1].dispatchEvent(new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true }));
+      tabs(host)[2].dispatchEvent(new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true }));
     });
     expect(props.onClose).toHaveBeenCalledWith(1);
   });
@@ -86,27 +114,26 @@ describe("TemplateTabs", () => {
   test("aria-selected et tabIndex 0 sur l'actif seulement ; Modèles n'a pas de ×", async () => {
     const { host } = await mount({ active: 2 });
     const all = tabs(host);
-    expect(all.map((el) => el.getAttribute("aria-selected"))).toEqual(["false", "false", "true"]);
-    expect(all.map((el) => el.tabIndex)).toEqual([-1, -1, 0]);
+    expect(all.map((el) => el.getAttribute("aria-selected"))).toEqual(["false", "false", "false", "true"]);
+    expect(all.map((el) => el.tabIndex)).toEqual([-1, -1, -1, 0]);
     expect(host.querySelectorAll(".template-tab-slot button[aria-hidden]")).toHaveLength(2);
     expect(all[0].closest(".template-tab-slot")).toBeNull();
   });
 
-  test("→ depuis Modèles active le premier widget ; ← depuis le premier revient à Modèles", async () => {
+  test("← depuis Thème revient à Modèles ; ← depuis Modèles va au dernier widget", async () => {
     const { host, props } = await mount();
-    await press(tabs(host)[0], "ArrowRight");
-    expect(props.onActivate).toHaveBeenLastCalledWith(1);
-    expect(document.activeElement).toBe(tabs(host)[1]);
     await press(tabs(host)[1], "ArrowLeft");
     expect(props.onActivate).toHaveBeenLastCalledWith(null);
     expect(document.activeElement).toBe(tabs(host)[0]);
+    await press(tabs(host)[0], "ArrowLeft");
+    expect(props.onActivate).toHaveBeenLastCalledWith(2);
   });
 
   test("Suppr sur un onglet widget : onClose(id) ; sur Modèles : rien", async () => {
     const { host, props } = await mount();
     await press(tabs(host)[0], "Delete");
     expect(props.onClose).not.toHaveBeenCalled();
-    await press(tabs(host)[2], "Delete");
+    await press(tabs(host)[3], "Delete");
     expect(props.onClose).toHaveBeenCalledWith(2);
   });
 
@@ -117,7 +144,7 @@ describe("TemplateTabs", () => {
     window.addEventListener("keydown", l);
     try {
       for (const key of ["Delete", "ArrowRight", "ArrowLeft", "End", "Home"]) await press(tabs(host)[0], key);
-      await press(tabs(host)[2], "Delete");
+      await press(tabs(host)[3], "Delete");
     } finally {
       window.removeEventListener("keydown", l);
     }
@@ -128,7 +155,7 @@ describe("TemplateTabs", () => {
     const { host, props } = await mount();
     await press(tabs(host)[0], "Backspace");
     expect(props.onClose).not.toHaveBeenCalled();
-    await press(tabs(host)[2], "Backspace");
+    await press(tabs(host)[3], "Backspace");
     expect(props.onClose).toHaveBeenCalledWith(2);
   });
 
@@ -162,14 +189,15 @@ describe("TemplateTabs", () => {
     const { host } = await mount();
     const all = tabs(host);
     expect(all[0].getAttribute("aria-controls")).toBe("templates-panel");
-    expect(all[1].getAttribute("aria-controls")).toBe("widget-panel-1");
-    expect(all[2].getAttribute("aria-controls")).toBe("widget-panel-2");
+    expect(all[1].getAttribute("aria-controls")).toBe("theme-panel");
+    expect(all[2].getAttribute("aria-controls")).toBe("widget-panel-1");
+    expect(all[3].getAttribute("aria-controls")).toBe("widget-panel-2");
   });
 
   test("marque non enregistré sur le libellé (.unsaved-dot)", async () => {
     const { host } = await mount({ unsaved: new Set(["titre"]) });
     const all = tabs(host);
-    expect(all[2].querySelector(".unsaved-dot")).not.toBeNull();
-    expect(all[1].querySelector(".unsaved-dot")).toBeNull();
+    expect(all[3].querySelector(".unsaved-dot")).not.toBeNull();
+    expect(all[2].querySelector(".unsaved-dot")).toBeNull();
   });
 });

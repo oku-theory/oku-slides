@@ -31,6 +31,7 @@ use oku_slides_i18n::Localize;
 use oku_slides_render::{FileProbe, PackWidgets, RenderError};
 use oku_slides_render_worker::RemoteCompiled;
 
+use crate::deck_theme::render_themed;
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
 use crate::pack::{DEFAULT_PACK, PackManifest};
 use crate::{Result, Session, charts};
@@ -183,6 +184,10 @@ impl Session {
     /// peut ajouter un de ses widgets. Le dernier `set_templates` l'emporte,
     /// comme dans le deck obtenu. En cas d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+        // En mode modèles, choisir un thème fait partir le brouillon de ce thème.
+        if let Some(id) = self.drafted_theme_choice(&ops) {
+            return self.set_edited_theme(id);
+        }
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         self.ensure_editable()?;
@@ -193,6 +198,8 @@ impl Session {
                 *t = Some(PackRef { id: DEFAULT_PACK, version });
             }
         }
+        self.check_token_ops(&ops)?;
+        self.embed_op_themes(&mut ops)?;
         let templates = ops.iter().rev().find_map(|op| match op {
             Op::SetTemplates { templates } => Some(templates.clone()),
             _ => None,
@@ -252,14 +259,15 @@ impl Session {
     /// base les remplacent (voir `fall_back_to_base`) et le rendu est refait une fois.
     pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
         self.probe_remaining();
-        let e = match self.renderer.render(deck, &self.doc.sources.assets) {
+        let tokens = self.theme_tokens(deck);
+        let e = match render_themed(&mut self.renderer, deck, tokens.as_ref(), &self.doc.sources.assets) {
             Ok(compiled) => return Ok(compiled),
             Err(e) => e,
         };
         if !self.fall_back_to_base(&e)? {
             return Err(e).context(RenderSnafu)?;
         }
-        Ok(self.renderer.render(deck, &self.doc.sources.assets).context(RenderSnafu)?)
+        Ok(render_themed(&mut self.renderer, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?)
     }
 
     /// Repli : si `e` est un échec borné et le pack installé fautif, les

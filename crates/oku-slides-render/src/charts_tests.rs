@@ -46,7 +46,7 @@ fn svg(charts: &Charts, key: &str) -> String {
 fn attach_nested_chart_renders_its_svg() {
     let mut charts = Charts::default();
     let mut d = deck(bars(), None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     let k = key(&d).unwrap();
     let svg = svg(&charts, &k);
     assert_that!(svg).starts_with("<svg");
@@ -57,9 +57,9 @@ fn attach_nested_chart_renders_its_svg() {
 fn attach_same_chart_twice_keeps_one_file_and_key() {
     let mut charts = Charts::default();
     let mut a = deck(bars(), None);
-    charts.attach(&mut a, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut a, &Fonts::default(), &registry()).unwrap();
     let mut b = deck(bars(), None);
-    charts.attach(&mut b, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut b, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&a)).is_equal_to(key(&b));
     assert_that!(charts.files.len()).is_equal_to(1);
 }
@@ -68,9 +68,9 @@ fn attach_same_chart_twice_keeps_one_file_and_key() {
 fn attach_frame_size_changes_the_key_and_drops_the_old_file() {
     let mut charts = Charts::default();
     let mut small = deck(bars(), Some(json!({ "x": 0, "y": 0, "w": 400, "h": 300 })));
-    charts.attach(&mut small, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut small, &Fonts::default(), &registry()).unwrap();
     let mut large = deck(bars(), Some(json!({ "x": 0, "y": 0, "w": 900, "h": 500 })));
-    charts.attach(&mut large, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut large, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&small)).is_not_equal_to(key(&large));
     assert_that!(charts.files.len()).is_equal_to(1);
     assert_that!(svg(&charts, &key(&large).unwrap())).contains("width=\"900\"");
@@ -80,7 +80,7 @@ fn attach_frame_size_changes_the_key_and_drops_the_old_file() {
 fn attach_unreadable_option_leaves_no_key() {
     let mut charts = Charts::default();
     let mut d = deck(json!({ "series": "pas une liste" }), None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&d)).is_none();
     assert_that!(charts.files.len()).is_equal_to(0);
 }
@@ -94,7 +94,7 @@ fn set_labels_names_unnamed_series_in_the_user_language() {
     let mut charts = Charts::default();
     charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))));
     let mut d = deck(inline, None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(svg(&charts, &key(&d).unwrap())).contains("Série 2");
 }
 
@@ -102,10 +102,10 @@ fn set_labels_names_unnamed_series_in_the_user_language() {
 fn set_labels_then_attach_redraws_with_new_key() {
     let mut charts = Charts::default();
     let mut d = deck(bars(), None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     let english = key(&d);
     charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))));
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&d)).is_not_equal_to(english);
     assert_that!(charts.files.len()).is_equal_to(1);
 }
@@ -115,7 +115,7 @@ fn attach_after_set_palette_draws_with_that_palette() {
     let mut charts = Charts::default();
     charts.set_palette(vec!["#123456".into()]);
     let mut d = deck(bars(), None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     let svg = svg(&charts, &key(&d).unwrap()).to_lowercase();
     assert_that!(svg.contains("#123456") || svg.contains("rgb(18,52,86")).is_true();
 }
@@ -124,11 +124,11 @@ fn attach_after_set_palette_draws_with_that_palette() {
 fn set_palette_changes_the_key_and_reports_the_change() {
     let mut charts = Charts::default();
     let mut a = deck(bars(), None);
-    charts.attach(&mut a, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut a, &Fonts::default(), &registry()).unwrap();
     assert_that!(charts.set_palette(vec!["#123456".into()])).is_true();
     assert_that!(charts.set_palette(vec!["#123456".into()])).is_false();
     let mut b = deck(bars(), None);
-    charts.attach(&mut b, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut b, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&a)).is_not_equal_to(key(&b));
 }
 
@@ -137,7 +137,7 @@ fn attach_element_without_a_chart_param_gets_no_key() {
     let mut charts = Charts::default();
     let mut d = deck(bars(), None);
     d["slides"][0]["params"]["blocks"][0]["params"]["children"][0]["kind"] = json!("text");
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&d)).is_none();
     assert_that!(charts.files.len()).is_equal_to(0);
 }
@@ -150,8 +150,28 @@ fn attach_pack_widget_with_a_host_chart_param_renders_it() {
     let mut d = json!({ "slides": [{ "id": "s", "kind": "blank", "params": {
         "elements": [{ "id": "k", "kind": "kpi", "params": { "data": bars() } }] } }] });
     let mut charts = Charts::default();
-    charts.attach(&mut d, None, &Fonts::default(), &reg).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &reg).unwrap();
     assert_that!(d["slides"][0]["params"]["elements"][0][SVG_FIELD].as_str()).is_some();
+}
+
+#[test]
+fn attach_with_theme_font_draws_the_chart_in_that_font() {
+    let mut charts = Charts::default();
+    assert_that!(charts.set_font(Some("Inter".into()))).is_true();
+    let inter = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts/inter-400.ttf")).unwrap();
+    let mut d = deck(bars(), None);
+    charts.attach(&mut d, &Fonts::new([inter]), &registry()).unwrap();
+    let svg = svg(&charts, &key(&d).unwrap());
+    assert_that!(svg.contains("Inter")).is_true();
+}
+
+#[test]
+fn attach_without_theme_font_uses_libertinus() {
+    let mut charts = Charts::default();
+    let mut d = deck(bars(), None);
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
+    let svg = svg(&charts, &key(&d).unwrap());
+    assert_that!(svg.contains("Libertinus Serif")).is_true();
 }
 
 #[test]
@@ -174,7 +194,7 @@ fn attach_after_set_text_sizes_draws_axes_and_legend_at_the_body_size() {
     let mut option = bars();
     option["title"] = json!({ "text": "Ventes" });
     let mut d = deck(option, None);
-    charts.attach(&mut d, None, &Fonts::default(), &registry()).unwrap();
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     let svg = svg(&charts, &key(&d).unwrap());
     assert_that!(svg).contains("font-size=\"40\"");
     assert_that!(svg).contains("font-size=\"32\"");

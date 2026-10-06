@@ -141,14 +141,14 @@ fn paragraphs_to_text_bold_run_and_bullet_gives_markdown_lines() {
 fn snapshot_appearance_follows_theme_and_deck_overrides() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let papier = s.snapshot().appearance;
+    let papier = s.snapshot().appearance.clone();
     assert_that!(papier.scheme.as_str()).is_equal_to("light");
     assert_that!(papier.slide["accent"].as_str()).is_equal_to("#3f6b5e");
     assert_that!(papier.app["desk"].as_str()).is_equal_to("#ece8e0");
     asserting("les références par nom sont résolues").that(&papier.app["ink"].as_str()).is_equal_to("#2e2b26");
     assert_that!(papier.font_display.first().map(String::as_str)).is_equal_to(Some("Newsreader"));
 
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     let pro = s.snapshot().appearance;
     assert_that!(pro.scheme.as_str()).is_equal_to("light");
     assert_that!(pro.app["desk"].as_str()).is_equal_to("#e1e5ea");
@@ -169,19 +169,15 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     assert_that!(pro.metrics["radius-lg"]).is_close_to(16.0, f64::EPSILON);
     assert_that!(pro.metrics["elevation"]).is_close_to(1.5, f64::EPSILON);
 
-    // Sans thème, l'interface dérive ses couleurs : aucune couleur d'app imposée.
-    s.apply("Sans thème", vec![Op::SetTheme { theme: None }], None).unwrap();
-    let plain = s.snapshot().appearance;
-    assert_that!(plain.app.is_empty()).is_true();
-    asserting("les formes par défaut restent définies")
-        .that(&plain.metrics["radius-md"])
-        .is_close_to(12.0, f64::EPSILON);
+    // `set_theme` à `null` : le thème par défaut, dans sa version courante.
+    s.apply("Thème par défaut", vec![Op::SetTheme { theme: None }], None).unwrap();
+    assert_that!(s.snapshot().appearance).is_equal_to(&papier);
 
     // Une surcharge du deck l'emporte sur le thème, pour les slides comme pour l'app.
     s.apply(
         "Accent",
         vec![
-            Op::SetTheme { theme: Some("pro".into()) },
+            Op::SetTheme { theme: common::theme_ref("pro") },
             Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
             Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
         ],
@@ -207,7 +203,7 @@ fn templates_view_renders_previews_in_deck_theme() {
     assert_that!(papier.iter().all(|t| t.svg.starts_with("<svg"))).is_true();
     assert_that!(papier.iter().any(|t| t.template.id == "cartes")).is_true();
 
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     let pro = s.templates_view(None).unwrap().templates;
     asserting("l'aperçu suit le thème").that(&papier[0].svg).is_not_equal_to(&pro[0].svg);
 
@@ -230,8 +226,8 @@ fn edit_builtin_templates_then_save_as_copy_creates_a_new_pack_and_close_restore
 
     s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     let snap = s.snapshot();
-    assert_that!(snap.editing.unwrap().set).is_equal_to(oku_slides_session::GRID_PACK);
-    assert_that!(snap.editing.unwrap().builtin).is_true();
+    assert_that!(snap.editing.as_ref().unwrap().set).is_equal_to(oku_slides_session::GRID_PACK);
+    assert_that!(snap.editing.as_ref().unwrap().builtin).is_true();
     let first = snap.slides[0].id.to_owned();
     s.apply(
         "Renommer",
@@ -244,7 +240,7 @@ fn edit_builtin_templates_then_save_as_copy_creates_a_new_pack_and_close_restore
     .unwrap();
     // Comme copie : un nouveau pack, sur lequel l'édition continue.
     s.save_templates(true).unwrap();
-    let mode = s.snapshot().editing.cloned().unwrap();
+    let mode = s.snapshot().editing.map(|e| e.mode.clone()).unwrap();
     assert_that!(mode.builtin).is_false();
     assert_that!(mode.set).is_not_equal_to(oku_slides_session::GRID_PACK);
     assert_that!(mode.name.ends_with("(copie)")).is_true();
@@ -272,7 +268,7 @@ fn edit_templates_switching_set_keeps_deck_and_history_aside() {
     s.edit_templates(oku_slides_session::GRID_PACK).unwrap();
     s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     let snap = s.snapshot();
-    assert_that!(snap.editing.unwrap().set).is_equal_to(oku_slides_session::DEFAULT_PACK);
+    assert_that!(snap.editing.as_ref().unwrap().set).is_equal_to(oku_slides_session::DEFAULT_PACK);
     asserting("l'édition des modèles a son propre historique").that(&snap.can_undo).is_false();
 
     s.close_templates().unwrap();
@@ -299,11 +295,19 @@ fn errors_localize_in_the_configured_language() {
 #[test]
 fn appearance_carries_the_chart_palette_of_the_deck_theme() {
     let mut s = session();
-    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()], None)
-        .unwrap();
+    s.apply(
+        "Thème",
+        vec![serde_json::from_value(json!({ "op": "set_theme", "theme": common::theme_ref("papier") })).unwrap()],
+        None,
+    )
+    .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#3f6b5e"));
-    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "pro" })).unwrap()], None)
-        .unwrap();
+    s.apply(
+        "Thème",
+        vec![serde_json::from_value(json!({ "op": "set_theme", "theme": common::theme_ref("pro") })).unwrap()],
+        None,
+    )
+    .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#0072b0"));
 }
 
@@ -412,7 +416,7 @@ fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
     before["undo_label"] = json!(null);
     assert_that!(snapshot_json(&mut b)).is_equal_to(&before);
     b.undo().unwrap();
-    assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(b.deck().theme.as_ref().and_then(common::theme_name)).is_equal_to(Some("pro"));
 }
 
 #[test]
@@ -426,7 +430,7 @@ fn resume_while_editing_templates_restores_mode_and_stashed_deck() {
     assert_that!(snapshot_json(&mut b)["editing"]["set"]).is_equal_to(json!(oku_slides_session::DEFAULT_PACK));
     b.handle(req(json!({"cmd": "close_templates"}))).unwrap();
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
 }
 
@@ -440,11 +444,11 @@ fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     // Un autre lancement (sans reprise) change le fichier.
     let mut other = session();
     other.open(&file).unwrap();
-    other.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    other.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     other.save(Some(&file)).unwrap();
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["can_undo"]).is_equal_to(json!(false));
 }
 
@@ -688,7 +692,7 @@ fn resume_with_unreadable_templates_returns_to_the_deck_without_loss() {
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
     assert_that!(snap["editing"]).is_equal_to(json!(null));
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
 }
 
@@ -754,7 +758,7 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
     std::fs::remove_file(&file).unwrap();
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
     assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
 }
@@ -763,11 +767,11 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
 fn appearance_carries_the_dark_interface_palette_of_papier_and_pro() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let papier = s.snapshot().appearance;
+    let papier = s.snapshot().appearance.clone();
     asserting("papier : table sombre")
         .that(&papier.variants["dark"].get("desk").map(String::as_str))
         .is_equal_to(Some("#1f1d1a"));
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     let pro = s.snapshot().appearance;
     asserting("pro : table navy")
         .that(&pro.variants["dark"].get("desk").map(String::as_str))
@@ -891,7 +895,7 @@ fn host_settings_of_a_template_with_blocks_has_no_grid_fields() {
     }] });
     let files = oku_slides_core::PackFiles::from_bytes(pack.to_string().as_bytes(), []).unwrap();
     let library =
-        oku_slides_session::Library::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
+        oku_slides_session::PackLibrary::new(Some(dir.to_path_buf()), oku_slides_session::Storage::local().unwrap());
     library.add_version(id, &files).unwrap();
     let mut s = session();
     s.set_templates_dir(&*dir);

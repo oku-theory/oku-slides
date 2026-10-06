@@ -33,6 +33,33 @@ async fn deck_outline_lists_slides_with_titles() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn deck_outline_names_the_deck_theme_and_lists_the_themes() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let outline = json_of(&call(&c, "deck_outline", serde_json::json!({})).await);
+    let papier = oku_slides_session::PAPIER_THEME.to_string();
+    assert_that!(outline["theme"]).is_equal_to(serde_json::json!({ "id": papier, "name": "Papier" }));
+    let names: Vec<&str> = outline["themes"].as_array().unwrap().iter().filter_map(|t| t["name"].as_str()).collect();
+    assert_that!(names).is_equal_to(vec!["Papier", "Pro"]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn agent_sets_pro_with_only_what_deck_outline_returns() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let outline = json_of(&call(&c, "deck_outline", serde_json::json!({})).await);
+    let pro = outline["themes"].as_array().unwrap().iter().find(|t| t["name"] == "Pro").unwrap().clone();
+    let theme = serde_json::json!({ "id": pro["id"], "version": pro["version"] });
+    let r = call(&c, "apply", serde_json::json!({ "ops": [{ "op": "set_theme", "theme": theme }] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let s = h.session.lock().unwrap();
+    let r = s.deck().theme.clone().unwrap();
+    assert_that!(r.id).is_equal_to(oku_slides_session::PRO_THEME);
+    assert_that!(Some(r.version.as_str())).is_equal_to(pro["version"].as_str());
+    assert_that!(s.sources_for_tests().themes.contains_key(&r.version)).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn render_slide_returns_png_image() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();

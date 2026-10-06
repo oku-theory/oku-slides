@@ -54,9 +54,6 @@ pub use widget_probe::{FileProbe, PROBE_PACK, assemble, probe_file, probe_key};
 pub use wire::WireError;
 use world::OkuSlidesWorld;
 
-/// Thèmes fournis par la bibliothèque Typst.
-pub const THEMES: &[&str] = &["papier", "pro"];
-
 /// Boîte réelle d'un élément, en pt, mesurée par Typst.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ElementBox {
@@ -226,11 +223,19 @@ impl Renderer {
         self.world.set_deck(deck, assets, &self.registry)
     }
 
+    /// Jetons du thème des rendus suivants (`None` : jetons par défaut). Ils
+    /// remplacent `deck.theme`, que le rendu ne lit plus ; les graphiques du
+    /// deck courant sont redessinés.
+    pub fn set_theme(&mut self, tokens: Option<serde_json::Map<String, Json>>) -> Result<(), RenderError> {
+        self.world.set_theme(tokens, &self.registry)
+    }
+
     /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette,
-    /// les tailles de texte et de boîte de la compilation précédente : si les
-    /// jetons compilés en donnent d'autres (thème changé, jetons surchargés) ou si la boîte
-    /// d'un graphique a une autre taille (graphique dans le flux ou sur une
-    /// cellule), ils sont redessinés et le deck recompilé une fois.
+    /// la police, les tailles de texte et de boîte de la compilation
+    /// précédente : si les jetons compilés en donnent d'autres (thème changé,
+    /// jetons surchargés) ou si la boîte d'un graphique a une autre taille
+    /// (graphique dans le flux ou sur une cellule), ils sont redessinés et le
+    /// deck recompilé une fois.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<Compiled, RenderError> {
         self.set_deck(deck, assets)?;
         let compiled = self.compile()?;

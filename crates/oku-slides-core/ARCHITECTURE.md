@@ -25,10 +25,16 @@ sources. Aucune dépendance à Typst ni à Tauri.
   Modules : `schema`, `read`/`write` (clés triées), `rich`, `undo`, `authors`, `history`.
 - `PackVersion`/`PackRef`/`PackFiles`/`WidgetFile` (`pack.rs`) : version adressée par contenu
   (sha-256 de `pack.json` à clés triées, `0`, puis nom, `0`, source, `0` par fichier de widget).
+  `ThemeRef` (`Deck.theme`, atome du replica) : une version de thème est un `PackFiles` sans
+  widget dont le manifeste est `theme.json` ; `SetTheme` change la seule référence (`null` : thème
+  par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),
+  `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
   `validate`, `locate`) ; `new` refuse un deck trop profond, `merge` et `restore` passent `validate`.
-  Zip v5 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` en ajout
-  seul, vérifiés à la lecture (`issue-pack-version-mismatch`), nom invalide → `BadName`, unis à la fusion.
+  Zip v6 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
+  `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
+  (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
+  `issue-*-version-missing`), nom invalide → `BadName`, unis à la fusion.
 - `validate` (`validate.rs`) : cohérence du deck contre le `WidgetRegistry` ; signale plutôt qu'il n'échoue.
 - `Slide::text_fields` (`fields.rs`) : champs texte ; `locate` (`locate.rs`) : chemin d'un élément ;
   `apply(…, merge)` fusionne les étapes d'annulation de même clé.

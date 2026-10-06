@@ -5,19 +5,19 @@ import { t } from "./i18n";
 import { tabShortcut } from "./tabs";
 import type { EditorCommands, EditorHistory } from "./TypstEditor";
 import { useWidgetFiles, type WidgetFiles } from "./useWidgetFiles";
-import { NO_TABS, activated, activeName, closed, kept, opened, placeTouched, pruned, renamed, withRestored, type KeptTabs, type WidgetTabs } from "./widgetTabs";
+import { NO_TABS, activated, activeName, activeWidget, closed, kept, opened, placeTouched, pruned, renamed, withRestored, type ActiveTab, type KeptTabs, type WidgetTabs } from "./widgetTabs";
 
 export interface TemplateWidgets {
   files: WidgetFiles;
   tabs: WidgetTabs;
   /** La revision des modèles (statuts et sources s'y relisent). */
   revision: string;
-  /** Nom du sous-onglet actif ; `null` : « Modèles » ou hors mode modèles. */
+  /** Nom du sous-onglet widget actif ; `null` : « Modèles », « Thème » ou hors mode modèles. */
   activeName: string | null;
   /** Pour `useViewOptions` : vide hors mode modèles, dès le même rendu. */
   kept: KeptTabs;
   open(name: string): void;
-  activate(id: number | null): void;
+  activate(id: ActiveTab): void;
   close(id: number): void;
   removed(name: string): void;
   /** L'agent a écrit (ou supprimé) `name` : l'ouvrir, sans écraser les frappes. */
@@ -115,7 +115,8 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   const depths = useRef(new Map<number, EditorHistory>());
   const commandsCbs = useRef(new Map<number, (c: EditorCommands | null) => void>());
   const historyCbs = useRef(new Map<number, (h: EditorHistory) => void>());
-  const active = pack === null ? null : tabs.active;
+  // Le sous-onglet widget actif (son éditeur) ; « Thème » n'en a pas.
+  const active = pack === null ? null : activeWidget(tabs);
   const activeRef = useRef(active);
   const [shown, setShown] = useState<{ id: number | null; h: EditorHistory }>({ id: null, h: ZERO });
   useLayoutEffect(() => {
@@ -155,7 +156,7 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   }, []);
 
   const open = useCallback((name: string) => setTabs((s) => opened(s, name)), []);
-  const activate = useCallback((id: number | null) => setTabs((s) => activated(s, id)), []);
+  const activate = useCallback((id: ActiveTab) => setTabs((s) => activated(s, id)), []);
   const { flush, settle } = files;
   /** Un sous-onglet vient d'être fermé : le focus perdu va au sous-onglet devenu actif. */
   const refocus = useRef(false);
@@ -228,7 +229,7 @@ export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callb
   // ⌘W et ⌘Z d'un sous-onglet widget, avant le `Workspace` et l'`App` (capture).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const id = tabsRef.current.active;
+      const id = activeWidget(tabsRef.current);
       if (e.repeat || packRef.current === null || id === null || onRef.current.blocked()) return;
       const target = e.target as HTMLElement | null;
       const inEditor = !!target?.closest?.(".typst-editor");

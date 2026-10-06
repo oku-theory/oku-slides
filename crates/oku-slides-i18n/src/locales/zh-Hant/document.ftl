@@ -17,9 +17,9 @@ diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 無法繪製圖表
 
-registry-bad-pack-id = 範本包識別碼無效: { $id }
-registry-compile = 無法編譯範本包的元件
-registry-missing = 範本包未宣告其元件
+registry-bad-pack-id = 範本套件識別碼無效: { $id }
+registry-compile = 無法編譯範本套件的元件
+registry-missing = 範本套件未宣告其元件
 render-timeout = 算繪耗時超過 { $seconds } 秒，已中斷
 render-out-of-memory = 算繪所需記憶體超過 { $mib } MiB，已中斷
 render-worker-lost = 算繪程序已停止

@@ -11,6 +11,10 @@ use oku_slides_platform::Platform;
 use oku_slides_platform::errors::one_line;
 use oku_slides_render::{Compiled, Diagnostic, Fonts, Layout, PackWidgets, RenderError, Renderer};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
+use oku_slides_session::{ThemeLibrary, theme_tokens};
+
+/// Jetons d'un thème, par groupe.
+type Tokens = serde_json::Map<String, serde_json::Value>;
 
 /// Un rendu, fait en mémoire ou par le processus de rendu.
 pub(crate) enum Rendered {
@@ -61,10 +65,11 @@ impl Rendered {
 
 /// Rend `deck` avec les widgets du pack embarqué dans `bundle`.
 ///
-/// `deck` est la vue de `bundle`, thème éventuellement changé. Un pack à
-/// widgets passe par le processus de rendu ; sans widgets, le rendu se fait
-/// en mémoire. Version absente des sources ou pack cassé : journalisés, la
-/// base, comme dans l'app.
+/// `deck` est la vue de `bundle`, thème éventuellement changé (sa version
+/// embarquée dans `bundle`). Un pack à widgets passe par le processus de
+/// rendu ; sans widgets, le rendu se fait en mémoire. Version absente des
+/// sources ou pack cassé : journalisés, la base, comme dans l'app. Le thème
+/// se rend dans sa version embarquée, sinon le thème par défaut.
 pub(crate) fn render(
     platform: &Platform,
     l: &Localizer,
@@ -72,6 +77,9 @@ pub(crate) fn render(
     bundle: &SourceBundle,
     deck: &Deck,
 ) -> Result<Rendered> {
+    let themes = ThemeLibrary::new(Some(platform.settings.paths.themes()), platform.storage.clone());
+    let tokens = theme_tokens(&themes, &bundle.themes, deck);
+    let local = |l, fonts, bundle, deck| local(l, fonts, bundle, deck, tokens.clone());
     let Some(r) = &deck.templates else { return local(l, fonts, bundle, deck) };
     let Some(files) = bundle.packs.get(&r.version) else {
         tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
@@ -97,13 +105,15 @@ pub(crate) fn render(
     let Some(pack) = probe.pack else { return local(l, fonts, bundle, deck) };
     let mut slot = worker.slot(&fonts, l, probe.registry.clone())?;
     slot.set_widgets(Some(&pack), probe.registry)?;
+    slot.set_theme(tokens.as_ref())?;
     let compiled = slot.render(deck, &bundle.assets)?;
     Ok(Rendered::Remote { compiled, _slot: slot })
 }
 
-/// Rendu en mémoire, avec les widgets de base.
-fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck) -> Result<Rendered> {
+/// Rendu en mémoire, avec les widgets de base et les jetons de thème `tokens`.
+fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck, tokens: Option<Tokens>) -> Result<Rendered> {
     let mut renderer = Renderer::new(fonts)?;
     renderer.set_language(l)?;
+    renderer.set_theme(tokens)?;
     Ok(Rendered::Local(renderer.render(deck, &bundle.assets)?))
 }

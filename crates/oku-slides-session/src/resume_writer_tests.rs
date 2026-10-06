@@ -24,10 +24,11 @@ fn resume(dir: &std::path::Path) -> Resume {
 }
 
 fn document(theme: &str) -> Document {
-    let deck = Deck::from_json(r#"{"theme":"papier","slides":[]}"#).unwrap();
+    let mut deck = Deck::from_json(r#"{"slides":[]}"#).unwrap();
+    deck.theme = crate::test_support::theme_ref("papier");
     let mut doc = Document::new(SourceBundle::new(deck.clone(), registry()).unwrap(), None, &defaults());
     let mut next = deck;
-    next.theme = Some(theme.into());
+    next.theme = crate::test_support::theme_ref(theme);
     doc.sources.apply(next, "Thème", None).unwrap();
     doc
 }
@@ -38,6 +39,7 @@ fn state(slide: &str) -> State {
         mode: SavedMode::Deck,
         ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false, ..UiState::default() },
         help_theme: None,
+        theme_edit: None,
     }
 }
 
@@ -54,7 +56,7 @@ fn writer_flush_waits_for_the_sent_job() {
     w.send(job(Some("pro"), "s-1"));
     w.flush();
     let doc = resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
-    assert_that!(doc.sources.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(doc.sources.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -71,8 +73,16 @@ fn writer_merged_jobs_keep_the_latest_documents_and_state() {
     w.send(job(None, "s-2"));
     w.flush();
     let r = resume(&dir);
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap().sources.deck().theme.as_deref())
-        .is_equal_to(Some("pro"));
+    assert_that!(
+        r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry())
+            .unwrap()
+            .sources
+            .deck()
+            .theme
+            .as_ref()
+            .and_then(crate::test_support::theme_name)
+    )
+    .is_equal_to(Some("pro"));
     assert_that!(r.read_state().unwrap().unwrap().ui.slide.as_deref()).is_equal_to(Some("s-2"));
     std::fs::remove_dir_all(&dir).ok();
 }

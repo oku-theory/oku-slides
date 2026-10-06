@@ -20,7 +20,9 @@ fn resume() -> Resume {
 }
 
 fn deck() -> Deck {
-    Deck::from_json(r#"{"theme":"papier","slides":[]}"#).unwrap()
+    let mut deck = Deck::from_json(r#"{"slides":[]}"#).unwrap();
+    deck.theme = crate::test_support::theme_ref("papier");
+    deck
 }
 
 fn document() -> Document {
@@ -29,7 +31,7 @@ fn document() -> Document {
     sources.fonts.insert("Inter.ttf".into(), b"police".to_vec());
     let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), &defaults());
     let mut next = doc.sources.deck().clone();
-    next.theme = Some("pro".into());
+    next.theme = crate::test_support::theme_ref("pro");
     doc.sources.apply(next, "Thème", None).unwrap();
     doc.dirty = true;
     doc.saved_hash = Some("sha256:00".into());
@@ -111,8 +113,14 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         code_width: Some(640),
         folded: vec![PileSection::Widgets],
     };
-    r.write_state(&State { version: VERSION, mode: SavedMode::Templates(edit), ui: ui.clone(), help_theme: None })
-        .unwrap();
+    r.write_state(&State {
+        version: VERSION,
+        mode: SavedMode::Templates(edit),
+        ui: ui.clone(),
+        help_theme: None,
+        theme_edit: None,
+    })
+    .unwrap();
     let back = r.read_state().unwrap().unwrap();
     assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);
@@ -340,11 +348,11 @@ fn apply_without_handle_writes_the_op_for_resume() {
     let dir = temp_dir();
     let mut s = crate::test_support::session();
     assert_that!(s.resume(dir.clone())).is_true();
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: crate::test_support::theme_ref("pro") }], None).unwrap();
     s.flush_resume();
     let mut back = crate::test_support::session();
     assert_that!(back.resume(dir.clone())).is_true();
-    assert_that!(back.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(back.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -419,6 +427,49 @@ fn write_snapshot_removes_orphan_packs() {
     let packs = r.dir.join(DECK_DIR).join("packs");
     assert_that!(packs.join(format!("{}.json", v.hex())).exists()).is_false();
     assert_that!(packs.join(format!("{}.kpi.typ", v.hex())).exists()).is_false();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Une version de thème de test : un `theme.json` sans widget.
+fn theme_files(name: &str) -> PackFiles {
+    let manifest = serde_json::json!({ "id": uuid::Uuid::from_u128(0x554).to_string(), "name": name, "tokens": {} });
+    PackFiles::new(manifest.as_object().cloned().unwrap(), std::collections::BTreeMap::new())
+}
+
+#[test]
+fn write_snapshot_then_read_doc_keeps_the_themes() {
+    let r = resume();
+    let mut doc = document();
+    let v = doc.sources.add_theme(theme_files("T"));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.dir.join(DECK_DIR).join("themes").join(format!("{}.json", v.hex())).exists()).is_true();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.themes == doc.sources.themes).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn read_doc_ignores_a_theme_whose_content_differs_from_its_name() {
+    let r = resume();
+    let mut doc = document();
+    let v = doc.sources.add_theme(theme_files("T"));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    std::fs::write(r.dir.join(DECK_DIR).join("themes").join(format!("{}.json", v.hex())), r#"{"name":"autre"}"#)
+        .unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.themes.is_empty()).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_snapshot_removes_orphan_themes() {
+    let r = resume();
+    let mut doc = document();
+    let v = doc.sources.add_theme(theme_files("T"));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    doc.sources.themes.clear();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    assert_that!(r.dir.join(DECK_DIR).join("themes").join(format!("{}.json", v.hex())).exists()).is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

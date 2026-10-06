@@ -26,7 +26,7 @@ Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.
 | `src-tauri` | Application de bureau Tauri 2 |
 | `ui` | Interface React + TypeScript (design system Papier) |
 | `assets/fonts` | Polices livrées (Newsreader, Instrument Sans, Inter) |
-| `typst/oku-slides` | Bibliothèque Typst de slides (structure, jetons, thèmes `papier` et `pro`) |
+| `typst/oku-slides` | Bibliothèque Typst de slides (structure, jetons par défaut et thèmes intégrés `papier` et `pro`, en JSON) |
 | `fixtures/` | Decks d'exemple |
 | `docs/aide/` | Aide de l'app : un deck JSON par langue (fr, en), compilé dans l'app, ouvert en lecture seule (⌘?) |
 
@@ -34,7 +34,7 @@ Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.
 
 ```sh
 just oku-slides check fixtures/roadmap.json                       # valider un deck
-just oku-slides render fixtures/roadmap.json --out out --theme pro # SVG + layout.json
+just oku-slides render fixtures/roadmap.json --out out --theme pro # SVG + layout.json ; thème par nom
 just save fixtures/roadmap.json deck.oku-slides.pdf                # enregistrer en .oku-slides.pdf
 just oku-slides open deck.oku-slides.pdf --out extrait/                # deck.json + assets
 just oku-slides strip deck.oku-slides.pdf copie.pdf                    # copie sans sources
@@ -97,6 +97,15 @@ just          # toutes les commandes
   slide qu'on modifie comme une autre (grille, éléments, textes), avec son nom
   et sa description. Un ensemble intégré s'enregistre comme copie ; le deck
   est mis de côté et retrouvé avec « Terminer ».
+- **Thèmes** : un thème est un jeu de jetons de design (couleurs, polices,
+  tailles, marges, composants) versionné comme les ensembles de modèles :
+  Papier et Pro sont intégrés (`typst/oku-slides/themes/*.json`), ceux de
+  l'utilisateur vont dans le dossier `themes/` des données de l'app. Le menu ⋯
+  choisit le thème du deck ; le deck embarque sa version, et un fichier reçu
+  garde le sien (« Thème du fichier »). En mode modèles, l'onglet « Thème »
+  règle les jetons un par un (filtre, état de chaque jeton, ↺) : la scène suit
+  chaque changement, et « Terminer » enregistre le brouillon, en copie
+  (« Papier (copie) ») pour un thème intégré.
 - **Ordre des slides** : glisser une miniature dans la pile (une ligne montre
   où elle se posera), ou ⌥↑ / ⌥↓.
 

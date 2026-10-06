@@ -15,6 +15,8 @@ import { fromA2ui } from "./agent/quick";
 export const HOST_TEMPLATE = "host-template";
 /** Surface des réglages du widget du sous-onglet actif. */
 export const HOST_WIDGET = "host-widget";
+/** Surface des jetons du thème édité (onglet « Thème », routée par `useThemeSettings`). */
+export const HOST_THEME = "host-theme";
 
 /** La surface de réglages de l'hôte, et le routage de ses actions. */
 export interface HostSettings {
@@ -43,6 +45,8 @@ export function useHostSettings(
   const slide = snap?.slides.find((s) => s.id === current);
   return useSessionSurface({
     ids: HOST_IDS,
+    // Les jetons ont leur routeur (`useThemeSettings`).
+    held: [HOST_THEME],
     active: !!current && !!snap?.editing && !snap.history,
     scope: { slide: current ?? "", widget },
     // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
@@ -69,6 +73,11 @@ const HOST_IDS = [HOST_TEMPLATE, HOST_WIDGET] as const;
 export function useSessionSurface<S>(opts: {
   /** Ids des surfaces réclamées par ce hook. */
   ids: readonly string[];
+  /**
+   * Ids des surfaces tenues sans rien envoyer (routées par un autre hook, comme `host-theme`
+   * par `useThemeSettings`) : leurs actions sont prises, jamais transmises à l'agent.
+   */
+  held?: readonly string[];
   active: boolean;
   /** La portée lue : la surface reçue est rattachée à elle (envoi des actions). */
   scope: S;
@@ -80,7 +89,7 @@ export function useSessionSurface<S>(opts: {
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   say: (m: string, error?: boolean) => void;
 }): HostSettings {
-  const { ids, active, scope, key, fetch, send, run, say } = opts;
+  const { ids, held = [], active, scope, key, fetch, send, run, say } = opts;
   // `sync` : le numéro de relecture forcée qui a produit la surface.
   const [shown, setShown] = useState<{ surface: Surface; scope: S; sync: number } | null>(null);
   // Lue au moment de l'action : une surface remplacée depuis n'envoie rien, quel que soit le rendu
@@ -119,9 +128,11 @@ export function useSessionSurface<S>(opts: {
     // d'identité à chaque rendu sans rien changer d'autre.
   }, [active, key, sync]);
   const onAction = (s: Surface, a: A2uiClientAction): boolean => {
-    if (!ids.includes(s.id)) return false;
+    if (!ids.includes(s.id) && !held.includes(s.id)) return false;
     const now = shownRef.current;
     outcome.current = Promise.resolve(false);
+    // Une surface tenue a son propre routeur : une action égarée ici ne part pas à l'agent.
+    if (held.includes(s.id)) return true;
     if (!now || s !== now.surface) return true;
     const { name, context } = fromA2ui(a);
     const field = context.key;

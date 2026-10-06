@@ -57,3 +57,21 @@ fn chart_palette_keeps_short_and_long_hex_in_lowercase() {
     let tokens = json!({ "chart": { "palette": ["#ABC", "#A1B2C3"] } });
     assert_that!(chart_palette(&tokens)).is_equal_to(vec!["#abc".to_owned(), "#a1b2c3".to_owned()]);
 }
+
+/// t-194 : une chaîne en `#` qui n'est pas un hex valide n'est pas une couleur.
+#[rstest::rstest]
+#[case("#zzz")]
+#[case("#1234")]
+#[case("#")]
+#[case("#fff;x")]
+fn resolve_color_refuses_invalid_hex(#[case] bad: &str) {
+    let colors = json!({ "evil": bad });
+    let colors = colors.as_object().unwrap();
+    asserting(bad).that(&resolve_color(colors, &json!(bad))).is_none();
+    asserting(bad).that(&resolve_color(colors, &json!("evil"))).is_none();
+}
+
+#[test]
+fn resolve_color_keeps_alpha_hex_in_lowercase() {
+    assert_that!(resolve_color(&serde_json::Map::new(), &json!("#A1B2C3D4"))).is_equal_to(Some("#a1b2c3d4".to_owned()));
+}

@@ -4,14 +4,16 @@
 //! session qui le montre refuse toute modification (`ReadOnly`), de
 //! l'interface comme de l'agent ; sa reprise ne garde que la langue et
 //! relit le deck livré, jamais une ancienne copie. Il se rend avec la
-//! version livrée du pack par défaut, pas celle que l'utilisateur a pu modifier.
+//! version livrée du pack par défaut, pas celle que l'utilisateur a pu modifier,
+//! et au thème du deck d'où on l'ouvre (version courante de la bibliothèque,
+//! embarquée), sinon au thème par défaut. Le JSON livré ne porte pas de thème.
 
 use std::borrow::Cow;
 
-use oku_slides_core::{Deck, PackRef, SourceBundle};
+use oku_slides_core::{Deck, PackRef, SourceBundle, ThemeRef};
 use oku_slides_i18n::platform_keys;
-use oku_slides_render::THEMES;
 use snafu::{OptionExt, ResultExt, ensure};
+use uuid::Uuid;
 
 use crate::error::{HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu, UnknownThemeSnafu};
 use crate::library::builtin_versions;
@@ -48,12 +50,12 @@ pub(crate) fn help_deck_with(locale: &str, keys: fn(&str) -> Cow<'_, str>) -> Re
 
 impl Session {
     /// Montre l'aide dans la langue `locale` (sinon en anglais), en lecture
-    /// seule, au thème `theme` (celui du deck d'où on l'ouvre ; inconnu ou
-    /// absent : le sien).
+    /// seule, au thème `theme` (id du thème du deck d'où on l'ouvre ; inconnu
+    /// ou absent : le thème par défaut).
     ///
     /// Pour une session neuve (onglet d'aide, reprise) : le deck ouvert est
     /// remplacé sans question.
-    pub fn open_help(&mut self, locale: &str, theme: Option<&str>) -> Result<()> {
+    pub fn open_help(&mut self, locale: &str, theme: Option<Uuid>) -> Result<()> {
         let locale = help_locale(locale);
         let builtin = builtin_versions()
             .iter()
@@ -63,8 +65,9 @@ impl Session {
         let version = sources.add_pack(builtin.files.clone());
         let mut deck = sources.deck().clone();
         deck.templates = Some(PackRef { id: DEFAULT_PACK, version });
-        if let Some(theme) = theme.filter(|t| THEMES.contains(t)) {
-            deck.theme = Some(theme.to_owned());
+        if let Some(current) = theme.and_then(|id| self.themes.current_version(id)) {
+            let id = current.manifest.id;
+            deck.theme = Some(ThemeRef { id, version: sources.add_theme(current.files) });
         }
         sources.apply_silent(deck).context(SourcesSnafu)?;
         self.load(sources, None)?;
@@ -72,18 +75,19 @@ impl Session {
         Ok(())
     }
 
-    /// L'aide prend le thème `theme` (celui du deck d'où on la rouvre).
+    /// L'aide prend le thème `id` (celui du deck d'où on la rouvre), dans sa
+    /// version courante, embarquée.
     ///
     /// Ni annulable ni à enregistrer : l'aide reste en lecture seule. Hors de
-    /// l'aide, ou thème inconnu : refusé.
-    pub fn set_help_theme(&mut self, theme: &str) -> Result<()> {
+    /// l'aide, ou thème inconnu de la bibliothèque : refusé.
+    pub fn set_help_theme(&mut self, id: Uuid) -> Result<()> {
         ensure!(self.help.is_some() && matches!(self.mode, Mode::Deck), NotHelpSnafu);
-        ensure!(THEMES.contains(&theme), UnknownThemeSnafu { theme });
+        let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
         let mut deck = self.doc.sources.deck().clone();
-        if deck.theme.as_deref() == Some(theme) {
+        if deck.theme.as_ref().is_some_and(|t| t.id == id && t.version == current.version) {
             return Ok(());
         }
-        deck.theme = Some(theme.to_owned());
+        deck.theme = Some(ThemeRef { id, version: self.doc.sources.add_theme(current.files) });
         self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         self.rerender()?;
         self.persist(false);

@@ -103,6 +103,8 @@ pub(crate) struct SlotState {
     pub(crate) fonts: Vec<String>,
     pub(crate) pack: Option<WirePack>,
     pub(crate) last_assets: Vec<String>,
+    /// Derniers jetons de thème posés ; rejoués après une relance.
+    pub(crate) theme: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// Ce qu'un travailleur neuf doit recevoir pour reprendre là où l'ancien était.
@@ -272,6 +274,9 @@ impl Link {
             let pack = st.pack.filter(|p| !self.faulty_packs.contains(&fingerprint_hex(p)));
             if pack.is_some() {
                 self.expect_ok(&Request::SetWidgets { slot, pack }, &[])?;
+            }
+            if st.theme.is_some() {
+                self.expect_ok(&Request::SetTheme { slot, tokens: st.theme }, &[])?;
             }
         }
         Ok(())

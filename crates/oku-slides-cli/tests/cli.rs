@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use common::{FIXTURE, Server, free_port, http, oku_slides, request, workdir};
 use oku_slides_core::{Deck, PackFiles, PackRef, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry};
-use oku_slides_session::{Library, PackManifest, Storage};
+use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
 fn run(cmd: &mut Command) -> Output {
@@ -63,6 +63,73 @@ fn render_writes_one_svg_per_page_and_the_layout() {
     assert_that!(out_dir.join("page-08.svg").exists()).is_true();
     let layout = std::fs::read_to_string(out_dir.join("layout.json")).unwrap();
     assert_that!(layout).contains("\"slides\"");
+}
+
+/// Le thème du deck enregistré dans `pdf` : son `deck.json` extrait, et la version embarquée ?
+fn saved_theme(dir: &Path, pdf: &Path) -> (serde_json::Value, bool) {
+    let extract = dir.join("extract-theme");
+    let opened = run(oku_slides(dir, "en").arg("open").arg(pdf).arg("--out").arg(&extract));
+    assert_that!(opened.status.success()).is_true();
+    let json = std::fs::read_to_string(extract.join("deck.json")).unwrap_or_else(|e| panic!("deck.json : {e}"));
+    let deck: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("deck.json : {e}"));
+    let bundle = sources_of(pdf);
+    let embedded = bundle.deck().theme.as_ref().is_some_and(|t| bundle.themes.contains_key(&t.version));
+    (deck["theme"].clone(), embedded)
+}
+
+#[test]
+fn save_with_theme_name_embeds_that_builtin_theme() {
+    let dir = workdir("save-theme");
+    let pdf = dir.join("deck.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf).args(["--theme", "PRO"]));
+    assert_that!(saved.status.success()).is_true();
+    let (theme, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme["id"].as_str()).is_equal_to(Some(oku_slides_session::PRO_THEME.to_string().as_str()));
+    assert_that!(embedded).is_true();
+}
+
+#[test]
+fn save_without_theme_embeds_the_default_theme() {
+    let dir = workdir("save-default-theme");
+    let pdf = dir.join("deck.oku-slides.pdf");
+    assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf)).status.success()).is_true();
+    let (theme, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme["id"].as_str()).is_equal_to(Some(oku_slides_session::DEFAULT_THEME.to_string().as_str()));
+    assert_that!(embedded).is_true();
+}
+
+#[test]
+fn save_with_the_name_of_a_library_theme_embeds_its_current_version() {
+    let dir = workdir("save-user-theme");
+    let id = uuid::Uuid::new_v4();
+    let manifest = oku_slides_session::ThemeManifest {
+        id,
+        name: "Rouge Vif".into(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        tokens: serde_json::json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
+    };
+    let files = manifest.to_files().unwrap();
+    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let library = oku_slides_session::ThemeLibrary::new(Some(dir.join("data").join("themes")), storage);
+    library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
+    let pdf = dir.join("deck.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf).args(["--theme", "rouge vif"]));
+    assert_that!(saved.status.success()).is_true();
+    let (theme, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme["id"].as_str()).is_equal_to(Some(id.to_string().as_str()));
+    assert_that!(theme["version"].as_str()).is_equal_to(Some(files.version().as_str()));
+    assert_that!(embedded).is_true();
+}
+
+#[test]
+fn render_with_an_unknown_theme_fails_with_a_localized_message() {
+    let dir = workdir("render-unknown-theme");
+    let out_dir = dir.join("out");
+    let out = run(oku_slides(&dir, "fr").args(["render", FIXTURE, "--theme", "inconnu", "--out"]).arg(&out_dir));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("Thème inconnu");
 }
 
 #[test]
@@ -499,7 +566,7 @@ fn user_pack(dir: &Path, widgets: &[(&str, &str)]) -> PackRef {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, widgets);
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = Library::new(Some(dir.join("data").join("templates")), storage);
+    let library = PackLibrary::new(Some(dir.join("data").join("templates")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackRef { id, version: files.version() }
 }
@@ -530,7 +597,7 @@ fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
     let deck = dir.join("deck.json");
     std::fs::write(
         &deck,
-        serde_json::to_vec(&serde_json::json!({ "version": 3, "templates": r,
+        serde_json::to_vec(&serde_json::json!({ "version": 4, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))
@@ -555,7 +622,7 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("boucle", LOOP_ON_RENDER)]);
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3,
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 4,
         "templates": { "id": id, "version": files.version() },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "l", "kind": "boucle", "params": { "body": "x" } }] } }] }))
@@ -597,7 +664,7 @@ fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
     let dir = workdir("pack-json");
     let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 3, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
+    let json = serde_json::json!({ "version": 4, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
     let rendered = run(oku_slides(&dir, "en").arg("render").arg(&deck).arg("--out").arg(dir.join("out")));
     assert_that!(rendered.status.success()).is_true();
@@ -613,7 +680,7 @@ fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackRef) {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("quote", QUOTE)]);
     let r = PackRef { id, version: files.version() };
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 3, "templates": r,
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 4, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))

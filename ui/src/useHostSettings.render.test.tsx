@@ -7,7 +7,7 @@ import type { Snapshot, Surface, TabApi } from "./api";
 
 const { act, createElement, useLayoutEffect } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } = await import("./useHostSettings");
+const { HOST_TEMPLATE, HOST_THEME, HOST_WIDGET, useHostSettings } = await import("./useHostSettings");
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
 const { AgentThread } = await import("./agent/AgentThread");
 const { CATALOG_ID } = await import("./a2ui/catalog");
@@ -182,6 +182,13 @@ describe("useHostSettings", () => {
     const { fake } = counted(HOST_TEMPLATE);
     const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: null });
     expect(m.out.h!.onAction(surface("show-1"), action({ key: "name", value: "x" }))).toBe(false);
+  });
+
+  test("une action de la surface des jetons est prise, et rien ne part (routée par useThemeSettings)", async () => {
+    const { fake } = counted(HOST_TEMPLATE);
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: null });
+    expect(m.out.h!.onAction(surface(HOST_THEME), action({ key: "x", value: "y" }))).toBe(true);
+    expect(m.out.runs).toBe(0);
   });
 
   test("useHostSettings ignores host-target", async () => {

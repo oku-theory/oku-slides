@@ -93,11 +93,19 @@ impl Session {
             }
         };
         let _ = writeln!(out, "mode: {mode}");
+        // En mode modèles, le deck de travail n'a pas de thème : le brouillon
+        // part du thème édité, que l'agent change par `set_theme`.
+        let theme = match &self.mode {
+            Mode::Templates { theme, .. } => format!("theme (draft): {}", theme.name),
+            Mode::Deck | Mode::History { .. } => format!(
+                "theme: {}",
+                deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map_or_else(|| "none".to_owned(), |m| m.name)
+            ),
+        };
         let _ = writeln!(
             out,
-            "locale: {} · theme: {} · template_set: {}",
+            "locale: {} · {theme} · template_set: {}",
             self.localizer.locale(),
-            deck.theme.as_deref().unwrap_or("none"),
             self.deck_pack().map_or_else(|| "none".to_owned(), |r| r.id.to_string())
         );
         if let Some((i, slide)) =

@@ -970,3 +970,13 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-tab-side > .host-settings { flex: none; width: auto; margin: var(--space-2) calc(10px * var(--elev-sheet)); }
 .widget-pane > .widget-tab { flex: 1; }
 .templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }
+
+/* Onglet « Thème » : les jetons dans la colonne de droite ; le fil de l'agent y reste monté, caché. */
+.notes.theme-active > :not(.theme-panel) { display: none; }
+.theme-panel { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; padding-bottom: var(--space-6); }
+.theme-panel-head {
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);
+  background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
+}
+.theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
+.theme-panel > .host-settings { width: auto; }

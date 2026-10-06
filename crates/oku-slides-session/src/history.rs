@@ -33,18 +33,23 @@ impl HistoryMode {
     }
 }
 
-/// Images, polices et packs d'un document.
-type Blobs = (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>, BTreeMap<PackVersion, PackFiles>);
+/// Versions de packs ou de thèmes, par empreinte.
+type Versions = BTreeMap<PackVersion, PackFiles>;
+
+/// Images, polices, packs et thèmes d'un document.
+type Blobs = (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>, Versions, Versions);
 
 fn take_blobs(from: &mut Document) -> Blobs {
     let s = &mut from.sources;
-    (std::mem::take(&mut s.assets), std::mem::take(&mut s.fonts), std::mem::take(&mut s.packs))
+    let (assets, fonts) = (std::mem::take(&mut s.assets), std::mem::take(&mut s.fonts));
+    (assets, fonts, std::mem::take(&mut s.packs), std::mem::take(&mut s.themes))
 }
 
-fn put_blobs(to: &mut Document, (assets, fonts, packs): Blobs) {
+fn put_blobs(to: &mut Document, (assets, fonts, packs, themes): Blobs) {
     to.sources.assets = assets;
     to.sources.fonts = fonts;
     to.sources.packs = packs;
+    to.sources.themes = themes;
 }
 
 /// La version `index` de `preview` ; une version vide si la liste l'est.

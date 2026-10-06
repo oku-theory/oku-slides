@@ -83,8 +83,15 @@ fn sample_ops() -> Vec<Op> {
         Op::MoveSlide { slide: "s-fin".into(), index: 1 },
         Op::RemoveSlide { slide: "s-ch2".into() },
         Op::SetNotes { slide: "s-title".into(), notes: "Bonjour à tous".into() },
-        Op::SetTheme { theme: Some("pro".into()) },
+        Op::SetTheme {
+            theme: Some(ThemeRef {
+                id: uuid::Uuid::from_u128(9),
+                version: PackVersion::from_hex(&"d".repeat(64)).unwrap_or_else(|| panic!("hex invalide")),
+            }),
+        },
         Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#2f5fb3") },
+        Op::SetToken { path: vec!["component".into(), "header".into(), "left".into()], value: Value::Null },
+        Op::SetTokens { tokens: json!({ "size": { "body": 30 } }) },
         Op::SetToken { path: vec!["component".into(), "card".into(), "height".into()], value: json!("fill") },
         Op::SetDeckParam { key: "author".into(), value: json!("Quelqu'un") },
         Op::SetDeckParam { key: "numbering".into(), value: json!("{n}") },
@@ -601,6 +608,68 @@ fn deck_to_json_then_from_json_returns_equal_valid_deck() {
     assert_that!(validate(&deck, &registry(), None)).is_empty();
 }
 
+// ---- Jetons (t-554) -----------------------------------------------------------------
+
+fn path(keys: &[&str]) -> Vec<String> {
+    keys.iter().map(|k| (*k).to_owned()).collect()
+}
+
+/// `ops` appliquées à un deck vide.
+fn tokens_after(ops: Vec<Op>) -> Value {
+    let mut d = Deck::empty();
+    apply_all(&mut d, ops, &registry()).unwrap_or_else(|e| panic!("ops refusées : {e}"));
+    d.tokens
+}
+
+#[test]
+fn set_token_null_keeps_explicit_null() {
+    let tokens = tokens_after(vec![Op::SetToken { path: path(&["component", "header", "left"]), value: Value::Null }]);
+    assert_that!(tokens.pointer("/component/header/left")).is_equal_to(Some(&Value::Null));
+}
+
+#[test]
+fn unset_token_removes_key_and_empty_parents() {
+    let tokens = tokens_after(vec![
+        Op::SetToken { path: path(&["color", "accent"]), value: json!("#ff0000") },
+        Op::UnsetToken { path: path(&["color", "accent"]) },
+    ]);
+    assert_that!(tokens).is_equal_to(Value::Null);
+}
+
+#[test]
+fn unset_token_keeps_sibling_keys() {
+    let tokens = tokens_after(vec![
+        Op::SetToken { path: path(&["color", "accent"]), value: json!("#ff0000") },
+        Op::SetToken { path: path(&["color", "text"]), value: json!("#000000") },
+        Op::UnsetToken { path: path(&["color", "accent"]) },
+    ]);
+    assert_that!(tokens).is_equal_to(json!({ "color": { "text": "#000000" } }));
+}
+
+#[test]
+fn unset_token_of_an_absent_key_changes_nothing() {
+    let tokens = tokens_after(vec![Op::UnsetToken { path: path(&["color", "accent"]) }]);
+    assert_that!(tokens).is_equal_to(Value::Null);
+}
+
+#[test]
+fn set_tokens_replaces_all_tokens() {
+    let tokens = tokens_after(vec![
+        Op::SetToken { path: path(&["color", "accent"]), value: json!("#ff0000") },
+        Op::SetTokens { tokens: json!({ "size": { "body": 30 } }) },
+    ]);
+    assert_that!(tokens).is_equal_to(json!({ "size": { "body": 30 } }));
+}
+
+#[test]
+fn set_tokens_null_clears_all_tokens() {
+    let tokens = tokens_after(vec![
+        Op::SetToken { path: path(&["color", "accent"]), value: json!("#ff0000") },
+        Op::SetTokens { tokens: Value::Null },
+    ]);
+    assert_that!(tokens).is_equal_to(Value::Null);
+}
+
 #[test]
 fn target_without_element_serializes_without_the_field() {
     assert_that!(serde_json::to_value(slide("s1")).unwrap()).is_equal_to(json!({ "slide": "s1" }));
@@ -611,7 +680,7 @@ fn target_without_element_serializes_without_the_field() {
 #[test]
 fn ops_schema_generates_schema_naming_ops() {
     let s = ops_schema().unwrap().to_string();
-    for name in ["set_param", "set_deck_param", "set_kind", "add_element", "set_token"] {
+    for name in ["set_param", "set_deck_param", "set_kind", "add_element", "set_token", "unset_token", "set_tokens"] {
         assert_that!(s.as_str()).contains(name);
     }
     assert_that!(s.as_str()).does_not_contain("\"set_text\"");
@@ -628,6 +697,8 @@ fn op_errors_localize_with_their_subject() {
         (Op::MoveSlide { slide: "s-fin".into(), index: 99 }, "Position hors limites"),
         (set_param(slide("s-fin"), "text", json!(3)), "Valeur invalide pour text"),
         (Op::SetToken { path: vec![], value: json!(1) }, "Valeur invalide pour path"),
+        (Op::UnsetToken { path: vec![] }, "Valeur invalide pour path"),
+        (Op::SetTokens { tokens: json!([1]) }, "Valeur invalide pour tokens"),
         (set_param(slide("s-libre"), "grid", json!({ "columns": 0, "rows": 6 })), "Valeur invalide pour grid"),
         (
             Op::SetFrame {

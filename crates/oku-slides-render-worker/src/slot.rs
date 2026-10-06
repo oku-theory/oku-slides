@@ -10,6 +10,7 @@ use std::sync::Arc;
 use oku_slides_core::{Deck, WidgetRegistry};
 use oku_slides_i18n::Localizer;
 use oku_slides_render::{PackWidgets, RenderError};
+use serde_json::{Map, Value};
 
 use crate::client::{
     Deferred, RenderWorker, blame, evict_assets, expect_ok, faulty_pack, set_locale, unexpected, wire,
@@ -70,6 +71,21 @@ impl RenderSlot {
             state.pack = wire;
         }
         self.registry = registry;
+        Ok(())
+    }
+
+    /// Jetons du thème des rendus suivants (`None` : jetons par défaut) ; sans effet s'ils sont déjà posés.
+    pub fn set_theme(&mut self, tokens: Option<&Map<String, Value>>) -> Result<(), RenderError> {
+        let mut link = self.worker.link();
+        if link.state.slots.get(&self.id).is_some_and(|s| s.theme.as_ref() == tokens) {
+            return Ok(());
+        }
+        let pack = link.state.slots.get(&self.id).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
+        self.worker.prepare_for(&mut link, pack.as_ref())?;
+        expect_ok(&mut link, &Request::SetTheme { slot: self.id, tokens: tokens.cloned() }, &[])?;
+        if let Some(state) = link.state.slots.get_mut(&self.id) {
+            state.theme = tokens.cloned();
+        }
         Ok(())
     }
 

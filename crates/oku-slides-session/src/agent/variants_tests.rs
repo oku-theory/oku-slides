@@ -13,7 +13,7 @@ fn fill_template_replaces_every_value_marker() {
 
 #[test]
 fn fill_template_leaves_other_strings() {
-    let t = json!({ "op": "set_theme", "theme": "$value-x" });
+    let t = json!({ "op": "set_var", "key": "theme", "value": "$value-x" });
     assert_that!(fill_template(&t, &json!("pro"))).is_equal_to(t);
 }
 

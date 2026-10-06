@@ -36,8 +36,8 @@ pub enum SessionErrorKind {
     Chart,
     /// Un pack intégré ne se supprime pas.
     BuiltinTemplateSet,
-    /// Pas de dossier pour les modèles de l'utilisateur.
-    NoTemplatesDir,
+    /// Pas de dossier pour la bibliothèque de l'utilisateur.
+    NoLibraryDir,
     /// Pack de modèles inconnu.
     UnknownPack,
     /// Version de pack introuvable.
@@ -46,6 +46,8 @@ pub enum SessionErrorKind {
     EditingTemplates,
     /// Requête qui demande l'édition des modèles.
     NotEditingTemplates,
+    /// En mode modèles, un choix de thème mêlé à d'autres ops.
+    ThemeChoiceAlone,
     /// Réglage de l'hôte inconnu.
     HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
@@ -72,6 +74,12 @@ pub enum SessionErrorKind {
     NotHelp,
     /// Thème inconnu.
     UnknownTheme,
+    /// Version de thème introuvable.
+    ThemeVersionMissing,
+    /// Valeur de jeton de design refusée par le schéma.
+    InvalidTokenValue,
+    /// Jeton de design encore référencé par d'autres jetons.
+    TokenInUse,
     /// Nom, taille ou nombre de fichiers de widgets refusé.
     InvalidWidget,
     /// Widget utilisé par un modèle du pack.
@@ -125,20 +133,22 @@ pub(crate) enum SessionInner {
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
     #[snafu(display("built-in template set {id} cannot be deleted"))]
     BuiltinTemplateSet { id: String, backtrace: Backtrace },
-    #[snafu(display("no folder for user templates"))]
-    NoTemplatesDir { backtrace: Backtrace },
-    #[snafu(display("template pack not found: {id}"))]
+    #[snafu(display("no folder for the user {kind} library"))]
+    NoLibraryDir { kind: &'static str, backtrace: Backtrace },
+    #[snafu(display("pack not found: {id}"))]
     UnknownPack { id: uuid::Uuid, backtrace: Backtrace },
-    #[snafu(display("version {version} of template pack {id} not found"))]
+    #[snafu(display("version {version} of pack {id} not found"))]
     PackVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
-    #[snafu(display("invalid pack.json for template pack {id}"))]
+    #[snafu(display("invalid manifest for pack {id}"))]
     PackJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("pack.json of template pack {found} given for template pack {id}"))]
+    #[snafu(display("manifest of pack {found} given for pack {id}"))]
     PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("finish editing the templates first"))]
     EditingTemplates { backtrace: Backtrace },
     #[snafu(display("no template set is being edited"))]
     NotEditingTemplates { backtrace: Backtrace },
+    #[snafu(display("in template mode, choose the theme alone and edit its tokens with set_token"))]
+    ThemeChoiceAlone { backtrace: Backtrace },
     #[snafu(display("unknown host setting: {key}"))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
@@ -163,8 +173,18 @@ pub(crate) enum SessionInner {
     ReadOnly { backtrace: Backtrace },
     #[snafu(display("this tab is not the help"))]
     NotHelp { backtrace: Backtrace },
-    #[snafu(display("unknown theme: {theme}"))]
-    UnknownTheme { theme: String, backtrace: Backtrace },
+    #[snafu(display("unknown theme: {id}"))]
+    UnknownTheme { id: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("version {version} of theme {id} not found"))]
+    ThemeVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
+    #[snafu(display("invalid manifest for theme {id}"))]
+    ThemeJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("manifest of theme {found} given for theme {id}"))]
+    ThemeIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("invalid value for {path}: {reason}"))]
+    InvalidTokenValue { path: String, reason: String, backtrace: Backtrace },
+    #[snafu(display("{path} is used by: {}", users.join(", ")))]
+    TokenInUse { path: String, users: Vec<String>, backtrace: Backtrace },
     #[snafu(display("unreadable help deck"))]
     HelpDeck { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
@@ -208,6 +228,8 @@ impl SessionError {
             | DeckJson { .. }
             | PackJson { .. }
             | PackIdMismatch { .. }
+            | ThemeJson { .. }
+            | ThemeIdMismatch { .. }
             | Version { .. } => SessionErrorKind::InvalidDocument,
             Op { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } | Registry { .. } => SessionErrorKind::Render,
@@ -216,11 +238,12 @@ impl SessionError {
             NoChart { .. } => SessionErrorKind::NoChart,
             Chart { .. } => SessionErrorKind::Chart,
             BuiltinTemplateSet { .. } => SessionErrorKind::BuiltinTemplateSet,
-            NoTemplatesDir { .. } => SessionErrorKind::NoTemplatesDir,
+            NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
+            ThemeChoiceAlone { .. } => SessionErrorKind::ThemeChoiceAlone,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
@@ -234,6 +257,9 @@ impl SessionError {
             ReadOnly { .. } => SessionErrorKind::ReadOnly,
             NotHelp { .. } => SessionErrorKind::NotHelp,
             UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
+            ThemeVersionMissing { .. } => SessionErrorKind::ThemeVersionMissing,
+            InvalidTokenValue { .. } => SessionErrorKind::InvalidTokenValue,
+            TokenInUse { .. } => SessionErrorKind::TokenInUse,
             HelpDeck { .. } => SessionErrorKind::InvalidDocument,
             InvalidWidgetName { .. }
             | WidgetTooLarge { .. }
@@ -309,7 +335,7 @@ impl Localize for SessionError {
             NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
             Chart { source, .. } => source.localize(l),
             BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
-            NoTemplatesDir { .. } => l.tr("session-no-templates-dir"),
+            NoLibraryDir { .. } => l.tr("session-no-library-dir"),
             UnknownPack { id, .. } => l.tr_with("session-unknown-pack", &[("id", id.to_string().into())]),
             PackVersionMissing { id, version, .. } => l.tr_with(
                 "session-pack-version-missing",
@@ -322,6 +348,7 @@ impl Localize for SessionError {
             ),
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
+            ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
@@ -334,7 +361,23 @@ impl Localize for SessionError {
             InHistory { .. } => l.tr("session-in-history"),
             ReadOnly { .. } => l.tr("session-read-only"),
             NotHelp { .. } => l.tr("session-not-help"),
-            UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
+            UnknownTheme { id, .. } => l.tr_with("session-unknown-theme", &[("theme", id.to_string().into())]),
+            ThemeVersionMissing { id, version, .. } => l.tr_with(
+                "session-theme-version-missing",
+                &[("id", id.to_string().into()), ("version", version.as_str().into())],
+            ),
+            ThemeJson { id, .. } => l.tr_with("session-invalid-theme", &[("id", id.to_string().into())]),
+            ThemeIdMismatch { id, found, .. } => l.tr_with(
+                "session-theme-id-mismatch",
+                &[("id", id.to_string().into()), ("found", found.to_string().into())],
+            ),
+            InvalidTokenValue { path, reason, .. } => l.tr_with(
+                "session-invalid-token-value",
+                &[("path", path.as_str().into()), ("reason", l.tr(&format!("session-token-reason-{reason}")).into())],
+            ),
+            TokenInUse { path, users, .. } => {
+                l.tr_with("session-token-in-use", &[("path", path.as_str().into()), ("users", users.join(", ").into())])
+            }
             HelpDeck { .. } => l.tr("session-help-deck"),
             Version { source, .. } => source.localize(l),
             InvalidWidgetName { name, .. } => {

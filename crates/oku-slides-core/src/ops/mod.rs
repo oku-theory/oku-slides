@@ -28,7 +28,7 @@ use crate::error::{
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
-use crate::pack::PackRef;
+use crate::pack::{PackRef, ThemeRef};
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
@@ -203,18 +203,28 @@ pub enum Op {
         slide: String,
         notes: String,
     },
-    /// Thème de la bibliothèque (`papier`, `pro`) ou `null`.
+    /// Thème du deck (id et version) ; `null` : le thème par défaut.
     SetTheme {
-        theme: Option<String>,
+        theme: Option<ThemeRef>,
     },
     /// Pack de modèles du deck (id et version) ; `null` : le pack par défaut.
     SetTemplates {
         templates: Option<PackRef>,
     },
-    /// Jeton de design au chemin donné (`["color", "accent"]`) ; `null` le retire.
+    /// Jeton de design au chemin donné (`["color", "accent"]`). `null` est
+    /// posé tel quel : il « vide » une clé qui l'accepte.
     SetToken {
         path: Vec<String>,
         value: Value,
+    },
+    /// Retire le jeton au chemin donné (retour à la couche inférieure) ; un
+    /// objet devenu vide est retiré aussi.
+    UnsetToken {
+        path: Vec<String>,
+    },
+    /// Remplace tous les jetons du deck : un objet, ou `null` (aucun).
+    SetTokens {
+        tokens: Value,
     },
     /// Variable du deck ; `null` la retire.
     SetVar {
@@ -463,6 +473,14 @@ fn set_path(root: &mut Value, path: &[String], value: Value) -> Option<Value> {
     }
 }
 
+/// Un chemin de jeton n'est pas vide.
+fn token_path(path: &[String]) -> Result<(), OpError> {
+    if path.is_empty() {
+        return Err(InvalidValueSnafu { field: "path", reason: "empty path" }.build().into());
+    }
+    Ok(())
+}
+
 /// Retire la valeur au chemin, élague les objets devenus vides et la renvoie.
 fn remove_path(root: &mut Value, path: &[String]) -> Option<Value> {
     let map = root.as_object_mut()?;
@@ -681,17 +699,23 @@ impl Op {
                 Ok(())
             }
             Op::SetToken { path, value } => {
-                if path.is_empty() {
-                    return Err(InvalidValueSnafu { field: "path", reason: "empty path" }.build().into());
+                token_path(&path)?;
+                set_path(&mut deck.tokens, &path, value);
+                Ok(())
+            }
+            Op::UnsetToken { path } => {
+                token_path(&path)?;
+                remove_path(&mut deck.tokens, &path);
+                if deck.tokens.as_object().is_some_and(Map::is_empty) {
+                    deck.tokens = Value::Null;
                 }
-                if value.is_null() {
-                    remove_path(&mut deck.tokens, &path);
-                    if deck.tokens.as_object().is_some_and(Map::is_empty) {
-                        deck.tokens = Value::Null;
-                    }
-                } else {
-                    set_path(&mut deck.tokens, &path, value);
+                Ok(())
+            }
+            Op::SetTokens { tokens } => {
+                if !(tokens.is_object() || tokens.is_null()) {
+                    return Err(InvalidValueSnafu { field: "tokens", reason: "an object or null" }.build().into());
                 }
+                deck.tokens = tokens;
                 Ok(())
             }
             Op::SetVar { key, value } => {

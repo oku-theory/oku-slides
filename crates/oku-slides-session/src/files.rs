@@ -52,17 +52,18 @@ impl Opened {
 
 /// Une partie mise de côté à la lecture : une perte. Soit illisible
 /// (`issue-unreadable-*`), soit un slot trop profond (`issue-slot-too-deep`)
-/// dont la relecture a écarté les éléments, soit une version de pack
-/// écartée (`issue-pack-version-mismatch`). Tout autre problème est un
-/// constat de `validate` (paramètre inconnu, asset manquant…), que la fusion
-/// et la restauration rendent aussi : le deck est lu en entier.
+/// dont la relecture a écarté les éléments, soit une version de pack ou de
+/// thème écartée (`issue-pack-version-mismatch`, `issue-theme-version-mismatch`).
+/// Tout autre problème est un constat de `validate` (paramètre inconnu, asset
+/// manquant…), que la fusion et la restauration rendent aussi : le deck est lu en entier.
 ///
 /// `validate` signale aussi `issue-slot-too-deep`, mais jamais sur un deck
 /// relu : la relecture borne la profondeur comme lui (`MAX_SLOT_DEPTH`).
 /// Ici, il vient donc toujours de la lecture.
 pub(crate) fn is_unreadable(issue: &Issue) -> bool {
     let id = issue.message.id();
-    id.starts_with("issue-unreadable-") || id == "issue-slot-too-deep" || id == "issue-pack-version-mismatch"
+    id.starts_with("issue-unreadable-")
+        || matches!(id, "issue-slot-too-deep" | "issue-pack-version-mismatch" | "issue-theme-version-mismatch")
 }
 
 /// Où des problèmes de lecture ont été rendus (message du journal).

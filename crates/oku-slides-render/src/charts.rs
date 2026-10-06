@@ -49,14 +49,8 @@ const MAX_SVG_BYTES: usize = 4 << 20;
 /// et chaque ajout y garde une copie de la police.
 static REGISTERED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
 
-/// Police du texte courant de chaque thème (voir `typst/oku-slides/themes`).
-fn body_font(theme: Option<&str>) -> &'static str {
-    match theme {
-        Some("papier") => "Instrument Sans",
-        Some("pro") => "Inter",
-        _ => "Libertinus Serif",
-    }
-}
+/// Police des graphiques quand les jetons n'en donnent pas.
+const DEFAULT_FONT: &str = "Libertinus Serif";
 
 /// Tailles des textes des graphiques, en pt, tirées des jetons `size`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,6 +77,8 @@ pub(crate) struct Charts {
     labels: ChartLabels,
     /// Palette des séries, tirée des jetons du thème ; vide = celle par défaut.
     palette: Vec<String>,
+    /// Première famille de `font.body` des jetons effectifs ; `None` = `DEFAULT_FONT`.
+    font: Option<String>,
     /// Tailles de texte du thème ; aucune = celles par défaut du moteur.
     text: Option<TextSizes>,
     /// Taille de la boîte des graphiques sans cadre, relevée à la compilation.
@@ -107,6 +103,14 @@ impl Charts {
     pub(crate) fn set_palette(&mut self, palette: Vec<String>) -> bool {
         let changed = palette != self.palette;
         self.palette = palette;
+        changed
+    }
+
+    /// Police des graphiques (jeton `font.body`). Elle entre dans
+    /// l'empreinte ; `true` si elle a changé.
+    pub(crate) fn set_font(&mut self, font: Option<String>) -> bool {
+        let changed = font != self.font;
+        self.font = font;
         changed
     }
 
@@ -147,11 +151,10 @@ impl Charts {
     pub(crate) fn attach(
         &mut self,
         deck: &mut Json,
-        theme: Option<&str>,
         fonts: &Fonts,
         registry: &WidgetRegistry,
     ) -> Result<(), RenderError> {
-        let family = register_font(fonts, body_font(theme));
+        let family = register_font(fonts, self.font.as_deref().unwrap_or(DEFAULT_FONT));
         let renderer = ChartsRsRenderer { theme: self.theme(family), labels: self.labels.clone() };
         let mut wanted = HashSet::new();
         let mut failure = None;
@@ -218,7 +221,7 @@ impl Charts {
 /// Donne à charts-rs la face normale de `family` (pour mesurer le texte),
 /// une fois par processus. Sans cette police, celle de Typst par défaut.
 fn register_font(fonts: &Fonts, family: &str) -> String {
-    let fallback = body_font(None);
+    let fallback = DEFAULT_FONT;
     let Some(face) = fonts.regular_face(family).or_else(|| fonts.regular_face(fallback)) else {
         return family.to_owned();
     };

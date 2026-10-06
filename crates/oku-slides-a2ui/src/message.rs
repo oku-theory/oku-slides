@@ -214,8 +214,13 @@ pub enum ComponentKind {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         swatch: Option<String>,
     },
-    /// Un enfant replié derrière `summary`.
-    Disclosure { summary: Dynamic<String>, child: String },
+    /// Un enfant replié derrière `summary` ; `open` : déplié au premier rendu.
+    Disclosure {
+        summary: Dynamic<String>,
+        child: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        open: Option<bool>,
+    },
     /// Un compteur ou un statut.
     Badge {
         text: Dynamic<String>,

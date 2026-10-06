@@ -19,11 +19,15 @@ use std::time::Instant;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry, validate};
+use oku_slides_core::{
+    Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, ThemeRef, WidgetFile, WidgetRegistry, validate,
+};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::Fonts;
-use oku_slides_session::{Library, Storage, adopt_default_pack, read_document};
+use oku_slides_session::{
+    PackLibrary, Storage, ThemeLibrary, adopt_default_pack, adopt_default_theme, read_document, theme_tokens,
+};
 
 use crate::bench::ms;
 use crate::out::Out;
@@ -173,7 +177,7 @@ fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: 
 /// `open --out`, vérifié), puis de la bibliothèque ; introuvable : erreur.
 fn embed_pack(
     storage: &Storage,
-    library: &Library,
+    library: &PackLibrary,
     l: &Localizer,
     deck_dir: &Path,
     bundle: &mut SourceBundle,
@@ -218,6 +222,20 @@ fn beside_deck(storage: &Storage, deck_dir: &Path, v: &PackVersion) -> Option<Pa
         tracing::warn!(dir = %dir.display(), "pack altéré à côté du deck : ignoré");
         None
     }
+}
+
+/// Embarque dans `bundle` la version courante du thème nommé `name` (intégré
+/// ou de la bibliothèque, sans casse) ; sa référence. Un nom inconnu est une erreur.
+fn embed_theme(themes: &ThemeLibrary, l: &Localizer, name: &str, bundle: &mut SourceBundle) -> Result<ThemeRef> {
+    let unknown = || color_eyre::eyre::eyre!(l.tr_with("session-unknown-theme", &[("theme", name.into())]));
+    let info = themes.themes().into_iter().find(|t| t.name.eq_ignore_ascii_case(name)).ok_or_else(unknown)?;
+    let current = themes.current_version(info.id).ok_or_else(unknown)?;
+    Ok(ThemeRef { id: info.id, version: bundle.add_theme(current.files) })
+}
+
+/// La bibliothèque des thèmes de l'utilisateur (et les intégrés).
+fn theme_library(platform: &Platform) -> ThemeLibrary {
+    ThemeLibrary::new(Some(platform.settings.paths.themes()), platform.storage.clone())
 }
 
 /// Registre de base des widgets, compilé depuis Typst une fois par processus
@@ -269,10 +287,12 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         }
         Cmd::Render { input, out: dir, theme } => {
             let registry = registry(&app_fonts)?;
-            let bundle = load_bundle(storage, l, &input, limits, &registry)?;
+            let mut bundle = load_bundle(storage, l, &input, limits, &registry)?;
+            let themes = theme_library(platform);
+            adopt_default_theme(&themes, &mut bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)))?;
             let mut deck = bundle.deck().clone();
-            if theme.is_some() {
-                deck.theme = theme;
+            if let Some(name) = theme {
+                deck.theme = Some(embed_theme(&themes, l, &name, &mut bundle)?);
             }
             let t = Instant::now();
             let doc = pack_render::render(platform, l, app_fonts.with(bundle.fonts.values().cloned()), &bundle, &deck)?;
@@ -299,12 +319,16 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
             let registry = registry(&app_fonts)?;
             let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
-            let mut deck = read_deck(storage, l, &deck)?;
-            if theme.is_some() {
-                deck.theme = theme;
-            }
+            let deck = read_deck(storage, l, &deck)?;
             let mut bundle = SourceBundle::new(deck, registry.clone())?;
-            let library = Library::new(Some(platform.settings.paths.templates()), storage.clone());
+            let themes = theme_library(platform);
+            if let Some(name) = theme {
+                let mut deck = bundle.deck().clone();
+                deck.theme = Some(embed_theme(&themes, l, &name, &mut bundle)?);
+                bundle.apply_silent(deck)?;
+            }
+            adopt_default_theme(&themes, &mut bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)))?;
+            let library = PackLibrary::new(Some(platform.settings.paths.templates()), storage.clone());
             embed_pack(storage, &library, l, &deck_dir, &mut bundle)?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
@@ -369,7 +393,16 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
         }
         Cmd::Bench { deck, iterations } => {
-            bench::bench(out, read_deck(storage, l, &deck)?, app_fonts, iterations, limits)?
+            let deck = read_deck(storage, l, &deck)?;
+            let themes = theme_library(platform);
+            // Un deck JSON n'embarque rien : son thème se résout par la bibliothèque, sinon un deck Pro serait mesuré en Papier.
+            let embedded: BTreeMap<_, _> = deck
+                .theme
+                .iter()
+                .filter_map(|r| themes.version(r.id, &r.version).map(|f| (r.version.clone(), f)))
+                .collect();
+            let tokens = theme_tokens(&themes, &embedded, &deck);
+            bench::bench(out, deck, tokens, app_fonts, iterations, limits)?
         }
         Cmd::Schema => out.data(&serde_json::to_string_pretty(&oku_slides_core::ops_schema()?)?)?,
         Cmd::Serve { input, port, ui } => serve::serve(out, input, port, &ui, app_fonts, platform)?,

@@ -68,8 +68,14 @@ fn undoing_the_first_edit_removes_the_author_entry() {
 
 fn peer(deck: &Deck, snap: &[u8], author: &str) -> SourceBundle {
     let (replica, read) = DeckReplica::from_snapshot(snap, 1 << 24, crate::test_registry::shared()).unwrap();
-    let (mut b, _) =
-        SourceBundle::from_replica(replica, read, Default::default(), Default::default(), Default::default());
+    let (mut b, _) = SourceBundle::from_replica(
+        replica,
+        read,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
     b.set_author(Some(author.into()));
     let _ = deck;
     b
@@ -83,8 +89,8 @@ fn merge_reports_imported_changes_and_authors() {
     let mut b = peer(&deck, &snap, "Julie");
     b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let mut d = titled(&deck, "Un");
-    d.theme = Some("pro".into());
-    b.apply(d, "Thème", None).unwrap();
+    d.params.subtitle = Some("Deux".into());
+    b.apply(d, "Sous-titre", None).unwrap();
     let (report, issues) = a.merge(b).unwrap();
     // Seul `validate` signale quelque chose : l'image de `roadmap.json` n'a
     // pas son asset dans le bundle. Rien d'illisible.
@@ -120,8 +126,14 @@ fn merge_counts_nameless_peers_as_anonymous() {
     let snap = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().replica().snapshot().unwrap();
     let mut a = peer(&deck, &snap, "Matthieu");
     let (replica, read) = DeckReplica::from_snapshot(&snap, 1 << 24, crate::test_registry::shared()).unwrap();
-    let (mut b, _) =
-        SourceBundle::from_replica(replica, read, Default::default(), Default::default(), Default::default());
+    let (mut b, _) = SourceBundle::from_replica(
+        replica,
+        read,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
     b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let (report, _) = a.merge(b).unwrap();
     assert_that!(report.authors).is_empty();

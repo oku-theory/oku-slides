@@ -51,6 +51,7 @@ pub struct PathSettings {
     pub data: Option<PathBuf>,
     pub models: Option<PathBuf>,
     pub templates: Option<PathBuf>,
+    pub themes: Option<PathBuf>,
     /// Polices supplémentaires (TTF/OTF).
     pub fonts: Option<PathBuf>,
     /// Où s'enregistre de lui-même un deck qui n'a pas encore de fichier.
@@ -288,6 +289,11 @@ impl PathSettings {
     /// Ensembles de modèles de slides de l'utilisateur.
     pub fn templates(&self) -> PathBuf {
         self.templates.clone().unwrap_or_else(|| self.data().join("templates"))
+    }
+
+    /// Thèmes de l'utilisateur.
+    pub fn themes(&self) -> PathBuf {
+        self.themes.clone().unwrap_or_else(|| self.data().join("themes"))
     }
 
     /// Decks enregistrés d'eux-mêmes : `Documents/Oku Slides` par défaut.

@@ -8,15 +8,15 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::{Op, PackFiles, PackRef, PackVersion};
-use oku_slides_session::{DEFAULT_PACK, Library, PackManifest, Request, Storage, builtin_versions};
+use oku_slides_session::{DEFAULT_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use crate::common::{data_dir, session_in};
 
-fn library(data: &Path) -> Library {
+fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    Library::new(Some(data.join("templates")), storage)
+    PackLibrary::new(Some(data.join("templates")), storage)
 }
 
 fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {

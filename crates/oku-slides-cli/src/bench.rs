@@ -18,7 +18,15 @@ fn median(mut v: Vec<Duration>) -> Duration {
     v.get(v.len() / 2).copied().unwrap_or_default()
 }
 
-pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: SourceLimits) -> Result<()> {
+/// `tokens` : les jetons du thème du deck (voir `oku_slides_session::theme_tokens`).
+pub fn bench(
+    out: &mut Out<'_>,
+    mut deck: Deck,
+    tokens: Option<serde_json::Map<String, serde_json::Value>>,
+    fonts: Fonts,
+    n: usize,
+    limits: SourceLimits,
+) -> Result<()> {
     let l = out.localizer();
     if n == 0 {
         bail!(l.tr("cli-iterations"));
@@ -26,6 +34,7 @@ pub fn bench(out: &mut Out<'_>, mut deck: Deck, fonts: Fonts, n: usize, limits: 
     let assets = BTreeMap::new();
     let t = Instant::now();
     let mut r = Renderer::new(fonts)?;
+    r.set_theme(tokens)?;
     let registry = r.registry().clone();
     out.line("cli-bench-world", &[("time", ms(t.elapsed()).into())])?;
 

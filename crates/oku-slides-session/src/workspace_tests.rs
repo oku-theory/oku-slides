@@ -48,8 +48,10 @@ fn ids(w: &WindowView) -> Vec<&str> {
 }
 
 fn set_theme() -> Request {
-    serde_json::from_value(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": "pro"}]}))
-        .unwrap()
+    serde_json::from_value(
+        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]}),
+    )
+    .unwrap()
 }
 
 /// Un vrai `.oku-slides.pdf` : un deck JSON n'a pas de fichier associé.
@@ -883,8 +885,9 @@ fn with_session_wakes_a_dormant_resumed_tab() {
     let again = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir).unwrap());
     let slot = Workspace::lock(&again).session("t-1").unwrap();
     assert_that!(matches!(*relock(&slot), Slot::Dormant(_))).is_true();
-    let (theme, _) = Workspace::with_session(&again, "t-1", |s| s.deck().theme.clone());
-    assert_that!(theme).is_ok().is_equal_to(Some("pro".to_owned()));
+    let (theme, _) =
+        Workspace::with_session(&again, "t-1", |s| s.deck().theme.as_ref().and_then(crate::test_support::theme_name));
+    assert_that!(theme).is_ok().is_equal_to(Some("pro"));
     assert_that!(matches!(*relock(&slot), Slot::Ready(_))).is_true();
 }
 

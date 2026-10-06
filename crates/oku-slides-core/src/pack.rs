@@ -8,6 +8,9 @@
 //! source, `0`. La version en est le sha-256, écrit `sha256:<hex>`. Une
 //! source ne contient pas d'octet `0` (refusée à la lecture et à l'écriture),
 //! et le JSON compact l'échappe : le contenu canonique est sans ambiguïté.
+//!
+//! Un thème ([`ThemeRef`]) suit le même modèle : une version de thème est un
+//! [`PackFiles`] dont le manifeste est `theme.json`, sans fichier de widget.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -163,6 +166,17 @@ pub struct PackRef {
     pub version: PackVersion,
 }
 
+/// Le thème d'un deck : son id et la version embarquée.
+///
+/// Une version de thème est un [`PackFiles`] sans widget dont le manifeste
+/// est `theme.json` : même contenu canonique, même empreinte.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub struct ThemeRef {
+    #[schemars(with = "String")]
+    pub id: Uuid,
+    pub version: PackVersion,
+}
+
 /// Les fichiers d'une version : `pack.json` (un objet) et ses widgets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackFiles {
@@ -171,6 +185,19 @@ pub struct PackFiles {
 }
 
 impl PackFiles {
+    /// Les fichiers lus sous l'empreinte annoncée `hex`, si leur contenu la donne.
+    ///
+    /// `None` si `hex` n'est pas une empreinte, si les octets ne se lisent pas
+    /// (voir [`Self::from_bytes`]) ou si le contenu a une autre version.
+    pub fn verified<'a>(
+        hex: &str,
+        manifest: &[u8],
+        widgets: impl IntoIterator<Item = (WidgetFile, &'a [u8])>,
+    ) -> Option<(PackVersion, Self)> {
+        let claimed = PackVersion::from_hex(hex)?;
+        Self::from_bytes(manifest, widgets).filter(|f| f.matches(&claimed)).map(|f| (claimed, f))
+    }
+
     /// Un fichier vide vaut absent : même contenu canonique.
     pub fn new(manifest: Map<String, Value>, mut widgets: BTreeMap<WidgetFile, String>) -> Self {
         widgets.retain(|_, source| !source.is_empty());

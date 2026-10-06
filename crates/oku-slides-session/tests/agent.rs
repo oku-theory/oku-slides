@@ -230,7 +230,7 @@ fn params_surface_valid_template_goes_to_the_thread() {
     let spec = ShowParams {
         title: "Apparence".into(),
         slide: "s-libre".into(),
-        fields: vec![theme_field(json!({ "op": "set_theme", "theme": "$value" }))],
+        fields: vec![theme_field(json!({ "op": "set_var", "key": "theme", "value": "$value" }))],
     };
     let surface = s.params_surface("show-1", &spec).unwrap();
     assert_that!(surface.place).is_equal_to(Place::Thread);
@@ -304,7 +304,7 @@ fn params_surface_missing_slide_returns_no_slide() {
     let spec = ShowParams {
         title: "x".into(),
         slide: "inconnue".into(),
-        fields: vec![theme_field(json!({ "op": "set_theme", "theme": "$value" }))],
+        fields: vec![theme_field(json!({ "op": "set_var", "key": "theme", "value": "$value" }))],
     };
     assert_that!(s.params_surface("show-1c", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
 }
@@ -317,7 +317,7 @@ fn params_surface_does_not_mutate_the_real_deck() {
     let spec = ShowParams {
         title: "x".into(),
         slide: "s-libre".into(),
-        fields: vec![theme_field(json!({ "op": "set_theme", "theme": "$value" }))],
+        fields: vec![theme_field(json!({ "op": "set_var", "key": "theme", "value": "$value" }))],
     };
     s.params_surface("show-1d", &spec).unwrap();
     assert_that!(s.deck()).is_equal_to(&before);
@@ -332,7 +332,7 @@ fn params_surface_slider_with_inverted_bounds_returns_agent_form() {
         label: "Espacement".into(),
         kind: FieldKind::Slider,
         value: json!(4.0),
-        op_template: json!({ "op": "set_theme", "theme": "$value" }),
+        op_template: json!({ "op": "set_var", "key": "theme", "value": "$value" }),
         min: Some(10.0),
         max: Some(2.0),
         step: None,
@@ -357,7 +357,7 @@ fn params_surface_slider_with_only_one_bound_still_rejects_an_implicit_inverted_
         label: "Espacement".into(),
         kind: FieldKind::Slider,
         value: json!(4.0),
-        op_template: json!({ "op": "set_theme", "theme": "$value" }),
+        op_template: json!({ "op": "set_var", "key": "theme", "value": "$value" }),
         min: Some(150.0),
         max: None,
         step: None,
@@ -379,7 +379,7 @@ fn params_surface_stepper_with_non_finite_bound_returns_agent_form() {
         label: "Colonnes".into(),
         kind: FieldKind::Stepper,
         value: json!(4),
-        op_template: json!({ "op": "set_theme", "theme": "$value" }),
+        op_template: json!({ "op": "set_var", "key": "theme", "value": "$value" }),
         min: Some(f64::NAN),
         max: None,
         step: None,
@@ -424,8 +424,9 @@ fn params_surface_template_on_missing_element_returns_agent_form() {
 #[test]
 fn param_op_fills_template_with_chosen_value() {
     let s = session();
-    let field = theme_field(json!({ "op": "set_theme", "theme": "$value" }));
-    assert_that!(s.param_op(&field, &json!("pro")).unwrap()).is_equal_to(Op::SetTheme { theme: Some("pro".into()) });
+    let field = theme_field(json!({ "op": "set_var", "key": "theme", "value": "$value" }));
+    assert_that!(s.param_op(&field, &json!("pro")).unwrap())
+        .is_equal_to(Op::SetVar { key: "theme".into(), value: json!("pro") });
 }
 
 fn retitle(title: &str) -> Vec<Op> {
@@ -573,7 +574,7 @@ fn params_surface_with_too_many_fields_returns_agent_form() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let fields = (0..=oku_slides_session::agent::forms::FIELDS.1)
-        .map(|_| theme_field(json!({ "op": "set_theme", "theme": "$value" })))
+        .map(|_| theme_field(json!({ "op": "set_var", "key": "theme", "value": "$value" })))
         .collect();
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields };
     assert_that!(s.params_surface("show-8", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::AgentForm);
@@ -649,8 +650,8 @@ fn turn_groups_every_apply_into_one_undo() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn("titre plus percutant");
-    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
-    s.apply("b", vec![Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
+    s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    s.apply("b", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
     s.end_turn();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : titre plus percutant"));
     s.undo().unwrap();
@@ -662,11 +663,11 @@ fn end_turn_after_edit_templates_closes_stashed_group_too() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn("modèles");
-    s.apply("a", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     s.end_turn();
     s.close_templates().unwrap();
-    s.apply("Seul", vec![Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
+    s.apply("Seul", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Seul"));
 }
 

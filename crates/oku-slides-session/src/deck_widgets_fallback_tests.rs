@@ -240,7 +240,7 @@ fn a_failed_install_while_probing_again_does_not_fail_the_edit() {
     // Un fichier reste à sonder ; l'installation des widgets sondés échoue.
     s.widgets_unprobed.insert(oku_slides_core::WidgetFile::parse("quote").unwrap());
     s.failpoints.install_widgets = true;
-    let theme = oku_slides_core::Op::SetTheme { theme: Some("pro".into()) };
+    let theme = oku_slides_core::Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
     s.apply("Thème", vec![theme], None).unwrap();
     // Les widgets installés restent ; la sonde sera reprise au rendu suivant.
     assert_that!(Arc::ptr_eq(&s.registry, &registry)).is_true();

@@ -9,6 +9,12 @@ pub(crate) fn registry() -> WidgetRegistry {
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}"))
 }
 
+/// Une référence de thème de test : version `<c>` répété 64 fois, id dérivé.
+pub(crate) fn theme_ref(c: &str) -> crate::ThemeRef {
+    let version = crate::PackVersion::from_hex(&c.repeat(64)).unwrap_or_else(|| panic!("hex invalide : {c}"));
+    crate::ThemeRef { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version }
+}
+
 /// Le registre de base, partagé comme le prennent le replica et les sources.
 pub(crate) fn shared() -> std::sync::Arc<WidgetRegistry> {
     std::sync::Arc::new(registry())

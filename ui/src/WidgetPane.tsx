@@ -26,7 +26,7 @@ interface Props {
 
 export default function WidgetPane({ api, widgets, trials, look, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
   return (
-    <div className="widget-pane" hidden={widgets.tabs.active === null}>
+    <div className="widget-pane" hidden={typeof widgets.tabs.active !== "number"}>
       {widgets.tabs.tabs.map((tab) => (
         <WidgetTab
           key={tab.id}

@@ -1,5 +1,7 @@
 //! Champs émis par le rendu : champs vides compris, sans changer la mise en page.
 
+mod common;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -17,6 +19,7 @@ fn roadmap_json() -> serde_json::Value {
 fn render(deck: serde_json::Value) -> Vec<FieldBox> {
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(common::theme_tokens(common::theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().fields.clone()
 }
 
@@ -125,7 +128,7 @@ fn fields_stack_with_empty_markers_keeps_the_stack_height() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
     r.set_widgets(Some(&pack), registry).unwrap();
     let deck = json!({
-        "version": 3, "params": { "title": "T" },
+        "version": 4, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "d", "kind": "duo", "params": { "b": "Texte" } },
             { "id": "o", "kind": "solo", "params": { "b": "Texte" } }
@@ -233,7 +236,7 @@ fn title_slide_without_subtitle_emits_an_empty_subtitle() {
 #[test]
 fn title_slide_in_band_layout_emits_title_and_subtitle_without_kicker() {
     let mut deck = roadmap_json();
-    deck["theme"] = json!("pro");
+    deck["theme"] = json!(common::theme_ref("pro"));
     let fields = render(deck);
     assert_that!(has_field(&fields, "s-title", "title")).is_true();
     assert_that!(has_field(&fields, "s-title", "subtitle")).is_true();

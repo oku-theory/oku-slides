@@ -151,13 +151,17 @@ const DiffTextApi = {
 
 type ChildRef = string | { id: string; basePath: string };
 
-/** Les enfants d'une colonne ou d'une rangée, chacun dans son emplacement. */
+/**
+ * Les enfants d'une colonne ou d'une rangée, chacun dans son emplacement.
+ * L'emplacement porte l'id du composant (`data-component-id`) : une prise
+ * stable pour les tests de bout en bout (une ligne de jeton : `color.accent:row`).
+ */
 function children(refs: unknown, buildChild: (id: string, basePath?: string) => ReactNode, slot?: string) {
   if (!Array.isArray(refs)) return null;
   return (refs as ChildRef[]).map((ref) =>
     typeof ref === "string"
-      ? <div key={ref} className={slot}>{buildChild(ref)}</div>
-      : <div key={`${ref.id}-${ref.basePath}`} className={slot}>{buildChild(ref.id, ref.basePath)}</div>,
+      ? <div key={ref} className={slot} data-component-id={ref}>{buildChild(ref)}</div>
+      : <div key={`${ref.id}-${ref.basePath}`} className={slot} data-component-id={ref.id}>{buildChild(ref.id, ref.basePath)}</div>,
   );
 }
 
@@ -352,8 +356,12 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
   );
 });
 
-/** Une couleur : pastilles de la palette, ou sélecteur libre (validé à sa fermeture). */
+/**
+ * Une couleur : pastilles de la palette, ou sélecteur libre (validé à sa fermeture). La valeur
+ * peut être le nom d'une couleur du thème (`accent`) : montré tel quel ; choisir écrit un hex.
+ */
 const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
+  const named = !!props.value && !props.value.startsWith("#");
   const [draft, setDraft] = useState(sixDigits(props.value));
   useEffect(() => setDraft(sixDigits(props.value)), [props.value]);
   const pick = useCommit(props.value, (c: string) => {
@@ -383,6 +391,7 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
           onChange={(e) => setDraft(e.target.value)}
           aria-label={t("ui-agent-color-other")}
         />
+        {named && <span className="a2ui-hint color-name">{props.value}</span>}
       </div>
     </div>
   );

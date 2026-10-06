@@ -238,7 +238,7 @@ impl RenderWorker {
         set_locale(&mut link, l)?;
         let slot = self.1.last_slot.fetch_add(1, Ordering::Relaxed) + 1;
         expect_ok(&mut link, &Request::OpenSlot { slot, fonts: ids.clone() }, &[])?;
-        link.state.slots.insert(slot, SlotState { fonts: ids, pack: None, last_assets: Vec::new() });
+        link.state.slots.insert(slot, SlotState { fonts: ids, pack: None, last_assets: Vec::new(), theme: None });
         drop(link);
         Ok(RenderSlot::opened(self.clone(), slot, base, accuse))
     }

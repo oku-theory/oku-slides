@@ -31,8 +31,20 @@ impl Tools {
                         (None, Some(_)) => "templates",
                         (None, None) => "deck",
                     },
-                    "theme": snap.theme,
-                    "themes": snap.themes,
+                    "theme": snap.theme.map(|r| json!({ "id": r.id, "name": snap.theme_name })),
+                    // En mode modèles : le thème dont part le brouillon (`set_theme` le change).
+                    "edited_theme": snap.editing.as_ref().map(|e| json!({
+                        "id": e.theme.base.id,
+                        "version": e.theme.base.version,
+                        "name": e.theme.name,
+                        "dirty": e.theme.dirty,
+                    })),
+                    // Version courante de chaque thème : ce que pose l'op `set_theme`.
+                    "themes": snap
+                        .themes
+                        .iter()
+                        .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version }))
+                        .collect::<Vec<_>>(),
                     "template_set": snap.templates,
                     "dirty": snap.dirty,
                     "slides": slides,

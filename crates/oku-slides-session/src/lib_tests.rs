@@ -32,8 +32,9 @@ fn apply_with_render_failure_leaves_replica_untouched() {
     let mut s = session_with_fixture();
     let before = s.deck().clone();
     let ops_before = replica_ops(&s);
-    // Un jeton de couleur qui n'est pas une couleur fait échouer le rendu Typst.
-    let bad = Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!(5) };
+    // Une taille qui n'est pas une taille fait échouer le rendu Typst (seules
+    // les couleurs des surcharges sont vérifiées avant, t-194).
+    let bad = Op::SetToken { path: vec!["size".into(), "body".into()], value: json!(true) };
     let err = s.apply("Jeton", vec![bad], None);
     assert_that!(err.map_err(|e| e.kind())).is_equal_to(Err(SessionErrorKind::Render));
     assert_that!(s.deck()).is_equal_to(&before);

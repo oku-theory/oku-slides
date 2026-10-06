@@ -8,7 +8,7 @@ use super::*;
 use crate::test_registry::registry;
 
 fn deck(slides: Value) -> Deck {
-    serde_json::from_value(json!({ "version": 3, "slides": slides })).unwrap()
+    serde_json::from_value(json!({ "version": 4, "slides": slides })).unwrap()
 }
 
 /// Une slide `content` dont le slot `slot` porte `elements`.

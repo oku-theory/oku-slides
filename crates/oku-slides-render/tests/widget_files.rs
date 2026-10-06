@@ -31,7 +31,7 @@ fn readme_example_widget_probes_valid_and_renders_its_fields() {
     let mut r = Renderer::new(fonts).unwrap();
     r.set_widgets(Some(&pack), registry).unwrap();
     let deck = Deck::from_json(
-        r#"{"version":3,"slides":[{"id":"s","kind":"content","params":{"blocks":[
+        r#"{"version":4,"slides":[{"id":"s","kind":"content","params":{"blocks":[
             {"id":"k","kind":"kpi","params":{"value":"42 %","label":"Croissance"}}]}}]}"#,
     )
     .unwrap();

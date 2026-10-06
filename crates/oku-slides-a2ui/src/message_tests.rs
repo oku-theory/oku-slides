@@ -369,7 +369,7 @@ fn children_of_containers_lists_their_ids() {
     assert_that!(ComponentKind::Column { children: vec!["a".into(), "b".into()] }.children())
         .is_equal_to(vec!["a", "b"]);
     assert_that!(ComponentKind::Card { child: "c".into(), tone: None }.children()).is_equal_to(vec!["c"]);
-    let d = ComponentKind::Disclosure { summary: Dynamic::Literal("Pourquoi".into()), child: "w".into() };
+    let d = ComponentKind::Disclosure { summary: Dynamic::Literal("Pourquoi".into()), child: "w".into(), open: None };
     assert_that!(d.children()).is_equal_to(vec!["w"]);
 }
 

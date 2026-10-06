@@ -35,6 +35,13 @@ fn every_locale_has_exactly_the_reference_keys() {
 }
 
 #[test]
+fn has_ignores_the_english_fallback() {
+    assert_that!(english().has("deck-untitled")).is_true();
+    assert_that!(Localizer::new(Some("fr")).has("deck-untitled")).is_true();
+    assert_that!(Localizer::new(Some("fr")).has("does-not-exist")).is_false();
+}
+
+#[test]
 fn new_region_tag_selects_its_language() {
     assert_that!(Localizer::new(Some("fr-CA")).locale()).is_equal_to("fr");
     assert_that!(Localizer::new(Some("en_GB")).locale()).is_equal_to("en");

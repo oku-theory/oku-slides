@@ -139,7 +139,7 @@ async fn new_conversation_opens_a_new_session() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn tool_calls_of_a_turn_form_one_undo_entry() {
-    let apply = |t: &str| json!({ "tool": "apply", "args": { "ops": [{ "op": "set_theme", "theme": t }] } });
+    let apply = |t: &str| json!({ "tool": "apply", "args": { "ops": [{ "op": "set_theme", "theme": theme_ref(t) }] } });
     let h = start(json!({ "turns": [{ "mcp": [apply("pro"), apply("papier")] }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
@@ -153,7 +153,7 @@ async fn tool_calls_of_a_turn_form_one_undo_entry() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn crash_mid_turn_reports_stopped_and_closes_group() {
-    let apply = json!({ "tool": "apply", "args": { "ops": [{ "op": "set_theme", "theme": "pro" }] } });
+    let apply = json!({ "tool": "apply", "args": { "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] } });
     let h = start(json!({ "turns": [{ "mcp": [apply], "crash": true }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
@@ -163,7 +163,7 @@ async fn crash_mid_turn_reports_stopped_and_closes_group() {
     };
     assert_that!(message.as_str()).is_equal_to("L'agent s'est arrêté.");
     let mut s = t.session.lock().unwrap();
-    s.apply("Après", vec![oku_slides_core::Op::SetTheme { theme: Some("papier".into()) }], None).unwrap();
+    s.apply("Après", vec![oku_slides_core::Op::SetTheme { theme: theme_ref("papier") }], None).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Après"));
 }
 

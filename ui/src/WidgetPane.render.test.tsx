@@ -9,6 +9,10 @@ const { createRoot } = await import("react-dom/client");
 const { useTemplateWidgets } = await import("./useTemplateWidgets");
 const WidgetPane = (await import("./WidgetPane")).default;
 const { memory, wait } = await import("./test/widgetApi");
+const { THEME_TAB } = await import("./widgetTabs");
+
+/** Le dernier état des sous-onglets rendu par `mount`. */
+let latest: ReturnType<typeof useTemplateWidgets> | null = null;
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 afterEach(async () => {
@@ -32,6 +36,7 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   } as unknown as Snapshot;
   function Probe() {
     const w = useTemplateWidgets(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
+    latest = w;
     return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {},
       run: async () => null, palette: [] });
   }
@@ -49,6 +54,15 @@ describe("WidgetPane", () => {
     expect(tabs.map((t) => t.hidden)).toEqual([true, false]);
     expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(false);
     expect([...host.querySelectorAll(".widget-tab .cm-content")].map((c) => c.textContent)).toEqual(["k", "c"]);
+  });
+
+  test("sur Thème, le volet entier est caché", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const host = await mount(fake, ["kpi"], "kpi");
+    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(false);
+    await act(async () => latest!.activate(THEME_TAB));
+    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(true);
+    expect(latest!.activeName).toBeNull();
   });
 
   test("sur Modèles, le volet entier est caché", async () => {

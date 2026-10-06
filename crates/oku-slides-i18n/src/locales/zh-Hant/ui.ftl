@@ -44,7 +44,7 @@ ui-divider-pile = 投影片堆寬度
 ui-divider-notes = AI 代理對話寬度
 ui-divider-code = 程式碼大小
 ui-toolbar-theme = 主題
-ui-toolbar-theme-default = 預設
+ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-save-copy = 儲存副本
 ui-toolbar-finish = 完成
 ui-menu-workshop = 工作室
@@ -65,7 +65,7 @@ ui-add-kind = { $kind ->
     [chart] 圖表
    *[text] 文字
 }
-ui-add-widget = 範本包小工具
+ui-add-widget = 範本套件小工具
 ui-toolbar-remove-template = 刪除範本
 ui-toolbar-remove-slide = 刪除投影片
 ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
@@ -98,7 +98,6 @@ ui-undo-edit-slide = 編輯投影片
 ui-undo-dictation = 聽寫
 ui-undo-rename-set = 重新命名範本集
 ui-undo-rename-deck = 重新命名簡報
-ui-undo-theme = 變更主題
 ui-undo-chart-kind = 變更圖表類型
 ui-undo-chart-data = 編輯資料
 ui-undo-chart-color = 為系列設定顏色
@@ -342,5 +341,9 @@ ui-widgets-confirm-delete = 刪除小工具「{ $name }」?
 ui-widgets-rename-hint = 按兩下或按 F2 重新命名
 ui-widgets-tabs = 範本分頁
 ui-widgets-templates-tab = 範本
+ui-theme-tab = 主題
+ui-theme-picker = 主題
+ui-theme-name = 主題名稱
+ui-theme-unsaved = 主題變更未儲存
 ui-widgets-close-tab = 關閉 { $name }
 ui-widgets-removed-by-agent = AI 代理刪除了小工具 { $name }。

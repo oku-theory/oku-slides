@@ -53,8 +53,12 @@ pub struct Snapshot<'a> {
     pub path: Option<&'a Path>,
     pub name: String,
     pub dirty: bool,
-    pub theme: Option<&'a str>,
-    pub themes: &'static [&'static str],
+    /// Thème du deck : id et version embarquée.
+    pub theme: Option<&'a oku_slides_core::ThemeRef>,
+    /// Nom du thème tel qu'embarqué par le deck (absent de la bibliothèque s'il vient d'un autre fichier).
+    pub theme_name: Option<String>,
+    /// Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur.
+    pub themes: &'a [crate::ThemeInfo],
     pub title: Option<String>,
     /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
     pub title_source: Option<&'a str>,
@@ -75,8 +79,8 @@ pub struct Snapshot<'a> {
     pub appearance: &'a Appearance,
     /// Pack de modèles du deck (id et version embarquée).
     pub templates: Option<&'a PackRef>,
-    /// Mode d'édition des modèles : le pack en cours de modification.
-    pub editing: Option<&'a TemplateMode>,
+    /// Mode d'édition des modèles : le pack en cours de modification et le thème édité.
+    pub editing: Option<EditingView<'a>>,
     /// Bandeau du pack : le deck embarque une autre version que ma version courante.
     pub pack_notice: Option<crate::PackNoticeView>,
     /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.
@@ -233,9 +237,9 @@ pub struct TabInfo {
     /// Langue de l'aide que montre l'onglet ; `None` : un deck.
     #[serde(default)]
     pub help: Option<String>,
-    /// Thème du deck (`papier`, `pro`) : l'aide ouverte depuis cet onglet le prend.
+    /// Id du thème du deck : l'aide ouverte depuis cet onglet le prend.
     #[serde(default)]
-    pub theme: Option<String>,
+    pub theme: Option<uuid::Uuid>,
 }
 
 /// Édition d'un pack de modèles : chaque slide est un modèle.
@@ -255,6 +259,22 @@ pub struct TemplateMode {
     ///
     /// Les enregistrements suivants la remplacent.
     pub session_version: Option<PackVersion>,
+}
+
+/// Le mode modèles vu par l'interface : le pack édité et le brouillon du thème.
+#[derive(Debug, Serialize)]
+pub struct EditingView<'a> {
+    #[serde(flatten)]
+    pub mode: &'a TemplateMode,
+    pub theme: crate::ThemeEditView,
+}
+
+impl std::ops::Deref for EditingView<'_> {
+    type Target = TemplateMode;
+
+    fn deref(&self) -> &TemplateMode {
+        self.mode
+    }
 }
 
 /// Un modèle avec son aperçu (SVG) dans le thème courant.

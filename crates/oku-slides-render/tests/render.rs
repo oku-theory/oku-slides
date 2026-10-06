@@ -1,3 +1,5 @@
+mod common;
+
 use std::collections::BTreeMap;
 
 use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits, Target};
@@ -73,7 +75,7 @@ fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
     asserting("la slide modifiée doit changer").that(&after.page_hash(3).unwrap()).is_not_equal_to(h4);
     asserting("la couverture ne doit pas changer").that(&after.page_hash(0).unwrap()).is_equal_to(h1);
 
-    deck.theme = Some("pro".into());
+    r.set_theme(common::theme_tokens(Some("pro"))).unwrap();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.compile().unwrap().page_hash(0).unwrap()).is_not_equal_to(h1);
 }
@@ -138,6 +140,8 @@ fn embed_sources_then_extract_gives_back_same_bundle() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
     let mut bundle = SourceBundle::new(deck.clone(), r.registry().clone()).unwrap();
     bundle.add_asset(vec![0u8; 64]);
+    // La version du thème que référence la maquette (`papier`) voyage avec elle.
+    bundle.add_theme(common::theme_files("papier"));
     r.set_deck(&deck, &bundle.assets).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
 
@@ -213,7 +217,7 @@ fn chart_deck() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }]
     });
-    let json = serde_json::json!({ "version": 3, "slides": [
+    let json = serde_json::json!({ "version": 4, "slides": [
         { "id": "flux", "kind": "content", "params": { "title": "Ventes",
           "blocks": [{ "id": "g1", "kind": "chart", "params": { "option": option } }] } },
         { "id": "libre", "kind": "blank", "params": {
@@ -299,13 +303,14 @@ fn set_language_after_set_deck_with_charts_still_compiles() {
 
 fn themed_chart_deck(theme: &str) -> Deck {
     let mut deck = chart_deck();
-    deck.theme = Some(theme.into());
+    deck.theme = Some(common::theme_ref(theme));
     deck
 }
 
 #[test]
 fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     let doc = r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
     assert_that!(doc.page_count()).is_equal_to(2);
     let papier: Vec<String> =
@@ -316,7 +321,9 @@ fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render
 #[test]
 fn render_theme_change_switches_the_chart_palette() {
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
+    r.set_theme(common::theme_tokens(Some("pro"))).unwrap();
     r.render(&themed_chart_deck("pro"), &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().first().map(String::as_str)).is_equal_to(Some("#0072b0"));
 }
@@ -326,6 +333,7 @@ fn render_deck_tokens_override_the_chart_palette() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "chart": { "palette": ["#010203", "accent"] } });
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     r.render(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().to_vec()).is_equal_to(vec!["#010203".to_owned(), "#3f6b5e".to_owned()]);
 }
@@ -345,6 +353,7 @@ fn render_chart_texts_take_the_body_size_of_the_theme() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "size": { "body": 27 } });
     let mut r = Renderer::new(Fonts::default()).unwrap();
+    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     let doc = r.render(&deck, &BTreeMap::new()).unwrap();
     let chart = embedded_chart(&doc.svg(1).unwrap());
     assert_that!(chart).contains("font-size=\"27\"");

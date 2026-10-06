@@ -124,6 +124,7 @@ impl Session {
     /// SVG de la slide de `spec` dans chaque variante, rendue dans son emplacement.
     fn render_variants(&mut self, spec: &ShowVariants) -> Result<Vec<Arc<str>>> {
         let pack = self.usable_pack()?;
+        let tokens = self.theme_tokens(self.doc.sources.deck());
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
             None => self.variant_renderer.insert(new_renderer(
@@ -146,7 +147,9 @@ impl Session {
             let mut deck = self.doc.sources.deck().clone();
             apply_all(&mut deck, variant.ops.clone(), &self.registry)
                 .map_err(|e| AgentFormSnafu { reason: format!("variants[{i}]: {e}") }.build())?;
-            let compiled = renderer.render(&deck, &self.doc.sources.assets).context(RenderSnafu)?;
+            // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
+            let compiled = crate::deck_theme::render_themed(renderer, &deck, tokens.as_ref(), &self.doc.sources.assets)
+                .context(RenderSnafu)?;
             let page = compiled
                 .layout()
                 .page_of(&spec.slide)

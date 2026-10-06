@@ -11,6 +11,7 @@
 //! jusqu'à la sortie du mode modèles.
 //! « Enregistrer comme copie » : un nouvel id, sans parente, et la session
 //! continue sur la copie. Un pack intégré suit la même règle, sous son id.
+//! Le thème du deck s'y édite en brouillon (voir `theme_edit`).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -25,9 +26,11 @@ use crate::error::{
     InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, RenderSnafu, SourcesSnafu,
     UnknownPackSnafu,
 };
-use crate::library::{Library, StoredVersion};
+use crate::library::PackLibrary;
+use crate::library_kind::StoredVersion;
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, Template, now_created};
 use crate::template_scratch::TemplateScratch;
+use crate::theme_edit::tokens_value;
 use crate::{Document, Mode, Result, Session, TemplateMode, TemplateView, TemplatesView, new_renderer};
 
 /// Préfixe de la clé d'étape d'annulation des enregistrements du pack.
@@ -80,15 +83,26 @@ impl Session {
     /// Passe en édition de la version courante du pack `id`.
     ///
     /// Ses modèles deviennent les slides, lus et rendus avec ses widgets. Le
-    /// deck garde son thème, ses jetons et ses variables ; les modèles ne
-    /// portent pas d'assets (un pack n'en enregistre pas).
+    /// deck de travail garde les paramètres et variables du deck ; à la place
+    /// de son thème, il porte tous les jetons du thème édité (le brouillon,
+    /// gardé d'un pack à l'autre). Les modèles ne portent pas d'assets (un
+    /// pack n'en enregistre pas).
     pub fn edit_templates(&mut self, id: Uuid) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais aux modèles.
         self.ensure_editable()?;
         let stored = self.library.current_version(id).context(UnknownPackSnafu { id })?;
         let r = PackRef { id, version: stored.version.clone() };
         let slides = stored.manifest.templates.iter().cloned().map(template_slide).collect();
+        // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
+        let (theme, tokens) = match &self.mode {
+            Mode::Templates { theme, .. } => (theme.clone(), self.edited_tokens()),
+            _ => self.initial_theme_edit()?,
+        };
+        // Sans thème, avec tous les jetons du thème édité : les surcharges du
+        // deck ne s'y appliquent pas, les modèles se voient avec le thème pur.
         let mut deck = styled_like(self.user_deck(), slides);
+        deck.theme = None;
+        deck.tokens = tokens_value(tokens);
         deck.params.title = Some(stored.manifest.name.clone());
         deck.templates = Some(r.clone());
         let packs = BTreeMap::from([(r.version.clone(), stored.files.clone())]);
@@ -99,7 +113,7 @@ impl Session {
         let edit = TemplateMode {
             set: id,
             name: stored.manifest.name,
-            builtin: Library::is_builtin(id),
+            builtin: PackLibrary::is_builtin(id),
             base: r.version.clone(),
             parent: Some(r.version),
             session_version: None,
@@ -111,12 +125,14 @@ impl Session {
             // Déjà en édition : on change de pack, le deck reste de côté.
             Mode::Templates { stash, .. } => {
                 self.doc = templates;
-                Mode::Templates { stash, edit, scratch: TemplateScratch::default() }
+                Mode::Templates { stash, edit, scratch: TemplateScratch::default(), theme, switches: Vec::new() }
             }
             Mode::Deck => Mode::Templates {
                 stash: Box::new(std::mem::replace(&mut self.doc, templates)),
                 edit,
                 scratch: TemplateScratch::default(),
+                theme,
+                switches: Vec::new(),
             },
             // L'historique ouvert se ferme d'abord (`handle` refuse avant d'arriver ici).
             history @ Mode::History { .. } => {
@@ -124,6 +140,8 @@ impl Session {
                 return InHistorySnafu.fail()?;
             }
         };
+        // Le deck de travail est neuf : la base du brouillon y est embarquée.
+        self.embed_theme_base();
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
@@ -174,6 +192,8 @@ impl Session {
     /// courante ; le deck mis de côté l'embarque et y passe. `as_new` : une
     /// copie (nouvel id, sans parente), sur laquelle la session continue,
     /// sans historique d'annulation (un annuler ne ramène pas à l'original).
+    /// Le brouillon du thème est enregistré aussi (`save_theme_edit`) ; le
+    /// deck mis de côté passe à son thème dans l'étape du pack.
     /// Un rendu raté ensuite n'est pas une erreur : la version reste, un avis
     /// donne la cause (choix « diagnostics + succès », comme `set_widget`).
     pub fn save_templates(&mut self, as_new: bool) -> Result<()> {
@@ -196,6 +216,10 @@ impl Session {
         let manifest = self.edited_manifest(&deck, id, parent, kept);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new, None)?;
+        // Le brouillon du thème, s'il change le thème du deck, rejoint l'étape du pack.
+        if let Some(theme) = self.save_theme_edit()? {
+            self.stash_adopt_theme(theme)?;
+        }
         if as_new {
             // Une copie est un autre pack : son document repart sans historique,
             // un annuler ne ramène jamais à l'original (l'édition suit la copie).
@@ -278,7 +302,7 @@ impl Session {
             *edit = TemplateMode {
                 set: id,
                 name: manifest.name,
-                builtin: Library::is_builtin(id),
+                builtin: PackLibrary::is_builtin(id),
                 base: version.clone(),
                 parent,
                 session_version: Some(version.clone()),
@@ -295,6 +319,7 @@ impl Session {
     /// peut-être remplacée), sans qu'elle devienne courante ; le deck mis de
     /// côté y passe, dans l'étape de la séance.
     pub(crate) fn realign_templates(&mut self) -> Result<()> {
+        self.realign_theme_edit();
         let Some(r) = self.doc.sources.deck().templates.clone() else { return Ok(()) };
         let Mode::Templates { stash, edit, .. } = &mut self.mode else { return Ok(()) };
         // Une copie vide l'historique du document (`save_templates`) : aucune
@@ -349,7 +374,7 @@ impl Session {
 
     /// La version d'un pack à montrer : celle qu'embarque le deck pour son
     /// propre pack, la courante pour un autre ; un pack disparu : celui du deck.
-    fn shown_version(&self, set: Option<Uuid>) -> Option<StoredVersion> {
+    fn shown_version(&self, set: Option<Uuid>) -> Option<StoredVersion<PackManifest>> {
         let embedded = |r: &PackRef| {
             let files = self.user_blobs().packs.get(&r.version)?.clone();
             let manifest = PackManifest::from_files(&files).ok()?;
@@ -364,7 +389,7 @@ impl Session {
         }
     }
 
-    /// Aperçus d'un pack de modèles, rendus avec le style du deck.
+    /// Aperçus d'un pack de modèles, rendus avec le style du deck (en mode modèles, du brouillon du thème).
     ///
     /// En cache tant que rien ne change (version du pack, thème, jetons,
     /// paramètres, variables). Un pack qui fait échouer l'aperçu (délai,
@@ -374,26 +399,27 @@ impl Session {
         let shown = self.shown_version(set).context(UnknownPackSnafu { id: set.unwrap_or(DEFAULT_PACK) })?;
         let key = PackRef { id: shown.manifest.id, version: shown.version.clone() };
         let cached = match &self.template_cache {
-            Some(p) if p.key == key && same_style(&p.deck, self.user_deck()) => Some(p.views.clone()),
+            Some(p) if p.key == key && same_style(&p.deck, self.style_deck()) => Some(p.views.clone()),
             _ => None,
         };
         let views = match cached {
             Some(views) => views,
             None => {
                 let templates = shown.manifest.templates.clone();
-                let deck = styled_like(self.user_deck(), templates.iter().map(|t| t.slide.clone()).collect());
+                let deck = styled_like(self.style_deck(), templates.iter().map(|t| t.slide.clone()).collect());
                 let views = self.with_fallback(|s| s.render_previews(&deck, &templates))?;
                 self.template_cache = Some(Previews { key, deck, views: views.clone() });
                 views
             }
         };
-        let info: PackInfo = shown.manifest.info(shown.version, Library::is_builtin(shown.manifest.id));
+        let info: PackInfo = shown.manifest.info(shown.version, PackLibrary::is_builtin(shown.manifest.id));
         Ok(TemplatesView { set: info, sets: self.library.packs(), templates: views })
     }
 
     /// Rend `deck`, les modèles `templates` au style du deck, dans l'emplacement des aperçus.
     fn render_previews(&mut self, deck: &Deck, templates: &[Template]) -> Result<Arc<[TemplateView]>> {
         let pack = self.usable_pack()?;
+        let tokens = self.theme_tokens(deck);
         let renderer = match &mut self.template_renderer {
             Some(r) => r,
             None => self.template_renderer.insert(new_renderer(
@@ -404,7 +430,8 @@ impl Session {
                 &self.registry,
             )?),
         };
-        let compiled = renderer.render(deck, &self.doc.sources.assets).context(RenderSnafu)?;
+        let compiled = crate::deck_theme::render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets)
+            .context(RenderSnafu)?;
         let layout = compiled.layout();
         templates
             .iter()

@@ -12,7 +12,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use oku_slides_core::{PackFiles, PackRef, SourceBundle};
 
 use crate::error::{PackIdMismatchSnafu, PackJsonSnafu, PackVersionMissingSnafu, SourcesSnafu, UnknownPackSnafu};
-use crate::library::Library;
+use crate::library::PackLibrary;
 use crate::pack::{DEFAULT_PACK, PackManifest};
 use crate::{Result, Session};
 
@@ -21,7 +21,7 @@ use crate::{Result, Session};
 /// Elle est embarquée dans `sources` et référencée par le deck, sans étape
 /// d'annulation. Un deck qui a déjà un pack ne change pas. Seule règle du
 /// pack par défaut : la session et la CLI passent par ici.
-pub fn adopt_default_pack(library: &Library, sources: &mut SourceBundle) -> Result<()> {
+pub fn adopt_default_pack(library: &PackLibrary, sources: &mut SourceBundle) -> Result<()> {
     if sources.deck().templates.is_some() {
         return Ok(());
     }

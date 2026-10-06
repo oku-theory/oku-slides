@@ -39,7 +39,7 @@ fn merge_file_brings_the_other_copy_changes() {
     let (mut a, other) = saved_deck_and_modified_copy(&dir, "julie.oku-slides.pdf");
     let report = a.merge_file(&other).unwrap_or_else(|e| panic!("fusion refusée : {}", e.one_line()));
     assert_that!(report.changes).is_greater_than(0);
-    assert_that!(a.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(a.deck().theme.as_ref().and_then(common::theme_name)).is_equal_to(Some("pro"));
     let snap = snapshot_json(&mut a);
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
     assert_that!(snap["notice"].as_str().unwrap_or_default()).contains("julie.oku-slides.pdf");
@@ -51,7 +51,7 @@ fn merge_request_returns_the_merged_snapshot_with_the_notice_once() {
     let (mut a, other) = saved_deck_and_modified_copy(&dir, "marc.oku-slides.pdf");
     let reply = a.handle(req(json!({"cmd": "merge", "path": other}))).unwrap();
     let snap: serde_json::Value = serde_json::from_str(&reply).unwrap();
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["notice"].as_str().unwrap_or_default()).contains("marc.oku-slides.pdf");
     asserting("l'avis ne s'affiche qu'une fois").that(&snapshot_json(&mut a)["notice"]).is_equal_to(json!(null));
 }
@@ -121,7 +121,7 @@ fn save_over_a_file_changed_by_another_copy_merges_first() {
     assert_that!(matches!(saved, Saved::Merged(_))).is_true();
     let mut c = session();
     c.open(&path).unwrap();
-    assert_that!(c.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(c.deck().theme.as_ref().and_then(common::theme_name)).is_equal_to(Some("pro"));
     assert_that!(c.deck().slides[2].params.text("title")).is_equal_to(Some("Contexte (A)"));
 }
 
@@ -178,7 +178,7 @@ fn save_over_an_unchanged_file_just_writes() {
     assert_that!(snapshot_json(&mut a)["dirty"]).is_equal_to(json!(false));
     let mut c = session();
     c.open(&path).unwrap();
-    assert_that!(c.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(c.deck().theme.as_ref().and_then(common::theme_name)).is_equal_to(Some("pro"));
 }
 
 #[test]
@@ -212,7 +212,7 @@ fn save_request_merging_a_changed_file_ends_clean_with_the_merge_notice() {
         serde_json::from_str(&a.handle(req(json!({"cmd": "save", "path": null}))).unwrap()).unwrap();
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
     assert_that!(snap["disk_replaced"]).is_equal_to(json!(false));
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
+    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
     assert_that!(snap["notice"].as_str().unwrap_or_default()).contains("deck.oku-slides.pdf");
 }
 

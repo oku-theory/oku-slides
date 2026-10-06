@@ -44,8 +44,12 @@ export interface Snapshot {
   path: string | null;
   name: string;
   dirty: boolean;
-  theme: string | null;
-  themes: string[];
+  /** Thème du deck : id et version embarquée. */
+  theme: ThemeRef | null;
+  /** Nom du thème tel qu'embarqué par le deck. */
+  theme_name: string | null;
+  /** Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur. */
+  themes: ThemeInfo[];
   title: string | null;
   title_source: string | null;
   slides: SlideSummary[];
@@ -143,6 +147,22 @@ export interface PackRef {
   version: string;
 }
 
+/** Le thème d'un deck à une version donnée. */
+export interface ThemeRef {
+  id: string;
+  version: string;
+}
+
+/** Un thème de la bibliothèque, dans sa version courante. */
+export interface ThemeInfo {
+  id: string;
+  version: string;
+  name: string;
+  builtin: boolean;
+  /** Le thème d'un deck neuf. */
+  default: boolean;
+}
+
 /** Version embarquée par le deck, comparée à ma version courante. */
 export type PackRelation = "ancestor" | "descendant" | "sibling";
 
@@ -168,6 +188,18 @@ export interface TemplateMode {
   parent: string | null;
   /** Version de cette session d'édition, une fois enregistrée. */
   session_version: string | null;
+  /** Le thème édité en brouillon : les jetons du deck de travail. */
+  theme: ThemeEditView;
+}
+
+export interface ThemeEditView {
+  /** Version de base du brouillon. */
+  base: ThemeRef;
+  name: string;
+  /** Thème intégré : l'enregistrer en crée une copie. */
+  builtin: boolean;
+  /** Le brouillon diffère de sa base (jetons ou nom). */
+  dirty: boolean;
 }
 
 export interface PackInfo {
@@ -460,6 +492,9 @@ export type ListOp =
   | { op: "move"; item: string; to: number }
   | { op: "set_field"; item: string; field: string; value: unknown };
 
+/** Action d'une ligne de la surface des jetons : poser, revenir à la base, retirer du thème, vider. */
+export type TokenAction = "set" | "reset" | "remove" | "clear";
+
 type Request =
   | { cmd: "snapshot" }
   | { cmd: "save"; path: string | null; overwrite: boolean }
@@ -478,6 +513,9 @@ type Request =
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "pack_use_mine" }
+  | { cmd: "set_theme"; id: string }
+  | { cmd: "set_edited_theme"; id: string }
+  | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
@@ -485,6 +523,8 @@ type Request =
   | { cmd: "host_param"; slide: string; key: string; value: unknown }
   | { cmd: "set_example_value"; name: string; param: string; value: unknown }
   | { cmd: "edit_example_list"; name: string; param: string; change: ListOp }
+  | { cmd: "host_theme"; filter: string }
+  | { cmd: "host_token"; path: string[]; action: TokenAction; value?: unknown }
   | { cmd: "target_settings"; slide: string; element: string | null }
   | { cmd: "target_param"; slide: string; element: string | null; key: string; value: unknown }
   | { cmd: "target_list"; slide: string; element: string | null; key: string; change: ListOp }
@@ -675,6 +715,17 @@ export function tabApi(tab: string) {
     renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
     previewWidget: (name: string) => call<WidgetPreview>({ cmd: "preview_widget", name }),
+    /** Le deck prend le thème `id` dans sa version courante, embarquée (annulable). */
+    setTheme: (id: string) => call<Snapshot>({ cmd: "set_theme", id }),
+    /** Mode modèles : le brouillon du thème repart de la version courante du thème `id` (annulable). */
+    setEditedTheme: (id: string) => call<Snapshot>({ cmd: "set_edited_theme", id }),
+    /** Mode modèles : renomme le thème édité (annulable). */
+    renameEditedTheme: (name: string) => call<Snapshot>({ cmd: "rename_edited_theme", name }),
+    /** Surface A2UI des jetons du thème édité, filtrée ; `null` hors mode modèles. */
+    hostTheme: (filter: string) => call<Surface | null>({ cmd: "host_theme", filter }),
+    /** Change le jeton `path` du thème édité (mode modèles, annulable). */
+    hostToken: (path: string[], action: TokenAction, value?: unknown) =>
+      call<Snapshot>({ cmd: "host_token", path, action, ...(value === undefined ? {} : { value }) }),
     /** Bandeau du pack : le deck passe à ma version courante (annulable). */
     packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
     /** Bandeau du pack : sa version devient ma version courante. */

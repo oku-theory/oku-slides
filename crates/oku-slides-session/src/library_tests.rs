@@ -8,8 +8,8 @@ use super::*;
 use crate::pack::{DEFAULT_PACK, GRID_PACK, Relation};
 use crate::test_support::{add_version, fresh_dir, manifest};
 
-fn library(dir: &Path) -> Library {
-    Library::new(Some(dir.to_owned()), Storage::local().unwrap())
+fn library(dir: &Path) -> PackLibrary {
+    PackLibrary::new(Some(dir.to_owned()), Storage::local().unwrap())
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn builtin_pack_is_current_by_default_and_read_only() {
     let lib = library(dir.path());
     let builtin = builtin_versions()[0].version.clone();
     assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin.clone()));
-    assert_that!(Library::is_builtin(DEFAULT_PACK)).is_true();
+    assert_that!(PackLibrary::is_builtin(DEFAULT_PACK)).is_true();
     // Rien n'est écrit pour une version intégrée.
     assert_that!(dir.path().join(DEFAULT_PACK.to_string()).exists()).is_false();
     assert_that!(lib.version(DEFAULT_PACK, &builtin).is_some()).is_true();
@@ -213,11 +213,11 @@ fn delete_removes_every_version_of_a_user_pack() {
 
 #[test]
 fn add_version_without_templates_dir_returns_no_templates_dir() {
-    let lib = Library::new(None, Storage::local().unwrap());
+    let lib = PackLibrary::new(None, Storage::local().unwrap());
     let id = Uuid::new_v4();
     let files = manifest(id, "A", None, "2026-10-01T10:00:00Z").to_files(BTreeMap::new()).unwrap();
     let err = lib.add_version(id, &files).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NoTemplatesDir);
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NoLibraryDir);
 }
 
 #[test]

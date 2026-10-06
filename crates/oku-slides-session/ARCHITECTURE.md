@@ -15,7 +15,21 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   (`SourceBundle.packs[deck.templates.version]`, jamais la bibliothèque ; sonde par fichier, avis
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
   pack → version courante du pack par défaut ; `SetTemplates` embarque depuis la bibliothèque.
-  `library.rs` : `Library` versionnée (`<data>/templates/<uuid>/{current, versions/<hex>/}`).
+  `library.rs` : `Library<K>` versionnée, générique sur la sorte (`library_kind.rs` : `LibraryKind`, `Templates`) ; `<data>/templates/<uuid>/{current, versions/<hex>/pack.json + widgets/}`. `theme.rs` : sorte `Themes` (`<data>/themes/<uuid>/{current, versions/<hex>/theme.json}`, sans widgets), `ThemeManifest`, `ThemeLibrary`, thèmes intégrés Papier et Pro (`PAPIER_THEME`, `PRO_THEME`, `DEFAULT_THEME`) ; `Session.themes` (chemin `paths.themes()`).
+- Thème du deck (`deck_theme.rs`) : la version embarquée (`SourceBundle.themes[deck.theme.version]`)
+  fait foi, jamais la bibliothèque ; deck sans thème → version courante du thème par défaut,
+  embarquée au chargement. `set_theme` (op `SetTheme`, une étape d'annulation) embarque d'abord la
+  version voulue ; le rendu reçoit les jetons résolus (`Renderer::set_theme`), et `appearance.rs`
+  en tire l'apparence de l'interface. `theme_schema.rs` (`theme_schema.json`, défauts lus dans
+  `typst/oku-slides/src/default-tokens.json`) : contrôle, bornes et section de chaque jeton ; il
+  vérifie `SetToken`/`SetTokens` (`session-invalid-token-value`, `session-token-in-use`).
+- Éditeur de thème (mode modèles) : `theme_edit.rs` : le brouillon (`ThemeEdit` : base, nom, état)
+  vit dans les jetons du deck de travail, sans thème ; ses changements sont des étapes du document
+  des modèles. `save_templates` l'enregistre (`save_theme_edit`) : nouvelle version d'un thème de
+  l'utilisateur, copie « <nom> (copie) » d'un thème intégré, rien s'il est inchangé ; le deck mis
+  de côté y passe. `theme_panel.rs` + `theme_controls.rs` : surface `host-theme` (`host_theme`,
+  filtrée ; `host_token` : `set`, `reset`, `remove`, `clear`). Le chemin du jeton part sous la clé
+  `token` du contexte d'action, jamais `path` (que @a2ui prend pour une liaison de données).
 - `widgets_edit.rs`, `widget_preview.rs` : fichiers de widgets, statuts, aperçu ; `widget_examples.rs`, `widget_params.rs` : valeurs d'exemple des widgets (un jeu par widget), dans le pack (`edit_example_list` pour une liste) ; `param_fields.rs` : champs de réglage d'un paramètre (atelier et cible), `coerce`, `schema_default` ; `items.rs` : `ItemView`, les items d'une liste. `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance). En mode modèles, une écriture de widget est aussi une étape du document des modèles (`adopt_session_version`, clé de séance) ; annuler/rétablir réaligne l'édition (`realign_templates`).
 - `panel.rs` : réglages de l'hôte au dock (modèle, widget), adressés par clé.
 - `target_params.rs` : réglages de la cible (surface `host-target`) : élément sélectionné, sinon widget de la slide, lus dans le deck ; `target_param` / `target_list` annulables.

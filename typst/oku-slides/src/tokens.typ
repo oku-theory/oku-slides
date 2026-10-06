@@ -8,127 +8,19 @@
 // - Polices : nom d'un rôle ("display", "body", "mono"), une chaîne ou un
 //   tableau de familles (solutions de repli).
 
-#let default-tokens = (
-  color: (
-    bg: "#ffffff",
-    surface: "#f4f3f0",
-    ink: "#1d1c1a",
-    ink-muted: "#5f5b55",
-    accent: "#2f5fb3",
-    on-accent: "#ffffff",
-    rule: "#d9d6d0",
-  ),
-  font: (
-    // Les alphabets hors latin : `script-fallback`, ajouté par `deck`.
-    display: ("Libertinus Serif",),
-    body: ("Libertinus Serif",),
-    mono: ("DejaVu Sans Mono",),
-  ),
-  // Graphie des polices de secours CJK, par rôle de `font` : "sans" ou
-  // "serif" (des titres serif gardent un serif en japonais, chinois, coréen).
-  script-style: (display: "sans", body: "sans", mono: "sans"),
-  size: (
-    display: 112,
-    title: 60,
-    subtitle: 40,
-    lead: 40,
-    body: 32,
-    small: 26,
-    caption: 22,
-    kicker: 24,
-  ),
-  weight: (
-    display: 500,
-    title: 500,
-    body: 400,
-    strong: 600,
-    label: 500,
-  ),
-  // Interlignes en em.
-  leading: (tight: 0.25, normal: 0.6, loose: 0.9),
-  space: (xs: 8, sm: 16, md: 24, lg: 40, xl: 64, xxl: 96),
-  page: (
-    width: 1920,
-    height: 1080,
-    margin-x: 120,
-    margin-top: 150,
-    margin-bottom: 140,
-    header-y: 56,
-    footer-y: 56,
-  ),
-  radius: (flat: 0, sm: 4, md: 10, lg: 16),
-  stroke: (hairline: 1, rule: 2, accent: 6),
-  // Graphiques : couleurs des séries, dans l'ordre (hex ou nom d'une couleur
-  // ci-dessus). L'interface les propose pour colorer une série.
-  chart: (palette: ("#2f5d8a", "#c4622d", "#5b8a3c", "#8a4f7d", "#c9a227", "#3c8a86")),
-
-  // Jetons de composants : ils référencent les jetons ci-dessus par nom.
-  // Couleurs de l'interface de l'app (pas des slides). Chaque valeur : hex, nom
-  // d'une couleur ci-dessus, ou none pour la dériver du fond et de l'encre.
-  app: (
-    scheme: "light",
-    desk: none, sheet: none, piece: none,
-    ink: none, ink-muted: none, rule: none, edge: none,
-    accent: none, accent-text: none, on-accent: none, accent-soft: none,
-    danger: none, shadow: none,
-    // Formes : rayons (px) et élévation des ombres (multiplicateur).
-    radius-sm: 8, radius-md: 12, radius-lg: 18, elevation: 1.4, sheet-elevation: 2.4,
-  ),
-
-  component: (
-    // Emplacements d'en-tête et de pied : gabarits avec {champs}. Les segments
-    // séparés par " · " dont un champ est vide disparaissent. Champs : title,
-    // subtitle, author, date, organization, chapter, chapter-number,
-    // chapter-label, n, total, page-label, et toute variable du deck.
-    header: (
-      left: "{chapter-label}", right: "{organization}",
-      size: "caption", color: "ink-muted", weight: "label", tracking: 0, case: none,
-      rule: false, rule-color: "rule",
-    ),
-    footer: (
-      left: "{author} · {date}", right: "{page-label}",
-      size: "caption", color: "ink-muted", weight: "body", tracking: 0, case: none,
-      rule: false, rule-color: "rule",
-    ),
-    kicker: (size: "kicker", color: "accent", weight: "label", font: "body", tracking: 0, case: none),
-    title: (
-      size: "title", color: "ink", weight: "title", font: "display", tracking: 0,
-      leading: "tight", gap: "lg",
-      // Filet entre surtitre et titre : none ou (width, height, color).
-      rule: none,
-    ),
-    title-slide: (
-      // "plain" : tout sur le fond ; "band" : bande sombre en bas, bandeau clair en haut.
-      layout: "plain",
-      bg: "bg", title-size: "display", title-color: "ink", title-tracking: 0,
-      subtitle-size: "subtitle", subtitle-color: "ink-muted",
-      meta-size: "small", meta-color: "ink-muted",
-      bar: true, bar-color: "accent", bar-width: 160, bar-height: 6,
-      // Variante "band".
-      band-bg: "ink", band-ratio: 0.62, band-title-color: "bg",
-      band-subtitle-color: "bg", band-meta-color: "bg",
-      top-left: "{organization}", top-right: none, top-rule-color: "accent", top-rule-width: 6,
-      badge: none, badge-bg: "accent", badge-color: "on-accent",
-    ),
-    chapter: (
-      bg: "accent", ink: "on-accent", number-size: 220, number-opacity: 0.55,
-      title-size: "display", title-tracking: 0, subtitle-size: "subtitle",
-    ),
-    card: (
-      bg: "bg", border-color: "rule", border-width: "hairline", radius: "md",
-      top-rule-color: "accent", top-rule-width: 4, padding-x: "lg", padding-y: "lg",
-      title-size: "lead", title-weight: "strong", title-color: "ink", gap: "sm",
-      // "auto" : hauteur du contenu ; "fill" : toute la hauteur disponible.
-      height: "auto",
-      highlight-bg: "ink", highlight-ink: "bg", highlight-title: "bg", highlight-kicker: "accent",
-    ),
-    toc: (size: "lead", number-color: "accent", page-color: "ink-muted", gap: "md"),
-    end-slide: (bg: "surface", size: "display", color: "ink"),
-    list: (marker: "–", marker-color: "accent", indent: "md", spacing: "sm"),
-    quote: (size: 56, color: "ink", bar-color: "accent"),
-    columns: (gap: "xl"),
-  ),
-)
+// Les valeurs par défaut vivent dans `default-tokens.json`, source unique :
+// côté Rust, la session l'embarque pour les défauts de l'éditeur de thème et
+// son schéma (`theme_schema.rs`), et le rendu l'expose à Typst
+// (`oku-slides-render/src/world.rs`). Groupes : color, font, script-style, size, weight,
+// leading, space, page, radius, stroke, chart (palette des séries), app
+// (interface : none = dérivé du fond et de l'encre ; rayons en px, élévations),
+// component (jetons de composants, qui référencent les jetons par nom).
+// En-têtes et pieds : gabarits avec {champs} (title, subtitle, author, date,
+// organization, chapter, chapter-number, chapter-label, n, total, page-label,
+// et toute variable du deck) ; les segments séparés par " · " dont un champ
+// est vide disparaissent. Filet du titre : none ou (width, height, color).
+// Disposition de la page de titre : "plain" (tout sur le fond) ou "band".
+#let default-tokens = json("default-tokens.json")
 
 #let default-params = (
   title: none,

@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use oku_slides_core::{Op, WidgetFile};
 use oku_slides_platform::RenderLaunch;
-use oku_slides_session::{Fonts, Library, PackManifest, Platform, Request, Session, Settings, Storage};
+use oku_slides_session::{Fonts, PackLibrary, PackManifest, Platform, Request, Session, Settings, Storage};
 
 const TEST: &str = "looping_pack_render_returns_within_timeout_with_base_widgets";
 
@@ -61,7 +61,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
         .unwrap_or_else(|e| panic!("{e}"));
     let version = files.version();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    Library::new(Some(data.path().join("templates")), storage)
+    PackLibrary::new(Some(data.path().join("templates")), storage)
         .add_version(id, &files)
         .unwrap_or_else(|e| panic!("{e}"));
 

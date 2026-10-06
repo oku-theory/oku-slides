@@ -1,7 +1,7 @@
 // Le deck vu de l'interface : retrouver un élément, convertir le texte, et
 // fabriquer les ops que la session applique.
 
-import type { Element, FieldView, Op, Params, Paragraph, Slide, SlideView } from "./api";
+import type { Element, FieldView, Op, Params, Paragraph, Slide, SlideView, Snapshot } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
 import { listPrefix, markdownToRuns } from "./markdown";
@@ -276,4 +276,23 @@ export function pickSlide(slides: { id: string }[], current: string | null, reme
   if (has(current)) return current;
   if (has(remembered)) return remembered;
   return slides[0]?.id ?? null;
+}
+
+type LookSource = Pick<Snapshot, "theme" | "appearance" | "editing" | "undo_label" | "redo_label">;
+
+/**
+ * Style du deck vu par les aperçus de widgets : un changement le relance.
+ *
+ * En mode modèles, le deck de travail n'a pas de thème : le brouillon (base,
+ * nom, modifié) et les étapes d'annulation (une modification de l'agent, une
+ * annulation) en tiennent lieu.
+ */
+export function previewLook(snap: LookSource): string {
+  return JSON.stringify([
+    snap.theme?.version ?? null,
+    snap.appearance.slide,
+    snap.editing?.theme ?? null,
+    snap.undo_label,
+    snap.redo_label,
+  ]);
 }

@@ -10,7 +10,7 @@ import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
 import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
-import { fieldOps, findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, slideToFetch, textToParagraphs } from "./deck";
+import { fieldOps, findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
@@ -20,6 +20,7 @@ import { anchorIds, fieldKey, fieldLabel, primaryFieldOf } from "./stageFields";
 import { useFieldEditing } from "./useFieldEditing";
 import { useSvgCache } from "./useSvgCache";
 import { useViewOptions } from "./useViewOptions";
+import ThemeMenu from "./ThemeMenu";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
@@ -45,6 +46,8 @@ import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
 import { pileMarks } from "./history";
 import { useTemplateWidgets } from "./useTemplateWidgets";
+import { THEME_TAB, activeWidget } from "./widgetTabs";
+import ThemePanel from "./ThemePanel";
 import HostSettings from "./HostSettings";
 import { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { TargetPanel } from "./TargetPanel";
@@ -109,6 +112,10 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   // Une relecture (`nonce`) croise parfois une modification : la réponse la
   // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
   const latest = useRef(new Latest());
+  // Le dernier instantané accepté, à jour dès sa réception : `finishTemplates` le lit
+  // juste après l'enregistrement en attente, avant le rendu qui suit.
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
   // `null` : rien n'a été fait (dialogue abandonné), l'état ne change pas.
   const run = useCallback(async (p: Promise<Snapshot | null>) => {
     const n = latest.current.begin();
@@ -116,6 +123,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       const s = await p;
       if (!s) return null;
       if (latest.current.accept(n)) {
+        snapRef.current = s;
         setSnap(s);
         changed.current?.();
       }
@@ -133,15 +141,15 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   }, [notice]);
 
   // --- Sous-onglets de widgets du mode modèles ------------------------------
-  const snapRef = useRef(snap);
-  snapRef.current = snap;
   const widgets = useTemplateWidgets(api, snap, {
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
     blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
-  const widgetActive = !!snap?.editing && widgets.tabs.active !== null;
+  const widgetActive = !!snap?.editing && activeWidget(widgets.tabs) !== null;
+  // Onglet « Thème » : la scène au centre, les jetons à droite (à la place du fil de l'agent).
+  const themeActive = !!snap?.editing && !snap.history && widgets.tabs.active === THEME_TAB;
 
   // --- Historique (lecture seule) -------------------------------------------
   // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
@@ -173,8 +181,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
   const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui, widgets.kept);
-  // Style du deck vu par les aperçus de widgets : un changement de thème les relance.
-  const look = snap ? JSON.stringify([snap.theme, snap.appearance.slide]) : "";
+  // Style du deck vu par les aperçus de widgets : un changement de thème ou du brouillon les relance.
+  const look = snap ? previewLook(snap) : "";
 
   // L'interface reprend la slide gardée par l'hôte ; ensuite, la slide
   // courante, ou la première si elle a disparu.
@@ -344,10 +352,12 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   };
 
   // Réglages du modèle affiché, ou du widget du sous-onglet actif à ses valeurs d'exemple.
-  const host = useHostSettings(api, snap, current, widgets.activeName, run, say);
+  // Sur l'onglet « Thème », aucun réglage du modèle sous la scène.
+  const host = useHostSettings(api, snap, themeActive ? null : current, widgets.activeName, run, say);
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  // Paramètres de l'élément sélectionné (résolu dans la vue), ou du widget de la slide.
-  const target = useTargetSettings(api, snap, current, selectedElement ?? null, widgetActive, run, say);
+  // Paramètres de l'élément sélectionné (résolu dans la vue), ou du widget de la slide. Sur
+  // l'onglet « Thème », la colonne de droite montre les jetons : la cible n'est pas lue.
+  const target = useTargetSettings(api, snap, current, selectedElement ?? null, widgetActive || themeActive, run, say);
 
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
@@ -633,15 +643,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
-  const themePicker = (
-    <label className="menu-theme">
-      <span className="caption">{t("ui-toolbar-theme")}</span>
-      <select className="select" value={snap.theme ?? ""} onChange={(e) => apply(t("ui-undo-theme"), [{ op: "set_theme", theme: e.target.value || null }])}>
-        <option value="">{t("ui-toolbar-theme-default")}</option>
-        {snap.themes.map((name) => <option key={name} value={name}>{name}</option>)}
-      </select>
-    </label>
-  );
+  const themePicker = <ThemeMenu theme={snap.theme} themeName={snap.theme_name} themes={snap.themes} onPick={(id) => run(api.setTheme(id))} />;
   const languagePicker = (
     <label className="menu-theme">
       <span className="caption">{t("ui-language")}</span>
@@ -662,7 +664,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
         { kind: "separator" },
-        { kind: "custom", node: themePicker },
         ...viewOptions.entries,
         { kind: "separator" },
         { kind: "custom", node: schemePicker },
@@ -704,8 +705,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
       addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
       marks={history ? pileMarks(history.changes) : undefined}
-      // Un sous-onglet widget ouvert cède la place au modèle cliqué.
-      onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); widgets.activate(null); }}
+      // Un sous-onglet widget ouvert cède la place au modèle cliqué ; « Thème » reste, la scène montre le modèle.
+      onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); if (widgetActive) widgets.activate(null); }}
       onMove={readOnly ? undefined : moveSlide}
       onAdd={readOnly ? undefined : addSlide}
       removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
@@ -776,7 +777,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>
-          <WidgetTools tab={widgets.tabs.active} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
+          <WidgetTools tab={activeWidget(widgets.tabs)} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
         </>) : (<>
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
@@ -813,7 +814,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
-        <div id="templates-panel" className="templates-panel" role={snap.editing ? "tabpanel" : undefined} aria-labelledby={snap.editing ? "widget-tab-0" : undefined} hidden={widgetActive}>
+        <div id="templates-panel" className="templates-panel" role={snap.editing && !themeActive ? "tabpanel" : undefined} aria-labelledby={snap.editing && !themeActive ? "widget-tab-0" : undefined} hidden={widgetActive}>
         {view && view.slide.id === current ? (
           <Stage
             ref={stage}
@@ -864,12 +865,17 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       </main>
 
       {/* Cartes à droite de la feuille. */}
-      <aside className="notes" aria-label={t("ui-notes")}>
-        <TargetPanel
-          view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
-          onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
-          onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
-        />
+      <aside className={`notes${themeActive ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
+        {/* Onglet « Thème » : les jetons à la place de la cible ; le fil de l'agent reste monté, caché (styles.css). */}
+        {themeActive ? (
+          <ThemePanel api={api} snap={snap} run={run} say={say} />
+        ) : (
+          <TargetPanel
+            view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
+            onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
+            onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+          />
+        )}
         {!snap.read_only && (<>
         <SlideThumbsContext.Provider value={slideThumbs}>
           <AgentThread

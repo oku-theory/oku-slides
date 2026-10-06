@@ -63,6 +63,31 @@ const state = (p) => p.evaluate((LIBRE) => ({
   assert.equal(await p.locator('.thumb >> nth=0').getAttribute('aria-current'), 'true');
   await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
   await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
+  // Onglet « Thème » : les jetons à droite, à la place du fil ; aucun réglage du modèle sous la scène.
+  await p.getByRole('tab', { name: 'Thème', exact: true }).click();
+  await p.waitForSelector('#theme-panel [data-surface-id="host-theme"] .a2ui-disclosure');
+  assert.equal(await p.locator('.notes #theme-panel').count(), 1);
+  assert.equal(await p.locator('[data-surface-id="host-template"]').count(), 0);
+  assert.equal(await panelHidden(), false);
+  assert.equal(await p.getByRole('combobox', { name: 'Thème' }).inputValue(), '2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31');
+  // Le filtre de la surface est relu par la session : moins de sections, toutes dépliées.
+  const sections = () => p.locator('[data-surface-id="host-theme"] .a2ui-disclosure').count();
+  const all = await sections();
+  await p.locator('[data-surface-id="host-theme"] input').first().fill('accent');
+  await p.keyboard.press('Enter');
+  await p.waitForFunction((n) => document.querySelectorAll('[data-surface-id="host-theme"] .a2ui-disclosure').length < n, all);
+  // Une miniature cliquée garde l'onglet « Thème ».
+  await p.click('.thumb >> nth=1');
+  await p.waitForTimeout(300);
+  assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).getAttribute('aria-selected'), 'true');
+  // Le menu ⋯ du mode modèles n'a plus de sélecteur de thème.
+  await p.getByRole('button', { name: 'Menu' }).click();
+  await p.waitForSelector('[role="menu"]');
+  assert.equal(await p.locator('[role="menu"] option', { hasText: /^Papier$/ }).count(), 0);
+  await p.keyboard.press('Escape');
+  await p.getByRole('tab', { name: 'Modèles', exact: true }).click();
+  await p.waitForSelector('.templates-panel [data-surface-id="host-template"]');
+  assert.equal(await p.locator('#theme-panel').count(), 0);
   // En quittant les modèles, les cartes disparaissent.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await p.waitForTimeout(700);

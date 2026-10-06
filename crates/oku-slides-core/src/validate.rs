@@ -49,6 +49,17 @@ impl Issue {
         let message = Message::new("issue-pack-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }
     }
+
+    /// Une version de thème écartée : son contenu ne donne pas son empreinte.
+    pub fn theme_version_mismatch(hex: &str) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-theme-version-mismatch").arg("version", hex) }
+    }
+
+    /// La version de thème du deck manque dans ses sources.
+    pub fn theme_version_missing(version: &PackVersion) -> Self {
+        let message = Message::new("issue-theme-version-missing").arg("version", version.as_str());
+        Self { slide: None, element: None, message }
+    }
 }
 
 /// Vérifie le deck contre `registry`. `assets` : identifiants disponibles,

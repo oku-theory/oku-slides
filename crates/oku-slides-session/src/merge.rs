@@ -72,7 +72,7 @@ impl Session {
     fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
         // Le deck reçoit un autre état : la séance des widgets finit (`Save` compris).
         self.end_widget_session();
-        let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len());
+        let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len(), s.themes.len());
         let before = count(&self.doc.sources);
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;
         // Parties illisibles journalisées comme avant ; les constats de
@@ -80,7 +80,7 @@ impl Session {
         log_issues(&issues, &self.localizer, IssuesAt::Merge);
         // Les versions d'un fichier fusionné entrent aussi en silence, sans bandeau.
         self.receive_packs();
-        // La fusion n'ajoute que des polices, des assets et des packs (à nom égal, on garde les nôtres).
+        // La fusion n'ajoute que des polices, des assets, des packs et des thèmes (à nom égal, on garde les nôtres).
         if report.changes > 0 || count(&self.doc.sources) != before {
             self.doc.dirty = true;
         }

@@ -40,6 +40,10 @@ pub enum Request {
         #[serde(default)]
         merge: Option<String>,
     },
+    /// Le deck prend le thème `id` dans sa version courante, embarquée. Annulable.
+    SetTheme {
+        id: Uuid,
+    },
     Undo,
     Redo,
     Schema,
@@ -56,6 +60,20 @@ pub enum Request {
         slide: String,
         key: String,
         value: serde_json::Value,
+    },
+    /// Mode modèles : la surface des jetons du brouillon du thème (`null`
+    /// ailleurs) ; `filter` garde les jetons dont le libellé ou le chemin le contient.
+    HostTheme {
+        #[serde(default)]
+        filter: String,
+    },
+    /// Mode modèles : agit sur le jeton `path` du brouillon (une étape
+    /// d'annulation) ; `value` pour `set` seulement.
+    HostToken {
+        path: Vec<String>,
+        action: crate::TokenAction,
+        #[serde(default)]
+        value: Option<serde_json::Value>,
     },
     /// Réglages de la cible (surface ou `null`) : l'élément `element`, sinon le widget de la slide.
     TargetSettings {
@@ -109,6 +127,15 @@ pub enum Request {
     },
     /// Quitte l'édition des modèles et retrouve le deck.
     CloseTemplates,
+    /// Mode modèles : le brouillon du thème part du thème `id` (version
+    /// courante), ses jetons remplacés en une étape annulable.
+    SetEditedTheme {
+        id: Uuid,
+    },
+    /// Mode modèles : renomme le thème édité (sans étape d'annulation).
+    RenameEditedTheme {
+        name: String,
+    },
     /// Supprime un pack de l'utilisateur, toutes versions comprises.
     ///
     /// Refusé sous l'id d'un pack intégré.
@@ -200,11 +227,13 @@ impl Request {
         match self {
             Self::Save { .. }
             | Self::Apply { .. }
+            | Self::SetTheme { .. }
             | Self::Undo
             | Self::Redo
             | Self::ChartKind { .. }
             | Self::EditTemplates { .. }
             | Self::CloseTemplates
+            | Self::SetEditedTheme { .. }
             | Self::Merge { .. }
             | Self::HistoryOpen
             | Self::HistorySeek { .. }
@@ -218,6 +247,7 @@ impl Request {
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::HostParam { .. }
+            | Self::HostToken { .. }
             | Self::TargetParam { .. }
             | Self::TargetList { .. } => true,
             Self::Snapshot
@@ -227,10 +257,12 @@ impl Request {
             | Self::Schema
             | Self::Widgets
             | Self::HostSettings { .. }
+            | Self::HostTheme { .. }
             | Self::TargetSettings { .. }
             | Self::Templates { .. }
             | Self::TemplateSets
             | Self::SaveTemplates { .. }
+            | Self::RenameEditedTheme { .. }
             | Self::DeleteTemplateSet { .. }
             | Self::SaveCopy { .. }
             | Self::Ui(_)
@@ -249,6 +281,7 @@ impl Request {
         matches!(
             self,
             Self::Apply { .. }
+                | Self::SetTheme { .. }
                 | Self::Undo
                 | Self::Redo
                 | Self::Save { .. }
@@ -259,12 +292,15 @@ impl Request {
                 | Self::EditTemplates { .. }
                 | Self::SaveTemplates { .. }
                 | Self::CloseTemplates
+                | Self::SetEditedTheme { .. }
+                | Self::RenameEditedTheme { .. }
                 | Self::DeleteTemplateSet { .. }
                 | Self::PackUseMine
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::HostParam { .. }
+                | Self::HostToken { .. }
                 | Self::TargetParam { .. }
                 | Self::TargetList { .. }
                 | Self::SetExampleValue { .. }

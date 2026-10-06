@@ -7,6 +7,7 @@
 //! - `OpenSlot` bâtit les polices (un identifiant inconnu répond `Error Setup`),
 //!   crée le `Renderer`, puis lui pose la langue courante si elle l'est.
 //! - `SetWidgets` demande le registre du pack à `Registries`, puis le pose.
+//! - `SetTheme` pose les jetons du thème du slot (`None` : jetons par défaut).
 //! - `ProbeFile` sonde un fichier seul (`Registries::probe_file`, mémoïsé).
 //! - Un nom de fichier de widget invalide répond `Error Setup`.
 //! - `Render` rend le deck sous une nouvelle génération (compteur global,
@@ -27,6 +28,7 @@ use std::time::Instant;
 use oku_slides_core::WidgetFile;
 use oku_slides_i18n::Localizer;
 use oku_slides_render::{Compiled, Fonts, PackWidgets, Registries, RenderError, Renderer, WireError};
+use serde_json::{Map, Value};
 use snafu::Snafu;
 
 use crate::error::FrameError;
@@ -131,6 +133,7 @@ impl Worker {
                 ok()
             }
             Request::SetWidgets { slot, pack } => self.set_widgets(slot, pack),
+            Request::SetTheme { slot, tokens } => self.set_theme(slot, tokens),
             Request::Render { slot, deck, assets } => self.render(slot, &deck, assets),
             Request::Svg { slot, generation, page } => {
                 self.with(slot, generation, |c| c.svg(page).map(String::into_bytes))
@@ -193,6 +196,12 @@ impl Worker {
         let registry = self.registries().get(pack.as_ref()).map_err(|e| WireError::from_registry(&e))?;
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         s.renderer.set_widgets(pack.as_ref(), registry).map_err(|e| render_error(&e))?;
+        ok()
+    }
+
+    fn set_theme(&mut self, slot: SlotId, tokens: Option<Map<String, Value>>) -> Result<Reply, WireError> {
+        let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
+        s.renderer.set_theme(tokens).map_err(|e| render_error(&e))?;
         ok()
     }
 

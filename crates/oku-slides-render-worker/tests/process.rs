@@ -43,9 +43,15 @@ fn process_render_is_identical_to_in_memory_render() {
     let l = Localizer::new(Some("fr"));
     let mut local = Renderer::new(Fonts::default()).unwrap();
     local.set_language(&l).unwrap();
+    // La maquette est en `papier` : le même thème est posé au travailleur par `SetTheme`.
+    let papier = include_str!("../../../typst/oku-slides/themes/papier.json");
+    let papier: serde_json::Value = serde_json::from_str(papier).unwrap();
+    let tokens = papier["tokens"].as_object().cloned();
+    local.set_theme(tokens.clone()).unwrap();
     let expected = local.render(&roadmap(), &BTreeMap::new()).unwrap();
     let w = worker(30_000, 4096);
     let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
+    s.set_theme(tokens.as_ref()).unwrap();
     let got = s.render(&roadmap(), &BTreeMap::new()).unwrap();
     assert_that!(got.page_count()).is_equal_to(expected.page_count());
     for i in 0..expected.page_count() {

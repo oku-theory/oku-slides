@@ -92,7 +92,7 @@ fn undo_limit_drops_oldest_steps() {
 
 fn themed(deck: &Deck, t: &str) -> Deck {
     let mut d = deck.clone();
-    d.theme = Some(t.into());
+    d.theme = Some(crate::test_registry::theme_ref(t));
     d
 }
 
@@ -102,7 +102,7 @@ fn group_merges_commits_into_one_undo_step_with_the_group_label() {
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     r.begin_group("Agent : titre plus percutant");
     r.apply(&titled(&deck, "Un"), "ignoré", None).unwrap();
-    r.apply(&themed(&titled(&deck, "Un"), "pro"), "ignoré aussi", None).unwrap();
+    r.apply(&themed(&titled(&deck, "Un"), "b"), "ignoré aussi", None).unwrap();
     r.end_group();
     assert_that!(r.undo_label()).is_equal_to(Some("Agent : titre plus percutant".to_owned()));
     assert_that!(r.undo().unwrap()).is_true();
@@ -114,7 +114,7 @@ fn group_merges_commits_into_one_undo_step_with_the_group_label() {
 fn group_redo_replays_every_commit() {
     let deck = roadmap();
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
-    let after = themed(&titled(&deck, "Un"), "pro");
+    let after = themed(&titled(&deck, "Un"), "b");
     r.begin_group("Tour");
     r.apply(&titled(&deck, "Un"), "a", None).unwrap();
     r.apply(&after, "b", None).unwrap();

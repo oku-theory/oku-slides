@@ -77,3 +77,11 @@ fn agent_context_trial_value_cannot_close_the_context_tag() {
     let ctx = s.agent_context(&ui("quote"));
     assert_that!(ctx.matches("</oku-slides-context>").count()).is_equal_to(1);
 }
+
+#[test]
+fn agent_context_in_template_mode_names_the_draft_theme() {
+    let (_d, mut s) = templates_with_quote();
+    let context = s.agent_context(&AgentUi::default());
+    assert_that!(context.as_str()).contains("theme (draft): Papier");
+    assert_that!(context.as_str()).does_not_contain("theme: none");
+}

@@ -10,6 +10,7 @@ import {
   newElementOps,
   pasteOps,
   pickSlide,
+  previewLook,
   placeOnGridOps,
   rich,
   slideToFetch,
@@ -357,5 +358,38 @@ describe("amorce des listes (defaults)", () => {
   test("pasteOps : une copie collée garde ses items, sans amorce", () => {
     const { ops } = pasteOps(view({ blocks: [] }), { id: "f", kind: "frise", params: { etapes: [] } });
     expect(ops[0]).not.toHaveProperty("defaults");
+  });
+});
+
+describe("previewLook", () => {
+  type Source = Parameters<typeof previewLook>[0];
+  const draft = (dirty: boolean, version = "v1") => ({
+    theme: { base: { id: "t", version }, name: "Papier", builtin: true, dirty },
+  }) as Source["editing"];
+  // Mode modèles : le deck de travail n'a pas de thème, le brouillon en tient lieu.
+  const snap = (over: Partial<Source> = {}): Source => ({
+    theme: null,
+    appearance: { slide: { accent: "#123456" } } as Source["appearance"],
+    editing: draft(false),
+    undo_label: null,
+    redo_label: null,
+    ...over,
+  });
+
+  test("previewLook_draft_change_without_deck_theme_changes_the_key", () => {
+    expect(previewLook(snap({ editing: draft(true) }))).not.toBe(previewLook(snap()));
+  });
+
+  test("previewLook_new_base_changes_the_key", () => {
+    expect(previewLook(snap({ editing: draft(false, "v2") }))).not.toBe(previewLook(snap()));
+  });
+
+  test("previewLook_undo_or_redo_changes_the_key", () => {
+    const before = previewLook(snap({ undo_label: "Jeton" }));
+    expect(previewLook(snap({ undo_label: null, redo_label: "Jeton" }))).not.toBe(before);
+  });
+
+  test("previewLook_same_snapshot_keeps_the_key", () => {
+    expect(previewLook(snap())).toBe(previewLook(snap()));
   });
 });

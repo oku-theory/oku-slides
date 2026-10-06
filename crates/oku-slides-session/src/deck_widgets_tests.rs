@@ -167,7 +167,7 @@ fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
     let (base, before) = (s.registry.clone(), s.deck().templates.clone());
-    let bad = op(json!({ "op": "set_token", "path": ["color", "accent"], "value": 5 }));
+    let bad = op(json!({ "op": "set_token", "path": ["size", "body"], "value": true }));
     let err = s.apply("Pack", vec![set_templates(Some(&quote)), bad], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Render);
     assert_that!(s.deck().templates.clone()).is_equal_to(before);
@@ -372,7 +372,7 @@ fn render_uses_the_embedded_version_even_when_the_library_has_another() {
 fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let data = data_dir();
     let path = data.0.join("absent.json");
-    let deck = json!({ "version": 3, "templates": { "id": uuid::Uuid::new_v4(), "version": format!("sha256:{}", "0".repeat(64)) },
+    let deck = json!({ "version": 4, "templates": { "id": uuid::Uuid::new_v4(), "version": format!("sha256:{}", "0".repeat(64)) },
         "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);

@@ -38,7 +38,8 @@ const ReceiptApi = {
 };
 const DisclosureApi = {
   name: "Disclosure",
-  schema: z.object({ summary: CommonSchemas.DynamicString, child: CommonSchemas.ComponentId }).strict(),
+  // `open` : déplié au premier rendu (une section des jetons, toutes pendant un filtre).
+  schema: z.object({ summary: CommonSchemas.DynamicString, child: CommonSchemas.ComponentId, open: z.boolean().optional() }).strict(),
 };
 const BadgeApi = { name: "Badge", schema: z.object({ text: CommonSchemas.DynamicString, tone: ToneSchema.optional() }).strict() };
 const MarkdownApi = { name: "Markdown", schema: z.object({ text: CommonSchemas.DynamicString }).strict() };
@@ -94,9 +95,12 @@ export const Receipt = createComponentImplementation(ReceiptApi, ({ props }) => 
   );
 });
 
-/** Un enfant replié derrière une ligne ; déplié, il le reste si la surface est reconstruite. */
+/**
+ * Un enfant replié derrière une ligne (déplié d'abord si `open`) ; ouvert ou fermé
+ * à la main, il le reste si la surface est reconstruite.
+ */
 export const Disclosure = createComponentImplementation(DisclosureApi, ({ props, buildChild, context }) => {
-  const [open, setOpen] = useRememberedOpen(context);
+  const [open, setOpen] = useRememberedOpen(context, props.open ?? false);
   return (
     <div className="a2ui-disclosure">
       <Toggle open={open} onToggle={() => setOpen(!open)} className="a2ui-hint">{props.summary}</Toggle>

@@ -101,7 +101,7 @@ fn save_templates_as_copy_creates_a_new_id_and_the_session_continues_on_it() {
     let mut s = session_on(data.path());
     s.edit_templates(DEFAULT_PACK).unwrap();
     s.save_templates(true).unwrap();
-    let edit = s.snapshot().editing.cloned().unwrap();
+    let edit = s.snapshot().editing.map(|e| e.mode.clone()).unwrap();
     assert_that!(edit.set).is_not_equal_to(DEFAULT_PACK);
     let copy = library_of(&s).current_version(edit.set).unwrap();
     assert_that!(copy.manifest.parent.clone()).is_none();

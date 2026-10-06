@@ -1,6 +1,5 @@
 {
- "version": 3,
- "theme": "papier",
+ "version": 4,
  "params": {
   "title": "Oku Slides Help",
   "subtitle": "Getting around, shortcuts, Typst library, file format",
@@ -247,7 +246,7 @@
            "bold": true
           },
           {
-           "t": ": Papier or Pro, from the menu. It is independent of the template set."
+           "t": ": Papier, Pro or your own, from the menu. It is independent of the template set. In template mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
           }
          ],
          "list": "bullet"
@@ -2291,7 +2290,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 3, \"theme\": \"papier\","
+           "t": "  \"version\": 4,"
           }
          ]
         },

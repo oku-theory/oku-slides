@@ -10,21 +10,22 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::pack::PackRef;
+use crate::pack::{PackRef, ThemeRef};
 use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 3;
+pub const DECK_VERSION: u32 = 4;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Deck {
     #[serde(default = "default_version")]
     pub version: u32,
-    /// Thème Typst fourni par la bibliothèque (`papier`, `pro`), ou aucun.
+    /// Thème du deck, dans la version embarquée par ses sources ; `None` :
+    /// le thème par défaut.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub theme: Option<String>,
+    pub theme: Option<ThemeRef>,
     #[serde(default)]
     pub params: DeckParams,
     /// Variables utilisables dans les textes : `{{client}}`.
@@ -382,7 +383,7 @@ impl Deck {
     }
 
     /// Lit un deck JSON. Refuse un deck d'une autre version que
-    /// [`DECK_VERSION`] : relu comme un v3, il perdrait des champs en silence.
+    /// [`DECK_VERSION`] : relu comme un v4, il perdrait des champs en silence.
     pub fn from_json(s: &str) -> serde_json::Result<Self> {
         let deck: Self = serde_json::from_str(s)?;
         if deck.version != DECK_VERSION {

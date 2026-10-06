@@ -172,6 +172,25 @@ fn pack_files_matches_only_their_own_version() {
     assert_that!(pack.version().verifies(&pack)).is_true();
 }
 
+#[test]
+fn theme_ref_serializes_as_id_and_version() {
+    let version = PackVersion::from_hex(&"b".repeat(64)).unwrap();
+    let r = ThemeRef { id: Uuid::from_u128(3), version: version.clone() };
+    let json = serde_json::to_value(&r).unwrap();
+    assert_that!(json).is_equal_to(json!({ "id": Uuid::from_u128(3).to_string(), "version": version.as_str() }));
+    assert_that!(serde_json::from_value::<ThemeRef>(json).unwrap()).is_equal_to(r);
+}
+
+/// Une version de thème : un `PackFiles` sans widget, au manifeste `theme.json`.
+#[test]
+fn theme_version_is_the_version_of_its_json_without_widgets() {
+    let json = br#"{"id":"2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31","name":"Papier","tokens":{}}"#;
+    let files = PackFiles::from_bytes(json, []).unwrap();
+    assert_that!(files.widgets().is_empty()).is_true();
+    assert_that!(files.version())
+        .is_equal_to(PackFiles::new(object(serde_json::from_slice(json).unwrap()), BTreeMap::new()).version());
+}
+
 /// Un `pack.json` brut, espacé, avec un flottant, du non-ASCII et des échappements.
 const SPACED: &[u8] = r#"{ "z" : [ 0.1 , -3 ],
   "ratio": 2.50,
@@ -209,4 +228,28 @@ fn pack_files_from_bytes_refuses_a_widget_source_with_nul() {
     let forged = PackFiles::from_bytes(json, [(wf("b"), &b"x\0kpi\0w"[..])]);
     assert_that!(forged).is_none();
     assert_that!(PackFiles::from_bytes(json, [(wf("b"), &b"x"[..])]).unwrap().version()).is_not_equal_to(two.version());
+}
+
+#[test]
+fn pack_files_verified_with_matching_hex_returns_version_and_files() {
+    let pack = PackFiles::new(object(json!({ "a": 1 })), files(&[("kpi", "w")]));
+    let json = pack.pack_json().unwrap();
+    let version = pack.version();
+    let got = PackFiles::verified(version.hex(), &json, [(wf("kpi"), b"w".as_slice())]);
+    assert_that!(got).is_equal_to(Some((version, pack)));
+}
+
+#[rstest]
+#[case::bad_hex("not-a-hash", br#"{"a":1}"#.as_slice(), b"w".as_slice())]
+#[case::wrong_content(&"0".repeat(64), br#"{"a":1}"#.as_slice(), b"w".as_slice())]
+#[case::not_an_object("", b"[1]".as_slice(), b"w".as_slice())]
+#[case::widget_changed("", br#"{"a":1}"#.as_slice(), b"x".as_slice())]
+fn pack_files_verified_with_untrustworthy_input_returns_none(
+    #[case] hex: &str,
+    #[case] manifest: &[u8],
+    #[case] widget: &[u8],
+) {
+    let pack = PackFiles::new(object(json!({ "a": 1 })), files(&[("kpi", "w")]));
+    let hex = if hex.is_empty() { pack.version().hex().to_owned() } else { hex.to_owned() };
+    assert_that!(PackFiles::verified(&hex, manifest, [(wf("kpi"), widget)])).is_none();
 }

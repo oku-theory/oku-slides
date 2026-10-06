@@ -258,7 +258,8 @@ fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
     s.set_widget("logo", LOGO.into()).unwrap();
-    s.apply("Thème", vec![oku_slides_core::Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![oku_slides_core::Op::SetTheme { theme: crate::test_support::theme_ref("pro") }], None)
+        .unwrap();
     s.history_open().unwrap();
     // L'historique a pris les images du deck mis de côté (`history.rs`) :
     // celle-ci y est, sans rendu qui l'aurait déjà envoyée au processus de rendu.

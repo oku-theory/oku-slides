@@ -72,7 +72,11 @@ pub fn receipt(id: &str, spec: &Report, slide: Option<&SlideRef>, l: &Localizer)
     if let Some(why) = spec.why.as_deref().filter(|w| !w.trim().is_empty()) {
         components.push(Component::new(
             "why",
-            ComponentKind::Disclosure { summary: Dynamic::Literal(l.tr("agent-report-why")), child: "why-text".into() },
+            ComponentKind::Disclosure {
+                summary: Dynamic::Literal(l.tr("agent-report-why")),
+                child: "why-text".into(),
+                open: None,
+            },
         ));
         components.push(Component::new("why-text", ComponentKind::Markdown { text: Dynamic::Literal(why.to_owned()) }));
         body.push("why".into());

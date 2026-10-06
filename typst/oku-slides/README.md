@@ -28,7 +28,7 @@ passe par des **jetons** ; le contenu peut être écrit en Typst ou fourni en
 ```
 
 Depuis un JSON : `#render-deck(json("deck.json"), theme: papier)`
-(voir `examples/deck.json` et [Deck JSON](#deck-json-v3)).
+(voir `examples/deck.json` et [Deck JSON](#deck-json-v4)).
 
 ## Types de slides
 
@@ -64,7 +64,9 @@ contenu, ou `{{client}}` dans les titres, les paramètres et les textes JSON.
 ## Jetons
 
 Primitives JSON uniquement, fusionnées en profondeur :
-`default-tokens` ← `theme` ← `tokens`.
+`default-tokens` ← `theme` ← `tokens`. Les valeurs par défaut sont dans
+`src/default-tokens.json` (`null` = jeton non défini, dérivé du fond et de
+l'encre pour `app`).
 
 | Famille | Exemple | Valeurs |
 | --- | --- | --- |
@@ -72,14 +74,21 @@ Primitives JSON uniquement, fusionnées en profondeur :
 | `font` | `display: ("Newsreader",)` | familles de repli |
 | `size`, `space`, `radius`, `stroke` | `body: 32` | pt, ou nom d'un autre jeton de la famille |
 | `weight`, `leading` | `strong: 600`, `normal: 0.6` | graisse ; em |
+| `script-style` | `display: "serif"` | graphie (`"sans"`, `"serif"`) des polices de secours hors latin (CJK…), par rôle |
 | `page` | `margin-x: 120` | géométrie de la page et positions en-tête/pied |
+| `chart` | `palette: ("accent", "#c4622d")` | couleurs des séries, dans l'ordre |
+| `app`, `app-dark`, `app-light` | `desk: "#ece8e0"` | couleurs, rayons (px) et élévations de l'interface de l'app, pas des slides |
 | `component.*` | `chapter: (bg: "accent")` | style de chaque composant, par références |
 
 Composants : `header`, `footer`, `kicker`, `title`, `title-slide`, `chapter`,
 `toc`, `card`, `end-slide`, `list`, `quote`, `columns`.
 
 Tout composant de texte accepte `size`, `color`, `weight`, `font`,
-`tracking` (pt) et `case` (`"upper"`, `"lower"`).
+`tracking` (pt) et `case` (`"upper"`, `"lower"`). Dans l'éditeur de thème de
+l'app, `font` d'un composant ne propose que les rôles (`"display"`, `"body"`,
+`"mono"`) et `weight` que les graisses numériques (100 à 900) ou les noms des
+jetons `weight` (`"strong"`…) : les graisses nommées de Typst (`"bold"`) ne
+sont pas proposées, même si la bibliothèque les accepte.
 
 - **En-tête et pied** : `left` et `right` sont des gabarits, par exemple
   `"{n} · {title}"` ou `"{confidential}"`. Champs : `title`, `subtitle`,
@@ -95,12 +104,49 @@ Tout composant de texte accepte `size`, `color`, `weight`, `font`,
 
 ## Thèmes fournis
 
+Chaque thème est un fichier `themes/<nom>.json` :
+`{ id, name, description, parent, created, tokens }`. `lib.typ` exporte ses
+`tokens` sous le nom du thème : `theme: papier` et `theme: pro` s'écrivent
+comme avant, et un dictionnaire de jetons quelconque convient aussi.
+
 - `papier` : le design system Papier (Newsreader, Instrument Sans, vert sauge).
 - `pro` : le design system Template Pro (Inter, navy et cyan, couverture en
   bande, surtitres en capitales, pied « n · titre » et « CONFIDENTIAL »).
   Voir `examples/pro.typ`.
 
-## Deck JSON (v3)
+Dans l'app, ces deux fichiers sont les thèmes intégrés (identifiants fixes) ;
+l'utilisateur en crée des copies versionnées (dossier `themes/` des données
+de l'app) dans l'onglet « Thème » du mode modèles. Un deck embarque la
+version de son thème.
+
+### Notes des thèmes
+
+Le JSON n'a pas de commentaires : ce qui expliquait les valeurs est ici.
+
+- **Pro** traduit le design system Template Pro : ses valeurs en px valent
+  des pt sur la grille 1920 × 1080. Correspondances : `color.bg` = surface,
+  `surface` et `rule` = border (fond des cadres de remplacement), `ink` =
+  body-text, `ink-muted` = muted-text, `accent` = accent (traits, bordures,
+  badge), `on-accent` = on-accent-text ; `size.display` = cover-title,
+  `title` = slide-title, `subtitle` = cover-subline, `lead` = card-title,
+  `kicker` = eyebrow. Les autres couleurs (`brand-ink`, `surface-dark`,
+  `accent-text`, `accent-on-dark`, `on-dark-body`, `on-dark-muted`, `white`)
+  sont propres au système. Graphiques : les bleus du système (texte d'accent,
+  cyan, navy), puis leurs tons clairs. Interface : table claire (teinte
+  « border »), encre navy, accent cyan ; en sombre, la table navy des
+  chapitres, accent cyan.
+- **Papier** reprend les jetons du design system Papier (jour). Titres serif
+  (Newsreader) : `script-style.display` vaut `"serif"`, pour garder un serif
+  en japonais, chinois et coréen. Graphiques : l'accent d'abord, puis des tons
+  chauds et sourds du papier. Interface sombre : le Papier de nuit, chaud,
+  l'accent éclairci pour le texte.
+- **Défauts** (`src/default-tokens.json`) : les alphabets hors latin passent
+  par `script-fallback`, ajouté par `deck` ; `script-style` vaut `"sans"` pour
+  chaque rôle. `component.card.height` : `"auto"` (hauteur du contenu) ou
+  `"fill"` (toute la hauteur disponible). `app` : `null` dérive la couleur du
+  fond et de l'encre des slides.
+
+## Deck JSON (v4)
 
 Chaque slide et chaque élément nomment leur widget (`kind`) et portent ses
 paramètres (`params`), décrits par son schéma (voir [Widgets](#widgets)).
@@ -110,7 +156,7 @@ zone de corps) ou une `cell` de la grille de la slide.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [
@@ -129,6 +175,11 @@ zone de corps) ou une `cell` de la grille de la slide.
   ]
 }
 ```
+
+`tokens` (facultatif) surcharge les jetons du thème pour ce deck. `theme`
+(facultatif) est la référence `{ id, version }` d'un thème de l'app : l'hôte
+la résout et passe ses jetons à `render-deck(…, theme:)` ; la bibliothèque
+ne la lit pas.
 
 Les paramètres liés (`bind`, comme le titre et le sous-titre de la slide
 `title`) se lisent dans `params` du deck, pas dans ceux de la slide.

@@ -73,7 +73,7 @@ pub(crate) fn widget_files(
 
 /// Ajoute `manifest` (et ses fichiers de widgets) à `library` ; sa référence.
 pub(crate) fn add_version(
-    library: &crate::library::Library,
+    library: &crate::library::PackLibrary,
     manifest: &crate::pack::PackManifest,
     widgets: &[(&str, &str)],
 ) -> oku_slides_core::PackRef {
@@ -114,7 +114,7 @@ pub(crate) fn session_on(data: &std::path::Path) -> Session {
 }
 
 /// La bibliothèque de la session `s`.
-pub(crate) fn library_of(s: &Session) -> &crate::library::Library {
+pub(crate) fn library_of(s: &Session) -> &crate::library::PackLibrary {
     &s.library
 }
 
@@ -127,4 +127,18 @@ pub(crate) fn touch_elsewhere(path: &std::path::Path) {
     let date = at + bytes[at..].windows(2).position(|w| w == b"D:").unwrap_or_else(|| panic!("date illisible")) + 2;
     bytes[date..date + 4].copy_from_slice(b"2099");
     std::fs::write(path, bytes).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
+}
+
+/// La référence de la version intégrée du thème nommé `name` (sans casse).
+pub(crate) fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
+    use crate::library_kind::LibraryKind;
+    crate::theme::Themes::builtins()
+        .iter()
+        .find(|b| b.manifest.name.eq_ignore_ascii_case(name))
+        .map(|b| oku_slides_core::ThemeRef { id: b.manifest.id, version: b.version.clone() })
+}
+
+/// Le nom court (`papier`, `pro`) du thème intégré de même id que `r`.
+pub(crate) fn theme_name(r: &oku_slides_core::ThemeRef) -> Option<&'static str> {
+    [(crate::PAPIER_THEME, "papier"), (crate::PRO_THEME, "pro")].into_iter().find(|(id, _)| *id == r.id).map(|(_, n)| n)
 }

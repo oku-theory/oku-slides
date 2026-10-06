@@ -63,7 +63,9 @@ fn open_help_shows_a_read_only_deck_without_file() {
 fn help_handle_apply_is_refused_as_read_only() {
     let (_data, mut s) = help_session("en");
     let deck = s.deck().clone();
-    let apply = req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": "pro"}]}));
+    let apply = req(
+        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]}),
+    );
     let err = s.handle(apply).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
     assert_that!(s.deck()).is_equal_to(&deck);
@@ -89,7 +91,7 @@ fn help_handle_ui_moves_the_current_slide() {
 fn help_agent_apply_and_new_deck_are_refused_as_read_only() {
     let (_data, s) = help_session("fr");
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(s)));
-    let op = Op::SetTheme { theme: Some("pro".into()) };
+    let op = Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
     let err = tab.with(|s| s.apply("Agent", vec![op], None)).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
     let err = tab.with(Session::new_deck).unwrap().unwrap_err();
@@ -102,7 +104,7 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     let dir = data.0.join("tabs").join("t-1");
     {
         let mut s = session_in(&data.0);
-        s.open_help("en", Some("pro")).unwrap();
+        s.open_help("en", Some(crate::PRO_THEME)).unwrap();
         assert_that!(s.resume_fresh(dir.clone())).is_true();
         s.handle(req(json!({"cmd": "ui", "slide": "s-sommaire"}))).unwrap();
         s.flush_resume();
@@ -112,7 +114,7 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     assert_that!(s.snapshot().read_only).is_true();
     assert_that!(s.tab_info().help).is_equal_to(Some("en".to_owned()));
     assert_that!(s.snapshot().ui.slide.as_deref()).is_equal_to(Some("s-sommaire"));
-    assert_that!(s.snapshot().theme).is_equal_to(Some("pro"));
+    assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
 }
 
 #[test]
@@ -211,25 +213,37 @@ fn help_deck_for_macos_keeps_the_symbols() {
 fn open_help_with_a_theme_shows_the_help_in_that_theme() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    s.open_help("fr", Some("pro")).unwrap();
-    assert_that!(s.snapshot().theme).is_equal_to(Some("pro"));
-    assert_that!(s.tab_info().theme).is_equal_to(Some("pro".to_owned()));
+    s.open_help("fr", Some(crate::PRO_THEME)).unwrap();
+    assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
+    assert_that!(s.tab_info().theme).is_equal_to(Some(crate::PRO_THEME));
 }
 
 #[test]
 fn open_help_with_an_unknown_theme_keeps_the_help_theme() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    s.open_help("fr", Some("inconnu")).unwrap();
-    assert_that!(s.snapshot().theme).is_equal_to(Some("papier"));
+    s.open_help("fr", Some(uuid::Uuid::new_v4())).unwrap();
+    assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
+}
+
+#[test]
+fn open_help_embeds_its_theme_version_without_issue() {
+    let (_data, s) = help_session("fr");
+    let theme = s.deck().theme.clone().unwrap();
+    assert_that!(theme.id).is_equal_to(crate::DEFAULT_THEME);
+    assert_that!(s.sources_for_tests().themes.contains_key(&theme.version)).is_true();
+    let zip = s.sources_for_tests().to_zip().unwrap();
+    let limits = oku_slides_core::SourceLimits { replica_bytes: 1 << 26, total_bytes: 1 << 28 };
+    let (_, issues) = oku_slides_core::SourceBundle::from_zip(&zip, limits, crate::test_support::registry()).unwrap();
+    assert_that!(issues).is_empty();
 }
 
 #[test]
 fn set_help_theme_changes_the_theme_without_undo_nor_unsaved_work() {
     let (_data, mut s) = help_session("fr");
-    s.set_help_theme("pro").unwrap();
+    s.set_help_theme(crate::PRO_THEME).unwrap();
     let snap = s.snapshot();
-    assert_that!(snap.theme).is_equal_to(Some("pro"));
+    assert_that!(snap.theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
     assert_that!(snap.can_undo).is_false();
     assert_that!(snap.dirty).is_false();
 }
@@ -239,7 +253,7 @@ fn set_help_theme_outside_the_help_is_refused() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     s.new_deck().unwrap();
-    assert_that!(s.set_help_theme("pro")).is_err();
+    assert_that!(s.set_help_theme(crate::PRO_THEME)).is_err();
 }
 
 #[test]

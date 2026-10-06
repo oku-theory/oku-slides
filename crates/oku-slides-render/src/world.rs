@@ -17,12 +17,11 @@ use snafu::ResultExt;
 use oku_slides_chart::ChartLabels;
 use oku_slides_i18n::Localizer;
 
-use crate::THEMES;
 use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD, text_sizes};
 use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
-use crate::palette::chart_palette;
+use crate::palette::{body_font, chart_palette};
 use crate::registry::PackWidgets;
 
 macro_rules! lib_files {
@@ -31,7 +30,7 @@ macro_rules! lib_files {
     };
 }
 
-/// La bibliothèque Typst `oku-slides`, embarquée.
+/// Les sources Typst de la bibliothèque `oku-slides`, embarquées.
 const LIBRARY: &[(&str, &str)] = lib_files!(
     "lib.typ",
     "src/tokens.typ",
@@ -43,9 +42,14 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "src/widget.typ",
     "src/widgets.typ",
     "src/data.typ",
-    "themes/papier.typ",
-    "themes/pro.typ",
 );
+
+/// Les données JSON de la bibliothèque (jetons par défaut, thèmes intégrés), lues par `json()`.
+const LIBRARY_DATA: &[(&str, &[u8])] = &[
+    ("src/default-tokens.json", include_bytes!("../../../typst/oku-slides/src/default-tokens.json")),
+    ("themes/papier.json", include_bytes!("../../../typst/oku-slides/themes/papier.json")),
+    ("themes/pro.json", include_bytes!("../../../typst/oku-slides/themes/pro.json")),
+];
 
 pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
     let vpath = VirtualPath::new(path).context(PathSnafu { path })?;
@@ -53,19 +57,17 @@ pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
 }
 
 /// Source principale : importe la bibliothèque et les widgets (base, puis
-/// ceux du pack s'il y en a un), et rend `/deck.json`.
+/// ceux du pack s'il y en a un), et rend `/deck.json` avec les jetons de
+/// `/theme.json` si un thème est posé (`has_theme`).
 /// `assets` : empreintes (hex) des assets disponibles.
 /// `labels` : textes des cadres de repli (échappés ici, pas du code).
 fn main_source<'a>(
-    theme: Option<&str>,
+    has_theme: bool,
     pack: Option<&PackWidgets>,
     assets: impl Iterator<Item = &'a str>,
     labels: &Labels,
 ) -> String {
-    let theme = match theme {
-        Some(t) if THEMES.contains(&t) => t,
-        _ => "none",
-    };
+    let theme = if has_theme { r#"json("/theme.json")"# } else { "none" };
     // Un tableau Typst à un élément s'écrit `("x",)` : chaque entrée finit par une virgule.
     let mut available = String::from("(");
     for hex in assets {
@@ -162,8 +164,10 @@ pub(crate) struct OkuSlidesWorld {
     sources: HashMap<FileId, Source>,
     deck_id: FileId,
     deck: Bytes,
-    /// Dernier deck reçu : thème et assets, pour refaire la source principale.
-    theme: Option<String>,
+    /// Jetons du thème (JSON), servis sous `/theme.json` ; `None` : pas de thème.
+    theme: Option<Bytes>,
+    theme_id: FileId,
+    /// Assets du dernier deck reçu, pour refaire la source principale.
     hexes: Vec<String>,
     labels: Labels,
     /// Widgets du pack : ses fichiers sous /packs/<id>/widgets/, l'assemblage sous /packs/<id>/widgets.typ.
@@ -172,6 +176,8 @@ pub(crate) struct OkuSlidesWorld {
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
     assets: HashMap<FileId, Bytes>,
+    /// Données JSON de la bibliothèque, par fichier.
+    data: HashMap<FileId, Bytes>,
 }
 
 impl OkuSlidesWorld {
@@ -181,20 +187,26 @@ impl OkuSlidesWorld {
             let id = file_id(&format!("/oku-slides/{path}"))?;
             sources.insert(id, Source::new(id, (*text).to_owned()));
         }
+        let mut data = HashMap::new();
+        for (path, bytes) in LIBRARY_DATA {
+            data.insert(file_id(&format!("/oku-slides/{path}"))?, Bytes::new(*bytes));
+        }
         let main_id = file_id("/main.typ")?;
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main: Source::new(main_id, main_source(None, None, std::iter::empty(), &Labels::default())),
+            main: Source::new(main_id, main_source(false, None, std::iter::empty(), &Labels::default())),
             sources,
             deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
             theme: None,
+            theme_id: file_id("/theme.json")?,
             hexes: Vec::new(),
             labels: Labels::default(),
             pack: None,
             charts: Charts::default(),
             assets: HashMap::new(),
+            data,
         })
     }
 
@@ -221,10 +233,9 @@ impl OkuSlidesWorld {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
         let mut json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
-        self.charts.attach(&mut json, deck.theme.as_deref(), &self.fonts, registry)?;
+        self.charts.attach(&mut json, &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
 
-        self.theme.clone_from(&deck.theme);
         self.hexes = hexes.into_iter().map(str::to_owned).collect();
         self.refresh_main();
         Ok(())
@@ -263,16 +274,29 @@ impl OkuSlidesWorld {
     /// Redessine les graphiques du deck courant et refait la source principale.
     fn redraw_charts(&mut self, registry: &WidgetRegistry) -> Result<(), RenderError> {
         let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
-        self.charts.attach(&mut json, self.theme.as_deref(), &self.fonts, registry)?;
+        self.charts.attach(&mut json, &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
         self.refresh_main();
         Ok(())
     }
 
+    /// Jetons du thème (ou aucun) ; les graphiques du deck courant sont redessinés.
+    pub(crate) fn set_theme(
+        &mut self,
+        tokens: Option<serde_json::Map<String, serde_json::Value>>,
+        registry: &WidgetRegistry,
+    ) -> Result<(), RenderError> {
+        self.theme = match tokens {
+            Some(map) => Some(Bytes::new(serde_json::to_vec(&map).context(DeckJsonSnafu)?)),
+            None => None,
+        };
+        self.redraw_charts(registry)
+    }
+
     /// Ce qu'une compilation dit des graphiques : les jetons résolus du
-    /// thème (palette, tailles de texte) et les boîtes `(élément, largeur,
-    /// hauteur)`. Si l'un d'eux change pour un graphique, les graphiques du
-    /// deck courant sont redessinés ; `true` dans ce cas.
+    /// thème (palette, police `font.body`, tailles de texte) et les boîtes
+    /// `(élément, largeur, hauteur)`. Si l'un d'eux change pour un graphique,
+    /// les graphiques du deck courant sont redessinés ; `true` dans ce cas.
     pub(crate) fn fit_charts<'a>(
         &mut self,
         tokens: Option<&serde_json::Value>,
@@ -280,7 +304,10 @@ impl OkuSlidesWorld {
         registry: &WidgetRegistry,
     ) -> Result<bool, RenderError> {
         let palette = tokens.map(chart_palette).unwrap_or_default();
-        let repainted = self.charts.set_palette(palette) | self.charts.set_text_sizes(tokens.and_then(text_sizes));
+        let font = tokens.and_then(body_font);
+        let repainted = self.charts.set_palette(palette)
+            | self.charts.set_font(font)
+            | self.charts.set_text_sizes(tokens.and_then(text_sizes));
         let resized = self.charts.set_measured(boxes);
         if !(repainted || resized) {
             return Ok(false);
@@ -296,7 +323,7 @@ impl OkuSlidesWorld {
     /// Refait la source principale si elle a changé (Typst garde son cache sinon).
     fn refresh_main(&mut self) {
         let text =
-            main_source(self.theme.as_deref(), self.pack.as_ref(), self.hexes.iter().map(String::as_str), &self.labels);
+            main_source(self.theme.is_some(), self.pack.as_ref(), self.hexes.iter().map(String::as_str), &self.labels);
         if self.main.text() != text {
             self.main.replace(&text);
         }
@@ -367,7 +394,15 @@ impl World for OkuSlidesWorld {
         if id == self.deck_id {
             return Ok(self.deck.clone());
         }
+        if id == self.theme_id
+            && let Some(theme) = &self.theme
+        {
+            return Ok(theme.clone());
+        }
         if let Some(b) = self.assets.get(&id).or_else(|| self.charts.file(id)) {
+            return Ok(b.clone());
+        }
+        if let Some(b) = self.data.get(&id) {
             return Ok(b.clone());
         }
         if let Some(s) = self.source_of(id) {

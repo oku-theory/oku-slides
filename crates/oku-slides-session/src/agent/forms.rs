@@ -425,78 +425,13 @@ pub(crate) fn params_with(
     let mut data = serde_json::Map::new();
     for (i, f) in spec.fields.iter().enumerate() {
         let key = param_key(i);
-        let path = format!("/{key}");
-        let mut markdown: Option<String> = None;
-        let event = |value: &str| {
-            let mut context = vec![("field", lit(json!(i))), ("value", Dynamic::path(value))];
-            if let Some(k) = extras.keys.get(i) {
-                context.push(("key", lit(json!(k))));
-            }
-            Some(Action::event("param", context))
-        };
-        let action = event(&path);
-        let label = Dynamic::Literal(f.label.clone());
-        let kind = match f.kind {
-            FieldKind::Stepper => ComponentKind::Stepper {
-                label,
-                value: Dynamic::path(&path),
-                min: f.min.map(|v| v.round() as i64),
-                max: f.max.map(|v| v.round() as i64),
-                action,
-            },
-            FieldKind::Slider => ComponentKind::Slider {
-                label,
-                value: Dynamic::path(&path),
-                min: f.min.unwrap_or(SLIDER_DEFAULT_MIN),
-                max: f.max.unwrap_or(SLIDER_DEFAULT_MAX),
-                step: f.step,
-                action,
-            },
-            FieldKind::Color => {
-                ComponentKind::ColorField { label, value: Dynamic::path(&path), palette: palette.to_vec(), action }
-            }
-            FieldKind::Select => {
-                ComponentKind::Select { label, value: Dynamic::path(&path), options: f.options.clone(), action }
-            }
-            FieldKind::Text => ComponentKind::TextField { label, value: Dynamic::path(&path), action },
-            FieldKind::Rich => {
-                let source = format!("{path}-source");
-                let paragraphs: Vec<Paragraph> = serde_json::from_value(f.value.clone()).unwrap_or_default();
-                data.insert(format!("{key}-source"), f.value.clone());
-                markdown = Some(paragraphs_to_text(&paragraphs));
-                let action = event(&source);
-                ComponentKind::RichTextField {
-                    label,
-                    value: Dynamic::path(&path),
-                    source: Dynamic::path(&source),
-                    palette: palette.to_vec(),
-                    action,
-                }
-            }
-            FieldKind::List => {
-                let change = format!("{path}-change");
-                data.insert(format!("{key}-change"), Value::Null);
-                data.insert(format!("{key}-markdown"), rich_markdown(&f.value, &f.columns));
-                let mut context = vec![("field", lit(json!(i))), ("change", Dynamic::path(&change))];
-                if let Some(k) = extras.keys.get(i) {
-                    context.push(("key", lit(json!(k))));
-                }
-                ComponentKind::ListTable {
-                    label,
-                    rows: Dynamic::path(&path),
-                    change: Dynamic::path(&change),
-                    markdown: Dynamic::path(format!("{path}-markdown")),
-                    columns: f.columns.clone(),
-                    min: f.min.map_or(0, |m| m.max(0.0) as u32),
-                    max: f.max.map(|m| m.max(0.0) as u32),
-                    item_label: f.item_label.clone(),
-                    palette: palette.to_vec(),
-                    action: Some(Action::event("param", context)),
-                }
-            }
-        };
-        components.push(Component::new(&key, kind));
-        data.insert(key.clone(), markdown.take().map_or_else(|| f.value.clone(), Value::from));
+        let mut context = vec![("field", lit(json!(i)))];
+        if let Some(k) = extras.keys.get(i) {
+            context.push(("key", lit(json!(k))));
+        }
+        let (component, entries) = field_components(&key, f, &FieldEvent { name: "param", context }, palette);
+        components.push(component);
+        data.extend(entries);
         body.push(key);
     }
     for (i, note) in extras.notes.iter().enumerate() {
@@ -512,6 +447,93 @@ pub(crate) fn params_with(
     components.insert(0, Component::column("body", &refs));
     components.insert(0, Component::card("root", "body"));
     surface(id, Place::Thread, None, components, Value::Object(data))
+}
+
+/// L'évènement d'un champ et son contexte fixe ; la valeur s'y ajoute sous
+/// `value` (sous `change` pour une liste).
+pub(crate) struct FieldEvent<'a> {
+    pub name: &'a str,
+    pub context: Vec<(&'a str, Dynamic<Value>)>,
+}
+
+impl FieldEvent<'_> {
+    /// L'action qui envoie le chemin `path` du modèle sous `entry`.
+    fn action(&self, entry: &'static str, path: &str) -> Option<Action> {
+        let mut context = self.context.clone();
+        context.push((entry, Dynamic::path(path)));
+        Some(Action::event(self.name, context))
+    }
+}
+
+/// Le composant `key` d'un champ et ses entrées du modèle de données : sa
+/// valeur sous `key`, plus les entrées annexes d'un texte riche ou d'une liste.
+pub(crate) fn field_components(
+    key: &str,
+    f: &ParamField,
+    event: &FieldEvent<'_>,
+    palette: &[String],
+) -> (Component, serde_json::Map<String, Value>) {
+    let mut data = serde_json::Map::new();
+    let path = format!("/{key}");
+    let mut markdown: Option<String> = None;
+    let action = event.action("value", &path);
+    let label = Dynamic::Literal(f.label.clone());
+    let kind = match f.kind {
+        FieldKind::Stepper => ComponentKind::Stepper {
+            label,
+            value: Dynamic::path(&path),
+            min: f.min.map(|v| v.round() as i64),
+            max: f.max.map(|v| v.round() as i64),
+            action,
+        },
+        FieldKind::Slider => ComponentKind::Slider {
+            label,
+            value: Dynamic::path(&path),
+            min: f.min.unwrap_or(SLIDER_DEFAULT_MIN),
+            max: f.max.unwrap_or(SLIDER_DEFAULT_MAX),
+            step: f.step,
+            action,
+        },
+        FieldKind::Color => {
+            ComponentKind::ColorField { label, value: Dynamic::path(&path), palette: palette.to_vec(), action }
+        }
+        FieldKind::Select => {
+            ComponentKind::Select { label, value: Dynamic::path(&path), options: f.options.clone(), action }
+        }
+        FieldKind::Text => ComponentKind::TextField { label, value: Dynamic::path(&path), action },
+        FieldKind::Rich => {
+            let source = format!("{path}-source");
+            let paragraphs: Vec<Paragraph> = serde_json::from_value(f.value.clone()).unwrap_or_default();
+            data.insert(format!("{key}-source"), f.value.clone());
+            markdown = Some(paragraphs_to_text(&paragraphs));
+            ComponentKind::RichTextField {
+                label,
+                value: Dynamic::path(&path),
+                source: Dynamic::path(&source),
+                palette: palette.to_vec(),
+                action: event.action("value", &source),
+            }
+        }
+        FieldKind::List => {
+            let change = format!("{path}-change");
+            data.insert(format!("{key}-change"), Value::Null);
+            data.insert(format!("{key}-markdown"), rich_markdown(&f.value, &f.columns));
+            ComponentKind::ListTable {
+                label,
+                rows: Dynamic::path(&path),
+                change: Dynamic::path(&change),
+                markdown: Dynamic::path(format!("{path}-markdown")),
+                columns: f.columns.clone(),
+                min: f.min.map_or(0, |m| m.max(0.0) as u32),
+                max: f.max.map(|m| m.max(0.0) as u32),
+                item_label: f.item_label.clone(),
+                palette: palette.to_vec(),
+                action: event.action("change", &change),
+            }
+        }
+    };
+    data.insert(key.to_owned(), markdown.map_or_else(|| f.value.clone(), Value::from));
+    (Component::new(key, kind), data)
 }
 
 /// Markdown d'édition des cellules `rich` des items `rows` : `{id: {colonne: markdown}}`.

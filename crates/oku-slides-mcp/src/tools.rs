@@ -182,7 +182,7 @@ pub(crate) fn list() -> Vec<Tool> {
         vec![
             tool::<NoArgs>(
                 "deck_outline",
-                "List the slides of the open deck: id, kind, title, element count; theme, template set, mode.",
+                "List the slides of the open deck: id, kind, title, element count; theme {id, name} of the deck (null in templates mode), the available themes [{id, name, version}] (set_theme takes {id, version}), template set, mode. In templates mode, edited_theme {id, version, name, dirty} is the theme being edited: a set_theme op alone (no other op in the transaction) makes the draft start from that theme; edit its tokens with set_token.",
             ),
             tool::<NoArgs>(
                 "widgets",

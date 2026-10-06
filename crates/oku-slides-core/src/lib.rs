@@ -15,12 +15,14 @@
 //! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
 //!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
 //!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
-//! - [`PackRef`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de modèles d'un deck, version adressée par contenu, fichiers de widgets.
+//! - [`PackRef`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de modèles d'un deck, version adressée par contenu, fichiers de widgets ; [`ThemeRef`] : thème d'un deck, versionné de même.
 //! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
+//! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu.
 
 mod canonical;
+mod color;
 pub mod error;
 mod fields;
 pub mod locate;
@@ -36,6 +38,7 @@ pub mod validate;
 pub mod widget;
 
 pub use canonical::canonicalize;
+pub use color::is_hex_color;
 pub use error::{
     ListBound, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError,
     SourcesErrorKind, TransactionError, WidgetError, WidgetErrorKind, WidgetFileError,
@@ -47,7 +50,7 @@ pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, Op, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX,
     SlideField, SlotRef, Target, apply_all, default_items, ops_schema, param_value, text_fits,
 };
-pub use pack::{COMMON_WIDGET_FILE, PackFiles, PackRef, PackVersion, WidgetFile};
+pub use pack::{COMMON_WIDGET_FILE, PackFiles, PackRef, PackVersion, ThemeRef, WidgetFile};
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
 pub use sources::{SourceBundle, SourceLimits, asset_id};

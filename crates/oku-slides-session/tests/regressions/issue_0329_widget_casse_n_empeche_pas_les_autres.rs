@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use oku_slides_core::{Op, PackRef, WidgetFile};
-use oku_slides_session::{Library, PackManifest, Request, Storage};
+use oku_slides_session::{PackLibrary, PackManifest, Request, Storage};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -39,7 +39,7 @@ fn mixed_pack(data: &Path) -> PackRef {
     let widgets = BTreeMap::from([(name("quote"), QUOTE.to_owned()), (name("casse"), BROKEN.to_owned())]);
     let files = manifest.to_files(widgets).unwrap_or_else(|e| panic!("{e}"));
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    Library::new(Some(data.join("templates")), storage).add_version(id, &files).unwrap_or_else(|e| panic!("{e}"));
+    PackLibrary::new(Some(data.join("templates")), storage).add_version(id, &files).unwrap_or_else(|e| panic!("{e}"));
     PackRef { id, version: files.version() }
 }
 

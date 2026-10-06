@@ -11,10 +11,16 @@ export interface OpenWidget {
   name: string;
 }
 
-/** Sous-onglets ouverts, dans l'ordre d'ouverture ; `active` : `null` pour « Modèles ». */
+/** L'onglet fixe « Thème », après « Modèles ». */
+export const THEME_TAB = "theme";
+
+/** Onglet actif : `null` pour « Modèles », `THEME_TAB`, ou l'id d'un sous-onglet widget. */
+export type ActiveTab = number | typeof THEME_TAB | null;
+
+/** Sous-onglets ouverts, dans l'ordre d'ouverture, et l'onglet actif. */
 export interface WidgetTabs {
   tabs: OpenWidget[];
-  active: number | null;
+  active: ActiveTab;
   next: number;
 }
 
@@ -61,8 +67,8 @@ export function closed(s: WidgetTabs, id: number): WidgetTabs {
   return { ...s, tabs, active };
 }
 
-/** Active `id` ; `null` : « Modèles ». */
-export function activated(s: WidgetTabs, id: number | null): WidgetTabs {
+/** Active `id` ; `null` : « Modèles » ; `THEME_TAB` : « Thème ». */
+export function activated(s: WidgetTabs, id: ActiveTab): WidgetTabs {
   return s.active === id ? s : { ...s, active: id };
 }
 
@@ -76,16 +82,21 @@ export function renamed(s: WidgetTabs, from: string, to: string): WidgetTabs {
 export function pruned(s: WidgetTabs, names: ReadonlySet<string>): WidgetTabs {
   const tabs = s.tabs.filter((t) => names.has(t.name));
   if (tabs.length === s.tabs.length) return s;
-  const active = tabs.some((t) => t.id === s.active) ? s.active : null;
+  const active = s.active === THEME_TAB || tabs.some((t) => t.id === s.active) ? s.active : null;
   return { ...s, tabs, active };
 }
 
-/** Nom du sous-onglet actif ; `null` : « Modèles ». */
+/** Nom du sous-onglet widget actif ; `null` : « Modèles » ou « Thème ». */
 export function activeName(s: WidgetTabs): string | null {
   return s.tabs.find((t) => t.id === s.active)?.name ?? null;
 }
 
-/** Ce que l'hôte garde pour la reprise. */
+/** Id du sous-onglet widget actif ; `null` : « Modèles » ou « Thème ». */
+export function activeWidget(s: WidgetTabs): number | null {
+  return typeof s.active === "number" ? s.active : null;
+}
+
+/** Ce que l'hôte garde pour la reprise (« Thème » n'est pas gardé : la reprise ouvre « Modèles »). */
 export function kept(s: WidgetTabs): KeptTabs {
   return { widgets: s.tabs.map((t) => t.name), widget: activeName(s) };
 }

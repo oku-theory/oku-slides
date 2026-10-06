@@ -59,8 +59,8 @@ impl Ctx {
     pub(super) fn kind(self, key: &str) -> Kind {
         use Ctx::*;
         match (self, key) {
-            // Une référence de pack entière : l'id et la version ne se mêlent jamais.
-            (Deck, "templates") => Kind::Atom,
+            // Une référence de pack ou de thème entière : l'id et la version ne se mêlent jamais.
+            (Deck, "templates" | "theme") => Kind::Atom,
             (Deck, "slides") => Kind::Collection(Slide),
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),

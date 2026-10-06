@@ -360,3 +360,20 @@ pub fn render_args() -> Value {
         { "id": "root", "component": "Button", "label": "Encore", "action": { "event": { "name": "suggest", "context": { "prompt": "Encore" } } } }
     ] })
 }
+
+/// La référence de la version intégrée du thème nommé `name` (sans casse).
+#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+pub fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
+    use oku_slides_session::{LibraryKind, Themes};
+    Themes::builtins()
+        .iter()
+        .find(|b| b.manifest.name.eq_ignore_ascii_case(name))
+        .map(|b| oku_slides_core::ThemeRef { id: b.manifest.id, version: b.version.clone() })
+}
+
+/// Le nom court (`papier`, `pro`) du thème intégré de même id que `r`.
+#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+pub fn theme_name(r: &oku_slides_core::ThemeRef) -> Option<&'static str> {
+    use oku_slides_session::{PAPIER_THEME, PRO_THEME};
+    [(PAPIER_THEME, "papier"), (PRO_THEME, "pro")].into_iter().find(|(id, _)| *id == r.id).map(|(_, n)| n)
+}

@@ -146,6 +146,11 @@ impl Localizer {
         self.locale
     }
 
+    /// Vrai si cette langue a le message `id` elle-même (sans le secours anglais).
+    pub fn has(&self, id: &str) -> bool {
+        self.bundle.has_message(id)
+    }
+
     /// Un message sans paramètre.
     pub fn tr(&self, id: &str) -> String {
         self.format(id, None)

@@ -214,13 +214,13 @@ async fn show_params_change_applies_template_op() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let args = json!({ "title": "Apparence", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" },
+        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" },
           "options": [{ "id": "papier", "label": "Papier" }, { "id": "pro", "label": "Pro" }] }
     ] });
     let id = json_of(&call(&c, "show_params", args).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
     h.hub.act(action(&id, "param", json!({ "field": 0, "value": "pro" }))).unwrap();
-    assert_that!(h.session.lock().unwrap().deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(h.session.lock().unwrap().deck().vars.get("theme").cloned()).is_equal_to(Some(json!("pro")));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -282,7 +282,7 @@ async fn prune_closes_params_of_removed_slide() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let args = json!({ "title": "x", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" } }
+        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" } }
     ] });
     let id = json_of(&call(&c, "show_params", args).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
@@ -298,7 +298,7 @@ async fn surfaces_follow_open_and_close_in_order() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let params = json!({ "title": "x", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" } }
+        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" } }
     ] });
     let shown = json_of(&call(&c, "show_params", params).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
@@ -359,7 +359,7 @@ async fn surfaces_event_always_carries_the_hub_list() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let params = json!({ "title": "x", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" } }
+        { "label": "Thème", "kind": "text", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" } }
     ] });
     let shown = json_of(&call(&c, "show_params", params).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
@@ -404,7 +404,7 @@ async fn param_change_is_kept_for_resync() {
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let args = json!({ "title": "Apparence", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" },
+        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" },
           "options": [{ "id": "papier", "label": "Papier" }, { "id": "pro", "label": "Pro" }] }
     ] });
     let id = json_of(&call(&c, "show_params", args).await)["shown"].as_str().unwrap().to_owned();
@@ -540,7 +540,7 @@ fn freeze_choice(h: &Harness, id: &str) -> oku_slides_mcp::Freeze {
 
 fn params_args() -> Value {
     json!({ "title": "Apparence", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" },
+        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" },
           "options": [{ "id": "papier", "label": "Papier" }, { "id": "pro", "label": "Pro" }] }
     ] })
 }

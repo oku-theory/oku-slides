@@ -30,7 +30,9 @@ fn req(v: serde_json::Value) -> Request {
 }
 
 fn set_theme(theme: &str) -> Request {
-    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
+    req(
+        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref(theme)}]}),
+    )
 }
 
 /// Le deck de démonstration avec une image et une police, puis deux thèmes.
@@ -101,7 +103,7 @@ fn history_unsaved_and_tab_info_see_the_stashed_deck() {
     edited(&mut s);
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     assert_that!(s.unsaved()).is_true();
-    assert_that!(s.user_deck().theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(s.user_deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
     assert_that!(s.tab_info().editing_templates).is_false();
 }
 
@@ -125,7 +127,7 @@ fn history_resume_reopens_the_current_deck_not_the_history() {
     let mut b = session_in(data.path());
     assert!(b.resume(dir));
     assert_that!(matches!(b.mode, Mode::Deck)).is_true();
-    assert_that!(b.deck().theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(b.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
     assert_that!(b.doc.sources.assets).is_equal_to(&assets);
     assert_that!(b.doc.sources.fonts).is_equal_to(&fonts);
     assert_that!(b.snapshot().history.is_none()).is_true();
@@ -179,13 +181,14 @@ fn history_restore_that_fails_keeps_the_history_open_and_the_stashed_deck_intact
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidDocument);
     let Mode::History { stash, .. } = &s.mode else { panic!("l'historique reste ouvert") };
     assert_that!(stash.sources.replica().deck().0).is_equal_to(stash.sources.deck());
-    assert_that!(stash.sources.deck().theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(stash.sources.deck().theme.as_ref().and_then(crate::test_support::theme_name))
+        .is_equal_to(Some("papier"));
     assert_that!(stash.sources.replica().len_changes()).is_equal_to(changes);
     assert_that!(stash.sources.assets.is_empty()).is_true();
     assert_that!(s.doc.sources.assets).is_equal_to(&assets);
     assert_that!(s.doc.sources.fonts).is_equal_to(&fonts);
     s.handle(req(json!({ "cmd": "history_close" }))).unwrap();
-    assert_that!(s.deck().theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(s.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
     assert_that!(s.snapshot().undo_label).is_equal_to(Some("Thème".to_owned()));
     assert_that!(s.doc.sources.assets).is_equal_to(&assets);
     assert_that!(s.doc.sources.fonts).is_equal_to(&fonts);
@@ -206,7 +209,7 @@ fn history_agent_apply_is_refused_and_leaves_the_stash_and_the_preview_untouched
     s.handle(req(json!({ "cmd": "history_seek", "index": 0 }))).unwrap();
     let (shown, changes) = (s.deck().clone(), s.doc.sources.replica().len_changes());
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(s)));
-    let op = Op::SetTheme { theme: Some("pro".into()) };
+    let op = Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
     let err = tab.with(|s| s.apply("Agent", vec![op], None)).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);
     let err = tab.with(Session::new_deck).unwrap().unwrap_err();
@@ -215,7 +218,8 @@ fn history_agent_apply_is_refused_and_leaves_the_stash_and_the_preview_untouched
         assert_that!(s.deck()).is_equal_to(&shown);
         assert_that!(s.doc.sources.replica().len_changes()).is_equal_to(changes);
         let Mode::History { stash, .. } = &s.mode else { panic!("l'historique reste ouvert") };
-        assert_that!(stash.sources.deck().theme.as_deref()).is_equal_to(Some("papier"));
+        assert_that!(stash.sources.deck().theme.as_ref().and_then(crate::test_support::theme_name))
+            .is_equal_to(Some("papier"));
         assert_that!(stash.dirty).is_true();
         s.handle(req(json!({ "cmd": "history_close" }))).unwrap();
         assert_that!(s.snapshot().undo_label).is_equal_to(Some("Thème".to_owned()));
@@ -316,5 +320,5 @@ fn history_close_then_save_writes_the_stashed_deck() {
     s.handle(req(json!({ "cmd": "save", "path": null }))).unwrap();
     let mut back = session_in(data.path());
     back.open(&path).unwrap();
-    assert_that!(back.deck().theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(back.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
 }

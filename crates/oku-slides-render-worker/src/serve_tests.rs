@@ -198,3 +198,24 @@ fn set_widgets_with_a_bad_widget_file_name_returns_setup_error() {
     let (reply, _) = worker.handle(Request::SetWidgets { slot: 1, pack }, Vec::new());
     assert_that!(matches!(reply, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }
+
+#[test]
+fn serve_set_theme_tokens_reach_the_render() {
+    let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let tokens = serde_json::json!({ "color": { "bg": "#000000" } });
+    let tokens = tokens.as_object().cloned();
+    let (resp, _) = h.call(&Request::SetTheme { slot: 1, tokens }, &[]);
+    assert_that!(matches!(resp, Response::Ok)).is_true();
+    let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    let Response::Compiled(header) = resp else { panic!("{resp:?}") };
+    let (_, svg) = h.call(&Request::Svg { slot: 1, generation: header.generation, page: 0 }, &[]);
+    assert_that!(String::from_utf8(svg).unwrap()).contains("#000000");
+}
+
+#[test]
+fn serve_set_theme_on_unknown_slot_returns_setup_error() {
+    let mut h = Harness::new();
+    let (resp, _) = h.call(&Request::SetTheme { slot: 9, tokens: None }, &[]);
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+}

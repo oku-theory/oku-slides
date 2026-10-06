@@ -49,7 +49,7 @@ fn a_non_widget_operation_ends_the_widget_session() {
     let mut s = opened_on(data.path());
     s.set_widget("quote", QUOTE.into()).unwrap();
     let first = s.deck().templates.clone().unwrap();
-    s.apply("Thème", vec![Op::SetTheme { theme: Some("pro".into()) }], None).unwrap();
+    s.apply("Thème", vec![Op::SetTheme { theme: crate::test_support::theme_ref("pro") }], None).unwrap();
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
     let second = s.deck().templates.clone().unwrap();
     assert_that!(second.version).is_not_equal_to(first.version.clone());

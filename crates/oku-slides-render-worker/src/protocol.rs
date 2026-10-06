@@ -47,6 +47,11 @@ pub(crate) enum Request {
         slot: SlotId,
         pack: Option<WirePack>,
     },
+    /// Les jetons du thème du slot (`None` : les jetons par défaut).
+    SetTheme {
+        slot: SlotId,
+        tokens: Option<serde_json::Map<String, serde_json::Value>>,
+    },
     Render {
         slot: SlotId,
         deck: Box<oku_slides_core::Deck>,

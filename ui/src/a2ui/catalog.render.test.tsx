@@ -140,6 +140,15 @@ describe("rendu du catalogue v3", () => {
     expect(actions.map((a) => a.context)).toEqual([{ value: "#303030" }]);
   });
 
+  test("ColorField : un contexte d'action avec un tableau littéral (chemin d'un jeton) part tel quel", async () => {
+    // Régression t-554 : sous la clé `path`, @a2ui y voyait une liaison de données et levait.
+    const context = { token: ["color", "accent"], action: "set", value: { path: "/c" } };
+    const field = { ...colorField, action: { event: { name: "token", context } } };
+    const { host, actions } = await mount(field, { c: "#c2573a" });
+    await fire(host.querySelector('input[type="color"]') as HTMLInputElement, "change", "#ff0000");
+    expect(actions.map((a) => a.context)).toEqual([{ token: ["color", "accent"], action: "set", value: "#ff0000" }]);
+  });
+
   test("ColorField : une pastille déjà choisie ne renvoie rien", async () => {
     const { host, actions } = await mount(colorField, { c: "#c2573a" });
     const swatches = [...host.querySelectorAll(".swatch")];
@@ -150,6 +159,19 @@ describe("rendu du catalogue v3", () => {
     await click(host.querySelectorAll(".swatch")[1]);
     expect(actions.map((a) => a.context)).toEqual([{ value: "#1f4e79" }]);
     expect(host.querySelectorAll(".swatch")[1].getAttribute("aria-pressed")).toBe("true");
+  });
+
+  test("ColorField : un nom de couleur est montré tel quel ; une pastille écrit l'hex", async () => {
+    const { host, actions } = await mount(colorField, { c: "accent" });
+    expect(host.querySelector(".color-name")?.textContent).toBe("accent");
+    expect(host.querySelectorAll('.swatch[aria-pressed="true"]')).toHaveLength(0);
+    await click(host.querySelectorAll(".swatch")[1]);
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#1f4e79" }]);
+  });
+
+  test("ColorField : un hex ne montre pas de nom", async () => {
+    const { host } = await mount(colorField, { c: "#c2573a" });
+    expect(host.querySelector(".color-name")).toBeNull();
   });
 
   test("Slider : la valeur suit le glissé, l'action part une fois à la validation", async () => {
@@ -242,6 +264,16 @@ describe("rendu du catalogue v3", () => {
   test("SurfaceView : la surface est enveloppée d'un .a2ui-surface", async () => {
     const { host } = await mount({ component: "Text", text: "Bonjour" });
     expect(host.querySelector(".a2ui-surface")?.textContent).toBe("Bonjour");
+  });
+
+  test("Column et Row : chaque emplacement porte l'id de son composant", async () => {
+    const { host } = await mountAll([
+      { id: "root", component: "Column", children: ["color.accent:row"] },
+      { id: "color.accent:row", component: "Row", children: ["color.accent"] },
+      { id: "color.accent", component: "Text", text: "Accent" },
+    ]);
+    const row = host.querySelector('[data-component-id="color.accent:row"]');
+    expect(row?.querySelector('[data-component-id="color.accent"]')?.textContent).toBe("Accent");
   });
 });
 
@@ -336,6 +368,24 @@ describe("composants du fil (v3)", () => {
     expect(host.querySelector(".a2ui-md")).toBeNull();
     await click(host.querySelector(".a2ui-disclosure > button")!);
     expect(host.querySelector(".a2ui-md strong")?.textContent).toBe("content");
+  });
+
+  test("Disclosure open : dépliée au premier rendu, se replie au clic", async () => {
+    const { host } = await mountSurface(messagesOf([
+      { id: "root", component: "Disclosure", summary: "Couleurs", child: "c", open: true },
+      { id: "c", component: "Markdown", text: "**accent**" },
+    ]));
+    expect(host.querySelector(".a2ui-md strong")?.textContent).toBe("accent");
+    await click(host.querySelector(".a2ui-disclosure > button")!);
+    expect(host.querySelector(".a2ui-md")).toBeNull();
+  });
+
+  test("Disclosure open: false reste repliée", async () => {
+    const { host } = await mountSurface(messagesOf([
+      { id: "root", component: "Disclosure", summary: "Couleurs", child: "c", open: false },
+      { id: "c", component: "Markdown", text: "x" },
+    ]));
+    expect(host.querySelector(".a2ui-md")).toBeNull();
   });
 
   test("Badge porte la classe de son ton", async () => {

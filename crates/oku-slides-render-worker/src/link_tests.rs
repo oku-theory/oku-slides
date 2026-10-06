@@ -53,7 +53,7 @@ fn link_in_process_probe_that_loops_times_out_and_restarts() {
 fn link_replays_open_slots_after_restart() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(300));
     link.call(&Request::OpenSlot { slot: 7, fonts: vec![] }, &[]).unwrap();
-    link.state.slots.insert(7, SlotState { fonts: vec![], pack: None, last_assets: vec![] });
+    link.state.slots.insert(7, SlotState { fonts: vec![], pack: None, last_assets: vec![], theme: None });
     let _ = link.call(&looping_probe(), &[]);
     // Marge : seul le rejeu est testé ici, pas la durée du rendu.
     link.settings.timeout_ms = 30_000;
@@ -68,7 +68,7 @@ fn link_replay_skips_a_faulty_pack() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     let pack = looping_pack();
     link.faulty_packs.insert(fingerprint_hex(&pack));
-    link.state.slots.insert(3, SlotState { fonts: vec![], pack: Some(pack), last_assets: vec![] });
+    link.state.slots.insert(3, SlotState { fonts: vec![], pack: Some(pack), last_assets: vec![], theme: None });
     // Sans l'exclusion, le rejeu du pack qui boucle dépasserait le délai.
     let (resp, _) = link.call(&Request::CloseSlot { slot: 3 }, &[]).unwrap();
     assert_that!(matches!(resp, Response::Ok)).is_true();
@@ -79,7 +79,7 @@ fn link_first_launch_replays_language_and_fonts() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     link.state.locale = Some("fr".into());
     link.state.fonts.insert("f1".into(), Arc::from(b"not a font".to_vec()));
-    link.state.slots.insert(2, SlotState { fonts: vec!["f1".into()], pack: None, last_assets: vec![] });
+    link.state.slots.insert(2, SlotState { fonts: vec!["f1".into()], pack: None, last_assets: vec![], theme: None });
     link.call(&Request::Release { slot: 2, generations: vec![] }, &[]).unwrap();
     assert_that!(link.sent_fonts.contains("f1")).is_true();
     assert_that!(link.restarts).is_equal_to(0);
@@ -107,7 +107,9 @@ fn fingerprint_hex_matches_pack_fingerprint() {
 #[test]
 fn link_replay_with_missing_font_fails_then_reconnects() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
-    link.state.slots.insert(4, SlotState { fonts: vec!["absente".into()], pack: None, last_assets: vec![] });
+    link.state
+        .slots
+        .insert(4, SlotState { fonts: vec!["absente".into()], pack: None, last_assets: vec![], theme: None });
     let err = link.call(&Request::Release { slot: 4, generations: vec![] }, &[]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
     link.state.slots.remove(&4);
@@ -119,7 +121,7 @@ fn link_replay_with_missing_font_fails_then_reconnects() {
 fn link_replay_refused_by_worker_drops_the_half_replayed_worker() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     let bad = WirePack { id: "pas un id/".into(), files: BTreeMap::new() };
-    link.state.slots.insert(5, SlotState { fonts: vec![], pack: Some(bad), last_assets: vec![] });
+    link.state.slots.insert(5, SlotState { fonts: vec![], pack: Some(bad), last_assets: vec![], theme: None });
     assert_that!(link.call(&Request::Release { slot: 5, generations: vec![] }, &[])).is_err();
     link.state.slots.get_mut(&5).unwrap().pack = None;
     // Un travailleur neuf : l'emplacement 5 y est rejoué, donc rendable.

@@ -39,6 +39,7 @@ mod appearance;
 mod charts;
 mod deck_file;
 mod deck_pack;
+mod deck_theme;
 mod deck_widgets;
 mod error;
 mod fields;
@@ -50,6 +51,7 @@ mod items;
 #[cfg(test)]
 pub(crate) mod lib_tests_support;
 pub mod library;
+mod library_kind;
 mod merge;
 pub mod pack;
 mod pack_notice;
@@ -67,6 +69,11 @@ mod templates_mode;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod text;
+mod theme;
+mod theme_controls;
+mod theme_edit;
+mod theme_panel;
+pub mod theme_schema;
 mod views;
 mod widget_examples;
 mod widget_params;
@@ -78,6 +85,7 @@ mod workspace;
 
 pub use appearance::{Appearance, appearance};
 pub use deck_pack::adopt_default_pack;
+pub use deck_theme::{adopt_default_theme, theme_tokens};
 use error::{
     BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, InHistorySnafu, NoChartSnafu, NoSlideSnafu,
     NotRenderedSnafu, PdfSnafu, ReadOnlySnafu, RegistrySnafu, RenderSnafu, ResponseSnafu, SourcesSnafu, WriteSnafu,
@@ -86,7 +94,8 @@ pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use items::{ItemView, ListView};
-pub use library::{Library, StoredVersion, builtin_versions};
+pub use library::{Library, PackLibrary, builtin_versions};
+pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
@@ -94,9 +103,12 @@ pub use request::Request;
 pub use search::SearchHit;
 use template_scratch::TemplateScratch;
 pub use text::{interp, paragraphs_to_text};
+pub use theme::{DEFAULT_THEME, PAPIER_THEME, PRO_THEME, ThemeInfo, ThemeLibrary, ThemeManifest, Themes};
+pub use theme_edit::{ThemeEdit, ThemeEditView};
+pub use theme_panel::{TokenAction, TokenState};
 pub use views::{
-    AddWidget, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target, TemplateMode,
-    TemplateView, TemplatesView, UiState,
+    AddWidget, EditingView, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target,
+    TemplateMode, TemplateView, TemplatesView, UiState,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
@@ -152,6 +164,10 @@ pub(crate) enum Mode {
         edit: TemplateMode,
         /// Brouillon (essais), remis à zéro à chaque entrée.
         scratch: TemplateScratch,
+        /// Le thème édité : ses jetons sont ceux du deck de travail.
+        theme: ThemeEdit,
+        /// Ses changements de thème de base, suivis à l'annulation.
+        switches: Vec<theme_edit::ThemeSwitch>,
     },
     History {
         /// Le deck mis de côté ; ses images et polices sont prêtées à l'aperçu.
@@ -167,7 +183,11 @@ pub struct Session {
     mode: Mode,
     /// Langue de l'aide montrée en lecture seule ; `None` : un deck à éditer.
     help: Option<&'static str>,
-    library: Library,
+    library: PackLibrary,
+    /// Thèmes de l'utilisateur et intégrés.
+    themes: ThemeLibrary,
+    /// Leur liste, relue au chargement et au snapshot demandé : `snapshot()` ne lit pas le disque.
+    theme_list: Vec<ThemeInfo>,
     /// Où s'enregistre un deck sans fichier ; `None` : il faut choisir (CLI, tests).
     decks_dir: Option<PathBuf>,
     storage: Storage,
@@ -263,7 +283,8 @@ pub fn blank_deck(l: &Localizer) -> Deck {
     content.params.set("blocks", ParamValue::Slot(vec![text]));
     Deck {
         version: oku_slides_core::DECK_VERSION,
-        theme: Some("papier".into()),
+        // Adopté au chargement : la version courante du thème par défaut.
+        theme: None,
         params: DeckParams {
             title: Some(l.tr("deck-new-title")),
             // Code de langue seul (`zh-Hant` → `zh`) : Typst en déduit la
@@ -298,14 +319,18 @@ impl Session {
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
         let registry = oku_slides_render::base_registry(&app_fonts).context(RegistrySnafu)?;
-        let library = Library::new(Some(settings.paths.templates()), storage.clone());
+        let library = PackLibrary::new(Some(settings.paths.templates()), storage.clone());
+        let themes = ThemeLibrary::new(Some(settings.paths.themes()), storage.clone());
         let mut blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
         deck_pack::adopt_default_pack(&library, &mut blank)?;
+        deck_theme::adopt_default_theme(&themes, &mut blank)?;
         let mut s = Self {
             doc: Document { blank: true, ..Document::new(blank, None, &doc_defaults) },
             mode: Mode::Deck,
             help: None,
             library,
+            theme_list: themes.themes(),
+            themes,
             decks_dir: None,
             storage,
             doc_defaults,
@@ -447,7 +472,7 @@ impl Session {
                 && !deck.sources.replica().can_redo(),
             deck_uid: Some(deck.sources.replica().deck_uid()),
             help: self.help.map(str::to_owned),
-            theme: deck.sources.deck().theme.clone(),
+            theme: deck.sources.deck().theme.as_ref().map(|t| t.id),
         }
     }
 
@@ -476,7 +501,7 @@ impl Session {
 
     /// Dossier des packs de modèles de l'utilisateur.
     pub fn set_templates_dir(&mut self, dir: impl Into<PathBuf>) {
-        self.library = Library::new(Some(dir.into()), self.storage.clone());
+        self.library = PackLibrary::new(Some(dir.into()), self.storage.clone());
         self.template_cache = None;
     }
 
@@ -521,7 +546,10 @@ impl Session {
                 req,
                 Request::Snapshot
                     | Request::Apply { .. }
+                    | Request::SetTheme { .. }
+                    | Request::SetEditedTheme { .. }
                     | Request::HostParam { .. }
+                    | Request::HostToken { .. }
                     | Request::TargetParam { .. }
                     | Request::TargetList { .. }
             ),
@@ -534,11 +562,16 @@ impl Session {
                     | Request::HistoryClose
                     | Request::PackMakeCurrent
                     | Request::PackNoticeClose
+                    | Request::RenameEditedTheme { .. }
             ),
         );
         // La séance des widgets du mode deck finit à la première autre modification.
         if req.ends_widget_session() {
             self.end_widget_session();
+        }
+        // Un thème a pu être enregistré ailleurs (autre onglet) : relu au snapshot demandé.
+        if matches!(req, Request::Snapshot | Request::SetTheme { .. }) {
+            self.theme_list = self.themes.themes();
         }
         match req {
             Request::Snapshot => {}
@@ -548,6 +581,7 @@ impl Session {
             Request::HostSettings { slide, widget } => {
                 return json(&self.host_settings(&slide, widget.as_deref())?);
             }
+            Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
             Request::TargetSettings { slide, element } => {
                 return json(&self.target_settings(&slide, element.as_deref())?);
             }
@@ -577,7 +611,7 @@ impl Session {
                 return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
             }
             Request::DeleteTemplateSet { set } => {
-                ensure!(!Library::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
+                ensure!(!PackLibrary::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
                 self.library.delete(set)?;
                 self.template_cache = None;
                 return json(&self.library.packs());
@@ -591,7 +625,9 @@ impl Session {
                 self.merge_file(&path)?;
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
+            Request::SetTheme { id } => self.set_theme(id)?,
             Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
+            Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::TargetParam { slide, element, key, value } => {
                 self.target_param(&slide, element.as_deref(), &key, value)?;
             }
@@ -610,6 +646,8 @@ impl Session {
             Request::EditTemplates { set } => self.edit_templates(set)?,
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,
+            Request::SetEditedTheme { id } => self.set_edited_theme(id)?,
+            Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
             Request::Ui(ui) => self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. })),
             Request::HistoryOpen => self.history_open()?,
             Request::HistorySeek { index } => self.history_seek(index)?,
@@ -654,6 +692,7 @@ impl Session {
     fn load_document(&mut self, mut doc: Document) -> Result<()> {
         self.end_widget_session();
         deck_pack::adopt_default_pack(&self.library, &mut doc.sources)?;
+        deck_theme::adopt_default_theme(&self.themes, &mut doc.sources)?;
         let (widgets, notice) = self.resolve_widgets(doc.sources.deck().templates.as_ref(), &doc.sources.packs)?;
         doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
@@ -682,6 +721,7 @@ impl Session {
         self.ui.slide = None;
         self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.pack_notice = None;
+        self.theme_list = self.themes.themes();
         self.rerender()
     }
 
@@ -848,8 +888,9 @@ impl Session {
             path: doc.path.as_deref(),
             name,
             dirty: doc.dirty,
-            theme: deck.theme.as_deref(),
-            themes: oku_slides_render::THEMES,
+            theme: deck.theme.as_ref(),
+            theme_name: deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map(|m| m.name),
+            themes: &self.theme_list,
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
             title_source: deck.params.title.as_deref(),
             slides,
@@ -864,7 +905,7 @@ impl Session {
             disk_replaced: doc.disk_replaced,
             appearance: &self.appearance,
             templates: self.deck_pack(),
-            editing: self.editing(),
+            editing: self.editing_view(),
             pack_notice: self.pack_notice_view(),
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),

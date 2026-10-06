@@ -13,6 +13,8 @@ use uuid::Uuid;
 
 use oku_slides_core::{PackFiles, PackVersion, Slide, WidgetFile};
 
+use crate::library_kind::VersionManifest;
+
 /// Pack par défaut, `templates/essentiel` : id constant.
 pub const DEFAULT_PACK: Uuid = Uuid::from_u128(0x6f3c1e2a_8b4d_4c1e_9a57_2d0e5b7c9f10);
 /// Pack intégré `templates/grilles` : id constant.
@@ -114,6 +116,28 @@ impl PackManifest {
             default: self.id == DEFAULT_PACK,
             count: self.templates.len(),
         }
+    }
+}
+
+impl VersionManifest for PackManifest {
+    fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
+        Self::from_files(files)
+    }
+
+    fn id(&self) -> Uuid {
+        self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn parent(&self) -> Option<&PackVersion> {
+        self.parent.as_ref()
+    }
+
+    fn created(&self) -> &str {
+        &self.created
     }
 }
 

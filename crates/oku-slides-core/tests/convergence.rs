@@ -4,7 +4,7 @@ mod common;
 
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, DeckReplica, Op, ParamValue, Params, Slide, apply_all, validate};
+use oku_slides_core::{Deck, DeckReplica, Op, PackVersion, ParamValue, Params, Slide, ThemeRef, apply_all, validate};
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
@@ -15,8 +15,14 @@ enum Edit {
     Move(usize, usize),
     Delete(usize),
     Add(usize),
-    Theme(Option<String>),
+    Theme(Option<ThemeRef>),
     Bold(usize),
+}
+
+/// Une référence de thème de test : version `<c>` répété 64 fois.
+fn theme(c: &str) -> ThemeRef {
+    let version = PackVersion::from_hex(&c.repeat(64)).unwrap_or_else(|| panic!("hex invalide : {c}"));
+    ThemeRef { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version }
 }
 
 fn edit() -> impl Strategy<Value = Edit> {
@@ -26,7 +32,7 @@ fn edit() -> impl Strategy<Value = Edit> {
         (any::<usize>(), any::<usize>()).prop_map(|(a, b)| Edit::Move(a, b)),
         any::<usize>().prop_map(Edit::Delete),
         any::<usize>().prop_map(Edit::Add),
-        prop::option::of(prop_oneof![Just("papier".to_owned()), Just("pro".to_owned())]).prop_map(Edit::Theme),
+        prop::option::of(prop_oneof![Just(theme("a")), Just(theme("b"))]).prop_map(Edit::Theme),
         any::<usize>().prop_map(Edit::Bold),
     ]
 }

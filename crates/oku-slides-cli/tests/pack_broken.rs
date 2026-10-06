@@ -4,7 +4,7 @@ mod common;
 
 use common::{oku_slides, workdir};
 use oku_slides_core::{PackRef, WidgetFile};
-use oku_slides_session::{Library, PackManifest, Storage};
+use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -33,7 +33,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackRef {
         .collect();
     let files = manifest.to_files(widgets).unwrap_or_else(|e| panic!("pack.json : {e}"));
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = Library::new(Some(dir.join("data").join("templates")), storage);
+    let library = PackLibrary::new(Some(dir.join("data").join("templates")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackRef { id, version: files.version() }
 }
@@ -43,7 +43,7 @@ fn save_of_a_deck_whose_pack_has_a_broken_widget_renders_the_others() {
     let dir = workdir("widget-casse");
     let r = user_pack(&dir, &[("quote", QUOTE), ("casse", "#let widget = (")]);
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 3, "templates": r,
+    let json = serde_json::json!({ "version": 4, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] });

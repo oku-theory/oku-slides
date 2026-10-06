@@ -95,6 +95,21 @@ fn save_merging_nothing_new_sets_no_notice() {
     assert_that!(s.doc.notice).is_none();
 }
 
+#[test]
+fn absorb_bringing_only_a_new_theme_version_marks_the_document_modified() {
+    let d = dir();
+    let (mut s, path) = saved(&d);
+    let opened = read_document(&s.storage, &path, s.source_limits, &s.registry).unwrap();
+    let mut theirs = opened.sources;
+    let pro = crate::ThemeLibrary::new(None, s.storage.clone()).current_version(crate::PRO_THEME).unwrap();
+    theirs.add_theme(pro.files);
+    assert_that!(s.doc.dirty).is_false();
+    let report = s.absorb(theirs, "copie.oku-slides.pdf", true).unwrap();
+    assert_that!(report.changes).is_equal_to(0);
+    assert_that!(s.doc.sources.themes.contains_key(&pro.version)).is_true();
+    assert_that!(s.doc.dirty).is_true();
+}
+
 // ---- Dossier par défaut d'un deck sans fichier ------------------------------------------
 
 /// Une session neuve (deck vierge), qui range ses decks sans fichier dans `dir`.

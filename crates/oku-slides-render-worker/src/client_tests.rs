@@ -63,7 +63,7 @@ fn render_with_looping_widget_times_out_then_is_disabled_without_retry() {
     let registry = w.probe_pack(&pack).unwrap().registry;
     let mut s = slot(&w);
     s.set_widgets(Some(&pack), registry).unwrap();
-    let deck = oku_slides_core::Deck::from_json(r#"{"version":3,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"boucle","params":{"body":"x"}}]}}]}"#).unwrap();
+    let deck = oku_slides_core::Deck::from_json(r#"{"version":4,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"boucle","params":{"body":"x"}}]}}]}"#).unwrap();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::Timeout);
     let started = std::time::Instant::now();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::PackDisabled);

@@ -73,7 +73,7 @@ async fn report_late_from_a_cancelled_turn_does_not_replace_the_next_turn_fallba
 #[tokio::test(flavor = "multi_thread")]
 async fn show_params_late_from_a_cancelled_turn_is_refused() {
     let args = json!({ "title": "En retard", "slide": "s-libre", "fields": [
-        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_theme", "theme": "$value" },
+        { "label": "Thème", "kind": "select", "value": "papier", "op_template": { "op": "set_var", "key": "theme", "value": "$value" },
           "options": [{ "id": "papier", "label": "Papier" }, { "id": "pro", "label": "Pro" }] }
     ] });
     let (h, _, r) = call_across_turns("show_params", args, |_, _| {}).await;

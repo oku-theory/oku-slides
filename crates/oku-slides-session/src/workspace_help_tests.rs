@@ -101,8 +101,9 @@ fn messages_write_shortcuts_in_the_platform_notation() {
 }
 
 fn set_theme(ws: &Mutex<Workspace>, tab: &str, theme: &str) {
-    let req =
-        serde_json::from_value(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}));
+    let req = serde_json::from_value(
+        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref(theme)}]}),
+    );
     let (out, _) = Workspace::with_session(ws, tab, |s| s.handle(req.unwrap()).map(|_| ()));
     out.unwrap().unwrap();
 }
@@ -117,7 +118,7 @@ fn open_help_from_a_pro_deck_shows_the_help_in_pro() {
     let ws = workspace(data.path(), "fr");
     set_theme(&ws, "t-1", "pro");
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
-    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(help_tab(&view(&ws)).info.theme).is_equal_to(Some(crate::PRO_THEME));
 }
 
 #[test]
@@ -129,7 +130,7 @@ fn open_help_again_from_another_deck_takes_its_theme() {
     set_theme(&ws, "t-1", "papier");
     send(&ws, json!({"cmd": "activate", "tab": "t-1"}));
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
-    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("papier"));
+    assert_that!(help_tab(&view(&ws)).info.theme).is_equal_to(Some(crate::PAPIER_THEME));
 }
 
 #[test]
@@ -139,7 +140,7 @@ fn open_help_from_the_help_tab_keeps_its_theme() {
     set_theme(&ws, "t-1", "pro");
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
-    assert_that!(help_tab(&view(&ws)).info.theme.as_deref()).is_equal_to(Some("pro"));
+    assert_that!(help_tab(&view(&ws)).info.theme).is_equal_to(Some(crate::PRO_THEME));
 }
 
 /// L'aide déjà ouverte dans une autre fenêtre : ⌘? y active son onglet et
