@@ -1,7 +1,9 @@
 # Releases de l'app de bureau (Windows, macOS, Linux), lancées à la main depuis l'onglet Actions.
 # Le job version monte la version (patch, minor ou major) et pousse ce commit sur main ; chaque
-# plateforme construit ensuite ses paquets depuis ce commit (`cargo tauri build`) et les dépose
-# dans une même release brouillon `v<version>`, publiée une fois les quatre plateformes construites.
+# plateforme cochée construit ensuite ses paquets depuis ce commit (`cargo tauri build`) et les
+# dépose dans une même release brouillon `v<version>`, publiée une fois ces plateformes construites.
+# `aucune` garde la version courante et construit depuis main : de quoi compléter une release
+# (une plateforme en échec, corrigée depuis) sans monter la version.
 name: Release
 
 on:
@@ -10,8 +12,24 @@ on:
       bump:
         description: Partie de la version à monter
         type: choice
-        options: [patch, minor, major]
+        options: [patch, minor, major, aucune]
         default: patch
+      macos_arm:
+        description: macOS (Apple Silicon)
+        type: boolean
+        default: true
+      macos_intel:
+        description: macOS (Intel)
+        type: boolean
+        default: true
+      linux:
+        description: Linux
+        type: boolean
+        default: true
+      windows:
+        description: Windows
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -30,7 +48,29 @@ jobs:
     outputs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.bump.outputs.sha }}
+      matrix: ${{ steps.targets.outputs.matrix }}
     steps:
+      # Avant le bump : sans plateforme cochée, rien n'est poussé.
+      - name: Plateformes choisies
+        id: targets
+        env:
+          MACOS_ARM: ${{ inputs.macos_arm }}
+          MACOS_INTEL: ${{ inputs.macos_intel }}
+          LINUX: ${{ inputs.linux }}
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          matrix=$(jq -cn \
+            --argjson macos_arm "$MACOS_ARM" --argjson macos_intel "$MACOS_INTEL" \
+            --argjson linux "$LINUX" --argjson windows "$WINDOWS" '
+            [ if $macos_arm then {name: "macOS (Apple Silicon)", runner: "macos-15"} else empty end,
+              if $macos_intel then {name: "macOS (Intel)", runner: "macos-15-intel"} else empty end,
+              if $linux then {name: "Linux", runner: "ubuntu-22.04"} else empty end,
+              if $windows then {name: "Windows", runner: "windows-2022"} else empty end ]
+            | {include: .}')
+          [ "$(jq '.include | length' <<<"$matrix")" -gt 0 ] || { echo "::error::aucune plateforme cochée"; exit 1; }
+          echo "Plateformes : $(jq -r '[.include[].name] | join(", ")' <<<"$matrix")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
         with:
           ref: main
@@ -40,11 +80,15 @@ jobs:
         env:
           BUMP: ${{ inputs.bump }}
         run: |
-          version=$(.github/scripts/bump-version.sh "$BUMP")
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore(release) : v$version"
-          git push origin HEAD:main
+          if [ "$BUMP" = aucune ]; then
+            version=$(jq -r .version src-tauri/tauri.conf.json)
+          else
+            version=$(.github/scripts/bump-version.sh "$BUMP")
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore(release) : v$version"
+            git push origin HEAD:main
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -55,16 +99,8 @@ jobs:
       # Une plateforme en échec n'annule pas les autres : le run passe quand même en rouge et la
       # release reste un brouillon (le job publish ne tourne pas).
       fail-fast: false
-      matrix:
-        include:
-          - name: macOS (Apple Silicon)
-            runner: macos-15
-          - name: macOS (Intel)
-            runner: macos-15-intel
-          - name: Linux
-            runner: ubuntu-22.04
-          - name: Windows
-            runner: windows-2022
+      # Plateformes cochées au lancement (job version).
+      matrix: ${{ fromJSON(needs.version.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       TAURI_CLI_VERSION: 2.11.5
@@ -168,7 +204,7 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-  # Les quatre plateformes ont déposé leurs paquets : le brouillon est publié, ce qui crée le tag
+  # Les plateformes choisies ont déposé leurs paquets : le brouillon est publié, ce qui crée le tag
   # `v<version>` sur le commit de la version. Un build en échec saute ce job (needs) et laisse le
   # brouillon tel quel.
   publish:

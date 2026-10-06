@@ -30,7 +30,9 @@ earshot.workspace = true
 cpal.workspace = true
 ureq.workspace = true
 
-[build-dependencies]
+# macOS seulement : ailleurs, la bibliothèque de swift-rs liée au script de build y laisse des
+# symboles du runtime Swift non résolus (LNK2019 sous Windows).
+[target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
