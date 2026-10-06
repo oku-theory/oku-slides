@@ -44,7 +44,9 @@ jobs:
   # Relancer tout le workflow la monterait une seconde fois.
   version:
     name: Version
-    runs-on: ubuntu-22.04
+    # ubuntu-22.04 est en dépréciation (fenêtres de brownout jusqu'au retrait, avril 2027) : les
+    # jobs sans compilation passent en 24.04. Le build Linux y reste pour sa glibc plus ancienne.
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.bump.outputs.sha }}
@@ -210,7 +212,7 @@ jobs:
   publish:
     name: Publication
     needs: [version, build]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Brouillon publié
         env:
