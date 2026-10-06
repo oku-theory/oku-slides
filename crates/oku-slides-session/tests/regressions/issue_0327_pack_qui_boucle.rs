@@ -13,12 +13,14 @@ use oku_slides_session::{Fonts, Library, PackManifest, Platform, Request, Sessio
 
 const TEST: &str = "looping_pack_render_returns_within_timeout_with_base_widgets";
 
-/// Délai de rendu. Il borne aussi le premier rendu, à froid, de la session :
-/// il doit tenir sous la charge de toute la suite de tests.
-const TIMEOUT_MS: u64 = 5_000;
-/// Marge au-delà du délai : relance du travailleur et rendu avec la base,
-/// sous charge.
-const MARGIN_MS: u64 = 10_000;
+/// Délai de rendu. Il borne aussi chaque appel légitime au travailleur : le
+/// rendu à froid de la session, puis celui de la base dans le travailleur
+/// relancé. Seuls, ils durent ~0,1 s ; sous une suite très chargée, l'un a
+/// dépassé 5 s (t-577) : le délai leur laisse de la marge.
+const TIMEOUT_MS: u64 = 10_000;
+/// Marge au-delà du délai, chacune bornée par lui : la sonde du pack, puis
+/// la relance du travailleur et le rendu avec la base.
+const MARGIN_MS: u64 = 2 * TIMEOUT_MS;
 
 fn main() {
     oku_slides_render_worker::exit_if_worker();
@@ -73,9 +75,10 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     let platform = Platform::with_settings(settings)
         .unwrap_or_else(|e| panic!("{e}"))
         .with_render_launch(RenderLaunch::Process { program });
-    let mut s = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("{e}"));
+    let mut s =
+        Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session non ouverte : {}", e.one_line()));
     s.open(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")))
-        .unwrap_or_else(|e| panic!("{e}"));
+        .unwrap_or_else(|e| panic!("ouverture refusée : {}", e.one_line()));
 
     let ops: Vec<Op> = serde_json::from_value(serde_json::json!([
         { "op": "set_templates", "templates": { "id": id, "version": version } },
@@ -85,7 +88,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     ]))
     .unwrap_or_else(|e| panic!("{e}"));
     let started = Instant::now();
-    s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("{e}"));
+    s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("modification refusée : {}", e.one_line()));
     let elapsed = started.elapsed();
     assert!(elapsed < Duration::from_millis(TIMEOUT_MS + MARGIN_MS), "session gelée : {elapsed:?}");
     // L'avis `session-pack-disabled` nomme le pack écarté, par le nom de son manifeste.
