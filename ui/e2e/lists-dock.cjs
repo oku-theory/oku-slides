@@ -3,6 +3,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après widgets.cjs).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { until } = require('./until.cjs');
 
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const post = (p, endpoint, req) =>
@@ -57,10 +58,10 @@ const post = (p, endpoint, req) =>
   const before = await svgOf();
   assert.ok(before, 'aperçu rendu');
   const rowsAre = (n) => p.waitForFunction(([sel, n]) => document.querySelectorAll(`${sel} tbody tr`).length === n, [table, n]);
-  const preview = (same) => p.waitForFunction(async ([sel, was, same]) => {
-    const img = document.querySelector(sel);
-    return !!img && ((await (await fetch(img.src)).text()) === was) === same;
-  }, [IMG, before, same], { timeout: 15000 });
+  const preview = (same) => until(p, async () => {
+    const now = await svgOf();
+    return now !== null && (now === before) === same;
+  }, same ? "l'aperçu ne revient pas à l'identique" : "l'aperçu ne change pas", 15000);
   await p.locator(`${table} [data-list-add]`).click();
   await rowsAre(4);
   await preview(false); // la ligne ajoutée change l'aperçu

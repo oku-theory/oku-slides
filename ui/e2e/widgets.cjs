@@ -2,6 +2,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { until } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
 const svgOf = (p) => p.evaluate(async (sel) => {
@@ -38,10 +39,10 @@ const svgOf = (p) => p.evaluate(async (sel) => {
   const field = p.locator('[data-surface-id="host-widget"] input').first();
   await field.fill('Météo du jour');
   await field.press('Enter');
-  await p.waitForFunction(async ([sel, was]) => {
-    const img = document.querySelector(sel);
-    return img && (await (await fetch(img.src)).text()) !== was;
-  }, [IMG, before]);
+  await until(p, async () => {
+    const now = await svgOf(p);
+    return now !== null && now !== before;
+  }, "l'aperçu ne change pas après le réglage");
   assert.equal(await p.locator('[data-surface-id="host-widget"] input').first().inputValue(), 'Météo du jour');
   assert.deepEqual(errors, []);
   console.log('réglages du widget ok');

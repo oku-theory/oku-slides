@@ -7,6 +7,7 @@
 // (avant widgets.cjs : l'onglet est encore en mode deck).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { until } = require('./until.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const FRISE = fs.readFileSync(path.join(__dirname, '../../fixtures/widgets/frise-test.typ'), 'utf8');
@@ -22,14 +23,6 @@ const post = (p, endpoint, req) =>
 const view = (p) => post(p, '/api', { tab: 't-1', req: { cmd: 'slide', id: 's-constat' } });
 const items = async (p) => (await view(p)).items.filter((i) => i.owner === 'f');
 const ids = async (p) => (await items(p)).map((i) => i.item);
-const until = async (p, fn, why, timeout = 8000) => {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeout) {
-    if (await fn()) return;
-    await p.waitForTimeout(100);
-  }
-  assert.fail(why);
-};
 const waitLen = (p, n, why) => until(p, async () => (await ids(p)).length === n, why);
 const stageReady = (p, n) =>
   p.waitForFunction((n) => {
