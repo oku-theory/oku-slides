@@ -74,7 +74,7 @@ pub(crate) struct Shared {
     pub(crate) max_widgets: usize,
     /// Taille d'un fichier sondé, au plus (octets).
     pub(crate) max_widget_bytes: usize,
-    /// Durée totale des sondes d'un pack, au plus (`timeout_ms`).
+    /// Durée totale des sondes d'un pack, au plus (`probe_budget_ms`).
     pub(crate) probe_budget: std::time::Duration,
 }
 
@@ -140,7 +140,7 @@ impl RenderWorker {
         let shared = Shared {
             max_widgets: settings.max_widgets,
             max_widget_bytes: settings.max_widget_bytes(),
-            probe_budget: std::time::Duration::from_millis(settings.timeout_ms),
+            probe_budget: settings.probe_budget(),
             ..Shared::default()
         };
         Self(Arc::new(Mutex::new(Link::new(launch, settings))), Arc::new(shared))

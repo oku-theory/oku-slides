@@ -88,6 +88,9 @@ pub struct SourcesSettings {
 pub struct RenderSettings {
     /// Durée maximale d'une compilation ou d'un export Typst (ms).
     pub timeout_ms: u64,
+    /// Durée totale des sondes de widgets d'un appel (ms) ; le premier fichier
+    /// exécuté passe toujours, les restants sont sondés à l'appel suivant.
+    pub probe_budget_ms: u64,
     /// Mémoire maximale du processus de rendu (Mio).
     pub memory_mib: u64,
     /// Taille maximale d'un message échangé avec le processus de rendu (Mio).
@@ -114,6 +117,11 @@ impl RenderSettings {
     /// [`Self::timeout_ms`] en [`std::time::Duration`].
     pub fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_ms)
+    }
+
+    /// [`Self::probe_budget_ms`] en [`std::time::Duration`].
+    pub fn probe_budget(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.probe_budget_ms)
     }
 
     /// [`Self::memory_mib`] en octets.

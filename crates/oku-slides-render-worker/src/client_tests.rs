@@ -7,13 +7,20 @@ use oku_slides_render::{Fonts, PackWidgets, RenderErrorKind, base_registry};
 use speculoos::prelude::*;
 
 use super::*;
-use crate::RemoteCompiled;
 use crate::test_packs::{LOOP_ON_IMPORT, LOOP_ON_RENDER, QUOTE, files, tiny_deck};
+use crate::{PackProbe, RemoteCompiled};
 
 fn worker(timeout_ms: u64) -> RenderWorker {
     RenderWorker::new(
         RenderLaunch::InProcess,
-        RenderSettings { timeout_ms, memory_mib: 4096, max_frame_mib: 64, max_widget_kib: 256, max_widgets: 64 },
+        RenderSettings {
+            timeout_ms,
+            probe_budget_ms: timeout_ms,
+            memory_mib: 4096,
+            max_frame_mib: 64,
+            max_widget_kib: 256,
+            max_widgets: 64,
+        },
     )
 }
 
@@ -136,7 +143,14 @@ fn dropped_slot_is_forgotten_with_its_assets() {
 }
 
 fn worker_with(timeout_ms: u64, max_widgets: usize) -> RenderWorker {
-    let settings = RenderSettings { timeout_ms, memory_mib: 4096, max_frame_mib: 64, max_widget_kib: 256, max_widgets };
+    let settings = RenderSettings {
+        timeout_ms,
+        probe_budget_ms: timeout_ms,
+        memory_mib: 4096,
+        max_frame_mib: 64,
+        max_widget_kib: 256,
+        max_widgets,
+    };
     RenderWorker::new(RenderLaunch::InProcess, settings)
 }
 
@@ -232,6 +246,28 @@ fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed()
 }
 
 #[test]
+fn probe_pack_with_a_zero_budget_probes_one_file_per_call() {
+    let settings = RenderSettings {
+        timeout_ms: 10_000,
+        probe_budget_ms: 0,
+        memory_mib: 4096,
+        max_frame_mib: 64,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
+    let w = RenderWorker::new(RenderLaunch::InProcess, settings);
+    let pack =
+        PackWidgets::new("casses", files(&[("a", "#let a = ("), ("b", "#let b = ("), ("c", "#let c = (")])).unwrap();
+    let unprobed = |probe: &PackProbe| probe.unprobed.iter().map(|n| n.as_str().to_owned()).collect::<Vec<_>>();
+    // Le budget épuisé d'emblée n'empêche pas un fichier par appel ; les sondés sont gardés.
+    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["b".to_owned(), "c".to_owned()]);
+    assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["c".to_owned()]);
+    let probe = w.probe_pack(&pack).unwrap();
+    assert_that!(probe.unprobed.is_empty()).is_true();
+    assert_that!(probe.files.values().all(|p| !p.is_valid())).is_true();
+}
+
+#[test]
 fn probe_pack_beyond_max_widgets_does_not_load_the_extra_files() {
     let w = worker_with(10_000, 1);
     let pack = PackWidgets::new("trop", files(&[("a", QUOTE), ("b", QUOTE)])).unwrap();
@@ -297,6 +333,7 @@ fn trial_slot_with_a_faulty_pack_renders_it_until_a_restart_then_is_disabled() {
 fn probe_pack_whose_link_cannot_start_leaves_its_files_unprobed() {
     let settings = RenderSettings {
         timeout_ms: 10_000,
+        probe_budget_ms: 10_000,
         memory_mib: 4096,
         max_frame_mib: 64,
         max_widget_kib: 256,

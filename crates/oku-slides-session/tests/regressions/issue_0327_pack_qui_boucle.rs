@@ -68,6 +68,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     settings.paths.decks = Some(data.path().join("decks"));
     settings.i18n.locale = Some("fr".into());
     settings.render.timeout_ms = TIMEOUT_MS;
+    settings.render.probe_budget_ms = TIMEOUT_MS;
     let program = std::env::current_exe().unwrap_or_else(|e| panic!("{e}"));
     let platform = Platform::with_settings(settings)
         .unwrap_or_else(|e| panic!("{e}"))

@@ -65,6 +65,7 @@ pub(super) fn session_with_timeout(data: &Path, timeout_ms: u64) -> Session {
     settings.paths.decks = Some(data.join("decks"));
     settings.i18n.locale = Some("fr".into());
     settings.render.timeout_ms = timeout_ms;
+    settings.render.probe_budget_ms = timeout_ms;
     let mut s = Session::new(Fonts::default(), &Platform::with_settings(settings).unwrap()).unwrap();
     s.open(&fixture_path()).unwrap();
     s

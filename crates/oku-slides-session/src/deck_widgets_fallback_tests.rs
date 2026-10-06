@@ -173,9 +173,9 @@ fn set_templates_back_to_a_faulty_pack_names_it_by_its_name() {
     assert_that!(notice.as_str()).contains("Boucle");
     assert_that!(notice.as_str()).does_not_contain(looping.version.hex());
 }
-/// Le fichier `name` : boucle dès son chargement (sonde).
-fn looping_file(name: &str) -> String {
-    LOOP_ON_IMPORT.replace("widget(\"boucle\"", &format!("widget(\"{name}\""))
+/// Le fichier `name` : cassé dès sa compilation (sonde), sans délai.
+fn broken_file(name: &str) -> String {
+    format!("#let {} = (\n", name.replace('-', "_"))
 }
 
 /// L'avis posé depuis le dernier appel, effacé.
@@ -187,36 +187,38 @@ fn take_notice(s: &mut Session) -> String {
 fn widgets_left_unprobed_by_the_budget_are_probed_at_the_next_renders() {
     let data = crate::test_support::fresh_dir("oku-slides-packs-");
     let mut settings = crate::test_support::settings_on(data.path());
-    settings.render.timeout_ms = 1000;
+    // Budget nul : un seul fichier exécuté par sonde, quelle que soit la durée réelle.
+    settings.render.probe_budget_ms = 0;
     let mut s = crate::test_support::session_with(settings);
     s.open(&fixture_path()).unwrap();
-    let (a, b, c) = (looping_file("boucle-a"), looping_file("boucle-b"), looping_file("boucle-c"));
-    let files = [("boucle-a", a.as_str()), ("boucle-b", &b), ("boucle-c", &c), ("quote", QUOTE)];
-    let pack = user_pack(&s, "Boucles", &files);
+    let (a, b, c) = (broken_file("casse-a"), broken_file("casse-b"), broken_file("casse-c"));
+    let files = [("casse-a", a.as_str()), ("casse-b", &b), ("casse-c", &c), ("quote", QUOTE)];
+    let pack = user_pack(&s, "Cassés", &files);
     s.doc.notice = None;
-    // Le budget part dans `boucle-a` : les autres ne sont pas sondés, ni dits cassés.
+    // Le budget part dans `casse-a` : les autres ne sont pas sondés, ni dits cassés.
     s.apply("Pack", vec![set_templates(Some(&pack))], None).unwrap();
     assert_that!(s.registry.get("quote")).is_none();
     let notice = take_notice(&mut s);
-    assert_that!(notice.as_str()).contains("boucle-a");
-    assert_that!(notice.contains("boucle-b") || notice.contains("quote")).is_false();
+    assert_that!(notice.as_str()).contains("casse-a");
+    assert_that!(notice.contains("casse-b") || notice.contains("quote")).is_false();
     // Chaque rendu sonde de nouveau les restants ; l'avis nomme les nouveaux cassés.
     s.rerender().unwrap();
     let notice = take_notice(&mut s);
-    assert_that!(notice.as_str()).contains("boucle-b");
-    assert_that!(notice.contains("boucle-a") || notice.contains("boucle-c")).is_false();
+    assert_that!(notice.as_str()).contains("casse-b");
+    assert_that!(notice.contains("casse-a") || notice.contains("casse-c")).is_false();
     s.rerender().unwrap();
     let notice = take_notice(&mut s);
-    assert_that!(notice.as_str()).contains("boucle-c");
-    assert_that!(notice.contains("boucle-b") || notice.contains("quote")).is_false();
+    assert_that!(notice.as_str()).contains("casse-c");
+    assert_that!(notice.contains("casse-b") || notice.contains("quote")).is_false();
     s.rerender().unwrap();
     assert_that!(s.registry.get("quote")).is_some();
     assert_that!(s.doc.notice).is_none();
+    assert_that!(s.widgets_unprobed.is_empty()).is_true();
     assert_registry_agrees(&s);
-    // Plus rien à sonder : un rendu ne coûte plus de délai.
-    let started = std::time::Instant::now();
+    // Plus rien à sonder : un rendu ne résout plus les widgets, le registre reste le même.
+    let registry = s.registry.clone();
     s.rerender().unwrap();
-    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_millis(1000));
+    assert_that!(Arc::ptr_eq(&s.registry, &registry)).is_true();
 }
 
 #[test]

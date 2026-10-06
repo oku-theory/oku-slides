@@ -160,20 +160,60 @@ fn settings_default_render_limits_match_config_defaults() {
 }
 
 #[test]
+fn settings_default_probe_budget_matches_the_render_timeout() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.render.probe_budget_ms).is_equal_to(s.render.timeout_ms);
+}
+
+#[test]
+fn render_settings_probe_budget_is_in_milliseconds() {
+    let r = RenderSettings {
+        timeout_ms: 1,
+        probe_budget_ms: 250,
+        memory_mib: 1,
+        max_frame_mib: 1,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
+    assert_that!(r.probe_budget()).is_equal_to(std::time::Duration::from_millis(250));
+}
+
+#[test]
 fn render_settings_memory_bytes_converts_mib() {
-    let r = RenderSettings { timeout_ms: 1, memory_mib: 3, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 };
+    let r = RenderSettings {
+        timeout_ms: 1,
+        probe_budget_ms: 10_000,
+        memory_mib: 3,
+        max_frame_mib: 1,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
     assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
 }
 
 #[test]
 fn render_settings_timeout_is_in_milliseconds() {
-    let r = RenderSettings { timeout_ms: 1500, memory_mib: 1, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 };
+    let r = RenderSettings {
+        timeout_ms: 1500,
+        probe_budget_ms: 10_000,
+        memory_mib: 1,
+        max_frame_mib: 1,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
     assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
 }
 
 #[test]
 fn render_settings_max_frame_bytes_converts_mib() {
-    let r = RenderSettings { timeout_ms: 1, memory_mib: 1, max_frame_mib: 512, max_widget_kib: 256, max_widgets: 64 };
+    let r = RenderSettings {
+        timeout_ms: 1,
+        probe_budget_ms: 10_000,
+        memory_mib: 1,
+        max_frame_mib: 512,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
     assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
 }
 

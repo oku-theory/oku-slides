@@ -122,6 +122,7 @@ fn preview_widget_that_loops_returns_a_diagnostic_and_keeps_the_pack() {
     let data = fresh_dir("oku-slides-preview-");
     let mut settings = settings_on(data.path());
     settings.render.timeout_ms = 2000;
+    settings.render.probe_budget_ms = 2000;
     let mut s = session_with(settings);
     s.set_widget("boucle", LOOP_ON_RENDER.into()).unwrap();
     let preview = s.preview_widget("boucle", &Map::new(), PreviewFormat::Svg).unwrap();

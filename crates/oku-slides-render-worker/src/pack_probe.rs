@@ -20,7 +20,8 @@
 //!   dans la langue des emplacements du travailleur (Fluent `probe-*`),
 //!   l'anglais avant le premier emplacement.
 //!   Un `_commun` hors limites n'est pas non plus fourni aux widgets.
-//! - Budget : les sondes d'un appel durent au plus `timeout_ms` en tout. Une
+//! - Budget : les sondes d'un appel durent au plus `probe_budget_ms` en tout, le
+//!   premier fichier exécuté passant toujours (chaque appel avance). Une
 //!   fois épuisé, les fichiers restants (hors cache) ne sont pas exécutés :
 //!   un diagnostic, non gardé (sondés au prochain appel), et nommés dans
 //!   `PackProbe::unprobed`. Un pack reçu dont chaque fichier boucle ne coûte
@@ -63,7 +64,7 @@ impl RenderWorker {
         let loaded = |i: usize, source: &str| i < max_widgets && source.len() <= max_bytes;
         // `_commun` vient en tête (ordre des noms) : rang 0.
         let common = pack.common().filter(|c| loaded(0, c));
-        let deadline = Instant::now() + self.1.probe_budget;
+        let mut budget = Budget::new(self.1.probe_budget);
         let mut files = BTreeMap::new();
         let mut unprobed = BTreeSet::new();
         // Langue des emplacements, lue seulement si un diagnostic est à dire.
@@ -76,7 +77,7 @@ impl RenderWorker {
                 FileProbe::broken(name, l().tr_with("probe-too-large", &[("max", (max_bytes / 1024).into())]))
             } else {
                 let common = common.filter(|_| !name.is_common());
-                self.probe_file(name, source, common, deadline).unwrap_or_else(|skipped| {
+                self.probe_file(name, source, common, &mut budget).unwrap_or_else(|skipped| {
                     unprobed.insert(name.clone());
                     let message = match skipped {
                         Skipped::Budget => l().tr("probe-not-probed"),
@@ -114,22 +115,20 @@ impl RenderWorker {
 
     /// La sonde d'un fichier dans le travailleur, gardée par `probe_key`.
     ///
-    /// Hors cache, après `deadline` ou si le lien ne se prépare pas : non
+    /// Hors cache, `budget` épuisé ou si le lien ne se prépare pas : non
     /// exécutée, [`Skipped`].
     fn probe_file(
         &self,
         name: &WidgetFile,
         source: &str,
         common: Option<&str>,
-        deadline: Instant,
+        budget: &mut Budget,
     ) -> Result<FileProbe, Skipped> {
         let key = probe_key(name, source, common);
         if let Some(p) = self.1.file_probes.lock().unwrap_or_else(PoisonError::into_inner).get(name, &key) {
             return Ok(p);
         }
-        if Instant::now() >= deadline {
-            return Err(Skipped::Budget);
-        }
+        budget.spend()?;
         let req =
             Request::ProbeFile { name: name.to_string(), source: source.to_owned(), common: common.map(str::to_owned) };
         let mut link = self.link();
@@ -149,6 +148,29 @@ impl RenderWorker {
             self.1.file_probes.lock().unwrap_or_else(PoisonError::into_inner).insert(name, key, probe.clone());
         }
         Ok(probe)
+    }
+}
+
+/// Le budget de temps d'un appel : le premier fichier exécuté passe toujours.
+#[derive(Debug)]
+struct Budget {
+    deadline: Instant,
+    /// Un fichier a déjà été exécuté dans cet appel.
+    spent: bool,
+}
+
+impl Budget {
+    fn new(budget: std::time::Duration) -> Self {
+        Self { deadline: Instant::now() + budget, spent: false }
+    }
+
+    /// Autorise l'exécution d'un fichier : le premier de l'appel, puis jusqu'à l'échéance.
+    fn spend(&mut self) -> Result<(), Skipped> {
+        if self.spent && Instant::now() >= self.deadline {
+            return Err(Skipped::Budget);
+        }
+        self.spent = true;
+        Ok(())
     }
 }
 

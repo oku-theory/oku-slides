@@ -11,7 +11,14 @@ use crate::protocol::{Request, Response};
 use crate::test_packs::{LOOP_ON_IMPORT, files, tiny_deck};
 
 fn settings(timeout_ms: u64) -> RenderSettings {
-    RenderSettings { timeout_ms, memory_mib: 4096, max_frame_mib: 64, max_widget_kib: 256, max_widgets: 64 }
+    RenderSettings {
+        timeout_ms,
+        probe_budget_ms: timeout_ms,
+        memory_mib: 4096,
+        max_frame_mib: 64,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    }
 }
 
 fn looping_probe() -> Request {
@@ -138,7 +145,14 @@ fn frame_failure_of_dead_worker_is_worker_lost_and_bad_frame_is_frame() {
 fn link_outgoing_frame_over_max_is_refused_as_frame_and_keeps_the_worker() {
     let mut link = Link::new(
         RenderLaunch::InProcess,
-        RenderSettings { timeout_ms: 10_000, memory_mib: 4096, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 },
+        RenderSettings {
+            timeout_ms: 10_000,
+            probe_budget_ms: 10_000,
+            memory_mib: 4096,
+            max_frame_mib: 1,
+            max_widget_kib: 256,
+            max_widgets: 64,
+        },
     );
     link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
     let big = vec![0u8; 1024 * 1024 + 1];
@@ -152,7 +166,14 @@ fn link_outgoing_frame_over_max_is_refused_as_frame_and_keeps_the_worker() {
 
 #[test]
 fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
-    let s = RenderSettings { timeout_ms: 1_500, memory_mib: 2, max_frame_mib: 1, max_widget_kib: 256, max_widgets: 64 };
+    let s = RenderSettings {
+        timeout_ms: 1_500,
+        probe_budget_ms: 1_500,
+        memory_mib: 2,
+        max_frame_mib: 1,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
     let cmd = worker_command(std::path::Path::new("/bin/app"), &s);
     let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
     assert_that!(args).is_equal_to(

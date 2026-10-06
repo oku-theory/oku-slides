@@ -22,7 +22,14 @@ fn launch() -> RenderLaunch {
 fn worker(timeout_ms: u64, memory_mib: u64) -> RenderWorker {
     RenderWorker::new(
         launch(),
-        RenderSettings { timeout_ms, memory_mib, max_frame_mib: 256, max_widget_kib: 256, max_widgets: 64 },
+        RenderSettings {
+            timeout_ms,
+            probe_budget_ms: timeout_ms,
+            memory_mib,
+            max_frame_mib: 256,
+            max_widget_kib: 256,
+            max_widgets: 64,
+        },
     )
 }
 
