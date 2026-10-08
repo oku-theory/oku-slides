@@ -280,22 +280,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .handle.ne { left: calc(100% + 3px); top: -3px; cursor: nesw-resize; }
 .handle.sw { left: -3px; top: calc(100% + 3px); cursor: nesw-resize; }
 .handle.se { left: calc(100% + 3px); top: calc(100% + 3px); cursor: nwse-resize; }
-/* Poignées des items de liste (ItemLayer) : au-dessus de l'éditeur, sans prendre les clics hors des pastilles. */
-.items { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
-.item-handles { position: absolute; pointer-events: none; }
-/* Pastille de 20 px dans une cible de 24 px. */
-.item-remove, .item-move {
-  position: absolute; width: 24px; height: 24px; padding: 2px; display: grid; place-items: center; pointer-events: auto;
-  border: 0; border-radius: 50%; background: var(--accent-fill); background-clip: content-box; color: var(--on-accent);
-  font-weight: 600; font-size: 13px; line-height: 1; cursor: pointer; transform: translate(-50%, -50%); box-shadow: var(--shadow-rest);
-  transition: opacity 120ms ease-out;
-}
-/* × et ⋮⋮ se montrent sur l'item survolé (ou au clavier). */
-.item-remove { left: 100%; top: 0; }
-.item-move { left: 0; top: 0; cursor: grab; letter-spacing: -2px; }
-.item-move:active { cursor: grabbing; }
-.item-handles:not(.shown):not(:focus-within) > button { opacity: 0; pointer-events: none; }
-.item-drop { position: absolute; z-index: 1; background: var(--accent); border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
 .tag {
   position: absolute; right: -3px; top: -30px; height: 22px; padding: 0 var(--space-2); display: flex; align-items: center;
   background: var(--accent-fill); color: var(--on-accent); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; white-space: nowrap;

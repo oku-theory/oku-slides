@@ -161,7 +161,6 @@ ui-list-add = { $item } toevoegen
 ui-list-remove = { $item } verwijderen
 ui-list-move = { $item } verplaatsen
 ui-list-full = De lijst is vol ({ $max })
-ui-undo-list-remove = { $item } verwijderen
 ui-undo-list-move = { $item } verplaatsen
 ui-agent-color-other = Andere kleur
 ui-agent-thread = Agent

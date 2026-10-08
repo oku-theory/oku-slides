@@ -159,7 +159,6 @@ ui-list-add = เพิ่ม{ $item }
 ui-list-remove = ลบ{ $item }
 ui-list-move = ย้าย{ $item }
 ui-list-full = รายการเต็มแล้ว ({ $max })
-ui-undo-list-remove = ลบ{ $item }
 ui-undo-list-move = ย้าย{ $item }
 ui-agent-color-other = สีอื่น
 ui-agent-thread = เอเจนต์

@@ -159,7 +159,6 @@ ui-list-add = { $item } 추가
 ui-list-remove = { $item } 삭제
 ui-list-move = { $item } 이동
 ui-list-full = 목록이 가득 찼습니다({ $max })
-ui-undo-list-remove = { $item } 삭제
 ui-undo-list-move = { $item } 이동
 ui-agent-color-other = 다른 색
 ui-agent-thread = 에이전트

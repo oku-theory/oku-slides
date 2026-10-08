@@ -10,8 +10,8 @@
  * L'aperçu montre le widget à ses valeurs d'exemple, gardées dans le pack.
  * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
  * s'éditent sur place, comme sur la slide, et s'écrivent dans ces valeurs
- * (un champ lié au deck reste en lecture) ; les poignées de ses listes
- * (« × », ⋮⋮) changent les listes de ces valeurs, jamais le deck.
+ * (un champ lié au deck reste en lecture) ; ses listes se changent
+ * dans ces valeurs (Cmd/Ctrl+Alt+flèche sur un item), jamais dans le deck.
  * Sans vue (échec), l'image seule.
  * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
  * n'est pas actif, il reste monté : l'éditeur garde son historique.
@@ -167,7 +167,7 @@ export default function WidgetTab({
     );
   };
 
-  /** Un geste sur les poignées d'une liste : le changement, dans la liste des valeurs d'exemple. */
+  /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
   const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
   /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */

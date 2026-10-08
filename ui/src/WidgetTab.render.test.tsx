@@ -537,40 +537,10 @@ describe("WidgetTab, scène", () => {
     owner: "apercu-el", owner_kind: "element", list: "etapes", len: 2, min: 0, max: 8, item_label: "étape", ...more,
   });
   const ITEMS = [itemOf("d0", 0, 150), itemOf("d1", 1, 300)];
-  /** La scène à deux items ; les changements de liste des valeurs d'exemple notés dans `lists`, les ops de deck dans `applied`. */
-  function listScene(items: ItemView[] = ITEMS, lists: ListView[] = [listOf()]) {
-    const sc = scene([], items, lists);
-    const edits: unknown[][] = [];
-    const applied: unknown[][] = [];
-    stub(sc.fake, "editExampleList", async (...a: never[]) => (edits.push(a), {} as Snapshot));
-    stub(sc.fake, "apply", async (...a: never[]) => (applied.push(a), {} as Snapshot));
-    return { ...sc, edits, applied };
-  }
-  const press = (el: Element) => act(async () => void el.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-
-  test("WidgetTab a preview list shows remove and move handles but no plus", async () => {
-    const { fake } = listScene();
+  test("WidgetTab a preview list shows no item handles", async () => {
+    const { fake } = scene([], ITEMS, [listOf()]);
     const m = await mount(fake, { name: "kpi" });
-    expect(m.host.querySelector(".stage-preview [data-item-insert]")).toBeNull();
-    expect(m.host.querySelectorAll(".stage-preview .item-remove").length).toBe(2);
-    expect(m.host.querySelectorAll(".stage-preview .item-move").length).toBe(2);
-  });
-
-  test("un « × » sur l'aperçu retire l'item des valeurs d'exemple", async () => {
-    const { fake, edits, applied } = listScene();
-    const m = await mount(fake, { name: "kpi" });
-    await press(m.host.querySelectorAll(".stage-preview [data-item-remove]")[1]);
-    expect(edits).toEqual([["kpi", "etapes", { op: "remove", item: "d1" }]]);
-    expect(applied).toEqual([]);
-  });
-
-  test("⋮⋮ sur l'aperçu déplace l'item dans les valeurs d'exemple", async () => {
-    const { fake, edits, applied } = listScene();
-    const m = await mount(fake, { name: "kpi" });
-    const handle = m.host.querySelectorAll(".stage-preview [data-item-move]")[0];
-    await act(async () => void handle.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
-    expect(edits).toEqual([["kpi", "etapes", { op: "move", item: "d0", to: 1 }]]);
-    expect(applied).toEqual([]);
+    expect(m.host.querySelector(".stage-preview .items, .stage-preview [data-item-remove]")).toBeNull();
   });
 
   test("Cmd/Ctrl+Alt+flèche dans un champ d'item de l'aperçu déplace l'item dans les valeurs d'exemple", async () => {

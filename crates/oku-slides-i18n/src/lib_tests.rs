@@ -312,7 +312,7 @@ fn counters_stick_to_the_number_in_cjk() {
 }
 
 /// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).
-const LIST_KEYS: [&str; 22] = [
+const LIST_KEYS: [&str; 21] = [
     "widget-fault-empty-list",
     "widget-fault-column-type",
     "widget-fault-reserved-name",
@@ -333,7 +333,6 @@ const LIST_KEYS: [&str; 22] = [
     "ui-list-remove",
     "ui-list-move",
     "ui-list-full",
-    "ui-undo-list-remove",
     "ui-undo-list-move",
 ];
 

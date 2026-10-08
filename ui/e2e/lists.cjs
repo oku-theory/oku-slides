@@ -1,6 +1,6 @@
 // Frise (widget de pack des tests, fixtures/widgets/frise-test.typ) : ajouter une étape par le
-// tableau du panneau des paramètres, la saisir, la déplacer sur la slide (clavier et glisser ⋮⋮),
-// la supprimer puis annuler.
+// tableau du panneau des paramètres, la saisir, la déplacer au clavier depuis la slide, la supprimer
+// par le tableau puis annuler. Aucune poignée d'item sur la scène.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
 // (avant widgets.cjs : l'onglet est encore en mode deck ; la frise reste sur s-constat).
 const { chromium } = require('playwright');
@@ -94,59 +94,20 @@ const waitLen = (p, n, why) => until(p, async () => (await ids(p)).length === n,
   await p.keyboard.press('Escape');
   await p.waitForSelector('.editor', { state: 'detached' });
 
-  // Glisser ⋮⋮ avec de vrais événements pointeur : du nouvel item vers la première place.
+  // Aucune poignée d'item (⋮⋮, « × ») sur la scène, la frise sélectionnée.
   await target.click({ position: { x: 4, y: 4 } });
   await p.waitForSelector('.overlay .target.selected');
-  // La scène a fini de se redessiner (aperçu rechargé) avant de viser la poignée.
-  await p.waitForFunction(() => {
-    const img = document.querySelector('.stage img');
-    return img?.complete && img.naturalWidth > 0;
-  });
-  // Les poignées sont posées : cinq items, et leurs boîtes ne bougent plus d'une image à la suivante.
-  await p.waitForFunction(() => document.querySelectorAll('.items .item-handles').length === 5);
-  await p.waitForFunction(() => {
-    const now = [...document.querySelectorAll('.items .item-handles')].map((h) => JSON.stringify(h.getBoundingClientRect())).join('|');
-    const same = window.__handles === now;
-    window.__handles = now;
-    return same;
-  }, null, { polling: 'raf' });
-  const list = await items(p);
-  const me = list.find((i) => i.item === added);
-  const handles = p.locator('.items .item-handles');
-  const firstBox = await handles.nth(list[0].index).boundingBox();
-  // Survol de l'item : ses poignées apparaissent.
-  const box = await handles.nth(me.index).boundingBox();
-  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  const grip = handles.nth(me.index).locator('[data-item-move]');
-  await grip.waitFor({ state: 'visible' });
-  const g = await grip.boundingBox();
-  const gx = g.x + g.width / 2;
-  const gy = g.y + g.height / 2;
-  await p.mouse.move(gx, gy);
-  const under = await p.evaluate(([x, y]) => document.elementFromPoint(x, y)?.outerHTML.slice(0, 160), [gx, gy]);
-  assert.ok(under?.includes('data-item-move'), `la poignée ⋮⋮ est sous le pointeur : ${under}`);
-  await p.mouse.down();
-  // On passe au-delà du centre de chaque item voisin, vers la gauche, par petits pas.
-  const to = firstBox.x + firstBox.width * 0.1;
-  const steps = 20;
-  for (let i = 1; i <= steps; i++) await p.mouse.move(gx + ((to - gx) * i) / steps, gy);
-  await p.waitForSelector('.item-drop', { timeout: 3000 }); // repère de dépôt pendant le glisser
-  await p.mouse.up();
-  await until(p, async () => (await ids(p))[0] === added, 'glissé en première place');
-  assert.equal((await ids(p)).length, 5);
+  assert.equal(await p.locator('.items, [data-item-remove], [data-item-move]').count(), 0, "aucune poignée d'item sur la scène");
 
-  // « × » sur le nouvel item : quatre items ; Cmd/Ctrl+Z : cinq.
-  const mine = p.locator('.items .item-handles').nth(0);
-  const mb = await mine.boundingBox();
-  await p.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2);
-  await mine.locator('[data-item-remove]').waitFor({ state: 'visible' });
-  await mine.locator('[data-item-remove]').click();
+  // « × » du tableau sur le nouvel item : quatre items ; Cmd/Ctrl+Z : cinq, à sa place.
+  const before = await ids(p);
+  await p.locator(`${PANEL} tr[data-row="${added}"] [data-list-remove]`).click();
   await waitLen(p, 4, 'quatre étapes après suppression');
   assert.ok(!(await ids(p)).includes(added));
   await p.locator('body').click({ position: { x: 5, y: 5 } });
   await p.keyboard.press(`${MOD}+z`);
   await waitLen(p, 5, 'cinq étapes après annulation');
-  assert.equal((await ids(p))[0], added, "l'annulation rend l'étape à sa place");
+  assert.deepEqual(await ids(p), before, "l'annulation rend l'étape à sa place");
 
   assert.deepEqual(errors, []);
   console.log('lists : ok');

@@ -165,7 +165,6 @@ ui-list-add = Додати { $item }
 ui-list-remove = Видалити { $item }
 ui-list-move = Перемістити { $item }
 ui-list-full = Список заповнено ({ $max })
-ui-undo-list-remove = Видалити { $item }
 ui-undo-list-move = Перемістити { $item }
 ui-agent-color-other = Інший колір
 ui-agent-thread = Агент

@@ -161,7 +161,6 @@ ui-list-add = 添加{ $item }
 ui-list-remove = 删除{ $item }
 ui-list-move = 移动{ $item }
 ui-list-full = 列表已满（{ $max }）
-ui-undo-list-remove = 删除{ $item }
 ui-undo-list-move = 移动{ $item }
 ui-agent-color-other = 其他颜色
 ui-agent-thread = 智能体

@@ -161,7 +161,6 @@ ui-list-add = Aggiungi { $item }
 ui-list-remove = Rimuovi { $item }
 ui-list-move = Sposta { $item }
 ui-list-full = L'elenco è pieno ({ $max })
-ui-undo-list-remove = Rimuovi { $item }
 ui-undo-list-move = Sposta { $item }
 ui-agent-color-other = Altro colore
 ui-agent-thread = Agente

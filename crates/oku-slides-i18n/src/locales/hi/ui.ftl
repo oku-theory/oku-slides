@@ -161,7 +161,6 @@ ui-list-add = { $item } जोड़ें
 ui-list-remove = { $item } हटाएँ
 ui-list-move = { $item } खिसकाएँ
 ui-list-full = सूची भरी हुई है ({ $max })
-ui-undo-list-remove = { $item } हटाएँ
 ui-undo-list-move = { $item } खिसकाएँ
 ui-agent-color-other = अन्य रंग
 ui-agent-thread = एजेंट

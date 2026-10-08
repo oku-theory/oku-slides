@@ -1,7 +1,7 @@
 // La scène : le SVG rendu par Typst, et par-dessus la couche des objets
 // (sélection, glisser) et celle des champs (édition en place).
 // En aperçu (sous-onglet d'un widget) : l'image du widget à ses valeurs d'exemple,
-// ses champs et les poignées de ses listes, sans objets, glisser ni grille ;
+// ses champs et ses listes, sans objets, glisser ni grille ;
 // un champ lié au deck reste en lecture.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
@@ -21,9 +21,8 @@ import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
 import { elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
 import GhostLayer from "./GhostLayer";
-import { ItemLayer } from "./ItemLayer";
 import type { OnListOp } from "./stageItems";
-import { findItem, groupAxis, itemHandles, moveItemTo } from "./stageItems";
+import { findItem, groupAxis, moveItemTo, stageListOp } from "./stageItems";
 
 type Mode = "move" | "nw" | "ne" | "sw" | "se";
 
@@ -102,7 +101,7 @@ interface PreviewProps extends CommonProps {
   mode: "preview";
   /** Écrit le brouillon d'un champ modifié (valeur d'exemple du widget). */
   onField: (f: FieldView, text: string) => void;
-  /** Change une liste des valeurs d'exemple du widget (poignées d'items) ; sans elle, pas de poignées. */
+  /** Change une liste des valeurs d'exemple du widget (Cmd/Ctrl+Alt+flèche sur un item) ; sans elle, rien. */
   onListOp?: OnListOp;
 }
 
@@ -290,18 +289,18 @@ export default function Stage(props: Props) {
     editNext(f);
   };
 
-  // Poignées de liste : en ops sur la scène du deck ; en aperçu, dans les valeurs d'exemple du widget.
-  const itemProps = itemHandles(view, props.mode === "preview"
+  // Changements de liste : en ops sur la scène du deck ; en aperçu, dans les valeurs d'exemple du widget.
+  const listOp = stageListOp(view, props.mode === "preview"
     ? { mode: "preview", onListOp: props.onListOp }
-    : { mode: "deck", readOnly, selected, editing: editField?.owner ?? null, onApply });
+    : { mode: "deck", readOnly, onApply });
 
-  // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item (même chemin que ⋮⋮), éditeur ouvert.
-  const editItem = itemProps && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;
+  // Champ d'un item de liste : Cmd/Ctrl+Alt+flèche le long de la liste déplace l'item (même chemin que le ⋮⋮ du tableau), éditeur ouvert.
+  const editItem = listOp && editField?.list && editField.item ? findItem(view, editField.owner, editField.list, editField.item) : null;
   const moveItem = (text: string, dir: 1 | -1) => {
-    if (!editField || !editItem || !itemProps) return;
+    if (!editField || !editItem || !listOp) return;
     save(editField, text);
     const { it } = editItem;
-    moveItemTo(itemProps.onListOp, it, Math.max(0, Math.min(it.len - 1, it.index + dir)));
+    moveItemTo(listOp, it, Math.max(0, Math.min(it.len - 1, it.index + dir)));
   };
 
   const box = (t: ObjectTarget) => {
@@ -424,7 +423,6 @@ export default function Stage(props: Props) {
               })}
             </div>
           )}
-          {itemProps && <ItemLayer view={view} scale={scale} {...itemProps} />}
           {editField && (() => {
             const hit = fieldHitBox(editField, scale, view.fields);
             return (
