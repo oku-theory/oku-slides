@@ -878,14 +878,14 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         )}
         {!readOnly && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
-        {/* Réglages du modèle affiché, sous lui (pas au dock de l'agent). */}
-        {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} />}
-        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide ; sur l'onglet « Thème », les jetons à droite. */}
+        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide, précédés dans la
+            même fiche des réglages du modèle affiché (pas au dock de l'agent) ; sur l'onglet « Thème », les jetons à droite. */}
         {!themeActive && (
           <TargetPanel
             view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
             onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
             folded={paramsHidden}
+            lead={host.surface?.id === HOST_TEMPLATE ? { surface: host.surface, outcome: host.outcome } : undefined}
             onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
           />
         )}

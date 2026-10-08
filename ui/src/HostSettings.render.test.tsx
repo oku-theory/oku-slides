@@ -57,7 +57,7 @@ const listSurface: Surface = {
   ] as unknown as A2uiMessage[],
 };
 
-async function mount(shown: Surface = surface, answer: Promise<boolean> | null = null) {
+async function mount(shown: Surface = surface, answer: Promise<boolean> | null = null, lead?: Surface) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -73,6 +73,7 @@ async function mount(shown: Surface = surface, answer: Promise<boolean> | null =
           outcome.current = answer;
         },
         outcome,
+        lead: lead && { surface: lead, outcome },
         onError: () => {},
       }),
     ),
@@ -85,7 +86,39 @@ async function mount(shown: Surface = surface, answer: Promise<boolean> | null =
 test("HostSettings porte l'id de sa surface et ne s'annonce pas", async () => {
   const { host } = await mount();
   const box = host.querySelector<HTMLElement>(".host-settings")!;
-  expect([box.dataset.surfaceId, box.getAttribute("aria-live")]).toEqual(["host-widget", "off"]);
+  const ids = [...box.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
+  expect([ids, box.getAttribute("aria-live"), box.classList.contains("merged")]).toEqual([["host-widget"], "off", false]);
+});
+
+/** Une surface de tête (réglages du modèle), d'un bouton. */
+const leadSurface: Surface = {
+  ...surface,
+  id: "host-template",
+  messages: [
+    { version: "v0.9", createSurface: { surfaceId: "host-template", catalogId: CATALOG_ID } },
+    {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "host-template",
+        components: [{ id: "root", component: "Button", label: "Modèle", action: { event: { name: "param", context: {} } } }],
+      },
+    },
+  ] as unknown as A2uiMessage[],
+};
+
+test("HostSettings avec une tête réunit les deux surfaces dans une seule fiche, la tête d'abord", async () => {
+  const { host } = await mount(surface, null, leadSurface);
+  for (let i = 0; i < 50 && host.querySelectorAll("button").length < 2; i++) await act(() => new Promise((r) => setTimeout(r, 10)));
+  const boxes = host.querySelectorAll<HTMLElement>(".host-settings");
+  const ids = [...boxes[0]!.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
+  expect([boxes.length, boxes[0]!.classList.contains("merged"), ids]).toEqual([1, true, ["host-template", "host-widget"]]);
+});
+
+test("HostSettings avec une tête route chaque action avec sa propre surface", async () => {
+  const { host, actions } = await mount(surface, null, leadSurface);
+  for (let i = 0; i < 50 && host.querySelectorAll("button").length < 2; i++) await act(() => new Promise((r) => setTimeout(r, 10)));
+  await act(async () => host.querySelectorAll("button").forEach((b) => b.click()));
+  expect(actions).toEqual([["host-template", "param"], ["host-widget", "param"]]);
 });
 
 test("HostSettings rend la surface et route ses actions avec elle", async () => {

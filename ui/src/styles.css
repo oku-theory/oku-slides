@@ -976,6 +976,14 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
   width: min(100% - 2 * var(--space-4), 560px); box-sizing: border-box; padding: var(--space-2);
   background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
 }
+/* Fiche réunie (réglages du modèle, puis de la cible) : une seule carte, ses sections séparées d'un filet. */
+.host-settings.merged {
+  display: flex; flex-direction: column;
+}
+.host-settings.merged > .host-settings-section:first-child .a2ui-card { border-end-start-radius: 0; border-end-end-radius: 0; }
+.host-settings.merged > .host-settings-section + .host-settings-section .a2ui-card {
+  border-start-start-radius: 0; border-start-end-radius: 0; margin-top: -1px;
+}
 /* Sous l'aperçu, la fiche prend la largeur de sa zone (le code est à côté). */
 .widget-tab-side > .host-settings { flex: none; width: auto; margin: var(--space-2) calc(10px * var(--elev-sheet)); }
 .widget-pane > .widget-tab { flex: 1; }
