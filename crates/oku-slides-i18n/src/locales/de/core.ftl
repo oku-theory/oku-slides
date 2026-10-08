@@ -59,6 +59,7 @@ issue-unreadable-item = unlesbarer Listeneintrag, beiseitegelegt
 issue-unreadable-slide = unlesbare Folie, beiseitegelegt
 issue-unreadable-field = unlesbares Deck-Feld { $field }, zurückgesetzt
 op-invalid-chart = Diagramm { $subject }: { $reason }
+op-invalid-table = Tabelle { $subject }: { $reason }
 
 replica-corrupted = Der Verlauf der Präsentation in dieser Datei ist beschädigt
 replica-too-large = Der Verlauf der Präsentation in dieser Datei ist zu groß zum Öffnen

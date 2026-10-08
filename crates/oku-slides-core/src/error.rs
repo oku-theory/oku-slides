@@ -22,6 +22,8 @@ pub enum OpErrorKind {
     InvalidValue,
     /// Options ou données de graphique refusées par `oku-slides-chart`.
     InvalidChart,
+    /// Options ou données de tableau refusées par `oku-slides-chart`.
+    InvalidTable,
     /// `kind` absent du registre des widgets.
     UnknownWidget,
     /// Paramètre non déclaré par le widget.
@@ -75,6 +77,9 @@ pub(crate) enum OpInner {
     /// n'est pas connu (conversion d'une valeur).
     #[snafu(display("chart {subject} refused the change"))]
     Chart { subject: String, source: oku_slides_chart::ChartError, backtrace: Backtrace },
+    /// Tableau refusé ; `subject` : l'élément, ou le paramètre s'il n'est pas connu.
+    #[snafu(display("table {subject} refused the change"))]
+    Table { subject: String, source: oku_slides_chart::ChartError, backtrace: Backtrace },
     #[snafu(display("unknown widget: {kind}"))]
     UnknownWidget { kind: String, backtrace: Backtrace },
     #[snafu(display("{widget} has no parameter {param}"))]
@@ -112,6 +117,7 @@ impl OpError {
             OpInner::IndexOutOfRange { .. } => OpErrorKind::IndexOutOfRange,
             OpInner::InvalidValue { .. } | OpInner::ParseValue { .. } => OpErrorKind::InvalidValue,
             OpInner::Chart { .. } => OpErrorKind::InvalidChart,
+            OpInner::Table { .. } => OpErrorKind::InvalidTable,
             OpInner::UnknownWidget { .. } => OpErrorKind::UnknownWidget,
             OpInner::UnknownParam { .. } => OpErrorKind::UnknownParam,
             OpInner::ParamType { .. } => OpErrorKind::ParamType,
@@ -129,7 +135,7 @@ impl OpError {
         match &*self.0 {
             OpInner::SlideNotFound { slide, .. } => Some(slide),
             OpInner::ElementNotFound { element, .. } => Some(element),
-            OpInner::Chart { subject, .. } => Some(subject),
+            OpInner::Chart { subject, .. } | OpInner::Table { subject, .. } => Some(subject),
             OpInner::DuplicateId { id, .. } => Some(id),
             OpInner::InvalidValue { field, .. } | OpInner::ParseValue { field, .. } => Some(field),
             OpInner::UnknownWidget { kind, .. }
@@ -249,11 +255,13 @@ impl SourcesError {
 
 impl Localize for OpError {
     fn localize(&self, l: &Localizer) -> String {
-        if let OpInner::Chart { subject, source, .. } = &*self.0 {
-            return l.tr_with(
-                "op-invalid-chart",
-                &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())],
-            );
+        let host = match &*self.0 {
+            OpInner::Chart { subject, source, .. } => Some(("op-invalid-chart", subject, source)),
+            OpInner::Table { subject, source, .. } => Some(("op-invalid-table", subject, source)),
+            _ => None,
+        };
+        if let Some((key, subject, source)) = host {
+            return l.tr_with(key, &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())]);
         }
         if let OpInner::ListBound { list, bound, .. } = &*self.0 {
             let list = list.as_str().into();
@@ -278,6 +286,7 @@ impl Localize for OpError {
             OpErrorKind::IndexOutOfRange => "op-index-out-of-range",
             OpErrorKind::InvalidValue => "op-invalid-value",
             OpErrorKind::InvalidChart => "op-invalid-chart",
+            OpErrorKind::InvalidTable => "op-invalid-table",
             OpErrorKind::UnknownWidget => "op-unknown-widget",
             OpErrorKind::UnknownParam => "op-unknown-param",
             OpErrorKind::ParamType => "op-param-type",

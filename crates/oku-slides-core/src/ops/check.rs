@@ -61,7 +61,7 @@ fn expected(ty: &ParamType) -> &'static str {
         ParamType::Flag => "a boolean",
         ParamType::Number { .. } => "a number within its bounds",
         ParamType::Grid => "a grid",
-        ParamType::Host { .. } => "a chart option",
+        ParamType::Host { host } => super::host::expected_host(*host),
         ParamType::List { .. } => "a list of items",
     }
 }

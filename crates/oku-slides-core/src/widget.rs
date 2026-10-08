@@ -39,6 +39,17 @@ pub enum SlotMode {
 #[serde(rename_all = "lowercase")]
 pub enum HostType {
     Chart,
+    Table,
+}
+
+impl ParamType {
+    /// L'hôte qui fournit ce paramètre, s'il en a un.
+    pub fn host(&self) -> Option<HostType> {
+        match self {
+            ParamType::Host { host } => Some(*host),
+            _ => None,
+        }
+    }
 }
 
 /// Type d'un paramètre de widget.
@@ -131,6 +142,11 @@ pub struct WidgetSchema {
 }
 
 impl WidgetSchema {
+    /// Le premier paramètre fourni par l'hôte `host`, s'il est déclaré.
+    pub fn host_param(&self, host: HostType) -> Option<&ParamSchema> {
+        self.params.iter().find(|p| p.ty.host() == Some(host))
+    }
+
     /// Le paramètre `name`, s'il est déclaré.
     pub fn param(&self, name: &str) -> Option<&ParamSchema> {
         self.params.iter().find(|p| p.name == name)

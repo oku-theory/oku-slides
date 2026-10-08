@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] Card
     [shape] Shape
     [chart] Chart
+    [table] Table
    *[text] Text
 }
 ui-add-widget = Pack widget
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] Add a card
     [shape] Add a shape
     [chart] Add a chart
+    [table] Add a table
    *[text] Add a text
 }
 ui-undo-add-widget = Add “{ $name }”
@@ -275,6 +277,32 @@ ui-chart-remove-row = Delete the row
 ui-chart-add-row = Add row
 ui-chart-add-column = Add column
 ui-chart-series = Series { $n }
+
+## Table
+
+ui-table-panel = Table
+ui-table-options = Table options
+ui-table-header-row = Header row
+ui-table-header-column = First column as header
+ui-table-striped = Striped rows
+ui-table-alignment = Column alignment
+ui-table-align-of = Alignment of { $name }
+ui-table-align = { $align ->
+    [start] Start
+    [center] Center
+    [end] End
+   *[auto] Automatic
+}
+ui-table-column = Column { $n }
+ui-table-no-data = This table has no data.
+ui-undo-table-option = Table options
+ui-undo-table-align = Align the column
+ui-undo-table-data = Edit the table
+ui-show-as = Show as
+ui-show-as-table = Show as a table
+ui-show-as-chart = Show as a chart
+ui-undo-show-as-table = Show as a table
+ui-undo-show-as-chart = Show as a chart
 
 ## Files
 

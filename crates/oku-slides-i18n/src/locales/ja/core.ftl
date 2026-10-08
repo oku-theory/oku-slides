@@ -53,6 +53,7 @@ issue-unreadable-item = 読み取れないリスト項目を除外しました
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 op-invalid-chart = グラフ { $subject }：{ $reason }
+op-invalid-table = テーブル { $subject }：{ $reason }
 
 replica-corrupted = このファイル内のプレゼンテーション履歴が破損しています
 replica-too-large = このファイル内のプレゼンテーション履歴は大きすぎて開けません

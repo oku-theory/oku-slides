@@ -11,7 +11,7 @@ use crate::model::{Deck, DeckParams, Grid, Paragraph};
 use crate::ops::ListSpec;
 use crate::pack::PackVersion;
 use crate::params::{ParamValue, Params};
-use crate::widget::{Category, HostType, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
+use crate::widget::{Category, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 /// Un problème du deck : où, et quoi.
 #[derive(Debug, Clone, PartialEq)]
@@ -292,10 +292,7 @@ pub(crate) fn fits(ty: &ParamType, value: &ParamValue) -> Fit {
         (ParamType::List { .. }, ParamValue::Rich(p)) => p.is_empty(),
         (ParamType::List { .. }, ParamValue::Slot(s)) => s.is_empty(),
         (ParamType::Grid, ParamValue::Value(v)) => v.is_object() && serde_json::from_value::<Grid>(v.clone()).is_ok(),
-        (ParamType::Host { host: HostType::Chart }, ParamValue::Value(v)) => {
-            serde_json::from_value::<oku_slides_chart::ChartOption>(v.clone())
-                .is_ok_and(|o| oku_slides_chart::normalize(&o, oku_slides_chart::ChartLabels::english()).is_ok())
-        }
+        (ParamType::Host { host }, ParamValue::Value(v)) => crate::ops::host_option(*host, "", v).is_ok(),
         _ => false,
     };
     if ok { Fit::Ok } else { Fit::WrongType }

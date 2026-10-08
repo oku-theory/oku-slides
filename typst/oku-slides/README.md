@@ -81,7 +81,7 @@ l'encre pour `app`).
 | `component.*` | `chapter: (bg: "accent")` | style de chaque composant, par références |
 
 Composants : `header`, `footer`, `kicker`, `title`, `title-slide`, `chapter`,
-`toc`, `card`, `end-slide`, `list`, `quote`, `columns`.
+`toc`, `card`, `end-slide`, `list`, `quote`, `columns`, `table`.
 
 Tout composant de texte accepte `size`, `color`, `weight`, `font`,
 `tracking` (pt) et `case` (`"upper"`, `"lower"`). Dans l'éditeur de thème de
@@ -215,8 +215,8 @@ qui passe `wrap` à `slide()` reçoit ainsi les champs `kicker` et `title` ; le
 ## Widgets
 
 Un **widget** est un composant déclaré avec le schéma de ses paramètres ; le
-registre de base (13 widgets : `text`, `card`, `image`, `shape`, `chart`,
-`stack`, `canvas`, `title`, `toc`, `chapter`, `content`, `end`, `blank`) est
+registre de base (14 widgets : `text`, `card`, `image`, `shape`, `chart`,
+`table`, `stack`, `canvas`, `title`, `toc`, `chapter`, `content`, `end`, `blank`) est
 lu par l'hôte (sonde `<oku-widgets>`) et sert au rendu du deck JSON.
 
 Un **pack de modèles** peut ajouter ses propres widgets, ou surcharger ceux
@@ -276,7 +276,7 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 | `p.slot(label:, mode:, accepts:)` | Éléments enfants ; `mode` : `"flow"` ou `"free"` ; `accepts` : noms de widgets admis, ou `none` |
 | `p.grid(label:, default:)` | Grille `(columns:, rows:, gap:)` |
 | `p.list(label:, item-label:, item:, min:, max:, default:)` | Liste d'items aux colonnes typées (`plain`, `rich`, `number`, `flag`, `choice`, `asset`), saisie en tableau ; liste absente = vide, `default` n'amorce qu'un objet créé |
-| `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`) |
+| `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`, `"table"`) |
 
 ### `widget(name, label:, category:, params:, render)`
 

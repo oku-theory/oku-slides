@@ -53,6 +53,7 @@ issue-unreadable-item = 無法讀取的清單項目，已移出
 issue-unreadable-slide = 無法讀取的投影片，已移出
 issue-unreadable-field = 無法讀取的簡報欄位 { $field }，已重設
 op-invalid-chart = 圖表 { $subject }：{ $reason }
+op-invalid-table = 表格 { $subject }：{ $reason }
 
 replica-corrupted = 此檔案中的簡報歷程已損毀
 replica-too-large = 此檔案中的簡報歷程過大，無法開啟

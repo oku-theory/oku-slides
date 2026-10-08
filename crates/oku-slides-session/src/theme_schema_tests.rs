@@ -311,7 +311,8 @@ fn users_lists_tokens_referencing_a_size_or_weight() {
     let tokens = defaults_map();
     assert_that!(users(&p(&["size", "caption"]), &tokens))
         .is_equal_to(vec!["component.footer.size".to_owned(), "component.header.size".to_owned()]);
-    assert_that!(users(&p(&["weight", "strong"]), &tokens)).is_equal_to(vec!["component.card.title-weight".to_owned()]);
+    assert_that!(users(&p(&["weight", "strong"]), &tokens))
+        .is_equal_to(vec!["component.card.title-weight".to_owned(), "component.table.header-weight".to_owned()]);
     // Même nom, autre catégorie : `space.lg` n'est pas `size.lg`.
     assert_that!(users(&p(&["radius", "lg"]), &tokens)).is_empty();
 }

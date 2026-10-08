@@ -59,6 +59,7 @@ issue-unreadable-item = voce di elenco illeggibile, messa da parte
 issue-unreadable-slide = diapositiva illeggibile, messa da parte
 issue-unreadable-field = campo { $field } del deck illeggibile, reimpostato
 op-invalid-chart = Grafico { $subject }: { $reason }
+op-invalid-table = Tabella { $subject }: { $reason }
 
 replica-corrupted = La cronologia della presentazione in questo file è danneggiata
 replica-too-large = La cronologia della presentazione in questo file è troppo grande per essere aperta

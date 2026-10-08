@@ -4,13 +4,11 @@
 use serde_json::Value;
 use snafu::ResultExt;
 
-use oku_slides_chart::parse_option;
-
 use super::list::{ListSpec, list_value};
-use crate::error::{ChartSnafu, ChoiceOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu};
+use crate::error::{ChoiceOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu};
 use crate::model::{Grid, Paragraph};
 use crate::params::ParamValue;
-use crate::widget::{HostType, ParamType};
+use crate::widget::ParamType;
 
 /// Pistes d'une grille : 1 à 24 colonnes ou lignes.
 pub const GRID_TRACKS: std::ops::RangeInclusive<u32> = 1..=24;
@@ -20,7 +18,7 @@ pub const GRID_TRACKS: std::ops::RangeInclusive<u32> = 1..=24;
 ///
 /// Une valeur d'une autre forme JSON que celle du type rend `ParamType` ;
 /// une valeur de la bonne forme mais refusée rend `InvalidValue`,
-/// `ChoiceOutOfRange` ou `InvalidChart`. Un slot se remplit par
+/// `ChoiceOutOfRange`, `InvalidChart` ou `InvalidTable`. Un slot se remplit par
 /// `add_element`, jamais par une valeur.
 pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<ParamValue>, OpError> {
     let wrong = |expected: &'static str| -> OpError { ParamTypeSnafu { param, expected }.build().into() };
@@ -75,21 +73,13 @@ pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<P
             }
             _ => Err(wrong("a grid or null")),
         },
-        ParamType::Host { host: HostType::Chart } => match value {
-            v @ Value::Object(_) => chart_option(param, &v).map(|v| Some(ParamValue::Value(v))),
-            _ => Err(wrong("a chart option")),
+        ParamType::Host { host } => match value {
+            v @ Value::Object(_) => super::host::host_option(*host, param, &v).map(|v| Some(ParamValue::Value(v))),
+            _ => Err(wrong(super::host::expected_host(*host))),
         },
         ParamType::Slot { .. } => Err(wrong("elements, through add_element")),
         ParamType::List { .. } => list_value(&ListSpec::of(param, ty).ok_or_else(|| wrong("a list of items"))?, value),
     }
-}
-
-/// Options de graphique contrôlées (`subject` nomme le graphique dans
-/// l'erreur), rendues sous leur forme sérialisée.
-pub(super) fn chart_option(subject: &str, v: &Value) -> Result<Value, OpError> {
-    // `parse_option` lit les options et les passe par `normalize`.
-    let option = parse_option(v).context(ChartSnafu { subject })?;
-    Ok(serde_json::to_value(&option).context(ParseValueSnafu { field: subject })?)
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 /**
- * La carte de la cible, sous la scène : le panneau d'un graphique
+ * La carte de la cible, sous la scène : le panneau d'un graphique ou d'un tableau
  * sélectionné, sinon les paramètres de la cible (`useTargetSettings`), sinon rien.
  * Hors vue, en lecture seule ou masquée depuis la barre d'outils, rien. Les réglages du
  * modèle (`lead`, mode modèles) s'affichent toujours, en tête de la fiche de la cible.
@@ -8,6 +8,8 @@ import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Element, Op, SlideView, Surface } from "./api";
 import { ChartPanel } from "./chart/ChartPanel";
 import HostSettings, { type SettingsSection } from "./HostSettings";
+import type { View } from "./table/ShowAsButton";
+import { TablePanel } from "./table/TablePanel";
 import type { HostSettings as Target } from "./useHostSettings";
 
 type Props = {
@@ -20,6 +22,7 @@ type Props = {
   palette: string[];
   onApply: (label: string, ops: Op[]) => void;
   onKind: (kind: string) => void;
+  onShowAs: (view: View) => void;
   onSurfaceAction: (s: Surface, a: A2uiClientAction) => void;
   onError: (m: string) => void;
   /** Carte masquée depuis la barre d'outils (gardé par l'hôte). */
@@ -28,15 +31,23 @@ type Props = {
   lead?: SettingsSection;
 };
 
-export function TargetPanel({ view, readOnly, selected, target, palette, onApply, onKind, onSurfaceAction, onError, folded, lead }: Props) {
+export function TargetPanel({ view, readOnly, selected, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
   const alone = lead ? <HostSettings {...lead} onAction={onSurfaceAction} onError={onError} /> : null;
   if (!view || readOnly || folded) return alone;
   // Données du graphique sélectionné : hors de la feuille, pour ne rien masquer.
+  // Les sortes ci-dessous doivent rester celles de OWN_PANEL (ownPanel.ts).
   if (selected?.kind === "chart")
     return (
       <>
         {alone}
-        <ChartPanel slide={view.slide.id} element={selected} palette={palette} onApply={onApply} onKind={onKind} />
+        <ChartPanel slide={view.slide.id} element={selected} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
+      </>
+    );
+  if (selected?.kind === "table")
+    return (
+      <>
+        {alone}
+        <TablePanel slide={view.slide.id} element={selected} onApply={onApply} onShowAs={onShowAs} />
       </>
     );
   if (!target.surface) return alone;

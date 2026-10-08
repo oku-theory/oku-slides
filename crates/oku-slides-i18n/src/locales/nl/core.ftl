@@ -59,6 +59,7 @@ issue-unreadable-item = onleesbaar lijstitem, apart gezet
 issue-unreadable-slide = onleesbare dia, apart gezet
 issue-unreadable-field = onleesbaar deckveld { $field }, hersteld
 op-invalid-chart = Grafiek { $subject }: { $reason }
+op-invalid-table = Tabel { $subject }: { $reason }
 
 replica-corrupted = De geschiedenis van de presentatie in dit bestand is beschadigd
 replica-too-large = De geschiedenis van de presentatie in dit bestand is te groot om te openen

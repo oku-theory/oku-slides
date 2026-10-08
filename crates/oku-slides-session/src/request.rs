@@ -2,12 +2,23 @@
 
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use oku_slides_core::Op;
 
 use crate::views::UiState;
+
+/// Widget sous lequel montrer des données : graphique ou tableau.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum View {
+    /// Un graphique.
+    Chart,
+    /// Un tableau.
+    Table,
+}
 
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
 #[derive(Debug, Deserialize)]
@@ -104,6 +115,13 @@ pub enum Request {
         slide: String,
         element: String,
         kind: oku_slides_chart::SeriesType,
+    },
+    /// Affiche un graphique en tableau, ou l'inverse, en gardant ses données. Annulable.
+    ShowAs {
+        label: String,
+        slide: String,
+        element: String,
+        view: View,
     },
     /// Modèles d'un pack, rendus avec le thème du deck.
     ///
@@ -231,6 +249,7 @@ impl Request {
             | Self::Undo
             | Self::Redo
             | Self::ChartKind { .. }
+            | Self::ShowAs { .. }
             | Self::EditTemplates { .. }
             | Self::CloseTemplates
             | Self::SetEditedTheme { .. }
@@ -289,6 +308,7 @@ impl Request {
                 | Self::Move { .. }
                 | Self::SaveCopy { .. }
                 | Self::ChartKind { .. }
+                | Self::ShowAs { .. }
                 | Self::EditTemplates { .. }
                 | Self::SaveTemplates { .. }
                 | Self::CloseTemplates

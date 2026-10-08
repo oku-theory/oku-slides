@@ -29,5 +29,5 @@
 )
 /// Grille { columns, rows, gap }.
 #let grid(label: none, default: none) = _base("grid", label, default)
-/// Type fourni et validé par l'hôte (`"chart"`).
+/// Type fourni et validé par l'hôte (`"chart"` ou `"table"`).
 #let host(name, label: none) = _base("host", label, none) + (host: name)

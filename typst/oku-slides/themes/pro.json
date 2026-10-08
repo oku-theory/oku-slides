@@ -218,6 +218,17 @@
       "columns": {
         "gap": 24
       },
+      "table": {
+        "size": "small",
+        "header-bg": "brand-ink",
+        "header-color": "white",
+        "header-weight": 700,
+        "stripe-bg": "#f3f5f7",
+        "rule-color": "rule",
+        "rule-width": "hairline",
+        "padding-x": "sm",
+        "padding-y": "xs"
+      },
       "end-slide": {
         "bg": "surface-dark",
         "color": "white"

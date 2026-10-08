@@ -61,6 +61,7 @@ ui-add-kind = { $kind ->
     [card] 카드
     [shape] 도형
     [chart] 차트
+    [table] 표
    *[text] 텍스트
 }
 ui-add-widget = 팩 위젯
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [card] 카드 추가
     [shape] 도형 추가
     [chart] 차트 추가
+    [table] 표 추가
    *[text] 텍스트 추가
 }
 ui-undo-add-widget = ‘{ $name }’ 추가
@@ -273,6 +275,32 @@ ui-chart-remove-row = 행 삭제
 ui-chart-add-row = 행
 ui-chart-add-column = 열
 ui-chart-series = 계열 { $n }
+
+## 표
+
+ui-table-panel = 표
+ui-table-options = 표 옵션
+ui-table-header-row = 머리글 행
+ui-table-header-column = 첫 번째 열을 머리글로
+ui-table-striped = 줄무늬 행
+ui-table-alignment = 열 정렬
+ui-table-align-of = { $name } 정렬
+ui-table-align = { $align ->
+    [start] 시작
+    [center] 가운데
+    [end] 끝
+   *[auto] 자동
+}
+ui-table-column = 열 { $n }
+ui-table-no-data = 이 표에는 데이터가 없습니다.
+ui-undo-table-option = 표 옵션
+ui-undo-table-align = 열 정렬
+ui-undo-table-data = 표 편집
+ui-show-as = 표시 형식
+ui-show-as-table = 표로 표시
+ui-show-as-chart = 차트로 표시
+ui-undo-show-as-table = 표로 표시
+ui-undo-show-as-chart = 차트로 표시
 
 ## 파일
 

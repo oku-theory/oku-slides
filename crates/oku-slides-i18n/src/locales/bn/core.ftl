@@ -53,6 +53,7 @@ issue-unreadable-item = অপাঠযোগ্য তালিকার আই
 issue-unreadable-slide = অপাঠযোগ্য স্লাইড, আলাদা রাখা হয়েছে
 issue-unreadable-field = উপস্থাপনার অপাঠযোগ্য ক্ষেত্র { $field }, পুনরায় সেট করা হয়েছে
 op-invalid-chart = চার্ট { $subject }: { $reason }
+op-invalid-table = টেবিল { $subject }: { $reason }
 
 replica-corrupted = এই ফাইলে উপস্থাপনার ইতিহাস ক্ষতিগ্রস্ত
 replica-too-large = এই ফাইলে উপস্থাপনার ইতিহাস খোলার জন্য খুব বড়

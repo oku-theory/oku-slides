@@ -4,11 +4,11 @@ import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 
 describe("canAdd", () => {
   test("sur une slide de contenu, tout s'ajoute", () => {
-    expect(ADD_KINDS.filter((k) => canAdd(k, "content"))).toEqual(["text", "card", "shape", "chart"]);
+    expect(ADD_KINDS.filter((k) => canAdd(k, "content"))).toEqual(["text", "card", "shape", "chart", "table"]);
   });
 
   test("sur une slide vide, tout sauf le texte", () => {
-    expect(ADD_KINDS.filter((k) => canAdd(k, "blank"))).toEqual(["card", "shape", "chart"]);
+    expect(ADD_KINDS.filter((k) => canAdd(k, "blank"))).toEqual(["card", "shape", "chart", "table"]);
   });
 
   test("sur les autres slides, rien", () => {

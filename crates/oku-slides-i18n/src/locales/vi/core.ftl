@@ -53,6 +53,7 @@ issue-unreadable-item = mục danh sách không đọc được, đã để riê
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 op-invalid-chart = Biểu đồ { $subject }: { $reason }
+op-invalid-table = Bảng { $subject }: { $reason }
 
 replica-corrupted = Lịch sử bản trình bày trong tệp này bị hỏng
 replica-too-large = Lịch sử bản trình bày trong tệp này quá lớn để mở

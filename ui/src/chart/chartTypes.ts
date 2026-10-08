@@ -4,8 +4,8 @@
 /** Cellule de dataset.source ; un booléen est une case à cocher. */
 export type Cell = number | string | boolean | null;
 
-/** Opération `set_chart_data` (enum Rust ChartDataOp, étiquetée par `op`). */
-export type ChartDataOp =
+/** Opération `set_data` (enum Rust DataOp) : données d'un graphique ou d'un tableau. */
+export type DataOp =
   | { op: "set_cell"; row: number; col: number; value: Cell }
   | { op: "insert_row"; at: number; cells: Cell[] }
   | { op: "remove_row"; at: number }

@@ -32,6 +32,8 @@ pub enum SessionErrorKind {
     NoSlide,
     /// L'élément n'est pas un graphique (ou n'existe pas).
     NoChart,
+    /// L'élément n'est pas un tableau (ou n'existe pas).
+    NoTable,
     /// Le graphique n'a pas pu changer de type.
     Chart,
     /// Un pack intégré ne se supprime pas.
@@ -129,6 +131,8 @@ pub(crate) enum SessionInner {
     NoSlide { id: String, backtrace: Backtrace },
     #[snafu(display("not a chart: {id}"))]
     NoChart { id: String, backtrace: Backtrace },
+    #[snafu(display("not a table: {id}"))]
+    NoTable { id: String, backtrace: Backtrace },
     #[snafu(display("chart conversion failed"))]
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
     #[snafu(display("built-in template set {id} cannot be deleted"))]
@@ -236,6 +240,7 @@ impl SessionError {
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
             NoChart { .. } => SessionErrorKind::NoChart,
+            NoTable { .. } => SessionErrorKind::NoTable,
             Chart { .. } => SessionErrorKind::Chart,
             BuiltinTemplateSet { .. } => SessionErrorKind::BuiltinTemplateSet,
             NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
@@ -333,6 +338,7 @@ impl Localize for SessionError {
             NoPath { .. } => l.tr("session-no-path"),
             NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
             NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
+            NoTable { id, .. } => l.tr_with("session-no-table", &[("subject", id.as_str().into())]),
             Chart { source, .. } => source.localize(l),
             BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
             NoLibraryDir { .. } => l.tr("session-no-library-dir"),

@@ -67,6 +67,7 @@ ui-add-kind = { $kind ->
     [card] Картка
     [shape] Фігура
     [chart] Діаграма
+    [table] Таблиця
    *[text] Текст
 }
 ui-add-widget = Віджет пакета
@@ -80,6 +81,7 @@ ui-undo-add = { $kind ->
     [card] Додати картку
     [shape] Додати фігуру
     [chart] Додати діаграму
+    [table] Додати таблицю
    *[text] Додати текст
 }
 ui-undo-add-widget = Додати «{ $name }»
@@ -279,6 +281,32 @@ ui-chart-remove-row = Видалити рядок
 ui-chart-add-row = Рядок
 ui-chart-add-column = Стовпець
 ui-chart-series = Ряд { $n }
+
+## Таблиця
+
+ui-table-panel = Таблиця
+ui-table-options = Параметри таблиці
+ui-table-header-row = Рядок заголовків
+ui-table-header-column = Перший стовпець як заголовок
+ui-table-striped = Смугасті рядки
+ui-table-alignment = Вирівнювання стовпців
+ui-table-align-of = Вирівнювання: { $name }
+ui-table-align = { $align ->
+    [start] За початком
+    [center] По центру
+    [end] За кінцем
+   *[auto] Автоматично
+}
+ui-table-column = Стовпець { $n }
+ui-table-no-data = У цій таблиці немає даних.
+ui-undo-table-option = Параметри таблиці
+ui-undo-table-align = Вирівняти стовпець
+ui-undo-table-data = Редагувати таблицю
+ui-show-as = Показати як
+ui-show-as-table = Показати у вигляді таблиці
+ui-show-as-chart = Показати у вигляді діаграми
+ui-undo-show-as-table = Показати у вигляді таблиці
+ui-undo-show-as-chart = Показати у вигляді діаграми
 
 ## Файли
 

@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] Kart
     [shape] Şekil
     [chart] Grafik
+    [table] Tablo
    *[text] Metin
 }
 ui-add-widget = Paket bileşeni
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] Kart ekle
     [shape] Şekil ekle
     [chart] Grafik ekle
+    [table] Tablo ekle
    *[text] Metin ekle
 }
 ui-undo-add-widget = “{ $name }” ekle
@@ -275,6 +277,32 @@ ui-chart-remove-row = Satırı sil
 ui-chart-add-row = Satır
 ui-chart-add-column = Sütun
 ui-chart-series = Seri { $n }
+
+## Tablo
+
+ui-table-panel = Tablo
+ui-table-options = Tablo seçenekleri
+ui-table-header-row = Başlık satırı
+ui-table-header-column = İlk sütun başlık olarak
+ui-table-striped = Çizgili satırlar
+ui-table-alignment = Sütun hizalaması
+ui-table-align-of = { $name } hizalaması
+ui-table-align = { $align ->
+    [start] Baş
+    [center] Orta
+    [end] Son
+   *[auto] Otomatik
+}
+ui-table-column = Sütun { $n }
+ui-table-no-data = Bu tabloda veri yok.
+ui-undo-table-option = Tablo seçenekleri
+ui-undo-table-align = Sütunu hizala
+ui-undo-table-data = Tabloyu düzenle
+ui-show-as = Şu olarak göster
+ui-show-as-table = Tablo olarak göster
+ui-show-as-chart = Grafik olarak göster
+ui-undo-show-as-table = Tablo olarak göster
+ui-undo-show-as-chart = Grafik olarak göster
 
 ## Dosyalar
 

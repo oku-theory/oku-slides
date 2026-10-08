@@ -63,6 +63,7 @@ issue-unreadable-item = nieczytelna pozycja listy, odłożona
 issue-unreadable-slide = nieczytelny slajd, odłożony
 issue-unreadable-field = nieczytelne pole { $field } prezentacji, zresetowane
 op-invalid-chart = Wykres { $subject }: { $reason }
+op-invalid-table = Tabela { $subject }: { $reason }
 
 replica-corrupted = Historia prezentacji w tym pliku jest uszkodzona
 replica-too-large = Historia prezentacji w tym pliku jest zbyt duża, aby ją otworzyć

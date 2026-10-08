@@ -6,7 +6,7 @@
 use oku_slides_i18n::{Localize, Localizer, Message};
 use snafu::{Backtrace, Snafu};
 
-/// Un graphique refusé ou impossible à rendre.
+/// Un graphique ou un tableau refusé, ou un graphique impossible à rendre.
 #[derive(Debug, Snafu)]
 pub struct ChartError(pub(crate) ChartInner);
 
@@ -20,7 +20,7 @@ pub enum ChartErrorKind {
     Inconsistent,
     /// Opération sur les données impossible (index hors limites…).
     DataOp,
-    /// Le patch touche `dataset` : il faut passer par `set_chart_data`.
+    /// Le patch touche `dataset` : il faut passer par `set_data`.
     PatchTouchesDataset,
     /// Échec de charts-rs.
     Render,
@@ -33,11 +33,11 @@ pub(crate) enum ChartInner {
     InvalidOption { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid options: {reason}"))]
     InvalidPatch { reason: Message, backtrace: Backtrace },
-    #[snafu(display("inconsistent chart: {reason}"))]
+    #[snafu(display("inconsistent data: {reason}"))]
     Inconsistent { reason: Message, backtrace: Backtrace },
     #[snafu(display("impossible data operation: {reason}"))]
     DataOp { reason: Message, backtrace: Backtrace },
-    #[snafu(display("an option patch cannot change `dataset`: use set_chart_data"))]
+    #[snafu(display("an option patch cannot change `dataset`: use set_data"))]
     PatchTouchesDataset { backtrace: Backtrace },
     #[snafu(display("chart rendering failed"))]
     Render { source: charts_rs::Error, backtrace: Backtrace },

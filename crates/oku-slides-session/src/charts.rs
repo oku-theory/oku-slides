@@ -6,7 +6,7 @@
 //! Un graphique est un paramètre `host(chart)` d'un widget du registre.
 
 use oku_slides_chart::{ChartLabels, ChartOption, canonicalize};
-use oku_slides_core::{Deck, Element, HostType, Op, ParamType, ParamValue, Params, WidgetRegistry, WidgetSchema};
+use oku_slides_core::{Deck, Element, HostType, Op, ParamValue, Params, WidgetRegistry, WidgetSchema};
 
 /// Canonicalise les graphiques des éléments et slides ajoutés ou remplacés.
 pub(crate) fn canonicalize_charts(ops: &mut [Op], labels: &ChartLabels, registry: &WidgetRegistry) {
@@ -34,7 +34,7 @@ pub(crate) fn chart_param<'r>(registry: &'r WidgetRegistry, kind: &str) -> Optio
 }
 
 fn chart_params(schema: &WidgetSchema) -> impl Iterator<Item = &str> {
-    schema.params.iter().filter(|p| matches!(p.ty, ParamType::Host { host: HostType::Chart })).map(|p| p.name.as_str())
+    schema.params.iter().filter(|p| p.ty.host() == Some(HostType::Chart)).map(|p| p.name.as_str())
 }
 
 fn canonicalize_slots(params: &mut Params, labels: &ChartLabels, registry: &WidgetRegistry) {

@@ -63,6 +63,7 @@ mod request;
 mod resume;
 mod resume_writer;
 mod search;
+mod tables;
 mod target_params;
 mod template_scratch;
 mod templates_mode;
@@ -99,7 +100,7 @@ pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
-pub use request::Request;
+pub use request::{Request, View};
 pub use search::SearchHit;
 use template_scratch::TemplateScratch;
 pub use text::{interp, paragraphs_to_text};
@@ -641,6 +642,7 @@ impl Session {
                 self.edit_example_list(&name, &param, change)?;
             }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
+            Request::ShowAs { label, slide, element, view } => self.show_as(&label, slide, &element, view)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
             Request::EditTemplates { set } => self.edit_templates(set)?,

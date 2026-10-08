@@ -98,7 +98,7 @@ fn load_registry_base_declares_the_text_widget_with_a_rich_body() {
 #[test]
 fn load_registry_base_declares_every_element_widget() {
     let r = load_registry(&Fonts::default(), None).unwrap();
-    for name in ["text", "card", "image", "shape", "chart", "stack", "canvas"] {
+    for name in ["text", "card", "image", "shape", "chart", "table", "stack", "canvas"] {
         asserting(name).that(&r.get(name).map(|w| w.category)).is_equal_to(Some(Category::Element));
     }
     let stack = r.get("stack").unwrap();

@@ -1,4 +1,4 @@
-//! `set_chart_data` : modifications de `dataset.source`, chacune avec son
+//! `set_data` : modifications de `dataset.source` (graphiques et tableaux), chacune avec son
 //! inverse (pour l'historique du deck).
 //!
 //! Les index de ligne comptent la ligne d'en-têtes : la ligne 0 contient les
@@ -9,12 +9,15 @@ use oku_slides_i18n::Message;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::canonical::sync_series_with_columns;
 use crate::error::{ChartError, DataOpSnafu, Result};
-use crate::option::{Cell, Dataset};
+use crate::labels::ChartLabels;
+use crate::model::normalize;
+use crate::option::{Cell, ChartOption, Dataset};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
-pub enum ChartDataOp {
+pub enum DataOp {
     SetCell {
         row: usize,
         col: usize,
@@ -44,13 +47,13 @@ fn err(reason: Message) -> ChartError {
     DataOpSnafu { reason }.build().into()
 }
 
-impl ChartDataOp {
+impl DataOp {
     /// Applique l'opération et renvoie son inverse.
-    pub fn apply(&self, dataset: &mut Dataset) -> Result<ChartDataOp> {
+    pub fn apply(&self, dataset: &mut Dataset) -> Result<DataOp> {
         let src = &mut dataset.source;
         let width = src.first().map_or(0, Vec::len);
         match self {
-            ChartDataOp::SetCell { row, col, value } => {
+            DataOp::SetCell { row, col, value } => {
                 let r = src.get_mut(*row).ok_or_else(|| err(Message::new("chart-data-no-row").arg("row", *row)))?;
                 if *col >= width {
                     return Err(err(Message::new("chart-data-no-column").arg("col", *col).arg("width", width)));
@@ -60,25 +63,25 @@ impl ChartDataOp {
                     r.resize(width, Cell::Null);
                 }
                 let previous = std::mem::replace(&mut r[*col], value.clone());
-                Ok(ChartDataOp::SetCell { row: *row, col: *col, value: previous })
+                Ok(DataOp::SetCell { row: *row, col: *col, value: previous })
             }
-            ChartDataOp::InsertRow { at, cells } => {
+            DataOp::InsertRow { at, cells } => {
                 if *at == 0 || *at > src.len() {
                     return Err(err(Message::new("chart-data-insert-row").arg("at", *at)));
                 }
                 let mut cells = cells.clone();
                 cells.resize(width, Cell::Null);
                 src.insert(*at, cells);
-                Ok(ChartDataOp::RemoveRow { at: *at })
+                Ok(DataOp::RemoveRow { at: *at })
             }
-            ChartDataOp::RemoveRow { at } => {
+            DataOp::RemoveRow { at } => {
                 if *at == 0 || *at >= src.len() {
                     return Err(err(Message::new("chart-data-remove-row").arg("at", *at)));
                 }
                 let cells = src.remove(*at);
-                Ok(ChartDataOp::InsertRow { at: *at, cells })
+                Ok(DataOp::InsertRow { at: *at, cells })
             }
-            ChartDataOp::InsertColumn { at, cells } => {
+            DataOp::InsertColumn { at, cells } => {
                 if *at > width {
                     return Err(err(Message::new("chart-data-insert-column").arg("at", *at)));
                 }
@@ -89,9 +92,9 @@ impl ChartDataOp {
                     row.resize(width, Cell::Null);
                     row.insert(*at, cells.get(i).cloned().unwrap_or(Cell::Null));
                 }
-                Ok(ChartDataOp::RemoveColumn { at: *at })
+                Ok(DataOp::RemoveColumn { at: *at })
             }
-            ChartDataOp::RemoveColumn { at } => {
+            DataOp::RemoveColumn { at } => {
                 if *at >= width || width == 1 {
                     return Err(err(Message::new("chart-data-remove-column").arg("at", *at)));
                 }
@@ -102,17 +105,27 @@ impl ChartDataOp {
                         row.remove(*at)
                     })
                     .collect();
-                Ok(ChartDataOp::InsertColumn { at: *at, cells })
+                Ok(DataOp::InsertColumn { at: *at, cells })
             }
-            ChartDataOp::Replace { source } => {
+            DataOp::Replace { source } => {
                 if source.is_empty() {
                     return Err(err(Message::new("chart-data-keep-header")));
                 }
                 let previous = std::mem::replace(src, source.clone());
-                Ok(ChartDataOp::Replace { source: previous })
+                Ok(DataOp::Replace { source: previous })
             }
         }
     }
+}
+
+/// `set_data` sur un graphique : applique `change`, recale les séries, normalise.
+pub fn chart_data(option: &ChartOption, change: &DataOp) -> Result<ChartOption> {
+    let mut next = option.clone();
+    let dataset = next.dataset.as_mut().ok_or_else(|| err(Message::new("chart-data-no-dataset")))?;
+    change.apply(dataset)?;
+    sync_series_with_columns(&mut next);
+    normalize(&next, ChartLabels::english())?;
+    Ok(next)
 }
 
 #[cfg(test)]

@@ -53,6 +53,7 @@ issue-unreadable-item = รายการย่อยที่อ่านไ�
 issue-unreadable-slide = สไลด์ที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-field = ช่อง { $field } ของงานนำเสนอที่อ่านไม่ได้ ถูกรีเซ็ต
 op-invalid-chart = แผนภูมิ { $subject }: { $reason }
+op-invalid-table = ตาราง { $subject }: { $reason }
 
 replica-corrupted = ประวัติงานนำเสนอในไฟล์นี้เสียหาย
 replica-too-large = ประวัติงานนำเสนอในไฟล์นี้มีขนาดใหญ่เกินกว่าจะเปิดได้

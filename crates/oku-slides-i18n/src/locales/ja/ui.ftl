@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] カード
     [shape] 図形
     [chart] グラフ
+    [table] 表
    *[text] テキスト
 }
 ui-add-widget = パックのウィジェット
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] カードを追加
     [shape] 図形を追加
     [chart] グラフを追加
+    [table] 表を追加
    *[text] テキストを追加
 }
 ui-undo-add-widget = 「{ $name }」を追加
@@ -275,6 +277,32 @@ ui-chart-remove-row = 行を削除
 ui-chart-add-row = 行
 ui-chart-add-column = 列
 ui-chart-series = 系列 { $n }
+
+## 表
+
+ui-table-panel = 表
+ui-table-options = 表のオプション
+ui-table-header-row = 見出し行
+ui-table-header-column = 最初の列を見出しにする
+ui-table-striped = 縞模様の行
+ui-table-alignment = 列の配置
+ui-table-align-of = { $name }の配置
+ui-table-align = { $align ->
+    [start] 先頭
+    [center] 中央
+    [end] 末尾
+   *[auto] 自動
+}
+ui-table-column = 列 { $n }
+ui-table-no-data = この表にはデータがありません。
+ui-undo-table-option = 表のオプション
+ui-undo-table-align = 列を揃える
+ui-undo-table-data = 表を編集
+ui-show-as = 表示形式
+ui-show-as-table = 表として表示
+ui-show-as-chart = グラフとして表示
+ui-undo-show-as-table = 表として表示
+ui-undo-show-as-chart = グラフとして表示
 
 ## ファイル
 

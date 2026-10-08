@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形狀
     [chart] 圖表
+    [table] 表格
    *[text] 文字
 }
 ui-add-widget = 範本套件小工具
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] 新增卡片
     [shape] 新增形狀
     [chart] 新增圖表
+    [table] 新增表格
    *[text] 新增文字
 }
 ui-undo-add-widget = 新增「{ $name }」
@@ -275,6 +277,32 @@ ui-chart-remove-row = 刪除列
 ui-chart-add-row = 列
 ui-chart-add-column = 欄
 ui-chart-series = 數列 { $n }
+
+## 表格
+
+ui-table-panel = 表格
+ui-table-options = 表格選項
+ui-table-header-row = 標題列
+ui-table-header-column = 首欄作標題
+ui-table-striped = 斑馬紋列
+ui-table-alignment = 欄對齊
+ui-table-align-of = { $name }的對齊方式
+ui-table-align = { $align ->
+    [start] 起始
+    [center] 置中
+    [end] 末尾
+   *[auto] 自動
+}
+ui-table-column = 欄 { $n }
+ui-table-no-data = 此表格沒有資料。
+ui-undo-table-option = 表格選項
+ui-undo-table-align = 對齊該欄
+ui-undo-table-data = 編輯表格
+ui-show-as = 顯示為
+ui-show-as-table = 顯示為表格
+ui-show-as-chart = 顯示為圖表
+ui-undo-show-as-table = 顯示為表格
+ui-undo-show-as-chart = 顯示為圖表
 
 ## 檔案
 

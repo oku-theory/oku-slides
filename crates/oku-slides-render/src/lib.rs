@@ -24,6 +24,7 @@ mod fonts;
 mod palette;
 mod probe_cache;
 mod registry;
+mod tables;
 mod widget_probe;
 mod wire;
 mod world;

@@ -204,7 +204,7 @@ fn open_deck_with_inline_chart_makes_its_data_editable() {
     let mut s = session(&dir);
     s.open(&file).unwrap();
     let edit = serde_json::json!({ "cmd": "apply", "label": "cellule", "ops": [{
-        "op": "set_chart_data", "target": { "slide": "s", "element": "g" }, "param": "option",
+        "op": "set_data", "target": { "slide": "s", "element": "g" }, "param": "option",
         "change": { "op": "set_cell", "row": 1, "col": 1, "value": 7 } }] });
     request(&mut s, edit).unwrap();
     let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": "s" })).unwrap();

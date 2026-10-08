@@ -47,7 +47,7 @@ fn chart_errors_localize_in_the_user_language() {
     use oku_slides_i18n::{Localize, Localizer};
     let fr = Localizer::new(Some("fr"));
     let dataset = apply_option_patch(&option(), &json!({ "dataset": null })).unwrap_err();
-    assert_that!(dataset.localize(&fr)).contains("utiliser set_chart_data");
+    assert_that!(dataset.localize(&fr)).contains("utiliser set_data");
     let not_object = apply_option_patch(&option(), &json!([1])).unwrap_err();
     assert_that!(not_object.localize(&fr)).is_equal_to("le patch doit être un objet JSON".to_owned());
     assert_that!(not_object.kind()).is_equal_to(crate::ChartErrorKind::InvalidOption);

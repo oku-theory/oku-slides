@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形状
     [chart] 图表
+    [table] 表格
    *[text] 文本
 }
 ui-add-widget = 模板包小组件
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] 添加卡片
     [shape] 添加形状
     [chart] 添加图表
+    [table] 添加表格
    *[text] 添加文本
 }
 ui-undo-add-widget = 添加“{ $name }”
@@ -275,6 +277,32 @@ ui-chart-remove-row = 删除行
 ui-chart-add-row = 行
 ui-chart-add-column = 列
 ui-chart-series = 系列 { $n }
+
+## 表格
+
+ui-table-panel = 表格
+ui-table-options = 表格选项
+ui-table-header-row = 标题行
+ui-table-header-column = 首列作标题
+ui-table-striped = 斑马纹行
+ui-table-alignment = 列对齐
+ui-table-align-of = { $name }的对齐方式
+ui-table-align = { $align ->
+    [start] 起始
+    [center] 居中
+    [end] 末尾
+   *[auto] 自动
+}
+ui-table-column = 列 { $n }
+ui-table-no-data = 此表格没有数据。
+ui-undo-table-option = 表格选项
+ui-undo-table-align = 对齐该列
+ui-undo-table-data = 编辑表格
+ui-show-as = 显示为
+ui-show-as-table = 显示为表格
+ui-show-as-chart = 显示为图表
+ui-undo-show-as-table = 显示为表格
+ui-undo-show-as-chart = 显示为图表
 
 ## 文件
 

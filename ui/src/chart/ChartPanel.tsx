@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { Icon, stroke } from "../icons";
+import { ShowAsButton, type View } from "../table/ShowAsButton";
 import { ChartDataGrid } from "./ChartDataGrid";
 import { CHART_KINDS, type ChartKind, chartKind, chartSource, checkboxColumns, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
 import { SeriesColors } from "./SeriesColors";
@@ -22,7 +23,7 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
   waterfall: stroke(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
 };
 
-export function ChartPanel({ slide, element, palette, onApply, onKind }: {
+export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs }: {
   slide: string;
   element: Element;
   /** Palette des graphiques du thème (apparence). */
@@ -30,6 +31,8 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
   onApply: (label: string, ops: Op[]) => void;
   /** Change le type : le cœur convertit les données (requête `chart_kind`). */
   onKind: (kind: ChartKind) => void;
+  /** Affiche le graphique en tableau (requête `show_as`). */
+  onShowAs: (view: View) => void;
 }) {
   const source = chartSource(element);
   const current = chartKind(element);
@@ -50,8 +53,9 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
           </button>
         ))}
       </div>
+      <ShowAsButton view="table" onShowAs={onShowAs} disabled={!source} />
       {stackable(element) && (
-        <div className="chart-options" role="group" aria-label={t("ui-chart-options")}>
+        <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
           <button aria-label={t("ui-chart-stack")} title={t("ui-chart-stack")} aria-pressed={stacked} className={stacked ? "on" : ""} onClick={toggleStack}>
             {Icon.stack}
           </button>
@@ -69,7 +73,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind }: {
         <ChartDataGrid
           source={source}
           checkboxColumns={checkboxColumns(element)}
-          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_chart_data", target: { slide, element: element.id }, param: "option", change }])}
+          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_data", target: { slide, element: element.id }, param: "option", change }])}
         />
       ) : (
         <p className="a2ui-hint">{t("ui-chart-no-data")}</p>

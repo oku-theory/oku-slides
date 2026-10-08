@@ -887,6 +887,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
             folded={paramsHidden}
             lead={host.surface?.id === HOST_TEMPLATE ? { surface: host.surface, outcome: host.outcome } : undefined}
             onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+            onShowAs={(v) => view && selectedElement && run(api.showAs(t(v === "table" ? "ui-undo-show-as-table" : "ui-undo-show-as-chart"), view.slide.id, selectedElement.id, v))}
           />
         )}
         </div>

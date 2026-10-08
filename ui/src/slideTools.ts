@@ -3,7 +3,7 @@
 import type { AddWidget } from "./api";
 
 /** Éléments qu'on ajoute depuis la barre d'outils, dans l'ordre des boutons. */
-export const ADD_KINDS = ["text", "card", "shape", "chart"] as const;
+export const ADD_KINDS = ["text", "card", "shape", "chart", "table"] as const;
 export type AddKind = (typeof ADD_KINDS)[number];
 
 /** Widgets du pack du menu « Widget » : sans ceux qui ont déjà leur bouton. */

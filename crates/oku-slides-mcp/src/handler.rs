@@ -54,6 +54,7 @@ impl Tools {
             "settings" => self.settings().await,
             "apply" => self.apply(args).await,
             "chart_kind" => self.chart_kind(args).await,
+            "show_as" => self.show_as(args).await,
             "edit_templates" => self.edit_templates(args).await,
             "close_templates" => self.close_templates().await,
             "widget_sources" => self.widget_sources().await,

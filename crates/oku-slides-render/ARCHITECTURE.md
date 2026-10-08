@@ -38,6 +38,8 @@ le même document compilé donne SVG, PNG et PDF.
 - `charts` (privé) : élément à `host("chart")` → SVG rendu par `oku-slides-chart`, servi sous
   `/charts/<empreinte>.svg` ; l'empreinte couvre options, taille, police, palette, libellés.
   Dessiné à la taille de sa boîte (relevée à la compilation hors cadre), jamais mis à l'échelle.
+- `tables` (privé, `tables.rs`) : passe de garde avant Typst (forme canonique, ou `null` si invalide) ;
+  le dessin est fait par Typst (`widgets.typ`), sans passe de dessin Rust.
 - `diagnostic` : messages Typst localisés ; `palette` : couleurs nommées, palette des graphiques.
 
 ## Points d'extension

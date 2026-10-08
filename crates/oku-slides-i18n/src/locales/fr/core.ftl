@@ -59,6 +59,7 @@ issue-unreadable-item = item de liste illisible, mis de côté
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé
 op-invalid-chart = Graphique { $subject } : { $reason }
+op-invalid-table = Tableau { $subject } : { $reason }
 
 replica-corrupted = L'historique de la présentation dans ce fichier est abîmé
 replica-too-large = L'historique de la présentation dans ce fichier est trop volumineux pour être ouvert

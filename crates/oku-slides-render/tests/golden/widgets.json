@@ -121,6 +121,35 @@
                 ]
               }
             }
+          },
+          {
+            "id": "tb1",
+            "kind": "table",
+            "params": {
+              "data": {
+                "dataset": {
+                  "source": [
+                    [
+                      "Mois",
+                      "Ventes",
+                      "Marge"
+                    ],
+                    [
+                      "Jan",
+                      3,
+                      0.2
+                    ],
+                    [
+                      "Fév",
+                      5,
+                      0.25
+                    ]
+                  ]
+                },
+                "header-column": true,
+                "striped": true
+              }
+            }
           }
         ]
       }

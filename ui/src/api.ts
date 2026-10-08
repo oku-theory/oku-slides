@@ -5,6 +5,7 @@
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Cell, ZoneView } from "./grid";
 import { t } from "./i18n";
+import type { View } from "./table/ShowAsButton";
 
 export type SlideKind = string;
 
@@ -521,6 +522,7 @@ type Request =
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
+  | { cmd: "show_as"; label: string; slide: string; element: string; view: View }
   | { cmd: "host_settings"; slide: string; widget: string | null }
   | { cmd: "host_param"; slide: string; key: string; value: unknown }
   | { cmd: "set_example_value"; name: string; param: string; value: unknown }
@@ -671,6 +673,8 @@ export function tabApi(tab: string) {
     snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
     chartKind: (label: string, slide: string, element: string, kind: string) =>
       call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
+    showAs: (label: string, slide: string, element: string, view: View) =>
+      call<Snapshot>({ cmd: "show_as", label, slide, element, view }),
     save: (path: string | null, overwrite = false) => call<Snapshot>({ cmd: "save", path, overwrite }),
     /** Fusionne un autre PDF du même deck ; l'avis de fusion arrive par `notice`. */
     merge: (path: string) => call<Snapshot>({ cmd: "merge", path }),

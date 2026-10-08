@@ -59,6 +59,7 @@ issue-unreadable-item = item de lista ilegível, deixado de lado
 issue-unreadable-slide = slide ilegível, deixado de lado
 issue-unreadable-field = campo { $field } do deck ilegível, redefinido
 op-invalid-chart = Gráfico { $subject }: { $reason }
+op-invalid-table = Tabela { $subject }: { $reason }
 
 replica-corrupted = O histórico da apresentação neste arquivo está danificado
 replica-too-large = O histórico da apresentação neste arquivo é grande demais para ser aberto

@@ -31,3 +31,6 @@ tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { o
 .swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.15); padding: 0; flex: none; }
 button.swatch { cursor: pointer; }
 .swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.table-align { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: var(--space-2); }
+.table-align label { display: grid; gap: var(--space-1); font-size: 12px; }

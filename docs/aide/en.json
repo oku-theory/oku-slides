@@ -143,7 +143,19 @@
            "bold": true
           },
           {
-           "t": ": adds a text, card, shape, chart or pack widget; undo, redo."
+           "t": ": adds a text, card, shape, chart, table or pack widget; undo, redo."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Table",
+           "bold": true
+          },
+          {
+           "t": ": a data table edited in its panel with the same grid as charts. Toggle the header row, the first column as header and striped rows; align each column (automatic puts numbers at the end). A table larger than its box shrinks to fit. “Show as a chart” and “Show as a table” switch between the two, keeping the data, in one undo step."
           }
          ],
          "list": "bullet"
@@ -1569,11 +1581,11 @@
         {
          "runs": [
           {
-           "t": "13 base widgets",
+           "t": "14 base widgets",
            "bold": true
           },
           {
-           "t": " : text, card, image, shape, chart, stack, canvas, title, toc, chapter, content, end, blank."
+           "t": " : text, card, image, shape, chart, table, stack, canvas, title, toc, chapter, content, end, blank."
           }
          ],
          "list": "bullet"
@@ -1848,7 +1860,7 @@
            "highlight": 1
           },
           {
-           "t": "  Host-provided type (chart)"
+           "t": "  Host-provided type (chart, table)"
           }
          ]
         }

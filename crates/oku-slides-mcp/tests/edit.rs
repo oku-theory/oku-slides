@@ -50,9 +50,17 @@ async fn apply_schema_accepts_every_op_kind_in_tool_list() {
     let tools = c.request_tool_list(None).await.unwrap().tools;
     let apply = tools.into_iter().find(|t| t.name == "apply").unwrap();
     let schema = serde_json::to_string(&apply.input_schema).unwrap();
-    for op in ["set_param", "set_chart_option", "add_slide", "set_theme"] {
+    for op in ["set_param", "set_chart_option", "set_data", "set_table_option", "add_slide", "set_theme"] {
         assert_that!(schema.contains(op)).named(op).is_true();
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tool_list_has_show_as() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let tools = c.request_tool_list(None).await.unwrap().tools;
+    assert_that!(tools.iter().any(|t| t.name == "show_as")).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]

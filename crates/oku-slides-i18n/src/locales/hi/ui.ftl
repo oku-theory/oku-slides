@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] कार्ड
     [shape] आकृति
     [chart] चार्ट
+    [table] तालिका
    *[text] टेक्स्ट
 }
 ui-add-widget = पैक विजेट
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] कार्ड जोड़ें
     [shape] आकृति जोड़ें
     [chart] चार्ट जोड़ें
+    [table] तालिका जोड़ें
    *[text] टेक्स्ट जोड़ें
 }
 ui-undo-add-widget = “{ $name }” जोड़ें
@@ -275,6 +277,32 @@ ui-chart-remove-row = पंक्ति हटाएँ
 ui-chart-add-row = पंक्ति
 ui-chart-add-column = कॉलम
 ui-chart-series = सीरीज़ { $n }
+
+## तालिका
+
+ui-table-panel = तालिका
+ui-table-options = तालिका के विकल्प
+ui-table-header-row = शीर्ष पंक्ति
+ui-table-header-column = पहला स्तंभ शीर्षक के रूप में
+ui-table-striped = धारीदार पंक्तियाँ
+ui-table-alignment = स्तंभों का संरेखण
+ui-table-align-of = { $name } का संरेखण
+ui-table-align = { $align ->
+    [start] आरंभ
+    [center] केंद्र
+    [end] अंत
+   *[auto] स्वचालित
+}
+ui-table-column = स्तंभ { $n }
+ui-table-no-data = इस तालिका में कोई डेटा नहीं है।
+ui-undo-table-option = तालिका के विकल्प
+ui-undo-table-align = स्तंभ संरेखित करें
+ui-undo-table-data = तालिका संपादित करें
+ui-show-as = इस रूप में दिखाएँ
+ui-show-as-table = तालिका के रूप में दिखाएँ
+ui-show-as-chart = चार्ट के रूप में दिखाएँ
+ui-undo-show-as-table = तालिका के रूप में दिखाएँ
+ui-undo-show-as-chart = चार्ट के रूप में दिखाएँ
 
 ## फ़ाइलें
 

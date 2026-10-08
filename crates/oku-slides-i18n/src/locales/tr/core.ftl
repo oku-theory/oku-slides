@@ -53,6 +53,7 @@ issue-unreadable-item = okunamayan liste maddesi, bir kenara ayrıldı
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 op-invalid-chart = { $subject } grafiği: { $reason }
+op-invalid-table = { $subject } tablosu: { $reason }
 
 replica-corrupted = Bu dosyadaki sunum geçmişi bozuk
 replica-too-large = Bu dosyadaki sunum geçmişi açılamayacak kadar büyük

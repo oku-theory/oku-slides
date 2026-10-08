@@ -3,6 +3,7 @@
 import type { Element } from "./api";
 import { starterChart } from "./chart/chartDeck";
 import { t } from "./i18n";
+import { starterTable } from "./table/tableDeck";
 import type { AddKind } from "./slideTools";
 
 /** Élément neuf pour la barre d'outils (`id` fourni par l'appelant), avec son contenu de départ. */
@@ -16,6 +17,8 @@ export function newElement(kind: AddKind, id: string): Element {
       return { id, kind: "shape", style: { fill: "surface", radius: "md" } };
     case "chart":
       return { id, kind: "chart", params: { option: starterChart() } };
+    case "table":
+      return { id, kind: "table", params: { data: starterTable() } };
   }
 }
 

@@ -2,7 +2,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::data_ops::ChartDataOp;
+use crate::data_ops::DataOp;
 
 fn opt(v: serde_json::Value) -> ChartOption {
     serde_json::from_value(v).unwrap()
@@ -76,7 +76,7 @@ fn normalize_renamed_column_renames_the_series() {
         ChartLabels::english(),
     )
     .unwrap();
-    ChartDataOp::SetCell { row: 0, col: 1, value: Cell::Text("CA".into()) }.apply(o.dataset.as_mut().unwrap()).unwrap();
+    DataOp::SetCell { row: 0, col: 1, value: Cell::Text("CA".into()) }.apply(o.dataset.as_mut().unwrap()).unwrap();
     let ChartKind::Cartesian(c) = normalize(&o, ChartLabels::english()).unwrap().kind else { panic!() };
     assert_that!(c.series[0].name.as_str()).is_equal_to("CA");
 }
@@ -88,7 +88,7 @@ fn sync_series_with_columns_added_column_adds_a_series() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "line" }]
     }));
-    ChartDataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Objectif".into()), Cell::Number(12.0)] }
+    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Objectif".into()), Cell::Number(12.0)] }
         .apply(o.dataset.as_mut().unwrap())
         .unwrap();
     sync_series_with_columns(&mut o);
@@ -119,7 +119,7 @@ fn sync_series_with_columns_added_column_joins_the_stack() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar", "stack": "total" }]
     }));
-    ChartDataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)] }
+    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)] }
         .apply(o.dataset.as_mut().unwrap())
         .unwrap();
     sync_series_with_columns(&mut o);

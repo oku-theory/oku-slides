@@ -127,6 +127,13 @@ describe("useTargetSettings", () => {
     expect(asked).toEqual([["s-ch1", "fr"]]);
   });
 
+  test("useTargetSettings table selected sends no request", async () => {
+    const { fake, asked } = asking();
+    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "t1", kind: "table" });
+    expect(m.out.h!.surface).toBeNull();
+    expect(asked).toEqual([]);
+  });
+
   test("useTargetSettings same snapshot does not reread", async () => {
     const { fake, asked } = asking();
     const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "fr" });

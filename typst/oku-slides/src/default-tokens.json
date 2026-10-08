@@ -225,6 +225,17 @@
     },
     "columns": {
       "gap": "xl"
+    },
+    "table": {
+      "size": "small",
+      "header-bg": "accent",
+      "header-color": "on-accent",
+      "header-weight": "strong",
+      "stripe-bg": "surface",
+      "rule-color": "rule",
+      "rule-width": "hairline",
+      "padding-x": "sm",
+      "padding-y": "xs"
     }
   }
 }

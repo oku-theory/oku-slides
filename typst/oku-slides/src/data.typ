@@ -150,8 +150,8 @@
   if "id" not in e { return block(width: w, height: h, el) }
   // Boîte de l'élément pour l'app : page, position et taille réelles.
   let sized = block(width: w, height: h, layout(sz => {
-    // Un graphique s'adapte à la hauteur disponible : il se mesure dans celle-ci.
-    let real-h = if fixed { sz.height } else if kind == "chart" and sz.height < float.inf * 1pt {
+    // Un graphique ou un tableau s'adapte à la hauteur disponible : il se mesure dans celle-ci.
+    let real-h = if fixed { sz.height } else if kind in ("chart", "table") and sz.height < float.inf * 1pt {
       measure(block(width: sz.width, el), height: sz.height).height
     } else { measure(block(width: sz.width, el)).height }
     context {

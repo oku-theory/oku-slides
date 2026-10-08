@@ -67,6 +67,7 @@ issue-unreadable-item = بند قائمة غير مقروء، نُحّي جان�
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
 op-invalid-chart = المخطط { $subject }: { $reason }
+op-invalid-table = الجدول { $subject }: { $reason }
 
 replica-corrupted = سجل العرض التقديمي في هذا الملف تالف
 replica-too-large = سجل العرض التقديمي في هذا الملف أكبر من أن يُفتح

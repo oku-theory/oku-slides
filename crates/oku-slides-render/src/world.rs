@@ -233,6 +233,7 @@ impl OkuSlidesWorld {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
         let mut json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
+        crate::tables::sanitize(&mut json, registry);
         self.charts.attach(&mut json, &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);
 

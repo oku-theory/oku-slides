@@ -21,6 +21,14 @@ pub(crate) struct ApplyArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct ShowAsArgs {
+    pub slide: String,
+    pub element: String,
+    /// `table` ou `chart` ; les données sont gardées.
+    pub view: oku_slides_session::View,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ChartKindArgs {
     pub slide: String,
     pub element: String,
@@ -70,6 +78,15 @@ impl Tools {
         };
         let label = self.localizer.tr("agent-undo-apply");
         self.change(Request::ChartKind { label, slide, element, kind }).await
+    }
+
+    pub(crate) async fn show_as(&self, args: Value) -> CallToolResult {
+        let ShowAsArgs { slide, element, view } = match parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let label = self.localizer.tr("agent-undo-apply");
+        self.change(Request::ShowAs { label, slide, element, view }).await
     }
 
     pub(crate) async fn edit_templates(&self, args: Value) -> CallToolResult {

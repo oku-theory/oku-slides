@@ -53,6 +53,7 @@ issue-unreadable-item = अपठनीय सूची आइटम, अलग 
 issue-unreadable-slide = अपठनीय स्लाइड, अलग रखी गई
 issue-unreadable-field = प्रस्तुति का अपठनीय फ़ील्ड { $field }, रीसेट किया गया
 op-invalid-chart = चार्ट { $subject }: { $reason }
+op-invalid-table = तालिका { $subject }: { $reason }
 
 replica-corrupted = इस फ़ाइल में प्रस्तुति का इतिहास क्षतिग्रस्त है
 replica-too-large = इस फ़ाइल में प्रस्तुति का इतिहास खोलने के लिए बहुत बड़ा है

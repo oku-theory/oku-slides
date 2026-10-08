@@ -4,6 +4,7 @@
 // sélection courante.
 
 import type { Snapshot, TabApi } from "./api";
+import { hasOwnPanel } from "./ownPanel";
 import { type HostSettings, routeListChange, useSessionSurface } from "./useHostSettings";
 
 /** Surface des paramètres de la cible. */
@@ -20,7 +21,7 @@ export interface TargetElement {
 /**
  * Réglages de la cible, relus quand la slide, l'élément, le rendu, le pack ou l'annulation
  * changent. `element` : l'élément sélectionné résolu dans la vue (`null` : aucun). Un
- * graphique sélectionné ne demande rien : la carte montre son propre panneau.
+ * graphique ou un tableau sélectionné ne demande rien : la carte montre son propre panneau.
  */
 export function useTargetSettings(
   api: TabApi,
@@ -35,7 +36,7 @@ export function useTargetSettings(
   const id = element?.id ?? null;
   return useSessionSurface({
     ids: IDS,
-    active: !!current && !!snap && !snap.read_only && !snap.history && !widgetActive && element?.kind !== "chart",
+    active: !!current && !!snap && !snap.read_only && !snap.history && !widgetActive && !hasOwnPanel(element?.kind),
     scope: { slide: current ?? "", element: id },
     // Deux réglages de suite du même champ gardent le même libellé d'annulation : si le rendu
     // (`hash`) ne change pas, la surface n'est pas relue, ce qui est voulu — le champ garde sa

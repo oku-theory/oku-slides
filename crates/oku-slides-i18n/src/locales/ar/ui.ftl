@@ -71,6 +71,7 @@ ui-add-kind = { $kind ->
     [card] بطاقة
     [shape] شكل
     [chart] مخطط
+    [table] جدول
    *[text] نص
 }
 ui-add-widget = أداة الحزمة
@@ -84,6 +85,7 @@ ui-undo-add = { $kind ->
     [card] إضافة بطاقة
     [shape] إضافة شكل
     [chart] إضافة مخطط
+    [table] إضافة جدول
    *[text] إضافة نص
 }
 ui-undo-add-widget = إضافة «{ $name }»
@@ -283,6 +285,32 @@ ui-chart-remove-row = حذف الصف
 ui-chart-add-row = صف
 ui-chart-add-column = عمود
 ui-chart-series = السلسلة { $n }
+
+## جدول
+
+ui-table-panel = جدول
+ui-table-options = خيارات الجدول
+ui-table-header-row = صف العنوان
+ui-table-header-column = العمود الأول كعنوان
+ui-table-striped = صفوف مخططة
+ui-table-alignment = محاذاة الأعمدة
+ui-table-align-of = محاذاة { $name }
+ui-table-align = { $align ->
+    [start] البداية
+    [center] المنتصف
+    [end] النهاية
+   *[auto] تلقائي
+}
+ui-table-column = العمود { $n }
+ui-table-no-data = لا توجد بيانات في هذا الجدول.
+ui-undo-table-option = خيارات الجدول
+ui-undo-table-align = محاذاة العمود
+ui-undo-table-data = تعديل الجدول
+ui-show-as = عرض على شكل
+ui-show-as-table = عرض على شكل جدول
+ui-show-as-chart = عرض على شكل رسم بياني
+ui-undo-show-as-table = عرض على شكل جدول
+ui-undo-show-as-chart = عرض على شكل رسم بياني
 
 ## الملفات
 

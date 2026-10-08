@@ -144,6 +144,7 @@ fn history_mode_refuses_edits_saves_merges_and_templates() {
         json!({ "cmd": "save", "path": null }),
         json!({ "cmd": "merge", "path": "/nulle/part.oku-slides.pdf" }),
         json!({ "cmd": "chart_kind", "label": "x", "slide": "s", "element": "e", "kind": "bar" }),
+        json!({ "cmd": "show_as", "label": "x", "slide": "s", "element": "e", "view": "table" }),
         json!({ "cmd": "edit_templates", "set": uuid::Uuid::new_v4() }),
         json!({ "cmd": "save_templates" }),
         json!({ "cmd": "close_templates" }),

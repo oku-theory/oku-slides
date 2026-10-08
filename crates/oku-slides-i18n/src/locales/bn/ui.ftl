@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] কার্ড
     [shape] আকৃতি
     [chart] চার্ট
+    [table] টেবিল
    *[text] টেক্সট
 }
 ui-add-widget = প্যাক উইজেট
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] কার্ড যোগ করুন
     [shape] আকৃতি যোগ করুন
     [chart] চার্ট যোগ করুন
+    [table] টেবিল যোগ করুন
    *[text] টেক্সট যোগ করুন
 }
 ui-undo-add-widget = “{ $name }” যোগ করুন
@@ -275,6 +277,32 @@ ui-chart-remove-row = সারি মুছুন
 ui-chart-add-row = সারি
 ui-chart-add-column = কলাম
 ui-chart-series = সিরিজ { $n }
+
+## টেবিল
+
+ui-table-panel = টেবিল
+ui-table-options = টেবিলের বিকল্প
+ui-table-header-row = শিরোনাম সারি
+ui-table-header-column = প্রথম কলাম শিরোনাম হিসেবে
+ui-table-striped = ডোরাকাটা সারি
+ui-table-alignment = কলামের বিন্যাস
+ui-table-align-of = { $name }-এর বিন্যাস
+ui-table-align = { $align ->
+    [start] শুরু
+    [center] মাঝ
+    [end] শেষ
+   *[auto] স্বয়ংক্রিয়
+}
+ui-table-column = কলাম { $n }
+ui-table-no-data = এই টেবিলে কোনো ডেটা নেই।
+ui-undo-table-option = টেবিলের বিকল্প
+ui-undo-table-align = কলাম সারিবদ্ধ করুন
+ui-undo-table-data = টেবিল সম্পাদনা করুন
+ui-show-as = এভাবে দেখান
+ui-show-as-table = টেবিল হিসেবে দেখান
+ui-show-as-chart = চার্ট হিসেবে দেখান
+ui-undo-show-as-table = টেবিল হিসেবে দেখান
+ui-undo-show-as-chart = চার্ট হিসেবে দেখান
 
 ## ফাইল
 

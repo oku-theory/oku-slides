@@ -63,6 +63,7 @@ ui-add-kind = { $kind ->
     [card] Kaart
     [shape] Vorm
     [chart] Grafiek
+    [table] Tabel
    *[text] Tekst
 }
 ui-add-widget = Pakketwidget
@@ -76,6 +77,7 @@ ui-undo-add = { $kind ->
     [card] Kaart toevoegen
     [shape] Vorm toevoegen
     [chart] Grafiek toevoegen
+    [table] Een tabel toevoegen
    *[text] Tekst toevoegen
 }
 ui-undo-add-widget = “{ $name }” toevoegen
@@ -275,6 +277,32 @@ ui-chart-remove-row = Rij verwijderen
 ui-chart-add-row = Rij
 ui-chart-add-column = Kolom
 ui-chart-series = Reeks { $n }
+
+## Tabel
+
+ui-table-panel = Tabel
+ui-table-options = Tabelopties
+ui-table-header-row = Koprij
+ui-table-header-column = Eerste kolom als kop
+ui-table-striped = Gestreepte rijen
+ui-table-alignment = Kolomuitlijning
+ui-table-align-of = Uitlijning van { $name }
+ui-table-align = { $align ->
+    [start] Begin
+    [center] Gecentreerd
+    [end] Einde
+   *[auto] Automatisch
+}
+ui-table-column = Kolom { $n }
+ui-table-no-data = Deze tabel bevat geen gegevens.
+ui-undo-table-option = Tabelopties
+ui-undo-table-align = De kolom uitlijnen
+ui-undo-table-data = De tabel bewerken
+ui-show-as = Weergeven als
+ui-show-as-table = Weergeven als tabel
+ui-show-as-chart = Weergeven als grafiek
+ui-undo-show-as-table = Weergeven als tabel
+ui-undo-show-as-chart = Weergeven als grafiek
 
 ## Bestanden
 

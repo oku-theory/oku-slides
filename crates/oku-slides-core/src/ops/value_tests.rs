@@ -20,6 +20,10 @@ fn chart() -> ParamType {
     ParamType::Host { host: HostType::Chart }
 }
 
+fn table_ty() -> ParamType {
+    ParamType::Host { host: HostType::Table }
+}
+
 fn slot() -> ParamType {
     ParamType::Slot { mode: SlotMode::Flow, accepts: None }
 }
@@ -73,6 +77,8 @@ fn param_value_chart_option_returns_its_json() {
 #[case::chart_null(chart(), json!(null), OpErrorKind::ParamType)]
 #[case::chart_inconsistent(chart(), json!({ "series": [] }), OpErrorKind::InvalidChart)]
 #[case::chart_unreadable(chart(), json!({ "series": 3 }), OpErrorKind::InvalidChart)]
+#[case::table_ragged(table_ty(), json!({ "dataset": { "source": [["A", "B"], [1]] } }), OpErrorKind::InvalidTable)]
+#[case::table_not_object(table_ty(), json!("x"), OpErrorKind::ParamType)]
 #[case::slot(slot(), json!([]), OpErrorKind::ParamType)]
 fn param_value_refused_returns_error(#[case] ty: ParamType, #[case] value: Value, #[case] kind: OpErrorKind) {
     let err = param_value(&ty, "p", value).unwrap_err();

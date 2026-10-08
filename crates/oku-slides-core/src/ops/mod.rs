@@ -8,6 +8,7 @@
 
 mod check;
 mod grid;
+mod host;
 mod list;
 mod value;
 
@@ -19,12 +20,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{IntoError, OptionExt, ResultExt};
 
-use oku_slides_chart::{ChartDataOp, ChartOption, apply_option_patch, sync_series_with_columns};
+use oku_slides_chart::DataOp;
 
 use crate::error::{
-    ChartSnafu, DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, OpError,
-    ParamTypeSnafu, ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu,
-    UnknownWidgetSnafu, WrongCategorySnafu,
+    DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu,
+    ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu, UnknownWidgetSnafu,
+    WrongCategorySnafu,
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
@@ -33,6 +34,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
+pub(crate) use host::host_option;
 pub(crate) use list::{DefaultFault, default_fault};
 pub use list::{
     ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
@@ -148,11 +150,21 @@ pub enum Op {
         param: String,
         patch: Value,
     },
-    /// Modifie les données d'un graphique (`dataset.source`, ligne 0 = en-têtes).
-    SetChartData {
+    /// Modifie les options d'affichage d'un tableau (paramètre `host(table)`).
+    ///
+    /// JSON Merge Patch sur `header-row`, `header-column`, `striped`, `align` ; jamais `dataset`.
+    SetTableOption {
         target: Target,
         param: String,
-        change: ChartDataOp,
+        patch: Value,
+    },
+    /// Modifie les données d'un graphique ou d'un tableau.
+    ///
+    /// `dataset.source`, ligne 0 = noms de colonnes ; `param` est de type `host`.
+    SetData {
+        target: Target,
+        param: String,
+        change: DataOp,
     },
     /// Modifie une liste (`list`) : items adressés par leur id. Remplacer
     /// toute la liste : `set_param`.
@@ -337,10 +349,6 @@ fn declared<'r>(schema: &'r WidgetSchema, param: &str) -> Result<&'r ParamSchema
     Ok(schema.param(param).context(UnknownParamSnafu { widget: &schema.name, param })?)
 }
 
-fn is_chart(ty: &ParamType) -> bool {
-    matches!(ty, ParamType::Host { host: HostType::Chart })
-}
-
 /// Un slot `flow` de `schema` a-t-il des éléments ? Une grille les cacherait.
 fn has_filled_flow_slot(schema: &WidgetSchema, params: &Params) -> bool {
     schema.params.iter().any(|p| {
@@ -397,65 +405,6 @@ fn check_depth(owner_slots: usize, e: &Element) -> Result<(), OpError> {
         return Err(InvalidValueSnafu { field: "element", reason: TOO_DEEP }.build().into());
     }
     Ok(())
-}
-
-/// Refuse des paramètres `host(chart)` incohérents (`subject` : qui les porte).
-fn check_chart_params(registry: &WidgetRegistry, kind: &str, params: &Params, subject: &str) -> Result<(), OpError> {
-    let Some(schema) = registry.get(kind) else { return Ok(()) };
-    for p in schema.params.iter().filter(|p| is_chart(&p.ty)) {
-        match params.get(&p.name) {
-            None => {}
-            Some(ParamValue::Value(v)) => {
-                value::chart_option(subject, v)?;
-            }
-            Some(_) => return Err(ParamTypeSnafu { param: &p.name, expected: "a chart option" }.build().into()),
-        }
-    }
-    Ok(())
-}
-
-/// Refuse un élément (ou un de ses enfants) dont un graphique est incohérent.
-fn check_charts(registry: &WidgetRegistry, element: &Element) -> Result<(), OpError> {
-    let nested = Walk::over(&element.params, Some(&element.id)).map(|l| l.element);
-    for e in std::iter::once(element).chain(nested) {
-        check_chart_params(registry, &e.kind, &e.params, &e.id)?;
-    }
-    Ok(())
-}
-
-// ---- Graphiques ----------------------------------------------------------------------
-
-/// Contrôle que `param` du widget `kind` est un graphique.
-fn chart_param(registry: &WidgetRegistry, kind: &str, param: &str) -> Result<(), OpError> {
-    let p = declared(widget(registry, kind)?, param)?;
-    if !is_chart(&p.ty) {
-        return Err(ParamTypeSnafu { param, expected: "a chart option" }.build().into());
-    }
-    Ok(())
-}
-
-fn read_chart(params: &Params, param: &str) -> Result<ChartOption, OpError> {
-    match params.get(param) {
-        Some(ParamValue::Value(v)) => typed(param, v.clone()),
-        None => Err(InvalidValueSnafu { field: param, reason: "the chart has no option" }.build().into()),
-        Some(_) => Err(ParamTypeSnafu { param, expected: "a chart option" }.build().into()),
-    }
-}
-
-fn write_chart(params: &mut Params, param: &str, option: &ChartOption) -> Result<(), OpError> {
-    let v = serde_json::to_value(option).context(ParseValueSnafu { field: param })?;
-    params.set(param, ParamValue::Value(v));
-    Ok(())
-}
-
-/// `set_chart_data` sur les options `option`, rendues modifiées.
-fn chart_data(mut option: ChartOption, change: ChartDataOp, subject: &str) -> Result<ChartOption, OpError> {
-    let dataset =
-        option.dataset.as_mut().context(InvalidValueSnafu { field: "dataset", reason: "the chart has no dataset" })?;
-    change.apply(dataset).context(ChartSnafu { subject })?;
-    sync_series_with_columns(&mut option);
-    oku_slides_chart::normalize(&option, oku_slides_chart::ChartLabels::english()).context(ChartSnafu { subject })?;
-    Ok(option)
 }
 
 // ---- Chemins JSON (jetons) ------------------------------------------------------
@@ -554,17 +503,17 @@ impl Op {
             Op::SetChartOption { target, param, patch } => {
                 let subject = target.element.as_deref().unwrap_or(&target.slide);
                 let (kind, params) = target_mut(deck, &target)?;
-                chart_param(registry, kind, &param)?;
-                let option = read_chart(params, &param)?;
-                let (next, _) = apply_option_patch(&option, &patch).context(ChartSnafu { subject })?;
-                write_chart(params, &param, &next)
+                host::set_option(widget(registry, kind)?, params, &param, HostType::Chart, &patch, subject)
             }
-            Op::SetChartData { target, param, change } => {
+            Op::SetTableOption { target, param, patch } => {
                 let subject = target.element.as_deref().unwrap_or(&target.slide);
                 let (kind, params) = target_mut(deck, &target)?;
-                chart_param(registry, kind, &param)?;
-                let next = chart_data(read_chart(params, &param)?, change, subject)?;
-                write_chart(params, &param, &next)
+                host::set_option(widget(registry, kind)?, params, &param, HostType::Table, &patch, subject)
+            }
+            Op::SetData { target, param, change } => {
+                let subject = target.element.as_deref().unwrap_or(&target.slide);
+                let (kind, params) = target_mut(deck, &target)?;
+                host::set_data(registry, kind, params, &param, &change, subject)
             }
             Op::EditList { target, param, change } => list::edit_list(deck, registry, &target, &param, change),
             Op::SetStyle { slide, element, style } => {
@@ -609,7 +558,7 @@ impl Op {
             }
             Op::SetGrid { slide, columns, rows } => grid::set_grid(deck, registry, &slide, columns, rows),
             Op::ReplaceElement { slide, element } => {
-                check_charts(registry, &element)?;
+                host::check_hosts(registry, &element)?;
                 {
                     let s = slide_ref(deck, &slide)?;
                     let previous = located(s, &element.id)?;
@@ -645,12 +594,12 @@ impl Op {
                 if deck.slide(&slide.id).is_some() {
                     return Err(DuplicateIdSnafu { id: slide.id }.build().into());
                 }
-                check_chart_params(registry, &slide.kind, &slide.params, &slide.id)?;
+                host::check_host_params(registry, &slide.kind, &slide.params, &slide.id)?;
                 let mut taken = HashSet::new();
                 for (_, list) in slide.params.slots() {
                     for e in list {
                         check_depth(0, e)?;
-                        check_charts(registry, e)?;
+                        host::check_hosts(registry, e)?;
                         if let Some(dup) = subtree_ids(e).find(|id| !taken.insert(*id)) {
                             return Err(DuplicateIdSnafu { id: dup }.build().into());
                         }
@@ -798,7 +747,7 @@ fn add_element(
         };
         check_accepts(accepts.as_deref(), &param, &element.kind)?;
         widget_of(registry, &element.kind, Category::Element)?;
-        check_charts(registry, &element)?;
+        host::check_hosts(registry, &element)?;
         check_ids(s.element_ids().collect(), &element)?;
         check_depth(owner_slots, &element)?;
         check_params(registry, &element.kind, Category::Element, &element.params)?;

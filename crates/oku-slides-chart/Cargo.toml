@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-chart"
-description = "Graphiques : sous-ensemble des options ECharts, rendu SVG par charts-rs, opérations sur les données."
+description = "Graphiques et tableaux : sous-ensemble des options ECharts, rendu SVG par charts-rs, modèle des tableaux, opérations sur les données."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

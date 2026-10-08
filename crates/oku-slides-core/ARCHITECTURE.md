@@ -14,7 +14,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
 - `Op` + `apply_all` (`ops/mod.rs`) : opérations d'édition, appliquées atomiquement sur un
   `Deck` cloné avec le `WidgetRegistry` du deck (erreur → rien n'a bougé) ; tout sous-arbre
   inséré est typé contre le registre (`ops/check.rs`). `ops/list.rs` : `ListOp` (`edit_list`, items par id ; `ParamType::List`, conteneur `{list}`). `ops/grid.rs` : `set_grid`, sur la
-  grille résolue (`Slide::resolved_grid`).
+  grille résolue (`Slide::resolved_grid`). `ops/host.rs` : paramètres `host(chart|table)` (contrôle à l'insertion, `set_chart_option`, `set_table_option`, `set_data`).
 - `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, historique complet et identité
   (`deck_uid`). `apply(&Deck, label)` diffuse un `Deck` modifié en une étape d'annulation
   (`UndoManager`, `begin_group`/`end_group`) ; un commit par `mov` (bogue d'annulation, t-263).
@@ -49,6 +49,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
 - Un nouveau champ du modèle : `model.rs`, classé dans le replica (`schema.rs`), couvert
   dans `replica/read_tests.rs` / `mod_tests.rs`.
 - Une nouvelle opération : `Op` (`ops/mod.rs`) + `ops_schema`, appliquée sur `Deck` (jamais sur le replica).
+- Un type d'hôte : `HostType` + `ParamType::host` + `ops/host.rs` (`host_option`, `set_option`, `set_data`).
 
 ## Dépendances
 

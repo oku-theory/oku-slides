@@ -17,11 +17,11 @@ const state = (p) => p.evaluate(() => ({
   await p.goto(URL);
   await p.waitForSelector('.stage img');
   // Slide 1 (titre) : rien ne s'ajoute.
-  assert.deepEqual((await state(p)).add, [false, false, false, false]);
+  assert.deepEqual((await state(p)).add, [false, false, false, false, false]);
   // Slide 4 (contenu) : tout s'ajoute ; le graphique s'ajoute et s'annule par son libellé.
   await p.click('.thumb >> nth=3');
   await p.waitForTimeout(600);
-  assert.deepEqual((await state(p)).add, [true, true, true, true]);
+  assert.deepEqual((await state(p)).add, [true, true, true, true, true]);
   await p.getByRole('group', { name: 'Ajouter sur la slide' }).getByRole('button', { name: 'Graphique' }).click();
   await p.waitForTimeout(700);
   assert.equal((await state(p)).undo, 'Annuler : Ajouter un graphique');

@@ -60,6 +60,11 @@ const chart = {
   kind: "chart",
   params: { option: { dataset: { source: [["Catégorie", "Série 1"], ["1", 3]] }, series: [{ type: "bar" }] } },
 } as unknown as Element;
+const table = {
+  id: "t1",
+  kind: "table",
+  params: { data: { dataset: { source: [["A", "B"], ["x", 1]] } } },
+} as unknown as Element;
 const widget = { id: "fr", kind: "frise", params: {} } as unknown as Element;
 
 interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface }
@@ -97,6 +102,12 @@ describe("TargetPanel", () => {
   test("TargetPanel chart selected shows ChartPanel only", async () => {
     const host = await mount({ selected: chart });
     expect(host.querySelector(".chart-panel")).not.toBeNull();
+    expect(host.querySelector(".host-settings")).toBeNull();
+  });
+
+  test("TargetPanel table selected shows TablePanel only", async () => {
+    const host = await mount({ selected: table });
+    expect(host.querySelector(".table-panel")).not.toBeNull();
     expect(host.querySelector(".host-settings")).toBeNull();
   });
 

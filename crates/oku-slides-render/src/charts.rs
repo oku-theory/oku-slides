@@ -18,7 +18,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Mutex, PoisonError};
 
 use oku_slides_chart::{ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, Size};
-use oku_slides_core::{HostType, ParamType, WidgetRegistry};
+use oku_slides_core::{HostType, WidgetRegistry};
 use serde_json::{Map, Value as Json};
 use typst::foundations::Bytes;
 use typst::syntax::FileId;
@@ -299,18 +299,13 @@ fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String
 
 /// Nom du paramètre `host("chart")` du widget `kind`, s'il en a un.
 fn chart_param<'r>(registry: &'r WidgetRegistry, kind: &str) -> Option<&'r str> {
-    registry
-        .get(kind)?
-        .params
-        .iter()
-        .find(|p| matches!(p.ty, ParamType::Host { host: HostType::Chart }))
-        .map(|p| p.name.as_str())
+    registry.get(kind)?.host_param(HostType::Chart).map(|p| p.name.as_str())
 }
 
 /// Chaque élément du deck : tout objet d'un tableau des `params` d'une
 /// slide ou d'un élément qui a un `id` et un `kind`, à toute profondeur de
 /// slot.
-fn for_each_element(deck: &mut Json, f: &mut impl FnMut(&mut Map<String, Json>)) {
+pub(crate) fn for_each_element(deck: &mut Json, f: &mut impl FnMut(&mut Map<String, Json>)) {
     fn visit(params: Option<&mut Json>, f: &mut impl FnMut(&mut Map<String, Json>)) {
         let Some(Json::Object(params)) = params else { return };
         for value in params.values_mut() {

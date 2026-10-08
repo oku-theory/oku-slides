@@ -143,7 +143,19 @@
            "bold": true
           },
           {
-           "t": " : ajoute un texte, une carte, une forme, un graphique ou un widget du pack ; annuler, rétablir."
+           "t": " : ajoute un texte, une carte, une forme, un graphique, un tableau ou un widget du pack ; annuler, rétablir."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Tableau",
+           "bold": true
+          },
+          {
+           "t": " : un tableau de données édité dans son panneau avec la même grille que les graphiques. Activez la ligne d'en-tête, la première colonne en en-tête et les lignes zébrées ; alignez chaque colonne (automatique place les nombres à la fin). Un tableau plus grand que son cadre est réduit pour y tenir. « Afficher en graphique » et « Afficher en tableau » passent de l'un à l'autre en gardant les données, en une seule étape d'annulation."
           }
          ],
          "list": "bullet"
@@ -1569,11 +1581,11 @@
         {
          "runs": [
           {
-           "t": "13 widgets de base",
+           "t": "14 widgets de base",
            "bold": true
           },
           {
-           "t": " : text, card, image, shape, chart, stack, canvas, title, toc, chapter, content, end, blank."
+           "t": " : text, card, image, shape, chart, table, stack, canvas, title, toc, chapter, content, end, blank."
           }
          ],
          "list": "bullet"
@@ -1848,7 +1860,7 @@
            "highlight": 1
           },
           {
-           "t": "  Type fourni par l'hôte (chart)"
+           "t": "  Type fourni par l'hôte (graphique, tableau)"
           }
          ]
         }

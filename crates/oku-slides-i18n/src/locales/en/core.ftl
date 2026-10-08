@@ -59,6 +59,7 @@ issue-unreadable-item = unreadable list item, set aside
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset
 op-invalid-chart = Chart { $subject }: { $reason }
+op-invalid-table = Table { $subject }: { $reason }
 
 replica-corrupted = The presentation history in this file is damaged
 replica-too-large = The presentation history in this file is too large to open

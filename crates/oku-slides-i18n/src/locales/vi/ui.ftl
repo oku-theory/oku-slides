@@ -61,6 +61,7 @@ ui-add-kind = { $kind ->
     [card] Thẻ
     [shape] Hình
     [chart] Biểu đồ
+    [table] Bảng
    *[text] Văn bản
 }
 ui-add-widget = Tiện ích của gói
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [card] Thêm thẻ
     [shape] Thêm hình
     [chart] Thêm biểu đồ
+    [table] Thêm một bảng
    *[text] Thêm văn bản
 }
 ui-undo-add-widget = Thêm “{ $name }”
@@ -273,6 +275,32 @@ ui-chart-remove-row = Xóa hàng
 ui-chart-add-row = Hàng
 ui-chart-add-column = Cột
 ui-chart-series = Chuỗi { $n }
+
+## Bảng
+
+ui-table-panel = Bảng
+ui-table-options = Tùy chọn bảng
+ui-table-header-row = Hàng tiêu đề
+ui-table-header-column = Cột đầu tiên làm tiêu đề
+ui-table-striped = Hàng xen kẽ
+ui-table-alignment = Căn lề cột
+ui-table-align-of = Căn lề của { $name }
+ui-table-align = { $align ->
+    [start] Đầu
+    [center] Giữa
+    [end] Cuối
+   *[auto] Tự động
+}
+ui-table-column = Cột { $n }
+ui-table-no-data = Bảng này không có dữ liệu.
+ui-undo-table-option = Tùy chọn bảng
+ui-undo-table-align = Căn lề cột
+ui-undo-table-data = Sửa bảng
+ui-show-as = Hiển thị dưới dạng
+ui-show-as-table = Hiển thị dưới dạng bảng
+ui-show-as-chart = Hiển thị dưới dạng biểu đồ
+ui-undo-show-as-table = Hiển thị dưới dạng bảng
+ui-undo-show-as-chart = Hiển thị dưới dạng biểu đồ
 
 ## Tệp
 

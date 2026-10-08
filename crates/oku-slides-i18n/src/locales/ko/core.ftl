@@ -53,6 +53,7 @@ issue-unreadable-item = 읽을 수 없는 목록 항목을 따로 두었습니�
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
 op-invalid-chart = 차트 { $subject }: { $reason }
+op-invalid-table = 표 { $subject }: { $reason }
 
 replica-corrupted = 이 파일의 프레젠테이션 기록이 손상되었습니다
 replica-too-large = 이 파일의 프레젠테이션 기록이 너무 커서 열 수 없습니다

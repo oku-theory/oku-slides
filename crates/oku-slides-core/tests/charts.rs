@@ -3,7 +3,7 @@
 mod common;
 
 use common::registry;
-use oku_slides_chart::{Cell, ChartDataOp, ChartOption};
+use oku_slides_chart::{Cell, ChartOption, DataOp};
 use oku_slides_core::*;
 use oku_slides_i18n::{Localize, Localizer};
 use serde_json::{Value, json};
@@ -48,8 +48,8 @@ fn set_option(patch: Value) -> Op {
     Op::SetChartOption { target: g(), param: "option".into(), patch }
 }
 
-fn data(change: ChartDataOp) -> Op {
-    Op::SetChartData { target: g(), param: "option".into(), change }
+fn data(change: DataOp) -> Op {
+    Op::SetData { target: g(), param: "option".into(), change }
 }
 
 #[test]
@@ -78,40 +78,38 @@ fn set_chart_option_touching_dataset_is_refused_and_deck_unchanged() {
 }
 
 #[test]
-fn set_chart_data_cell_sets_the_value() {
+fn set_data_cell_sets_the_value() {
     let mut deck = deck_with_chart();
-    apply(&mut deck, data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) })).unwrap();
+    apply(&mut deck, data(DataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) })).unwrap();
     let source = option(&deck).dataset.unwrap().source;
     assert_that!(source[1][1]).is_equal_to(Cell::Number(99.0));
 }
 
 #[test]
-fn set_chart_data_column_ops_resize_series() {
+fn set_data_column_ops_resize_series() {
     let mut deck = deck_with_chart();
-    apply(&mut deck, data(ChartDataOp::RemoveColumn { at: 2 })).unwrap();
+    apply(&mut deck, data(DataOp::RemoveColumn { at: 2 })).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(1);
-    let insert = ChartDataOp::InsertColumn {
-        at: 2,
-        cells: vec![Cell::Text("Marge".into()), Cell::Number(1.0), Cell::Number(2.0)],
-    };
+    let insert =
+        DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Marge".into()), Cell::Number(1.0), Cell::Number(2.0)] };
     apply(&mut deck, data(insert)).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(2);
 }
 
 #[test]
-fn set_chart_data_leaving_no_value_column_is_refused_and_deck_unchanged() {
+fn set_data_leaving_no_value_column_is_refused_and_deck_unchanged() {
     let mut deck = deck_with_chart();
-    apply(&mut deck, data(ChartDataOp::RemoveColumn { at: 2 })).unwrap();
+    apply(&mut deck, data(DataOp::RemoveColumn { at: 2 })).unwrap();
     let before = deck.clone();
-    let err = apply(&mut deck, data(ChartDataOp::RemoveColumn { at: 1 })).unwrap_err();
+    let err = apply(&mut deck, data(DataOp::RemoveColumn { at: 1 })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidChart);
     assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
-fn set_chart_data_bad_row_is_refused() {
+fn set_data_bad_row_is_refused() {
     let mut deck = deck_with_chart();
-    let err = apply(&mut deck, data(ChartDataOp::RemoveRow { at: 9 })).unwrap_err();
+    let err = apply(&mut deck, data(DataOp::RemoveRow { at: 9 })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidChart);
     assert_that!(err.subject()).is_equal_to(Some("g"));
 }
@@ -127,7 +125,7 @@ fn chart_ops_on_a_text_element_return_unknown_param() {
     let t = Target { slide: "s".into(), element: Some("t".into()) };
     let op = Op::SetChartOption { target: t.clone(), param: "option".into(), patch: json!({}) };
     assert_that!(apply(&mut deck, op).unwrap_err().kind()).is_equal_to(OpErrorKind::UnknownParam);
-    let op = Op::SetChartData { target: t, param: "option".into(), change: ChartDataOp::RemoveRow { at: 1 } };
+    let op = Op::SetData { target: t, param: "option".into(), change: DataOp::RemoveRow { at: 1 } };
     assert_that!(apply(&mut deck, op).unwrap_err().kind()).is_equal_to(OpErrorKind::UnknownParam);
 }
 
@@ -183,20 +181,20 @@ fn set_param_chart_option_inconsistent_returns_invalid_chart() {
 }
 
 #[test]
-fn set_chart_data_cell_that_adds_a_column_aligns_the_series() {
+fn set_data_cell_that_adds_a_column_aligns_the_series() {
     // Deux colonnes de valeurs, une seule série : la modification aligne les séries.
     let mut deck = deck_with_chart();
     apply(&mut deck, set_option(json!({ "series": [{ "type": "bar" }] }))).unwrap();
-    apply(&mut deck, data(ChartDataOp::SetCell { row: 1, col: 1, value: Cell::Number(5.0) })).unwrap();
+    apply(&mut deck, data(DataOp::SetCell { row: 1, col: 1, value: Cell::Number(5.0) })).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(2);
 }
 
 #[test]
-fn set_chart_data_on_inline_chart_without_dataset_is_invalid_value() {
+fn set_data_on_inline_chart_without_dataset_is_invalid_value() {
     let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#).unwrap();
     let inline = chart("g", json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] }));
     apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: inline }).unwrap();
-    let err = apply(&mut deck, data(ChartDataOp::RemoveRow { at: 1 })).unwrap_err();
+    let err = apply(&mut deck, data(DataOp::RemoveRow { at: 1 })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
 }
 
@@ -204,5 +202,5 @@ fn set_chart_data_on_inline_chart_without_dataset_is_invalid_value() {
 fn ops_schema_lists_the_chart_ops() {
     let schema = ops_schema().unwrap().to_string();
     assert_that!(schema).contains("set_chart_option");
-    assert_that!(schema).contains("set_chart_data");
+    assert_that!(schema).contains("set_data");
 }

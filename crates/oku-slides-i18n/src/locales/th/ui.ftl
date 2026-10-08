@@ -61,6 +61,7 @@ ui-add-kind = { $kind ->
     [card] การ์ด
     [shape] รูปร่าง
     [chart] แผนภูมิ
+    [table] ตาราง
    *[text] ข้อความ
 }
 ui-add-widget = วิดเจ็ตของแพ็ก
@@ -74,6 +75,7 @@ ui-undo-add = { $kind ->
     [card] เพิ่มการ์ด
     [shape] เพิ่มรูปร่าง
     [chart] เพิ่มแผนภูมิ
+    [table] เพิ่มตาราง
    *[text] เพิ่มข้อความ
 }
 ui-undo-add-widget = เพิ่ม “{ $name }”
@@ -273,6 +275,32 @@ ui-chart-remove-row = ลบแถว
 ui-chart-add-row = แถว
 ui-chart-add-column = คอลัมน์
 ui-chart-series = ชุดข้อมูล { $n }
+
+## ตาราง
+
+ui-table-panel = ตาราง
+ui-table-options = ตัวเลือกตาราง
+ui-table-header-row = แถวส่วนหัว
+ui-table-header-column = คอลัมน์แรกเป็นส่วนหัว
+ui-table-striped = แถวสลับสี
+ui-table-alignment = การจัดแนวคอลัมน์
+ui-table-align-of = การจัดแนวของ { $name }
+ui-table-align = { $align ->
+    [start] ชิดต้น
+    [center] กึ่งกลาง
+    [end] ชิดท้าย
+   *[auto] อัตโนมัติ
+}
+ui-table-column = คอลัมน์ { $n }
+ui-table-no-data = ตารางนี้ไม่มีข้อมูล
+ui-undo-table-option = ตัวเลือกตาราง
+ui-undo-table-align = จัดแนวคอลัมน์
+ui-undo-table-data = แก้ไขตาราง
+ui-show-as = แสดงเป็น
+ui-show-as-table = แสดงเป็นตาราง
+ui-show-as-chart = แสดงเป็นแผนภูมิ
+ui-undo-show-as-table = แสดงเป็นตาราง
+ui-undo-show-as-chart = แสดงเป็นแผนภูมิ
 
 ## ไฟล์
 

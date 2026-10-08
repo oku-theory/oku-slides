@@ -1,5 +1,5 @@
 // Cellules d'une grille : collage TSV et conversion d'une saisie, partagés par
-// les tableaux du dock et des graphiques.
+// les tableaux du dock, la grille des graphiques et celle du widget tableau.
 
 /** "1 234,5" → 1234.5 ; vide → null ; sinon texte. */
 export function parseCell(raw: string): number | string | null {

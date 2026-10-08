@@ -1,6 +1,6 @@
 // Grille d'édition des données d'un graphique (dataset.source).
 //
-// Composant contrôlé : il affiche `source` et émet des ChartDataOp ; c'est le
+// Composant contrôlé : il affiche `source` et émet des DataOp ; c'est le
 // cœur Rust qui applique l'opération, régénère le SVG et renvoie la nouvelle
 // source. Aucune donnée n'est modifiée localement, donc l'annulation et la
 // dictée restent cohérentes avec la grille.
@@ -12,7 +12,7 @@ import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-tab
 import { locale, t } from "../i18n";
 import { Icon } from "../icons";
 import { parseCell, parseCheck, parseTsv } from "../table/cells";
-import type { Cell, ChartDataOp } from "./chartTypes";
+import type { Cell, DataOp } from "./chartTypes";
 import "./ChartDataGrid.css";
 
 type Row = { index: number; cells: Cell[] };
@@ -23,12 +23,16 @@ const helper = createColumnHelper<typeof features, Row>();
 export type ChartDataGridProps = {
   /** dataset.source : ligne 0 = en-têtes. */
   source: Cell[][];
-  onOp: (op: ChartDataOp) => void;
+  onOp: (op: DataOp) => void;
   /** Colonne 0 en texte (catégories) ; les autres attendent des nombres. */
   firstColumnIsLabel?: boolean;
   /** Colonnes de cases à cocher (booléens), comme le Total d'une cascade. */
   checkboxColumns?: readonly number[];
+  /** Nom d'une colonne ajoutée ou collée sans en-tête (`n` : son index) ; par défaut « Série n ». */
+  newColumnName?: (n: number) => string;
 };
+
+const seriesName = (n: number) => t("ui-chart-series", { n });
 
 const NO_CHECKBOXES: readonly number[] = [];
 
@@ -37,6 +41,7 @@ export function ChartDataGrid({
   onOp,
   firstColumnIsLabel = true,
   checkboxColumns = NO_CHECKBOXES,
+  newColumnName = seriesName,
 }: ChartDataGridProps) {
   const header = source[0] ?? [];
   const width = header.length;
@@ -97,6 +102,7 @@ export function ChartDataGrid({
                         col,
                         firstColumnIsLabel,
                         checkboxColumns,
+                        newColumnName,
                       ),
                     })
                   }
@@ -106,7 +112,7 @@ export function ChartDataGrid({
         ),
       ),
     // `source` est nécessaire au collage ; les colonnes changent peu.
-    [source, header, width, onOp, firstColumnIsLabel, checkboxColumns],
+    [source, header, width, onOp, firstColumnIsLabel, checkboxColumns, newColumnName],
   );
 
   const table = useTable({ features, columns, data });
@@ -153,7 +159,7 @@ export function ChartDataGrid({
         <button aria-label={t("ui-chart-add-row")} title={t("ui-chart-add-row")} onClick={() => onOp({ op: "insert_row", at: source.length, cells: [] })}>
           {Icon.addRow}
         </button>
-        <button aria-label={t("ui-chart-add-column")} title={t("ui-chart-add-column")} onClick={() => onOp({ op: "insert_column", at: width, cells: [t("ui-chart-series", { n: width })] })}>
+        <button aria-label={t("ui-chart-add-column")} title={t("ui-chart-add-column")} onClick={() => onOp({ op: "insert_column", at: width, cells: [newColumnName(width)] })}>
           {Icon.addColumn}
         </button>
       </div>
@@ -235,6 +241,7 @@ export function pasteInto(
   col: number,
   firstColumnIsLabel: boolean,
   checkboxColumns: readonly number[] = [],
+  newColumnName: (n: number) => string = seriesName,
 ): Cell[][] {
   const out = source.map((r) => [...r]);
   const width = Math.max(out[0]?.length ?? 0, col + Math.max(...grid.map((r) => r.length)));
@@ -252,6 +259,6 @@ export function pasteInto(
     });
   });
   for (const r of out) while (r.length < width) r.push(null);
-  for (let c = 0; c < width; c++) if (out[0][c] === null) out[0][c] = t("ui-chart-series", { n: c });
+  for (let c = 0; c < width; c++) if (out[0][c] === null) out[0][c] = newColumnName(c);
   return out;
 }

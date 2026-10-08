@@ -63,6 +63,7 @@ issue-unreadable-item = нечитаемый пункт списка, отлож
 issue-unreadable-slide = нечитаемый слайд, отложен
 issue-unreadable-field = нечитаемое поле { $field } презентации, сброшено
 op-invalid-chart = Диаграмма { $subject }: { $reason }
+op-invalid-table = Таблица { $subject }: { $reason }
 
 replica-corrupted = История презентации в этом файле повреждена
 replica-too-large = История презентации в этом файле слишком велика для открытия

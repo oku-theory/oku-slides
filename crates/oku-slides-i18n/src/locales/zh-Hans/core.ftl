@@ -53,6 +53,7 @@ issue-unreadable-item = 无法读取的列表项，已移出
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
 op-invalid-chart = 图表 { $subject }：{ $reason }
+op-invalid-table = 表格 { $subject }：{ $reason }
 
 replica-corrupted = 此文件中的演示文稿历史已损坏
 replica-too-large = 此文件中的演示文稿历史过大，无法打开

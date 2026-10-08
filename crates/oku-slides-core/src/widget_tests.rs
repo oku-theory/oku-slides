@@ -2,7 +2,7 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use crate::{Category, ParamType, SchemaFault, SlotMode, WidgetError, WidgetErrorKind, WidgetRegistry};
+use crate::{Category, HostType, ParamType, SchemaFault, SlotMode, WidgetError, WidgetErrorKind, WidgetRegistry};
 
 fn widget(name: &str, category: &str, params: Value) -> Value {
     json!({ "name": name, "label": null, "category": category, "params": params })
@@ -377,4 +377,14 @@ fn from_probe_list_default_with_unknown_column_fails() {
     let p = json!([{ "name": "l", "type": "list", "item": [col("a", "plain")], "min": 0, "max": null,
         "default": [{ "b": "x" }] }]);
     assert_that!(list_probe(p)).is_err();
+}
+
+#[test]
+fn param_type_host_of_a_host_param_returns_it() {
+    assert_that!(ParamType::Host { host: HostType::Table }.host()).is_equal_to(Some(HostType::Table));
+}
+
+#[test]
+fn param_type_host_of_plain_returns_none() {
+    assert_that!(ParamType::Plain.host()).is_none();
 }

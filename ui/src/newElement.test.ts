@@ -23,6 +23,11 @@ describe("newElement", () => {
     expect(e.params).toBeUndefined();
   });
 
+  test("table : un tableau de départ dans params.data", () => {
+    const e = newElement("table", "t1");
+    expect([e.kind, (e.params?.data as { dataset: { source: unknown[] } }).dataset.source.length]).toEqual(["table", 3]);
+  });
+
   test("chart : une option de départ dans params.option", () => {
     const e = newElement("chart", "e-4");
     expect(e.kind).toBe("chart");

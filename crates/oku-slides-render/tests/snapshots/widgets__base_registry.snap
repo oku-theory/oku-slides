@@ -291,6 +291,21 @@ expression: r
         }
       ]
     },
+    "table": {
+      "name": "table",
+      "label": null,
+      "category": "element",
+      "params": [
+        {
+          "name": "data",
+          "label": null,
+          "type": "host",
+          "host": "table",
+          "default": null,
+          "bind": null
+        }
+      ]
+    },
     "text": {
       "name": "text",
       "label": null,
