@@ -225,7 +225,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- Pile de slides ---- */
 /* Les miniatures suivent la largeur de la pile : 150px par défaut, moins le numéro et les marges. */
 .pile { --thumb-w: calc(var(--pile-w) - 86px); grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
-.thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; }
+.thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; scroll-margin-block: var(--space-4); }
 .thumb-n { width: 18px; font-size: 12px; line-height: 16px; color: var(--ink-muted); padding-top: 2px; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
 .thumb-img {

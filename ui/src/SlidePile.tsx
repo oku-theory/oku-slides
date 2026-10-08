@@ -140,7 +140,12 @@ export default function SlidePile({
     if (d.slot !== from && d.slot !== from + 1) onMove?.(d.id, d.slot);
   };
 
-  const dragged = drag?.moved ? slides.find((s) => s.id === drag.id) : undefined;
+  // La miniature de la slide courante reste visible : la pile défile jusqu'à elle (clavier, chevrons, agent).
+  useEffect(() => {
+    nav.current?.querySelector<HTMLElement>('.thumb[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [current]);
+
+  const dragged = drag?.moved ?slides.find((s) => s.id === drag.id) : undefined;
   const ghostUrl = dragged ? svg(dragged.id, dragged.hash) : null;
 
   return (

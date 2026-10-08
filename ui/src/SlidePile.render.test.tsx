@@ -74,3 +74,30 @@ describe("pile des miniatures", () => {
     expect(host.querySelector(".add-slide")).toBeNull();
   });
 });
+
+describe("pile des miniatures : défilement", () => {
+  test("SlidePile changer de slide courante fait défiler sa miniature en vue", async () => {
+    const scrolled: { id: string | null; options: unknown }[] = [];
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, options?: unknown) {
+      scrolled.push({ id: this.closest(".thumb-slot")?.querySelector(".thumb-img")?.getAttribute("alt") ?? null, options });
+    };
+    try {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      mounted = { root, host };
+      const render = (current: string) =>
+        createElement(SlidePile, {
+          slides: [slide("a"), slide("b")], current, svg: () => "x.svg", label: "Slides", addLabel: "+",
+          removeLabel: "Supprimer", canRemove: true, onSelect: () => {},
+        } as never);
+      await act(async () => root.render(render("a")));
+      scrolled.length = 0;
+      await act(async () => root.render(render("b")));
+      expect(scrolled).toEqual([{ id: "b", options: { block: "nearest" } }]);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+});
