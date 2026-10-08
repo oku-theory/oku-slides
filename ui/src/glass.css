@@ -1,5 +1,5 @@
 /* Essai « liquid glass » (t-391) : les objets de l'interface deviennent du verre posé sur la table.
-   Les slides et les cartes restent du papier ; seul l'outillage passe en verre.
+   Les slides restent du papier ; l'outillage et le fil de l'agent passent en verre.
    Couche à part, chargée après styles.css : la retirer rend l'interface Papier. */
 
 :root {
@@ -36,6 +36,17 @@
 .object:disabled { box-shadow: var(--glass-rim), var(--shadow-rest); }
 .theme-card:hover, .device:hover { box-shadow: var(--glass-rim), var(--shadow-object); }
 .device.recording, .device.transcribing { box-shadow: var(--glass-rim), var(--shadow-floating); }
+
+/* Le fil de l'agent : bulles et cartes du même verre que la barre de dictée.
+   Ombre posée, pas d'objet : le fil défile et rognerait une ombre large. */
+.a2ui-card, .card.prompt, .a2ui-prompt {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--shadow-rest);
+}
+.a2ui-card.tone-accent { background: color-mix(in oklab, var(--a2ui-accent-bg) 70%, transparent); }
+.a2ui-card.tone-danger { box-shadow: var(--glass-rim), inset 0 0 0 1px var(--danger), var(--shadow-rest); }
 
 /* Boutons principaux : l'accent plein, qui reste franc sur tout fond ; le verre ne garde que l'arête. */
 .btn.primary, .token.primary, .mic {
@@ -91,7 +102,7 @@
 
 /* ---- Lentille : le fond se déforme aux bords (moteurs qui le rendent, voir lens.ts) ---- */
 /* Les boutons principaux sont pleins : pas de lentille. Le micro (`.mic`, sans `.object`) n'est pas visé. */
-:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar):not(.primary) {
+:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar, .a2ui-card, .card.prompt, .a2ui-prompt):not(.primary) {
   -webkit-backdrop-filter: var(--glass-lens);
   backdrop-filter: var(--glass-lens);
 }
