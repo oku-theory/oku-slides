@@ -149,19 +149,23 @@ pub struct UiState {
     /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
-    /// Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut.
+    /// Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut.
     #[serde(default)]
     pub folded: Vec<PileSection>,
 }
 
-/// Section repliable de la pile du mode modèles.
+/// Section repliable de l'interface : de la pile, ou la carte des paramètres de la cible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PileSection {
+    /// Les miniatures des slides, hors mode modèles.
+    Slides,
     /// Les miniatures des modèles.
     Templates,
     /// Les fichiers de widgets du pack.
     Widgets,
+    /// La carte des paramètres de la cible, sous la scène.
+    Params,
 }
 
 fn shown() -> bool {

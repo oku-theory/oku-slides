@@ -46,3 +46,27 @@ test("« ↓ Tour en cours » est une pastille de texte, pas un rond d'icône", 
   expect(jump).toMatch(/width:\s*auto/);
   expect(jump).toMatch(/white-space:\s*nowrap/);
 });
+
+test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
+  const rule = ruleOf(own("styles.css"), '.table:has(> .pile-column[data-folded="true"])');
+  expect(rule).toMatch(/--pile-w:\s*var\(--pile-rail-w\)\s*!important/);
+  expect(own("styles.css")).toMatch(/--pile-rail-w:\s*56px/);
+});
+
+test("la carte de la cible se pose sous la scène, défilant seule", () => {
+  const rule = ruleOf(own("styles.css"), ".templates-panel > .host-settings, .templates-panel > .chart-panel");
+  expect(rule).toMatch(/max-height:\s*40%/);
+  // L'ombre de la feuille (positionnée) passe sous la carte, posée à distance de la slide.
+  expect(rule).toMatch(/position:\s*relative/);
+  expect(rule).toMatch(/z-index:\s*1/);
+  expect(rule).toMatch(/margin:\s*var\(--space-10\) auto/);
+});
+
+test("la feuille prend le plus de place possible dans sa zone", () => {
+  expect(ruleOf(own("styles.css"), ".sheet-area")).toMatch(/padding:\s*var\(--space-4\) var\(--space-6\)\s*;/);
+});
+
+test("les boutons slide précédente / suivante restent discrets hors survol", () => {
+  expect(ruleOf(own("styles.css"), ".slide-nav")).toMatch(/opacity:\s*0\.35/);
+  expect(ruleOf(own("styles.css"), ".slide-nav:disabled")).toMatch(/visibility:\s*hidden/);
+});

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { AddWidget, AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import type { AddWidget, AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -56,7 +56,9 @@ import WidgetPane from "./WidgetPane";
 import WidgetTools from "./WidgetTools";
 import TemplateTabs from "./TemplateTabs";
 import PileWidgets from "./PileWidgets";
-import TemplatePile from "./TemplatePile";
+import PileColumn from "./PileColumn";
+import SlideNav from "./SlideNav";
+import { slideTarget } from "./slideKeys";
 import TitleField from "./TitleField";
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
@@ -490,6 +492,14 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     });
   };
 
+  /** Montre une slide, sans sélection ; un sous-onglet widget ouvert cède la place au modèle, « Thème » reste. */
+  const goToSlide = (id: string) => {
+    showSlide(id);
+    setSelected(null);
+    setEditing(null);
+    if (widgetActive) widgets.activate(null);
+  };
+
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -511,6 +521,15 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           cursor.arrow(e.key, e.shiftKey);
         }
         return;
+      }
+      // Slide précédente / suivante : ← → ↑ ↓ sans sélection (sinon elles déplacent l'élément), Page↑ Page↓, Début, Fin.
+      if (snap && !widgetActive) {
+        const to = slideTarget(e, snap.slides.findIndex((s) => s.id === current), snap.slides.length, { space: false, arrows: selected === null });
+        if (to !== null) {
+          e.preventDefault();
+          goToSlide(snap.slides[to].id);
+          return;
+        }
       }
       // Sous-onglet widget : ⌘Z va à son éditeur (`useTemplateWidgets`), jamais aux modèles.
       if (mod && e.key.toLowerCase() === "z") {
@@ -695,7 +714,10 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
   const noop = () => {};
+  const paramsHidden = viewOptions.folded.includes("params");
 
+  // Section des miniatures, repliée à part en mode modèles.
+  const thumbsSection: PileSectionName = snap.editing ? "templates" : "slides";
   const pileView = (
     <SlidePile
       slides={snap.slides}
@@ -705,8 +727,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
       addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
       marks={history ? pileMarks(history.changes) : undefined}
-      // Un sous-onglet widget ouvert cède la place au modèle cliqué ; « Thème » reste, la scène montre le modèle.
-      onSelect={(id) => { showSlide(id); setSelected(null); setEditing(null); if (widgetActive) widgets.activate(null); }}
+      onSelect={goToSlide}
       onMove={readOnly ? undefined : moveSlide}
       onAdd={readOnly ? undefined : addSlide}
       removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
@@ -779,6 +800,9 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         {widgetActive ? (<>
           <WidgetTools tab={activeWidget(widgets.tabs)} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
         </>) : (<>
+          {/* Les paramètres de contenu sous la slide : affichés ou masqués (gardé par l'hôte). */}
+          <button className="token ghost" aria-pressed={!paramsHidden} aria-label={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} title={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} onClick={() => viewOptions.setFolded("params", !paramsHidden)}>{Icon.panelBottom}</button>
+          <span className="tools-sep" aria-hidden />
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
         </>)}
@@ -791,14 +815,14 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       </div>
       </>)}
 
-      {/* Pile de slides, à gauche ; en mode modèles, sections Modèles et Widgets. */}
-      {snap.editing && !history ? (
-        <TemplatePile
-          title={t("ui-pile-templates")}
-          open={!viewOptions.folded.includes("templates")}
-          onToggle={() => viewOptions.setFolded("templates", !viewOptions.folded.includes("templates"))}
-          slides={pileView}
-          widgets={
+      {/* Pile de slides (repliable), à gauche ; en mode modèles, sections Modèles et Widgets. */}
+      <PileColumn
+        title={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
+        open={!viewOptions.folded.includes(thumbsSection)}
+        onToggle={() => viewOptions.setFolded(thumbsSection, !viewOptions.folded.includes(thumbsSection))}
+        slides={pileView}
+        widgets={
+          snap.editing && !history ? (
             <PileWidgets
               files={widgets.files}
               open={!viewOptions.folded.includes("widgets")}
@@ -807,14 +831,15 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
               onOpen={widgets.open}
               onRemoved={widgets.removed}
             />
-          }
-        />
-      ) : pileView}
+          ) : undefined
+        }
+      />
 
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
         <div id="templates-panel" className="templates-panel" role={snap.editing && !themeActive ? "tabpanel" : undefined} aria-labelledby={snap.editing && !themeActive ? "widget-tab-0" : undefined} hidden={widgetActive}>
+        <div className="stage-box">
         {view && view.slide.id === current ? (
           <Stage
             ref={stage}
@@ -851,8 +876,19 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
+        {!readOnly && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
+        </div>
         {/* Réglages du modèle affiché, sous lui (pas au dock de l'agent). */}
         {host.surface?.id === HOST_TEMPLATE && <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} />}
+        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide ; sur l'onglet « Thème », les jetons à droite. */}
+        {!themeActive && (
+          <TargetPanel
+            view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
+            onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
+            folded={paramsHidden}
+            onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
+          />
+        )}
         </div>
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} codeWidth={viewOptions.codeWidth} onCodeWidth={viewOptions.setCodeWidth}
           run={run} palette={snap.appearance.chart_palette}
@@ -866,16 +902,8 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
       {/* Cartes à droite de la feuille. */}
       <aside className={`notes${themeActive ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
-        {/* Onglet « Thème » : les jetons à la place de la cible ; le fil de l'agent reste monté, caché (styles.css). */}
-        {themeActive ? (
-          <ThemePanel api={api} snap={snap} run={run} say={say} />
-        ) : (
-          <TargetPanel
-            view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
-            onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
-            onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
-          />
-        )}
+        {/* Onglet « Thème » : les jetons en tête ; le fil de l'agent reste monté, caché (styles.css). */}
+        {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
         {!snap.read_only && (<>
         <SlideThumbsContext.Provider value={slideThumbs}>
           <AgentThread

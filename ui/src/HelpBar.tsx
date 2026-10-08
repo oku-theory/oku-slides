@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import type { SearchHit } from "./api";
-import { helpStep, helpTarget } from "./helpNav";
+import { slideStep, slideTarget } from "./slideKeys";
 import HelpSearch, { type HelpSearchHandle } from "./HelpSearch";
 import { t } from "./i18n";
 import { Icon } from "./icons";
@@ -42,7 +42,7 @@ export default function HelpBar({ title, slides, current, onShow, search, onClos
       }
       if (target?.closest?.(TEXT_ENTRY)) return;
       const k = keys.current;
-      const to = helpTarget(e, k.index, k.count, !!target?.closest?.("button, a, [role=button]"));
+      const to = slideTarget(e, k.index, k.count, { space: !target?.closest?.("button, a, [role=button]") });
       if (to === null) return;
       e.preventDefault();
       k.go(to);
@@ -61,8 +61,8 @@ export default function HelpBar({ title, slides, current, onShow, search, onClos
       </div>
       <HelpSearch ref={finder} search={search} onShow={onShow} />
       <div className="history-actions">
-        <button className="object token" aria-label={t("ui-help-previous")} title={t("ui-help-previous")} disabled={helpStep(index, -1, slides.length) === null} onClick={() => go(helpStep(index, -1, slides.length))}>{Icon.previous}</button>
-        <button className="object token" aria-label={t("ui-help-next")} title={t("ui-help-next")} disabled={helpStep(index, 1, slides.length) === null} onClick={() => go(helpStep(index, 1, slides.length))}>{Icon.next}</button>
+        <button className="object token" aria-label={t("ui-slide-previous")} title={t("ui-slide-previous")} disabled={slideStep(index, -1, slides.length) === null} onClick={() => go(slideStep(index, -1, slides.length))}>{Icon.previous}</button>
+        <button className="object token" aria-label={t("ui-slide-next")} title={t("ui-slide-next")} disabled={slideStep(index, 1, slides.length) === null} onClick={() => go(slideStep(index, 1, slides.length))}>{Icon.next}</button>
         {onClose && <button className="object token history-back" aria-label={t("ui-help-close")} title={t("ui-help-close")} onClick={onClose}>{Icon.close}</button>}
       </div>
     </section>

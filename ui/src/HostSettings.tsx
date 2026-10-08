@@ -1,7 +1,7 @@
 /**
  * Une surface de réglages de l'hôte, en fiche : en mode modèles (« Ce modèle », « Paramètres de
  * <widget> »), posée sous l'aperçu qu'elle règle plutôt qu'au dock de l'agent ; ou les paramètres
- * de la cible, en tête des notes (`TargetPanel`). La surface et le routage de ses actions viennent
+ * de la cible, sous la scène (`TargetPanel`). La surface et le routage de ses actions viennent
  * de `useHostSettings` ou `useTargetSettings` ; elle est reconstruite à chaque relecture, donc pas annoncée.
  */
 import { lazy, Suspense } from "react";

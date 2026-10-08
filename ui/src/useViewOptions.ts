@@ -34,7 +34,7 @@ export interface ViewOptions {
   codeWidth: number | null;
   /** Retient une nouvelle largeur du code (et la fait garder par l'hôte). */
   setCodeWidth: (width: number | null) => void;
-  /** Sections repliées de la pile du mode modèles. */
+  /** Sections repliées (pile, carte des paramètres). */
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;

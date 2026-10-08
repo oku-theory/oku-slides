@@ -52,7 +52,7 @@ async function press(key: string, target: EventTarget = window) {
 describe("HelpBar", () => {
   test("HelpBar buttons show icons only", async () => {
     const host = await mount("b");
-    for (const k of ["ui-help-previous", "ui-help-next", "ui-help-close"]) expectIconOnly(button(host, k)!);
+    for (const k of ["ui-slide-previous", "ui-slide-next", "ui-help-close"]) expectIconOnly(button(host, k)!);
   });
 
   test("HelpBar caption counts slides from one", async () => {
@@ -67,21 +67,21 @@ describe("HelpBar", () => {
 
   test("HelpBar on the first slide disables previous only", async () => {
     const host = await mount("a");
-    expect(button(host, "ui-help-previous")!.disabled).toBe(true);
-    expect(button(host, "ui-help-next")!.disabled).toBe(false);
+    expect(button(host, "ui-slide-previous")!.disabled).toBe(true);
+    expect(button(host, "ui-slide-next")!.disabled).toBe(false);
   });
 
   test("HelpBar on the last slide disables next", async () => {
     const host = await mount("c");
-    expect(button(host, "ui-help-next")!.disabled).toBe(true);
+    expect(button(host, "ui-slide-next")!.disabled).toBe(true);
   });
 
   test("HelpBar buttons show the neighbours and close", async () => {
     const calls: string[] = [];
     const host = await mount("b", calls);
     await act(async () => {
-      button(host, "ui-help-previous")!.click();
-      button(host, "ui-help-next")!.click();
+      button(host, "ui-slide-previous")!.click();
+      button(host, "ui-slide-next")!.click();
       button(host, "ui-help-close")!.click();
     });
     expect(calls).toEqual(["a", "c", "close"]);

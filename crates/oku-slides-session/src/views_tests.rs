@@ -78,3 +78,17 @@ fn ui_state_with_the_removed_current_cases_still_reads() {
         ..UiState::default()
     });
 }
+
+/// La pile des slides, repliée hors mode modèles, se garde comme les sections du mode modèles.
+#[test]
+fn ui_state_with_the_slides_section_folded_reads() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"folded":["slides"]}"#).unwrap();
+    assert_that!(ui.folded).is_equal_to(vec![PileSection::Slides]);
+}
+
+/// La carte des paramètres de la cible, repliée, se garde comme les sections de la pile.
+#[test]
+fn ui_state_with_the_params_card_folded_reads() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"folded":["params"]}"#).unwrap();
+    assert_that!(ui.folded).is_equal_to(vec![PileSection::Params]);
+}

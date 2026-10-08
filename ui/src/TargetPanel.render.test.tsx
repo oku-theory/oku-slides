@@ -1,4 +1,4 @@
-// La carte de la cible, en tête de la colonne des notes : graphique, réglages, ou rien.
+// La carte de la cible, sous la scène : graphique, réglages, ou rien.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
@@ -47,9 +47,9 @@ const chart = {
 } as unknown as Element;
 const widget = { id: "fr", kind: "frise", params: {} } as unknown as Element;
 
-interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean }
+interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean }
 
-async function mount({ selected, shown = surface, readOnly = false, withView = true }: Opts) {
+async function mount({ selected, shown = surface, readOnly = false, withView = true, folded = false }: Opts) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -59,6 +59,7 @@ async function mount({ selected, shown = surface, readOnly = false, withView = t
       createElement(TargetPanel, {
         view: withView ? view : null, readOnly, selected, target, palette: ["#0077b6"],
         onApply: () => {}, onKind: () => {}, onSurfaceAction: () => {}, onError: () => {},
+        folded,
       }),
     );
   });
@@ -67,6 +68,16 @@ async function mount({ selected, shown = surface, readOnly = false, withView = t
 }
 
 describe("TargetPanel", () => {
+  test("TargetPanel folded shows nothing", async () => {
+    const host = await mount({ selected: widget, folded: true });
+    expect(host.innerHTML).toBe("");
+  });
+
+  test("TargetPanel folded hides the chart panel too", async () => {
+    const host = await mount({ selected: chart, folded: true });
+    expect(host.querySelector(".chart-panel")).toBeNull();
+  });
+
   test("TargetPanel chart selected shows ChartPanel only", async () => {
     const host = await mount({ selected: chart });
     expect(host.querySelector(".chart-panel")).not.toBeNull();

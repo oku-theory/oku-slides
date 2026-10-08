@@ -134,12 +134,12 @@ export interface UiState {
   code: boolean;
   /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
   code_width: number | null;
-  /** Sections repliées de la pile du mode modèles ; toutes ouvertes par défaut. */
+  /** Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
 }
 
-/** Section repliable de la pile du mode modèles. */
-export type PileSectionName = "templates" | "widgets";
+/** Section repliable : slides hors mode modèles, modèles et widgets en mode modèles, carte des paramètres. */
+export type PileSectionName = "slides" | "templates" | "widgets" | "params";
 
 /** Un pack de modèles à une version donnée. */
 export interface PackRef {

@@ -237,7 +237,19 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .add-slide { margin-inline-start: 26px; width: var(--thumb-w); height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
 /* ---- La feuille ---- */
-.sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-6) 40px 56px; display: flex; }
+.sheet-area { grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-4) var(--space-6); display: flex; }
+/* La scène et, dans la marge de part et d'autre, les boutons slide précédente / suivante. */
+.stage-box { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; }
+.slide-nav {
+  position: absolute; z-index: 3; top: 50%; translate: 0 -50%; width: 24px; height: 48px; padding: 0;
+  opacity: 0.35; transition: opacity 120ms ease-out;
+}
+.slide-nav.previous { inset-inline-start: calc(-1 * var(--space-6)); }
+.slide-nav.next { inset-inline-end: calc(-1 * var(--space-6)); }
+.slide-nav:hover, .slide-nav:focus-visible { opacity: 1; }
+.slide-nav:disabled { visibility: hidden; }
+.slide-nav svg { width: 18px; height: 18px; }
+[dir="rtl"] .slide-nav svg { transform: scaleX(-1); }
 /* `min-width: 0` : sinon la scène déjà dessinée fixe la largeur mesurée, et déborde sur le fil. */
 .stage-wrap { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
 /* Même taille que la scène, sans la rogner : ce qui déborde (fiche de l'agent) s'y pose. */
@@ -316,10 +328,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- Cartes autour de la feuille ---- */
 /* Conteneur de taille : le dock de l'agent mesure sa hauteur maximale au panneau entier (`cqh`). */
 .notes { grid-area: notes; container-type: size; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
-/* La carte de la cible en tête des notes (paramètres, ou panneau d'un graphique) : au plus 60 %,
-   défilant seule, et c'est elle qui cède la place au dock de l'agent. */
-.notes > .host-settings { flex: 0 1 auto; min-height: 0; width: auto; max-height: 60%; overflow: auto; }
-.notes > .chart-panel { flex: 0 1 auto; min-height: 0; max-height: 60%; overflow: auto; }
 /* ---- Séparateurs des colonnes ---- */
 /* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol. */
 .col-divider {
@@ -592,8 +600,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .chip:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 /* --- Fil de l'agent ------------------------------------------------------- */
-/* Ce z-index n'ordonne le fil qu'entre ses voisins de la colonne des notes (carte du graphique,
-   brouillon, panneau) : `.notes` (`container-type: size` implique `contain: layout`)
+/* Ce z-index n'ordonne le fil qu'entre ses voisins de la colonne des notes (panneau des jetons,
+   brouillon) : `.notes` (`container-type: size` implique `contain: layout`)
    forme son propre contexte d'empilement et rogne ce qui déborde. Il ne pose pas le fil
    au-dessus de la feuille.
    Sans fond, posé sur la table ; les cartes se bordent d'un filet intérieur (pas
@@ -910,6 +918,17 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 /* Mode modèles : deux sections repliables. Modèles prend la place et défile seule ;
    Widgets reste ancrée en bas, et défile à son tour si sa liste est longue. */
 .pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
+/* Pile des slides repliée vers la gauche : un rail avec son seul bouton, la feuille reprend la place ;
+   `!important` passe devant la largeur choisie au séparateur (posée en ligne), gardée pour la réouverture. */
+.table { --pile-rail-w: 56px; }
+.table:has(> .pile-column[data-folded="true"]) { --pile-w: var(--pile-rail-w) !important; }
+.table:has(> .pile-column[data-folded="true"]) .col-divider[data-side="pile"] { display: none; }
+.pile-rail > .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); }
+.pile-fold { flex: none; align-self: flex-end; width: 32px; height: 32px; margin-inline-end: 22px; }
+.pile-rail[data-folded="true"] > .pile-fold { align-self: center; margin-inline-end: 0; }
+/* La barre latérale côté départ (RTL compris). */
+.pile-fold svg { width: 18px; height: 18px; }
+[dir="rtl"] .pile-fold svg { transform: scaleX(-1); }
 .pile-section { display: flex; flex-direction: column; min-height: 0; }
 .pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
 .pile-section-head h3 { margin: 0; min-width: 0; font: 500 13px/20px var(--sans); }
@@ -919,11 +938,11 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .pile-section-chevron svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
 .pile-section[data-open="true"] .pile-section-chevron svg { transform: rotate(90deg); }
 .pile-section-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.pile-templates[data-open="true"] { flex: 1 1 0; }
-.pile-templates .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
+.pile-thumbs[data-open="true"] { flex: 1 1 0; }
+.pile-thumbs .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
 .pile-widgets { flex: 0 1 auto; max-height: 45%; border-top: 1px solid var(--rule); padding-top: var(--space-2); }
 /* Modèles repliée : Widgets peut prendre toute la hauteur. */
-.pile-templates[data-open="false"] + .pile-widgets { max-height: none; }
+.pile-thumbs[data-open="false"] + .pile-widgets { max-height: none; }
 /* 4 px en haut : l'anneau de focus (3 px) du champ de nom, en tête de liste, n'est pas rogné par le défilement. */
 .pile-widgets .pile-section-body { overflow-y: auto; padding: 4px 28px var(--space-6) var(--space-6); }
 @media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
@@ -958,9 +977,16 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
 .templates-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
-/* Modèles : la scène prend la place, les réglages du modèle dessous (au plus 40 %, défilant seuls). */
+/* La scène prend la place ; dessous, les réglages du modèle (mode modèles) et la carte de la cible
+   (paramètres, ou panneau d'un graphique) : au plus 40 % chacun, défilant seuls, à distance de la slide. */
 .templates-panel { flex-direction: column; }
-.templates-panel > .host-settings { flex: none; max-height: 40%; overflow-y: auto; margin: var(--space-2) auto var(--space-4); }
+.templates-panel > .host-settings, .templates-panel > .chart-panel {
+  flex: none; max-height: 40%; overflow-y: auto; margin: var(--space-10) auto 0;
+  /* Au-dessus de l'ombre de la feuille (`.stage-frame`, positionnée), qui sinon bave sur la carte. */
+  position: relative; z-index: 1;
+}
+.templates-panel > :is(.host-settings, .chart-panel) + :is(.host-settings, .chart-panel) { margin-top: var(--space-4); }
+.templates-panel > .chart-panel { width: min(100% - 2 * var(--space-4), 760px); box-sizing: border-box; }
 /* Réglages de l'hôte sous leur aperçu : une fiche posée, pas du verre flottant. */
 .host-settings {
   width: min(100% - 2 * var(--space-4), 560px); box-sizing: border-box; padding: var(--space-2);
