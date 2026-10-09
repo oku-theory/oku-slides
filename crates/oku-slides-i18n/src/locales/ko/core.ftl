@@ -125,6 +125,7 @@ issue-theme-version-missing = 소스에 테마 버전이 없습니다: { $versio
 issue-unsupported-link = 지원되지 않는 링크: { $link }
 issue-highlight-zero = 강조 색상 번호는 1부터 시작합니다
 issue-unreadable-element = 읽을 수 없는 요소를 따로 두었습니다
+issue-slot-repaired = 알려진 슬롯이 없는 요소를 { $slot }에 배치했습니다
 issue-unreadable-item = 읽을 수 없는 목록 항목을 따로 두었습니다
 issue-unreadable-row = 읽을 수 없는 표 행을 따로 두었습니다
 issue-data-truncated = 데이터가 너무 커서 읽을 때 잘랐습니다

@@ -15,10 +15,10 @@
 //!          └─ /Sources → flux = zip des sources
 //! ```
 //!
-//! Le zip des sources (version 5) :
+//! Le zip des sources (version 8) :
 //!
 //! ```text
-//! manifest.json          { format: "oku-slides-sources", version: 5 }
+//! manifest.json          { format: "oku-slides-sources", version: 8 }
 //! deck.loro              snapshot complet du replica Loro du deck
 //! assets/<hex>           tels quels
 //! fonts/<nom>            tels quels

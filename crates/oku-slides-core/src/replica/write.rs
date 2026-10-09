@@ -6,8 +6,9 @@ use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroValue, UpdateOptio
 use serde_json::{Map, Value};
 use snafu::ResultExt;
 
-use super::schema::{Ctx, Kind, LIST, RICH, column_kind, columns, declared, param_kind};
-use crate::error::{ContainerOutsideParamsSnafu, LoroSnafu, ReplicaInner, TextUpdateSnafu};
+use super::schema::{Ctx, ELEMENTS, Kind, LIST, RICH, column_kind, columns, declared, param_kind};
+use super::tree::{elements, slots_of, tree_at, wanted_index};
+use crate::error::{CollectionInParamsSnafu, ContainerOutsideParamsSnafu, LoroSnafu, ReplicaInner, TextUpdateSnafu};
 use crate::widget::{ParamSchema, WidgetRegistry};
 
 pub(super) type Res = Result<(), ReplicaInner>;
@@ -86,17 +87,11 @@ fn items_at(map: &LoroMap, key: &str) -> Result<LoroMovableList, ReplicaInner> {
     list_at(&m, LIST)
 }
 
-/// Les objets d'une valeur tableau ; aucun pour une autre valeur.
-fn objects(value: &Value) -> &[Value] {
-    value.as_array().map(Vec::as_slice).unwrap_or_default()
-}
-
 /// Vide le conteneur `entry` de `map[key]` ; une valeur, ou une carte
 /// ordinaire, est retirée.
 fn empty_or_delete(map: &LoroMap, key: &str, entry: ValueOrContainer) -> Res {
     match entry {
         ValueOrContainer::Container(Container::Text(t)) => sync_text(&t, ""),
-        ValueOrContainer::Container(Container::MovableList(l)) => clear(&l),
         ValueOrContainer::Container(Container::Map(m)) if m.len() == 1 && m.get(RICH).is_some() => {
             super::rich::sync(&text_at(&m, RICH)?, &Value::Array(Vec::new()))
         }
@@ -123,6 +118,17 @@ pub(super) struct Writer<'a> {
 impl Writer<'_> {
     /// Amène `map` à l'état de `obj`.
     pub(super) fn sync_map(&self, map: &LoroMap, obj: &Map<String, Value>, ctx: Ctx) -> Res {
+        let owner = matches!(ctx, Ctx::Slide | Ctx::Element);
+        let schema = obj.get("kind").and_then(Value::as_str).and_then(|k| self.registry.get(k));
+        let schema = schema.map(|w| w.params.as_slice());
+        let empty = Map::new();
+        let params = obj.get("params").and_then(Value::as_object).unwrap_or(&empty);
+        // Avant toute écriture : `apply` ne revient pas en arrière, un deck
+        // trop profond ne doit pas laisser une slide à moitié écrite.
+        let wanted = match ctx {
+            Ctx::Slide => Some(wanted_index(self.registry, &slots_of(Some(params), schema))?),
+            _ => None,
+        };
         // Structure toujours présente : jamais de création concurrente d'une même clé.
         for key in ctx.texts() {
             text_at(map, key)?;
@@ -130,8 +136,15 @@ impl Writer<'_> {
         for key in ctx.lists() {
             list_at(map, key)?;
         }
-        let owner = matches!(ctx, Ctx::Slide | Ctx::Element);
-        let stale: Vec<String> = map.keys().map(|k| k.to_string()).filter(|k| !obj.contains_key(k)).collect();
+        for key in ctx.trees() {
+            tree_at(map, key)?;
+        }
+        let reserved = ctx.reserved();
+        let stale: Vec<String> = map
+            .keys()
+            .map(|k| k.to_string())
+            .filter(|k| !obj.contains_key(k) && !reserved.contains(&k.as_str()))
+            .collect();
         for key in stale {
             match ctx.kind(&key) {
                 // `params` d'une slide ou d'un élément : réconcilié plus bas.
@@ -139,9 +152,9 @@ impl Writer<'_> {
                 // Absent = vide : on vide, la clé reste.
                 Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
                 Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
-                Kind::Collection(_) => clear(&list_at(map, &key)?)?,
-                // Jamais rendus par `Ctx::kind` : une liste ou un hôte n'existe que dans les paramètres.
-                Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
+                Kind::Collection => clear(&list_at(map, &key)?)?,
+                // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
+                Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
         }
@@ -150,11 +163,11 @@ impl Writer<'_> {
                 Kind::Nested(Ctx::Params) if owner => {}
                 Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
                 Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
-                Kind::Collection(child) => {
-                    self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
+                Kind::Collection => {
+                    self.sync_list(&list_at(map, key)?, elements(value), &|m, o| self.sync_map(m, o, Ctx::Slide))?
                 }
-                // Jamais rendus par `Ctx::kind` : une liste ou un hôte n'existe que dans les paramètres.
-                Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
+                // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
+                Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 Kind::Atom => set_value(map, key, json_to_loro(value))?,
                 Kind::Nested(child) => match value {
                     Value::Object(o) => self.sync_map(&map_at(map, key)?, o, child)?,
@@ -165,10 +178,12 @@ impl Writer<'_> {
         if owner {
             // Toujours créée, même vide : deux premiers paramètres posés en
             // concurrence ne créent pas chacun leur carte (parade t-188).
-            let schema = obj.get("kind").and_then(Value::as_str).and_then(|k| self.registry.get(k));
-            let empty = Map::new();
-            let params = obj.get("params").and_then(Value::as_object).unwrap_or(&empty);
-            self.sync_params(&map_at(map, "params")?, params, schema.map(|w| w.params.as_slice()))?;
+            self.sync_params(&map_at(map, "params")?, params, schema)?;
+            // Les éléments d'une slide sont dans son arbre ; ceux d'un
+            // élément, ses enfants dans ce même arbre.
+            if let Some(wanted) = wanted {
+                self.sync_tree(&tree_at(map, ELEMENTS)?, wanted)?;
+            }
         }
         Ok(())
     }
@@ -191,8 +206,9 @@ impl Writer<'_> {
     /// catégorie de chacun.
     ///
     /// Un champ absent de `obj` est vidé s'il a un conteneur (texte, texte
-    /// riche, slot, liste), retiré sinon ; chaque champ `plain`, `rich`,
-    /// `slot` ou `list` déclaré est présent, vide au besoin (parade t-188).
+    /// riche, liste), retiré sinon ; chaque champ `plain`, `rich` ou `list`
+    /// déclaré est présent, vide au besoin (parade t-188). Un slot n'est pas
+    /// dans `map` : ses éléments sont dans l'arbre de la slide (`tree.rs`).
     fn sync_fields(
         &self,
         map: &LoroMap,
@@ -210,22 +226,28 @@ impl Writer<'_> {
             match kind {
                 Kind::Prose => drop(text_at(map, name)?),
                 Kind::Rich => drop(rich_at(map, name)?),
-                Kind::Collection(_) => drop(list_at(map, name)?),
                 Kind::List => drop(items_at(map, name)?),
-                // Pas créé d'avance : la forme du dataset est une donnée.
-                Kind::Host | Kind::Atom | Kind::Nested(_) => {}
+                // Pas créé d'avance : la forme du dataset est une donnée ; un
+                // slot vit dans l'arbre de la slide, créé avec elle.
+                Kind::Host | Kind::Slot | Kind::Collection | Kind::Atom | Kind::Nested(_) => {}
             }
         }
         for (key, value) in obj {
             match kind(fields, key, value) {
                 Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
                 Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
-                Kind::Collection(child) => {
-                    self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
+                // Écrit dans l'arbre de la slide (`tree.rs`) : une valeur
+                // restée sous ce nom est retirée.
+                Kind::Slot => {
+                    if map.get(key).is_some() {
+                        map.delete(key).context(LoroSnafu)?
+                    }
                 }
+                // Jamais rendu par `param_kind` ni `column_kind` : les slides seules.
+                Kind::Collection => return CollectionInParamsSnafu.fail(),
                 Kind::List => {
                     let columns = columns(fields, key);
-                    self.sync_list(&items_at(map, key)?, objects(value), &|m, o| self.sync_item(m, o, columns))?
+                    self.sync_list(&items_at(map, key)?, elements(value), &|m, o| self.sync_item(m, o, columns))?
                 }
                 Kind::Host => match value {
                     Value::Object(o) => self.sync_host(&map_at(map, key)?, o)?,
@@ -254,7 +276,7 @@ fn item_id(list: &LoroMovableList, i: usize) -> String {
 /// `issue-duplicate-element-id`), mais ne les interdit pas : la réconciliation
 /// doit rester correcte face à eux (ni échec, ni divergence), d'où
 /// l'appariement par occurrence plutôt que par id nu.
-fn keyed(ids: &[String]) -> Vec<(String, usize)> {
+pub(super) fn keyed(ids: &[String]) -> Vec<(String, usize)> {
     let mut seen: HashMap<&str, usize> = HashMap::new();
     ids.iter()
         .map(|id| {
@@ -288,7 +310,8 @@ impl Writer<'_> {
 
     /// Amène l'ordre de `list`, d'identifiants `current`, à `wanted` :
     /// suppressions, puis insertions (`insert`) et déplacements ; `visit`
-    /// voit chaque position une fois en place.
+    /// voit chaque position une fois en place. Sert aux slides et aux items
+    /// de liste ; les éléments sont dans un arbre, voir `tree.rs`.
     ///
     /// Appariement par occurrence ([`keyed`]) et positions indexées : linéaire
     /// quand rien ne change, un passage de la liste par insertion ou déplacement.

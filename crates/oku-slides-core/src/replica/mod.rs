@@ -3,9 +3,10 @@
 //! - [`DeckReplica`] : création, snapshot, lecture ([`DeckReplica::deck`]),
 //!   application d'un `Deck` modifié ([`DeckReplica::apply`]), annuler.
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
-//! - Modules : `schema`, `read`, `write`, `host` (options des hôtes), `rich`,
-//!   `undo`, `authors`, `history` ; tests à côté (`*_tests.rs`, dont
-//!   `list_tests` et `host_tests`). Voir `ARCHITECTURE.md`.
+//! - Modules : `schema`, `read`, `write`, `tree` (éléments d'une slide en
+//!   `LoroTree`), `host` (options des hôtes), `rich`, `undo`, `authors`,
+//!   `history` ; tests à côté (`*_tests.rs`, dont `list_tests`, `host_tests`
+//!   et `tree_tests`). Voir `ARCHITECTURE.md`.
 
 mod authors;
 mod history;
@@ -13,6 +14,7 @@ mod host;
 mod read;
 mod rich;
 mod schema;
+mod tree;
 mod undo;
 mod write;
 
@@ -22,22 +24,27 @@ pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
-use loro::{ExportMode, LoroDoc, LoroValue, ValueOrContainer};
+use loro::{Container, ExportMode, LoroDoc, LoroValue, ValueOrContainer};
 use snafu::{ResultExt, ensure};
 
 use crate::error::{
-    DeckJsonSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, NotADeckSnafu, ReplicaError, ReplicaInner,
-    TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu,
+    DeckJsonSnafu, ElementsNotATreeSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, NotADeckSnafu,
+    ReplicaError, ReplicaInner, TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu,
+    UnsupportedReplicaFormatSnafu,
 };
 use crate::model::{DECK_VERSION, Deck};
 use crate::widget::WidgetRegistry;
 pub(crate) use rich::SEP as PARAGRAPH_SEPARATOR;
-use schema::Ctx;
+use schema::{Ctx, ELEMENTS};
 use undo::Undo;
 
 const ROOT: &str = "deck";
 const META: &str = "meta";
 const DECK_UID: &str = "deck_uid";
+/// Clé de `meta` : format du replica.
+const FORMAT: &str = "format";
+/// 2 : éléments d'une slide en `LoroTree` (ADR-0005). Le changer impose de changer `SOURCES_VERSION`.
+const REPLICA_FORMAT: i64 = 2;
 
 /// Préfixe du message d'un commit intermédiaire d'une application (avant
 /// un `mov`) : l'état qui suit n'est pas une version du deck.
@@ -88,6 +95,42 @@ fn uid_of(doc: &LoroDoc) -> String {
     }
 }
 
+/// `meta.format`, s'il est un entier (`LoroValue::I64` seulement).
+fn format_of(doc: &LoroDoc) -> Option<i64> {
+    match doc.get_map(META).get(FORMAT) {
+        Some(ValueOrContainer::Value(LoroValue::I64(n))) => Some(n),
+        _ => None,
+    }
+}
+
+/// Refuse un document d'un autre format.
+fn check_format(doc: &LoroDoc) -> Result<(), ReplicaInner> {
+    match format_of(doc) {
+        Some(REPLICA_FORMAT) => Ok(()),
+        found => {
+            UnsupportedReplicaFormatSnafu { found: found.map_or_else(|| "none".to_owned(), |n| n.to_string()) }.fail()
+        }
+    }
+}
+
+/// Refuse une slide dont `@elements` n'est pas un arbre.
+///
+/// Sans ce refus, la lecture l'ignorerait avec une `Issue`, mais tout `apply`
+/// échouerait ensuite : le deck resterait figé.
+fn check_trees(doc: &LoroDoc) -> Result<(), ReplicaInner> {
+    let Some(ValueOrContainer::Container(Container::MovableList(slides))) = doc.get_map(ROOT).get("slides") else {
+        return Ok(());
+    };
+    for i in 0..slides.len() {
+        let Some(ValueOrContainer::Container(Container::Map(slide))) = slides.get(i) else { continue };
+        ensure!(
+            matches!(slide.get(ELEMENTS), None | Some(ValueOrContainer::Container(Container::Tree(_)))),
+            ElementsNotATreeSnafu
+        );
+    }
+    Ok(())
+}
+
 fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
     read::deck(&doc.get_map(ROOT))
 }
@@ -110,7 +153,9 @@ fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
 /// Reste hors garde ce que la première lecture n'atteint pas : les conteneurs
 /// hors de `deck` et `meta`, et les sous-arbres au-delà de `read::MAX_DEPTH`.
 /// Loro peut les décoder plus tard (export d'un snapshot, réconciliation,
-/// annuler) ; une panique y remonterait alors à l'appelant.
+/// annuler) ; une panique y remonterait alors à l'appelant. Les nœuds de
+/// l'arbre des éléments au-delà de `MAX_SLOT_DEPTH` ne sont ni lus ni écrits
+/// (`live_index`, `wanted_index`).
 fn guarded<T>(doc: LoroDoc, f: impl FnOnce(&LoroDoc) -> Result<T, ReplicaInner>) -> Result<(LoroDoc, T), ReplicaInner> {
     match catch_unwind(AssertUnwindSafe(|| f(&doc))) {
         Ok(r) => r.map(|t| (doc, t)),
@@ -133,6 +178,7 @@ impl DeckReplica {
         // Le pair créateur est tiré au hasard sur 64 bits : un identifiant suffisant.
         let uid = format!("{:016x}", doc.peer_id());
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
+        doc.get_map(META).insert(FORMAT, REPLICA_FORMAT).context(LoroSnafu)?;
         // Des insertions seulement : aucun `mov`, rien à découper.
         Self::reconcile_doc(&doc, deck, &registry, &|| ())?;
         doc.commit();
@@ -166,6 +212,8 @@ impl DeckReplica {
         let (doc, read) = guarded(doc, |doc| {
             doc.import(bytes).context(ImportSnafu)?;
             ensure!(!uid_of(doc).is_empty(), NotADeckSnafu { what: "no deck_uid" });
+            check_format(doc)?;
+            check_trees(doc)?;
             read_deck(doc)
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
@@ -412,6 +460,8 @@ impl DeckReplica {
         configure(&trial);
         guarded(trial, |doc| {
             doc.import(&updates).context(ImportSnafu)?;
+            check_format(doc)?;
+            check_trees(doc)?;
             read_deck(doc)
         })?;
         self.doc.import(&updates).context(ImportSnafu)?;

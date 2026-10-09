@@ -39,8 +39,10 @@ pub(super) enum Kind {
     Prose,
     /// `LoroMap { rich: LoroText à marques }` (paragraphes).
     Rich,
-    /// `LoroMovableList` de `LoroMap` à `id`.
-    Collection(Ctx),
+    /// `LoroMovableList` de `LoroMap` à `id` : les slides.
+    Collection,
+    /// Éléments d'un slot : nœuds de l'arbre de la slide (`tree.rs`).
+    Slot,
     /// `LoroMap { list: LoroMovableList de LoroMap à id }` : items d'un
     /// paramètre `list`, lisibles sans registre.
     List,
@@ -51,6 +53,18 @@ pub(super) enum Kind {
     /// `LoroMap` ; `dataset` en colonnes et lignes à identifiant.
     Host,
 }
+
+/// Clé de la carte d'une slide qui porte l'arbre de ses éléments.
+pub(super) const ELEMENTS: &str = "@elements";
+
+/// Clé de la méta d'un nœud : slot par id de parent.
+pub(super) const SLOT: &str = "@slot";
+
+/// Clé de `@slot` d'un élément d'un slot de la slide.
+pub(super) const ROOT_OWNER: &str = "";
+
+/// Slot de repli d'un élément sans slot lisible.
+pub(super) const ORPHANS: &str = "orphans";
 
 /// Clé de la carte d'un paramètre `rich`, qui porte son `LoroText`.
 pub(super) const RICH: &str = "rich";
@@ -78,7 +92,7 @@ impl Ctx {
         match (self, key) {
             // Une référence de pack ou de thème entière : l'id et la version ne se mêlent jamais.
             (Deck, "templates" | "theme") => Kind::Atom,
-            (Deck, "slides") => Kind::Collection(Slide),
+            (Deck, "slides") => Kind::Collection,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
             (Vars, _) => Kind::Atom,
@@ -107,6 +121,23 @@ impl Ctx {
             _ => &[],
         }
     }
+
+    /// Arbres créés dès la création de l'objet : les éléments d'une slide.
+    pub(super) fn trees(self) -> &'static [&'static str] {
+        match self {
+            Ctx::Slide => &[ELEMENTS],
+            _ => &[],
+        }
+    }
+
+    /// Clés du replica, jamais lues ni écrites comme des champs.
+    pub(super) fn reserved(self) -> &'static [&'static str] {
+        match self {
+            Ctx::Slide => &[ELEMENTS],
+            Ctx::Element => &[SLOT],
+            _ => &[],
+        }
+    }
 }
 
 /// Catégorie d'un paramètre de type déclaré `ty`. `choice` et `asset` sont
@@ -116,7 +147,7 @@ fn declared_kind(ty: &ParamType) -> Kind {
     match ty {
         ParamType::Plain => Kind::Prose,
         ParamType::Rich => Kind::Rich,
-        ParamType::Slot { .. } => Kind::Collection(Ctx::Element),
+        ParamType::Slot { .. } => Kind::Slot,
         ParamType::List { .. } => Kind::List,
         ParamType::Host { .. } => Kind::Host,
         _ => Kind::Atom,
@@ -127,7 +158,7 @@ fn declared_kind(ty: &ParamType) -> Kind {
 fn shape_kind(value: &Value) -> Kind {
     match value {
         Value::String(_) => Kind::Prose,
-        Value::Array(a) if is_elements(a) => Kind::Collection(Ctx::Element),
+        Value::Array(a) if is_elements(a) => Kind::Slot,
         Value::Array(a) if is_items(a) => Kind::List,
         Value::Array(a) if is_paragraphs(a) => Kind::Rich,
         _ => Kind::Atom,
@@ -139,7 +170,7 @@ fn fits(kind: Kind, value: &Value) -> bool {
     match (kind, value) {
         (Kind::Prose, Value::String(_)) | (Kind::Atom, _) => true,
         (Kind::Rich, Value::Array(a)) => is_paragraphs(a),
-        (Kind::Collection(_), Value::Array(a)) => a.is_empty() || is_elements(a),
+        (Kind::Slot, Value::Array(a)) => a.is_empty() || is_elements(a),
         (Kind::List, Value::Array(a)) => a.is_empty() || is_items(a),
         (Kind::Host, Value::Object(_)) => true,
         _ => false,
@@ -150,12 +181,18 @@ fn fits(kind: Kind, value: &Value) -> bool {
 /// paramètres `params` : le type déclaré s'il y en a un et que la valeur y
 /// tient, sinon la forme de la valeur (paramètre inconnu, widget inconnu,
 /// valeur d'un autre type : rien ne se perd, `validate` le signale).
+///
+/// Un nom vide n'est jamais un slot : sa clé `@slot` ne se relirait pas.
 pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
-    params
+    let kind = params
         .and_then(|ps| ps.iter().find(|p| p.name == name))
         .map(|p| declared_kind(&p.ty))
         .filter(|k| fits(*k, value))
-        .unwrap_or_else(|| shape_kind(value))
+        .unwrap_or_else(|| shape_kind(value));
+    match kind {
+        Kind::Slot if name.is_empty() => Kind::Atom,
+        kind => kind,
+    }
 }
 
 /// Catégorie de la colonne `name` d'un item aux colonnes `columns`, comme
@@ -164,7 +201,7 @@ pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Val
 pub(super) fn column_kind(columns: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
     match param_kind(columns, name, value) {
         _ if name == "id" => Kind::Atom,
-        Kind::Collection(_) | Kind::List | Kind::Host => Kind::Atom,
+        Kind::Collection | Kind::Slot | Kind::List | Kind::Host => Kind::Atom,
         kind => kind,
     }
 }
@@ -177,13 +214,14 @@ pub(super) fn columns<'a>(params: Option<&'a [ParamSchema]>, name: &str) -> Opti
     }
 }
 
-/// Champs à conteneur de `params` (`plain`, `rich`, `slot`, `list`), créés
-/// d'avance : deux premières éditions concurrentes visent alors le même
-/// conteneur et fusionnent (parade t-188).
+/// Champs à conteneur de `params` (`plain`, `rich`, `list`), créés d'avance :
+/// deux premières éditions concurrentes visent alors le même conteneur et
+/// fusionnent (parade t-188). Un slot vit dans l'arbre de la slide, créé
+/// avec elle.
 pub(super) fn declared(params: Option<&[ParamSchema]>) -> impl Iterator<Item = (&str, Kind)> {
     params
         .into_iter()
         .flatten()
         .map(|p| (p.name.as_str(), declared_kind(&p.ty)))
-        .filter(|(_, k)| !matches!(k, Kind::Atom))
+        .filter(|(_, k)| !matches!(k, Kind::Atom | Kind::Slot))
 }

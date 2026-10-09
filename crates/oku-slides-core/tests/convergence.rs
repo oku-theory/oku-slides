@@ -29,6 +29,11 @@ enum Edit {
     /// Fait passer l'élément `a` d'un slot de la `i`-ième slide à deux slots
     /// ([`two_slots`]) à la fin de l'autre slot : `MoveAcrossSlots(i, a)`.
     MoveAcrossSlots(usize, usize),
+    /// Sur `s-constat`, déplace l'élément `a` (toutes profondeurs, modulo) dans
+    /// `children` de la pile `b` (modulo), à la position `at` : `Nest(a, b, at)`.
+    Nest(usize, usize, usize),
+    /// Retire la pile `i` (modulo) de `s-constat`, avec ses enfants.
+    RemoveOwner(usize),
     /// `set_cell` du tableau `t` : ligne, colonne, valeur.
     SetCell(usize, usize, i32),
     InsertRow(usize),
@@ -59,6 +64,8 @@ fn edit() -> impl Strategy<Value = Edit> {
         (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(i, a, b)| Edit::MoveElement(i, a, b)),
         (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::RemoveElement(i, a)),
         (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::MoveAcrossSlots(i, a)),
+        (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(a, b, at)| Edit::Nest(a, b, at)),
+        any::<usize>().prop_map(Edit::RemoveOwner),
         (any::<usize>(), any::<usize>(), -50i32..50).prop_map(|(r, c, v)| Edit::SetCell(r, c, v)),
         any::<usize>().prop_map(Edit::InsertRow),
         any::<usize>().prop_map(Edit::RemoveRow),
@@ -214,6 +221,95 @@ fn move_across_slots(params: &mut Params, a: usize) {
     }
 }
 
+/// Le widget des piles et leur slot.
+const PILE: &str = "stack";
+const PILE_SLOT: &str = "children";
+
+/// `deck` et une pile vide d'id `id` à la fin de `blocks` de `s-constat`.
+fn with_pile(deck: Deck, id: &str) -> Deck {
+    let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": FLOW_SLOT },
+        "element": { "id": id, "kind": PILE } }));
+    let mut d = deck;
+    ok(apply_all(&mut d, vec![add], base()));
+    d
+}
+
+/// Retire l'élément `id` de `params`, à toutes les profondeurs ; un slot vidé
+/// disparaît.
+fn detach(params: &mut Params, id: &str) -> Option<Element> {
+    let mut emptied = None;
+    let mut found = None;
+    for (name, list) in params.slots_mut() {
+        if let Some(at) = list.iter().position(|e| e.id == id) {
+            found = Some(list.remove(at));
+            if list.is_empty() {
+                emptied = Some(name.to_owned());
+            }
+            break;
+        }
+        if let Some(el) = list.iter_mut().find_map(|e| detach(&mut e.params, id)) {
+            found = Some(el);
+            break;
+        }
+    }
+    if let Some(name) = emptied {
+        params.remove(&name);
+    }
+    found
+}
+
+/// Ajoute `el` au slot [`PILE_SLOT`] de `owner`, à la position `at` (modulo),
+/// à toutes les profondeurs ; `false` si `owner` est absent.
+fn attach(params: &mut Params, owner: &str, el: Element, at: usize) -> bool {
+    for (_, list) in params.slots_mut() {
+        for host in list.iter_mut() {
+            if host.id == owner {
+                let Some(children) = host.params.slot_mut(PILE_SLOT) else { return false };
+                children.insert(at % (children.len() + 1), el);
+                return true;
+            }
+            if contains(host, owner) {
+                return attach(&mut host.params, owner, el, at);
+            }
+        }
+    }
+    false
+}
+
+/// Le sous-arbre de `el` contient-il l'élément `id` ?
+fn contains(el: &Element, id: &str) -> bool {
+    el.params.slots().any(|(_, list)| list.iter().any(|e| e.id == id || contains(e, id)))
+}
+
+/// `Edit::Nest` : l'élément `a` passe dans `children` de la pile `b`, sauf
+/// s'il est cette pile ou l'un de ses ancêtres (cycle local).
+fn nest(slide: &mut Slide, a: usize, b: usize, at: usize) {
+    let (moved, owner) = {
+        let all: Vec<&Element> = slide.walk().map(|l| l.element).collect();
+        let piles: Vec<&str> = all.iter().filter(|e| e.kind == PILE).map(|e| e.id.as_str()).collect();
+        if piles.is_empty() {
+            return;
+        }
+        let (el, owner) = (all[a % all.len()], piles[b % piles.len()]);
+        if el.id == owner || contains(el, owner) {
+            return;
+        }
+        (el.id.clone(), owner.to_owned())
+    };
+    let Some(mut el) = detach(&mut slide.params, &moved) else { return };
+    (el.frame, el.cell) = (None, None);
+    let attached = attach(&mut slide.params, &owner, el, at);
+    assert!(attached, "pile {owner} perdue");
+}
+
+/// `Edit::RemoveOwner` : retire la pile `i` (modulo) et ses enfants.
+fn remove_owner(slide: &mut Slide, i: usize) {
+    let piles: Vec<String> = slide.walk().filter(|l| l.element.kind == PILE).map(|l| l.element.id.clone()).collect();
+    if let Some(id) = piles.get(i % piles.len().max(1)) {
+        detach(&mut slide.params, id);
+    }
+}
+
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
     let len = deck.slides.len();
     match e {
@@ -269,6 +365,16 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
                 move_across_slots(&mut slide.params, *a);
             }
         }
+        Edit::Nest(a, b, at) => {
+            if let Some(slide) = deck.slide_mut("s-constat") {
+                nest(slide, *a, *b, *at);
+            }
+        }
+        Edit::RemoveOwner(i) => {
+            if let Some(slide) = deck.slide_mut("s-constat") {
+                remove_owner(slide, *i);
+            }
+        }
     }
 }
 
@@ -280,7 +386,8 @@ proptest! {
         edits in prop::collection::vec(prop::collection::vec(edit(), 0..10), 2..4),
         seed in any::<u64>(),
     ) {
-        let deck = with_free_element(with_table(Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap(), base()));
+        let roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+        let deck = with_pile(with_pile(with_free_element(with_table(roadmap, base())), "pile-1"), "pile-2");
         let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
         let mut peers: Vec<DeckReplica> =
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
@@ -313,7 +420,9 @@ proptest! {
             }
         }
         let (first, issues) = peers[0].deck();
-        prop_assert!(issues.is_empty(), "lecture partielle : {issues:?}");
+        // Une annulation qui défait une entrée `@slot` face à un `mov` concurrent
+        // répare le slot à la lecture : ce n'est pas une perte.
+        prop_assert!(issues.iter().all(|i| i.message.id() == "issue-slot-repaired"), "lecture partielle : {issues:?}");
         for p in &peers[1..] {
             prop_assert_eq!(&p.deck().0, &first);
         }
@@ -321,6 +430,14 @@ proptest! {
         prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
         if let Some(data) = table_data(&first) {
             assert_table_ok(data);
+        }
+        // Relire puis réécrire : le premier `apply` peut écrire une réparation
+        // faite à la lecture (t-652, slot réparé), le second n'écrit rien (F1).
+        for p in &mut peers {
+            p.apply(&first, "relire", None).unwrap();
+            let before = p.len_ops();
+            p.apply(&first, "relire", None).unwrap();
+            prop_assert_eq!(p.len_ops(), before);
         }
     }
 }
@@ -627,9 +744,16 @@ fn occurrences<'a>(deck: &'a Deck, id: &str) -> Vec<(&'a str, &'a Element)> {
     slide.walk().filter(|l| l.element.id == id).map(|l| (l.slot, l.element)).collect()
 }
 
-/// Le gras posé par B est perdu : le déplacement entre slots devient un
-/// retrait suivi d'une insertion. Le test ne vérifie que la convergence et
-/// l'unicité de l'élément ; suivi : t-694.
+/// Le premier run du `body` de `e` est-il gras ?
+fn first_run_bold(e: &Element) -> bool {
+    match e.params.get("body") {
+        Some(ParamValue::Rich(body)) => body.first().and_then(|p| p.runs.first()).is_some_and(|r| r.bold),
+        _ => false,
+    }
+}
+
+/// Le déplacement entre slots est un `mov` de l'arbre : le gras posé par B
+/// est gardé (t-694).
 #[test]
 fn concurrent_move_across_slots_and_edit_converge() {
     let deck = table_deck();
@@ -652,6 +776,7 @@ fn concurrent_move_across_slots_and_edit_converge() {
     let mut bold = deck.clone();
     let slide = bold.slides.iter_mut().find(|s| s.id == "s-constat").unwrap_or_else(|| panic!("s-constat absente"));
     assert!(toggle_bold(&mut slide.params));
+    assert!(occurrences(&bold, "b-points").iter().all(|(_, e)| first_run_bold(e)), "B n'a pas basculé b-points");
     ok(b.apply(&bold, "B", None));
     ok(a.merge(&b));
     ok(b.merge(&a));
@@ -661,6 +786,8 @@ fn concurrent_move_across_slots_and_edit_converge() {
     let found = occurrences(&merged, "b-points");
     assert_eq!(found.len(), 1, "b-points : {found:?}");
     assert_eq!(found[0].0, FREE_SLOT);
+    assert!(first_run_bold(found[0].1), "gras de B perdu : {found:?}");
+    assert_eq!(found[0].1.frame, Some(DEFAULT_FRAME));
     let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id"];
     let issues = validate(&merged, &common::list_registry(), None);
     assert!(issues.iter().all(|i| !duplicates.contains(&i.message.id())), "{issues:?}");

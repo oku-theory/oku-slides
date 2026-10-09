@@ -15,3 +15,4 @@ mod issue_0554_action_jeton_sans_cle_path;
 mod issue_0613_annuler_un_renommage_ramene_la_conversation;
 mod issue_0630_link_angle_bracket;
 mod issue_0674_etat_ui_dans_l_ordre;
+mod issue_0694_reprise_v7_mise_de_cote;

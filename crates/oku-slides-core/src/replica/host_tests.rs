@@ -105,13 +105,8 @@ fn keys(m: &LoroMap) -> Vec<String> {
 
 /// La carte de l'option du paramètre `param` de l'élément `id` de la slide `s`.
 fn host_map(r: &DeckReplica, id: &str, param: &str) -> LoroMap {
-    let slides = as_list(r.doc.get_map(ROOT).get("slides"));
-    let blocks = as_list(as_map(as_map(slides.get(0)).get("params")).get("blocks"));
-    let el = (0..blocks.len())
-        .map(|i| as_map(blocks.get(i)))
-        .find(|m| matches!(m.get("id"), Some(ValueOrContainer::Value(v)) if v.as_string().is_some_and(|s| **s == id)))
-        .unwrap_or_else(|| panic!("élément {id} absent"));
-    as_map(as_map(el.get("params")).get(param))
+    let (tree, n) = tree::node_of(&r.doc, "s", id);
+    as_map(as_map(ok(tree.get_meta(n)).get("params")).get(param))
 }
 
 /// La carte `{columns, rows}` du tableau `t`.

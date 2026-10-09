@@ -73,6 +73,22 @@ fn read_doc_with_corrupt_deck_loro_returns_error() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
+/// Un replica sans `meta.format` (v7) est refusé, pas relu sans éléments.
+#[test]
+fn read_doc_of_a_replica_without_format_returns_unsupported_version() {
+    let r = resume();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+    let path = r.dir.join(DECK_DIR).join("deck.loro");
+    let doc = loro::LoroDoc::new();
+    doc.import(&std::fs::read(&path).unwrap()).unwrap();
+    doc.get_map("meta").delete("format").unwrap();
+    doc.commit();
+    std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
+    let err = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).err().expect("replica v7 refusé");
+    assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
 /// Un `deck.loro` au-delà du maximum n'est pas relu.
 #[test]
 fn read_doc_with_deck_loro_over_the_maximum_returns_error() {

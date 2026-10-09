@@ -125,6 +125,7 @@ issue-theme-version-missing = thiếu phiên bản chủ đề trong nguồn: { 
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 issue-highlight-zero = màu tô sáng được đánh số từ 1
 issue-unreadable-element = phần tử không đọc được, đã để riêng
+issue-slot-repaired = phần tử không có ô chứa đã biết, được đặt vào { $slot }
 issue-unreadable-item = mục danh sách không đọc được, đã để riêng
 issue-unreadable-row = hàng bảng không đọc được, đã để riêng
 issue-data-truncated = dữ liệu quá lớn, đã cắt bớt khi đọc

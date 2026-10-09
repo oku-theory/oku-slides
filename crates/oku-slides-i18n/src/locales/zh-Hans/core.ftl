@@ -125,6 +125,7 @@ issue-theme-version-missing = 源文件中缺少主题版本：{ $version }
 issue-unsupported-link = 不支持的链接：{ $link }
 issue-highlight-zero = 高亮颜色从 1 开始编号
 issue-unreadable-element = 无法读取的元素，已移出
+issue-slot-repaired = 元素没有已知的插槽，已放入 { $slot }
 issue-unreadable-item = 无法读取的列表项，已移出
 issue-unreadable-row = 无法读取的表格行，已移出
 issue-data-truncated = 数据过大，读取时已截断

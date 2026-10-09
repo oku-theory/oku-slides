@@ -125,6 +125,7 @@ issue-theme-version-missing = テーマのバージョンがソースにあり�
 issue-unsupported-link = サポートされていないリンク：{ $link }
 issue-highlight-zero = ハイライトの色番号は 1 から始まります
 issue-unreadable-element = 読み取れない要素を除外しました
+issue-slot-repaired = 既知のスロットがない要素を { $slot } に配置しました
 issue-unreadable-item = 読み取れないリスト項目を除外しました
 issue-unreadable-row = 読み取れない表の行を除外しました
 issue-data-truncated = データが大きすぎるため、読み込み時に切り詰めました

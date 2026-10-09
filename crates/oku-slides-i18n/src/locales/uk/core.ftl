@@ -135,6 +135,7 @@ issue-theme-version-missing = версії теми немає в джерела
 issue-unsupported-link = непідтримуване посилання: { $link }
 issue-highlight-zero = кольори виділення нумеруються з 1
 issue-unreadable-element = нечитабельний елемент, відкладено
+issue-slot-repaired = елемент без відомого слота, розміщено в { $slot }
 issue-unreadable-item = нечитабельний пункт списку, відкладено
 issue-unreadable-row = нечитабельний рядок таблиці, відкладено
 issue-data-truncated = дані завеликі, обрізано під час читання

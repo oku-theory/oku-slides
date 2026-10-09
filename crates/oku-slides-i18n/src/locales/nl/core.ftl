@@ -131,6 +131,7 @@ issue-theme-version-missing = themaversie ontbreekt in de bronnen: { $version }
 issue-unsupported-link = niet-ondersteunde link: { $link }
 issue-highlight-zero = markeerkleuren worden genummerd vanaf 1
 issue-unreadable-element = onleesbaar element, apart gezet
+issue-slot-repaired = element zonder bekend slot, geplaatst in { $slot }
 issue-unreadable-item = onleesbaar lijstitem, apart gezet
 issue-unreadable-row = onleesbare tabelrij, apart gezet
 issue-data-truncated = gegevens te groot, bij het lezen ingekort

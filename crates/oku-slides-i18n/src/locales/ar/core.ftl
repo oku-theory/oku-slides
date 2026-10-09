@@ -139,6 +139,7 @@ issue-theme-version-missing = نسخة السمة مفقودة من المصاد
 issue-unsupported-link = رابط غير مدعوم: { $link }
 issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
 issue-unreadable-element = عنصر غير مقروء، نُحّي جانبًا
+issue-slot-repaired = عنصر بلا خانة معروفة، وُضع في { $slot }
 issue-unreadable-item = بند قائمة غير مقروء، نُحّي جانبًا
 issue-unreadable-row = صف جدول غير مقروء، نُحّي جانبًا
 issue-data-truncated = بيانات كبيرة جدًا، اقتُطعت عند القراءة

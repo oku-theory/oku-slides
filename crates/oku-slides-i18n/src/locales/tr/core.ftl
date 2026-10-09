@@ -125,6 +125,7 @@ issue-theme-version-missing = tema sürümü kaynaklarda yok: { $version }
 issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 issue-highlight-zero = vurgu renkleri 1'den başlayarak numaralanır
 issue-unreadable-element = okunamayan öğe, bir kenara ayrıldı
+issue-slot-repaired = bilinen bir yuvası olmayan öğe, { $slot } içine yerleştirildi
 issue-unreadable-item = okunamayan liste maddesi, bir kenara ayrıldı
 issue-unreadable-row = okunamayan tablo satırı, bir kenara ayrıldı
 issue-data-truncated = veri çok büyük, okunurken kırpıldı

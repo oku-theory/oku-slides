@@ -127,17 +127,29 @@ fn undo_remove_while_peer_moves_element_keeps_ids_unique() {
     assert_that!(block_ids(&merged)).is_equal_to(["c2", "c1", "c3"].map(str::to_owned).to_vec());
 }
 
+/// Limite acceptée (t-694, suivi t-747) : les éléments sont des nœuds d'un
+/// `LoroTree`, et Loro ne ressuscite jamais un nœud supprimé ; le `mov`
+/// concurrent de B perd face à la suppression de A. Défaire la suppression
+/// recrée une copie (autre `TreeID`) de la version de A, et l'édition de B,
+/// restée sur le nœud supprimé, est perdue. Avec les listes (t-652), le `mov`
+/// de B gardait l'original et la copie était renommée `c2-2`.
 #[test]
-fn undo_remove_while_peer_moves_and_edits_element_renames_the_copy() {
+fn undo_remove_while_peer_moves_and_edits_element_keeps_the_undone_copy() {
     let deck = roadmap();
     let mut removed = deck.clone();
     blocks(&mut removed).remove(1);
     let mut moved = deck.clone();
     let mut c2 = blocks(&mut moved).remove(1);
+    let kicker = c2.params.get("kicker").cloned();
     c2.params.set("kicker", ParamValue::Text("Pilier B".into()));
     blocks(&mut moved).insert(0, c2);
-    let merged = undo_vs_move(&deck, &crate::common::shared(), &removed, &moved);
-    assert_that!(block_ids(&merged)).is_equal_to(["c2", "c1", "c2-2", "c3"].map(str::to_owned).to_vec());
+    // `undo_vs_move` vérifie déjà la convergence des deux pairs, sans `Issue`.
+    let mut merged = undo_vs_move(&deck, &crate::common::shared(), &removed, &moved);
+    let got = block_ids(&merged);
+    assert_that!(unique(&got)).is_true();
+    assert_that!(got.iter().filter(|id| id.starts_with("c2")).count()).is_equal_to(1);
+    let c2 = blocks(&mut merged).iter().find(|e| e.id == "c2").cloned().unwrap_or_else(|| panic!("c2 absent"));
+    assert_that!(c2.params.get("kicker").cloned()).is_equal_to(kicker);
 }
 
 /// `roadmap` et, dans les blocs de `s-constat`, l'élément `f` (`liste`) aux items `a`, `b`, `c`.

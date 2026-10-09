@@ -15,3 +15,6 @@ mod issue_0528_list_size_bounds;
 mod issue_0591_set_kind_revalide_host;
 mod issue_0652_undo_remove_vs_peer_move;
 mod issue_0677_bundle_dedups_before_normalizing;
+mod issue_0694_move_across_slots_keeps_concurrent_edit;
+mod issue_0694_undo_remove_vs_peer_move_in_tree;
+mod issue_0694_undo_tree_moves_keep_elements;

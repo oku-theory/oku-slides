@@ -46,27 +46,13 @@ fn block<'a>(deck: &'a Deck, id: &str) -> &'a Element {
     deck.slide("s-constat").unwrap().locate(id).unwrap().element
 }
 
-/// La carte `params` de l'élément `id`, direct dans les blocs de `s-constat`.
+/// La carte `params` de l'élément `id` de `s-constat`.
 fn block_params(r: &DeckReplica, id: &str) -> loro::LoroMap {
-    let as_map = |v: Option<ValueOrContainer>| match v {
+    let (tree, n) = tree::node_of(&r.doc, "s-constat", id);
+    match tree.get_meta(n).unwrap().get("params") {
         Some(ValueOrContainer::Container(loro::Container::Map(m))) => m,
         other => panic!("carte attendue : {other:?}"),
-    };
-    let as_list = |v: Option<ValueOrContainer>| match v {
-        Some(ValueOrContainer::Container(loro::Container::MovableList(l))) => l,
-        other => panic!("liste attendue : {other:?}"),
-    };
-    let slides = as_list(r.doc.get_map(ROOT).get("slides"));
-    let slide = (0..slides.len())
-        .map(|i| as_map(slides.get(i)))
-        .find(|m| matches!(m.get("id"), Some(ValueOrContainer::Value(v)) if v.as_string().is_some_and(|s| **s == "s-constat")))
-        .unwrap();
-    let blocks = as_list(as_map(slide.get("params")).get("blocks"));
-    let el = (0..blocks.len())
-        .map(|i| as_map(blocks.get(i)))
-        .find(|m| matches!(m.get("id"), Some(ValueOrContainer::Value(v)) if v.as_string().is_some_and(|s| **s == id)))
-        .unwrap();
-    as_map(el.get("params"))
+    }
 }
 
 #[test]
@@ -673,13 +659,15 @@ fn max_slot_depth(deck: &Deck) -> Option<usize> {
 fn read_deeply_nested_slots_stops_at_the_depth_bound() {
     let deck = roadmap_with_block(Element::new("pile-0", "stack"));
     let r = DeckReplica::new(&deck, registry()).unwrap();
-    let mut params = block_params(&r, "pile-0");
+    let (tree, mut prev) = tree::node_of(&r.doc, "s-constat", "pile-0");
     for i in 1..HOSTILE_SLOT_DEPTH {
-        let children = params.insert_container("children", loro::LoroMovableList::new()).unwrap();
-        let child = children.insert_container(0, loro::LoroMap::new()).unwrap();
-        child.insert("id", format!("pile-{i}")).unwrap();
-        child.insert("kind", "stack").unwrap();
-        params = child.insert_container("params", loro::LoroMap::new()).unwrap();
+        let node = tree.create(loro::TreeParentId::Node(prev)).unwrap();
+        let meta = tree.get_meta(node).unwrap();
+        meta.insert("id", format!("pile-{i}")).unwrap();
+        meta.insert("kind", "stack").unwrap();
+        let slot = meta.insert_container(schema::SLOT, loro::LoroMap::new()).unwrap();
+        slot.insert(&format!("pile-{}", i - 1), "children").unwrap();
+        prev = node;
     }
     r.doc.commit();
     let bytes = r.snapshot().unwrap();

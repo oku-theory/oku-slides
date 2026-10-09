@@ -2149,7 +2149,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "The sources zip (version 5)",
+    "title": "The sources zip (version 8)",
     "layout": "default",
     "blocks": [
      {
@@ -2160,7 +2160,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 5 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 8 }"
           }
          ]
         },
@@ -2284,7 +2284,7 @@
            "bold": true
           },
           {
-           "t": ": ordered lists with ids, prose, rich prose with marks, and the rest last-writer-wins."
+           "t": ": ordered lists with ids, prose, rich prose with marks, and the rest last-writer-wins. A slide's elements form a tree: moving an element between slots keeps concurrent edits."
           }
          ],
          "list": "bullet"
@@ -2431,7 +2431,7 @@
         {
          "runs": [
           {
-           "t": "Envelope /Version 2, zip version 5. Older: ignored, the PDF opens like any other PDF. Newer: refused."
+           "t": "Envelope /Version 2, zip version 8. Older: ignored, the PDF opens like any other PDF. Newer: refused."
           }
          ]
         }

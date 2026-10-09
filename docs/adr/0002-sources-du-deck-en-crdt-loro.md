@@ -41,8 +41,9 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   Loro : plus petite surface à maintenir, un seul chemin de vérité.
 - **Quatre catégories de champs**, posées une fois pour toutes dans le
   schéma du replica (`replica::schema`) :
-  - collections ordonnées à `id` (`slides`, `blocks`, `elements`,
-    `children`) → `LoroMovableList` de `LoroMap` ;
+  - collections ordonnées à `id` : `slides` → `LoroMovableList` de
+    `LoroMap` ; les slots (`blocks`, `elements`, `children`) → nœuds d'un
+    `LoroTree` par slide, voir l'[ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md) ;
   - prose simple → `LoroText` ;
   - prose riche (`text: Vec<Paragraph>`) → `LoroText` avec marques par
     bloc de paragraphes (`bold`, `italic`, `color`, `size`, `highlight`,
@@ -63,7 +64,7 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   Conséquences). Une étape d'annulation (une application, ou un tour de
   l'agent) regroupe plusieurs items Loro dans une pile à nous, avec son
   libellé : Loro 1.16.2 défait mal un item qui porte plusieurs `mov`, d'où
-  un commit par `mov` (t-263).
+  un commit par `mov` (t-263) ; plus nécessaire pour les éléments depuis l'ADR-0005.
 - **Lecture totale.** `DeckReplica::deck()` ne renvoie jamais d'erreur : un
   sous-arbre illisible (élément, slide, champ de haut niveau) est écarté et
   signalé par un `Issue`, remis à sa valeur par défaut si nécessaire. Un

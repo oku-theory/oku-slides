@@ -280,3 +280,67 @@ fn slide_changes_compares_slides_by_id() {
     assert_that!(c.removed_since).is_equal_to(vec!["s-disparue".to_owned()]);
     assert_that!(c.added_since).is_equal_to(vec![removed]);
 }
+
+/// `roadmap` et un texte cadré `n` dans `elements` de `s-constat` (t-694).
+fn two_slots() -> Deck {
+    let op = |v: serde_json::Value| -> crate::Op {
+        serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
+    };
+    let mut deck = roadmap();
+    let n = serde_json::json!({ "id": "n", "kind": "text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
+        "params": { "body": [{ "runs": [{ "t": "Note libre" }] }] } });
+    let add = op(serde_json::json!({ "op": "add_element",
+        "slot": { "owner": { "slide": "s-constat" }, "param": "elements" }, "element": n }));
+    crate::apply_all(&mut deck, vec![add], &crate::test_registry::registry()).unwrap_or_else(|e| panic!("{e:?}"));
+    deck
+}
+
+/// `deck` où `b-points` quitte `blocks` pour `elements`, cadré : un `mov` d'arbre.
+fn points_to_elements(deck: &Deck) -> Deck {
+    let mut d = deck.clone();
+    let slide = d.slide_mut("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    let blocks = slide.params.slot_mut("blocks").unwrap_or_else(|| panic!("blocks absent"));
+    let at = blocks.iter().position(|e| e.id == "b-points").unwrap_or_else(|| panic!("b-points absent"));
+    let mut points = blocks.remove(at);
+    points.frame = Some(crate::Frame { x: 0.0, y: 0.0, w: 400.0, h: 200.0 });
+    slide.params.slot_mut("elements").unwrap_or_else(|| panic!("elements absent")).push(points);
+    crate::canonicalize(&mut d);
+    d
+}
+
+/// Le slot de la slide `s-constat` qui porte `b-points`.
+fn points_slot(deck: &Deck) -> Option<String> {
+    deck.slide("s-constat").and_then(|s| s.locate("b-points")).map(|l| l.slot.to_owned())
+}
+
+#[test]
+fn a_move_across_slots_is_one_version() {
+    let deck = two_slots();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    let (versions, changes) = (b.history().len(), b.replica().len_changes());
+    b.apply(points_to_elements(&deck), "Déplacer", None).unwrap();
+    assert_that!(b.history().len()).is_equal_to(versions + 1);
+    assert_that!(b.replica().len_changes()).is_equal_to(changes + 1);
+}
+
+#[test]
+fn deck_at_before_a_move_across_slots_shows_the_old_slot() {
+    let deck = two_slots();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    b.apply(points_to_elements(&deck), "Déplacer", None).unwrap();
+    let h = b.history();
+    let last = h.len() - 1;
+    assert_that!(points_slot(&h.deck_at(last - 1).unwrap().0)).is_equal_to(Some("blocks".to_owned()));
+    assert_that!(points_slot(&h.deck_at(last).unwrap().0)).is_equal_to(Some("elements".to_owned()));
+}
+
+#[test]
+fn restore_across_a_move_across_slots_brings_back_the_old_slot() {
+    let deck = two_slots();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    b.apply(points_to_elements(&deck), "Déplacer", None).unwrap();
+    let h = b.history();
+    assert_that!(points_slot(&h.deck_at(0).unwrap().0)).is_equal_to(Some("blocks".to_owned()));
+    restore_and_undo(&mut b, &h, 0);
+    assert_that!(points_slot(b.deck())).is_equal_to(Some("elements".to_owned()));
+}

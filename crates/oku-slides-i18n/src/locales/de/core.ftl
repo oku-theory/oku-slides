@@ -131,6 +131,7 @@ issue-theme-version-missing = Designversion fehlt in den Quellen: { $version }
 issue-unsupported-link = nicht unterstützter Link: { $link }
 issue-highlight-zero = Hervorhebungsfarben werden ab 1 nummeriert
 issue-unreadable-element = unlesbares Element, beiseitegelegt
+issue-slot-repaired = Element ohne bekannten Slot, abgelegt in { $slot }
 issue-unreadable-item = unlesbarer Listeneintrag, beiseitegelegt
 issue-unreadable-row = unlesbare Tabellenzeile, beiseitegelegt
 issue-data-truncated = Daten zu groß, beim Lesen gekürzt

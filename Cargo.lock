@@ -5565,6 +5565,7 @@ version = "1.0.0"
 dependencies = [
  "hex",
  "insta",
+ "loro",
  "oku-slides-a2ui",
  "oku-slides-chart",
  "oku-slides-core",

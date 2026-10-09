@@ -125,6 +125,7 @@ issue-theme-version-missing = উৎসে থিম সংস্করণ অ�
 issue-unsupported-link = অসমর্থিত লিঙ্ক: { $link }
 issue-highlight-zero = হাইলাইট রঙের নম্বর 1 থেকে শুরু
 issue-unreadable-element = অপাঠযোগ্য উপাদান, আলাদা রাখা হয়েছে
+issue-slot-repaired = পরিচিত স্লট ছাড়া উপাদান, { $slot }-এ রাখা হয়েছে
 issue-unreadable-item = অপাঠযোগ্য তালিকার আইটেম, আলাদা রাখা হয়েছে
 issue-unreadable-row = অপাঠযোগ্য টেবিলের সারি, আলাদা রাখা হয়েছে
 issue-data-truncated = ডেটা খুব বড়, পড়ার সময় ছেঁটে ফেলা হয়েছে

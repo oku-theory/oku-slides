@@ -2149,7 +2149,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le zip des sources (version 5)",
+    "title": "Le zip des sources (version 8)",
     "layout": "default",
     "blocks": [
      {
@@ -2160,7 +2160,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 5 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 8 }"
           }
          ]
         },
@@ -2284,7 +2284,7 @@
            "bold": true
           },
           {
-           "t": " : listes ordonnées à id, prose, prose riche à marques, et le reste en dernier écrivain gagne."
+           "t": " : listes ordonnées à id, prose, prose riche à marques, et le reste en dernier écrivain gagne. Les éléments d'une slide forment un arbre : déplacer un élément d'un slot à un autre garde les éditions concurrentes."
           }
          ],
          "list": "bullet"
@@ -2431,7 +2431,7 @@
         {
          "runs": [
           {
-           "t": "Enveloppe /Version 2, zip version 5. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
+           "t": "Enveloppe /Version 2, zip version 8. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
           }
          ]
         }

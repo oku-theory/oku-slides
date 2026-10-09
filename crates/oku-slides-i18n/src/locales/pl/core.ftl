@@ -135,6 +135,7 @@ issue-theme-version-missing = brak wersji motywu w źródłach: { $version }
 issue-unsupported-link = nieobsługiwany link: { $link }
 issue-highlight-zero = kolory wyróżnienia numeruje się od 1
 issue-unreadable-element = nieczytelny element, odłożony
+issue-slot-repaired = element bez znanego slotu, umieszczony w { $slot }
 issue-unreadable-item = nieczytelna pozycja listy, odłożona
 issue-unreadable-row = nieczytelny wiersz tabeli, odłożony
 issue-data-truncated = dane zbyt duże, przycięte przy odczycie

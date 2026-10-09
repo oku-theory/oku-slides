@@ -131,6 +131,7 @@ issue-theme-version-missing = versão de tema ausente das fontes: { $version }
 issue-unsupported-link = link não suportado: { $link }
 issue-highlight-zero = as cores de destaque são numeradas a partir de 1
 issue-unreadable-element = elemento ilegível, deixado de lado
+issue-slot-repaired = elemento sem slot conhecido, colocado em { $slot }
 issue-unreadable-item = item de lista ilegível, deixado de lado
 issue-unreadable-row = linha de tabela ilegível, deixada de lado
 issue-data-truncated = dados grandes demais, truncados na leitura

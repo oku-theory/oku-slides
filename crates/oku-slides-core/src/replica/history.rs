@@ -6,9 +6,10 @@
 //! changes du préfixe, branches concurrentes comprises.
 //!
 //! Un cran par édition, pas par change : une édition qui déplace des slides
-//! fait un commit par `mov` (t-263), dont seuls les intermédiaires portent le
-//! message `oku-part:<libellé>`. Ils n'ont pas de cran ; celui du commit
-//! final de l'édition les contient.
+//! ou des items de liste fait un commit par `mov` (t-263), dont seuls les
+//! intermédiaires portent le message `oku-part:<libellé>`. Ils n'ont pas de
+//! cran ; celui du commit final de l'édition les contient. Les `mov` de
+//! l'arbre des éléments n'ajoutent aucun commit par `mov` (ADR-0005).
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -75,8 +76,8 @@ pub(super) fn build(doc: &LoroDoc) -> HistoryPreview {
     metas.sort_by_key(|m| (m.lamport, m.id.peer));
     let (mut vv, mut seen) = (VersionVector::default(), HashSet::new());
     let (mut versions, mut cuts) = (Vec::with_capacity(metas.len()), Vec::with_capacity(metas.len()));
-    // Commits intermédiaires d'une édition (un `mov` par commit, t-263), par
-    // pair : ils n'ont pas de cran, le commit final de l'édition le porte.
+    // Commits intermédiaires d'une édition (un `mov` de liste par commit,
+    // t-263), par pair : ils n'ont pas de cran, le commit final le porte.
     let mut parts: HashMap<u64, bool> = HashMap::new();
     let mut last_part = None;
     for m in metas {

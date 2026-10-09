@@ -125,6 +125,7 @@ issue-theme-version-missing = थीम संस्करण स्रोतो
 issue-unsupported-link = असमर्थित लिंक: { $link }
 issue-highlight-zero = हाइलाइट रंगों की गिनती 1 से होती है
 issue-unreadable-element = अपठनीय तत्व, अलग रखा गया
+issue-slot-repaired = ज्ञात स्लॉट के बिना तत्व, { $slot } में रखा गया
 issue-unreadable-item = अपठनीय सूची आइटम, अलग रखा गया
 issue-unreadable-row = अपठनीय तालिका पंक्ति, अलग रखी गई
 issue-data-truncated = डेटा बहुत बड़ा है, पढ़ते समय काटा गया

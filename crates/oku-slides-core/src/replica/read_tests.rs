@@ -1,9 +1,11 @@
-use loro::{LoroDoc, LoroMap, LoroMovableList};
-use serde_json::{Value, json};
+use loro::{LoroDoc, LoroMap, LoroMovableList, LoroTree, TreeParentId};
+use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
 use super::*;
 use crate::error::ReplicaError;
+use crate::replica::schema::SLOT;
+use crate::replica::tree::tree_at;
 use crate::replica::write::json_to_loro;
 
 fn issues_ids(issues: &[crate::Issue]) -> Vec<&'static str> {
@@ -32,12 +34,81 @@ fn put(map: &LoroMap, key: &str, v: &Value) {
     }
 }
 
+/// Un tableau non vide d'objets portant tous `kind` : les éléments d'un slot.
+fn as_elements(v: &Value) -> Option<&[Value]> {
+    let a = v.as_array()?;
+    (!a.is_empty() && a.iter().all(|e| e.get("kind").is_some())).then_some(a.as_slice())
+}
+
+/// Écrit les `params` de `obj` sous `map` ; leurs slots deviennent des
+/// nœuds de `tree` sous `parent`, d'id de propriétaire `owner`.
+fn put_params(map: &LoroMap, obj: &Map<String, Value>, tree: &LoroTree, parent: TreeParentId, owner: &str) {
+    for (k, v) in obj {
+        match (k.as_str(), v) {
+            ("params", Value::Object(params)) => {
+                let m = map.insert_container("params", LoroMap::new()).unwrap();
+                for (name, value) in params {
+                    match as_elements(value) {
+                        Some(elements) => put_nodes(tree, parent, owner, name, elements),
+                        // Texte riche : sa carte `{rich: LoroText}`, comme l'écrit la réconciliation.
+                        None if value.as_array().is_some_and(|a| crate::params::is_paragraphs(a)) => {
+                            let rich = m.insert_container(name, LoroMap::new()).unwrap();
+                            let text = rich.insert_container(RICH, loro::LoroText::new()).unwrap();
+                            crate::replica::rich::sync(&text, value).unwrap();
+                        }
+                        None => put(&m, name, value),
+                    }
+                }
+            }
+            _ => put(map, k, v),
+        }
+    }
+}
+
+/// Les `elements` du slot `slot` de `owner`, nœuds de `tree` sous `parent`.
+fn put_nodes(tree: &LoroTree, parent: TreeParentId, owner: &str, slot: &str, elements: &[Value]) {
+    for e in elements {
+        let node = tree.create(parent).unwrap();
+        let meta = tree.get_meta(node).unwrap();
+        let id = e.get("id").and_then(Value::as_str).unwrap_or_default();
+        put_params(&meta, e.as_object().unwrap(), tree, TreeParentId::Node(node), id);
+        meta.insert_container(SLOT, LoroMap::new()).unwrap().insert(owner, slot).unwrap();
+    }
+}
+
+/// La slide `slide` en `i` de `list` ; ses éléments dans son arbre.
+fn put_slide(list: &LoroMovableList, i: usize, slide: &Map<String, Value>) {
+    let m = list.insert_container(i, LoroMap::new()).unwrap();
+    let tree = tree_at(&m, crate::replica::schema::ELEMENTS).unwrap();
+    put_params(&m, slide, &tree, TreeParentId::Root, crate::replica::schema::ROOT_OWNER);
+}
+
 fn read(root: Value) -> Result<crate::DeckRead, ReplicaError> {
     let doc = LoroDoc::new();
+    doc.config_text_style(crate::replica::rich::styles());
     let map = doc.get_map("deck");
-    root.as_object().unwrap().iter().for_each(|(k, v)| put(&map, k, v));
+    for (k, v) in root.as_object().unwrap() {
+        match (k.as_str(), v) {
+            ("slides", Value::Array(slides)) => {
+                let list = map.insert_container("slides", LoroMovableList::new()).unwrap();
+                for (i, s) in slides.iter().enumerate() {
+                    put_slide(&list, i, s.as_object().unwrap());
+                }
+            }
+            _ => put(&map, k, v),
+        }
+    }
     doc.commit();
     Ok(deck(&map)?)
+}
+
+#[test]
+fn put_slide_matches_the_writer() {
+    let roadmap = crate::Deck::from_json(include_str!("../../../../fixtures/roadmap.json")).unwrap();
+    let (forged, issues) = read(serde_json::to_value(&roadmap).unwrap()).unwrap();
+    let written = crate::DeckReplica::new(&roadmap, crate::test_registry::shared()).unwrap().deck().0;
+    assert_that!(forged).is_equal_to(written);
+    assert_that!(issues).is_empty();
 }
 
 fn slot<'a>(s: &'a crate::Slide, name: &str) -> &'a [crate::Element] {

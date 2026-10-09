@@ -378,3 +378,210 @@ fn undo_redo_of_reordered_rows_and_columns_restores_exactly() {
     crate::apply_all(&mut reordered, vec![op], &crate::test_registry::registry()).unwrap();
     assert_undo_redo_exact(&deck, &reordered);
 }
+
+// Éléments d'une slide en arbre (t-694) : la parade t-263 ne vise plus que les
+// listes ; ces tests vérifient qu'annuler et rétablir un `mov` d'arbre, seul ou
+// mêlé à un `mov` de liste, rend l'état exact.
+
+fn json_op(v: serde_json::Value) -> crate::Op {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
+}
+
+fn with_ops(deck: &Deck, ops: Vec<crate::Op>) -> Deck {
+    let mut d = deck.clone();
+    ok(crate::apply_all(&mut d, ops, &crate::test_registry::registry()));
+    d
+}
+
+/// Un texte `id` de corps `t`.
+fn text(id: &str, t: &str) -> serde_json::Value {
+    serde_json::json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": t }] }] } })
+}
+
+/// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
+fn add(owner: Option<&str>, param: &str, element: serde_json::Value) -> crate::Op {
+    let owner = match owner {
+        Some(e) => serde_json::json!({ "slide": "s-constat", "element": e }),
+        None => serde_json::json!({ "slide": "s-constat" }),
+    };
+    json_op(serde_json::json!({ "op": "add_element", "slot": { "owner": owner, "param": param }, "element": element }))
+}
+
+fn remove(id: &str) -> crate::Op {
+    json_op(serde_json::json!({ "op": "remove_element", "slide": "s-constat", "element": id }))
+}
+
+/// `roadmap` et un texte cadré `n` dans `elements` de `s-constat`.
+fn two_slots() -> Deck {
+    let mut n = text("n", "Note libre");
+    n["frame"] = serde_json::json!({ "x": 100, "y": 100, "w": 400, "h": 200 });
+    with_ops(&roadmap(), vec![add(None, "elements", n)])
+}
+
+/// `roadmap` et, dans `blocks` de `s-constat`, une `pile` à deux enfants
+/// dont un texte riche (gras, italique, lien).
+fn with_pile() -> Deck {
+    let rich = serde_json::json!({ "id": "riche", "kind": "text", "params": { "body": [
+        { "runs": [{ "t": "Gras", "bold": true }, { "t": " et " }, { "t": "lien", "italic": true,
+            "link": "https://example.org" }] },
+        { "list": "bullet", "runs": [{ "t": "Puce" }] } ] } });
+    with_ops(
+        &roadmap(),
+        vec![
+            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+            add(Some("pile"), "children", text("k1", "Un")),
+            add(Some("pile"), "children", rich),
+        ],
+    )
+}
+
+/// L'élément `id` de `s-constat`, tel quel.
+fn element(deck: &Deck, id: &str) -> serde_json::Value {
+    let e = deck.slide("s-constat").and_then(|s| s.locate(id)).map(|l| l.element.clone());
+    ok(serde_json::to_value(e.unwrap_or_else(|| panic!("{id} absent"))))
+}
+
+/// `deck` où `b-points` quitte `blocks` pour `elements`, cadré.
+fn points_to_elements(deck: &Deck) -> Deck {
+    let mut moved = element(deck, "b-points");
+    moved["frame"] = serde_json::json!({ "x": 0, "y": 0, "w": 400, "h": 200 });
+    with_ops(deck, vec![remove("b-points"), add(None, "elements", moved)])
+}
+
+#[test]
+fn undo_redo_of_a_slide_removal_restores_its_element_tree() {
+    let before = with_pile();
+    let mut after = before.clone();
+    after.slides.retain(|s| s.id != "s-constat");
+    assert_undo_redo_exact(&before, &after);
+    let mut r = ok(DeckReplica::new(&before, crate::test_registry::shared()));
+    ok(r.apply(&after, "Supprimer", None));
+    assert_that!(ok(r.undo())).is_true();
+    // `node_of` exige une carte `@elements` de type arbre.
+    let (tree, pile) = super::super::tree::node_of(&r.doc, "s-constat", "pile");
+    assert_that!(tree.children_num(pile)).is_equal_to(Some(2));
+    assert_that!(ok(r.redo())).is_true();
+    assert_that!(ok(r.undo())).is_true();
+    let (tree, pile) = super::super::tree::node_of(&r.doc, "s-constat", "pile");
+    let (_, riche) = super::super::tree::node_of(&r.doc, "s-constat", "riche");
+    assert_that!(tree.parent(riche)).is_equal_to(Some(loro::TreeParentId::Node(pile)));
+    assert_that!(r.deck()).is_equal_to((before, Vec::new()));
+}
+
+#[test]
+fn undo_redo_of_removing_an_owner_with_children_restores_exactly() {
+    let before = with_pile();
+    assert_undo_redo_exact(&before, &with_ops(&before, vec![remove("pile")]));
+}
+
+#[test]
+fn undo_redo_of_a_slide_move_with_an_element_move_restores_exactly() {
+    let before = two_slots();
+    let mut after = points_to_elements(&before);
+    let at = after.slides.iter().position(|s| s.id == "s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    let s = after.slides.remove(at);
+    after.slides.insert(0, s);
+    assert_undo_redo_exact(&before, &after);
+}
+
+#[test]
+fn undo_redo_of_a_move_across_slots_restores_exactly() {
+    let before = two_slots();
+    assert_undo_redo_exact(&before, &points_to_elements(&before));
+}
+
+#[test]
+fn undo_redo_of_a_move_into_a_child_slot_restores_exactly() {
+    let before = with_pile();
+    let moved = element(&before, "b-points");
+    let after = with_ops(&before, vec![remove("b-points"), add(Some("pile"), "children", moved)]);
+    assert_undo_redo_exact(&before, &after);
+}
+
+#[test]
+fn undo_redo_of_a_full_element_reversal_restores_exactly() {
+    let blocks: Vec<serde_json::Value> = (0..8).map(|k| text(&format!("t{k}"), &format!("Texte {k}"))).collect();
+    let before: Deck = ok(serde_json::from_value(serde_json::json!({
+        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] })));
+    let mut after = before.clone();
+    let Some(slot) = after.slides[0].params.slot_mut("blocks") else { panic!("blocks absent") };
+    slot.reverse();
+    assert_undo_redo_exact(&before, &after);
+}
+
+/// Deux pairs ouverts sur le même snapshot de `deck`.
+fn two_peers(deck: &Deck) -> (DeckReplica, DeckReplica) {
+    let snap = ok(ok(DeckReplica::new(deck, crate::test_registry::shared())).snapshot());
+    let open = || ok(DeckReplica::from_snapshot(&snap, 1 << 24, crate::test_registry::shared())).0;
+    (open(), open())
+}
+
+/// `deck` où le premier run du `body` de `b-points` est en gras.
+fn points_bold(deck: &Deck) -> Deck {
+    let mut body = element(deck, "b-points")["params"]["body"].clone();
+    body[0]["runs"][0]["bold"] = serde_json::json!(true);
+    with_ops(
+        deck,
+        vec![json_op(serde_json::json!({ "op": "set_param",
+            "target": { "slide": "s-constat", "element": "b-points" }, "param": "body", "value": body }))],
+    )
+}
+
+/// Le slot de `b-points` dans `deck`, son propriétaire, et son premier run est-il gras ?
+fn points_place(deck: &Deck) -> Vec<(Option<String>, String, bool)> {
+    let Some(slide) = deck.slide("s-constat") else { panic!("s-constat absente") };
+    slide
+        .walk()
+        .filter(|l| l.element.id == "b-points")
+        .map(|l| {
+            let bold = match l.element.params.get("body") {
+                Some(crate::ParamValue::Rich(b)) => b.first().and_then(|p| p.runs.first()).is_some_and(|r| r.bold),
+                _ => false,
+            };
+            (l.owner.map(str::to_owned), l.slot.to_owned(), bold)
+        })
+        .collect()
+}
+
+#[test]
+fn undo_move_across_slots_keeps_a_remote_edit() {
+    let deck = two_slots();
+    let (mut a, mut b) = two_peers(&deck);
+    ok(a.apply(&points_to_elements(&deck), "Déplacer", None));
+    ok(b.apply(&points_bold(&deck), "Gras", None));
+    ok(a.merge(&b));
+    assert_that!(ok(a.undo())).is_true();
+    let (read, issues) = a.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(points_place(&read)).is_equal_to(vec![(None, "blocks".to_owned(), true)]);
+    assert_that!(ok(a.redo())).is_true();
+    let (read, issues) = a.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(points_place(&read)).is_equal_to(vec![(None, "elements".to_owned(), true)]);
+    ok(b.merge(&a));
+    assert_that!(b.deck()).is_equal_to(a.deck());
+}
+
+#[test]
+fn undo_a_stale_move_after_the_peer_moved_it_again_converges() {
+    let deck = with_pile();
+    let (mut a, mut b) = two_peers(&deck);
+    let moved = points_to_elements(&deck);
+    ok(a.apply(&moved, "A", None));
+    ok(b.merge(&a));
+    assert_that!(b.deck().0).is_equal_to(&moved);
+    let points = element(&moved, "b-points");
+    let nested = with_ops(&moved, vec![remove("b-points"), add(Some("pile"), "children", points)]);
+    ok(b.apply(&nested, "B", None));
+    ok(a.merge(&b));
+    assert_that!(ok(a.undo())).is_true();
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    let (read, issues) = a.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(b.deck()).is_equal_to((read.clone(), Vec::new()));
+    let place = points_place(&read);
+    assert_that!(place.len()).is_equal_to(1);
+    let declared = [(None, "blocks"), (None, "elements"), (Some("pile".to_owned()), "children")];
+    assert_that!(declared.iter().any(|(o, s)| *o == place[0].0 && *s == place[0].1)).is_true();
+}

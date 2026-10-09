@@ -6,13 +6,14 @@
 //! lit dans son conteneur. L'historique, la fusion et l'aperçu d'une version
 //! passée ne dépendent donc pas du pack installé.
 
-use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroValue, ValueOrContainer};
+use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroTree, LoroValue, TreeParentId, ValueOrContainer};
 use oku_slides_i18n::Message;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::DeckRead;
-use super::schema::{Ctx, DATASET, Kind, LIST, RICH};
+use super::schema::{Ctx, DATASET, ELEMENTS, Kind, LIST, RICH, ROOT_OWNER};
+use super::tree::ordered_children;
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
@@ -123,6 +124,9 @@ impl Reader {
         }
         for key in map.keys() {
             let key = key.to_string();
+            if ctx.reserved().contains(&key.as_str()) {
+                continue;
+            }
             let Some(entry) = map.get(&key) else { continue };
             // Le marqueur `{columns, rows}` ne vaut que sous `dataset` d'un hôte.
             if ctx == Ctx::Host
@@ -145,13 +149,9 @@ impl Reader {
                     Some(v) => v,
                     None => continue,
                 },
-                (Kind::Collection(child), ValueOrContainer::Container(Container::MovableList(l))) => {
-                    let items = self.read_list(&l, child, depth.deeper());
-                    // `slides` est obligatoire ; les autres collections vides sont omises.
-                    if items.is_empty() && ctx != Ctx::Deck {
-                        continue;
-                    }
-                    Value::Array(items)
+                // `slides` est obligatoire, même vide.
+                (Kind::Collection, ValueOrContainer::Container(Container::MovableList(l))) => {
+                    Value::Array(self.read_slides(&l, depth.deeper()))
                 }
                 (kind, ValueOrContainer::Container(Container::Map(m))) => {
                     let child = match kind {
@@ -166,19 +166,77 @@ impl Reader {
             };
             out.insert(key, value);
         }
+        if ctx == Ctx::Slide {
+            match map.get(ELEMENTS) {
+                Some(ValueOrContainer::Container(Container::Tree(t))) => {
+                    let inner = Depth { levels: depth.levels + 1, slots: 0 };
+                    let slots = self.read_tree(&t, TreeParentId::Root, ROOT_OWNER, inner);
+                    for param in merge_slots(&mut out, slots) {
+                        self.issues.push(issue(None, None, Message::new("issue-param-type").arg("param", param)));
+                    }
+                }
+                None => {}
+                // Forgé : ignoré et signalé ; la slide est renseignée par `read_slides`.
+                Some(_) => self.issues.push(issue(None, None, Message::new("issue-unreadable-element"))),
+            }
+        }
         // Clés triées, comme la forme canonique (`canonical::numbers`).
         out.sort_keys();
         out
     }
 
-    /// Paramètres d'un widget, sans registre : le type se lit dans le
-    /// conteneur. Un texte, un texte riche, un slot, une liste vides sont
-    /// absents.
+    /// Les slots des enfants de `parent`, par nom (voir les règles de lecture).
     ///
-    /// La profondeur continue de croître à travers le cycle `params` →
-    /// liste → élément → `params` : deux niveaux par slot. Un slot dont les
-    /// éléments dépasseraient [`MAX_SLOT_DEPTH`] n'est pas lu (signalé) :
-    /// les ops ne le créent pas, seul un replica forgé le porte.
+    /// `depth.slots` est la profondeur des nœuds lus (0 pour les racines).
+    /// Un élément illisible est écarté avec son sous-arbre ; un élément au
+    /// slot réparé est gardé et signalé ; des enfants au-delà de
+    /// [`MAX_SLOT_DEPTH`] ne sont pas lus (une `Issue` par nœud).
+    fn read_tree(&mut self, tree: &LoroTree, parent: TreeParentId, pid: &str, depth: Depth) -> Map<String, Value> {
+        let mut out = Map::new();
+        for (slot, children) in ordered_children(tree, parent, pid) {
+            let mut items = Vec::with_capacity(children.len());
+            for child in children {
+                let Ok(meta) = tree.get_meta(child.node) else {
+                    self.issues.push(issue(None, None, Message::new("issue-unreadable-element")));
+                    continue;
+                };
+                let mut obj = self.read_map_at(&meta, Ctx::Element, Depth { levels: depth.levels + 2, ..depth });
+                let id = obj.get("id").and_then(Value::as_str).map(str::to_owned);
+                if Element::deserialize(&Value::Object(obj.clone())).is_err() {
+                    self.issues.push(issue(None, id, Message::new("issue-unreadable-element")));
+                    continue;
+                }
+                if child.repaired {
+                    let message = Message::new("issue-slot-repaired").arg("slot", slot.clone());
+                    self.issues.push(issue(None, id.clone(), message));
+                }
+                let kids = tree.children_num(TreeParentId::Node(child.node)).unwrap_or_default();
+                if kids > 0 && depth.slots + 1 >= MAX_SLOT_DEPTH {
+                    for _ in 0..kids {
+                        self.issues.push(issue(None, None, Message::new("issue-slot-too-deep")));
+                    }
+                } else if kids > 0 {
+                    let inner = Depth { levels: depth.levels + 2, slots: depth.slots + 1 };
+                    let slots =
+                        self.read_tree(tree, TreeParentId::Node(child.node), id.as_deref().unwrap_or_default(), inner);
+                    for param in merge_slots(&mut obj, slots) {
+                        let message = Message::new("issue-param-type").arg("param", param);
+                        self.issues.push(issue(None, id.clone(), message));
+                    }
+                }
+                obj.sort_keys();
+                items.push(Value::Object(obj));
+            }
+            if !items.is_empty() {
+                out.insert(slot, Value::Array(items));
+            }
+        }
+        out
+    }
+
+    /// Paramètres d'un widget, sans registre : le type se lit dans le
+    /// conteneur. Un texte, un texte riche, une liste vides sont absents.
+    /// Les slots ne sont pas ici : ils viennent de l'arbre ([`Self::read_tree`]).
     fn read_params(&mut self, map: &LoroMap, depth: Depth) -> Map<String, Value> {
         let mut out = Map::new();
         if depth.levels >= MAX_DEPTH {
@@ -210,19 +268,6 @@ impl Reader {
                     // Option d'un hôte : son `dataset` peut porter le marqueur.
                     None => Value::Object(self.read_map_at(&m, Ctx::Host, depth.deeper())),
                 },
-                ValueOrContainer::Container(Container::MovableList(l)) if depth.slots >= MAX_SLOT_DEPTH => {
-                    if !l.is_empty() {
-                        self.issues.push(issue(None, None, Message::new("issue-slot-too-deep")));
-                    }
-                    continue;
-                }
-                ValueOrContainer::Container(Container::MovableList(l)) => {
-                    let items = self.read_list(&l, Ctx::Element, depth.deeper());
-                    if items.is_empty() {
-                        continue;
-                    }
-                    Value::Array(items)
-                }
                 ValueOrContainer::Value(v) => match loro_to_json_at(&v, depth.levels + 1) {
                     Value::Null => continue,
                     v => v,
@@ -252,38 +297,41 @@ impl Reader {
         out
     }
 
-    /// Les objets d'une collection. Un élément illisible (enfants déjà
-    /// triés) est écarté et signalé ; la slide qui le porte est renseignée
-    /// à la lecture de la slide.
-    fn read_list(&mut self, list: &LoroMovableList, ctx: Ctx, depth: Depth) -> Vec<Value> {
+    /// Les slides de la liste `slides` (ex-`read_list`). Les `Issue` de ses
+    /// éléments reçoivent l'id de la slide.
+    fn read_slides(&mut self, list: &LoroMovableList, depth: Depth) -> Vec<Value> {
         let mut out = Vec::with_capacity(list.len());
         for i in 0..list.len() {
             let Some(ValueOrContainer::Container(Container::Map(m))) = list.get(i) else { continue };
             let first = self.issues.len();
-            // Les slots d'un élément portent des éléments un cran plus bas ;
-            // ceux d'une slide, des éléments à la profondeur 0.
-            let inner = match ctx {
-                Ctx::Element => Depth { slots: depth.slots + 1, ..depth },
-                _ => depth,
-            };
-            let item = Value::Object(self.read_map_at(&m, ctx, inner));
-            let id = item.get("id").and_then(Value::as_str).map(str::to_owned);
-            match ctx {
-                Ctx::Slide => {
-                    for i in &mut self.issues[first..] {
-                        i.slide.get_or_insert_with(|| id.clone().unwrap_or_default());
-                    }
-                }
-                Ctx::Element if Element::deserialize(&item).is_err() => {
-                    self.issues.push(issue(None, id, Message::new("issue-unreadable-element")));
-                    continue;
-                }
-                _ => {}
+            let item = Value::Object(self.read_map_at(&m, Ctx::Slide, depth));
+            let id = item.get("id").and_then(Value::as_str).unwrap_or_default();
+            for i in &mut self.issues[first..] {
+                i.slide.get_or_insert_with(|| id.to_owned());
             }
             out.push(item);
         }
         out
     }
+}
+
+/// Verse `slots` dans `obj["params"]`, créé au besoin, puis trie ses clés.
+/// Un slot l'emporte sur un paramètre de même nom, dont le nom est rendu.
+fn merge_slots(obj: &mut Map<String, Value>, slots: Map<String, Value>) -> Vec<String> {
+    if slots.is_empty() {
+        return Vec::new();
+    }
+    let params = obj.entry("params").or_insert_with(|| Value::Object(Map::new()));
+    if !params.is_object() {
+        *params = Value::Object(Map::new());
+    }
+    let mut clashes = Vec::new();
+    if let Value::Object(params) = params {
+        clashes.extend(slots.keys().filter(|k| params.contains_key(*k)).cloned());
+        params.extend(slots);
+        params.sort_keys();
+    }
+    clashes
 }
 
 fn issue(slide: Option<String>, element: Option<String>, message: Message) -> Issue {

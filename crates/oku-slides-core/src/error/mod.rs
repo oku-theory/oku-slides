@@ -377,7 +377,7 @@ pub enum ReplicaErrorKind {
     Write,
     /// Deux replicas sans origine commune.
     Unrelated,
-    /// Deck d'une autre version du format (`DECK_VERSION`).
+    /// Deck d'une autre version (`DECK_VERSION`), ou replica d'un autre format (`meta.format`).
     UnsupportedVersion,
 }
 
@@ -406,21 +406,37 @@ pub(crate) enum ReplicaInner {
     Unrelated { backtrace: Backtrace },
     #[snafu(display("unsupported deck version: {found}"))]
     UnsupportedDeckVersion { found: String, backtrace: Backtrace },
+    #[snafu(display("unsupported replica format: {found}"))]
+    UnsupportedReplicaFormat { found: String, backtrace: Backtrace },
+    #[snafu(display("slide elements are not a tree"))]
+    ElementsNotATree { backtrace: Backtrace },
+    #[snafu(display("element placed before its owner"))]
+    TreeOrder { backtrace: Backtrace },
+    #[snafu(display("collection inside the widget params"))]
+    CollectionInParams { backtrace: Backtrace },
+    #[snafu(display("elements nested deeper than {max} slots"))]
+    SlotsTooDeep { max: usize, backtrace: Backtrace },
 }
 
 impl ReplicaError {
     pub fn kind(&self) -> ReplicaErrorKind {
         match self.0 {
-            ReplicaInner::Import { .. } | ReplicaInner::NotADeck { .. } | ReplicaInner::ImportPanicked { .. } => {
-                ReplicaErrorKind::Corrupted
-            }
+            ReplicaInner::Import { .. }
+            | ReplicaInner::NotADeck { .. }
+            | ReplicaInner::ImportPanicked { .. }
+            | ReplicaInner::ElementsNotATree { .. } => ReplicaErrorKind::Corrupted,
             ReplicaInner::TooLarge { .. } => ReplicaErrorKind::TooLarge,
             ReplicaInner::Unrelated { .. } => ReplicaErrorKind::Unrelated,
-            ReplicaInner::UnsupportedDeckVersion { .. } => ReplicaErrorKind::UnsupportedVersion,
+            ReplicaInner::UnsupportedDeckVersion { .. } | ReplicaInner::UnsupportedReplicaFormat { .. } => {
+                ReplicaErrorKind::UnsupportedVersion
+            }
             ReplicaInner::Loro { .. }
             | ReplicaInner::TextUpdate { .. }
             | ReplicaInner::Export { .. }
             | ReplicaInner::ContainerOutsideParams { .. }
+            | ReplicaInner::TreeOrder { .. }
+            | ReplicaInner::CollectionInParams { .. }
+            | ReplicaInner::SlotsTooDeep { .. }
             | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
         }
     }

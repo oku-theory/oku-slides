@@ -125,6 +125,7 @@ issue-theme-version-missing = ไม่มีเวอร์ชันธีม�
 issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { $link }
 issue-highlight-zero = สีไฮไลต์เริ่มนับจาก 1
 issue-unreadable-element = องค์ประกอบที่อ่านไม่ได้ ถูกแยกไว้
+issue-slot-repaired = องค์ประกอบที่ไม่มีช่องที่รู้จัก ถูกวางไว้ใน { $slot }
 issue-unreadable-item = รายการย่อยที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-row = แถวของตารางที่อ่านไม่ได้ ถูกแยกไว้
 issue-data-truncated = ข้อมูลใหญ่เกินไป ถูกตัดทอนขณะอ่าน

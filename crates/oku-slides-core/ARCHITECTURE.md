@@ -24,7 +24,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
   `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
   `validate`, `locate`) ; `new` refuse un deck trop profond, met sous forme canonique avant et après la normalisation des hôtes, `merge` et `restore` passent `validate`.
-  Zip v7 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
+  Zip v8 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
   `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
   (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
   `issue-*-version-missing`), nom invalide → `BadName`, unis à la fusion.
@@ -41,7 +41,7 @@ Une valeur refusée porte sa raison (`ValueReason`, `OpError::value_reason`) : `
 ## Points d'extension
 
 - Un nouveau champ du modèle : `model.rs`, classé dans le replica (`schema.rs`), couvert
-  dans `replica/read_tests.rs` / `mod_tests.rs`.
+  dans `replica/read_tests.rs` / `mod_tests.rs`, sans clé en `@…` (`tree_tests.rs`).
 - Une nouvelle opération : `Op` (`ops/mod.rs`) + `ops_schema`, appliquée sur `Deck` (jamais sur le replica).
 - Un type d'hôte : `HostType` + `ParamType::host` + `ops/host.rs` (`host_option`, `set_option`, `set_data`).
 

@@ -95,10 +95,8 @@ fn has_id(m: &LoroMap, id: &str) -> bool {
 
 /// La `LoroMovableList` des items de `etapes`, dans la carte `{list}` de `f`.
 fn items_list(r: &DeckReplica) -> LoroMovableList {
-    let slides = as_list(r.doc.get_map(ROOT).get("slides"));
-    let slide = (0..slides.len()).map(|i| as_map(slides.get(i))).find(|m| has_id(m, "s-constat")).unwrap();
-    let blocks = as_list(as_map(slide.get("params")).get("blocks"));
-    let f = (0..blocks.len()).map(|i| as_map(blocks.get(i))).find(|m| has_id(m, "f")).unwrap();
+    let (tree, n) = tree::node_of(&r.doc, "s-constat", "f");
+    let f = tree.get_meta(n).unwrap();
     let etapes = as_map(as_map(f.get("params")).get("etapes"));
     assert_that!(etapes.keys().map(|k| k.to_string()).collect::<Vec<_>>()).is_equal_to(vec![schema::LIST.to_owned()]);
     as_list(etapes.get(schema::LIST))

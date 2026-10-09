@@ -24,7 +24,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":7}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":8}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -92,7 +92,7 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
 
-/// Sources v6 : `dataset` en atome, qui ne se relit pas en v7.
+/// Sources v6 : refusées.
 #[test]
 fn sources_v6_zip_is_refused() {
     let manifest = br#"{"format":"oku-slides-sources","version":6}"#;
@@ -845,4 +845,17 @@ fn restore_of_a_version_without_host_ids_normalizes_it_like_the_preview() {
     assert_that!(dataset["columns"].as_array().map(Vec::len)).is_equal_to(Some(2));
     // Le replica relit exactement la vue : le jeu n'est pas resté opaque.
     assert_that!(b.replica().deck().0).is_equal_to(b.deck().clone());
+}
+
+/// Sources v7 : éléments en `LoroMovableList`, qui ne se relisent pas en v8.
+#[test]
+fn sources_v7_zip_is_refused() {
+    let manifest = br#"{"format":"oku-slides-sources","version":7}"#;
+    let err = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
