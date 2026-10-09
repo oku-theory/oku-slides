@@ -61,7 +61,10 @@ suites Rust (`oku-slides-session`) et TS (`markdown.test.ts`, `textEdits.test.ts
   (dépendances déclarées dans le workspace) ; tests 413 et SIGTERM durcis ; le test
   `save_with_embed_fonts` instable est diagnostiqué (correctif ou ticket dédié).
 - t-599 (corrections e2e seulement) : fields masque les paramètres avant de mesurer, target-panel
-  attend « Paramètres de X ». t-599 reste ouvert pour la mise en page.
+  attend « Paramètres de X ». La mise en page est réglée hors du lot (4f8cef00, t-599 clos) : la
+  slide se pose en haut de sa boîte, la carte des paramètres change dessous sans la déplacer, les
+  flèches restent à sa mi-hauteur (ancrage CSS) ; e2e editor (et toolbar, t-636) réparées. Suivis :
+  fenêtre basse t-647, WKWebView t-648.
 Vérification : tests `oku-slides-cli`, e2e isolée sur port libre.
 
 ### Lot C — Rendu Typst (t-624)
@@ -113,7 +116,6 @@ Vérification : tests `oku-slides-render-worker` et `oku-slides-render`.
 | t-269 | Feu vert pour ouvrir l'issue sur loro-dev/loro |
 | t-223 | Issue amont ou fork de Loro (un snapshot piégé fait tomber l'app) |
 | t-130 | Quelle édition gagne quand l'agent écrit dans le champ ouvert |
-| t-599 | Nouvelle direction de mise en page (corrections e2e faites au lot B) |
 | t-162 | Coller du markdown : garder la mise en forme ou l'échapper |
 | t-364 | Raccourcis d'affichage actifs pendant l'édition ? (après t-598) |
 | t-363 | « fantômes » ou « repères » dans les 20 langues |
