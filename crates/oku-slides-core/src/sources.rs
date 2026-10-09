@@ -192,14 +192,19 @@ fn read_entry(
 
 impl SourceBundle {
     /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset, police, pack ni thème.
-    /// Le deck est d'abord mis sous forme canonique, ses paramètres d'hôte
+    /// Le deck est d'abord mis sous forme canonique (ce qui répare les ids en
+    /// double : une copie exacte est écartée), puis ses paramètres d'hôte sont
     /// normalisés comme par les ops (identifiants des lignes et des colonnes
-    /// posés : un deck JSON fusionne aussi cellule par cellule). Un deck dont un élément
+    /// posés : un deck JSON fusionne aussi cellule par cellule), puis il est
+    /// remis sous forme canonique. Le dédoublonnage doit précéder la
+    /// normalisation, qui poserait des ids aléatoires différents sur chaque
+    /// copie, et la relecture n'y verrait plus une copie exacte. Un deck dont un élément
     /// dépasse [`MAX_SLOT_DEPTH`] est refusé : la relecture du replica
     /// l'arrêterait à cette borne, et la vue en différerait.
     pub fn new(mut deck: Deck, registry: Arc<WidgetRegistry>) -> Result<Self, SourcesError> {
         let too_deep = deck.slides.iter().flat_map(|s| s.walk()).any(|l| l.depth >= MAX_SLOT_DEPTH);
         ensure!(!too_deep, TooDeepSnafu { max: MAX_SLOT_DEPTH });
+        crate::canonicalize(&mut deck);
         crate::ops::normalize_hosts(&registry, &mut deck);
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
@@ -372,6 +377,7 @@ impl SourceBundle {
         let (mut deck, issues) = preview.deck_at(index).context(ReplicaSnafu)?;
         // Comme `new`, que l'aperçu emprunte : sans identifiants, le jeu de
         // données serait rangé opaque (fusion grossière) et la vue différerait.
+        // Pas de `canonicalize` : `deck_at` relit le replica, qui répare déjà les ids.
         crate::ops::normalize_hosts(self.replica.registry(), &mut deck);
         self.replica.restore(&deck, label).context(ReplicaSnafu)?;
         self.deck = deck;

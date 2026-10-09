@@ -354,3 +354,10 @@ fn chart_data_insert_column_first_copies_the_next_series_stack() {
     let c = chart_data(&styled_lines(), &change).unwrap();
     assert_that!((c.series[0].stack.as_deref(), c.series[0].item_style.is_none())).is_equal_to((Some("s"), true));
 }
+
+#[test]
+fn all_unique_accepts_distinct_and_empty_lists_and_refuses_repeats() {
+    assert_that!(all_unique(&[])).is_true();
+    assert_that!(all_unique(&strings(&["a", "b"]))).is_true();
+    assert_that!(all_unique(&strings(&["a", "b", "a"]))).is_false();
+}

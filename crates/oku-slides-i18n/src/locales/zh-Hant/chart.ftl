@@ -50,4 +50,4 @@ chart-table-too-large = 表格最多有 { $rows } 列和 { $columns } 欄
 chart-table-cell-too-long = 表格儲存格最多包含 { $max }個字元
 chart-table-not-finite = 表格中的數字必須是有限值
 chart-table-chart-option = chart 必須是圖表選項物件
-chart-table-chart-columns = chart-columns 必須列出有效的欄識別碼（1 到 64個字母、數字、- 或 _）
+chart-table-chart-columns = chart-columns 必須列出有效且互不相同的欄識別碼（1 到 64個字母、數字、- 或 _）

@@ -50,4 +50,4 @@ chart-table-too-large = у таблиці не більше { $rows } рядкі
 chart-table-cell-too-long = клітинка таблиці містить не більше { $max } символів
 chart-table-not-finite = числа в таблиці мають бути скінченними
 chart-table-chart-option = chart має бути об'єктом параметрів діаграми
-chart-table-chart-columns = chart-columns має містити дійсні ідентифікатори стовпців (від 1 до 64 літер, цифр, - або _)
+chart-table-chart-columns = chart-columns має містити дійсні та різні ідентифікатори стовпців (від 1 до 64 літер, цифр, - або _)

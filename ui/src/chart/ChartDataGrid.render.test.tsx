@@ -6,6 +6,9 @@ import "../test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { ChartDataGrid } = await import("./ChartDataGrid");
+const { NumberLangContext } = await import("../a2ui/numberLang");
+const { locale } = await import("../i18n");
+const { formatNumber } = await import("../table/numbers");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -19,13 +22,15 @@ afterEach(async () => {
 
 const SOURCE = [["Mois", "Ventes"], ["Jan", 12345.5], ["Fév", 1234.5]];
 
-async function mount(numberLang: string | undefined, onOp = (_op: unknown) => {}, source: unknown[][] = SOURCE) {
+async function mount(numberLang: string | null | undefined, onOp = (_op: unknown) => {}, source: unknown[][] = SOURCE) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   await act(async () => {
-    root.render(createElement(ChartDataGrid, { source, onOp, numberLang }));
+    const grid = createElement(ChartDataGrid, { source, onOp });
+    // `undefined` : pas de fournisseur ; `null` : fournisseur d'un deck sans langue.
+    root.render(numberLang === undefined ? grid : createElement(NumberLangContext.Provider, { value: numberLang }, grid));
   });
   return [...host.querySelectorAll("input.cdg-number")] as HTMLInputElement[];
 }
@@ -39,6 +44,22 @@ describe("ChartDataGrid", () => {
   test("ChartDataGrid numbers follow the deck language en", async () => {
     const inputs = await mount("en");
     expect(inputs.map((i) => i.value)).toEqual(["12,345.5", "1234.5"]);
+  });
+
+  test("ChartDataGrid without a provider writes numbers in the UI language", async () => {
+    const inputs = await mount(undefined);
+    expect(inputs.map((i) => i.value)).toEqual([formatNumber(12345.5, locale()), formatNumber(1234.5, locale())]);
+  });
+
+  test("ChartDataGrid under a deck without a language writes numbers in the UI language", async () => {
+    const inputs = await mount(null);
+    expect(inputs.map((i) => i.value)).toEqual([formatNumber(12345.5, locale()), formatNumber(1234.5, locale())]);
+  });
+
+  test("ChartDataGrid with an invalid deck language label does not throw", async () => {
+    const inputs = await mount("zz-!!");
+    expect(inputs).toHaveLength(2);
+    expect(inputs.map((i) => i.value)).toEqual(["12345.5", "1234.5"]);
   });
 
   test("ChartDataGrid shows negatives with the minus sign and the shortest decimals, like the slide", async () => {

@@ -50,4 +50,4 @@ chart-table-too-large = a table has at most { $rows } rows and { $columns } colu
 chart-table-cell-too-long = a table cell holds at most { $max } characters
 chart-table-not-finite = table numbers must be finite
 chart-table-chart-option = chart must be a chart option object
-chart-table-chart-columns = chart-columns must list valid column identifiers (1 to 64 letters, digits, - or _)
+chart-table-chart-columns = chart-columns must list valid, distinct column identifiers (1 to 64 letters, digits, - or _)

@@ -6,15 +6,15 @@
 // TanStack Table v9 (`useTable` + `tableFeatures`), comme ChartDataGrid ; la
 // poignée et « × » sont hors des colonnes du schéma.
 
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import type { ListOp, Paragraph } from "../api";
 import { newId, textToParagraphs } from "../deck";
-import { locale, t } from "../i18n";
+import { t } from "../i18n";
 import { Icon } from "../icons";
 import { coerce, parseTsv, type ColumnKind } from "../table/cells";
 import { formatNumber, parseNumber } from "../table/numbers";
-import { NumberLangContext } from "./numberLang";
+import { useNumberLang } from "./numberLang";
 import { RichTextField } from "./RichTextField";
 import "./ListTable.css";
 
@@ -87,11 +87,6 @@ type CellContext = { row: { original: ListRow; index: number }; getValue: () => 
 
 /** Adresse d'une cellule : `id/colonne`. */
 const at = (row: string, col: string) => `${row}/${col}`;
-
-/** Langue des nombres : celle du deck, à défaut celle de l'UI (comme la grille). */
-function useNumberLang(): string {
-  return useContext(NumberLangContext) || locale();
-}
 
 export function ListTable({ label, rows, columns, min, max, itemLabel, palette, markdown, onChange }: ListTableProps) {
   const lang = useNumberLang();

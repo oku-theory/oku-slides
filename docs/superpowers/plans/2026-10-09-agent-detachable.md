@@ -3145,6 +3145,46 @@ describe("AgentWindow", () => {
     expect(m.el.querySelector(".device")).not.toBeNull();
   });
 
+  // La fenêtre détachée n'a pas le fournisseur d'`App.tsx` : sans le sien, les tableaux de liste du fil prendraient la langue de l'UI.
+  // Une fiche non posée sur la scène (donc rendue dans le fil) porte un tableau de liste avec le nombre 12345.5 ; on lit la cellule.
+  // Imports en tête du fichier : `import { CATALOG_ID } from "./a2ui/catalog";`, `import { locale } from "./i18n";`, `import { formatNumber } from "./table/numbers";`.
+  const listSheet = (): Surface => {
+    const root = {
+      id: "root", component: "ListTable", label: "Chiffres", rows: { path: "/f0" }, change: { path: "/f0-change" },
+      markdown: { path: "/f0-markdown" }, columns: [{ key: "n", label: "n", kind: "number", options: [] }], min: 0,
+      item_label: "ligne", palette: [],
+      action: { event: { name: "param", context: { field: 0, change: { path: "/f0-change" }, key: "chiffres" } } },
+    };
+    const data = { f0: [{ id: "a", n: 12345.5 }], "f0-change": null, "f0-markdown": {} };
+    return {
+      ...sheetOn("list-1"),
+      messages: [
+        { version: "v0.9", createSurface: { surfaceId: "list-1", catalogId: CATALOG_ID } },
+        { version: "v0.9", updateComponents: { surfaceId: "list-1", components: [root] } },
+        { version: "v0.9", updateDataModel: { surfaceId: "list-1", value: data } },
+      ] as unknown as Surface["messages"],
+    };
+  };
+  /** Le nombre écrit dans la cellule du tableau de liste du fil (les surfaces sont chargées à la demande : laisser Suspense les résoudre). */
+  const listNumber = async (m: Awaited<ReturnType<typeof mountWindow>>) => {
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [listSheet()] }));
+    for (let i = 0; i < 50 && !m.el.querySelector('[data-surface-id="list-1"] input'); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+    return (m.el.querySelector('[data-surface-id="list-1"] input') as HTMLInputElement).value;
+  };
+
+  test("AgentWindow les tableaux de liste du fil écrivent les nombres dans la langue du deck de l'instantané", async () => {
+    const m = await mountWindow({ ...SNAP, lang: "fr" } as unknown as Snapshot);
+    await m.ready();
+    expect(await listNumber(m)).toBe(formatNumber(12345.5, "fr"));
+  });
+
+  test("AgentWindow sans langue dans l'instantané : les tableaux de liste du fil prennent la langue de l'UI", async () => {
+    const m = await mountWindow(SNAP);
+    await m.ready();
+    expect(await listNumber(m)).toBe(formatNumber(12345.5, locale()));
+  });
+
   test("AgentWindowView sans vue reçue : chargement", async () => {
     const el = document.createElement("div");
     const root = createRoot(el);
@@ -3208,7 +3248,7 @@ function TauriAgentWindow({ tab }: { tab: string }) {
 - `focusSelf` : `import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().setFocus())`, sans effet hors Tauri ;
 - `onCloseRequested` : écoute `close-requested` sur la fenêtre courante, comme `Workspace.tsx:163` (`getCurrentWebviewWindow().listen`), via `listenTauri`, qui rend de quoi arrêter. Sans effet hors Tauri.
 
-**`AgentWindowFor({ tab, transport, host })`** : la vue d'un onglet.
+**`AgentWindowFor({ tab, transport, host })`** : la vue d'un onglet. Tout son rendu (état vide en lecture seule compris) est enveloppé dans `<NumberLangContext.Provider value={snap?.lang ?? null}>` (`import { NumberLangContext } from "./a2ui/numberLang"`), où `snap` est l'instantané que la fenêtre relit déjà par `host.api.snapshot()` (voir « Instantané » plus bas) : la fenêtre détachée n'a pas le fournisseur d'`App.tsx`, et sans celui-ci les tableaux de liste du fil prendraient la langue de l'UI au lieu de celle du deck.
 
 État :
 - `[context, setContext] = useState<LinkContext | null>(null)` ;

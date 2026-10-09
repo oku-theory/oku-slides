@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, ensure};
 
-use crate::data_ops::{DataOp, valid_id, validate_ids};
+use crate::data_ops::{DataOp, all_unique, valid_id, validate_ids};
 use crate::error::{InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::option::{Cell, Dataset};
 use crate::patch::merge_patch;
@@ -44,7 +44,7 @@ pub struct TableOption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chart: Option<Value>,
     /// Identifiants des colonnes du graphique d'origine (`dataset.columns`) : la série i
-    /// y lit la colonne i + 1. Vide sans `chart`.
+    /// y lit la colonne i + 1. Identifiants distincts. Vide sans `chart`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chart_columns: Vec<String>,
 }
@@ -117,8 +117,11 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
         option.chart.as_ref().is_none_or(Value::is_object),
         InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
     );
+    // Longueur d'abord : une liste énorme est refusée sans être parcourue.
     ensure!(
-        option.chart_columns.iter().all(|id| valid_id(id)),
+        option.chart_columns.len() <= MAX_TABLE_COLUMNS
+            && option.chart_columns.iter().all(|id| valid_id(id))
+            && all_unique(&option.chart_columns),
         InconsistentSnafu { reason: Message::new("chart-table-chart-columns") }
     );
     validate_ids(&option.dataset)

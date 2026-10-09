@@ -111,6 +111,12 @@ pub fn ensure_ids(d: &mut Dataset) {
     fit(&mut d.columns, d.source.first().map_or(0, Vec::len));
 }
 
+/// Vrai si aucun identifiant de `list` n'y figure deux fois.
+pub(crate) fn all_unique(list: &[String]) -> bool {
+    let mut seen = HashSet::with_capacity(list.len());
+    list.iter().all(|id| seen.insert(id.as_str()))
+}
+
 /// Refuse des identifiants mal alignés, mal formés ou répétés.
 ///
 /// Des listes vides sont admises : le cœur les remplira.
@@ -123,12 +129,8 @@ pub(crate) fn validate_ids(d: &Dataset) -> Result<()> {
         d.ids.iter().chain(&d.columns).all(|id| valid_id(id)),
         InconsistentSnafu { reason: Message::new("chart-data-ids-invalid") }
     );
-    let unique = |list: &[String]| {
-        let mut seen = HashSet::with_capacity(list.len());
-        list.iter().all(|id| seen.insert(id.as_str()))
-    };
     ensure!(
-        unique(&d.ids) && unique(&d.columns),
+        all_unique(&d.ids) && all_unique(&d.columns),
         InconsistentSnafu { reason: Message::new("chart-data-ids-duplicate") }
     );
     Ok(())

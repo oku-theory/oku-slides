@@ -50,4 +50,4 @@ chart-table-too-large = tabela ma co najwyżej { $rows } wierszy i { $columns } 
 chart-table-cell-too-long = komórka tabeli zawiera co najwyżej { $max } znaków
 chart-table-not-finite = liczby w tabeli muszą być skończone
 chart-table-chart-option = chart musi być obiektem opcji wykresu
-chart-table-chart-columns = chart-columns musi zawierać prawidłowe identyfikatory kolumn (od 1 do 64 liter, cyfr, - lub _)
+chart-table-chart-columns = chart-columns musi zawierać prawidłowe, niepowtarzalne identyfikatory kolumn (od 1 do 64 liter, cyfr, - lub _)

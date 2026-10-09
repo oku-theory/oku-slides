@@ -50,4 +50,4 @@ chart-table-too-large = một bảng có tối đa { $rows } hàng và { $column
 chart-table-cell-too-long = một ô của bảng chứa tối đa { $max } ký tự
 chart-table-not-finite = các số trong bảng phải hữu hạn
 chart-table-chart-option = chart phải là một đối tượng tùy chọn biểu đồ
-chart-table-chart-columns = chart-columns phải liệt kê các mã định danh cột hợp lệ (1 đến 64 chữ cái, chữ số, - hoặc _)
+chart-table-chart-columns = chart-columns phải liệt kê các mã định danh cột hợp lệ và khác nhau (1 đến 64 chữ cái, chữ số, - hoặc _)

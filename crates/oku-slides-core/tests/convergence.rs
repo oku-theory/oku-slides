@@ -7,8 +7,8 @@ use std::sync::{Arc, OnceLock};
 
 use oku_slides_chart::{Cell, DataOp, parse_table};
 use oku_slides_core::{
-    Deck, DeckReplica, Op, PackVersion, ParamValue, Params, Slide, Target, ThemeRef, WidgetRegistry, apply_all,
-    validate,
+    Deck, DeckReplica, Element, Frame, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemeRef,
+    WidgetRegistry, apply_all, validate,
 };
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -26,6 +26,9 @@ enum Edit {
     MoveElement(usize, usize, usize),
     /// Retire l'élément `a` d'un slot à deux éléments ([`busy_slot`]).
     RemoveElement(usize, usize),
+    /// Fait passer l'élément `a` d'un slot de la `i`-ième slide à deux slots
+    /// ([`two_slots`]) à la fin de l'autre slot : `MoveAcrossSlots(i, a)`.
+    MoveAcrossSlots(usize, usize),
     /// `set_cell` du tableau `t` : ligne, colonne, valeur.
     SetCell(usize, usize, i32),
     InsertRow(usize),
@@ -55,6 +58,7 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::Bold),
         (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(i, a, b)| Edit::MoveElement(i, a, b)),
         (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::RemoveElement(i, a)),
+        (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::MoveAcrossSlots(i, a)),
         (any::<usize>(), any::<usize>(), -50i32..50).prop_map(|(r, c, v)| Edit::SetCell(r, c, v)),
         any::<usize>().prop_map(Edit::InsertRow),
         any::<usize>().prop_map(Edit::RemoveRow),
@@ -155,11 +159,59 @@ fn toggle_bold(params: &mut Params) -> bool {
 
 /// Le premier slot à deux éléments au moins (premier niveau) de la `i`-ième
 /// slide qui en a un, modulo leur nombre.
-fn busy_slot(deck: &mut Deck, i: usize) -> Option<&mut Vec<oku_slides_core::Element>> {
+fn busy_slot(deck: &mut Deck, i: usize) -> Option<&mut Vec<Element>> {
     let busy = |s: &Slide| s.params.slots().any(|(_, list)| list.len() >= 2);
     let count = deck.slides.iter().filter(|s| busy(s)).count();
     let slide = deck.slides.iter_mut().filter(|s| busy(s)).nth(i % count.max(1))?;
     slide.params.slots_mut().map(|(_, list)| list).find(|list| list.len() >= 2)
+}
+
+/// Le slot de flux et le slot libre du layout `content`.
+const FLOW_SLOT: &str = "blocks";
+const FREE_SLOT: &str = "elements";
+
+/// Le cadre posé sur un élément qui entre dans le slot libre sans en avoir.
+const DEFAULT_FRAME: Frame = Frame { x: 0.0, y: 0.0, w: 400.0, h: 200.0 };
+
+/// La `i`-ième slide (modulo leur nombre) dont le layout déclare les slots
+/// [`FLOW_SLOT`] et [`FREE_SLOT`] et dont l'un au moins est peuplé.
+fn two_slots(deck: &mut Deck, i: usize) -> Option<&mut Slide> {
+    let declares = |kind: &str, name: &str| {
+        base().get(kind).and_then(|w| w.param(name)).is_some_and(|p| matches!(p.ty, ParamType::Slot { .. }))
+    };
+    let eligible = |s: &Slide| {
+        declares(&s.kind, FLOW_SLOT)
+            && declares(&s.kind, FREE_SLOT)
+            && [FLOW_SLOT, FREE_SLOT].iter().any(|n| s.params.slot(n).is_some_and(|l| !l.is_empty()))
+    };
+    let count = deck.slides.iter().filter(|s| eligible(s)).count();
+    deck.slides.iter_mut().filter(|s| eligible(s)).nth(i % count.max(1))
+}
+
+/// Retire l'élément `a` (modulo) d'un slot peuplé de `params` et l'ajoute à la
+/// fin de l'autre slot : source [`FLOW_SLOT`] si `a` est pair, [`FREE_SLOT`]
+/// sinon, l'autre si celui-là est vide. Le slot source vidé disparaît ;
+/// l'élément reçoit un cadre dans le slot libre, perd cadre et cellule dans le flux.
+fn move_across_slots(params: &mut Params, a: usize) {
+    let filled = |n: &str| params.slot(n).is_some_and(|l| !l.is_empty());
+    let (from, to) = match (a.is_multiple_of(2), filled(FLOW_SLOT), filled(FREE_SLOT)) {
+        (true, true, _) | (false, true, false) => (FLOW_SLOT, FREE_SLOT),
+        (_, _, true) => (FREE_SLOT, FLOW_SLOT),
+        _ => return,
+    };
+    let Some(list) = params.slot_mut(from) else { return };
+    let mut el = list.remove(a % list.len());
+    if list.is_empty() {
+        params.remove(from);
+    }
+    if to == FREE_SLOT {
+        el.frame.get_or_insert(DEFAULT_FRAME);
+    } else {
+        (el.frame, el.cell) = (None, None);
+    }
+    if let Some(list) = params.slot_mut(to) {
+        list.push(el);
+    }
 }
 
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
@@ -212,6 +264,11 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
                 list.remove(a % list.len());
             }
         }
+        Edit::MoveAcrossSlots(i, a) => {
+            if let Some(slide) = two_slots(deck, *i) {
+                move_across_slots(&mut slide.params, *a);
+            }
+        }
     }
 }
 
@@ -223,7 +280,7 @@ proptest! {
         edits in prop::collection::vec(prop::collection::vec(edit(), 0..10), 2..4),
         seed in any::<u64>(),
     ) {
-        let deck = with_table(Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap(), base());
+        let deck = with_free_element(with_table(Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap(), base()));
         let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
         let mut peers: Vec<DeckReplica> =
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
@@ -391,6 +448,17 @@ fn with_table(deck: Deck, registry: &WidgetRegistry) -> Deck {
     d
 }
 
+/// `deck` et, dans le slot libre de `s-constat`, le texte cadré `n` : les deux
+/// slots de la slide sont peuplés.
+fn with_free_element(deck: Deck) -> Deck {
+    let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": FREE_SLOT },
+        "element": { "id": "n", "kind": "text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
+            "params": { "body": [{ "runs": [{ "t": "Note libre" }] }] } } }));
+    let mut d = deck;
+    ok(apply_all(&mut d, vec![add], base()));
+    d
+}
+
 /// `roadmap` avec le tableau `t`.
 fn table_deck() -> Deck {
     with_table(ok(Deck::from_json(include_str!("../../../fixtures/roadmap.json"))), &common::list_registry())
@@ -551,4 +619,49 @@ fn same_column_removed_by_both_then_undone_by_both_has_no_duplicate_column() {
     let merged = removed_by_both_then_undone_by_both(DataOp::RemoveColumn { at: 1 });
     assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], ["DE", 20]])));
     assert_eq!(table_ids(&merged).1, vec!["pays", "ventes"]);
+}
+
+/// Les éléments `id` de `s-constat`, avec leur slot.
+fn occurrences<'a>(deck: &'a Deck, id: &str) -> Vec<(&'a str, &'a Element)> {
+    let slide = deck.slide("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    slide.walk().filter(|l| l.element.id == id).map(|l| (l.slot, l.element)).collect()
+}
+
+/// Le gras posé par B est perdu : le déplacement entre slots devient un
+/// retrait suivi d'une insertion. Le test ne vérifie que la convergence et
+/// l'unicité de l'élément ; suivi : t-694.
+#[test]
+fn concurrent_move_across_slots_and_edit_converge() {
+    let deck = table_deck();
+    let (mut a, mut b) = list_peers(&deck);
+    // A : `b-points` quitte `blocks` pour `elements`, cadré (retrait puis ajout).
+    let Some((_, moved)) = occurrences(&deck, "b-points").pop() else { panic!("b-points absent") };
+    let moved = Element { frame: Some(DEFAULT_FRAME), ..moved.clone() };
+    let remove = op(json!({ "op": "remove_element", "slide": "s-constat", "element": "b-points" }));
+    let add = Op::AddElement {
+        slot: oku_slides_core::SlotRef {
+            owner: Target { slide: "s-constat".into(), element: None },
+            param: FREE_SLOT.into(),
+        },
+        index: None,
+        defaults: false,
+        element: moved,
+    };
+    ok(a.apply(&with_ops(&deck, vec![remove, add]), "A", None));
+    // B : met `b-points` en gras, à sa place d'origine.
+    let mut bold = deck.clone();
+    let slide = bold.slides.iter_mut().find(|s| s.id == "s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    assert!(toggle_bold(&mut slide.params));
+    ok(b.apply(&bold, "B", None));
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    let (merged, issues) = a.deck();
+    assert!(issues.is_empty(), "lecture partielle : {issues:?}");
+    assert_eq!(b.deck().0, merged);
+    let found = occurrences(&merged, "b-points");
+    assert_eq!(found.len(), 1, "b-points : {found:?}");
+    assert_eq!(found[0].0, FREE_SLOT);
+    let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id"];
+    let issues = validate(&merged, &common::list_registry(), None);
+    assert!(issues.iter().all(|i| !duplicates.contains(&i.message.id())), "{issues:?}");
 }

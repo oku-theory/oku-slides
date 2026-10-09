@@ -9,7 +9,8 @@
 
 import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { locale, t } from "../i18n";
+import { useNumberLang } from "../a2ui/numberLang";
+import { t } from "../i18n";
 import { Icon } from "../icons";
 import { parseCheck, parseTsv } from "../table/cells";
 import { formatNumber, parseNumber } from "../table/numbers";
@@ -31,8 +32,6 @@ export type ChartDataGridProps = {
   checkboxColumns?: readonly number[];
   /** Nom d'une colonne ajoutée ou collée sans en-tête (`n` : son index) ; par défaut « Série n ». */
   newColumnName?: (n: number) => string;
-  /** Langue du deck (`params.lang`) : les nombres s'écrivent comme sur la slide ; absente, celle de l'interface. */
-  numberLang?: string | null;
 };
 
 const seriesName = (n: number) => t("ui-chart-series", { n });
@@ -45,9 +44,8 @@ export function ChartDataGrid({
   firstColumnIsLabel = true,
   checkboxColumns = NO_CHECKBOXES,
   newColumnName = seriesName,
-  numberLang,
 }: ChartDataGridProps) {
-  const lang = numberLang || locale();
+  const lang = useNumberLang();
   const header = source[0] ?? [];
   const width = header.length;
   const data = useMemo<Row[]>(

@@ -23,7 +23,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
   par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),
   `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
-  `validate`, `locate`) ; `new` refuse un deck trop profond et normalise les hôtes, `merge` et `restore` passent `validate`.
+  `validate`, `locate`) ; `new` refuse un deck trop profond, met sous forme canonique avant et après la normalisation des hôtes, `merge` et `restore` passent `validate`.
   Zip v7 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
   `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
   (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
@@ -31,7 +31,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
 - `validate` (`validate.rs`) : cohérence du deck contre le `WidgetRegistry` ; signale plutôt qu'il n'échoue.
 - `Slide::text_fields` (`fields.rs`) : champs texte ; `locate` (`locate.rs`) : chemin d'un élément ;
   `apply(…, merge)` fusionne les étapes d'annulation de même clé.
-- `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides supprimés).
+- `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides supprimés) ; répare les ids en double — copie exacte écartée, autre occurrence renommée `{id}-n` — comme `apply_all` et la relecture du replica (t-652).
 
 ## Erreurs
 

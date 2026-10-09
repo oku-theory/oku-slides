@@ -6,6 +6,7 @@ import "../test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { TablePanel } = await import("./TablePanel");
+const { NumberLangContext } = await import("../a2ui/numberLang");
 const { expectIconOnly } = await import("../test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
@@ -30,7 +31,8 @@ async function mount(data: Record<string, unknown> = { dataset: { source: [["A",
   const element = { id: "t1", kind: "table" as const, params: { data } };
   const onApply = (label: string, ops: Record<string, unknown>[]) => applied.push({ label, ops });
   await act(async () => {
-    root.render(createElement(TablePanel, { slide: "s1", element, onApply, onShowAs, numberLang }));
+    const panel = createElement(TablePanel, { slide: "s1", element, onApply, onShowAs });
+    root.render(numberLang === undefined ? panel : createElement(NumberLangContext.Provider, { value: numberLang }, panel));
   });
   return { host, applied };
 }

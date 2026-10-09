@@ -314,6 +314,35 @@ fn parse_table_chart_columns_with_a_malformed_id_is_inconsistent() {
     assert_that!(e.localize(&fr)).is_equal_to(Message::new("chart-table-chart-columns").localize(&fr));
 }
 
+fn chart_columns_error(source: serde_json::Value, ids: serde_json::Value) -> String {
+    let e = parse_table(&json!({ "dataset": { "source": source }, "chart": {}, "chart-columns": ids })).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.kind()).is_equal_to(ChartErrorKind::Inconsistent);
+    e.localize(&fr)
+}
+
+#[test]
+fn parse_table_chart_columns_with_a_duplicate_id_is_inconsistent() {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(chart_columns_error(json!([["A", "B"]]), json!(["a", "a"])))
+        .is_equal_to(Message::new("chart-table-chart-columns").localize(&fr));
+}
+
+#[test]
+fn parse_table_chart_columns_over_the_column_limit_is_inconsistent() {
+    let ids: Vec<String> = (0..=MAX_TABLE_COLUMNS).map(|i| format!("c{i}")).collect();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(chart_columns_error(json!([["A"]]), json!(ids)))
+        .is_equal_to(Message::new("chart-table-chart-columns").localize(&fr));
+}
+
+#[test]
+fn parse_table_chart_columns_with_distinct_ids_is_accepted() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A", "B"]] }, "chart": {}, "chart-columns": ["a", "b"] }))
+        .unwrap();
+    assert_that!(t.chart_columns).is_equal_to(vec!["a".to_owned(), "b".into()]);
+}
+
 #[test]
 fn parse_table_chart_columns_without_chart_are_dropped() {
     let t = parse_table(&json!({ "dataset": { "source": [["A"]] }, "chart-columns": ["a"] })).unwrap();

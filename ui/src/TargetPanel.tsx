@@ -20,8 +20,6 @@ type Props = {
   target: Target;
   /** Palette des graphiques du thème (apparence). */
   palette: string[];
-  /** Langue du deck : écriture des nombres des grilles. */
-  numberLang?: string | null;
   onApply: (label: string, ops: Op[]) => void;
   onKind: (kind: string) => void;
   onShowAs: (view: View) => void;
@@ -33,7 +31,7 @@ type Props = {
   lead?: SettingsSection;
 };
 
-export function TargetPanel({ view, readOnly, selected, target, palette, numberLang, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
+export function TargetPanel({ view, readOnly, selected, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
   const alone = lead ? <HostSettings {...lead} onAction={onSurfaceAction} onError={onError} /> : null;
   if (!view || readOnly || folded) return alone;
   // Données du graphique sélectionné : hors de la feuille, pour ne rien masquer.
@@ -42,14 +40,14 @@ export function TargetPanel({ view, readOnly, selected, target, palette, numberL
     return (
       <>
         {alone}
-        <ChartPanel slide={view.slide.id} element={selected} palette={palette} numberLang={numberLang} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
+        <ChartPanel slide={view.slide.id} element={selected} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
       </>
     );
   if (selected?.kind === "table")
     return (
       <>
         {alone}
-        <TablePanel slide={view.slide.id} element={selected} numberLang={numberLang} onApply={onApply} onShowAs={onShowAs} />
+        <TablePanel slide={view.slide.id} element={selected} onApply={onApply} onShowAs={onShowAs} />
       </>
     );
   if (!target.surface) return alone;

@@ -50,4 +50,4 @@ chart-table-too-large = ตารางมีได้สูงสุด { $rows
 chart-table-cell-too-long = เซลล์ของตารางมีได้สูงสุด { $max } ตัวอักษร
 chart-table-not-finite = ตัวเลขในตารางต้องเป็นค่าจำกัด
 chart-table-chart-option = chart ต้องเป็นอ็อบเจกต์ตัวเลือกของแผนภูมิ
-chart-table-chart-columns = chart-columns ต้องระบุตัวระบุคอลัมน์ที่ถูกต้อง (ตัวอักษร ตัวเลข - หรือ _ จำนวน 1 ถึง 64 ตัว)
+chart-table-chart-columns = chart-columns ต้องระบุตัวระบุคอลัมน์ที่ถูกต้องและไม่ซ้ำกัน (ตัวอักษร ตัวเลข - หรือ _ จำนวน 1 ถึง 64 ตัว)
