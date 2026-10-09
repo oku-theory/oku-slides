@@ -174,6 +174,92 @@ correspond plus est ignoré.
 - Redémarrage : la fenêtre agent est restaurée détachée.
 - Édition en cours, micro cliqué dans la fenêtre agent : le texte arrive au curseur.
 
+## Précisions du plan (2026-10-09, révisées après la revue d'équipe et t-638)
+
+Le plan (`docs/superpowers/plans/2026-10-09-agent-detachable.md`) précise la
+mécanique. Ces points remplacent tout ce qui les contredit plus haut.
+
+1. **Portée vue.** Le hub la tient (`HubState.viewing`) et la diffuse comme
+   `McpEvent::Viewing { scope }` :
+   - `resync` l'émet avant la liste ;
+   - `rename_scope` l'émet quand la portée vue est renommée ;
+   - le relais en retard la renvoie avec la liste.
+
+   La commande `agent` → `follow { tab }` rejoue l'état et le brouillon, puis
+   envoie au gardien l'ordre `Keep::Replay`. Le gardien lit la portée
+   **quand il traite l'ordre**, si bien qu'un `resync` envoyé juste avant
+   passe toujours d'abord. Il n'y a ni `AgentEvent::Scope` ni requête
+   `agent.scope`.
+2. **Brouillon.** La pile le tient en mémoire, dans la vue de l'onglet
+   (`TabLink`). On l'écrit par `agent` → `set_draft { tab, text, origin }`,
+   qui diffuse `AgentEvent::Draft { text, origin }`.
+   - Chaque vue ignore l'écho de ses propres envois (`origin`) et les envoie
+     dans l'ordre, un à la fois.
+   - Le brouillon est plafonné à 256 Kio : au-delà, la commande est refusée.
+   - `follow` et `set_draft` ne démarrent jamais un onglet. Un onglet sans
+     agent démarré rejoue « rien » : repos, aucun brouillon, `slides`,
+     aucune surface.
+3. **Interface.** `AgentPanel` (t-638) a deux modes de portée :
+   - **pilote** : la portée vient de la vue, c'est le mode de la fenêtre
+     principale ;
+   - **suiveur** : la portée vient de `viewing` après `follow`, c'est le mode
+     de la fenêtre de l'agent.
+
+   Une fois l'agent détaché :
+   - la fenêtre principale garde un panneau pilote sans fil (fiches, tiroir,
+     fenêtre de confirmation, touches rapides) ;
+   - la fenêtre de l'agent monte un panneau suiveur avec le fil. Ses touches
+     rapides ne visent que le dock, et elle route les fiches d'après celle
+     que la scène montre (`staged`).
+
+   Tant que l'hôte n'a pas annoncé la portée, la fenêtre de l'agent est en
+   chargement, et l'envoi d'une consigne reste désactivé.
+4. **Contexte d'écriture.** `agent-link:context` porte
+   `{ editing, insertTo, ui, staged, keysOff }`. La fenêtre de l'agent relit
+   elle-même dans l'instantané de l'onglet le vocabulaire, la lecture seule et
+   les miniatures.
+5. **Transport.** Un seul évènement Tauri, `agent-link`, diffusé à toutes les
+   fenêtres (l'émettrice comprise).
+   - Chaque page n'écoute qu'une fois et garde les messages qui lui sont
+     adressés (`to`, `tab`).
+   - Chaque message est validé par un schéma zod.
+   - Hors Tauri, le canal est un `BroadcastChannel` et la fenêtre de l'agent
+     est la page `/?window=agent` (e2e).
+   - `hello` ne part qu'une fois l'écoute en place.
+   - `insert` attend un accusé pendant 3 s. Faute de réponse, il envoie
+     `insert-cancel`, que la fenêtre principale respecte, et le texte revient
+     au brouillon avec un toast.
+6. **Raccourcis.** La fenêtre principale relaie ⌘D, ⌘⇧D et ⌘K **bruts**
+   (`auto`, `draft`, `type`). La fenêtre de l'agent les applique avec son
+   propre état : ⌘⇧D arrête le tour seulement s'il n'y a pas d'écoute en
+   cours. ⌘K met la fenêtre de l'agent devant ; ⌘D ne lui prend pas le focus.
+   Limite connue : Échap dans la fenêtre principale n'arrête pas une écoute de
+   la fenêtre de l'agent ; ⌘D le fait.
+7. **Focus.**
+   - Un changement de fenêtre au premier plan diffuse la vue `workspace`, et la
+     fenêtre de l'agent la suit.
+   - La fenêtre `agent` ne change jamais `focused`.
+   - Elle n'est pas une cible de lâcher d'onglet.
+   - L'éditeur de texte ne termine plus l'édition quand le document perd le
+     focus (`document.hasFocus()` faux), pour une autre fenêtre ou une autre
+     app. Ce changement vaut aussi sans agent détaché.
+8. **Fermeture.** La fermeture système de la fenêtre de l'agent passe par sa
+   page (`close-requested`), qui vide la frappe en attente puis rattache
+   l'agent. Le bouton « Rattacher » fait de même.
+9. **Menu.** Seul macOS a un menu d'app : la case à cocher n'existe que là.
+   La case reflète l'espace de travail, et un clic bascule l'état lu dans
+   l'espace de travail.
+10. **Tests.** L'e2e tourne dans un navigateur, sans Tauri. Il couvre :
+    détacher, envoyer depuis la fenêtre de l'agent, ⌘K relayé, insérer dans
+    la zone sélectionnée et brouillon gardé au rattachement.
+
+    Le reste est couvert au niveau unitaire, puis vérifié à la main dans l'app
+    à la dernière tâche : redémarrage, perte de focus pendant l'édition, suivi
+    du focus des fenêtres, micro dans une seconde webview, menu.
+
+    La dictée parlée est remplacée par la saisie au clavier : l'e2e n'a pas
+    de faux moteur de reconnaissance vocale.
+
 ## Hors périmètre
 
 Fenêtre « toujours devant » ; plusieurs fenêtres agent ; détacher en mode
