@@ -245,13 +245,16 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .sheet-area > .templates-panel, .sheet-area > .widget-pane { grid-row: 1; }
 /* La scène et, dans la marge de part et d'autre, les boutons slide précédente / suivante. */
-.stage-box { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; }
-.slide-nav {
-  position: absolute; z-index: 3; top: 50%; translate: 0 -50%; width: 24px; height: 48px; padding: 0;
+/* 16px de plus que la marge de la feuille : de quoi y loger les boutons, à 8px de la slide et du séparateur. */
+.stage-box { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; margin-inline: var(--space-4); }
+/* `.token.ghost.slide-nav` : passe devant `.token.ghost` (40px rond, plus loin dans le fichier), sinon
+   le bouton (24px) déborde de sa marge et mord sur la slide. */
+.token.ghost.slide-nav {
+  position: absolute; z-index: 3; top: 50%; translate: 0 -50%; width: 24px; height: 48px; padding: 0; border-radius: 999px;
   opacity: 0.35; transition: opacity 120ms ease-out;
 }
-.slide-nav.previous { inset-inline-start: calc(-1 * var(--space-6)); }
-.slide-nav.next { inset-inline-end: calc(-1 * var(--space-6)); }
+.slide-nav.previous { inset-inline-start: calc(-1 * (var(--space-2) + 24px)); }
+.slide-nav.next { inset-inline-end: calc(-1 * (var(--space-2) + 24px)); }
 .slide-nav:hover, .slide-nav:focus-visible { opacity: 1; }
 .slide-nav:disabled { visibility: hidden; }
 .slide-nav svg { width: 18px; height: 18px; }

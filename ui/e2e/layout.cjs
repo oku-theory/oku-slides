@@ -24,6 +24,15 @@ const columns = (p) => p.evaluate(() => {
     assert.ok(c.stage.right <= c.notes, `${width} px : la feuille chevauche le fil (${c.stage.right} > ${c.notes})`);
     assert.ok(c.notesWidth >= Math.min(420, width * 0.4) - 1, `${width} px : fil trop étroit (${c.notesWidth})`);
     assert.ok(c.stage.right <= c.device, `${width} px : la feuille chevauche la dictée (${c.stage.right} > ${c.device})`);
+    // Slide précédente / suivante : dans la marge de part et d'autre de la scène, à 8 px au moins.
+    const nav = await p.evaluate(() => {
+      const box = document.querySelector('.stage-box').getBoundingClientRect();
+      const next = document.querySelector('.slide-nav.next').getBoundingClientRect();
+      const previous = document.querySelector('.slide-nav.previous').getBoundingClientRect();
+      return { left: box.left, right: box.right, next: next.left, previous: previous.right };
+    });
+    assert.ok(nav.next >= nav.right + 8, `${width} px : « suivante » collée à la scène (${nav.next} < ${nav.right} + 8)`);
+    assert.ok(nav.previous <= nav.left - 8, `${width} px : « précédente » collée à la scène (${nav.previous} > ${nav.left} - 8)`);
     // Le titre du document : discret (ni fond ni ombre), centré au-dessus de la slide.
     const label = await p.evaluate(() => {
       const el = document.querySelector('.label');
