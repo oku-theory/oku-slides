@@ -145,13 +145,16 @@
     calc.max(0pt, ..words.map(w => measure(styled-cell(x, y, w)).width))
   }))
   set text(size: size-of(t, k.size))
-  // Tient sans retour à la ligne : colonnes `auto`. Sinon, chaque colonne a au
-  // moins la largeur de son plus long mot, le reste réparti selon ce qui lui
-  // manque pour tenir sur une ligne ; trop large même ainsi, le tableau est
-  // posé à cette largeur minimale puis réduit. Pas de pagination.
+  // Tient sans retour à la ligne : toute la largeur, l'excédent réparti au
+  // prorata des largeurs naturelles. Sinon, chaque colonne a au moins la
+  // largeur de son plus long mot, le reste réparti selon ce qui lui manque
+  // pour tenir sur une ligne ; trop large même ainsi, le tableau est posé à
+  // cette largeur minimale puis réduit. Pas de pagination.
   layout(size => {
     let natural = range(n).map(x => col-width(x, true))
-    let (columns, width) = if natural.sum() <= size.width { (n, size.width) } else {
+    let (columns, width) = if natural.sum() <= size.width {
+      (natural.map(w => w * (size.width / natural.sum())), size.width)
+    } else {
       let least = range(n).map(x => calc.min(col-width(x, false), natural.at(x)))
       let spare = size.width - least.sum()
       let want = natural.sum() - least.sum()
