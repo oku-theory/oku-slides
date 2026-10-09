@@ -180,6 +180,8 @@ session-param-toc-title = 제목
 menu-edit = 편집
 menu-window = 윈도우
 menu-quit = 종료
+window-agent-title = 에이전트 — Oku Slides
+menu-agent-detached = 에이전트를 별도 창으로
 
 ## Éditeur de thème (surface host-theme)
 

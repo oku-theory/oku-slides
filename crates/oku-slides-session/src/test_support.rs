@@ -142,3 +142,33 @@ pub(crate) fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
 pub(crate) fn theme_name(r: &oku_slides_core::ThemeRef) -> Option<&'static str> {
     [(crate::PAPIER_THEME, "papier"), (crate::PRO_THEME, "pro")].into_iter().find(|(id, _)| *id == r.id).map(|(_, n)| n)
 }
+
+/// Les réglages d'un espace de travail de test : données et decks sous `data`, interface en français.
+pub(crate) fn workspace_platform(data: &std::path::Path) -> crate::Platform {
+    let mut settings = crate::Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
+    settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = Some(data.join("decks"));
+    settings.i18n.locale = Some("fr".into());
+    crate::Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
+}
+
+/// Un espace de travail neuf sur `data`, sans reprise.
+pub(crate) fn workspace_on(data: &std::path::Path) -> std::sync::Mutex<crate::Workspace> {
+    let ws = crate::Workspace::new(crate::Fonts::default(), &workspace_platform(data), None);
+    std::sync::Mutex::new(ws.unwrap_or_else(|e| panic!("espace de travail : {e}")))
+}
+
+/// L'espace de travail repris de `dir` (neuf s'il n'y a rien), sur `data`.
+pub(crate) fn resumed_on(data: &std::path::Path, dir: std::path::PathBuf) -> std::sync::Mutex<crate::Workspace> {
+    let ws = crate::Workspace::resume(crate::Fonts::default(), &workspace_platform(data), dir);
+    std::sync::Mutex::new(ws.unwrap_or_else(|e| panic!("reprise : {e}")))
+}
+
+/// Applique une requête JSON de l'espace de travail.
+pub(crate) fn apply_ws(
+    ws: &std::sync::Mutex<crate::Workspace>,
+    v: serde_json::Value,
+) -> crate::Result<crate::WorkspaceOutcome> {
+    crate::Workspace::apply(ws, serde_json::from_value(v).unwrap_or_else(|e| panic!("requête : {e}")))
+}

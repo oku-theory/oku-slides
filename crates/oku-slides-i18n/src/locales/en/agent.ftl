@@ -81,3 +81,6 @@ agent-error-setting-locked = The setting { $key } cannot be changed by the agent
 agent-error-setting = The setting { $key } could not be changed: check its value.
 agent-error-rewrite-text = The rewording came back without text.
 agent-error-paragraphs = The paragraphs of the rewording are invalid.
+agent-error-draft-too-long = The draft is too long.
+agent-error-draft-origin = Draft refused: unknown view.
+agent-error-draft-no-agent = This tab's agent is starting: draft not kept.

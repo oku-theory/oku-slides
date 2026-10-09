@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import AgentWindow from "./AgentWindow";
 import Workspace from "./Workspace";
+import { isAgentWindow } from "./agent/target";
 import { loadMessages, onLocaleChange } from "./i18n";
 import { applyDefaultScheme } from "./appearance";
 import { applyLens } from "./lens";
@@ -19,13 +21,14 @@ Promise.all([
   .finally(() => {
     applyDefaultScheme(currentScheme());
     applyLens(document.documentElement, navigator.userAgent);
+    const agentWindow = isAgentWindow();
     const root = createRoot(document.getElementById("root")!);
     // Une autre langue : l'interface est remontée, chaque texte relu.
     let generation = 0;
     const render = () =>
       root.render(
         <StrictMode>
-          <Workspace key={generation++} />
+          {agentWindow ? <AgentWindow key={generation++} /> : <Workspace key={generation++} />}
         </StrictMode>,
       );
     onLocaleChange(render);

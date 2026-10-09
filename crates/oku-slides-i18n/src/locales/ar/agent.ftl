@@ -88,3 +88,6 @@ agent-error-setting-locked = لا يمكن للوكيل تغيير الإعدا�
 agent-error-setting = تعذّر تغيير الإعداد { $key }: تحقّق من قيمته.
 agent-error-rewrite-text = عادت إعادة الصياغة دون نص.
 agent-error-paragraphs = فقرات إعادة الصياغة غير صالحة.
+agent-error-draft-too-long = المسودة طويلة جدًا.
+agent-error-draft-origin = رُفضت المسودة: عرض غير معروف.
+agent-error-draft-no-agent = وكيل هذا التبويب قيد البدء: لم تُحفظ المسودة.

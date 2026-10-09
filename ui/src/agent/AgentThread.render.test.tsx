@@ -54,7 +54,7 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
 
 type State = "idle" | "starting" | "working";
 
-async function mount(surfaces: Surface[], state: State = "idle") {
+async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void } = {}) {
   const actions: [string, string][] = [];
   let fresh = 0;
   const host = document.createElement("div");
@@ -70,7 +70,7 @@ async function mount(surfaces: Surface[], state: State = "idle") {
   });
   const { turns, loose, dock } = routeSurfaces(surfaces, null);
   await act(async () => {
-    root.render(createElement(AgentThread, { ...props(), state, turns, loose, dock }));
+    root.render(createElement(AgentThread, { ...props(), ...extra, state, turns, loose, dock }));
   });
   // Les surfaces sont chargées à la demande (lazy) : laisser Suspense les résoudre.
   await act(async () => new Promise((r) => setTimeout(r, 0)));
@@ -78,7 +78,7 @@ async function mount(surfaces: Surface[], state: State = "idle") {
   /** Remonte sans attendre (minuteries simulées : les surfaces sont déjà chargées). */
   const renderNow = (next: Surface[], keysTo?: string | null, nextState: State = state, resyncs = 0) =>
     act(async () => {
-      root.render(createElement(AgentThread, { ...props(), ...routeSurfaces(next, null), state: nextState, keysTo, resyncs }));
+      root.render(createElement(AgentThread, { ...props(), ...extra, ...routeSurfaces(next, null), state: nextState, keysTo, resyncs }));
     });
   const rerender = async (next: Surface[], keysTo?: string | null, nextState: State = state, resyncs = 0) => {
     await renderNow(next, keysTo, nextState, resyncs);
@@ -390,5 +390,48 @@ describe("fil de l'agent par tours", () => {
     expectIconOnly(button);
     await act(async () => button.click());
     expect(fresh()).toBe(1);
+  });
+
+  test("ouvrir dans une fenêtre est un bouton icône qui détache", async () => {
+    let detached = 0;
+    const { host } = await mount([realSurface("turn-3")], "idle", { onDetach: () => detached++ });
+    const button = host.querySelector(".agent-detach") as HTMLButtonElement;
+    expectIconOnly(button);
+    await act(async () => button.click());
+    expect(detached).toBe(1);
+    expect(host.querySelector(".agent-attach")).toBeNull();
+  });
+
+  test("ramener dans la fenêtre principale est un bouton icône qui rattache", async () => {
+    let attached = 0;
+    const { host } = await mount([realSurface("turn-3")], "idle", { onAttach: () => attached++ });
+    const button = host.querySelector(".agent-attach") as HTMLButtonElement;
+    expectIconOnly(button);
+    await act(async () => button.click());
+    expect(attached).toBe(1);
+    expect(host.querySelector(".agent-detach")).toBeNull();
+  });
+
+  test("sans rappel, ni détacher ni rattacher", async () => {
+    const { host } = await mount([realSurface("turn-3")]);
+    expect(host.querySelector(".agent-detach, .agent-attach")).toBeNull();
+  });
+
+  test("fil vide avec onAttach : le bouton rattacher reste visible", async () => {
+    const { host } = await mount([], "idle", { onAttach: () => {} });
+    expectIconOnly(host.querySelector(".agent-attach"));
+    expect(host.querySelector(".agent-new")).toBeNull();
+    expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(false);
+  });
+
+  test("fil vide avec onDetach : le bouton détacher reste visible", async () => {
+    const { host } = await mount([], "idle", { onDetach: () => {} });
+    expectIconOnly(host.querySelector(".agent-detach"));
+  });
+
+  test("fil vide sans onDetach ni onAttach : aucun en-tête de plus", async () => {
+    const { host } = await mount([]);
+    expect(host.querySelector(".agent-thread-head")).toBeNull();
+    expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(true);
   });
 });

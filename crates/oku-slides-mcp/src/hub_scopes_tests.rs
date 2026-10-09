@@ -4,6 +4,7 @@ use oku_slides_i18n::Localizer;
 use oku_slides_session::agent::forms::{self, AskChoice};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentScope, KEPT_TURNS, SavedConversation, Sessions, Surface, TabSession};
+use oku_slides_session::pack::DEFAULT_PACK;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -316,4 +317,55 @@ fn rename_scope_moves_turns_and_the_viewed_scope() {
     assert_that!(hub.turn_scope(n)).is_equal_to(Some(to.clone()));
     hub.resync(to);
     assert_that!(hub.visible_surfaces()).has_length(1);
+}
+
+fn viewing_events(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<AgentScope> {
+    let mut found = Vec::new();
+    while let Ok(e) = rx.try_recv() {
+        if let McpEvent::Viewing { scope } = e {
+            found.push(scope);
+        }
+    }
+    found
+}
+
+#[test]
+fn resync_announces_the_viewed_scope_before_the_list() {
+    let hub = hub();
+    let mut rx = hub.subscribe();
+    hub.resync(atelier());
+    assert_that!(matches!(rx.try_recv(), Ok(McpEvent::Viewing { scope }) if scope == atelier())).is_true();
+    assert_that!(matches!(rx.try_recv(), Ok(McpEvent::Surfaces { .. }))).is_true();
+}
+
+#[test]
+fn viewing_before_any_resync_is_slides() {
+    assert_that!(hub().viewing()).is_equal_to(AgentScope::Slides);
+}
+
+#[test]
+fn viewing_after_resync_is_the_scope_shown() {
+    let hub = hub();
+    hub.resync(atelier());
+    assert_that!(hub.viewing()).is_equal_to(atelier());
+}
+
+#[test]
+fn rename_of_the_viewed_scope_announces_the_new_one() {
+    let hub = hub();
+    let from = AgentScope::Widget { pack: DEFAULT_PACK, name: "kpi".into() };
+    let to = AgentScope::Widget { pack: DEFAULT_PACK, name: "score".into() };
+    hub.resync(from.clone());
+    let mut rx = hub.subscribe();
+    hub.rename_scope(&from, &to);
+    assert_that!(viewing_events(&mut rx)).is_equal_to(vec![to]);
+}
+
+#[test]
+fn rename_of_another_scope_announces_nothing() {
+    let hub = hub();
+    hub.resync(AgentScope::Slides);
+    let mut rx = hub.subscribe();
+    hub.rename_scope(&atelier(), &AgentScope::Atelier { pack: uuid::Uuid::nil() });
+    assert_that!(viewing_events(&mut rx)).is_empty();
 }

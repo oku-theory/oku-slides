@@ -239,6 +239,8 @@ impl Workspace {
             }
             WorkspaceRequest::Reorder { tab, index } => self.reorder(&tab, index)?,
             WorkspaceRequest::MoveTab { tab, window, index } => self.move_tab(&tab, window.as_deref(), index)?,
+            WorkspaceRequest::DetachAgent => self.set_agent_detached(true),
+            WorkspaceRequest::AttachAgent => self.set_agent_detached(false),
             WorkspaceRequest::View
             | WorkspaceRequest::Messages
             | WorkspaceRequest::SetLocale { .. }

@@ -29,8 +29,15 @@ export function dictationShortcut(
 ): DictationMode | "agent-cancel" | null {
   if (e.repeat || e.altKey || !(e.metaKey || e.ctrlKey)) return null;
   if (e.code !== "KeyD" && e.key.toLowerCase() !== "d") return null;
-  if (!e.shiftKey) return "auto";
-  return agentBusy && !recording ? "agent-cancel" : "draft";
+  return shortcutAction(e.shiftKey ? "draft" : "auto", { agentBusy, recording });
+}
+
+/** Ce que fait ⌘D (`auto`) ou ⌘⇧D (`draft`) : dicter, ou arrêter un tour qui n'écoute pas. */
+export function shortcutAction(
+  key: "auto" | "draft",
+  { agentBusy, recording }: { agentBusy: boolean; recording: boolean },
+): DictationMode | "agent-cancel" {
+  return key === "draft" && agentBusy && !recording ? "agent-cancel" : key;
 }
 
 /**

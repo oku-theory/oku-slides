@@ -77,6 +77,12 @@ pub enum AgentEvent {
         /// La portée dont le fil est oublié.
         scope: AgentScope,
     },
+    /// Le brouillon de l'onglet (`None` : fermé), tel que l'hôte le tient pour toutes ses vues.
+    Draft {
+        text: Option<String>,
+        /// La vue qui l'a écrit ; absente quand l'hôte le rejoue. Une vue ignore ses propres échos.
+        origin: Option<String>,
+    },
 }
 
 impl AgentEvent {

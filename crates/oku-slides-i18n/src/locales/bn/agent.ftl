@@ -80,3 +80,6 @@ agent-error-setting-locked = এজেন্ট { $key } সেটিংটি �
 agent-error-setting = { $key } সেটিংটি পরিবর্তন করা যায়নি: এর মান যাচাই করুন।
 agent-error-rewrite-text = পুনর্লিখন কোনো লেখা ছাড়াই ফিরে এসেছে।
 agent-error-paragraphs = পুনর্লিখনের অনুচ্ছেদগুলো অবৈধ।
+agent-error-draft-too-long = খসড়াটি অনেক দীর্ঘ।
+agent-error-draft-origin = খসড়া প্রত্যাখ্যাত: অজানা ভিউ।
+agent-error-draft-no-agent = এই ট্যাবের এজেন্ট শুরু হচ্ছে: খসড়া রাখা হয়নি।

@@ -53,7 +53,8 @@ impl SurfaceHub {
 
     /// Le widget renommé : ses tours, et la portée vue, le suivent ; piloté par le gardien.
     ///
-    /// Aucune liste n'est renvoyée : la portée vue suit, ce que l'interface montre ne change pas.
+    /// Aucune liste n'est renvoyée : ce que l'interface montre ne change pas. Si le widget renommé est
+    /// celui qui est montré, la nouvelle portée vue est annoncée (`McpEvent::Viewing`).
     pub fn rename_scope(&self, from: &AgentScope, to: &AgentScope) {
         let mut state = self.state();
         for s in state.turn_scopes.values_mut().filter(|s| *s == from) {
@@ -61,6 +62,7 @@ impl SurfaceHub {
         }
         if state.viewing == *from {
             state.viewing = to.clone();
+            self.record_and_send(&mut state, McpEvent::Viewing { scope: to.clone() });
         }
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { appendDraft, dictationRoute } from "./draft";
+import type { Snapshot } from "./api";
+import { appendDraft, deckVocabulary, dictationRoute } from "./draft";
 
 describe("brouillon de consigne", () => {
   test("appendDraft sans brouillon ouvre le brouillon avec la dictée", () => {
@@ -31,4 +32,13 @@ describe("où va une dictée", () => {
   test("dictationRoute brouillon pendant l'édition va quand même au brouillon", () => {
     expect(dictationRoute("draft", true)).toBe("draft");
   });
+});
+
+test("deckVocabulary prend le titre du deck et ceux des slides, sans vides", () => {
+  const snap = { title: "Feuille", slides: [{ title: "Constat" }, { title: null }] } as unknown as Snapshot;
+  expect(deckVocabulary(snap)).toEqual(["Feuille", "Constat"]);
+});
+
+test("deckVocabulary sans instantané : aucun mot", () => {
+  expect(deckVocabulary(null)).toEqual([]);
 });

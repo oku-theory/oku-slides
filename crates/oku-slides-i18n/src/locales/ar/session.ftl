@@ -180,6 +180,8 @@ session-param-toc-title = العنوان
 menu-edit = تحرير
 menu-window = نافذة
 menu-quit = خروج
+window-agent-title = الوكيل — Oku Slides
+menu-agent-detached = الوكيل في نافذة منفصلة
 
 ## Éditeur de thème (surface host-theme)
 

@@ -12,6 +12,7 @@
 //!
 //! L'agent n'a ni fichiers ni terminal : il n'agit que par les outils.
 
+mod command_error;
 mod config;
 mod error;
 mod events;
@@ -25,11 +26,12 @@ mod tab_entry;
 mod turn;
 mod turns;
 
+pub use command_error::CommandError;
 pub use config::{Launch, READY_WITHIN};
 pub use error::AgentError;
 pub use events::{AgentEvent, AgentState, PlanItem};
 pub use keeper::{Keep, Keeper};
 pub use link::{Link, agent_fingerprint};
 pub use settings_port::AppSettings;
-pub use stack::{AgentCommand, Stack};
+pub use stack::{AgentCommand, MAX_DRAFT_BYTES, MAX_ORIGIN_BYTES, Stack};
 pub use tab_agent::{AgentHandle, ToolsAccess};

@@ -84,3 +84,6 @@ agent-error-setting-locked = Agent nie może zmienić ustawienia { $key }.
 agent-error-setting = Nie udało się zmienić ustawienia { $key }: sprawdź jego wartość.
 agent-error-rewrite-text = Przeredagowanie wróciło bez tekstu.
 agent-error-paragraphs = Akapity przeredagowania są nieprawidłowe.
+agent-error-draft-too-long = Szkic jest za długi.
+agent-error-draft-origin = Szkic odrzucony: nieznany widok.
+agent-error-draft-no-agent = Agent tej karty się uruchamia: szkic nie został zachowany.

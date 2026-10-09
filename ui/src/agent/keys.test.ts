@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import "../test/dom";
-import { dictationShortcut, escapeAction, targetOwnsKeys, typingShortcut } from "./keys";
+import { dictationShortcut, escapeAction, shortcutAction, targetOwnsKeys, typingShortcut } from "./keys";
 
 const k = (
   key: string,
@@ -84,5 +84,17 @@ describe("écrire à l'agent", () => {
     expect(typingShortcut(k("K", { meta: true, shift: true }))).toBe(false);
     expect(typingShortcut(k("k", { meta: true, alt: true }))).toBe(false);
     expect(typingShortcut(k("k", { meta: true, repeat: true }))).toBe(false);
+  });
+});
+
+describe("shortcutAction", () => {
+  test("shortcutAction ⌘⇧D pendant un tour, sans écoute : arrête l'agent", () => {
+    expect(shortcutAction("draft", { agentBusy: true, recording: false })).toBe("agent-cancel");
+  });
+  test("shortcutAction ⌘⇧D pendant une écoute : arrête l'écoute, jamais l'agent", () => {
+    expect(shortcutAction("draft", { agentBusy: true, recording: true })).toBe("draft");
+  });
+  test("shortcutAction ⌘D : dicte", () => {
+    expect(shortcutAction("auto", { agentBusy: true, recording: false })).toBe("auto");
   });
 });

@@ -9,10 +9,9 @@
 import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { FieldView, McpEvent, SlideView, Surface } from "../api";
+import type { AgentUi, McpEvent, Surface } from "../api";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
-import { anchorBox } from "../stageFields";
 import { AgentThread } from "./AgentThread";
 import { subscribeHost } from "./events";
 import type { QuickAction } from "./quick";
@@ -20,10 +19,10 @@ import { fromA2ui } from "./quick";
 import { withRewriteParagraphs } from "./rewrite";
 import type { ScopeView } from "./scope";
 import type { Slot } from "./slot";
-import { agentBusy, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
-import { agentUi } from "./ui";
-import { useAgentScope } from "./useAgentScope";
-import { answerTarget, quickTarget, useQuickKeys } from "./useQuickKeys";
+import { agentBusy, sendThenPrompt, suggestedPrompt, surfacesReducer, type Routed } from "./surfaces";
+import { useAgentScope, type AgentScopeState } from "./useAgentScope";
+import { useFollowScope } from "./useFollowScope";
+import { answerTarget, quickTarget, useQuickKeys, type QuickTarget } from "./useQuickKeys";
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
 const AgentSheet = lazy(() => import("./AgentSheet").then((m) => ({ default: m.AgentSheet })));
@@ -43,13 +42,15 @@ export interface AgentStatusView {
   cancellable: boolean;
   /** L'ancre (élément ou champ) sous laquelle poser la fiche de la scène, sinon `null`. */
   sheet: { owner: string; field?: string } | null;
+  /** L'identifiant de la fiche posée, sinon `null` (la fenêtre de l'agent le lit dans le contexte). */
+  sheetId: string | null;
   /** « L'agent répond ailleurs », quand aucune question ne recevrait la consigne ; sinon `null`. */
   notice: string | null;
   /** Un agent répond (`useAgentScope`) : une consigne peut partir. */
   ready: boolean;
 }
 
-export const IDLE_AGENT: AgentStatusView = { modal: false, busy: false, cancellable: false, sheet: null, notice: null, ready: false };
+export const IDLE_AGENT: AgentStatusView = { modal: false, busy: false, cancellable: false, sheet: null, sheetId: null, notice: null, ready: false };
 
 /** Ce que `App` demande à l'agent. */
 export interface AgentHandle {
@@ -74,17 +75,22 @@ export interface AgentSlots {
   modal: Slot;
 }
 
+/** D'où vient la portée : cette fenêtre la fixe (`drive`), ou elle suit celle de l'hôte (`follow`). */
+export type ScopeSource = { kind: "drive"; view: ScopeView | null } | { kind: "follow" };
+
 export interface AgentPanelProps {
   tab: string;
   agent: AgentApi;
-  /** La vue qui fixe la portée de l'agent ; `null` avant le premier instantané. */
-  scopeView: ScopeView | null;
-  /** La slide affichée (fiches ancrées) et ce que voit l'agent avec une consigne. */
-  view: SlideView | null;
-  current: string | null;
-  selected: string | null;
-  editField: FieldView | null;
-  widget: string | null;
+  /** D'où vient la portée de l'agent ; `view` vaut `null` avant le premier instantané. */
+  scope: ScopeSource;
+  /** Le routage des surfaces, stable tant que la scène ne change pas. */
+  route: (list: Surface[]) => Routed;
+  /** Ce que voit l'utilisateur, joint aux consignes. */
+  ui: AgentUi;
+  /** Où les touches rapides agissent ; défaut : toutes. */
+  keyPlaces?: QuickTarget["kind"][];
+  /** Un brouillon reçu de l'hôte. */
+  onDraft?: (e: { text: string | null; origin: string | null }) => void;
   /** Touches rapides coupées : édition d'un texte, pointage, widget actif. */
   keysOff: boolean;
   /** Le fil se montre (pas dans l'aide). */
@@ -100,32 +106,42 @@ export interface AgentPanelProps {
   onFocus: (slide: string, element: string | null) => void;
   onWidgetTouched: (name: string, removed: boolean) => void;
   say: (text: string, error?: boolean) => void;
+  /** Ouvre l'agent dans sa propre fenêtre : le bouton n'existe que si la fenêtre principale le donne. */
+  onDetach?: () => void;
+  /** Ramène l'agent dans la fenêtre principale : le bouton n'existe que dans la fenêtre de l'agent. */
+  onAttach?: () => void;
   /** Pour les tests : l'abonnement aux évènements de l'hôte. */
   subscribe?: typeof subscribeHost;
 }
 
+const ALL_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "dock"];
+const NOOP = () => {};
+
+/** Ce que lit l'abonnement, posé une fois par onglet : toujours la dernière version. */
+interface Latest {
+  props: AgentPanelProps;
+  scopeState: AgentScopeState;
+  onMcpFollow: (e: McpEvent) => void;
+}
+
 /** Le fil de l'agent, et ses surfaces posées dans les places de `App`. */
 export function AgentPanel(props: AgentPanelProps) {
-  const { tab, agent, view, current, selected, editField, widget, keysOff, slots, say } = props;
-  // Les derniers rappels reçus : l'abonnement est posé une fois par onglet.
-  const latest = useRef(props);
-  latest.current = props;
+  const { tab, agent, keysOff, slots, say } = props;
   const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
-  const agentScopeState = useAgentScope(agent, props.scopeView, onSurfaceEvent);
+  // Un panneau ne change jamais de mode (monté par onglet et par fenêtre) ; un `useAgentScope`
+  // sans vue ne rappelle jamais le fil.
+  const driven = useAgentScope(agent, props.scope.kind === "drive" ? props.scope.view : null, onSurfaceEvent);
+  const followed = useFollowScope(agent);
+  const agentScopeState: AgentScopeState = props.scope.kind === "follow" ? followed : driven;
+  const latest = useRef<Latest | null>(null);
+  latest.current = { props, scopeState: agentScopeState, onMcpFollow: props.scope.kind === "follow" ? followed.onMcp : NOOP };
   const { scope, status: agentStatus, elsewhere, notice: elsewhereNotice, ready } = agentScopeState;
   const agentState = agentStatus.state;
   /** Listes entières reçues (`surfaces`, après un abonnement ou une reconnexion) : le fil ne les relit pas. */
   const [resyncs, countResync] = useReducer((n: number) => n + 1, 0);
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
   // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
-  const routed = useMemo(
-    () =>
-      routeSurfaces(
-        surfaces,
-        view && view.slide.id === current ? { slide: view.slide.id, has: (a) => anchorBox(view, a) !== null } : null,
-      ),
-    [surfaces, view, current],
-  );
+  const routed = useMemo(() => props.route(surfaces), [surfaces, props.route]);
   const { stage: sheet, drawer, modal, dock } = routed;
   const cancel = () => void agent.cancel().catch((err) => say(String(err), true));
   const subscribe = props.subscribe ?? subscribeHost;
@@ -135,18 +151,23 @@ export function AgentPanel(props: AgentPanelProps) {
         onMcp: (e: McpEvent) => {
           onSurfaceEvent(e);
           if (e.kind === "surfaces") countResync();
-          if (e.kind === "changed") latest.current.onChanged();
-          if (e.kind === "focus") latest.current.onFocus(e.slide, e.element);
-          if (e.kind === "widget_touched") latest.current.onWidgetTouched(e.name, e.removed);
+          latest.current!.onMcpFollow(e);
+          const p = latest.current!.props;
+          if (e.kind === "changed") p.onChanged();
+          if (e.kind === "focus") p.onFocus(e.slide, e.element);
+          if (e.kind === "widget_touched") p.onWidgetTouched(e.name, e.removed);
         },
-        onAgent: agentScopeState.onAgentEvent,
+        onAgent: (e) => {
+          latest.current!.scopeState.onAgentEvent(e);
+          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin });
+        },
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
         // (les évènements manqués pendant la coupure sont perdus). Sans outils
         // (pile absente), `resync` échoue : il n'y a alors pas de surface.
         onReady: () => {
-          agentScopeState.onReady();
-          latest.current.onChanged();
+          latest.current!.scopeState.onReady();
+          latest.current!.props.onChanged();
         },
       }),
     // S'abonner une fois par onglet : les rappels sont lus dans `latest`, `onReady` et `onAgentEvent` sont stables.
@@ -167,7 +188,7 @@ export function AgentPanel(props: AgentPanelProps) {
    * La surface qui reçoit les touches 1–4, Entrée, Échap et montre leur rappel ; aucune pendant
    * l'édition d'un texte, le pointage ou un widget actif. Une consigne répond toujours à `keysTarget`.
    */
-  const keyed = !keysOff ? keysTarget : null;
+  const keyed = !keysOff && keysTarget && (props.keyPlaces ?? ALL_PLACES).includes(keysTarget.kind) ? keysTarget : null;
   /** Un tour en cours qui n'attend pas l'utilisateur (aucune question ne reçoit la consigne) : ⌘⇧D et Échap l'arrêtent. */
   const busy = agentBusy(agentState, answerTarget(keysTarget));
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
@@ -177,7 +198,7 @@ export function AgentPanel(props: AgentPanelProps) {
       say(elsewhereNotice, true);
       return Promise.resolve(false);
     }
-    return agent.prompt(scope, text, agentUi(current, selected, editField, widget), answer).then(
+    return agent.prompt(scope, text, props.ui, answer).then(
       () => true,
       (err) => {
         say(String(err), true);
@@ -201,6 +222,7 @@ export function AgentPanel(props: AgentPanelProps) {
   // `App` ne se re-rend que si l'une de ces valeurs change.
   const sheetOwner = sheet?.anchor?.owner ?? null;
   const sheetField = sheet?.anchor?.field;
+  const sheetId = sheet?.id ?? null;
   const notice = answerTarget(keysTarget) === null ? elsewhereNotice : null;
   const { onStatus } = props;
   // Des valeurs simples seulement : une surface patchée est un nouvel objet à chaque morceau.
@@ -209,9 +231,9 @@ export function AgentPanel(props: AgentPanelProps) {
   useLayoutEffect(
     () => {
       const sheetAt = sheetOwner === null ? null : sheetField === undefined ? { owner: sheetOwner } : { owner: sheetOwner, field: sheetField };
-      onStatus({ modal: hasModal, busy, cancellable, sheet: sheetAt, notice, ready });
+      onStatus({ modal: hasModal, busy, cancellable, sheet: sheetAt, sheetId, notice, ready });
     },
-    [onStatus, hasModal, busy, cancellable, sheetOwner, sheetField, notice, ready],
+    [onStatus, hasModal, busy, cancellable, sheetOwner, sheetField, sheetId, notice, ready],
   );
 
   // Les surfaces hors du fil, posées dans les places de `App` (vues `SlotView`).
@@ -262,6 +284,8 @@ export function AgentPanel(props: AgentPanelProps) {
         resyncs={resyncs}
         onAction={onSurfaceAction}
         onNewConversation={() => agent.newConversation(scope).catch((err) => say(String(err), true))}
+        onDetach={props.onDetach}
+        onAttach={props.onAttach}
         onError={onError}
       />
     </SlideThumbsContext.Provider>

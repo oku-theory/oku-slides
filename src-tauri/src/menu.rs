@@ -4,11 +4,17 @@
 //! de menu d'app.
 
 use oku_slides_session::Localizer;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Runtime};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{AppHandle, Manager, Runtime};
 
 /// Identifiant de l'entrée « Quitter » (voir `main.rs::on_menu_event`).
 pub const QUIT_ID: &str = "quit";
+/// Identifiant de la case « Agent dans une fenêtre séparée ».
+pub const AGENT_ID: &str = "agent-detached";
+
+/// La case de l'agent, gardée par l'app : `Menu::get` ne cherche pas dans les sous-menus.
+#[cfg_attr(not(target_os = "macos"), expect(dead_code, reason = "menu d'app : macOS seulement"))]
+struct AgentCheck<R: Runtime>(CheckMenuItem<R>);
 
 /// Le menu : application, édition (couper, copier, coller), fenêtre.
 ///
@@ -52,11 +58,31 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, l: &Localizer) -> tauri::Result<Men
             &PredefinedMenuItem::select_all(app, None)?,
         ],
     )?;
+    let agent = CheckMenuItem::with_id(app, AGENT_ID, l.tr("menu-agent-detached"), true, false, None::<&str>)?;
     let window = Submenu::with_items(
         app,
         l.tr("menu-window"),
         true,
-        &[&PredefinedMenuItem::minimize(app, None)?, &PredefinedMenuItem::fullscreen(app, None)?],
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::fullscreen(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &agent,
+        ],
     )?;
+    app.manage(AgentCheck(agent.clone()));
     Menu::with_items(app, &[&app_menu, &edit, &window])
+}
+
+/// Coche la case de l'agent d'après l'espace de travail (macOS ; ailleurs, aucun menu : rien).
+pub fn set_agent_checked<R: Runtime>(app: &AppHandle<R>, detached: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let Some(check) = app.try_state::<AgentCheck<R>>() else { return };
+        if let Err(e) = check.0.set_checked(detached) {
+            tracing::warn!(error = %e, "case de l'agent non mise à jour");
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, detached);
 }

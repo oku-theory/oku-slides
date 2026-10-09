@@ -111,7 +111,9 @@ pub use views::{
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
-pub use workspace::{Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
+pub use workspace::{
+    Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView, is_window_label,
+};
 
 /// Un document ouvert : ses sources (deck et son historique, assets,
 /// polices) et son fichier.

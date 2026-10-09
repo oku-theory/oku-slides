@@ -58,6 +58,13 @@ pub enum McpEvent {
         name: String,
         removed: bool,
     },
+    /// La portée dont le fil est montré.
+    ///
+    /// Une autre vue du même onglet (la fenêtre de l'agent) la suit.
+    Viewing {
+        /// La portée montrée.
+        scope: AgentScope,
+    },
 }
 
 /// Réponse de l'utilisateur à une surface `ask_*`.
@@ -188,7 +195,9 @@ impl SurfaceHub {
                     }
                 }
             }
-            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } => true,
+            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } | McpEvent::Viewing { .. } => {
+                true
+            }
         };
         if send {
             let _ = self.events.send(event);
@@ -200,10 +209,19 @@ impl SurfaceHub {
         self.state().open.clone()
     }
 
-    /// Montre le fil de `scope` : envoie sa liste entière (`McpEvent::Surfaces`) ; piloté par le gardien de l'onglet.
+    /// Montre le fil de `scope`, piloté par le gardien de l'onglet.
+    ///
+    /// Annonce la portée (`McpEvent::Viewing`), puis envoie la liste entière (`McpEvent::Surfaces`).
     pub fn resync(&self, scope: AgentScope) {
-        self.state().viewing = scope;
-        self.emit(McpEvent::Surfaces { list: Vec::new() });
+        let mut state = self.state();
+        state.viewing = scope.clone();
+        self.record_and_send(&mut state, McpEvent::Viewing { scope });
+        self.record_and_send(&mut state, McpEvent::Surfaces { list: Vec::new() });
+    }
+
+    /// La portée dont le fil est montré.
+    pub fn viewing(&self) -> AgentScope {
+        self.state().viewing.clone()
     }
 
     /// Identifiant de surface neuf : `ask-3`, `show-4`…

@@ -144,6 +144,7 @@ impl Workspace {
             self.layout.windows.push(WindowLayout { label: w.label, tabs, active });
         }
         let saved = file.layout;
+        self.layout.agent_detached = saved.agent_detached;
         // Les onglets gardés la dernière fois restent cités (après les
         // fenêtres : un identifiant des deux côtés reste restauré).
         cited.extend(saved.kept.iter().filter(|id| is_tab_id(id)).cloned());

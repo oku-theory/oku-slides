@@ -33,8 +33,14 @@ export function AgentThread({
   resyncs = 0,
   onAction,
   onNewConversation,
+  onDetach,
+  onAttach,
   onError,
 }: {
+  /** Ouvre l'agent dans sa propre fenêtre (fenêtre principale). */
+  onDetach?: () => void;
+  /** Ramène l'agent dans la fenêtre principale (fenêtre de l'agent). */
+  onAttach?: () => void;
   state: AgentState;
   /** Nombre de listes entières reçues de l'hôte (resynchronisations) : leur contenu n'est pas lu. */
   resyncs?: number;
@@ -81,6 +87,9 @@ export function AgentThread({
   // Le tour en cours : le dernier, tant que l'agent travaille ; une resynchronisation ne le tait pas.
   const spoken = useSpeech(threadSurfaces, dock, resyncs, state === "idle" ? null : (lastTurn ?? null));
   const empty = turns.length === 0 && loose.length === 0 && dock.length === 0;
+  // Les boutons de fenêtre restent à portée même sans tour : le fil n'est alors pas caché.
+  const windowButtons = !!(onDetach || onAttach);
+  const vacant = empty && !windowButtons;
   const view = (s: Surface) => (
     <Suspense fallback={null}>
       <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
@@ -89,11 +98,13 @@ export function AgentThread({
   /** Une surface du fil (tour, fiche hors de la slide) : chiffres 1–4 seulement si elle reçoit les touches. */
   const threadView = (s: Surface) => <QuickHintsContext.Provider value={s.id === keysTo}>{view(s)}</QuickHintsContext.Provider>;
   return (
-    <section className={`agent-thread${empty ? " vacant" : ""}`} aria-label={t("ui-agent-thread")}>
-      {!empty && (
+    <section className={`agent-thread${vacant ? " vacant" : ""}`} aria-label={t("ui-agent-thread")}>
+      {!vacant && (
         <header className="agent-thread-head">
-          <span className="caption">{t(STATE_KEY[state])}</span>
-          <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>
+          {!empty && <span className="caption">{t(STATE_KEY[state])}</span>}
+          {!empty && <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>}
+          {onDetach && <button type="button" className="token ghost agent-detach" aria-label={t("ui-agent-detach")} title={t("ui-agent-detach")} onClick={onDetach}>{Icon.detach}</button>}
+          {onAttach && <button type="button" className="token ghost agent-attach" aria-label={t("ui-agent-attach")} title={t("ui-agent-attach")} onClick={onAttach}>{Icon.attach}</button>}
         </header>
       )}
       <div

@@ -84,3 +84,6 @@ agent-error-setting-locked = Агент не может изменить нас�
 agent-error-setting = Не удалось изменить настройку { $key }: проверьте её значение.
 agent-error-rewrite-text = Перефразирование вернулось без текста.
 agent-error-paragraphs = Абзацы перефразирования недопустимы.
+agent-error-draft-too-long = Черновик слишком длинный.
+agent-error-draft-origin = Черновик отклонён: неизвестное представление.
+agent-error-draft-no-agent = Агент этой вкладки запускается: черновик не сохранён.

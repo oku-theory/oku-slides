@@ -84,3 +84,6 @@ agent-error-setting-locked = Агент не може змінити налаш�
 agent-error-setting = Не вдалося змінити налаштування { $key }: перевірте його значення.
 agent-error-rewrite-text = Перефразування повернулося без тексту.
 agent-error-paragraphs = Абзаци перефразування недійсні.
+agent-error-draft-too-long = Чернетка занадто довга.
+agent-error-draft-origin = Чернетку відхилено: невідоме подання.
+agent-error-draft-no-agent = Агент цієї вкладки запускається: чернетку не збережено.

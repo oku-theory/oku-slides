@@ -80,3 +80,6 @@ agent-error-setting-locked = L'agente non può modificare l'impostazione { $key 
 agent-error-setting = Impossibile modificare l'impostazione { $key }: controllane il valore.
 agent-error-rewrite-text = La riformulazione è tornata senza testo.
 agent-error-paragraphs = I paragrafi della riformulazione non sono validi.
+agent-error-draft-too-long = La bozza è troppo lunga.
+agent-error-draft-origin = Bozza rifiutata: vista sconosciuta.
+agent-error-draft-no-agent = L'agente di questa scheda si sta avviando: bozza non conservata.

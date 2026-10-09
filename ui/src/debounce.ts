@@ -6,7 +6,7 @@ export interface Timers {
   clear(handle: unknown): void;
 }
 
-const REAL: Timers = {
+export const REAL_TIMERS: Timers = {
   set: (fn, ms) => setTimeout(fn, ms),
   clear: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
 };
@@ -15,7 +15,7 @@ const REAL: Timers = {
 export const PREVIEW_DELAY_MS = 400;
 
 /** `fn` retardé de `ms` ; `.cancel()` oublie l'appel en attente, `.flush()` l'envoie. */
-export function debounced<A extends unknown[]>(fn: (...args: A) => void, ms: number, timers: Timers = REAL) {
+export function debounced<A extends unknown[]>(fn: (...args: A) => void, ms: number, timers: Timers = REAL_TIMERS) {
   let handle: unknown = null;
   let waiting: A | null = null;
   const call = (...args: A) => {

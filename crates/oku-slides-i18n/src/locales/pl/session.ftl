@@ -180,6 +180,8 @@ session-param-toc-title = Tytuł
 menu-edit = Edycja
 menu-window = Okno
 menu-quit = Zakończ
+window-agent-title = Agent — Oku Slides
+menu-agent-detached = Agent w osobnym oknie
 
 ## Éditeur de thème (surface host-theme)
 

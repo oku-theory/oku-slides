@@ -391,6 +391,22 @@
         }
        ]
       }
+     },
+     {
+      "id": "b-agent-detache",
+      "kind": "card",
+      "params": {
+       "title": "Detach the agent",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⧉ at the top of the thread (or Window › Agent in a separate window, on macOS) opens the agent in its own window, to place on a second screen. It follows the active tab of the window in front. Attach, or closing the window, brings it back to the right column, any typing in progress kept in the draft."
+          }
+         ]
+        }
+       ]
+      }
      }
     ]
    }

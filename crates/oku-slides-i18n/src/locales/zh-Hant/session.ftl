@@ -180,6 +180,8 @@ session-param-toc-title = 標題
 menu-edit = 編輯
 menu-window = 視窗
 menu-quit = 退出
+window-agent-title = 代理 — Oku Slides
+menu-agent-detached = 在獨立視窗中顯示代理
 
 ## Éditeur de thème (surface host-theme)
 

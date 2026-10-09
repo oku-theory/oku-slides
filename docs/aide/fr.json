@@ -391,6 +391,22 @@
         }
        ]
       }
+     },
+     {
+      "id": "b-agent-detache",
+      "kind": "card",
+      "params": {
+       "title": "Détacher l'agent",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "⧉ en haut du fil (ou Fenêtre › Agent dans une fenêtre séparée, sous macOS) ouvre l'agent dans sa propre fenêtre, à poser sur un second écran. Il suit l'onglet actif de la fenêtre au premier plan. Rattacher, ou fermer la fenêtre, le ramène dans la colonne de droite, frappe en cours gardée dans le brouillon."
+          }
+         ]
+        }
+       ]
+      }
      }
     ]
    }

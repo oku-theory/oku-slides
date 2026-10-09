@@ -252,6 +252,7 @@ export default function Workspace() {
         <App
           key={win.active}
           tab={win.active}
+          agentDetached={view.agent_detached}
           nonce={nonce}
           notice={mergeNotice}
           onOpen={onOpen}

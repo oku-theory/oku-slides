@@ -51,6 +51,8 @@ pub(crate) struct TabLink {
     /// Vers la tâche qui démarre les outils puis l'agent, et lui relaie les commandes.
     cmds: mpsc::UnboundedSender<Command>,
     status: Arc<Mutex<(AgentState, Option<AgentScope>)>>,
+    /// Le brouillon de l'onglet, tenu pour toutes ses vues.
+    draft: Arc<Mutex<Option<String>>>,
 }
 
 impl TabLink {
@@ -58,10 +60,22 @@ impl TabLink {
         let _ = self.cmds.send(cmd);
     }
 
-    /// Envoie l'état de l'agent ; les surfaces des tours sont rejouées par le hub.
+    /// Garde le brouillon et le diffuse à toutes les vues de l'onglet.
+    ///
+    /// Diffusé sous le même verrou : l'ordre des diffusions est celui des écritures.
+    pub fn set_draft(&self, out: &mpsc::UnboundedSender<Out>, text: Option<String>, origin: Option<String>) {
+        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        draft.clone_from(&text);
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin });
+    }
+
+    /// Envoie l'état de l'agent et le brouillon ; les surfaces des tours sont rejouées par le hub.
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
         let (state, scope) = self.status.lock().unwrap_or_else(PoisonError::into_inner).clone();
         emit(out, "agent", &self.tab, &AgentEvent::Status { state, scope });
+        // Sous le verrou, comme `set_draft` : jamais un brouillon périmé diffusé après un plus récent.
+        let draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text: draft.clone(), origin: None });
     }
 }
 
@@ -110,7 +124,8 @@ impl TabEntry {
             closed,
         };
         rt.spawn(agent.run(tools, cancel.clone(), rx, relay));
-        Self { link: TabLink { tab, hub, keeper, cmds, status }, cancel }
+        let draft = Arc::new(Mutex::new(None));
+        Self { link: TabLink { tab, hub, keeper, cmds, status, draft }, cancel }
     }
 }
 
@@ -157,6 +172,7 @@ async fn relay_mcp(
                 // risque : `surface` et `surface_patch` écrivent des clés entières (le rejeu
                 // converge) et `close_surface` est idempotent.
                 let Some(hub) = hub.upgrade() else { return };
+                emit(&out, "mcp", &tab, &McpEvent::Viewing { scope: hub.viewing() });
                 let list = hub.visible_surfaces();
                 emit(&out, "mcp", &tab, &McpEvent::Surfaces { list });
             }

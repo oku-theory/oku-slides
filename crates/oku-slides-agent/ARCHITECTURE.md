@@ -18,7 +18,9 @@ les consignes dictées relayées avec le contexte de l'interface.
   `settings_port` : `AppSettings`, les réglages de l'app pour `set_setting`.
 - `stack` : `Stack`, table des onglets (1re commande → `tab_closed`, puis commandes ignorées ;
   onglets démarrés et fermés sous un seul verrou) ; `forward` relaie `{tab, event}` ;
-  `resync` : état de l'agent puis surfaces ; `shutdown` : fin de l'app, agent ACP tué.
+  `resync` : état de l'agent puis surfaces ; `shutdown` : fin de l'app, agent ACP tué ;
+  `follow` (une autre vue suit l'onglet, `Keep::Replay`) et `set_draft` (brouillon tenu par
+  `TabLink`, `AgentEvent::Draft`).
 - `tab_entry` : un onglet ; outils puis agent démarrés dans `rt`, commandes
   en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`) ;
   fermé, son hub refuse toute question (`SurfaceHub::close`).

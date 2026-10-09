@@ -180,6 +180,8 @@ session-param-toc-title = শিরোনাম
 menu-edit = সম্পাদনা
 menu-window = উইন্ডো
 menu-quit = প্রস্থান
+window-agent-title = এজেন্ট — Oku Slides
+menu-agent-detached = এজেন্ট আলাদা উইন্ডোতে
 
 ## Éditeur de thème (surface host-theme)
 

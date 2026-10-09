@@ -74,3 +74,6 @@ agent-error-setting-locked = Tác tử không thể thay đổi cài đặt { $k
 agent-error-setting = Không thể thay đổi cài đặt { $key }: hãy kiểm tra giá trị của nó.
 agent-error-rewrite-text = Bản viết lại trả về mà không có văn bản.
 agent-error-paragraphs = Các đoạn của bản viết lại không hợp lệ.
+agent-error-draft-too-long = Bản nháp quá dài.
+agent-error-draft-origin = Bản nháp bị từ chối: không rõ chế độ xem.
+agent-error-draft-no-agent = Tác tử của thẻ này đang khởi động: bản nháp không được giữ lại.

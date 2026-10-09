@@ -14,11 +14,17 @@ use oku_slides_stt::Stt;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
+use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
 use crate::{AgentEvent, Launch, Link};
+
+/// Taille maximale d'un brouillon, en octets UTF-8.
+pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
+/// Taille maximale de l'origine d'un brouillon (identifiant de vue), en octets.
+pub const MAX_ORIGIN_BYTES: usize = 64;
 
 /// Commande de l'interface vers l'agent d'un onglet (JSON `{"cmd": …, "tab": …}`),
 /// la même pour Tauri et HTTP.
@@ -61,6 +67,19 @@ pub enum AgentCommand {
         #[serde(default)]
         scope: AgentScope,
     },
+    /// Une autre vue de l'onglet (fenêtre de l'agent) s'abonne.
+    ///
+    /// Rejoue l'état, le brouillon, puis le fil de la portée montrée ; ne démarre jamais l'onglet.
+    Follow {
+        tab: String,
+    },
+    /// Le brouillon de l'onglet ; `None` : fermé. Refusé si l'onglet n'a pas d'agent démarré.
+    SetDraft {
+        tab: String,
+        text: Option<String>,
+        /// La vue qui l'écrit, rendue avec l'écho.
+        origin: Option<String>,
+    },
 }
 
 impl AgentCommand {
@@ -71,7 +90,9 @@ impl AgentCommand {
             | Self::Cancel { tab }
             | Self::NewConversation { tab, .. }
             | Self::SurfaceAction { tab, .. }
-            | Self::Resync { tab, .. } => tab,
+            | Self::Resync { tab, .. }
+            | Self::Follow { tab }
+            | Self::SetDraft { tab, .. } => tab,
         }
     }
 }
@@ -189,11 +210,40 @@ impl Stack {
                     t.keeper.send(Keep::Show(scope));
                 }
                 // Fermé entre-temps : rien à montrer.
-                None => {
-                    emit(&self.out_tx, "agent", &tab, &AgentEvent::idle());
-                    emit(&self.out_tx, "mcp", &tab, &McpEvent::Surfaces { list: Vec::new() });
-                }
+                None => self.replay_closed(&tab),
             },
+            AgentCommand::Follow { tab } => match self.tab(&tab) {
+                Some(t) => {
+                    t.replay(&self.out_tx);
+                    t.keeper.send(Keep::Replay);
+                }
+                None => self.replay_closed(&tab),
+            },
+            AgentCommand::SetDraft { tab, text, origin } => {
+                let checked = match (text.as_ref().map(String::len), origin.as_ref().map(String::len)) {
+                    (Some(bytes), _) if bytes > MAX_DRAFT_BYTES => {
+                        Err(DraftTooLongSnafu { bytes, max: MAX_DRAFT_BYTES }.build())
+                    }
+                    (_, Some(bytes)) if bytes > MAX_ORIGIN_BYTES => {
+                        Err(OriginTooLongSnafu { bytes, max: MAX_ORIGIN_BYTES }.build())
+                    }
+                    _ => Ok(()),
+                };
+                if let Err(inner) = checked {
+                    let e = CommandError::from(inner);
+                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+                    return Err(e.localize(&self.platform.localizer));
+                }
+                match self.tab(&tab) {
+                    Some(t) => t.set_draft(&self.out_tx, text, origin),
+                    // Refusé, pas ignoré : la vue qui écrit attend un écho ou une erreur (tâche 6).
+                    None => {
+                        let e = CommandError::from(NoAgentSnafu.build());
+                        tracing::debug!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+                        return Err(e.localize(&self.platform.localizer));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -242,6 +292,16 @@ impl Stack {
             tracing::warn!("conversations de l'agent pas toutes écrites à temps");
         }
         self.link.shutdown(SHUTDOWN_WITHIN).await;
+    }
+
+    /// Ce que voit une vue d'un onglet sans agent démarré.
+    ///
+    /// Repos, aucun brouillon, les slides, aucune surface.
+    fn replay_closed(&self, tab: &str) {
+        emit(&self.out_tx, "agent", tab, &AgentEvent::idle());
+        emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None });
+        emit(&self.out_tx, "mcp", tab, &McpEvent::Viewing { scope: AgentScope::Slides });
+        emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
     }
 
     fn is_closed(&self, tab: &str) -> bool {

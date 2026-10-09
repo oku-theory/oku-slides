@@ -80,3 +80,6 @@ agent-error-setting-locked = Le réglage { $key } ne peut pas être changé par 
 agent-error-setting = Le réglage { $key } n'a pas pu être changé : vérifiez sa valeur.
 agent-error-rewrite-text = La reformulation est revenue sans texte.
 agent-error-paragraphs = Les paragraphes de la reformulation sont invalides.
+agent-error-draft-too-long = Le brouillon est trop long.
+agent-error-draft-origin = Brouillon refusé : vue inconnue.
+agent-error-draft-no-agent = L'agent de cet onglet démarre : brouillon non gardé.

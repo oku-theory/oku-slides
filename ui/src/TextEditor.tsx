@@ -176,6 +176,9 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
           }),
           EditorView.domEventHandlers({
             blur: (_event, target) => {
+              // La fenêtre perd le focus (fenêtre de l'agent, autre app) : l'édition et son
+              // curseur restent, une dictée peut encore y écrire.
+              if (!document.hasFocus()) return;
               finish(target, true);
             },
           }),

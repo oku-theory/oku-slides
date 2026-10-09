@@ -3,10 +3,11 @@
 
 import { useMemo, useState } from "react";
 import type { AddKind } from "./slideTools";
-import type { DictationMode } from "./agent/keys";
+import { draftActions } from "./agent/draftActions";
+import { useDraft } from "./agent/useDraft";
 import type { Op, Paragraph, SlideView, Snapshot } from "./api";
 import { fieldOps, textToParagraphs } from "./deck";
-import { appendDraft, dictationRoute } from "./draft";
+import { deckVocabulary } from "./draft";
 import { t } from "./i18n";
 import type { FieldKey } from "./stageFields";
 import { fieldLabel, primaryFieldOf } from "./stageFields";
@@ -23,10 +24,12 @@ export interface DictationDeps {
   say: (text: string, error?: boolean) => void;
   /** Une consigne pour l'agent ; vrai si elle est partie. */
   prompt: (text: string) => Promise<boolean>;
+  /** Écrit un brouillon dans l'hôte (`agent.setDraft`). */
+  setDraft: (text: string | null, origin: string) => Promise<void>;
 }
 
 /** Destination, vocabulaire, brouillon et texte dicté au curseur. */
-export function useDictation({ snap, view, selected, editing, apply, addElement, say, prompt }: DictationDeps) {
+export function useDictation({ snap, view, selected, editing, apply, addElement, say, prompt, setDraft }: DictationDeps) {
   const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
   // Hors édition, la dictée écrit dans le premier champ de l'élément sélectionné.
   const writable = view && selected ? primaryFieldOf(view, selected) : null;
@@ -42,51 +45,33 @@ export function useDictation({ snap, view, selected, editing, apply, addElement,
         : null;
   // Où va ⌘D : au curseur pendant l'édition, au brouillon ailleurs.
   const destination = t(editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft");
-  const vocabulary = useMemo(
-    () => (snap ? [snap.title, ...snap.slides.map((s) => s.title)].filter((s): s is string => !!s) : []),
-    [snap],
-  );
+  const vocabulary = useMemo(() => deckVocabulary(snap), [snap]);
 
-  // Hors édition, une dictée s'écrit dans le brouillon : « Insérer » l'écrit
+  // Hors édition, une dictée s'écrit dans le brouillon, tenu par l'hôte : « Insérer » l'écrit
   // tel quel dans le deck, « Envoyer » la donne à l'agent. ⌘K l'ouvre pour écrire.
-  const [draft, setDraft] = useState<{ text: string | null; dictations: number; typing: number }>({ text: null, dictations: 0, typing: 0 });
-  const closeDraft = () => setDraft((d) => ({ ...d, text: null }));
-  const typeDraft = () => setDraft((d) => ({ ...d, text: d.text ?? "", typing: d.typing + 1 }));
-  // Le brouillon ne se ferme qu'une fois la consigne partie : un échec garde le texte dicté.
-  const sendDraft = (text: string) =>
-    prompt(text).then((sent) => {
-      if (sent) closeDraft();
-    });
-  const insertDraft = (text: string) => {
-    closeDraft();
-    insertText(text);
-  };
-
-  const onDictated = (text: string, mode: DictationMode) => {
-    if (dictationRoute(mode, editing !== null) === "cursor") insertText(text);
-    else setDraft((d) => ({ ...d, text: appendDraft(d.text, text), dictations: d.dictations + 1 }));
-  };
+  const draft = useDraft(setDraft);
 
   /** Écrit un texte tel quel : au curseur, dans la zone sélectionnée ou en nouveau bloc. */
-  const insertText = (text: string) => {
+  const insertText = (text: string): boolean => {
     if (editing) {
       setDictated((d) => ({ seq: (d?.seq ?? 0) + 1, text }));
-      return;
+      return true;
     }
-    if (!view) return;
+    if (!view) return false;
     if (writable) {
       const previous = writable.text;
       const keep = writable.kind === "rich" && previous.trim() !== "" && previous !== t("ui-new-text");
       apply(t("ui-undo-dictation"), fieldOps(view, writable, keep ? `${previous}\n${text}` : text));
-      return;
+      return true;
     }
     if (view.slide.kind === "content") {
       addElement("text", textToParagraphs(text), t("ui-undo-dictation"));
-      return;
+      return true;
     }
     say(t("ui-toast-select-zone", { text }), true);
+    return false;
   };
 
-  const setDraftText = (text: string) => setDraft((d) => ({ ...d, text }));
-  return { dictated, insertTo, destination, vocabulary, draft, setDraftText, closeDraft, typeDraft, sendDraft, insertDraft, onDictated };
+  const actions = draftActions({ draft, editing: editing !== null, insert: insertText, prompt });
+  return { dictated, insertTo, destination, vocabulary, draft, actions, insertText };
 }

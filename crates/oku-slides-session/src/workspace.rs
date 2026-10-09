@@ -46,8 +46,10 @@ fn is_tab_id(id: &str) -> bool {
     numbered(id, "t-")
 }
 
-/// Label de fenêtre accepté par Tauri et par la capacité `w-*`.
-fn is_window_label(label: &str) -> bool {
+/// Un label de fenêtre de l'espace de travail : `w-<n>`.
+///
+/// Accepté par Tauri et par la capacité `w-*`.
+pub fn is_window_label(label: &str) -> bool {
     numbered(label, "w-")
 }
 
@@ -144,6 +146,10 @@ pub enum WorkspaceRequest {
         #[serde(default)]
         discard: Vec<String>,
     },
+    /// L'agent passe dans sa propre fenêtre.
+    DetachAgent,
+    /// L'agent revient dans la colonne de droite.
+    AttachAgent,
 }
 
 /// Un onglet de la vue.
@@ -177,6 +183,8 @@ pub struct WorkspaceView {
     pub focused: String,
     /// Fenêtres, dans l'ordre de création.
     pub windows: Vec<WindowView>,
+    /// L'agent est dans sa propre fenêtre : la colonne de droite ne le montre plus.
+    pub agent_detached: bool,
 }
 
 /// Ce que [`Workspace::apply`] a fait : la vue à jour, en JSON, dans les deux cas.
@@ -237,6 +245,9 @@ struct Layout {
     /// restent cités, leur dossier n'est jamais supprimé.
     #[serde(default)]
     kept: Vec<String>,
+    /// L'agent est dans sa propre fenêtre (`agent`), pas dans la colonne de droite.
+    #[serde(default)]
+    agent_detached: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -255,6 +266,7 @@ impl Layout {
             focused: String::new(),
             windows: Vec::new(),
             kept: Vec::new(),
+            agent_detached: false,
         }
     }
 }
@@ -388,6 +400,7 @@ impl Workspace {
         WorkspaceView {
             generation: self.generation.fetch_add(1, Ordering::SeqCst) + 1,
             focused: self.layout.focused.clone(),
+            agent_detached: self.layout.agent_detached,
             windows: self
                 .layout
                 .windows
@@ -697,3 +710,7 @@ pub(crate) fn tab_session(fonts: &Fonts, platform: &Platform) -> Result<Session>
 #[cfg(test)]
 #[path = "workspace_tests.rs"]
 mod workspace_tests;
+
+#[cfg(test)]
+#[path = "workspace_detach_tests.rs"]
+mod workspace_detach_tests;

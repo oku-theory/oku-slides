@@ -80,3 +80,6 @@ agent-error-setting-locked = Die Einstellung { $key } kann vom Agenten nicht ge�
 agent-error-setting = Die Einstellung { $key } konnte nicht ge채ndert werden: Pr체fe ihren Wert.
 agent-error-rewrite-text = Die Umformulierung kam ohne Text zur체ck.
 agent-error-paragraphs = Die Abs채tze der Umformulierung sind ung체ltig.
+agent-error-draft-too-long = Der Entwurf ist zu lang.
+agent-error-draft-origin = Entwurf abgelehnt: unbekannte Ansicht.
+agent-error-draft-no-agent = Der Agent dieses Tabs startet: Entwurf nicht gespeichert.

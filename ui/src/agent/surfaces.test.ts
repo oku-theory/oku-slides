@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { byPlace, isQuestion, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { byPlace, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 
@@ -59,6 +59,20 @@ describe("surfaces de l'agent", () => {
   const sheet = (id: string, slide: string, owner: string, field?: string): Surface => ({ ...s(id, "sheet"), anchor: { slide, owner, field } });
   const onStage = new Set(["e-1", "s-1/title"]);
   const shown = { slide: "s-1", has: (a: { owner: string; field?: string }) => onStage.has(a.field ? `${a.owner}/${a.field}` : a.owner) };
+
+  test("routeStaged la fiche posée sur la scène n'est pas dans le fil", () => {
+    const routed = routeStaged([sheet("s-a", "s1", "e1"), sheet("s-b", "s2", "e2")], "s-a");
+    expect(routed.loose.map((x) => x.id)).toEqual(["s-b"]);
+  });
+
+  test("routeStaged la fiche posée est rendue comme fiche de la scène", () => {
+    const routed = routeStaged([sheet("s-a", "s1", "e1")], "s-a");
+    expect(routed.stage?.id).toBe("s-a");
+  });
+
+  test("routeStaged sans fiche posée : toutes les fiches vont au fil", () => {
+    expect(routeStaged([sheet("s-a", "s1", "e1")], null).loose.map((x) => x.id)).toEqual(["s-a"]);
+  });
 
   test("routeSurfaces : une fiche dont l'élément est à l'écran va sur la scène", () => {
     const r = routeSurfaces([sheet("q", "s-1", "e-1")], shown);

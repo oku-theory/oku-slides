@@ -584,8 +584,10 @@ export interface AgentUi {
 /** L'agent au repos, en lancement, ou en plein tour. */
 export type AgentState = "idle" | "starting" | "working";
 
-/** Évènements du canal `agent` : l'état de l'agent seul (le fil passe par les surfaces). */
-export type AgentEvent = { kind: "status"; state: AgentState; scope?: AgentScope };
+/** Évènements du canal `agent` : état de l'agent et brouillon de l'onglet (le fil passe par les surfaces). */
+export type AgentEvent =
+  | { kind: "status"; state: AgentState; scope?: AgentScope }
+  | { kind: "draft"; text: string | null; origin: string | null };
 
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
@@ -626,7 +628,8 @@ export type McpEvent =
   | { kind: "focus"; slide: string; element: string | null }
   | { kind: "surfaces"; list: Surface[] }
   | { kind: "surface_patch"; id: string; messages: A2uiMessage[] }
-  | { kind: "widget_touched"; name: string; removed: boolean };
+  | { kind: "widget_touched"; name: string; removed: boolean }
+  | { kind: "viewing"; scope: AgentScope };
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
@@ -634,7 +637,9 @@ type AgentCommand =
   | { cmd: "cancel"; tab: string }
   | { cmd: "new_conversation"; tab: string; scope: AgentScope }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
-  | { cmd: "resync"; tab: string; scope: AgentScope };
+  | { cmd: "resync"; tab: string; scope: AgentScope }
+  | { cmd: "follow"; tab: string }
+  | { cmd: "set_draft"; tab: string; text: string | null; origin: string };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
 
@@ -653,6 +658,10 @@ export function agentApi(tab: string) {
       agentCall({ cmd: "surface_action", tab, surface, name, context }),
     /** Demande la liste entière des surfaces ouvertes (évènement `surfaces`). */
     resync: (scope: AgentScope) => agentCall({ cmd: "resync", tab, scope }),
+    /** Une autre vue de l'onglet s'abonne : état, brouillon, puis le fil de la portée montrée. */
+    follow: () => agentCall({ cmd: "follow", tab }),
+    /** Le brouillon de l'onglet, tenu par l'hôte ; `null` : fermé. `origin` : la vue qui l'écrit. */
+    setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
   };
 }
 
@@ -802,6 +811,8 @@ export interface WorkspaceView {
   /** Numéro croissant de la vue : une vue plus petite est plus ancienne. */
   generation: number;
   focused: string;
+  /** L'agent est dans sa propre fenêtre. */
+  agent_detached: boolean;
   windows: WindowView[];
 }
 
@@ -820,7 +831,9 @@ type WorkspaceRequest =
   | { cmd: "reorder"; tab: string; index: number }
   | { cmd: "move_tab"; tab: string; window: string | null; index: number | null }
   | { cmd: "new_window" }
-  | { cmd: "close_window"; window: string; discard: string[] };
+  | { cmd: "close_window"; window: string; discard: string[] }
+  | { cmd: "detach_agent" }
+  | { cmd: "attach_agent" };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
 
@@ -848,6 +861,10 @@ export const workspace = {
     ws<WorkspaceView>({ cmd: "move_tab", tab, window, index }),
   newWindow: () => ws<WorkspaceView>({ cmd: "new_window" }),
   closeWindow: (window: string, discard: string[]) => ws<WorkspaceView>({ cmd: "close_window", window, discard }),
+  /** L'agent passe dans sa propre fenêtre. */
+  detachAgent: () => ws<WorkspaceView>({ cmd: "detach_agent" }),
+  /** L'agent revient dans la colonne de droite. */
+  attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
 };
 
 /**

@@ -156,7 +156,7 @@ impl Turns {
                 Some(t) => t.view.n,
                 None => return Vec::new(),
             },
-            AgentEvent::Status { .. } => return Vec::new(),
+            AgentEvent::Status { .. } | AgentEvent::Draft { .. } => return Vec::new(),
             AgentEvent::Chunk { turn, .. }
             | AgentEvent::ToolCall { turn, .. }
             | AgentEvent::ToolUpdate { turn, .. }
@@ -257,7 +257,10 @@ impl Turns {
                 // Pas de reçu de repli pour un échec, mais le hub doit savoir que le tour est clos.
                 ended = Some(String::new());
             }
-            AgentEvent::Status { .. } | AgentEvent::UserText { .. } | AgentEvent::Conversation { .. } => return out,
+            AgentEvent::Status { .. }
+            | AgentEvent::UserText { .. }
+            | AgentEvent::Conversation { .. }
+            | AgentEvent::Draft { .. } => return out,
         }
         out.extend(t.patch(l));
         if let Some(narration) = ended {

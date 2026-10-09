@@ -3,8 +3,8 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    frozen_turn, is_tool_surface, sessions_in, stack_resumed, stack_resumed_from, stack_with_sink,
-    stack_with_sink_and_log, wait_for, wait_surfaces, wait_turn_done,
+    Relayed, TestStack, frozen_turn, is_tool_surface, relayed_len, sessions_in, stack_resumed, stack_resumed_from,
+    stack_with_sink, stack_with_sink_and_log, wait_for, wait_n_after, wait_surfaces, wait_turn_done,
 };
 use oku_slides_agent::AgentCommand;
 use oku_slides_session::agent::AgentScope;
@@ -379,4 +379,182 @@ async fn renamed_from_the_ui_then_a_new_widget_of_the_old_name_gets_its_own_thre
     let old = listed(&rx, 4).await;
     assert_that!(old).contains(json!("turn-1"));
     assert_that!(old).does_not_contain(json!("turn-2"));
+}
+
+fn atelier_json() -> serde_json::Value {
+    json!({ "kind": "atelier", "pack": DEFAULT_PACK })
+}
+
+fn is(ch: &'static str, kind: &'static str, tab: &'static str) -> impl Fn(&(&'static str, serde_json::Value)) -> bool {
+    move |(c, v)| *c == ch && v["event"]["kind"] == kind && v["tab"] == tab
+}
+
+/// Le premier relais vérifiant `pred` après `from` : sa position et sa valeur.
+async fn next(
+    rx: &Relayed,
+    from: usize,
+    pred: impl Fn(&(&'static str, serde_json::Value)) -> bool,
+) -> (usize, serde_json::Value) {
+    let (i, (_, v)) = wait_n_after(rx, from, 1, pred).await.remove(0);
+    (i, v)
+}
+
+/// Un `resync` de `tab` dans `scope` (ou les slides) : rend la position juste après sa liste.
+///
+/// La relecture des fils au démarrage de l'onglet envoie aussi une liste, sans `viewing` avant :
+/// on attend donc la portée annoncée, puis la liste qui la suit.
+async fn shown(stack: &TestStack, rx: &Relayed, tab: &'static str, scope: Option<serde_json::Value>) -> usize {
+    let from = relayed_len(rx);
+    let mut req = json!({ "cmd": "resync", "tab": tab });
+    if let Some(s) = scope {
+        req["scope"] = s;
+    }
+    stack.handle(cmd(req)).unwrap_or_else(|e| panic!("resync : {e}"));
+    let (viewing, _) = next(rx, from, is("mcp", "viewing", tab)).await;
+    let (list, _) = next(rx, viewing, is("mcp", "surfaces", tab)).await;
+    list + 1
+}
+
+/// Écrit le brouillon de `tab` depuis la vue `v-1`, et rend la position juste après son écho.
+async fn drafted(stack: &TestStack, rx: &Relayed, tab: &'static str, text: Option<&str>, from: usize) -> usize {
+    let req = json!({ "cmd": "set_draft", "tab": tab, "text": text, "origin": "v-1" });
+    stack.handle(cmd(req)).unwrap_or_else(|e| panic!("set_draft : {e}"));
+    let (echo, _) = next(rx, from, move |(c, v)| {
+        *c == "agent"
+            && v["event"]["kind"] == "draft"
+            && v["tab"] == tab
+            && v["event"]["origin"] == "v-1"
+            && v["event"]["text"] == json!(text)
+    })
+    .await;
+    echo + 1
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_is_broadcast_with_its_tab_and_origin() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "à dire", "origin": "v-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "à dire", "origin": "v-1" }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_null_clears_the_replayed_draft() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
+    let from = drafted(&stack, &rx, "t-1", None, from).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_longer_than_the_limit_is_refused() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    shown(&stack, &rx, "t-1", None).await;
+    let long = "a".repeat(oku_slides_agent::MAX_DRAFT_BYTES + 1);
+    let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": long, "origin": "v-1" })));
+    assert_that!(refused).is_err();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_with_an_origin_over_the_limit_is_refused() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    shown(&stack, &rx, "t-1", None).await;
+    let origin = "v".repeat(oku_slides_agent::MAX_ORIGIN_BYTES + 1);
+    let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "x", "origin": origin })));
+    assert_that!(refused).is_err();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_on_a_tab_without_agent_is_refused() {
+    let (stack, _rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "perdu", "origin": "v-1" })));
+    assert_that!(refused).is_err();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_on_a_tab_without_agent_starts_nothing() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let _ = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "perdu", "origin": "v-1" })));
+    let from = relayed_len(&rx);
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_replays_the_draft_without_origin() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("gardé"), from).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "gardé", "origin": null }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_sends_the_state_before_the_viewed_scope_and_its_list() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", Some(atelier_json())).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (status, _) = next(&rx, from, is("agent", "status", "t-1")).await;
+    let (viewing, scope) = next(&rx, from, is("mcp", "viewing", "t-1")).await;
+    let (list, _) = next(&rx, viewing, is("mcp", "surfaces", "t-1")).await;
+    assert_that!(status).is_less_than(viewing);
+    assert_that!(viewing).is_less_than(list);
+    assert_that!(scope["event"]["scope"]["kind"].clone()).is_equal_to(json!("atelier"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_sent_right_after_a_resync_keeps_the_resync_scope() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": atelier_json() }))).unwrap();
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    // Celle du resync, puis celle du follow : toutes deux l'atelier, jamais les slides d'avant.
+    let viewings = wait_n_after(&rx, from, 2, is("mcp", "viewing", "t-1")).await;
+    let kinds: Vec<_> = viewings.iter().map(|(_, (_, v))| v["event"]["scope"]["kind"].clone()).collect();
+    assert_that!(kinds).is_equal_to(vec![json!("atelier"), json!("atelier")]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_on_a_tab_without_agent_announces_the_slides() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = relayed_len(&rx);
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, viewing) = next(&rx, from, is("mcp", "viewing", "t-1")).await;
+    assert_that!(viewing["event"]["scope"].clone()).is_equal_to(json!({ "kind": "slides" }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_on_a_tab_without_agent_sends_an_empty_list() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = relayed_len(&rx);
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, list) = next(&rx, from, is("mcp", "surfaces", "t-1")).await;
+    assert_that!(list["event"]["list"].clone()).is_equal_to(json!([]));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn resync_replays_the_draft() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("encore là"), from).await;
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "encore là", "origin": null }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn draft_of_one_tab_is_not_replayed_for_another() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1", "t-2"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-2", None).await.max(from);
+    let from = drafted(&stack, &rx, "t-1", Some("à t-1"), from).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-2" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-2")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
 }

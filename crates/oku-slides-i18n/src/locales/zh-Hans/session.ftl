@@ -180,6 +180,8 @@ session-param-toc-title = 标题
 menu-edit = 编辑
 menu-window = 窗口
 menu-quit = 退出
+window-agent-title = 智能体 — Oku Slides
+menu-agent-detached = 在单独窗口中显示智能体
 
 ## Éditeur de thème (surface host-theme)
 

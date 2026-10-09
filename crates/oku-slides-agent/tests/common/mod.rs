@@ -534,6 +534,36 @@ pub async fn wait_for(rx: &Relayed, pred: impl Fn(&(&'static str, Value)) -> boo
     panic!("relais attendu non reçu : {:?}", rx.lock().map(|v| v.len()));
 }
 
+/// Le nombre de relais reçus jusqu'ici.
+pub fn relayed_len(rx: &Relayed) -> usize {
+    rx.lock().unwrap_or_else(|e| panic!("relais : {e}")).len()
+}
+
+/// Attend `n` relais vérifiant `pred` parmi ceux reçus après les `from` premiers ; rend leurs positions et valeurs.
+pub async fn wait_n_after(
+    rx: &Relayed,
+    from: usize,
+    n: usize,
+    pred: impl Fn(&(&'static str, Value)) -> bool,
+) -> Vec<(usize, (&'static str, Value))> {
+    for _ in 0..500 {
+        let found: Vec<_> = rx
+            .lock()
+            .unwrap_or_else(|e| panic!("relais : {e}"))
+            .iter()
+            .enumerate()
+            .skip(from)
+            .filter(|(_, r)| pred(r))
+            .map(|(i, r)| (i, r.clone()))
+            .collect();
+        if found.len() >= n {
+            return found;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("{n} relais attendus après les {from} premiers, non reçus");
+}
+
 /// La référence de la version intégrée du thème nommé `name` (sans casse).
 #[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
 pub fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {

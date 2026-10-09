@@ -180,6 +180,8 @@ session-param-toc-title = Başlık
 menu-edit = Düzen
 menu-window = Pencere
 menu-quit = Çıkış
+window-agent-title = Ajan — Oku Slides
+menu-agent-detached = Ajan ayrı bir pencerede
 
 ## Éditeur de thème (surface host-theme)
 

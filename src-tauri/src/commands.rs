@@ -53,7 +53,9 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }
         | WorkspaceRequest::Reorder { .. }
-        | WorkspaceRequest::CloseWindow { .. } => (true, false),
+        | WorkspaceRequest::CloseWindow { .. }
+        | WorkspaceRequest::DetachAgent
+        | WorkspaceRequest::AttachAgent => (true, false),
         WorkspaceRequest::OpenTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
@@ -166,6 +168,10 @@ fn is_newer(candidate: u64, last_applied: u64) -> bool {
 /// n'applique son focus que s'il est plus récent que le dernier appliqué
 /// (`is_newer`, sous le même verrou que `Workspace::focus`).
 pub fn focused(app: &AppHandle, label: &str) {
+    // La fenêtre de l'agent n'est pas une fenêtre de l'espace de travail : la cible ne change pas.
+    if !oku_slides_session::is_window_label(label) {
+        return;
+    }
     let Some(state) = app.try_state::<AppState>() else { return };
     let seq = state.focus_seq.fetch_add(1, Ordering::SeqCst) + 1;
     let app = app.clone();
@@ -179,9 +185,18 @@ pub fn focused(app: &AppHandle, label: &str) {
         }
         *last = seq;
         drop(last);
+        let before = ws.focused().to_owned();
         if let Err(e) = ws.focus(&label) {
             // Une fenêtre en cours de création n'y est pas encore.
             tracing::debug!(label, error = %e.one_line(), "focus ignoré");
+            return;
+        }
+        let changed = ws.focused() != before;
+        // `emit_view` prend le verrou de `sync` puis celui de l'espace de travail : rendre celui-ci d'abord.
+        drop(ws);
+        if changed {
+            // La fenêtre de l'agent suit l'onglet actif de la fenêtre au premier plan.
+            windows::emit_view(&app);
         }
     });
 }

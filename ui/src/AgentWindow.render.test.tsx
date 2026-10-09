@@ -1,0 +1,199 @@
+// La fenêtre de l'agent : le fil, le brouillon et la dictée de l'onglet au premier plan.
+
+import { afterEach, describe, expect, test } from "bun:test";
+import "./test/dom";
+import { memoryTransport } from "./test/link";
+import type { Snapshot, Surface } from "./api";
+import type { HostHandlers } from "./agent/events";
+import type { LinkContext } from "./agent/link";
+import type { AgentWindowHost } from "./AgentWindow";
+
+const { act, createElement } = await import("react");
+const { createRoot } = await import("react-dom/client");
+const { AgentWindowFor, AgentWindowView } = await import("./AgentWindow");
+const { expectIconOnly } = await import("./test/iconOnly");
+
+let cleanup: (() => Promise<void>) | null = null;
+afterEach(async () => {
+  await cleanup?.();
+  cleanup = null;
+});
+
+const SNAP = { title: "Deck", slides: [], read_only: false } as unknown as Snapshot;
+const READ_ONLY = { title: "Aide", slides: [], read_only: true } as unknown as Snapshot;
+const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
+const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, insertTo: "titre", ui: UI, staged: null, keysOff: false, ...over });
+const sheetOn = (id: string): Surface => ({ id, place: "sheet", live: true, question: false, anchor: { slide: "s1", owner: "e1" }, messages: [] });
+
+function fakeHost(snapshot: Snapshot = SNAP) {
+  const calls: string[] = [];
+  let handlers: HostHandlers | null = null;
+  let closing: () => void = () => {};
+  const host = {
+    agent: {
+      follow: async () => void calls.push("follow"),
+      resync: async () => void calls.push("resync"),
+      setDraft: async () => {},
+      prompt: async () => {},
+      cancel: async () => {},
+      newConversation: async () => {},
+      surfaceAction: async () => {},
+    },
+    api: { snapshot: async () => snapshot, svg: async () => "<svg/>" },
+    subscribe: (_tab: string, h: HostHandlers) => ((handlers = h), () => {}),
+    focusSelf: () => void calls.push("focus"),
+    onCloseRequested: (cb: () => void) => ((closing = cb), () => {}),
+    attach: async () => void calls.push("attach"),
+  } satisfies Partial<Record<keyof AgentWindowHost, unknown>>;
+  return { host: host as unknown as AgentWindowHost, calls, handlers: () => handlers!, close: () => closing() };
+}
+
+async function mountWindow(snapshot?: Snapshot) {
+  const transport = memoryTransport();
+  const h = fakeHost(snapshot);
+  const el = document.createElement("div");
+  const root = createRoot(el);
+  await act(async () => root.render(createElement(AgentWindowFor, { tab: "t-1", transport, host: h.host })));
+  cleanup = async () => act(async () => root.unmount());
+  const ready = () => act(async () => h.handlers().onReady?.());
+  const send = (m: Parameters<typeof transport.send>[0]) => act(async () => transport.send(m));
+  return { ...h, transport, el, ready, send };
+}
+
+describe("AgentWindow", () => {
+  test("AgentWindow abonnée : demande follow", async () => {
+    const m = await mountWindow();
+    await m.ready();
+    expect(m.calls.filter((c) => c === "follow")).toHaveLength(1);
+  });
+
+  test("AgentWindow abonnée : ne demande jamais resync", async () => {
+    const m = await mountWindow();
+    await m.ready();
+    expect(m.calls).not.toContain("resync");
+  });
+
+  test("AgentWindow dit hello une seule fois, écoute du canal en place", async () => {
+    const m = await mountWindow();
+    expect(m.transport.sent.filter((x) => x.kind === "hello")).toEqual([{ to: "main", kind: "hello", tab: "t-1" }]);
+    expect(m.transport.listeners()).toBeGreaterThan(0);
+  });
+
+  // La cible d'insertion ne s'affiche que brouillon ouvert (`DictationDraft.tsx:65`) : ⌘K relayé l'ouvre.
+  const openDraft = (m: Awaited<ReturnType<typeof mountWindow>>) => m.send({ to: "agent", kind: "shortcut", tab: "t-1", key: "type" });
+
+  test("AgentWindow le contexte de son onglet donne la cible d'insertion", async () => {
+    const m = await mountWindow();
+    await openDraft(m);
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
+    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
+  });
+
+  test("AgentWindow le contexte d'un autre onglet est ignoré", async () => {
+    const m = await mountWindow();
+    await openDraft(m);
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
+    await m.send({ to: "agent", kind: "context", tab: "t-2", context: ctx({ insertTo: "ailleurs" }) });
+    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
+  });
+
+  test("AgentWindow une fiche non posée sur la scène est rendue dans le fil", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheetOn("sheet-1")] }));
+    expect(m.el.querySelector('[data-surface-id="sheet-1"]')).not.toBeNull();
+  });
+
+  test("AgentWindow la fiche posée sur la scène n'est pas rendue dans le fil", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ staged: "sheet-1" }) });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheetOn("sheet-1")] }));
+    expect(m.el.querySelector('[data-surface-id="sheet-1"]')).toBeNull();
+  });
+
+  test("AgentWindow ⌘K relayé met la fenêtre devant", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "shortcut", tab: "t-1", key: "type" });
+    expect(m.calls).toContain("focus");
+  });
+
+  test("AgentWindow bouton rattacher : rattache l'agent", async () => {
+    const m = await mountWindow();
+    await act(async () => (m.el.querySelector(".agent-attach") as HTMLButtonElement).click());
+    expect(m.calls).toContain("attach");
+  });
+
+  test("AgentWindow onglet en lecture seule : état vide", async () => {
+    const m = await mountWindow(READ_ONLY);
+    await m.ready();
+    expect(m.el.querySelector(".agent-window-empty")).not.toBeNull();
+  });
+
+  test("AgentWindow onglet en lecture seule : le bouton rattacher reste, icône seule", async () => {
+    const m = await mountWindow(READ_ONLY);
+    await m.ready();
+    expectIconOnly(m.el.querySelector(".agent-attach"));
+  });
+
+  test("AgentWindow onglet en lecture seule : la dictée reste", async () => {
+    const m = await mountWindow(READ_ONLY);
+    await m.ready();
+    expect(m.el.querySelector(".device")).not.toBeNull();
+  });
+
+  test("AgentWindowView sans vue reçue : chargement", async () => {
+    const el = document.createElement("div");
+    const root = createRoot(el);
+    await act(async () => root.render(createElement(AgentWindowView, { view: null })));
+    cleanup = async () => act(async () => root.unmount());
+    expect(el.querySelector(".agent-window-loading")).not.toBeNull();
+  });
+
+  test("AgentWindowView sans onglet suivi : état vide", async () => {
+    const el = document.createElement("div");
+    const root = createRoot(el);
+    const view = { generation: 1, focused: "w-9", agent_detached: true, windows: [] };
+    await act(async () => root.render(createElement(AgentWindowView, { view })));
+    cleanup = async () => act(async () => root.unmount());
+    expect(el.querySelector(".agent-window-empty")).not.toBeNull();
+  });
+
+  /** La page entière avec un hôte de fermeture à la main. */
+  async function mountView(view: Parameters<typeof AgentWindowView>[0]["view"]) {
+    const calls: string[] = [];
+    let closing: () => void = () => {};
+    const close = {
+      onCloseRequested: (cb: () => void) => ((closing = cb), () => {}),
+      attach: async () => void calls.push("attach"),
+    };
+    const el = document.createElement("div");
+    const root = createRoot(el);
+    await act(async () => root.render(createElement(AgentWindowView, { view, close })));
+    cleanup = async () => act(async () => root.unmount());
+    return { el, calls, closeWindow: () => act(async () => closing()) };
+  }
+
+  test("AgentWindowView chargement : la fermeture système rattache l'agent", async () => {
+    const m = await mountView(null);
+    await m.closeWindow();
+    expect(m.calls).toEqual(["attach"]);
+  });
+
+  test("AgentWindowView sans onglet suivi : la fermeture système rattache l'agent", async () => {
+    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, windows: [] });
+    await m.closeWindow();
+    expect(m.calls).toEqual(["attach"]);
+  });
+
+  test("AgentWindowView chargement : bouton rattacher, icône seule", async () => {
+    const m = await mountView(null);
+    expectIconOnly(m.el.querySelector(".agent-attach"));
+    await act(async () => (m.el.querySelector(".agent-attach") as HTMLButtonElement).click());
+    expect(m.calls).toEqual(["attach"]);
+  });
+
+  test("AgentWindowView sans onglet suivi : bouton rattacher présent", async () => {
+    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, windows: [] });
+    expectIconOnly(m.el.querySelector(".agent-attach"));
+  });
+});

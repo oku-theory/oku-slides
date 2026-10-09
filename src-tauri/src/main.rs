@@ -28,6 +28,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent_window;
 mod commands;
 mod menu;
 mod pending;
@@ -185,6 +186,9 @@ fn main() -> color_eyre::Result<()> {
             // « Quitter » (menu macOS) : jamais le `terminate:` natif, pour
             // toujours passer par `state::shutdown` (voir `menu.rs`).
             app.on_menu_event(|app, event| {
+                if event.id() == menu::AGENT_ID {
+                    agent_window::toggle(app);
+                }
                 if event.id() == menu::QUIT_ID {
                     let app = app.clone();
                     tauri::async_runtime::spawn_blocking(move || state::shutdown(&app));

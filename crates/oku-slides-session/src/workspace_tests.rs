@@ -1,11 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::{Request, SessionErrorKind, Settings};
+use crate::test_support::{apply_ws, workspace_on, workspace_platform};
+use crate::{Request, SessionErrorKind};
 
 /// Un dossier de données neuf, supprimé à la fin du test.
 struct Data(PathBuf);
@@ -20,23 +21,6 @@ impl Drop for Data {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).ok();
     }
-}
-
-fn platform(data: &Path) -> Platform {
-    let mut settings = Settings::defaults().unwrap();
-    settings.paths.data = Some(data.to_owned());
-    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
-    settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
-    settings.i18n.locale = Some("fr".into());
-    Platform::with_settings(settings).unwrap()
-}
-
-fn workspace_in(data: &Data) -> Mutex<Workspace> {
-    Mutex::new(Workspace::new(Fonts::default(), &platform(&data.0), None).unwrap())
-}
-
-fn send(ws: &Mutex<Workspace>, v: serde_json::Value) -> Result<WorkspaceOutcome> {
-    Workspace::apply(ws, serde_json::from_value(v).unwrap())
 }
 
 fn view(ws: &Mutex<Workspace>) -> WorkspaceView {
@@ -57,7 +41,7 @@ fn set_theme() -> Request {
 /// Un vrai `.oku-slides.pdf` : un deck JSON n'a pas de fichier associé.
 fn saved_pdf(data: &Data, name: &str) -> PathBuf {
     let fixture = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
-    let mut s = Session::new(Fonts::default(), &platform(&data.0)).unwrap();
+    let mut s = Session::new(Fonts::default(), &workspace_platform(&data.0)).unwrap();
     s.open(&fixture).unwrap();
     let path = data.0.join(format!("{name}.oku-slides.pdf"));
     s.save(Some(&path)).unwrap();
@@ -67,7 +51,7 @@ fn saved_pdf(data: &Data, name: &str) -> PathBuf {
 #[test]
 fn new_workspace_has_one_window_with_one_pristine_tab() {
     let data = Data::new();
-    let v = view(&workspace_in(&data));
+    let v = view(&workspace_on(&data.0));
     assert_that!(v.windows).has_length(1);
     let w = &v.windows[0];
     assert_that!(w.label.as_str()).is_equal_to("w-1");
@@ -81,7 +65,7 @@ fn new_workspace_has_one_window_with_one_pristine_tab() {
 fn new_workspace_with_file_opens_it_in_the_first_tab() {
     let data = Data::new();
     let file = saved_pdf(&data, "essai");
-    let ws = Mutex::new(Workspace::new(Fonts::default(), &platform(&data.0), Some(&file)).unwrap());
+    let ws = Mutex::new(Workspace::new(Fonts::default(), &workspace_platform(&data.0), Some(&file)).unwrap());
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1"]);
     assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
@@ -92,12 +76,12 @@ fn new_workspace_with_file_opens_it_in_the_first_tab() {
 #[test]
 fn open_tab_after_saving_the_blank_deck_adds_a_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let saved = data.0.join("vierge.oku-slides.pdf");
     let save: Request = serde_json::from_value(json!({"cmd": "save", "path": saved})).unwrap();
     Workspace::request(&ws, "t-1", save).0.unwrap();
     let file = saved_pdf(&data, "essai");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1", "t-2"]);
 }
 
@@ -105,7 +89,7 @@ fn open_tab_after_saving_the_blank_deck_adds_a_tab() {
 #[test]
 fn save_without_path_in_a_tab_writes_into_the_decks_dir() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
     let save: Request = serde_json::from_value(json!({"cmd": "save", "path": null})).unwrap();
     Workspace::request(&ws, "t-1", save).0.unwrap();
@@ -117,7 +101,7 @@ fn save_without_path_in_a_tab_writes_into_the_decks_dir() {
 #[test]
 fn move_request_moves_the_tab_file() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let first = data.0.join("avant.oku-slides.pdf");
     let save: Request = serde_json::from_value(json!({"cmd": "save", "path": first})).unwrap();
     Workspace::request(&ws, "t-1", save).0.unwrap();
@@ -131,7 +115,7 @@ fn move_request_moves_the_tab_file() {
 #[test]
 fn save_copy_request_keeps_the_tab_file() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = data.0.join("deck.oku-slides.pdf");
     let save: Request = serde_json::from_value(json!({"cmd": "save", "path": file})).unwrap();
     Workspace::request(&ws, "t-1", save).0.unwrap();
@@ -146,7 +130,7 @@ fn save_copy_request_keeps_the_tab_file() {
 #[test]
 fn workspace_lock_poisoned_by_a_panic_still_serves_requests() {
     let data = Data::new();
-    let ws = std::sync::Arc::new(workspace_in(&data));
+    let ws = std::sync::Arc::new(workspace_on(&data.0));
     let poisoner = std::sync::Arc::clone(&ws);
     let _ = std::thread::spawn(move || {
         let _guard = poisoner.lock();
@@ -154,15 +138,15 @@ fn workspace_lock_poisoned_by_a_panic_still_serves_requests() {
     })
     .join();
     assert_that!(ws.is_poisoned()).is_true();
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     assert_that!(view(&ws).windows[0].tabs).has_length(2);
 }
 
 #[test]
 fn new_tab_appends_and_activates_it() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-2"]);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
@@ -171,9 +155,9 @@ fn new_tab_appends_and_activates_it() {
 #[test]
 fn open_tab_with_pristine_active_tab_replaces_it_with_a_new_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "essai");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
@@ -183,10 +167,10 @@ fn open_tab_with_pristine_active_tab_replaces_it_with_a_new_tab() {
 #[test]
 fn open_tab_with_edited_active_tab_adds_a_tab_holding_the_file() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "essai");
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-2"]);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
@@ -200,11 +184,11 @@ fn open_tab_with_edited_active_tab_adds_a_tab_holding_the_file() {
 #[test]
 fn open_tab_while_the_pristine_tab_is_busy_adds_a_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "essai");
     let session = Workspace::lock(&ws).session("t-1").unwrap();
     let guard = session.lock().unwrap();
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     drop(guard);
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-2"]);
@@ -214,12 +198,12 @@ fn open_tab_while_the_pristine_tab_is_busy_adds_a_tab() {
 #[test]
 fn open_tab_already_open_in_other_window_activates_it_and_focuses_its_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "essai");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     assert_that!(Workspace::lock(&ws).focused()).is_equal_to("w-2");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-2", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-2", "path": file})).unwrap();
     let v = view(&ws);
     assert_that!(v.focused.as_str()).is_equal_to("w-1");
     assert_that!(v.windows[1].tabs).has_length(1);
@@ -229,12 +213,12 @@ fn open_tab_already_open_in_other_window_activates_it_and_focuses_its_window() {
 #[test]
 fn open_tab_same_file_spelled_differently_activates_the_existing_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "essai");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     let other = data.0.join("x/../essai.oku-slides.pdf");
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": other})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": other})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(w.tabs).has_length(2);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
@@ -243,9 +227,9 @@ fn open_tab_same_file_spelled_differently_activates_the_existing_tab() {
 #[test]
 fn open_tab_unreadable_file_returns_error_and_keeps_the_tabs() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let missing = data.0.join("absent.oku-slides.pdf");
-    assert_that!(send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": missing}))).is_err();
+    assert_that!(apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": missing}))).is_err();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1"]);
     assert_that!(w.tabs[0].info.pristine).is_true();
@@ -254,11 +238,11 @@ fn open_tab_unreadable_file_returns_error_and_keeps_the_tabs() {
 #[test]
 fn close_active_tab_activates_its_right_neighbour() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "activate", "tab": "t-2"})).unwrap();
-    send(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "activate", "tab": "t-2"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-3"]);
     assert_that!(w.active.as_str()).is_equal_to("t-3");
@@ -267,18 +251,18 @@ fn close_active_tab_activates_its_right_neighbour() {
 #[test]
 fn close_rightmost_active_tab_activates_its_left_neighbour() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
     assert_that!(view(&ws).windows[0].active.as_str()).is_equal_to("t-1");
 }
 
 #[test]
 fn close_edited_tab_without_discard_returns_unsaved_and_keeps_it() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
-    let err = send(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
+    let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1"]);
@@ -289,7 +273,7 @@ fn close_edited_tab_without_discard_returns_unsaved_and_keeps_it() {
 #[test]
 fn close_tab_with_only_edited_templates_returns_unsaved() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let edit: Request = serde_json::from_value(json!({"cmd": "edit_templates", "set": crate::DEFAULT_PACK})).unwrap();
     Workspace::request(&ws, "t-1", edit).0.unwrap();
     let first =
@@ -299,17 +283,17 @@ fn close_tab_with_only_edited_templates_returns_unsaved() {
     )
     .unwrap();
     Workspace::request(&ws, "t-1", remove).0.unwrap();
-    let err = send(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
+    let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
 }
 
 #[test]
 fn close_edited_tab_with_discard_closes_it() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     Workspace::request(&ws, "t-2", set_theme()).0.unwrap();
-    send(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1"]);
 }
 
@@ -318,14 +302,14 @@ fn close_edited_tab_with_discard_closes_it() {
 #[test]
 fn close_tab_while_its_session_is_busy_returns_unsaved() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     let session = Workspace::lock(&ws).session("t-2").unwrap();
     let guard = session.lock().unwrap();
-    let err = send(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap_err();
+    let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
     drop(guard);
-    send(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1"]);
 }
 
@@ -334,8 +318,8 @@ fn close_tab_while_its_session_is_busy_returns_unsaved() {
 #[test]
 fn close_tab_with_a_poisoned_session_needs_discard() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     let session = Workspace::lock(&ws).session("t-2").unwrap();
     let poisoner = std::sync::Arc::clone(&session);
     let _ = std::thread::spawn(move || {
@@ -344,18 +328,18 @@ fn close_tab_with_a_poisoned_session_needs_discard() {
     })
     .join();
     assert_that!(session.is_poisoned()).is_true();
-    let err = send(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap_err();
+    let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
-    send(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1"]);
 }
 
 #[test]
 fn close_only_tab_of_a_window_removes_the_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
-    send(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-2"})).unwrap();
     let v = view(&ws);
     assert_that!(v.windows).has_length(1);
     assert_that!(v.focused.as_str()).is_equal_to("w-1");
@@ -364,15 +348,15 @@ fn close_only_tab_of_a_window_removes_the_window() {
 #[test]
 fn close_window_with_an_edited_tab_not_discarded_returns_unsaved_and_closes_nothing() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     // Un onglet propre d'abord, le modifié ensuite : rien ne doit être fermé.
-    send(&ws, json!({"cmd": "new_tab", "window": "w-2"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-2"})).unwrap();
     Workspace::request(&ws, "t-3", set_theme()).0.unwrap();
-    let err = send(&ws, json!({"cmd": "close_window", "window": "w-2"})).unwrap_err();
+    let err = apply_ws(&ws, json!({"cmd": "close_window", "window": "w-2"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
     assert_that!(ids(&view(&ws).windows[1])).is_equal_to(vec!["t-2", "t-3"]);
-    send(&ws, json!({"cmd": "close_window", "window": "w-2", "discard": ["t-3"]})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close_window", "window": "w-2", "discard": ["t-3"]})).unwrap();
     assert_that!(view(&ws).windows).has_length(1);
     let gone = Workspace::request(&ws, "t-2", Request::Snapshot).0.unwrap_err();
     assert_that!(gone.kind()).is_equal_to(SessionErrorKind::UnknownTab);
@@ -383,8 +367,8 @@ fn close_window_with_an_edited_tab_not_discarded_returns_unsaved_and_closes_noth
 #[test]
 fn close_window_on_the_last_window_is_kept_and_reported() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    let outcome = send(&ws, json!({"cmd": "close_window", "window": "w-1", "discard": ["t-1"]})).unwrap();
+    let ws = workspace_on(&data.0);
+    let outcome = apply_ws(&ws, json!({"cmd": "close_window", "window": "w-1", "discard": ["t-1"]})).unwrap();
     assert_that!(outcome.is_last_window()).is_true();
     assert_that!(view(&ws).windows).has_length(1);
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1"]);
@@ -394,9 +378,9 @@ fn close_window_on_the_last_window_is_kept_and_reported() {
 #[test]
 fn close_window_with_another_window_left_is_removed() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
-    let outcome = send(&ws, json!({"cmd": "close_window", "window": "w-2"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
+    let outcome = apply_ws(&ws, json!({"cmd": "close_window", "window": "w-2"})).unwrap();
     assert_that!(outcome.is_last_window()).is_false();
     let v = view(&ws);
     assert_that!(v.windows).has_length(1);
@@ -406,22 +390,22 @@ fn close_window_with_another_window_left_is_removed() {
 #[test]
 fn reorder_moves_the_tab_to_its_new_index_clamped() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "reorder", "tab": "t-3", "index": 0})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "reorder", "tab": "t-3", "index": 0})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-3", "t-1", "t-2"]);
-    send(&ws, json!({"cmd": "reorder", "tab": "t-3", "index": 99})).unwrap();
+    apply_ws(&ws, json!({"cmd": "reorder", "tab": "t-3", "index": 99})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1", "t-2", "t-3"]);
 }
 
 #[test]
 fn move_tab_to_other_window_at_index_activates_it_there() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
-    send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-2", "index": 0})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-2", "index": 0})).unwrap();
     let v = view(&ws);
     assert_that!(ids(&v.windows[0])).is_equal_to(vec!["t-2"]);
     assert_that!(ids(&v.windows[1])).is_equal_to(vec!["t-1", "t-3"]);
@@ -432,20 +416,20 @@ fn move_tab_to_other_window_at_index_activates_it_there() {
 #[test]
 fn move_tab_to_its_own_window_without_index_changes_nothing() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-1"})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1", "t-2"]);
-    send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-1", "index": 1})).unwrap();
+    apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-1", "index": 1})).unwrap();
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-2", "t-1"]);
 }
 
 #[test]
 fn move_tab_to_new_window_creates_a_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": null})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": null})).unwrap();
     let v = view(&ws);
     assert_that!(v.windows).has_length(2);
     assert_that!(ids(&v.windows[0])).is_equal_to(vec!["t-2"]);
@@ -456,8 +440,8 @@ fn move_tab_to_new_window_creates_a_window() {
 #[test]
 fn move_only_tab_to_new_window_removes_its_old_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": null})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": null})).unwrap();
     let v = view(&ws);
     assert_that!(v.windows).has_length(1);
     assert_that!(v.windows[0].label.as_str()).is_equal_to("w-2");
@@ -466,8 +450,8 @@ fn move_only_tab_to_new_window_removes_its_old_window() {
 #[test]
 fn move_tab_to_unknown_window_returns_error_and_keeps_the_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    let err = send(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-9"})).unwrap_err();
+    let ws = workspace_on(&data.0);
+    let err = apply_ws(&ws, json!({"cmd": "move_tab", "tab": "t-1", "window": "w-9"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWindow);
     assert_that!(ids(&view(&ws).windows[0])).is_equal_to(vec!["t-1"]);
 }
@@ -475,21 +459,21 @@ fn move_tab_to_unknown_window_returns_error_and_keeps_the_tab() {
 #[test]
 fn unknown_tab_returns_unknown_tab_error() {
     let data = Data::new();
-    let err = send(&workspace_in(&data), json!({"cmd": "activate", "tab": "t-9"})).unwrap_err();
+    let err = apply_ws(&workspace_on(&data.0), json!({"cmd": "activate", "tab": "t-9"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownTab);
 }
 
 #[test]
 fn unknown_window_returns_unknown_window_error() {
     let data = Data::new();
-    let err = send(&workspace_in(&data), json!({"cmd": "new_tab", "window": "w-9"})).unwrap_err();
+    let err = apply_ws(&workspace_on(&data.0), json!({"cmd": "new_tab", "window": "w-9"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWindow);
 }
 
 #[test]
 fn focus_unknown_window_returns_unknown_window_error() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let err = Workspace::lock(&ws).focus("w-9").unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWindow);
 }
@@ -501,7 +485,7 @@ fn rect(x: f64, y: f64) -> Rect {
 #[test]
 fn window_at_inside_the_only_window_returns_it_edges_included() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let rects = vec![("w-1".to_owned(), rect(0.0, 0.0))];
     let w = Workspace::lock(&ws);
     assert_that!(w.window_at(0.0, 0.0, &rects)).is_equal_to(Some("w-1".to_owned()));
@@ -511,8 +495,8 @@ fn window_at_inside_the_only_window_returns_it_edges_included() {
 #[test]
 fn window_at_overlap_prefers_the_most_recently_focused_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     let rects = vec![("w-1".to_owned(), rect(0.0, 0.0)), ("w-2".to_owned(), rect(50.0, 0.0))];
     let mut w = Workspace::lock(&ws);
     w.focus("w-1").unwrap();
@@ -536,8 +520,8 @@ fn two_screens() -> Vec<(String, Rect)> {
 #[test]
 fn window_at_two_screens_finds_the_window_on_the_other_screen() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     let mut w = Workspace::lock(&ws);
     // L'onglet part de w-1, la plus récente.
     w.focus("w-1").unwrap();
@@ -547,8 +531,8 @@ fn window_at_two_screens_finds_the_window_on_the_other_screen() {
 #[test]
 fn window_at_two_screens_accepts_a_point_above_the_primary_screen() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     let w = Workspace::lock(&ws);
     assert_that!(w.window_at(1900.0, -100.0, &two_screens())).is_equal_to(Some("w-2".to_owned()));
 }
@@ -556,8 +540,8 @@ fn window_at_two_screens_accepts_a_point_above_the_primary_screen() {
 #[test]
 fn window_at_two_screens_between_the_windows_returns_none() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     let w = Workspace::lock(&ws);
     // Sur l'écran externe, à gauche de w-2 : une nouvelle fenêtre.
     assert_that!(w.window_at(1600.0, 300.0, &two_screens())).is_none();
@@ -566,8 +550,8 @@ fn window_at_two_screens_between_the_windows_returns_none() {
 #[test]
 fn tab_window_returns_the_label_of_the_window_holding_the_tab() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     let v = view(&ws);
     let tab = v.windows[1].tabs[0].id.clone();
     assert_that!(Workspace::lock(&ws).tab_window(&tab)).is_equal_to(Some(v.windows[1].label.as_str()));
@@ -576,14 +560,14 @@ fn tab_window_returns_the_label_of_the_window_holding_the_tab() {
 #[test]
 fn tab_window_unknown_tab_returns_none() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     assert_that!(Workspace::lock(&ws).tab_window("t-99")).is_none();
 }
 
 #[test]
 fn window_at_ignores_rects_of_unknown_windows() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let rects = vec![("autre".to_owned(), rect(0.0, 0.0))];
     assert_that!(Workspace::lock(&ws).window_at(50.0, 50.0, &rects)).is_none();
 }
@@ -591,7 +575,7 @@ fn window_at_ignores_rects_of_unknown_windows() {
 #[test]
 fn request_reports_a_change_of_tab_info_only_once() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let (reply, changed) = Workspace::request(&ws, "t-1", Request::Snapshot);
     assert_that!(reply).is_ok();
     assert_that!(changed).is_false();
@@ -606,8 +590,8 @@ fn request_reports_a_change_of_tab_info_only_once() {
 #[test]
 fn request_and_close_of_the_same_tab_in_parallel_do_not_deadlock() {
     let data = Data::new();
-    let ws = std::sync::Arc::new(workspace_in(&data));
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let ws = std::sync::Arc::new(workspace_on(&data.0));
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     let (done, finished) = std::sync::mpsc::channel();
     {
         let (ws, done) = (std::sync::Arc::clone(&ws), done.clone());
@@ -621,7 +605,7 @@ fn request_and_close_of_the_same_tab_in_parallel_do_not_deadlock() {
     {
         let ws = std::sync::Arc::clone(&ws);
         std::thread::spawn(move || {
-            send(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
+            apply_ws(&ws, json!({"cmd": "close", "tab": "t-2", "discard": true})).unwrap();
             done.send(()).unwrap();
         });
     }
@@ -634,8 +618,8 @@ fn request_and_close_of_the_same_tab_in_parallel_do_not_deadlock() {
 #[test]
 fn close_last_tab_of_last_window_leaves_no_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap();
     let v = view(&ws);
     assert_that!(v.windows).is_empty();
     assert_that!(v.focused.as_str()).is_equal_to("");
@@ -647,7 +631,7 @@ fn close_last_tab_of_last_window_leaves_no_window() {
 fn finish_after_settle_refuses_and_trashes_the_built_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
     let pending = Workspace::lock(&ws).pending(Some("w-1".into()), Opening::Blank, None);
     let session = pending.build().unwrap();
     let built = dir.join(TABS_DIR).join(&pending.id);
@@ -666,11 +650,11 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     let data = Data::new();
     let dir = data.0.join("resume");
     let file = saved_pdf(&data, "gardé");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
     let leftover = dir.join(TABS_DIR).join("t-2");
     std::fs::create_dir_all(&leftover).unwrap();
     std::fs::write(leftover.join("state.json"), "pas du json").unwrap();
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.tabs[0].info.path).is_equal_to(Some(file.clone()));
@@ -682,7 +666,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     assert_that!(names.iter().any(|n| n.starts_with("t-2.failed-"))).is_true();
     // Le reste mis de côté, la reprise écrit l'onglet : il survit au relancement.
     drop(ws);
-    let again = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir).unwrap());
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir).unwrap());
     let w = &view(&again).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
@@ -691,7 +675,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
 #[test]
 fn messages_list_the_shipped_languages_and_the_chosen_one() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "messages"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "messages"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     let available: Vec<String> = serde_json::from_value(v["available"].clone()).unwrap();
     assert_that!(available).contains("de".to_owned());
@@ -703,8 +687,8 @@ fn messages_list_the_shipped_languages_and_the_chosen_one() {
 #[test]
 fn set_locale_answers_with_the_messages_of_that_language_and_keeps_it() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    let json = send(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap().into_json();
+    let ws = workspace_on(&data.0);
+    let json = apply_ws(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["locale"].as_str()).is_equal_to(Some("de"));
     assert_that!(v["chosen"].as_str()).is_equal_to(Some("de"));
@@ -715,9 +699,9 @@ fn set_locale_answers_with_the_messages_of_that_language_and_keeps_it() {
 #[test]
 fn set_locale_null_follows_the_system_again() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap();
-    let json = send(&ws, json!({"cmd": "set_locale", "locale": null})).unwrap().into_json();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "set_locale", "locale": "de"})).unwrap();
+    let json = apply_ws(&ws, json!({"cmd": "set_locale", "locale": null})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["chosen"].is_null()).is_true();
     let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
@@ -727,7 +711,7 @@ fn set_locale_null_follows_the_system_again() {
 #[test]
 fn set_locale_unknown_language_follows_the_system() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "set_locale", "locale": "xx"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "set_locale", "locale": "xx"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["chosen"].is_null()).is_true();
 }
@@ -735,7 +719,7 @@ fn set_locale_unknown_language_follows_the_system() {
 #[test]
 fn messages_give_the_ui_its_language_and_fluent_resources() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "messages"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "messages"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["locale"].as_str()).is_equal_to(Some("fr"));
     let resources: Vec<String> = serde_json::from_value(v["resources"].clone()).unwrap();
@@ -759,7 +743,7 @@ fn is_tab_id_accepts_only_t_and_digits() {
 #[test]
 fn view_generation_grows_with_each_view() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let first = view(&ws).generation;
     let second = view(&ws).generation;
     assert_that!(second).is_greater_than(first);
@@ -768,9 +752,9 @@ fn view_generation_grows_with_each_view() {
 #[test]
 fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let before = view(&ws).generation;
-    let reply = send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap().into_json();
+    let reply = apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap().into_json();
     let after: serde_json::Value = serde_json::from_str(&reply).unwrap();
     assert_that!(after["generation"].as_u64().unwrap()).is_greater_than(before);
 }
@@ -781,7 +765,7 @@ fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
 fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
     let data = Data::new();
     let dir = data.0.join("tabs/t-9");
-    let dormant = Dormant { dir: dir.clone(), fonts: Fonts::default(), platform: platform(&data.0) };
+    let dormant = Dormant { dir: dir.clone(), fonts: Fonts::default(), platform: workspace_platform(&data.0) };
     let mut slot = Slot::Dormant(Box::new(dormant));
     slot.stop_resume("t-9");
     let err = slot.ready().err().map(|e| e.kind());
@@ -792,7 +776,7 @@ fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
 #[test]
 fn with_session_runs_f_and_reports_that_the_tab_changed() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let (read, changed) = Workspace::with_session(&ws, "t-1", |s| s.deck().slides.len());
     assert_that!(read).is_ok();
     assert_that!(changed).is_false();
@@ -804,9 +788,9 @@ fn with_session_runs_f_and_reports_that_the_tab_changed() {
 #[test]
 fn with_session_on_a_closed_tab_returns_unknown_tab_without_calling_f() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    send(&ws, json!({"cmd": "close", "tab": "t-1", "discard": true})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "close", "tab": "t-1", "discard": true})).unwrap();
     let mut called = false;
     let (r, changed) = Workspace::with_session(&ws, "t-1", |_| called = true);
     assert_that!(r.map_err(|e| e.kind())).is_err().is_equal_to(SessionErrorKind::UnknownTab);
@@ -818,7 +802,7 @@ fn with_session_on_a_closed_tab_returns_unknown_tab_without_calling_f() {
 #[test]
 fn with_session_after_settle_returns_unknown_tab_without_calling_f() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     Workspace::settle(&ws);
     let mut called = false;
     let (r, changed) = Workspace::with_session(&ws, "t-1", |_| called = true);
@@ -830,7 +814,7 @@ fn with_session_after_settle_returns_unknown_tab_without_calling_f() {
 #[test]
 fn with_session_releases_the_workspace_lock_while_f_runs() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let (free, _) = Workspace::with_session(&ws, "t-1", |_| ws.try_lock().is_ok());
     assert_that!(free).is_ok().is_true();
 }
@@ -839,10 +823,10 @@ fn with_session_releases_the_workspace_lock_while_f_runs() {
 fn open_elsewhere_is_true_only_for_the_file_of_another_tab() {
     use crate::agent::Sessions;
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let file = saved_pdf(&data, "ailleurs");
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
-    send(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
+    apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     // t-2 tient le fichier.
     assert_that!(ws.open_elsewhere("t-1", &file)).is_true();
     assert_that!(ws.open_elsewhere("t-2", &file)).is_false();
@@ -852,32 +836,33 @@ fn open_elsewhere_is_true_only_for_the_file_of_another_tab() {
 #[test]
 fn tab_ids_lists_the_tabs_of_every_window() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_window"})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
     assert_that!(Workspace::lock(&ws).tab_ids()).is_equal_to(vec!["t-1".to_owned(), "t-2".to_owned()]);
 }
 
 #[test]
 fn closed_by_reports_the_tabs_a_request_closed_or_replaced() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
-    let (r, closed) = Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "close", "tab": "t-1", "discard": true})));
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    let (r, closed) =
+        Workspace::closed_by(&ws, |ws| apply_ws(ws, json!({"cmd": "close", "tab": "t-1", "discard": true})));
     assert_that!(r).is_ok();
     assert_that!(closed).is_equal_to(vec!["t-1".to_owned()]);
     // Onglet vierge remplacé par un fichier : fermé lui aussi.
     let file = saved_pdf(&data, "remplace");
     let (_, closed) =
-        Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})));
+        Workspace::closed_by(&ws, |ws| apply_ws(ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})));
     assert_that!(closed).is_equal_to(vec!["t-2".to_owned()]);
-    let (_, closed) = Workspace::closed_by(&ws, |ws| send(ws, json!({"cmd": "new_tab", "window": "w-1"})));
+    let (_, closed) = Workspace::closed_by(&ws, |ws| apply_ws(ws, json!({"cmd": "new_tab", "window": "w-1"})));
     assert_that!(closed).is_empty();
 }
 
 #[test]
 fn a_new_tab_launches_its_render_worker_at_its_first_request() {
     let data = Data::new();
-    let ws = workspace_in(&data);
+    let ws = workspace_on(&data.0);
     let slot = Workspace::lock(&ws).session("t-1").unwrap();
     let started = || matches!(&*relock(&slot), Slot::Ready(s) if s.worker.is_started());
     assert_that!(started()).is_false();
@@ -890,11 +875,11 @@ fn a_new_tab_launches_its_render_worker_at_its_first_request() {
 fn with_session_wakes_a_dormant_resumed_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
     Workspace::settle(&ws);
     drop(ws);
-    let again = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir).unwrap());
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir).unwrap());
     let slot = Workspace::lock(&again).session("t-1").unwrap();
     assert_that!(matches!(*relock(&slot), Slot::Dormant(_))).is_true();
     let (theme, _) =
@@ -906,7 +891,7 @@ fn with_session_wakes_a_dormant_resumed_tab() {
 #[test]
 fn scheme_without_setting_follows_the_system() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "scheme"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "scheme"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["scheme"].is_null()).is_true();
 }
@@ -914,7 +899,7 @@ fn scheme_without_setting_follows_the_system() {
 #[test]
 fn set_scheme_dark_answers_with_it_and_keeps_it() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "set_scheme", "scheme": "dark"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "set_scheme", "scheme": "dark"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["scheme"].as_str()).is_equal_to(Some("dark"));
     let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
@@ -924,9 +909,9 @@ fn set_scheme_dark_answers_with_it_and_keeps_it() {
 #[test]
 fn set_scheme_null_follows_the_system_again() {
     let data = Data::new();
-    let ws = workspace_in(&data);
-    send(&ws, json!({"cmd": "set_scheme", "scheme": "light"})).unwrap();
-    send(&ws, json!({"cmd": "set_scheme", "scheme": null})).unwrap();
+    let ws = workspace_on(&data.0);
+    apply_ws(&ws, json!({"cmd": "set_scheme", "scheme": "light"})).unwrap();
+    apply_ws(&ws, json!({"cmd": "set_scheme", "scheme": null})).unwrap();
     let config = std::fs::read_to_string(data.0.join("config.toml")).unwrap();
     assert_that!(config.contains("scheme")).is_false();
 }
@@ -934,7 +919,7 @@ fn set_scheme_null_follows_the_system_again() {
 #[test]
 fn set_scheme_unknown_value_follows_the_system() {
     let data = Data::new();
-    let json = send(&workspace_in(&data), json!({"cmd": "set_scheme", "scheme": "sepia"})).unwrap().into_json();
+    let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "set_scheme", "scheme": "sepia"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["scheme"].is_null()).is_true();
 }
@@ -942,10 +927,10 @@ fn set_scheme_unknown_value_follows_the_system() {
 #[test]
 fn scheme_reads_the_setting_of_the_platform() {
     let data = Data::new();
-    let mut settings = (*platform(&data.0).settings).clone();
+    let mut settings = (*workspace_platform(&data.0).settings).clone();
     settings.appearance.scheme = Some("light".into());
     let ws = Mutex::new(Workspace::new(Fonts::default(), &Platform::with_settings(settings).unwrap(), None).unwrap());
-    let json = send(&ws, json!({"cmd": "scheme"})).unwrap().into_json();
+    let json = apply_ws(&ws, json!({"cmd": "scheme"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["scheme"].as_str()).is_equal_to(Some("light"));
 }

@@ -15,6 +15,7 @@ use tauri::{
 };
 
 use crate::state::{self, AppState};
+use crate::{agent_window, menu};
 
 /// Taille d'une fenêtre neuve, et taille minimale.
 const SIZE: (f64, f64) = (1440.0, 900.0);
@@ -64,6 +65,15 @@ fn cursor_readable(pos: PhysicalPosition<f64>, linux: bool) -> bool {
     !(linux && pos.x == 0.0 && pos.y == 0.0)
 }
 
+/// La barre de titre des fenêtres de l'app : sous macOS, fondue dans la page (barre `.titlebar`).
+pub(crate) fn overlay_title_bar<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
+    builder: WebviewWindowBuilder<'a, R, M>,
+) -> WebviewWindowBuilder<'a, R, M> {
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    builder
+}
+
 /// Ouvre la fenêtre `label`, sous le pointeur `at` (repère de l'hôte) s'il est donné.
 fn open(app: &AppHandle, label: &str, at: Option<(f64, f64)>) -> tauri::Result<WebviewWindow> {
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
@@ -80,9 +90,7 @@ fn open(app: &AppHandle, label: &str, at: Option<(f64, f64)>) -> tauri::Result<W
     if physical.is_some() {
         builder = builder.visible(false);
     }
-    #[cfg(target_os = "macos")]
-    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
-    let window = builder.build()?;
+    let window = overlay_title_bar(builder).build()?;
     if let Some(p) = physical {
         place_under(&window, p);
         // Une fenêtre restée cachée réapparaît au prochain `sync` qui la met devant.
@@ -231,7 +239,7 @@ pub fn emit_view(app: &AppHandle) {
 /// (`commands::workspace`) et sa fermeture native (`commands::close_requested`).
 pub fn sync(app: &AppHandle, at: Option<(f64, f64)>, focus: bool) -> WorkspaceView {
     let Some(state) = app.try_state::<AppState>() else {
-        return WorkspaceView { generation: 0, focused: String::new(), windows: Vec::new() };
+        return WorkspaceView { generation: 0, focused: String::new(), windows: Vec::new(), agent_detached: false };
     };
     let _serial = state.sync.lock().unwrap_or_else(PoisonError::into_inner);
     let view = Workspace::lock(&state.workspace).view();
@@ -243,12 +251,15 @@ pub fn sync(app: &AppHandle, at: Option<(f64, f64)>, focus: bool) -> WorkspaceVi
         }
     }
     for (label, w) in app.webview_windows() {
-        if !view.windows.iter().any(|v| v.label == label)
+        if label != agent_window::LABEL
+            && !view.windows.iter().any(|v| v.label == label)
             && let Err(e) = w.destroy()
         {
             tracing::warn!(label, error = %e, "fenêtre non fermée");
         }
     }
+    agent_window::reconcile(app, view.agent_detached);
+    menu::set_agent_checked(app, view.agent_detached);
     if focus && let Some(w) = app.get_webview_window(&view.focused) {
         let shown = w.unminimize().and_then(|()| w.show()).and_then(|()| w.set_focus());
         if let Err(e) = shown {

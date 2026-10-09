@@ -74,3 +74,6 @@ agent-error-setting-locked = เอเจนต์ไม่สามารถเ
 agent-error-setting = ไม่สามารถเปลี่ยนการตั้งค่า { $key } ได้: โปรดตรวจสอบค่าของมัน
 agent-error-rewrite-text = การเรียบเรียงใหม่ส่งกลับมาโดยไม่มีข้อความ
 agent-error-paragraphs = ย่อหน้าของการเรียบเรียงใหม่ไม่ถูกต้อง
+agent-error-draft-too-long = ฉบับร่างยาวเกินไป
+agent-error-draft-origin = ปฏิเสธฉบับร่าง: ไม่รู้จักมุมมองนี้
+agent-error-draft-no-agent = เอเจนต์ของแท็บนี้กำลังเริ่มทำงาน: ไม่ได้เก็บฉบับร่างไว้

@@ -44,7 +44,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   un onglet endormi rien du tout. Un pack par défaut à widgets est sondé dès la création (le processus part alors). `Session::new` rend toujours tout de suite.
   `fall_back_to_base` : pack fautif (`is_bounded`) → base + avis `session-pack-disabled` et un second essai (deck, aperçus, variantes ; `usable_pack` avant d'ouvrir un emplacement). `with_compiled` : export sur une poignée `Stale` (travailleur relancé) → re-rendu une fois, puis réessai.
 - `merge.rs` : fusion d'un autre PDF du même deck (`merge_file`) ; `save_checked` : même deck changé sur disque → fusion puis écriture, autre deck → refusé.
-- `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`, onglets `t-<n>` ; `TabInfo` (`views.rs`) : la barre.
+- `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`, onglets `t-<n>`, agent détaché (`agent_detached`, persisté) ; `TabInfo` (`views.rs`) : la barre.
 - `Slot` (`workspace_slot.rs`) : session d'un onglet (`Ready`, `Dormant`, `Closed`) ; `workspace_resume.rs` : reprise ;
   `workspace_same_deck.rs` : `SameDeck` (onglet tenant déjà le deck) ; `post_notice`.
   `workspace_tabs.rs` : onglets (`Pending` et ce qu'il ouvre, `Opening::{Blank, File, Help}` ; `NewTab`, `OpenTab`, `OpenHelp`, `finish`, `change`, `Trash`) ;

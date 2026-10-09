@@ -5,6 +5,16 @@ use std::sync::MutexGuard;
 use super::{Result, Tab, Workspace, WorkspaceOutcome};
 
 impl Workspace {
+    /// L'agent est-il dans sa propre fenêtre ?
+    pub fn agent_detached(&self) -> bool {
+        self.layout.agent_detached
+    }
+
+    /// Détache (`true`) ou rattache l'agent ; écrit par `apply`, comme tout changement.
+    pub(super) fn set_agent_detached(&mut self, detached: bool) {
+        self.layout.agent_detached = detached;
+    }
+
     /// Ferme `window` et ses onglets, sauf si c'est la seule (refusée, sans y toucher).
     ///
     /// Prend le verrou : les dossiers des onglets fermés sont supprimés

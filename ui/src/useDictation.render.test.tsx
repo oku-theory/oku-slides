@@ -26,6 +26,7 @@ async function mount(ok: boolean) {
       apply: async () => true,
       addElement: () => {},
       say: () => {},
+      setDraft: async () => {},
       prompt: async (text: string) => {
         prompts.push(text);
         return ok;
@@ -41,20 +42,20 @@ async function mount(ok: boolean) {
     await act(async () => root.unmount());
     host.remove();
   };
-  await act(async () => out!.onDictated("Ajoute une slide", "draft"));
+  await act(async () => out!.actions.onDictated("Ajoute une slide", "draft"));
   return { state: () => out!, prompts };
 }
 
 test("useDictation un envoi réussi ferme le brouillon", async () => {
   const d = await mount(true);
-  await act(async () => d.state().sendDraft("Ajoute une slide"));
+  await act(async () => d.state().actions.sendDraft("Ajoute une slide"));
   expect(d.prompts).toEqual(["Ajoute une slide"]);
-  expect(d.state().draft.text).toBeNull();
+  expect(d.state().draft.state.text).toBeNull();
 });
 
 test("useDictation un envoi qui échoue garde le texte dicté", async () => {
   const d = await mount(false);
-  await act(async () => d.state().sendDraft("Ajoute une slide"));
+  await act(async () => d.state().actions.sendDraft("Ajoute une slide"));
   expect(d.prompts).toEqual(["Ajoute une slide"]);
-  expect(d.state().draft.text).toBe("Ajoute une slide");
+  expect(d.state().draft.state.text).toBe("Ajoute une slide");
 });

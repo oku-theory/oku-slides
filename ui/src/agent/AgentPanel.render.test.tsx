@@ -2,14 +2,18 @@
 
 import { afterEach, expect, test } from "bun:test";
 import "../test/dom";
-import type { AgentScope, McpEvent, SlideView, Surface } from "../api";
+import type { AgentScope, McpEvent, Surface } from "../api";
 import { CATALOG_ID } from "../a2ui/catalog";
 import type { HostHandlers } from "./events";
+import type { ScopeSource } from "./AgentPanel";
+import type { QuickTarget } from "./useQuickKeys";
 
 const { act, createElement, createRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
 const { createSlot, SlotView } = await import("./slot");
+const { routeSurfaces } = await import("./surfaces");
+const { ARMING_MS } = await import("./useQuickKeys");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -41,10 +45,17 @@ const patch = (id: string, label: string): McpEvent => ({
   messages: [{ version: "v0.9", updateComponents: { surfaceId: id, components: [button(label)] } }] as unknown as Surface["messages"],
 });
 
-const view = { slide: { id: "s1", elements: [{ id: "e1" }] }, targets: [{ id: "e1" }], fields: [] } as unknown as SlideView;
+const DRIVE: ScopeSource = { kind: "drive", view: { templates: false, history: false, pack: null, widget: null } };
+const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
+const route = (list: Surface[]) => routeSurfaces(list, { slide: "s1", has: () => true });
+/** Échap, une fois la fenêtre armée (un geste trop tôt est ignoré). */
+const escape = async () => {
+  await act(async () => new Promise((r) => setTimeout(r, ARMING_MS + 20)));
+  await act(async () => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+};
 
 /** Monte le panneau dans un hôte qui compte ses rendus, avec une scène et une pile qui comptent les leurs. */
-async function mount({ promptFails = false } = {}) {
+async function mount({ promptFails = false, scope = DRIVE, keyPlaces }: { promptFails?: boolean; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][] } = {}) {
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -52,15 +63,22 @@ async function mount({ promptFails = false } = {}) {
     return () => {};
   };
   const prompts: string[] = [];
+  const promptScopes: AgentScope[] = [];
+  const resyncs: AgentScope[] = [];
+  const follows: number[] = [];
+  const actions: string[] = [];
+  const drafts: { text: string | null; origin: string | null }[] = [];
   const agent = {
-    prompt: async (_s: AgentScope, text: string) => {
+    prompt: async (s: AgentScope, text: string) => {
       prompts.push(text);
+      promptScopes.push(s);
       if (promptFails) throw new Error("no agent");
     },
     cancel: async () => {},
     newConversation: async () => {},
-    surfaceAction: async () => {},
-    resync: async () => {},
+    surfaceAction: async (id: string, name: string) => void actions.push(`${id}:${name}`),
+    resync: async (s: AgentScope) => void resyncs.push(s),
+    follow: async () => void follows.push(1),
   };
   const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
   const handle = createRef<import("./AgentPanel").AgentHandle>();
@@ -88,12 +106,11 @@ async function mount({ promptFails = false } = {}) {
       createElement(AgentPanel, {
         tab: "t1",
         agent,
-        scopeView: { templates: false, history: false, pack: null, widget: null },
-        view,
-        current: "s1",
-        selected: null,
-        editField: null,
-        widget: null,
+        scope,
+        keyPlaces,
+        route,
+        ui: UI,
+        onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
         keysOff: false,
         thread: true,
         thumbs: { cached: () => null, svg: () => null, current: () => undefined },
@@ -124,7 +141,7 @@ async function mount({ promptFails = false } = {}) {
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, changed: () => changed, said };
+  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -165,7 +182,7 @@ test("AgentPanel une fiche qui arrive ou s'en va re-rend App (la scène reçoit 
 
 test("AgentPanel un tour en cours est transmis à App (occupé)", async () => {
   const p = await mount();
-  await act(async () => p.handlers().onAgent({ state: "working", scope: { kind: "slides" } } as never));
+  await act(async () => p.handlers().onAgent({ kind: "status", state: "working", scope: { kind: "slides" } }));
   expect(p.host.firstElementChild?.getAttribute("data-busy")).toBe("true");
 });
 
@@ -212,4 +229,44 @@ test("AgentPanel un morceau de réponse d'une fenêtre ne re-rend pas App", asyn
   await p.mcp(patch("m-1", "Confirmer encore"));
   expect(text()).toContain("Confirmer encore");
   expect(p.renders).toEqual(before);
+});
+
+test("AgentPanel suiveur à l'abonnement prêt demande follow", async () => {
+  const m = await mount({ scope: { kind: "follow" } });
+  await act(async () => m.handlers().onReady?.());
+  expect(m.follows).toHaveLength(1);
+});
+
+test("AgentPanel suiveur à l'abonnement prêt ne demande jamais resync", async () => {
+  const m = await mount({ scope: { kind: "follow" } });
+  await act(async () => m.handlers().onReady?.());
+  expect(m.resyncs).toEqual([]);
+});
+
+test("AgentPanel suiveur une consigne part dans la portée annoncée par l'hôte", async () => {
+  const m = await mount({ scope: { kind: "follow" } });
+  await act(async () => m.handlers().onReady?.());
+  await m.mcp({ kind: "viewing", scope: { kind: "atelier", pack: "p-1" } });
+  await act(async () => void (await m.handle.current!.prompt("bonjour")));
+  expect(m.promptScopes).toEqual([{ kind: "atelier", pack: "p-1" }]);
+});
+
+test("AgentPanel toutes places : Échap répond à la fenêtre de confirmation", async () => {
+  const m = await mount();
+  await m.mcp({ kind: "surface", surface: modal });
+  await escape();
+  expect(m.actions.some((a) => a.startsWith("m-1:"))).toBe(true);
+});
+
+test("AgentPanel touches limitées au dock : Échap laisse la fenêtre de confirmation", async () => {
+  const m = await mount({ keyPlaces: ["dock"] });
+  await m.mcp({ kind: "surface", surface: modal });
+  await escape();
+  expect(m.actions).toEqual([]);
+});
+
+test("AgentPanel un brouillon reçu de l'hôte est transmis", async () => {
+  const m = await mount();
+  await act(async () => m.handlers().onAgent({ kind: "draft", text: "x", origin: "v-2" }));
+  expect(m.drafts).toEqual([{ text: "x", origin: "v-2" }]);
 });

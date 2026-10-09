@@ -331,6 +331,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* ---- Cartes autour de la feuille ---- */
 /* Conteneur de taille : le dock de l'agent mesure sa hauteur maximale au panneau entier (`cqh`). */
+.agent-window { height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px; padding: 0 var(--space-6) var(--space-6); overflow-y: auto; }
+.agent-window > .titlebar { margin: 0 calc(-1 * var(--space-6)); }
+.agent-window .agent-thread { flex: 1; min-height: 0; }
+.agent-window-empty, .agent-window-loading { justify-content: center; align-items: center; }
 .notes { grid-area: notes; container-type: size; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; overflow-x: visible; padding: var(--space-6) var(--space-6) 0 var(--space-2); }
 /* ---- Séparateurs des colonnes ---- */
 /* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol. */
@@ -612,6 +616,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
    d'ombre portée à rogner) et le défilement se fait dans `.agent-scroller`. */
 .agent-thread { position: relative; z-index: 3; }
 .agent-thread-head { display: flex; justify-content: space-between; align-items: center; }
+.agent-thread-head > :only-child { margin-left: auto; }
 .agent-thread-head .token.ghost { width: 28px; height: 28px; }
 /* Le Markdown d'une réponse : des blocs serrés, à la taille de la carte. */
 .md > :first-child { margin-top: 0; }
@@ -796,6 +801,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 /* Ni agent ni dictée dans l'aide : la feuille prend la place du fil. */
 .table:has(> .help-bar) { grid-template-columns: var(--pile-w) minmax(0, 1fr) var(--space-6); }
 .table:has(> .help-bar) > .notes, .table:has(> .help-bar) > .col-divider[data-side="notes"] { display: none; }
+.table.agent-detached { grid-template-columns: var(--pile-w) minmax(0, 1fr) var(--space-6); }
+.table.agent-detached > .notes, .table.agent-detached > .col-divider[data-side="notes"] { display: none; }
 /* ---- Bandeau du pack : une barre sous le titre, sur toute la largeur ---- */
 /* Une rangée de plus sur la table, entre le titre et la feuille ; la pile et le fil commencent dessous. */
 .table:has(> .pack-notice) {

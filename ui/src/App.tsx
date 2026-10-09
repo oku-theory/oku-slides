@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { AddWidget, Element, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
-import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
+import type { Anchor, AddWidget, Element, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import { agentApi, errorText, inTauri, workspace, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
@@ -16,9 +16,11 @@ import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
-import { fieldKey, primaryFieldOf } from "./stageFields";
+import { anchorBox, fieldKey, primaryFieldOf } from "./stageFields";
 import { useFieldEditing } from "./useFieldEditing";
 import { useSvgCache } from "./useSvgCache";
+import { useToast } from "./useToast";
+import { useThumbsOver } from "./useSlideThumbs";
 import { useKeptUi } from "./useKeptUi";
 import ThemeMenu from "./ThemeMenu";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
@@ -31,11 +33,15 @@ import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { NumberLangContext } from "./a2ui/numberLang";
-import type { SlideThumbs } from "./a2ui/slideThumbs";
-import { AgentPanel, IDLE_AGENT, type AgentHandle } from "./agent/AgentPanel";
+import { AgentPanel, IDLE_AGENT, type AgentHandle, type ScopeSource } from "./agent/AgentPanel";
+import { routeSurfaces } from "./agent/surfaces";
+import { agentUi } from "./agent/ui";
 import { escapeAction, targetOwnsKeys } from "./agent/keys";
 import { createSlot, SlotView } from "./agent/slot";
 import { useAgentFocus } from "./agent/useAgentFocus";
+import type { QuickTarget } from "./agent/useQuickKeys";
+import { linkTransport, type LinkContext } from "./agent/link";
+import { useMainLink } from "./agent/useMainLink";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
@@ -56,9 +62,14 @@ import SlideNav from "./SlideNav";
 import { slideTarget } from "./slideKeys";
 import TitleField from "./TitleField";
 
+/** Agent détaché : le dock n'est pas à l'écran, ses touches rapides ne le visent pas. */
+const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
+
 /** Un onglet : le deck de la session `tab`. */
-export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onChange }: {
+export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp, onClose, onChange }: {
   tab: string;
+  /** L'agent est dans sa propre fenêtre : ni colonne, ni fil, ni brouillon ici. */
+  agentDetached?: boolean;
   /** Change à chaque vue diffusée : le snapshot est relu (un avis a pu arriver). */
   nonce: number;
   /** Un avis venu d'ailleurs (fusion faite à l'ouverture), montré une fois. */
@@ -87,19 +98,10 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     leaveSlide(id);
     setCurrent(id);
   };
-  const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
+  const { say, node: toastNode } = useToast();
   const svgs = useSvgCache(api);
   // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
-  const slides = snap?.slides;
-  const slideThumbs = useMemo<SlideThumbs>(
-    () => ({ cached: svgs.cached, svg: svgs.svg, current: (id) => slides?.find((s) => s.id === id)?.hash }),
-    [svgs, slides],
-  );
-
-  const say = (text: string, error = false) => {
-    setToast({ text, error });
-    window.setTimeout(() => setToast((cur) => (cur?.text === text ? null : cur)), error ? 6000 : 2500);
-  };
+  const slideThumbs = useThumbsOver(svgs, snap?.slides);
 
   // Une relecture (`nonce`) croise parfois une modification : la réponse la
   // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
@@ -357,6 +359,20 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   const [agent] = useState(() => agentApi(tab));
   const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
+  // Les fiches ancrées se posent sous leur élément, sur la slide affichée.
+  const shown = useMemo(
+    () => (view && view.slide.id === current ? { slide: view.slide.id, has: (a: Anchor) => anchorBox(view, a) !== null } : null),
+    [view, current],
+  );
+  const route = useCallback((list: Surface[]) => routeSurfaces(list, shown), [shown]);
+  const agentUiNow = useMemo(() => agentUi(current, selected, editField, widgets.activeName), [current, selected, editField, widgets.activeName]);
+  const templates = !!snap?.editing;
+  const inHistory = !!snap?.history;
+  const pack = snap?.editing?.set ?? null;
+  const scopeSource = useMemo<ScopeSource>(
+    () => ({ kind: "drive", view: { templates, history: inHistory, pack, widget: widgets.activeName } }),
+    [templates, inHistory, pack, widgets.activeName],
+  );
   const agentHandle = useRef<AgentHandle>(null);
   const promptAgent = (text: string) => agentHandle.current?.prompt(text) ?? Promise.resolve(false);
   const cancelAgent = () => agentHandle.current?.cancel();
@@ -524,7 +540,15 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
-  const dictation = useDictation({ snap, view, selected, editing, apply, addElement, say, prompt: promptAgent });
+  const dictation = useDictation({ snap, view, selected, editing, apply, addElement, say, prompt: promptAgent, setDraft: agent.setDraft });
+
+  // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
+  const [transport] = useState(() => linkTransport());
+  const linkContext = useMemo<LinkContext>(
+    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || picking || widgetActive }),
+    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, picking, widgetActive],
+  );
+  useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });
 
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
@@ -605,7 +629,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
-    <div className="table">
+    <div className={`table${agentDetached && !themeActive ? " agent-detached" : ""}`}>
       {history ? (
         <HistoryBar
           history={history}
@@ -759,25 +783,26 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         {/* Onglet « Thème » : les jetons en tête ; le fil de l'agent reste monté, caché (styles.css). */}
         {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
         <AgentPanel
-          tab={tab} agent={agent} view={view} current={current} selected={selected} editField={editField} widget={widgets.activeName}
-          scopeView={{ templates: !!snap.editing, history: !!snap.history, pack: snap.editing?.set ?? null, widget: widgets.activeName }}
-          keysOff={!!editing || picking || widgetActive} thread={!snap.read_only} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
+          tab={tab} agent={agent} scope={scopeSource} route={route} ui={agentUiNow}
+          keysOff={!!editing || picking || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
+          onDraft={dictation.draft.onHost}
         />
-        {!snap.read_only && <DictationDraft
-          text={dictation.draft.text}
-          dictations={dictation.draft.dictations}
-          typing={dictation.draft.typing}
+        {!snap.read_only && !agentDetached && <DictationDraft
+          text={dictation.draft.state.text}
+          dictations={dictation.draft.state.dictations}
+          typing={dictation.draft.state.typing}
           busy={agentStatus.busy}
           notice={agentStatus.notice}
           ready={agentStatus.ready}
           insertTo={dictation.insertTo}
-          onChange={dictation.setDraftText}
-          onInsert={dictation.insertDraft}
-          onSend={dictation.sendDraft}
-          onDiscard={dictation.closeDraft}
+          onChange={dictation.draft.change}
+          onInsert={(text) => void dictation.actions.insertDraft(text)}
+          onSend={(text) => void dictation.actions.sendDraft(text)}
+          onDiscard={dictation.draft.close}
         />}
       </aside>
 
@@ -786,14 +811,14 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
       {/* Appareil de dictée, posé devant la feuille. */}
       {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}
-      {!snap.read_only && <Dictation
+      {!snap.read_only && !agentDetached && <Dictation
         destination={dictation.destination}
         vocabulary={dictation.vocabulary}
-        onText={dictation.onDictated}
+        onText={dictation.actions.onDictated}
         onError={(m) => say(m, true)}
         agentBusy={agentStatus.busy}
         onAgentCancel={cancelAgent}
-        onType={dictation.typeDraft}
+        onType={dictation.draft.type}
       />}
 
       {picking && (
@@ -810,7 +835,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
       <SlotView slot={agentSlots.modal} />
 
-      {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
+      {toastNode}
     </div>
     </NumberLangContext.Provider>
   );

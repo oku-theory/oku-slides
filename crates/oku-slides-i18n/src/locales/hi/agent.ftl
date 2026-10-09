@@ -80,3 +80,6 @@ agent-error-setting-locked = एजेंट सेटिंग { $key } नह�
 agent-error-setting = सेटिंग { $key } नहीं बदली जा सकी: उसका मान जाँचें।
 agent-error-rewrite-text = पुनर्लेखन बिना पाठ के लौटा।
 agent-error-paragraphs = पुनर्लेखन के अनुच्छेद अमान्य हैं।
+agent-error-draft-too-long = ड्राफ़्ट बहुत लंबा है।
+agent-error-draft-origin = ड्राफ़्ट अस्वीकृत: अज्ञात दृश्य।
+agent-error-draft-no-agent = इस टैब का एजेंट शुरू हो रहा है: ड्राफ़्ट सहेजा नहीं गया।

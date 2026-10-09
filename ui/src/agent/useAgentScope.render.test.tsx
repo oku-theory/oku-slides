@@ -87,3 +87,10 @@ test("useAgentScope sans agent (le rappel du fil échoue) n'est pas prêt (t-211
   expect(h.resyncs).toHaveLength(1);
   expect(h.state().ready).toBe(false);
 });
+
+test("useAgentScope un évènement draft ne change pas l'état de l'agent", async () => {
+  const h = await mountHook(deck);
+  await act(async () => h.state().onAgentEvent({ kind: "status", state: "working", scope: { kind: "slides" } }));
+  await act(async () => h.state().onAgentEvent({ kind: "draft", text: "x", origin: null }));
+  expect(h.state().status.state).toBe("working");
+});

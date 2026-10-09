@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { SttState, SttStatus } from "./api";
 import { stt } from "./api";
 import type { DictationMode } from "./agent/keys";
+import type { LinkShortcut } from "./agent/link";
 import { setMessages } from "./i18n";
 import { resetMessages } from "./test/messages";
 
@@ -70,15 +71,17 @@ beforeEach(() => {
 /** Laisse les promesses du faux moteur se résoudre et React les rendre. */
 const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 
-async function mount(agentBusy = false, vocabulary: string[] = []) {
+type Remote = { seq: number; key: LinkShortcut };
+
+async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remote) {
   const texts: [string, DictationMode][] = [];
   let cancels = 0;
   let typed = 0;
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  let root = createRoot(host);
   mounted = { root, host, restore: engine.restore };
-  const render = (busy: boolean) =>
+  const render = (busy: boolean, shortcut?: Remote) =>
     root.render(
       createElement(Dictation, {
         destination: "le titre",
@@ -88,9 +91,10 @@ async function mount(agentBusy = false, vocabulary: string[] = []) {
         agentBusy: busy,
         onAgentCancel: () => cancels++,
         onType: () => typed++,
+        remote: shortcut,
       }),
     );
-  await act(async () => render(agentBusy));
+  await act(async () => render(agentBusy, remote));
   await settle();
   return {
     host,
@@ -98,7 +102,20 @@ async function mount(agentBusy = false, vocabulary: string[] = []) {
     cancels: () => cancels,
     typed: () => typed,
     rerender: async (busy: boolean) => {
-      await act(async () => render(busy));
+      await act(async () => render(busy, remote));
+      await settle();
+    },
+    /** Même composant, rendu à nouveau avec ce raccourci relayé. */
+    rerenderRemote: async (shortcut: Remote) => {
+      await act(async () => render(agentBusy, shortcut));
+      await settle();
+    },
+    /** Un composant neuf, monté avec ce raccourci relayé. */
+    remount: async (shortcut: Remote) => {
+      await act(async () => root.unmount());
+      root = createRoot(host);
+      mounted = { root, host, restore: engine.restore };
+      await act(async () => render(agentBusy, shortcut));
       await settle();
     },
   };
@@ -316,5 +333,43 @@ describe("modèle Apple", () => {
     const { host } = await mount();
     await openSettings(host);
     expect(host.querySelector(".model .caption")?.textContent).toBe("ui-dictation-note-apple");
+  });
+});
+
+describe("raccourci relayé", () => {
+  test("Dictation remote type ouvre le brouillon une fois", async () => {
+    const m = await mount();
+    await m.rerenderRemote({ seq: 1, key: "type" });
+    expect(m.typed()).toBe(1);
+  });
+
+  test("Dictation remote même numéro au rendu suivant : rien de plus", async () => {
+    const m = await mount();
+    await m.rerenderRemote({ seq: 1, key: "type" });
+    await m.rerenderRemote({ seq: 1, key: "type" });
+    expect(m.typed()).toBe(1);
+  });
+
+  test("Dictation remote présent au montage : rien", async () => {
+    const m = await mount(false, [], { seq: 3, key: "type" });
+    expect(m.typed()).toBe(0);
+  });
+
+  test("Dictation remote présent à un remontage : rien", async () => {
+    const m = await mount();
+    await m.remount({ seq: 4, key: "type" });
+    expect(m.typed()).toBe(0);
+  });
+
+  test("Dictation remote draft pendant un tour, sans écoute : arrête l'agent", async () => {
+    const m = await mount(true);
+    await m.rerenderRemote({ seq: 1, key: "draft" });
+    expect(m.cancels()).toBe(1);
+  });
+
+  test("Dictation remote auto au repos : lance l'écoute", async () => {
+    const m = await mount();
+    await m.rerenderRemote({ seq: 1, key: "auto" });
+    expect(engine.calls).toContain("start");
   });
 });

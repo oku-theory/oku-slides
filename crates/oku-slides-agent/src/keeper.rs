@@ -30,6 +30,11 @@ pub enum Keep {
     Lookup(AgentScope, oneshot::Sender<Option<(String, Option<String>)>>),
     /// Montrer le fil de `scope` à l'interface.
     Show(AgentScope),
+    /// Remontrer le fil de la portée que montre le hub.
+    ///
+    /// La portée est lue à l'application de l'ordre : une autre vue de l'onglet s'abonne
+    /// (`follow`) sans jamais revenir sur un `Show` plus récent.
+    Replay,
     /// Rien d'autre que les renommages notés par la session : envoyé à chaque changement du deck,
     /// pour qu'un ordre plus tardif visant un nouveau widget du nom d'avant ne soit jamais suivi.
     Sync,
@@ -53,7 +58,7 @@ impl Keep {
             Self::Session { .. } => "session de la portée non enregistrée",
             Self::Forget(..) => "conversation de la portée non oubliée",
             Self::Lookup(..) => "session de la portée non relue",
-            Self::Show(_) | Self::Sync | Self::Flush(_) => "ordre du gardien non appliqué",
+            Self::Show(_) | Self::Replay | Self::Sync | Self::Flush(_) => "ordre du gardien non appliqué",
         }
     }
 }
@@ -188,6 +193,10 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
         }),
         Keep::Show(scope) => {
             hub.resync(follow(scope));
+            Ok(())
+        }
+        Keep::Replay => {
+            hub.resync(hub.viewing());
             Ok(())
         }
         Keep::Sync => Ok(()),

@@ -97,6 +97,13 @@ export function routeSurfaces(list: Surface[], shown: { slide: string; has: (a: 
   };
 }
 
+/** Le routage d'une vue sans scène : seule la fiche `staged` reste hors du fil. */
+export function routeStaged(list: Surface[], staged: string | null): Routed {
+  const routed = routeSurfaces(list, null);
+  const stage = staged === null ? undefined : routed.loose.find((s) => s.id === staged);
+  return stage ? { ...routed, stage, loose: routed.loose.filter((s) => s !== stage) } : routed;
+}
+
 /** La consigne d'une suite cliquée (`suggest {prompt}`), à envoyer à l'agent ; sinon `null`. */
 export function suggestedPrompt(a: QuickAction): string | null {
   const prompt = a.name === "suggest" ? a.context.prompt : undefined;

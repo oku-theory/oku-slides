@@ -4,7 +4,8 @@ import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import type { DictationMode } from "./agent/keys";
-import { dictationShortcut, typingShortcut } from "./agent/keys";
+import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
+import type { LinkShortcut } from "./agent/link";
 
 const SILENCES = [1, 1.5, 2, 3, 5];
 
@@ -65,10 +66,15 @@ interface Props {
   onAgentCancel: () => void;
   /** Ouvre le brouillon pour écrire une consigne au clavier (⌘K). */
   onType: () => void;
+  /**
+   * Un raccourci relayé par la fenêtre principale (agent détaché). Un numéro plus grand que
+   * le dernier vu agit une fois ; celui présent au montage n'agit pas.
+   */
+  remote?: { seq: number; key: LinkShortcut };
 }
 
 /** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle. */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType }: Props) {
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
@@ -136,19 +142,36 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   // il est lu par des refs.
   const keys = useRef({ status, agentBusy, toggle, send });
   keys.current = { status, agentBusy, toggle, send };
+  /** Ce que fait un raccourci de dictée, au clavier ou relayé par la fenêtre principale. */
+  const applyShortcut = (key: LinkShortcut) => {
+    const { status: now, agentBusy: busy, toggle: switchMode } = keys.current;
+    if (key === "type") return handlers.current.onType();
+    const action = shortcutAction(key, { agentBusy: busy, recording: now?.state === "recording" });
+    if (action === "agent-cancel") handlers.current.onAgentCancel();
+    else switchMode(action);
+  };
+
+  // Un raccourci relayé (agent détaché) : chaque numéro neuf agit une fois ; celui présent au montage, jamais.
+  const seen = useRef(remote?.seq ?? 0);
+  useEffect(() => {
+    if (!remote || remote.seq <= seen.current) return;
+    seen.current = remote.seq;
+    // `applyShortcut` ne lit que des refs (`keys`, `handlers`) : sa version courante suffit.
+    applyShortcut(remote.key);
+  }, [remote?.seq]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const { status: now, agentBusy: busy, toggle: switchMode, send: post } = keys.current;
+      const { status: now, agentBusy: busy, send: post } = keys.current;
       const shortcut = dictationShortcut(e, { agentBusy: busy, recording: now?.state === "recording" });
       if (typingShortcut(e)) {
         e.preventDefault();
         e.stopPropagation();
-        handlers.current.onType();
+        applyShortcut("type");
       } else if (shortcut) {
         e.preventDefault();
         e.stopPropagation();
-        if (shortcut === "agent-cancel") handlers.current.onAgentCancel();
-        else switchMode(shortcut);
+        applyShortcut(e.shiftKey ? "draft" : "auto");
       } else if (e.key === "Escape" && now && (now.state === "recording" || now.state === "downloading")) {
         // Échap arrête une écoute ; arrêter l'agent est l'affaire d'`App`, en dernier recours.
         e.preventDefault();

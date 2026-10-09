@@ -5,7 +5,12 @@ import type { AgentEvent, AgentScope, McpEvent } from "../api";
 import { t } from "../i18n";
 import { type AgentStatus, type ScopeView, agentScope, busyElsewhere, scopeKey, scopePlace } from "./scope";
 
-const IDLE: AgentStatus = { state: "idle" };
+export const IDLE: AgentStatus = { state: "idle" };
+/** L'état de l'agent d'après ses évènements : seul `status` le change. */
+export function agentStatusReducer(cur: AgentStatus, e: AgentEvent): AgentStatus {
+  return e.kind === "status" ? { state: e.state, scope: e.scope } : cur;
+}
+
 const NO_VIEW: ScopeView = { templates: false, history: false, pack: null, widget: null };
 
 /** Ce que l'interface lit de la portée de l'agent. */
@@ -56,7 +61,7 @@ export function useAgentScope(
       ),
     [agent],
   );
-  const [status, onAgentEvent] = useReducer((_: AgentStatus, e: AgentEvent): AgentStatus => ({ state: e.state, scope: e.scope }), IDLE);
+  const [status, onAgentEvent] = useReducer(agentStatusReducer, IDLE);
   const loaded = view !== null;
   useEffect(() => {
     if (!ready || !loaded) return;

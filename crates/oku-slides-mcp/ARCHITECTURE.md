@@ -10,7 +10,7 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 - `hub` : `SurfaceHub` (surfaces ouvertes, identifiants, évènements vers
   l'interface via `McpEvent`). La liste des surfaces ouvertes n'est changée
   que par `emit` (et par `act`, qui en retire une question répondue ou y
-  recopie un réglage) ; `resync` la renvoie entière (`McpEvent::Surfaces`),
+  recopie un réglage) ; `resync` annonce la portée vue (`Viewing`) puis la renvoie entière (`McpEvent::Surfaces`),
   remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
   questions en attente et rend `Cancelled` à toute question ultérieure.
   Plusieurs questions peuvent attendre ensemble (appels `ask_*` parallèles) : chacune est
