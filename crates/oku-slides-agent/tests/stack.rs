@@ -146,9 +146,11 @@ async fn handle_passes_the_ui_context_with_the_prompt() {
 async fn surface_action_on_an_unknown_surface_or_tab_is_an_error() {
     let (stack, _) = stack_with_sink(json!({ "turns": [{}] }), &["t-1"]).await;
     let action = |tab: &str| cmd(json!({ "cmd": "surface_action", "tab": tab, "surface": "x", "name": "dismiss" }));
-    assert_that!(stack.handle(action("t-9"))).is_err();
+    // L'interface affiche le texte reçu : dans la langue de l'utilisateur (`fr`), sans identifiant interne.
+    let refused = "Cette carte n'est plus ouverte.".to_owned();
+    assert_that!(stack.handle(action("t-9"))).is_err_containing(refused.clone());
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" }))).unwrap();
-    assert_that!(stack.handle(action("t-1"))).is_err();
+    assert_that!(stack.handle(action("t-1"))).is_err_containing(refused);
 }
 
 #[tokio::test(flavor = "multi_thread")]

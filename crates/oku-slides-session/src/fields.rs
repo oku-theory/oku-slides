@@ -90,7 +90,7 @@ fn owner_widget<'a>(slide: &'a Slide, tf: &TextField<'a>) -> &'a str {
 /// Texte du champ `tf` de `slide`, tel que saisi ; markdown pour `rich`.
 ///
 /// Pour un item de liste : la colonne de l'item.
-fn field_text<'a>(deck: &'a Deck, tf: &TextField<'a>) -> Cow<'a, str> {
+pub(crate) fn field_text<'a>(deck: &'a Deck, tf: &TextField<'a>) -> Cow<'a, str> {
     let column = tf.param.name.as_str();
     match tf.param.bind.as_deref() {
         // Paramètre lié (`plain` seulement, jamais une colonne) : la valeur du deck, où les ops l'écrivent.

@@ -52,6 +52,9 @@ session-undo-theme = 테마 변경
 session-undo-edited-theme = 테마 변경: { $name }
 session-help-deck = 도움말 프레젠테이션을 읽을 수 없습니다
 session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
+session-unknown-owner = { $owner }은(는) 슬라이드 { $slide }도, 그 요소도 아닙니다.
+session-unknown-field = { $owner }에는 { $field }(이)라는 텍스트 필드가 없습니다.
+session-field-needed = { $owner }의 텍스트 필드를 지정하세요(field).
 
 deck-untitled = 제목 없음
 deck-new-title = 새 프레젠테이션

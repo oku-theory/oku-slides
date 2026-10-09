@@ -311,7 +311,7 @@ impl Workspace {
     /// Sans fichier, l'onglet est vierge (tests, serveur lancé sans fichier).
     pub fn new(fonts: Fonts, platform: &Platform, file: Option<&Path>) -> Result<Self> {
         let mut ws = Self::empty(fonts, platform, None);
-        let pending = ws.pending(None, file.map(resolve), None);
+        let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), None);
         let session = pending.build()?;
         ws.insert_tab(None, pending.id, session, None);
         Ok(ws)
@@ -570,7 +570,7 @@ impl Workspace {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => pending,
                 },
-                WorkspaceRequest::NewWindow => w.pending(None, None, None),
+                WorkspaceRequest::NewWindow => w.pending(None, Opening::Blank, None),
                 WorkspaceRequest::CloseWindow { window, discard } => return Self::close_window(w, &window, &discard),
                 other => {
                     let gone = w.change(other)?;
@@ -681,7 +681,7 @@ mod tabs;
 mod windows;
 
 use slot::{Dormant, Slot};
-use tabs::{Pending, Step, Trash};
+use tabs::{Opening, Pending, Step, Trash};
 
 /// La session d'un onglet : un deck sans fichier s'enregistre de lui-même
 /// dans le dossier des decks (`paths.decks`).

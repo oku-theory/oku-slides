@@ -8,12 +8,15 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use snafu::{IntoError, ResultExt};
+
 use crate::McpEvent;
 use crate::paths::checked;
 use crate::settings::writable;
-use crate::tools::{Tools, fail, json_result, parse};
-
-const DENIED: &str = "denied by user";
+use crate::tool_error::{
+    DeniedSnafu, NoFileSnafu, OpenElsewhereSnafu, SessionSnafu, SettingLockedSnafu, TaskSnafu, ToolError,
+};
+use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SaveArgs {
@@ -57,15 +60,18 @@ impl Tools {
         f: impl FnOnce(&mut Session) -> oku_slides_session::Result<()> + Send + 'static,
     ) -> CallToolResult {
         if !self.hub.confirm(message, danger).await {
-            return fail(DENIED);
+            return self.denied();
         }
-        match self.with_session(move |s| f(s).map_err(|e| e.one_line())).await {
-            Ok(()) => {
-                self.hub.emit(McpEvent::Changed);
-                json_result(&json!({ "ok": true }))
-            }
-            Err(e) => fail(e),
-        }
+        let done = self.with_session(f).await;
+        self.reply(done, |()| {
+            self.hub.emit(McpEvent::Changed);
+            self.json_result(&json!({ "ok": true }))
+        })
+    }
+
+    /// L'utilisateur a refusé.
+    fn denied(&self) -> CallToolResult {
+        self.fail_with(DeniedSnafu.build())
     }
 
     /// `snapshot().dirty`, lu hors du fil async (le verrou de la session est
@@ -106,25 +112,25 @@ impl Tools {
     }
 
     pub(crate) async fn save(&self, args: Value) -> CallToolResult {
-        let SaveArgs { path } = match parse(args) {
+        let SaveArgs { path } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let path = match path.as_deref().map(checked).transpose() {
             Ok(p) => p,
-            Err(e) => return fail(e),
+            Err(e) => return self.fail_with(e),
         };
         // Un fichier ne vit que dans un onglet : refusé sans rien demander.
         if let Some(p) = &path
             && self.open_elsewhere(p).await
         {
-            return fail(self.localizer.tr("agent-open-elsewhere"));
+            return self.fail_with(OpenElsewhereSnafu.build());
         }
         let shown = match &path {
             Some(p) => p.display().to_string(),
             None => match self.current_path().await {
                 Some(p) => p.display().to_string(),
-                None => return fail("no file yet: give an absolute path"),
+                None => return self.fail_with(NoFileSnafu.build()),
             },
         };
         let exists = match &path {
@@ -139,24 +145,25 @@ impl Tools {
     /// Ouvre le fichier dans un autre onglet (ou montre celui qui l'a) ;
     /// l'onglet de l'agent garde son deck et sa conversation.
     pub(crate) async fn open(&self, args: Value) -> CallToolResult {
-        let OpenArgs { path } = match parse(args) {
+        let OpenArgs { path } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let path = match checked(&path) {
             Ok(p) => p,
-            Err(e) => return fail(e),
+            Err(e) => return self.fail_with(e),
         };
         let message = self.localizer.tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
         if !self.hub.confirm(message, false).await {
-            return fail(DENIED);
+            return self.denied();
         }
         let session = self.session.clone();
-        match tokio::task::spawn_blocking(move || session.open_tab(&path)).await {
-            Ok(Ok(tab)) => json_result(&json!({ "ok": true, "tab": tab })),
-            Ok(Err(e)) => fail(e.one_line()),
-            Err(e) => fail(format!("open task failed: {e}")),
-        }
+        let opened: Result<String, ToolError> = match tokio::task::spawn_blocking(move || session.open_tab(&path)).await
+        {
+            Ok(r) => r.context(SessionSnafu),
+            Err(e) => Err(TaskSnafu.into_error(e)),
+        };
+        self.reply(opened, |tab| self.json_result(&json!({ "ok": true, "tab": tab })))
     }
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {
@@ -168,7 +175,7 @@ impl Tools {
     }
 
     pub(crate) async fn save_templates(&self, args: Value) -> CallToolResult {
-        let SaveTemplatesArgs { as_new } = match parse(args) {
+        let SaveTemplatesArgs { as_new } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -183,7 +190,7 @@ impl Tools {
     }
 
     pub(crate) async fn delete_template_set(&self, args: Value) -> CallToolResult {
-        let crate::edit_tools::SetArgs { set } = match parse(args) {
+        let crate::edit_tools::SetArgs { set } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -199,12 +206,12 @@ impl Tools {
     }
 
     pub(crate) async fn set_setting(&self, args: Value) -> CallToolResult {
-        let SetSettingArgs { key, value } = match parse(args) {
+        let SetSettingArgs { key, value } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         if !writable(&key) {
-            return fail(format!("{key} cannot be changed by the agent"));
+            return self.fail_with(SettingLockedSnafu { key }.build());
         }
         let old = self.settings_read().await.get(&key).cloned().unwrap_or(Value::Null);
         let message = self.localizer.tr_with(
@@ -212,11 +219,9 @@ impl Tools {
             &[("key", key.as_str().into()), ("old", old.to_string().into()), ("new", value.to_string().into())],
         );
         if !self.hub.confirm(message, false).await {
-            return fail(DENIED);
+            return self.denied();
         }
-        match self.settings_write(key, value).await {
-            Ok(applied) => json_result(&json!({ "applied": applied })),
-            Err(e) => fail(e),
-        }
+        let written = self.settings_write(key, value).await;
+        self.reply(written, |applied| self.json_result(&json!({ "applied": applied })))
     }
 }

@@ -1,7 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { AddWidget, Element, McpEvent, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import type { AddWidget, Element, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -10,38 +10,31 @@ import { ActionMenu } from "./ActionMenu";
 import { applyAppearance } from "./appearance";
 import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
-import { fieldOps, findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
+import { findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
 import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
-import { anchorIds, fieldKey, fieldLabel, primaryFieldOf } from "./stageFields";
+import { fieldKey, primaryFieldOf } from "./stageFields";
 import { useFieldEditing } from "./useFieldEditing";
 import { useSvgCache } from "./useSvgCache";
-import { useViewOptions } from "./useViewOptions";
+import { useKeptUi } from "./useKeptUi";
 import ThemeMenu from "./ThemeMenu";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
-import { appendDraft, dictationRoute } from "./draft";
+import { useDictation } from "./useDictation";
 import { Icon } from "./icons";
 import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import { SlideThumbsContext, type SlideThumbs } from "./a2ui/slideThumbs";
-import { AgentThread } from "./agent/AgentThread";
-import { subscribeHost } from "./agent/events";
-import type { DictationMode } from "./agent/keys";
+import type { SlideThumbs } from "./a2ui/slideThumbs";
+import { AgentPanel, IDLE_AGENT, type AgentHandle } from "./agent/AgentPanel";
 import { escapeAction, targetOwnsKeys } from "./agent/keys";
-import type { QuickAction } from "./agent/quick";
-import { fromA2ui } from "./agent/quick";
-import { agentBusy, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./agent/surfaces";
-import { withRewriteParagraphs } from "./agent/rewrite";
-import { answerTarget, quickTarget, useQuickKeys } from "./agent/useQuickKeys";
-import { agentUi } from "./agent/ui";
-import { useAgentScope } from "./agent/useAgentScope";
+import { createSlot, SlotView } from "./agent/slot";
+import { useAgentFocus } from "./agent/useAgentFocus";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
@@ -61,11 +54,6 @@ import PileColumn from "./PileColumn";
 import SlideNav from "./SlideNav";
 import { slideTarget } from "./slideKeys";
 import TitleField from "./TitleField";
-
-// Surfaces de l'agent : chargées avec @a2ui, à la première question.
-const AgentSheet = lazy(() => import("./agent/AgentSheet").then((m) => ({ default: m.AgentSheet })));
-const VariantDrawer = lazy(() => import("./agent/VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
-const ConfirmModal = lazy(() => import("./agent/ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
 
 /** Un onglet : le deck de la session `tab`. */
 export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onChange }: {
@@ -148,7 +136,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
-    blocked: () => !!modal || editing !== null || picking || !!snapRef.current?.history || !!snapRef.current?.read_only,
+    blocked: () => agentStatus.modal || editing !== null || picking || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
   const widgetActive = !!snap?.editing && activeWidget(widgets.tabs) !== null;
   // Onglet « Thème » : la scène au centre, les jetons à droite (à la place du fil de l'agent).
@@ -183,7 +171,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   }, [appearanceKey, scheme]);
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
-  const viewOptions = useViewOptions(snap?.ui ?? null, current, api.ui, widgets.kept);
+  const keptUi = useKeptUi(snap?.ui ?? null, current, api.ui, widgets.kept);
   // Style du deck vu par les aperçus de widgets : un changement de thème ou du brouillon les relance.
   const look = snap ? previewLook(snap) : "";
 
@@ -363,98 +351,17 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   const target = useTargetSettings(api, snap, current, selectedElement ?? null, widgetActive || themeActive, run, say);
 
   // --- Agent ------------------------------------------------------------------
-  // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
-  const agent = useMemo(() => agentApi(tab), [tab]);
-  const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
-  const scopeView = snap
-    ? { templates: !!snap.editing, history: !!snap.history, pack: snap.editing?.set ?? null, widget: widgets.activeName }
-    : null;
-  const agentScopeState = useAgentScope(agent, scopeView, onSurfaceEvent);
-  const { scope, status: agentStatus, elsewhere, notice: elsewhereNotice } = agentScopeState;
-  const agentState = agentStatus.state;
-  /** Listes entières reçues (`surfaces`, après un abonnement ou une reconnexion) : le fil ne les relit pas. */
-  const [resyncs, countResync] = useReducer((n: number) => n + 1, 0);
-  // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
-  // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
-  const routed = useMemo(
-    () =>
-      routeSurfaces(
-        surfaces,
-        view && view.slide.id === current ? { slide: view.slide.id, targets: anchorIds(view) } : null,
-      ),
-    [surfaces, view, current],
-  );
-  const { stage: sheet, drawer, modal, dock } = routed;
-  const cancelAgent = () => agent.cancel().catch((err) => say(String(err), true));
-  const touchedRef = useRef(widgets.touched);
-  touchedRef.current = widgets.touched;
-  useEffect(
-    () =>
-      subscribeHost(tab, {
-        onMcp: (e: McpEvent) => {
-          onSurfaceEvent(e);
-          if (e.kind === "surfaces") countResync();
-          if (e.kind === "changed") run(api.snapshot());
-          if (e.kind === "focus") {
-            showSlide(e.slide);
-            setSelected(e.element);
-          }
-          if (e.kind === "widget_touched") touchedRef.current(e.name, e.removed);
-        },
-        onAgent: agentScopeState.onAgentEvent,
-        onError: (m) => console.warn(m),
-        // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
-        // (les évènements manqués pendant la coupure sont perdus). Sans outils
-        // (pile absente), `resync` échoue : il n'y a alors pas de surface.
-        onReady: () => {
-          agentScopeState.onReady();
-          run(api.snapshot());
-        },
-      }),
-    // S'abonner une fois par onglet : `run`, `api`, `agent` et les setters sont stables.
-    [run, tab, api, agent],
-  );
-  const sendAction = (s: Surface, a: QuickAction) => {
-    const action = withRewriteParagraphs(s, a);
-    return agent.surfaceAction(s.id, action.name, action.context).then(
-      () => true,
-      (err) => {
-        say(String(err), true);
-        return false;
-      },
-    );
-  };
-  const keysTarget = quickTarget({ modal, sheet, drawer, dock: routed.dock });
-  /**
-   * La surface qui reçoit les touches 1–4, Entrée, Échap et montre leur rappel ; aucune pendant
-   * l'édition d'un texte, le pointage ou un widget actif. Une consigne répond toujours à `keysTarget`.
-   */
-  const keyed = !editing && !picking && !widgetActive ? keysTarget : null;
-  /** Un tour en cours qui n'attend pas l'utilisateur (aucune question ne reçoit la consigne) : ⌘⇧D et Échap l'arrêtent. */
-  const busy = agentBusy(agentState, answerTarget(keysTarget));
-  const hintsOn = (s: Surface) => keyed?.surface.id === s.id;
-  /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
-  const promptAgent = (text: string, answer = answerTarget(keysTarget)) => {
-    // Pendant un tour ailleurs, seule une réponse à une question part.
-    if (elsewhereNotice && answer === null) {
-      say(elsewhereNotice, true);
-      return Promise.resolve();
-    }
-    return agent
-      .prompt(scope, text, agentUi(current, selected, editField, widgets.activeName), answer)
-      .catch((err) => say(String(err), true));
-  };
-  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
-    if (host.onAction(s, a) || target.onAction(s, a)) return;
-    const action = fromA2ui(a);
-    if (elsewhereNotice && suggestedPrompt(action) !== null) {
-      say(elsewhereNotice, true);
-      return;
-    }
-    // Une suite cliquée part vers l'agent, une fois l'action acceptée : une nouvelle consigne, qui ne répond à aucune question.
-    void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
-  };
-  useQuickKeys(keyed, sendAction);
+  // Son état vit dans `AgentPanel` : un morceau de réponse ne re-rend pas `App`. `App` n'en reçoit
+  // que des valeurs simples (`agentStatus`) et une poignée (consigne, action, arrêt du tour).
+  const [agent] = useState(() => agentApi(tab));
+  const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
+  const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
+  const agentHandle = useRef<AgentHandle>(null);
+  const promptAgent = (text: string) => agentHandle.current?.prompt(text) ?? Promise.resolve(false);
+  const cancelAgent = () => agentHandle.current?.cancel();
+  const onSurfaceAction = (s: Surface, a: A2uiClientAction) => agentHandle.current?.onSurfaceAction(s, a);
+  // Un focus de l'agent pendant l'édition d'un texte attend la fin de l'édition.
+  const onAgentFocus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: setSelected });
 
   // --- Édition des modèles ------------------------------------------------
   const editTemplates = async (): Promise<boolean> => {
@@ -523,12 +430,12 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       if (e.defaultPrevented) return;
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      if (modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
+      if (agentStatus.modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
       // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
       if (snap?.read_only) return;
       const mod = e.metaKey || e.ctrlKey;
       // Grille et fantômes se basculent partout, historique compris.
-      if (viewOptions.handleKey(e)) return;
+      if (keptUi.handleKey(e)) return;
       if (snap?.history) {
         // Lecture seule : ← / → (⇧ : par session) parcourent les versions ;
         // les raccourcis d'édition, qui prennent aussi les flèches, sont inertes.
@@ -566,7 +473,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
         if (slot >= 0 && slot <= snap.slides.length) moveSlide(current, slot);
       } else if (e.key === "Escape") {
-        const action = escapeAction({ selected: selected !== null, agentBusy: busy && !elsewhere });
+        const action = escapeAction({ selected: selected !== null, agentBusy: agentStatus.cancellable });
         if (action === "deselect") setSelected(null);
         else if (action === "agent-cancel") {
           e.preventDefault();
@@ -616,64 +523,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
-  const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
-  // Hors édition, la dictée écrit dans le premier champ de l'élément sélectionné.
-  const writable = view && selected ? primaryFieldOf(view, selected) : null;
-  // Où « Insérer » écrit le brouillon ; `null` : aucune zone où écrire.
-  const insertTo = editing
-    ? t("ui-dictation-to-cursor")
-    : writable
-      ? writable.kind === "plain"
-        ? t("ui-dictation-to-field", { field: fieldLabel(writable).toLowerCase() })
-        : t("ui-dictation-to-block")
-      : view?.slide.kind === "content"
-        ? t("ui-dictation-new-block")
-        : null;
-  // Où va ⌘D : au curseur pendant l'édition, au brouillon ailleurs.
-  const destination = t(editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft");
-  const dictationVocabulary = useMemo(
-    () => (snap ? [snap.title, ...snap.slides.map((s) => s.title)].filter((s): s is string => !!s) : []),
-    [snap],
-  );
-
-  // Hors édition, une dictée s'écrit dans le brouillon : « Insérer » l'écrit
-  // tel quel dans le deck, « Envoyer » la donne à l'agent. ⌘K l'ouvre pour écrire.
-  const [draft, setDraft] = useState<{ text: string | null; dictations: number; typing: number }>({ text: null, dictations: 0, typing: 0 });
-  const closeDraft = () => setDraft((d) => ({ ...d, text: null }));
-  const typeDraft = () => setDraft((d) => ({ ...d, text: d.text ?? "", typing: d.typing + 1 }));
-  const sendDraft = (text: string) => {
-    closeDraft();
-    promptAgent(text);
-  };
-  const insertDraft = (text: string) => {
-    closeDraft();
-    insertText(text);
-  };
-
-  const onDictated = (text: string, mode: DictationMode) => {
-    if (dictationRoute(mode, editing !== null) === "cursor") insertText(text);
-    else setDraft((d) => ({ ...d, text: appendDraft(d.text, text), dictations: d.dictations + 1 }));
-  };
-
-  /** Écrit un texte tel quel : au curseur, dans la zone sélectionnée ou en nouveau bloc. */
-  const insertText = (text: string) => {
-    if (editing) {
-      setDictated((d) => ({ seq: (d?.seq ?? 0) + 1, text }));
-      return;
-    }
-    if (!view) return;
-    if (writable) {
-      const previous = writable.text;
-      const keep = writable.kind === "rich" && previous.trim() !== "" && previous !== t("ui-new-text");
-      apply(t("ui-undo-dictation"), fieldOps(view, writable, keep ? `${previous}\n${text}` : text));
-      return;
-    }
-    if (view.slide.kind === "content") {
-      addElement("text", textToParagraphs(text), t("ui-undo-dictation"));
-      return;
-    }
-    say(t("ui-toast-select-zone", { text }), true);
-  };
+  const dictation = useDictation({ snap, view, selected, editing, apply, addElement, say, prompt: promptAgent });
 
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
@@ -699,7 +549,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
     ? [
         { kind: "item" as const, label: t("ui-toolbar-save-copy"), onSelect: () => saveTemplates(true) },
         { kind: "separator" },
-        ...viewOptions.entries,
+        ...keptUi.entries,
         { kind: "separator" },
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
@@ -716,7 +566,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         { kind: "item", label: t("ui-menu-workshop"), onSelect: () => void editTemplates() },
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
-        ...viewOptions.entries,
+        ...keptUi.entries,
         { kind: "separator" },
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
@@ -730,7 +580,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
   const noop = () => {};
-  const paramsHidden = viewOptions.folded.includes("params");
+  const paramsHidden = keptUi.folded.includes("params");
 
   // Section des miniatures, repliée à part en mode modèles.
   const thumbsSection: PileSectionName = snap.editing ? "templates" : "slides";
@@ -814,10 +664,10 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>
-          <WidgetTools tab={activeWidget(widgets.tabs)} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={viewOptions} />
+          <WidgetTools tab={activeWidget(widgets.tabs)} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={keptUi} />
         </>) : (<>
           {/* Les paramètres de contenu sous la slide : affichés ou masqués (gardé par l'hôte). */}
-          <button className="token ghost" aria-pressed={!paramsHidden} aria-label={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} title={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} onClick={() => viewOptions.setFolded("params", !paramsHidden)}>{Icon.panelBottom}</button>
+          <button className="token ghost" aria-pressed={!paramsHidden} aria-label={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} title={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} onClick={() => keptUi.setFolded("params", !paramsHidden)}>{Icon.panelBottom}</button>
           <span className="tools-sep" aria-hidden />
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
@@ -834,15 +684,15 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
       {/* Pile de slides (repliable), à gauche ; en mode modèles, sections Modèles et Widgets. */}
       <PileColumn
         title={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
-        open={!viewOptions.folded.includes(thumbsSection)}
-        onToggle={() => viewOptions.setFolded(thumbsSection, !viewOptions.folded.includes(thumbsSection))}
+        open={!keptUi.folded.includes(thumbsSection)}
+        onToggle={() => keptUi.setFolded(thumbsSection, !keptUi.folded.includes(thumbsSection))}
         slides={pileView}
         widgets={
           snap.editing && !history ? (
             <PileWidgets
               files={widgets.files}
-              open={!viewOptions.folded.includes("widgets")}
-              onOpenChange={(open) => viewOptions.setFolded("widgets", !open)}
+              open={!keptUi.folded.includes("widgets")}
+              onOpenChange={(open) => keptUi.setFolded("widgets", !open)}
               current={widgets.activeName}
               onOpen={widgets.open}
               onRemoved={widgets.removed}
@@ -871,22 +721,11 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
             packWidgets={packWidgets}
             onOpenWidget={(name) => void widgets.enterAndOpen(editTemplates, name)}
             onNotice={(m) => say(m, true)}
-            dictated={dictated}
+            dictated={dictation.dictated}
             // L'aide se lit comme une présentation : sans grille ni fantômes.
-            showGridAlways={viewOptions.grid && !snap.read_only}
-            showGhosts={viewOptions.ghosts && !snap.read_only}
-            overlay={
-              sheet?.anchor
-                ? {
-                    target: sheet.anchor.element,
-                    node: (
-                      <Suspense fallback={null}>
-                        <AgentSheet key={sheet.id} surface={sheet} hints={hintsOn(sheet)} onAction={sendAction} onError={(m) => say(m, true)} />
-                      </Suspense>
-                    ),
-                  }
-                : undefined
-            }
+            showGridAlways={keptUi.grid && !snap.read_only}
+            showGhosts={keptUi.ghosts && !snap.read_only}
+            overlay={agentStatus.sheet ? { anchor: agentStatus.sheet, node: <SlotView slot={agentSlots.sheet} /> } : undefined}
             palette={snap.appearance.chart_palette}
           />
         ) : (
@@ -908,62 +747,52 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           />
         )}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={viewOptions.code} codeWidth={viewOptions.codeWidth} onCodeWidth={viewOptions.setCodeWidth}
+        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth} onCodeWidth={keptUi.setCodeWidth}
           run={run} palette={snap.appearance.chart_palette}
           settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null} />}
-        {drawer && (
-          <Suspense fallback={null}>
-            <VariantDrawer key={drawer.id} surface={drawer} hints={hintsOn(drawer)} onAction={sendAction} onError={(m) => say(m, true)} />
-          </Suspense>
-        )}
+        <SlotView slot={agentSlots.drawer} />
       </main>
 
       {/* Cartes à droite de la feuille. */}
       <aside className={`notes${themeActive ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
         {/* Onglet « Thème » : les jetons en tête ; le fil de l'agent reste monté, caché (styles.css). */}
         {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
-        {!snap.read_only && (<>
-        <SlideThumbsContext.Provider value={slideThumbs}>
-          <AgentThread
-            state={elsewhere ? "idle" : agentState}
-            turns={routed.turns}
-            loose={routed.loose}
-            dock={dock}
-            keysTo={keyed?.surface.id ?? null}
-            resyncs={resyncs}
-            onAction={onSurfaceAction}
-            onNewConversation={() => agent.newConversation(scope).catch((err) => say(String(err), true))}
-            onError={(m) => say(m, true)}
-          />
-        </SlideThumbsContext.Provider>
-        <DictationDraft
-          text={draft.text}
-          dictations={draft.dictations}
-          typing={draft.typing}
-          busy={busy}
-          notice={answerTarget(keysTarget) === null ? elsewhereNotice : null}
-          insertTo={insertTo}
-          onChange={(text) => setDraft((d) => ({ ...d, text }))}
-          onInsert={insertDraft}
-          onSend={sendDraft}
-          onDiscard={closeDraft}
+        <AgentPanel
+          tab={tab} agent={agent} view={view} current={current} selected={selected} editField={editField} widget={widgets.activeName}
+          scopeView={{ templates: !!snap.editing, history: !!snap.history, pack: snap.editing?.set ?? null, widget: widgets.activeName }}
+          keysOff={!!editing || picking || widgetActive} thread={!snap.read_only} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
+          onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
+          onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
+          onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
         />
-        </>)}
+        {!snap.read_only && <DictationDraft
+          text={dictation.draft.text}
+          dictations={dictation.draft.dictations}
+          typing={dictation.draft.typing}
+          busy={agentStatus.busy}
+          notice={agentStatus.notice}
+          ready={agentStatus.ready}
+          insertTo={dictation.insertTo}
+          onChange={dictation.setDraftText}
+          onInsert={dictation.insertDraft}
+          onSend={dictation.sendDraft}
+          onDiscard={dictation.closeDraft}
+        />}
       </aside>
 
       {/* Entre pile et feuille, entre feuille et fil : de quoi régler les largeurs. */}
-      <ColumnDividers columns={viewOptions.columns} onChange={viewOptions.setColumns} />
+      <ColumnDividers columns={keptUi.columns} onChange={keptUi.setColumns} />
 
       {/* Appareil de dictée, posé devant la feuille. */}
       {/* Montée aussi dans l'historique : l'écoute reste visible et s'arrête ; un texte dicté y reçoit le refus de la session. */}
       {!snap.read_only && <Dictation
-        destination={destination}
-        vocabulary={dictationVocabulary}
-        onText={onDictated}
+        destination={dictation.destination}
+        vocabulary={dictation.vocabulary}
+        onText={dictation.onDictated}
         onError={(m) => say(m, true)}
-        agentBusy={busy}
+        agentBusy={agentStatus.busy}
         onAgentCancel={cancelAgent}
-        onType={typeDraft}
+        onType={dictation.typeDraft}
       />}
 
       {picking && (
@@ -978,11 +807,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         />
       )}
 
-      {modal && (
-        <Suspense fallback={null}>
-          <ConfirmModal key={modal.id} surface={modal} hints={hintsOn(modal)} onAction={sendAction} onError={(m) => say(m, true)} />
-        </Suspense>
-      )}
+      <SlotView slot={agentSlots.modal} />
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
     </div>

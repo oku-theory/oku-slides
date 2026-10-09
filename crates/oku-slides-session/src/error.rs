@@ -56,6 +56,12 @@ pub enum SessionErrorKind {
     Response,
     /// Arguments d'une surface de l'agent invalides.
     AgentForm,
+    /// Adresse de l'agent : ni la slide ni un de ses éléments.
+    UnknownOwner,
+    /// Adresse de l'agent : pas un champ texte de l'objet.
+    UnknownField,
+    /// Adresse de l'agent : l'objet n'a pas de texte par défaut, il faut nommer son champ.
+    FieldNeeded,
     /// Onglet inconnu (fermé entre-temps).
     UnknownTab,
     /// Fenêtre inconnue (fermée entre-temps).
@@ -159,6 +165,12 @@ pub(crate) enum SessionInner {
     Response { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid surface: {reason}"))]
     AgentForm { reason: String, backtrace: Backtrace },
+    #[snafu(display("{owner} is neither slide {slide} nor one of its elements"))]
+    UnknownOwner { slide: String, owner: String, backtrace: Backtrace },
+    #[snafu(display("{owner} has no text field {field}"))]
+    UnknownField { owner: String, field: String, backtrace: Backtrace },
+    #[snafu(display("name a text field of {owner}"))]
+    FieldNeeded { owner: String, backtrace: Backtrace },
     #[snafu(display("tab not found: {id}"))]
     UnknownTab { id: String, backtrace: Backtrace },
     #[snafu(display("window not found: {label}"))]
@@ -252,6 +264,9 @@ impl SessionError {
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
+            UnknownOwner { .. } => SessionErrorKind::UnknownOwner,
+            UnknownField { .. } => SessionErrorKind::UnknownField,
+            FieldNeeded { .. } => SessionErrorKind::FieldNeeded,
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
             UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
             SingleDocument { .. } => SessionErrorKind::SingleDocument,
@@ -358,6 +373,15 @@ impl Localize for SessionError {
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
+            UnknownOwner { slide, owner, .. } => l.tr_with(
+                "session-unknown-owner",
+                &[("slide", slide.as_str().into()), ("owner", owner.as_str().into())],
+            ),
+            UnknownField { owner, field, .. } => l.tr_with(
+                "session-unknown-field",
+                &[("owner", owner.as_str().into()), ("field", field.as_str().into())],
+            ),
+            FieldNeeded { owner, .. } => l.tr_with("session-field-needed", &[("owner", owner.as_str().into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
             SingleDocument { .. } => l.tr("session-single-document"),

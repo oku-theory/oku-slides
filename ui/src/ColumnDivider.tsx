@@ -8,7 +8,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { type Columns, fitColumns } from "./columns";
 import { t } from "./i18n";
-import type { ColumnWidths } from "./useViewOptions";
+import type { ColumnWidths } from "./useKeptUi";
 
 interface Props {
   /** Colonne réglée : la pile (à gauche du séparateur) ou le fil (à sa droite). */

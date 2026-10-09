@@ -75,7 +75,7 @@ async fn slide_unknown_id_returns_tool_error() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "slide", serde_json::json!({ "id": "inconnue" })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r).contains("slide not found")).is_true();
+    assert_that!(text_of(&r).as_str()).is_equal_to("Slide introuvable : inconnue");
 }
 
 #[tokio::test(flavor = "multi_thread")]

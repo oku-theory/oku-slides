@@ -35,7 +35,7 @@ describe("quickTarget", () => {
 describe("answerTarget", () => {
   // Une consigne (dictée ou tapée) répond à la question qui reçoit les touches 1–4, jamais à une autre.
   const sheet = real("ask-1");
-  const onStage = sheet.anchor ? { slide: sheet.anchor.slide, targets: [sheet.anchor.element] } : null;
+  const onStage = sheet.anchor ? { slide: sheet.anchor.slide, has: (a: { owner: string }) => a.owner === sheet.anchor?.owner } : null;
   // Comme `App` : la fiche qui reçoit les touches est celle de la scène (`stage`).
   const target = (list: Surface[], shown = onStage) => {
     const routed = routeSurfaces(list, shown);
@@ -69,7 +69,7 @@ describe("agentBusy", () => {
   // « L'agent attend l'utilisateur » = une question reçoit la consigne (`answerTarget`) : ⌘⇧D et
   // Échap y répondent ; sinon, pendant un tour, ils l'arrêtent. Une question invisible n'attend pas.
   const sheet = real("ask-1");
-  const onStage = sheet.anchor ? { slide: sheet.anchor.slide, targets: [sheet.anchor.element] } : null;
+  const onStage = sheet.anchor ? { slide: sheet.anchor.slide, has: (a: { owner: string }) => a.owner === sheet.anchor?.owner } : null;
   const busy = (list: Surface[], shown = onStage) => {
     const routed = routeSurfaces(list, shown);
     return agentBusy("working", answerTarget(quickTarget({ ...routed, sheet: routed.stage })));
@@ -83,6 +83,15 @@ describe("agentBusy", () => {
 
   test("seule une fiche hors de la slide affichée attend : le tour est en cours (⌘⇧D l'arrête)", () => {
     expect(busy([sheet], null)).toBe(true);
+  });
+
+  test("une question du fil figée (répondue) n'attend plus : le tour est en cours (⌘⇧D l'arrête)", () => {
+    // Figée par le hub : elle reste dans son tour, non vivante ; `question` gardé, au pire.
+    const frozen: Surface = { ...ask("ask-8"), live: false, turn: 1 };
+    expect(frozen.question).toBe(true);
+    expect(busy([frozen])).toBe(true);
+    // La même, encore vivante au dock : l'agent attend la réponse.
+    expect(busy([{ ...frozen, live: true }])).toBe(false);
   });
 
   test("un tiroir ou des réglages ne sont pas une question ; au repos, rien n'est en cours", () => {

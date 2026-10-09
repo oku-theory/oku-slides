@@ -20,7 +20,7 @@ import { sheetPlacement } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
-import { elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
+import { anchorBox, elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
 import GhostLayer from "./GhostLayer";
 import type { OnListOp } from "./stageItems";
 import { findItem, groupAxis, moveItemTo, stageListOp } from "./stageItems";
@@ -81,8 +81,8 @@ interface DeckProps extends CommonProps {
   onApply: (label: string, ops: Op[], merge?: string) => void | Promise<boolean>;
   /** Grille affichée (sinon : seulement pendant un glisser). */
   showGridAlways?: boolean;
-  /** Posé sous l'élément `target` (fiche d'une question de l'agent), s'il est sur la slide ; `@param` : sous ce champ de la slide. */
-  overlay?: { target: string; node: ReactNode };
+  /** Posé sous l'ancre (fiche d'une question de l'agent) : l'élément `owner` ou son champ `field`, s'il est sur la slide. */
+  overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
   /** Mode modèles : les placeholders de tous les champs vides se voient. */
@@ -461,17 +461,6 @@ export default function Stage(props: Props) {
   );
 }
 
-/** Boîte (pt) où poser la fiche : un élément, ou `@param` pour un champ de la slide. */
-function sheetAnchor(view: SlideView, target: string): { x: number; y: number; w: number; h: number } | null {
-  if (target.startsWith("@")) {
-    const f = view.fields.find((x) => x.owner_kind === "slide" && x.field === target.slice(1));
-    if (!f) return null;
-    const b = fieldHitBox(f, 1, view.fields);
-    return { x: b.left, y: b.top, w: b.width, h: b.height };
-  }
-  return view.targets.find((x) => x.id === target) ?? null;
-}
-
 type SheetMeasure = { sheet: { width: number; height: number }; zone: PxZone };
 
 /**
@@ -480,10 +469,10 @@ type SheetMeasure = { sheet: { width: number; height: number }; zone: PxZone };
  * Mesurée après mise en page (avant affichage), puis suivie par un seul observateur : la fiche
  * (son contenu change), la zone et le cadre de la scène (une autre échelle le déplace dans la zone).
  */
-function SheetOverlay({ view, scale, overlay }: { view: SlideView; scale: number; overlay: { target: string; node: ReactNode } }) {
+function SheetOverlay({ view, scale, overlay }: { view: SlideView; scale: number; overlay: NonNullable<DeckProps["overlay"]> }) {
   const ref = useRef<HTMLDivElement>(null);
   const [measure, setMeasure] = useState<SheetMeasure | null>(null);
-  const anchor = sheetAnchor(view, overlay.target);
+  const anchor = anchorBox(view, overlay.anchor);
   // La fiche n'est montée qu'avec son élément : l'observateur naît et meurt avec elle.
   const shown = anchor !== null;
   useLayoutEffect(() => {

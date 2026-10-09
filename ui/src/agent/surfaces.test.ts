@@ -16,10 +16,10 @@ describe("surfaces de l'agent", () => {
     const before = [s("a", "thread"), s("show-1", "thread"), s("c", "thread")];
     const list = surfacesReducer(before, {
       kind: "surface",
-      surface: { ...s("show-1", "thread"), anchor: { slide: "a", element: "b" } },
+      surface: { ...s("show-1", "thread"), anchor: { slide: "a", owner: "b" } },
     });
     expect(list.map((x) => x.id)).toEqual(["a", "show-1", "c"]);
-    expect(list[1].anchor).toEqual({ slide: "a", element: "b" });
+    expect(list[1].anchor).toEqual({ slide: "a", owner: "b" });
   });
 
   test("fermer une surface inconnue ne change rien", () => {
@@ -56,8 +56,9 @@ describe("surfaces de l'agent", () => {
     expect(surfacesReducer([s("a", "thread"), s("b", "sheet")], { kind: "surfaces", list: [] })).toEqual([]);
   });
 
-  const sheet = (id: string, slide: string, element: string): Surface => ({ ...s(id, "sheet"), anchor: { slide, element } });
-  const shown = { slide: "s-1", targets: ["e-1", "@title"] };
+  const sheet = (id: string, slide: string, owner: string, field?: string): Surface => ({ ...s(id, "sheet"), anchor: { slide, owner, field } });
+  const onStage = new Set(["e-1", "s-1/title"]);
+  const shown = { slide: "s-1", has: (a: { owner: string; field?: string }) => onStage.has(a.field ? `${a.owner}/${a.field}` : a.owner) };
 
   test("routeSurfaces : une fiche dont l'élément est à l'écran va sur la scène", () => {
     const r = routeSurfaces([sheet("q", "s-1", "e-1")], shown);
@@ -77,7 +78,7 @@ describe("surfaces de l'agent", () => {
   });
 
   test("routeSurfaces : une seule fiche sur la scène, la plus ancienne ; les suivantes au fil", () => {
-    const r = routeSurfaces([sheet("a", "s-1", "e-1"), sheet("b", "s-1", "@title")], shown);
+    const r = routeSurfaces([sheet("a", "s-1", "e-1"), sheet("b", "s-1", "s-1", "title")], shown);
     expect(r.stage?.id).toBe("a");
     expect(r.loose.map((x) => x.id)).toEqual(["b"]);
   });
@@ -134,7 +135,7 @@ test("routeSurfaces garde visible une surface figée sans tour", () => {
 });
 
 test("routeSurfaces garde les fiches hors scène dans le fil", () => {
-  const sheet = ts("ask-4", { place: "sheet", live: true, anchor: { slide: "s-1", element: "e-1" } });
+  const sheet = ts("ask-4", { place: "sheet", live: true, anchor: { slide: "s-1", owner: "e-1" } });
   expect(routeSurfaces([sheet], null).loose).toEqual([sheet]);
 });
 

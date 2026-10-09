@@ -14,7 +14,7 @@ export interface TemplateWidgets {
   revision: string;
   /** Nom du sous-onglet widget actif ; `null` : « Modèles », « Thème » ou hors mode modèles. */
   activeName: string | null;
-  /** Pour `useViewOptions` : vide hors mode modèles, dès le même rendu. */
+  /** Pour `useKeptUi` : vide hors mode modèles, dès le même rendu. */
   kept: KeptTabs;
   open(name: string): void;
   activate(id: ActiveTab): void;

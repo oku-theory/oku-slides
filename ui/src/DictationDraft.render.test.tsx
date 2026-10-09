@@ -21,7 +21,7 @@ afterEach(async () => {
 
 async function mount(
   text: string | null,
-  { busy = false, insertTo = "dans le titre" as string | null, typing = 0, notice = null as string | null } = {},
+  { busy = false, insertTo = "dans le titre" as string | null, typing = 0, notice = null as string | null, ready = true } = {},
 ) {
   const sent: string[] = [];
   const inserted: string[] = [];
@@ -39,6 +39,7 @@ async function mount(
         typing,
         busy,
         notice,
+        ready,
         insertTo,
         onInsert: (v: string) => inserted.push(v),
         onChange: (v: string) => changes.push(v),
@@ -58,6 +59,18 @@ const key = (el: Element, init: KeyboardEventInit) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
 
 describe("brouillon de dictée", () => {
+  test("DictationDraft sans agent disponible ne peut pas envoyer (t-211)", async () => {
+    const d = await mount("Ajoute une slide", { ready: false });
+    expect(d.send().disabled).toBe(true);
+    key(d.note(), { key: "Enter", metaKey: true });
+    expect(d.sent).toEqual([]);
+  });
+
+  test("DictationDraft sans agent disponible peut toujours insérer (t-211)", async () => {
+    const d = await mount("Ajoute une slide", { ready: false });
+    expect(d.insert().disabled).toBe(false);
+  });
+
   test("DictationDraft with a notice disables send", async () => {
     const { send } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…" });
     expect(send().disabled).toBe(true);

@@ -82,3 +82,64 @@ async fn answer_question_no_longer_pending_is_refused_and_answers_nothing() {
     assert_that!(hub.has_pending_ask()).is_true();
     assert_that!(hub.surfaces().iter().map(|s| s.id.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["ask-b"]);
 }
+
+/// `ask_with` enregistre la question et l'affiche sous un seul verrou (t-454) : à tout instant
+/// observé sous ce verrou, les questions en attente sont exactement les surfaces ouvertes, dans
+/// le même ordre. Sans crochet dans `ask_with`, la fenêtre entre deux verrous ne se force pas :
+/// un observateur relit l'état en boucle pendant que des questions s'ouvrent et se ferment en
+/// parallèle (une régression vers deux verrous s'y voit presque à chaque lancement, pas à coup sûr).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn ask_registers_and_shows_a_question_under_one_lock() {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    let hub = hub();
+    let stop = Arc::new(AtomicBool::new(false));
+    let seen = Arc::new(AtomicUsize::new(0));
+    let observer = std::thread::spawn({
+        let (hub, stop, seen) = (hub.clone(), stop.clone(), seen.clone());
+        move || {
+            while !stop.load(Ordering::Relaxed) {
+                let state = hub.state();
+                let asks: Vec<&str> = state.asks.iter().map(|a| a.id.as_str()).collect();
+                let open: Vec<&str> = state.open.iter().map(|s| s.id.as_str()).collect();
+                if asks != open {
+                    return Err(format!("en attente {asks:?}, ouvertes {open:?}"));
+                }
+                if !asks.is_empty() {
+                    seen.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            Ok(())
+        }
+    });
+    for round in 0..50 {
+        let tasks: Vec<_> = (0..8)
+            .map(|i| {
+                let (hub, surface) = (hub.clone(), choice(&format!("ask-{round}-{i}")));
+                tokio::spawn(async move { hub.ask(surface).await })
+            })
+            .collect();
+        tokio::task::yield_now().await;
+        if round == 0 {
+            // Un exécuteur chargé : l'observateur doit avoir vu une question en attente au moins
+            // une fois avant la première annulation (sinon `seen` resterait à 0, verrou correct ou non).
+            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+            while seen.load(Ordering::Relaxed) == 0 && tokio::time::Instant::now() < deadline {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        }
+        hub.cancel_asks();
+        for task in tasks {
+            // Une question ouverte après `cancel_asks` attendrait toujours : annulée à son tour.
+            while !task.is_finished() {
+                hub.cancel_asks();
+                tokio::task::yield_now().await;
+            }
+            let _ = task.await;
+        }
+    }
+    stop.store(true, Ordering::Relaxed);
+    let verdict = observer.join().unwrap_or_else(|_| panic!("l'observateur a paniqué"));
+    assert_that!(verdict).is_ok();
+    asserting("l'observateur a vu des questions en attente").that(&seen.load(Ordering::Relaxed)).is_greater_than(0);
+}

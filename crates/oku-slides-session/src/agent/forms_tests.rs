@@ -34,11 +34,31 @@ fn choice_with_anchor_goes_to_sheet() {
     let spec = AskChoice {
         question: "Quelle mise en page ?".into(),
         options: options(),
-        anchor: Some(Anchor { slide: "s-4".into(), element: "e-2".into() }),
+        anchor: Some(Anchor { slide: "s-4".into(), owner: "e-2".into(), field: None }),
     };
     let s = choice("ask-1", &spec, &fr());
     assert_that!(s.place).is_equal_to(Place::Sheet);
     insta::assert_json_snapshot!(s);
+}
+
+/// t-326 : l'ancre part à l'interface en `{slide, owner, field}`, sans `field` pour un élément entier.
+#[test]
+fn anchor_serializes_owner_and_field() {
+    let element = Anchor { slide: "s-4".into(), owner: "e-2".into(), field: None };
+    let field = Anchor { slide: "s-4".into(), owner: "s-4".into(), field: Some("title".into()) };
+    assert_that!(serde_json::to_value(&element).unwrap()).is_equal_to(json!({ "slide": "s-4", "owner": "e-2" }));
+    assert_that!(serde_json::to_value(&field).unwrap())
+        .is_equal_to(json!({ "slide": "s-4", "owner": "s-4", "field": "title" }));
+}
+
+/// t-326 : l'ancienne forme `element: "@title"` est refusée, sans compatibilité.
+#[test]
+fn anchor_in_the_old_at_param_shape_is_refused() {
+    let old = serde_json::from_value::<Anchor>(json!({ "slide": "s-4", "element": "@title" }));
+    assert_that!(old.is_err()).is_true();
+    let rewrite =
+        serde_json::from_value::<AskRewrite>(json!({ "slide": "s-4", "element": "@title", "proposals": ["a", "b"] }));
+    assert_that!(rewrite.is_err()).is_true();
 }
 
 #[test]
@@ -303,7 +323,7 @@ fn calm_confirm_has_no_danger_button() {
 /// Une surface de chaque forme, telle que l'interface la reçoit.
 fn every_form() -> Vec<super::Surface> {
     let l = fr();
-    let anchor = Some(Anchor { slide: "s-4".into(), element: "e-2".into() });
+    let anchor = Some(Anchor { slide: "s-4".into(), owner: "e-2".into(), field: None });
     let field = |label: &str, kind, value| ParamField {
         label: label.into(),
         kind,
@@ -444,7 +464,8 @@ fn every_form() -> Vec<super::Surface> {
             "ask-4",
             &AskRewrite {
                 slide: "s-4".into(),
-                element: "@title".into(),
+                owner: "s-4".into(),
+                field: Some("title".into()),
                 proposals: vec!["Nos paris pour 2027".into(), "Ce que nous visons".into()],
             },
             "Nos objectifs pour 2027",

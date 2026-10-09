@@ -586,11 +586,22 @@ export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } 
 /** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
 export type Place = "sheet" | "thread" | "drawer" | "modal";
 
+/**
+ * Où l'agent pose une fiche (session, `agent::Anchor`) : l'élément `owner` de la slide, ou son
+ * champ texte `field` ; `owner` est l'id de la slide pour un champ de la slide. Résolue par la
+ * session contre le deck avant d'arriver ici.
+ */
+export interface Anchor {
+  slide: string;
+  owner: string;
+  field?: string;
+}
+
 /** Une surface de l'agent : ses messages A2UI et sa place (session, `agent::Surface`). */
 export interface Surface {
   id: string;
   place: Place;
-  anchor?: { slide: string; element: string };
+  anchor?: Anchor;
   /** Le tour qui l'a créée (surfaces du fil). */
   turn?: number;
   /** Vivante : dans le dock ; figée : dans son tour. */

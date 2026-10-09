@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { Columns } from "./columns";
-import type { ColumnWidths } from "./useViewOptions";
+import type { ColumnWidths } from "./useKeptUi";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");

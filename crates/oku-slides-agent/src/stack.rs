@@ -6,7 +6,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use oku_slides_mcp::{McpEvent, SurfaceAction};
+use oku_slides_i18n::Localize;
+use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
@@ -169,9 +170,16 @@ impl Stack {
                 }
             }
             AgentCommand::SurfaceAction { tab, surface, name, context } => {
-                // Un onglet sans agent n'a aucune surface ouverte.
-                let t = self.tab(&tab).ok_or_else(|| "unknown surface".to_owned())?;
-                return t.hub.act(SurfaceAction { surface, name, context });
+                // Un onglet sans agent n'a aucune surface ouverte. L'interface affiche le texte
+                // reçu : dit dans la langue de l'utilisateur, l'erreur complète reste au journal.
+                let acted = match self.tab(&tab) {
+                    Some(t) => t.hub.act(SurfaceAction { surface, name, context }),
+                    None => Err(HubError::unknown_surface(surface)),
+                };
+                return acted.map_err(|e| {
+                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "action de surface refusée");
+                    e.localize(&self.platform.localizer)
+                });
             }
             // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve ses fils.
             // L'état de l'agent d'abord, puis le fil de `scope` (montré par le gardien, après sa relecture).

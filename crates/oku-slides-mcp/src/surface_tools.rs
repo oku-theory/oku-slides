@@ -2,45 +2,75 @@
 
 use oku_slides_core::Paragraph;
 use oku_slides_session::agent::{
-    AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len, forms, render,
+    AgentScope, Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len,
+    check_options, forms, render,
 };
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
+use snafu::{IntoError, ResultExt};
 
 use crate::McpEvent;
 use crate::hub::{Answer, Freeze};
-use crate::tools::{Tools, fail, json_result, parse};
-
-/// Refus d'un `report` arrivé hors tour, ou dont le tour s'est clos avant l'affichage.
-const NO_TURN_REPORT: &str = "no turn in progress: report is only shown during a turn";
-/// Refus d'un `render`, comme `NO_TURN_REPORT`.
-const NO_TURN_RENDER: &str = "no turn in progress: render is only shown during a turn";
-/// Refus de réglages demandés par un tour clos entre l'appel et l'affichage.
-const TURN_OVER: &str = "the turn of this call is over: nothing was shown";
+use crate::tool_error::{
+    AnchorScopeSnafu, NoTurnSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, ToolError, TurnOverSnafu,
+    UnexpectedActionSnafu,
+};
+use crate::tools::Tools;
 
 impl Tools {
+    /// Refus d'un `report` ou d'un `render` arrivé hors tour, ou dont le tour s'est clos avant
+    /// l'affichage.
+    fn no_turn(&self, tool: &'static str) -> CallToolResult {
+        self.fail_with(NoTurnSnafu { tool }.build())
+    }
+
     /// Résultat commun : réponse dictée, abandon, ou `f` pour l'action attendue.
     fn answered(
+        &self,
         answer: Answer,
         f: impl FnOnce(&str, &serde_json::Map<String, Value>) -> CallToolResult,
     ) -> CallToolResult {
         match answer {
-            Answer::Cancelled => json_result(&json!({ "cancelled": true })),
+            Answer::Cancelled => self.json_result(&json!({ "cancelled": true })),
             Answer::Action { name, context } if name == "answer" => {
-                json_result(&json!({ "answer_text": context.get("text").cloned().unwrap_or(Value::Null) }))
+                self.json_result(&json!({ "answer_text": context.get("text").cloned().unwrap_or(Value::Null) }))
             }
             Answer::Action { name, context } => f(&name, &context),
         }
     }
 
+    /// Refuse une adresse de l'agent hors de la portée du tour : une conversation de widget ne
+    /// voit pas la scène des slides (elle est cachée sous l'onglet du widget), une fiche y
+    /// resterait invisible. Hors tour, la session seule juge (`Session::check_anchor`).
+    fn check_anchor_scope(&self, turn: Option<u32>) -> Result<(), ToolError> {
+        let scope = turn.and_then(|t| self.hub.turn_scope(t));
+        snafu::ensure!(!matches!(scope, Some(AgentScope::Widget { .. })), AnchorScopeSnafu);
+        Ok(())
+    }
+
+    /// Une ancre de l'agent, résolue contre la portée du tour puis le deck actif.
+    async fn check_anchor(&self, turn: Option<u32>, anchor: &Anchor) -> Result<(), ToolError> {
+        self.check_anchor_scope(turn)?;
+        let anchor = anchor.clone();
+        self.with_session(move |s| s.check_anchor(&anchor)).await
+    }
+
     /// `turn` : le tour de l'appel (`Tools::call`), où la question sans ancre est rangée.
     pub(crate) async fn ask_choice(&self, turn: Option<u32>, args: Value) -> CallToolResult {
-        let spec: AskChoice = match parse(args) {
+        let spec: AskChoice = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         if let Err(e) = check_len("options", spec.options.len(), forms::CHOICES) {
-            return fail(e.one_line());
+            return self.fail_with(SessionSnafu.into_error(e));
+        }
+        if let Err(e) = check_options("options", &spec.options) {
+            return self.fail_with(SessionSnafu.into_error(e));
+        }
+        if let Some(anchor) = &spec.anchor
+            && let Err(e) = self.check_anchor(turn, anchor).await
+        {
+            return self.fail_with(e);
         }
         let id = self.hub.next_id("ask");
         let surface = forms::choice(&id, &spec, &self.localizer);
@@ -64,149 +94,143 @@ impl Tools {
         } else {
             self.hub.ask(surface).await
         };
-        Self::answered(answer, |_, ctx| json_result(&json!({ "choice": ctx.get("choice") })))
+        self.answered(answer, |_, ctx| self.json_result(&json!({ "choice": ctx.get("choice") })))
     }
 
     pub(crate) async fn ask_confirm(&self, args: Value) -> CallToolResult {
-        let spec: AskConfirm = match parse(args) {
+        let spec: AskConfirm = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let surface = forms::confirm(&self.hub.next_id("ask"), &spec, &self.localizer);
-        Self::answered(self.hub.ask(surface).await, |_, ctx| {
-            json_result(&json!({ "confirmed": ctx.get("confirmed") == Some(&Value::Bool(true)) }))
+        self.answered(self.hub.ask(surface).await, |_, ctx| {
+            self.json_result(&json!({ "confirmed": ctx.get("confirmed") == Some(&Value::Bool(true)) }))
         })
     }
 
-    pub(crate) async fn ask_rewrite(&self, args: Value) -> CallToolResult {
-        let spec: AskRewrite = match parse(args) {
+    /// `turn` : le tour de l'appel, dont la portée borne l'adresse du texte.
+    pub(crate) async fn ask_rewrite(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+        let spec: AskRewrite = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        if let Err(e) = self.check_anchor_scope(turn) {
+            return self.fail_with(e);
+        }
         let id = self.hub.next_id("ask");
         let built = {
             let spec = spec.clone();
-            self.with_session(move |s| s.rewrite_surface(&id, &spec).map_err(|e| e.one_line())).await
+            self.with_session(move |s| s.rewrite_surface(&id, &spec)).await
         };
         let surface = match built {
             Ok(s) => s,
-            Err(e) => return fail(e),
+            Err(e) => return self.fail_with(e),
         };
         let (kept, text, paragraphs) = match self.hub.ask(surface).await {
             Answer::Action { name, context } if name == "rewrite" => {
                 let kept = context.get("kept").cloned().unwrap_or(Value::Null);
                 let Some(text) = context.get("text").and_then(Value::as_str) else {
-                    return fail("rewrite answer without text");
+                    return self.fail_with(RewriteTextSnafu.build());
                 };
                 let paragraphs = match context.get("paragraphs") {
-                    Some(v) => match serde_json::from_value::<Vec<Paragraph>>(v.clone()) {
+                    Some(v) => match serde_json::from_value::<Vec<Paragraph>>(v.clone()).context(ParagraphsSnafu) {
                         Ok(p) => Some(p),
-                        Err(e) => return fail(format!("invalid paragraphs: {e}")),
+                        Err(e) => return self.fail_with(e),
                     },
                     None => None,
                 };
                 (kept, text.to_owned(), paragraphs)
             }
-            other => return Self::answered(other, |n, _| fail(format!("unexpected action {n}"))),
+            other => {
+                return self.answered(other, |n, _| self.fail_with(UnexpectedActionSnafu { action: n }.build()));
+            }
         };
         if kept != json!("original") {
             let (spec, t, p) = (spec.clone(), text.clone(), paragraphs.clone());
             let label = self.localizer.tr("agent-undo-rewrite");
             let done = self
                 .with_session(move |s| {
-                    let ops = s.rewrite_ops(&spec, &t, p).map_err(|e| e.one_line())?;
-                    s.apply(&label, ops, None).map_err(|e| e.one_line())
+                    let ops = s.rewrite_ops(&spec, &t, p)?;
+                    s.apply(&label, ops, None)
                 })
                 .await;
             if let Err(e) = done {
-                return fail(e);
+                return self.fail_with(e);
             }
             self.hub.emit(McpEvent::Changed);
         }
-        json_result(&json!({ "kept": kept, "text": text }))
+        self.json_result(&json!({ "kept": kept, "text": text }))
     }
 
     pub(crate) async fn show_params(&self, turn: Option<u32>, args: Value) -> CallToolResult {
-        let spec: ShowParams = match parse(args) {
+        let spec: ShowParams = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let id = self.hub.next_id("show");
         let built = {
             let (spec, id) = (spec.clone(), id.clone());
-            self.with_session(move |s| s.params_surface(&id, &spec).map_err(|e| e.one_line())).await
+            self.with_session(move |s| s.params_surface(&id, &spec)).await
         };
-        match built {
-            Ok(surface) => {
-                if self.hub.show_params(turn, surface, spec) {
-                    json_result(&json!({ "shown": id }))
-                } else {
-                    fail(TURN_OVER)
-                }
+        self.reply(built, |surface| {
+            if self.hub.show_params(turn, surface, spec) {
+                self.json_result(&json!({ "shown": id }))
+            } else {
+                self.fail_with(TurnOverSnafu.build())
             }
-            Err(e) => fail(e),
-        }
+        })
     }
 
     pub(crate) async fn show_variants(&self, args: Value) -> CallToolResult {
-        let spec: ShowVariants = match parse(args) {
+        let spec: ShowVariants = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let id = self.hub.next_id("show");
         let built = {
             let (spec, id) = (spec.clone(), id.clone());
-            self.with_session(move |s| s.variants_surface(&id, &spec).map_err(|e| e.one_line())).await
+            self.with_session(move |s| s.variants_surface(&id, &spec)).await
         };
-        match built {
-            Ok(surface) => {
-                self.hub.show_variants(surface, spec);
-                json_result(&json!({ "shown": id }))
-            }
-            Err(e) => fail(e),
-        }
+        self.reply(built, |surface| {
+            self.hub.show_variants(surface, spec);
+            self.json_result(&json!({ "shown": id }))
+        })
     }
 
     pub(crate) async fn report(&self, turn: Option<u32>, args: Value) -> CallToolResult {
-        let spec: Report = match parse(args) {
+        let spec: Report = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let Some(turn) = turn else { return fail(NO_TURN_REPORT) };
+        let Some(turn) = turn else { return self.no_turn("report") };
         let id = self.hub.next_id("report");
         let built = {
             let (spec, id) = (spec.clone(), id.clone());
-            self.with_session(move |s| s.report_surface(&id, &spec).map_err(|e| e.one_line())).await
+            self.with_session(move |s| s.report_surface(&id, &spec)).await
         };
-        match built {
-            // Pas de garde `if` qui déplacerait `report` (E0507) : le test se fait dans le bras.
-            Ok(report) => {
-                if self.hub.show_report(turn, report) {
-                    json_result(&json!({ "shown": id }))
-                } else {
-                    fail(NO_TURN_REPORT)
-                }
+        self.reply(built, |report| {
+            if self.hub.show_report(turn, report) {
+                self.json_result(&json!({ "shown": id }))
+            } else {
+                self.no_turn("report")
             }
-            Err(e) => fail(e),
-        }
+        })
     }
 
     pub(crate) async fn render(&self, turn: Option<u32>, args: Value) -> CallToolResult {
-        let spec: Render = match parse(args) {
+        let spec: Render = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let Some(turn) = turn else { return fail(NO_TURN_RENDER) };
+        let Some(turn) = turn else { return self.no_turn("render") };
         let id = self.hub.next_id("render");
-        match render::render(&id, &spec) {
-            Ok(surface) => {
-                if self.hub.show_static(turn, surface) {
-                    json_result(&json!({ "shown": id }))
-                } else {
-                    fail(NO_TURN_RENDER)
-                }
+        let built: Result<_, ToolError> = render::render(&id, &spec).context(SessionSnafu);
+        self.reply(built, |surface| {
+            if self.hub.show_static(turn, surface) {
+                self.json_result(&json!({ "shown": id }))
+            } else {
+                self.no_turn("render")
             }
-            Err(e) => fail(e.one_line()),
-        }
+        })
     }
 }

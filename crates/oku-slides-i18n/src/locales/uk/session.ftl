@@ -52,6 +52,9 @@ session-undo-theme = Змінити тему
 session-undo-edited-theme = Змінити тему: { $name }
 session-help-deck = Не вдається прочитати презентацію довідки
 session-agent-form = Запит агента недійсний: { $reason }
+session-unknown-owner = { $owner } — не слайд { $slide } і не один із його елементів.
+session-unknown-field = У { $owner } немає текстового поля { $field }.
+session-field-needed = Укажіть текстове поле об'єкта { $owner } (field).
 
 deck-untitled = Без назви
 deck-new-title = Нова презентація

@@ -54,7 +54,7 @@ fn late_report() -> Value {
 async fn report_late_from_a_cancelled_turn_leaves_the_next_turn_its_fallback() {
     let (h, two, r) = call_across_turns("report", late_report(), |_, _| {}).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("no turn in progress");
+    assert_that!(text_of(&r)).is_equal_to("Aucun tour en cours : report ne s'affiche que pendant un tour.".to_owned());
     // Le tour 2 finit sans `report` : il a son reçu de repli, pas celui du tour 1.
     h.hub.end_turn(two, "Fond posé.");
     assert_that!(turn_json(&h, two)).contains("\"title\":\"Fond posé.\"");
@@ -78,7 +78,7 @@ async fn show_params_late_from_a_cancelled_turn_is_refused() {
     ] });
     let (h, _, r) = call_across_turns("show_params", args, |_, _| {}).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("turn of this call is over");
+    assert_that!(text_of(&r)).is_equal_to("Le tour de cet appel est terminé : rien n'a été affiché.".to_owned());
     assert_that!(h.hub.surfaces()).is_empty();
 }
 

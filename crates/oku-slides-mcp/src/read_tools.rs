@@ -4,7 +4,7 @@ use oku_slides_session::Request;
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
 
-use crate::tools::{SlideId, Tools, fail, json_result, parse, png, text};
+use crate::tools::{SlideId, Tools, png, text};
 
 impl Tools {
     pub(crate) async fn deck_outline(&self) -> CallToolResult {
@@ -51,49 +51,34 @@ impl Tools {
                 }))
             })
             .await;
-        match r {
-            Ok(v) => json_result(&v),
-            Err(e) => fail(e),
-        }
+        self.reply(r, |v| self.json_result(&v))
     }
 
     pub(crate) async fn slide(&self, args: Value) -> CallToolResult {
-        let SlideId { id } = match parse(args) {
+        let SlideId { id } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        match self.with_session(move |s| s.handle(Request::Slide { id }).map_err(|e| e.one_line())).await {
-            Ok(json) => text(json),
-            Err(e) => fail(e),
-        }
+        self.reply(self.with_session(move |s| s.handle(Request::Slide { id })).await, text)
     }
 
     pub(crate) async fn render_slide(&self, args: Value) -> CallToolResult {
-        let SlideId { id } = match parse(args) {
+        let SlideId { id } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        match self.with_session(move |s| s.png(&id).map_err(|e| e.one_line())).await {
-            Ok(bytes) => png(&bytes),
-            Err(e) => fail(e),
-        }
+        self.reply(self.with_session(move |s| s.png(&id)).await, |bytes| png(&bytes))
     }
 
     pub(crate) async fn widgets(&self) -> CallToolResult {
-        match self.with_session(|s| s.handle(Request::Widgets).map_err(|e| e.one_line())).await {
-            Ok(json) => text(json),
-            Err(e) => fail(e),
-        }
+        self.reply(self.with_session(|s| s.handle(Request::Widgets)).await, text)
     }
 
     pub(crate) async fn templates(&self) -> CallToolResult {
-        match self.with_session(|s| s.handle(Request::TemplateSets).map_err(|e| e.one_line())).await {
-            Ok(json) => text(json),
-            Err(e) => fail(e),
-        }
+        self.reply(self.with_session(|s| s.handle(Request::TemplateSets)).await, text)
     }
 
     pub(crate) async fn settings(&self) -> CallToolResult {
-        json_result(&self.settings_read().await)
+        self.json_result(&self.settings_read().await)
     }
 }

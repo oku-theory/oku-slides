@@ -86,7 +86,7 @@ async fn report_tool_outside_a_turn_is_refused() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "report", json!({ "title": "x", "facts": ["a"] })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("no turn in progress");
+    assert_that!(text_of(&r)).is_equal_to("Aucun tour en cours : report ne s'affiche que pendant un tour.".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -196,8 +196,11 @@ async fn hub_report_actions_expire_when_the_next_turn_begins() {
     // La version sans actions remplace le reçu, au même identifiant…
     let json = serde_json::to_string(&h.hub.surfaces()).unwrap();
     assert_that!(json).does_not_contain("Encore");
-    // …et une action envoyée par une interface en retard est refusée.
-    assert_that!(h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" })))).is_err();
+    // …et une action envoyée par une interface en retard est refusée, dans la langue de l'utilisateur.
+    let refused = h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" }))).unwrap_err();
+    assert_that!(refused.kind()).is_equal_to(oku_slides_mcp::HubErrorKind::Expired);
+    assert_that!(oku_slides_i18n::Localize::localize(&refused, &h.localizer))
+        .is_equal_to("Les actions d'un tour passé ont expiré.".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -220,5 +223,5 @@ async fn render_tool_outside_a_turn_is_refused() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "render", render_args()).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("no turn in progress");
+    assert_that!(text_of(&r)).is_equal_to("Aucun tour en cours : render ne s'affiche que pendant un tour.".to_owned());
 }

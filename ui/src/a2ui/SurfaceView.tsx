@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { A2uiSurface } from "@a2ui/react/v0_9";
 import type { A2uiClientAction, A2uiMessage, ComponentApi, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import { catalog } from "./catalog";
+import { CheckedSlider, catalog } from "./catalog";
 import type { OpenMemory } from "./openMemory";
 import { OpenMemoryContext } from "./openMemory";
 
@@ -18,6 +18,23 @@ export interface Built {
   error: string | null;
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+/** Le message d'erreur du premier Slider dont les bornes sont inversées ou égales, s'il y en a un. */
+function invalidSlider(messages: A2uiMessage[]): string | null {
+  for (const m of messages as unknown[]) {
+    const components = isRecord(m) && isRecord(m.updateComponents) ? m.updateComponents.components : undefined;
+    if (!Array.isArray(components)) continue;
+    for (const c of components) {
+      if (!isRecord(c) || c.component !== "Slider") continue;
+      const { id: _id, component: _component, ...props } = c;
+      const r = CheckedSlider.safeParse(props);
+      if (!r.success) return `Slider ${String(c.id)}: ${r.error.issues.map((i) => i.message).join(", ")}`;
+    }
+  }
+  return null;
+}
+
 /** Construit la surface `surfaceId` à partir de `messages` ; n'émet rien, ne lève rien. */
 export function buildSurface(
   messages: A2uiMessage[],
@@ -25,6 +42,8 @@ export function buildSurface(
   onAction: (action: A2uiClientAction) => void,
 ): Built {
   if (messages.length === 0) return { processor: null, surface: null, error: null };
+  const invalid = invalidSlider(messages);
+  if (invalid) return { processor: null, surface: null, error: invalid };
   const processor = new MessageProcessor([catalog], onAction);
   const get = () => (processor.model.surfacesMap.get(surfaceId) as SurfaceModel<never> | undefined) ?? null;
   try {
@@ -83,8 +102,11 @@ export function SurfaceView({
     handlers.current = latest.current;
     const current = live.current;
     if (current && current.surfaceId === surfaceId && prolongs(current.done, messages)) {
+      const tail = messages.slice(current.done.length);
       try {
-        current.processor.processMessages(messages.slice(current.done.length));
+        const invalid = invalidSlider(tail);
+        if (invalid) throw new Error(invalid);
+        current.processor.processMessages(tail);
       } catch (e) {
         // Refusé : signalé une fois. La validation précède toute modification du modèle :
         // la surface affichée reste valide, et la suite refusée n'est pas rejouée.

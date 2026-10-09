@@ -1,7 +1,8 @@
 mod common;
 
 use common::*;
-use oku_slides_mcp::McpEvent;
+use oku_slides_i18n::{Localize, english};
+use oku_slides_mcp::{HubErrorKind, McpEvent};
 use oku_slides_session::agent::{AgentScope, AskChoice, forms};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -113,11 +114,20 @@ async fn ask_choice_with_one_option_is_refused() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn ask_choice_with_a_duplicate_option_id_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let options = json!([{ "id": "a", "label": "A" }, { "id": "a", "label": "B" }]);
+    let r = call(&c, "ask_choice", json!({ "question": "?", "options": options })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn ask_rewrite_applies_chosen_proposal() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let args = json!({ "slide": "s-libre", "element": "e-texte", "proposals": ["Premier", "Second"] });
+    let args = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["Premier", "Second"] });
     let pending = tokio::spawn({
         let c = c.clone();
         async move { call(&c, "ask_rewrite", args).await }
@@ -139,7 +149,7 @@ async fn ask_rewrite_paragraphs_answer_carries_a_bold_run() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let args = json!({ "slide": "s-libre", "element": "e-texte", "proposals": ["Premier", "Second"] });
+    let args = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["Premier", "Second"] });
     let pending = tokio::spawn({
         let c = c.clone();
         async move { call(&c, "ask_rewrite", args).await }
@@ -162,7 +172,7 @@ async fn ask_rewrite_without_paragraphs_for_an_element_fails() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let args = json!({ "slide": "s-libre", "element": "e-texte", "proposals": ["Premier", "Second"] });
+    let args = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["Premier", "Second"] });
     let pending = tokio::spawn({
         let c = c.clone();
         async move { call(&c, "ask_rewrite", args).await }
@@ -174,11 +184,11 @@ async fn ask_rewrite_without_paragraphs_for_an_element_fails() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn ask_rewrite_with_invalid_paragraphs_fails_in_english() {
+async fn ask_rewrite_with_invalid_paragraphs_fails_in_the_user_language() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let args = json!({ "slide": "s-libre", "element": "e-texte", "proposals": ["Premier", "Second"] });
+    let args = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["Premier", "Second"] });
     let pending = tokio::spawn({
         let c = c.clone();
         async move { call(&c, "ask_rewrite", args).await }
@@ -187,7 +197,121 @@ async fn ask_rewrite_with_invalid_paragraphs_fails_in_english() {
     h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Second", "paragraphs": 3 }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r).starts_with("invalid paragraphs: ")).is_true();
+    assert_that!(text_of(&r)).is_equal_to("Les paragraphes de la reformulation sont invalides.".to_owned());
+}
+
+/// t-326 : un champ de la slide s'adresse par `{owner: <slide>, field}` ; le texte gardé y va.
+#[tokio::test(flavor = "multi_thread")]
+async fn ask_rewrite_of_a_slide_field_applies_the_kept_text() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let args = json!({ "slide": "s-constat", "owner": "s-constat", "field": "title", "proposals": ["Un", "Deux"] });
+    let pending = tokio::spawn({
+        let c = c.clone();
+        async move { call(&c, "ask_rewrite", args).await }
+    });
+    let surface = next_surface(&mut rx).await;
+    let anchor = serde_json::to_value(&surface.anchor).unwrap();
+    assert_that!(anchor).is_equal_to(json!({ "slide": "s-constat", "owner": "s-constat", "field": "title" }));
+    let paragraphs = json!([{ "runs": [{ "t": "Deux" }] }]);
+    h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Deux", "paragraphs": paragraphs }))).unwrap();
+    assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "kept": 1, "text": "Deux" }));
+    let s = h.session.lock().unwrap();
+    assert_that!(s.deck().slide("s-constat").unwrap().params.text("title")).is_equal_to(Some("Deux"));
+}
+
+/// t-326 : une adresse hors du deck actif est refusée avant toute surface, dans la langue de
+/// l'utilisateur.
+#[tokio::test(flavor = "multi_thread")]
+async fn ask_rewrite_outside_the_deck_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let cases = [
+        (
+            json!({ "slide": "s-constat", "owner": "e-texte" }),
+            Some("e-texte n'est ni la slide s-constat ni un de ses éléments."),
+        ),
+        (
+            json!({ "slide": "s-constat", "owner": "s-constat", "field": "nope" }),
+            Some("s-constat n'a pas de champ texte nommé nope."),
+        ),
+        (json!({ "slide": "s-constat", "owner": "s-constat", "field": "title\")#panic(\"" }), None),
+        (json!({ "slide": "s-constat", "owner": "s-constat", "field": "blocks/b-points/body" }), None),
+        (json!({ "slide": "s-constat", "element": "@title" }), None),
+    ];
+    for (address, said) in cases {
+        let mut args = address.clone();
+        args["proposals"] = json!(["A", "B"]);
+        let r = call(&c, "ask_rewrite", args).await;
+        assert_that!(r.is_error).named(&address.to_string()).is_equal_to(Some(true));
+        if let Some(said) = said {
+            assert_that!(text_of(&r)).is_equal_to(said.to_owned());
+        }
+    }
+    assert_that!(h.hub.has_pending_ask()).is_false();
+    let s = h.session.lock().unwrap();
+    assert_that!(s.snapshot().undo_label).is_none();
+}
+
+/// t-326 : l'ancre d'une question est résolue de même ; une ancre étrangère ne montre rien.
+#[tokio::test(flavor = "multi_thread")]
+async fn ask_choice_with_an_anchor_outside_the_deck_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let anchors = [
+        json!({ "slide": "s-constat", "owner": "c1" }),
+        json!({ "slide": "s-libre", "owner": "e-texte", "field": "title" }),
+        json!({ "slide": "s-constat", "owner": "s-constat" }),
+        json!({ "slide": "s-ailleurs", "owner": "s-ailleurs", "field": "title" }),
+        json!({ "slide": "s-constat", "element": "@title" }),
+    ];
+    for anchor in anchors {
+        let mut args = choice_args();
+        args["anchor"] = anchor.clone();
+        let r = call(&c, "ask_choice", args).await;
+        assert_that!(r.is_error).named(&anchor.to_string()).is_equal_to(Some(true));
+    }
+    assert_that!(h.hub.has_pending_ask()).is_false();
+}
+
+/// t-326 : une ancre sur un champ d'élément est acceptée et part telle quelle à l'interface.
+#[tokio::test(flavor = "multi_thread")]
+async fn ask_choice_anchored_on_an_element_field_goes_to_a_sheet() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let mut args = choice_args();
+    args["anchor"] = json!({ "slide": "s-priorites", "owner": "c1", "field": "title" });
+    let pending = tokio::spawn({
+        let c = c.clone();
+        async move { call(&c, "ask_choice", args).await }
+    });
+    let surface = next_surface(&mut rx).await;
+    assert_that!(surface.place).is_equal_to(forms::Place::Sheet);
+    assert_that!(serde_json::to_value(&surface.anchor).unwrap())
+        .is_equal_to(json!({ "slide": "s-priorites", "owner": "c1", "field": "title" }));
+    h.hub.act(action(&surface.id, "choose", json!({ "choice": "a" }))).unwrap();
+    assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "choice": "a" }));
+}
+
+/// t-326 : une conversation de widget ne voit pas la scène des slides : une adresse y est hors
+/// de portée, même valide dans le deck.
+#[tokio::test(flavor = "multi_thread")]
+async fn anchored_questions_of_a_widget_turn_are_out_of_scope() {
+    let h = start().await;
+    h.hub.begin_turn(AgentScope::Widget { pack: uuid::Uuid::from_u128(1), name: "kpi".into() });
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let mut choice = choice_args();
+    choice["anchor"] = json!({ "slide": "s-libre", "owner": "e-texte" });
+    let rewrite = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["A", "B"] });
+    let said = "Une question d'une conversation de widget ne s'ancre pas sur une slide : posez-la sans ancre.";
+    for (tool, args) in [("ask_choice", choice), ("ask_rewrite", rewrite)] {
+        let r = call(&c, tool, args).await;
+        assert_that!(r.is_error).named(tool).is_equal_to(Some(true));
+        assert_that!(text_of(&r)).named(tool).is_equal_to(said.to_owned());
+    }
+    assert_that!(h.hub.has_pending_ask()).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -236,7 +360,11 @@ async fn act_keeps_surface_on_apply_error_so_it_can_still_be_dismissed() {
     // La slide visée par les variantes disparaît sans passer par `prune` :
     // choisir une variante doit maintenant échouer à l'application.
     call(&c, "apply", json!({ "ops": [{ "op": "remove_slide", "slide": "s-libre" }] })).await;
-    assert_that!(h.hub.act(action(&id, "variant", json!({ "index": 0 })))).is_err();
+    let refused = h.hub.act(action(&id, "variant", json!({ "index": 0 }))).unwrap_err();
+    assert_that!(refused.kind()).is_equal_to(HubErrorKind::Session);
+    // L'erreur de la session, dite en français.
+    assert_that!(refused.localize(&h.localizer))
+        .is_equal_to("Opération 0 refusée : Slide introuvable : s-libre".to_owned());
     // La surface n'est pas perdue : elle peut encore être fermée.
     assert_that!(h.hub.act(action(&id, "dismiss", json!({})))).is_ok();
 }
@@ -265,7 +393,7 @@ async fn ask_rewrite_answer_without_text_fails() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let args = json!({ "slide": "s-libre", "element": "e-texte", "proposals": ["Premier", "Second"] });
+    let args = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["Premier", "Second"] });
     let pending = tokio::spawn({
         let c = c.clone();
         async move { call(&c, "ask_rewrite", args).await }
@@ -274,6 +402,7 @@ async fn ask_rewrite_answer_without_text_fails() {
     h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1 }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to("La reformulation est revenue sans texte.".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -290,7 +419,41 @@ async fn prune_closes_params_of_removed_slide() {
     h.hub.prune();
     let closed = wait_event(&mut rx, closed_id).await;
     assert_that!(closed).is_equal_to(id);
-    assert_that!(h.hub.act(action(&closed, "dismiss", json!({})))).is_err();
+    let refused = h.hub.act(action(&closed, "dismiss", json!({}))).unwrap_err();
+    assert_that!(refused.kind()).is_equal_to(HubErrorKind::UnknownSurface);
+    assert_that!(refused.localize(&h.localizer)).is_equal_to("Cette carte n'est plus ouverte.".to_owned());
+    assert_that!(refused.localize(english())).is_equal_to("This card is no longer open.".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn act_refuses_an_unexpected_or_incomplete_action_in_the_user_language() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": t }] }] }] });
+    let r =
+        call(&c, "show_variants", json!({ "slide": "s-libre", "variants": [variant("Un"), variant("Deux")] })).await;
+    let variants = json_of(&r)["shown"].as_str().unwrap().to_owned();
+    next_surface(&mut rx).await;
+    let params = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    let refused = |id: &str, name: &str, context: Value| h.hub.act(action(id, name, context)).unwrap_err();
+
+    let unexpected = refused(&variants, "param", json!({ "field": 0 }));
+    assert_that!(unexpected.kind()).is_equal_to(HubErrorKind::UnexpectedAction);
+    assert_that!(unexpected.localize(&h.localizer)).is_equal_to("Action inattendue : param.".to_owned());
+    assert_that!(unexpected.localize(english())).is_equal_to("Unexpected action: param.".to_owned());
+
+    let incomplete = refused(&variants, "variant", json!({}));
+    assert_that!(incomplete.kind()).is_equal_to(HubErrorKind::Incomplete);
+    assert_that!(incomplete.localize(&h.localizer)).is_equal_to("L'action de cette carte est incomplète.".to_owned());
+
+    let no_variant = refused(&variants, "variant", json!({ "index": 7 }));
+    assert_that!(no_variant.kind()).is_equal_to(HubErrorKind::NoVariant);
+    assert_that!(no_variant.localize(&h.localizer)).is_equal_to("Cette variante n'existe plus.".to_owned());
+
+    let no_field = refused(&params, "param", json!({ "field": 7, "value": "x" }));
+    assert_that!(no_field.kind()).is_equal_to(HubErrorKind::NoField);
+    assert_that!(no_field.localize(&h.localizer)).is_equal_to("Ce réglage n'existe plus.".to_owned());
 }
 #[tokio::test(flavor = "multi_thread")]
 async fn surfaces_follow_open_and_close_in_order() {

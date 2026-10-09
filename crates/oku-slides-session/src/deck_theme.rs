@@ -173,7 +173,7 @@ impl Session {
     /// Les versions de thème embarquées : document montré, puis deck mis de côté.
     fn embedded_themes(&self) -> impl Iterator<Item = &BTreeMap<PackVersion, PackFiles>> {
         let stash = match &self.mode {
-            Mode::Deck => None,
+            Mode::Deck | Mode::Help { .. } => None,
             Mode::Templates { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources.themes),
         };
         [Some(&self.doc.sources.themes), stash].into_iter().flatten()

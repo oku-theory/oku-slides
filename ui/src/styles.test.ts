@@ -36,16 +36,8 @@ const ruleOf = (sheet: string, selector: string) => {
   return bare.match(new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`))?.[1];
 };
 
-test("les pastilles sur plusieurs lignes s'alignent au début de la ligne (RTL compris)", () => {
-  expect(ruleOf(own("styles.css"), ".chip")).toMatch(/text-align:\s*start/);
-  expect(ruleOf(own("a2ui/a2ui.css"), ".a2ui-row .btn")).toMatch(/text-align:\s*start/);
-});
-
-test("« ↓ Tour en cours » est une pastille de texte, pas un rond d'icône", () => {
-  const jump = ruleOf(own("a2ui/a2ui.css"), ".token.agent-jump");
-  expect(jump).toMatch(/width:\s*auto/);
-  expect(jump).toMatch(/white-space:\s*nowrap/);
-});
+// L'alignement des pastilles sur plusieurs lignes (RTL compris) et la pastille « ↓ Tour en cours »
+// se vérifient sur la mise en page, dans e2e/agent.cjs (`assertPills`).
 
 test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
   const rule = ruleOf(own("styles.css"), '.table:has(> .pile-column[data-folded="true"])');

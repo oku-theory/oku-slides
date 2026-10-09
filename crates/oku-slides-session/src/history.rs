@@ -14,7 +14,9 @@ use time::{OffsetDateTime, UtcOffset};
 use oku_slides_core::{HistoryPreview, PackFiles, PackVersion, SlideChanges, SourceBundle, Version, slide_changes};
 use oku_slides_render_worker::RemoteCompiled;
 
-use crate::error::{EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, SourcesSnafu, VersionSnafu};
+use crate::error::{
+    EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, ReadOnlySnafu, SourcesSnafu, VersionSnafu,
+};
 use crate::views::HistoryView;
 use crate::{Document, Mode, Result, Session};
 
@@ -137,6 +139,7 @@ impl Session {
         self.ensure_not_help()?;
         match self.mode {
             Mode::Deck => {}
+            Mode::Help { .. } => return ReadOnlySnafu.fail()?,
             Mode::Templates { .. } => return EditingTemplatesSnafu.fail()?,
             Mode::History { .. } => return InHistorySnafu.fail()?,
         }

@@ -52,6 +52,9 @@ session-undo-theme = Temayı değiştir
 session-undo-edited-theme = Temayı değiştir: { $name }
 session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
+session-unknown-owner = { $owner }, { $slide } slaytı da değil, öğelerinden biri de değil.
+session-unknown-field = { $owner } öğesinin { $field } adlı bir metin alanı yok.
+session-field-needed = { $owner } için bir metin alanı belirtin (field).
 
 deck-untitled = Adsız
 deck-new-title = Yeni sunu

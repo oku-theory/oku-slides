@@ -14,6 +14,7 @@ export function DictationDraft({
   typing,
   busy,
   notice = null,
+  ready,
   insertTo,
   onChange,
   onInsert,
@@ -30,6 +31,8 @@ export function DictationDraft({
   busy: boolean;
   /** « L'agent répond ailleurs » : l'envoi attend, la note le dit. */
   notice?: string | null;
+  /** Un agent répond : sans lui, rien ne s'envoie (le texte reste au brouillon, l'insertion reste possible). */
+  ready: boolean;
   /** Où « Insérer » écrira (« dans le titre »…) ; `null` : aucune zone choisie. */
   insertTo: string | null;
   onChange: (text: string) => void;
@@ -67,7 +70,7 @@ export function DictationDraft({
     else setEditing(false);
   };
   const canInsert = said !== "" && insertTo !== null;
-  const canSend = said !== "" && !busy && !notice;
+  const canSend = said !== "" && !busy && !notice && ready;
   const insert = () => {
     if (canInsert) onInsert(said);
   };

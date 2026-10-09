@@ -5,12 +5,15 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
 
 ## Types clés
 
-- `Session` + `Request` (`lib.rs`) : un deck, son rendu Typst, son replica Loro (annulation par
+- `Session` (`lib.rs`) + `Request` (`request.rs`, avec `Session::handle`) : un deck, son rendu Typst, son replica Loro (annulation par
   `UndoManager`, non persistée), ses modèles, sa reprise (`resume.rs`, fil `resume_writer.rs`).
+  `deck_file.rs` : charger, ouvrir, écrire le deck ; `charts.rs` : graphiques (`set_chart_kind`).
   `Mode::{Templates, History}` mettent le deck de côté (`stash`) : `templates_mode.rs`, `history.rs`
   (`HistoryOpen/Seek/Restore/Close/Versions` ; restaurer = un commit annulable ; refus `HistoryNotOpen` / `InHistory`).
-  `help.rs` : l'aide (`docs/aide/<langue>.json`, pack par défaut livré) en lecture seule ; chaque
-  méthode qui modifie se garde (`ensure_editable` : `InHistory` / `ReadOnly`) ; `workspace_help.rs` : langue, thème et onglet en attente de l'aide (le bras `OpenHelp` est dans `workspace_tabs.rs`).
+  `help.rs` : l'aide est un mode, `Mode::Help { locale }` (`docs/aide/<langue>.json`, pack par défaut livré),
+  en lecture seule ; chaque méthode qui modifie se garde (`ensure_editable` : `InHistory` / `ReadOnly`) ; pas de
+  liste blanche des requêtes. Reprise inchangée (`SavedMode::Help(<langue>)`), `TabInfo.help` tiré du mode.
+  `workspace_help.rs` : langue, thème et onglet en attente de l'aide (le bras `OpenHelp` est dans `workspace_tabs.rs`).
 - `deck_widgets.rs` : la base surchargée par les widgets **valides** de la version embarquée
   (`SourceBundle.packs[deck.templates.version]`, jamais la bibliothèque ; sonde par fichier, avis
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
@@ -44,7 +47,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`, onglets `t-<n>` ; `TabInfo` (`views.rs`) : la barre.
 - `Slot` (`workspace_slot.rs`) : session d'un onglet (`Ready`, `Dormant`, `Closed`) ; `workspace_resume.rs` : reprise ;
   `workspace_same_deck.rs` : `SameDeck` (onglet tenant déjà le deck) ; `post_notice`.
-  `workspace_tabs.rs` : onglets (`Pending`, `NewTab`, `OpenTab`, `OpenHelp`, `finish`, `change`, `Trash`) ;
+  `workspace_tabs.rs` : onglets (`Pending` et ce qu'il ouvre, `Opening::{Blank, File, Help}` ; `NewTab`, `OpenTab`, `OpenHelp`, `finish`, `change`, `Trash`) ;
   `workspace_windows.rs` : `CloseWindow` ; `workspace_layout.rs` : disposition des onglets.
 - `SlideView.fields` (`fields.rs`) : champs éditables (ordre de Tab) ; `targets` : boîtes d'éléments.
 - `paragraphs_to_text` (`text.rs`, `inline.rs`) : markdown d'édition relu par `@lezer/markdown` ; contrat `fixtures/markdown*.json`.
@@ -71,6 +74,12 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   suivante ; snapshot pas encore chargé → pas de miniature.
 - `agent::forms::Surface` : `place`, `turn` (rempli par le hub, au tour de l'appel), `live`, et `question` (attend la
   réponse de l'utilisateur : `ask_*`, confirmation, permission ; marqué par leurs constructeurs, jamais déduit de l'identifiant).
+- `agent/address.rs` (`resolve_field`, `check_anchor`, `rewrite_surface`/`rewrite_ops`) : l'agent adresse un champ par
+  `{slide, owner, field?}` (fiches ancrées, `ask_rewrite`). L'adresse est résolue contre `Session::deck()` par les
+  champs texte du schéma du widget de l'objet (la slide ou un de ses éléments) ; les cellules d'une liste ne sont pas
+  adressables. Erreurs : `UnknownOwner`, `UnknownField`, `FieldNeeded` (champ omis sur une slide, ou élément sans
+  paramètre `rich`). L'op `set_param` porte le nom de paramètre du schéma, jamais la chaîne reçue de l'agent ; l'adresse
+  est résolue de nouveau à la réponse, le deck ayant pu changer.
 
 ## Verrous
 
@@ -94,3 +103,15 @@ deck/            deck.loro, document.json { path, dirty, saved_hash, blank }, as
 `oku-slides-core` (deck, replica Loro), `oku-slides-render` (Typst), `oku-slides-render-worker` (processus de rendu), `oku-slides-pdf`, `oku-slides-platform` (stockage, réglages), `oku-slides-i18n`, `oku-slides-chart`, `oku-slides-a2ui`.
 
 Conversations de l'agent par portée dans `agent/<portée>.json` (`agent/conversation.rs`, `resume_agent.rs`).
+`rename_widget` déplace la conversation du widget et note un `ScopeMove` (lu par le gardien, `oku-slides-agent`
+`keeper.rs`, qui le fait suivre au hub). `undo.rs` : annuler / rétablir comparent les widgets du pack en cours
+avant et après l'étape ; un nom retiré et un ajouté dans le même pack = un renommage défait ou refait, la
+conversation suit de même (t-613), à condition que la source du nom ajouté soit celle du nom retiré renommée
+comme le fait `rename_widget` (`renamed_source`) : un widget créé et un autre supprimé dans la même étape ne se
+confondent pas. Une conversation déjà sous le nom d'arrivée est périmée si aucun widget de ce nom n'était dans un
+fichier connu du pack avant l'étape : elle est effacée (le widget renommé n'en hérite jamais), celle de l'ancien
+nom prend sa place s'il en a une ; sinon, vraie collision : rien ne bouge, pas de `ScopeMove`, un avertissement
+au journal. Annuler ne lit la bibliothèque qu'en cas de conflit (moins de travail à chaque annulation ; les
+chemins de production appellent la session par `spawn_blocking`). Les écritures de widgets
+consécutives d'une même séance sont une seule étape d'annulation : seul un renommage qui a la sienne, sans autre
+modification, se reconnaît.

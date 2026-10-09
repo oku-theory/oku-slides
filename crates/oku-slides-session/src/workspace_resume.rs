@@ -18,8 +18,8 @@ use crate::{Fonts, Platform};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest, is_tab_id,
-    is_window_label, number,
+    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest,
+    is_tab_id, is_window_label, number,
 };
 
 /// `workspace.json` tel qu'écrit : la structure, et les infos de chaque onglet.
@@ -91,7 +91,7 @@ impl Workspace {
         let listed = ws.remove_orphans(&cited);
         ws.layout.next_tab = ws.layout.next_tab.max(listed.saturating_add(1)).min(MAX_NUMBER);
         if ws.layout.windows.is_empty() {
-            let pending = ws.pending(None, None, None);
+            let pending = ws.pending(None, Opening::Blank, None);
             let session = pending.build()?;
             ws.insert_tab(None, pending.id, session, None);
         }

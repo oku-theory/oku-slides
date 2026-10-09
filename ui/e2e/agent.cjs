@@ -4,14 +4,9 @@
 // (just e2e s'en charge).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
-// Le serveur n'accepte que du JSON déclaré (garde anti-CSRF de `oku-slides serve`).
-const post = (p, endpoint, req) =>
-  p.evaluate(
-    ([e, r]) => fetch(e, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) }).then((x) => x.json()),
-    [endpoint, req],
-  );
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
 const prompt = (p, text, tab = 't-1') => post(p, '/api/agent', { cmd: 'prompt', tab, text, ui: {} });
 /** Le compteur d'outils du résumé d'un tour (« ▸ 2 outils · 0 s » : le premier nombre, quelle que soit la langue). */
@@ -43,6 +38,49 @@ const assertUnobtrusive = async (p, selector) => {
   });
   assert.ok(seen.w <= 1 && seen.h <= 1 && !seen.moved, `${selector} prend de la place : ${JSON.stringify(seen)}`);
   assert.ok(seen.shown, `${selector} est retiré de l'arbre d'accessibilité`);
+};
+/** Pastilles posées dans la page (feuilles de style de l'app) et mesurées : un libellé sur
+ * plusieurs lignes part du début de la ligne (à gauche, à droite en RTL), pas du centre ;
+ * « ↓ Tour en cours » tient sur une ligne, dans sa pastille. */
+const assertPills = async (p) => {
+  const seen = await p.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'position: fixed; inset: 0 auto auto 0; width: 180px; display: flex; flex-direction: column;';
+    document.body.append(host);
+    const lines = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return [...range.getClientRects()].map((r) => ({ left: r.left, right: r.right, top: r.top }));
+    };
+    const aligned = (html, dir) => {
+      host.dir = dir;
+      host.innerHTML = html;
+      const el = host.querySelector('.probe');
+      const rects = lines(el);
+      const tops = new Set(rects.map((r) => Math.round(r.top)));
+      const edges = rects.map((r) => (dir === 'rtl' ? r.right : r.left));
+      const widths = new Set(rects.map((r) => Math.round(r.right - r.left)));
+      return { lines: tops.size, ragged: widths.size > 1, spread: Math.max(...edges) - Math.min(...edges) };
+    };
+    const text = 'Remplacer le titre par une phrase nettement plus courte';
+    const out = {};
+    for (const dir of ['ltr', 'rtl']) {
+      out[`chip-${dir}`] = aligned(`<button class="chip probe">${text}</button>`, dir);
+      out[`btn-${dir}`] = aligned(`<div class="a2ui-row"><button class="btn probe">${text}</button></div>`, dir);
+    }
+    host.dir = 'ltr';
+    host.innerHTML = '<button class="token agent-jump probe">↓ Tour en cours</button>';
+    const jump = host.querySelector('.probe');
+    out.jump = { lines: new Set(lines(jump).map((r) => Math.round(r.top))).size, overflow: jump.scrollWidth - jump.clientWidth };
+    host.remove();
+    return out;
+  });
+  for (const key of ['chip-ltr', 'chip-rtl', 'btn-ltr', 'btn-rtl']) {
+    const s = seen[key];
+    assert.ok(s.lines >= 2 && s.ragged, `${key} : libellé d'essai sur une seule ligne ou lignes égales : ${JSON.stringify(s)}`);
+    assert.ok(s.spread < 1, `${key} : lignes non alignées au début : ${JSON.stringify(s)}`);
+  }
+  assert.ok(seen.jump.lines === 1 && seen.jump.overflow <= 0, `« ↓ Tour en cours » déborde ou passe à la ligne : ${JSON.stringify(seen.jump)}`);
 };
 const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fields.find((f) => f.owner === 'e-texte').text;
 
@@ -180,7 +218,18 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
     });
   for (const height of [900, 520]) {
     await p.setViewportSize({ width: 1440, height });
-    await p.waitForTimeout(100);
+    // La mise en page suit le redimensionnement : attendre que le plafond soit recalculé (au
+    // plus 5 s ; sinon l'assertion qui suit dit ce qui a été vu).
+    await p
+      .waitForFunction(() => {
+        const el = document.querySelector('.agent-dock');
+        const notes = el?.closest('.notes');
+        if (!notes) return false;
+        const c = getComputedStyle(notes);
+        const inner = notes.clientHeight - parseFloat(c.paddingTop) - parseFloat(c.paddingBottom);
+        return Math.abs(parseFloat(getComputedStyle(el).maxHeight) - 0.45 * inner) < 1;
+      }, null, { timeout: 5000 })
+      .catch(() => {});
     const seen = await dockCap();
     assert.ok(Math.abs(seen.cap - 0.45 * seen.inner) < 1, `plafond du dock à ${height} px : ${JSON.stringify(seen)}`);
     assert.ok(seen.height <= seen.cap + 0.5, `dock plus haut que son plafond : ${JSON.stringify(seen)}`);
@@ -188,6 +237,7 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
     if (height === 520) assert.ok(seen.cap - seen.height < 1, `dock non plafonné à ${height} px : ${JSON.stringify(seen)}`);
   }
   await p.setViewportSize({ width: 1440, height: 900 });
+  await assertPills(p);
   const label = async (ask, i) => (await asks.nth(ask).locator('.chip').nth(i).innerText()).replace(/^\d\s*/, '');
   const [first, last] = [await label(0, 0), await label(1, 1)];
   await p.keyboard.press('2');

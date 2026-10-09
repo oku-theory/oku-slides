@@ -16,6 +16,11 @@ export interface AgentScopeState {
   elsewhere: AgentScope | null;
   /** « L'agent répond dans … », sinon `null`. */
   notice: string | null;
+  /**
+   * Un agent répond : le dernier rappel du fil (`resync`) a réussi. Faux avant le premier, et
+   * sans pile d'outils (le rappel échoue) : rien ne peut lui être envoyé.
+   */
+  ready: boolean;
   onAgentEvent: (e: AgentEvent) => void;
   /** Abonnement prêt ; stable d'un rendu à l'autre (lu une fois par `subscribeHost`). */
   onReady: () => void;
@@ -38,13 +43,26 @@ export function useAgentScope(
   scopeRef.current = scope;
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
+  const [available, setAvailable] = useState(false);
+  // Le rappel du fil dit aussi si un agent répond.
+  const resync = useCallback(
+    () =>
+      agent.resync(scopeRef.current).then(
+        () => setAvailable(true),
+        (err) => {
+          setAvailable(false);
+          console.warn("resync", err);
+        },
+      ),
+    [agent],
+  );
   const [status, onAgentEvent] = useReducer((_: AgentStatus, e: AgentEvent): AgentStatus => ({ state: e.state, scope: e.scope }), IDLE);
   const loaded = view !== null;
   useEffect(() => {
     if (!ready || !loaded) return;
     clearSurfaces({ kind: "surfaces", list: [] });
-    agent.resync(scopeRef.current).catch((err) => console.warn("resync", err));
-  }, [agent, key, ready, loaded, clearSurfaces]);
+    void resync();
+  }, [resync, key, ready, loaded, clearSurfaces]);
   // Ne lit que des références : `subscribeHost` garde la première version.
   const onReady = useCallback(() => {
     if (!readyRef.current) {
@@ -52,9 +70,9 @@ export function useAgentScope(
       setReady(true);
       return;
     }
-    agent.resync(scopeRef.current).catch((err) => console.warn("resync", err));
-  }, [agent]);
+    void resync();
+  }, [resync]);
   const elsewhere = busyElsewhere(status, scope);
   const notice = elsewhere ? t("ui-agent-busy-elsewhere", { place: scopePlace(elsewhere, t) }) : null;
-  return { scope, status, elsewhere, notice, onAgentEvent, onReady };
+  return { scope, status, elsewhere, notice, ready: available, onAgentEvent, onReady };
 }

@@ -12,7 +12,8 @@ use rust_mcp_sdk::schema::{
 };
 use serde_json::Value;
 
-use crate::tools::{Tools, fail, list};
+use crate::tool_error::UnknownToolSnafu;
+use crate::tools::{Tools, list};
 
 #[async_trait]
 impl ServerHandler for Tools {
@@ -66,7 +67,7 @@ impl Tools {
             "focus" => self.focus(args),
             "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,
-            "ask_rewrite" => self.ask_rewrite(args).await,
+            "ask_rewrite" => self.ask_rewrite(turn, args).await,
             "show_params" => self.show_params(turn, args).await,
             "show_variants" => self.show_variants(args).await,
             "report" => self.report(turn, args).await,
@@ -77,7 +78,7 @@ impl Tools {
             "save_templates" => self.save_templates(args).await,
             "delete_template_set" => self.delete_template_set(args).await,
             "set_setting" => self.set_setting(args).await,
-            _ => fail(format!("unknown tool: {name}")),
+            _ => self.fail_with(UnknownToolSnafu { name }.build()),
         }
     }
 }

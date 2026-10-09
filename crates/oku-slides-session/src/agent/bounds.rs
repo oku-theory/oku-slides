@@ -1,5 +1,6 @@
 //! Bornes des textes et couleurs venus de l'agent, partagées par les tours, `report` et `render`.
 
+use oku_slides_a2ui::ChoiceOption;
 use snafu::ensure;
 
 use crate::Result;
@@ -36,6 +37,24 @@ pub fn check_text(what: &str, text: &str, max: usize) -> Result<()> {
         !text.chars().any(is_hidden_control),
         AgentFormSnafu { reason: format!("{what}: invisible or bidirectional control characters are not allowed") }
     );
+    Ok(())
+}
+
+/// Refuse des options aux identifiants en double (la valeur choisie doit en désigner une seule, sans
+/// dédoublonnage silencieux), ou dont l'identifiant, le libellé ou l'indice dépasse les bornes.
+pub fn check_options(what: &str, options: &[ChoiceOption]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(options.len());
+    for (i, option) in options.iter().enumerate() {
+        check_text(&format!("{what}[{i}].id"), &option.id, LABEL_MAX)?;
+        check_text(&format!("{what}[{i}].label"), &option.label, LABEL_MAX)?;
+        if let Some(hint) = &option.hint {
+            check_text(&format!("{what}[{i}].hint"), hint, TEXT_MAX)?;
+        }
+        ensure!(
+            seen.insert(option.id.as_str()),
+            AgentFormSnafu { reason: format!("{what}[{i}]: duplicate option id {:?}", option.id) }
+        );
+    }
     Ok(())
 }
 

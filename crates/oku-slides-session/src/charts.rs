@@ -4,9 +4,14 @@
 //! dans la langue de l'utilisateur.
 //!
 //! Un graphique est un paramètre `host(chart)` d'un widget du registre.
+//! `Session::set_chart_kind` redessine un graphique sous un autre type.
 
 use oku_slides_chart::{ChartLabels, ChartOption, canonicalize};
 use oku_slides_core::{Deck, Element, HostType, Op, ParamValue, Params, WidgetRegistry, WidgetSchema};
+use snafu::{OptionExt, ResultExt};
+
+use crate::error::{ChartSnafu, NoChartSnafu, NoSlideSnafu, ResponseSnafu};
+use crate::{Result, Session};
 
 /// Canonicalise les graphiques des éléments et slides ajoutés ou remplacés.
 pub(crate) fn canonicalize_charts(ops: &mut [Op], labels: &ChartLabels, registry: &WidgetRegistry) {
@@ -63,6 +68,34 @@ fn canonicalize_tree(e: &mut Element, labels: &ChartLabels, registry: &WidgetReg
         }
     }
     canonicalize_slots(&mut e.params, labels, registry);
+}
+
+impl Session {
+    /// Redessine le graphique `element` en `kind` : ses données sont
+    /// converties (en-têtes dans la langue de l'utilisateur), l'élément
+    /// remplacé en une transaction.
+    pub fn set_chart_kind(
+        &mut self,
+        label: &str,
+        slide: String,
+        element: &str,
+        kind: oku_slides_chart::SeriesType,
+    ) -> Result<()> {
+        let deck = self.doc.sources.deck();
+        let located = deck.slide(&slide).context(NoSlideSnafu { id: &slide })?.locate(element);
+        let mut chart = located.map(|l| l.element.clone()).context(NoChartSnafu { id: element })?;
+        // L'option est le paramètre `host(chart)` du widget.
+        let param = chart_param(&self.registry, &chart.kind).context(NoChartSnafu { id: element })?;
+        let Some(ParamValue::Value(value)) = chart.params.get(param) else {
+            return Err(NoChartSnafu { id: element }.build().into());
+        };
+        let option: oku_slides_chart::ChartOption =
+            serde_json::from_value(value.clone()).ok().context(NoChartSnafu { id: element })?;
+        let option = oku_slides_chart::convert(&option, kind, &self.chart_labels).context(ChartSnafu)?;
+        let value = serde_json::to_value(option).context(ResponseSnafu)?;
+        chart.params.set(param.to_owned(), ParamValue::Value(value));
+        self.apply(label, vec![Op::ReplaceElement { slide, element: chart }], None)
+    }
 }
 
 #[cfg(test)]

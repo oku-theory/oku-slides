@@ -52,6 +52,9 @@ session-undo-theme = থিম বদলান
 session-undo-edited-theme = থিম বদলান: { $name }
 session-help-deck = সহায়িকার উপস্থাপনা পড়া যায়নি
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
+session-unknown-owner = { $owner } স্লাইড { $slide } নয়, তার কোনো উপাদানও নয়।
+session-unknown-field = { $owner }-এ { $field } নামে কোনো টেক্সট ফিল্ড নেই।
+session-field-needed = { $owner }-এর একটি টেক্সট ফিল্ডের নাম দিন (field)।
 
 deck-untitled = শিরোনামহীন
 deck-new-title = নতুন প্রেজেন্টেশন

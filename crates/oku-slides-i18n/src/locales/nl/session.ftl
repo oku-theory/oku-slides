@@ -52,6 +52,9 @@ session-undo-theme = Thema wijzigen
 session-undo-edited-theme = Thema wijzigen: { $name }
 session-help-deck = De helppresentatie is onleesbaar
 session-agent-form = Het verzoek van de agent is ongeldig: { $reason }
+session-unknown-owner = { $owner } is niet dia { $slide } en ook geen van haar elementen.
+session-unknown-field = { $owner } heeft geen tekstveld met de naam { $field }.
+session-field-needed = Noem een tekstveld van { $owner } (field).
 
 deck-untitled = Naamloos
 deck-new-title = Nieuwe presentatie

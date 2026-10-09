@@ -52,6 +52,9 @@ session-undo-theme = Alterar o tema
 session-undo-edited-theme = Alterar o tema: { $name }
 session-help-deck = Não é possível ler a apresentação de ajuda
 session-agent-form = O pedido do agente é inválido: { $reason }
+session-unknown-owner = { $owner } não é o diapositivo { $slide } nem um dos seus elementos.
+session-unknown-field = { $owner } não tem nenhum campo de texto chamado { $field }.
+session-field-needed = Indique um campo de texto de { $owner } (field).
 
 deck-untitled = Sem título
 deck-new-title = Nova apresentação

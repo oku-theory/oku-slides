@@ -4,6 +4,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
@@ -126,6 +127,17 @@ impl AgentHandle {
     }
 }
 
+/// Ce qu'est devenue une session connue au premier prompt après le lancement de l'agent.
+#[derive(Debug)]
+enum Reopened {
+    /// Reprise (`session/resume` ou `session/load`) : la conversation continue.
+    Resumed(SessionId),
+    /// Reprise non tentée : autre agent, ou agent qui ne sait rien reprendre.
+    NotTried,
+    /// Reprise tentée et refusée par l'agent (session inconnue de lui).
+    Refused,
+}
+
 /// L'acteur de l'onglet.
 struct TabAgent {
     ctx: Ctx,
@@ -200,8 +212,9 @@ impl TabAgent {
         let opened = match known {
             Some((id, _)) if self.live.contains(&(live.generation, id.clone())) => Ok((SessionId::new(id), false)),
             Some((id, agent)) => match self.reopen(&live, n, &id, agent.as_deref()).await {
-                Ok(Some(id)) => Ok((id, false)),
-                Ok(None) => {
+                Ok(Reopened::Resumed(id)) => Ok((id, false)),
+                Ok(Reopened::NotTried) => self.open(&live, n).await.map(|id| (id, true)),
+                Ok(Reopened::Refused) => {
                     self.memory_lost(n);
                     self.open(&live, n).await.map(|id| (id, true))
                 }
@@ -216,7 +229,8 @@ impl TabAgent {
                 return None;
             }
         };
-        match crate::turn::run(&self.ctx, &live.cx, rx, n, &scope, id, text, ui, fresh).await {
+        let prompting = || self.link.prompting(live.generation, &id);
+        match crate::turn::run(&self.ctx, &live.cx, rx, n, &scope, id.clone(), text, ui, fresh, prompting).await {
             Ok(pending) => {
                 for scope in pending.new_conversations {
                     self.new_conversation(scope).await;
@@ -256,26 +270,28 @@ impl TabAgent {
     async fn open(&mut self, live: &Live, turn: u32) -> agent_client_protocol::Result<SessionId> {
         let (cwd, tools) = self.setup().await;
         let r = live.cx.send_request(NewSessionRequest::new(cwd).mcp_servers(vec![tools])).block_task().await?;
-        self.adopt(live, turn, r.session_id.clone());
+        self.adopt(live, turn, r.session_id.clone(), false);
         Ok(r.session_id)
     }
 
-    /// Reprend la session `id` ; `None` si l'agent ne le peut pas.
+    /// Reprend la session `id`, si l'agent le peut.
     ///
-    /// Autre agent, aucune capacité, ou session inconnue de l'agent : le tour en ouvre une autre.
+    /// Autre agent ou aucune capacité : reprise non tentée ; session inconnue de l'agent :
+    /// reprise refusée. Dans les deux cas, le tour en ouvre une autre.
     async fn reopen(
         &mut self,
         live: &Live,
         turn: u32,
         id: &str,
         agent: Option<&str>,
-    ) -> agent_client_protocol::Result<Option<SessionId>> {
+    ) -> agent_client_protocol::Result<Reopened> {
         if agent != Some(self.link.agent_id().as_str()) || !(live.caps.resume || live.caps.load) {
-            return Ok(None);
+            return Ok(Reopened::NotTried);
         }
         let id = SessionId::new(id.to_owned());
         let (cwd, tools) = self.setup().await;
-        // La route n'est posée qu'après la réponse : le rejeu de `session/load` est ignoré.
+        // La route n'est posée qu'après la réponse : le rejeu de `session/load` est ignoré
+        // (et, s'il arrive après, par la garde de la route jusqu'au premier prompt).
         let asked = if live.caps.resume {
             live.cx
                 .send_request(ResumeSessionRequest::new(id.clone(), cwd).mcp_servers(vec![tools]))
@@ -291,13 +307,14 @@ impl TabAgent {
         };
         match asked {
             Ok(()) => {
-                self.adopt(live, turn, id.clone());
-                Ok(Some(id))
+                // Un rejeu tardif (agent non conforme) reste hors du tour jusqu'au premier prompt (t-612).
+                self.adopt(live, turn, id.clone(), !live.caps.resume);
+                Ok(Reopened::Resumed(id))
             }
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) || live.closed.is_cancelled() => Err(e),
             Err(e) => {
                 tracing::info!(tab = %self.ctx.tab.tab(), error = %e, "session de l'agent non reprise");
-                Ok(None)
+                Ok(Reopened::Refused)
             }
         }
     }
@@ -306,18 +323,25 @@ impl TabAgent {
     ///
     /// Le gardien lit la portée du tour au moment d'écrire : un widget renommé pendant
     /// l'ouverture de la session la garde.
-    fn adopt(&mut self, live: &Live, turn: u32, id: SessionId) {
+    fn adopt(&mut self, live: &Live, turn: u32, id: SessionId, replaying: bool) {
         self.link.route(
             live.generation,
             id.clone(),
-            Route { events: self.ctx.events.clone(), hub: self.ctx.hub.clone() },
+            Route {
+                events: self.ctx.events.clone(),
+                hub: self.ctx.hub.clone(),
+                replaying: Arc::new(AtomicBool::new(replaying)),
+            },
         );
         let key = id.0.to_string();
         self.live.insert((live.generation, key.clone()));
         self.ctx.keeper.send(Keep::Session { turn, id: key, agent: self.link.agent_id() });
     }
 
-    /// L'agent a oublié la conversation : une carte le dit dans le tour.
+    /// L'agent a refusé de reprendre la conversation : une carte le dit dans le tour.
+    ///
+    /// Seulement après un refus (t-611) : un agent qui ne sait rien reprendre repart de zéro
+    /// après chaque arrêt, la carte n'apprendrait rien de plus à chaque fois.
     fn memory_lost(&self, turn: u32) {
         let id = self.ctx.hub.next_id("note");
         let text = self.ctx.localizer.tr("agent-memory-lost");

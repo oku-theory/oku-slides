@@ -16,10 +16,15 @@ afterEach(async () => {
 });
 
 /** Monte le hook ; rend ses appels à `resync`, ses vidages et de quoi changer la vue. */
-async function mountHook(view: ScopeView | null) {
+async function mountHook(view: ScopeView | null, fail = false) {
   const resyncs: AgentScope[] = [];
   const cleared: McpEvent[] = [];
-  const agent = { resync: async (s: AgentScope) => void resyncs.push(s) };
+  const agent = {
+    resync: async (s: AgentScope) => {
+      resyncs.push(s);
+      if (fail) throw new Error("no tools");
+    },
+  };
   const clear = (e: McpEvent) => void cleared.push(e);
   let state: ReturnType<typeof useAgentScope> | null = null;
   const Probe = ({ v }: { v: ScopeView | null }) => {
@@ -67,4 +72,18 @@ test("useAgentScope at a reconnection resyncs without clearing", async () => {
   await act(async () => h.state().onReady());
   expect(h.resyncs).toHaveLength(2);
   expect(h.cleared).toHaveLength(cleared);
+});
+
+test("useAgentScope n'est pas prêt avant le premier rappel du fil (t-211)", async () => {
+  const h = await mountHook(deck);
+  expect(h.state().ready).toBe(false);
+  await act(async () => h.state().onReady());
+  expect(h.state().ready).toBe(true);
+});
+
+test("useAgentScope sans agent (le rappel du fil échoue) n'est pas prêt (t-211)", async () => {
+  const h = await mountHook(deck, true);
+  await act(async () => h.state().onReady());
+  expect(h.resyncs).toHaveLength(1);
+  expect(h.state().ready).toBe(false);
 });

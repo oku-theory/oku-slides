@@ -11,12 +11,12 @@ ui-status-unsaved = 有未儲存的變更
 ui-status-saved = 已儲存
 ui-status-never-saved = 尚未儲存
 ui-caption-templates = { $count ->
-    [one] { $count } 個範本
-   *[other] { $count } 個範本
+    [one] { $count }個範本
+   *[other] { $count }個範本
 } · { $status }
 ui-caption-slides = { $count ->
-    [one] { $count } 張投影片
-   *[other] { $count } 張投影片
+    [one] { $count }張投影片
+   *[other] { $count }張投影片
 } · { $status }
 ui-template-default-name = 範本
 ui-template-variant-name = { $name }（變體）
@@ -339,7 +339,7 @@ ui-history-removed-since = 此後已刪除
 ui-history-changed-since = 此後已修改
 ui-history-added-since = 此後新增的投影片：{ $count }
 ui-help = 說明
-ui-help-caption = 第 { $index } 張，共 { $count } 張 · 唯讀
+ui-help-caption = 第{ $index }張，共 { $count }張 · 唯讀
 ui-slide-previous = 上一張投影片
 ui-slide-next = 下一張投影片
 ui-toolbar-params-hide = 隱藏設定
@@ -348,7 +348,7 @@ ui-help-close = 關閉說明
 ui-help-search = 搜尋說明
 ui-help-search-placeholder = 搜尋…
 ui-help-search-empty = 沒有結果
-ui-help-search-count = { $count } 個結果
+ui-help-search-count = { $count }個結果
 ui-pack-notice-close = 關閉
 ui-widgets-files = 小工具檔案
 ui-widgets-common = 共用

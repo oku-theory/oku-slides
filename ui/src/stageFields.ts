@@ -92,10 +92,16 @@ export function fieldHitBox(f: FieldView, scale: number, fields: readonly FieldV
 }
 
 /**
- * Ancres possibles d'une fiche de l'agent sur la scène : les éléments, et les
- * champs de la slide sous leur nom `@param` (protocole de l'agent).
+ * Boîte (pt) où poser une fiche de l'agent (`Anchor`, sans sa slide) : le champ `field` de
+ * `owner` s'il est sur la slide, sinon l'élément `owner` ; `null` si ni l'un ni l'autre n'y est
+ * (la slide elle-même n'a pas de boîte : on la vise par un de ses champs).
  */
-export function anchorIds(view: SlideView): string[] {
-  const slideFields = view.fields.filter((f) => f.owner_kind === "slide").map((f) => `@${f.field}`);
-  return [...view.targets.map((x) => x.id), ...slideFields];
+export function anchorBox(view: SlideView, a: { owner: string; field?: string }): { x: number; y: number; w: number; h: number } | null {
+  const f = a.field === undefined ? undefined : view.fields.find((x) => x.owner === a.owner && x.field === a.field);
+  if (f) {
+    const b = fieldHitBox(f, 1, view.fields);
+    return { x: b.left, y: b.top, w: b.width, h: b.height };
+  }
+  const t = view.targets?.find((x) => x.id === a.owner);
+  return t ? { x: t.x, y: t.y, w: t.w, h: t.h } : null;
 }

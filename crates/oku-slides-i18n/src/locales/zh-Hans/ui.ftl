@@ -11,12 +11,12 @@ ui-status-unsaved = 有未保存的更改
 ui-status-saved = 已保存
 ui-status-never-saved = 尚未保存
 ui-caption-templates = { $count ->
-    [one] { $count } 个模板
-   *[other] { $count } 个模板
+    [one] { $count }个模板
+   *[other] { $count }个模板
 } · { $status }
 ui-caption-slides = { $count ->
-    [one] { $count } 张幻灯片
-   *[other] { $count } 张幻灯片
+    [one] { $count }张幻灯片
+   *[other] { $count }张幻灯片
 } · { $status }
 ui-template-default-name = 模板
 ui-template-variant-name = { $name }（变体）
@@ -339,7 +339,7 @@ ui-history-removed-since = 此后已删除
 ui-history-changed-since = 此后已修改
 ui-history-added-since = 此后新增的幻灯片：{ $count }
 ui-help = 帮助
-ui-help-caption = 第 { $index } 张，共 { $count } 张 · 只读
+ui-help-caption = 第{ $index }张，共 { $count }张 · 只读
 ui-slide-previous = 上一张幻灯片
 ui-slide-next = 下一张幻灯片
 ui-toolbar-params-hide = 隐藏设置
@@ -348,7 +348,7 @@ ui-help-close = 关闭帮助
 ui-help-search = 搜索帮助
 ui-help-search-placeholder = 搜索…
 ui-help-search-empty = 无结果
-ui-help-search-count = { $count } 个结果
+ui-help-search-count = { $count }个结果
 ui-pack-notice-close = 关闭
 ui-widgets-files = 小组件文件
 ui-widgets-common = 共用

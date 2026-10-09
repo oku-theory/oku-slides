@@ -62,3 +62,14 @@ les outils d'`oku-slides-mcp`, en HTTP local avec un jeton en en-tête
 `agent-client-protocol` 2.2, `oku-slides-mcp`, `oku-slides-session`.
 
 Une session ACP par portée (`AgentScope`) ; le gardien (`keeper.rs`) relit, écrit et retrouve les conversations ; `Resync` démarre l'onglet.
+
+## Reprise d'une session connue
+
+Au premier prompt d'une portée après le lancement de l'agent, `reopen` rend `Reopened` : reprise
+(`session/resume`, sinon `session/load`), non tentée (autre agent, ou aucune des deux capacités)
+ou refusée (l'agent ne connaît plus la session). Les deux derniers cas ouvrent une nouvelle
+session ; seul le refus montre la carte « mémoire perdue » dans le tour (t-611).
+La route d'une session chargée n'est posée qu'après la réponse à `session/load` (ACP rejoue
+l'historique avant) ; garde en plus, pour un agent non conforme : tant que son premier
+`session/prompt` n'est pas parti (`Link::prompting`), les mises à jour qui rejouent
+l'historique (messages, pensées, appels d'outils, plan) sont ignorées, les autres passent (t-612).

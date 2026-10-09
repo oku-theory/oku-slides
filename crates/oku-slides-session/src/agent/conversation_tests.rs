@@ -144,6 +144,28 @@ fn remove_widget_then_undo_keeps_its_conversation() {
     assert_that!(s.conversation(&widget("kpi"))).is_some();
 }
 
+/// t-613, en mode deck : annuler puis rétablir un renommage (sa propre séance de
+/// widgets) déplace la conversation, dans le pack du deck.
+#[test]
+fn undo_and_redo_of_a_rename_in_deck_mode_move_the_conversation() {
+    let data = fresh_dir("oku-slides-conv-");
+    let mut s = session_on(data.path());
+    assert!(s.resume(data.path().join("resume")));
+    s.set_widget("kpi", KPI.into()).unwrap();
+    // Une autre modification ferme la séance : le renommage fait sa propre étape.
+    s.apply("Variable", vec![oku_slides_core::Op::SetVar { key: "x".into(), value: "a".into() }], None).unwrap();
+    let pack = s.deck_pack().map(|r| r.id).unwrap();
+    let scope = |name: &str| AgentScope::Widget { pack, name: name.into() };
+    s.rename_widget("kpi", "indicateur").unwrap();
+    s.keep_thread(scope("indicateur"), vec![frozen("report-1", 1)]);
+    s.undo().unwrap();
+    assert_that!(s.conversation(&scope("kpi"))).is_some();
+    assert_that!(s.conversation(&scope("indicateur"))).is_none();
+    s.redo().unwrap();
+    assert_that!(s.conversation(&scope("indicateur"))).is_some();
+    assert_that!(s.conversation(&scope("kpi"))).is_none();
+}
+
 #[test]
 fn keep_thread_of_an_unknown_widget_writes_nothing() {
     let data = fresh_dir("oku-slides-conv-");

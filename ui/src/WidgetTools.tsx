@@ -3,7 +3,7 @@ import CodeSwitch from "./CodeSwitch";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import type { EditorHistory } from "./TypstEditor";
-import type { ViewOptions } from "./useViewOptions";
+import type { KeptUi } from "./useKeptUi";
 
 interface Props {
   /** Id du sous-onglet actif (`widget-code-<id>`). */
@@ -11,7 +11,7 @@ interface Props {
   history: EditorHistory;
   onUndo: () => void;
   onRedo: () => void;
-  options: Pick<ViewOptions, "code" | "setCode">;
+  options: Pick<KeptUi, "code" | "setCode">;
 }
 
 export default function WidgetTools({ tab, history, onUndo, onRedo, options }: Props) {

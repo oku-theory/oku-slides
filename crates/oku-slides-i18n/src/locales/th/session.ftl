@@ -52,6 +52,9 @@ session-undo-theme = เปลี่ยนธีม
 session-undo-edited-theme = เปลี่ยนธีม: { $name }
 session-help-deck = อ่านงานนำเสนอความช่วยเหลือไม่ได้
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
+session-unknown-owner = { $owner } ไม่ใช่สไลด์ { $slide } และไม่ใช่องค์ประกอบของสไลด์นั้น
+session-unknown-field = { $owner } ไม่มีช่องข้อความชื่อ { $field }
+session-field-needed = โปรดระบุช่องข้อความของ { $owner } (field)
 
 deck-untitled = ไม่มีชื่อ
 deck-new-title = งานนำเสนอใหม่

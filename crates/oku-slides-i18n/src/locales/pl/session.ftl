@@ -52,6 +52,9 @@ session-undo-theme = Zmień motyw
 session-undo-edited-theme = Zmień motyw: { $name }
 session-help-deck = Nie można odczytać prezentacji pomocy
 session-agent-form = Żądanie agenta jest nieprawidłowe: { $reason }
+session-unknown-owner = { $owner } nie jest slajdem { $slide } ani żadnym z jego elementów.
+session-unknown-field = { $owner } nie ma pola tekstowego o nazwie { $field }.
+session-field-needed = Podaj pole tekstowe obiektu { $owner } (field).
 
 deck-untitled = Bez tytułu
 deck-new-title = Nowa prezentacja

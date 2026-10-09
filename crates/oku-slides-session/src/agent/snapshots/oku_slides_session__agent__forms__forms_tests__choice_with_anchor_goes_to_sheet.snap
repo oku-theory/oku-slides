@@ -7,7 +7,7 @@ expression: s
   "place": "sheet",
   "anchor": {
     "slide": "s-4",
-    "element": "e-2"
+    "owner": "e-2"
   },
   "live": true,
   "question": true,

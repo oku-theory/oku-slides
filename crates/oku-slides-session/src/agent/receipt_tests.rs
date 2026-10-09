@@ -116,6 +116,6 @@ fn report_surface_on_a_slide_without_a_rendered_page_has_no_slide_reference() {
         let card = components.find(|c| c["id"] == "card").unwrap();
         assert_that!(card["component"].as_str()).is_equal_to(Some("Receipt"));
         assert_that!(card.get("slide")).is_none();
-        assert_that!(card["title"].as_str()).is_equal_to(Some("Slide 4 : fond bleu nuit"));
+        assert_that!(card["title"].as_str()).is_equal_to(Some(full().title.as_str()));
     }
 }

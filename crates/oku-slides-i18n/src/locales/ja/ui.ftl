@@ -11,12 +11,12 @@ ui-status-unsaved = 未保存の変更あり
 ui-status-saved = 保存済み
 ui-status-never-saved = 未保存
 ui-caption-templates = { $count ->
-    [one] テンプレート { $count } 個
-   *[other] テンプレート { $count } 個
+    [one] テンプレート { $count }個
+   *[other] テンプレート { $count }個
 } · { $status }
 ui-caption-slides = { $count ->
-    [one] スライド { $count } 枚
-   *[other] スライド { $count } 枚
+    [one] スライド { $count }枚
+   *[other] スライド { $count }枚
 } · { $status }
 ui-template-default-name = テンプレート
 ui-template-variant-name = { $name }（バリエーション）
@@ -156,8 +156,8 @@ ui-ghost-zone = ゾーン
 ## スライドノート
 
 ui-notes = スライドツール
-ui-stepper-less = { $label }：1 つ減らす
-ui-stepper-more = { $label }：1 つ増やす
+ui-stepper-less = { $label }：1つ減らす
+ui-stepper-more = { $label }：1つ増やす
 ui-list-item = 項目
 ui-list-add = { $item }を追加
 ui-list-remove = { $item }を削除
@@ -348,7 +348,7 @@ ui-help-close = ヘルプを閉じる
 ui-help-search = ヘルプを検索
 ui-help-search-placeholder = 検索…
 ui-help-search-empty = 結果なし
-ui-help-search-count = { $count } 件
+ui-help-search-count = { $count }件
 ui-pack-notice-close = 閉じる
 ui-widgets-files = ウィジェットファイル
 ui-widgets-common = 共通

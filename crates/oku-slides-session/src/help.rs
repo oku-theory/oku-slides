@@ -15,7 +15,10 @@ use oku_slides_i18n::platform_keys;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use crate::error::{HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu, UnknownThemeSnafu};
+use crate::error::{
+    EditingTemplatesSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu,
+    UnknownThemeSnafu,
+};
 use crate::library::builtin_versions;
 use crate::pack::DEFAULT_PACK;
 use crate::{Mode, Result, Session};
@@ -56,6 +59,8 @@ impl Session {
     /// Pour une session neuve (onglet d'aide, reprise) : le deck ouvert est
     /// remplacé sans question.
     pub fn open_help(&mut self, locale: &str, theme: Option<Uuid>) -> Result<()> {
+        // Le deck mis de côté par l'édition des modèles serait perdu.
+        ensure!(!matches!(self.mode, Mode::Templates { .. }), EditingTemplatesSnafu);
         let locale = help_locale(locale);
         let builtin = builtin_versions()
             .iter()
@@ -71,7 +76,7 @@ impl Session {
         }
         sources.apply_silent(deck).context(SourcesSnafu)?;
         self.load(sources, None)?;
-        self.help = Some(locale);
+        self.mode = Mode::Help { locale };
         Ok(())
     }
 
@@ -81,7 +86,7 @@ impl Session {
     /// Ni annulable ni à enregistrer : l'aide reste en lecture seule. Hors de
     /// l'aide, ou thème inconnu de la bibliothèque : refusé.
     pub fn set_help_theme(&mut self, id: Uuid) -> Result<()> {
-        ensure!(self.help.is_some() && matches!(self.mode, Mode::Deck), NotHelpSnafu);
+        ensure!(self.help().is_some(), NotHelpSnafu);
         let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
         let mut deck = self.doc.sources.deck().clone();
         if deck.theme.as_ref().is_some_and(|t| t.id == id && t.version == current.version) {
@@ -94,9 +99,17 @@ impl Session {
         Ok(())
     }
 
+    /// La langue de l'aide montrée ; `None` : pas l'aide.
+    pub(crate) fn help(&self) -> Option<&'static str> {
+        match self.mode {
+            Mode::Help { locale } => Some(locale),
+            Mode::Deck | Mode::Templates { .. } | Mode::History { .. } => None,
+        }
+    }
+
     /// Refuse (`ReadOnly`) ce qui changerait l'aide.
     pub(crate) fn ensure_not_help(&self) -> Result<()> {
-        snafu::ensure!(self.help.is_none(), ReadOnlySnafu);
+        snafu::ensure!(self.help().is_none(), ReadOnlySnafu);
         Ok(())
     }
 }

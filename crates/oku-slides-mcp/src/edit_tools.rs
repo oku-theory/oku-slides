@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::McpEvent;
-use crate::tools::{Tools, fail, json_result, parse};
+use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ApplyArgs {
@@ -53,17 +53,15 @@ pub(crate) struct FocusArgs {
 impl Tools {
     /// Une requête qui change la session ; `Changed` si elle aboutit.
     async fn change(&self, req: Request) -> CallToolResult {
-        match self.with_session(move |s| s.handle(req).map(|_| ()).map_err(|e| e.one_line())).await {
-            Ok(()) => {
-                self.hub.emit(McpEvent::Changed);
-                json_result(&json!({ "ok": true }))
-            }
-            Err(e) => fail(e),
-        }
+        let done = self.with_session(move |s| s.handle(req).map(|_| ())).await;
+        self.reply(done, |()| {
+            self.hub.emit(McpEvent::Changed);
+            self.json_result(&json!({ "ok": true }))
+        })
     }
 
     pub(crate) async fn apply(&self, args: Value) -> CallToolResult {
-        let ApplyArgs { ops, label } = match parse(args) {
+        let ApplyArgs { ops, label } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -72,7 +70,7 @@ impl Tools {
     }
 
     pub(crate) async fn chart_kind(&self, args: Value) -> CallToolResult {
-        let ChartKindArgs { slide, element, kind } = match parse(args) {
+        let ChartKindArgs { slide, element, kind } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -81,7 +79,7 @@ impl Tools {
     }
 
     pub(crate) async fn show_as(&self, args: Value) -> CallToolResult {
-        let ShowAsArgs { slide, element, view } = match parse(args) {
+        let ShowAsArgs { slide, element, view } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -90,7 +88,7 @@ impl Tools {
     }
 
     pub(crate) async fn edit_templates(&self, args: Value) -> CallToolResult {
-        match parse::<SetArgs>(args) {
+        match self.parse::<SetArgs>(args) {
             Ok(SetArgs { set }) => self.change(Request::EditTemplates { set }).await,
             Err(r) => r,
         }
@@ -101,10 +99,10 @@ impl Tools {
     }
 
     pub(crate) fn focus(&self, args: Value) -> CallToolResult {
-        match parse::<FocusArgs>(args) {
+        match self.parse::<FocusArgs>(args) {
             Ok(FocusArgs { slide, element }) => {
                 self.hub.emit(McpEvent::Focus { slide, element });
-                json_result(&json!({ "ok": true }))
+                self.json_result(&json!({ "ok": true }))
             }
             Err(r) => r,
         }

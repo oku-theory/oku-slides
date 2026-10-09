@@ -7,8 +7,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Surface } from "../api";
-import type { Component } from "./quick";
-import { components, dataModel, isPath, read } from "./quick";
+import type { Component } from "./a2uiModel";
+import { components, dataModel, isPath, read } from "./a2uiModel";
 
 /** Composants dont le texte (`text`) est lu. */
 const TEXTS = new Set(["Text", "Markdown", "Prompt", "Badge"]);

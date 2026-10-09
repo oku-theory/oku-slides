@@ -25,6 +25,7 @@ pub(crate) struct Pending {
 }
 
 /// Joue le tour `turn` dans `scope` ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+/// `prompting` est appelé juste avant l'envoi de `session/prompt`.
 #[expect(
     clippy::too_many_arguments,
     reason = "les paramètres viennent de la connexion ACP ; les regrouper ajouterait un type sans autre usage"
@@ -39,6 +40,7 @@ pub(crate) async fn run(
     text: String,
     ui: AgentUi,
     first: bool,
+    prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<Pending> {
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
@@ -68,6 +70,7 @@ pub(crate) async fn run(
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.push(ContentBlock::Text(TextContent::new(text)));
+    prompting();
     let request = cx.send_request(PromptRequest::new(session.clone(), blocks)).block_task();
     tokio::pin!(request);
     let mut pending = Pending::default();

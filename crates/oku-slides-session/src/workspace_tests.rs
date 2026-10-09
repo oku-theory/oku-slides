@@ -648,7 +648,7 @@ fn finish_after_settle_refuses_and_trashes_the_built_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
     let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform(&data.0), dir.clone()).unwrap());
-    let pending = Workspace::lock(&ws).pending(Some("w-1".into()), None, None);
+    let pending = Workspace::lock(&ws).pending(Some("w-1".into()), Opening::Blank, None);
     let session = pending.build().unwrap();
     let built = dir.join(TABS_DIR).join(&pending.id);
     assert_that!(built.exists()).is_true();

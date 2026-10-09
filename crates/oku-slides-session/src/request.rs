@@ -1,14 +1,18 @@
-//! Les requêtes de l'interface (même forme pour Tauri et HTTP).
+//! Les requêtes de l'interface (même forme pour Tauri et HTTP), et leur
+//! traitement par la session (`Session::handle`).
 
 use std::path::PathBuf;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::Op;
 
+use crate::error::{BuiltinTemplateSetSnafu, EditingTemplatesSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::views::UiState;
+use crate::{Mode, PackLibrary, PreviewFormat, Result, Session};
 
 /// Widget sous lequel montrer des données : graphique ou tableau.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -349,5 +353,169 @@ impl Request {
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )
+    }
+}
+
+impl Session {
+    /// Traite une requête de l'interface et renvoie la réponse, en JSON.
+    pub fn handle(&mut self, req: Request) -> Result<String> {
+        fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
+            Ok(serde_json::to_string(v).context(ResponseSnafu)?)
+        }
+        if matches!(self.mode, Mode::Templates { .. })
+            && matches!(
+                req,
+                Request::Save { .. }
+                    | Request::Merge { .. }
+                    | Request::Move { .. }
+                    | Request::SaveCopy { .. }
+                    | Request::PackUseMine
+                    | Request::PackMakeCurrent
+            )
+        {
+            return EditingTemplatesSnafu.fail()?;
+        }
+        if matches!(self.mode, Mode::History { .. }) && req.edits() {
+            return InHistorySnafu.fail()?;
+        }
+        // L'aide ne change ni le deck ni la bibliothèque : ni historique, ni pack courant.
+        if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen | Request::PackMakeCurrent)) {
+            return ReadOnlySnafu.fail()?;
+        }
+        // Les commandes modifient la session et renvoient le nouvel état ; les
+        // requêtes renvoient ce qu'elles lisent.
+        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux
+        // documents ; `apply` écrit déjà son propre état de reprise (l'agent
+        // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
+        // L'historique ne change pas le deck mis de côté, sauf `HistoryRestore`.
+        let (changes, documents) = (
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Apply { .. }
+                    | Request::SetTheme { .. }
+                    | Request::SetEditedTheme { .. }
+                    | Request::HostParam { .. }
+                    | Request::HostToken { .. }
+                    | Request::TargetParam { .. }
+                    | Request::TargetList { .. }
+            ),
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Ui(_)
+                    | Request::HistoryOpen
+                    | Request::HistorySeek { .. }
+                    | Request::HistoryClose
+                    | Request::PackMakeCurrent
+                    | Request::PackNoticeClose
+                    | Request::RenameEditedTheme { .. }
+            ),
+        );
+        // La séance des widgets du mode deck finit à la première autre modification.
+        if req.ends_widget_session() {
+            self.end_widget_session();
+        }
+        // Un thème a pu être enregistré ailleurs (autre onglet) : relu au snapshot demandé.
+        if matches!(req, Request::Snapshot | Request::SetTheme { .. }) {
+            self.theme_list = self.themes.themes();
+        }
+        match req {
+            Request::Snapshot => {}
+            Request::Slide { id } => return json(&self.slide(&id)?),
+            Request::Search { query } => return json(&self.search(&query)),
+            Request::Svg { id } => return json(&*self.svg(&id)?),
+            Request::HostSettings { slide, widget } => {
+                return json(&self.host_settings(&slide, widget.as_deref())?);
+            }
+            Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
+            Request::TargetSettings { slide, element } => {
+                return json(&self.target_settings(&slide, element.as_deref())?);
+            }
+            Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
+            Request::Widgets => return json(&*self.registry),
+            Request::Templates { set } => return json(&self.templates_view(set)?),
+            Request::TemplateSets => return json(&self.library.packs()),
+            Request::WidgetStatus => return json(&self.widget_status()?),
+            Request::WidgetSource { name } => return json(&self.widget_source(&name)?),
+            Request::SetWidget { name, source } => {
+                let change = self.set_widget(&name, source)?;
+                self.noted_user_write(&name, change.saved);
+                self.persist(true);
+                return json(&change);
+            }
+            Request::RemoveWidget { name } => {
+                let statuses = self.remove_widget(&name)?;
+                self.persist(true);
+                return json(&statuses);
+            }
+            Request::RenameWidget { from, to } => {
+                let statuses = self.rename_widget(&from, &to)?;
+                self.persist(true);
+                return json(&statuses);
+            }
+            Request::PreviewWidget { name, params } => {
+                return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
+            }
+            Request::DeleteTemplateSet { set } => {
+                ensure!(!PackLibrary::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
+                self.library.delete(set)?;
+                self.template_cache = None;
+                return json(&self.library.packs());
+            }
+            Request::Save { path, overwrite } => {
+                self.save_checked(path.as_deref(), overwrite)?;
+            }
+            Request::Move { path } => self.move_to(&path)?,
+            Request::SaveCopy { path } => self.save_copy(&path)?,
+            Request::Merge { path } => {
+                self.merge_file(&path)?;
+            }
+            Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
+            Request::SetTheme { id } => self.set_theme(id)?,
+            Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
+            Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
+            Request::TargetParam { slide, element, key, value } => {
+                self.target_param(&slide, element.as_deref(), &key, value)?;
+            }
+            Request::TargetList { slide, element, key, change } => {
+                self.target_list(&slide, element.as_deref(), &key, change)?;
+            }
+            Request::SetExampleValue { name, param, value } => {
+                self.set_example_values(&name, serde_json::Map::from_iter([(param, value)]))?;
+            }
+            Request::EditExampleList { name, param, change } => {
+                self.edit_example_list(&name, &param, change)?;
+            }
+            Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
+            Request::ShowAs { label, slide, element, view } => self.show_as(&label, slide, &element, view)?,
+            Request::Undo => self.undo()?,
+            Request::Redo => self.redo()?,
+            Request::EditTemplates { set } => self.edit_templates(set)?,
+            Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
+            Request::CloseTemplates => self.close_templates()?,
+            Request::SetEditedTheme { id } => self.set_edited_theme(id)?,
+            Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
+            Request::Ui(ui) => self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. })),
+            Request::HistoryOpen => self.history_open()?,
+            Request::HistorySeek { index } => self.history_seek(index)?,
+            Request::HistoryRestore => self.history_restore()?,
+            Request::HistoryClose => self.history_close()?,
+            Request::HistoryVersions => return json(self.history_versions()?),
+            Request::PackUseMine => self.pack_use_mine()?,
+            Request::PackMakeCurrent => self.pack_make_current()?,
+            Request::PackNoticeClose => self.pack_notice_close(),
+        }
+        if changes {
+            self.persist(documents);
+        }
+        let out = json(&self.snapshot())?;
+        // Les avis ne s'affichent qu'une fois : celui du document affiché
+        // vient d'être envoyé, il ne le sera plus. (Celui du deck mis de
+        // côté, s'il y en a un, n'est pas encore montré : il reste, pour
+        // apparaître à son tour quand `close_templates` le rendra visible.)
+        self.doc.notice = None;
+        self.doc.disk_replaced = false;
+        Ok(out)
     }
 }

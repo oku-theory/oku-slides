@@ -118,15 +118,11 @@ fn first_answer(surface: &Value) -> (String, Map<String, Value>) {
     if text.contains("\"rewrite\"") {
         context.insert("kept".into(), Value::from(0));
         let first = surface.pointer("/messages/2/updateDataModel/value/draft").cloned().unwrap_or(Value::Null);
-        // Un élément (ancre pas un champ `@…`) exige `paragraphs` : la vraie
-        // interface y met le markdown reparsé (`withRewriteParagraphs`,
-        // `ui/src/agent/rewrite.ts`) ; ici, sans parseur, un paragraphe simple
-        // par ligne suffit puisque les propositions de cet exemple sont en
-        // texte brut.
-        let element = surface.pointer("/anchor/element").and_then(Value::as_str).unwrap_or_default();
-        if !element.starts_with('@')
-            && let Some(text) = first.as_str()
-        {
+        // Comme la vraie interface (`withRewriteParagraphs`, `ui/src/agent/rewrite.ts`), la
+        // réponse porte toujours `paragraphs` : la session les prend pour un champ `rich` et le
+        // texte pour un champ `plain`. Ici, sans parseur markdown, un paragraphe simple par ligne
+        // suffit puisque les propositions de cet exemple sont en texte brut.
+        if let Some(text) = first.as_str() {
             let paragraphs: Vec<_> = text.lines().map(oku_slides_core::Paragraph::plain).collect();
             context
                 .insert("paragraphs".into(), serde_json::to_value(paragraphs).unwrap_or_else(|_| Value::Array(vec![])));

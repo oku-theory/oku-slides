@@ -102,7 +102,7 @@ impl Session {
     pub(crate) fn style_deck(&self) -> &Deck {
         match &self.mode {
             Mode::Templates { .. } => self.doc.sources.deck(),
-            Mode::Deck | Mode::History { .. } => self.user_deck(),
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => self.user_deck(),
         }
     }
 

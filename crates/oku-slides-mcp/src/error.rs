@@ -21,3 +21,14 @@ impl Localize for McpError {
         l.tr("agent-tools-unavailable")
     }
 }
+
+/// L'erreur de la session dite à l'agent ou à l'interface, dans la langue de l'utilisateur.
+///
+/// Un fichier illisible ou impossible à écrire est dit sans son chemin : aucune erreur envoyée
+/// ne contient de chemin absolu. L'erreur complète reste dans les journaux de l'appelant.
+pub(crate) fn say_session(e: &oku_slides_session::SessionError, l: &Localizer) -> String {
+    match e.kind() {
+        oku_slides_session::SessionErrorKind::File => l.tr("agent-error-file"),
+        _ => e.localize(l),
+    }
+}

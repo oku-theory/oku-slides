@@ -159,7 +159,7 @@ type Assets = BTreeMap<String, Vec<u8>>;
 /// historique, le document montré a pris les assets du deck mis de côté.
 fn user_assets<'a>(mode: &'a Mode, doc: &'a Document) -> &'a Assets {
     match mode {
-        Mode::Deck | Mode::History { .. } => &doc.sources.assets,
+        Mode::Deck | Mode::Help { .. } | Mode::History { .. } => &doc.sources.assets,
         Mode::Templates { stash, .. } => &stash.sources.assets,
     }
 }

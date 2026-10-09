@@ -3,14 +3,10 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après widgets.cjs).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
 const { until } = require('./until.cjs');
 
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const post = (p, endpoint, req) =>
-  p.evaluate(
-    ([e, r]) => fetch(e, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) }).then((x) => x.json()),
-    [endpoint, req],
-  );
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });

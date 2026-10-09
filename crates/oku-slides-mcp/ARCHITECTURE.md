@@ -18,17 +18,31 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
   nomme aussi la question : celle que l'interface désigne aux touches 1–4 (`quickTarget`), le
   hub ne devine pas (il ne voit pas la slide affichée). Une question entre dans la liste des
   ouvertes sous le verrou qui l'enregistre : une question en attente est toujours affichée.
+  Découpé en `hub/asks.rs` (questions en attente, confirmations, permissions) et
+  `hub/actions.rs` (actions des surfaces persistantes, `SurfaceAction`, élagage `prune`).
+  Une action refusée rend une `HubError` (`hub/error.rs`, `HubErrorKind`) : `Localize` la dit dans
+  la langue de l'utilisateur (clés `agent-error-*`), avec des arguments sûrs seulement (nom d'action) ;
+  l'hôte l'envoie telle quelle à l'interface, qui l'affiche, et journalise l'erreur complète.
 - `hub_turns` : les tours du fil (numéros, tour ouvert `turn`, rangement dans le tour de l'appel,
   gel des questions répondues, éviction, `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à
   jour une surface ouverte.
 - `surface_tools` : `report` (fin de tour, reçu ; hors tour : refusé) et `render` (composition A2UI
   libre, validée par `oku-slides-session`) avec les outils `ask_*` et `show_*`.
+  `ask_choice` et `ask_rewrite` ancrés vérifient d'abord la portée du tour (`check_anchor_scope` : une portée
+  Widget est refusée par `ToolError::AnchorScope`), puis l'adresse contre le deck ; ces contrôles précèdent
+  l'affichage de toute surface.
 - `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
   (`nest_schema` adapte JSON Schema à MCP 1.x).
 - `read_tools` : outils de lecture (`deck_outline`, `slide`, `render_slide`, `templates`, `widgets`, `settings`).
 - `widget_tools.rs` : sources, écriture (`widget_touched` en mode modèles), aperçu et essais
   (`set_widget_trial`) des widgets. Un `widget_touched` perdu quand le relais prend du retard n'est
   pas rejoué (seuls `Changed` et `Surfaces` le sont) ; le widget s'ouvre alors au prochain clic.
+- `tool_error` : `ToolError` (Snafu), l'erreur de tout outil. `Tools::fail_with` la journalise en
+  entier et la dit à l'agent dans la langue de l'utilisateur (clés `agent-error-*`, arguments sûrs
+  seulement : nom d'outil, clé de réglage, nom d'action, et pour des arguments invalides le
+  reproche de serde sans position, pour que l'agent corrige son appel) ; `Tools::parse`, `with_session`,
+  `json_result` et `reply` y passent. `error::say_session` dit une erreur de la session sans chemin
+  de fichier : aucune erreur envoyée à l'agent ou à l'interface ne contient de chemin absolu.
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).
@@ -70,7 +84,8 @@ d'un tour évincé n'existe pas en pratique : chaque nouveau tour relâche les q
 
 - Un nouvel hôte de réglages : implémenter `SettingsPort`.
 - Un nouvel outil : une entrée dans `tools::list` et un bras dans
-  `Tools::call` (`handler.rs`).
+  `Tools::call` (`handler.rs`) ; ses erreurs passent par `ToolError` et `Tools::fail_with`
+  (une variante, sa clé Fluent dans les 20 langues).
 
 ## Dépendances
 

@@ -132,3 +132,21 @@ test("un patch refusé est signalé une fois et la surface affichée reste", asy
     logged.mockRestore();
   }
 });
+
+test("une suite avec un Slider aux bornes inversées est signalée et ne rend aucun curseur", async () => {
+  const errors: string[] = [];
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mounted = { root, host };
+  const base = fresh();
+  await act(async () => root.render(view(base, errors)));
+  const tail = {
+    version: "v0.9",
+    updateComponents: { surfaceId: "s", components: [{ id: "g", component: "Slider", label: "n", value: 1, min: 10, max: 2 }] },
+  } as unknown as A2uiMessage;
+  await act(async () => root.render(view([...base, tail], errors)));
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("min must be < max");
+  expect(host.querySelector('input[type="range"]')).toBeNull();
+});

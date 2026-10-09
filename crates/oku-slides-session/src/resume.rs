@@ -696,22 +696,22 @@ impl Session {
     /// Comme [`Session::persist`], avec des conversations de l'agent à écrire ou effacer.
     pub(crate) fn persist_with(&mut self, documents: bool, agent: BTreeMap<AgentScope, Option<SavedConversation>>) {
         let Some(writer) = &self.resume else { return };
-        // L'aide se relit depuis l'app : seule sa langue est gardée.
-        if let Some(locale) = self.help {
-            let state = State {
-                version: VERSION,
-                mode: SavedMode::Help(locale.to_owned()),
-                ui: self.ui.clone(),
-                help_theme: self.doc.sources.deck().theme.as_ref().map(|t| t.id),
-                theme_edit: None,
-            };
-            writer.send(Job { docs: Vec::new(), state, agent });
-            return;
-        }
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
         // onglet rouvert n'y revient pas), avec les images et polices prêtées
         // à l'aperçu.
         let (deck, blobs, mode, theme_edit) = match &self.mode {
+            // L'aide se relit depuis l'app : seule sa langue est gardée.
+            Mode::Help { locale } => {
+                let state = State {
+                    version: VERSION,
+                    mode: SavedMode::Help((*locale).to_owned()),
+                    ui: self.ui.clone(),
+                    help_theme: self.doc.sources.deck().theme.as_ref().map(|t| t.id),
+                    theme_edit: None,
+                };
+                writer.send(Job { docs: Vec::new(), state, agent });
+                return;
+            }
             Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck, None),
             Mode::Templates { stash, edit, theme, .. } => {
                 (&**stash, &**stash, SavedMode::Templates(edit.clone()), Some(theme.clone()))

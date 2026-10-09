@@ -23,8 +23,8 @@ use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle
 use oku_slides_i18n::Localize;
 
 use crate::error::{
-    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, RenderSnafu, SourcesSnafu,
-    UnknownPackSnafu,
+    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RenderSnafu,
+    SourcesSnafu, UnknownPackSnafu,
 };
 use crate::library::PackLibrary;
 use crate::library_kind::StoredVersion;
@@ -134,6 +134,11 @@ impl Session {
                 theme,
                 switches: Vec::new(),
             },
+            // L'aide est en lecture seule (`ensure_editable` refuse avant d'arriver ici).
+            help @ Mode::Help { .. } => {
+                self.mode = help;
+                return ReadOnlySnafu.fail()?;
+            }
             // L'historique ouvert se ferme d'abord (`handle` refuse avant d'arriver ici).
             history @ Mode::History { .. } => {
                 self.mode = history;
@@ -359,6 +364,7 @@ impl Session {
                 self.sync_widgets()?;
             }
             Mode::Deck => {}
+            help @ Mode::Help { .. } => self.mode = help,
             // Le deck est de côté pour l'historique : il n'est pas perdu ici.
             history @ Mode::History { .. } => {
                 self.mode = history;

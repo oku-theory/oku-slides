@@ -25,8 +25,9 @@ use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, Severity};
 
 use crate::error::{
-    InHistorySnafu, InvalidWidgetNameSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu, TooManyWidgetsSnafu,
-    UnknownWidgetSnafu, WidgetExistsSnafu, WidgetHasNulSnafu, WidgetInUseSnafu, WidgetTooLargeSnafu,
+    InHistorySnafu, InvalidWidgetNameSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RegistrySnafu,
+    TooManyWidgetsSnafu, UnknownWidgetSnafu, WidgetExistsSnafu, WidgetHasNulSnafu, WidgetInUseSnafu,
+    WidgetTooLargeSnafu,
 };
 use crate::pack::{PackManifest, now_created};
 use crate::{Mode, Result, Session};
@@ -167,6 +168,11 @@ fn status_of(name: &WidgetFile, probe: &FileProbe, registry: &WidgetRegistry) ->
     }
 }
 
+/// La source du widget `from` renommé `to` : son nom déclaré suit.
+pub(crate) fn renamed_source(source: &str, from: &str, to: &str) -> String {
+    source.replacen(&format!("widget(\"{from}\""), &format!("widget(\"{to}\""), 1)
+}
+
 impl Session {
     /// Le pack dont on édite les widgets.
     pub(crate) fn widget_target(&self) -> Result<WidgetTarget> {
@@ -181,7 +187,7 @@ impl Session {
                     .context(PackVersionMissingSnafu { id: edit.set, version: edit.base.clone() })?;
                 (PackRef { id: edit.set, version: edit.base.clone() }, files)
             }
-            Mode::Deck | Mode::History { .. } => self.deck_pack_files()?,
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => self.deck_pack_files()?,
         };
         Ok(WidgetTarget { id: r.id, version: r.version, files })
     }
@@ -330,7 +336,9 @@ impl Session {
         let source = t.files.widget(&from).context(UnknownWidgetSnafu { name: from.as_str() })?;
         ensure!(t.files.widget(&to).is_none(), WidgetExistsSnafu { name: to.as_str() });
         self.ensure_unused(&t, &from)?;
-        let renamed = source.replacen(&format!("widget(\"{from}\""), &format!("widget(\"{to}\""), 1);
+        let renamed = renamed_source(source, from.as_str(), to.as_str());
+        // Avant le renommage : un widget de ce nom dans un fichier connu du pack (collision).
+        let to_existed = self.widget_known(t.id, to.as_str());
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&from);
         widgets.insert(to.clone(), renamed);
@@ -342,12 +350,20 @@ impl Session {
         if let Some(scratch) = self.scratch_mut() {
             scratch.renamed(&from, &to);
         }
-        self.conversation_renamed(t.id, from.as_str(), to.as_str());
+        self.conversation_renamed(t.id, from.as_str(), to.as_str(), to_existed);
         Ok(statuses)
     }
 
     /// Fichiers connus du pack `pack` : version éditée, pack du deck, version courante.
     pub(crate) fn pack_files_known(&self, pack: Uuid) -> Vec<PackFiles> {
+        let mut out = self.pack_files_held(pack);
+        out.extend(self.library.current_version(pack).map(|v| v.files));
+        out
+    }
+
+    /// Fichiers du pack `pack` tenus par la session, sans lire la bibliothèque :
+    /// version éditée, pack du deck.
+    pub(crate) fn pack_files_held(&self, pack: Uuid) -> Vec<PackFiles> {
         let mut out = Vec::new();
         if let Mode::Templates { edit, .. } = &self.mode
             && edit.set == pack
@@ -357,7 +373,6 @@ impl Session {
         if let Some(r) = self.deck_pack().filter(|r| r.id == pack) {
             out.extend(self.user_blobs().packs.get(&r.version).cloned());
         }
-        out.extend(self.library.current_version(pack).map(|v| v.files));
         out
     }
 
@@ -437,6 +452,7 @@ impl Session {
                 }
             }
             Mode::Deck => self.commit_deck_widgets(t, manifest, widgets).map(|()| Vec::new()),
+            Mode::Help { .. } => ReadOnlySnafu.fail()?,
             Mode::History { .. } => InHistorySnafu.fail()?,
         }
     }

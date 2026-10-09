@@ -85,7 +85,7 @@ impl Session {
         let deck = self.doc.sources.deck();
         let mut out = String::from("<oku-slides-context>\n");
         let mode = match &self.mode {
-            Mode::Deck => "deck".to_owned(),
+            Mode::Deck | Mode::Help { .. } => "deck".to_owned(),
             Mode::Templates { edit, .. } => format!("templates(set={})", edit.set),
             Mode::History { history, .. } => {
                 let view = history.view();
@@ -97,7 +97,7 @@ impl Session {
         // part du thème édité, que l'agent change par `set_theme`.
         let theme = match &self.mode {
             Mode::Templates { theme, .. } => format!("theme (draft): {}", theme.name),
-            Mode::Deck | Mode::History { .. } => format!(
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => format!(
                 "theme: {}",
                 deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map_or_else(|| "none".to_owned(), |m| m.name)
             ),

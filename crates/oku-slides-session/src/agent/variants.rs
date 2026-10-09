@@ -9,8 +9,8 @@ use serde::Deserialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
-use super::check_len;
 use super::forms::{self, FieldKind, ParamField, ShowParams, ShowVariants, Surface};
+use super::{check_len, check_options};
 use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
 use crate::{Result, Session, new_renderer};
 
@@ -45,7 +45,8 @@ fn parse_op(template: &Value, value: &Value) -> std::result::Result<Op, serde_js
 
 /// Valeur d'un champ riche (des paragraphes) et bornes d'un champ à curseur, cohérentes pour son `kind`.
 ///
-/// `options` n'est volontairement pas borné ici : le champ `theme_field` des
+/// Le nombre minimal d'`options` n'est volontairement pas borné ici (seuls un plafond large, leurs
+/// identifiants uniques et leurs longueurs le sont) : le champ `theme_field` des
 /// tests d'intégration (brief t-104) construit un `Select` avec des options
 /// vides quand le gabarit ne s'en sert pas ; borner ce champ romprait ces
 /// tests pour un cas qui reste inoffensif (une liste vide ne fait planter ni
@@ -61,6 +62,16 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
             Vec::<Paragraph>::deserialize(&field.value).is_ok(),
             AgentFormSnafu { reason: format!("fields[{i}]: a rich value must be a list of paragraphs") }
         );
+    }
+    if field.kind == FieldKind::Select {
+        let max = forms::SELECT_OPTIONS_MAX;
+        ensure!(
+            field.options.len() <= max,
+            AgentFormSnafu {
+                reason: format!("fields[{i}]: options: at most {max} entries, got {}", field.options.len())
+            }
+        );
+        check_options(&format!("fields[{i}]: options"), &field.options)?;
     }
     if matches!(field.kind, FieldKind::Slider | FieldKind::Stepper) {
         let finite = [field.min, field.max].into_iter().flatten().all(|v| v.is_finite());

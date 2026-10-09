@@ -117,6 +117,45 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
 }
 
+/// Le format de reprise de l'aide ne change pas (t-489) : un `state.json` écrit
+/// avant `Mode::Help` se relit, et se réécrit sous la même forme.
+#[test]
+fn help_resume_file_written_before_mode_help_still_loads_and_keeps_its_form() {
+    let data = data_dir();
+    let dir = data.0.join("tabs").join("t-1");
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = json!({
+        "version": crate::resume::VERSION,
+        "mode": {"help": "fr"},
+        "ui": {"slide": "s-sommaire", "grid": false},
+        "help_theme": crate::PRO_THEME,
+    });
+    std::fs::write(dir.join("state.json"), state.to_string()).unwrap();
+    let mut s = session_in(&data.0);
+    assert_that!(s.resume(dir.clone())).is_true();
+    assert_that!(s.snapshot().read_only).is_true();
+    assert_that!(s.tab_info().help).is_equal_to(Some("fr".to_owned()));
+    assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
+    s.flush_resume();
+    let written: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("state.json")).unwrap()).unwrap();
+    assert_that!(written["mode"]).is_equal_to(json!({"help": "fr"}));
+    assert_that!(written["help_theme"]).is_equal_to(json!(crate::PRO_THEME));
+}
+
+/// L'aide est un mode (t-489) : l'ouvrir pendant l'édition des modèles est
+/// refusé, le deck mis de côté reste.
+#[test]
+fn open_help_while_editing_templates_is_refused_and_keeps_the_stashed_deck() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    s.edit_templates(crate::DEFAULT_PACK).unwrap();
+    let err = s.open_help("fr", None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
+    assert_that!(s.snapshot().read_only).is_false();
+    assert_that!(s.close_templates()).is_ok();
+    assert_that!(s.tab_info().help).is_none();
+}
+
 #[test]
 fn help_tab_is_never_dirty_nor_pristine() {
     let (_data, s) = help_session("fr");

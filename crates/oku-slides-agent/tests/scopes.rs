@@ -98,11 +98,13 @@ async fn loaded_session_replay_stays_out_of_events_and_surfaces() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn refused_resume_opens_a_new_session_with_a_card_and_instructions() {
+async fn unresumed_session_opens_a_new_one_with_instructions_and_a_card_only_if_refused() {
     let l = oku_slides_i18n::Localizer::new(Some("fr"));
     let lost: String = l.tr("agent-memory-lost").chars().take(30).collect();
     let instructions: String = l.tr("agent-instructions").chars().take(40).collect();
     for caps in [json!({ "resume": true }), json!({ "load_session": true }), json!({})] {
+        // Sans capacité, la reprise n'est pas tentée : pas de carte (t-611).
+        let refused = caps.as_object().is_some_and(|c| !c.is_empty());
         let mut script = json!({ "unknown_sessions": true, "turns": [{ "chunks": ["ok"] }] });
         script.as_object_mut().unwrap().extend(caps.as_object().unwrap().clone());
         let h = start(script).await;
@@ -111,9 +113,9 @@ async fn refused_resume_opens_a_new_session_with_a_card_and_instructions() {
         t.agent.prompt("encore".into(), AgentUi::default());
         wait_turn_ended(t).await;
         assert_that!(logged(&h.log, "session/new")).has_length(1);
-        assert_that!(serde_json::to_string(&t.hub.surfaces()).unwrap()).contains(lost.as_str());
+        assert_that!(serde_json::to_string(&t.hub.surfaces()).unwrap().contains(lost.as_str())).is_equal_to(refused);
         assert_that!(logged(&h.log, "session/prompt")[0].to_string()).contains(instructions.as_str());
-        // La reprise a bien été tentée avec la capacité annoncée, et refusée.
+        // La reprise a été tentée avec la capacité annoncée, et refusée (aucune tentative sans capacité).
         let tried = |method: &str, cap: &str| {
             let expected: Vec<String> = if caps[cap] == true { vec!["sess-42".into()] } else { vec![] };
             assert_that!(sessions_in(&h.log, method)).is_equal_to(expected);
@@ -230,6 +232,32 @@ async fn keeper_writes_the_thread_of_a_turn_under_its_renamed_scope() {
     let s = h.session("t-1").lock().unwrap();
     assert_that!(s.conversation(&widget("indicateur")).map(|c| c.thread.len())).is_equal_to(Some(1));
     assert_that!(s.conversation(&widget("kpi"))).is_none();
+}
+
+/// t-613 : annuler le renommage ramène les tours du widget sous son ancien nom ;
+/// le gardien y écrit leur fil.
+#[tokio::test(flavor = "multi_thread")]
+async fn keeper_writes_the_thread_under_the_old_name_once_the_rename_is_undone() {
+    let h = start(json!({ "turns": [] })).await;
+    editing_with_kpi(&h);
+    on_session(&h, |s| {
+        // Une autre étape d'abord : le renommage fait la sienne (pas celle de `kpi`).
+        let op = oku_slides_core::Op::SetVar { key: "client".into(), value: json!("a") };
+        s.apply("Variable", vec![op], None).unwrap_or_else(|e| panic!("variable : {e}"));
+        s.rename_widget("kpi", "indicateur").unwrap();
+    });
+    let t = h.tab("t-1");
+    let n = t.hub.begin_turn(widget("indicateur"));
+    t.hub.emit(oku_slides_mcp::McpEvent::Surface { surface: frozen_turn(n) });
+    t.hub.end_turn(n, "");
+    t.keeper.send(Keep::Sync);
+    t.keeper.flush().await;
+    on_session(&h, |s| s.undo().unwrap());
+    t.keeper.send(Keep::Thread(n));
+    t.keeper.flush().await;
+    let s = h.session("t-1").lock().unwrap();
+    assert_that!(s.conversation(&widget("kpi")).map(|c| c.thread.len())).is_equal_to(Some(1));
+    assert_that!(s.conversation(&widget("indicateur"))).is_none();
 }
 
 #[tokio::test(flavor = "multi_thread")]

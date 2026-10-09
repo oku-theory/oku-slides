@@ -52,6 +52,9 @@ session-undo-theme = تغيير السمة
 session-undo-edited-theme = تغيير السمة: { $name }
 session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
+session-unknown-owner = { $owner } ليس الشريحة { $slide } ولا أحد عناصرها.
+session-unknown-field = لا يحتوي { $owner } على حقل نصي باسم { $field }.
+session-field-needed = حدّد حقلًا نصيًا من { $owner } (field).
 
 deck-untitled = بلا عنوان
 deck-new-title = عرض تقديمي جديد

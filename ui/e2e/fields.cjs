@@ -3,14 +3,9 @@
 // Lancer : just e2e. À la main : bun e2e/fields.cjs, E2E_URL = adresse d'un serveur neuf.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TOL = 1;
-
-const post = (p, endpoint, req) =>
-  p.evaluate(
-    ([e, r]) => fetch(e, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) }).then((x) => x.json()),
-    [endpoint, req],
-  );
 
 /**
  * Lignes du texte rendu dans une boîte (px page), lues dans le SVG de la page.

@@ -19,11 +19,14 @@ mod read_tools;
 mod server;
 mod settings;
 mod surface_tools;
+mod tool_error;
 mod tools;
 mod widget_tools;
 
 pub use error::McpError;
-pub use hub::{Answer, Freeze, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub, THREAD_BYTES};
+pub use hub::{
+    Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub, THREAD_BYTES,
+};
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
 pub use tools::Tools;

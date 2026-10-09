@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use uuid::Uuid;
 
-use super::{Pending, Workspace};
+use super::{Opening, Pending, Workspace};
 use crate::help::help_locale;
 
 impl Workspace {
@@ -28,10 +28,7 @@ impl Workspace {
 
     /// Prépare l'onglet d'aide en `locale`, au thème `theme`, à la fin de `window`.
     pub(super) fn help_pending(&mut self, window: String, locale: &'static str, theme: Option<Uuid>) -> Pending {
-        let mut pending = self.pending(Some(window), None, None);
-        pending.help = Some(locale);
-        pending.help_theme = theme;
-        pending
+        self.pending(Some(window), Opening::Help { locale, theme }, None)
     }
 
     /// L'onglet d'aide `tab` prend le thème `theme` ; un échec est journalisé.

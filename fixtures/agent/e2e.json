@@ -10,7 +10,7 @@
       "tool_calls": [{ "id": "t1", "title": "Lire la slide" }],
       "mcp": [
         { "tool": "focus", "args": { "slide": "s-libre", "element": "e-texte" } },
-        { "tool": "ask_rewrite", "args": { "slide": "s-libre", "element": "e-texte", "proposals": ["Un bloc bien placé", "Un bloc libre"] } }
+        { "tool": "ask_rewrite", "args": { "slide": "s-libre", "owner": "e-texte", "proposals": ["Un bloc bien placé", "Un bloc libre"] } }
       ],
       "chunks": ["Texte reformulé."]
     },
@@ -30,7 +30,7 @@
       "mcp": [
         { "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
           { "id": "a", "label": "A" }, { "id": "b", "label": "B" }
-        ], "anchor": { "slide": "s-libre", "element": "e-texte" } } },
+        ], "anchor": { "slide": "s-libre", "owner": "e-texte" } } },
         { "tool": "report", "args": { "title": "Choix noté", "facts": ["la réponse sera suivie"] } }
       ]
     },

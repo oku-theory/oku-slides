@@ -59,3 +59,25 @@ agent-turn-ended = Turn ended ({ $stop }).
 agent-choice-cancelled = Question cancelled
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Why
+
+# Errors of the agent's tools and cards (sent to the agent or shown in a card).
+agent-error-file = The file could not be read or written.
+agent-error-unexpected-action = Unexpected action: { $action }.
+agent-error-unknown-surface = This card is no longer open.
+agent-error-expired = The actions of a past turn have expired.
+agent-error-incomplete = This card's action is incomplete.
+agent-error-no-field = This setting no longer exists.
+agent-error-no-variant = This variant no longer exists.
+agent-error-arguments = The tool's arguments are invalid ({ $detail }): check them against its schema.
+agent-error-unknown-tool = Unknown tool: { $name }.
+agent-error-denied = The user declined.
+agent-error-no-turn = No turn in progress: { $tool } is only shown during a turn.
+agent-error-turn-over = The turn of this call is over: nothing was shown.
+agent-error-anchor-scope = A question in a widget conversation cannot be anchored on a slide: ask it without an anchor.
+agent-error-no-file = The presentation has no file yet: give an absolute path.
+agent-error-path-relative = The path must be absolute.
+agent-error-path-parent = The path must not contain “..”.
+agent-error-setting-locked = The setting { $key } cannot be changed by the agent.
+agent-error-setting = The setting { $key } could not be changed: check its value.
+agent-error-rewrite-text = The rewording came back without text.
+agent-error-paragraphs = The paragraphs of the rewording are invalid.

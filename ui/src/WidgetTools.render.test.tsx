@@ -2,7 +2,7 @@
 
 import { afterEach, expect, test } from "bun:test";
 import "./test/dom";
-import type { ViewOptions } from "./useViewOptions";
+import type { KeptUi } from "./useKeptUi";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -18,7 +18,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Options = Pick<ViewOptions, "code" | "setCode">;
+type Options = Pick<KeptUi, "code" | "setCode">;
 
 async function mount(code: boolean, history = { undo: 1, redo: 0 }) {
   const host = document.createElement("div");

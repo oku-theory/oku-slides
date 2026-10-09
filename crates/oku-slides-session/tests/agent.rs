@@ -1,7 +1,7 @@
-use oku_slides_core::{Op, OpErrorKind, Paragraph, Run, Target};
+use oku_slides_core::{Op, Paragraph, Run, Target};
 use oku_slides_session::SessionErrorKind;
 use oku_slides_session::agent::{
-    AgentUi, AskRewrite, FieldKind, ParamField, Place, Report, ShowParams, ShowVariants, Surface, Variant,
+    AgentUi, Anchor, AskRewrite, FieldKind, ParamField, Place, Report, ShowParams, ShowVariants, Surface, Variant,
 };
 use serde_json::json;
 use speculoos::prelude::*;
@@ -9,6 +9,19 @@ use speculoos::prelude::*;
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;
 use common::{fixture_path, session};
+
+fn rewrite(slide: &str, owner: &str, field: Option<&str>, proposals: &[&str]) -> AskRewrite {
+    AskRewrite {
+        slide: slide.into(),
+        owner: owner.into(),
+        field: field.map(str::to_owned),
+        proposals: proposals.iter().map(|p| (*p).to_owned()).collect(),
+    }
+}
+
+fn anchor(slide: &str, owner: &str, field: Option<&str>) -> Anchor {
+    Anchor { slide: slide.into(), owner: owner.into(), field: field.map(str::to_owned) }
+}
 
 #[test]
 fn png_of_slide_returns_png_bytes() {
@@ -117,7 +130,8 @@ fn rewrite_surface_of_text_element_diffs_each_proposal() {
     s.open(&fixture_path()).unwrap();
     let spec = AskRewrite {
         slide: "s-libre".into(),
-        element: "e-texte".into(),
+        owner: "e-texte".into(),
+        field: None,
         proposals: vec!["Un bloc posé tout près du coin".into(), "Un bloc libre".into()],
     };
     let surface = s.rewrite_surface("ask-9", &spec).unwrap();
@@ -132,8 +146,7 @@ fn rewrite_surface_of_title_field_reads_slide_title() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let title = s.deck().slide("s-constat").and_then(|sl| sl.params.text("title").map(str::to_owned)).unwrap();
-    let spec =
-        AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
+    let spec = rewrite("s-constat", "s-constat", Some("title"), &["A", "B"]);
     let json = serde_json::to_string(&s.rewrite_surface("ask-10", &spec).unwrap()).unwrap();
     assert_that!(json.contains(&title)).is_true();
 }
@@ -142,7 +155,7 @@ fn rewrite_surface_of_title_field_reads_slide_title() {
 fn rewrite_with_one_proposal_returns_agent_form_error() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec = AskRewrite { slide: "s-libre".into(), element: "e-texte".into(), proposals: vec!["Seule".into()] };
+    let spec = rewrite("s-libre", "e-texte", None, &["Seule"]);
     assert_that!(s.rewrite_surface("ask-11", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::AgentForm);
 }
 
@@ -150,8 +163,7 @@ fn rewrite_with_one_proposal_returns_agent_form_error() {
 fn rewrite_ops_of_element_with_paragraphs_carries_their_runs() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec =
-        AskRewrite { slide: "s-libre".into(), element: "e-texte".into(), proposals: vec!["a".into(), "b".into()] };
+    let spec = rewrite("s-libre", "e-texte", None, &["a", "b"]);
     let bold = Paragraph { runs: vec![Run { bold: true, ..Run::plain("Gras") }], list: None };
     let ops = s.rewrite_ops(&spec, "**Gras**", Some(vec![bold])).unwrap();
     s.apply("Reformulation", ops, None).unwrap();
@@ -166,17 +178,15 @@ fn rewrite_ops_of_element_with_paragraphs_carries_their_runs() {
 fn rewrite_ops_of_element_without_paragraphs_returns_agent_form_error() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec =
-        AskRewrite { slide: "s-libre".into(), element: "e-texte".into(), proposals: vec!["a".into(), "b".into()] };
+    let spec = rewrite("s-libre", "e-texte", None, &["a", "b"]);
     assert_that!(s.rewrite_ops(&spec, "Nouveau", None).unwrap_err().kind()).is_equal_to(SessionErrorKind::AgentForm);
 }
 
 #[test]
-fn agent_rewrite_of_at_title_sets_the_slide_title_param() {
+fn agent_rewrite_of_the_slide_title_field_sets_the_slide_title_param() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec =
-        AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
+    let spec = rewrite("s-constat", "s-constat", Some("title"), &["A", "B"]);
     let ops = s.rewrite_ops(&spec, "Nouveau titre", None).unwrap();
     assert_that!(ops).is_equal_to(vec![Op::SetParam {
         target: Target { slide: "s-constat".into(), element: None },
@@ -185,24 +195,160 @@ fn agent_rewrite_of_at_title_sets_the_slide_title_param() {
     }]);
 }
 
+/// t-326 : un champ que le widget de la slide ne déclare pas est refusé.
 #[test]
-fn rewrite_surface_of_at_nope_returns_op_unknown_param() {
+fn rewrite_surface_of_an_unknown_field_returns_unknown_field() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec =
-        AskRewrite { slide: "s-constat".into(), element: "@nope".into(), proposals: vec!["A".into(), "B".into()] };
-    let err = s.rewrite_surface("ask-nope", &spec).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::Op);
-    let op_kind = err.transaction().map(|t| t.op_error().kind());
-    assert_that!(op_kind).is_equal_to(Some(OpErrorKind::UnknownParam));
+    let spec = rewrite("s-constat", "s-constat", Some("nope"), &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-nope", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownField);
+}
+
+/// t-326 : un paramètre déclaré mais pas texte (`layout`) n'est pas un champ à reformuler.
+#[test]
+fn rewrite_surface_of_a_non_text_param_returns_unknown_field() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-priorites", "s-priorites", Some("layout"), &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-layout", &spec).unwrap_err().kind())
+        .is_equal_to(SessionErrorKind::UnknownField);
+}
+
+/// t-326 : un nom de champ qui ressemble à un chemin ou à du Typst n'est jamais pris tel quel.
+#[rstest::rstest]
+#[case::list_path("blocks/b-points/body")]
+#[case::typst("title)#panic(")]
+#[case::old_prefix("@title")]
+#[case::empty("")]
+fn rewrite_surface_of_a_forged_field_returns_unknown_field(#[case] field: &str) {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-constat", "s-constat", Some(field), &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-forged", &spec).unwrap_err().kind())
+        .is_equal_to(SessionErrorKind::UnknownField);
+}
+
+/// t-326 : un élément d'une autre slide n'est pas un objet de celle-ci.
+#[test]
+fn rewrite_surface_of_an_owner_on_another_slide_returns_unknown_owner() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-constat", "c1", Some("title"), &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-foreign", &spec).unwrap_err().kind())
+        .is_equal_to(SessionErrorKind::UnknownOwner);
+}
+
+#[test]
+fn rewrite_surface_of_an_unknown_owner_returns_unknown_owner() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-constat", "inconnu", None, &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-unknown", &spec).unwrap_err().kind())
+        .is_equal_to(SessionErrorKind::UnknownOwner);
+}
+
+#[test]
+fn rewrite_surface_of_an_unknown_slide_returns_no_slide() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-ailleurs", "s-ailleurs", Some("title"), &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-elsewhere", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::NoSlide);
+}
+
+/// t-326 : la slide n'a pas de « texte par défaut » : il faut nommer son champ.
+#[test]
+fn rewrite_surface_of_the_slide_without_field_returns_field_needed() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-constat", "s-constat", None, &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-slide", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::FieldNeeded);
+}
+
+/// t-326 : un élément sans paramètre `rich` (une forme) ne se reformule pas sans champ.
+#[test]
+fn rewrite_surface_of_an_element_without_rich_text_returns_field_needed() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-libre", "e-fond", None, &["A", "B"]);
+    assert_that!(s.rewrite_surface("ask-shape", &spec).unwrap_err().kind()).is_equal_to(SessionErrorKind::FieldNeeded);
+}
+
+/// t-326 : le champ texte d'un élément (le titre d'une carte) se reformule comme celui d'une slide.
+#[test]
+fn rewrite_of_an_element_plain_field_sets_that_param_of_the_element() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let title =
+        s.deck().slide("s-priorites").unwrap().locate("c1").unwrap().element.params.text("title").map(str::to_owned);
+    let spec = rewrite("s-priorites", "c1", Some("title"), &["Premier pari", "Autre pari"]);
+    let json = serde_json::to_value(s.rewrite_surface("ask-card", &spec).unwrap()).unwrap();
+    assert_that!(json["anchor"].clone())
+        .is_equal_to(json!({ "slide": "s-priorites", "owner": "c1", "field": "title" }));
+    assert_that!(json.to_string().contains(title.as_deref().unwrap())).is_true();
+    let ops = s.rewrite_ops(&spec, "Premier pari", None).unwrap();
+    assert_that!(ops).is_equal_to(vec![Op::SetParam {
+        target: Target { slide: "s-priorites".into(), element: Some("c1".into()) },
+        param: "title".into(),
+        value: json!("Premier pari"),
+    }]);
+}
+
+/// t-326 : le champ `rich` nommé d'un élément prend les paragraphes, comme le champ par défaut.
+#[test]
+fn rewrite_ops_of_a_named_rich_field_carries_the_paragraphs() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-priorites", "c1", Some("body"), &["a", "b"]);
+    let ops = s.rewrite_ops(&spec, "Corps", Some(vec![Paragraph::plain("Corps")])).unwrap();
+    s.apply("Reformulation", ops, None).unwrap();
+    let body =
+        s.deck().slide("s-priorites").unwrap().locate("c1").unwrap().element.params.rich("body").unwrap().to_vec();
+    assert_that!(body).is_equal_to(vec![Paragraph::plain("Corps")]);
+}
+
+/// t-326 : les ops d'une reformulation refusent elles aussi une adresse forgée (l'action peut
+/// arriver après un changement du deck).
+#[test]
+fn rewrite_ops_of_a_foreign_owner_returns_unknown_owner() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let spec = rewrite("s-constat", "e-texte", None, &["a", "b"]);
+    let err = s.rewrite_ops(&spec, "x", Some(vec![Paragraph::plain("x")])).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownOwner);
+}
+
+#[test]
+fn check_anchor_accepts_an_element_a_slide_field_and_an_element_field() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    for a in [
+        anchor("s-libre", "e-texte", None),
+        anchor("s-constat", "s-constat", Some("title")),
+        anchor("s-priorites", "c2", Some("kicker")),
+        anchor("s-libre", "e-fond", None),
+    ] {
+        assert_that!(s.check_anchor(&a)).named(&format!("{a:?}")).is_ok();
+    }
+}
+
+#[rstest::rstest]
+#[case::foreign_owner(anchor("s-constat", "c1", None), SessionErrorKind::UnknownOwner)]
+#[case::unknown_owner(anchor("s-constat", "x", None), SessionErrorKind::UnknownOwner)]
+#[case::unknown_slide(anchor("s-x", "s-x", Some("title")), SessionErrorKind::NoSlide)]
+#[case::unknown_field(anchor("s-constat", "s-constat", Some("nope")), SessionErrorKind::UnknownField)]
+#[case::element_unknown_field(anchor("s-libre", "e-texte", Some("title")), SessionErrorKind::UnknownField)]
+#[case::slide_without_field(anchor("s-constat", "s-constat", None), SessionErrorKind::FieldNeeded)]
+fn check_anchor_refuses_an_address_outside_the_deck(#[case] a: Anchor, #[case] kind: SessionErrorKind) {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    assert_that!(s.check_anchor(&a).unwrap_err().kind()).is_equal_to(kind);
 }
 
 #[test]
 fn rewrite_ops_of_field_ignores_missing_paragraphs() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    let spec =
-        AskRewrite { slide: "s-constat".into(), element: "@title".into(), proposals: vec!["A".into(), "B".into()] };
+    let spec = rewrite("s-constat", "s-constat", Some("title"), &["A", "B"]);
     let ops = s.rewrite_ops(&spec, "Nouveau titre", None).unwrap();
     s.apply("Reformulation", ops, None).unwrap();
     assert_that!(s.deck().slide("s-constat").unwrap().params.text("title")).is_equal_to(Some("Nouveau titre"));

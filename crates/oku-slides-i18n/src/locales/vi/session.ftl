@@ -52,6 +52,9 @@ session-undo-theme = Đổi chủ đề
 session-undo-edited-theme = Đổi chủ đề: { $name }
 session-help-deck = Không đọc được bản trình bày trợ giúp
 session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
+session-unknown-owner = { $owner } không phải trang chiếu { $slide } cũng không phải một phần tử của nó.
+session-unknown-field = { $owner } không có trường văn bản nào tên { $field }.
+session-field-needed = Hãy nêu một trường văn bản của { $owner } (field).
 
 deck-untitled = Không có tiêu đề
 deck-new-title = Bản trình bày mới

@@ -643,7 +643,7 @@ test("Stage agent sheet near the bottom flips above its element and stays inside
   try {
     // Échelle 0,1 (happy-dom : la zone mesure 0) : l'élément est à (180, 100) px, 10 × 6.
     const v = { ...view, targets: [{ id: "c1", kind: "card", free: false, x: 1800, y: 1000, w: 100, h: 60 }] } as SlideView;
-    const { host } = await mount({ view: v, overlay: { target: "c1", node: createElement("p", null, "fiche") } });
+    const { host } = await mount({ view: v, overlay: { anchor: { owner: "c1" }, node: createElement("p", null, "fiche") } });
     const sheet = host.querySelector<HTMLElement>(".agent-sheet")!;
     // Dessous : 100 + 6 + 8 + 100 > 180 (bas de la zone) ; dessus : 100 − 8 − 100 = −8 ≥ −20.
     expect(sheet.style.top).toBe("-8px");
@@ -668,7 +668,7 @@ test("Stage agent sheet keeps one size observer across renders", async () => {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
   try {
-    const overlay = { target: "c1", node: createElement("p", null, "fiche") };
+    const overlay = { anchor: { owner: "c1" }, node: createElement("p", null, "fiche") };
     const { render } = await mount({ overlay });
     const before = created;
     await render({ selected: "c1" });

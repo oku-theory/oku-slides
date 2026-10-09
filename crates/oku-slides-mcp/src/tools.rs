@@ -16,7 +16,9 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
+use snafu::ResultExt;
 
+use crate::tool_error::{ArgumentsSnafu, ResponseSnafu, SessionSnafu, SettingSnafu, TaskSnafu, ToolError};
 use crate::{Applied, SettingsPort, SurfaceHub};
 
 /// Les outils de l'agent, servis par [`crate::ToolServer`].
@@ -47,15 +49,43 @@ impl Tools {
     }
 
     /// Travail synchrone sur la session de l'onglet, hors du fil async ; le
-    /// verrou n'est tenu que le temps de `f`.
+    /// verrou n'est tenu que le temps de `f`. L'erreur (onglet fermé compris) se dit
+    /// par [`Tools::fail_with`].
     pub(crate) async fn with_session<T: Send + 'static>(
         &self,
-        f: impl FnOnce(&mut oku_slides_session::Session) -> Result<T, String> + Send + 'static,
-    ) -> Result<T, String> {
+        f: impl FnOnce(&mut oku_slides_session::Session) -> oku_slides_session::Result<T> + Send + 'static,
+    ) -> Result<T, ToolError> {
         let session = self.session.clone();
-        tokio::task::spawn_blocking(move || session.with(f).map_err(|e| e.one_line())?)
+        tokio::task::spawn_blocking(move || session.with(f).and_then(|r| r))
             .await
-            .map_err(|e| format!("session task failed: {e}"))?
+            .context(TaskSnafu)?
+            .context(SessionSnafu)
+    }
+
+    /// Arguments d'un outil, ou la réponse d'erreur à renvoyer.
+    #[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
+    pub(crate) fn parse<T: DeserializeOwned>(&self, args: Value) -> Result<T, CallToolResult> {
+        serde_json::from_value(args).context(ArgumentsSnafu).map_err(|e| self.fail_with(e))
+    }
+
+    /// Le résultat JSON d'une valeur, ou l'erreur de réponse.
+    pub(crate) fn json_result(&self, v: &impl Serialize) -> CallToolResult {
+        match serde_json::to_string(v).context(ResponseSnafu) {
+            Ok(s) => text(s),
+            Err(e) => self.fail_with(e),
+        }
+    }
+
+    /// `result`, ou sa réponse d'erreur.
+    pub(crate) fn reply<T>(
+        &self,
+        result: Result<T, ToolError>,
+        ok: impl FnOnce(T) -> CallToolResult,
+    ) -> CallToolResult {
+        match result {
+            Ok(v) => ok(v),
+            Err(e) => self.fail_with(e),
+        }
     }
 
     /// Lecture des réglages, hors du fil async : l'implémentation réelle
@@ -66,11 +96,16 @@ impl Tools {
     }
 
     /// Écriture d'un réglage déjà autorisé, hors du fil async.
-    pub(crate) async fn settings_write(&self, key: String, value: Value) -> Result<Applied, String> {
+    ///
+    /// Le message de l'hôte ne part qu'au journal (il peut nommer un fichier) : l'agent reçoit
+    /// la clé refusée.
+    pub(crate) async fn settings_write(&self, key: String, value: Value) -> Result<Applied, ToolError> {
         let settings = self.settings.clone();
-        tokio::task::spawn_blocking(move || settings.write(&key, &value))
-            .await
-            .map_err(|e| format!("settings task failed: {e}"))?
+        let written = {
+            let key = key.clone();
+            tokio::task::spawn_blocking(move || settings.write(&key, &value)).await.context(TaskSnafu)?
+        };
+        written.map_err(|message| SettingSnafu { key, message }.build())
     }
 }
 
@@ -83,23 +118,11 @@ pub(crate) struct SlideId {
     pub id: String,
 }
 
-/// Arguments d'un outil, ou le résultat d'erreur à renvoyer.
-#[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
-pub(crate) fn parse<T: DeserializeOwned>(args: Value) -> Result<T, CallToolResult> {
-    serde_json::from_value(args).map_err(|e| fail(format!("invalid arguments: {e}")))
-}
-
 pub(crate) fn text(s: impl Into<String>) -> CallToolResult {
     CallToolResult::text_content(vec![TextContent::new(s.into(), None, None)])
 }
 
-pub(crate) fn json_result(v: &impl Serialize) -> CallToolResult {
-    match serde_json::to_string(v) {
-        Ok(s) => text(s),
-        Err(e) => fail(format!("response not serializable: {e}")),
-    }
-}
-
+/// Réponse d'erreur au texte déjà dit : seulement par [`Tools::fail_with`].
 pub(crate) fn fail(msg: impl Into<String>) -> CallToolResult {
     let mut r = text(msg);
     r.is_error = Some(true);
@@ -210,9 +233,9 @@ pub(crate) fn list() -> Vec<Tool> {
             tool::<crate::widget_tools::PreviewWidgetArgs>("preview_widget", "PNG of one widget alone on a temporary slide (deck theme and tokens), followed by its diagnostics if any. Missing params take the widget's test values (stored in the pack), then their default or a sample value. Look at it after each set_widget."),
             tool::<crate::widget_tools::SetWidgetTrialArgs>("set_widget_trial", "Templates mode only: set test values of a widget's parameters, saved in the pack, used by its preview and shown in its settings. Rich values are paragraphs. null resets one to its default; an empty text or [] keeps it empty (to test an empty case). All or nothing."),
             tool::<crate::edit_tools::FocusArgs>("focus", "Show a slide (and an element) to the user."),
-            tool::<oku_slides_session::agent::AskChoice>("ask_choice", "Ask the user to choose (2-6 options). Blocks until they answer; returns {choice} or {answer_text} if they answered by voice, or {cancelled}. Use when the decision is theirs."),
+            tool::<oku_slides_session::agent::AskChoice>("ask_choice", "Ask the user to choose (2-6 options). Blocks until they answer; returns {choice} or {answer_text} if they answered by voice, or {cancelled}. Use when the decision is theirs. anchor {slide, owner, field?} shows it under that element or text field of the slide (owner: an element, or the slide itself with field); without it, in the thread."),
             tool::<oku_slides_session::agent::AskConfirm>("ask_confirm", "Ask yes/no. Blocks; returns {confirmed} / {answer_text} / {cancelled}."),
-            tool::<oku_slides_session::agent::AskRewrite>("ask_rewrite", "Propose 2-3 rewordings of a text element or a slide field: @<param>, a text parameter of the slide (see widgets). Blocks; the chosen text is applied by Oku Slides; returns {kept, text}."),
+            tool::<oku_slides_session::agent::AskRewrite>("ask_rewrite", "Propose 2-3 rewordings of a text field, addressed by {slide, owner, field}: owner is an element of the slide (field optional: its first rich text by default) or the slide itself (field required); field is a text parameter of the owner's widget (see widgets). Blocks; the chosen text is applied by Oku Slides; returns {kept, text}."),
             tool::<oku_slides_session::agent::ShowParams>("show_params", "Show a panel of live settings; each field applies op_template with \"$value\" replaced. Returns at once; later changes are reported in the next context."),
             tool::<oku_slides_session::agent::ShowVariants>("show_variants", "Show 2-4 rendered variants of a slide; the user's pick is applied. Returns at once; the pick is reported in the next context."),
             tool::<oku_slides_session::agent::Report>("report", "End every turn with this: a receipt card under the user's request. title: one line saying what changed; facts: 1-4 short lines; slide: shows its thumbnail; swatch: a color worth showing; why: your explanation in Markdown, folded by default; actions: 0-4 next steps as buttons (a click sends prompt, or label, as the user's next message). A second call in the same turn replaces the first. Your free text is shown only as one-line progress notes."),

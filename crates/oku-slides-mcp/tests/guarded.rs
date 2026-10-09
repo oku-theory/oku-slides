@@ -37,7 +37,8 @@ async fn save_denied_writes_nothing() {
     let path = dir.path().join("deck.oku-slides.pdf");
     let r = guarded(&h, "save", json!({ "path": path.to_string_lossy() }), false).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r).as_str()).is_equal_to("denied by user");
+    // Dit dans la langue de l'utilisateur (`fr`), comme toutes les erreurs des outils.
+    assert_that!(text_of(&r).as_str()).is_equal_to("L'utilisateur a refusé.");
     assert_that!(path.exists()).is_false();
 }
 
@@ -57,6 +58,8 @@ async fn open_with_parent_component_is_refused_without_asking() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "open", json!({ "path": "/tmp/../etc/deck.pdf" })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
+    // Sans le chemin donné : rien d'absolu dans une erreur.
+    assert_that!(text_of(&r).as_str()).is_equal_to("Le chemin ne doit pas contenir « .. ».");
     assert_that!(h.hub.has_pending_ask()).is_false();
 }
 
@@ -83,7 +86,8 @@ async fn open_denied_opens_nothing() {
     let (h, tabs) = start_other_tabs().await;
     let path = std::env::temp_dir().join("oku-slides-refuse.oku-slides.pdf");
     let r = guarded(&h, "open", json!({ "path": path.to_string_lossy() }), false).await;
-    assert_that!(text_of(&r).as_str()).is_equal_to("denied by user");
+    // Dit dans la langue de l'utilisateur (`fr`), comme toutes les erreurs des outils.
+    assert_that!(text_of(&r).as_str()).is_equal_to("L'utilisateur a refusé.");
     assert_that!(tabs.opened.lock().unwrap().is_empty()).is_true();
 }
 
@@ -94,7 +98,7 @@ async fn open_on_a_single_document_host_fails_and_keeps_this_deck() {
     let path = std::env::temp_dir().join("oku-slides-seul.oku-slides.pdf");
     let r = guarded(&h, "open", json!({ "path": path.to_string_lossy() }), true).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r).contains("only one presentation")).is_true();
+    assert_that!(text_of(&r).as_str()).is_equal_to("Une seule présentation peut être ouverte ici.");
     assert_that!(own_path(&h)).is_equal_to(before);
 }
 

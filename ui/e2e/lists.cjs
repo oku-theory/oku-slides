@@ -5,6 +5,7 @@
 // (avant widgets.cjs : l'onglet est encore en mode deck ; la frise reste sur s-constat).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
 const { until } = require('./until.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,11 +13,6 @@ const FRISE = fs.readFileSync(path.join(__dirname, '../../fixtures/widgets/frise
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-const post = (p, endpoint, req) =>
-  p.evaluate(
-    ([e, r]) => fetch(e, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) }).then((x) => x.json()),
-    [endpoint, req],
-  );
 const view = (p) => post(p, '/api', { tab: 't-1', req: { cmd: 'slide', id: 's-constat' } });
 const items = async (p) => (await view(p)).items.filter((i) => i.owner === 'f');
 const ids = async (p) => (await items(p)).map((i) => i.item);

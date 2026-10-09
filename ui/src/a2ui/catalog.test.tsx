@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import { CATALOG_ID, catalog, sixDigits } from "./catalog";
+import { CATALOG_ID, CheckedSlider, catalog, sixDigits } from "./catalog";
 import { buildSurface } from "./SurfaceView";
 import agentSurfaces from "./fixtures/agent-surfaces.json";
 
@@ -131,5 +131,44 @@ describe("buildSurface", () => {
 
   test("aucun message, aucune surface", () => {
     expect(buildSurface([], "s", () => {})).toEqual({ processor: null, surface: null, error: null });
+  });
+});
+
+describe("validation des entrées de l'agent (t-195)", () => {
+  const schemaOf = (name: string) => catalog.components.get(name)?.schema;
+  const opts = (...ids: string[]) => ids.map((id) => ({ id, label: id.toUpperCase() }));
+  const slider = (min: number, max: number) => ({ label: "n", value: 1, min, max });
+
+  test("Slider refuse min >= max", () => {
+    expect(CheckedSlider.safeParse(slider(0, 10)).success).toBe(true);
+    expect(CheckedSlider.safeParse(slider(10, 2)).success).toBe(false);
+    expect(CheckedSlider.safeParse(slider(5, 5)).success).toBe(false);
+  });
+
+  test("buildSurface refuse une surface dont un Slider a une plage inversée", () => {
+    const build = (min: number, max: number) =>
+      buildSurface(
+        surface([{ id: "root", component: "Slider", label: "n", value: 1, min, max }]) as Parameters<typeof buildSurface>[0],
+        "s",
+        () => {},
+      );
+    expect(build(0, 10).error).toBeNull();
+    expect(build(10, 2).error).toContain("min must be < max");
+  });
+
+  test("ChoiceChips et Select refusent des options aux identifiants en double", () => {
+    expect(schemaOf("ChoiceChips")?.safeParse({ options: opts("a", "b"), value: "a" }).success).toBe(true);
+    expect(schemaOf("ChoiceChips")?.safeParse({ options: opts("a", "b", "a"), value: "a" }).success).toBe(false);
+    expect(schemaOf("Select")?.safeParse({ label: "n", options: opts("a", "b"), value: "a" }).success).toBe(true);
+    expect(schemaOf("Select")?.safeParse({ label: "n", options: opts("a", "a"), value: "a" }).success).toBe(false);
+  });
+
+  test("une colonne de liste refuse des options en double", () => {
+    const column = (options: unknown[]) => ({ key: "k", label: "K", kind: "select", options });
+    const table = (options: unknown[]) => ({
+      label: "l", rows: [], change: "", markdown: "", columns: [column(options)], min: 0, palette: [],
+    });
+    expect(schemaOf("ListTable")?.safeParse(table(opts("a", "b"))).success).toBe(true);
+    expect(schemaOf("ListTable")?.safeParse(table(opts("a", "a"))).success).toBe(false);
   });
 });

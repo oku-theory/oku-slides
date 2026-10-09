@@ -5,13 +5,14 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 use std::time::Duration;
 
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     ClientCapabilities, FileSystemCapabilities, InitializeRequest, RequestPermissionOutcome, RequestPermissionRequest,
-    RequestPermissionResponse, SelectedPermissionOutcome, SessionId, SessionNotification,
+    RequestPermissionResponse, SelectedPermissionOutcome, SessionId, SessionNotification, SessionUpdate,
 };
 use agent_client_protocol::{Agent, ByteStreams, Client, ConnectionTo};
 use oku_slides_mcp::SurfaceHub;
@@ -67,6 +68,26 @@ pub fn agent_fingerprint(command: &str, args: &[String]) -> String {
 pub(crate) struct Route {
     pub events: broadcast::Sender<AgentEvent>,
     pub hub: Arc<SurfaceHub>,
+    /// Session reprise par `session/load` dont le premier `session/prompt` n'est pas parti :
+    /// ce qui rejoue l'historique est ignoré (voir [`is_replay`]).
+    pub replaying: Arc<AtomicBool>,
+}
+
+/// Une mise à jour qui rejoue l'historique d'une session (`session/load`).
+///
+/// ACP envoie le rejeu avant la réponse à `session/load`, quand la route n'est pas encore
+/// posée ; un agent non conforme qui l'envoie après la ferait entrer dans le tour (t-612).
+/// Les autres mises à jour (commandes disponibles, mode…) décrivent l'état de la session.
+fn is_replay(update: &SessionUpdate) -> bool {
+    matches!(
+        update,
+        SessionUpdate::UserMessageChunk(_)
+            | SessionUpdate::AgentMessageChunk(_)
+            | SessionUpdate::AgentThoughtChunk(_)
+            | SessionUpdate::ToolCall(_)
+            | SessionUpdate::ToolCallUpdate(_)
+            | SessionUpdate::Plan(_)
+    )
 }
 
 /// Routes par lancement et session : un agent relancé peut réutiliser un
@@ -169,6 +190,15 @@ impl Link {
         self.inner.routes.lock().unwrap_or_else(PoisonError::into_inner).insert((generation, id), route);
     }
 
+    /// Le premier `session/prompt` de la session `id` part : fin de son rejeu.
+    pub(crate) fn prompting(&self, generation: u64, id: &SessionId) {
+        if let Some(route) =
+            self.inner.routes.lock().unwrap_or_else(PoisonError::into_inner).get(&(generation, id.clone()))
+        {
+            route.replaying.store(false, Ordering::Release);
+        }
+    }
+
     /// Oublie la session `id` du lancement `generation` : ce qui arrive encore
     /// pour elle est ignoré ; la même session d'un autre lancement reste routée.
     pub(crate) fn forget(&self, generation: u64, id: SessionId) {
@@ -245,11 +275,14 @@ impl Serving {
                             .lock()
                             .unwrap_or_else(PoisonError::into_inner)
                             .get(&(generation, n.session_id.clone()))
-                            .map(|r| (r.events.clone(), r.hub.clone()));
+                            .map(|r| (r.events.clone(), r.hub.clone(), r.replaying.load(Ordering::Acquire)));
                         match route {
+                            Some((_, _, true)) if is_replay(&n.update) => {
+                                tracing::debug!(session = ?n.session_id, "rejeu après session/load : ignoré");
+                            }
                             // Rangée dans le tour ouvert : l'agent envoie les mises à jour d'un tour
                             // avant d'en rendre la réponse, sur la même connexion. Hors tour : ignorée.
-                            Some((events, hub)) => match hub.turn() {
+                            Some((events, hub, _)) => match hub.turn() {
                                 Some(turn) => {
                                     if let Some(event) = from_update(turn, n.update) {
                                         let _ = events.send(event);

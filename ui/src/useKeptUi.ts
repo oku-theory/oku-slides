@@ -1,5 +1,5 @@
-// Options d'affichage : grille et fantômes de la scène, largeurs des colonnes, code des widgets (affiché, largeur),
-// sections repliées de la pile, gardés par l'hôte pour la reprise.
+// L'état d'interface gardé par l'hôte pour la reprise : slide courante, grille et fantômes de la scène,
+// largeurs des colonnes, code des widgets (affiché, largeur), sections repliées, sous-onglets.
 
 import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
@@ -19,8 +19,8 @@ type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
 /** Largeurs choisies aux séparateurs, en px ; `null` : largeur par défaut. */
 export type ColumnWidths = Pick<UiState, "pile" | "notes">;
 
-/** Grille et fantômes de la scène, leurs entrées de menu et leurs raccourcis, colonnes, code des widgets. */
-export interface ViewOptions {
+/** L'état d'interface gardé : grille et fantômes (entrées de menu, raccourcis), colonnes, code des widgets, sections repliées. */
+export interface KeptUi {
   grid: boolean;
   ghosts: boolean;
   columns: ColumnWidths;
@@ -50,12 +50,12 @@ export interface ViewOptions {
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
  */
-export function useViewOptions(
+export function useKeptUi(
   kept: UiState | null,
   current: string | null,
   save: (ui: UiState) => Promise<unknown>,
   tabs: KeptTabs,
-): ViewOptions {
+): KeptUi {
   const [grid, setGrid] = useState(true);
   const [ghosts, setGhosts] = useState(false);
   const [columns, setColumns] = useState<ColumnWidths>({ pile: null, notes: null });

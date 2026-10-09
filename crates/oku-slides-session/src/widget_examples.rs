@@ -44,7 +44,7 @@ impl Session {
             Mode::Templates { edit, .. } => {
                 edit.base.hex().get(..REVISION_HEX).and_then(|h| u64::from_str_radix(h, 16).ok()).unwrap_or_default()
             }
-            Mode::Deck | Mode::History { .. } => 0,
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => 0,
         }
     }
 

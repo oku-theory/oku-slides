@@ -2,16 +2,19 @@
 
 use std::path::{Component, Path, PathBuf};
 
-/// Le chemin, s'il est absolu et ne remonte pas ; les `.` sont retirés.
-pub(crate) fn checked(path: &str) -> Result<PathBuf, String> {
+use snafu::ensure;
+
+use crate::tool_error::{PathParentSnafu, PathRelativeSnafu, ToolError};
+
+/// Le chemin, s'il est absolu et ne remonte pas ; les `.` sont retirés. Le refus ne dit pas
+/// le chemin à l'agent (il reste au journal).
+pub(crate) fn checked(path: &str) -> Result<PathBuf, ToolError> {
     let p = Path::new(path);
-    if !p.is_absolute() {
-        return Err(format!("path must be absolute: {path}"));
-    }
+    ensure!(p.is_absolute(), PathRelativeSnafu { path });
     let mut out = PathBuf::new();
     for c in p.components() {
         match c {
-            Component::ParentDir => return Err(format!("path must not contain '..': {path}")),
+            Component::ParentDir => return PathParentSnafu { path }.fail(),
             Component::CurDir => {}
             other => out.push(other),
         }

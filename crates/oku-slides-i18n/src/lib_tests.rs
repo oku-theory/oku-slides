@@ -26,6 +26,20 @@ fn every_locale_parses_without_error() {
 }
 
 #[test]
+fn no_locale_defines_a_key_twice() {
+    for (locale, sources) in LOCALES {
+        let mut seen = BTreeSet::new();
+        for line in sources.iter().flat_map(|s| s.lines()) {
+            let Some((key, _)) = line.split_once(" = ") else { continue };
+            if key.starts_with(['#', ' ']) || key.is_empty() {
+                continue;
+            }
+            asserting(&format!("{locale} : {key} défini deux fois")).that(&seen.insert(key.trim())).is_true();
+        }
+    }
+}
+
+#[test]
 fn every_locale_has_exactly_the_reference_keys() {
     let reference = keys(REFERENCE);
     assert_that!(reference.len()).is_greater_than(50);
@@ -276,39 +290,134 @@ fn list_refusals_plurals_follow_each_language() {
     }
 }
 
+/// Les variables d'un message sur lesquelles il choisit une variante (`{ $n -> … }`).
+fn selectors(source: &str) -> BTreeSet<String> {
+    variables(source)
+        .into_iter()
+        .filter(|name| source.split(&format!("${name}")).skip(1).any(|rest| rest.trim_start().starts_with("->")))
+        .collect()
+}
+
+/// Un blanc, visible ou non, entre un chiffre et ce qui le suit (espace de largeur nulle et
+/// gluons compris : `char::is_whitespace` ne voit pas U+200B).
+fn spaced_after_digit(text: &str) -> bool {
+    let blank = |c: char| c.is_whitespace() || matches!(c, '\u{200B}' | '\u{2060}' | '\u{FEFF}');
+    text.chars().zip(text.chars().skip(1)).any(|(a, b)| a.is_ascii_digit() && blank(b))
+}
+
+#[test]
+fn spaced_after_digit_sees_invisible_blanks() {
+    for (text, spaced) in
+        [("3個", false), ("3 個", true), ("3\u{3000}個", true), ("3\u{200B}個", true), ("3\u{2060}秒", true)]
+    {
+        asserting(&format!("« {text} »")).that(&spaced_after_digit(text)).is_equal_to(spaced);
+    }
+}
+
 /// En japonais, chinois et coréen, le compteur se colle au nombre (« 3個 », « 3秒 », « 3개 ») :
-/// aucun blanc, quel qu'il soit, entre le chiffre et ce qui le suit — dans le résumé d'un tour
-/// comme dans les messages de la ligne de commande, pour un compteur reçu en paramètre comme pour
-/// un nombre écrit dans le message (« 1枚あたり »). Les autres paramètres reçoivent un texte
-/// sans chiffre : une unité latine (« 12 KB ») n'est pas un compteur et garde son espace.
+/// aucun blanc, quel qu'il soit (U+200B compris), entre le chiffre et ce qui le suit, dans chaque
+/// message qui compte. Un compteur est une variable sur laquelle le message de référence choisit
+/// son pluriel (`{ $n -> … }`), relevée dans les sources plutôt que tenue à la main (t-465) ;
+/// les autres paramètres reçoivent un texte sans chiffre : une unité latine (« 12 KB ») n'est pas
+/// un compteur et garde son espace. Un message sans compteur n'est pas lu : ses nombres écrits
+/// (« 1–4 », « F2 », « 148 MB ») ne sont pas des quantités comptées.
 #[test]
 fn counters_stick_to_the_number_in_cjk() {
-    let messages: [(&str, &[&str], &[&str]); 12] = [
-        ("agent-turn-tools", &["tools"], &[]),
-        ("agent-turn-notes", &["notes"], &[]),
-        ("agent-turn-secs", &["secs"], &[]),
-        ("cli-deck-valid", &["slides"], &[]),
-        ("cli-rendered", &["pages"], &["out", "compile", "svg"]),
-        ("cli-saved", &["pages"], &["path", "pdf", "sources"]),
-        ("cli-opened", &["slides", "assets", "fonts"], &["path"]),
-        ("cli-bench-first", &["pages"], &["time"]),
-        ("cli-bench-svg", &[], &["time", "each"]),
-        ("op-list-full", &["max"], &["subject"]),
-        ("op-list-minimum", &["min"], &["subject"]),
-        ("op-list-too-many-items", &["max"], &["subject"]),
-    ];
+    let counters: std::collections::BTreeMap<String, BTreeSet<String>> = keys(REFERENCE)
+        .into_iter()
+        .map(|id| {
+            let counters = selectors(&source_of(REFERENCE, &id));
+            (id, counters)
+        })
+        .collect();
+    let counted = counters.values().filter(|c| !c.is_empty()).count();
+    asserting("des messages de référence ont un compteur").that(&counted).is_greater_than(5);
+    let mut spaced = Vec::new();
     for locale in ["ja", "ko", "zh-Hans", "zh-Hant"] {
-        for (id, counters, others) in messages {
-            let args: Vec<(&str, FluentValue<'_>)> = counters
-                .iter()
-                .map(|arg| (*arg, 3.into()))
-                .chain(others.iter().map(|arg| (*arg, "x".into())))
+        let localizer = Localizer::new(Some(locale));
+        for id in keys(locale) {
+            let counters = counters.get(&id).cloned().unwrap_or_default();
+            if counters.is_empty() {
+                continue;
+            }
+            let args: Vec<(String, FluentValue<'_>)> = variables(&source_of(locale, &id))
+                .union(&counters)
+                .map(|arg| (arg.clone(), if counters.contains(arg) { 3.into() } else { "x".into() }))
                 .collect();
-            let text = Localizer::new(Some(locale)).tr_with(id, &args);
-            let spaced = text.chars().zip(text.chars().skip(1)).any(|(a, b)| a.is_ascii_digit() && b.is_whitespace());
-            asserting(&format!("{locale} : {id} = « {text} »")).that(&spaced).is_false();
+            let args: Vec<(&str, FluentValue<'_>)> = args.iter().map(|(k, v)| (k.as_str(), v.clone())).collect();
+            let text = localizer.tr_with(&id, &args);
+            if spaced_after_digit(&text) {
+                spaced.push(format!("{locale} : {id} = « {text} »"));
+            }
         }
     }
+    assert_that!(spaced.join("\n")).is_equal_to(String::new());
+}
+
+/// Classificateurs (compteurs) japonais, chinois et coréens : un nombre qui les précède s'y colle.
+const CJK_COUNTERS: &[&str] = &[
+    "个",
+    "個",
+    "张",
+    "張",
+    "枚",
+    "件",
+    "页",
+    "頁",
+    "ページ",
+    "秒",
+    "次",
+    "条",
+    "條",
+    "项",
+    "項",
+    "つ",
+    "本",
+    "回",
+    "개",
+    "장",
+    "초",
+    "번",
+    "쪽",
+];
+
+/// Un chiffre suivi d'un blanc (invisible compris) puis d'un classificateur CJK.
+fn counter_detached(text: &str) -> bool {
+    let blank = |c: char| c.is_whitespace() || matches!(c, '\u{200B}' | '\u{2060}' | '\u{FEFF}');
+    text.char_indices().any(|(i, c)| {
+        let rest = &text[i + c.len_utf8()..];
+        let after = rest.trim_start_matches(blank);
+        c.is_ascii_digit() && after.len() < rest.len() && CJK_COUNTERS.iter().any(|k| after.starts_with(k))
+    })
+}
+
+#[test]
+fn counter_detached_sees_a_blank_before_a_classifier_only() {
+    for (text, detached) in
+        [("第 3 张", true), ("第3张", false), ("3\u{200B}個", true), ("3 を開く", false), ("148 MB", false)]
+    {
+        asserting(&format!("« {text} »")).that(&counter_detached(text)).is_equal_to(detached);
+    }
+}
+
+/// Tout argument numérique, compteur de pluriel ou non (« 第 { $index } 张，共 { $count } 张 ») :
+/// chaque variable de chaque message reçoit un nombre ; aucun ne se détache du classificateur
+/// qui le suit. Un nombre suivi d'autre chose (particule, unité latine) garde son espace.
+#[test]
+fn numeric_arguments_stick_to_their_cjk_classifier() {
+    let mut detached = Vec::new();
+    for locale in ["ja", "ko", "zh-Hans", "zh-Hant"] {
+        let localizer = Localizer::new(Some(locale));
+        for id in keys(locale) {
+            let names = variables(&source_of(locale, &id));
+            let args: Vec<(&str, FluentValue<'_>)> = names.iter().map(|n| (n.as_str(), 3.into())).collect();
+            let text = localizer.tr_with(&id, &args);
+            if counter_detached(&text) {
+                detached.push(format!("{locale} : {id} = « {text} »"));
+            }
+        }
+    }
+    assert_that!(detached.join("\n")).is_equal_to(String::new());
 }
 
 /// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).

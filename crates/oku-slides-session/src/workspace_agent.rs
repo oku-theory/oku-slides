@@ -11,7 +11,7 @@ use crate::Session;
 use crate::agent::Sessions;
 use crate::error::{Result, UnknownTabSnafu};
 
-use super::Workspace;
+use super::{Opening, Workspace};
 
 impl Workspace {
     /// Ouvre `path` dans un nouvel onglet de la fenêtre de `tab` ; déjà
@@ -33,7 +33,7 @@ impl Workspace {
                 w.save_layout();
                 return Ok(id);
             }
-            w.pending(Some(window), Some(path), None)
+            w.pending(Some(window), Opening::File(path), None)
         };
         let session = pending.build()?;
         Self::finish(ws, pending, session).map(|(_, id)| id)

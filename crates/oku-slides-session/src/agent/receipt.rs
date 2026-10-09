@@ -144,12 +144,12 @@ impl Session {
     /// Surface `report` : bornes vérifiées, faits blancs écartés, slide désignée par l'empreinte de sa page.
     pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
         ensure!(!spec.title.trim().is_empty(), AgentFormSnafu { reason: "title: must not be empty".to_string() });
+        // Un fait blanc est écarté : la carte ne montre pas de ligne vide (t-458) ; la borne
+        // compte donc les faits montrés (t-465).
+        let facts: Vec<String> = spec.facts.iter().filter(|f| !f.trim().is_empty()).cloned().collect();
         // Des faits tous blancs ne disent rien : le reçu montrerait une ligne vide.
-        ensure!(
-            spec.facts.iter().any(|f| !f.trim().is_empty()),
-            AgentFormSnafu { reason: "facts: give at least one fact".to_string() }
-        );
-        check_len("facts", spec.facts.len(), FACTS)?;
+        ensure!(!facts.is_empty(), AgentFormSnafu { reason: "facts: give at least one fact".to_string() });
+        check_len("facts", facts.len(), FACTS)?;
         check_len("actions", spec.actions.len(), ACTIONS)?;
         check_text("title", &spec.title, TEXT_MAX)?;
         for (i, f) in spec.facts.iter().enumerate() {
@@ -174,8 +174,6 @@ impl Session {
             }
             None => None,
         };
-        // Un fait blanc parmi d'autres est écarté : la carte ne montre pas de ligne vide (t-458).
-        let facts = spec.facts.iter().filter(|f| !f.trim().is_empty()).cloned().collect();
         let spec = Report { facts, ..spec.clone() };
         let surface = receipt(id, &spec, slide.as_ref(), &self.localizer);
         let plain = (!spec.actions.is_empty())

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FieldView, SlideView, TextStyle } from "./api";
 import { setMessages } from "./i18n";
 import { resetMessages } from "./test/messages";
-import { anchorIds, fieldHitBox, fieldKey, fieldLabel, findField, lineHeight, nextField, primaryFieldOf } from "./stageFields";
+import { anchorBox, fieldHitBox, fieldKey, fieldLabel, findField, lineHeight, nextField, primaryFieldOf } from "./stageFields";
 
 const ftl = (lang: string) =>
   Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -131,7 +131,27 @@ describe("fieldHitBox", () => {
   });
 });
 
-test("anchorIds lists element targets and slide fields as @param", () => {
-  const withTargets = { ...v, targets: [{ id: "c1" }, { id: "c2" }] } as unknown as SlideView;
-  expect(anchorIds(withTargets)).toEqual(["c1", "c2", "@title"]);
+describe("anchorBox (t-326 : ancre {owner, field} de l'agent)", () => {
+  const box = { x: 1, y: 2, w: 3, h: 4 };
+  const withTargets = { ...v, targets: [{ id: "c1", ...box }, { id: "c2", x: 5, y: 6, w: 7, h: 8 }] } as unknown as SlideView;
+  test("an element without field anchors on the element", () => {
+    expect(anchorBox(withTargets, { owner: "c1" })).toEqual(box);
+  });
+  test("a slide field anchors on that field's box", () => {
+    expect(anchorBox(withTargets, { owner: "s", field: "title" })).toEqual({ x: 10, y: 100, w: 50, h: 20 });
+  });
+  test("an element field anchors on that field, not on the element", () => {
+    expect(anchorBox(withTargets, { owner: "c1", field: "title" })).toEqual({ x: 10, y: 100, w: 50, h: 20 });
+  });
+  test("an element field without a box falls back to the element", () => {
+    expect(anchorBox(withTargets, { owner: "c1", field: "body" })).toEqual(box);
+  });
+  test("the slide without field, an unknown owner or field: not on the stage", () => {
+    expect(anchorBox(withTargets, { owner: "s" })).toBeNull();
+    expect(anchorBox(withTargets, { owner: "s", field: "nope" })).toBeNull();
+    expect(anchorBox(withTargets, { owner: "c9", field: "title" })).toBeNull();
+  });
+  test("the old @param shape addresses nothing", () => {
+    expect(anchorBox(withTargets, { owner: "@title" })).toBeNull();
+  });
 });

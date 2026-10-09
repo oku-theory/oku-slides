@@ -50,18 +50,24 @@ pub(super) enum Step {
     Build(Pending),
 }
 
+/// Ce que montre un onglet à créer.
+pub(super) enum Opening {
+    /// Un deck vierge.
+    Blank,
+    /// Le deck de ce fichier (chemin résolu).
+    File(PathBuf),
+    /// L'aide dans cette langue, au thème du deck d'où on l'ouvre.
+    Help { locale: &'static str, theme: Option<uuid::Uuid> },
+}
+
 /// Un onglet à créer hors du verrou : tout ce qu'il faut pour sa session.
 pub(super) struct Pending {
     pub(super) id: String,
     /// Fenêtre d'arrivée ; `None` : une nouvelle fenêtre.
     pub(super) window: Option<String>,
-    pub(super) path: Option<PathBuf>,
+    pub(super) opening: Opening,
     /// Onglet vierge à fermer une fois le nouveau prêt.
     pub(super) replace: Option<String>,
-    /// Langue de l'aide à montrer à la place d'un deck.
-    pub(super) help: Option<&'static str>,
-    /// Thème de l'aide : celui du deck d'où on l'ouvre.
-    pub(super) help_theme: Option<uuid::Uuid>,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
     pub(super) dir: Option<PathBuf>,
@@ -74,11 +80,10 @@ impl Pending {
     /// pas le fichier ouvert, il reste seulement sans reprise.
     pub(super) fn build(&self) -> Result<Session> {
         let mut session = tab_session(&self.fonts, &self.platform)?;
-        if let Some(path) = &self.path {
-            session.open(path)?;
-        }
-        if let Some(locale) = self.help {
-            session.open_help(locale, self.help_theme)?;
+        match &self.opening {
+            Opening::Blank => {}
+            Opening::File(path) => session.open(path)?,
+            Opening::Help { locale, theme } => session.open_help(locale, *theme)?,
         }
         if let Some(dir) = &self.dir
             && !session.resume_fresh(dir.join(TABS_DIR).join(&self.id))
@@ -93,7 +98,7 @@ impl Workspace {
     /// Un onglet vierge à la fin de `window`.
     pub(super) fn new_tab(&mut self, window: String) -> Result<Pending> {
         self.window_index(&window)?;
-        Ok(self.pending(Some(window), None, None))
+        Ok(self.pending(Some(window), Opening::Blank, None))
     }
 
     /// Ouvre `path` : son onglet s'il existe déjà, sinon un nouvel onglet
@@ -112,7 +117,7 @@ impl Workspace {
             return self.view_json().map(Step::Done);
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
-        Ok(Step::Build(self.pending(Some(window), Some(path), Some(active))))
+        Ok(Step::Build(self.pending(Some(window), Opening::File(path), Some(active))))
     }
 
     /// Ouvre l'aide de `window` : son onglet s'il existe déjà (au thème du
@@ -141,7 +146,7 @@ impl Workspace {
     /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
     /// rend aussi l'onglet du fichier (le nouveau, ou celui qui l'avait déjà).
     pub(super) fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<(WorkspaceOutcome, String)> {
-        let Pending { id, window, path, replace, help, .. } = pending;
+        let Pending { id, window, opening, replace, .. } = pending;
         let mut w = Self::lock(ws);
         // `settle` passé pendant la construction : refusé comme avant elle ;
         // la session construite pour rien part à la corbeille.
@@ -154,8 +159,11 @@ impl Workspace {
         // Le même fichier a pu être ouvert pendant la construction (Finder et
         // seconde instance, double clic) : le premier onglet reste, seul.
         // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
-        let existing =
-            path.as_deref().and_then(|p| w.tab_with_path(p)).or_else(|| help.and_then(|l| w.tab_with_help(l)));
+        let existing = match &opening {
+            Opening::Blank => None,
+            Opening::File(path) => w.tab_with_path(path),
+            Opening::Help { locale, .. } => w.tab_with_help(locale),
+        };
         if let Some(existing) = existing {
             let activated = w.activate(&existing);
             w.save_layout();
@@ -200,19 +208,12 @@ impl Workspace {
     }
 
     /// Réserve un numéro d'onglet et prépare sa construction hors du verrou.
-    pub(super) fn pending(
-        &mut self,
-        window: Option<String>,
-        path: Option<PathBuf>,
-        replace: Option<String>,
-    ) -> Pending {
+    pub(super) fn pending(&mut self, window: Option<String>, opening: Opening, replace: Option<String>) -> Pending {
         Pending {
             id: self.next_tab_id(),
             window,
-            path,
+            opening,
             replace,
-            help: None,
-            help_theme: None,
             fonts: self.fonts.clone(),
             platform: self.platform.clone(),
             dir: self.dir.clone(),

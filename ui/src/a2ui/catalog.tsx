@@ -59,6 +59,10 @@ const StepperApi = {
     .strict(),
 };
 const Option = z.object({ id: z.string(), label: z.string(), hint: z.string().optional() }).strict();
+/** Des options aux identifiants uniques : une valeur choisie doit en désigner une seule. */
+const Options = z.array(Option).refine((os) => new Set(os.map((o) => o.id)).size === os.length, {
+  message: "option ids must be unique",
+});
 const RowApi = { name: "Row", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
 const ButtonApi = {
   name: "Button",
@@ -74,7 +78,7 @@ const ButtonApi = {
 const ChoiceChipsApi = {
   name: "ChoiceChips",
   schema: z
-    .object({ options: z.array(Option), value: CommonSchemas.DynamicString, action: CommonSchemas.Action.optional() })
+    .object({ options: Options, value: CommonSchemas.DynamicString, action: CommonSchemas.Action.optional() })
     .strict(),
 };
 const SliderApi = {
@@ -90,6 +94,14 @@ const SliderApi = {
     })
     .strict(),
 };
+/**
+ * `SliderApi.schema` plus l'ordre des bornes, vérifié par `buildSurface` : @a2ui/web_core lit la
+ * forme d'un `ZodObject` pour lier les valeurs, ce que ne donne pas un `ZodEffects`.
+ */
+export const CheckedSlider = SliderApi.schema.refine((s) => s.min < s.max, {
+  message: "min must be < max",
+  path: ["min"],
+});
 const ColorFieldApi = {
   name: "ColorField",
   schema: z
@@ -108,7 +120,7 @@ const SelectApi = {
     .object({
       label: CommonSchemas.DynamicString,
       value: CommonSchemas.DynamicString,
-      options: z.array(Option),
+      options: Options,
       action: CommonSchemas.Action.optional(),
     })
     .strict(),
@@ -118,7 +130,7 @@ const ListColumnSchema = z
     key: z.string(),
     label: z.string(),
     kind: z.enum(["text", "rich", "number", "flag", "select", "asset"]),
-    options: z.array(Option),
+    options: Options,
   })
   .strict();
 const ListTableApi = {

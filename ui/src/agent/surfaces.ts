@@ -1,6 +1,6 @@
 // Surfaces ouvertes par l'agent, dans l'ordre d'arrivée.
 
-import type { AgentState, McpEvent, Place, Surface } from "../api";
+import type { AgentState, Anchor, McpEvent, Place, Surface } from "../api";
 import type { QuickAction } from "./quick";
 
 /**
@@ -68,9 +68,9 @@ export interface Routed {
  * pendant un changement de slide) ; une fiche n'y va que si son élément y est.
  * Au dock, les réglages d'abord et la question (`question`) en dernier, au plus près du micro.
  */
-export function routeSurfaces(list: Surface[], shown: { slide: string; targets: string[] } | null): Routed {
+export function routeSurfaces(list: Surface[], shown: { slide: string; has: (a: Anchor) => boolean } | null): Routed {
   const sheets = byPlace(list, "sheet");
-  const stage = sheets.find((s) => !!shown && s.anchor?.slide === shown.slide && shown.targets.includes(s.anchor.element));
+  const stage = sheets.find((s) => !!shown && !!s.anchor && s.anchor.slide === shown.slide && shown.has(s.anchor));
   const thread = byPlace(list, "thread");
   const dock = thread.filter((s) => s.live).sort((a, b) => Number(isQuestion(a)) - Number(isQuestion(b)));
   const byTurn = new Map<number, Surface[]>();

@@ -26,7 +26,9 @@
 //! rejoué en `agent_message_chunk` par `session/load` ; `by_prompt`
 //! (`{ "<texte>": Turn }`) joue ce tour quand le prompt est exactement ce texte,
 //! avant le choix par numéro. Ces deux requêtes sont journalisées.
-//! `new_session_delay_ms` fait attendre la réponse à `session/new` (ouverture lente).
+//! `new_session_delay_ms` fait attendre la réponse à `session/new` (ouverture lente),
+//! `load_delay_ms` celle à `session/load`. `late_replay_ms` (agent non conforme) envoie
+//! le rejeu de `session/load` après sa réponse, au bout de ce délai.
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -86,6 +88,12 @@ struct Script {
     /// Attente avant de répondre à `session/new`, en millisecondes.
     #[serde(default)]
     new_session_delay_ms: u64,
+    /// Attente avant de répondre à `session/load`, en millisecondes.
+    #[serde(default)]
+    load_delay_ms: u64,
+    /// Rejeu envoyé après la réponse à `session/load`, au bout de ce délai (millisecondes).
+    #[serde(default)]
+    late_replay_ms: Option<u64>,
 }
 
 fn yes() -> bool {
@@ -324,6 +332,8 @@ async fn main() -> agent_client_protocol::Result<()> {
             replay: Vec::new(),
             by_prompt: HashMap::new(),
             new_session_delay_ms: 0,
+            load_delay_ms: 0,
+            late_replay_ms: None,
         });
     let log =
         flag("--log").and_then(|p| std::fs::OpenOptions::new().create(true).append(true).open(p).ok()).map(Mutex::new);
@@ -432,10 +442,27 @@ async fn main() -> agent_client_protocol::Result<()> {
                     return responder.respond_with_internal_error("unknown session");
                 }
                 s5.remember_mcp(&req.session_id.0, &req.mcp_servers);
-                for text in &s5.script.replay {
-                    cx.send_notification(chunk(&req.session_id, text.clone()))?;
+                if s5.script.load_delay_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(s5.script.load_delay_ms)).await;
                 }
-                responder.respond(LoadSessionResponse::new())
+                let Some(late) = s5.script.late_replay_ms else {
+                    for text in &s5.script.replay {
+                        cx.send_notification(chunk(&req.session_id, text.clone()))?;
+                    }
+                    return responder.respond(LoadSessionResponse::new());
+                };
+                responder.respond(LoadSessionResponse::new())?;
+                let (state, session) = (s5.clone(), req.session_id.clone());
+                cx.spawn({
+                    let cx = cx.clone();
+                    async move {
+                        tokio::time::sleep(Duration::from_millis(late)).await;
+                        for text in &state.script.replay {
+                            cx.send_notification(chunk(&session, text.clone()))?;
+                        }
+                        Ok(())
+                    }
+                })
             },
             agent_client_protocol::on_receive_request!(),
         )

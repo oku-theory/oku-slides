@@ -68,12 +68,20 @@ impl Surface {
     }
 }
 
-/// L'élément sous lequel afficher une fiche.
+/// Le champ ou l'élément sous lequel afficher une fiche.
+///
+/// Vient de l'agent : la session le résout contre le deck actif (`Session::check_anchor`) avant
+/// toute surface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Anchor {
     pub slide: String,
-    /// Identifiant d'élément, ou champ de la slide : `@title`, `@subtitle`, `@kicker`, `@text`.
-    pub element: String,
+    /// L'objet visé : un élément de cette slide (son id), ou la slide elle-même (son id) pour
+    /// un de ses champs.
+    pub owner: String,
+    /// Un paramètre texte de `owner` (voir `widgets`), par son nom ; requis quand `owner` est la
+    /// slide. Sans lui : l'élément entier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
 }
 
 /// `ask_choice` : une question et ses options ; l'outil renvoie l'option choisie.
@@ -118,8 +126,13 @@ pub struct AskConfirm {
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct AskRewrite {
     pub slide: String,
-    /// Élément texte (ou carte), ou `@title`, `@subtitle`, `@kicker`, `@text`.
-    pub element: String,
+    /// L'objet qui porte le texte : un élément de cette slide (son id), ou la slide elle-même
+    /// (son id) pour un de ses champs.
+    pub owner: String,
+    /// Le paramètre texte de `owner` à reformuler (voir `widgets`) ; requis quand `owner` est la
+    /// slide. Sans lui : le premier paramètre `rich` de l'élément.
+    #[serde(default)]
+    pub field: Option<String>,
     /// 2 ou 3 propositions ; une ligne par paragraphe, `- ` pour une puce.
     pub proposals: Vec<String>,
 }
@@ -198,6 +211,8 @@ pub const CHOICES: (usize, usize) = (2, 6);
 pub const PROPOSALS: (usize, usize) = (2, 3);
 pub const VARIANTS: (usize, usize) = (2, 4);
 pub const FIELDS: (usize, usize) = (1, 8);
+/// Plafond du nombre d'options d'un champ `select` (large : une liste vide reste permise).
+pub const SELECT_OPTIONS_MAX: usize = 100;
 /// Bornes du nombre d'opérations d'une variante (contre un lot démesuré venant de l'agent).
 pub const OPS: (usize, usize) = (1, 50);
 /// Bornes par défaut d'un `Slider` sans `min`/`max`. Partagées avec
@@ -384,7 +399,7 @@ pub(crate) fn rewrite(id: &str, spec: &AskRewrite, original: &str, l: &Localizer
     let refs: Vec<&str> = body.iter().map(String::as_str).collect();
     components.insert(0, Component::column("body", &refs));
     components.insert(0, Component::card("root", "body"));
-    let anchor = Anchor { slide: spec.slide.clone(), element: spec.element.clone() };
+    let anchor = Anchor { slide: spec.slide.clone(), owner: spec.owner.clone(), field: spec.field.clone() };
     let draft = spec.proposals.first().cloned().unwrap_or_default();
     question(surface(id, Place::Sheet, Some(anchor), components, json!({ "draft": draft })))
 }
