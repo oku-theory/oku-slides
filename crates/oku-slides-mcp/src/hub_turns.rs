@@ -1,7 +1,7 @@
 //! Tours du fil : numéros, rangement (dans le tour de l'appel), gel, éviction, expiration des suites.
 
-use oku_slides_session::agent::Surface;
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
+use oku_slides_session::agent::{AgentScope, KEPT_TURNS, Surface};
 
 use super::{HubState, McpEvent, Shown, SurfaceHub};
 
@@ -21,16 +21,27 @@ enum Admit {
 pub const STATIC_PER_TURN: usize = 8;
 
 impl SurfaceHub {
-    /// Ouvre un tour : les surfaces du fil créées ensuite le portent. Les suites des tours passés expirent.
-    pub fn begin_turn(&self) -> u32 {
-        let n = {
+    /// Ouvre un tour dans `scope` ; ferme les plus anciens tours de la portée au-delà de `KEPT_TURNS`.
+    ///
+    /// Une seule éviction fait foi, celle-ci (tours relus compris). Celle du réducteur des
+    /// tours de l'agent (`TurnOut::Evict`) rappelle encore `close_turn` sur un tour déjà
+    /// évincé ici : redondant, mais sans effet (`close_turn` est idempotent).
+    pub fn begin_turn(&self, scope: AgentScope) -> u32 {
+        let (n, old) = {
             let mut state = self.state();
             state.turns = state.turns.saturating_add(1);
             let n = state.turns;
             state.turn = Some(n);
             state.live_turns.insert(n);
-            n
+            state.turn_scopes.insert(n, scope.clone());
+            let mut same: Vec<u32> = state.turn_scopes.iter().filter(|(_, s)| **s == scope).map(|(t, _)| *t).collect();
+            same.sort_unstable();
+            let excess = same.len().saturating_sub(KEPT_TURNS);
+            (n, same.into_iter().take(excess).collect::<Vec<_>>())
         };
+        for t in old {
+            self.close_turn(t);
+        }
         self.expire_actions();
         n
     }
@@ -194,25 +205,34 @@ impl SurfaceHub {
             let mut state = self.state();
             state.live_turns.remove(&n);
             state.reported.remove(&n);
+            state.turn_scopes.remove(&n);
             Self::thread_ids(&state, |t| t == n)
         };
         self.close_all(ids);
     }
 
-    /// Nouvelle conversation : questions relâchées, plus aucun tour, surfaces du fil fermées.
+    /// Nouvelle conversation dans `scope` : ses questions relâchées, ses tours et surfaces fermés.
     ///
-    /// Appelée **par l'acteur de l'onglet, avant la consigne suivante** (tâche 7) : jamais
-    /// en concurrence avec `begin_turn`. Tout est décidé sous un seul verrou.
-    pub fn clear_thread(&self) {
+    /// Appelée **par le gardien de l'onglet** (ordre `Forget`, dans l'ordre de sa
+    /// file), **avant la consigne suivante** : l'acteur attend la réponse de l'oubli,
+    /// donc jamais en concurrence avec `begin_turn`. Tout est décidé sous un seul verrou.
+    pub fn clear_thread(&self, scope: &AgentScope) {
         let ids = {
             let mut state = self.state();
-            state.turn = None;
-            state.live_turns.clear();
-            state.reported.clear();
-            Self::thread_ids(&state, |_| true)
+            let turns: Vec<u32> = state.turn_scopes.iter().filter(|(_, s)| *s == scope).map(|(t, _)| *t).collect();
+            let ids = Self::thread_ids(&state, |t| turns.contains(&t));
+            if state.turn.is_some_and(|t| turns.contains(&t)) {
+                state.turn = None;
+            }
+            for t in &turns {
+                state.live_turns.remove(t);
+                state.reported.remove(t);
+                state.turn_scopes.remove(t);
+            }
+            ids
         };
         // Après l'effacement : une question relâchée ici ne trouve plus son tour et se ferme au lieu de se figer.
-        self.cancel_asks();
+        self.cancel_asks_where(|id| ids.iter().any(|x| x == id));
         self.close_all(ids);
     }
 

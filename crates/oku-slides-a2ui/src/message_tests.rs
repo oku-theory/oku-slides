@@ -3,8 +3,22 @@ use speculoos::prelude::*;
 
 use crate::{
     Action, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ListColumn,
-    ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep,
+    ServerBody, ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep, UpdateDataModel, Version,
 };
+
+#[test]
+fn server_message_json_round_trips() {
+    let m = ServerMessage {
+        version: Version::V0_9,
+        body: ServerBody::UpdateDataModel(UpdateDataModel {
+            surface_id: "s-1".into(),
+            path: Some("/narration".into()),
+            value: Some(serde_json::json!("bonjour")),
+        }),
+    };
+    let back: ServerMessage = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+    assert_that!(back).is_equal_to(&m);
+}
 
 fn to_json(msg: &ServerMessage) -> Option<Value> {
     serde_json::to_value(msg).ok()

@@ -25,6 +25,8 @@ similar.workspace = true
 schemars.workspace = true
 uuid.workspace = true
 png.workspace = true
+hex.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 oku-slides-core = { workspace = true, features = ["test-support"] }

@@ -61,6 +61,7 @@ mod preview_crop;
 mod render_fonts;
 mod request;
 mod resume;
+mod resume_agent;
 mod resume_writer;
 mod search;
 mod tables;
@@ -238,6 +239,8 @@ pub struct Session {
     sent_blobs: Vec<Arc<resume::Blobs>>,
     /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
     agent_notes: Vec<String>,
+    /// Conversations de l'agent, une par portée (`agent::conversation`).
+    conversations: agent::conversation::Conversations,
     /// Bandeau du pack du deck ouvert (autre version que la courante).
     pack_notice: Option<pack_notice::PackNotice>,
     /// Bandeaux fermés : ils ne reviennent plus dans cette session.
@@ -356,6 +359,7 @@ impl Session {
             ui: UiState::default(),
             resume: None,
             agent_notes: Vec::new(),
+            conversations: Default::default(),
             pack_notice: None,
             pack_notices_closed: HashSet::new(),
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),

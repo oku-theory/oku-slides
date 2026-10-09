@@ -20,7 +20,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use oku_slides_i18n::Localizer;
-use oku_slides_session::agent::{PermissionChoice, ShowParams, ShowVariants, Surface, TabSession, forms};
+use oku_slides_session::agent::{AgentScope, PermissionChoice, ShowParams, ShowVariants, Surface, TabSession, forms};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tokio::sync::{broadcast, oneshot};
@@ -157,6 +157,10 @@ struct HubState {
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
+    /// Portée de chaque tour encore dans le fil.
+    turn_scopes: HashMap<u32, AgentScope>,
+    /// La portée que l'interface montre : seul son fil lui est envoyé.
+    viewing: AgentScope,
 }
 
 impl HubState {
@@ -177,10 +181,15 @@ impl HubState {
         Some(self.take_ask(i))
     }
 
+    fn take_asks_where(&mut self, which: impl Fn(&str) -> bool) -> Vec<PendingAsk> {
+        let (taken, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.asks).into_iter().partition(|a| which(&a.id));
+        self.asks = kept;
+        self.open.retain(|s| !taken.iter().any(|a| !a.frozen && a.id == s.id));
+        taken
+    }
+
     fn take_asks(&mut self) -> Vec<PendingAsk> {
-        let asks = std::mem::take(&mut self.asks);
-        self.open.retain(|s| !asks.iter().any(|a| !a.frozen && a.id == s.id));
-        asks
+        self.take_asks_where(|_| true)
     }
 }
 
@@ -220,25 +229,54 @@ impl SurfaceHub {
     /// [`emit`](Self::emit), verrou déjà pris : la liste des ouvertes et l'évènement suivent
     /// l'ordre des sections critiques.
     fn record_and_send(&self, state: &mut HubState, mut event: McpEvent) {
-        match &mut event {
+        let send = match &mut event {
             // Le relais, en retard, peut émettre la surface d'un tour effacé par une nouvelle conversation.
             McpEvent::Surface { surface } if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) => {
                 tracing::debug!(surface = %surface.id, "surface d'un tour effacé : ignorée");
                 return;
             }
-            McpEvent::Surface { surface } => match state.open.iter_mut().find(|s| s.id == surface.id) {
-                Some(open) => *open = surface.clone(),
-                None => state.open.push(surface.clone()),
-            },
-            McpEvent::CloseSurface { id } => state.open.retain(|s| &s.id != id),
-            McpEvent::Surfaces { list } => *list = state.open.clone(),
-            McpEvent::SurfacePatch { id, messages } => match state.open.iter_mut().find(|s| &s.id == id) {
-                Some(open) => open.apply_patch(messages),
-                None => tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée"),
-            },
-            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } => {}
+            McpEvent::Surface { surface } => {
+                let was = state.open.iter().find(|s| s.id == surface.id).map(|s| (s.live, s.turn));
+                let was = was.is_some_and(|(live, turn)| Self::shown(&*state, live, turn));
+                match state.open.iter_mut().find(|s| s.id == surface.id) {
+                    Some(open) => *open = surface.clone(),
+                    None => state.open.push(surface.clone()),
+                }
+                let now = Self::shown(&*state, surface.live, surface.turn);
+                if was && !now {
+                    // Montrée, maintenant cachée (question d'une autre portée figée) : l'interface la ferme.
+                    event = McpEvent::CloseSurface { id: surface.id.clone() };
+                    true
+                } else {
+                    now
+                }
+            }
+            McpEvent::CloseSurface { id } => {
+                state.open.retain(|s| &s.id != id);
+                true
+            }
+            McpEvent::Surfaces { list } => {
+                *list = Self::visible(&*state);
+                true
+            }
+            McpEvent::SurfacePatch { id, messages } => {
+                let seen = state.open.iter_mut().find(|s| &s.id == id).map(|open| {
+                    open.apply_patch(messages);
+                    (open.live, open.turn)
+                });
+                match seen {
+                    Some((live, turn)) => Self::shown(&*state, live, turn),
+                    None => {
+                        tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée");
+                        true
+                    }
+                }
+            }
+            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } => true,
+        };
+        if send {
+            let _ = self.events.send(event);
         }
-        let _ = self.events.send(event);
     }
 
     /// Les surfaces ouvertes, dans l'ordre d'ouverture.
@@ -246,8 +284,9 @@ impl SurfaceHub {
         self.state().open.clone()
     }
 
-    /// Envoie la liste entière des surfaces ouvertes (`McpEvent::Surfaces`).
-    pub fn resync(&self) {
+    /// Montre le fil de `scope` : envoie sa liste entière (`McpEvent::Surfaces`) ; piloté par le gardien de l'onglet.
+    pub fn resync(&self, scope: AgentScope) {
+        self.state().viewing = scope;
         self.emit(McpEvent::Surfaces { list: Vec::new() });
     }
 
@@ -363,10 +402,15 @@ impl SurfaceHub {
 
     /// Libère toutes les questions en attente (Échap, nouveau tour, nouvelle conversation).
     pub fn cancel_asks(&self) {
+        self.cancel_asks_where(|_| true);
+    }
+
+    /// Libère les questions en attente que `which` désigne.
+    pub(crate) fn cancel_asks_where(&self, which: impl Fn(&str) -> bool) {
         // Le verrou d'un temporaire dans la tête d'un `for` vit jusqu'à la
-        // fin de la boucle : on le lie d'abord pour ne pas le tenir pendant
-        // l'envoi (qui peut réveiller le futur en attente).
-        let asks = self.state().take_asks();
+        // fin de la boucle : on lie d'abord les questions pour ne pas le tenir
+        // pendant l'envoi (qui peut réveiller le futur en attente).
+        let asks = self.state().take_asks_where(which);
         Self::release(asks);
     }
 
@@ -542,6 +586,10 @@ impl SurfaceHub {
 #[path = "hub_turns.rs"]
 mod turns;
 pub use turns::{Freeze, STATIC_PER_TURN};
+
+#[path = "hub_scopes.rs"]
+mod scopes;
+pub use scopes::THREAD_BYTES;
 
 #[cfg(test)]
 #[path = "hub_tests.rs"]

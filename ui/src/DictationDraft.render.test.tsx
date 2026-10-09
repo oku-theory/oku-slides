@@ -21,7 +21,7 @@ afterEach(async () => {
 
 async function mount(
   text: string | null,
-  { busy = false, insertTo = "dans le titre" as string | null, typing = 0 } = {},
+  { busy = false, insertTo = "dans le titre" as string | null, typing = 0, notice = null as string | null } = {},
 ) {
   const sent: string[] = [];
   const inserted: string[] = [];
@@ -38,6 +38,7 @@ async function mount(
         dictations: 1,
         typing,
         busy,
+        notice,
         insertTo,
         onInsert: (v: string) => inserted.push(v),
         onChange: (v: string) => changes.push(v),
@@ -57,6 +58,22 @@ const key = (el: Element, init: KeyboardEventInit) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
 
 describe("brouillon de dictée", () => {
+  test("DictationDraft with a notice disables send", async () => {
+    const { send } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…" });
+    expect(send().disabled).toBe(true);
+  });
+
+  test("DictationDraft with a notice shows it", async () => {
+    const { host } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…" });
+    expect(host.querySelector(".draft-notice[role=status]")?.textContent).toBe("L'agent répond dans l'atelier…");
+  });
+
+  test("DictationDraft with a notice ignores ⌘↩", async () => {
+    const { area, sent } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…", typing: 1 });
+    key(area(), { key: "Enter", metaKey: true });
+    expect(sent).toEqual([]);
+  });
+
   test("DictationDraft sans brouillon ne montre rien", async () => {
     const { host } = await mount(null);
     expect(host.querySelector(".draft")).toBeNull();

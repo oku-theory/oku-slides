@@ -45,6 +45,7 @@ agent-turn-notes = 메모 { $notes }개
 agent-turn-secs = { $secs }초
 agent-turn-stopped = 중지됨.
 agent-turn-interrupted = 중단됨.
+agent-memory-lost = 에이전트가 이 대화를 더 이상 기억하지 못합니다. 처음부터 다시 시작합니다.
 agent-turn-max-tokens = 에이전트가 길이 한도에 도달했습니다.
 agent-turn-max-turns = 에이전트가 단계 한도에 도달했습니다.
 agent-turn-refusal = 에이전트가 거절했습니다.

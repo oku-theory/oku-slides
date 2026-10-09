@@ -73,3 +73,27 @@ async fn missing_command_error_comes_after_the_turn_is_opened() {
     assert_that!(matches!(opened, AgentEvent::UserText { turn: 1, .. })).is_true();
     until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn agent_id_is_the_fingerprint_of_the_launch() {
+    let h = start(json!({ "turns": [{ "chunks": ["ok"] }] })).await;
+    // Exactement ce que le harnais lance.
+    let args: Vec<String> = vec![
+        "--script".into(),
+        script_path(&h).to_string_lossy().into_owned(),
+        "--log".into(),
+        h.log.to_string_lossy().into_owned(),
+    ];
+    let expected = oku_slides_agent::agent_fingerprint(env!("CARGO_BIN_EXE_oku-slides-fake-agent"), &args);
+    assert_that!(h.link.agent_id()).is_equal_to(expected);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fake_agent_by_prompt_plays_the_matching_turn() {
+    let h =
+        start(json!({ "by_prompt": { "bonjour": { "chunks": ["salut"] } }, "turns": [{ "chunks": ["autre"] }] })).await;
+    let mut rx = h.tab("t-1").agent.subscribe();
+    h.tab("t-1").agent.prompt("bonjour".into(), Default::default());
+    let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "salut".into() });
+}

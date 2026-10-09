@@ -45,6 +45,7 @@ agent-turn-notes = บันทึก { $notes } รายการ
 agent-turn-secs = { $secs } วินาที
 agent-turn-stopped = หยุดแล้ว
 agent-turn-interrupted = ถูกขัดจังหวะ
+agent-memory-lost = เอเจนต์จำการสนทนานี้ไม่ได้แล้ว จึงเริ่มต้นใหม่
 agent-turn-max-tokens = เอเจนต์ถึงขีดจำกัดความยาวแล้ว
 agent-turn-max-turns = เอเจนต์ถึงขีดจำกัดจำนวนขั้นตอนแล้ว
 agent-turn-refusal = เอเจนต์ปฏิเสธ

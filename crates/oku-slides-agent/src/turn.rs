@@ -1,9 +1,11 @@
 //! Un tour : groupe d'annulation, contexte, `session/prompt`, et ce qui
 //! arrive pendant qu'il tourne (annulation, nouvelle consigne).
 
+use std::collections::BTreeSet;
+
 use agent_client_protocol::schema::v1::{CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent};
 use agent_client_protocol::{Agent, ConnectionTo};
-use oku_slides_session::agent::AgentUi;
+use oku_slides_session::agent::{AgentScope, AgentUi};
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
@@ -11,16 +13,18 @@ use crate::tab_agent::{Command, Ctx};
 use crate::{AgentEvent, AgentState};
 
 /// Ce qui est arrivé pendant le tour, à appliquer par l'agent de l'onglet
-/// une fois le tour fini : une nouvelle conversation (déclenchée une fois,
+/// une fois le tour fini : des nouvelles conversations (une fois par portée,
 /// même si une consigne suit) et/ou la dernière consigne reçue (une `Cancel`
-/// après coup l'annule, mais pas la nouvelle conversation).
+/// après coup l'annule, mais pas les nouvelles conversations).
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
-    pub new_conversation: bool,
-    pub prompt: Option<(String, AgentUi)>,
+    /// Portées dont la conversation repart de zéro après le tour.
+    pub new_conversations: BTreeSet<AgentScope>,
+    /// La dernière consigne reçue pendant le tour, à jouer ensuite.
+    pub prompt: Option<(AgentScope, String, AgentUi)>,
 }
 
-/// Joue le tour `turn` ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+/// Joue le tour `turn` dans `scope` ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
 #[expect(
     clippy::too_many_arguments,
     reason = "les paramètres viennent de la connexion ACP ; les regrouper ajouterait un type sans autre usage"
@@ -30,6 +34,7 @@ pub(crate) async fn run(
     cx: &ConnectionTo<Agent>,
     rx: &mut mpsc::UnboundedReceiver<Command>,
     turn: u32,
+    scope: &AgentScope,
     session: SessionId,
     text: String,
     ui: AgentUi,
@@ -55,7 +60,7 @@ pub(crate) async fn run(
             String::new()
         }
     };
-    ctx.emit(AgentEvent::Status { state: AgentState::Working });
+    ctx.emit(AgentEvent::Status { state: AgentState::Working, scope: Some(scope.clone()) });
     let mut blocks = Vec::with_capacity(4);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(ctx.localizer.tr("agent-instructions"))));
@@ -72,9 +77,11 @@ pub(crate) async fn run(
         tokio::select! {
             r = &mut request => break r,
             cmd = rx.recv(), if open => {
-                // Toute commande pendant un tour l'arrête, une seule fois ; une
-                // consigne ou une nouvelle conversation est appliquée ensuite.
-                if !cancel_sent {
+                // Toute commande pendant un tour l'arrête, une seule fois, sauf une nouvelle
+                // conversation d'une autre portée : le tour n'en dépend pas. Une consigne ou
+                // une nouvelle conversation est appliquée ensuite.
+                let elsewhere = matches!(&cmd, Some(Command::NewConversation { scope: other }) if other != scope);
+                if !cancel_sent && !elsewhere {
                     ctx.hub.cancel_asks();
                     // Connexion finie : le tour échouera de lui-même.
                     if let Err(e) = cx.send_notification(CancelNotification::new(session.clone())) {
@@ -85,8 +92,10 @@ pub(crate) async fn run(
                 match cmd {
                     None => open = false,
                     Some(Command::Cancel) => pending.prompt = None,
-                    Some(Command::NewConversation) => pending.new_conversation = true,
-                    Some(Command::Prompt { text, ui }) => pending.prompt = Some((text, ui)),
+                    Some(Command::NewConversation { scope }) => {
+                        pending.new_conversations.insert(scope);
+                    }
+                    Some(Command::Prompt { scope, text, ui }) => pending.prompt = Some((scope, text, ui)),
                 }
             }
         }
@@ -94,6 +103,6 @@ pub(crate) async fn run(
     ctx.end_turn().await;
     let stop = as_text(&response?.stop_reason);
     ctx.emit(AgentEvent::TurnEnded { turn, stop });
-    ctx.emit(AgentEvent::Status { state: AgentState::Idle });
+    ctx.emit(AgentEvent::idle());
     Ok(pending)
 }

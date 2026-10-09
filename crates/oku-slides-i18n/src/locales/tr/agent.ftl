@@ -45,6 +45,7 @@ agent-turn-notes = { $notes } not
 agent-turn-secs = { $secs } sn
 agent-turn-stopped = Durduruldu.
 agent-turn-interrupted = Kesildi.
+agent-memory-lost = Ajan bu konuşmayı artık hatırlamıyor: baştan başlıyor.
 agent-turn-max-tokens = Ajan uzunluk sınırına ulaştı.
 agent-turn-max-turns = Ajan adım sınırına ulaştı.
 agent-turn-refusal = Ajan reddetti.

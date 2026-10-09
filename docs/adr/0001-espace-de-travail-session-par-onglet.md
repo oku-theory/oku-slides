@@ -77,6 +77,9 @@ récupérables, migration de l'ancien format.
   ne vérifie pas (documentée dans `ARCHITECTURE.md` du crate).
 - `workspace.json` est réécrit à chaque changement de titre ou d'état d'un
   onglet (écriture sous le verrou de l'espace de travail).
+- `Resync` (l'interface s'abonne à un onglet affiché) réveille la session de
+  cet onglet pour relire ses conversations : un onglet n'est plus relu à son
+  premier prompt mais à son premier affichage.
 
 **Neutres**
 

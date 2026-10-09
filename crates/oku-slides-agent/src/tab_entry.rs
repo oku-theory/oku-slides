@@ -7,13 +7,14 @@ use std::time::Instant;
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{McpEvent, SurfaceHub, ToolServer, Tools};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::TabSession;
+use oku_slides_session::agent::{AgentScope, TabSession};
 use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, mpsc};
 use tokio_util::sync::CancellationToken;
 
+use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
 use crate::turns::{TurnOut, Turns};
@@ -45,9 +46,11 @@ pub(crate) fn emit(out: &mpsc::UnboundedSender<Out>, channel: &'static str, tab:
 pub(crate) struct TabLink {
     tab: String,
     pub hub: Arc<SurfaceHub>,
+    /// Le gardien de l'onglet : seul passage vers ses conversations.
+    pub keeper: Keeper,
     /// Vers la tâche qui démarre les outils puis l'agent, et lui relaie les commandes.
     cmds: mpsc::UnboundedSender<Command>,
-    status: Arc<Mutex<AgentState>>,
+    status: Arc<Mutex<(AgentState, Option<AgentScope>)>>,
 }
 
 impl TabLink {
@@ -57,8 +60,8 @@ impl TabLink {
 
     /// Envoie l'état de l'agent ; les surfaces des tours sont rejouées par le hub.
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
-        let state = *self.status.lock().unwrap_or_else(PoisonError::into_inner);
-        emit(out, "agent", &self.tab, &AgentEvent::Status { state });
+        let (state, scope) = self.status.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        emit(out, "agent", &self.tab, &AgentEvent::Status { state, scope });
     }
 }
 
@@ -70,8 +73,8 @@ pub(crate) struct TabEntry {
 }
 
 impl TabEntry {
-    /// Démarre les relais et, dans `rt`, les outils puis l'agent ; les
-    /// commandes attendent en file que l'agent soit là.
+    /// Démarre, dans `rt`, le gardien, les relais, puis les outils et l'agent ;
+    /// les commandes attendent en file que l'agent soit là.
     pub fn start(
         session: TabSession,
         platform: &Platform,
@@ -85,13 +88,21 @@ impl TabEntry {
         let tools = Tools::new(session.clone(), hub.clone(), settings, platform);
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
-        let status = Arc::new(Mutex::new(AgentState::Idle));
+        let status = Arc::new(Mutex::new((AgentState::Idle, None)));
         let closed = cancel.clone();
-        rt.spawn(relay_mcp(tab.clone(), hub.subscribe(), Arc::downgrade(&hub), out.clone(), closed.clone()));
-        let agent = Agent { session, hub: hub.clone(), link, localizer: platform.localizer.clone() };
+        let mcp = hub.subscribe();
+        // Après l'abonnement du relais : la liste qu'envoie la relecture des fils n'est jamais perdue.
+        let keeper = {
+            let _rt = rt.enter();
+            Keeper::spawn(session.clone(), hub.clone())
+        };
+        rt.spawn(relay_mcp(tab.clone(), mcp, Arc::downgrade(&hub), keeper.clone(), out.clone(), closed.clone()));
+        let agent =
+            Agent { session, hub: hub.clone(), link, localizer: platform.localizer.clone(), keeper: keeper.clone() };
         let relay = Relay {
             tab: tab.clone(),
             hub: hub.clone(),
+            keeper: keeper.clone(),
             localizer: platform.localizer.clone(),
             turns: Turns::default(),
             status: status.clone(),
@@ -99,7 +110,7 @@ impl TabEntry {
             closed,
         };
         rt.spawn(agent.run(tools, cancel.clone(), rx, relay));
-        Self { link: TabLink { tab, hub, cmds, status }, cancel }
+        Self { link: TabLink { tab, hub, keeper, cmds, status }, cancel }
     }
 }
 
@@ -116,10 +127,14 @@ impl Drop for TabEntry {
 /// relire à l'interface et `surfaces` lui redonne la liste entière. Faible :
 /// le relais ne doit pas garder le hub (et son émetteur) en vie, sinon `recv`
 /// ne rendrait jamais `Closed`. S'arrête à la fermeture de l'onglet (`closed`).
+///
+/// Un widget écrit par les outils de l'agent fait appliquer au gardien les renommages
+/// notés ([`Keep::Sync`]), comme un changement du deck venu de l'interface.
 async fn relay_mcp(
     tab: String,
     mut rx: broadcast::Receiver<McpEvent>,
     hub: std::sync::Weak<SurfaceHub>,
+    keeper: Keeper,
     out: mpsc::UnboundedSender<Out>,
     closed: CancellationToken,
 ) {
@@ -130,14 +145,19 @@ async fn relay_mcp(
             r = rx.recv() => r,
         };
         match received {
-            Ok(e) => emit(&out, "mcp", &tab, &e),
+            Ok(e) => {
+                if matches!(e, McpEvent::WidgetTouched { .. }) {
+                    keeper.send(Keep::Sync);
+                }
+                emit(&out, "mcp", &tab, &e);
+            }
             Err(RecvError::Lagged(_)) => {
                 emit(&out, "mcp", &tab, &McpEvent::Changed);
                 // Les évènements encore en file rejouent ensuite par-dessus : sans
                 // risque : `surface` et `surface_patch` écrivent des clés entières (le rejeu
                 // converge) et `close_surface` est idempotent.
                 let Some(hub) = hub.upgrade() else { return };
-                let list = hub.surfaces();
+                let list = hub.visible_surfaces();
                 emit(&out, "mcp", &tab, &McpEvent::Surfaces { list });
             }
             Err(RecvError::Closed) => return,
@@ -151,9 +171,11 @@ async fn relay_mcp(
 struct Relay {
     tab: String,
     hub: Arc<SurfaceHub>,
+    /// Écrit le fil d'un tour fini.
+    keeper: Keeper,
     localizer: Arc<oku_slides_i18n::Localizer>,
     turns: Turns,
-    status: Arc<Mutex<AgentState>>,
+    status: Arc<Mutex<(AgentState, Option<AgentScope>)>>,
     out: mpsc::UnboundedSender<Out>,
     closed: CancellationToken,
 }
@@ -163,8 +185,8 @@ impl Relay {
         if self.closed.is_cancelled() {
             return;
         }
-        if let AgentEvent::Status { state } = e {
-            *self.status.lock().unwrap_or_else(PoisonError::into_inner) = *state;
+        if let AgentEvent::Status { state, scope } = e {
+            *self.status.lock().unwrap_or_else(PoisonError::into_inner) = (*state, scope.clone());
             emit(&self.out, "agent", &self.tab, e);
         }
         // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
@@ -173,7 +195,10 @@ impl Relay {
                 TurnOut::Show(surface) => self.hub.emit(McpEvent::Surface { surface }),
                 TurnOut::Patch { id, messages } => self.hub.emit(McpEvent::SurfacePatch { id, messages }),
                 TurnOut::Evict(n) => self.hub.close_turn(n),
-                TurnOut::Ended { turn, narration } => self.hub.end_turn(turn, &narration),
+                TurnOut::Ended { turn, narration } => {
+                    self.hub.end_turn(turn, &narration);
+                    self.keeper.send(Keep::Thread(turn));
+                }
             }
         }
     }
@@ -203,6 +228,7 @@ struct Agent {
     hub: Arc<SurfaceHub>,
     link: Link,
     localizer: Arc<oku_slides_i18n::Localizer>,
+    keeper: Keeper,
 }
 
 impl Agent {
@@ -221,10 +247,12 @@ impl Agent {
                 tracing::warn!(tab = %self.session.tab(), error = %e, "outils de l'onglet indisponibles");
                 // Chaque consigne reçoit l'erreur dans le fil ; le reste est sans objet.
                 let message = e.localize(&self.localizer);
+                // Les fils relus d'abord : les tours de l'erreur sont numérotés après les leurs.
+                self.keeper.restored().await;
                 while let Some(cmd) = next(&cancel, &mut rx).await {
-                    if let Command::Prompt { text, .. } = cmd {
-                        let n = self.hub.begin_turn();
-                        relay.emit(&AgentEvent::UserText { turn: n, text });
+                    if let Command::Prompt { scope, text, .. } = cmd {
+                        let n = self.hub.begin_turn(scope.clone());
+                        relay.emit(&AgentEvent::UserText { turn: n, scope, text });
                         relay.emit(&AgentEvent::Error { turn: n, message: message.clone() });
                     }
                 }
@@ -236,14 +264,14 @@ impl Agent {
             return;
         }
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
-        let agent = AgentHandle::spawn(self.session, self.hub, access, self.link, self.localizer);
+        let agent = AgentHandle::spawn(self.session, self.hub, access, self.link, self.localizer, self.keeper);
         // Abonné avant la première commande : aucun évènement de l'agent n'est perdu.
         tokio::spawn(relay.run(agent.subscribe()));
         while let Some(cmd) = next(&cancel, &mut rx).await {
             match cmd {
-                Command::Prompt { text, ui } => agent.prompt(text, ui),
+                Command::Prompt { scope, text, ui } => agent.prompt_in(scope, text, ui),
                 Command::Cancel => agent.cancel(),
-                Command::NewConversation => agent.new_conversation(),
+                Command::NewConversation { scope } => agent.new_conversation(scope),
             }
         }
     }

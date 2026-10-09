@@ -45,6 +45,7 @@ agent-turn-notes = { $notes }則備註
 agent-turn-secs = { $secs }秒
 agent-turn-stopped = 已停止。
 agent-turn-interrupted = 已中斷。
+agent-memory-lost = 代理已不記得這段對話：將從頭開始。
 agent-turn-max-tokens = AI 代理已達到長度上限。
 agent-turn-max-turns = AI 代理已達到步數上限。
 agent-turn-refusal = AI 代理已拒絕。

@@ -60,3 +60,5 @@ les outils d'`oku-slides-mcp`, en HTTP local avec un jeton en en-tête
 ## Dépendances
 
 `agent-client-protocol` 2.2, `oku-slides-mcp`, `oku-slides-session`.
+
+Une session ACP par portée (`AgentScope`) ; le gardien (`keeper.rs`) relit, écrit et retrouve les conversations ; `Resync` démarre l'onglet.

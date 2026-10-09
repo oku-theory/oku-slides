@@ -9,14 +9,14 @@ use serde_json::Value;
 pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v3";
 
 /// Version du protocole.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Version {
     #[serde(rename = "v0.9")]
     V0_9,
 }
 
 /// Un message du serveur vers l'interface.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ServerMessage {
     pub version: Version,
     #[serde(flatten)]
@@ -24,7 +24,7 @@ pub struct ServerMessage {
 }
 
 /// Contenu d'un [`ServerMessage`] : une seule clé, le nom du message.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerBody {
     CreateSurface(CreateSurface),
@@ -34,7 +34,7 @@ pub enum ServerBody {
 }
 
 /// Crée une surface vide, rendue avec un catalogue.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSurface {
     pub surface_id: String,
@@ -42,7 +42,7 @@ pub struct CreateSurface {
 }
 
 /// Ajoute ou remplace des composants (par identifiant).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateComponents {
     pub surface_id: String,
@@ -51,18 +51,19 @@ pub struct UpdateComponents {
 
 /// Écrit `value` au chemin `path` du modèle de données (la racine sans
 /// chemin) ; sans valeur, efface ce qui s'y trouve.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateDataModel {
     pub surface_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    // Relu : un `null` explicite devient `None` (effacer) ; l'hôte n'envoie jamais `Some(Null)`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
 }
 
 /// Retire une surface.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSurface {
     pub surface_id: String,

@@ -4,7 +4,8 @@
 //!
 //! - [`Link`] : la connexion ACP partagée (un sous-processus pour l'app,
 //!   lancé au premier prompt, relancé après un arrêt).
-//! - [`AgentHandle`] : l'agent d'un onglet (sa session ACP, ses tours).
+//! - [`AgentHandle`] : l'agent d'un onglet (une session ACP par portée, ses tours).
+//! - [`Keeper`] : le gardien d'un onglet, seul passage vers ses conversations gardées.
 //! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
 //! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
 //!   évènements relayés en enveloppes `{tab, event}`.
@@ -14,6 +15,7 @@
 mod config;
 mod error;
 mod events;
+mod keeper;
 mod link;
 mod permission;
 mod settings_port;
@@ -26,7 +28,8 @@ mod turns;
 pub use config::{Launch, READY_WITHIN};
 pub use error::AgentError;
 pub use events::{AgentEvent, AgentState, PlanItem};
-pub use link::Link;
+pub use keeper::{Keep, Keeper};
+pub use link::{Link, agent_fingerprint};
 pub use settings_port::AppSettings;
 pub use stack::{AgentCommand, Stack};
 pub use tab_agent::{AgentHandle, ToolsAccess};

@@ -15,6 +15,7 @@ use agent_client_protocol::schema::v1::{
 };
 use agent_client_protocol::{Agent, ByteStreams, Client, ConnectionTo};
 use oku_slides_mcp::SurfaceHub;
+use sha2::{Digest, Sha256};
 use snafu::IntoError;
 use tokio::process::Child;
 use tokio::sync::{Mutex, broadcast, oneshot};
@@ -37,6 +38,28 @@ pub(crate) struct Live {
     pub generation: u64,
     /// Annulé quand la connexion est finie (arrêt de l'agent, pile lâchée).
     pub closed: CancellationToken,
+    /// Ce que l'agent sait faire d'une session existante.
+    pub caps: SessionCaps,
+}
+
+/// Ce que l'agent sait faire d'une session existante.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct SessionCaps {
+    /// `session/load` (rejoue l'historique).
+    pub load: bool,
+    /// `session/resume` (sans rejeu).
+    pub resume: bool,
+}
+
+/// Empreinte d'un lancement d'agent : ses arguments ne sont jamais écrits en clair.
+pub fn agent_fingerprint(command: &str, args: &[String]) -> String {
+    let mut h = Sha256::new();
+    h.update(command.as_bytes());
+    for a in args {
+        h.update([0u8]);
+        h.update(a.as_bytes());
+    }
+    hex::encode(h.finalize())
 }
 
 /// Où livrer ce qui arrive pour une session : le fil et les surfaces de son onglet.
@@ -89,6 +112,17 @@ impl Link {
                 shutdown: CancellationToken::new(),
             }),
         }
+    }
+
+    /// L'empreinte de l'agent lancé : une session ne se reprend qu'avec le même.
+    pub fn agent_id(&self) -> String {
+        agent_fingerprint(&self.inner.launch.command, &self.inner.launch.args)
+    }
+
+    /// Le lancement vivant, s'il y en a un ; `None` aussi pendant un lancement (verrou pris).
+    pub(crate) fn current_generation(&self) -> Option<u64> {
+        let state = self.inner.state.try_lock().ok()?;
+        state.live.as_ref().filter(|l| !l.closed.is_cancelled()).map(|l| l.generation)
     }
 
     /// Dossier de travail d'une session sans document enregistré.
@@ -265,9 +299,9 @@ impl Serving {
                             return Ok(());
                         }
                     };
-                    match shaken {
-                        Ok(true) => {}
-                        Ok(false) => {
+                    let caps = match shaken {
+                        Ok(Some(caps)) => caps,
+                        Ok(None) => {
                             let _ = ready.send(Err(NoHttpSnafu.build().into()));
                             return Ok(());
                         }
@@ -275,8 +309,8 @@ impl Serving {
                             let _ = ready.send(Err(StoppedSnafu { message: e.to_string() }.build().into()));
                             return Ok(());
                         }
-                    }
-                    let _ = ready.send(Ok(Live { cx: cx.clone(), generation, closed: closed.clone() }));
+                    };
+                    let _ = ready.send(Ok(Live { cx: cx.clone(), generation, closed: closed.clone(), caps }));
                     tokio::select! {
                         () = cx.incoming_closed() => {}
                         _ = child.wait() => {}
@@ -303,14 +337,18 @@ impl Serving {
     }
 }
 
-/// Poignée de main ; `false` si l'agent ne sait pas joindre les outils MCP en HTTP.
-async fn handshake(cx: &ConnectionTo<Agent>) -> agent_client_protocol::Result<bool> {
+/// Poignée de main ; `None` si l'agent ne sait pas joindre les outils MCP en HTTP.
+async fn handshake(cx: &ConnectionTo<Agent>) -> agent_client_protocol::Result<Option<SessionCaps>> {
     let caps = ClientCapabilities::new()
         .fs(FileSystemCapabilities::new().read_text_file(false).write_text_file(false))
         .terminal(false);
     let init =
         cx.send_request(InitializeRequest::new(ProtocolVersion::V1).client_capabilities(caps)).block_task().await?;
-    Ok(init.agent_capabilities.mcp_capabilities.http)
+    let caps = &init.agent_capabilities;
+    Ok(caps
+        .mcp_capabilities
+        .http
+        .then(|| SessionCaps { load: caps.load_session, resume: caps.session_capabilities.resume.is_some() }))
 }
 
 /// La réponse de l'utilisateur, demandée dans les surfaces de l'onglet.
@@ -322,3 +360,7 @@ async fn permission(hub: &SurfaceHub, req: &RequestPermissionRequest) -> Request
         None => RequestPermissionOutcome::Cancelled,
     }
 }
+
+#[cfg(test)]
+#[path = "link_tests.rs"]
+mod link_tests;

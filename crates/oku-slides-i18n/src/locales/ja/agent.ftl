@@ -45,6 +45,7 @@ agent-turn-notes = { $notes }件のメモ
 agent-turn-secs = { $secs }秒
 agent-turn-stopped = 停止しました。
 agent-turn-interrupted = 中断されました。
+agent-memory-lost = エージェントはこの会話を覚えていません。最初からやり直します。
 agent-turn-max-tokens = エージェントが長さの上限に達しました。
 agent-turn-max-turns = エージェントがステップ数の上限に達しました。
 agent-turn-refusal = エージェントが拒否しました。

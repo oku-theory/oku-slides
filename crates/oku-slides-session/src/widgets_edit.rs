@@ -332,7 +332,29 @@ impl Session {
         if let Some(scratch) = self.scratch_mut() {
             scratch.renamed(&from, &to);
         }
+        self.conversation_renamed(t.id, from.as_str(), to.as_str());
         Ok(statuses)
+    }
+
+    /// Fichiers connus du pack `pack` : version éditée, pack du deck, version courante.
+    pub(crate) fn pack_files_known(&self, pack: Uuid) -> Vec<PackFiles> {
+        let mut out = Vec::new();
+        if let Mode::Templates { edit, .. } = &self.mode
+            && edit.set == pack
+        {
+            out.extend(self.doc.sources.packs.get(&edit.base).cloned());
+        }
+        if let Some(r) = self.deck_pack().filter(|r| r.id == pack) {
+            out.extend(self.user_blobs().packs.get(&r.version).cloned());
+        }
+        out.extend(self.library.current_version(pack).map(|v| v.files));
+        out
+    }
+
+    /// Le widget `name` est-il dans un fichier connu du pack `pack` ?
+    pub(crate) fn widget_known(&self, pack: Uuid, name: &str) -> bool {
+        let Ok(file) = parse_name(name) else { return false };
+        self.pack_files_known(pack).iter().any(|f| f.widget(&file).is_some())
     }
 
     /// Refuse si un modèle du pack (enregistré, ou en cours d'édition) utilise `name`.

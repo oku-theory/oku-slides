@@ -1,0 +1,60 @@
+// La portée de l'agent dans l'interface et le rappel de son fil.
+
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type { AgentEvent, AgentScope, McpEvent } from "../api";
+import { t } from "../i18n";
+import { type AgentStatus, type ScopeView, agentScope, busyElsewhere, scopeKey, scopePlace } from "./scope";
+
+const IDLE: AgentStatus = { state: "idle" };
+const NO_VIEW: ScopeView = { templates: false, history: false, pack: null, widget: null };
+
+/** Ce que l'interface lit de la portée de l'agent. */
+export interface AgentScopeState {
+  scope: AgentScope;
+  status: AgentStatus;
+  /** La portée d'un tour en cours ailleurs, sinon `null`. */
+  elsewhere: AgentScope | null;
+  /** « L'agent répond dans … », sinon `null`. */
+  notice: string | null;
+  onAgentEvent: (e: AgentEvent) => void;
+  /** Abonnement prêt ; stable d'un rendu à l'autre (lu une fois par `subscribeHost`). */
+  onReady: () => void;
+}
+
+/**
+ * Portée, état de l'agent, note « répond ailleurs » et rappel du fil.
+ *
+ * Le fil est demandé une fois l'abonnement prêt et la vue connue, puis à chaque
+ * changement de portée (surfaces vidées d'abord) ; une reconnexion le redemande.
+ */
+export function useAgentScope(
+  agent: { resync: (scope: AgentScope) => Promise<void> },
+  view: ScopeView | null,
+  clearSurfaces: (e: McpEvent) => void,
+): AgentScopeState {
+  const scope = agentScope(view ?? NO_VIEW);
+  const key = scopeKey(scope);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  const [status, onAgentEvent] = useReducer((_: AgentStatus, e: AgentEvent): AgentStatus => ({ state: e.state, scope: e.scope }), IDLE);
+  const loaded = view !== null;
+  useEffect(() => {
+    if (!ready || !loaded) return;
+    clearSurfaces({ kind: "surfaces", list: [] });
+    agent.resync(scopeRef.current).catch((err) => console.warn("resync", err));
+  }, [agent, key, ready, loaded, clearSurfaces]);
+  // Ne lit que des références : `subscribeHost` garde la première version.
+  const onReady = useCallback(() => {
+    if (!readyRef.current) {
+      readyRef.current = true;
+      setReady(true);
+      return;
+    }
+    agent.resync(scopeRef.current).catch((err) => console.warn("resync", err));
+  }, [agent]);
+  const elsewhere = busyElsewhere(status, scope);
+  const notice = elsewhere ? t("ui-agent-busy-elsewhere", { place: scopePlace(elsewhere, t) }) : null;
+  return { scope, status, elsewhere, notice, onAgentEvent, onReady };
+}

@@ -85,3 +85,5 @@ deck/            deck.loro, document.json { path, dirty, saved_hash, blank }, as
 ## Dépendances
 
 `oku-slides-core` (deck, replica Loro), `oku-slides-render` (Typst), `oku-slides-render-worker` (processus de rendu), `oku-slides-pdf`, `oku-slides-platform` (stockage, réglages), `oku-slides-i18n`, `oku-slides-chart`, `oku-slides-a2ui`.
+
+Conversations de l'agent par portée dans `agent/<portée>.json` (`agent/conversation.rs`, `resume_agent.rs`).

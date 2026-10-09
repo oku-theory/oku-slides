@@ -5326,6 +5326,7 @@ dependencies = [
  "agent-client-protocol",
  "async-trait",
  "color-eyre",
+ "hex",
  "insta",
  "oku-slides-core",
  "oku-slides-i18n",
@@ -5337,12 +5338,14 @@ dependencies = [
  "rust-mcp-sdk",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "snafu",
  "speculoos",
  "tempfile",
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -5553,6 +5556,7 @@ dependencies = [
 name = "oku-slides-session"
 version = "1.0.0"
 dependencies = [
+ "hex",
  "insta",
  "oku-slides-a2ui",
  "oku-slides-chart",
@@ -5567,6 +5571,7 @@ dependencies = [
  "schemars 1.2.2",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "similar 3.2.0",
  "snafu",
  "speculoos",

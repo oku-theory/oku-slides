@@ -5,10 +5,12 @@
 
 pub mod bounds;
 pub mod context;
+pub mod conversation;
 pub mod diff;
 pub mod forms;
 pub mod receipt;
 pub mod render;
+pub mod scope;
 mod surface_ops;
 mod tabs;
 pub mod turn_view;
@@ -16,6 +18,7 @@ pub mod variants;
 
 pub use bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX};
 pub use context::AgentUi;
+pub use conversation::{SavedConversation, ScopeMove};
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
     ShowParams, ShowVariants, Surface, Variant,
@@ -23,8 +26,12 @@ pub use forms::{
 pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep};
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
+pub use scope::AgentScope;
 pub use tabs::{Sessions, TabSession};
 pub use turn_view::{TurnState, TurnView};
+
+/// Tours gardés au plus par fil (réducteur des tours, hub, reprise).
+pub const KEPT_TURNS: usize = 50;
 
 use oku_slides_core::{Op, Paragraph, ParamType, Target, apply_all};
 use serde_json::Value;

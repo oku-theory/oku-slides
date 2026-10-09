@@ -6,8 +6,17 @@ use serde_json::{Value, json};
 
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
-    Place, ShowParams, ShowVariants, Variant, choice, confirm, params, params_with, permission, rewrite, variants,
+    Place, ShowParams, ShowVariants, Surface, Variant, choice, confirm, params, params_with, permission, rewrite,
+    variants,
 };
+
+#[test]
+fn surface_json_round_trips() {
+    let l = Localizer::new(Some("fr"));
+    let s = confirm("c-1", &AskConfirm { message: "Sûr ?".into(), danger: false }, &l);
+    let back: Surface = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
+    assert_that!(back).is_equal_to(&s);
+}
 
 fn fr() -> Localizer {
     Localizer::new(Some("fr"))

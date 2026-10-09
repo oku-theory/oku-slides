@@ -27,6 +27,8 @@ serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
 tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 oku-slides-core.workspace = true
@@ -36,6 +38,7 @@ speculoos.workspace = true
 insta.workspace = true
 color-eyre.workspace = true
 tempfile.workspace = true
+uuid.workspace = true
 
 [lints]
 workspace = true

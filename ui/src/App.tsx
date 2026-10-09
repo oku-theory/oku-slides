@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { AddWidget, AgentEvent, AgentState, Element, McpEvent, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import type { AddWidget, Element, McpEvent, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
 import { agentApi, errorText, pickOpenPath, pickSavePath, tabApi } from "./api";
 import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
@@ -37,10 +37,11 @@ import type { DictationMode } from "./agent/keys";
 import { escapeAction, targetOwnsKeys } from "./agent/keys";
 import type { QuickAction } from "./agent/quick";
 import { fromA2ui } from "./agent/quick";
-import { agentBusy, routeSurfaces, sendThenPrompt, surfacesReducer } from "./agent/surfaces";
+import { agentBusy, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./agent/surfaces";
 import { withRewriteParagraphs } from "./agent/rewrite";
 import { answerTarget, quickTarget, useQuickKeys } from "./agent/useQuickKeys";
 import { agentUi } from "./agent/ui";
+import { useAgentScope } from "./agent/useAgentScope";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
@@ -364,8 +365,13 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   // --- Agent ------------------------------------------------------------------
   // L'agent de cet onglet : `App` est remonté à chaque changement d'onglet (`key`).
   const agent = useMemo(() => agentApi(tab), [tab]);
-  const [agentState, onAgentEvent] = useReducer((_: AgentState, e: AgentEvent) => e.state, "idle" as AgentState);
   const [surfaces, onSurfaceEvent] = useReducer(surfacesReducer, []);
+  const scopeView = snap
+    ? { templates: !!snap.editing, history: !!snap.history, pack: snap.editing?.set ?? null, widget: widgets.activeName }
+    : null;
+  const agentScopeState = useAgentScope(agent, scopeView, onSurfaceEvent);
+  const { scope, status: agentStatus, elsewhere, notice: elsewhereNotice } = agentScopeState;
+  const agentState = agentStatus.state;
   /** Listes entières reçues (`surfaces`, après un abonnement ou une reconnexion) : le fil ne les relit pas. */
   const [resyncs, countResync] = useReducer((n: number) => n + 1, 0);
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
@@ -395,13 +401,13 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           }
           if (e.kind === "widget_touched") touchedRef.current(e.name, e.removed);
         },
-        onAgent: onAgentEvent,
+        onAgent: agentScopeState.onAgentEvent,
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
         // (les évènements manqués pendant la coupure sont perdus). Sans outils
         // (pile absente), `resync` échoue : il n'y a alors pas de surface.
         onReady: () => {
-          agent.resync().catch((err) => console.warn("resync", err));
+          agentScopeState.onReady();
           run(api.snapshot());
         },
       }),
@@ -428,13 +434,23 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   const busy = agentBusy(agentState, answerTarget(keysTarget));
   const hintsOn = (s: Surface) => keyed?.surface.id === s.id;
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
-  const promptAgent = (text: string, answer = answerTarget(keysTarget)) =>
-    agent
-      .prompt(text, agentUi(current, selected, editField, widgets.activeName), answer)
+  const promptAgent = (text: string, answer = answerTarget(keysTarget)) => {
+    // Pendant un tour ailleurs, seule une réponse à une question part.
+    if (elsewhereNotice && answer === null) {
+      say(elsewhereNotice, true);
+      return Promise.resolve();
+    }
+    return agent
+      .prompt(scope, text, agentUi(current, selected, editField, widgets.activeName), answer)
       .catch((err) => say(String(err), true));
+  };
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => {
     if (host.onAction(s, a) || target.onAction(s, a)) return;
     const action = fromA2ui(a);
+    if (elsewhereNotice && suggestedPrompt(action) !== null) {
+      say(elsewhereNotice, true);
+      return;
+    }
     // Une suite cliquée part vers l'agent, une fois l'action acceptée : une nouvelle consigne, qui ne répond à aucune question.
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
@@ -550,7 +566,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
         if (slot >= 0 && slot <= snap.slides.length) moveSlide(current, slot);
       } else if (e.key === "Escape") {
-        const action = escapeAction({ selected: selected !== null, agentBusy: busy });
+        const action = escapeAction({ selected: selected !== null, agentBusy: busy && !elsewhere });
         if (action === "deselect") setSelected(null);
         else if (action === "agent-cancel") {
           e.preventDefault();
@@ -908,14 +924,14 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
         {!snap.read_only && (<>
         <SlideThumbsContext.Provider value={slideThumbs}>
           <AgentThread
-            state={agentState}
+            state={elsewhere ? "idle" : agentState}
             turns={routed.turns}
             loose={routed.loose}
             dock={dock}
             keysTo={keyed?.surface.id ?? null}
             resyncs={resyncs}
             onAction={onSurfaceAction}
-            onNewConversation={() => agent.newConversation().catch((err) => say(String(err), true))}
+            onNewConversation={() => agent.newConversation(scope).catch((err) => say(String(err), true))}
             onError={(m) => say(m, true)}
           />
         </SlideThumbsContext.Provider>
@@ -924,6 +940,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
           dictations={draft.dictations}
           typing={draft.typing}
           busy={busy}
+          notice={answerTarget(keysTarget) === null ? elsewhereNotice : null}
           insertTo={insertTo}
           onChange={(text) => setDraft((d) => ({ ...d, text }))}
           onInsert={insertDraft}

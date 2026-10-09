@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use oku_slides_agent::AgentEvent;
-use oku_slides_session::agent::AgentUi;
+use oku_slides_session::agent::{AgentScope, AgentUi};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -96,11 +96,11 @@ async fn new_conversation_then_prompt_during_wait_cancel_turn_reopens_session() 
     let mut rx = t.agent.subscribe();
     t.agent.prompt("un".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
-    t.agent.new_conversation();
+    t.agent.new_conversation(AgentScope::Slides);
     t.agent.prompt("deux".into(), AgentUi::default());
     let first = until(&mut rx, ended).await;
     assert_that!(first).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
-    until(&mut rx, |e| matches!(e, AgentEvent::Conversation)).await;
+    until(&mut rx, |e| matches!(e, AgentEvent::Conversation { .. })).await;
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
     t.agent.cancel();
     let second = until(&mut rx, ended).await;
@@ -130,8 +130,8 @@ async fn new_conversation_opens_a_new_session() {
     let mut rx = t.agent.subscribe();
     t.agent.prompt("un".into(), AgentUi::default());
     until(&mut rx, ended).await;
-    t.agent.new_conversation();
-    until(&mut rx, |e| matches!(e, AgentEvent::Conversation)).await;
+    t.agent.new_conversation(AgentScope::Slides);
+    until(&mut rx, |e| matches!(e, AgentEvent::Conversation { .. })).await;
     t.agent.prompt("deux".into(), AgentUi::default());
     until(&mut rx, ended).await;
     assert_that!(logged(&h.log, "session/new")).has_length(2);

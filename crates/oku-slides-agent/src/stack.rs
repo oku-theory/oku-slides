@@ -8,15 +8,16 @@ use std::time::Duration;
 
 use oku_slides_mcp::{McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentUi, Sessions, TabSession};
+use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
+use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
-use crate::{AgentEvent, AgentState, Launch, Link};
+use crate::{AgentEvent, Launch, Link};
 
 /// Commande de l'interface vers l'agent d'un onglet (JSON `{"cmd": …, "tab": …}`),
 /// la même pour Tauri et HTTP.
@@ -25,6 +26,9 @@ use crate::{AgentEvent, AgentState, Launch, Link};
 pub enum AgentCommand {
     Prompt {
         tab: String,
+        /// La conversation visée ; absente : celle des slides.
+        #[serde(default)]
+        scope: AgentScope,
         text: String,
         #[serde(default)]
         ui: AgentUi,
@@ -38,6 +42,9 @@ pub enum AgentCommand {
     },
     NewConversation {
         tab: String,
+        /// La conversation à recommencer ; absente : celle des slides.
+        #[serde(default)]
+        scope: AgentScope,
     },
     SurfaceAction {
         tab: String,
@@ -46,9 +53,12 @@ pub enum AgentCommand {
         #[serde(default)]
         context: serde_json::Map<String, serde_json::Value>,
     },
-    /// L'interface (ré)abonnée demande le fil gardé de l'onglet et ses surfaces ouvertes.
+    /// L'interface (ré)abonnée demande le fil gardé de `scope` et ses surfaces ouvertes.
     Resync {
         tab: String,
+        /// Le fil à montrer ; absent : celui des slides.
+        #[serde(default)]
+        scope: AgentScope,
     },
 }
 
@@ -58,9 +68,9 @@ impl AgentCommand {
         match self {
             Self::Prompt { tab, .. }
             | Self::Cancel { tab }
-            | Self::NewConversation { tab }
+            | Self::NewConversation { tab, .. }
             | Self::SurfaceAction { tab, .. }
-            | Self::Resync { tab } => tab,
+            | Self::Resync { tab, .. } => tab,
         }
     }
 }
@@ -105,9 +115,9 @@ pub struct Stack {
 }
 
 impl Stack {
-    /// Rien ne démarre ici : l'agent au premier prompt, les outils d'un
-    /// onglet à sa première commande, dans `rt`. `stt` : la dictée de
-    /// l'hôte, pour `set_setting`.
+    /// Rien ne démarre ici : les outils et le gardien d'un onglet démarrent
+    /// à sa première commande, `resync` compris ; l'agent ACP au premier
+    /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour `set_setting`.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = &platform.settings.agent;
         let link = Link::new(Launch {
@@ -136,14 +146,14 @@ impl Stack {
             return Ok(());
         }
         match cmd {
-            AgentCommand::Prompt { tab, text, ui, answer } => {
+            AgentCommand::Prompt { tab, scope, text, ui, answer } => {
                 // Fermé entre-temps : ignorée, comme ci-dessus.
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
                 // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
                 // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
                 if !answer.is_some_and(|id| t.hub.answer(&id, &text)) {
-                    t.send(Command::Prompt { text, ui });
+                    t.send(Command::Prompt { scope, text, ui });
                 }
             }
             AgentCommand::Cancel { tab } => {
@@ -153,9 +163,9 @@ impl Stack {
                 }
             }
             // Un onglet sans agent n'a aucune surface de tour à fermer : rien à faire pour lui.
-            AgentCommand::NewConversation { tab } => {
+            AgentCommand::NewConversation { tab, scope } => {
                 if let Some(t) = self.tab(&tab) {
-                    t.send(Command::NewConversation);
+                    t.send(Command::NewConversation { scope });
                 }
             }
             AgentCommand::SurfaceAction { tab, surface, name, context } => {
@@ -163,30 +173,31 @@ impl Stack {
                 let t = self.tab(&tab).ok_or_else(|| "unknown surface".to_owned())?;
                 return t.hub.act(SurfaceAction { surface, name, context });
             }
-            AgentCommand::Resync { tab } => self.resync(&tab),
+            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve ses fils.
+            // L'état de l'agent d'abord, puis le fil de `scope` (montré par le gardien, après sa relecture).
+            AgentCommand::Resync { tab, scope } => match self.open(&tab) {
+                Some(t) => {
+                    t.replay(&self.out_tx);
+                    t.keeper.send(Keep::Show(scope));
+                }
+                // Fermé entre-temps : rien à montrer.
+                None => {
+                    emit(&self.out_tx, "agent", &tab, &AgentEvent::idle());
+                    emit(&self.out_tx, "mcp", &tab, &McpEvent::Surfaces { list: Vec::new() });
+                }
+            },
         }
         Ok(())
     }
 
-    /// L'état de l'agent puis les surfaces ouvertes ; vides pour un onglet sans agent.
-    fn resync(&self, tab: &str) {
-        match self.tab(tab) {
-            Some(t) => {
-                t.replay(&self.out_tx);
-                t.hub.resync();
-            }
-            None => {
-                emit(&self.out_tx, "agent", tab, &AgentEvent::Status { state: AgentState::Idle });
-                emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
-            }
-        }
-    }
-
     /// Le deck de l'onglet a changé depuis l'interface (voir
-    /// `Request::changes_deck`) : fermer les surfaces orphelines.
+    /// `Request::changes_deck`) : fermer les surfaces orphelines, et faire appliquer au
+    /// gardien les renommages de widgets tout de suite (un nouveau widget de l'ancien nom
+    /// a sa propre conversation).
     pub fn after_change(&self, tab: &str) {
         if let Some(t) = self.tab(tab) {
             t.hub.prune();
+            t.keeper.send(Keep::Sync);
         }
     }
 
@@ -202,15 +213,26 @@ impl Stack {
         drop(gone);
     }
 
-    /// Fin de l'app : chaque onglet s'arrête et l'agent ACP est tué (attendu
-    /// au plus 2 s) ; toute commande ensuite est ignorée.
+    /// Fin de l'app : chaque onglet s'arrête, les conversations en file sont
+    /// écrites, puis l'agent ACP est tué (chacun attendu au plus 2 s) ; toute
+    /// commande ensuite est ignorée.
     pub async fn shutdown(&self) {
         let gone = {
             let mut table = self.table();
             table.shut = true;
             std::mem::take(&mut table.tabs)
         };
+        let keepers: Vec<Keeper> = gone.values().map(|e| e.link.keeper.clone()).collect();
         drop(gone);
+        // Les fins de tour encore en file sont écrites avant l'arrêt (bornées, comme l'agent).
+        let flushed = async {
+            for keeper in &keepers {
+                keeper.flush().await;
+            }
+        };
+        if tokio::time::timeout(SHUTDOWN_WITHIN, flushed).await.is_err() {
+            tracing::warn!("conversations de l'agent pas toutes écrites à temps");
+        }
         self.link.shutdown(SHUTDOWN_WITHIN).await;
     }
 

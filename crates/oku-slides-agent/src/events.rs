@@ -1,6 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate};
+use oku_slides_session::agent::AgentScope;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -26,12 +27,18 @@ pub struct PlanItem {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentEvent {
+    /// L'état de l'agent, avec la portée qu'il sert quand il travaille.
     Status {
         state: AgentState,
+        /// La portée servie ; absente au repos.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<AgentScope>,
     },
-    /// La consigne dite, qui ouvre le tour `turn`.
+    /// La consigne dite, qui ouvre le tour `turn` de la portée `scope`.
     UserText {
         turn: u32,
+        /// La portée du tour.
+        scope: AgentScope,
         text: String,
     },
     /// Un morceau de la réponse de l'agent.
@@ -65,8 +72,18 @@ pub enum AgentEvent {
         turn: u32,
         message: String,
     },
-    /// Nouvelle conversation : le fil repart de zéro.
-    Conversation,
+    /// Nouvelle conversation : le fil de la portée repart de zéro.
+    Conversation {
+        /// La portée dont le fil est oublié.
+        scope: AgentScope,
+    },
+}
+
+impl AgentEvent {
+    /// L'agent au repos, sans portée.
+    pub fn idle() -> Self {
+        Self::Status { state: AgentState::Idle, scope: None }
+    }
 }
 
 /// Une valeur ACP sérialisée en chaîne (`"in_progress"`, un identifiant…).

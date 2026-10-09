@@ -51,6 +51,7 @@ agent-turn-notes = { $notes ->
 agent-turn-secs = { $secs } সে.
 agent-turn-stopped = থামানো হয়েছে।
 agent-turn-interrupted = বাধাপ্রাপ্ত হয়েছে।
+agent-memory-lost = এজেন্ট আর এই কথোপকথন মনে রাখে না: সে আবার শুরু থেকে শুরু করছে।
 agent-turn-max-tokens = এজেন্ট দৈর্ঘ্যের সীমায় পৌঁছেছে।
 agent-turn-max-turns = এজেন্ট ধাপের সীমায় পৌঁছেছে।
 agent-turn-refusal = এজেন্ট প্রত্যাখ্যান করেছে।

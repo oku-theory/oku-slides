@@ -6,7 +6,7 @@ mod common;
 use common::*;
 use oku_slides_mcp::{Answer, Freeze};
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
-use oku_slides_session::agent::{AskChoice, Render, Surface, forms, render};
+use oku_slides_session::agent::{AgentScope, AskChoice, Render, Surface, forms, render};
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -30,7 +30,7 @@ async fn call_across_turns(
 ) -> (Harness, u32, CallToolResult) {
     let (h, tabs) = start_gated().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client : {e}"));
-    let one = h.hub.begin_turn();
+    let one = h.hub.begin_turn(AgentScope::Slides);
     let mut gate = tabs.hold_next();
     let pending = tokio::spawn({
         let c = c.clone();
@@ -39,7 +39,7 @@ async fn call_across_turns(
     gate.entered().await;
     // Tour 1 annulé, sans narration : pas de reçu de repli pour lui.
     h.hub.end_turn(one, "");
-    let two = h.hub.begin_turn();
+    let two = h.hub.begin_turn(AgentScope::Slides);
     between(&h, two);
     gate.release();
     let r = pending.await.unwrap_or_else(|e| panic!("appel de {tool} : {e}"));
@@ -97,9 +97,9 @@ fn receipt(id: &str, narration: &str, h: &Harness) -> ReceiptSurfaces {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_render_late_from_a_closed_turn_is_refused_and_leaves_the_next_turn_alone() {
     let h = start().await;
-    let one = h.hub.begin_turn();
+    let one = h.hub.begin_turn(AgentScope::Slides);
     h.hub.end_turn(one, "");
-    let two = h.hub.begin_turn();
+    let two = h.hub.begin_turn(AgentScope::Slides);
     assert_that!(h.hub.show_static(one, render_surface("render-1"))).is_false();
     h.hub.end_turn(two, "Fond posé.");
     assert_that!(turn_json(&h, two)).contains("\"title\":\"Fond posé.\"");
@@ -110,8 +110,8 @@ async fn hub_render_late_from_a_closed_turn_is_refused_and_leaves_the_next_turn_
 async fn hub_render_of_the_open_turn_lands_in_it_even_after_a_stale_end() {
     // Le relais clôt le tour 1 après l'ouverture du tour 2 : le tour 2 reste ouvert.
     let h = start().await;
-    let one = h.hub.begin_turn();
-    let two = h.hub.begin_turn();
+    let one = h.hub.begin_turn(AgentScope::Slides);
+    let two = h.hub.begin_turn(AgentScope::Slides);
     h.hub.end_turn(one, "");
     assert_that!(h.hub.show_static(two, render_surface("render-1"))).is_true();
     assert_that!(h.hub.surfaces()[0].turn).is_equal_to(Some(two));
@@ -120,8 +120,8 @@ async fn hub_render_of_the_open_turn_lands_in_it_even_after_a_stale_end() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_report_late_from_a_closed_turn_keeps_the_next_turn_report() {
     let h = start().await;
-    let one = h.hub.begin_turn();
-    let two = h.hub.begin_turn();
+    let one = h.hub.begin_turn(AgentScope::Slides);
+    let two = h.hub.begin_turn(AgentScope::Slides);
     assert_that!(h.hub.show_report(two, receipt("report-2", "Le mien.", &h))).is_true();
     assert_that!(h.hub.show_report(one, receipt("report-1", "En retard.", &h))).is_false();
     assert_that!(turn_json(&h, two)).contains("Le mien.");
@@ -132,8 +132,8 @@ async fn hub_report_late_from_a_closed_turn_keeps_the_next_turn_report() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_thread_question_late_from_a_closed_turn_is_cancelled_unseen() {
     let h = start().await;
-    let one = h.hub.begin_turn();
-    h.hub.begin_turn();
+    let one = h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn(AgentScope::Slides);
     let spec: AskChoice = serde_json::from_value(
         json!({ "question": "Laquelle ?", "options": [{ "id": "a", "label": "A" }, { "id": "b", "label": "B" }] }),
     )

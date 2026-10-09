@@ -20,7 +20,13 @@
 //! (questions parallèles) ; leurs résultats sont notés dans l'ordre du scénario. Le résultat de chaque appel MCP est noté
 //! (`mcp/result` : `session`, `tool`, `out`), jamais raconté : comme un vrai agent, le texte du tour
 //! n'est que ses `chunks` (le reçu de repli en prend la première phrase). `"hang_initialize": true` (au niveau du scénario) ne
-//! répond jamais à `initialize` (démarrage bloqué).
+//! répond jamais à `initialize` (démarrage bloqué). `load_session` / `resume`
+//! (bool) annoncent et acceptent `session/load` / `session/resume` ;
+//! `unknown_sessions` (bool) les fait échouer ; `replay` (liste de textes) est
+//! rejoué en `agent_message_chunk` par `session/load` ; `by_prompt`
+//! (`{ "<texte>": Turn }`) joue ce tour quand le prompt est exactement ce texte,
+//! avant le choix par numéro. Ces deux requêtes sont journalisées.
+//! `new_session_delay_ms` fait attendre la réponse à `session/new` (ouverture lente).
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -30,9 +36,10 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
     AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, InitializeRequest, InitializeResponse,
-    McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, Plan, PlanEntry, PlanEntryPriority,
-    PlanEntryStatus, PromptRequest, PromptResponse, SessionId, SessionNotification, SessionUpdate, StopReason,
-    TextContent, ToolCall, ToolCallStatus,
+    LoadSessionRequest, LoadSessionResponse, McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, Plan,
+    PlanEntry, PlanEntryPriority, PlanEntryStatus, PromptRequest, PromptResponse, ResumeSessionRequest,
+    ResumeSessionResponse, SessionCapabilities, SessionId, SessionNotification, SessionResumeCapabilities,
+    SessionUpdate, StopReason, TextContent, ToolCall, ToolCallStatus,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Stdio};
 use async_trait::async_trait;
@@ -61,6 +68,24 @@ struct Script {
     /// Ne jamais répondre à `initialize` : un démarrage qui ne finit pas.
     #[serde(default)]
     hang_initialize: bool,
+    /// Annonce `session/load` et le sait faire.
+    #[serde(default)]
+    load_session: bool,
+    /// Annonce `session/resume` et le sait faire.
+    #[serde(default)]
+    resume: bool,
+    /// `session/load` et `session/resume` répondent par une erreur (session inconnue).
+    #[serde(default)]
+    unknown_sessions: bool,
+    /// Textes rejoués (en `agent_message_chunk`) par `session/load`.
+    #[serde(default)]
+    replay: Vec<String>,
+    /// Tour joué quand le texte du prompt est exactement cette clé (avant le choix par numéro).
+    #[serde(default)]
+    by_prompt: HashMap<String, Turn>,
+    /// Attente avant de répondre à `session/new`, en millisecondes.
+    #[serde(default)]
+    new_session_delay_ms: u64,
 }
 
 fn yes() -> bool {
@@ -142,6 +167,20 @@ impl State {
     fn notify_for(&self, session: &str) -> Arc<Notify> {
         let Ok(mut map) = self.wait_cancel.lock() else { return Arc::new(Notify::new()) };
         map.entry(session.to_owned()).or_insert_with(|| Arc::new(Notify::new())).clone()
+    }
+
+    /// Range le serveur MCP HTTP de `session` (URL et `Authorization`).
+    fn remember_mcp(&self, session: &str, servers: &[McpServer]) {
+        let http = servers.iter().find_map(|s| match s {
+            McpServer::Http(h) => {
+                let auth = h.headers.iter().find(|x| x.name == "Authorization").map(|x| x.value.clone())?;
+                Some((h.url.clone(), auth))
+            }
+            _ => None,
+        });
+        if let Some(http) = http {
+            self.mcp.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(session.to_owned(), http);
+        }
     }
 
     /// Numéro de la n-ième session créée (`sess-{n}` -> `n`), ou `0` si le format est inattendu.
@@ -279,6 +318,12 @@ async fn main() -> agent_client_protocol::Result<()> {
             crash_on_session: None,
             sessions: HashMap::new(),
             hang_initialize: false,
+            load_session: false,
+            resume: false,
+            unknown_sessions: false,
+            replay: Vec::new(),
+            by_prompt: HashMap::new(),
+            new_session_delay_ms: 0,
         });
     let log =
         flag("--log").and_then(|p| std::fs::OpenOptions::new().create(true).append(true).open(p).ok()).map(Mutex::new);
@@ -291,6 +336,7 @@ async fn main() -> agent_client_protocol::Result<()> {
         wait_cancel: Mutex::new(HashMap::new()),
     });
     let (s1, s2, s3, s4) = (state.clone(), state.clone(), state.clone(), state.clone());
+    let (s5, s6) = (state.clone(), state.clone());
     Agent
         .builder()
         .name("oku-slides-fake-agent")
@@ -301,27 +347,31 @@ async fn main() -> agent_client_protocol::Result<()> {
                 if s1.script.hang_initialize {
                     std::future::pending::<()>().await;
                 }
-                responder.respond(InitializeResponse::new(req.protocol_version).agent_capabilities(
-                    AgentCapabilities::new().mcp_capabilities(McpCapabilities::new().http(s1.script.http)),
-                ))
+                let sessions = if s1.script.resume {
+                    SessionCapabilities::new().resume(SessionResumeCapabilities::new())
+                } else {
+                    SessionCapabilities::new()
+                };
+                responder.respond(
+                    InitializeResponse::new(req.protocol_version).agent_capabilities(
+                        AgentCapabilities::new()
+                            .mcp_capabilities(McpCapabilities::new().http(s1.script.http))
+                            .load_session(s1.script.load_session)
+                            .session_capabilities(sessions),
+                    ),
+                )
             },
             agent_client_protocol::on_receive_request!(),
         )
         .on_receive_request(
             async move |req: NewSessionRequest, responder, _cx: ConnectionTo<Client>| {
                 s2.log("session/new", serde_json::to_value(&req).unwrap_or_default());
-                let http = req.mcp_servers.iter().find_map(|s| match s {
-                    McpServer::Http(h) => {
-                        let auth = h.headers.iter().find(|x| x.name == "Authorization").map(|x| x.value.clone())?;
-                        Some((h.url.clone(), auth))
-                    }
-                    _ => None,
-                });
+                if s2.script.new_session_delay_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(s2.script.new_session_delay_ms)).await;
+                }
                 let n = s2.sessions.fetch_add(1, Ordering::Relaxed) + 1;
                 let id = format!("sess-{n}");
-                if let (Some(http), Ok(mut m)) = (http, s2.mcp.lock()) {
-                    m.insert(id.clone(), http);
-                }
+                s2.remember_mcp(&id, &req.mcp_servers);
                 responder.respond(NewSessionResponse::new(id))
             },
             agent_client_protocol::on_receive_request!(),
@@ -342,10 +392,18 @@ async fn main() -> agent_client_protocol::Result<()> {
                 if index_in_session == 0 && s3.script.crash_on_session == Some(rank) {
                     std::process::exit(3);
                 }
+                let said = req.prompt.iter().rev().find_map(|b| match b {
+                    ContentBlock::Text(t) => Some(t.text.as_str()),
+                    _ => None,
+                });
+                let by_prompt = said.and_then(|t| s3.script.by_prompt.get(t)).cloned();
                 let turns_script = s3.script.sessions.get(&rank.to_string()).unwrap_or(&s3.script.turns);
-                let turn = match turns_script.len() {
-                    0 => Turn::default(),
-                    n => turns_script[index_in_session % n].clone(),
+                let turn = match by_prompt {
+                    Some(t) => t,
+                    None => match turns_script.len() {
+                        0 => Turn::default(),
+                        n => turns_script[index_in_session % n].clone(),
+                    },
                 };
                 if let Some(message) = &turn.error {
                     return responder.respond_with_internal_error(message);
@@ -364,6 +422,31 @@ async fn main() -> agent_client_protocol::Result<()> {
                         responder.respond(PromptResponse::new(stop))
                     }
                 })
+            },
+            agent_client_protocol::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |req: LoadSessionRequest, responder, cx: ConnectionTo<Client>| {
+                s5.log("session/load", serde_json::to_value(&req).unwrap_or_default());
+                if s5.script.unknown_sessions {
+                    return responder.respond_with_internal_error("unknown session");
+                }
+                s5.remember_mcp(&req.session_id.0, &req.mcp_servers);
+                for text in &s5.script.replay {
+                    cx.send_notification(chunk(&req.session_id, text.clone()))?;
+                }
+                responder.respond(LoadSessionResponse::new())
+            },
+            agent_client_protocol::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |req: ResumeSessionRequest, responder, _cx: ConnectionTo<Client>| {
+                s6.log("session/resume", serde_json::to_value(&req).unwrap_or_default());
+                if s6.script.unknown_sessions {
+                    return responder.respond_with_internal_error("unknown session");
+                }
+                s6.remember_mcp(&req.session_id.0, &req.mcp_servers);
+                responder.respond(ResumeSessionResponse::new())
             },
             agent_client_protocol::on_receive_request!(),
         )

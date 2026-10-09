@@ -45,6 +45,7 @@ agent-turn-notes = { $notes } ghi chú
 agent-turn-secs = { $secs } giây
 agent-turn-stopped = Đã dừng.
 agent-turn-interrupted = Đã bị gián đoạn.
+agent-memory-lost = Tác tử không còn nhớ cuộc trò chuyện này: nó bắt đầu lại từ đầu.
 agent-turn-max-tokens = Tác nhân AI đã đạt giới hạn độ dài.
 agent-turn-max-turns = Tác nhân AI đã đạt giới hạn số bước.
 agent-turn-refusal = Tác nhân AI đã từ chối.

@@ -51,6 +51,7 @@ agent-turn-notes = { $notes ->
 agent-turn-secs = { $secs } s
 agent-turn-stopped = Parado.
 agent-turn-interrupted = Interrompido.
+agent-memory-lost = O agente já não se lembra desta conversa: recomeça do zero.
 agent-turn-max-tokens = O agente atingiu o limite de tamanho.
 agent-turn-max-turns = O agente atingiu o limite de etapas.
 agent-turn-refusal = O agente recusou.

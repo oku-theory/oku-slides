@@ -13,6 +13,7 @@ export function DictationDraft({
   dictations,
   typing,
   busy,
+  notice = null,
   insertTo,
   onChange,
   onInsert,
@@ -27,6 +28,8 @@ export function DictationDraft({
   typing: number;
   /** Un tour de l'agent est en cours : l'envoi attend sa fin, l'insertion non. */
   busy: boolean;
+  /** « L'agent répond ailleurs » : l'envoi attend, la note le dit. */
+  notice?: string | null;
   /** Où « Insérer » écrira (« dans le titre »…) ; `null` : aucune zone choisie. */
   insertTo: string | null;
   onChange: (text: string) => void;
@@ -64,7 +67,7 @@ export function DictationDraft({
     else setEditing(false);
   };
   const canInsert = said !== "" && insertTo !== null;
-  const canSend = said !== "" && !busy;
+  const canSend = said !== "" && !busy && !notice;
   const insert = () => {
     if (canInsert) onInsert(said);
   };
@@ -114,6 +117,7 @@ export function DictationDraft({
           {text}
         </div>
       )}
+      {notice && <p className="caption draft-notice" role="status">{notice}</p>}
       <div className="draft-actions">
         <button type="button" className="token ghost draft-discard" aria-label={t("ui-draft-discard")} title={t("ui-draft-discard")} onClick={onDiscard}>{Icon.trash}</button>
         <span className="draft-exits">

@@ -2,13 +2,15 @@
 //! onglet, un faux agent partagé.
 #![allow(dead_code, reason = "chaque fichier de test n'utilise qu'une partie de l'outillage")]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Launch, Link, ToolsAccess};
+use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Keeper, Launch, Link, ToolsAccess, agent_fingerprint};
 use oku_slides_mcp::{Applied, SettingsPort, SurfaceHub, ToolServer, Tools};
-use oku_slides_session::agent::TabSession;
+use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
+use oku_slides_session::agent::{AgentScope, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde_json::Value;
 use tokio::sync::broadcast;
@@ -33,6 +35,8 @@ pub struct Tab {
     pub hub: Arc<SurfaceHub>,
     pub session: Arc<Mutex<Session>>,
     pub server: ToolServer,
+    /// Le gardien de l'onglet : seul passage vers ses conversations.
+    pub keeper: Keeper,
     /// Abonné dès la création : aucun évènement de l'onglet n'est perdu.
     pub events: tokio::sync::Mutex<broadcast::Receiver<AgentEvent>>,
 }
@@ -135,9 +139,12 @@ async fn start_tabs_ready_within(
         let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(NoSettings), &platform);
         let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur MCP : {e}"));
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
-        let agent = AgentHandle::spawn(tab, hub.clone(), access, link.clone(), platform.localizer.clone());
+        let keeper = Keeper::spawn(tab.clone(), hub.clone());
+        keeper.restored().await;
+        let agent =
+            AgentHandle::spawn(tab, hub.clone(), access, link.clone(), platform.localizer.clone(), keeper.clone());
         let events = tokio::sync::Mutex::new(agent.subscribe());
-        started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, events });
+        started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, keeper, events });
     }
     Harness { tabs: started, link, log, cancel, dir }
 }
@@ -189,7 +196,7 @@ pub async fn wait_turn_ended(tab: &Tab) -> AgentEvent {
 
 /// Attend l'état `state` (10 s au plus).
 pub async fn wait_status(rx: &mut broadcast::Receiver<AgentEvent>, state: AgentState) {
-    within(Duration::from_secs(10), rx, |e| matches!(e, AgentEvent::Status { state: s } if *s == state))
+    within(Duration::from_secs(10), rx, |e| matches!(e, AgentEvent::Status { state: s, .. } if *s == state))
         .await
         .unwrap_or_else(|| panic!("état {state:?} non reçu"));
 }
@@ -217,8 +224,38 @@ pub async fn wait_surface(
     .unwrap_or_else(|_| panic!("surface attendue non reçue"))
 }
 
+/// La surface du tour `n`, clos (pour remplir un fil).
+pub fn frozen_turn(n: u32) -> Surface {
+    let view = TurnView {
+        n,
+        prompt: format!("consigne {n}"),
+        plan: vec![],
+        steps: vec![],
+        tools: 0,
+        notes: 0,
+        narration: String::new(),
+        state: TurnState::Done { secs: 1 },
+    };
+    turn_surface(&view, &oku_slides_i18n::Localizer::new(Some("fr")))
+}
+
+/// La session de `t-1` connaît déjà `scope` → `session` (relue au lancement, par l'agent `agent`).
+pub async fn seed_session(h: &Harness, scope: AgentScope, session: &str, agent: &str) {
+    h.session("t-1").lock().unwrap_or_else(|e| panic!("session : {e}")).keep_agent_session(
+        scope,
+        session.into(),
+        agent.into(),
+    );
+    h.tab("t-1").keeper.flush().await;
+}
+
+/// Les `sessionId` des messages `method` du journal du faux agent.
+pub fn sessions_in(log: &Path, method: &str) -> Vec<String> {
+    logged(log, method).iter().map(|m| m["sessionId"].as_str().unwrap_or_default().to_owned()).collect()
+}
+
 /// Tous les messages notés par le faux agent.
-pub fn read_log(log: &PathBuf) -> Vec<Value> {
+pub fn read_log(log: &Path) -> Vec<Value> {
     std::fs::read_to_string(log)
         .unwrap_or_default()
         .lines()
@@ -227,7 +264,7 @@ pub fn read_log(log: &PathBuf) -> Vec<Value> {
 }
 
 /// Paramètres des messages notés par le faux agent pour `method`.
-pub fn logged(log: &PathBuf, method: &str) -> Vec<Value> {
+pub fn logged(log: &Path, method: &str) -> Vec<Value> {
     read_log(log).into_iter().filter(|v| v["method"] == method).map(|v| v["params"].clone()).collect()
 }
 
@@ -253,7 +290,62 @@ pub type Relayed = Arc<Mutex<Vec<(&'static str, Value)>>>;
 pub struct TestStack {
     // Déclarée avant `dir` : la pile s'arrête avant que son dossier soit supprimé.
     stack: oku_slides_agent::Stack,
-    dir: tempfile::TempDir,
+    sessions: Arc<TabSessions>,
+    /// Pile reprise : une fois arrêtée par `shutdown`, son dossier sert à un redémarrage.
+    resumed: bool,
+    /// Le dossier est gardé au `drop` (pile reprise arrêtée).
+    kept: AtomicBool,
+    /// Le dossier de la pile précédente dont celle-ci a repris la session ; supprimé avec elle.
+    adopted: Option<PathBuf>,
+    dir: Option<tempfile::TempDir>,
+}
+
+impl TestStack {
+    /// `f` sur la session de `tab`, hors du fil async (le stockage de la session bloque).
+    pub fn on_session<R>(&self, tab: &str, f: impl FnOnce(&mut Session) -> R) -> R {
+        tokio::task::block_in_place(|| {
+            let mut all = self.sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}"));
+            f(all.get_mut(tab).unwrap_or_else(|| panic!("onglet inconnu : {tab}")))
+        })
+    }
+
+    /// Arrête la pile (`Stack::shutdown`), puis écrit et lâche les sessions.
+    ///
+    /// Une pile reprise garde ensuite son dossier : [`stack_resumed_from`] le reprend
+    /// et le supprime à son tour.
+    pub async fn shutdown(&self) {
+        self.stack.shutdown().await;
+        let sessions = self.sessions.clone();
+        // Lâchées hors du contexte async : leur dernier état de reprise est écrit avant.
+        tokio::task::spawn_blocking(move || {
+            let gone = std::mem::take(&mut *sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}")));
+            drop(gone);
+        })
+        .await
+        .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
+        self.kept.store(self.resumed, Ordering::SeqCst);
+    }
+}
+
+impl Drop for TestStack {
+    fn drop(&mut self) {
+        if self.resumed {
+            // Une session reprise écrit encore en partant : avant que son dossier soit supprimé.
+            let gone = std::mem::take(&mut *self.sessions.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+            drop(gone);
+        }
+        if let Some(dir) = self.adopted.take()
+            && let Err(e) = std::fs::remove_dir_all(&dir)
+        {
+            eprintln!("dossier de la pile précédente non supprimé ({}) : {e}", dir.display());
+        }
+        if self.kept.load(Ordering::SeqCst)
+            && let Some(dir) = self.dir.take()
+        {
+            // Gardé pour `stack_resumed_from`, qui le supprimera.
+            let _kept = dir.keep();
+        }
+    }
 }
 
 impl std::ops::Deref for TestStack {
@@ -263,41 +355,110 @@ impl std::ops::Deref for TestStack {
     }
 }
 
+/// Ce qu'une pile reprise écrit d'abord dans la session de `t-1` (avec l'empreinte de l'agent).
+type Seed = Box<dyn FnOnce(&mut Session, &str) + Send>;
+
+/// Comment naît la session de `t-1` dans une pile de test.
+enum First {
+    /// Ouverte sur la fixture, comme les autres onglets.
+    Fixture,
+    /// Ouverte dans un dossier de reprise neuf où `seed` écrit (avec l'empreinte de l'agent), puis reprise.
+    Seeded(Seed),
+    /// Reprise d'un dossier déjà rempli par une pile précédente.
+    From(PathBuf),
+}
+
 /// Une pile sur le faux agent (`script`), une session par onglet de `tabs`,
 /// relayée dans une liste ; et le journal du faux agent.
 pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (TestStack, Relayed, PathBuf) {
+    let (stack, seen, log, _) = build_stack(script, tabs, First::Fixture).await;
+    (stack, seen, log)
+}
+
+/// Une pile dont la session `t-1` a été reprise d'un dossier où `seed` a déjà écrit.
+///
+/// `seed` reçoit la session et l'empreinte de l'agent de la pile ; la session est ensuite
+/// lâchée puis reprise du même dossier, comme après un redémarrage. Rend aussi ce dossier.
+pub async fn stack_resumed(
+    script: Value,
+    seed: impl FnOnce(&mut Session, &str) + Send + 'static,
+) -> (TestStack, Relayed, PathBuf, PathBuf) {
+    build_stack(script, &["t-1"], First::Seeded(Box::new(seed))).await
+}
+
+/// La même pile, sans `seed`, reprise du dossier `resume` d'une pile reprise arrêtée.
+pub async fn stack_resumed_from(script: Value, resume: PathBuf) -> (TestStack, Relayed, PathBuf, PathBuf) {
+    build_stack(script, &["t-1"], First::From(resume)).await
+}
+
+/// Une pile de test ; la session de `t-1` naît selon `first`. Rend aussi son dossier de reprise.
+async fn build_stack(script: Value, tabs: &[&str], first: First) -> (TestStack, Relayed, PathBuf, PathBuf) {
     let dir = test_dir("oku-slides-stack-");
     let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
     let data = dir.path().to_owned();
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
+    // Exactement ce que la pile lance : l'empreinte est celle de son agent.
+    let command = env!("CARGO_BIN_EXE_oku-slides-fake-agent");
     let args = vec![
         "--script".into(),
         script_path.to_string_lossy().into_owned(),
         "--log".into(),
         log.to_string_lossy().into_owned(),
     ];
+    let fingerprint = agent_fingerprint(command, &args);
+    let (resume, adopted) = match &first {
+        First::From(resume) => (resume.clone(), resume.parent().map(Path::to_path_buf)),
+        First::Fixture | First::Seeded(_) => (data.join("resume-t-1"), None),
+    };
+    let resumed = !matches!(first, First::Fixture);
     let names: Vec<String> = tabs.iter().map(|t| (*t).to_owned()).collect();
+    let resume_dir = resume.clone();
     let (sessions, platform) = tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(data);
         // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
-        settings.agent.command = env!("CARGO_BIN_EXE_oku-slides-fake-agent").into();
+        settings.agent.command = command.into();
         settings.agent.args = args;
         let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
         let fixture = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
-        let sessions = TabSessions::default();
-        for name in names {
-            let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
+        let new = || Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
+        let opened = || {
+            let mut session = new();
             session.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
+            session
+        };
+        let sessions = TabSessions::default();
+        let mut first = Some(first);
+        for name in names {
+            let session = match first.take_if(|_| name == "t-1") {
+                None | Some(First::Fixture) => opened(),
+                Some(First::Seeded(seed)) => {
+                    let mut first = new();
+                    assert!(first.resume(resume_dir.clone()));
+                    first.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
+                    seed(&mut first, &fingerprint);
+                    // Lâchée : ce qui reste à écrire pour la reprise l'est d'abord.
+                    drop(first);
+                    let mut session = new();
+                    assert!(session.resume(resume_dir.clone()));
+                    session
+                }
+                Some(First::From(resume)) => {
+                    let mut session = new();
+                    assert!(session.resume(resume));
+                    session
+                }
+            };
             sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}")).insert(name, session);
         }
-        (sessions, platform)
+        (Arc::new(sessions), platform)
     })
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
-    let stack = oku_slides_agent::Stack::start(Arc::new(sessions), &platform, None, tokio::runtime::Handle::current());
+    let shared: Arc<dyn oku_slides_session::agent::Sessions> = sessions.clone();
+    let stack = oku_slides_agent::Stack::start(shared, &platform, None, tokio::runtime::Handle::current());
     // `Storage` possède un runtime : sa dernière copie ne doit pas être lâchée
     // dans le test (contexte async), là où la pile l'est.
     std::mem::forget(platform);
@@ -307,7 +468,8 @@ pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (TestStack
         let value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("JSON relayé : {e}"));
         sink.lock().unwrap_or_else(|e| panic!("relais : {e}")).push((channel, value));
     });
-    (TestStack { stack, dir }, seen, log)
+    let stack = TestStack { stack, sessions, resumed, kept: AtomicBool::new(false), adopted, dir: Some(dir) };
+    (stack, seen, log, resume)
 }
 
 pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (TestStack, Relayed) {
@@ -335,6 +497,29 @@ pub fn is_tool_surface(v: &Value, tab: &str, prefix: &str) -> bool {
     v["tab"] == tab
         && v["event"]["kind"] == "surface"
         && v["event"]["surface"]["id"].as_str().is_some_and(|i| i.starts_with(prefix))
+}
+
+/// Les évènements `surfaces` relayés pour `tab`, dans l'ordre.
+pub fn surfaces_of(rx: &Relayed, tab: &str) -> Vec<Value> {
+    rx.lock()
+        .unwrap_or_else(|e| panic!("relais : {e}"))
+        .iter()
+        .filter(|(ch, v)| *ch == "mcp" && v["tab"] == tab && v["event"]["kind"] == "surfaces")
+        .map(|(_, v)| v.clone())
+        .collect()
+}
+
+/// Le `nth` évènement `surfaces` relayé pour `tab` (1 = le premier ; sondé toutes les 20 ms, 10 s au plus).
+///
+/// Un onglet qui démarre en envoie un en relisant ses fils, avant celui de son premier `resync`.
+pub async fn wait_surfaces(rx: &Relayed, tab: &str, nth: usize) -> Value {
+    for _ in 0..500 {
+        if let Some(v) = surfaces_of(rx, tab).into_iter().nth(nth - 1) {
+            return v;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("{nth}e liste de surfaces de {tab} non reçue");
 }
 
 /// Le premier relais qui vérifie `pred` (sondé toutes les 20 ms, 10 s au plus).

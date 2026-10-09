@@ -2,8 +2,13 @@ mod common;
 
 use std::sync::Arc;
 
-use common::{is_tool_surface, stack_with_sink, stack_with_sink_and_log, wait_for, wait_turn_done};
+use common::{
+    frozen_turn, is_tool_surface, sessions_in, stack_resumed, stack_resumed_from, stack_with_sink,
+    stack_with_sink_and_log, wait_for, wait_surfaces, wait_turn_done,
+};
 use oku_slides_agent::AgentCommand;
+use oku_slides_session::agent::AgentScope;
+use oku_slides_session::pack::DEFAULT_PACK;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -31,7 +36,14 @@ async fn resync_replays_the_agent_state_then_the_turn_surfaces() {
     wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
     let before = rx.lock().unwrap().len();
     stack.handle(serde_json::from_value(json!({ "cmd": "resync", "tab": "t-1" })).unwrap()).unwrap();
-    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces" && v["tab"] == "t-1").await;
+    // Le gardien a déjà envoyé une liste vide en relisant les fils (au démarrage de l'onglet).
+    let surfaces = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp"
+            && v["event"]["kind"] == "surfaces"
+            && v["tab"] == "t-1"
+            && v["event"]["list"].as_array().is_some_and(|l| !l.is_empty())
+    })
+    .await;
     let ids: Vec<_> = surfaces.1["event"]["list"].as_array().unwrap().iter().map(|s| s["id"].clone()).collect();
     assert_that!(ids).contains(json!("turn-1"));
     // L'état de l'agent d'abord, puis les surfaces.
@@ -41,12 +53,13 @@ async fn resync_replays_the_agent_state_then_the_turn_surfaces() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn resync_of_an_unused_tab_sends_idle_and_no_surfaces() {
+async fn resync_of_a_tab_without_conversation_sends_idle_and_no_surfaces() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
     stack.handle(serde_json::from_value(json!({ "cmd": "resync", "tab": "t-1" })).unwrap()).unwrap();
     wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
-    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
-    assert_that!(surfaces.1["event"]["list"].clone()).is_equal_to(json!([]));
+    // La 1re liste vient de la relecture des fils au démarrage de l'onglet, la 2e du `resync`.
+    let surfaces = wait_surfaces(&rx, "t-1", 2).await;
+    assert_that!(surfaces["event"]["list"].clone()).is_equal_to(json!([]));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -146,21 +159,22 @@ async fn new_conversation_closes_the_turn_surfaces() {
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" }))).unwrap();
     wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "close_surface" && v["event"]["id"] == "turn-1")
         .await;
+    let before = common::surfaces_of(&rx, "t-1").len();
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
-    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
-    let last = rx.lock().unwrap().iter().rev().find(|(_, v)| v["event"]["kind"] == "surfaces").cloned().unwrap();
-    assert_that!(last.1["event"]["list"].clone()).is_equal_to(json!([]));
+    let last = wait_surfaces(&rx, "t-1", before + 1).await;
+    assert_that!(last["event"]["list"].clone()).is_equal_to(json!([]));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn new_conversation_on_a_tab_without_agent_starts_nothing() {
+async fn new_conversation_on_a_tab_without_agent_starts_no_agent_process() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "new_conversation", "tab": "t-1" }))).unwrap();
     // Aucun onglet démarré : l'état rejoué est `idle`, sans surface.
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
     wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "status" && v["event"]["state"] == "idle").await;
-    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
-    assert_that!(surfaces.1["event"]["list"].clone()).is_equal_to(json!([]));
+    // La 1re liste vient de la relecture des fils au démarrage de l'onglet, la 2e du `resync`.
+    let surfaces = wait_surfaces(&rx, "t-1", 2).await;
+    assert_that!(surfaces["event"]["list"].clone()).is_equal_to(json!([]));
     assert_that!(common::read_log(&log)).is_empty();
 }
 
@@ -245,4 +259,122 @@ async fn shutdown_kills_the_agent_and_later_commands_start_nothing() {
     assert_that!(stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "tardive" })))).is_ok();
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     assert_that!(common::logged(&log, "initialize")).has_length(1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn restart_shows_the_saved_thread_and_resumes_its_session() {
+    let script = json!({ "resume": true, "turns": [{ "chunks": ["ok"] }] });
+    let (stack, rx, log, _resume) = stack_resumed(script, |s, agent| {
+        s.keep_thread(AgentScope::Slides, vec![frozen_turn(3)]);
+        s.keep_agent_session(AgentScope::Slides, "sess-42".into(), agent.into());
+    })
+    .await;
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": { "kind": "slides" } }))).unwrap();
+    let surfaces = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surfaces" && v["event"]["list"].as_array().is_some_and(|l| !l.is_empty())
+    })
+    .await;
+    assert_that!(surfaces.1["event"]["list"][0]["id"].clone()).is_equal_to(json!("turn-3"));
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "encore" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 4).await;
+    assert_that!(sessions_in(&log, "session/resume")).is_equal_to(vec!["sess-42".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_turn_ended_before_shutdown_is_read_back_after_a_restart() {
+    let script = json!({ "turns": [{ "chunks": ["ok"] }] });
+    let (stack, rx, _log, resume) = stack_resumed(script.clone(), |_, _| {}).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "un" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    stack.shutdown().await; // vide la file du gardien
+    drop(stack);
+    // Second lancement sur le même dossier de reprise : le fil du tour 1 y est.
+    let (stack, rx, _log, _) = stack_resumed_from(script, resume).await;
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
+    let surfaces = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surfaces" && v["event"]["list"].as_array().is_some_and(|l| !l.is_empty())
+    })
+    .await;
+    assert_that!(surfaces.1["event"]["list"][0]["id"].clone()).is_equal_to(json!("turn-1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn command_without_scope_reads_as_slides() {
+    match cmd(json!({ "cmd": "resync", "tab": "t-1" })) {
+        AgentCommand::Resync { scope, .. } => assert_that!(scope).is_equal_to(AgentScope::Slides),
+        other => panic!("resync attendu : {other:?}"),
+    }
+}
+
+const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", params: (value: p.plain()), (args, ctx) => field(ctx, "value", args.value))
+"#;
+
+fn widget(name: &str) -> serde_json::Value {
+    serde_json::to_value(AgentScope::Widget { pack: DEFAULT_PACK, name: name.into() })
+        .unwrap_or_else(|e| panic!("portée : {e}"))
+}
+
+/// Les identifiants de la `nth` liste de surfaces relayée pour `t-1`.
+async fn listed(rx: &common::Relayed, nth: usize) -> Vec<serde_json::Value> {
+    let v = wait_surfaces(rx, "t-1", nth).await;
+    v["event"]["list"]
+        .as_array()
+        .unwrap_or_else(|| panic!("liste attendue : {v}"))
+        .iter()
+        .map(|s| s["id"].clone())
+        .collect()
+}
+
+/// Un tour dans `kpi` (vu), puis, depuis la pile, `kpi` renommé `ancien` et un nouveau `kpi`,
+/// chaque changement signalé comme le fait l'hôte ; aucun ordre au gardien ensuite.
+async fn kpi_renamed_then_recreated() -> (common::TestStack, common::Relayed, std::path::PathBuf) {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    stack.on_session("t-1", |s| {
+        s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
+        s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
+    });
+    // 1re liste : la relecture des fils ; 2e : ce `resync`.
+    stack
+        .handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": widget("kpi") })))
+        .unwrap_or_else(|e| panic!("commande : {e}"));
+    listed(&rx, 2).await;
+    stack
+        .handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "scope": widget("kpi"), "text": "un" })))
+        .unwrap_or_else(|e| panic!("commande : {e}"));
+    wait_turn_done(&rx, "t-1", 1).await;
+    stack.on_session("t-1", |s| s.rename_widget("kpi", "ancien").unwrap_or_else(|e| panic!("widget : {e}")));
+    stack.after_change("t-1");
+    stack.on_session("t-1", |s| s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}")));
+    stack.after_change("t-1");
+    (stack, rx, log)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_new_widget_of_a_renamed_name_prompted_first_opens_its_own_session() {
+    let (stack, rx, log) = kpi_renamed_then_recreated().await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "scope": widget("kpi"), "text": "deux" }))).unwrap();
+    // La vue a suivi `ancien` : le tour de `kpi` n'est pas montré ; le journal du faux agent fait foi.
+    drop(rx);
+    for _ in 0..500 {
+        if sessions_in(&log, "session/prompt").len() >= 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_that!(sessions_in(&log, "session/prompt")).is_equal_to(vec!["sess-1".to_owned(), "sess-2".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn renamed_from_the_ui_then_a_new_widget_of_the_old_name_gets_its_own_thread_and_session() {
+    let (stack, rx, log) = kpi_renamed_then_recreated().await;
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": widget("kpi") }))).unwrap();
+    assert_that!(listed(&rx, 3).await).is_empty();
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "scope": widget("kpi"), "text": "deux" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 2).await;
+    assert_that!(sessions_in(&log, "session/prompt")).is_equal_to(vec!["sess-1".to_owned(), "sess-2".to_owned()]);
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": widget("ancien") }))).unwrap();
+    let old = listed(&rx, 4).await;
+    assert_that!(old).contains(json!("turn-1"));
+    assert_that!(old).does_not_contain(json!("turn-2"));
 }

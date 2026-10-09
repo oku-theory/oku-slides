@@ -23,8 +23,14 @@ fn emit_skips_an_event_that_does_not_serialize() {
 #[test]
 fn emit_wraps_the_event_with_its_tab() {
     let (tx, mut rx) = mpsc::unbounded_channel();
-    emit(&tx, "agent", "t-1", &crate::AgentEvent::Conversation);
+    emit(
+        &tx,
+        "agent",
+        "t-1",
+        &crate::AgentEvent::Conversation { scope: oku_slides_session::agent::AgentScope::Slides },
+    );
     let (channel, json) = rx.try_recv().unwrap();
     assert_that!(channel).is_equal_to("agent");
-    assert_that!(json.as_str()).is_equal_to(r#"{"tab":"t-1","event":{"kind":"conversation"}}"#);
+    assert_that!(json.as_str())
+        .is_equal_to(r#"{"tab":"t-1","event":{"kind":"conversation","scope":{"kind":"slides"}}}"#);
 }

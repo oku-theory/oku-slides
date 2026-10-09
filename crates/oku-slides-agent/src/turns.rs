@@ -18,13 +18,13 @@ use oku_slides_i18n::Localizer;
 use oku_slides_session::agent::turn_view::{
     TurnState, TurnView, first_line, turn_data, turn_id, turn_patches, turn_surface,
 };
-use oku_slides_session::agent::{NOTE_CHARS, ServerMessage, StepStatus, Surface, TimelineStep, WHY_MAX};
+use oku_slides_session::agent::{AgentScope, NOTE_CHARS, ServerMessage, StepStatus, Surface, TimelineStep, WHY_MAX};
 use serde_json::Value;
 
 use crate::{AgentEvent, AgentState};
 
 /// Tours gardés au plus par onglet ; au-delà, le plus ancien est fermé.
-pub(crate) const KEPT_TURNS: usize = 50;
+pub(crate) use oku_slides_session::agent::KEPT_TURNS;
 /// Étapes gardées au plus par tour ; au-delà, les outils et notes ne comptent plus que dans le résumé.
 pub(crate) const STEPS_MAX: usize = 60;
 
@@ -44,6 +44,8 @@ pub(crate) enum TurnOut {
 #[derive(Debug)]
 struct Turn {
     view: TurnView,
+    /// La portée du tour : l'éviction se compte par portée.
+    scope: AgentScope,
     started: Instant,
     /// Chaque outil : l'étape où il est rangé et son dernier statut.
     tools: HashMap<String, (usize, StepStatus)>,
@@ -143,14 +145,14 @@ impl Turns {
     /// Applique `e` ; rend ce que le relais doit émettre.
     pub fn apply(&mut self, e: &AgentEvent, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let n = match e {
-            AgentEvent::UserText { turn, text } => return self.open(*turn, text, now, l),
-            // Le hub a déjà été vidé par l'acteur (`clear_thread`, synchrone) : on oublie les tours.
-            AgentEvent::Conversation => {
-                self.turns.clear();
+            AgentEvent::UserText { turn, scope, text } => return self.open(*turn, scope.clone(), text, now, l),
+            // Le hub a déjà été vidé par l'acteur (`clear_thread`, synchrone) : on oublie les tours de la portée.
+            AgentEvent::Conversation { scope } => {
+                self.turns.retain(|t| t.scope != *scope);
                 return Vec::new();
             }
             // Le repos ne porte pas de tour : il clôt le dernier s'il tourne encore (fin perdue).
-            AgentEvent::Status { state: AgentState::Idle } => match self.turns.back() {
+            AgentEvent::Status { state: AgentState::Idle, .. } => match self.turns.back() {
                 Some(t) => t.view.n,
                 None => return Vec::new(),
             },
@@ -163,7 +165,12 @@ impl Turns {
             | AgentEvent::Error { turn, .. } => *turn,
         };
         // L'ouverture de ce tour s'est perdue (relais en retard) : il s'ouvre ici, sans consigne.
-        let mut out = if n > self.last { self.open(n, "", now, l) } else { Vec::new() };
+        let mut out = if n > self.last {
+            let scope = self.turns.back().map_or(AgentScope::Slides, |t| t.scope.clone());
+            self.open(n, scope, "", now, l)
+        } else {
+            Vec::new()
+        };
         let Some(t) = self.turns.iter_mut().find(|t| t.view.n == n) else { return out };
         if t.view.state != TurnState::Running {
             return out;
@@ -240,7 +247,7 @@ impl Turns {
                 ended = Some(t.finish(state));
             }
             // L'agent est revenu au repos sans fin de tour (évènement perdu) : le tour est fini.
-            AgentEvent::Status { state: AgentState::Idle } => {
+            AgentEvent::Status { state: AgentState::Idle, .. } => {
                 let secs = t.secs(now);
                 ended = Some(t.finish(TurnState::Done { secs }));
             }
@@ -250,7 +257,7 @@ impl Turns {
                 // Pas de reçu de repli pour un échec, mais le hub doit savoir que le tour est clos.
                 ended = Some(String::new());
             }
-            AgentEvent::Status { .. } | AgentEvent::UserText { .. } | AgentEvent::Conversation => return out,
+            AgentEvent::Status { .. } | AgentEvent::UserText { .. } | AgentEvent::Conversation { .. } => return out,
         }
         out.extend(t.patch(l));
         if let Some(narration) = ended {
@@ -259,7 +266,7 @@ impl Turns {
         out
     }
 
-    fn open(&mut self, n: u32, prompt: &str, now: Instant, l: &Localizer) -> Vec<TurnOut> {
+    fn open(&mut self, n: u32, scope: AgentScope, prompt: &str, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let mut out = Vec::new();
         self.last = self.last.max(n);
         // Un tour précédent resté ouvert (fin perdue) est clos comme interrompu.
@@ -286,6 +293,7 @@ impl Turns {
         out.push(TurnOut::Show(turn_surface(&view, l)));
         self.turns.push_back(Turn {
             view,
+            scope: scope.clone(),
             started: now,
             tools: HashMap::new(),
             in_tools: false,
@@ -293,8 +301,10 @@ impl Turns {
             last_text: String::new(),
             sent,
         });
-        if self.turns.len() > KEPT_TURNS
-            && let Some(old) = self.turns.pop_front()
+        let same = self.turns.iter().filter(|t| t.scope == scope).count();
+        if same > KEPT_TURNS
+            && let Some(i) = self.turns.iter().position(|t| t.scope == scope)
+            && let Some(old) = self.turns.remove(i)
         {
             out.push(TurnOut::Evict(old.view.n));
         }

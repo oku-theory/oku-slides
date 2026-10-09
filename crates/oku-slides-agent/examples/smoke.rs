@@ -9,7 +9,7 @@
 use std::sync::{Arc, Mutex};
 
 use oku_slides_agent::{AgentCommand, Stack};
-use oku_slides_session::agent::{AgentUi, Sessions};
+use oku_slides_session::agent::{AgentScope, AgentUi, Sessions};
 use oku_slides_session::{Fonts, Platform, Session};
 use serde_json::{Map, Value};
 use tokio::sync::mpsc;
@@ -45,7 +45,13 @@ fn main() -> color_eyre::Result<()> {
         let _ = tx.send((name, json));
     });
     stack
-        .handle(AgentCommand::Prompt { tab: TAB.to_owned(), text: prompt, ui: AgentUi::default(), answer: None })
+        .handle(AgentCommand::Prompt {
+            tab: TAB.to_owned(),
+            scope: AgentScope::Slides,
+            text: prompt,
+            ui: AgentUi::default(),
+            answer: None,
+        })
         .map_err(|e| color_eyre::eyre::eyre!(e))?;
 
     let mut worked = false;

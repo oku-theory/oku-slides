@@ -22,6 +22,7 @@ use snafu::{Backtrace, ResultExt, Snafu, ensure};
 use oku_slides_core::{DeckReplica, PackFiles, PackVersion, ReplicaError, SourceBundle, WidgetFile, WidgetRegistry};
 use oku_slides_platform::storage::{Storage, StorageError};
 
+use crate::agent::{AgentScope, SavedConversation};
 use crate::files::read_document;
 use crate::resume_writer::{Job, Writer};
 use crate::template_scratch::TemplateScratch;
@@ -55,7 +56,7 @@ pub(crate) enum ResumeError {
     },
 }
 
-type Result<T, E = ResumeError> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = ResumeError> = std::result::Result<T, E>;
 
 /// Ce que la session éditait.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -201,7 +202,7 @@ fn safe_name(name: &str) -> bool {
 /// Un dossier de reprise (celui d'un onglet, ou la racine) et ses fichiers.
 #[derive(Debug, Clone)]
 pub(crate) struct Resume {
-    storage: Storage,
+    pub(crate) storage: Storage,
     pub(crate) dir: PathBuf,
 }
 
@@ -571,11 +572,13 @@ impl Session {
                     "reprise en échec non déplacée"
                 ),
             }
+            self.conversations = Default::default();
             // Rien n'est écrit à la place, même si `resume` était déjà activée.
             self.resume = None;
             return false;
         }
         self.resume = Some(Writer::new(resume));
+        self.prune_conversations();
         self.persist(true);
         self.flush_resume();
         true
@@ -589,6 +592,7 @@ impl Session {
     /// impossible à déplacer laisse la session sans reprise (`false`).
     #[must_use]
     pub(crate) fn resume_fresh(&mut self, dir: PathBuf) -> bool {
+        self.conversations = Default::default();
         self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
         match resume.read_state() {
@@ -617,6 +621,7 @@ impl Session {
     }
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
+        self.conversations.by_scope = resume.read_conversations();
         let Some(state) = resume.read_state()? else { return Ok(()) };
         if let SavedMode::Help(locale) = &state.mode {
             self.open_help(locale, state.help_theme).context(SessionSnafu)?;
@@ -685,6 +690,11 @@ impl Session {
     /// partagées avec l'envoi précédent. Un replica qui ne s'exporte pas est
     /// journalisé, et ce document n'est pas écrit.
     pub(crate) fn persist(&mut self, documents: bool) {
+        self.persist_with(documents, BTreeMap::new());
+    }
+
+    /// Comme [`Session::persist`], avec des conversations de l'agent à écrire ou effacer.
+    pub(crate) fn persist_with(&mut self, documents: bool, agent: BTreeMap<AgentScope, Option<SavedConversation>>) {
         let Some(writer) = &self.resume else { return };
         // L'aide se relit depuis l'app : seule sa langue est gardée.
         if let Some(locale) = self.help {
@@ -695,7 +705,7 @@ impl Session {
                 help_theme: self.doc.sources.deck().theme.as_ref().map(|t| t.id),
                 theme_edit: None,
             };
-            writer.send(Job { docs: Vec::new(), state });
+            writer.send(Job { docs: Vec::new(), state, agent });
             return;
         }
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
@@ -724,7 +734,7 @@ impl Session {
             }
         }
         let state = State { version: VERSION, mode, ui: self.ui.clone(), help_theme: None, theme_edit };
-        writer.send(Job { docs, state });
+        writer.send(Job { docs, state, agent });
     }
 }
 

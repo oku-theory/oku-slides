@@ -1,5 +1,9 @@
 {
   "http": true,
+  "by_prompt": {
+    "portée slides": { "chunks": ["Réponse des slides."] },
+    "portée atelier": { "chunks": ["Réponse de l'atelier."] }
+  },
   "turns": [
     {
       "plan": [{ "content": "Lire la slide", "status": "completed" }, { "content": "Proposer des reformulations", "status": "in_progress" }],

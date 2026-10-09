@@ -576,7 +576,10 @@ export interface AgentUi {
 export type AgentState = "idle" | "starting" | "working";
 
 /** Évènements du canal `agent` : l'état de l'agent seul (le fil passe par les surfaces). */
-export type AgentEvent = { kind: "status"; state: AgentState };
+export type AgentEvent = { kind: "status"; state: AgentState; scope?: AgentScope };
+
+/** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
+export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
 
 /** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
 export type Place = "sheet" | "thread" | "drawer" | "modal";
@@ -607,11 +610,11 @@ export type McpEvent =
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
-  | { cmd: "prompt"; tab: string; text: string; ui: AgentUi; answer: string | null }
+  | { cmd: "prompt"; tab: string; scope: AgentScope; text: string; ui: AgentUi; answer: string | null }
   | { cmd: "cancel"; tab: string }
-  | { cmd: "new_conversation"; tab: string }
+  | { cmd: "new_conversation"; tab: string; scope: AgentScope }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
-  | { cmd: "resync"; tab: string };
+  | { cmd: "resync"; tab: string; scope: AgentScope };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
 
@@ -622,13 +625,14 @@ export function agentApi(tab: string) {
      * `answer` : la question à laquelle la consigne répond (`answerTarget`) ; sans elle,
      * ou si elle n'attend plus, une consigne ordinaire.
      */
-    prompt: (text: string, ui: AgentUi, answer: string | null) => agentCall({ cmd: "prompt", tab, text, ui, answer }),
+    prompt: (scope: AgentScope, text: string, ui: AgentUi, answer: string | null) =>
+      agentCall({ cmd: "prompt", tab, scope, text, ui, answer }),
     cancel: () => agentCall({ cmd: "cancel", tab }),
-    newConversation: () => agentCall({ cmd: "new_conversation", tab }),
+    newConversation: (scope: AgentScope) => agentCall({ cmd: "new_conversation", tab, scope }),
     surfaceAction: (surface: string, name: string, context: Record<string, unknown>) =>
       agentCall({ cmd: "surface_action", tab, surface, name, context }),
     /** Demande la liste entière des surfaces ouvertes (évènement `surfaces`). */
-    resync: () => agentCall({ cmd: "resync", tab }),
+    resync: (scope: AgentScope) => agentCall({ cmd: "resync", tab, scope }),
   };
 }
 

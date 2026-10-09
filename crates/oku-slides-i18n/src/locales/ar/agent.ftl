@@ -59,6 +59,7 @@ agent-turn-notes = { $notes ->
 agent-turn-secs = { $secs } ث
 agent-turn-stopped = تم الإيقاف.
 agent-turn-interrupted = تمت المقاطعة.
+agent-memory-lost = لم يعد الوكيل يتذكر هذه المحادثة: سيبدأ من جديد.
 agent-turn-max-tokens = بلغ الوكيل حدّ الطول.
 agent-turn-max-turns = بلغ الوكيل حدّ الخطوات.
 agent-turn-refusal = رفض الوكيل.

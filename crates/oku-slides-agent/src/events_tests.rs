@@ -4,7 +4,9 @@ use agent_client_protocol::schema::v1::{
 };
 use speculoos::prelude::*;
 
-use super::{AgentEvent, PlanItem, from_update};
+use oku_slides_session::agent::AgentScope;
+
+use super::{AgentEvent, AgentState, PlanItem, from_update};
 
 #[test]
 fn from_update_text_chunk_gives_chunk() {
@@ -38,6 +40,17 @@ fn from_update_plan_gives_items() {
 
 #[test]
 fn user_text_serializes_its_turn() {
-    let json = serde_json::to_value(AgentEvent::UserText { turn: 3, text: "x".into() }).unwrap();
-    assert_that!(json).is_equal_to(serde_json::json!({ "kind": "user_text", "turn": 3, "text": "x" }));
+    let json =
+        serde_json::to_value(AgentEvent::UserText { turn: 3, scope: AgentScope::Slides, text: "x".into() }).unwrap();
+    assert_that!(json)
+        .is_equal_to(serde_json::json!({ "kind": "user_text", "turn": 3, "scope": { "kind": "slides" }, "text": "x" }));
+}
+
+#[test]
+fn status_json_carries_the_scope_only_when_set() {
+    let busy = AgentEvent::Status { state: AgentState::Working, scope: Some(AgentScope::Slides) };
+    assert_that!(serde_json::to_string(&busy).unwrap())
+        .is_equal_to(r#"{"kind":"status","state":"working","scope":{"kind":"slides"}}"#.to_owned());
+    assert_that!(serde_json::to_string(&AgentEvent::idle()).unwrap())
+        .is_equal_to(r#"{"kind":"status","state":"idle"}"#.to_owned());
 }

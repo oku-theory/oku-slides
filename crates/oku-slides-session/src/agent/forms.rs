@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 use crate::text::paragraphs_to_text;
 
 /// Où l'interface place une surface.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Place {
     /// Fiche ancrée sous un élément de la slide.
@@ -34,7 +34,7 @@ pub enum Place {
 }
 
 /// Une surface prête à afficher : ses messages A2UI et sa place.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Surface {
     pub id: String,
     pub place: Place,

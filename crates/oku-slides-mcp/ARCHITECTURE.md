@@ -55,8 +55,12 @@ tour (`oku-slides-agent`, `AgentEvent`).
 
 ## Éviction d'un tour
 
-Au-delà de `KEPT_TURNS` tours (`oku-slides-agent`), le plus ancien est évincé : `close_turn`
-ferme **toutes** ses surfaces, vivantes comprises. Des réglages (`show_params`) restés au dock
+L'éviction se fait **par portée**, dans `begin_turn` : au-delà de `KEPT_TURNS` tours
+(`oku-slides-session::agent`) d'une même portée, tours relus compris, les plus anciens de cette
+portée sont évincés ; les autres portées gardent les leurs. `close_turn` ferme **toutes** les
+surfaces d'un tour évincé, vivantes comprises. L'éviction du réducteur des tours de l'agent
+(`TurnOut::Evict`, même règle par portée) rappelle `close_turn` sur un tour déjà fermé : redondant
+mais sans effet (idempotent). Des réglages (`show_params`) restés au dock
 depuis ce tour disparaissent donc sans être figés (leur tour n'est plus là pour les recevoir) ;
 une action tardive sur eux est refusée. C'est voulu : un réglage n'appartient qu'à son tour, et
 ce cas suppose `KEPT_TURNS` tours sans nouveaux réglages ni fermeture. Une question en attente
@@ -83,3 +87,5 @@ locale à `server.rs`, `handler.rs` et `tools.rs`.
 Le serveur n'écoute que sur `127.0.0.1`, sur un port choisi par le système.
 Chaque lancement tire un jeton aléatoire, exigé en en-tête `Authorization`
 (`Bearer <jeton>`) ; il n'est jamais journalisé.
+
+Le hub range chaque tour dans sa portée et n'envoie que le fil vu (`hub_scopes.rs`) ; il ne touche pas à la session.
