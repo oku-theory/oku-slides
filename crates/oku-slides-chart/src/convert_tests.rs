@@ -136,3 +136,42 @@ fn convert_waterfall_to_bars_drops_the_total_column_and_empties_totals() {
         vec![Cell::Text("Fin".into()), Cell::Null],
     ]));
 }
+
+fn bars_with_ids() -> ChartOption {
+    let mut o = bars();
+    if let Some(d) = o.dataset.as_mut() {
+        d.ids = ["h", "zz", "qq", "rr"].map(String::from).to_vec();
+        d.columns = ["c9", "c1", "c5"].map(String::from).to_vec();
+    }
+    o
+}
+
+#[test]
+fn convert_bar_to_line_keeps_ids() {
+    let line = convert(&bars_with_ids(), SeriesType::Line, en()).unwrap();
+    assert_that!(line.dataset).is_equal_to(bars_with_ids().dataset);
+}
+
+#[test]
+fn convert_to_pie_keeps_row_ids_and_drops_column_ids() {
+    let d = convert(&bars_with_ids(), SeriesType::Pie, en()).unwrap().dataset.unwrap();
+    assert_that!(d.ids).is_equal_to(bars_with_ids().dataset.unwrap().ids);
+    assert_that!(d.columns.is_empty()).is_true();
+}
+
+#[test]
+fn convert_to_scatter_with_changed_row_count_mints_new_ids() {
+    let mut o = bars_with_ids();
+    if let Some(d) = o.dataset.as_mut() {
+        for (row, x) in [(1, "1"), (2, "1"), (3, "2")] {
+            d.source[row][0] = Cell::Text(x.into());
+        }
+    }
+    let scatter = convert(&o, SeriesType::Scatter, en()).unwrap();
+    let d = scatter.dataset.clone().unwrap();
+    asserting("même nombre de lignes : ids gardés").that(&d.ids).is_equal_to(o.dataset.clone().unwrap().ids);
+    asserting("largeur changée : colonnes tirées à neuf").that(&d.columns.is_empty()).is_true();
+    let back = convert(&scatter, SeriesType::Bar, en()).unwrap().dataset.unwrap();
+    asserting("le nuage regroupe les abscisses").that(&back.source.len()).is_equal_to(3);
+    assert_that!(back.ids.is_empty()).is_true();
+}

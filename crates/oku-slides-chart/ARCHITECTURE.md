@@ -10,13 +10,17 @@ Graphiques (options ECharts → SVG) et tableaux (modèle seul : le rendu est fa
 
 - `parse_option` valide les options ECharts (sous-ensemble v1) ;
 - `canonicalize` range les données dans `dataset` avant stockage ;
-- `apply_option_patch` (merge patch, hors `dataset`) et `chart_data` (`DataOp`) éditent et renvoient leur inverse ;
+- `apply_option_patch` (merge patch, hors `dataset`) édite et renvoie son inverse ; `chart_data` applique une `DataOp`, sans inverse ;
 - `ChartRenderer` (charts-rs) produit le SVG.
+
+## Identifiants
+
+`Dataset.ids` (un par ligne, en-tête compris) et `Dataset.columns` (un par colonne) : `ensure_ids` les aligne sur `source`, et chaque `DataOp` les garde alignés (le cœur l'appelle avant d'écrire).
 
 ## Tableau
 
 - `TableOption` : `dataset` (ligne 0 = noms de colonnes), `header-row`, `header-column`, `striped`, `align`.
-- `parse_table` lit et valide ; `table_data` applique une `DataOp` et recale `align` ; `patch_table` fait un merge patch hors `dataset`.
+- `parse_table` lit, tronque `align` à la largeur et valide ; `table_data` applique une `DataOp` et recale `align` ; `patch_table` fait un merge patch hors `dataset`.
 - Limites : `MAX_TABLE_ROWS` (100, en-tête compris), `MAX_TABLE_COLUMNS` (20), `MAX_TABLE_CELL_CHARS` (1000).
 - `chart_to_table` et `table_to_chart` passent d'un widget à l'autre sans perdre les données.
 

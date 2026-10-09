@@ -60,6 +60,7 @@ issue-unsupported-link = непідтримуване посилання: { $lin
 issue-highlight-zero = кольори виділення нумеруються з 1
 issue-unreadable-element = нечитабельний елемент, відкладено
 issue-unreadable-item = нечитабельний пункт списку, відкладено
+issue-data-truncated = дані завеликі, обрізано під час читання
 issue-unreadable-slide = нечитабельний слайд, відкладено
 issue-unreadable-field = нечитабельне поле { $field } презентації, скинуто
 op-invalid-chart = Діаграма { $subject }: { $reason }

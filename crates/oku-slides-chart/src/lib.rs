@@ -3,8 +3,8 @@
 //! Chemin d'un graphique :
 //! 1. le LLM écrit des options ECharts, validées par [`parse_option`] ;
 //! 2. [`canonicalize`] range les données dans `dataset` avant stockage ;
-//! 3. les éditions passent par [`apply_option_patch`] (`set_chart_option`)
-//!    et [`DataOp`] (`set_data`), qui renvoient leur inverse ;
+//! 3. les éditions passent par [`apply_option_patch`] (`set_chart_option`),
+//!    qui renvoie son inverse, et [`DataOp`] (`set_data`) ;
 //! 4. un [`ChartRenderer`] produit le SVG inséré dans le Typst.
 //!
 //! Un tableau ([`TableOption`]) partage `dataset` et [`DataOp`] avec les graphiques ;
@@ -19,6 +19,7 @@ mod error;
 mod header;
 mod labels;
 mod model;
+mod numbers;
 mod option;
 mod patch;
 mod render;
@@ -29,10 +30,11 @@ mod theme;
 
 pub use canonical::{canonicalize, sync_series_with_columns};
 pub use convert::convert;
-pub use data_ops::{DataOp, chart_data};
+pub use data_ops::{DataOp, chart_data, ensure_ids};
 pub use error::{ChartError, ChartErrorKind, Result};
 pub use labels::ChartLabels;
 pub use model::{ChartKind, ChartModel, normalize, parse_option};
+pub use numbers::NumberFormat;
 pub use option::*;
 pub use patch::{apply_option_patch, reverse_merge_patch};
 pub use render::{ChartRenderer, ChartsRsRenderer, Size, register_fonts};

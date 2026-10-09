@@ -196,7 +196,7 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
 fn open_deck_with_inline_chart_makes_its_data_editable() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 4, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
+    let deck = serde_json::json!({ "version": 5, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
         "id": "g", "kind": "chart", "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });

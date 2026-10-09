@@ -56,6 +56,7 @@ issue-unsupported-link = nicht unterstützter Link: { $link }
 issue-highlight-zero = Hervorhebungsfarben werden ab 1 nummeriert
 issue-unreadable-element = unlesbares Element, beiseitegelegt
 issue-unreadable-item = unlesbarer Listeneintrag, beiseitegelegt
+issue-data-truncated = Daten zu groß, beim Lesen gekürzt
 issue-unreadable-slide = unlesbare Folie, beiseitegelegt
 issue-unreadable-field = unlesbares Deck-Feld { $field }, zurückgesetzt
 op-invalid-chart = Diagramm { $subject }: { $reason }

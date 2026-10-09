@@ -6,6 +6,8 @@ use charts_rs::{
     BarChart, ChartBase, HorizontalBarChart, LineChart, PieChart, RadarChart, RadarIndicator, ScatterChart, Series,
     SeriesCategory, WaterfallChart, WaterfallData, YAxisConfig,
 };
+use std::collections::HashSet;
+
 use serde_json::json;
 
 use snafu::ResultExt;
@@ -14,6 +16,7 @@ use crate::error::{RenderSnafu, Result};
 use crate::header::{Header, append};
 use crate::labels::ChartLabels;
 use crate::model::*;
+use crate::numbers::{NumberFormat, numeric_texts};
 use crate::option::ChartOption;
 use crate::theme::{ChartTheme, color, transparent};
 
@@ -35,14 +38,24 @@ pub struct ChartsRsRenderer {
     pub theme: ChartTheme,
     /// Noms des séries qui n'en ont pas.
     pub labels: ChartLabels,
+    /// Écriture des nombres (langue du deck) : étiquettes, graduations,
+    /// catégories numériques. charts-rs n'a pas de formateur à brancher : son
+    /// SVG est réécrit ([`NumberFormat::localize_svg`]).
+    pub numbers: NumberFormat,
 }
 
 impl ChartsRsRenderer {
     pub fn new(theme: ChartTheme) -> Self {
-        Self { theme, labels: ChartLabels::default() }
+        Self { theme, labels: ChartLabels::default(), numbers: NumberFormat::default() }
     }
 
+    /// Rend un modèle ; tout texte du SVG qui n'est qu'un nombre suit [`Self::numbers`].
     pub fn render_model(&self, model: &ChartModel, size: Size) -> Result<String> {
+        self.draw(model, size, &HashSet::new())
+    }
+
+    /// Rend un modèle ; les textes de `keep` (saisis en texte) ne sont pas réécrits.
+    fn draw(&self, model: &ChartModel, size: Size, keep: &HashSet<String>) -> Result<String> {
         let (svg, header) = match &model.kind {
             ChartKind::Cartesian(c) if c.horizontal => {
                 let series = c.series.iter().map(cartesian_series).collect();
@@ -144,14 +157,14 @@ impl ChartsRsRenderer {
                 let header = self.header(&mut chart.base, model);
                 (chart.svg(), header)
             }
-            ChartKind::Waterfall(w) => return self.waterfall(w, model, size),
+            ChartKind::Waterfall(w) => return self.waterfall(w, model, size, keep),
         };
-        Ok(append(svg.context(RenderSnafu)?, &header))
+        Ok(append(self.numbers.localize_svg(&svg.context(RenderSnafu)?, keep), &header))
     }
 
     /// Cascade : le WaterfallChart de charts-rs. Son axe n'est réglable que
     /// par `from_json` ; hausse, baisse et total prennent la palette.
-    fn waterfall(&self, w: &Waterfall, model: &ChartModel, size: Size) -> Result<String> {
+    fn waterfall(&self, w: &Waterfall, model: &ChartModel, size: Size, keep: &HashSet<String>) -> Result<String> {
         let t = &self.theme;
         let mut axis = json!({
             "axis_font_size": t.axis_size,
@@ -190,7 +203,7 @@ impl ChartsRsRenderer {
             chart.increase_color = c;
         }
         let header = self.header(&mut chart.base, model);
-        Ok(append(chart.svg().context(RenderSnafu)?, &header))
+        Ok(append(self.numbers.localize_svg(&chart.svg().context(RenderSnafu)?, keep), &header))
     }
 
     /// Palette des séries : celle des options, sinon celle du thème.
@@ -259,7 +272,7 @@ impl ChartsRsRenderer {
 
 impl ChartRenderer for ChartsRsRenderer {
     fn render(&self, option: &ChartOption, size: Size) -> Result<String> {
-        self.render_model(&normalize(option, &self.labels)?, size)
+        self.draw(&normalize(option, &self.labels)?, size, &numeric_texts(option))
     }
 }
 

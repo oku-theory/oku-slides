@@ -24,7 +24,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":6}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":7}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -83,6 +83,19 @@ fn from_zip_newer_version_returns_unsupported_version() {
 #[test]
 fn from_zip_with_sources_version_4_returns_not_sources() {
     let manifest = br#"{"format":"oku-slides-sources","version":4}"#;
+    let err = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+}
+
+/// Sources v6 : `dataset` en atome, qui ne se relit pas en v7.
+#[test]
+fn sources_v6_zip_is_refused() {
+    let manifest = br#"{"format":"oku-slides-sources","version":6}"#;
     let err = SourceBundle::from_zip(
         &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
         MAX,
@@ -754,4 +767,54 @@ fn bundles_with_different_themes_are_not_equal() {
     let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
     b.add_theme(theme_files("T"));
     assert_that!(a == b).is_false();
+}
+
+/// Un deck JSON au tableau `t` et au graphique `g`, sans identifiants de
+/// lignes ni de colonnes.
+fn deck_without_ids() -> Deck {
+    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+        { "id": "t", "kind": "table", "params": { "data": {
+            "dataset": { "source": [["Pays", "Ventes"], ["FR", 1], ["DE", 2]] } } } },
+        { "id": "g", "kind": "chart", "params": { "option": {
+            "dataset": { "source": [["Mois", "Ventes"], ["Jan", 10]] }, "series": [{ "type": "bar" }] } } }
+    ] } }] });
+    Deck::from_json(&deck.to_string()).unwrap()
+}
+
+/// Le `dataset` du paramètre `param` de l'élément `id` de la slide `s`.
+fn dataset_of(deck: &Deck, id: &str, param: &str) -> serde_json::Value {
+    let e = deck.slides[0].locate(id).unwrap().element;
+    e.params.value(param).unwrap()["dataset"].clone()
+}
+
+fn set_cell(row: usize, col: usize, n: f64) -> crate::Op {
+    crate::Op::SetData {
+        target: crate::Target { slide: "s".into(), element: Some("t".into()) },
+        param: "data".into(),
+        change: oku_slides_chart::DataOp::SetCell { row, col, value: oku_slides_chart::Cell::Number(n) },
+    }
+}
+
+#[test]
+fn new_gives_ids_to_the_datasets_of_a_json_deck() {
+    let bundle = SourceBundle::new(deck_without_ids(), crate::test_registry::shared()).unwrap();
+    for (id, param, rows, cols) in [("t", "data", 3, 2), ("g", "option", 2, 2)] {
+        let ds = dataset_of(bundle.deck(), id, param);
+        assert_that!(ds["ids"].as_array().map(Vec::len)).is_equal_to(Some(rows));
+        assert_that!(ds["columns"].as_array().map(Vec::len)).is_equal_to(Some(cols));
+    }
+    assert_that!(bundle.replica().deck().0).is_equal_to(bundle.deck());
+}
+
+#[test]
+fn concurrent_cell_edits_of_a_json_deck_both_survive_the_merge() {
+    let zip = SourceBundle::new(deck_without_ids(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
+    let (mut a, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
+    let (mut b, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
+    let base = a.deck().clone();
+    a.apply(with_op(&base, set_cell(1, 1, 7.0)), "A", None).unwrap();
+    b.apply(with_op(&base, set_cell(2, 1, 9.0)), "B", None).unwrap();
+    a.merge(b).unwrap();
+    let source = dataset_of(a.deck(), "t", "data")["source"].clone();
+    assert_that!(source).is_equal_to(serde_json::json!([["Pays", "Ventes"], ["FR", 7.0], ["DE", 9.0]]));
 }

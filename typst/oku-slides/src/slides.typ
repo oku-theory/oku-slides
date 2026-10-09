@@ -63,7 +63,8 @@
   show heading: it => it.body
 
   // L'état est posé dans le premier élément de page pour ne pas créer de page vide.
-  _cfg.update((tokens: t, params: p, vars: vars))
+  // deck-lang : la langue donnée au deck, sans défaut (écriture des nombres).
+  _cfg.update((tokens: t, params: p, vars: vars, deck-lang: params.named().at("lang", default: none)))
   // Jetons résolus, lus par l'app pour accorder son interface au thème.
   [#metadata(t)<oku-slides-tokens>]
   body

@@ -3,8 +3,15 @@ import { coerce, parseCell, parseCheck, parseTsv } from "./cells";
 
 describe("parseCheck", () => {
   test("une case collée est cochée sauf si elle est vide ou fausse", () => {
-    expect(["x", "TRUE", "vrai", "1"].map(parseCheck)).toEqual([true, true, true, true]);
-    expect(["", " ", "false", "FAUX", "0", "non", "no"].map(parseCheck)).toEqual([false, false, false, false, false, false, false]);
+    expect(["x", "TRUE", "vrai", "1"].map(parseCheck)).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(
+      ["", " ", "false", "FAUX", "0", "non", "no"].map(parseCheck),
+    ).toEqual([false, false, false, false, false, false, false]);
   });
 });
 
@@ -14,11 +21,42 @@ describe("parseCell", () => {
     expect(parseCell("  ")).toBeNull();
     expect(parseCell(" abc ")).toBe("abc");
   });
+
+  test("décimaux sans ambiguïté convertis en nombre", () => {
+    expect(parseCell("12")).toBe(12);
+    expect(parseCell("-3,5")).toBe(-3.5);
+    expect(parseCell("+4")).toBe(4);
+    expect(parseCell("0")).toBe(0);
+    expect(parseCell("0,25")).toBe(0.25);
+    expect(parseCell("0.5")).toBe(0.5);
+    expect(parseCell("1\u00a0234\u00a0567")).toBe(1234567);
+    expect(parseCell("12\u202f345")).toBe(12345);
+  });
+
+  test("ambigus gardés en texte", () => {
+    for (const t of [
+      "007",
+      "01000",
+      "0x1F",
+      "1e3",
+      "Infinity",
+      "1 23",
+      "12,",
+      ",5",
+      "1.234.567",
+      "abc",
+    ]) {
+      expect(parseCell(t)).toBe(t);
+    }
+  });
 });
 
 describe("parseTsv", () => {
   test("lignes et tabulations, fin de ligne Windows et saut final ignorés", () => {
-    expect(parseTsv("a\tb\r\nc\td\n")).toEqual([["a", "b"], ["c", "d"]]);
+    expect(parseTsv("a\tb\r\nc\td\n")).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
   });
 });
 
@@ -32,7 +70,10 @@ describe("coerce", () => {
   });
 
   test("coerce : choix connu accepté, asset refusé, rich gardé en texte", () => {
-    expect(coerce("select", " b ", ["a", "b"])).toEqual({ ok: true, value: "b" });
+    expect(coerce("select", " b ", ["a", "b"])).toEqual({
+      ok: true,
+      value: "b",
+    });
     expect(coerce("asset", "sha256:abc")).toEqual({ ok: false });
     expect(coerce("rich", " Un ")).toEqual({ ok: true, value: "Un" });
   });

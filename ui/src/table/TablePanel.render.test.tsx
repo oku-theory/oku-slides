@@ -21,7 +21,7 @@ afterEach(async () => {
 type Applied = { label: string; ops: Record<string, unknown>[] };
 const target = { slide: "s1", element: "t1" };
 
-async function mount(data: Record<string, unknown> = { dataset: { source: [["A", "B"], ["x", 1]] } }, onShowAs = (_view: string) => {}) {
+async function mount(data: Record<string, unknown> = { dataset: { source: [["A", "B"], ["x", 1]] } }, onShowAs = (_view: string) => {}, numberLang?: string) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -30,7 +30,7 @@ async function mount(data: Record<string, unknown> = { dataset: { source: [["A",
   const element = { id: "t1", kind: "table" as const, params: { data } };
   const onApply = (label: string, ops: Record<string, unknown>[]) => applied.push({ label, ops });
   await act(async () => {
-    root.render(createElement(TablePanel, { slide: "s1", element, onApply, onShowAs }));
+    root.render(createElement(TablePanel, { slide: "s1", element, onApply, onShowAs, numberLang }));
   });
   return { host, applied };
 }
@@ -38,6 +38,12 @@ async function mount(data: Record<string, unknown> = { dataset: { source: [["A",
 const options = (host: HTMLElement) => [...host.querySelectorAll(".table-options button")] as HTMLButtonElement[];
 
 describe("TablePanel", () => {
+  test("TablePanel grid writes numbers in the deck language", async () => {
+    const { host } = await mount({ dataset: { source: [["A"], [12345.5]] } }, undefined, "fr");
+    const input = host.querySelector("input.cdg-number") as HTMLInputElement;
+    expect(input.value).toBe("12\u202f345,5");
+  });
+
   test("TablePanel option buttons show icons only", async () => {
     const { host } = await mount();
     expect(options(host)).toHaveLength(3);

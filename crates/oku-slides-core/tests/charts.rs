@@ -90,8 +90,11 @@ fn set_data_column_ops_resize_series() {
     let mut deck = deck_with_chart();
     apply(&mut deck, data(DataOp::RemoveColumn { at: 2 })).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(1);
-    let insert =
-        DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Marge".into()), Cell::Number(1.0), Cell::Number(2.0)] };
+    let insert = DataOp::InsertColumn {
+        at: 2,
+        cells: vec![Cell::Text("Marge".into()), Cell::Number(1.0), Cell::Number(2.0)],
+        id: None,
+    };
     apply(&mut deck, data(insert)).unwrap();
     assert_that!(option(&deck).series.len()).is_equal_to(2);
 }

@@ -50,6 +50,7 @@ issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 issue-highlight-zero = màu tô sáng được đánh số từ 1
 issue-unreadable-element = phần tử không đọc được, đã để riêng
 issue-unreadable-item = mục danh sách không đọc được, đã để riêng
+issue-data-truncated = dữ liệu quá lớn, đã cắt bớt khi đọc
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 op-invalid-chart = Biểu đồ { $subject }: { $reason }

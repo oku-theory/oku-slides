@@ -39,7 +39,7 @@ fn quote_pack(id: uuid::Uuid) -> PackFiles {
 /// Un deck JSON dans `dir` qui utilise le widget `quote` du pack `r`.
 fn quote_deck(dir: &Path, r: &PackRef) -> std::path::PathBuf {
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 4, "templates": r,
+    let json = serde_json::json!({ "version": 5, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] });

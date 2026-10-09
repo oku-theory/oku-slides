@@ -56,6 +56,7 @@ issue-unsupported-link = link non supportato: { $link }
 issue-highlight-zero = i colori di evidenziazione si numerano da 1
 issue-unreadable-element = elemento illeggibile, messo da parte
 issue-unreadable-item = voce di elenco illeggibile, messa da parte
+issue-data-truncated = dati troppo grandi, troncati in lettura
 issue-unreadable-slide = diapositiva illeggibile, messa da parte
 issue-unreadable-field = campo { $field } del deck illeggibile, reimpostato
 op-invalid-chart = Grafico { $subject }: { $reason }

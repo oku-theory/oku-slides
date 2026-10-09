@@ -971,3 +971,12 @@ fn set_example_value_request_leaves_the_templates_unchanged() {
     s.handle(Request::SetExampleValue { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
     assert_that!(s.deck().slides.clone()).is_equal_to(before);
 }
+
+#[test]
+fn snapshot_carries_the_deck_language() {
+    let mut s = session();
+    s.new_deck().unwrap();
+    assert_that!(snapshot_json(&mut s)["lang"]).is_equal_to(json!("fr"));
+    s.open(&fixture_path()).unwrap();
+    assert_that!(snapshot_json(&mut s)["lang"]).is_equal_to(json!(null));
+}

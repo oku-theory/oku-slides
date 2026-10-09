@@ -88,7 +88,7 @@ fn sync_series_with_columns_added_column_adds_a_series() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "line" }]
     }));
-    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Objectif".into()), Cell::Number(12.0)] }
+    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Objectif".into()), Cell::Number(12.0)], id: None }
         .apply(o.dataset.as_mut().unwrap())
         .unwrap();
     sync_series_with_columns(&mut o);
@@ -119,7 +119,7 @@ fn sync_series_with_columns_added_column_joins_the_stack() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar", "stack": "total" }]
     }));
-    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)] }
+    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)], id: None }
         .apply(o.dataset.as_mut().unwrap())
         .unwrap();
     sync_series_with_columns(&mut o);
@@ -134,4 +134,28 @@ fn canonicalize_inline_waterfall_fails() {
         "series": [{ "type": "waterfall", "name": "Montant", "data": [100, null] }]
     }));
     assert_that!(canonicalize(&o, ChartLabels::english()).is_err()).is_true();
+}
+
+#[test]
+fn canonicalize_keeps_dataset_ids() {
+    let o = opt(json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 1], ["Fév", 2]],
+            "ids": ["h", "zz", "qq"], "columns": ["c9", "c1"] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    }));
+    let canon = canonicalize(&o, ChartLabels::english()).unwrap();
+    assert_that!(canon.dataset).is_equal_to(o.dataset);
+}
+
+#[test]
+fn canonicalize_with_inline_data_over_dataset_mints_new_ids() {
+    let o = opt(json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 1], ["Fév", 2]],
+            "ids": ["h", "zz", "qq"], "columns": ["c9", "c1"] },
+        "xAxis": { "type": "category", "data": ["A", "B"] },
+        "series": [{ "type": "bar", "name": "S", "data": [5, 6] }]
+    }));
+    let d = canonicalize(&o, ChartLabels::english()).unwrap().dataset.unwrap();
+    assert_that!((d.ids.is_empty(), d.columns.is_empty())).is_equal_to((true, true));
 }

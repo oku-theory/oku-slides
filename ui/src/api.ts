@@ -53,6 +53,8 @@ export interface Snapshot {
   themes: ThemeInfo[];
   title: string | null;
   title_source: string | null;
+  /** Langue du deck (`params.lang`) : les grilles écrivent les nombres comme les slides. */
+  lang: string | null;
   slides: SlideSummary[];
   can_undo: boolean;
   undo_label: string | null;

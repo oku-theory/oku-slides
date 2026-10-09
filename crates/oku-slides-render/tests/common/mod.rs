@@ -33,7 +33,7 @@ pub fn compile_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Compi
     let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(Some(pack), registry).unwrap_or_else(|e| panic!("{e}"));
     let deck = json!({
-        "version": 4, "params": { "title": "T" },
+        "version": 5, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));

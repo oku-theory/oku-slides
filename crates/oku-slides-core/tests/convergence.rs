@@ -2,9 +2,14 @@
 
 mod common;
 
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, OnceLock};
 
-use oku_slides_core::{Deck, DeckReplica, Op, PackVersion, ParamValue, Params, Slide, ThemeRef, apply_all, validate};
+use oku_slides_chart::{Cell, DataOp, parse_table};
+use oku_slides_core::{
+    Deck, DeckReplica, Op, PackVersion, ParamValue, Params, Slide, Target, ThemeRef, WidgetRegistry, apply_all,
+    validate,
+};
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
@@ -17,6 +22,12 @@ enum Edit {
     Add(usize),
     Theme(Option<ThemeRef>),
     Bold(usize),
+    /// `set_cell` du tableau `t` : ligne, colonne, valeur.
+    SetCell(usize, usize, i32),
+    InsertRow(usize),
+    RemoveRow(usize),
+    InsertColumn(usize),
+    RemoveColumn(usize),
 }
 
 /// Une référence de thème de test : version `<c>` répété 64 fois.
@@ -34,7 +45,69 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::Add),
         prop::option::of(prop_oneof![Just(theme("a")), Just(theme("b"))]).prop_map(Edit::Theme),
         any::<usize>().prop_map(Edit::Bold),
+        (any::<usize>(), any::<usize>(), -50i32..50).prop_map(|(r, c, v)| Edit::SetCell(r, c, v)),
+        any::<usize>().prop_map(Edit::InsertRow),
+        any::<usize>().prop_map(Edit::RemoveRow),
+        any::<usize>().prop_map(Edit::InsertColumn),
+        any::<usize>().prop_map(Edit::RemoveColumn),
     ]
+}
+
+/// Le registre de base, construit une fois.
+fn base() -> &'static WidgetRegistry {
+    static BASE: OnceLock<WidgetRegistry> = OnceLock::new();
+    BASE.get_or_init(common::registry)
+}
+
+/// Le paramètre `data` du tableau `t` de `s-constat`, s'il existe.
+fn table_data(deck: &Deck) -> Option<&Value> {
+    deck.slide("s-constat")?.locate("t")?.element.params.value("data")
+}
+
+/// La ligne et la colonne jamais retirées par le proptest :
+/// sans l'en-tête ni la première colonne, une fusion pourrait vider le tableau.
+const KEPT_ROW: &str = "h";
+const KEPT_COLUMN: &str = "pays";
+
+/// Une édition du tableau `t`, aux index tirés dans ses bornes courantes ;
+/// une op refusée laisse le deck inchangé.
+fn edit_table(deck: &mut Deck, e: &Edit) {
+    let Some(data) = table_data(deck) else { return };
+    let ds = &data["dataset"];
+    let source = ds["source"].as_array().cloned().unwrap_or_default();
+    let ids: Vec<&str> = ds["ids"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+    let columns: Vec<&str> =
+        ds["columns"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+    let (rows, width) = (source.len(), columns.len());
+    if rows == 0 || width == 0 {
+        return;
+    }
+    let change = match *e {
+        Edit::SetCell(r, c, v) => DataOp::SetCell { row: r % rows, col: c % width, value: Cell::Number(f64::from(v)) },
+        Edit::InsertRow(at) => DataOp::InsertRow { at: at % (rows + 1), cells: vec![Cell::Null; width], id: None },
+        Edit::RemoveRow(at) if ids.get(at % rows) != Some(&KEPT_ROW) => DataOp::RemoveRow { at: at % rows },
+        // Au plus 5 colonnes par pair : 4 pairs fusionnés restent sous la borne de 20.
+        Edit::InsertColumn(at) if width < 5 => {
+            DataOp::InsertColumn { at: at % (width + 1), cells: vec![Cell::Null; rows], id: None }
+        }
+        Edit::RemoveColumn(at) if columns.get(at % width) != Some(&KEPT_COLUMN) => {
+            DataOp::RemoveColumn { at: at % width }
+        }
+        _ => return,
+    };
+    let target = Target { slide: "s-constat".into(), element: Some("t".into()) };
+    let _refused = apply_all(deck, vec![Op::SetData { target, param: "data".into(), change }], base());
+}
+
+/// `parse_table` réussit sur `data`, et `ids`/`columns` sont alignés et uniques.
+fn assert_table_ok(data: &Value) -> Vec<Vec<Cell>> {
+    let table = parse_table(data).unwrap_or_else(|e| panic!("tableau invalide : {e:?} ({data})"));
+    let ds = &table.dataset;
+    assert_eq!(ds.ids.len(), ds.source.len(), "ids non alignés : {data}");
+    assert_eq!(ds.columns.len(), ds.source.first().map_or(0, Vec::len), "columns non alignées : {data}");
+    assert_eq!(ds.ids.iter().collect::<HashSet<_>>().len(), ds.ids.len(), "ids en double : {data}");
+    assert_eq!(ds.columns.iter().collect::<HashSet<_>>().len(), ds.columns.len(), "columns en double : {data}");
+    table.dataset.source
 }
 
 /// Bascule le gras du premier run du premier `text` de `params` (slots
@@ -60,6 +133,9 @@ fn toggle_bold(params: &mut Params) -> bool {
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
     let len = deck.slides.len();
     match e {
+        Edit::SetCell(..) | Edit::InsertRow(_) | Edit::RemoveRow(_) | Edit::InsertColumn(_) | Edit::RemoveColumn(_) => {
+            edit_table(deck, e)
+        }
         Edit::Add(i) => {
             *n += 1;
             let s = Slide::new(format!("p{peer}-{n}"), "content");
@@ -99,7 +175,7 @@ proptest! {
         edits in prop::collection::vec(prop::collection::vec(edit(), 0..10), 2..4),
         seed in any::<u64>(),
     ) {
-        let deck = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+        let deck = with_table(Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap(), base());
         let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
         let mut peers: Vec<DeckReplica> =
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
@@ -130,6 +206,9 @@ proptest! {
             prop_assert_eq!(&p.deck().0, &first);
         }
         prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| i.message.id() != "issue-duplicate-slide-id"));
+        if let Some(data) = table_data(&first) {
+            assert_table_ok(data);
+        }
     }
 }
 
@@ -239,4 +318,181 @@ fn concurrent_typing_in_one_plain_cell_merges() {
         vec![list_edit(json!({ "op": "set_field", "item": "d0", "field": "date", "value": "2019 fin" }))],
     );
     assert_eq!(items(&merged), vec![item("d0", "début 2019 fin"), item("i-1", "2020")]);
+}
+
+/// `deck` et, dans les blocs de `s-constat`, le tableau `t` : 3 lignes × 2
+/// colonnes, aux identifiants explicites.
+fn with_table(deck: Deck, registry: &WidgetRegistry) -> Deck {
+    let data = json!({ "dataset": {
+        "source": [["Pays", "Ventes"], ["FR", 10], ["DE", 20]],
+        "ids": ["h", "fr", "de"],
+        "columns": ["pays", "ventes"],
+    } });
+    let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "element": { "id": "t", "kind": "table", "params": { "data": data } } }));
+    let mut d = deck;
+    ok(apply_all(&mut d, vec![add], registry));
+    d
+}
+
+/// `roadmap` avec le tableau `t`.
+fn table_deck() -> Deck {
+    with_table(ok(Deck::from_json(include_str!("../../../fixtures/roadmap.json"))), &common::list_registry())
+}
+
+/// Le deck au tableau `t`, et deux pairs issus du même snapshot.
+fn table_peers() -> (Deck, DeckReplica, DeckReplica) {
+    let deck = table_deck();
+    let (a, b) = list_peers(&deck);
+    (deck, a, b)
+}
+
+/// Un `set_data` du tableau `t`.
+fn data_op(change: DataOp) -> Op {
+    Op::SetData {
+        target: Target { slide: "s-constat".into(), element: Some("t".into()) },
+        param: "data".into(),
+        change,
+    }
+}
+
+fn set_cell(row: usize, col: usize, value: Value) -> Op {
+    data_op(DataOp::SetCell { row, col, value: cell(value) })
+}
+
+fn cell(v: Value) -> Cell {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("cellule invalide : {e}"))
+}
+
+fn cells(v: Value) -> Vec<Cell> {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("cellules invalides : {e}"))
+}
+
+/// Le `source` du tableau `t` fusionné, vérifié (`parse_table`, identifiants).
+fn merged_source(deck: &Deck) -> Vec<Vec<Cell>> {
+    assert_table_ok(table_data(deck).unwrap_or_else(|| panic!("tableau t absent")))
+}
+
+fn source(v: Value) -> Vec<Vec<Cell>> {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("source invalide : {e}"))
+}
+
+/// Les identifiants (`ids`, `columns`) du tableau `t`.
+fn table_ids(deck: &Deck) -> (Vec<String>, Vec<String>) {
+    let data = table_data(deck).unwrap_or_else(|| panic!("tableau t absent"));
+    let table = ok(parse_table(data));
+    (table.dataset.ids, table.dataset.columns)
+}
+
+#[test]
+fn concurrent_edits_of_two_cells_in_one_row_are_both_kept() {
+    let merged = exchange(&table_deck(), vec![set_cell(1, 0, json!("France"))], vec![set_cell(1, 1, json!(11))]);
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["France", 11], ["DE", 20]])));
+}
+
+#[test]
+fn concurrent_edits_of_two_cells_in_one_column_are_both_kept() {
+    let merged = exchange(&table_deck(), vec![set_cell(1, 1, json!(11))], vec![set_cell(2, 1, json!(21))]);
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 11], ["DE", 21]])));
+}
+
+#[test]
+fn concurrent_row_inserts_are_both_kept() {
+    let merged = exchange(
+        &table_deck(),
+        vec![data_op(DataOp::InsertRow { at: 3, cells: cells(json!(["IT", 30])), id: Some("it".into()) })],
+        vec![data_op(DataOp::InsertRow { at: 1, cells: cells(json!(["ES", 40])), id: None })],
+    );
+    assert_eq!(
+        merged_source(&merged),
+        source(json!([["Pays", "Ventes"], ["ES", 40], ["FR", 10], ["DE", 20], ["IT", 30]]))
+    );
+    let (ids, _) = table_ids(&merged);
+    assert_eq!(ids.len(), 5);
+    assert_eq!(ids[4], "it");
+}
+
+#[test]
+fn concurrent_column_inserts_are_both_kept() {
+    let merged = exchange(
+        &table_deck(),
+        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: Some("stock".into()) })],
+        vec![data_op(DataOp::InsertColumn { at: 1, cells: cells(json!(["Code", "f", "d"])), id: Some("code".into()) })],
+    );
+    assert_eq!(
+        merged_source(&merged),
+        source(json!([["Pays", "Code", "Ventes", "Stock"], ["FR", "f", 10, 1], ["DE", "d", 20, 2]]))
+    );
+    assert_eq!(table_ids(&merged).1, vec!["pays", "code", "ventes", "stock"]);
+}
+
+#[test]
+fn concurrent_row_remove_and_other_row_edit_merge() {
+    let merged = exchange(&table_deck(), vec![data_op(DataOp::RemoveRow { at: 1 })], vec![set_cell(2, 1, json!(21))]);
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["DE", 21]])));
+    assert_eq!(table_ids(&merged).0, vec!["h", "de"]);
+}
+
+#[test]
+fn concurrent_column_insert_and_cell_edit_merge() {
+    let merged = exchange(
+        &table_deck(),
+        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: None })],
+        vec![set_cell(1, 1, json!(11))],
+    );
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes", "Stock"], ["FR", 11, 1], ["DE", 20, 2]])));
+}
+
+#[test]
+fn concurrent_row_insert_and_column_insert_leave_new_row_aligned() {
+    let merged = exchange(
+        &table_deck(),
+        vec![data_op(DataOp::InsertRow { at: 3, cells: cells(json!(["IT", 30])), id: Some("it".into()) })],
+        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: Some("stock".into()) })],
+    );
+    assert_eq!(
+        merged_source(&merged),
+        source(json!([["Pays", "Ventes", "Stock"], ["FR", 10, 1], ["DE", 20, 2], ["IT", 30, null]]))
+    );
+}
+
+/// A et B retirent la même chose (`change`), échangent, annulent chacun,
+/// échangent encore ; puis chacun réécrit le deck relu et ils échangent une
+/// dernière fois. Le deck commun après la double annulation.
+fn removed_by_both_then_undone_by_both(change: DataOp) -> Deck {
+    let (deck, mut a, mut b) = table_peers();
+    let removed = with_ops(&deck, vec![data_op(change)]);
+    ok(a.apply(&removed, "A", None));
+    ok(b.apply(&removed, "B", None));
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    assert!(ok(a.undo()));
+    assert!(ok(b.undo()));
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    let (merged, issues) = a.deck();
+    assert!(issues.is_empty(), "lecture partielle : {issues:?}");
+    assert_eq!(b.deck().0, merged);
+    // La prochaine écriture retire le double caché, des deux côtés : l'état converge.
+    ok(a.apply(&merged, "A", None));
+    ok(b.apply(&merged, "B", None));
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    assert_eq!(a.deck().0, merged);
+    assert_eq!(b.deck().0, merged);
+    merged
+}
+
+#[test]
+fn same_row_removed_by_both_then_undone_by_both_has_no_duplicate_id() {
+    let merged = removed_by_both_then_undone_by_both(DataOp::RemoveRow { at: 1 });
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], ["DE", 20]])));
+    assert_eq!(table_ids(&merged).0, vec!["h", "fr", "de"]);
+}
+
+#[test]
+fn same_column_removed_by_both_then_undone_by_both_has_no_duplicate_column() {
+    let merged = removed_by_both_then_undone_by_both(DataOp::RemoveColumn { at: 1 });
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], ["DE", 20]])));
+    assert_eq!(table_ids(&merged).1, vec!["pays", "ventes"]);
 }

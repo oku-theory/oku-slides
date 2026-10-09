@@ -4,6 +4,7 @@
 //! de ce modèle. C'est ici que se résolvent `dataset` + `encode`, les données
 //! en ligne et les valeurs par défaut d'ECharts.
 
+use crate::data_ops::validate_ids;
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::option::*;
@@ -134,6 +135,9 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
     check_colors(option)?;
+    if let Some(d) = &option.dataset {
+        validate_ids(d)?;
+    }
     let table = option.dataset.as_ref().map(Table::new).transpose()?;
 
     let kind = match first.kind {

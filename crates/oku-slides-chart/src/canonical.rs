@@ -103,7 +103,8 @@ pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartO
         // La cascade lit toujours `dataset` : `normalize` a déjà refusé le reste.
         ChartKind::Waterfall(_) => return Ok(out),
     };
-    out.dataset = Some(Dataset { source });
+    // Un `source` reconstruit perd ses identifiants : le cœur en tirera de neufs.
+    out.dataset = Some(Dataset { source, ..Dataset::default() });
     normalize(&out, labels)?;
     Ok(out)
 }

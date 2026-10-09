@@ -51,9 +51,20 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
     let mut out: ChartOption = serde_json::from_value(skeleton).context(InvalidOptionSnafu)?;
     out.title.clone_from(&option.title);
     out.legend.clone_from(&option.legend);
-    out.dataset = Some(Dataset { source });
+    out.dataset = Some(kept_ids(option.dataset.as_ref(), source));
     normalize(&out, labels)?;
     Ok(out)
+}
+
+/// `source` avec les identifiants d'avant, là où sa taille n'a pas changé.
+///
+/// Les `ids` sont gardés à nombre de lignes égal, les `columns` à largeur égale.
+fn kept_ids(before: Option<&Dataset>, source: Vec<Vec<Cell>>) -> Dataset {
+    let width = |s: &[Vec<Cell>]| s.first().map_or(0, Vec::len);
+    let Some(before) = before else { return Dataset { source, ..Dataset::default() } };
+    let ids = if before.source.len() == source.len() { before.ids.clone() } else { Vec::new() };
+    let columns = if width(&before.source) == width(&source) { before.columns.clone() } else { Vec::new() };
+    Dataset { source, ids, columns }
 }
 
 fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {

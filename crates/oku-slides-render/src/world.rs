@@ -38,6 +38,7 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "src/slides.typ",
     "src/content.typ",
     "src/zone.typ",
+    "src/numbers.typ",
     "src/params.typ",
     "src/widget.typ",
     "src/widgets.typ",

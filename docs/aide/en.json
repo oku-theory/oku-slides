@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "params": {
   "title": "Oku Slides Help",
   "subtitle": "Getting around, shortcuts, Typst library, file format",
@@ -2256,7 +2256,7 @@
            "bold": true
           },
           {
-           "t": ": the v3 JSON deck is the canonical read-back of the replica."
+           "t": ": the v5 JSON deck is the canonical read-back of the replica."
           }
          ],
          "list": "bullet"
@@ -2284,7 +2284,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "The JSON deck (version 3)",
+    "title": "The JSON deck (version 5)",
     "layout": "default",
     "blocks": [
      {
@@ -2302,7 +2302,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 4,"
+           "t": "  \"version\": 5,"
           }
          ]
         },

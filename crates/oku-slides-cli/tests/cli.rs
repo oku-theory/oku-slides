@@ -661,7 +661,7 @@ fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
     let deck = dir.join("deck.json");
     std::fs::write(
         &deck,
-        serde_json::to_vec(&serde_json::json!({ "version": 4, "templates": r,
+        serde_json::to_vec(&serde_json::json!({ "version": 5, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))
@@ -686,7 +686,7 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("boucle", LOOP_ON_RENDER)]);
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 4,
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 5,
         "templates": { "id": id, "version": files.version() },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "l", "kind": "boucle", "params": { "body": "x" } }] } }] }))
@@ -728,7 +728,7 @@ fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
     let dir = workdir("pack-json");
     let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 4, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
+    let json = serde_json::json!({ "version": 5, "templates": r, "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
     let rendered = run(oku_slides(&dir, "en").arg("render").arg(&deck).arg("--out").arg(dir.join("out")));
     assert_that!(rendered.status.success()).is_true();
@@ -744,7 +744,7 @@ fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackRef) {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("quote", QUOTE)]);
     let r = PackRef { id, version: files.version() };
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 4, "templates": r,
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 5, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))

@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::DeckRead;
-use super::schema::{Ctx, Kind, LIST, RICH};
+use super::schema::{Ctx, DATASET, Kind, LIST, RICH};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
@@ -34,7 +34,7 @@ pub(super) fn loro_to_json(v: &LoroValue) -> Value {
 /// un conteneur (`LoroValue::List`/`LoroValue::Map`) : un blob non fiable
 /// peut donc faire déborder la pile ici aussi si on ne borne pas cette
 /// récursion, séparée de celle de la lecture des conteneurs.
-fn loro_to_json_at(v: &LoroValue, depth: u32) -> Value {
+pub(super) fn loro_to_json_at(v: &LoroValue, depth: u32) -> Value {
     if depth >= MAX_DEPTH {
         return Value::Null;
     }
@@ -124,6 +124,15 @@ impl Reader {
         for key in map.keys() {
             let key = key.to_string();
             let Some(entry) = map.get(&key) else { continue };
+            // Le marqueur `{columns, rows}` ne vaut que sous `dataset` d'un hôte.
+            if ctx == Ctx::Host
+                && key == DATASET
+                && let ValueOrContainer::Container(Container::Map(m)) = &entry
+                && let Some(ds) = super::host::read_dataset(m, depth.deeper().levels, &mut self.issues)
+            {
+                out.insert(key, ds);
+                continue;
+            }
             let value = match (ctx.kind(&key), entry) {
                 (Kind::Nested(Ctx::Params), ValueOrContainer::Container(Container::Map(m))) => {
                     let params = self.read_params(&m, depth.deeper());
@@ -198,7 +207,8 @@ impl Reader {
                         }
                         Value::Array(paragraphs)
                     }
-                    None => Value::Object(self.read_map_at(&m, Ctx::Opaque, depth.deeper())),
+                    // Option d'un hôte : son `dataset` peut porter le marqueur.
+                    None => Value::Object(self.read_map_at(&m, Ctx::Host, depth.deeper())),
                 },
                 ValueOrContainer::Container(Container::MovableList(l)) if depth.slots >= MAX_SLOT_DEPTH => {
                     if !l.is_empty() {

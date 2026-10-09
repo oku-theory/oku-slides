@@ -365,8 +365,8 @@ pub(crate) enum ReplicaInner {
     Export { source: loro::LoroEncodeError, backtrace: Backtrace },
     #[snafu(display("deck (de)serialization failed"))]
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("list outside the widget params"))]
-    ListOutsideParams { backtrace: Backtrace },
+    #[snafu(display("container outside the widget params"))]
+    ContainerOutsideParams { backtrace: Backtrace },
     #[snafu(display("the two replicas have no common origin"))]
     Unrelated { backtrace: Backtrace },
     #[snafu(display("unsupported deck version: {found}"))]
@@ -385,7 +385,7 @@ impl ReplicaError {
             ReplicaInner::Loro { .. }
             | ReplicaInner::TextUpdate { .. }
             | ReplicaInner::Export { .. }
-            | ReplicaInner::ListOutsideParams { .. }
+            | ReplicaInner::ContainerOutsideParams { .. }
             | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
         }
     }

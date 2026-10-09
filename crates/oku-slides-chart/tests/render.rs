@@ -290,3 +290,45 @@ fn render_legend_marker_scales_with_the_legend_text_and_is_centered_on_it() {
     let (_, r) = marker.unwrap_or_else(|| panic!("aucun repère centré sur la légende ({center})"));
     assert_that!(r).is_greater_than_or_equal_to(32.0 * 0.4);
 }
+
+fn labelled_bars(numbers: NumberFormat) -> String {
+    let option = parse_option(&json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 12345.5], ["Fév", 0.5]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let renderer = ChartsRsRenderer { numbers, ..ChartsRsRenderer::default() };
+    renderer.render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
+}
+
+#[test]
+fn render_value_labels_follow_the_deck_language() {
+    let fr = labelled_bars(NumberFormat::for_lang(Some("fr")));
+    assert_that!(fr.as_str()).contains("12\u{202F}345,5");
+    assert_that!(fr.as_str()).contains(">\n0,5\n<");
+    let en = labelled_bars(NumberFormat::for_lang(Some("en")));
+    assert_that!(en.as_str()).contains("12,345.5");
+}
+
+#[test]
+fn render_without_language_keeps_plain_numbers() {
+    let svg = labelled_bars(NumberFormat::default());
+    assert_that!(svg.as_str()).contains("12345.5");
+}
+
+#[test]
+fn render_text_categories_that_look_like_numbers_stay_as_typed() {
+    let option = parse_option(&json!({
+        "dataset": { "source": [["Code", "Ventes"], ["75001", 12345], ["1.5", 20]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let renderer = ChartsRsRenderer { numbers: NumberFormat::for_lang(Some("fr")), ..ChartsRsRenderer::default() };
+    let svg = renderer.render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"));
+    assert_that!(svg.as_str()).contains(">\n75001\n<");
+    assert_that!(svg.as_str()).contains(">\n1.5\n<");
+    assert_that!(svg.as_str()).does_not_contain("75\u{202F}001");
+    assert_that!(svg.as_str()).contains("12\u{202F}345");
+}

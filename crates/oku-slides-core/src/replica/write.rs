@@ -1,16 +1,16 @@
 //! Réconciliation : amène les conteneurs Loro à l'état d'un `Deck` JSON, par diff.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroValue, UpdateOptions, ValueOrContainer};
 use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use super::schema::{Ctx, Kind, LIST, RICH, column_kind, columns, declared, param_kind};
-use crate::error::{ListOutsideParamsSnafu, LoroSnafu, ReplicaInner, TextUpdateSnafu};
+use crate::error::{ContainerOutsideParamsSnafu, LoroSnafu, ReplicaInner, TextUpdateSnafu};
 use crate::widget::{ParamSchema, WidgetRegistry};
 
-type Res = Result<(), ReplicaInner>;
+pub(super) type Res = Result<(), ReplicaInner>;
 
 pub(super) fn json_to_loro(v: &Value) -> LoroValue {
     match v {
@@ -35,21 +35,21 @@ pub(super) fn text_at(map: &LoroMap, key: &str) -> Result<LoroText, ReplicaInner
     }
 }
 
-fn list_at(map: &LoroMap, key: &str) -> Result<LoroMovableList, ReplicaInner> {
+pub(super) fn list_at(map: &LoroMap, key: &str) -> Result<LoroMovableList, ReplicaInner> {
     match map.get(key) {
         Some(ValueOrContainer::Container(Container::MovableList(l))) => Ok(l),
         _ => map.insert_container(key, LoroMovableList::new()).context(LoroSnafu),
     }
 }
 
-fn map_at(map: &LoroMap, key: &str) -> Result<LoroMap, ReplicaInner> {
+pub(super) fn map_at(map: &LoroMap, key: &str) -> Result<LoroMap, ReplicaInner> {
     match map.get(key) {
         Some(ValueOrContainer::Container(Container::Map(m))) => Ok(m),
         _ => map.insert_container(key, LoroMap::new()).context(LoroSnafu),
     }
 }
 
-fn set_value(map: &LoroMap, key: &str, v: LoroValue) -> Res {
+pub(super) fn set_value(map: &LoroMap, key: &str, v: LoroValue) -> Res {
     if matches!(map.get(key), Some(ValueOrContainer::Value(old)) if old == v) {
         return Ok(());
     }
@@ -140,8 +140,8 @@ impl Writer<'_> {
                 Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
                 Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
                 Kind::Collection(_) => clear(&list_at(map, &key)?)?,
-                // Jamais rendu par `Ctx::kind` : une liste n'existe que dans les paramètres.
-                Kind::List => return ListOutsideParamsSnafu.fail(),
+                // Jamais rendus par `Ctx::kind` : une liste ou un hôte n'existe que dans les paramètres.
+                Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
         }
@@ -153,8 +153,8 @@ impl Writer<'_> {
                 Kind::Collection(child) => {
                     self.sync_list(&list_at(map, key)?, objects(value), &|m, o| self.sync_map(m, o, child))?
                 }
-                // Jamais rendu par `Ctx::kind` : une liste n'existe que dans les paramètres.
-                Kind::List => return ListOutsideParamsSnafu.fail(),
+                // Jamais rendus par `Ctx::kind` : une liste ou un hôte n'existe que dans les paramètres.
+                Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 Kind::Atom => set_value(map, key, json_to_loro(value))?,
                 Kind::Nested(child) => match value {
                     Value::Object(o) => self.sync_map(&map_at(map, key)?, o, child)?,
@@ -212,7 +212,8 @@ impl Writer<'_> {
                 Kind::Rich => drop(rich_at(map, name)?),
                 Kind::Collection(_) => drop(list_at(map, name)?),
                 Kind::List => drop(items_at(map, name)?),
-                Kind::Atom | Kind::Nested(_) => {}
+                // Pas créé d'avance : la forme du dataset est une donnée.
+                Kind::Host | Kind::Atom | Kind::Nested(_) => {}
             }
         }
         for (key, value) in obj {
@@ -226,6 +227,10 @@ impl Writer<'_> {
                     let columns = columns(fields, key);
                     self.sync_list(&items_at(map, key)?, objects(value), &|m, o| self.sync_item(m, o, columns))?
                 }
+                Kind::Host => match value {
+                    Value::Object(o) => self.sync_host(&map_at(map, key)?, o)?,
+                    v => set_value(map, key, json_to_loro(v))?,
+                },
                 Kind::Atom | Kind::Nested(_) => set_value(map, key, json_to_loro(value))?,
             }
         }
@@ -263,12 +268,8 @@ fn keyed(ids: &[String]) -> Vec<(String, usize)> {
 
 impl Writer<'_> {
     /// Réconcilie une collection à `id` : suppressions, puis insertions et
-    /// déplacements ; `each` amène chaque objet à son état.
-    ///
-    /// Chaque `mov` part dans son propre commit (`split` juste avant) : Loro
-    /// 1.16.2 défait mal un item d'annulation qui en porte plusieurs sur une
-    /// liste de conteneurs (élément perdu, voire panique ; t-263).
-    fn sync_list(
+    /// déplacements ([`Self::reorder`]) ; `each` amène chaque objet à son état.
+    pub(super) fn sync_list(
         &self,
         list: &LoroMovableList,
         items: &[Value],
@@ -276,41 +277,76 @@ impl Writer<'_> {
     ) -> Res {
         let id_of = |v: &Value| v.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
         let wanted: Vec<String> = items.iter().map(id_of).collect();
-        let wanted_keys = keyed(&wanted);
-        let mut keys = keyed(&(0..list.len()).map(|i| item_id(list, i)).collect::<Vec<_>>());
-        for i in (0..keys.len()).rev() {
-            if !wanted_keys.contains(&keys[i]) {
+        let current: Vec<String> = (0..list.len()).map(|i| item_id(list, i)).collect();
+        let insert = |at: usize, _: &str| list.insert_container(at, LoroMap::new()).map(drop).context(LoroSnafu);
+        let mut visit = |at: usize| match (list.get(at), items.get(at).and_then(Value::as_object)) {
+            (Some(ValueOrContainer::Container(Container::Map(m))), Some(obj)) => each(&m, obj),
+            _ => Ok(()),
+        };
+        self.reorder(list, &current, &wanted, &insert, &mut visit)
+    }
+
+    /// Amène l'ordre de `list`, d'identifiants `current`, à `wanted` :
+    /// suppressions, puis insertions (`insert`) et déplacements ; `visit`
+    /// voit chaque position une fois en place.
+    ///
+    /// Appariement par occurrence ([`keyed`]) et positions indexées : linéaire
+    /// quand rien ne change, un passage de la liste par insertion ou déplacement.
+    ///
+    /// Chaque `mov` part dans son propre commit (`split` juste avant) : Loro
+    /// 1.16.2 défait mal un item d'annulation qui en porte plusieurs sur une
+    /// liste de conteneurs (élément perdu, voire panique ; t-263).
+    pub(super) fn reorder(
+        &self,
+        list: &LoroMovableList,
+        current: &[String],
+        wanted: &[String],
+        insert: &dyn Fn(usize, &str) -> Res,
+        visit: &mut dyn FnMut(usize) -> Res,
+    ) -> Res {
+        let wanted_keys = keyed(wanted);
+        let wanted_set: HashSet<&(String, usize)> = wanted_keys.iter().collect();
+        let all = keyed(current);
+        for i in (0..all.len()).rev() {
+            if !wanted_set.contains(&all[i]) {
                 list.delete(i, 1).context(LoroSnafu)?;
-                keys.remove(i);
             }
         }
-        for (target, item) in items.iter().enumerate() {
-            let key = &wanted_keys[target];
-            match keys.iter().position(|k| k == key) {
-                Some(pos) if pos == target => {}
-                Some(pos) => {
-                    (self.split)();
-                    list.mov(pos, target).context(LoroSnafu)?;
-                    let moved = keys.remove(pos);
-                    keys.insert(target, moved);
-                }
-                None => {
-                    list.insert_container(target, LoroMap::new()).context(LoroSnafu)?;
-                    keys.insert(target, key.clone());
+        let mut keys: Vec<(String, usize)> = all.into_iter().filter(|k| wanted_set.contains(k)).collect();
+        let mut pos: HashMap<(String, usize), usize> = keys.iter().cloned().enumerate().map(|(i, k)| (k, i)).collect();
+        for (target, key) in wanted_keys.iter().enumerate() {
+            if keys.get(target) != Some(key) {
+                match pos.get(key).copied() {
+                    // Les positions avant `target` sont déjà en place : `from > target`.
+                    Some(from) => {
+                        (self.split)();
+                        list.mov(from, target).context(LoroSnafu)?;
+                        let moved = keys.remove(from);
+                        keys.insert(target, moved);
+                        reindex(&keys, &mut pos, target, from + 1);
+                    }
+                    None => {
+                        insert(target, &key.0)?;
+                        keys.insert(target, key.clone());
+                        reindex(&keys, &mut pos, target, keys.len());
+                    }
                 }
             }
-            if let (Some(ValueOrContainer::Container(Container::Map(m))), Some(obj)) =
-                (list.get(target), item.as_object())
-            {
-                each(&m, obj)?;
-            }
+            visit(target)?;
         }
-        // Défense en profondeur : l'appariement par occurrence ci-dessus ne
-        // devrait jamais laisser de position au-delà de `items.len()`, mais des
-        // ids vides ou dupliqués le rendent fragile ; on s'en assure explicitement.
-        if list.len() > items.len() {
-            list.delete(items.len(), list.len() - items.len()).context(LoroSnafu)?;
+        // Défense en profondeur : l'appariement par occurrence ne devrait
+        // jamais laisser de position au-delà de `wanted`, mais des ids vides
+        // ou dupliqués le rendent fragile ; on s'en assure explicitement.
+        if list.len() > wanted.len() {
+            list.delete(wanted.len(), list.len() - wanted.len()).context(LoroSnafu)?;
         }
         Ok(())
+    }
+}
+
+/// Met à jour les positions de `keys[from..to]`.
+fn reindex(keys: &[(String, usize)], pos: &mut HashMap<(String, usize), usize>, from: usize, to: usize) {
+    for (i, k) in keys.iter().enumerate().take(to).skip(from) {
+        pos.insert(k.clone(), i);
     }
 }

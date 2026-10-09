@@ -138,3 +138,19 @@ fn snapshot_after_show_as_offers_undo() {
     ok(show_as(&mut s, &slide, "table"));
     assert_that!(snapshot_json(&mut s)["undo_label"]).is_equal_to(json!("vue"));
 }
+
+#[test]
+fn show_as_round_trip_keeps_the_chart_type() {
+    let mut s = session();
+    ok(s.new_deck());
+    let slide = s.snapshot().slides[1].id.to_string();
+    ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique", "ops": [{
+        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+        "element": { "id": "g", "kind": "chart", "params": { "option": {
+            "dataset": { "source": [["M", "A", "B"], ["x", 1, 2], ["y", 3, 4]] },
+            "xAxis": { "type": "category" }, "series": [{ "type": "line" }, { "type": "line" }] } } } }] }))));
+    ok(show_as(&mut s, &slide, "table"));
+    ok(show_as(&mut s, &slide, "chart"));
+    let e = element(&mut s, &slide);
+    assert_that!(e["params"]["option"]["series"][0]["type"].clone()).is_equal_to(json!("line"));
+}

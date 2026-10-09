@@ -3,7 +3,7 @@
 //! sous `/charts/<empreinte>.svg`.
 //!
 //! L'empreinte couvre les options, la taille, le thème (police, palette,
-//! tailles de texte) et les libellés : un graphique inchangé n'est pas
+//! tailles de texte), les libellés et l'écriture des nombres (langue du deck) : un graphique inchangé n'est pas
 //! redessiné d'un rendu à l'autre.
 //!
 //! Un graphique est dessiné à la taille de sa boîte, jamais mis à l'échelle :
@@ -17,7 +17,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::panic::AssertUnwindSafe;
 use std::sync::{Mutex, PoisonError};
 
-use oku_slides_chart::{ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, Size};
+use oku_slides_chart::{ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, NumberFormat, Size};
 use oku_slides_core::{HostType, WidgetRegistry};
 use serde_json::{Map, Value as Json};
 use typst::foundations::Bytes;
@@ -155,7 +155,13 @@ impl Charts {
         registry: &WidgetRegistry,
     ) -> Result<(), RenderError> {
         let family = register_font(fonts, self.font.as_deref().unwrap_or(DEFAULT_FONT));
-        let renderer = ChartsRsRenderer { theme: self.theme(family), labels: self.labels.clone() };
+        // Les nombres s'écrivent dans la langue du deck (`params.lang`).
+        let lang = deck.get("params").and_then(|p| p.get("lang")).and_then(Json::as_str);
+        let renderer = ChartsRsRenderer {
+            theme: self.theme(family),
+            labels: self.labels.clone(),
+            numbers: NumberFormat::for_lang(lang),
+        };
         let mut wanted = HashSet::new();
         let mut failure = None;
         let measured = &self.measured;
@@ -294,6 +300,7 @@ fn fingerprint(option: &Json, size: Size, renderer: &ChartsRsRenderer) -> String
     size.height.to_bits().hash(&mut h);
     serde_json::to_string(&renderer.theme).unwrap_or_default().hash(&mut h);
     renderer.labels.hash(&mut h);
+    renderer.numbers.hash(&mut h);
     format!("{:016x}", h.finish())
 }
 

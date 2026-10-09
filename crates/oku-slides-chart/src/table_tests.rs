@@ -83,9 +83,74 @@ fn parse_table_cell_text_too_long_is_inconsistent() {
 }
 
 #[test]
-fn parse_table_align_longer_than_columns_is_inconsistent() {
-    assert_that!(kind_of(json!({ "dataset": { "source": [["A"]] }, "align": ["start", "end"] })))
-        .is_equal_to(ChartErrorKind::Inconsistent);
+fn parse_table_align_longer_than_columns_is_truncated() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A"]] }, "align": ["start", "end"] }))
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(t.align).is_equal_to(vec![ColumnAlign::Start]);
+}
+
+fn with_ids(ids: serde_json::Value, columns: serde_json::Value) -> serde_json::Value {
+    json!({ "dataset": { "source": [["A", "B"], [1, 2]], "ids": ids, "columns": columns } })
+}
+
+#[test]
+fn parse_table_ids_of_wrong_length_is_inconsistent() {
+    assert_that!(kind_of(with_ids(json!(["h"]), json!(["a", "b"])))).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_table_duplicate_ids_is_inconsistent() {
+    assert_that!(kind_of(with_ids(json!(["h", "h"]), json!(["a", "b"])))).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_table_invalid_id_is_inconsistent() {
+    for bad in [json!("a b"), json!(""), json!("x".repeat(65))] {
+        asserting(&format!("{bad}"))
+            .that(&kind_of(with_ids(json!(["h", bad]), json!(["a", "b"]))))
+            .is_equal_to(ChartErrorKind::Inconsistent);
+    }
+}
+
+#[test]
+fn parse_table_id_of_64_chars_is_accepted() {
+    assert_that!(parse_table(&with_ids(json!(["h", "x".repeat(64)]), json!(["a", "b"])))).is_ok();
+}
+
+#[test]
+fn parse_table_columns_of_wrong_length_is_inconsistent() {
+    assert_that!(kind_of(with_ids(json!(["h", "r"]), json!(["a"])))).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_table_duplicate_columns_is_inconsistent() {
+    assert_that!(kind_of(with_ids(json!(["h", "r"]), json!(["a", "a"])))).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_table_invalid_column_id_is_inconsistent() {
+    for bad in [json!("a b"), json!(""), json!("x".repeat(65))] {
+        asserting(&format!("{bad}"))
+            .that(&kind_of(with_ids(json!(["h", "r"]), json!(["a", bad]))))
+            .is_equal_to(ChartErrorKind::Inconsistent);
+    }
+}
+
+#[test]
+fn parse_table_column_id_of_64_chars_is_accepted() {
+    assert_that!(parse_table(&with_ids(json!(["h", "r"]), json!(["a", "x".repeat(64)])))).is_ok();
+}
+
+#[test]
+fn parse_table_duplicate_ids_reason_is_localized_in_french() {
+    let err = parse_table(&with_ids(json!(["h", "h"]), json!(["a", "b"]))).unwrap_err();
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).contains("répété");
+}
+
+#[test]
+fn table_data_insert_row_keeps_ids_aligned() {
+    let next = table_data(&table(), &DataOp::InsertRow { at: 1, cells: vec![], id: None }).unwrap();
+    assert_that!((next.dataset.ids.len(), next.dataset.columns.len())).is_equal_to((4, 3));
 }
 
 #[test]
@@ -103,7 +168,7 @@ fn validate_table_non_finite_number_is_inconsistent() {
 
 #[test]
 fn table_data_insert_column_at_zero_shifts_align() {
-    let next = table_data(&table(), &DataOp::InsertColumn { at: 0, cells: vec![] }).unwrap();
+    let next = table_data(&table(), &DataOp::InsertColumn { at: 0, cells: vec![], id: None }).unwrap();
     assert_that!(next.align).is_equal_to(vec![
         ColumnAlign::Auto,
         ColumnAlign::Start,
@@ -116,7 +181,7 @@ fn table_data_insert_column_at_zero_shifts_align() {
 fn table_data_insert_column_at_align_len_leaves_align() {
     let mut t = table();
     t.align = vec![ColumnAlign::End];
-    let next = table_data(&t, &DataOp::InsertColumn { at: 1, cells: vec![] }).unwrap();
+    let next = table_data(&t, &DataOp::InsertColumn { at: 1, cells: vec![], id: None }).unwrap();
     assert_that!(next.align).is_equal_to(vec![ColumnAlign::End]);
 }
 
@@ -145,6 +210,9 @@ fn table_data_set_cell_changes_only_that_cell() {
     let mut expected = table();
     expected.dataset.source[1][1] = Cell::Number(99.0);
     let next = table_data(&table(), &DataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) }).unwrap();
+    // Les identifiants absents sont tirés à la première op.
+    expected.dataset.ids.clone_from(&next.dataset.ids);
+    expected.dataset.columns.clone_from(&next.dataset.columns);
     assert_that!(next).is_equal_to(expected);
 }
 
@@ -152,7 +220,7 @@ fn table_data_set_cell_changes_only_that_cell() {
 fn table_data_insert_row_at_max_rows_is_inconsistent() {
     let rows: Vec<Vec<usize>> = (0..MAX_TABLE_ROWS).map(|i| vec![i]).collect();
     let t = parse_table(&json!({ "dataset": { "source": rows } })).unwrap();
-    let r = table_data(&t, &DataOp::InsertRow { at: 1, cells: vec![] });
+    let r = table_data(&t, &DataOp::InsertRow { at: 1, cells: vec![], id: None });
     assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
 }
 
@@ -160,7 +228,7 @@ fn table_data_insert_row_at_max_rows_is_inconsistent() {
 fn table_data_insert_column_at_max_columns_is_inconsistent() {
     let header: Vec<String> = (0..MAX_TABLE_COLUMNS).map(|i| format!("c{i}")).collect();
     let t = parse_table(&json!({ "dataset": { "source": [header] } })).unwrap();
-    let r = table_data(&t, &DataOp::InsertColumn { at: 0, cells: vec![] });
+    let r = table_data(&t, &DataOp::InsertColumn { at: 0, cells: vec![], id: None });
     assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
 }
 
@@ -201,4 +269,25 @@ fn table_option_serializes_field_names_in_kebab_case() {
 #[test]
 fn column_align_serializes_in_lowercase() {
     assert_that!(serde_json::to_value(table().align).unwrap()).is_equal_to(json!(["start", "auto", "end"]));
+}
+
+#[test]
+fn parse_table_chart_not_an_object_is_inconsistent() {
+    assert_that!(kind_of(json!({ "dataset": { "source": [["A"]] }, "chart": [1] })))
+        .is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_table_strips_the_dataset_of_the_saved_chart() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A"]] },
+        "chart": { "dataset": { "source": [["B"]] }, "series": [{ "type": "bar" }] } }))
+    .unwrap();
+    assert_that!(t.chart).is_equal_to(Some(json!({ "series": [{ "type": "bar" }] })));
+}
+
+#[test]
+fn patch_table_strips_the_dataset_of_the_saved_chart() {
+    let patch = json!({ "chart": { "dataset": { "source": [["B"]] }, "color": ["#123456"] } });
+    let (next, _) = patch_table(&table(), &patch).unwrap();
+    assert_that!(next.chart).is_equal_to(Some(json!({ "color": ["#123456"] })));
 }

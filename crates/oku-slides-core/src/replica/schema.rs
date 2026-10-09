@@ -27,6 +27,9 @@ pub(super) enum Ctx {
     /// `tokens`, `style`, `frame`, `cell`, extras des `params` du deck :
     /// cartes à feuilles LWW.
     Opaque,
+    /// Option d'un paramètre `host`, lue comme [`Ctx::Opaque`] ; sa clé
+    /// `dataset` peut porter des colonnes et des lignes à identifiant.
+    Host,
 }
 
 /// Ce que devient un champ.
@@ -45,6 +48,8 @@ pub(super) enum Kind {
     Atom,
     /// Objet → `LoroMap` ; autre valeur → LWW.
     Nested(Ctx),
+    /// `LoroMap` ; `dataset` en colonnes et lignes à identifiant.
+    Host,
 }
 
 /// Clé de la carte d'un paramètre `rich`, qui porte son `LoroText`.
@@ -52,6 +57,18 @@ pub(super) const RICH: &str = "rich";
 
 /// Clé de la carte d'un paramètre `list`, qui porte sa `LoroMovableList`.
 pub(super) const LIST: &str = "list";
+
+/// Clé de l'option d'un hôte qui porte ses données.
+pub(super) const DATASET: &str = "dataset";
+
+/// Clé de la carte d'un `dataset` qui porte ses identifiants de colonnes.
+pub(super) const COLUMNS: &str = "columns";
+
+/// Clé de la carte d'un `dataset` qui porte ses lignes.
+pub(super) const ROWS: &str = "rows";
+
+/// Clé d'une ligne qui porte ses cellules, par identifiant de colonne.
+pub(super) const CELLS: &str = "cells";
 
 impl Ctx {
     /// Catégorie d'un champ fixe. `Ctx::Params` ne passe pas par ici : voir
@@ -79,7 +96,7 @@ impl Ctx {
         match self {
             Ctx::DeckParams => &["title", "subtitle", "author", "date", "organization"],
             Ctx::Slide => &["name", "description", "notes"],
-            Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::Opaque => &[],
+            Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::Opaque | Ctx::Host => &[],
         }
     }
 
@@ -101,6 +118,7 @@ fn declared_kind(ty: &ParamType) -> Kind {
         ParamType::Rich => Kind::Rich,
         ParamType::Slot { .. } => Kind::Collection(Ctx::Element),
         ParamType::List { .. } => Kind::List,
+        ParamType::Host { .. } => Kind::Host,
         _ => Kind::Atom,
     }
 }
@@ -123,6 +141,7 @@ fn fits(kind: Kind, value: &Value) -> bool {
         (Kind::Rich, Value::Array(a)) => is_paragraphs(a),
         (Kind::Collection(_), Value::Array(a)) => a.is_empty() || is_elements(a),
         (Kind::List, Value::Array(a)) => a.is_empty() || is_items(a),
+        (Kind::Host, Value::Object(_)) => true,
         _ => false,
     }
 }
@@ -145,7 +164,7 @@ pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Val
 pub(super) fn column_kind(columns: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
     match param_kind(columns, name, value) {
         _ if name == "id" => Kind::Atom,
-        Kind::Collection(_) | Kind::List => Kind::Atom,
+        Kind::Collection(_) | Kind::List | Kind::Host => Kind::Atom,
         kind => kind,
     }
 }

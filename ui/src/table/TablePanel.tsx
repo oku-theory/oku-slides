@@ -21,9 +21,11 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
 
 const tableColumnName = (n: number) => t("ui-table-column", { n: n + 1 });
 
-export function TablePanel({ slide, element, onApply, onShowAs }: {
+export function TablePanel({ slide, element, numberLang, onApply, onShowAs }: {
   slide: string;
   element: Element;
+  /** Langue du deck : écriture des nombres de la grille. */
+  numberLang?: string | null;
   onApply: (label: string, ops: Op[]) => void;
   /** Affiche le tableau en graphique (requête `show_as`). */
   onShowAs: (view: View) => void;
@@ -66,6 +68,7 @@ export function TablePanel({ slide, element, onApply, onShowAs }: {
         source={option.dataset.source}
         firstColumnIsLabel={flag(option, "header-column")}
         newColumnName={tableColumnName}
+        numberLang={numberLang}
         onOp={(change) => onApply(t("ui-undo-table-data"), [{ op: "set_data", target, param: "data", change }])}
       />
     </section>

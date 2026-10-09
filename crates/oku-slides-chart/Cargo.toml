@@ -15,6 +15,7 @@ schemars.workspace = true
 snafu.workspace = true
 charts-rs.workspace = true
 json-patch.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 speculoos.workspace = true

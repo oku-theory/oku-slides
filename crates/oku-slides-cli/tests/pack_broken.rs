@@ -43,7 +43,7 @@ fn save_of_a_deck_whose_pack_has_a_broken_widget_renders_the_others() {
     let dir = workdir("widget-casse");
     let r = user_pack(&dir, &[("quote", QUOTE), ("casse", "#let widget = (")]);
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 4, "templates": r,
+    let json = serde_json::json!({ "version": 5, "templates": r,
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] });

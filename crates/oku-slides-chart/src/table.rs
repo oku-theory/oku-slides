@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, ensure};
 
-use crate::data_ops::DataOp;
+use crate::data_ops::{DataOp, validate_ids};
 use crate::error::{InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::option::{Cell, Dataset};
 use crate::patch::merge_patch;
@@ -40,6 +40,9 @@ pub struct TableOption {
     /// Alignement de chaque colonne ; une colonne sans entrée vaut `auto`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub align: Vec<ColumnAlign>,
+    /// Options du graphique d'origine, sans `dataset`, gardées pour le restaurer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chart: Option<Value>,
 }
 
 fn default_true() -> bool {
@@ -62,9 +65,20 @@ pub enum ColumnAlign {
 
 /// Lit et valide les options d'un tableau.
 pub fn parse_table(v: &Value) -> Result<TableOption> {
-    let option = TableOption::deserialize(v).context(InvalidOptionSnafu)?;
+    let mut option = TableOption::deserialize(v).context(InvalidOptionSnafu)?;
+    tidy(&mut option);
     validate_table(&option)?;
     Ok(option)
+}
+
+/// Tronque `align` à la largeur du tableau (une entrée de trop n'a pas de
+/// colonne) et retire le `dataset` du graphique gardé (les données sont
+/// celles du tableau : un `dataset` gardé serait périmé).
+fn tidy(option: &mut TableOption) {
+    option.align.truncate(option.dataset.source.first().map_or(0, Vec::len));
+    if let Some(chart) = option.chart.as_mut().and_then(Value::as_object_mut) {
+        chart.remove("dataset");
+    }
 }
 
 fn too_large() -> Message {
@@ -75,7 +89,7 @@ fn text_too_long(c: &Cell) -> bool {
     matches!(c, Cell::Text(s) if s.chars().count() > MAX_TABLE_CELL_CHARS)
 }
 
-/// Refuse un tableau trop grand, vide, irrégulier ou mal aligné.
+/// Refuse un tableau trop grand, vide, irrégulier ou aux identifiants incohérents.
 pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
     let rows = &option.dataset.source;
     let width = rows.first().map_or(0, Vec::len);
@@ -92,10 +106,10 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
         InconsistentSnafu { reason: Message::new("chart-table-not-finite") }
     );
     ensure!(
-        option.align.len() <= width,
-        InconsistentSnafu { reason: Message::new("chart-table-align").arg("width", width) }
+        option.chart.as_ref().is_none_or(Value::is_object),
+        InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
     );
-    Ok(())
+    validate_ids(&option.dataset)
 }
 
 /// Refuse, avant tout clonage, une op qui ferait dépasser les limites.
@@ -133,7 +147,8 @@ pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> 
 
 /// Merge patch (RFC 7396) sur les options hors `dataset` ; rend le patch inverse.
 pub fn patch_table(option: &TableOption, patch: &Value) -> Result<(TableOption, Value)> {
-    let (next, inverse) = merge_patch(option, patch)?;
+    let (mut next, inverse) = merge_patch(option, patch)?;
+    tidy(&mut next);
     validate_table(&next)?;
     Ok((next, inverse))
 }

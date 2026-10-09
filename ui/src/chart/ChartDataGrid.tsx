@@ -11,7 +11,8 @@ import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { locale, t } from "../i18n";
 import { Icon } from "../icons";
-import { parseCell, parseCheck, parseTsv } from "../table/cells";
+import { parseCheck, parseTsv } from "../table/cells";
+import { formatNumber, parseNumber } from "../table/numbers";
 import type { Cell, DataOp } from "./chartTypes";
 import "./ChartDataGrid.css";
 
@@ -30,6 +31,8 @@ export type ChartDataGridProps = {
   checkboxColumns?: readonly number[];
   /** Nom d'une colonne ajoutée ou collée sans en-tête (`n` : son index) ; par défaut « Série n ». */
   newColumnName?: (n: number) => string;
+  /** Langue du deck (`params.lang`) : les nombres s'écrivent comme sur la slide ; absente, celle de l'interface. */
+  numberLang?: string | null;
 };
 
 const seriesName = (n: number) => t("ui-chart-series", { n });
@@ -42,7 +45,9 @@ export function ChartDataGrid({
   firstColumnIsLabel = true,
   checkboxColumns = NO_CHECKBOXES,
   newColumnName = seriesName,
+  numberLang,
 }: ChartDataGridProps) {
+  const lang = numberLang || locale();
   const header = source[0] ?? [];
   const width = header.length;
   const data = useMemo<Row[]>(
@@ -61,6 +66,7 @@ export function ChartDataGrid({
                 <CellInput
                   value={h}
                   label
+                  lang={lang}
                   ariaLabel={t("ui-chart-column-name", { col: col + 1 })}
                   onCommit={(value) => onOp({ op: "set_cell", row: 0, col, value })}
                 />
@@ -88,6 +94,7 @@ export function ChartDataGrid({
                 <CellInput
                   value={ctx.getValue()}
                   label={firstColumnIsLabel && col === 0}
+                  lang={lang}
                   ariaLabel={t("ui-chart-cell", { row: ctx.row.original.index, col: col + 1 })}
                   onCommit={(value) =>
                     onOp({ op: "set_cell", row: ctx.row.original.index, col, value })
@@ -103,6 +110,7 @@ export function ChartDataGrid({
                         firstColumnIsLabel,
                         checkboxColumns,
                         newColumnName,
+                        lang,
                       ),
                     })
                   }
@@ -112,7 +120,7 @@ export function ChartDataGrid({
         ),
       ),
     // `source` est nécessaire au collage ; les colonnes changent peu.
-    [source, header, width, onOp, firstColumnIsLabel, checkboxColumns, newColumnName],
+    [source, header, width, onOp, firstColumnIsLabel, checkboxColumns, newColumnName, lang],
   );
 
   const table = useTable({ features, columns, data });
@@ -170,16 +178,18 @@ export function ChartDataGrid({
 type CellInputProps = {
   value: Cell;
   label?: boolean;
+  /** Langue d'écriture des nombres. */
+  lang: string;
   ariaLabel: string;
   onCommit: (value: Cell) => void;
   onPasteGrid?: (grid: string[][]) => void;
 };
 
-function CellInput({ value, label, ariaLabel, onCommit, onPasteGrid }: CellInputProps) {
-  const shown = display(value);
+function CellInput({ value, label, lang, ariaLabel, onCommit, onPasteGrid }: CellInputProps) {
+  const shown = display(value, lang);
   const commit = (raw: string) => {
-    const next = label ? raw : parseCell(raw);
-    if (display(next) !== shown) onCommit(next);
+    const next = label ? raw : parseNumber(raw, lang);
+    if (display(next, lang) !== shown) onCommit(next);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") e.currentTarget.blur();
@@ -225,11 +235,10 @@ function CellCheck({ value, ariaLabel, onCommit }: {
   );
 }
 
-function display(c: Cell): string {
+function display(c: Cell, lang: string): string {
   if (c === null) return "";
   if (typeof c === "boolean") return String(c);
-  if (typeof c === "number")
-    return c.toLocaleString(locale(), { maximumFractionDigits: 10, useGrouping: false });
+  if (typeof c === "number") return formatNumber(c, lang);
   return c;
 }
 
@@ -242,6 +251,8 @@ export function pasteInto(
   firstColumnIsLabel: boolean,
   checkboxColumns: readonly number[] = [],
   newColumnName: (n: number) => string = seriesName,
+  /** Langue d'écriture des nombres (milliers « , » / « . ») ; vide : `parseCell` seul. */
+  lang = "",
 ): Cell[][] {
   const out = source.map((r) => [...r]);
   const width = Math.max(out[0]?.length ?? 0, col + Math.max(...grid.map((r) => r.length)));
@@ -255,7 +266,7 @@ export function pasteInto(
           ? raw
           : checkboxColumns.includes(c)
             ? parseCheck(raw)
-            : parseCell(raw);
+            : parseNumber(raw, lang);
     });
   });
   for (const r of out) while (r.length < width) r.push(null);

@@ -3,9 +3,13 @@
 //! - [`DeckReplica`] : création, snapshot, lecture ([`DeckReplica::deck`]),
 //!   application d'un `Deck` modifié ([`DeckReplica::apply`]), annuler.
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
+//! - Modules : `schema`, `read`, `write`, `host` (options des hôtes), `rich`,
+//!   `undo`, `authors`, `history` ; tests à côté (`*_tests.rs`, dont
+//!   `list_tests` et `host_tests`). Voir `ARCHITECTURE.md`.
 
 mod authors;
 mod history;
+mod host;
 mod read;
 mod rich;
 mod schema;
@@ -422,3 +426,7 @@ mod mod_tests;
 #[cfg(test)]
 #[path = "list_tests.rs"]
 mod list_tests;
+
+#[cfg(test)]
+#[path = "host_tests.rs"]
+mod host_tests;

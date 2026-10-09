@@ -217,3 +217,42 @@ fn zero_padding_single_empty_cell_compiles() {
     assert_that!(compile(&d).page_count()).is_equal_to(1);
     assert_that!(hash(&d)).is_not_equal_to(hash(&placeholder()));
 }
+
+/// Empreinte d'un tableau à une colonne `cell` (alignée à la fin), dans un deck de langue `lang`.
+fn lang_hash(lang: Option<&str>, cell: Value) -> u64 {
+    let data = json!({ "dataset": { "source": [["Montant"], [cell]] }, "align": ["end"] });
+    let mut d = json!({ "slides": in_flow(data) });
+    if let Some(l) = lang {
+        d["params"] = json!({ "lang": l });
+    }
+    hash(&Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}")))
+}
+
+#[test]
+fn number_cells_follow_the_deck_language() {
+    let cases = [
+        ("fr", 12345.5, "12\u{202F}345,5"),
+        ("fr", 1234.5, "1234,5"),
+        ("en", 12345.5, "12,345.5"),
+        ("de-CH", 12345.5, "12.345,5"),
+        ("ru", 100000.0, "100\u{00A0}000"),
+        // Le signe de Typst (« − ») reste le sien.
+        ("fr", -12345.5, "\u{2212}12\u{202F}345,5"),
+        ("xx", 12345.5, "12345.5"),
+    ];
+    for (lang, n, written) in cases {
+        asserting(&format!("{lang} {n}"))
+            .that(&lang_hash(Some(lang), json!(n)))
+            .is_equal_to(lang_hash(Some(lang), json!(written)));
+    }
+}
+
+#[test]
+fn number_cells_without_deck_language_stay_plain() {
+    assert_that!(lang_hash(None, json!(12345.5))).is_equal_to(lang_hash(None, json!("12345.5")));
+}
+
+#[test]
+fn number_cells_in_french_differ_from_plain() {
+    assert_that!(lang_hash(Some("fr"), json!(12345.5))).is_not_equal_to(lang_hash(Some("fr"), json!("12345.5")));
+}

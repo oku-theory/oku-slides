@@ -50,6 +50,7 @@ issue-unsupported-link = サポートされていないリンク：{ $link }
 issue-highlight-zero = ハイライトの色番号は 1 から始まります
 issue-unreadable-element = 読み取れない要素を除外しました
 issue-unreadable-item = 読み取れないリスト項目を除外しました
+issue-data-truncated = データが大きすぎるため、読み込み時に切り詰めました
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 op-invalid-chart = グラフ { $subject }：{ $reason }

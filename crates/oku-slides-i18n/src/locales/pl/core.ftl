@@ -60,6 +60,7 @@ issue-unsupported-link = nieobsługiwany link: { $link }
 issue-highlight-zero = kolory wyróżnienia numeruje się od 1
 issue-unreadable-element = nieczytelny element, odłożony
 issue-unreadable-item = nieczytelna pozycja listy, odłożona
+issue-data-truncated = dane zbyt duże, przycięte przy odczycie
 issue-unreadable-slide = nieczytelny slajd, odłożony
 issue-unreadable-field = nieczytelne pole { $field } prezentacji, zresetowane
 op-invalid-chart = Wykres { $subject }: { $reason }

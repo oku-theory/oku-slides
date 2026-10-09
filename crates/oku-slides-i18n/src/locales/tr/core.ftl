@@ -50,6 +50,7 @@ issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 issue-highlight-zero = vurgu renkleri 1'den başlayarak numaralanır
 issue-unreadable-element = okunamayan öğe, bir kenara ayrıldı
 issue-unreadable-item = okunamayan liste maddesi, bir kenara ayrıldı
+issue-data-truncated = veri çok büyük, okunurken kırpıldı
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 op-invalid-chart = { $subject } grafiği: { $reason }

@@ -156,7 +156,7 @@ zone de corps) ou une `cell` de la grille de la slide.
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [

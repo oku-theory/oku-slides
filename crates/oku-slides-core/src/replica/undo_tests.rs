@@ -291,3 +291,90 @@ fn clear_undo_inside_a_group_keeps_the_next_apply_undoable_under_the_group() {
     r.undo().unwrap();
     assert_that!(r.deck().0.slides[2].params.text("title")).is_equal_to(Some("Un"));
 }
+
+/// La valeur d'un résultat attendu réussi.
+fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
+    r.unwrap_or_else(|e| panic!("{e:?}"))
+}
+
+/// Le deck au tableau `t` (3 lignes × 2 colonnes) dans la slide `s`.
+fn table_deck() -> Deck {
+    let mut deck = ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#));
+    let add = serde_json::from_value(serde_json::json!({ "op": "add_element",
+        "slot": { "owner": { "slide": "s" }, "param": "blocks" },
+        "element": { "id": "t", "kind": "table", "params": { "data": { "dataset": {
+            "source": [["Pays", "Ventes"], ["FR", 10], ["DE", 20]],
+            "ids": ["h", "fr", "de"], "columns": ["pays", "ventes"] } } } } }))
+    .unwrap_or_else(|e| panic!("op invalide : {e}"));
+    ok(crate::apply_all(&mut deck, vec![add], &crate::test_registry::registry()));
+    deck
+}
+
+fn with_data(deck: &Deck, change: oku_slides_chart::DataOp) -> Deck {
+    let mut d = deck.clone();
+    let target = crate::Target { slide: "s".into(), element: Some("t".into()) };
+    let op = crate::Op::SetData { target, param: "data".into(), change };
+    ok(crate::apply_all(&mut d, vec![op], &crate::test_registry::registry()));
+    d
+}
+
+/// Applique `after` sur `before`, puis vérifie qu'annuler rend `before` et rétablir `after`.
+fn assert_undo_redo_exact(before: &Deck, after: &Deck) {
+    let mut r = ok(DeckReplica::new(before, crate::test_registry::shared()));
+    ok(r.apply(after, "Données", None));
+    assert_that!(r.deck().0).is_equal_to(after);
+    assert_that!(ok(r.undo())).is_true();
+    let (read, issues) = r.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(read).is_equal_to(before);
+    assert_that!(ok(r.redo())).is_true();
+    let (read, issues) = r.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(read).is_equal_to(after);
+}
+
+#[test]
+fn undo_redo_of_set_cell_on_table_restores_exactly() {
+    use oku_slides_chart::{Cell, DataOp};
+    let deck = table_deck();
+    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::SetCell { row: 2, col: 1, value: Cell::Number(21.0) }));
+}
+
+#[test]
+fn undo_redo_of_remove_row_restores_id_and_cells() {
+    let deck = table_deck();
+    let removed = with_data(&deck, oku_slides_chart::DataOp::RemoveRow { at: 1 });
+    assert_undo_redo_exact(&deck, &removed);
+}
+
+#[test]
+fn undo_redo_of_insert_column_restores_exactly() {
+    use oku_slides_chart::{Cell, DataOp};
+    let deck = table_deck();
+    let cells = vec![Cell::Text("Stock".into()), Cell::Number(1.0), Cell::Null];
+    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::InsertColumn { at: 1, cells, id: None }));
+}
+
+#[test]
+fn undo_redo_of_replace_restores_exactly() {
+    use oku_slides_chart::{Cell, DataOp};
+    let deck = table_deck();
+    let source = vec![
+        vec![Cell::Text("A".into()), Cell::Text("B".into()), Cell::Text("C".into())],
+        vec![Cell::Number(1.0), Cell::Bool(true), Cell::Null],
+    ];
+    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::Replace { source }));
+}
+
+#[test]
+fn undo_redo_of_reordered_rows_and_columns_restores_exactly() {
+    let deck = table_deck();
+    let mut reordered = deck.clone();
+    let target = crate::Target { slide: "s".into(), element: Some("t".into()) };
+    let value = serde_json::json!({ "dataset": {
+        "source": [["Ventes", "Pays"], [20, "DE"], [10, "FR"]],
+        "ids": ["h", "de", "fr"], "columns": ["ventes", "pays"] } });
+    let op = crate::Op::SetParam { target, param: "data".into(), value };
+    crate::apply_all(&mut reordered, vec![op], &crate::test_registry::registry()).unwrap();
+    assert_undo_redo_exact(&deck, &reordered);
+}

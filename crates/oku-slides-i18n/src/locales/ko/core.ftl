@@ -50,6 +50,7 @@ issue-unsupported-link = 지원되지 않는 링크: { $link }
 issue-highlight-zero = 강조 색상 번호는 1부터 시작합니다
 issue-unreadable-element = 읽을 수 없는 요소를 따로 두었습니다
 issue-unreadable-item = 읽을 수 없는 목록 항목을 따로 두었습니다
+issue-data-truncated = 데이터가 너무 커서 읽을 때 잘랐습니다
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
 op-invalid-chart = 차트 { $subject }: { $reason }

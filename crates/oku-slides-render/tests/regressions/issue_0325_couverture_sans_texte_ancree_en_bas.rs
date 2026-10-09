@@ -13,7 +13,7 @@ use speculoos::prelude::*;
 #[test]
 fn plain_cover_without_text_anchors_its_empty_fields_at_the_bottom() {
     let deck = json!({
-        "version": 4,
+        "version": 5,
         "params": { "title": "", "author": "Matthieu" },
         "tokens": { "component": { "title-slide": { "bar": false } } },
         "slides": [{ "id": "s", "kind": "title" }]

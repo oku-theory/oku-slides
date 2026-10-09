@@ -15,14 +15,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
   `Deck` cloné avec le `WidgetRegistry` du deck (erreur → rien n'a bougé) ; tout sous-arbre
   inséré est typé contre le registre (`ops/check.rs`). `ops/list.rs` : `ListOp` (`edit_list`, items par id ; `ParamType::List`, conteneur `{list}`). `ops/grid.rs` : `set_grid`, sur la
   grille résolue (`Slide::resolved_grid`). `ops/host.rs` : paramètres `host(chart|table)` (contrôle à l'insertion, `set_chart_option`, `set_table_option`, `set_data`).
-- `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, historique complet et identité
-  (`deck_uid`). `apply(&Deck, label)` diffuse un `Deck` modifié en une étape d'annulation
-  (`UndoManager`, `begin_group`/`end_group`) ; un commit par `mov` (bogue d'annulation, t-263).
-  `deck()` : **lecture totale** (sous-arbre illisible → `Issue` et défaut, slots bornés par
-  `MAX_SLOT_DEPTH`). `merge` : deux replicas de même `deck_uid`, `MergeReport` (`authors.rs`) ;
-  racine `peers` : nom de chaque pair, inscrit à sa première édition. `history` : un `Version`
-  par édition ; `restore` = `apply` de `deck_at`, pas de `revert_to` (perd les `mov`).
-  Modules : `schema`, `read`/`write` (clés triées), `rich`, `undo`, `authors`, `history`.
+- `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, fusion et historique ; voir [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `PackVersion`/`PackRef`/`PackFiles`/`WidgetFile` (`pack.rs`) : version adressée par contenu
   (sha-256 de `pack.json` à clés triées, `0`, puis nom, `0`, source, `0` par fichier de widget).
   `ThemeRef` (`Deck.theme`, atome du replica) : une version de thème est un `PackFiles` sans
@@ -30,8 +23,8 @@ sources. Aucune dépendance à Typst ni à Tauri.
   par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),
   `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
-  `validate`, `locate`) ; `new` refuse un deck trop profond, `merge` et `restore` passent `validate`.
-  Zip v6 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
+  `validate`, `locate`) ; `new` refuse un deck trop profond et normalise les hôtes, `merge` et `restore` passent `validate`.
+  Zip v7 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
   `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
   (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
   `issue-*-version-missing`), nom invalide → `BadName`, unis à la fusion.
@@ -53,5 +46,4 @@ sources. Aucune dépendance à Typst ni à Tauri.
 
 ## Dépendances
 
-`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`,
-`sha2`/`hex` (assets, packs), `uuid` ; dev : `speculoos`, `rstest`, `proptest`.
+`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2`/`hex` (assets, packs), `uuid` ; dev : `speculoos`, `rstest`, `proptest`.

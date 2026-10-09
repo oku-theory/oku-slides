@@ -7,6 +7,7 @@
 #import "content.typ": _text-args, _text-over
 #import "slides.typ": card, slide, title-slide, chapter, toc, end-slide, blank-slide
 #import "zone.typ": free-area, zone-marker, default-grid
+#import "numbers.typ": format-number, deck-lang
 
 #let _text = widget("text", params: (body: p.rich()), (args, ctx) => {
   let t = ctx.tokens
@@ -62,14 +63,12 @@
   align(center + horizon, text(size: size-of(t, "caption"), fill: color-of(t, "ink-muted"), "table")),
 )
 
-// Texte d'une cellule : nombre entier sans décimales, case cochée en ✓, autre type vide.
-#let _cell-text(v) = {
+// Texte d'une cellule : nombre écrit dans la langue `lang` du deck (entier
+// sans décimales), case cochée en ✓, autre type vide.
+#let _cell-text(v, lang) = {
   if type(v) == str { v }
   else if type(v) == bool { if v { "✓" } else { "" } }
-  else if type(v) == int { str(v) }
-  else if type(v) == float {
-    if calc.fract(v) == 0 and calc.abs(v) < 1e15 { str(int(v)) } else { str(v) }
-  }
+  else if type(v) == int or type(v) == float { format-number(v, lang) }
   else { "" }
 }
 
@@ -87,8 +86,9 @@
   if type(v) == bool { v } else { default }
 }
 
-#let _table = widget("table", params: (data: p.host("table")), (args, ctx) => {
+#let _table = widget("table", params: (data: p.host("table")), (args, ctx) => context {
   let t = ctx.tokens
+  let lang = deck-lang()
   let d = args.data
   let dataset = if type(d) == dictionary { d.at("dataset", default: none) } else { none }
   let source = if type(dataset) == dictionary { dataset.at("source", default: none) } else { none }
@@ -123,7 +123,7 @@
     else if head-col and x == 0 { text(weight: header-weight, body) }
     else { body }
   }
-  let texts = rows.map(r => r.map(_cell-text))
+  let texts = rows.map(r => r.map(v => _cell-text(v, lang)))
   let cells = texts.enumerate().map(((y, r)) => r.enumerate().map(((x, body)) => styled-cell(x, y, body))).flatten()
   let rule = stroke-of(t, k.rule-width) + color-of(t, k.rule-color)
   let pad-x = space-of(t, k.padding-x)

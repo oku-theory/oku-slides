@@ -12,3 +12,4 @@ mod issue_0263_undo_reorder_loses_slides;
 mod issue_0292_grid_hides_blocks;
 mod issue_0527_rich_list_links;
 mod issue_0528_list_size_bounds;
+mod issue_0591_set_kind_revalide_host;

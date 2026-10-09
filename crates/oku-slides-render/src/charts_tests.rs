@@ -200,3 +200,37 @@ fn attach_after_set_text_sizes_draws_axes_and_legend_at_the_body_size() {
     assert_that!(svg).contains("font-size=\"32\"");
     assert_that!(svg).does_not_contain("font-size=\"12\"");
 }
+
+fn with_lang(mut d: serde_json::Value, lang: &str) -> serde_json::Value {
+    d["params"] = json!({ "lang": lang });
+    d
+}
+
+fn labelled() -> serde_json::Value {
+    json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Janvier", 12345.5]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    })
+}
+
+#[test]
+fn attach_deck_language_changes_the_key_and_the_numbers() {
+    let mut charts = Charts::default();
+    let mut fr = with_lang(deck(labelled(), None), "fr");
+    charts.attach(&mut fr, &Fonts::default(), &registry()).unwrap();
+    let fr_svg = svg(&charts, &key(&fr).unwrap());
+    let mut en = with_lang(deck(labelled(), None), "en");
+    charts.attach(&mut en, &Fonts::default(), &registry()).unwrap();
+    assert_that!(key(&fr)).is_not_equal_to(key(&en));
+    assert_that!(fr_svg).contains("12\u{202F}345,5");
+    assert_that!(svg(&charts, &key(&en).unwrap())).contains("12,345.5");
+}
+
+#[test]
+fn attach_deck_without_language_keeps_plain_numbers() {
+    let mut charts = Charts::default();
+    let mut d = deck(labelled(), None);
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
+    assert_that!(svg(&charts, &key(&d).unwrap())).contains("12345.5");
+}

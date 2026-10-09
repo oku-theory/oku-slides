@@ -197,3 +197,70 @@ fn ops_schema_lists_set_data() {
 fn ops_schema_lists_set_table_option() {
     assert_that!(ops_schema().unwrap().to_string()).contains("set_table_option");
 }
+
+fn ids_of(v: &Value, key: &str, len: usize) -> Vec<String> {
+    let list = v["dataset"][key].as_array().unwrap_or_else(|| panic!("{key} absent: {v}"));
+    assert_eq!(list.len(), len, "{key} mal aligné: {v}");
+    list.iter().map(|i| i.as_str().unwrap_or_else(|| panic!("id non texte")).to_owned()).collect()
+}
+
+fn assert_aligned(v: &Value, rows: usize, cols: usize) {
+    for (key, len) in [("ids", rows), ("columns", cols)] {
+        let list = ids_of(v, key, len);
+        let mut unique = list.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), list.len(), "{key} répétés: {v}");
+    }
+}
+
+#[test]
+fn add_element_table_without_ids_stores_aligned_ids_and_columns() {
+    let deck = deck_with(table("t1", data()));
+    let v = stored(&deck);
+    assert_aligned(&v, 2, 2);
+    assert_that!(v["dataset"]["source"]).is_equal_to(json!([["Pays", "Ventes"], ["FR", 10.0]]));
+}
+
+#[test]
+fn replace_element_chart_without_ids_stores_ids() {
+    let mut deck = deck_with(table("t1", data()));
+    apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: chart("t1") }).unwrap_or_else(|e| panic!("{e}"));
+    let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("absent")).element;
+    let v = e.params.value("option").unwrap_or_else(|| panic!("option absente")).clone();
+    assert_aligned(&v, 2, 2);
+}
+
+#[test]
+fn set_param_table_without_ids_stores_ids() {
+    let mut deck = deck_with(table("t1", data()));
+    let value = json!({ "dataset": { "source": [["A", "B", "C"], [1, 2, 3], [4, 5, 6]] } });
+    apply(&mut deck, Op::SetParam { target: t1(), param: "data".into(), value }).unwrap_or_else(|e| panic!("{e}"));
+    assert_aligned(&stored(&deck), 3, 3);
+}
+
+#[test]
+fn add_slide_with_table_without_ids_stores_ids() {
+    let mut deck = empty_deck();
+    let slide: Slide = serde_json::from_value(json!({ "id": "s2", "kind": "content", "params": { "blocks": [
+        { "id": "t1", "kind": "table", "params": { "data": data() } }] } }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    apply(&mut deck, Op::AddSlide { index: None, defaults: false, slide }).unwrap_or_else(|e| panic!("{e}"));
+    let e = deck.slide("s2").and_then(|s| s.locate("t1")).unwrap_or_else(|| panic!("absent")).element;
+    let v = e.params.value("data").unwrap_or_else(|| panic!("data absente")).clone();
+    assert_aligned(&v, 2, 2);
+}
+
+#[test]
+fn apply_all_keeps_existing_ids() {
+    let mut deck = deck_with(table("t1", data()));
+    let before = stored(&deck);
+    let change = DataOp::SetCell { row: 1, col: 1, value: Cell::Number(7.0) };
+    apply(&mut deck, Op::SetData { target: t1(), param: "data".into(), change }).unwrap_or_else(|e| panic!("{e}"));
+    let patch = json!({ "striped": true });
+    apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch })
+        .unwrap_or_else(|e| panic!("{e}"));
+    let after = stored(&deck);
+    assert_that!(after["dataset"]["ids"]).is_equal_to(before["dataset"]["ids"].clone());
+    assert_that!(after["dataset"]["columns"]).is_equal_to(before["dataset"]["columns"].clone());
+}

@@ -5383,6 +5383,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "uuid",
 ]
 
 [[package]]

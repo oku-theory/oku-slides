@@ -13,11 +13,14 @@ export type TableFlag = "header-row" | "header-column" | "striped";
 
 /** Miroir de `TableOption` (oku-slides-chart) : ligne 0 = noms de colonnes. */
 export type TableOption = {
-  dataset: { source: Cell[][] };
+  /** `ids` : un par ligne, `columns` : un par colonne ; tirés par le cœur. */
+  dataset: { source: Cell[][]; ids?: string[]; columns?: string[] };
   "header-row"?: boolean;
   "header-column"?: boolean;
   striped?: boolean;
   align?: ColumnAlign[];
+  /** Options du graphique d'origine, gardées pour le restaurer ; jamais éditées par l'UI. */
+  chart?: unknown;
 };
 
 /** Valeurs par défaut des drapeaux, celles de `TableOption` côté Rust. */

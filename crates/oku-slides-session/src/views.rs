@@ -62,6 +62,8 @@ pub struct Snapshot<'a> {
     pub title: Option<String>,
     /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
     pub title_source: Option<&'a str>,
+    /// Langue du deck (`params.lang`) : les grilles écrivent les nombres comme les slides.
+    pub lang: Option<&'a str>,
     pub slides: Vec<SlideSummary<'a>>,
     pub can_undo: bool,
     pub undo_label: Option<String>,

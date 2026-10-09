@@ -43,7 +43,7 @@ mod themes;
 use themes::{THEME_JSON, THEME_VERSIONS_DIR, theme_entry, theme_issues, verify_themes};
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 6;
+pub const SOURCES_VERSION: u32 = 7;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
@@ -192,12 +192,15 @@ fn read_entry(
 
 impl SourceBundle {
     /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset, police, pack ni thème.
-    /// Le deck est d'abord mis sous forme canonique. Un deck dont un élément
+    /// Le deck est d'abord mis sous forme canonique, ses paramètres d'hôte
+    /// normalisés comme par les ops (identifiants des lignes et des colonnes
+    /// posés : un deck JSON fusionne aussi cellule par cellule). Un deck dont un élément
     /// dépasse [`MAX_SLOT_DEPTH`] est refusé : la relecture du replica
     /// l'arrêterait à cette borne, et la vue en différerait.
     pub fn new(mut deck: Deck, registry: Arc<WidgetRegistry>) -> Result<Self, SourcesError> {
         let too_deep = deck.slides.iter().flat_map(|s| s.walk()).any(|l| l.depth >= MAX_SLOT_DEPTH);
         ensure!(!too_deep, TooDeepSnafu { max: MAX_SLOT_DEPTH });
+        crate::ops::normalize_hosts(&registry, &mut deck);
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
         let (assets, fonts, packs, themes) = Default::default();

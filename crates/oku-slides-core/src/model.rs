@@ -15,7 +15,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 4;
+pub const DECK_VERSION: u32 = 5;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

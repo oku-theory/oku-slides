@@ -66,11 +66,17 @@ pub enum HAlign {
     Right,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Dataset {
     /// Tableau 2D ; la ligne 0 contient les noms de colonnes.
     pub source: Vec<Vec<Cell>>,
+    /// Identifiant stable de chaque ligne, en-tête compris. Ne pas fournir : le cœur les tire.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ids: Vec<String>,
+    /// Identifiant stable de chaque colonne. Ne pas fournir : le cœur les tire.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub columns: Vec<String>,
 }
 
 /// Cellule de `dataset.source` : nombre, texte, booléen ou vide.

@@ -23,11 +23,13 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
   waterfall: stroke(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
 };
 
-export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs }: {
+export function ChartPanel({ slide, element, palette, numberLang, onApply, onKind, onShowAs }: {
   slide: string;
   element: Element;
   /** Palette des graphiques du thème (apparence). */
   palette: readonly string[];
+  /** Langue du deck : écriture des nombres de la grille. */
+  numberLang?: string | null;
   onApply: (label: string, ops: Op[]) => void;
   /** Change le type : le cœur convertit les données (requête `chart_kind`). */
   onKind: (kind: ChartKind) => void;
@@ -73,6 +75,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
         <ChartDataGrid
           source={source}
           checkboxColumns={checkboxColumns(element)}
+          numberLang={numberLang}
           onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_data", target: { slide, element: element.id }, param: "option", change }])}
         />
       ) : (

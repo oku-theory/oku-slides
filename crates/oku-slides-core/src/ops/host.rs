@@ -7,13 +7,12 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use oku_slides_chart::{
-    ChartOption, DataOp, apply_option_patch, chart_data, parse_option, parse_table, patch_table, table_data,
+    ChartOption, DataOp, apply_option_patch, chart_data, ensure_ids, parse_option, parse_table, patch_table, table_data,
 };
 
 use super::{declared, typed, widget};
 use crate::error::{ChartSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, TableSnafu};
-use crate::locate::Walk;
-use crate::model::Element;
+use crate::model::{Deck, Element};
 use crate::params::{ParamValue, Params};
 use crate::widget::{HostType, WidgetRegistry, WidgetSchema};
 
@@ -31,8 +30,18 @@ pub(super) fn expected_host(host: HostType) -> &'static str {
 pub(crate) fn host_option(host: HostType, subject: &str, v: &Value) -> Result<Value, OpError> {
     let serialized = match host {
         // `parse_option` lit les options et les passe par `normalize`.
-        HostType::Chart => serde_json::to_value(parse_option(v).context(ChartSnafu { subject })?),
-        HostType::Table => serde_json::to_value(parse_table(v).context(TableSnafu { subject })?),
+        HostType::Chart => {
+            let mut option = parse_option(v).context(ChartSnafu { subject })?;
+            if let Some(d) = option.dataset.as_mut() {
+                ensure_ids(d);
+            }
+            serde_json::to_value(option)
+        }
+        HostType::Table => {
+            let mut option = parse_table(v).context(TableSnafu { subject })?;
+            ensure_ids(&mut option.dataset);
+            serde_json::to_value(option)
+        }
     };
     Ok(serialized.context(ParseValueSnafu { field: subject })?)
 }
@@ -46,11 +55,13 @@ fn ensure_host(schema: &WidgetSchema, param: &str, want: HostType) -> Result<(),
     Ok(())
 }
 
-/// Refuse des paramètres d'hôte incohérents (`subject` : qui les porte).
+/// Refuse des paramètres d'hôte incohérents et y pose les identifiants manquants.
+///
+/// `subject` : qui les porte. Les valeurs normalisées remplacent celles reçues.
 pub(super) fn check_host_params(
     registry: &WidgetRegistry,
     kind: &str,
-    params: &Params,
+    params: &mut Params,
     subject: &str,
 ) -> Result<(), OpError> {
     let Some(schema) = registry.get(kind) else { return Ok(()) };
@@ -59,7 +70,8 @@ pub(super) fn check_host_params(
         match params.get(&p.name) {
             None => {}
             Some(ParamValue::Value(v)) => {
-                host_option(host, subject, v)?;
+                let normalized = host_option(host, subject, v)?;
+                params.set(&p.name, ParamValue::Value(normalized));
             }
             Some(_) => return Err(ParamTypeSnafu { param: &p.name, expected: expected_host(host) }.build().into()),
         }
@@ -68,12 +80,45 @@ pub(super) fn check_host_params(
 }
 
 /// Refuse un élément (ou un de ses enfants) dont un paramètre d'hôte est incohérent.
-pub(super) fn check_hosts(registry: &WidgetRegistry, element: &Element) -> Result<(), OpError> {
-    let nested = Walk::over(&element.params, Some(&element.id)).map(|l| l.element);
-    for e in std::iter::once(element).chain(nested) {
-        check_host_params(registry, &e.kind, &e.params, &e.id)?;
+///
+/// Les paramètres d'hôte de l'élément et de ses enfants sont réécrits normalisés.
+pub(super) fn check_hosts(registry: &WidgetRegistry, element: &mut Element) -> Result<(), OpError> {
+    check_host_params(registry, &element.kind, &mut element.params, &element.id)?;
+    for (_, children) in element.params.slots_mut() {
+        for child in children {
+            check_hosts(registry, child)?;
+        }
     }
     Ok(())
+}
+
+/// Pose les identifiants manquants dans les paramètres d'hôte de `deck`
+/// (slides et éléments imbriqués), par le même chemin que les ops. Une
+/// valeur que l'hôte ne lit pas reste telle quelle : la validation la signale.
+pub(crate) fn normalize_hosts(registry: &WidgetRegistry, deck: &mut Deck) {
+    for slide in &mut deck.slides {
+        normalize_params(registry, &slide.kind, &mut slide.params);
+    }
+}
+
+fn normalize_params(registry: &WidgetRegistry, kind: &str, params: &mut Params) {
+    if let Some(schema) = registry.get(kind) {
+        for p in &schema.params {
+            let Some(host) = p.ty.host() else { continue };
+            let normalized = match params.get(&p.name) {
+                Some(ParamValue::Value(v)) => host_option(host, "", v).ok(),
+                _ => None,
+            };
+            if let Some(v) = normalized {
+                params.set(&p.name, ParamValue::Value(v));
+            }
+        }
+    }
+    for (_, children) in params.slots_mut() {
+        for child in children {
+            normalize_params(registry, &child.kind, &mut child.params);
+        }
+    }
 }
 
 fn read<T: DeserializeOwned>(params: &Params, param: &str, host: HostType) -> Result<T, OpError> {
@@ -102,11 +147,16 @@ pub(super) fn set_option(
     ensure_host(schema, param, host)?;
     match host {
         HostType::Chart => {
-            let (next, _) = apply_option_patch(&read(params, param, host)?, patch).context(ChartSnafu { subject })?;
+            let (mut next, _) =
+                apply_option_patch(&read(params, param, host)?, patch).context(ChartSnafu { subject })?;
+            if let Some(d) = next.dataset.as_mut() {
+                ensure_ids(d);
+            }
             write(params, param, &next)
         }
         HostType::Table => {
-            let (next, _) = patch_table(&read(params, param, host)?, patch).context(TableSnafu { subject })?;
+            let (mut next, _) = patch_table(&read(params, param, host)?, patch).context(TableSnafu { subject })?;
+            ensure_ids(&mut next.dataset);
             write(params, param, &next)
         }
     }

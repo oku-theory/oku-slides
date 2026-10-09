@@ -34,7 +34,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
-pub(crate) use host::host_option;
+pub(crate) use host::{host_option, normalize_hosts};
 pub(crate) use list::{DefaultFault, default_fault};
 pub use list::{
     ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
@@ -493,7 +493,11 @@ impl Op {
                 if let Some(id) = &target.element {
                     check_containing_accepts(registry, slide_ref(deck, &target.slide)?, id, &kind)?;
                 }
+                let subject = target.element.as_deref().unwrap_or(&target.slide);
+                let mut normalized = target_ref(deck, &target)?.1.clone();
+                host::check_host_params(registry, &kind, &mut normalized, subject)?;
                 let (k, params) = target_mut(deck, &target)?;
+                *params = normalized;
                 if *k != kind {
                     list::seed_lists(registry, &kind, params);
                     *k = kind;
@@ -557,8 +561,8 @@ impl Op {
                 Ok(())
             }
             Op::SetGrid { slide, columns, rows } => grid::set_grid(deck, registry, &slide, columns, rows),
-            Op::ReplaceElement { slide, element } => {
-                host::check_hosts(registry, &element)?;
+            Op::ReplaceElement { slide, mut element } => {
+                host::check_hosts(registry, &mut element)?;
                 {
                     let s = slide_ref(deck, &slide)?;
                     let previous = located(s, &element.id)?;
@@ -594,9 +598,9 @@ impl Op {
                 if deck.slide(&slide.id).is_some() {
                     return Err(DuplicateIdSnafu { id: slide.id }.build().into());
                 }
-                host::check_host_params(registry, &slide.kind, &slide.params, &slide.id)?;
+                host::check_host_params(registry, &slide.kind, &mut slide.params, &slide.id)?;
                 let mut taken = HashSet::new();
-                for (_, list) in slide.params.slots() {
+                for (_, list) in slide.params.slots_mut() {
                     for e in list {
                         check_depth(0, e)?;
                         host::check_hosts(registry, e)?;
@@ -747,7 +751,7 @@ fn add_element(
         };
         check_accepts(accepts.as_deref(), &param, &element.kind)?;
         widget_of(registry, &element.kind, Category::Element)?;
-        host::check_hosts(registry, &element)?;
+        host::check_hosts(registry, &mut element)?;
         check_ids(s.element_ids().collect(), &element)?;
         check_depth(owner_slots, &element)?;
         check_params(registry, &element.kind, Category::Element, &element.params)?;

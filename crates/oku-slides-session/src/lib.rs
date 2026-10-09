@@ -911,6 +911,7 @@ impl Session {
             themes: &self.theme_list,
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
             title_source: deck.params.title.as_deref(),
+            lang: deck.params.lang.as_deref(),
             slides,
             can_undo: doc.sources.replica().can_undo(),
             undo_label: doc.sources.replica().undo_label(),

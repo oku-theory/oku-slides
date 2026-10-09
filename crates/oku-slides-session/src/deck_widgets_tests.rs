@@ -373,7 +373,7 @@ fn render_uses_the_embedded_version_even_when_the_library_has_another() {
 fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let data = data_dir();
     let path = data.0.join("absent.json");
-    let deck = json!({ "version": 4, "templates": { "id": uuid::Uuid::new_v4(), "version": format!("sha256:{}", "0".repeat(64)) },
+    let deck = json!({ "version": 5, "templates": { "id": uuid::Uuid::new_v4(), "version": format!("sha256:{}", "0".repeat(64)) },
         "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);

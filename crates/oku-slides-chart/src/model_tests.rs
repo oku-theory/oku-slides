@@ -174,3 +174,54 @@ fn normalize_invalid_palette_color_is_rejected() {
     let bad = two_bars(serde_json::json!({ "color": ["#12345"] }));
     assert_that!(normalize(&bad, ChartLabels::english()).is_err()).is_true();
 }
+
+fn bars_with_ids(ids: serde_json::Value, columns: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 3]], "ids": ids, "columns": columns },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    })
+}
+
+fn parse_kind(v: serde_json::Value) -> crate::ChartErrorKind {
+    parse_option(&v).map(|_| ()).unwrap_err().kind()
+}
+
+#[test]
+fn parse_option_ids_of_wrong_length_is_inconsistent() {
+    let v = bars_with_ids(serde_json::json!(["h"]), serde_json::json!(["m", "v"]));
+    assert_that!(parse_kind(v)).is_equal_to(crate::ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_option_columns_of_wrong_length_is_inconsistent() {
+    let v = bars_with_ids(serde_json::json!(["h", "a"]), serde_json::json!(["m", "v", "w"]));
+    assert_that!(parse_kind(v)).is_equal_to(crate::ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_option_duplicate_ids_is_inconsistent() {
+    let v = bars_with_ids(serde_json::json!(["h", "a"]), serde_json::json!(["m", "m"]));
+    assert_that!(parse_kind(v)).is_equal_to(crate::ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn parse_option_invalid_id_is_inconsistent() {
+    for bad in [serde_json::json!("a b"), serde_json::json!(""), serde_json::json!("x".repeat(65))] {
+        let v = bars_with_ids(serde_json::json!(["h", bad.clone()]), serde_json::json!(["m", "v"]));
+        asserting(&format!("ligne {bad}")).that(&parse_kind(v)).is_equal_to(crate::ChartErrorKind::Inconsistent);
+        let v = bars_with_ids(serde_json::json!(["h", "a"]), serde_json::json!(["m", bad.clone()]));
+        asserting(&format!("colonne {bad}")).that(&parse_kind(v)).is_equal_to(crate::ChartErrorKind::Inconsistent);
+    }
+}
+
+#[test]
+fn parse_option_id_of_64_chars_is_accepted() {
+    let v = bars_with_ids(serde_json::json!(["h", "x".repeat(64)]), serde_json::json!(["m", "y".repeat(64)]));
+    assert_that!(parse_option(&v)).is_ok();
+}
+
+#[test]
+fn parse_option_without_ids_is_accepted() {
+    assert_that!(parse_option(&bars_with_ids(serde_json::json!([]), serde_json::json!([])))).is_ok();
+}

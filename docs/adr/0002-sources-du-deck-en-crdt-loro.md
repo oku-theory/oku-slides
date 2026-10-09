@@ -48,9 +48,9 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
     bloc de paragraphes (`bold`, `italic`, `color`, `size`, `highlight`,
     `link`, `list`) ;
   - le reste → scalaire ou atome JSON en dernier écrivain gagne (LWW), sauf
-    `chart.option` qui reste un atome JSON entier (un sous-arbre qui porte
-    un invariant global — `consistent_chart` — ne se fusionne pas champ par
-    champ).
+    `chart.option` : l'[ADR-0004](0004-donnees-des-hotes-fusionnees-par-cellule.md)
+    remplace en partie cette règle, en fusionnant les données des hôtes par
+    cellule.
 - **Vide = absent**, invariant du modèle : toute prose vide (chaîne vide ou
   faite d'espaces) se lit comme `None`, s'écrit comme un `LoroText` vide,
   jamais comme une clé retirée. Prose et collections à `id` sont **toujours
