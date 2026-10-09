@@ -111,3 +111,58 @@ fn read_deck_without_version_reads_as_current() {
     assert_that!(deck.version).is_equal_to(crate::DECK_VERSION);
     assert_that!(issues).is_empty();
 }
+
+fn slide_ids(deck: &crate::Deck) -> Vec<&str> {
+    deck.slides.iter().map(|s| s.id.as_str()).collect()
+}
+
+#[test]
+fn read_slide_copied_twice_keeps_first_occurrence() {
+    let (deck, issues) = read(json!({ "slides": [
+        { "id": "s1", "kind": "content", "notes": "a" },
+        { "id": "s2", "kind": "content" },
+        { "id": "s1", "kind": "content", "notes": "a" }
+    ]}))
+    .unwrap();
+    assert_that!(slide_ids(&deck)).is_equal_to(vec!["s1", "s2"]);
+    assert_that!(issues).is_empty();
+}
+
+#[test]
+fn read_diverged_slides_sharing_an_id_renames_the_later_one() {
+    let (deck, issues) = read(json!({ "slides": [
+        { "id": "s1", "kind": "content", "notes": "a" },
+        { "id": "s1-2", "kind": "content" },
+        { "id": "s1", "kind": "content", "notes": "b" }
+    ]}))
+    .unwrap();
+    assert_that!(slide_ids(&deck)).is_equal_to(vec!["s1", "s1-2", "s1-3"]);
+    assert_that!(deck.slides[2].notes.as_str()).is_equal_to("b");
+    assert_that!(issues).is_empty();
+}
+
+#[test]
+fn read_diverged_elements_sharing_an_id_rename_the_copy_and_its_children() {
+    let canvas = |title: &str| json!({ "id": "c", "kind": "canvas", "params": { "title": title, "children": [{ "id": "x", "kind": "shape" }] } });
+    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "blank", "params": { "elements": [
+        canvas("a"), canvas("a"), canvas("b")
+    ]}}]}))
+    .unwrap();
+    let ids: Vec<(&str, Vec<&str>)> = slot(&deck.slides[0], "elements")
+        .iter()
+        .map(|e| (e.id.as_str(), e.params.slot("children").unwrap_or_default().iter().map(|c| c.id.as_str()).collect()))
+        .collect();
+    assert_that!(ids).is_equal_to(vec![("c", vec!["x"]), ("c-2", vec!["x-2"])]);
+    assert_that!(issues).is_empty();
+}
+
+#[test]
+fn read_copy_of_a_renamed_slide_is_dropped() {
+    let (deck, _) = read(json!({ "slides": [
+        { "id": "x", "kind": "content", "notes": "A" },
+        { "id": "x", "kind": "content", "notes": "B" },
+        { "id": "x", "kind": "content", "notes": "B" }
+    ]}))
+    .unwrap();
+    assert_that!(slide_ids(&deck)).is_equal_to(vec!["x", "x-2"]);
+}

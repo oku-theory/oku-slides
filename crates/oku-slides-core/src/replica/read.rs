@@ -318,7 +318,12 @@ fn check_version(root: &Map<String, Value>) -> Result<(), ReplicaInner> {
 fn materialize(mut root: Map<String, Value>, mut issues: Vec<Issue>) -> Result<DeckRead, ReplicaInner> {
     check_version(&root)?;
     let slides: Vec<Slide> = match root.remove("slides") {
-        Some(Value::Array(a)) => a.into_iter().filter_map(|s| read_slide(s, &mut issues)).collect(),
+        Some(Value::Array(a)) => {
+            let mut slides: Vec<Slide> = a.into_iter().filter_map(|s| read_slide(s, &mut issues)).collect();
+            // Même réparation que la forme canonique : la vue égale la relecture (t-652).
+            crate::canonical::unique_ids(&mut slides);
+            slides
+        }
         _ => Vec::new(),
     };
     let keys: Vec<String> = root.keys().cloned().collect();

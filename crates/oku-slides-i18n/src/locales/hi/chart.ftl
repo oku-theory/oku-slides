@@ -50,3 +50,4 @@ chart-table-too-large = एक तालिका में अधिकतम {
 chart-table-cell-too-long = तालिका के एक कक्ष में अधिकतम { $max } अक्षर हो सकते हैं
 chart-table-not-finite = तालिका की संख्याएँ परिमित होनी चाहिए
 chart-table-chart-option = chart चार्ट विकल्पों का ऑब्जेक्ट होना चाहिए
+chart-table-chart-columns = chart-columns में मान्य कॉलम पहचानकर्ता होने चाहिए (1 से 64 अक्षर, अंक, - या _)

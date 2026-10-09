@@ -50,3 +50,4 @@ chart-table-too-large = يحتوي الجدول على { $rows } صفًا و{ $c
 chart-table-cell-too-long = تحتوي خلية الجدول على { $max } حرفًا كحد أقصى
 chart-table-not-finite = يجب أن تكون أرقام الجدول منتهية
 chart-table-chart-option = يجب أن يكون chart كائن خيارات مخطط
+chart-table-chart-columns = يجب أن يسرد chart-columns معرّفات أعمدة صالحة (من 1 إلى 64 حرفًا أو رقمًا أو - أو _)

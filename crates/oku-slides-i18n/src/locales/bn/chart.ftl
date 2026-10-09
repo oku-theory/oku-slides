@@ -50,3 +50,4 @@ chart-table-too-large = একটি টেবিলে সর্বোচ্চ
 chart-table-cell-too-long = টেবিলের একটি ঘরে সর্বোচ্চ { $max } অক্ষর থাকতে পারে
 chart-table-not-finite = টেবিলের সংখ্যাগুলো সসীম হতে হবে
 chart-table-chart-option = chart অবশ্যই চার্ট অপশনের একটি অবজেক্ট হতে হবে
+chart-table-chart-columns = chart-columns-এ বৈধ কলাম শনাক্তকারী থাকতে হবে (১ থেকে ৬৪টি অক্ষর, অঙ্ক, - বা _)

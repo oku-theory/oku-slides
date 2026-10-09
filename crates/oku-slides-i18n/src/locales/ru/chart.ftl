@@ -50,3 +50,4 @@ chart-table-too-large = в таблице не более { $rows } строк �
 chart-table-cell-too-long = ячейка таблицы содержит не более { $max } символов
 chart-table-not-finite = числа в таблице должны быть конечными
 chart-table-chart-option = chart должен быть объектом параметров диаграммы
+chart-table-chart-columns = chart-columns должен содержать допустимые идентификаторы столбцов (от 1 до 64 букв, цифр, - или _)

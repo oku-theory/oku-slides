@@ -160,3 +160,98 @@ fn table_to_chart_after_removing_a_value_column_keeps_the_remaining_series() {
     assert_that!(series.iter().map(|s| s["itemStyle"]["color"].clone()).collect::<Vec<_>>())
         .is_equal_to(vec![json!("#ff0000"), json!("#00ff00")]);
 }
+
+fn three_colored_lines() -> ChartOption {
+    chart(json!({ "dataset": { "source": [["M", "A", "B", "C"], ["x", 1, 2, 3], ["y", 4, 5, 6]],
+            "columns": ["m", "a", "b", "c"] },
+        "xAxis": { "type": "category" },
+        "series": [
+            { "type": "line", "itemStyle": { "color": "#ff0000" } },
+            { "type": "line", "itemStyle": { "color": "#00ff00" } },
+            { "type": "line", "itemStyle": { "color": "#0000ff" } }
+        ] }))
+}
+
+fn series_colors(c: &ChartOption) -> Vec<serde_json::Value> {
+    let v = serde_json::to_value(c).unwrap_or_else(|e| panic!("{e}"));
+    v["series"].as_array().cloned().unwrap_or_default().iter().map(|s| s["itemStyle"]["color"].clone()).collect()
+}
+
+#[test]
+fn chart_to_table_keeps_the_chart_column_ids() {
+    let t = chart_to_table(&three_colored_lines()).unwrap();
+    assert_that!(t.chart_columns).is_equal_to(vec!["m".to_owned(), "a".into(), "b".into(), "c".into()]);
+}
+
+#[test]
+fn table_to_chart_after_removing_the_middle_column_keeps_each_series_color() {
+    let t = chart_to_table(&three_colored_lines()).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::RemoveColumn { at: 2 }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    assert_that!(c.series.iter().map(|s| s.kind).collect::<Vec<_>>())
+        .is_equal_to(vec![crate::SeriesType::Line, crate::SeriesType::Line]);
+    assert_that!(series_colors(&c)).is_equal_to(vec![json!("#ff0000"), json!("#0000ff")]);
+}
+
+#[test]
+fn table_to_chart_after_inserting_a_column_gives_it_a_default_series() {
+    let t = chart_to_table(&three_colored_lines()).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::InsertColumn { at: 2, cells: vec![], id: None }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    assert_that!(c.series.iter().map(|s| s.kind).collect::<Vec<_>>()).is_equal_to(vec![crate::SeriesType::Line; 4]);
+    assert_that!(series_colors(&c)).is_equal_to(vec![
+        json!("#ff0000"),
+        serde_json::Value::Null,
+        json!("#00ff00"),
+        json!("#0000ff"),
+    ]);
+}
+
+#[test]
+fn table_to_chart_without_chart_columns_keeps_positional_series() {
+    let mut t = chart_to_table(&three_colored_lines()).unwrap();
+    t.chart_columns.clear();
+    let t = crate::table_data(&t, &crate::DataOp::RemoveColumn { at: 2 }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    assert_that!(series_colors(&c)).is_equal_to(vec![json!("#ff0000"), json!("#00ff00")]);
+}
+
+#[test]
+fn table_to_chart_with_misaligned_chart_columns_keeps_positional_series() {
+    let mut t = chart_to_table(&three_colored_lines()).unwrap();
+    t.chart_columns.pop();
+    let t = crate::table_data(&t, &crate::DataOp::RemoveColumn { at: 2 }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    assert_that!(series_colors(&c)).is_equal_to(vec![json!("#ff0000"), json!("#00ff00")]);
+}
+
+fn stacked_smooth_lines() -> ChartOption {
+    chart(json!({ "dataset": { "source": [["M", "A", "B"], ["x", 1, 2]], "columns": ["m", "a", "b"] },
+        "xAxis": { "type": "category" },
+        "series": [
+            { "type": "line", "stack": "s", "smooth": true, "itemStyle": { "color": "#ff0000" } },
+            { "type": "line", "stack": "s", "smooth": true, "itemStyle": { "color": "#00ff00" } }
+        ] }))
+}
+
+#[test]
+fn table_to_chart_after_inserting_a_column_stacks_the_new_series_with_its_neighbour() {
+    let t = chart_to_table(&stacked_smooth_lines()).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::InsertColumn { at: 2, cells: vec![], id: None }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    let s = &c.series[1];
+    assert_that!((s.stack.as_deref(), s.smooth, s.item_style.is_none())).is_equal_to((Some("s"), Some(true), true));
+}
+
+#[test]
+fn table_to_chart_after_inserting_a_first_column_takes_the_next_series_as_model() {
+    let mut option = stacked_smooth_lines();
+    option.series[0].stack = None;
+    let t = chart_to_table(&option).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::RemoveColumn { at: 1 }).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::InsertColumn { at: 1, cells: vec![], id: None }).unwrap();
+    let c = table_to_chart(&t, ChartLabels::english()).unwrap();
+    // Sans voisine d'avant, la série neuve prend modèle sur celle d'après (B, empilée), pas sur A.
+    assert_that!((c.series[0].stack.as_deref(), c.series[0].item_style.is_none())).is_equal_to((Some("s"), true));
+    assert_that!(series_colors(&c)).is_equal_to(vec![serde_json::Value::Null, json!("#00ff00")]);
+}

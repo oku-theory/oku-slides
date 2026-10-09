@@ -188,14 +188,18 @@ fn any_element(deck: &Deck) -> crate::Element {
 }
 
 #[test]
-fn duplicate_element_ids_reconcile_and_read_back_both() {
+fn duplicate_element_ids_reconcile_and_read_back_one_per_id() {
     let mut deck = roadmap();
     let donor = any_element(&deck);
     let idx = empty_slide_index(&deck);
+    let mut other = crate::Element { id: "x".into(), ..donor.clone() };
+    other.params.set("note", crate::ParamValue::Text("autre".into()));
     *slot_mut(&mut deck.slides[idx], "elements") =
-        vec![crate::Element { id: "x".into(), ..donor.clone() }, crate::Element { id: "x".into(), ..donor }];
+        vec![crate::Element { id: "x".into(), ..donor.clone() }, crate::Element { id: "x".into(), ..donor }, other];
     let r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
-    assert_that!(slot(&r.deck().0.slides[idx], "elements").len()).is_equal_to(2);
+    // Copie exacte écartée, autre version renommée (t-652).
+    let ids: Vec<String> = slot(&r.deck().0.slides[idx], "elements").iter().map(|e| e.id.clone()).collect();
+    assert_that!(ids).is_equal_to(vec!["x".to_owned(), "x-2".to_owned()]);
 }
 
 #[test]

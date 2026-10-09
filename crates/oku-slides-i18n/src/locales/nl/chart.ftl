@@ -50,3 +50,4 @@ chart-table-too-large = een tabel heeft hoogstens { $rows } rijen en { $columns 
 chart-table-cell-too-long = een tabelcel bevat hoogstens { $max } tekens
 chart-table-not-finite = getallen in de tabel moeten eindig zijn
 chart-table-chart-option = chart moet een object met grafiekopties zijn
+chart-table-chart-columns = chart-columns moet geldige kolom-id's bevatten (1 tot 64 letters, cijfers, - of _)

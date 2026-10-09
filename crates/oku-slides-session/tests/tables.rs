@@ -154,3 +154,26 @@ fn show_as_round_trip_keeps_the_chart_type() {
     let e = element(&mut s, &slide);
     assert_that!(e["params"]["option"]["series"][0]["type"].clone()).is_equal_to(json!("line"));
 }
+
+#[test]
+fn show_as_round_trip_after_removing_a_middle_column_keeps_each_series_color() {
+    let mut s = session();
+    ok(s.new_deck());
+    let slide = s.snapshot().slides[1].id.to_string();
+    ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique", "ops": [{
+        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+        "element": { "id": "g", "kind": "chart", "params": { "option": {
+            "dataset": { "source": [["M", "A", "B", "C"], ["x", 1, 2, 3], ["y", 4, 5, 6]] },
+            "xAxis": { "type": "category" }, "series": [
+                { "type": "line", "itemStyle": { "color": "#ff0000" } },
+                { "type": "line", "itemStyle": { "color": "#00ff00" } },
+                { "type": "line", "itemStyle": { "color": "#0000ff" } }] } } } }] }))));
+    ok(show_as(&mut s, &slide, "table"));
+    ok(s.handle(req(json!({ "cmd": "apply", "label": "colonne", "ops": [{ "op": "set_data",
+        "target": { "slide": slide, "element": "g" }, "param": "data",
+        "change": { "op": "remove_column", "at": 2 } }] }))));
+    ok(show_as(&mut s, &slide, "chart"));
+    let series = element(&mut s, &slide)["params"]["option"]["series"].as_array().cloned().unwrap_or_default();
+    let colors: Vec<_> = series.iter().map(|s| s["itemStyle"]["color"].clone()).collect();
+    assert_that!(colors).is_equal_to(vec![json!("#ff0000"), json!("#0000ff")]);
+}

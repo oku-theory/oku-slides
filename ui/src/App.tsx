@@ -30,6 +30,7 @@ import { moveCell, trackSize } from "./grid";
 import type { AddKind } from "./slideTools";
 import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
+import { NumberLangContext } from "./a2ui/numberLang";
 import type { SlideThumbs } from "./a2ui/slideThumbs";
 import { AgentPanel, IDLE_AGENT, type AgentHandle } from "./agent/AgentPanel";
 import { escapeAction, targetOwnsKeys } from "./agent/keys";
@@ -603,6 +604,7 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
   );
 
   return (
+    <NumberLangContext.Provider value={snap.lang ?? null}>
     <div className="table">
       {history ? (
         <HistoryBar
@@ -811,5 +813,6 @@ export default function App({ tab, nonce, notice, onOpen, onHelp, onClose, onCha
 
       {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
     </div>
+    </NumberLangContext.Provider>
   );
 }

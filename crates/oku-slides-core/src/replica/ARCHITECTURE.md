@@ -39,7 +39,10 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler.
   identifiant en double ou invalide remplacé (`r{i}`/`c{j}`, puis `-{n}`),
   bornes de 10 000 lignes, 1 000 colonnes et 1 000 000 cellules
   (`issue-data-truncated`), profondeur bornée par `MAX_DEPTH` ; un `dataset`
-  hors de ces bornes s'écrit en `Opaque`.
+  hors de ces bornes s'écrit en `Opaque`. Slides, éléments d'une slide (tous
+  slots confondus) ou items d'une liste au même id (t-652 : une suppression
+  défaite recrée l'objet, un `mov` concurrent garde l'original) : copie exacte
+  d'un voisin écartée, autre occurrence renommée `{id}-{n}` ; id vide laissé.
 - **Parade t-188** : les conteneurs déclarés sont créés d'avance, vides ; deux
   premières éditions concurrentes visent le même conteneur.
 - **Parade t-263** : chaque `mov` part dans son propre commit (`split`) ; Loro

@@ -22,6 +22,10 @@ enum Edit {
     Add(usize),
     Theme(Option<ThemeRef>),
     Bold(usize),
+    /// Déplace un élément d'un slot à deux éléments ([`busy_slot`]) : de `a` vers `b`.
+    MoveElement(usize, usize, usize),
+    /// Retire l'élément `a` d'un slot à deux éléments ([`busy_slot`]).
+    RemoveElement(usize, usize),
     /// `set_cell` du tableau `t` : ligne, colonne, valeur.
     SetCell(usize, usize, i32),
     InsertRow(usize),
@@ -49,6 +53,8 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::Add),
         prop::option::of(prop_oneof![Just(theme("a")), Just(theme("b"))]).prop_map(Edit::Theme),
         any::<usize>().prop_map(Edit::Bold),
+        (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(i, a, b)| Edit::MoveElement(i, a, b)),
+        (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::RemoveElement(i, a)),
         (any::<usize>(), any::<usize>(), -50i32..50).prop_map(|(r, c, v)| Edit::SetCell(r, c, v)),
         any::<usize>().prop_map(Edit::InsertRow),
         any::<usize>().prop_map(Edit::RemoveRow),
@@ -147,6 +153,15 @@ fn toggle_bold(params: &mut Params) -> bool {
     false
 }
 
+/// Le premier slot à deux éléments au moins (premier niveau) de la `i`-ième
+/// slide qui en a un, modulo leur nombre.
+fn busy_slot(deck: &mut Deck, i: usize) -> Option<&mut Vec<oku_slides_core::Element>> {
+    let busy = |s: &Slide| s.params.slots().any(|(_, list)| list.len() >= 2);
+    let count = deck.slides.iter().filter(|s| busy(s)).count();
+    let slide = deck.slides.iter_mut().filter(|s| busy(s)).nth(i % count.max(1))?;
+    slide.params.slots_mut().map(|(_, list)| list).find(|list| list.len() >= 2)
+}
+
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
     let len = deck.slides.len();
     match e {
@@ -186,6 +201,17 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
         Edit::Bold(i) => {
             toggle_bold(&mut deck.slides[i % len].params);
         }
+        Edit::MoveElement(i, a, b) => {
+            if let Some(list) = busy_slot(deck, *i) {
+                let el = list.remove(a % list.len());
+                list.insert(b % (list.len() + 1), el);
+            }
+        }
+        Edit::RemoveElement(i, a) => {
+            if let Some(list) = busy_slot(deck, *i) {
+                list.remove(a % list.len());
+            }
+        }
     }
 }
 
@@ -203,32 +229,15 @@ proptest! {
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
         for (p, (replica, list)) in peers.iter_mut().zip(&edits).enumerate() {
             let (mut d, mut n) = (replica.deck().0, 0);
-            // L'annulation ne vise que des éditions du tableau : défaire une suppression ou un
-            // déplacement de slide face à un pair qui la déplace duplique l'identifiant de la slide
-            // (hors sujet ici).
-            let mut last_is_table = false;
             for e in list {
+                // Annule la dernière édition locale, quelle qu'elle soit (t-652 : y compris
+                // la suppression d'une slide ou d'un élément qu'un pair déplace).
                 if matches!(e, Edit::Undo) {
-                    if last_is_table {
-                        replica.undo().unwrap();
-                        d = replica.deck().0;
-                        last_is_table = false;
-                    }
+                    replica.undo().unwrap();
+                    d = replica.deck().0;
                     continue;
                 }
-                let before = d.clone();
                 apply(&mut d, e, p, &mut n);
-                // Une édition sans effet (tableau supprimé, op refusée) ne s'annule pas.
-                last_is_table = d != before
-                    && matches!(
-                        e,
-                        Edit::SetCell(..)
-                            | Edit::InsertRow(_)
-                            | Edit::RemoveRow(_)
-                            | Edit::InsertColumn(_)
-                            | Edit::RemoveColumn(_)
-                            | Edit::Replace(_)
-                    );
                 replica.apply(&d, "edit", None).unwrap();
             }
         }
@@ -251,7 +260,8 @@ proptest! {
         for p in &peers[1..] {
             prop_assert_eq!(&p.deck().0, &first);
         }
-        prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| i.message.id() != "issue-duplicate-slide-id"));
+        let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id", "issue-duplicate-item-id"];
+        prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
         if let Some(data) = table_data(&first) {
             assert_table_ok(data);
         }

@@ -50,3 +50,4 @@ chart-table-too-large = 표는 최대 { $rows }행, { $columns }열까지 가질
 chart-table-cell-too-long = 표의 셀에는 최대 { $max }자까지 들어갑니다
 chart-table-not-finite = 표의 숫자는 유한해야 합니다
 chart-table-chart-option = chart는 차트 옵션 객체여야 합니다
+chart-table-chart-columns = chart-columns에는 유효한 열 식별자를 나열해야 합니다(1~64자의 영문자, 숫자, - 또는 _)

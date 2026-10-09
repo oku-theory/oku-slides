@@ -256,3 +256,101 @@ fn data_op_insert_row_without_id_serializes_without_it() {
     assert_that!(serde_json::to_value(&op).unwrap())
         .is_equal_to(serde_json::json!({"op":"insert_row","at":1,"cells":[]}));
 }
+
+fn colored_lines() -> ChartOption {
+    serde_json::from_value(serde_json::json!({
+        "dataset": { "source": [["M", "A", "B", "C"], ["x", 1, 2, 3]] },
+        "xAxis": { "type": "category" },
+        "series": [
+            { "type": "line", "itemStyle": { "color": "#aa0000" } },
+            { "type": "bar", "itemStyle": { "color": "#00bb00" } },
+            { "type": "line", "itemStyle": { "color": "#0000cc" } }
+        ]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"))
+}
+
+fn colors(c: &ChartOption) -> Vec<Option<String>> {
+    c.series.iter().map(|s| s.item_style.as_ref().and_then(|i| i.color.clone())).collect()
+}
+
+#[test]
+fn chart_data_remove_middle_column_drops_its_own_series() {
+    let c = chart_data(&colored_lines(), &DataOp::RemoveColumn { at: 2 }).unwrap();
+    assert_that!(colors(&c)).is_equal_to(vec![Some("#aa0000".to_owned()), Some("#0000cc".to_owned())]);
+    assert_that!(c.series.iter().map(|s| s.kind).collect::<Vec<_>>())
+        .is_equal_to(vec![crate::SeriesType::Line, crate::SeriesType::Line]);
+}
+
+#[test]
+fn chart_data_insert_column_adds_an_uncolored_series_at_its_place() {
+    let change = DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("N".into())], id: None };
+    let c = chart_data(&colored_lines(), &change).unwrap();
+    assert_that!(colors(&c)).is_equal_to(vec![
+        Some("#aa0000".to_owned()),
+        None,
+        Some("#00bb00".to_owned()),
+        Some("#0000cc".to_owned()),
+    ]);
+    // Le voisin d'avant est une ligne.
+    assert_that!(c.series[1].kind).is_equal_to(crate::SeriesType::Line);
+}
+
+#[test]
+fn chart_data_insert_column_first_takes_the_type_of_the_series_after() {
+    let mut option = colored_lines();
+    option.series[0].kind = crate::SeriesType::Bar;
+    let change = DataOp::InsertColumn { at: 1, cells: vec![], id: None };
+    let c = chart_data(&option, &change).unwrap();
+    assert_that!((c.series.len(), c.series[0].kind, colors(&c)[0].clone())).is_equal_to((
+        4,
+        crate::SeriesType::Bar,
+        None,
+    ));
+}
+
+#[test]
+fn chart_data_remove_category_column_keeps_positional_behaviour() {
+    let c = chart_data(&colored_lines(), &DataOp::RemoveColumn { at: 0 }).unwrap();
+    assert_that!(colors(&c)).is_equal_to(vec![Some("#aa0000".to_owned()), Some("#00bb00".to_owned())]);
+}
+
+#[test]
+fn chart_data_on_a_pie_keeps_its_single_series() {
+    let pie: ChartOption = serde_json::from_value(serde_json::json!({
+        "dataset": { "source": [["N", "V", "W"], ["a", 1, 2]] },
+        "series": [{ "type": "pie", "itemStyle": { "color": "#aa0000" } }]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    let c = chart_data(&pie, &DataOp::RemoveColumn { at: 1 }).unwrap();
+    assert_that!(colors(&c)).is_equal_to(vec![Some("#aa0000".to_owned())]);
+}
+
+fn styled_lines() -> ChartOption {
+    serde_json::from_value(serde_json::json!({
+        "dataset": { "source": [["M", "A", "B"], ["x", 1, 2]] },
+        "xAxis": { "type": "category" },
+        "series": [
+            { "type": "line", "stack": "s", "smooth": true, "areaStyle": {},
+              "label": { "show": true }, "itemStyle": { "color": "#aa0000" } },
+            { "type": "line", "stack": "s", "itemStyle": { "color": "#00bb00" } }
+        ]
+    }))
+    .unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn chart_data_insert_column_copies_the_neighbour_style_flags_but_not_its_color() {
+    let change = DataOp::InsertColumn { at: 2, cells: vec![], id: None };
+    let c = chart_data(&styled_lines(), &change).unwrap();
+    let s = &c.series[1];
+    assert_that!((s.stack.as_deref(), s.smooth, s.area_style.is_some())).is_equal_to((Some("s"), Some(true), true));
+    assert_that!((s.item_style.is_none(), s.label.is_none(), s.name.is_none())).is_equal_to((true, true, true));
+}
+
+#[test]
+fn chart_data_insert_column_first_copies_the_next_series_stack() {
+    let change = DataOp::InsertColumn { at: 1, cells: vec![], id: None };
+    let c = chart_data(&styled_lines(), &change).unwrap();
+    assert_that!((c.series[0].stack.as_deref(), c.series[0].item_style.is_none())).is_equal_to((Some("s"), true));
+}

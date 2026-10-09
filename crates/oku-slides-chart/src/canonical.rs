@@ -113,24 +113,61 @@ fn empty_axis() -> Axis {
     Axis { kind: None, data: None, min: None, max: None }
 }
 
+/// Vrai si toutes les séries sont des barres ou lignes en forme canonique.
+pub(crate) fn is_canonical_cartesian(option: &ChartOption) -> bool {
+    !option.series.is_empty()
+        && option
+            .series
+            .iter()
+            .all(|s| matches!(s.kind, SeriesType::Bar | SeriesType::Line) && s.encode.is_none() && s.data.is_none())
+}
+
 /// Après ajout ou retrait de colonnes dans la grille : ajuste le nombre de
 /// séries cartésiennes (forme canonique) au nombre de colonnes de valeurs.
-/// Une série ajoutée reprend le type de la dernière.
+/// Une série ajoutée prend modèle sur la dernière ([`fresh_series`]).
 pub fn sync_series_with_columns(option: &mut ChartOption) {
     let Some(width) = option.dataset.as_ref().and_then(|d| d.source.first()).map(Vec::len) else {
         return;
     };
-    let canonical_cartesian = option
-        .series
-        .iter()
-        .all(|s| matches!(s.kind, SeriesType::Bar | SeriesType::Line) && s.encode.is_none() && s.data.is_none());
-    if !canonical_cartesian || option.series.is_empty() {
+    if !is_canonical_cartesian(option) {
         return;
     }
     let wanted = width.saturating_sub(1).max(1);
     // `series` n'est pas vide (vérifié plus haut).
-    if let Some(template) = option.series.last().cloned() {
+    if let Some(template) = option.series.last().map(fresh_series) {
         option.series.resize(wanted, template);
+    }
+}
+
+/// Une série neuve sur le modèle de sa voisine `template`.
+///
+/// Elle garde le type et l'allure (`stack`, `smooth`, `area_style`, `radius`,
+/// `rose_type`) ; pas l'identité (`name`, `encode`, `data`), ni `label`, ni
+/// `item_style` : sa couleur vient de la palette.
+pub(crate) fn fresh_series(template: &Series) -> Series {
+    Series { name: None, encode: None, data: None, label: None, item_style: None, ..template.clone() }
+}
+
+/// Avant le retrait de la colonne `at` : retire la série qui la lit.
+///
+/// Sans effet sur la colonne des catégories (`at == 0`) ou hors forme canonique.
+pub(crate) fn remove_column_series(option: &mut ChartOption, at: usize) {
+    if at >= 1 && at <= option.series.len() && option.series.len() > 1 && is_canonical_cartesian(option) {
+        option.series.remove(at - 1);
+    }
+}
+
+/// Avant l'insertion d'une colonne en `at` : insère sa série, du type de sa voisine.
+///
+/// La voisine est la série d'avant, sinon celle d'après. Sans effet sur la
+/// colonne des catégories (`at == 0`) ou hors forme canonique.
+pub(crate) fn insert_column_series(option: &mut ChartOption, at: usize) {
+    if at == 0 || at > option.series.len() + 1 || !is_canonical_cartesian(option) {
+        return;
+    }
+    let neighbour = at.checked_sub(2).and_then(|i| option.series.get(i)).or_else(|| option.series.get(at - 1));
+    if let Some(series) = neighbour.map(fresh_series) {
+        option.series.insert(at - 1, series);
     }
 }
 

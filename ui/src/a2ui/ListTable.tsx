@@ -6,13 +6,15 @@
 // TanStack Table v9 (`useTable` + `tableFeatures`), comme ChartDataGrid ; la
 // poignée et « × » sont hors des colonnes du schéma.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import type { ListOp, Paragraph } from "../api";
 import { newId, textToParagraphs } from "../deck";
 import { locale, t } from "../i18n";
 import { Icon } from "../icons";
 import { coerce, parseTsv, type ColumnKind } from "../table/cells";
+import { formatNumber, parseNumber } from "../table/numbers";
+import { NumberLangContext } from "./numberLang";
 import { RichTextField } from "./RichTextField";
 import "./ListTable.css";
 
@@ -86,7 +88,13 @@ type CellContext = { row: { original: ListRow; index: number }; getValue: () => 
 /** Adresse d'une cellule : `id/colonne`. */
 const at = (row: string, col: string) => `${row}/${col}`;
 
+/** Langue des nombres : celle du deck, à défaut celle de l'UI (comme la grille). */
+function useNumberLang(): string {
+  return useContext(NumberLangContext) || locale();
+}
+
 export function ListTable({ label, rows, columns, min, max, itemLabel, palette, markdown, onChange }: ListTableProps) {
+  const lang = useNumberLang();
   const item = itemLabel ?? t("ui-list-item");
   const full = max !== null && rows.length >= max;
   const [invalid, flagged] = useInvalid();
@@ -133,7 +141,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       cells.forEach((raw, dc) => {
         const column = columns[c + dc];
         if (!column) return;
-        const v = cellValue(column, raw);
+        const v = cellValue(column, raw, lang);
         if (v.ok) target[column.key] = v.value;
         else bad.push(at(target.id, column.key));
       });
@@ -389,7 +397,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
           <span className="lt-handle" style={{ width: drag.widths[0] }}>⋮⋮</span>
           {columns.map((c, ci) => (
             <span key={c.key} className="lt-ghost-cell" style={{ width: drag.widths[ci + 1] }}>
-              {cellText(c, lifted[c.key])}
+              {cellText(c, lifted[c.key], lang)}
             </span>
           ))}
         </div>
@@ -423,8 +431,12 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
 }
 
 /** La valeur d'une cellule pour une saisie ou un collage : un nombre vide efface, un texte riche devient paragraphes. */
-function cellValue(c: ListColumn, raw: string): { ok: true; value: unknown } | { ok: false } {
-  if (c.kind === "number" && raw.trim() === "") return { ok: true, value: null };
+function cellValue(c: ListColumn, raw: string, lang: string): { ok: true; value: unknown } | { ok: false } {
+  if (c.kind === "number") {
+    if (raw.trim() === "") return { ok: true, value: null };
+    const n = parseNumber(raw, lang);
+    return typeof n === "number" ? { ok: true, value: n } : { ok: false };
+  }
   const v = coerce(c.kind, raw, c.options.map((o) => o.id));
   if (v.ok && c.kind === "rich") return { ok: true, value: textToParagraphs(String(v.value)) };
   return v;
@@ -469,7 +481,7 @@ function plainText(v: unknown): string {
 }
 
 /** Ce qu'une cellule montre, en texte (fantôme d'une ligne tirée). */
-function cellText(c: ListColumn, v: unknown): string {
+function cellText(c: ListColumn, v: unknown, lang: string): string {
   switch (c.kind) {
     case "flag":
       return v === true ? "✓" : "";
@@ -481,7 +493,7 @@ function cellText(c: ListColumn, v: unknown): string {
       return assetLabel(typeof v === "string" ? v : "");
     case "text":
     case "number":
-      return display(v);
+      return display(v, lang);
     default: {
       // Un nouveau type de colonne doit dire ici ce que montre son fantôme.
       const unknown: never = c.kind;
@@ -495,9 +507,9 @@ function assetLabel(id: string): string {
   return id.length > 16 ? `${id.slice(0, 15)}…` : id;
 }
 
-function display(v: unknown): string {
+function display(v: unknown, lang: string): string {
   if (v === null || v === undefined) return "";
-  if (typeof v === "number") return v.toLocaleString(locale(), { maximumFractionDigits: 10, useGrouping: false });
+  if (typeof v === "number") return formatNumber(v, lang);
   return String(v);
 }
 
@@ -517,18 +529,19 @@ type CellTextProps = {
  * passe à la suite (`onEnter`) qu'une fois la saisie enregistrée.
  */
 function CellText({ value, column, onCommit, onInvalid, onEnter, onPasteGrid }: CellTextProps) {
-  const shown = display(value);
+  const lang = useNumberLang();
+  const shown = display(value, lang);
   const number = column.kind === "number";
   // Entrée valide elle-même : la sortie qu'elle provoque ne revalide pas.
   const committing = useRef(false);
   const commit = (el: HTMLInputElement): Promise<boolean> => {
-    const v = cellValue(column, el.value);
+    const v = cellValue(column, el.value, lang);
     if (!v.ok) {
       el.value = shown;
       onInvalid();
       return Promise.resolve(false);
     }
-    if (display(v.value) === shown) return Promise.resolve(true);
+    if (display(v.value, lang) === shown) return Promise.resolve(true);
     return onCommit(v.value).then((ok) => {
       // Refusé : les lignes n'ont pas changé, la clé non plus ; le brouillon est effacé ici.
       if (!ok) el.value = shown;

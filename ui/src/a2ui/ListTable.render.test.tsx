@@ -9,6 +9,7 @@ const { EditorView } = await import("@codemirror/view");
 const { createElement } = await import("react");
 const { mountSurface, messagesOf } = await import("../test/surface");
 const { ActionOutcomeContext } = await import("./actionOutcome");
+const { NumberLangContext } = await import("./numberLang");
 const { deferred } = await import("../test/widgetApi");
 const { ListTable, popoverPlace, edgeScroll } = await import("./ListTable");
 const { createRoot } = await import("react-dom/client");
@@ -166,6 +167,59 @@ describe("ListTable", () => {
     await typeInto(el, "3,5");
     await blur(el);
     expect(changes()).toEqual([{ op: "set_field", item: "d0", field: "n", value: 3.5 }]);
+  });
+
+  describe("nombres dans la langue du deck", () => {
+    const columns = [{ key: "n", label: "n", kind: "number", options: [] }];
+    const inLang = (lang: string, rows: unknown[]) =>
+      mountSurface(table({ rows, columns }), (s) => createElement(NumberLangContext.Provider, { value: lang }, s)).then((m) => ({
+        ...m,
+        changes: () => m.actions.map((a) => a.context?.change as Change),
+      }));
+
+    test("fr : milliers, virgule et moins « − » comme la grille", async () => {
+      const { host } = await inLang("fr", [{ id: "a", n: 12345.5 }, { id: "b", n: -3 }]);
+      expect([input(host, 0, "n").value, input(host, 1, "n").value]).toEqual(["12\u202f345,5", "\u22123"]);
+    });
+
+    test("en : virgule des milliers et point décimal", async () => {
+      const { host } = await inLang("en", [{ id: "a", n: 12345.5 }]);
+      expect(input(host, 0, "n").value).toBe("12,345.5");
+    });
+
+    test("fr : « 1 234 567,5 » saisi est enregistré 1234567.5", async () => {
+      const { host, changes } = await inLang("fr", [{ id: "a", n: 1 }]);
+      const el = input(host, 0, "n");
+      await typeInto(el, "1\u202f234\u202f567,5");
+      await blur(el);
+      expect(changes()).toEqual([{ op: "set_field", item: "a", field: "n", value: 1234567.5 }]);
+    });
+
+    test("en : « 12,345.5 » saisi est enregistré 12345.5", async () => {
+      const { host, changes } = await inLang("en", [{ id: "a", n: 1 }]);
+      const el = input(host, 0, "n");
+      await typeInto(el, "12,345.5");
+      await blur(el);
+      expect(changes()).toEqual([{ op: "set_field", item: "a", field: "n", value: 12345.5 }]);
+    });
+
+    test("sans langue de deck (aucun fournisseur ou null) : langue de l'UI", async () => {
+      const bare = await mountSurface(table({ rows: [{ id: "a", n: 12345.5 }], columns }));
+      const nul = await inLang(null as unknown as string, [{ id: "a", n: 12345.5 }]);
+      expect(input(bare.host, 0, "n").value).toBe("12,345.5");
+      expect(input(nul.host, 0, "n").value).toBe("12,345.5");
+    });
+
+    test("fr : « −3 » saisi est relu, un non-nombre reste refusé", async () => {
+      const { host, changes } = await inLang("fr", [{ id: "a", n: 1 }]);
+      const el = input(host, 0, "n");
+      await typeInto(el, "\u22123");
+      await blur(el);
+      await typeInto(el, "12 abc");
+      await blur(el);
+      expect(changes()).toEqual([{ op: "set_field", item: "a", field: "n", value: -3 }]);
+      expect(cell(host, 0, "n").hasAttribute("data-invalid")).toBe(true);
+    });
   });
 
   test("case et liste déroulante envoient leur valeur", async () => {

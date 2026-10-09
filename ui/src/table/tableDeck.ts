@@ -21,6 +21,8 @@ export type TableOption = {
   align?: ColumnAlign[];
   /** Options du graphique d'origine, gardées pour le restaurer ; jamais éditées par l'UI. */
   chart?: unknown;
+  /** Identifiants des colonnes du graphique d'origine, pour y remettre chaque série ; jamais édités par l'UI. */
+  "chart-columns"?: string[];
 };
 
 /** Valeurs par défaut des drapeaux, celles de `TableOption` côté Rust. */

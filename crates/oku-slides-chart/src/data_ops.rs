@@ -14,7 +14,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::ensure;
 
-use crate::canonical::sync_series_with_columns;
+use crate::canonical::{insert_column_series, remove_column_series, sync_series_with_columns};
 use crate::error::{ChartError, DataOpSnafu, InconsistentSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::model::normalize;
@@ -66,7 +66,7 @@ fn err(reason: Message) -> ChartError {
 }
 
 /// Un identifiant admis : 1 à 64 lettres ASCII, chiffres, `-` ou `_`.
-fn valid_id(id: &str) -> bool {
+pub(crate) fn valid_id(id: &str) -> bool {
     (1..=MAX_ID_CHARS).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
@@ -228,6 +228,12 @@ pub fn chart_data(option: &ChartOption, change: &DataOp) -> Result<ChartOption> 
     let mut next = option.clone();
     let dataset = next.dataset.as_mut().ok_or_else(|| err(Message::new("chart-data-no-dataset")))?;
     change.apply(dataset)?;
+    // Une colonne de valeurs emporte ou apporte sa propre série, pas la dernière.
+    match change {
+        DataOp::RemoveColumn { at } => remove_column_series(&mut next, *at),
+        DataOp::InsertColumn { at, .. } => insert_column_series(&mut next, *at),
+        _ => {}
+    }
     sync_series_with_columns(&mut next);
     normalize(&next, ChartLabels::english())?;
     Ok(next)

@@ -50,3 +50,4 @@ chart-table-too-large = una tabella ha al massimo { $rows } righe e { $columns }
 chart-table-cell-too-long = una cella della tabella contiene al massimo { $max } caratteri
 chart-table-not-finite = i numeri della tabella devono essere finiti
 chart-table-chart-option = chart deve essere un oggetto di opzioni del grafico
+chart-table-chart-columns = chart-columns deve elencare identificatori di colonna validi (da 1 a 64 lettere, cifre, - o _)

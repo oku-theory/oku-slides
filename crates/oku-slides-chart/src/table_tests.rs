@@ -298,3 +298,37 @@ fn patch_table_strips_the_dataset_of_the_saved_chart() {
     let (next, _) = patch_table(&table(), &patch).unwrap();
     assert_that!(next.chart).is_equal_to(Some(json!({ "color": ["#123456"] })));
 }
+
+#[test]
+fn parse_table_chart_columns_not_strings_is_invalid() {
+    assert_that!(kind_of(json!({ "dataset": { "source": [["A"]] }, "chart": {}, "chart-columns": [1] })))
+        .is_equal_to(ChartErrorKind::InvalidOption);
+}
+
+#[test]
+fn parse_table_chart_columns_with_a_malformed_id_is_inconsistent() {
+    let e =
+        parse_table(&json!({ "dataset": { "source": [["A"]] }, "chart": {}, "chart-columns": ["a b"] })).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.kind()).is_equal_to(ChartErrorKind::Inconsistent);
+    assert_that!(e.localize(&fr)).is_equal_to(Message::new("chart-table-chart-columns").localize(&fr));
+}
+
+#[test]
+fn parse_table_chart_columns_without_chart_are_dropped() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A"]] }, "chart-columns": ["a"] })).unwrap();
+    assert_that!(t.chart_columns.is_empty()).is_true();
+}
+
+#[test]
+fn patch_table_removing_the_chart_drops_the_chart_columns() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A"]] }, "chart": {}, "chart-columns": ["a"] })).unwrap();
+    let (next, _) = patch_table(&t, &json!({ "chart": null })).unwrap();
+    assert_that!(next.chart_columns.is_empty()).is_true();
+}
+
+#[test]
+fn table_option_without_chart_columns_serializes_without_them() {
+    let v = serde_json::to_value(table()).unwrap();
+    assert_that!(v.get("chart-columns")).is_none();
+}

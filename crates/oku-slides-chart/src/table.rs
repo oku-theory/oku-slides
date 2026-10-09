@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, ensure};
 
-use crate::data_ops::{DataOp, validate_ids};
+use crate::data_ops::{DataOp, valid_id, validate_ids};
 use crate::error::{InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::option::{Cell, Dataset};
 use crate::patch::merge_patch;
@@ -43,6 +43,10 @@ pub struct TableOption {
     /// Options du graphique d'origine, sans `dataset`, gardées pour le restaurer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chart: Option<Value>,
+    /// Identifiants des colonnes du graphique d'origine (`dataset.columns`) : la série i
+    /// y lit la colonne i + 1. Vide sans `chart`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chart_columns: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -73,9 +77,13 @@ pub fn parse_table(v: &Value) -> Result<TableOption> {
 
 /// Tronque `align` à la largeur du tableau (une entrée de trop n'a pas de
 /// colonne) et retire le `dataset` du graphique gardé (les données sont
-/// celles du tableau : un `dataset` gardé serait périmé).
+/// celles du tableau : un `dataset` gardé serait périmé). Sans graphique
+/// gardé, ses identifiants de colonnes n'ont plus d'objet.
 fn tidy(option: &mut TableOption) {
     option.align.truncate(option.dataset.source.first().map_or(0, Vec::len));
+    if option.chart.is_none() {
+        option.chart_columns.clear();
+    }
     if let Some(chart) = option.chart.as_mut().and_then(Value::as_object_mut) {
         chart.remove("dataset");
     }
@@ -108,6 +116,10 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
     ensure!(
         option.chart.as_ref().is_none_or(Value::is_object),
         InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
+    );
+    ensure!(
+        option.chart_columns.iter().all(|id| valid_id(id)),
+        InconsistentSnafu { reason: Message::new("chart-table-chart-columns") }
     );
     validate_ids(&option.dataset)
 }

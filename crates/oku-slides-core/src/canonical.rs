@@ -7,10 +7,13 @@
 //! son replica. Appelée par [`apply_all`](crate::apply_all) et
 //! [`SourceBundle::new`](crate::SourceBundle::new).
 
+use std::collections::{HashMap, HashSet};
+
+use serde::Serialize;
 use serde_json::{Number, Value};
 
-use crate::model::{Deck, Paragraph, Run};
-use crate::params::{ParamValue, Params};
+use crate::model::{Deck, Element, Paragraph, Run, Slide};
+use crate::params::{ListItem, ParamValue, Params};
 use crate::replica::PARAGRAPH_SEPARATOR;
 
 /// Met `deck` sous forme canonique :
@@ -25,7 +28,9 @@ use crate::replica::PARAGRAPH_SEPARATOR;
 ///   nouveau paragraphe), runs vides retirés, runs voisins de même format fusionnés ;
 /// - entier JSON au-delà d'`i64` (`vars`, extras de `params`, `tokens`,
 ///   valeurs des paramètres) →
-///   flottant, comme le stocke Loro ; `tokens` objet vide → `null`.
+///   flottant, comme le stocke Loro ; `tokens` objet vide → `null` ;
+/// - un identifiant par slide, par élément d'une slide et par item d'une
+///   liste ([`unique_ids`], la réparation que fait aussi la relecture).
 pub fn canonicalize(deck: &mut Deck) {
     let p = &mut deck.params;
     for field in [&mut p.title, &mut p.subtitle, &mut p.author, &mut p.date, &mut p.organization] {
@@ -45,6 +50,127 @@ pub fn canonicalize(deck: &mut Deck) {
             s.notes.clear();
         }
         params(&mut s.params);
+    }
+    unique_ids(&mut deck.slides);
+}
+
+/// Un identifiant par objet : slides du deck, éléments de chaque slide (tous
+/// slots confondus, comme `validate`), items de chaque liste.
+///
+/// Une copie exacte (à l'identifiant près, même identifiant d'origine) d'un
+/// objet déjà vu de la même collection est écartée ; toute autre occurrence
+/// d'un identifiant déjà gardé est renommée `{id}-{n}`, au premier `n ≥ 2`
+/// libre. Un identifiant vide n'est pas touché (`issue-empty-*-id`).
+///
+/// Défaire une suppression recrée l'objet dans un nouveau conteneur Loro ; un
+/// `mov` concurrent d'un pair garde l'original : deux objets au même id
+/// (t-652). Partagée par [`canonicalize`] et la relecture du replica : la vue
+/// d'un deck JSON aux ids en double égale la relecture de son replica.
+/// Déterministe, linéaire (signature calculée pour les seuls ids en double).
+pub(crate) fn unique_ids(slides: &mut Vec<Slide>) {
+    let mut deck = Ids::new(slides.iter().map(|s| s.id.clone()));
+    *slides = unique(std::mem::take(slides), |s: &mut Slide| &mut s.id, &mut deck);
+    for slide in slides.iter_mut() {
+        let mut taken = Vec::new();
+        element_ids(&slide.params, &mut taken);
+        unique_params(&mut slide.params, &mut Ids::new(taken));
+    }
+}
+
+/// Identifiants d'une portée : slides du deck, éléments d'une slide, items d'une liste.
+struct Ids {
+    /// Tous les identifiants présents ou attribués : un renommage les évite.
+    taken: HashSet<String>,
+    /// Identifiants des objets gardés jusqu'ici.
+    kept: HashSet<String>,
+}
+
+impl Ids {
+    fn new(taken: impl IntoIterator<Item = String>) -> Self {
+        Self { taken: taken.into_iter().collect(), kept: HashSet::new() }
+    }
+
+    /// `{id}-{n}`, au premier `n ≥ 2` libre ; désormais pris.
+    fn fresh(&mut self, id: &str) -> String {
+        let mut n = 2_u64;
+        loop {
+            let candidate = format!("{id}-{n}");
+            if self.taken.insert(candidate.clone()) {
+                return candidate;
+            }
+            n += 1;
+        }
+    }
+}
+
+/// Les objets d'une collection, réparés dans la portée `ids` (voir [`unique_ids`]).
+fn unique<T: Serialize>(mut items: Vec<T>, id: fn(&mut T) -> &mut String, ids: &mut Ids) -> Vec<T> {
+    let mut count: HashMap<String, usize> = HashMap::with_capacity(items.len());
+    for item in &mut items {
+        *count.entry(id(item).clone()).or_default() += 1;
+    }
+    // (identifiant d'origine, signature) des objets vus aux ids en double.
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    let mut out: Vec<T> = Vec::with_capacity(items.len());
+    for mut item in items {
+        let key = id(&mut item).clone();
+        if key.is_empty() {
+            out.push(item);
+            continue;
+        }
+        if count.get(&key).is_some_and(|&n| n > 1)
+            && let Some(sig) = signature(&mut item, id)
+            && !seen.insert((key.clone(), sig))
+        {
+            continue;
+        }
+        if !ids.kept.insert(key.clone()) {
+            let fresh = ids.fresh(&key);
+            ids.kept.insert(fresh.clone());
+            *id(&mut item) = fresh;
+        }
+        out.push(item);
+    }
+    out
+}
+
+/// Le JSON de `item` sans son identifiant ; `None` s'il ne se sérialise pas.
+fn signature<T: Serialize>(item: &mut T, id: fn(&mut T) -> &mut String) -> Option<String> {
+    let key = std::mem::take(id(item));
+    let sig = serde_json::to_string(item).ok();
+    *id(item) = key;
+    sig
+}
+
+/// Les identifiants des éléments de `params`, à toute profondeur.
+fn element_ids(params: &Params, out: &mut Vec<String>) {
+    for v in params.0.values() {
+        if let ParamValue::Slot(list) = v {
+            for e in list {
+                out.push(e.id.clone());
+                element_ids(&e.params, out);
+            }
+        }
+    }
+}
+
+/// Répare les slots (portée `elements`, celle de la slide) et les listes
+/// (portée propre à chacune) de `params`, à toute profondeur.
+fn unique_params(params: &mut Params, elements: &mut Ids) {
+    for v in params.0.values_mut() {
+        match v {
+            ParamValue::Slot(list) => {
+                *list = unique(std::mem::take(list), |e: &mut Element| &mut e.id, elements);
+                for e in list.iter_mut() {
+                    unique_params(&mut e.params, elements);
+                }
+            }
+            ParamValue::List(items) => {
+                let mut scope = Ids::new(items.iter().map(|i| i.id.clone()));
+                *items = unique(std::mem::take(items), |i: &mut ListItem| &mut i.id, &mut scope);
+            }
+            _ => {}
+        }
     }
 }
 
