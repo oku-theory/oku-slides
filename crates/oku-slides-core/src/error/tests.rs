@@ -73,35 +73,6 @@ fn display_keeps_the_english_reason() {
         .is_equal_to("invalid value for grid: outside the grid".to_owned());
 }
 
-/// Chaque langue a sa propre traduction de chaque raison.
-#[test]
-fn every_value_reason_key_exists_in_every_locale() {
-    let reasons = [
-        ValueReason::NoValue,
-        ValueReason::NoDataset,
-        ValueReason::GridTracks,
-        ValueReason::BadItemId,
-        ValueReason::MissingItemId,
-        ValueReason::TooDeep,
-        ValueReason::EmptyPath,
-        ValueReason::NotText,
-        ValueReason::EmptyFrame,
-        ValueReason::BlocksOffGrid,
-        ValueReason::OutsideGrid,
-        ValueReason::NotTokens,
-        ValueReason::NotASlot,
-        ValueReason::OutOfBounds,
-        ValueReason::Unreadable,
-    ];
-    for locale in oku_slides_i18n::available() {
-        let l = Localizer::new(Some(locale));
-        assert!(l.has("op-invalid-value-because"), "{locale} : op-invalid-value-because absent");
-        for reason in reasons {
-            assert!(l.has(reason.key()), "{locale} : {} absent", reason.key());
-        }
-    }
-}
-
 fn param_type(expected: ExpectedType) -> OpError {
     ParamTypeSnafu { param: "count", expected }.build().into()
 }
@@ -159,14 +130,6 @@ fn param_type_says_what_is_expected_in_the_user_language(
     assert_that!(err.expected_type()).is_equal_to(Some(expected));
     assert_that!(err.localize(english())).is_equal_to(format!("Invalid value for count: {en}"));
     assert_that!(err.localize(&Localizer::new(Some("fr")))).is_equal_to(format!("Valeur invalide pour count : {fr}"));
-}
-
-/// `Shape::ALL` couvre chaque forme, une fois, dans l'ordre de `position`.
-#[test]
-fn all_shapes_lists_each_shape_at_its_position() {
-    for (i, shape) in Shape::ALL.into_iter().enumerate() {
-        assert_eq!(shape.position(), i, "{shape:?} n'est pas à son rang dans Shape::ALL");
-    }
 }
 
 /// Chaque forme, avec et sans `null`, se traduit dans chaque langue : l'identifiant brut ne

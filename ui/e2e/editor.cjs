@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./http.cjs');
+const { untilValue, settled } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const slide = (p) => p.evaluate(() =>
   fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'slide', id: 's-constat' } }) })
@@ -13,31 +14,25 @@ const points = async (p) => (await slide(p)).params.blocks.find((e) => e.id === 
 const undoLabel = (p) => p.evaluate(() => document.querySelector('[aria-label^="Annuler"]')?.getAttribute('aria-label'));
 const text = (p) => p.locator('.editor .cm-content').innerText();
 const image = (p) => p.locator('.stage img').getAttribute('src');
-/** Attend que `read()` vérifie `ok` (5 s au plus). */
-const until = async (read, ok, what) => {
-  for (let i = 0; i < 50; i++) {
-    const v = await read();
-    if (ok(v)) return v;
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error(`délai dépassé : ${what}`);
-};
 const open = async (p, label) => {
   await p.dblclick(`.field[aria-label="${label}"] >> nth=0`);
   await p.waitForSelector('.editor .cm-editor.cm-focused');
 };
-const closed = (p) => until(() => p.locator('.editor').count(), (n) => n === 0, 'éditeur fermé');
+const closed = (p) => untilValue(p, () => p.locator('.editor').count(), (n) => n === 0, 'éditeur fermé');
 /** Valide par `act`, puis attend que la slide soit redessinée : l'interface a le nouveau texte. */
 const commitWith = async (p, act) => {
   const before = await image(p);
   await act();
   await closed(p);
-  await until(() => image(p), (src) => src !== before, 'slide redessinée');
+  await untilValue(p, () => image(p), (src) => src !== before, 'slide redessinée');
 };
-/** Valide le titre par `act` : le titre devient `title`, l'éditeur passe au champ suivant ; Échap le ferme. */
-const nextWith = async (p, act, title) => {
+/**
+ * Valide le titre par `act` : le titre (lu par `read`, celui de la slide 4 par défaut) devient `title`,
+ * l'éditeur passe au champ suivant ; Échap le ferme.
+ */
+const nextWith = async (p, act, title, read = async () => (await slide(p)).params.title) => {
   await act();
-  await until(async () => (await slide(p)).params.title, (t) => t === title, `titre « ${title} »`);
+  await untilValue(p, read, (t) => t === title, `titre « ${title} »`);
   await p.waitForSelector('.editor .cm-editor.cm-focused');
   assert.notEqual(await text(p), title); // un autre champ
   await p.keyboard.press('Escape');
@@ -79,16 +74,9 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await p.waitForSelector('.field[aria-label="Corps"]');
     // La carte montre d'abord les paramètres de la slide (chargés après elle), puis ceux de l'élément
     // sélectionné, d'une autre hauteur : la mise en page a changé dessous.
-    await until(card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide`);
+    await untilValue(p, card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide`);
     // La mise en page se pose : deux relevés de suite identiques.
-    let last = null;
-    await until(async () => {
-      const now = JSON.stringify(await stageBox());
-      const same = now === last;
-      last = now;
-      return same;
-    }, (same) => same, `${size} : slide posée`);
-    const still = await stageBox();
+    const still = await settled(p, stageBox, `${size} : slide jamais posée`);
     assert.ok(still, `${size} : pas de slide`);
     if (low) {
       const box = await p.locator('.stage-box').boundingBox();
@@ -96,12 +84,14 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     }
     assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
     await p.click('.field[aria-label="Corps"] >> nth=0');
-    await until(card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), `${size} : paramètres de l'élément`);
+    await untilValue(p, card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), `${size} : paramètres de l'élément`);
     // Relevée pendant 500 ms : ni la fin du changement ni un état transitoire (pas encore de carte,
     // le temps de la lire) ne la déplacent.
+    // Chaque appel suit un point de synchronisation positif (carte ou panneau attendus) et en précède un.
     const unmoved = async (what) => {
       for (let i = 0; i < 20; i++) {
         assert.deepEqual(await stageBox(), still, `${size} : la slide a bougé ${what}`);
+        // négatif : échantillonnage d'une absence de mouvement, la durée est le sujet de la mesure.
         await p.waitForTimeout(25);
       }
       assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
@@ -109,7 +99,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await unmoved('à la sélection');
     // Désélection : retour à la carte de la slide, la plus haute.
     await p.keyboard.press('Escape');
-    await until(card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide (désélection)`);
+    await untilValue(p, card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide (désélection)`);
     await unmoved('à la désélection');
     // Du tableau (son panneau, pas de carte de paramètres) au texte : la carte du texte se lit après
     // le clic, la slide est relevée dès le clic.
@@ -124,7 +114,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await p.click('.field[aria-label="Corps"] >> nth=0');
     await unmoved('du tableau au texte');
     await p.unroute('**/api');
-    await until(card, (t) => t.includes('Paramètres de Texte'), `${size} : paramètres du texte après le tableau`);
+    await untilValue(p, card, (t) => t.includes('Paramètres de Texte'), `${size} : paramètres du texte après le tableau`);
     await unmoved('du tableau au texte');
   };
   // Un tableau sur la slide 4, retiré (annulé) après l'étape 0.
@@ -145,13 +135,13 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await steady('1024×640', true);
   // Largeur du fil par défaut (double-clic) : les scripts suivants partent de la mise en page d'origine.
   await p.dblclick('.col-divider[data-side="notes"]');
-  await until(async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes, (w) => w === null, 'largeur du fil par défaut');
+  await untilValue(p, async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes, (w) => w === null, 'largeur du fil par défaut');
   await p.setViewportSize({ width: 1440, height: 900 });
   await p.reload();
   await steady('1440×900');
   const undone = await post(p, '/api', { tab: 't-1', req: { cmd: 'undo' } });
   assert.ok(!undone.error, JSON.stringify(undone));
-  await until(async () => (await slide(p)).params.blocks.map((e) => e.id).join(), (ids) => ids === 'b-points', 'tableau retiré');
+  await untilValue(p, async () => (await slide(p)).params.blocks.map((e) => e.id).join(), (ids) => ids === 'b-points', 'tableau retiré');
 
   // 1. Géométrie héritée, markdown mis en forme pendant la saisie, première validation.
   await open(p, 'Corps');
@@ -186,8 +176,11 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.keyboard.type('x');
   await p.keyboard.press('Escape');
   await closed(p);
-  await p.waitForTimeout(700); // une validation fautive aurait le temps d'arriver
+  // négatif : une validation fautive aurait le temps d'arriver.
+  await p.waitForTimeout(700);
+  // Point de synchronisation : le deck relu à l'hôte (aller-retour) et le pas d'annulation inchangé.
   assert.deepEqual(await points(p), [{ runs: RUNS }]);
+  assert.equal(await undoLabel(p), undo1);
 
   // 3. Un clic dans la marge de l'éditeur ne le ferme pas.
   await open(p, 'Corps');
@@ -197,7 +190,9 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   // Le point visé est bien hors du texte (sinon le test ne prouverait rien).
   assert.equal(await p.evaluate(([x, y]) => !document.elementFromPoint(x, y)?.closest('.cm-content'), [x, y]), true);
   await p.mouse.click(x, y);
+  // négatif : une fermeture fautive aurait le temps d'arriver.
   await p.waitForTimeout(300);
+  // Point de synchronisation : l'éditeur, toujours là, prend encore la frappe (étape 4, texte relu).
   assert.equal(await p.evaluate(() => document.activeElement?.classList.contains('cm-content')), true);
   assert.equal(await p.locator('.editor').count(), 1);
 
@@ -264,17 +259,39 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   assert.equal(await p.locator('.editor .cm-md-bold').count(), 0);
   await nextWith(p, () => p.keyboard.press('Enter'), 'Constat **2**');
 
+  // 9. Placement libre (slide 7) : glisser le bloc de texte (il se cale sur la grille de la zone),
+  //    éditer le titre, puis deux annulations dans l'ordre inverse : le titre revient d'abord, le bloc ensuite.
+  const libre = async () => {
+    const s = await post(p, '/api', { tab: 't-1', req: { cmd: 'slide', id: 's-libre' } });
+    const block = s.slide.params.elements.find((e) => e.id === 'e-texte');
+    const { x, y } = s.targets.find((t) => t.id === 'e-texte');
+    return { title: s.slide.params.title, place: { frame: block.frame, cell: block.cell }, at: { x, y } };
+  };
+  const origin = await libre();
+  await p.click('.thumb >> nth=6');
+  // Ses trois éléments (fond, texte, image) à la scène : la slide 4 n'en a qu'un.
+  await untilValue(p, () => p.locator('.overlay .target').count(), (n) => n === 3, 'slide 7 jamais à la scène');
+  const tb = await p.locator('.target[aria-label="Texte"]').first().boundingBox();
+  await p.mouse.move(tb.x + 20, tb.y + 20);
+  await p.mouse.down();
+  await p.mouse.move(tb.x + 120, tb.y + 80, { steps: 5 });
+  await p.mouse.up();
+  const moved = await untilValue(p, libre, (s) => s.at.x > origin.at.x && s.at.y > origin.at.y, 'bloc déplacé vers le bas à droite');
+  await open(p, 'Titre');
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.type('Titre modifié');
+  await nextWith(p, () => p.keyboard.press('Enter'), 'Titre modifié', async () => (await libre()).title);
+  assert.deepEqual((await libre()).place, moved.place, "l'édition du titre a touché au bloc");
+  await p.keyboard.press('ControlOrMeta+z');
+  const retitled = await untilValue(p, libre, (s) => s.title === origin.title, 'première annulation : titre');
+  assert.deepEqual(retitled.place, moved.place, 'la première annulation a défait le déplacement');
+  await p.keyboard.press('ControlOrMeta+z');
+  await untilValue(p, libre, (s) => JSON.stringify(s) === JSON.stringify(origin), 'seconde annulation : bloc à sa place d\'origine');
+
   // L'hôte garde la slide courante (t-87) : rendre la slide 1 pour que les scripts suivants
   // (toolbar.cjs, panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.
   await p.click('.thumb >> nth=0');
-  await until(
-    () => p.evaluate(() =>
-      fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) })
-        .then((r) => r.json())
-        .then((s) => s.ui.slide)),
-    (id) => id === 's-title',
-    'retour à la slide 1',
-  );
+  await untilValue(p, async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.slide, (id) => id === 's-title', 'retour à la slide 1');
 
   assert.deepEqual(errors, []);
   await b.close();

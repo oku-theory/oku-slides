@@ -39,14 +39,23 @@ const FIRST_RENDER_MS = 120_000;
   await p.keyboard.press('ArrowRight');
   await caption('Slide 4 sur');
   await p.waitForSelector('.stage img');
-  const before = await p.locator('.stage img').getAttribute('src');
+  // Le contenu du rendu (SVG), pas l'adresse de l'image : revenir sur la slide peut en créer une autre.
+  const svg = () => p.evaluate(async () => (await fetch(document.querySelector('.stage img').src)).text());
+  const before = await svg();
   const box = await p.locator('.stage img').boundingBox();
   await p.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
   await p.keyboard.press('Delete');
   await p.keyboard.press(`${mod}+z`);
+  // négatif : en lecture seule, rien ne change ; une édition fautive aurait le temps de redessiner.
   await p.waitForTimeout(500);
-  assert.equal(await p.locator('.stage img').getAttribute('src'), before);
+  // Point de synchronisation : une flèche suit Suppr et ⌘Z, son effet prouve qu'elles sont traitées ;
+  // retour sur la slide 4 pour relire son rendu.
+  await p.keyboard.press('ArrowRight');
+  await caption('Slide 5 sur');
+  await p.keyboard.press('ArrowLeft');
   await caption('Slide 4 sur');
+  await p.waitForSelector('.stage img');
+  assert.equal(await svg(), before, 'la slide de l\'aide a changé');
 
   // Recherche : ⌘F, un mot, Entrée montre la slide trouvée.
   await p.keyboard.press(`${mod}+f`);
@@ -59,8 +68,10 @@ const FIRST_RENDER_MS = 120_000;
 
   // ⌘/ dans l'aide : le même onglet, pas un second.
   await p.keyboard.press(`${mod}+Slash`);
+  // négatif : un second onglet fautif aurait le temps de s'ouvrir.
   await p.waitForTimeout(300);
   await count(tabs + 1);
+  // Point de synchronisation : la fermeture qui suit retire l'onglet.
 
   await p.getByRole('button', { name: "Fermer l'aide" }).click();
   await count(tabs);

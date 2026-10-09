@@ -3,6 +3,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { untilValue } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
 
@@ -29,14 +30,12 @@ const TAB = '.widget-tab:not([hidden])';
   // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
   // la surface des réglages est reconstruite à chaque relecture.
   const title = p.locator(`${TAB} .host-settings`).getByRole('textbox', { name: 'title', exact: true });
-  const titleUntil = async (ok, what) => {
-    for (let t = 0; t < 50; t++) {
-      const v = await title.inputValue({ timeout: 1000 }).catch(() => null);
-      if (v !== null && ok(v)) return v;
-      await p.waitForTimeout(100);
-    }
-    assert.fail(`réglage du titre : ${what} attendu, « ${await title.inputValue({ timeout: 1000 }).catch(() => '?')} »`);
-  };
+  const titleUntil = (ok, what) => untilValue(
+    p,
+    () => title.inputValue({ timeout: 1000 }).catch(() => null),
+    (v) => v !== null && ok(v),
+    `réglage du titre : ${what} attendu`,
+  );
   await titleUntil((v) => v !== '', 'une valeur');
 
   // Scène : le titre se vide sur l'aperçu, comme un champ de slide.

@@ -3,6 +3,7 @@
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { untilValue } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
 const LIBRE = 5;
@@ -36,19 +37,23 @@ const state = (p) => p.evaluate((LIBRE) => ({
   // Renommer : la vignette suit, l'annulation porte le libellé.
   await p.locator('[data-surface-id="host-template"] input').first().fill('Texte A2UI');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(700);
-  assert.match((await state(p)).thumb, /Texte A2UI/);
+  await untilValue(p, () => state(p), (s) => /Texte A2UI/.test(s.thumb), 'la vignette ne suit pas le nouveau nom');
   // Une colonne de moins.
   await p.getByRole('button', { name: 'Colonnes : une de moins' }).click();
-  await p.waitForTimeout(700);
-  assert.deepEqual((await state(p)).grid, [before.grid[0] - 1, before.grid[1]]);
-  // Deux annulations, dès le clic sur le stepper (le bouton garde le focus) : tout revient.
+  const fewer = JSON.stringify([before.grid[0] - 1, before.grid[1]]);
+  await untilValue(p, () => state(p), (s) => JSON.stringify(s.grid) === fewer, 'la grille ne perd pas une colonne');
+  // Deux annulations, dès le clic sur le stepper (le bouton garde le focus) : la grille revient,
+  // puis le nom.
   await p.keyboard.press('Control+z');
-  await p.waitForTimeout(700);
+  const regrid = await untilValue(p, () => state(p), (s) => JSON.stringify(s.grid) === JSON.stringify(before.grid), 'première annulation : la grille ne revient pas');
+  assert.equal(regrid.name, 'Texte A2UI', 'la première annulation a défait le renommage');
   await p.keyboard.press('Control+z');
-  await p.waitForTimeout(700);
-  const after = await state(p);
-  assert.deepEqual([after.name, after.grid], [before.name, before.grid]);
+  await untilValue(
+    p,
+    () => state(p),
+    (s) => s.name === before.name && JSON.stringify(s.grid) === JSON.stringify(before.grid),
+    'seconde annulation : le nom ne revient pas (ou la grille a changé)',
+  );
   // Un widget ouvert, une miniature cliquée : retour au sous-onglet Modèles, sur ce modèle.
   const panelHidden = () => p.evaluate(() => document.getElementById('templates-panel').hidden);
   // Créé, il s'ouvre dans son sous-onglet.
@@ -58,8 +63,7 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.waitForSelector('.widget-tab:not([hidden])');
   assert.equal(await panelHidden(), true);
   await p.click('.thumb >> nth=0');
-  await p.waitForTimeout(300);
-  assert.equal(await panelHidden(), false);
+  await untilValue(p, panelHidden, (hidden) => hidden === false, 'le sous-onglet Modèles ne revient pas');
   assert.equal(await p.locator('.thumb >> nth=0').getAttribute('aria-current'), 'true');
   await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
   await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
@@ -78,6 +82,9 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.waitForFunction((n) => document.querySelectorAll('[data-surface-id="host-theme"] .a2ui-disclosure').length < n, all);
   // Une miniature cliquée garde l'onglet « Thème ».
   await p.click('.thumb >> nth=1');
+  // Point de synchronisation : le clic a bien été traité (la miniature est la courante).
+  await untilValue(p, () => p.locator('.thumb >> nth=1').getAttribute('aria-current'), (v) => v === 'true', 'la miniature cliquée ne devient pas la courante');
+  // négatif : un retour fautif au sous-onglet Modèles aurait le temps d'arriver.
   await p.waitForTimeout(300);
   assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).getAttribute('aria-selected'), 'true');
   // Le menu ⋯ du mode modèles n'a plus de sélecteur de thème.
@@ -90,8 +97,7 @@ const state = (p) => p.evaluate((LIBRE) => ({
   assert.equal(await p.locator('#theme-panel').count(), 0);
   // En quittant les modèles, les cartes disparaissent.
   await p.getByRole('button', { name: 'Terminer' }).click();
-  await p.waitForTimeout(700);
-  assert.equal((await state(p)).cards, 0);
+  await untilValue(p, () => state(p), (s) => s.cards === 0, 'les cartes ne disparaissent pas hors des modèles');
   assert.deepEqual(errors, []);
   console.log('réglages du modèle ok');
   await b.close();

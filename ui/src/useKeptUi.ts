@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
 import type { PileSectionName, UiOrder, UiState } from "./api";
 import { t } from "./i18n";
+import { randomId } from "./randomId";
 import type { KeptTabs } from "./widgetTabs";
 
 // Ordre des sauvegardes : chacune part tout de suite (rien n'attend côté page), et l'hôte ignore celle
@@ -14,12 +15,9 @@ import type { KeptTabs } from "./widgetTabs";
 // repart à zéro sans être ignorée. `seq` est celui du module, pas du composant : il survit au remontage
 // d'`App` d'un onglet à l'autre.
 
-/** Identifiant de la page ; `randomUUID` manque hors contexte sûr (`serve` sur une adresse réseau en HTTP). */
-export function pageId(c: { randomUUID?: () => string } | undefined = globalThis.crypto): string {
-  return c?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
-const page = pageId();
+// L'UUID du navigateur lève hors contexte sûr (`serve` sur une adresse réseau en HTTP) et ce n'est pas un secret :
+// `randomId` suffit (t-695).
+const page = randomId("page");
 let seq = 0;
 const nextOrder = (): UiOrder => ({ page, seq: ++seq });
 

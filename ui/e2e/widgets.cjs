@@ -2,7 +2,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { until } = require('./until.cjs');
+const { until, settled } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
 const svgOf = (p) => p.evaluate(async (sel) => {
@@ -23,16 +23,10 @@ const svgOf = (p) => p.evaluate(async (sel) => {
   await name.fill('carte');
   await name.press('Enter');
   await p.waitForSelector(IMG);
-  // L'aperçu se stabilise (rendu initial, puis valeurs d'essai) avant la mesure.
-  let before = await svgOf(p);
-  let settled = false;
-  for (let again = 0; again < 20 && !settled; again++) {
-    await p.waitForTimeout(400);
-    const now = await svgOf(p);
-    settled = now === before;
-    before = now;
-  }
-  assert.ok(settled, "l'aperçu ne se stabilise pas");
+  // Les réglages d'essai sont chargés (leur surface est là), puis l'aperçu se stabilise (rendu initial,
+  // puis valeurs d'essai) avant la mesure : relevés à 400 ms, plus que l'écart entre ces deux rendus.
+  await p.waitForSelector('[data-surface-id="host-widget"] input');
+  const before = await settled(p, () => svgOf(p), "l'aperçu ne se stabilise pas", 10000, 400);
   // Sous l'aperçu du widget, pas au dock de l'agent.
   assert.equal(await p.locator('.widget-tab:not([hidden]) .widget-tab-side [data-surface-id="host-widget"]').count(), 1);
   assert.equal(await p.locator('.notes [data-surface-id="host-widget"]').count(), 0);

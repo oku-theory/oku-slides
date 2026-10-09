@@ -7,7 +7,7 @@ import type { UiOrder, UiState } from "./api";
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { pageId, useKeptUi, viewToggle } = await import("./useKeptUi");
+const { useKeptUi, viewToggle } = await import("./useKeptUi");
 
 type Hook = ReturnType<typeof useKeptUi>;
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -224,15 +224,6 @@ test("useKeptUi donne à la dernière largeur le plus grand numéro", async () =
   await act(async () => { out.hook!.setCodeWidth(480); });
   const last = out.orders.reduce((a, b) => (b.seq > a.seq ? b : a));
   expect(out.kept[out.orders.indexOf(last)]).toMatchObject({ code_width: 480 });
-});
-
-test("pageId sans randomUUID (hors contexte sûr) tire quand même un identifiant", () => {
-  const [a, b] = [pageId({}), pageId(undefined)];
-  expect([a.length > 0, b.length > 0, a !== b]).toEqual([true, true, true]);
-});
-
-test("pageId prend randomUUID quand il est là", () => {
-  expect(pageId({ randomUUID: () => "u" })).toBe("u");
 });
 
 // Le compteur est celui du module : il survit au remontage d'`App` d'un onglet à l'autre.

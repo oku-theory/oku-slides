@@ -287,6 +287,21 @@ test("Stage click on another field while editing saves and switches", async () =
 });
 
 test("Stage a new editing session gets a new merge key", async () => {
+  // Hors contexte sûr, `crypto.randomUUID` lève : l'éditeur doit s'ouvrir quand même (t-695).
+  const original = Object.getOwnPropertyDescriptor(globalThis.crypto, "randomUUID");
+  Object.defineProperty(globalThis.crypto, "randomUUID", {
+    value: () => { throw new TypeError("crypto.randomUUID is not a function"); },
+    configurable: true,
+  });
+  try {
+    await newMergeKeyScenario();
+  } finally {
+    if (original) Object.defineProperty(globalThis.crypto, "randomUUID", original);
+    else delete (globalThis.crypto as { randomUUID?: unknown }).randomUUID;
+  }
+});
+
+async function newMergeKeyScenario() {
   const { host, calls, render } = await mount({ editing: "c1\u001fkicker" });
   await type(host.querySelector(".editor .cm-content")!, "Un");
   await key(host.querySelector(".editor .cm-content")!, "Tab");
@@ -299,7 +314,7 @@ test("Stage a new editing session gets a new merge key", async () => {
   expect(typeof first).toBe("string");
   expect(typeof second).toBe("string");
   expect(second).not.toBe(first);
-});
+}
 
 test("Stage blur of the editor saves the field and closes the editor", async () => {
   const { host, calls } = await mount({ editing: "c1\u001ftitle" });

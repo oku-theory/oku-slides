@@ -3,6 +3,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { untilValue } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const SURFACE = '#theme-panel [data-surface-id="host-theme"]';
 // La ligne d'un jeton : le composant qui la porte a pour id le chemin du jeton suivi de `:row`.
@@ -13,15 +14,6 @@ const stageSvg = (p) => p.evaluate(async () => {
   const img = [...document.querySelectorAll('.stage img')].find((i) => i.checkVisibility());
   return img ? (await fetch(img.src)).text() : '';
 });
-/** Relit `read` jusqu'à ce que `ok` le prenne (5 s au plus) ; renvoie la dernière lecture. */
-const until = async (p, read, ok) => {
-  let v = await read();
-  for (let t = 0; t < 50 && !ok(v); t++) {
-    await p.waitForTimeout(100);
-    v = await read();
-  }
-  return v;
-};
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -57,9 +49,9 @@ const until = async (p, read, ok) => {
 
   // Le sélecteur natif du ColorField : `fill` émet input puis change, comme sa fermeture.
   await picker.fill('#ff0000');
-  assert.match(await until(p, () => stageSvg(p), (svg) => RED.test(svg)), RED, 'la scène ne montre pas le nouvel accent');
+  await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), 'la scène ne montre pas le nouvel accent');
   // La surface relue garde la valeur envoyée.
-  assert.equal(await until(p, () => picker.inputValue(), (v) => v === '#ff0000'), '#ff0000');
+  await untilValue(p, () => picker.inputValue(), (v) => v === '#ff0000', "la surface relue n'a pas gardé l'accent envoyé");
 
   // ✓ tout de suite, sans attendre l'enregistrement automatique : il part d'abord, et aucune
   // confirmation « quitter sans enregistrer » ne s'ouvre (l'instantané lu est celui de l'enregistrement).
@@ -70,10 +62,10 @@ const until = async (p, read, ok) => {
   const themes = p.locator('[role="menu"]').getByRole('combobox', { name: 'Thème', exact: true });
   await themes.waitFor();
   const selected = () => themes.evaluate((s) => s.selectedOptions[0]?.textContent ?? '');
-  assert.equal(await until(p, selected, (name) => name === 'Papier (copie)'), 'Papier (copie)');
+  await untilValue(p, selected, (name) => name === 'Papier (copie)', 'le thème du deck n\'est pas « Papier (copie) »');
   await p.keyboard.press('Escape');
   // Hors du mode modèles, la scène garde l'accent rouge.
-  assert.match(await until(p, () => stageSvg(p), (svg) => RED.test(svg)), RED);
+  await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), "hors du mode modèles, la scène perd l'accent rouge");
 
   assert.deepEqual(errors, []);
   console.log('éditeur de thème ok');

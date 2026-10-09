@@ -22,6 +22,7 @@ import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
 import { anchorBox, elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
 import GhostLayer from "./GhostLayer";
+import { randomId } from "./randomId";
 import type { OnListOp } from "./stageItems";
 import { findItem, groupAxis, moveItemTo, stageListOp } from "./stageItems";
 
@@ -196,7 +197,7 @@ export default function Stage(props: Props) {
   useLayoutEffect(() => {
     setDraft(editField?.text ?? "");
     if (editing === null) session.current = null;
-    else session.current ??= crypto.randomUUID();
+    else session.current ??= randomId("edit");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 

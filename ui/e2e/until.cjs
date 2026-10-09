@@ -1,5 +1,6 @@
 // Attente par sondage côté Node, pour les conditions asynchrones (fetch, API).
 // `page.waitForFunction` n'attend pas la Promise d'un prédicat async : elle est vraie d'emblée.
+// Le seul délai fixe des specs hors attentes négatives : le pas de sondage ci-dessous (100 ms ; réglable pour `settled`).
 const assert = require('node:assert/strict');
 
 /** Rejoue `fn` jusqu'à une valeur vraie ; échoue avec `why` après `timeout` ms. */
@@ -31,4 +32,34 @@ const stable = (p, selectors) => p.evaluate((sels) => new Promise((resolve, reje
   tick();
 }), selectors);
 
-module.exports = { until, stable };
+/** Relit `read` jusqu'à ce que `ok(valeur)` ; rend la valeur, échoue avec `why` (et le début de la dernière lecture) après `timeout` ms. */
+const untilValue = async (p, read, ok, why, timeout = 8000) => {
+  const t0 = Date.now();
+  let v = await read();
+  while (!ok(v)) {
+    if (Date.now() - t0 >= timeout) assert.fail(`${why} (dernière lecture : ${String(JSON.stringify(v)).slice(0, 200)})`);
+    await p.waitForTimeout(100);
+    v = await read();
+  }
+  return v;
+};
+
+/**
+ * Relit `read` toutes les `every` ms jusqu'à deux lectures consécutives identiques (sérialisées en JSON) :
+ * un chargement asynchrone a fini de changer la valeur. Rend la valeur ; échoue avec `why` après `timeout` ms.
+ * `every` borne l'écart toléré entre deux changements : il doit dépasser celui du chargement attendu.
+ */
+const settled = async (p, read, why, timeout = 8000, every = 100) => {
+  const t0 = Date.now();
+  let last = JSON.stringify(await read());
+  for (;;) {
+    if (Date.now() - t0 >= timeout) assert.fail(why);
+    await p.waitForTimeout(every);
+    const v = await read();
+    const now = JSON.stringify(v);
+    if (now === last) return v;
+    last = now;
+  }
+};
+
+module.exports = { until, stable, untilValue, settled };

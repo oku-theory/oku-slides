@@ -19,6 +19,7 @@ use rust_mcp_sdk::schema::{
     Implementation, InitializeResult, ProtocolVersion, ServerCapabilities, ServerCapabilitiesTools,
 };
 use rust_mcp_sdk::session_store::InMemorySessionStore;
+use sha2::{Digest, Sha256};
 use snafu::ResultExt;
 use tokio_util::sync::CancellationToken;
 
@@ -63,7 +64,8 @@ impl ToolServer {
             client_task_store: None,
             message_observer: None,
         });
-        let expected: Arc<str> = format!("Bearer {token}").into();
+        // Seul le condensat de l'en-tête attendu reste en mémoire du middleware.
+        let expected = digest(format!("Bearer {token}").as_bytes());
         let app = mcp_routes(state, &McpMountOptions::default(), McpHttpHandler::new(None, vec![], None))
             .layer(middleware::from_fn_with_state(expected, require_bearer));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.context(BindSnafu)?;
@@ -85,8 +87,28 @@ impl ToolServer {
     }
 }
 
-async fn require_bearer(State(expected): State<Arc<str>>, req: Request, next: Next) -> Response {
-    let ok = req.headers().get(AUTHORIZATION).and_then(|v| v.to_str().ok()) == Some(&*expected);
+/// Condensat SHA-256 d'une valeur d'en-tête `Authorization`.
+type Digest32 = [u8; 32];
+
+fn digest(bytes: &[u8]) -> Digest32 {
+    Sha256::digest(bytes).into()
+}
+
+/// Vrai si `received` (octets bruts de l'en-tête `Authorization`) est exactement
+/// l'en-tête attendu, dont on ne garde que le condensat.
+///
+/// La comparaison porte sur les condensats avec `==`, qui n'est pas en temps
+/// constant : mais elle ne révèle qu'un préfixe du condensat attendu, inexploitable
+/// tant que le jeton est aléatoire à haute entropie (32 octets de `getrandom`),
+/// puisque deviner le jeton demande d'inverser SHA-256.
+/// La propriété temporelle n'est pas testable ; le contrat (seul
+/// l'en-tête exact passe) l'est, par HTTP.
+fn token_matches(expected: &Digest32, received: &[u8]) -> bool {
+    digest(received) == *expected
+}
+
+async fn require_bearer(State(expected): State<Digest32>, req: Request, next: Next) -> Response {
+    let ok = req.headers().get(AUTHORIZATION).is_some_and(|v| token_matches(&expected, v.as_bytes()));
     if !ok {
         // Un client refusé ne garde pas de place (`[serve] max_connections`).
         return (StatusCode::UNAUTHORIZED, [(CONNECTION, "close")]).into_response();
