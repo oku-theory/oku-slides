@@ -31,6 +31,7 @@ cli-not-found = not found
 cli-bad-request = invalid request: { $reason }
 cli-sse-full = too many event streams already open
 cli-forbidden = request refused: it does not come from the local interface
+cli-exposed = listening on { $host }: the server has no authentication and is reachable from the network; any client that sends a local Host header is served. Keep [serve] host on 127.0.0.1
 
 cli-about = Render and store Oku Slides decks
 cli-arg-fonts = Extra font folder (TTF/OTF); default: paths.fonts in the settings

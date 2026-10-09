@@ -32,6 +32,8 @@ fn defaults_embedded_file_gives_documented_values() {
     assert_that!(s.history.limit).is_equal_to(500);
     assert_that!(s.resume.keep_failed).is_equal_to(3);
     assert_that!((s.serve.host.as_str(), s.serve.port)).is_equal_to(("127.0.0.1", 4870));
+    assert_that!(s.serve.header_timeout()).is_equal_to(std::time::Duration::from_secs(10));
+    assert_that!(s.serve.max_connections.get()).is_equal_to(64);
     assert_that!(s.stt.tick_ms).is_equal_to(50);
     assert_that!(s.stt.vad.onset_frames).is_equal_to(3);
     assert_that!(s.paths).is_equal_to(PathSettings::default());
@@ -234,6 +236,29 @@ fn platform_with_render_launch_replaces_the_launch() {
 }
 
 #[test]
+fn render_settings_max_frame_bytes_saturates_instead_of_overflowing() {
+    let r = RenderSettings {
+        timeout_ms: 1,
+        probe_budget_ms: 1,
+        memory_mib: u64::MAX,
+        max_frame_mib: u64::MAX,
+        max_widget_kib: 256,
+        max_widgets: 64,
+    };
+    assert_that!((r.max_frame_bytes(), r.memory_bytes())).is_equal_to((usize::MAX, u64::MAX));
+}
+
+#[test]
+fn render_memory_and_frame_env_overrides_change_the_settings() {
+    let s = Settings::from_sources(
+        None,
+        env(&[("OKU_SLIDES_RENDER__MEMORY_MIB", "1024"), ("OKU_SLIDES_RENDER__MAX_FRAME_MIB", "64")]),
+    )
+    .unwrap();
+    assert_that!((s.render.memory_mib, s.render.max_frame_mib)).is_equal_to((1024, 64));
+}
+
+#[test]
 fn render_timeout_env_override_changes_the_setting() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_RENDER__TIMEOUT_MS", "5000")])).unwrap();
     assert_that!(s.render.timeout_ms).is_equal_to(5000);
@@ -260,4 +285,19 @@ fn defaults_bound_widget_files() {
     assert_that!(s.render.max_widget_kib).is_equal_to(256);
     assert_that!(s.render.max_widgets).is_equal_to(64);
     assert_that!(s.render.max_widget_bytes()).is_equal_to(256 * 1024);
+}
+
+#[test]
+fn from_sources_refuses_zero_serve_limits_naming_the_setting() {
+    for key in ["OKU_SLIDES_SERVE__MAX_CONNECTIONS", "OKU_SLIDES_SERVE__HEADER_TIMEOUT_MS"] {
+        let refused = Settings::from_sources(None, env(&[(key, "0")]));
+        let setting = key.trim_start_matches("OKU_SLIDES_").replace("__", ".").to_lowercase();
+        let chain = refused
+            .as_ref()
+            .err()
+            .map(|e| format!("{e} : {}", std::error::Error::source(e).map(ToString::to_string).unwrap_or_default()));
+        assert_that!(chain.as_deref().is_some_and(|c| c.contains(&setting))).named(key).is_true();
+    }
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_SERVE__MAX_CONNECTIONS", "1")])).unwrap();
+    assert_that!(s.serve.max_connections.get()).is_equal_to(1);
 }

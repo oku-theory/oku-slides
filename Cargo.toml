@@ -57,6 +57,8 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 ctrlc = { version = "3.5", features = ["termination"] }
 # Mémoire du processus de rendu (limite en RAM, t-327).
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
+# Processus de rendu : dup2 de stdout (unix), phys_footprint (macOS).
+libc = "0.2"
 fluent-bundle = "0.16"
 unic-langid = "0.9"
 sys-locale = "0.3"
@@ -70,9 +72,15 @@ png = "0.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
 # Corps de réponse SSE en flux (`Frame`, que axum ne ré-exporte pas).
 http-body = "1"
+# Boucle d'accept du serveur de développement (t-446) : délai de lecture des en-têtes
+# (HTTP/1) et arrêt gracieux des connexions ; déjà tirés par axum.
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["http1", "server", "server-graceful", "service", "tokio"] }
 # Faux serveur des tests de téléchargement de la dictée (dev-dependency de oku-slides-stt).
 tiny_http = "0.12"
 similar = "3"
+# Catégories Unicode (ponctuation et symboles) : le markdown d'édition suit celles de Lezer.
+unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
 loro = "1.16"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }

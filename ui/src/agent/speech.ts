@@ -51,29 +51,52 @@ export function spokenLines(s: Surface): string[] {
 const stem = (line: string) => (line.endsWith("…") ? line.slice(0, -1).trimEnd() : line);
 
 /**
+ * Ce qui a été entendu d'une ligne lue, pour lire la suite d'une ligne qui la prolonge : une ligne
+ * coupée (« … ») l'a peut-être été au milieu d'un mot, son dernier mot ne compte pas (la suite
+ * reprend au début du mot). Coupée dans son premier mot : rien.
+ */
+function heardPrefix(line: string): string {
+  const s = stem(line);
+  if (s === line) return s;
+  // Coupée juste après une espace (« le … ») : le dernier mot est entier.
+  if (/\s…$/u.test(line)) return s;
+  const space = s.search(/\s\S*$/u);
+  return space < 0 ? "" : s.slice(0, space).trimEnd();
+}
+
+/**
  * Ce qui est nouveau dans `now` par rapport à `before` (déjà lu) : les lignes jamais lues ; d'une
- * ligne qui en prolonge une déjà lue (narration en flux), seulement la suite. Une ligne coupée
- * (« … ») dont le début est déjà lu n'apporte rien ; une ligne entière qui n'est que le début d'une
- * ligne lue (« Sable » après « Sable clair ») est lue.
+ * ligne qui en prolonge une déjà lue (narration en flux), seulement la suite, depuis le début d'un
+ * mot. Une ligne coupée (« … ») dont le début est déjà lu n'apporte rien ; une ligne entière qui
+ * n'est que le début d'une ligne lue (« Sable » après « Sable clair ») est lue.
  */
 export function newSpeech(before: string[], now: string[]): string {
   const heard = before.map(stem).filter(Boolean);
+  const prefixes = before.map(heardPrefix).filter(Boolean);
   const parts: string[] = [];
   for (const line of now) {
     const s = stem(line);
     // Seule une ligne coupée peut n'être que le début d'une ligne lue ; entière, elle est nouvelle.
     const cut = s !== line;
     if (heard.some((h) => (cut ? h.startsWith(s) : h === s))) continue;
-    const grown = heard.filter((h) => s.startsWith(h)).sort((a, b) => b.length - a.length)[0];
+    const grown = prefixes.filter((h) => s.startsWith(h)).sort((a, b) => b.length - a.length)[0];
     parts.push(grown ? s.slice(grown.length).trim() : line);
   }
   return parts.filter(Boolean).join(" ");
 }
 
-/** `before` après lecture de `now` : une ligne prolongée cède sa place à la plus longue (O(lignes)). */
-function merge(before: string[], now: string[]): string[] {
-  const kept = before.filter((b) => !now.some((n) => n !== b && stem(n).startsWith(stem(b))));
-  return [...new Set([...kept, ...now])];
+/**
+ * Ce qui reste entendu d'une surface après lecture de `now` : ses lignes, et pour chacune au plus la
+ * plus longue ligne lue qui la prolonge (une coupe « … » d'une ligne déjà lue ne se relit pas). Le
+ * reste ne sert plus à aucune comparaison : la mémoire reste bornée par la surface (au plus deux
+ * fois ses lignes), même pour une narration en flux de mille morceaux.
+ */
+export function mergeHeard(before: string[], now: string[]): string[] {
+  const longer = now.map((n) => {
+    const s = stem(n);
+    return before.filter((b) => b !== n && stem(b).length > s.length && stem(b).startsWith(s)).sort((a, b) => b.length - a.length)[0];
+  });
+  return [...new Set([...longer.filter((b): b is string => b !== undefined), ...now])];
 }
 
 /** Attente sans nouveau texte avant de lire une phrase inachevée (narration en flux). */
@@ -99,6 +122,8 @@ export class Speech {
   private heard = new Map<string, string[]>();
   private thread: Surface[] = [];
   private generation: number | null = null;
+  /** Le tour ouvert à la dernière mise à jour. */
+  private openTurn: number | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private next = 0;
 
@@ -106,19 +131,25 @@ export class Speech {
 
   /**
    * Les surfaces du fil (lues) et celles du dock (tenues pour lues, sa propre région les annonce :
-   * une question qui s'y fige ne relit pas sa question). Une nouvelle `generation` (première
-   * mise à jour, resynchronisation) tient tout pour lu : un onglet rouvert ne relit pas son fil.
+   * une question qui s'y fige ne relit pas sa question). La première mise à jour (onglet rouvert)
+   * tient tout pour lu : un onglet rouvert ne relit pas son fil. Une resynchronisation (nouvelle
+   * `generation` : Lagged, reconnexion) aussi, sauf les surfaces du tour ouvert (`openTurn`, ou
+   * celui qui l'était avant la coupure) : la suite de sa narration et son reçu sont encore lus.
    */
-  update(thread: Surface[], dock: Surface[], generation: number) {
+  update(thread: Surface[], dock: Surface[], generation: number, openTurn: number | null = null) {
     const present = new Set([...thread, ...dock].map((s) => s.id));
     for (const id of [...this.heard.keys()]) if (!present.has(id)) this.heard.delete(id);
     this.hear(dock);
     this.thread = thread;
     this.cancel();
+    const wasOpen = this.openTurn;
+    this.openTurn = openTurn;
     if (generation !== this.generation) {
+      const first = this.generation === null;
       this.generation = generation;
-      this.hear(thread);
-      return;
+      const open = first ? [] : [wasOpen, openTurn].filter((n): n is number => n !== null);
+      this.hear(thread.filter((s) => s.turn === undefined || !open.includes(s.turn)));
+      if (open.length === 0) return;
     }
     const pending = this.pending();
     if (pending.length === 0) return;
@@ -131,7 +162,7 @@ export class Speech {
   }
 
   private hear(surfaces: Surface[]) {
-    for (const s of surfaces) this.heard.set(s.id, merge(this.heard.get(s.id) ?? [], spokenLines(s)));
+    for (const s of surfaces) this.heard.set(s.id, mergeHeard(this.heard.get(s.id) ?? [], spokenLines(s)));
   }
 
   private pending() {
@@ -154,8 +185,11 @@ export class Speech {
   }
 }
 
-/** Les annonces du fil (voir `Speech`) ; `generation` change à chaque resynchronisation. */
-export function useSpeech(thread: Surface[], dock: Surface[], generation: number): Spoken[] {
+/**
+ * Les annonces du fil (voir `Speech`) ; `generation` change à chaque resynchronisation, `openTurn`
+ * est le tour en cours (`null` : aucun).
+ */
+export function useSpeech(thread: Surface[], dock: Surface[], generation: number, openTurn: number | null = null): Spoken[] {
   const [said, setSaid] = useState<Spoken[]>([]);
   const speech = useRef<Speech | null>(null);
   useEffect(() => {
@@ -163,6 +197,6 @@ export function useSpeech(thread: Surface[], dock: Surface[], generation: number
     speech.current = s;
     return () => s.dispose();
   }, []);
-  useEffect(() => speech.current?.update(thread, dock, generation), [thread, dock, generation]);
+  useEffect(() => speech.current?.update(thread, dock, generation, openTurn), [thread, dock, generation, openTurn]);
   return said;
 }

@@ -52,6 +52,28 @@ type Drag = {
   moved: boolean;
 };
 
+/** Bande près des bords haut et bas de la zone qui défile où un glisser la fait défiler (px). */
+const EDGE = 32;
+/** Vitesse maximale de ce défilement (px par image). */
+const EDGE_SPEED = 14;
+
+/**
+ * Défilement automatique d'un glisser (px par image ; négatif : vers le haut) pour un pointeur en
+ * `y` dans une zone qui défile de `top` à `bottom` : nul loin des bords, croissant vers le bord,
+ * plafonné au-delà.
+ */
+export function edgeScroll(y: number, top: number, bottom: number): number {
+  if (y < top + EDGE) return -EDGE_SPEED * Math.min(1, (top + EDGE - y) / EDGE);
+  if (y > bottom - EDGE) return EDGE_SPEED * Math.min(1, (y - (bottom - EDGE)) / EDGE);
+  return 0;
+}
+
+/** Coordonnées d'un pointeur dans la fenêtre. */
+type Point = { clientX: number; clientY: number };
+
+/** Largeurs rendues des cellules d'une ligne (poignée comprise). */
+const cellWidths = (row: HTMLTableRowElement | null | undefined) => [...(row?.cells ?? [])].map((td) => td.getBoundingClientRect().width);
+
 /** Durée du signalement d'une cellule refusée. */
 const INVALID_MS = 2000;
 
@@ -84,6 +106,11 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   }, [gone]);
 
   const lt = useRef<HTMLDivElement>(null);
+  /** La zone qui défile (`max-height`), et le dernier point du pointeur pendant un glisser. */
+  const scroller = useRef<HTMLDivElement>(null);
+  const pointerAt = useRef<Point | null>(null);
+  /** La ligne tirée, saisie au début du geste : re-mesurée quand le dock change de taille. */
+  const liftedRow = useRef<HTMLTableRowElement | null>(null);
 
   const add = () => {
     if (!full) void onChange({ op: "insert", id: newId("i") });
@@ -190,18 +217,20 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
     move(id, e.key === "ArrowUp" ? r - 1 : r + 1);
   };
   /** La ligne sous le pointeur. */
-  const rowAt = (e: PointerEvent) =>
+  const rowAt = (e: Point) =>
     document.elementFromPoint?.(e.clientX, e.clientY)?.closest("tr[data-row]")?.getAttribute("data-row") ?? null;
   /** Rang actuel de la ligne `id` ; -1 si elle n'est plus là. */
   const indexOf = (id: string) => rows.findIndex((row) => row.id === id);
   const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string) => {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    pointerAt.current = { clientX: e.clientX, clientY: e.clientY };
     const row = e.currentTarget.closest("tr");
+    liftedRow.current = row;
     const tr = row?.getBoundingClientRect();
     const box = lt.current?.getBoundingClientRect();
     const grabY = e.clientY - (tr?.top ?? e.clientY);
-    const widths = [...(row?.cells ?? [])].map((td) => td.getBoundingClientRect().width);
+    const widths = cellWidths(row);
     setDrag({ id, grabY, top: e.clientY - grabY - (box?.top ?? 0), height: tr?.height ?? 0, widths, over: null, moved: false });
   };
   /**
@@ -211,8 +240,9 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   const dragTo = (e: PointerEvent) => {
     const d = dragging.current;
     if (!d) return;
+    pointerAt.current = { clientX: e.clientX, clientY: e.clientY };
     const box = lt.current?.getBoundingClientRect();
-    const scroll = lt.current?.querySelector(".lt-scroll")?.getBoundingClientRect();
+    const scroll = scroller.current?.getBoundingClientRect();
     let top = e.clientY - d.grabY - (box?.top ?? 0);
     if (box && scroll) top = Math.min(Math.max(top, scroll.top - box.top), scroll.bottom - box.top - d.height);
     const over = rowAt(e);
@@ -234,12 +264,64 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   };
   const lifted = drag?.moved ? rows.find((row) => row.id === drag.id) : undefined;
 
+  /**
+   * Une image du glisser : le fantôme suit le défilement horizontal ; près du bord haut ou bas,
+   * la zone défile, et le repère suit la ligne qui passe sous le pointeur immobile.
+   */
+  const follow = () => {
+    const d = dragging.current;
+    const p = pointerAt.current;
+    const scroll = scroller.current;
+    if (!d || !p || !scroll) return;
+    if (ghost.current) ghost.current.scrollLeft = scroll.scrollLeft;
+    if (!d.moved) return;
+    const r = scroll.getBoundingClientRect();
+    const step = edgeScroll(p.clientY, r.top, r.bottom);
+    if (step === 0) return;
+    const before = scroll.scrollTop;
+    scroll.scrollTop += step;
+    if (scroll.scrollTop === before) return;
+    const over = rowAt(p);
+    if (over !== d.over) setDrag({ ...d, over });
+  };
+  /** Le dock change de taille : largeurs et hauteur de la ligne tirée, re-mesurées pour le fantôme. */
+  const remeasure = () => {
+    const d = dragging.current;
+    const row = liftedRow.current;
+    if (!d || !row?.isConnected) return;
+    const widths = cellWidths(row);
+    const height = row.getBoundingClientRect().height;
+    if (height !== d.height || widths.some((w, i) => w !== d.widths[i]) || widths.length !== d.widths.length) setDrag({ ...d, widths, height });
+  };
+  const gesture = useRef({ follow, remeasure });
+  gesture.current = { follow, remeasure };
+  // Pendant le geste seulement : une image par rafraîchissement, et l'œil sur la taille du tableau.
+  const dragId = drag?.id ?? null;
+  useEffect(() => {
+    if (dragId === null) return;
+    let frame = requestAnimationFrame(function step() {
+      gesture.current.follow();
+      frame = requestAnimationFrame(step);
+    });
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => gesture.current.remeasure());
+    if (lt.current) watch?.observe(lt.current);
+    return () => {
+      cancelAnimationFrame(frame);
+      watch?.disconnect();
+      pointerAt.current = null;
+    };
+  }, [dragId]);
+  // Le fantôme apparaît aligné sur le défilement horizontal du tableau.
+  useLayoutEffect(() => {
+    if (ghost.current && scroller.current) ghost.current.scrollLeft = scroller.current.scrollLeft;
+  }, [lifted]);
+
   const open = rich ? openCell(rich, rows, columns) : null;
 
   return (
     <div ref={lt} className="lt note-field" data-dragging={lifted ? "" : undefined}>
       <span className="a2ui-hint">{label}</span>
-      <div className="lt-scroll">
+      <div ref={scroller} className="lt-scroll">
         <table className="lt-table">
           <thead>
             {table.getHeaderGroups().map((group) => (

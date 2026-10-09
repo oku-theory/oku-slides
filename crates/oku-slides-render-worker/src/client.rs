@@ -190,6 +190,12 @@ impl RenderWorker {
         self.prepare(link).inspect_err(|e| blame(link, pack, e))
     }
 
+    /// Un travailleur a déjà été lancé (la première requête le lance) : pour les tests.
+    #[doc(hidden)]
+    pub fn is_started(&self) -> bool {
+        self.link().started()
+    }
+
     /// `pack` a fait échouer le rendu (délai, mémoire, arrêt) : il n'est plus exécuté dans ce travailleur.
     pub fn is_faulty(&self, pack: &PackWidgets) -> bool {
         self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))

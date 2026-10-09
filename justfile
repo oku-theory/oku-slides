@@ -43,18 +43,30 @@ test:
     # Tests de rendu (DOM happy-dom) dans leur propre processus : cache de modules à part.
     cd ui && bun run test
 
-# Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf sur le port 4872
-e2e: install
+# Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf, sur le port
+# `port` (4872 par défaut ; `just e2e 4999` ou `just e2e port=4999` quand une autre
+# session tient déjà le port). Données et decks dans un dossier temporaire, supprimé
+# à la fin ; les binaires viennent de `$CARGO_TARGET_DIR` s'il est défini.
+e2e port="4872": install
     #!/usr/bin/env bash
     set -euo pipefail
+    port="{{port}}"
+    port="${port#port=}"
+    [[ "$port" =~ ^[0-9]+$ ]] || { echo "e2e : port invalide « $port »" >&2; exit 2; }
     (cd ui && bun run build && bunx playwright install chromium)
     cargo build -q -p oku-slides-cli -p oku-slides-agent --bin oku-slides --bin oku-slides-fake-agent
-    OKU_SLIDES_AGENT__COMMAND="$PWD/target/debug/oku-slides-fake-agent" \
+    bin="$(cd "${CARGO_TARGET_DIR:-target}" && pwd)/debug"
+    # Un serveur d'une autre session sur ce port fausserait tout : refusé.
+    if curl -s -o /dev/null "http://127.0.0.1:$port/"; then echo "e2e : port $port déjà pris" >&2; exit 2; fi
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/oku-slides-e2e.XXXXXX")"
+    export OKU_SLIDES_PATHS__DATA="$tmp/data" OKU_SLIDES_PATHS__DECKS="$tmp/decks"
+    OKU_SLIDES_AGENT__COMMAND="$bin/oku-slides-fake-agent" \
     OKU_SLIDES_AGENT__ARGS="--script $PWD/fixtures/agent/e2e.json" \
-      ./target/debug/oku-slides --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port 4872 &
-    trap "kill $! 2>/dev/null" EXIT
-    for _ in $(seq 1 50); do curl -sf -o /dev/null http://127.0.0.1:4872/ && break; sleep 0.2; done
-    cd ui && E2E_URL=http://127.0.0.1:4872/ bun run e2e
+      "$bin/oku-slides" --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port "$port" &
+    server=$!
+    trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+    for _ in $(seq 1 50); do curl -sf -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.2; done
+    cd ui && E2E_URL="http://127.0.0.1:$port/" bun run e2e
 
 # Vérifications : format, clippy, types TypeScript, polices en LFS
 check: install fonts-lfs

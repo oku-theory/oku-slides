@@ -24,6 +24,7 @@ render-timeout = 渲染耗时超过 { $seconds } 秒，已中断
 render-out-of-memory = 渲染所需内存超过 { $mib } MiB，已中断
 render-worker-lost = 渲染进程已停止
 render-frame = 渲染进程发来的消息无法读取
+render-page-too-large = 此幻灯片过大，无法预览（超过 { $mib } MiB，通常是因为图片过大）。仍可导出为 PDF 或 PNG。
 render-stale = 渲染已被替换，请重试
 render-pack-disabled = “{ $pack }”包的小组件在本次会话中已停用
 registry-schema-remote = 小组件注册表无效：{ $message }

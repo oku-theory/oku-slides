@@ -1,14 +1,20 @@
-//! Polices du rendu du deck : celles de l'app et celles du deck. De
-//! nouvelles polices font un nouveau monde Typst, donc un nouveau rendu.
+//! Rendu du deck : son emplacement, ouvert au premier rendu, et ses polices
+//! (celles de l'app et celles du deck). De nouvelles polices font un nouveau
+//! monde Typst, donc un nouveau rendu.
+//!
+//! Démarrage paresseux (t-342) : une session d'onglet (`Session::unrendered`)
+//! n'ouvre son emplacement, et donc ne lance son processus de rendu, qu'au
+//! premier rendu ; l'espace de travail le demande à la première requête de
+//! l'onglet (`ensure_rendered`). Un fichier ouvert ou un onglet repris ne
+//! rendent plus le deck vierge avant le leur.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use crate::{Result, Session, new_renderer};
 use oku_slides_core::WidgetRegistry;
 use oku_slides_render::{Fonts, PackWidgets};
 use oku_slides_render_worker::RenderSlot;
-
-use crate::{Result, Session, new_renderer};
 
 /// Un rendu prêt pour de nouvelles polices, pas encore installé.
 pub(crate) struct FontsRenderer {
@@ -20,6 +26,26 @@ pub(crate) struct FontsRenderer {
 }
 
 impl Session {
+    /// Rend le deck s'il ne l'a jamais été (session d'onglet neuve).
+    pub(crate) fn ensure_rendered(&mut self) -> Result<()> {
+        if self.compiled.is_none() {
+            self.rerender()?;
+        }
+        Ok(())
+    }
+
+    /// Ouvre l'emplacement du rendu du deck s'il ne l'est pas encore, avec
+    /// les polices et les widgets installés (un pack devenu fautif : la base).
+    pub(crate) fn open_deck_renderer(&mut self) -> Result<()> {
+        if self.renderer.is_none() {
+            let pack = self.usable_pack()?;
+            let slot =
+                new_renderer(&self.worker, self.render_fonts.clone(), &self.localizer, pack.as_ref(), &self.registry)?;
+            self.renderer = Some(slot);
+        }
+        Ok(())
+    }
+
     /// Nouvelles polices dans les sources : nouveau monde Typst. À l'appelant
     /// de dire si elles ont changé : comparer les polices coûte, reconstruire
     /// le rendu plus encore.
@@ -51,7 +77,7 @@ impl Session {
     /// aperçus et SVG en cache, faits avec les anciennes, sont oubliés.
     pub(crate) fn install_fonts(&mut self, built: FontsRenderer) {
         self.render_fonts = built.fonts;
-        self.renderer = built.renderer;
+        self.renderer = Some(built.renderer);
         self.render_deck_fonts = built.deck_fonts;
         self.template_renderer = None;
         self.variant_renderer = None;
@@ -59,3 +85,7 @@ impl Session {
         self.svg_cache.clear();
     }
 }
+
+#[cfg(test)]
+#[path = "render_fonts_tests.rs"]
+mod render_fonts_tests;

@@ -15,16 +15,21 @@ rendu qui boucle ou qui consomme trop se tue sans emporter l'application.
 - `RemoteCompiled` (`client.rs`) : une génération ; `layout`, `page_hash` locaux,
   `svg`/`png`/`pdf` par requête ; son `Drop` met `Release` en file. La file est
   envoyée avant la requête suivante : un `Drop` ne prend jamais le verrou du lien.
-- `Link` (`link.rs`, interne) : transport (sous-processus ou fil), délai, RSS
-  relevée toutes les 100 ms, relance et rejeu de `ReplayState`. Le fils reçoit
+- `Link` (`link.rs`, interne) : transport (sous-processus ou fil), délai, mémoire
+  relevée toutes les 100 ms (`rss.rs` : `phys_footprint` sur macOS, `footprint.rs`, mémoire résidente ailleurs), relance et rejeu de `ReplayState`. Le fils reçoit
   ses bornes (`--timeout-ms`, `--memory-bytes`) et `OKU_SLIDES_RENDER_WORKER=1` :
   `Platform::load` y choisit `InProcess`, un oubli d'`exit_if_worker` ne relance pas en chaîne.
 - `serve` (`serve.rs`) : la boucle du travailleur ; `exit_if_worker` l'appelle
   quand le binaire est lancé avec `--render-worker`, sous le chien de garde
-  (`watchdog.rs`) : requête > 2 × délai, RSS > limite pendant 1 s, parent disparu → sortie 3.
+  (`watchdog.rs`) : requête > 2 × délai, mémoire > limite pendant 1 s, parent disparu → sortie 3.
+  Les trames partent sur une copie de stdout ; stdout pointe sur stderr (`stdio.rs`, unix).
 - `Request`/`Response` (`protocol.rs`), trames (`frame.rs`) : en-tête JSON et
-  charge brute, bornés par `max_frame_mib` des deux côtés (à l'envoi, refus
-  `Frame` sans rien écrire ; à la lecture, avant d'allouer).
+  charge brute, bornés des deux côtés (à l'envoi, refus `Frame` sans rien
+  écrire ; à la lecture, avant d'allouer) par `FrameLimits`, tirées de
+  `max_frame_mib` : un en-tête au plus un huitième, la charge d'un SVG un quart,
+  celle d'un PNG, d'un PDF, d'une police ou d'un asset la taille entière, les
+  autres réponses aucune. L'hôte pose les bornes de la réponse attendue avant
+  d'envoyer la requête ; le fil lecteur les lit au premier octet de la trame.
 
 ## Point d'extension
 
@@ -38,4 +43,5 @@ dans `serve.rs`, une méthode sur `RemoteCompiled`.
 - `oku-slides-platform` : `RenderLaunch`, réglages `[render]`, journaux.
 - `serde`, `serde_json` (`float_roundtrip` : la mise en page au bit près) ;
   `sha2`, `hex` : empreintes des polices et des packs.
-- `snafu` : erreurs ; `tracing` : journaux ; `sysinfo` : RSS du travailleur.
+- `snafu` : erreurs ; `tracing` : journaux ; `sysinfo` : mémoire résidente du travailleur (hors macOS) ;
+  `libc` (unix) : `dup2` de stdout, `proc_pid_rusage` (macOS).

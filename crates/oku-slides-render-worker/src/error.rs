@@ -10,8 +10,9 @@ pub(crate) enum FrameError {
     Io { source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("truncated frame"))]
     Truncated { backtrace: Backtrace },
+    /// `payload` : la charge dépasse sa borne (sinon l'en-tête).
     #[snafu(display("frame of {len} bytes exceeds {max}"))]
-    TooLarge { len: usize, max: usize, backtrace: Backtrace },
+    TooLarge { len: usize, max: usize, payload: bool, backtrace: Backtrace },
     #[snafu(display("frame header is not valid json"))]
     Json { source: serde_json::Error, backtrace: Backtrace },
 }

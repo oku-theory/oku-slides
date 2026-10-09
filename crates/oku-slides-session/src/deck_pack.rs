@@ -33,8 +33,9 @@ pub fn adopt_default_pack(library: &PackLibrary, sources: &mut SourceBundle) -> 
     Ok(())
 }
 
-/// `files` sont-ils bien une version du pack `r.id` ?
-fn check_pack_id(r: &PackRef, files: &PackFiles) -> Result<()> {
+/// `files` sont-ils bien une version du pack `r.id` ? (`pack.json` lisible,
+/// d'id `r.id`). Seule règle : la session et la CLI passent par ici.
+pub fn check_pack_id(r: &PackRef, files: &PackFiles) -> Result<()> {
     let manifest = PackManifest::from_files(files).context(PackJsonSnafu { id: r.id })?;
     ensure!(manifest.id == r.id, PackIdMismatchSnafu { id: r.id, found: manifest.id });
     Ok(())

@@ -24,6 +24,7 @@ render-timeout = Oluşturma { $seconds } sn'den uzun sürdü ve durduruldu
 render-out-of-memory = Oluşturma { $mib } MiB'den fazla bellek gerektirdi ve durduruldu
 render-worker-lost = Oluşturma işlemi durdu
 render-frame = Oluşturma işleminden okunamayan ileti geldi
+render-page-too-large = Bu slayt önizleme için çok büyük ({ $mib } MiB'den fazla, çoğu zaman çok büyük bir görsel yüzünden). Yine de PDF veya PNG olarak dışa aktarılabilir.
 render-stale = Oluşturma değiştirildi; yeniden deneyin
 render-pack-disabled = “{ $pack }” paketinin widget'ları bu oturum için devre dışı
 registry-schema-remote = Geçersiz widget kaydı: { $message }

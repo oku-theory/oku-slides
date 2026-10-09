@@ -24,6 +24,7 @@ render-timeout = রেন্ডারিং { $seconds } সেকেন্ড�
 render-out-of-memory = রেন্ডারিংয়ে { $mib } MiB-এর বেশি মেমরি লেগেছে এবং থামিয়ে দেওয়া হয়েছে
 render-worker-lost = রেন্ডারিং প্রসেস থেমে গেছে
 render-frame = রেন্ডারিং প্রসেসের বার্তা পড়া যাচ্ছে না
+render-page-too-large = এই স্লাইডটি প্রিভিউয়ের জন্য খুব বড় ({ $mib } MiB-এর বেশি, প্রায়ই খুব বড় কোনো ছবির কারণে)। তবু এটি PDF বা PNG হিসেবে এক্সপোর্ট করা যায়।
 render-stale = রেন্ডারিং বদলে গেছে; আবার চেষ্টা করুন
 render-pack-disabled = “{ $pack }” প্যাকের উইজেট এই সেশনে নিষ্ক্রিয়
 registry-schema-remote = উইজেট রেজিস্ট্রি অবৈধ: { $message }

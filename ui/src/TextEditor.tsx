@@ -5,10 +5,10 @@
  * `plain` : texte brut sur une seule ligne. Tab (⇧Tab) passe au champ
  * suivant (précédent). Le texte validé est celui que montre CodeMirror.
  */
-import { useEffectEvent, useImperativeHandle, useLayoutEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { history, historyKeymap, insertNewline, standardKeymap } from "@codemirror/commands";
 import type { ChangeSpec } from "@codemirror/state";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import type { KeyBinding } from "@codemirror/view";
 import { EditorView, keymap } from "@codemirror/view";
 import { markdownDecorations } from "./markdownDecorations";
@@ -30,7 +30,7 @@ interface TextEditorProps {
   initial: string;
   /** Champ `plain` (titre…) : texte brut sur une ligne, Entrée passe au suivant. Sinon markdown. */
   plain: boolean;
-  /** Couleurs des pastilles (palette des graphiques du thème), lue à l'ouverture. */
+  /** Couleurs des pastilles (palette des graphiques du thème), suivies pendant l'édition. */
   palette: string[];
   /** Nom accessible de la zone éditable. */
   label: string;
@@ -95,6 +95,8 @@ const nothing = () => true;
 export default function TextEditor({ ref, ...props }: TextEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Mise en forme du markdown : reconfigurée quand la palette du thème change.
+  const looks = useRef(new Compartment());
   // Validation de l'ouverture en cours, gardée par sa fin unique.
   const validate = useRef<(() => void) | null>(null);
   const change = useEffectEvent((text: string) => props.onChange(text));
@@ -177,7 +179,7 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
               finish(target, true);
             },
           }),
-          plain ? singleLine : markdownDecorations(palette),
+          plain ? singleLine : looks.current.of(markdownDecorations(palette)),
         ],
       }),
     });
@@ -192,6 +194,14 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- monté une fois par cible (la scène donne une `key`)
   }, []);
+
+  // La palette par son contenu : l'appelant peut en passer une copie à chaque rendu.
+  const paletteKey = props.palette.join(",");
+  useEffect(() => {
+    if (props.plain) return;
+    viewRef.current?.dispatch({ effects: looks.current.reconfigure(markdownDecorations(props.palette)) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `palette` suit `paletteKey`.
+  }, [paletteKey]);
 
   useImperativeHandle(ref, () => ({
     insertAtCursor(text: string) {

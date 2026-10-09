@@ -130,9 +130,9 @@ impl RenderSettings {
         self.memory_mib.saturating_mul(1024 * 1024)
     }
 
-    /// [`Self::max_frame_mib`] en octets.
+    /// [`Self::max_frame_mib`] en octets, saturé à `usize::MAX` (cibles 32 bits).
     pub fn max_frame_bytes(&self) -> usize {
-        (self.max_frame_mib as usize).saturating_mul(1024 * 1024)
+        usize::try_from(self.max_frame_mib).unwrap_or(usize::MAX).saturating_mul(1024 * 1024)
     }
 
     /// [`Self::max_widget_kib`] en octets.
@@ -167,6 +167,20 @@ impl AuthorSettings {
 pub struct ServeSettings {
     pub host: String,
     pub port: u16,
+    /// Délai pour recevoir les en-têtes d'une requête (ms) ; au-delà, la
+    /// connexion est fermée. Zéro est refusé au chargement (aucune requête
+    /// ne passerait).
+    pub header_timeout_ms: std::num::NonZeroU64,
+    /// Connexions simultanées au plus ; au-delà, une nouvelle connexion est
+    /// fermée aussitôt. Zéro est refusé au chargement.
+    pub max_connections: std::num::NonZeroUsize,
+}
+
+impl ServeSettings {
+    /// [`Self::header_timeout_ms`] en [`std::time::Duration`].
+    pub fn header_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.header_timeout_ms.get())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]

@@ -379,3 +379,21 @@ fn widgets_prompt_lists_sentence_keeps_its_code_tokens_in_every_locale() {
         }
     }
 }
+
+#[test]
+fn resolve_picks_the_requested_shipped_language() {
+    assert_that(&resolve(Some("fr-CA"))).is_equal_to("fr");
+    assert_that(&resolve(Some("zh_TW"))).is_equal_to("zh-Hant");
+}
+
+#[test]
+fn resolve_agrees_with_the_localizer_without_building_it() {
+    for requested in [None, Some("de"), Some("en"), Some("xx"), Some("")] {
+        assert_that(&resolve(requested)).is_equal_to(Localizer::new(requested).locale());
+    }
+}
+
+#[test]
+fn resolve_always_names_a_shipped_language() {
+    assert_that(&shipped(resolve(Some("klingon")))).is_some();
+}

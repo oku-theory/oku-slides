@@ -29,6 +29,14 @@ fn slot(w: &RenderWorker) -> RenderSlot {
 }
 
 #[test]
+fn worker_is_started_by_its_first_slot_only() {
+    let w = worker(10_000);
+    assert_that!(w.is_started()).is_false();
+    let _slot = slot(&w);
+    assert_that!(w.is_started()).is_true();
+}
+
+#[test]
 fn handles_are_send_and_worker_is_sync() {
     fn send<T: Send>() {}
     fn sync<T: Sync>() {}

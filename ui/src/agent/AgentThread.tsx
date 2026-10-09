@@ -78,7 +78,8 @@ export function AgentThread({
   }, []);
   // Ce que lit la région annoncée : le texte nouveau des surfaces du fil (`speech.ts`).
   const threadSurfaces = useMemo(() => [...turns.flatMap((x) => x.surfaces), ...loose], [turns, loose]);
-  const spoken = useSpeech(threadSurfaces, dock, resyncs);
+  // Le tour en cours : le dernier, tant que l'agent travaille ; une resynchronisation ne le tait pas.
+  const spoken = useSpeech(threadSurfaces, dock, resyncs, state === "idle" ? null : (lastTurn ?? null));
   const empty = turns.length === 0 && loose.length === 0 && dock.length === 0;
   const view = (s: Surface) => (
     <Suspense fallback={null}>

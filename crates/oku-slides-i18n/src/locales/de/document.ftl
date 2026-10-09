@@ -23,6 +23,7 @@ render-timeout = Das Rendern dauerte länger als { $seconds } s und wurde abgebr
 render-out-of-memory = Das Rendern benötigte mehr als { $mib } MiB Speicher und wurde abgebrochen
 render-worker-lost = Der Rendering-Prozess wurde beendet
 render-frame = Unlesbare Nachricht des Rendering-Prozesses
+render-page-too-large = Diese Folie ist zu groß für die Vorschau (mehr als { $mib } MiB, oft wegen eines sehr großen Bildes). Sie lässt sich weiterhin als PDF oder PNG exportieren.
 render-stale = Das Rendern wurde ersetzt; bitte erneut versuchen
 render-pack-disabled = Die Widgets des Pakets „{ $pack }“ sind für diese Sitzung deaktiviert
 registry-schema-remote = Ungültige Widget-Registry: { $message }

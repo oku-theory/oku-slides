@@ -1,10 +1,13 @@
 //! Provenance des requêtes de `oku-slides serve` : seule l'interface locale parle au serveur.
 //!
+//! Règle commune à tout serveur HTTP local du projet : voir
+//! `docs/adr/0003-regle-d-origine-des-serveurs-locaux.md`.
+//!
 //! Une page tierce ouverte dans le navigateur peut viser `127.0.0.1` :
 //! - DNS rebinding : un nom qui résout vers `127.0.0.1` se trahit dans
 //!   l'en-tête `Host`, qui doit nommer la boucle locale ou l'adresse d'écoute
 //!   (`[serve] host`) ; une adresse « partout » (`0.0.0.0`, `::`) n'ajoute
-//!   aucun nom : le réseau local n'est pas servi ;
+//!   aucun nom accepté (ce qui n'arrête pas un client qui forge `Host`) ;
 //! - requête d'une autre page (`<img>`, `<script>`, `fetch` sans CORS, y
 //!   compris depuis un autre port de `localhost`) : `Sec-Fetch-Site` doit
 //!   valoir `same-origin` ou `none` ; sinon elle prendrait par exemple une
@@ -18,7 +21,8 @@
 //!   serveur ne donne jamais son accord (aucun en-tête `Access-Control-*`).
 //!
 //! Ce n'est pas une authentification : un client hors navigateur qui joint
-//! le port peut tout demander. `[serve] host` reste donc la boucle locale.
+//! le port peut tout demander. `[serve] host` reste donc la boucle locale
+//! (`serve` avertit sinon).
 
 use axum::http::{HeaderMap, Method};
 

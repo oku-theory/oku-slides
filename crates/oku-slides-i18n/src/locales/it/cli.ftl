@@ -31,6 +31,7 @@ cli-not-found = non trovato
 cli-bad-request = richiesta non valida: { $reason }
 cli-sse-full = troppi flussi di eventi già aperti
 cli-forbidden = richiesta rifiutata: non proviene dall'interfaccia locale
+cli-exposed = in ascolto su { $host }: il server non ha autenticazione ed è raggiungibile dalla rete; viene servito qualsiasi client che invii un'intestazione Host locale. Lasciare [serve] host su 127.0.0.1
 
 cli-about = Genera e archivia presentazioni Oku Slides
 cli-arg-fonts = Cartella di font aggiuntiva (TTF/OTF); predefinita: paths.fonts nelle impostazioni

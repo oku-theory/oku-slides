@@ -18,7 +18,9 @@ use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackRef, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema, param_value};
+use oku_slides_core::{
+    PackFiles, PackRef, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema, param_value, text_fits,
+};
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, Severity};
 
@@ -131,8 +133,16 @@ fn with_render(mut statuses: Vec<WidgetStatus>, render: Vec<WidgetDiagnostic>, n
 }
 
 /// La valeur d'exemple `value` vaut-elle encore pour le paramètre `param` de `schema` ?
+///
+/// Elle doit se lire dans son type et tenir dans ses bornes de taille
+/// (`text_fits`) : une valeur reçue dans un pack importé n'est pas passée
+/// par `checked_value` (t-524).
 pub(crate) fn trial_fits(schema: &WidgetSchema, param: &str, value: &Value) -> bool {
-    schema.param(param).is_some_and(|p| param_value(&p.ty, param, value.clone()).is_ok())
+    schema.param(param).is_some_and(|p| match param_value(&p.ty, param, value.clone()) {
+        Ok(Some(v)) => text_fits(&p.ty, &v),
+        Ok(None) => true,
+        Err(_) => false,
+    })
 }
 
 /// Le pack dont on édite les widgets : id, version et fichiers.

@@ -24,6 +24,7 @@ render-timeout = Renderowanie trwało dłużej niż { $seconds } s i zostało pr
 render-out-of-memory = Renderowanie wymagało więcej niż { $mib } MiB pamięci i zostało przerwane
 render-worker-lost = Proces renderowania został zatrzymany
 render-frame = Nieczytelny komunikat z procesu renderowania
+render-page-too-large = Ten slajd jest za duży na podgląd (ponad { $mib } MiB, często z powodu bardzo dużego obrazu). Nadal można go wyeksportować do PDF lub PNG.
 render-stale = Renderowanie zostało zastąpione; spróbuj ponownie
 render-pack-disabled = Widżety pakietu „{ $pack }” są wyłączone w tej sesji
 registry-schema-remote = Nieprawidłowy rejestr widżetów: { $message }

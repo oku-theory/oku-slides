@@ -103,8 +103,10 @@
 }
 
 // Mise en page du corps : "default", "columns", "split", "center", "quote".
-// grow : un booléen par corps ; ceux à vrai (graphiques) prennent la hauteur
-// qui reste, dans la mise en page par défaut.
+// grow : une valeur par corps, dans la mise en page par défaut. `true`
+// (graphiques) : le corps prend une part de la hauteur qui reste. `"fit"`
+// (tableaux) : il garde sa hauteur s'il tient dans une part, sinon il en
+// prend une (et s'y réduit). `false` : sa hauteur.
 #let _layout(t, layout, bodies, ratio: none, grow: ()) = {
   let gap = space-of(t, t.component.columns.gap)
   if layout == "columns" {
@@ -122,8 +124,22 @@
       text(size: size-of(t, q.size), fill: color-of(t, q.color), font: font-of(t, "display"),
         stack(spacing: space-of(t, "md"), ..bodies)),
     ))
-  } else if grow.any(g => g) {
-    grid(columns: (1fr,), rows: grow.map(g => if g { 1fr } else { auto }),
+  } else if grow.any(g => g == "fit") {
+    // Part : la hauteur laissée par les corps fixes, divisée entre ceux qui
+    // peuvent grandir. Un tableau plus haut qu'une part en prend une, au lieu
+    // de prendre toute la hauteur restante aux corps qui le suivent.
+    std.layout(size => {
+      let gap = space-of(t, "md")
+      let natural(b) = measure(b, width: size.width).height
+      let fixed = bodies.zip(grow).filter(((b, g)) => g == false).map(((b, g)) => natural(b))
+      let growing = grow.filter(g => g != false).len()
+      let share = (size.height - fixed.sum(default: 0pt) - gap * (bodies.len() - 1)) / growing
+      let rows = bodies.zip(grow).map(((b, g)) => if g == true { 1fr }
+        else if g == "fit" and natural(b) > share { 1fr } else { auto })
+      grid(columns: (1fr,), rows: rows, row-gutter: gap, ..bodies)
+    })
+  } else if grow.any(g => g == true) {
+    grid(columns: (1fr,), rows: grow.map(g => if g == true { 1fr } else { auto }),
       row-gutter: space-of(t, "md"), ..bodies)
   } else {
     stack(spacing: space-of(t, "md"), ..bodies)

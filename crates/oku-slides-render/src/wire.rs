@@ -28,7 +28,6 @@ pub enum WireError {
     RegistryCompile { diagnostics: Vec<Diagnostic> },
     RegistryMissing,
     RegistrySchema { message: String },
-    RegistrySetup { message: String },
 }
 
 impl WireError {
@@ -43,6 +42,7 @@ impl WireError {
             RenderInner::OutOfMemory { mib, .. } => Self::OutOfMemory { mib: *mib },
             RenderInner::WorkerLost { message, .. } => Self::WorkerLost { message: message.clone() },
             RenderInner::Frame { message, .. } => Self::Frame { message: message.clone() },
+            RenderInner::PageTooLarge { .. } => Self::Frame { message: first_line(&e.0) },
             RenderInner::Stale { .. } => Self::Stale,
             RenderInner::PackDisabled { pack, .. } => Self::PackDisabled { pack: pack.clone() },
             RenderInner::Remote { message, .. } => Self::Setup { message: message.clone() },
@@ -77,9 +77,7 @@ impl WireError {
             Self::Frame { message } => RenderError::frame(message),
             Self::Stale => RenderError::stale(),
             Self::PackDisabled { pack } => RenderError::pack_disabled(pack),
-            Self::Setup { message } | Self::RegistrySchema { message } | Self::RegistrySetup { message } => {
-                RemoteSnafu { message }.build().into()
-            }
+            Self::Setup { message } | Self::RegistrySchema { message } => RemoteSnafu { message }.build().into(),
             Self::RegistryBadPackId { id } => {
                 RemoteSnafu { message: format!("invalid template pack identifier: {id}") }.build().into()
             }

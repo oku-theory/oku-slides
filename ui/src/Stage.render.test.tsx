@@ -619,3 +619,62 @@ test("Stage preview is never drawn larger than the image itself (1 pt = 4/3 px)"
     if (h) Object.defineProperty(proto, "clientHeight", h);
   }
 });
+
+/** Rectangles imposés par classe (happy-dom ne fait pas de mise en page). */
+function stubRects(rects: Record<string, { left: number; top: number; width: number; height: number }>) {
+  const original = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+    const r = Object.entries(rects).find(([cls]) => this.classList.contains(cls))?.[1];
+    if (!r) return original.call(this);
+    return { ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => r } as DOMRect;
+  };
+  return () => {
+    HTMLElement.prototype.getBoundingClientRect = original;
+  };
+}
+
+test("Stage agent sheet near the bottom flips above its element and stays inside the sheet zone", async () => {
+  // Zone de la feuille (stage-wrap) plus grande que la scène : cadre en (50, 20) dans la zone.
+  const restore = stubRects({
+    "stage-wrap": { left: 0, top: 0, width: 300, height: 200 },
+    "stage-frame": { left: 50, top: 20, width: 192, height: 108 },
+    "agent-sheet": { left: 0, top: 0, width: 120, height: 100 },
+  });
+  try {
+    // Échelle 0,1 (happy-dom : la zone mesure 0) : l'élément est à (180, 100) px, 10 × 6.
+    const v = { ...view, targets: [{ id: "c1", kind: "card", free: false, x: 1800, y: 1000, w: 100, h: 60 }] } as SlideView;
+    const { host } = await mount({ view: v, overlay: { target: "c1", node: createElement("p", null, "fiche") } });
+    const sheet = host.querySelector<HTMLElement>(".agent-sheet")!;
+    // Dessous : 100 + 6 + 8 + 100 > 180 (bas de la zone) ; dessus : 100 − 8 − 100 = −8 ≥ −20.
+    expect(sheet.style.top).toBe("-8px");
+    // 180 + 120 > 250 (bord droit de la zone) : recadrée à 130.
+    expect(sheet.style.left).toBe("130px");
+    expect(sheet.classList.contains("above")).toBe(true);
+    expect(sheet.style.visibility).toBe("");
+  } finally {
+    restore();
+  }
+});
+
+test("Stage agent sheet keeps one size observer across renders", async () => {
+  const original = globalThis.ResizeObserver;
+  let created = 0;
+  globalThis.ResizeObserver = class {
+    constructor() {
+      created++;
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  try {
+    const overlay = { target: "c1", node: createElement("p", null, "fiche") };
+    const { render } = await mount({ overlay });
+    const before = created;
+    await render({ selected: "c1" });
+    await render({ selected: null });
+    expect(created).toBe(before);
+  } finally {
+    globalThis.ResizeObserver = original;
+  }
+});

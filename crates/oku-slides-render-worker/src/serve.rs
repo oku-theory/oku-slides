@@ -32,7 +32,7 @@ use serde_json::{Map, Value};
 use snafu::Snafu;
 
 use crate::error::FrameError;
-use crate::frame::{read_frame, write_frame};
+use crate::frame::{FrameLimits, read_frame, write_frame};
 use crate::protocol::{CompiledHeader, Request, Response, SlotId, WirePack};
 use crate::watchdog::{Busy, Limits};
 
@@ -72,7 +72,7 @@ fn serve_watched(
     busy: &Busy,
 ) -> Result<(), ServeError> {
     let mut worker = Worker::default();
-    while let Some(frame) = read_frame(&mut input, max_frame).map_err(ServeError)? {
+    while let Some(frame) = read_frame(&mut input, FrameLimits::requests(max_frame)).map_err(ServeError)? {
         busy.start(Instant::now());
         let (reply, payload) = match serde_json::from_slice::<Request>(&frame.header) {
             Ok(request) => worker.handle(request, frame.payload),
@@ -82,7 +82,7 @@ fn serve_watched(
         // Pas de borne à l'écriture : l'hôte refuse à la lecture une réponse
         // trop grande (`Frame`, non bornée : aucun pack accusé) et, le tube
         // désynchronisé, relance le travailleur.
-        write_frame(&mut output, &reply, &payload, usize::MAX).map_err(ServeError)?;
+        write_frame(&mut output, &reply, &payload, FrameLimits::uniform(usize::MAX)).map_err(ServeError)?;
     }
     Ok(())
 }
@@ -276,13 +276,23 @@ pub(crate) fn worker_args(args: &[OsString]) -> Option<WorkerArgs> {
 /// --max-frame-bytes <n> --timeout-ms <n> --memory-bytes <n>`), sert
 /// stdin/stdout sous son chien de garde puis termine le processus ; sinon ne
 /// fait rien. À appeler en tête de `main`, avant toute initialisation.
+///
+/// Les trames partent sur le stdout d'origine ; tout `print!` du processus va
+/// sur stderr.
 pub fn exit_if_worker() {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
     let Some(args) = worker_args(&args) else { return };
     oku_slides_platform::telemetry::init(); // journaux sur stderr : stdout est le tube
+    let output = match protocol_output() {
+        Ok(output) => output,
+        Err(e) => {
+            tracing::error!(error = %e, "sortie du processus de rendu");
+            std::process::exit(1);
+        }
+    };
     let busy = Arc::new(Busy::default());
     crate::watchdog::spawn(args.limits, busy.clone());
-    let code = match serve_watched(std::io::stdin().lock(), std::io::stdout().lock(), args.max_frame, &busy) {
+    let code = match serve_watched(std::io::stdin().lock(), output, args.max_frame, &busy) {
         Ok(()) => 0,
         Err(e) => {
             tracing::error!(error = %e, "processus de rendu");
@@ -290,6 +300,19 @@ pub fn exit_if_worker() {
         }
     };
     std::process::exit(code);
+}
+
+/// La sortie des trames : une copie de stdout, stdout redirigé vers stderr
+/// (voir `stdio`) ; tamponnée, `write_frame` vide le tampon à chaque trame.
+#[cfg(unix)]
+fn protocol_output() -> std::io::Result<Box<dyn Write>> {
+    Ok(Box::new(std::io::BufWriter::new(crate::stdio::protocol_output()?)))
+}
+
+/// Ailleurs qu'en unix, stdout tel quel.
+#[cfg(not(unix))]
+fn protocol_output() -> std::io::Result<Box<dyn Write>> {
+    Ok(Box::new(std::io::stdout()))
 }
 
 #[cfg(test)]

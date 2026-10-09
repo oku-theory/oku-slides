@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::frame::{read_frame, write_frame};
+use crate::frame::{FrameLimits, read_frame, write_frame};
 use crate::protocol::{Request, Response};
 
 const MAX: usize = 64 * 1024 * 1024;
@@ -26,8 +26,8 @@ impl Harness {
     }
 
     fn call(&mut self, req: &Request, payload: &[u8]) -> (Response, Vec<u8>) {
-        write_frame(&mut self.tx, req, payload, usize::MAX).unwrap();
-        let f = read_frame(&mut self.rx, MAX).unwrap().unwrap();
+        write_frame(&mut self.tx, req, payload, FrameLimits::uniform(usize::MAX)).unwrap();
+        let f = read_frame(&mut self.rx, FrameLimits::uniform(MAX)).unwrap().unwrap();
         (serde_json::from_slice(&f.header).unwrap(), f.payload)
     }
 
@@ -99,8 +99,8 @@ fn serve_set_widgets_of_broken_pack_returns_registry_compile_error() {
 fn serve_whole_pack_probe_request_is_not_understood() {
     let mut h = Harness::new();
     let req = serde_json::json!({ "op": "probe", "pack": { "id": "p", "files": {} } });
-    write_frame(&mut h.tx, &req, &[], usize::MAX).unwrap();
-    let f = read_frame(&mut h.rx, MAX).unwrap().unwrap();
+    write_frame(&mut h.tx, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
+    let f = read_frame(&mut h.rx, FrameLimits::uniform(MAX)).unwrap().unwrap();
     let resp: Response = serde_json::from_slice(&f.header).unwrap();
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Frame { .. } })).is_true();
 }
@@ -124,8 +124,8 @@ fn serve_render_on_unknown_slot_returns_error_and_keeps_serving() {
 #[test]
 fn serve_unreadable_request_header_returns_frame_error() {
     let mut h = Harness::new();
-    write_frame(&mut h.tx, &serde_json::json!({ "op": "inconnue" }), &[], usize::MAX).unwrap();
-    let f = read_frame(&mut h.rx, MAX).unwrap().unwrap();
+    write_frame(&mut h.tx, &serde_json::json!({ "op": "inconnue" }), &[], FrameLimits::uniform(usize::MAX)).unwrap();
+    let f = read_frame(&mut h.rx, FrameLimits::uniform(MAX)).unwrap().unwrap();
     let resp: Response = serde_json::from_slice(&f.header).unwrap();
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Frame { .. } })).is_true();
 }
@@ -218,4 +218,14 @@ fn serve_set_theme_on_unknown_slot_returns_setup_error() {
     let mut h = Harness::new();
     let (resp, _) = h.call(&Request::SetTheme { slot: 9, tokens: None }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+}
+
+#[test]
+fn serve_refuses_a_request_header_over_an_eighth_of_the_frame_size() {
+    let source = "x".repeat(200);
+    let req = Request::ProbeFile { name: "w".into(), source, common: None };
+    let mut input = Vec::new();
+    write_frame(&mut input, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
+    // 1024 octets par trame : l'en-tête (plus de 200) dépasse 1024 / 8.
+    assert_that!(serve(input.as_slice(), Vec::new(), 1024)).is_err();
 }

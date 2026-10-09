@@ -31,6 +31,7 @@ cli-not-found = bulunamadı
 cli-bad-request = geçersiz istek: { $reason }
 cli-sse-full = zaten çok fazla olay akışı açık
 cli-forbidden = istek reddedildi: yerel arayüzden gelmiyor
+cli-exposed = { $host } üzerinde dinleniyor: sunucunun kimlik doğrulaması yok ve ağdan erişilebilir; yerel bir Host başlığı gönderen her istemciye yanıt verilir. [serve] host değerini 127.0.0.1 olarak bırakın
 
 cli-about = Oku Slides sunularını oluşturur ve saklar
 cli-arg-fonts = Ek yazı tipi klasörü (TTF/OTF); varsayılan: ayarlardaki paths.fonts

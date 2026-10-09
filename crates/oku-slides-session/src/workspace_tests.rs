@@ -875,6 +875,18 @@ fn closed_by_reports_the_tabs_a_request_closed_or_replaced() {
 }
 
 #[test]
+fn a_new_tab_launches_its_render_worker_at_its_first_request() {
+    let data = Data::new();
+    let ws = workspace_in(&data);
+    let slot = Workspace::lock(&ws).session("t-1").unwrap();
+    let started = || matches!(&*relock(&slot), Slot::Ready(s) if s.worker.is_started());
+    assert_that!(started()).is_false();
+    let (rendered, _) = Workspace::with_session(&ws, "t-1", |s| s.compiled.is_some());
+    assert_that!(rendered).is_ok().is_true();
+    assert_that!(started()).is_true();
+}
+
+#[test]
 fn with_session_wakes_a_dormant_resumed_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");

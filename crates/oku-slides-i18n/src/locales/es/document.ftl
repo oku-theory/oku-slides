@@ -23,6 +23,7 @@ render-timeout = El renderizado tardó más de { $seconds } s y se interrumpió
 render-out-of-memory = El renderizado necesitó más de { $mib } MiB de memoria y se interrumpió
 render-worker-lost = El proceso de renderizado se detuvo
 render-frame = Mensaje ilegible del proceso de renderizado
+render-page-too-large = Esta diapositiva es demasiado grande para la vista previa (más de { $mib } MiB, a menudo por una imagen muy grande). Aún se puede exportar como PDF o PNG.
 render-stale = El renderizado fue reemplazado; inténtelo de nuevo
 render-pack-disabled = Los widgets del paquete «{ $pack }» están desactivados en esta sesión
 registry-schema-remote = Registro de widgets no válido: { $message }

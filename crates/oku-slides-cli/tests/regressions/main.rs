@@ -6,4 +6,5 @@ mod common;
 
 mod issue_0181_serve_obeys_foreign_origins;
 mod issue_0273_stale_test_dirs;
+mod issue_0355_cli_valide_avec_le_pack_du_deck;
 mod issue_0419_serve_answers_a_burst_of_keep_alive_connections;

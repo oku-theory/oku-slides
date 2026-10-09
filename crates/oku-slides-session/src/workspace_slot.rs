@@ -45,14 +45,20 @@ pub(super) enum Slot {
 }
 
 impl Slot {
-    /// La session, relue d'abord si l'onglet dort (voir [`Dormant::wake`]).
+    /// La session, relue d'abord si l'onglet dort (voir [`Dormant::wake`]),
+    /// et rendue si elle ne l'a jamais été (démarrage paresseux, `render_fonts`).
     ///
     /// Un état illisible ne retire pas l'onglet. Seul l'échec de
-    /// [`Session::new`] le laisse endormi : la requête échoue, la suivante
-    /// réessaie. Fermé : `UnknownTab`, comme s'il n'existait plus.
+    /// [`Session::unrendered`] le laisse endormi : la requête échoue, la suivante
+    /// réessaie. Un premier rendu qui échoue laisse l'onglet prêt mais sans
+    /// rendu : la requête échoue, et chacune des suivantes refait ce rendu.
+    /// Fermé : `UnknownTab`, comme s'il n'existait plus.
     pub(super) fn ready(&mut self) -> Result<&mut Session> {
         match self {
-            Self::Ready(session) => Ok(session),
+            Self::Ready(session) => {
+                session.ensure_rendered()?;
+                Ok(session)
+            }
             Self::Dormant(dormant) => {
                 let session = dormant.wake()?;
                 *self = Self::Ready(Box::new(session));

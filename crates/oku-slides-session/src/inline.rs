@@ -8,6 +8,7 @@
 //! Contrat : `fixtures/markdown.json` et `fixtures/markdown-corpus.json`.
 
 use oku_slides_core::Run;
+use unicode_properties::{GeneralCategoryGroup, UnicodeGeneralCategory};
 
 /// Runs en markdown inline ; `color` et `size` n'ont pas d'écriture markdown.
 pub(crate) fn runs_to_markdown(runs: &[Run]) -> String {
@@ -121,17 +122,30 @@ enum Class {
     Alnum,
 }
 
-/// Espace au sens du `\s` de JS (Lezer) : les blancs Unicode, plus U+FEFF (BOM).
+/// Espace au sens du `\s` de JS (Lezer) : les blancs Unicode sauf U+0085, plus U+FEFF (BOM).
 fn is_space(c: char) -> bool {
-    c.is_whitespace() || c == '\u{feff}'
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
 }
 
+/// Classe d'un caractère telle que Lezer la voit contre un délimiteur.
+///
+/// Lezer teste `[\p{S}\p{P}]` sur une seule unité UTF-16 : hors du plan de base,
+/// il ne voit qu'une demi-paire de substitution, ni espace ni ponctuation. Ⓐ
+/// (symbole) est donc de la ponctuation, et 😀 une lettre.
 fn class(c: Option<char>) -> Class {
     match c {
         None => Class::Space,
         Some(c) if is_space(c) => Class::Space,
-        Some(c) if c.is_alphanumeric() => Class::Alnum,
-        Some(_) => Class::Punct,
+        Some(c)
+            if u32::from(c) <= 0xFFFF
+                && matches!(
+                    c.general_category_group(),
+                    GeneralCategoryGroup::Punctuation | GeneralCategoryGroup::Symbol
+                ) =>
+        {
+            Class::Punct
+        }
+        Some(_) => Class::Alnum,
     }
 }
 
@@ -249,7 +263,8 @@ fn escape_inline(t: &str) -> String {
     let mut out = String::with_capacity(t.len());
     for (i, &c) in chars.iter().enumerate() {
         let intraword = || {
-            let alnum = |j: Option<usize>| j.and_then(|j| chars.get(j)).is_some_and(|c| c.is_alphanumeric());
+            let alnum =
+                |j: Option<usize>| j.and_then(|j| chars.get(j)).is_some_and(|&c| class(Some(c)) == Class::Alnum);
             alnum(i.checked_sub(1)) && alnum(Some(i + 1))
         };
         // `=` contre un autre `=` ou au bord du run pourrait former `==`.

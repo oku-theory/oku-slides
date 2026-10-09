@@ -22,6 +22,7 @@ serde_json.workspace = true
 snafu.workspace = true
 time.workspace = true
 similar.workspace = true
+unicode-properties.workspace = true
 schemars.workspace = true
 uuid.workspace = true
 png.workspace = true

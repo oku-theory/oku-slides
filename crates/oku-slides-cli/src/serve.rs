@@ -1,6 +1,6 @@
 //! `oku-slides serve` : l'interface et l'API dans un navigateur, sans Tauri.
 
-use std::future::IntoFuture as _;
+use std::net::IpAddr;
 use std::path::{Component, Path, PathBuf};
 use std::pin::{Pin, pin};
 use std::sync::{Arc, Mutex};
@@ -20,6 +20,7 @@ use oku_slides_session::{Localize, Workspace, WorkspaceOutcome, WorkspaceRequest
 use oku_slides_stt::Stt;
 
 use crate::guard;
+use crate::listen::{Limits, serve_connections};
 use crate::out::Out;
 use crate::sse::Clients;
 
@@ -170,6 +171,14 @@ impl Shared {
     }
 }
 
+/// Une écoute sur `ip` est joignable depuis le réseau : ni la boucle locale,
+/// ni une adresse IPv6 qui la représente (`::ffff:127.0.0.1`). La garde
+/// d'origine n'authentifie pas (ADR-0003) : un client du réseau qui forge
+/// `Host` serait servi.
+fn reachable_from_network(ip: IpAddr) -> bool {
+    !ip.to_canonical().is_loopback()
+}
+
 /// `rel` (chemin d'URL non décodé, sans `/` de tête) reste sous le dossier de
 /// l'interface : que des noms, ni `..`, ni `.` de tête, ni racine, ni préfixe
 /// de lecteur ou de partage (Windows, où `\` sépare aussi).
@@ -258,6 +267,10 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
 /// requête qui ne vient pas de l'interface locale est refusée (403, voir
 /// `guard`).
 ///
+/// Chaque connexion a `[serve] header_timeout_ms` pour envoyer ses en-têtes ;
+/// au-delà de `[serve] max_connections` connexions simultanées, une nouvelle
+/// est fermée aussitôt (voir `listen`).
+///
 /// Ctrl-C, SIGTERM ou SIGHUP arrêtent le serveur proprement : les requêtes en
 /// cours reçoivent leur réponse (`GRACE` au plus), les flux d'évènements se
 /// terminent, la pile de l'agent s'arrête, puis `serve` rend la main (code de
@@ -278,6 +291,9 @@ pub fn serve(
     // Le serveur, les outils MCP et l'agent : un seul runtime tokio.
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let listener = runtime.block_on(tokio::net::TcpListener::bind((host, port)))?;
+    if reachable_from_network(listener.local_addr()?.ip()) {
+        tracing::warn!("{}", platform.localizer.tr_with("cli-exposed", &[("host", host.into())]));
+    }
     let stop = Arc::new(tokio::sync::Notify::new());
     {
         let stop = Arc::clone(&stop);
@@ -315,19 +331,19 @@ pub fn serve(
             stopping.notify_one();
         }
     };
+    let limits = Limits::new(settings.serve.header_timeout(), settings.serve.max_connections.get());
     runtime.block_on(async {
-        let mut server = pin!(axum::serve(listener, app).with_graceful_shutdown(shutdown).into_future());
+        let mut server = pin!(serve_connections(listener, app, limits, shutdown));
         tokio::select! {
-            served = &mut server => served,
+            () = &mut server => {}
             () = stopping.notified() => {
                 // Une requête longue ne retient pas l'arrêt plus de `GRACE`.
-                tokio::time::timeout(GRACE, server).await.unwrap_or_else(|_| {
+                if tokio::time::timeout(GRACE, server).await.is_err() {
                     tracing::warn!("arrêt : requêtes en cours abandonnées");
-                    Ok(())
-                })
+                }
             }
         }
-    })?;
+    });
     // La pile de l'agent s'arrête explicitement, pendant que le runtime qui la
     // porte tourne encore ; `block_on` est permis ici, hors contexte async.
     runtime.block_on(shared.stack.shutdown());

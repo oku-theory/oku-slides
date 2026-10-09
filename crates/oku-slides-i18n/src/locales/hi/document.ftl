@@ -24,6 +24,7 @@ render-timeout = रेंडरिंग में { $seconds } सेकंड
 render-out-of-memory = रेंडरिंग को { $mib } MiB से अधिक मेमोरी चाहिए थी और उसे रोक दिया गया
 render-worker-lost = रेंडरिंग प्रोसेस रुक गया
 render-frame = रेंडरिंग प्रोसेस का संदेश पढ़ा नहीं जा सका
+render-page-too-large = यह स्लाइड प्रीव्यू के लिए बहुत बड़ी है ({ $mib } MiB से अधिक, अक्सर किसी बहुत बड़ी छवि के कारण)। इसे अब भी PDF या PNG के रूप में एक्सपोर्ट किया जा सकता है।
 render-stale = रेंडरिंग बदल दी गई; फिर से कोशिश करें
 render-pack-disabled = पैक “{ $pack }” के विजेट इस सत्र के लिए बंद हैं
 registry-schema-remote = विजेट रजिस्ट्री अमान्य है: { $message }

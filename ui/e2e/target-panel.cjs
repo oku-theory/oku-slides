@@ -73,8 +73,9 @@ const stageReady = (p, n) =>
   await selectFrise();
   const panel = p.locator(PANEL);
   await panel.waitFor({ timeout: 15000 });
-  await until(p, async () => /^Paramètres de /.test(((await panel.innerText().catch(() => '')) ?? '').trim()), 'titre « Paramètres de … »');
-  assert.ok((await panel.innerText()).includes('Paramètres de Frise chronologique'), `titre : ${await panel.innerText()}`);
+  // Le libellé exact du widget visé : la carte de la slide (« Paramètres de Chapitre »…) peut
+  // s'afficher un instant avant celle de la frise sélectionnée.
+  await until(p, async () => (await panel.innerText().catch(() => '')).includes('Paramètres de Frise chronologique'), 'titre « Paramètres de Frise chronologique »');
   const rows = panel.locator('.lt tbody tr');
   await until(p, async () => (await rows.count()) === original.length, 'une ligne par étape');
 

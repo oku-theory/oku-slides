@@ -3,7 +3,6 @@
 
 use std::sync::Mutex;
 
-use oku_slides_i18n::Localizer;
 use uuid::Uuid;
 
 use super::{Pending, Workspace};
@@ -12,7 +11,7 @@ use crate::help::help_locale;
 impl Workspace {
     /// La langue de l'aide à montrer : celle de l'interface, sinon l'anglais.
     pub(super) fn help_language(&self) -> &'static str {
-        help_locale(Localizer::new(self.chosen_locale).locale())
+        help_locale(oku_slides_i18n::resolve(self.chosen_locale))
     }
 
     /// L'onglet qui montre déjà l'aide en `locale`.

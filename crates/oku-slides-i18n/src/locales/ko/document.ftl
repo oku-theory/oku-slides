@@ -24,6 +24,7 @@ render-timeout = 렌더링이 { $seconds }초를 넘겨 중단되었습니다
 render-out-of-memory = 렌더링에 { $mib } MiB가 넘는 메모리가 필요해 중단되었습니다
 render-worker-lost = 렌더링 프로세스가 중지되었습니다
 render-frame = 렌더링 프로세스의 메시지를 읽을 수 없습니다
+render-page-too-large = 이 슬라이드는 미리 보기에 너무 큽니다({ $mib } MiB 초과, 대개 매우 큰 이미지 때문). PDF 또는 PNG로는 계속 내보낼 수 있습니다.
 render-stale = 렌더링이 다른 요청으로 대체되었습니다. 다시 시도하세요
 render-pack-disabled = '{ $pack }' 팩의 위젯은 이 세션에서 비활성화되었습니다
 registry-schema-remote = 위젯 레지스트리가 올바르지 않습니다: { $message }

@@ -81,6 +81,32 @@ fn runs_to_markdown_bom_at_bold_edge_inside_link_moves_outside_the_marks() {
     assert_that!(runs_to_markdown(&runs)).is_equal_to("[**x**\u{feff}](https://a.b)".to_owned());
 }
 
+#[test]
+fn runs_to_markdown_circled_letter_is_punctuation_like_lezer() {
+    // Ⓐ est une lettre pour Rust mais un symbole (\p{S}) pour Lezer : `a**Ⓐ**` resterait littéral.
+    let runs = [run("a"), bold("Ⓐ")];
+    assert_that!(runs_to_markdown(&runs)).is_equal_to("aⒶ".to_owned());
+}
+
+#[test]
+fn runs_to_markdown_astral_symbol_is_a_letter_like_lezer() {
+    // Lezer lit une demi-paire UTF-16 contre le délimiteur : ni espace ni ponctuation.
+    let runs = [bold("!"), run("😀")];
+    assert_that!(runs_to_markdown(&runs)).is_equal_to("!😀".to_owned());
+}
+
+#[test]
+fn runs_to_markdown_next_line_char_is_not_a_space_for_lezer() {
+    // U+0085 est un blanc Unicode mais pas un `\s` de JS.
+    let runs = [bold("!"), run("\u{85}")];
+    assert_that!(runs_to_markdown(&runs)).is_equal_to("!\u{85}".to_owned());
+}
+
+#[test]
+fn escape_inline_underscore_between_circled_letters_is_escaped() {
+    assert_that!(escape_inline("Ⓐ_Ⓑ")).is_equal_to("Ⓐ\\_Ⓑ".to_owned());
+}
+
 /// Générateur déterministe (SplitMix64) : le corpus ne dépend d'aucune crate.
 struct Rng(u64);
 
@@ -94,10 +120,44 @@ impl Rng {
     }
 }
 
-/// Lettres, chiffres, espaces et toute la ponctuation qui compte en markdown.
+/// Lettres, chiffres, espaces et toute la ponctuation qui compte en markdown,
+/// plus les caractères que Rust et Lezer classaient différemment : Ⓐ et 🄰
+/// (lettres pour Rust, symboles), 😀 (hors du plan de base) et U+0085.
 const ALPHABET: &[char] = &[
-    'a', 'b', 'é', '上', '1', '2', ' ', ' ', '\t', '\u{a0}', '\u{feff}', '!', '"', '*', '_', '=', '[', ']', '{', '}',
-    '\\', '#', '-', '.', '(', ')', '<', '`', '~', '|',
+    'a',
+    'b',
+    'é',
+    '上',
+    '1',
+    '2',
+    ' ',
+    ' ',
+    '\t',
+    '\u{a0}',
+    '\u{feff}',
+    '!',
+    '"',
+    '*',
+    '_',
+    '=',
+    '[',
+    ']',
+    '{',
+    '}',
+    '\\',
+    '#',
+    '-',
+    '.',
+    '(',
+    ')',
+    '<',
+    '`',
+    '~',
+    '|',
+    'Ⓐ',
+    '\u{1F130}',
+    '😀',
+    '\u{85}',
 ];
 
 fn corpus() -> Vec<Vec<Run>> {

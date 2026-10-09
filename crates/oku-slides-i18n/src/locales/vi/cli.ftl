@@ -31,6 +31,7 @@ cli-not-found = không tìm thấy
 cli-bad-request = yêu cầu không hợp lệ: { $reason }
 cli-sse-full = đã mở quá nhiều luồng sự kiện
 cli-forbidden = yêu cầu bị từ chối: không đến từ giao diện cục bộ
+cli-exposed = đang lắng nghe trên { $host }: máy chủ không có xác thực và có thể truy cập từ mạng; mọi máy khách gửi tiêu đề Host cục bộ đều được phục vụ. Hãy giữ [serve] host là 127.0.0.1
 
 cli-about = Kết xuất và lưu trữ bản trình bày Oku Slides
 cli-arg-fonts = Thư mục phông chữ bổ sung (TTF/OTF); mặc định: paths.fonts trong cài đặt

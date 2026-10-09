@@ -24,6 +24,7 @@ render-timeout = Kết xuất mất hơn { $seconds } giây và đã bị dừng
 render-out-of-memory = Kết xuất cần hơn { $mib } MiB bộ nhớ và đã bị dừng
 render-worker-lost = Tiến trình kết xuất đã dừng
 render-frame = Thông điệp không đọc được từ tiến trình kết xuất
+render-page-too-large = Trang chiếu này quá lớn để xem trước (hơn { $mib } MiB, thường do một hình ảnh rất lớn). Bạn vẫn có thể xuất nó dưới dạng PDF hoặc PNG.
 render-stale = Bản kết xuất đã bị thay thế; hãy thử lại
 render-pack-disabled = Các widget của gói “{ $pack }” bị tắt trong phiên này
 registry-schema-remote = Sổ đăng ký widget không hợp lệ: { $message }

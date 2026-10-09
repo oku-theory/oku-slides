@@ -99,6 +99,13 @@ describe("markdownToRuns", () => {
     }
   });
 
+  test("lien avec titre ou adresse entre chevrons (jamais écrits par Rust) : texte littéral, rien ne se perd", () => {
+    for (const s of ['[a](u "titre")', "[a](u 'titre')", "[a](u (titre))", "[a](<b c>)", "[a](<b>)", 'voir [**a**](u "t") ici']) {
+      expect(markdownToRuns(s)).toEqual([{ t: s }]);
+      expect(markdownSpans(s)).toEqual([]);
+    }
+  });
+
   test("image : hors du dialecte, mais son `[alt](src)` reste un lien", () => {
     expect(markdownToRuns("![alt](src)")).toEqual([{ t: "!" }, { t: "alt", link: "src" }]);
   });

@@ -17,8 +17,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use oku_slides_platform::config::RenderSettings;
@@ -27,9 +27,9 @@ use oku_slides_render::RenderError;
 use sha2::{Digest, Sha256};
 
 use crate::error::FrameError;
-use crate::frame::{Frame, read_frame, write_frame};
+use crate::frame::{Frame, FrameLimits, read_frame_with, write_frame};
 use crate::protocol::{Request, Response, SlotId, WirePack};
-use crate::rss::resident_bytes;
+use crate::rss::memory_bytes;
 
 /// Intervalle du relevé de mémoire et du contrôle du délai.
 const TICK: Duration = Duration::from_millis(100);
@@ -52,13 +52,17 @@ pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
     hex::encode(h.finalize())
 }
 
-/// Erreur du lien pour une trame de sortie illisible.
+/// Erreur du lien pour une trame de sortie illisible, réponse à `req`.
 ///
 /// Un tube rompu ou une trame tronquée : le travailleur est mort en écrivant
-/// (`WorkerLost`). Une trame trop grande ou un en-tête non JSON : `Frame`.
-fn frame_failure(e: FrameError) -> RenderError {
+/// (`WorkerLost`). Une trame trop grande ou un en-tête non JSON : `Frame` ;
+/// le SVG d'une page au-delà de sa borne le dit (`page_too_large`).
+fn frame_failure(e: FrameError, req: &Request) -> RenderError {
     match e {
         FrameError::Io { .. } | FrameError::Truncated { .. } => RenderError::worker_lost(e.to_string()),
+        FrameError::TooLarge { payload: true, max, .. } if matches!(req, Request::Svg { .. }) => {
+            RenderError::page_too_large(u64::try_from(max / (1024 * 1024)).unwrap_or(u64::MAX))
+        }
         FrameError::TooLarge { .. } | FrameError::Json { .. } => RenderError::frame(e.to_string()),
     }
 }
@@ -85,6 +89,9 @@ type Pipes = (Box<dyn Write + Send>, Box<dyn Read + Send>, Option<Child>);
 struct Conn {
     input: Box<dyn Write + Send>,
     output: Receiver<Result<Frame, FrameError>>,
+    /// Bornes de la réponse attendue (selon la requête envoyée), lues par le
+    /// fil lecteur au premier octet de chaque trame.
+    expected: Arc<Mutex<FrameLimits>>,
     child: Option<Child>,
 }
 
@@ -171,6 +178,11 @@ impl Link {
         }
     }
 
+    /// Un travailleur a déjà été lancé, même mort depuis.
+    pub(crate) fn started(&self) -> bool {
+        self.started
+    }
+
     /// Une connexion est ouverte (le travailleur peut être mort sans le savoir).
     pub(crate) fn connected(&self) -> bool {
         self.conn.is_some()
@@ -193,11 +205,14 @@ impl Link {
         let (input, output, child) = self.spawn(max)?;
         let (tx, rx) = channel();
         let mut output = output;
+        let expected = Arc::new(Mutex::new(FrameLimits::uniform(0)));
+        let limits = expected.clone();
         std::thread::Builder::new()
             .name("oku-render-reader".into())
             .spawn(move || {
                 loop {
-                    match read_frame(&mut output, max) {
+                    let limits = || *limits.lock().unwrap_or_else(PoisonError::into_inner);
+                    match read_frame_with(&mut output, limits) {
                         Ok(Some(frame)) => {
                             if tx.send(Ok(frame)).is_err() {
                                 return;
@@ -212,7 +227,7 @@ impl Link {
                 }
             })
             .map_err(|e| RenderError::worker_lost(e.to_string()))?;
-        self.conn = Some(Conn { input, output: rx, child });
+        self.conn = Some(Conn { input, output: rx, expected, child });
         if self.started {
             self.restarts += 1;
         }
@@ -297,7 +312,9 @@ impl Link {
     fn raw_call(&mut self, req: &Request, payload: &[u8]) -> Result<(Response, Vec<u8>), RenderError> {
         let max = self.settings.max_frame_bytes();
         let conn = self.conn.as_mut().ok_or_else(|| RenderError::worker_lost("not connected"))?;
-        match write_frame(&mut conn.input, req, payload, max) {
+        // Avant l'envoi : la réponse ne peut pas arriver avant.
+        *conn.expected.lock().unwrap_or_else(PoisonError::into_inner) = FrameLimits::reply_to(req, max);
+        match write_frame(&mut conn.input, req, payload, FrameLimits::requests(max)) {
             Ok(()) => {}
             Err(e @ (FrameError::TooLarge { .. } | FrameError::Json { .. })) => {
                 return Err(RenderError::frame(e.to_string()));
@@ -307,7 +324,7 @@ impl Link {
                 return Err(RenderError::worker_lost(e.to_string()));
             }
         }
-        let result = self.reply();
+        let result = self.reply(req);
         if result.is_err() {
             // Tout échec du lien le rend inutilisable : `Conn::drop` tue le fils,
             // et le suivant est neuf.
@@ -316,8 +333,8 @@ impl Link {
         result
     }
 
-    /// Attend la réponse à la requête envoyée, dans les bornes.
-    fn reply(&mut self) -> Result<(Response, Vec<u8>), RenderError> {
+    /// Attend la réponse à `req`, envoyée, dans les bornes.
+    fn reply(&mut self, req: &Request) -> Result<(Response, Vec<u8>), RenderError> {
         let (timeout, memory) = (self.settings.timeout(), self.settings.memory_bytes());
         let conn = self.conn.as_mut().ok_or_else(|| RenderError::worker_lost("not connected"))?;
         let started = Instant::now();
@@ -329,7 +346,7 @@ impl Link {
                         serde_json::from_slice(&frame.header).map_err(|e| RenderError::frame(e.to_string()))?;
                     return Ok((resp, frame.payload));
                 }
-                Ok(Err(e)) => return Err(frame_failure(e)),
+                Ok(Err(e)) => return Err(frame_failure(e, req)),
                 Err(RecvTimeoutError::Disconnected) => {
                     let status = conn.child.as_mut().and_then(|c| c.try_wait().ok().flatten());
                     let message = status.map_or_else(|| "pipe closed".to_owned(), |s| s.to_string());
@@ -337,7 +354,7 @@ impl Link {
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     if let Some(child) = &conn.child
-                        && resident_bytes(&mut self.sys, child.id()).is_some_and(|b| b > memory)
+                        && memory_bytes(&mut self.sys, child.id()).is_some_and(|b| b > memory)
                     {
                         return Err(RenderError::out_of_memory(self.settings.memory_mib));
                     }

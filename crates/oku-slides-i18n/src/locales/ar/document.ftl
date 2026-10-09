@@ -24,6 +24,7 @@ render-timeout = استغرق العرض أكثر من { $seconds } ثانية �
 render-out-of-memory = احتاج العرض إلى أكثر من { $mib } ميبيبايت من الذاكرة وتم إيقافه
 render-worker-lost = توقفت عملية العرض
 render-frame = رسالة غير مقروءة من عملية العرض
+render-page-too-large = هذه الشريحة أكبر من أن تُعرض معاينتها (أكثر من { $mib } ميبيبايت، غالبًا بسبب صورة كبيرة جدًا). لا يزال بالإمكان تصديرها بصيغة PDF أو PNG.
 render-stale = تم استبدال العرض؛ حاول مرة أخرى
 render-pack-disabled = عناصر واجهة الحزمة «{ $pack }» معطّلة في هذه الجلسة
 registry-schema-remote = سجل عناصر الواجهة غير صالح: { $message }

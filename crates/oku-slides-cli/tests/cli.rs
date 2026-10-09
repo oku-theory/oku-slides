@@ -169,6 +169,8 @@ fn save_with_embed_fonts_puts_the_fonts_in_the_sources() {
     let saved = run(oku_slides(&dir, "en").args(["--fonts", fonts, "save", FIXTURE]).arg(&pdf).arg("--embed-fonts"));
     assert_that!(saved.status.success()).is_true();
     let opened = run(oku_slides(&dir, "en").arg("open").arg(&pdf));
+    // Sans ce contrôle, un `open` en échec (stdout vide) passerait le test.
+    assert_that!(opened.status.success()).is_true();
     assert_that!(stdout(&opened)).does_not_contain(" 0 fonts");
 }
 
@@ -365,14 +367,75 @@ fn serve_body_over_64_mib_answers_413() {
         "POST /api/workspace HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n\
          Transfer-Encoding: chunked\r\n\r\n{size:x}\r\n"
     );
+    // La réponse se lit en parallèle de l'envoi : le serveur répond 413 sans lire
+    // la suite du corps, puis ferme la connexion (remise à zéro possible), et
+    // l'envoi s'arrête là.
+    let mut reader = s.try_clone().unwrap_or_else(|e| panic!("connexion : {e}"));
+    reader.set_read_timeout(Some(Duration::from_secs(30))).unwrap_or_else(|e| panic!("délai : {e}"));
+    let reply = std::thread::spawn(move || {
+        let mut head = [0u8; 12];
+        reader.read_exact(&mut head).map(|()| head)
+    });
     std::io::Write::write_all(&mut s, head.as_bytes()).unwrap_or_else(|e| panic!("requête : {e}"));
-    std::io::Write::write_all(&mut s, " ".repeat(size).as_bytes()).unwrap_or_else(|e| panic!("corps : {e}"));
-    s.set_read_timeout(Some(Duration::from_secs(10))).unwrap_or_else(|e| panic!("délai : {e}"));
-    let mut head = [0u8; 12];
-    s.read_exact(&mut head).unwrap_or_else(|e| panic!("réponse : {e}"));
+    let chunk = vec![b' '; 1024 * 1024];
+    let mut left = size;
+    while left > 0 {
+        let n = left.min(chunk.len());
+        if std::io::Write::write_all(&mut s, &chunk[..n]).is_err() {
+            break;
+        }
+        left -= n;
+    }
+    let head = reply.join().unwrap_or_else(|_| panic!("lecture")).unwrap_or_else(|e| panic!("réponse : {e}"));
     assert_that!(&head).is_equal_to(b"HTTP/1.1 413");
     let (status, _) = http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#);
     assert_that!(status).is_equal_to(200);
+}
+
+/// `[serve] header_timeout_ms` et `max_connections` viennent des réglages : une
+/// connexion muette est fermée après le délai, une connexion de trop aussitôt.
+#[test]
+fn serve_applies_the_connection_limits_of_the_settings() {
+    use std::io::Write as _;
+    let dir = workdir("serve-limits");
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .env("OKU_SLIDES_SERVE__HEADER_TIMEOUT_MS", "500")
+            .env("OKU_SLIDES_SERVE__MAX_CONNECTIONS", "1")
+            .args(["serve", "--port", &port.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+    // Le serveur est prêt.
+    assert_that!(http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#).0).is_equal_to(200);
+
+    let closed_within = |s: &mut std::net::TcpStream, within: Duration| {
+        // macOS refuse de régler une connexion déjà remise à zéro : fermée.
+        if s.set_read_timeout(Some(within)).is_err() {
+            return true;
+        }
+        let mut buf = [0u8; 64];
+        match s.read(&mut buf) {
+            Ok(0) => true,
+            Ok(_) => false,
+            Err(e) => !matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut),
+        }
+    };
+    // La place de la requête précédente se libère un instant après sa réponse.
+    std::thread::sleep(Duration::from_millis(200));
+    let mut mute = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+    let since = Instant::now();
+    // Seule place prise : une autre connexion est fermée sans réponse.
+    let mut extra = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+    let _ = write!(extra, "GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n");
+    assert_that!(closed_within(&mut extra, Duration::from_millis(400))).named("connexion de trop").is_true();
+    // La connexion muette, elle, est fermée après le délai des en-têtes.
+    assert_that!(closed_within(&mut mute, Duration::from_secs(5))).named("connexion muette").is_true();
+    assert_that!(since.elapsed() >= Duration::from_millis(400)).named("pas avant le délai").is_true();
 }
 
 /// Un `Content-Length` de plus de 64 Mio est refusé (413, texte) sans
@@ -506,7 +569,8 @@ fn serve_stops_on_sigterm_with_an_open_event_stream() {
 
     let killed = Command::new("kill").args(["-TERM", &server.id().to_string()]).status();
     assert_that!(killed.is_ok_and(|k| k.success())).is_true();
-    let deadline = Instant::now() + Duration::from_secs(10);
+    // Bien en deçà de `GRACE` (5 s) : le flux est clos, pas abandonné à l'échéance.
+    let deadline = Instant::now() + Duration::from_secs(3);
     let exit = loop {
         if let Some(exit) = server.try_wait().unwrap_or_else(|e| panic!("attente : {e}")) {
             break exit;

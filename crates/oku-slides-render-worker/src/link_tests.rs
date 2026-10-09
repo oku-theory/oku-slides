@@ -137,9 +137,10 @@ fn frame_failure_of_dead_worker_is_worker_lost_and_bad_frame_is_frame() {
 
     use crate::error::{IoSnafu, TooLargeSnafu, TruncatedSnafu};
     let io = Err::<(), _>(std::io::Error::other("rompu")).context(IoSnafu).unwrap_err();
-    assert_that!(frame_failure(io).kind()).is_equal_to(RenderErrorKind::WorkerLost);
-    assert_that!(frame_failure(TruncatedSnafu.build()).kind()).is_equal_to(RenderErrorKind::WorkerLost);
-    assert_that!(frame_failure(TooLargeSnafu { len: 2usize, max: 1usize }.build()).kind())
+    let pdf = Request::Pdf { slot: 1, generation: 1 };
+    assert_that!(frame_failure(io, &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(TruncatedSnafu.build(), &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(TooLargeSnafu { len: 2usize, max: 1usize, payload: true }.build(), &pdf).kind())
         .is_equal_to(RenderErrorKind::Frame);
 }
 
@@ -164,6 +165,34 @@ fn link_outgoing_frame_over_max_is_refused_as_frame_and_keeps_the_worker() {
     assert_that!(link.connected()).is_true();
     link.call(&Request::OpenSlot { slot: 2, fonts: vec![] }, &[]).unwrap();
     assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn link_outgoing_header_over_an_eighth_of_the_frame_size_is_refused_as_frame_and_keeps_the_worker() {
+    let mut link = Link::new(RenderLaunch::InProcess, RenderSettings { max_frame_mib: 1, ..settings(10_000) });
+    link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
+    // Un en-tête de plus de 128 Kio, sous la taille de trame (1 Mio).
+    let req = Request::ProbeFile { name: "w".into(), source: "x".repeat(200 * 1024), common: None };
+    let err = link.call(&req, &[]).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
+    assert_that!(link.connected()).is_true();
+    link.call(&Request::OpenSlot { slot: 2, fonts: vec![] }, &[]).unwrap();
+    assert_that!(link.restarts).is_equal_to(0);
+}
+
+#[test]
+fn svg_payload_over_its_limit_says_the_slide_is_too_large_to_preview() {
+    use oku_slides_i18n::{Localize, Localizer};
+
+    use crate::error::TooLargeSnafu;
+    let l = Localizer::new(Some("en"));
+    let svg = Request::Svg { slot: 1, generation: 1, page: 0 };
+    let too_large = |payload| TooLargeSnafu { len: 300usize << 20, max: 128usize << 20, payload }.build();
+    let e = frame_failure(too_large(true), &svg);
+    assert_that!(e.kind()).is_equal_to(RenderErrorKind::Frame);
+    assert_that!(e.localize(&l)).is_equal_to(l.tr_with("render-page-too-large", &[("mib", 128u64.into())]));
+    // Un en-tête trop grand reste un message illisible.
+    assert_that!(frame_failure(too_large(false), &svg).localize(&l)).is_equal_to(l.tr("render-frame"));
 }
 
 #[test]

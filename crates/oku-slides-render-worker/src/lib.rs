@@ -17,6 +17,8 @@
 mod client;
 mod compiled;
 mod error;
+#[cfg(target_os = "macos")]
+mod footprint;
 mod frame;
 mod link;
 mod pack_probe;
@@ -24,6 +26,8 @@ mod protocol;
 mod rss;
 mod serve;
 mod slot;
+#[cfg(unix)]
+mod stdio;
 #[cfg(test)]
 pub(crate) mod test_packs;
 mod watchdog;

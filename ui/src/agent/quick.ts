@@ -142,10 +142,30 @@ export function quickAction(surface: Surface, key: string): QuickAction | null {
   return actionOf(numbered(cs)[n - 1], model);
 }
 
+/** Boîte en px : bord gauche, haut, largeur, hauteur. */
+export type PxBox = { left: number; top: number; width: number; height: number };
+/** Zone où la fiche doit tenir (px, mêmes coordonnées que la boîte). */
+export type PxZone = { left: number; top: number; right: number; bottom: number };
+
 /**
- * Coin de la fiche sous `target` (en pt, mis à l'échelle). En droite à gauche,
- * `left` est le bord droit : la fiche est posée avec `translateX(-100%)`.
+ * Place de la fiche de l'agent près de `anchor` (px, coordonnées du cadre de la scène).
+ * Sous la boîte si la place suffit dans `zone`, sinon au-dessus ; si aucun côté ne suffit,
+ * du côté le plus grand, recadrée verticalement. Alignée sur le bord de départ de la boîte
+ * (le droit en droite à gauche), puis recadrée horizontalement dans la zone.
+ * Avant mesure (`sheet` ou `zone` inconnus) : sous la boîte, sans recadrage.
  */
-export function sheetPosition(target: { x: number; y: number; w: number; h: number }, scale: number, rtl: boolean) {
-  return { left: (rtl ? target.x + target.w : target.x) * scale, top: (target.y + target.h) * scale + GAP };
+export function sheetPlacement(anchor: PxBox, sheet: { width: number; height: number } | null, zone: PxZone | null, rtl: boolean) {
+  const w = sheet?.width ?? 0;
+  const h = sheet?.height ?? 0;
+  const below = anchor.top + anchor.height + GAP;
+  const start = rtl ? anchor.left + anchor.width - w : anchor.left;
+  if (!sheet || !zone) return { left: start, top: below, above: false };
+  const aboveTop = anchor.top - GAP - h;
+  let above: boolean;
+  if (below + h <= zone.bottom) above = false;
+  else if (aboveTop >= zone.top) above = true;
+  else above = anchor.top - zone.top > zone.bottom - below;
+  const top = Math.max(zone.top, Math.min(above ? aboveTop : below, zone.bottom - h));
+  const left = Math.max(zone.left, Math.min(start, zone.right - w));
+  return { left, top, above };
 }

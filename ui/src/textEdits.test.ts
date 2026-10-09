@@ -38,6 +38,61 @@ describe("toggleEmphasis", () => {
   });
 });
 
+describe("toggleEmphasis : ponctuation de bord collée à une lettre (règle de violation() côté Rust)", () => {
+  test("fermeture entre une parenthèse et une lettre : la parenthèse sort des étoiles", () => {
+    const result = toggleEmphasis("x (note)y", 2, 8, "bold");
+    // L'ouverture, après une espace, reste avant la parenthèse.
+    expect(result).toEqual({ value: "x **(note**)y", start: 4, end: 9 });
+    expect(markdownToRuns(result.value)).toEqual([{ t: "x " }, { t: "(note", bold: true }, { t: ")y" }]);
+    expect(toggleEmphasis(result.value, result.start, result.end, "bold").value).toBe("x (note)y");
+  });
+
+  test("ouverture entre une lettre et une parenthèse : la parenthèse sort des étoiles", () => {
+    const result = toggleEmphasis("x(note) y", 1, 7, "italic");
+    expect(result).toEqual({ value: "x(*note)* y", start: 3, end: 8 });
+    expect(markdownToRuns(result.value)).toEqual([{ t: "x(" }, { t: "note)", italic: true }, { t: " y" }]);
+  });
+
+  test("ponctuation entre deux espaces : elle reste dans les étoiles", () => {
+    expect(toggleEmphasis("a (note) b", 2, 8, "bold")).toEqual({ value: "a **(note)** b", start: 4, end: 10 });
+  });
+
+  test("ponctuation seule collée à des lettres : rien à mettre en forme, texte inchangé", () => {
+    expect(toggleEmphasis("x(y", 1, 2, "bold")).toEqual({ value: "x(y", start: 1, end: 2 });
+  });
+
+  test("italique ajouté à du gras collé : les marques retirées, la ponctuation sort", () => {
+    const result = toggleEmphasis("x**(note)**y", 3, 9, "italic");
+    expect(markdownToRuns(result.value)).toEqual([
+      { t: "x(" },
+      { t: "note", bold: true, italic: true },
+      { t: ")y" },
+    ]);
+  });
+
+  test("relu par markdownToRuns : texte intact, seules les lettres sélectionnées prennent le format", () => {
+    const cases: [string, number, number][] = [
+      ["x (note)y", 2, 8],
+      ["x(note) y", 1, 7],
+      ["a«b»c", 1, 4],
+      ["x((a))y", 1, 6],
+      ["x( a )y", 1, 6],
+      ["xⒶay", 1, 3],
+      ["x \"a\"!y", 2, 6],
+    ];
+    for (const [value, start, end] of cases) {
+      for (const format of ["bold", "italic"] as const) {
+        const runs = markdownToRuns(toggleEmphasis(value, start, end, format).value);
+        expect(runs.map((r) => r.t).join("")).toBe(value);
+        const formatted = runs.flatMap((r) => [...r.t].map(() => !!r[format]));
+        [...value].forEach((c, i) => {
+          if (/[\p{L}\p{N}]/u.test(c)) expect([value, i, formatted[i]]).toEqual([value, i, i >= start && i < end]);
+        });
+      }
+    }
+  });
+});
+
 describe("insertLink", () => {
   test("entoure la sélection et sélectionne l'adresse à remplir", () => {
     expect(insertLink("voir site", 5, 9)).toEqual({ value: "voir [site](url)", start: 12, end: 15 });

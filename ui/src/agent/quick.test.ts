@@ -1,7 +1,7 @@
 // Touches rapides des surfaces de l'agent et position de la fiche.
 
 import { describe, expect, test } from "bun:test";
-import { quickAction, quickKey, sheetPosition } from "./quick";
+import { quickAction, quickKey, sheetPlacement } from "./quick";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 
@@ -126,11 +126,37 @@ describe("touches des surfaces produites par la session", () => {
 });
 
 describe("position de la fiche", () => {
-  test("sous la boîte, alignée à gauche, à l'échelle", () => {
-    expect(sheetPosition({ x: 100, y: 200, w: 400, h: 80 }, 0.5, false)).toEqual({ left: 50, top: 148 });
+  const anchor = { left: 50, top: 100, width: 200, height: 40 };
+  const sheet = { width: 120, height: 80 };
+  const zone = { left: 0, top: 0, right: 600, bottom: 400 };
+  test("avant mesure : sous la boîte, alignée à gauche", () => {
+    expect(sheetPlacement(anchor, null, null, false)).toEqual({ left: 50, top: 148, above: false });
   });
-  test("en arabe, alignée sur le bord droit de la boîte", () => {
-    expect(sheetPosition({ x: 100, y: 200, w: 400, h: 80 }, 0.5, true)).toEqual({ left: 250, top: 148 });
+  test("avant mesure, en arabe : au bord droit de la boîte", () => {
+    expect(sheetPlacement(anchor, null, null, true)).toEqual({ left: 250, top: 148, above: false });
+  });
+  test("mesurée, la place en dessous suffit : sous la boîte", () => {
+    expect(sheetPlacement(anchor, sheet, zone, false)).toEqual({ left: 50, top: 148, above: false });
+  });
+  test("en arabe, mesurée : bord droit de la fiche sur le bord droit de la boîte", () => {
+    expect(sheetPlacement(anchor, sheet, zone, true)).toEqual({ left: 130, top: 148, above: false });
+  });
+  test("près du bas : retournée au-dessus de la boîte", () => {
+    const low = { ...anchor, top: 300 };
+    expect(sheetPlacement(low, sheet, zone, false)).toEqual({ left: 50, top: 212, above: true });
+  });
+  test("ni dessus ni dessous : du côté le plus grand, recadrée dans la zone", () => {
+    const tall = { width: 120, height: 390 };
+    expect(sheetPlacement(anchor, tall, zone, false)).toEqual({ left: 50, top: 10, above: false });
+    expect(sheetPlacement({ ...anchor, top: 300 }, tall, zone, false)).toEqual({ left: 50, top: 0, above: true });
+  });
+  test("près d'un bord : recadrée horizontalement dans la zone", () => {
+    expect(sheetPlacement({ ...anchor, left: 550 }, sheet, zone, false).left).toBe(480);
+    expect(sheetPlacement({ ...anchor, left: -40, width: 60 }, sheet, zone, true).left).toBe(0);
+    expect(sheetPlacement({ ...anchor, left: -40 }, sheet, { ...zone, left: -20 }, false).left).toBe(-20);
+  });
+  test("plus large que la zone : collée à son bord gauche", () => {
+    expect(sheetPlacement(anchor, { width: 700, height: 80 }, zone, false).left).toBe(0);
   });
 });
 

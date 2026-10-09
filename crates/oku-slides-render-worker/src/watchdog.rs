@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use sysinfo::System;
 
-use crate::rss::resident_bytes;
+use crate::rss::memory_bytes;
 
 /// Code de sortie d'un travailleur arrêté par son chien de garde.
 pub(crate) const EXIT_CODE: i32 = 3;
@@ -110,8 +110,7 @@ impl Guard {
             (Some(_), Some(rss), Some(max)) if rss > max => {
                 let since = *self.memory_over_since.get_or_insert(sample.at);
                 let over = sample.at.saturating_duration_since(since);
-                (over >= MEMORY_GRACE)
-                    .then(|| format!("resident memory {rss} bytes, over {max} for {} ms", over.as_millis()))
+                (over >= MEMORY_GRACE).then(|| format!("memory {rss} bytes, over {max} for {} ms", over.as_millis()))
             }
             _ => {
                 self.memory_over_since = None;
@@ -168,7 +167,7 @@ impl Parent {
         }
         #[cfg(not(unix))]
         {
-            self.pid.is_some_and(|pid| resident_bytes(_sys, pid).is_none())
+            self.pid.is_some_and(|pid| memory_bytes(_sys, pid).is_none())
         }
     }
 }
@@ -184,7 +183,7 @@ pub(crate) fn spawn(limits: Limits, busy: Arc<Busy>) {
             Sample {
                 at,
                 busy_for: busy.busy_for(at),
-                rss: resident_bytes(&mut sys, me),
+                rss: memory_bytes(&mut sys, me),
                 parent_gone: parent.gone(&mut sys),
             }
         });

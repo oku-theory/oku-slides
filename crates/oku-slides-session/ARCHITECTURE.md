@@ -10,7 +10,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   `Mode::{Templates, History}` mettent le deck de côté (`stash`) : `templates_mode.rs`, `history.rs`
   (`HistoryOpen/Seek/Restore/Close/Versions` ; restaurer = un commit annulable ; refus `HistoryNotOpen` / `InHistory`).
   `help.rs` : l'aide (`docs/aide/<langue>.json`, pack par défaut livré) en lecture seule ; chaque
-  méthode qui modifie se garde (`ensure_editable` : `InHistory` / `ReadOnly`) ; `workspace_help.rs` : `OpenHelp`.
+  méthode qui modifie se garde (`ensure_editable` : `InHistory` / `ReadOnly`) ; `workspace_help.rs` : langue, thème et onglet en attente de l'aide (le bras `OpenHelp` est dans `workspace_tabs.rs`).
 - `deck_widgets.rs` : la base surchargée par les widgets **valides** de la version embarquée
   (`SourceBundle.packs[deck.templates.version]`, jamais la bibliothèque ; sonde par fichier, avis
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
@@ -30,15 +30,22 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   de côté y passe. `theme_panel.rs` + `theme_controls.rs` : surface `host-theme` (`host_theme`,
   filtrée ; `host_token` : `set`, `reset`, `remove`, `clear`). Le chemin du jeton part sous la clé
   `token` du contexte d'action, jamais `path` (que @a2ui prend pour une liaison de données).
-- `widgets_edit.rs`, `widget_preview.rs` : fichiers de widgets, statuts, aperçu ; `widget_examples.rs`, `widget_params.rs` : valeurs d'exemple des widgets (un jeu par widget), dans le pack (`edit_example_list` pour une liste) ; `param_fields.rs` : champs de réglage d'un paramètre (atelier et cible), `coerce`, `schema_default` ; `items.rs` : `ItemView`, les items d'une liste. `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance). En mode modèles, une écriture de widget est aussi une étape du document des modèles (`adopt_session_version`, clé de séance) ; annuler/rétablir réaligne l'édition (`realign_templates`).
+- `widgets_edit.rs`, `widget_preview.rs` : fichiers de widgets, statuts, aperçu ; `widget_examples.rs`, `widget_params.rs` : valeurs d'exemple des widgets (un jeu par widget), dans le pack (`edit_example_list` pour une liste ; une entrée mal formée d'un `pack.json` reçu est écartée au journal, les autres restent ; `trial_fits` applique aussi les bornes de taille des textes) ; `param_fields.rs` : champs de réglage d'un paramètre (atelier et cible), `coerce`, `schema_default` ; `items.rs` : `ItemView`, les items d'une liste. `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance). En mode modèles, une écriture de widget est aussi une étape du document des modèles (`adopt_session_version`, clé de séance) ; annuler/rétablir réaligne l'édition (`realign_templates`).
 - `panel.rs` : réglages de l'hôte au dock (modèle, widget), adressés par clé.
 - `target_params.rs` : réglages de la cible (surface `host-target`) : élément sélectionné, sinon widget de la slide, lus dans le deck ; `target_param` / `target_list` annulables.
 - Rendu borné : un `RenderWorker` par `Session`, un `RenderSlot` par rendu (deck, modèles, variantes, polices) ; `resolve_widgets` sonde les packs par lui.
+  Démarrage paresseux (`render_fonts.rs`) : une session d'onglet (`Session::unrendered`, par `tab_session`) n'ouvre l'emplacement du deck,
+  donc ne lance son processus, qu'au premier rendu : celui du fichier ouvert, de la reprise, ou de la première requête (`Slot::ready` → `ensure_rendered`).
+  **Coût** : chaque processus lancé coûte un exécutable de plus en mémoire, l'envoi des polices de l'app, la sonde du registre de base et une
+  compilation Typst à froid (sans cache incrémental) ; un onglet repris ou ouvert sur un fichier ne rend plus d'abord le deck vierge,
+  un onglet endormi rien du tout. Un pack par défaut à widgets est sondé dès la création (le processus part alors). `Session::new` rend toujours tout de suite.
   `fall_back_to_base` : pack fautif (`is_bounded`) → base + avis `session-pack-disabled` et un second essai (deck, aperçus, variantes ; `usable_pack` avant d'ouvrir un emplacement). `with_compiled` : export sur une poignée `Stale` (travailleur relancé) → re-rendu une fois, puis réessai.
 - `merge.rs` : fusion d'un autre PDF du même deck (`merge_file`) ; `save_checked` : même deck changé sur disque → fusion puis écriture, autre deck → refusé.
 - `Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`) : fenêtres `w-<n>`, onglets `t-<n>` ; `TabInfo` (`views.rs`) : la barre.
 - `Slot` (`workspace_slot.rs`) : session d'un onglet (`Ready`, `Dormant`, `Closed`) ; `workspace_resume.rs` : reprise ;
   `workspace_same_deck.rs` : `SameDeck` (onglet tenant déjà le deck) ; `post_notice`.
+  `workspace_tabs.rs` : onglets (`Pending`, `NewTab`, `OpenTab`, `OpenHelp`, `finish`, `change`, `Trash`) ;
+  `workspace_windows.rs` : `CloseWindow` ; `workspace_layout.rs` : disposition des onglets.
 - `SlideView.fields` (`fields.rs`) : champs éditables (ordre de Tab) ; `targets` : boîtes d'éléments.
 - `paragraphs_to_text` (`text.rs`, `inline.rs`) : markdown d'édition relu par `@lezer/markdown` ; contrat `fixtures/markdown*.json`.
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente

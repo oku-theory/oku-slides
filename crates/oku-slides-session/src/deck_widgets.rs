@@ -28,11 +28,11 @@ use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::{Deck, Op, PackFiles, PackRef, PackVersion, WidgetFile, WidgetRegistry};
 use oku_slides_i18n::Localize;
-use oku_slides_render::{FileProbe, PackWidgets, RenderError};
+use oku_slides_render::{FileProbe, PackWidgets, RenderError, RenderErrorKind};
 use oku_slides_render_worker::RemoteCompiled;
 
 use crate::deck_theme::render_themed;
-use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
+use crate::error::{NotRenderedSnafu, OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
 use crate::pack::{DEFAULT_PACK, PackManifest};
 use crate::{Result, Session, charts};
 
@@ -154,9 +154,12 @@ impl Session {
             return crate::error::NotRenderedSnafu.fail()?;
         }
         if !Arc::ptr_eq(&widgets.registry, &self.registry) || widgets.pack != self.pack {
-            if let Err(e) = self.renderer.set_widgets(widgets.pack.as_ref(), widgets.registry.clone()) {
+            // Sans emplacement ouvert, rien à poser : il s'ouvrira avec ces widgets.
+            if let Some(renderer) = &mut self.renderer
+                && let Err(e) = renderer.set_widgets(widgets.pack.as_ref(), widgets.registry.clone())
+            {
                 // Le monde Typst a pu changer en partie : les widgets d'avant reviennent.
-                if let Err(back) = self.renderer.set_widgets(self.pack.as_ref(), self.registry.clone()) {
+                if let Err(back) = renderer.set_widgets(self.pack.as_ref(), self.registry.clone()) {
                     tracing::error!(error = %oku_slides_platform::errors::one_line(&back), "widgets d'avant non réinstallés");
                 }
                 return Err(e).context(RenderSnafu)?;
@@ -260,14 +263,18 @@ impl Session {
     pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
         self.probe_remaining();
         let tokens = self.theme_tokens(deck);
-        let e = match render_themed(&mut self.renderer, deck, tokens.as_ref(), &self.doc.sources.assets) {
+        self.open_deck_renderer()?;
+        let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
+        let e = match render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets) {
             Ok(compiled) => return Ok(compiled),
             Err(e) => e,
         };
         if !self.fall_back_to_base(&e)? {
             return Err(e).context(RenderSnafu)?;
         }
-        Ok(render_themed(&mut self.renderer, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?)
+        self.open_deck_renderer()?;
+        let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
+        Ok(render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?)
     }
 
     /// Repli : si `e` est un échec borné et le pack installé fautif, les
@@ -283,10 +290,16 @@ impl Session {
         let pack =
             self.pack_name().unwrap_or_else(|| self.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default());
         tracing::warn!(pack, error = %oku_slides_platform::errors::one_line(e), "pack de widgets écarté : widgets de base");
-        let notice = self.localizer.tr_with(
-            "session-pack-disabled",
-            &[("pack", pack.as_str().into()), ("reason", e.localize(&self.localizer).into())],
-        );
+        // Un pack déjà écarté ailleurs : la cause (`PackDisabled`) redirait le pack, par son empreinte.
+        let notice = match e.kind() {
+            RenderErrorKind::PackDisabled => {
+                self.localizer.tr_with("render-pack-disabled", &[("pack", pack.as_str().into())])
+            }
+            _ => self.localizer.tr_with(
+                "session-pack-disabled",
+                &[("pack", pack.as_str().into()), ("reason", e.localize(&self.localizer).into())],
+            ),
+        };
         let base = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
         let templates = self.widgets_templates.clone();
         let unprobed = BTreeSet::new();

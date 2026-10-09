@@ -317,6 +317,11 @@
       "paragraphs": [{ "runs": [{ "t": "a", "italic": true }, { "t": "b", "bold": true }] }]
     },
     {
+      "name": "gras puis italique collés",
+      "markdown": "**a***b*",
+      "paragraphs": [{ "runs": [{ "t": "a", "bold": true }, { "t": "b", "italic": true }] }]
+    },
+    {
       "name": "gras-italique puis italique",
       "markdown": "***X**Y*",
       "paragraphs": [{ "runs": [{ "t": "X", "bold": true, "italic": true }, { "t": "Y", "italic": true }] }]

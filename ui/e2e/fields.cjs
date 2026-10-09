@@ -84,6 +84,12 @@ const editorLines = (p) => p.evaluate(() => {
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
   await p.waitForSelector('.stage img');
+  // Les paramètres sous la slide prennent de la hauteur : la scène serait limitée par la
+  // hauteur, jamais à l'échelle 1. Masqués le temps du test (choix gardé dans l'espace de
+  // travail : réaffichés à la fin pour les scripts suivants).
+  const params = (name) => p.getByRole('button', { name, exact: true });
+  await params('Masquer les paramètres').click();
+  await params('Afficher les paramètres').waitFor();
   // Échelle 1 : la slide (1920×1080 pt) affichée à 1 px par pt. La scène suit la largeur
   // de la fenêtre moins les colonnes voisines : on corrige la fenêtre de l'écart mesuré.
   const stageWidth = () => p.evaluate(() => document.querySelector('.stage').getBoundingClientRect().width);
@@ -183,6 +189,8 @@ const editorLines = (p) => p.evaluate(() => {
   for (const s of skipped) console.log(`ignoré : ${s}`);
   assert.deepEqual(failures, []);
   assert.deepEqual(errors, []);
+  await params('Afficher les paramètres').click();
+  await params('Masquer les paramètres').waitFor();
   await b.close();
   console.log('fields : ok');
 })().catch((e) => { console.error(e); process.exit(1); });

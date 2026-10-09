@@ -70,3 +70,16 @@ test("les boutons slide précédente / suivante restent discrets hors survol", (
   expect(ruleOf(own("styles.css"), ".slide-nav")).toMatch(/opacity:\s*0\.35/);
   expect(ruleOf(own("styles.css"), ".slide-nav:disabled")).toMatch(/visibility:\s*hidden/);
 });
+
+test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu de la recouvrir", () => {
+  const drawer = ruleOf(own("styles.css"), ".sheet-area > .variant-drawer");
+  expect(drawer).toBeDefined();
+  expect(drawer).toMatch(/grid-row:\s*2/);
+  expect(drawer).toMatch(/overflow-y:\s*auto/);
+  expect(own("styles.css")).not.toMatch(/\.variant-drawer\s*\{[^}]*position:\s*absolute/);
+  const area = ruleOf(own("styles.css"), ".sheet-area");
+  expect(area).toMatch(/display:\s*grid/);
+  // La scène prend ce qui reste ; le tiroir, sa hauteur.
+  expect(area).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);
+  expect(ruleOf(own("styles.css"), ".sheet-area > .templates-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
+});

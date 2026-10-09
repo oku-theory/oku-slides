@@ -24,6 +24,7 @@ render-timeout = 算繪耗時超過 { $seconds } 秒，已中斷
 render-out-of-memory = 算繪所需記憶體超過 { $mib } MiB，已中斷
 render-worker-lost = 算繪程序已停止
 render-frame = 算繪程序傳來的訊息無法讀取
+render-page-too-large = 此投影片過大，無法預覽（超過 { $mib } MiB，通常是因為圖片過大）。仍可匯出為 PDF 或 PNG。
 render-stale = 算繪已被取代，請重試
 render-pack-disabled = 「{ $pack }」套件的小工具在本次工作階段中已停用
 registry-schema-remote = 小工具登錄表無效：{ $message }

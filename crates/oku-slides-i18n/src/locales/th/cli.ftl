@@ -1,11 +1,11 @@
 cli-reading = กำลังอ่าน { $path }
 cli-invalid-deck = งานนำเสนอไม่ถูกต้อง: { $path }
-cli-deck-valid = งานนำเสนอถูกต้อง: { $slides } สไลด์
+cli-deck-valid = งานนำเสนอถูกต้อง: สไลด์ { $slides } รายการ
 cli-deck-issue = ปัญหา: { $issue }
 cli-rendered = { $pages } หน้า → { $out } (คอมไพล์ { $compile }, SVG { $svg })
 cli-asset-added = แอสเซ็ต { $path } → { $id }
 cli-saved = { $path }: { $pages } หน้า, PDF { $pdf } KB, ซอร์ส { $sources } KB
-cli-opened = { $path }: { $slides } สไลด์, { $assets } แอสเซ็ต, { $fonts } ฟอนต์
+cli-opened = { $path }: สไลด์ { $slides } รายการ, แอสเซ็ต { $assets } รายการ, ฟอนต์ { $fonts } รายการ
 cli-extracted = แยกไฟล์ไปที่ { $dir }
 cli-stripped = { $path }: สำเนาที่ไม่มีซอร์ส
 cli-pdf-modified = PDF ถูกแก้ไขโดยเครื่องมืออื่นหลังจาก Oku Slides
@@ -31,6 +31,7 @@ cli-not-found = ไม่พบ
 cli-bad-request = คำขอไม่ถูกต้อง: { $reason }
 cli-sse-full = มีสตรีมเหตุการณ์เปิดอยู่มากเกินไป
 cli-forbidden = ปฏิเสธคำขอ: คำขอไม่ได้มาจากอินเทอร์เฟซภายในเครื่อง
+cli-exposed = กำลังรอรับที่ { $host }: เซิร์ฟเวอร์ไม่มีการยืนยันตัวตนและเข้าถึงได้จากเครือข่าย ไคลเอนต์ใดที่ส่งส่วนหัว Host ภายในเครื่องจะได้รับการตอบสนอง โปรดคง [serve] host ไว้ที่ 127.0.0.1
 
 cli-about = เรนเดอร์และจัดเก็บงานนำเสนอ Oku Slides
 cli-arg-fonts = โฟลเดอร์ฟอนต์เพิ่มเติม (TTF/OTF); ค่าเริ่มต้น: paths.fonts ในการตั้งค่า

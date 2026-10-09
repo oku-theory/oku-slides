@@ -31,6 +31,7 @@ cli-not-found = 찾을 수 없음
 cli-bad-request = 잘못된 요청: { $reason }
 cli-sse-full = 이미 너무 많은 이벤트 스트림이 열려 있습니다
 cli-forbidden = 요청 거부됨: 로컬 인터페이스에서 온 요청이 아닙니다
+cli-exposed = { $host }에서 수신 대기 중: 서버에 인증이 없으며 네트워크에서 접근할 수 있습니다. 로컬 Host 헤더를 보내는 모든 클라이언트가 응답을 받습니다. [serve] host를 127.0.0.1로 유지하세요
 
 cli-about = Oku Slides 프레젠테이션을 렌더링하고 저장합니다
 cli-arg-fonts = 추가 글꼴 폴더 (TTF/OTF). 기본값: 설정의 paths.fonts

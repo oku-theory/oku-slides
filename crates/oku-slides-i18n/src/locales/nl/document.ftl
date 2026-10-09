@@ -24,6 +24,7 @@ render-timeout = Het renderen duurde langer dan { $seconds } s en is afgebroken
 render-out-of-memory = Het renderen had meer dan { $mib } MiB geheugen nodig en is afgebroken
 render-worker-lost = Het renderproces is gestopt
 render-frame = Onleesbaar bericht van het renderproces
+render-page-too-large = Deze dia is te groot voor de voorvertoning (meer dan { $mib } MiB, vaak door een zeer grote afbeelding). Hij kan nog wel als PDF of PNG worden geëxporteerd.
 render-stale = De render is vervangen; probeer het opnieuw
 render-pack-disabled = De widgets van pakket “{ $pack }” zijn uitgeschakeld voor deze sessie
 registry-schema-remote = Ongeldig widgetregister: { $message }

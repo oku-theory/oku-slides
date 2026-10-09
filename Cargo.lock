@@ -5394,6 +5394,8 @@ dependencies = [
  "color-eyre",
  "ctrlc",
  "http-body",
+ "hyper",
+ "hyper-util",
  "oku-slides-agent",
  "oku-slides-core",
  "oku-slides-i18n",
@@ -5538,6 +5540,7 @@ name = "oku-slides-render-worker"
 version = "1.0.0"
 dependencies = [
  "hex",
+ "libc",
  "oku-slides-core",
  "oku-slides-i18n",
  "oku-slides-platform",
@@ -5578,6 +5581,7 @@ dependencies = [
  "tempfile",
  "time",
  "tracing",
+ "unicode-properties",
  "uuid",
 ]
 

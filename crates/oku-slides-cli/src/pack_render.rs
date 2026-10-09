@@ -1,11 +1,16 @@
-//! Rendu d'un deck pour la CLI : en mémoire, ou par le processus de rendu
-//! quand le pack qu'il embarque a des widgets : chaque fichier y est sondé à
-//! part, les widgets cassés écartés (diagnostics au journal). Le code d'un
-//! pack reçu y est isolé et borné (délai, mémoire : spec t-327).
+//! Widgets et rendu d'un deck pour la CLI. Le pack qu'il embarque est sondé
+//! par le processus de rendu ([`DeckWidgets::probe`]) : chaque fichier à part,
+//! les widgets cassés écartés (diagnostics au journal) ; le registre sondé
+//! valide le deck (t-355). Le rendu se fait en mémoire, ou par ce processus
+//! quand le pack a des widgets valides. Le code d'un pack reçu y est isolé et
+//! borné (délai, mémoire : spec t-327).
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use color_eyre::eyre::Result;
 
-use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, WidgetRegistry};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::errors::one_line;
@@ -63,48 +68,77 @@ impl Rendered {
     }
 }
 
-/// Rend `deck` avec les widgets du pack embarqué dans `bundle`.
+/// Les widgets d'un deck : le registre sondé (la base surchargée par les
+/// widgets valides de son pack) et, pour un pack à widgets valides, de quoi
+/// le rendre par le processus de rendu.
+pub(crate) struct DeckWidgets {
+    /// Le registre qui valide le deck et ses sources.
+    pub(crate) registry: Arc<WidgetRegistry>,
+    remote: Option<(RenderWorker, PackWidgets)>,
+}
+
+impl DeckWidgets {
+    /// Sonde le pack que `deck` référence, pris dans `packs`.
+    ///
+    /// Sans référence, ou sans widgets : la base. Version absente de `packs`
+    /// ou pack cassé : journalisés, la base, comme dans l'app.
+    pub(crate) fn probe(
+        platform: &Platform,
+        l: &Localizer,
+        base: &Arc<WidgetRegistry>,
+        deck: &Deck,
+        packs: &BTreeMap<PackVersion, PackFiles>,
+    ) -> Self {
+        let base_only = || Self { registry: base.clone(), remote: None };
+        let Some(r) = &deck.templates else { return base_only() };
+        let Some(files) = packs.get(&r.version) else {
+            tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
+            return base_only();
+        };
+        if files.widgets().is_empty() {
+            return base_only();
+        }
+        let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
+        let probed =
+            PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| worker.probe_pack(&pack));
+        let probe = match probed {
+            Ok(probe) => probe,
+            Err(e) => {
+                tracing::warn!(pack = %r.id, error = %one_line(&e), "{}", e.localize(l));
+                return base_only();
+            }
+        };
+        for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
+            for d in &file.diagnostics {
+                tracing::warn!(pack = %r.id, widget = %name, "{}", d.localize(l));
+            }
+        }
+        match probe.pack {
+            Some(pack) => Self { registry: probe.registry, remote: Some((worker, pack)) },
+            None => base_only(),
+        }
+    }
+}
+
+/// Rend `deck` avec `widgets`, ceux du pack embarqué dans `bundle` (voir [`DeckWidgets::probe`]).
 ///
 /// `deck` est la vue de `bundle`, thème éventuellement changé (sa version
-/// embarquée dans `bundle`). Un pack à widgets passe par le processus de
-/// rendu ; sans widgets, le rendu se fait en mémoire. Version absente des
-/// sources ou pack cassé : journalisés, la base, comme dans l'app. Le thème
-/// se rend dans sa version embarquée, sinon le thème par défaut.
+/// embarquée dans `bundle`). Un pack à widgets valides passe par le processus
+/// de rendu ; sinon, le rendu se fait en mémoire avec la base. Le thème se
+/// rend dans sa version embarquée, sinon le thème par défaut.
 pub(crate) fn render(
     platform: &Platform,
     l: &Localizer,
     fonts: Fonts,
+    widgets: &DeckWidgets,
     bundle: &SourceBundle,
     deck: &Deck,
 ) -> Result<Rendered> {
     let themes = ThemeLibrary::new(Some(platform.settings.paths.themes()), platform.storage.clone());
     let tokens = theme_tokens(&themes, &bundle.themes, deck);
-    let local = |l, fonts, bundle, deck| local(l, fonts, bundle, deck, tokens.clone());
-    let Some(r) = &deck.templates else { return local(l, fonts, bundle, deck) };
-    let Some(files) = bundle.packs.get(&r.version) else {
-        tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
-        return local(l, fonts, bundle, deck);
-    };
-    if files.widgets().is_empty() {
-        return local(l, fonts, bundle, deck);
-    }
-    let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
-    let probed = PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| worker.probe_pack(&pack));
-    let probe = match probed {
-        Ok(probe) => probe,
-        Err(e) => {
-            tracing::warn!(pack = %r.id, error = %one_line(&e), "{}", e.localize(l));
-            return local(l, fonts, bundle, deck);
-        }
-    };
-    for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
-        for d in &file.diagnostics {
-            tracing::warn!(pack = %r.id, widget = %name, "{}", d.localize(l));
-        }
-    }
-    let Some(pack) = probe.pack else { return local(l, fonts, bundle, deck) };
-    let mut slot = worker.slot(&fonts, l, probe.registry.clone())?;
-    slot.set_widgets(Some(&pack), probe.registry)?;
+    let Some((worker, pack)) = &widgets.remote else { return local(l, fonts, bundle, deck, tokens) };
+    let mut slot = worker.slot(&fonts, l, widgets.registry.clone())?;
+    slot.set_widgets(Some(pack), widgets.registry.clone())?;
     slot.set_theme(tokens.as_ref())?;
     let compiled = slot.render(deck, &bundle.assets)?;
     Ok(Rendered::Remote { compiled, _slot: slot })

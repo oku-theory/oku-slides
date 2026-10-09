@@ -32,7 +32,8 @@ pub enum RenderErrorKind {
     OutOfMemory,
     /// Le processus de rendu s'est arrêté (plantage, panique de Typst).
     WorkerLost,
-    /// Un message du processus de rendu est illisible ou trop grand.
+    /// Un message du processus de rendu est illisible ou trop grand (une page
+    /// trop grande pour l'aperçu en SVG compris).
     Frame,
     /// Le rendu demandé a été remplacé (processus relancé).
     Stale,
@@ -73,6 +74,8 @@ pub(crate) enum RenderInner {
     WorkerLost { message: String, backtrace: Backtrace },
     #[snafu(display("unreadable message from the rendering process: {message}"))]
     Frame { message: String, backtrace: Backtrace },
+    #[snafu(display("the SVG of the page exceeds {mib} MiB"))]
+    PageTooLarge { mib: u64, backtrace: Backtrace },
     #[snafu(display("the render was replaced"))]
     Stale { backtrace: Backtrace },
     #[snafu(display("the widgets of pack {pack} are disabled"))]
@@ -91,7 +94,7 @@ impl RenderError {
             RenderInner::Timeout { .. } => RenderErrorKind::Timeout,
             RenderInner::OutOfMemory { .. } => RenderErrorKind::OutOfMemory,
             RenderInner::WorkerLost { .. } => RenderErrorKind::WorkerLost,
-            RenderInner::Frame { .. } => RenderErrorKind::Frame,
+            RenderInner::Frame { .. } | RenderInner::PageTooLarge { .. } => RenderErrorKind::Frame,
             RenderInner::Stale { .. } => RenderErrorKind::Stale,
             RenderInner::PackDisabled { .. } => RenderErrorKind::PackDisabled,
             RenderInner::Path { .. }
@@ -121,6 +124,12 @@ impl RenderError {
         FrameSnafu { message: message.into() }.build().into()
     }
 
+    /// Le SVG d'une page dépasse sa borne (`mib` Mio) : trop grande pour
+    /// l'aperçu, elle s'exporte encore en PDF ou en PNG.
+    pub fn page_too_large(mib: u64) -> Self {
+        PageTooLargeSnafu { mib }.build().into()
+    }
+
     /// Le rendu demandé a été remplacé.
     pub fn stale() -> Self {
         StaleSnafu.build().into()
@@ -143,10 +152,8 @@ impl RenderError {
 impl Localize for RenderError {
     /// Le message, puis ceux de Typst, un par ligne.
     fn localize(&self, l: &Localizer) -> String {
-        if let RenderInner::BaseRegistry { source, .. } = &self.0 {
-            return source.localize(l);
-        }
-        match &self.0 {
+        let key = match &self.0 {
+            RenderInner::BaseRegistry { source, .. } => return source.localize(l),
             RenderInner::Timeout { ms, .. } => {
                 let seconds = (ms / 1000).max(1);
                 return l.tr_with("render-timeout", &[("seconds", seconds.into())]);
@@ -157,19 +164,19 @@ impl Localize for RenderError {
             RenderInner::PackDisabled { pack, .. } => {
                 return l.tr_with("render-pack-disabled", &[("pack", pack.as_str().into())]);
             }
-            _ => {}
-        }
-        let mut out = l.tr(match self.kind() {
-            RenderErrorKind::Timeout | RenderErrorKind::OutOfMemory | RenderErrorKind::PackDisabled => "render-setup",
-            RenderErrorKind::WorkerLost => "render-worker-lost",
-            RenderErrorKind::Frame => "render-frame",
-            RenderErrorKind::Stale => "render-stale",
-            RenderErrorKind::Compile => "render-compile",
-            RenderErrorKind::Pdf => "render-pdf",
-            RenderErrorKind::NoPage => "render-no-page",
-            RenderErrorKind::Setup => "render-setup",
-            RenderErrorKind::Image => "render-image",
-        });
+            RenderInner::PageTooLarge { mib, .. } => {
+                return l.tr_with("render-page-too-large", &[("mib", (*mib).into())]);
+            }
+            RenderInner::WorkerLost { .. } => "render-worker-lost",
+            RenderInner::Frame { .. } => "render-frame",
+            RenderInner::Stale { .. } => "render-stale",
+            RenderInner::Compile { .. } => "render-compile",
+            RenderInner::Pdf { .. } => "render-pdf",
+            RenderInner::NoPage { .. } => "render-no-page",
+            RenderInner::Image { .. } => "render-image",
+            RenderInner::Path { .. } | RenderInner::DeckJson { .. } | RenderInner::Remote { .. } => "render-setup",
+        };
+        let mut out = l.tr(key);
         for d in self.diagnostics() {
             out.push('\n');
             out.push_str(&d.localize(l));
@@ -278,3 +285,7 @@ impl Localize for RegistryError {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod error_tests;

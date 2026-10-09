@@ -86,7 +86,8 @@
 
 /// `stack` qui accepte des champs vides (marqueurs de `field`) : ils ne
 /// prennent ni place ni espacement ; leur boîte est posée au haut de l'item
-/// suivant (`before`), ou au bas du dernier (`after`). Un widget qui empile
+/// suivant (`before`), ou au bas du dernier (`after`) ; sans item, à la place
+/// de la pile (un bloc de hauteur nulle, que l'alignement ancre). Un widget qui empile
 /// des champs l'utilise à la place de `stack`.
 // Chaque marqueur est collé à un item voisin : un enfant de `stack` à lui
 // seul recevrait l'espacement, et envelopper le `stack` (`layout`) déplace
@@ -100,7 +101,11 @@
       pending = ()
     }
   }
-  if out.len() == 0 { return pending.map(v => _empty-box(v, "before")).join() }
+  // Que des marqueurs : un bloc de hauteur nulle, que `align(bottom)` sait ancrer
+  // (des `place` seuls, sans hauteur, restent au haut de la région).
+  if out.len() == 0 {
+    return if pending.len() > 0 { block(height: 0pt, pending.map(v => _empty-box(v, "before")).join()) }
+  }
   if pending.len() > 0 {
     out.last() = out.last() + pending.map(v => _empty-box(v, "after")).join()
   }

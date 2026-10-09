@@ -27,6 +27,10 @@ snafu.workspace = true
 sysinfo.workspace = true
 tracing.workspace = true
 
+# stdout du travailleur redirigé vers stderr (dup2) ; macOS : phys_footprint (proc_pid_rusage).
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 [dev-dependencies]
 speculoos.workspace = true
 rstest.workspace = true

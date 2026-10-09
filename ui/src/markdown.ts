@@ -140,9 +140,11 @@ function element(w: Walk, n: SyntaxNode, f: Format): number {
     }
     case "Link": {
       // Sans adresse (`[a]`, `[a][b]`, `[a]()`), ce n'est pas un lien : texte littéral.
+      // Un titre (`[a](u "t")`) ou une adresse entre chevrons (`[a](<u>)`) n'ont
+      // pas d'écriture côté Rust : texte littéral aussi, plutôt qu'un titre perdu.
       const url = n.getChild("URL");
       const marks = n.getChildren("LinkMark");
-      if (!url || marks.length < 2) return n.from;
+      if (!url || marks.length < 2 || n.getChild("LinkTitle") || w.line[url.from] === "<") return n.from;
       const [open, close] = marks;
       span(w, open.from, open.to, "mark");
       span(w, open.to, close.from, "link");

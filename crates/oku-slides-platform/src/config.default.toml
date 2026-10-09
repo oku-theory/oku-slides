@@ -50,11 +50,20 @@ max_widgets = 64
 
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.
-# Il ne répond qu'aux requêtes adressées à la boucle locale (localhost,
-# 127.0.0.1, ::1) ou à `host` lui-même ; avec `0.0.0.0` ou `::`, il écoute
-# partout mais le réseau local reste refusé (garde contre le DNS rebinding).
+# Il ne répond qu'aux requêtes dont l'en-tête Host nomme la boucle locale
+# (localhost, 127.0.0.1, ::1) ou `host` lui-même : cela écarte les pages web
+# (DNS rebinding), pas un client qui forge Host. Avec une adresse hors boucle
+# locale (`0.0.0.0`, `::`, une adresse du réseau), tout client du réseau qui
+# envoie `Host: 127.0.0.1` est servi : `serve` l'avertit au démarrage. Voir
+# docs/adr/0003-regle-d-origine-des-serveurs-locaux.md.
 host = "127.0.0.1"
 port = 4870
+# Délai pour recevoir les en-têtes d'une requête (ms) : une connexion qui
+# n'envoie pas les siens est fermée au-delà.
+header_timeout_ms = 10000
+# Connexions simultanées au plus (flux d'évènements compris) ; au-delà, une
+# nouvelle connexion est fermée aussitôt.
+max_connections = 64
 
 [i18n]
 # Langue des messages (`fr`, `en`…) ; absente = celle du système.

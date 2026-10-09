@@ -3,6 +3,7 @@
 //! - [`Localizer`] : les messages d'une langue, avec l'anglais en secours
 //!   pour un message qui manquerait.
 //! - [`Localize`] : ce qui sait se dire dans une langue (erreurs, rapports).
+//! - [`resolve`] : le code de langue choisi, sans charger les messages.
 //! - [`english`] : l'anglais de référence, pour les journaux et `Display`.
 //! - [`Message`] : un message à dire plus tard (dans une erreur).
 //! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
@@ -106,10 +107,8 @@ impl Localizer {
     /// La langue demandée (réglages) si elle est livrée, sinon celle du
     /// système, sinon l'anglais. `fr-CA` donne `fr`.
     pub fn new(requested: Option<&str>) -> Self {
-        let system = sys_locale::get_locale();
-        let chosen = requested.and_then(shipped).or_else(|| system.as_deref().and_then(shipped));
-        match chosen {
-            Some(locale) if locale != REFERENCE => Self::build(locale, Some(Box::new(Self::build(REFERENCE, None)))),
+        match resolve(requested) {
+            locale if locale != REFERENCE => Self::build(locale, Some(Box::new(Self::build(REFERENCE, None)))),
             _ => Self::build(REFERENCE, None),
         }
     }
@@ -191,6 +190,14 @@ impl Localizer {
 /// Les langues livrées (`en`, `fr`…), la référence d'abord.
 pub fn available() -> Vec<&'static str> {
     LOCALES.iter().map(|(l, _)| *l).collect()
+}
+
+/// Le code de langue que `Localizer::new` choisirait, sans charger les messages.
+///
+/// C'est la langue demandée si elle est livrée, sinon celle du système,
+/// sinon l'anglais.
+pub fn resolve(requested: Option<&str>) -> &'static str {
+    requested.and_then(shipped).or_else(|| sys_locale::get_locale().as_deref().and_then(shipped)).unwrap_or(REFERENCE)
 }
 
 /// La langue livrée pour `tag` (`fr-CA` → `fr`) ; `None` si elle ne l'est pas.

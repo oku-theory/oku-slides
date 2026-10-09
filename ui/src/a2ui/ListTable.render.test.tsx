@@ -1,6 +1,6 @@
 // Tableau d'une liste au dock : chaque geste émet un seul changement de liste.
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import "../test/dom";
 
 // Voir catalog.render.test.tsx : React et la surface se chargent après le DOM.
@@ -10,7 +10,7 @@ const { createElement } = await import("react");
 const { mountSurface, messagesOf } = await import("../test/surface");
 const { ActionOutcomeContext } = await import("./actionOutcome");
 const { deferred } = await import("../test/widgetApi");
-const { ListTable, popoverPlace } = await import("./ListTable");
+const { ListTable, popoverPlace, edgeScroll } = await import("./ListTable");
 const { createRoot } = await import("react-dom/client");
 const { expectIconOnly } = await import("../test/iconOnly");
 
@@ -405,5 +405,151 @@ describe("ListTable", () => {
     expect(c.querySelector("input, select, button, textarea")).toBeNull();
     expect(c.textContent?.startsWith("sha256:0123")).toBe(true);
     expect(c.querySelector("[title]")?.getAttribute("title")).toBe(id);
+  });
+
+  test("edgeScroll : vitesse nulle loin des bords, croissante vers le bord, plafonnée au-delà", () => {
+    expect(edgeScroll(50, 0, 100)).toBe(0);
+    expect(edgeScroll(2, 0, 100)).toBeLessThan(0);
+    expect(edgeScroll(98, 0, 100)).toBeGreaterThan(0);
+    expect(edgeScroll(95, 0, 100)).toBeLessThan(edgeScroll(99, 0, 100));
+    expect(edgeScroll(500, 0, 100)).toBe(edgeScroll(100, 0, 100));
+    expect(edgeScroll(-500, 0, 100)).toBe(-edgeScroll(100, 0, 100));
+  });
+
+  describe("glisser une ligne dans un tableau qui défile", () => {
+    /** Images d'animation en attente, jouées à la main. */
+    let frames: FrameRequestCallback[] = [];
+    let observers: { cb: ResizeObserverCallback; targets: Element[] }[] = [];
+    const saved = {
+      raf: globalThis.requestAnimationFrame,
+      caf: globalThis.cancelAnimationFrame,
+      ro: globalThis.ResizeObserver,
+      rect: HTMLElement.prototype.getBoundingClientRect,
+      from: document.elementFromPoint,
+    };
+    /** Largeur rendue des cellules (happy-dom ne fait pas de mise en page). */
+    let cellWidth = 50;
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+    beforeEach(() => {
+      frames = [];
+      observers = [];
+      cellWidth = 50;
+      globalThis.requestAnimationFrame = (cb) => frames.push(cb);
+      globalThis.cancelAnimationFrame = (id) => {
+        frames[id - 1] = () => {};
+      };
+      globalThis.ResizeObserver = class {
+        entry: { cb: ResizeObserverCallback; targets: Element[] };
+        constructor(cb: ResizeObserverCallback) {
+          this.entry = { cb, targets: [] };
+          observers.push(this.entry);
+        }
+        observe(el: Element) {
+          this.entry.targets.push(el);
+        }
+        unobserve() {}
+        disconnect() {
+          observers = observers.filter((o) => o !== this.entry);
+        }
+      } as unknown as typeof ResizeObserver;
+      HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+        if (this.classList.contains("lt-scroll")) return rect(0, 0, 300, 100);
+        if (this.classList.contains("lt")) return rect(0, -20, 300, 160);
+        if (this.tagName === "TR") return rect(0, 0, 300, 30);
+        if (this.tagName === "TD") return rect(0, 0, cellWidth, 30);
+        return saved.rect.call(this);
+      };
+    });
+    afterEach(() => {
+      globalThis.requestAnimationFrame = saved.raf;
+      globalThis.cancelAnimationFrame = saved.caf;
+      globalThis.ResizeObserver = saved.ro;
+      HTMLElement.prototype.getBoundingClientRect = saved.rect;
+      document.elementFromPoint = saved.from;
+    });
+    /** Joue les images en attente (celles qu'elles demandent attendent la suivante). */
+    const tick = () =>
+      act(async () => {
+        const now = frames;
+        frames = [];
+        now.forEach((cb) => cb(0));
+      });
+    const at = (el: Element, type: string, clientY: number) =>
+      act(async () => void el.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: 10, clientY })));
+    const rows = Array.from({ length: 12 }, (_, i) => ({ id: `d${i}`, date: `${2000 + i}` }));
+
+    test("près du bord bas, le tableau défile tout seul ; il s'arrête au relâcher", async () => {
+      const { host } = await mount(table({ rows }));
+      const scroll = host.querySelector(".lt-scroll") as HTMLElement;
+      const handle = host.querySelectorAll("[data-list-handle]")[0];
+      document.elementFromPoint = () => cell(host, 3, "date");
+      await at(handle, "pointerdown", 10);
+      await at(handle, "pointermove", 98);
+      await tick();
+      await tick();
+      expect(scroll.scrollTop).toBeGreaterThan(0);
+      // Le défilement amène une autre ligne sous le pointeur : le repère la suit.
+      document.elementFromPoint = () => cell(host, 6, "date");
+      await tick();
+      expect(host.querySelectorAll("tbody tr")[6].getAttribute("data-drop")).toBe("after");
+      await at(handle, "pointerup", 98);
+      const stopped = scroll.scrollTop;
+      await tick();
+      await tick();
+      expect(scroll.scrollTop).toBe(stopped);
+      expect(frames).toEqual([]);
+    });
+
+    test("près du bord haut, le tableau remonte ; loin des bords, il ne bouge pas", async () => {
+      const { host } = await mount(table({ rows }));
+      const scroll = host.querySelector(".lt-scroll") as HTMLElement;
+      scroll.scrollTop = 200;
+      const handle = host.querySelectorAll("[data-list-handle]")[5];
+      document.elementFromPoint = () => cell(host, 5, "date");
+      await at(handle, "pointerdown", 50);
+      await at(handle, "pointermove", 52);
+      await tick();
+      expect(scroll.scrollTop).toBe(200);
+      await at(handle, "pointermove", 1);
+      await tick();
+      expect(scroll.scrollTop).toBeLessThan(200);
+      await at(handle, "pointercancel", 1);
+      await tick();
+      expect(frames).toEqual([]);
+    });
+
+    test("le fantôme suit le défilement horizontal du tableau", async () => {
+      const { host } = await mount(table({ rows }));
+      const scroll = host.querySelector(".lt-scroll") as HTMLElement;
+      scroll.scrollLeft = 40;
+      const handle = host.querySelectorAll("[data-list-handle]")[0];
+      document.elementFromPoint = () => cell(host, 2, "date");
+      await at(handle, "pointerdown", 10);
+      await at(handle, "pointermove", 50);
+      const ghost = host.querySelector(".lt-ghost") as HTMLElement;
+      expect(ghost.scrollLeft).toBe(40);
+      scroll.scrollLeft = 70;
+      await tick();
+      expect(ghost.scrollLeft).toBe(70);
+      await at(handle, "pointerup", 50);
+    });
+
+    test("le dock change de taille pendant le geste : les largeurs du fantôme sont re-mesurées", async () => {
+      const { host } = await mount(table({ rows }));
+      const handle = host.querySelectorAll("[data-list-handle]")[0];
+      document.elementFromPoint = () => cell(host, 2, "date");
+      await at(handle, "pointerdown", 10);
+      await at(handle, "pointermove", 50);
+      const widths = () => [...host.querySelectorAll<HTMLElement>(".lt-ghost-cell")].map((c) => c.style.width);
+      expect(widths()).toEqual(["50px", "50px"]);
+      cellWidth = 80;
+      const watching = observers.filter((o) => o.targets.some((t) => t.classList.contains("lt")));
+      expect(watching.length).toBeGreaterThan(0);
+      await act(async () => watching.forEach((o) => o.cb([], {} as ResizeObserver)));
+      expect(widths()).toEqual(["80px", "80px"]);
+      await at(handle, "pointerup", 50);
+      expect(observers.filter((o) => o.targets.some((t) => t.classList.contains("lt")))).toEqual([]);
+    });
   });
 });

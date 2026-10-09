@@ -15,7 +15,8 @@ import type { Cell } from "./grid";
 import { cellRect, moveCell, resizeCell, sameCell } from "./grid";
 import GridLayer from "./GridLayer";
 import { t } from "./i18n";
-import { sheetPosition } from "./agent/quick";
+import type { PxZone } from "./agent/quick";
+import { sheetPlacement } from "./agent/quick";
 import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
@@ -471,15 +472,57 @@ function sheetAnchor(view: SlideView, target: string): { x: number; y: number; w
   return view.targets.find((x) => x.id === target) ?? null;
 }
 
-/** La fiche de l'agent, posée sous son élément ; rien si l'élément n'est pas sur la slide. */
+type SheetMeasure = { sheet: { width: number; height: number }; zone: PxZone };
+
+/**
+ * La fiche de l'agent, posée sous son élément, au-dessus quand la place manque en dessous,
+ * recadrée dans la zone de la feuille ; rien si l'élément n'est pas sur la slide.
+ * Mesurée après mise en page (avant affichage), puis suivie par un seul observateur : la fiche
+ * (son contenu change), la zone et le cadre de la scène (une autre échelle le déplace dans la zone).
+ */
 function SheetOverlay({ view, scale, overlay }: { view: SlideView; scale: number; overlay: { target: string; node: ReactNode } }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [measure, setMeasure] = useState<SheetMeasure | null>(null);
   const anchor = sheetAnchor(view, overlay.target);
+  // La fiche n'est montée qu'avec son élément : l'observateur naît et meurt avec elle.
+  const shown = anchor !== null;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const frame = el?.parentElement;
+    const area = el?.closest(".stage-wrap");
+    if (!el || !frame || !area) return;
+    const update = () => {
+      const f = frame.getBoundingClientRect();
+      const a = area.getBoundingClientRect();
+      const s = el.getBoundingClientRect();
+      // Zone en coordonnées du cadre de la scène, où la fiche est posée.
+      const next: SheetMeasure = {
+        sheet: { width: s.width, height: s.height },
+        zone: { left: a.left - f.left, top: a.top - f.top, right: a.right - f.left, bottom: a.bottom - f.top },
+      };
+      setMeasure((m) => (m && JSON.stringify(m) === JSON.stringify(next) ? m : next));
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    ro.observe(frame);
+    ro.observe(area);
+    return () => ro.disconnect();
+  }, [shown]);
   if (!anchor) return null;
   // L'interface peut être en arabe même si la slide reste de gauche à droite.
   const rtl = document.documentElement.dir === "rtl";
-  const pos = sheetPosition(anchor, scale, rtl);
+  const box = { left: anchor.x * scale, top: anchor.y * scale, width: anchor.w * scale, height: anchor.h * scale };
+  const pos = sheetPlacement(box, measure?.sheet ?? null, measure?.zone ?? null, rtl);
   return (
-    <div className={`agent-sheet${rtl ? " rtl" : ""}`} dir={rtl ? "rtl" : "ltr"} style={{ left: pos.left, top: pos.top }}>
+    <div
+      ref={ref}
+      className={`agent-sheet${rtl ? " rtl" : ""}${pos.above ? " above" : ""}`}
+      dir={rtl ? "rtl" : "ltr"}
+      // Avant la première mesure, la fiche n'est pas montrée : sa place n'est pas encore connue.
+      style={{ left: pos.left, top: pos.top, visibility: measure ? undefined : "hidden" }}
+    >
       {overlay.node}
     </div>
   );

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 import type { Spoken } from "./speech";
-import { newSpeech, QUIET_MS, Speech, spokenLines } from "./speech";
+import { mergeHeard, newSpeech, QUIET_MS, Speech, spokenLines } from "./speech";
 
 /** `s` avec un modèle de données remplacé. */
 const withData = (s: Surface, value: Record<string, unknown>): Surface => ({
@@ -50,8 +50,28 @@ describe("newSpeech, lignes coupées", () => {
   test("une ligne non coupée, début strict d'une ligne déjà lue, est lue", () => {
     expect(newSpeech(["Sable clair"], ["Sable"])).toBe("Sable");
   });
-  test("la forme entière d'une ligne lue coupée : seule la suite", () => {
-    expect(newSpeech(["Je change le fo…"], ["Je change le fond."])).toBe("nd.");
+  test("la forme entière d'une ligne lue coupée : la suite, depuis le début du mot coupé", () => {
+    expect(newSpeech(["Je change le fo…"], ["Je change le fond."])).toBe("fond.");
+    // Coupée sur une espace : le mot suivant est entier.
+    expect(newSpeech(["Je change le …"], ["Je change le fond."])).toBe("fond.");
+  });
+  test("une ligne coupée dans son premier mot : relue entière", () => {
+    expect(newSpeech(["Bonjo…"], ["Bonjour."])).toBe("Bonjour.");
+  });
+});
+
+describe("mergeHeard", () => {
+  test("la mémoire d'une surface reste bornée : une ligne qui disparaît est oubliée", () => {
+    let heard: string[] = [];
+    for (let i = 0; i < 200; i++) heard = mergeHeard(heard, [`Étape ${i}`, "Consigne"]);
+    expect(heard).toEqual(["Étape 199", "Consigne"]);
+  });
+  test("une ligne prolongée cède sa place à la plus longue", () => {
+    expect(mergeHeard(["Je", "Je change"], ["Je change le fond."])).toEqual(["Je change le fond."]);
+  });
+  test("une ligne lue plus longue qu'une ligne coupée affichée est gardée (la coupe n'est pas relue)", () => {
+    expect(mergeHeard(["Je change le fond de la"], ["Je change le fo…"])).toEqual(["Je change le fond de la", "Je change le fo…"]);
+    expect(newSpeech(mergeHeard(["Je change le fond de la"], ["Je change le fo…"]), ["Je change le fo…"])).toBe("");
   });
 });
 
@@ -116,5 +136,30 @@ describe("Speech", () => {
     speech.update([real("ask-7")], [], 0);
     jest.advanceTimersByTime(QUIET_MS);
     expect(texts()).toEqual(["✓ Deux colonnes"]);
+  });
+
+  test("une resynchronisation en plein tour : la suite du tour ouvert est encore annoncée", () => {
+    speech.update([turn("Je change le fond.")], [], 0, 3);
+    expect(texts()).toEqual(["Change le fond de la slide quatre. Je change le fond."]);
+    // Lagged : la liste entière revient avec la narration prolongée et le reçu du tour.
+    speech.update([turn("Je change le fond. C'est fait."), real("report-8")], [], 1, 3);
+    jest.advanceTimersByTime(QUIET_MS);
+    expect(texts().at(-1)).toBe("C'est fait. | Slide 4 : fond bleu nuit titre en blanc surtitre bleu clair");
+  });
+
+  test("une resynchronisation après la fin du tour ouvert annonce encore son reçu", () => {
+    speech.update([turn("Je change le fond.")], [], 0, 3);
+    // Le tour s'est fermé pendant la coupure : il était ouvert avant la resynchronisation.
+    speech.update([turn("Je change le fond."), real("report-8")], [], 1, null);
+    jest.advanceTimersByTime(QUIET_MS);
+    expect(texts().at(-1)).toBe("Slide 4 : fond bleu nuit titre en blanc surtitre bleu clair");
+  });
+
+  test("à la première mise à jour (onglet rouvert), même le tour ouvert n'est pas relu", () => {
+    const fresh = new Speech((x) => said.push(x));
+    fresh.update([turn("Je change le fond."), real("report-8")], [], 0, 3);
+    jest.advanceTimersByTime(QUIET_MS);
+    fresh.dispose();
+    expect(said).toEqual([]);
   });
 });

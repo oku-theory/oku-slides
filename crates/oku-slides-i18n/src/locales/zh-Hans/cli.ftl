@@ -31,6 +31,7 @@ cli-not-found = 未找到
 cli-bad-request = 请求无效：{ $reason }
 cli-sse-full = 已打开的事件流过多
 cli-forbidden = 请求被拒绝：并非来自本地界面
+cli-exposed = 正在 { $host } 上监听：服务器没有身份验证，可从网络访问；任何发送本地 Host 标头的客户端都会得到响应。请将 [serve] host 保持为 127.0.0.1
 
 cli-about = 渲染并存储 Oku Slides 演示文稿
 cli-arg-fonts = 额外字体文件夹（TTF/OTF）；默认：设置中的 paths.fonts

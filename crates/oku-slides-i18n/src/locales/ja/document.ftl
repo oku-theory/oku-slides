@@ -23,6 +23,7 @@ render-timeout = レンダリングが { $seconds } 秒を超えたため中断�
 render-out-of-memory = レンダリングが { $mib } MiB を超えるメモリを必要としたため中断しました
 render-worker-lost = レンダリングプロセスが停止しました
 render-frame = レンダリングプロセスからのメッセージを読み取れません
+render-page-too-large = このスライドはプレビューするには大きすぎます（{ $mib } MiB 超。多くは非常に大きな画像が原因です）。PDF または PNG としては書き出せます。
 render-stale = レンダリングは置き換えられました。もう一度お試しください
 render-pack-disabled = パック「{ $pack }」のウィジェットはこのセッションでは無効です
 registry-schema-remote = ウィジェットレジストリが無効です: { $message }

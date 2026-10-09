@@ -171,6 +171,19 @@ fn refresh_fonts_after_the_pack_faulted_elsewhere_falls_back_and_succeeds() {
 }
 
 #[test]
+fn fall_back_on_a_pack_disabled_elsewhere_names_the_pack_once() {
+    let data = data_dir();
+    let mut s = session_on_looping_pack(&data.0);
+    let id = s.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default();
+    fault_pack_outside_the_deck(&s);
+    s.refresh_fonts().unwrap();
+    // La cause `PackDisabled` redirait le pack, par son empreinte : l'avis le nomme une fois, par son nom.
+    let notice = s.doc.notice.clone().unwrap_or_default();
+    assert_that!(notice.matches("Boucle").count()).is_equal_to(1);
+    assert_that!(notice.contains(&id)).is_false();
+}
+
+#[test]
 fn set_templates_back_to_a_faulty_pack_names_it_by_its_name() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);

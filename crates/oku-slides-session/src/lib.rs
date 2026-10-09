@@ -86,7 +86,7 @@ mod widgets_edit;
 mod workspace;
 
 pub use appearance::{Appearance, appearance};
-pub use deck_pack::adopt_default_pack;
+pub use deck_pack::{adopt_default_pack, check_pack_id};
 pub use deck_theme::{adopt_default_theme, theme_tokens};
 use error::{
     BuiltinTemplateSetSnafu, ChartSnafu, EditingTemplatesSnafu, InHistorySnafu, NoChartSnafu, NoSlideSnafu,
@@ -218,7 +218,8 @@ pub struct Session {
     template_cache: Option<templates_mode::Previews>,
     /// Rendu des variantes proposées par l'agent, séparé du deck.
     variant_renderer: Option<RenderSlot>,
-    renderer: RenderSlot,
+    /// Rendu du deck, ouvert au premier rendu (voir `render_fonts`).
+    renderer: Option<RenderSlot>,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
     app_fonts: Fonts,
     render_fonts: Fonts,
@@ -262,6 +263,9 @@ pub struct Session {
 ///
 /// Un pack fautif n'est pas posé : la base reste. À l'appelant de s'être
 /// replié d'abord (`Session::usable_pack`), pour que la session suive.
+///
+/// Sans pack posé (`None` ou fautif), `registry` n'est pas lu : l'emplacement
+/// rend avec la base tirée de `fonts`, à l'appelant d'y accorder son registre.
 pub(crate) fn new_renderer(
     worker: &RenderWorker,
     fonts: Fonts,
@@ -319,6 +323,15 @@ impl Session {
     /// `platform` : réglages (historique, dossier des modèles), fichiers et
     /// langue.
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
+        let mut s = Self::unrendered(app_fonts, platform)?;
+        s.rerender()?;
+        Ok(s)
+    }
+
+    /// [`Self::new`] sans son premier rendu : l'emplacement du deck, et avec lui
+    /// le processus de rendu, attendent le premier rendu demandé (voir
+    /// `render_fonts`). Seule la sonde d'un pack par défaut à widgets le lance avant.
+    pub(crate) fn unrendered(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
@@ -339,7 +352,7 @@ impl Session {
             storage,
             doc_defaults,
             source_limits: files::source_limits(settings),
-            renderer: new_renderer(&worker, app_fonts.clone(), l, None, &registry)?,
+            renderer: None,
             worker,
             registry,
             pack: None,
@@ -372,7 +385,6 @@ impl Session {
         };
         // Le pack par défaut de l'utilisateur peut avoir des widgets.
         s.sync_widgets()?;
-        s.rerender()?;
         Ok(s)
     }
 

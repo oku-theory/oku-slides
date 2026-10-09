@@ -23,6 +23,7 @@ render-timeout = Le rendu a pris plus de { $seconds } s ; il a été interrompu
 render-out-of-memory = Le rendu a demandé plus de { $mib } Mio de mémoire ; il a été interrompu
 render-worker-lost = Le processus de rendu s'est arrêté
 render-frame = Message illisible du processus de rendu
+render-page-too-large = Cette slide est trop grande pour l'aperçu (plus de { $mib } Mio, souvent à cause d'une très grande image). Elle s'exporte encore en PDF ou en PNG.
 render-stale = Le rendu a été remplacé ; réessayez
 render-pack-disabled = Les widgets du pack « { $pack } » sont désactivés pour cette session
 registry-schema-remote = Registre des widgets invalide : { $message }

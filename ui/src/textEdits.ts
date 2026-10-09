@@ -19,6 +19,7 @@ export interface Edit {
  * de la sélection) disent le format actuel : 1 italique, 2 gras, 3 les deux.
  */
 export function toggleEmphasis(value: string, start: number, end: number, format: "bold" | "italic"): Edit {
+  const original = { start, end };
   // Des étoiles aux deux bords de la sélection comptent comme autour.
   while (end - start > 2 && value[start] === "*" && value[end - 1] === "*") {
     start++;
@@ -34,9 +35,48 @@ export function toggleEmphasis(value: string, start: number, end: number, format
   if (format === "bold") bold = !bold;
   else italic = !italic;
   const marks = "*".repeat((bold ? 2 : 0) + (italic ? 1 : 0));
-  const next = value.slice(0, start - k) + marks + value.slice(start, end) + marks + value.slice(end + k);
-  const shift = marks.length - k;
-  return { value: next, start: start + shift, end: end + shift };
+  // Les étoiles posées se lisent-elles comme écrites ? Sinon la ponctuation de bord sort.
+  let [from, to] = [start, end];
+  if (marks !== "") {
+    for (;;) {
+      while (from < to && /\s/.test(value[from])) from++;
+      while (to > from && /\s/.test(value[to - 1])) to--;
+      const before = from > start ? value[from - 1] : value[start - k - 1];
+      const after = to < end ? value[to] : value[end + k];
+      if (from < to && !opens(before, value[from])) from++;
+      else if (from < to && !closes(value[to - 1], after)) to--;
+      else break;
+    }
+    if (from === to && start < end) return { value, start: original.start, end: original.end };
+  }
+  const next =
+    value.slice(0, start - k) +
+    value.slice(start, from) +
+    marks +
+    value.slice(from, to) +
+    marks +
+    value.slice(to, end) +
+    value.slice(end + k);
+  const inner = start - k + (from - start) + marks.length;
+  return { value: next, start: inner, end: inner + (to - from) };
+}
+
+/** Nature d'une unité UTF-16 contre un délimiteur, comme Lezer la teste. */
+function kind(c: string | undefined): "space" | "punct" | "alnum" {
+  if (c === undefined || /\s/.test(c)) return "space";
+  return /[\p{S}\p{P}]/u.test(c) ? "punct" : "alnum";
+}
+
+/** Des étoiles entre `before` et `first` ouvrent (règles de CommonMark). */
+function opens(before: string | undefined, first: string): boolean {
+  const b = kind(first);
+  return b !== "space" && !(b === "punct" && kind(before) === "alnum");
+}
+
+/** Des étoiles entre `last` et `after` ferment. */
+function closes(last: string, after: string | undefined): boolean {
+  const a = kind(last);
+  return a !== "space" && !(a === "punct" && kind(after) === "alnum");
 }
 
 /**

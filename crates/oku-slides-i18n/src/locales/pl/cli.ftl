@@ -31,6 +31,7 @@ cli-not-found = nie znaleziono
 cli-bad-request = nieprawidłowe żądanie: { $reason }
 cli-sse-full = zbyt wiele otwartych strumieni zdarzeń
 cli-forbidden = żądanie odrzucone: nie pochodzi z lokalnego interfejsu
+cli-exposed = nasłuchiwanie na { $host }: serwer nie ma uwierzytelniania i jest dostępny z sieci; obsłużony zostanie każdy klient, który wyśle lokalny nagłówek Host. Pozostaw [serve] host na 127.0.0.1
 
 cli-about = Renderowanie i zapisywanie prezentacji Oku Slides
 cli-arg-fonts = Dodatkowy folder czcionek (TTF/OTF); domyślnie: paths.fonts w ustawieniach
