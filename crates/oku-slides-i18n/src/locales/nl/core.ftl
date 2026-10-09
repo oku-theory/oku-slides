@@ -21,7 +21,67 @@ op-value-out-of-bounds = het getal ligt buiten het toegestane bereik
 op-value-unreadable = de waarde heeft niet de verwachte vorm
 op-unknown-widget = Onbekende widget: { $subject }
 op-unknown-param = Onbekende parameter: { $subject }
-op-param-type = Ongeldige waarde voor { $subject }
+op-param-type-because = Ongeldige waarde voor { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] een tekst of null wordt verwacht
+   *[no] een tekst wordt verwacht
+}
+op-param-shape-choice = { $nullable ->
+    [yes] een van zijn waarden of null wordt verwacht
+   *[no] een van zijn waarden wordt verwacht
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] een lijst met alinea's of null wordt verwacht
+   *[no] een lijst met alinea's wordt verwacht
+}
+op-param-shape-elements = { $nullable ->
+    [yes] een lijst met elementen of null wordt verwacht
+   *[no] een lijst met elementen wordt verwacht
+}
+op-param-shape-flag = { $nullable ->
+    [yes] een booleaanse waarde of null wordt verwacht
+   *[no] een booleaanse waarde wordt verwacht
+}
+op-param-shape-number = { $nullable ->
+    [yes] een getal of null wordt verwacht
+   *[no] een getal wordt verwacht
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] een getal binnen zijn grenzen of null wordt verwacht
+   *[no] een getal binnen zijn grenzen wordt verwacht
+}
+op-param-shape-grid = { $nullable ->
+    [yes] een raster of null wordt verwacht
+   *[no] een raster wordt verwacht
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] een grafiekoptie of null wordt verwacht
+   *[no] een grafiekoptie wordt verwacht
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] een tabeloptie of null wordt verwacht
+   *[no] een tabeloptie wordt verwacht
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] een grafiek- of tabeloptie of null wordt verwacht
+   *[no] een grafiek- of tabeloptie wordt verwacht
+}
+op-param-shape-items = { $nullable ->
+    [yes] een lijst met items of null wordt verwacht
+   *[no] een lijst met items wordt verwacht
+}
+op-param-shape-list = { $nullable ->
+    [yes] een lijst of null wordt verwacht
+   *[no] een lijst wordt verwacht
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] elementen worden toegevoegd met add_element, of null
+   *[no] elementen worden toegevoegd met add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] een waarde wordt ingesteld met set_param, of null
+   *[no] een waarde wordt ingesteld met set_param
+}
 op-item-not-found = Geen item { $subject }
 op-list-full = De lijst { $subject } is vol (maximaal { $max ->
    [one] { $max } item

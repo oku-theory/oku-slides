@@ -6,6 +6,8 @@
 //! - [`storage`] : fichiers locaux, par OpenDAL.
 //! - [`config_write`] : écriture d'une clé dans `config.toml`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
+//! - `listen` (feature `listen`) : boucle d'accept bornée des serveurs HTTP
+//!   locaux, `serve_connections` et ses `Limits`.
 //!
 //! Ordre de démarrage d'un binaire : journaux → réglages → infrastructure →
 //! état de l'app.
@@ -13,6 +15,8 @@
 pub mod config;
 pub mod config_write;
 pub mod errors;
+#[cfg(feature = "listen")]
+mod listen;
 pub mod storage;
 #[cfg(test)]
 mod test_support;
@@ -25,6 +29,9 @@ use snafu::{Backtrace, ResultExt, Snafu};
 
 use crate::config::{ConfigError, Settings};
 use crate::storage::{Storage, StorageError};
+
+#[cfg(feature = "listen")]
+pub use crate::listen::{Limits, serve_connections};
 
 /// Où tourne le rendu Typst.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -21,7 +21,67 @@ op-value-out-of-bounds = o número está fora do intervalo permitido
 op-value-unreadable = o valor não tem a forma esperada
 op-unknown-widget = Widget desconhecido: { $subject }
 op-unknown-param = Parâmetro desconhecido: { $subject }
-op-param-type = Valor inválido para { $subject }
+op-param-type-because = Valor inválido para { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] é esperado um texto ou null
+   *[no] é esperado um texto
+}
+op-param-shape-choice = { $nullable ->
+    [yes] é esperado um dos seus valores ou null
+   *[no] é esperado um dos seus valores
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] é esperado uma lista de parágrafos ou null
+   *[no] é esperado uma lista de parágrafos
+}
+op-param-shape-elements = { $nullable ->
+    [yes] é esperado uma lista de elementos ou null
+   *[no] é esperado uma lista de elementos
+}
+op-param-shape-flag = { $nullable ->
+    [yes] é esperado um booleano ou null
+   *[no] é esperado um booleano
+}
+op-param-shape-number = { $nullable ->
+    [yes] é esperado um número ou null
+   *[no] é esperado um número
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] é esperado um número dentro dos seus limites ou null
+   *[no] é esperado um número dentro dos seus limites
+}
+op-param-shape-grid = { $nullable ->
+    [yes] é esperado uma grade ou null
+   *[no] é esperado uma grade
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] é esperado uma opção de gráfico ou null
+   *[no] é esperado uma opção de gráfico
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] é esperado uma opção de tabela ou null
+   *[no] é esperado uma opção de tabela
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] é esperado uma opção de gráfico ou de tabela ou null
+   *[no] é esperado uma opção de gráfico ou de tabela
+}
+op-param-shape-items = { $nullable ->
+    [yes] é esperado uma lista de itens ou null
+   *[no] é esperado uma lista de itens
+}
+op-param-shape-list = { $nullable ->
+    [yes] é esperado uma lista ou null
+   *[no] é esperado uma lista
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] os elementos são adicionados com add_element, ou null
+   *[no] os elementos são adicionados com add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] o valor é definido com set_param, ou null
+   *[no] o valor é definido com set_param
+}
 op-item-not-found = Nenhum item { $subject }
 op-list-full = A lista { $subject } está cheia (no máximo { $max ->
    [one] { $max } item

@@ -3,6 +3,8 @@
  * sélectionné, sinon les paramètres de la cible (`useTargetSettings`), sinon rien.
  * Hors vue, en lecture seule ou masquée depuis la barre d'outils, rien. Les réglages du
  * modèle (`lead`, mode modèles) s'affichent toujours, en tête de la fiche de la cible.
+ * Le tout dans la bande sous la scène (`.settings-band`), présente même sans carte quand
+ * une carte peut venir.
  */
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Element, Op, SlideView, Surface } from "./api";
@@ -31,7 +33,16 @@ type Props = {
   lead?: SettingsSection;
 };
 
-export function TargetPanel({ view, readOnly, selected, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
+export function TargetPanel(props: Props) {
+  const { view, readOnly, folded } = props;
+  const card = cardOf(props);
+  // La bande sous la scène, de hauteur fixe (styles.css) : posée dès que la carte peut s'afficher,
+  // même vide le temps de la lire, pour que la slide ne change pas de taille à la sélection (t-647).
+  if (!card && (!view || readOnly || folded)) return null;
+  return <div className="settings-band">{card}</div>;
+}
+
+function cardOf({ view, readOnly, selected, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
   const alone = lead ? <HostSettings {...lead} onAction={onSurfaceAction} onError={onError} /> : null;
   if (!view || readOnly || folded) return alone;
   // Données du graphique sélectionné : hors de la feuille, pour ne rien masquer.

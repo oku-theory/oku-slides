@@ -46,12 +46,19 @@ test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
 });
 
 test("la carte de la cible se pose sous la scène, défilant seule", () => {
-  const rule = ruleOf(own("styles.css"), ".templates-panel > .host-settings, .templates-panel > .chart-panel");
-  expect(rule).toMatch(/max-height:\s*40%/);
+  const rule = ruleOf(own("styles.css"), ".settings-band > .host-settings, .settings-band > .chart-panel");
+  // Dans la bande sous la scène : la carte rétrécit (et défile) plutôt que de déborder.
+  expect(rule).toMatch(/flex:\s*0 1 auto/);
+  expect(rule).toMatch(/min-height:\s*0/);
+  expect(rule).toMatch(/overflow-y:\s*auto/);
   // L'ombre de la feuille (positionnée) passe sous la carte, posée à distance de la slide.
   expect(rule).toMatch(/position:\s*relative/);
   expect(rule).toMatch(/z-index:\s*1/);
   expect(rule).toMatch(/margin:\s*var\(--space-10\) auto/);
+  // Bande de hauteur fixe sous la scène : la boîte de la slide ne suit pas la hauteur de la carte (t-647).
+  const band = ruleOf(own("styles.css"), ".settings-band");
+  expect(band).toMatch(/flex:\s*none/);
+  expect(band).toMatch(/height:\s*clamp\([^)]*vh[^)]*\)/);
 });
 
 test("la feuille prend le plus de place possible dans sa zone", () => {

@@ -141,6 +141,13 @@ export interface UiState {
   folded: PileSectionName[];
 }
 
+/** Ordre d'une sauvegarde de l'état d'interface : l'hôte ignore une sauvegarde plus ancienne (même `page`,
+ *  `seq` inférieur ou égal) que la dernière appliquée ; une autre `page` (rechargée) est toujours acceptée. */
+export interface UiOrder {
+  page: string;
+  seq: number;
+}
+
 /** Section repliable : slides hors mode modèles, modèles et widgets en mode modèles, carte des paramètres. */
 export type PileSectionName = "slides" | "templates" | "widgets" | "params";
 
@@ -534,7 +541,7 @@ type Request =
   | { cmd: "target_settings"; slide: string; element: string | null }
   | { cmd: "target_param"; slide: string; element: string | null; key: string; value: unknown }
   | { cmd: "target_list"; slide: string; element: string | null; key: string; change: ListOp }
-  | ({ cmd: "ui" } & UiState)
+  | ({ cmd: "ui"; order?: UiOrder } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
   | { cmd: "history_restore" }
@@ -754,7 +761,7 @@ export function tabApi(tab: string) {
     /** Bandeau du pack : sa version devient ma version courante. */
     packMakeCurrent: () => call<Snapshot>({ cmd: "pack_make_current" }),
     packNoticeClose: () => call<Snapshot>({ cmd: "pack_notice_close" }),
-    ui: (ui: UiState) => call<Snapshot>({ cmd: "ui", ...ui }),
+    ui: (ui: UiState, order?: UiOrder) => call<Snapshot>({ cmd: "ui", ...ui, order }),
     /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
     historyOpen: () => call<Snapshot>({ cmd: "history_open" }),
     historySeek: (index: number) => call<Snapshot>({ cmd: "history_seek", index }),

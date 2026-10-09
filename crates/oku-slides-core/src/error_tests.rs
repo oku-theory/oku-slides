@@ -3,7 +3,9 @@ use rstest::rstest;
 use snafu::IntoError;
 use speculoos::prelude::*;
 
-use super::{InvalidValueSnafu, OpError, OpErrorKind, ParseValueSnafu, ValueReason};
+use super::{
+    ExpectedType, InvalidValueSnafu, OpError, OpErrorKind, ParamTypeSnafu, ParseValueSnafu, Shape, ValueReason,
+};
 
 fn invalid(reason: ValueReason) -> OpError {
     InvalidValueSnafu { field: "grid", reason }.build().into()
@@ -96,6 +98,104 @@ fn every_value_reason_key_exists_in_every_locale() {
         assert!(l.has("op-invalid-value-because"), "{locale} : op-invalid-value-because absent");
         for reason in reasons {
             assert!(l.has(reason.key()), "{locale} : {} absent", reason.key());
+        }
+    }
+}
+
+fn param_type(expected: ExpectedType) -> OpError {
+    ParamTypeSnafu { param: "count", expected }.build().into()
+}
+
+/// `Display` garde, mot pour mot, l'anglais d'avant `ExpectedType`, pour chaque construction.
+#[rstest]
+#[case::text(Shape::Text.required(), "a string")]
+#[case::text_or_null(Shape::Text.or_null(), "a string or null")]
+#[case::choice(Shape::Choice.required(), "one of its values")]
+#[case::choice_or_null(Shape::Choice.or_null(), "one of its values or null")]
+#[case::paragraphs(Shape::Paragraphs.required(), "a list of paragraphs")]
+#[case::paragraphs_or_null(Shape::Paragraphs.or_null(), "a list of paragraphs or null")]
+#[case::elements(Shape::Elements.required(), "a list of elements")]
+#[case::flag(Shape::Flag.required(), "a boolean")]
+#[case::flag_or_null(Shape::Flag.or_null(), "a boolean or null")]
+#[case::number(Shape::Number.or_null(), "a number or null")]
+#[case::bounded_number(Shape::BoundedNumber.required(), "a number within its bounds")]
+#[case::grid(Shape::Grid.required(), "a grid")]
+#[case::grid_or_null(Shape::Grid.or_null(), "a grid or null")]
+#[case::chart(Shape::ChartOption.required(), "a chart option")]
+#[case::table(Shape::TableOption.required(), "a table option")]
+#[case::chart_or_table(Shape::ChartOrTableOption.required(), "a chart or table option")]
+#[case::items(Shape::Items.required(), "a list of items")]
+#[case::items_or_null(Shape::Items.or_null(), "a list of items or null")]
+#[case::list(Shape::List.required(), "a list")]
+#[case::add_element(Shape::AddElementOnly.required(), "elements, through add_element")]
+#[case::set_param(Shape::SetParamOnly.required(), "a value, through set_param")]
+fn param_type_display_keeps_the_english_expectation(#[case] expected: ExpectedType, #[case] english: &str) {
+    assert_that!(param_type(expected).to_string()).is_equal_to(format!("count expects {english}"));
+}
+
+/// Le type refusé dit ce qui était attendu, avec ou sans `null`, dans la langue de l'utilisateur.
+#[rstest]
+#[case::text(Shape::Text.required(), "a string is expected", "il faut un texte")]
+#[case::text_or_null(Shape::Text.or_null(), "a string or null is expected", "il faut un texte ou null")]
+#[case::number_or_null(Shape::Number.or_null(), "a number or null is expected", "il faut un nombre ou null")]
+#[case::bounded_number(
+    Shape::BoundedNumber.required(),
+    "a number within its bounds is expected",
+    "il faut un nombre dans ses bornes"
+)]
+#[case::chart(Shape::ChartOption.required(), "a chart option is expected", "il faut une option de graphique")]
+#[case::add_element(
+    Shape::AddElementOnly.required(),
+    "elements are added through add_element",
+    "les éléments s'ajoutent avec add_element"
+)]
+fn param_type_says_what_is_expected_in_the_user_language(
+    #[case] expected: ExpectedType,
+    #[case] en: &str,
+    #[case] fr: &str,
+) {
+    let err = param_type(expected);
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
+    assert_that!(err.expected_type()).is_equal_to(Some(expected));
+    assert_that!(err.localize(english())).is_equal_to(format!("Invalid value for count: {en}"));
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_equal_to(format!("Valeur invalide pour count : {fr}"));
+}
+
+/// `Shape::ALL` couvre chaque forme, une fois, dans l'ordre de `position`.
+#[test]
+fn all_shapes_lists_each_shape_at_its_position() {
+    for (i, shape) in Shape::ALL.into_iter().enumerate() {
+        assert_eq!(shape.position(), i, "{shape:?} n'est pas à son rang dans Shape::ALL");
+    }
+}
+
+/// Chaque forme, avec et sans `null`, se traduit dans chaque langue : l'identifiant brut ne
+/// remonte jamais, et `op-param-type` (remplacé) a disparu.
+#[test]
+fn every_shape_key_exists_in_every_locale() {
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        assert!(l.has("op-param-type-because"), "{locale} : op-param-type-because absent");
+        assert!(!l.has("op-param-type"), "{locale} : op-param-type devrait être retiré");
+        for shape in Shape::ALL {
+            assert!(l.has(shape.key()), "{locale} : {} absent", shape.key());
+            for expected in [shape.required(), shape.or_null()] {
+                let text = param_type(expected).localize(&l);
+                assert!(!text.contains("op-param"), "{locale} : {expected} non traduit : {text}");
+            }
+        }
+    }
+}
+
+/// Chaque forme, dans chaque langue, se dit autrement avec `null` et le cite.
+#[test]
+fn a_nullable_shape_differs_from_a_required_one_in_every_locale() {
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        for shape in Shape::ALL {
+            let (with, without) = (param_type(shape.or_null()).localize(&l), param_type(shape.required()).localize(&l));
+            assert!(with != without, "{locale} : {} ne distingue pas null", shape.key());
+            assert!(with.contains("null"), "{locale} : {} ne cite pas null : {with}", shape.key());
         }
     }
 }

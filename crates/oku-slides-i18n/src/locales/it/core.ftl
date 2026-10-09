@@ -21,7 +21,67 @@ op-value-out-of-bounds = il numero è fuori dall'intervallo consentito
 op-value-unreadable = il valore non ha la forma attesa
 op-unknown-widget = Widget sconosciuto: { $subject }
 op-unknown-param = Parametro sconosciuto: { $subject }
-op-param-type = Valore non valido per { $subject }
+op-param-type-because = Valore non valido per { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] serve un testo o null
+   *[no] serve un testo
+}
+op-param-shape-choice = { $nullable ->
+    [yes] serve uno dei suoi valori o null
+   *[no] serve uno dei suoi valori
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] serve un elenco di paragrafi o null
+   *[no] serve un elenco di paragrafi
+}
+op-param-shape-elements = { $nullable ->
+    [yes] serve un elenco di elementi o null
+   *[no] serve un elenco di elementi
+}
+op-param-shape-flag = { $nullable ->
+    [yes] serve un booleano o null
+   *[no] serve un booleano
+}
+op-param-shape-number = { $nullable ->
+    [yes] serve un numero o null
+   *[no] serve un numero
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] serve un numero entro i suoi limiti o null
+   *[no] serve un numero entro i suoi limiti
+}
+op-param-shape-grid = { $nullable ->
+    [yes] serve una griglia o null
+   *[no] serve una griglia
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] serve un'opzione del grafico o null
+   *[no] serve un'opzione del grafico
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] serve un'opzione della tabella o null
+   *[no] serve un'opzione della tabella
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] serve un'opzione del grafico o della tabella o null
+   *[no] serve un'opzione del grafico o della tabella
+}
+op-param-shape-items = { $nullable ->
+    [yes] serve un elenco di elementi o null
+   *[no] serve un elenco di elementi
+}
+op-param-shape-list = { $nullable ->
+    [yes] serve un elenco o null
+   *[no] serve un elenco
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] gli elementi si aggiungono con add_element, o null
+   *[no] gli elementi si aggiungono con add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] il valore si imposta con set_param, o null
+   *[no] il valore si imposta con set_param
+}
 op-item-not-found = Nessuna voce { $subject }
 op-list-full = L'elenco { $subject } è pieno (al massimo { $max ->
    [one] { $max } elemento

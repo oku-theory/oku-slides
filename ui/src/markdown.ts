@@ -187,5 +187,11 @@ export function listPrefix(line: string): { list?: NonNullable<Paragraph["list"]
   return num ? { list: "number", length: num[0].length } : { length: 0 };
 }
 
-/** Adresse telle que `paragraphs_to_text` l'écrit : espace et parenthèses encodés. */
-export const encodeLink = (url: string) => url.replaceAll(" ", "%20").replaceAll("(", "%28").replaceAll(")", "%29");
+/** Adresse telle que `paragraphs_to_text` l'écrit : espace, parenthèses et `\` encodés, ainsi qu'un `<` initial. */
+export const encodeLink = (url: string) =>
+  url
+    .replaceAll(" ", "%20")
+    .replaceAll("(", "%28")
+    .replaceAll(")", "%29")
+    .replaceAll("\\", "%5C")
+    .replace(/^</, "%3C");

@@ -3,6 +3,7 @@
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { until, stable } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const state = (p) => p.evaluate(() => ({
   slides: document.querySelectorAll('.thumb').length,
@@ -18,20 +19,23 @@ const state = (p) => p.evaluate(() => ({
   await p.waitForSelector('.stage img');
   // Slide 1 (titre) : rien ne s'ajoute.
   assert.deepEqual((await state(p)).add, [false, false, false, false, false]);
-  // Slide 4 (contenu) : tout s'ajoute ; le graphique s'ajoute et s'annule par son libellé.
+  // Slide 4 (contenu) : tout s'ajoute ; le graphique s'ajoute et l'hôte annonce son annulation par un libellé.
   await p.click('.thumb >> nth=3');
-  await p.waitForTimeout(600);
+  await until(p, async () => (await state(p)).add.every(Boolean), 'slide 4 : la barre d\'ajout ne s\'active pas');
   assert.deepEqual((await state(p)).add, [true, true, true, true, true]);
   await p.getByRole('group', { name: 'Ajouter sur la slide' }).getByRole('button', { name: 'Graphique' }).click();
-  await p.waitForTimeout(700);
+  await until(p, async () => (await state(p)).undo === 'Annuler : Ajouter un graphique', 'le graphique n\'est pas ajouté (libellé d\'annulation)');
   assert.equal((await state(p)).undo, 'Annuler : Ajouter un graphique');
   // Suppression au coin de la miniature, puis annulation.
   const before = (await state(p)).slides;
   await p.locator('.thumb-slot').nth(3).getByRole('button', { name: 'Supprimer la slide' }).click();
-  await p.waitForTimeout(700);
+  await until(p, async () => {
+    const s = await state(p);
+    return s.slides === before - 1 && s.undo === 'Annuler : Supprimer la slide';
+  }, 'la slide n\'est pas supprimée (nombre de slides, libellé d\'annulation)');
   assert.equal((await state(p)).slides, before - 1);
   await p.keyboard.press('Control+z');
-  await p.waitForTimeout(700);
+  await until(p, async () => (await state(p)).slides === before, 'la suppression n\'est pas annulée');
   assert.equal((await state(p)).slides, before);
   // Plus de carte d'ajout ni de suppression dans le panneau.
   assert.equal(await p.locator('.notes .add-note').count(), 0);
@@ -39,7 +43,7 @@ const state = (p) => p.evaluate(() => ({
   // La colonne, marges comprises (où passent les flèches slide précédente / suivante) : à 1024 px, le fil
   // (40 % de la table) ne laisse pas à la slide la largeur de la barre, qui la déborde, d'une marge au plus.
   await p.setViewportSize({ width: 1024, height: 640 });
-  await p.waitForTimeout(300);
+  await stable(p, ['.tools-tray', '.stage', '.sheet-area']);
   const fit = await p.evaluate(() => {
     const tray = document.querySelector('.tools-tray').getBoundingClientRect();
     const stage = document.querySelector('.stage').getBoundingClientRect();

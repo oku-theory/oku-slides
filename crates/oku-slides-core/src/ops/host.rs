@@ -11,16 +11,19 @@ use oku_slides_chart::{
 };
 
 use super::{declared, typed, widget};
-use crate::error::{ChartSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, TableSnafu, ValueReason};
+use crate::error::{
+    ChartSnafu, ExpectedType, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, Shape, TableSnafu,
+    ValueReason,
+};
 use crate::model::{Deck, Element};
 use crate::params::{ParamValue, Params};
 use crate::widget::{HostType, WidgetRegistry, WidgetSchema};
 
 /// Forme attendue d'un paramètre de l'hôte `host`, pour `ParamType`.
-pub(super) fn expected_host(host: HostType) -> &'static str {
+pub(super) fn expected_host(host: HostType) -> ExpectedType {
     match host {
-        HostType::Chart => "a chart option",
-        HostType::Table => "a table option",
+        HostType::Chart => Shape::ChartOption.required(),
+        HostType::Table => Shape::TableOption.required(),
     }
 }
 
@@ -186,6 +189,6 @@ pub(super) fn set_data(
             let next = table_data(&read(params, param, host)?, change).context(TableSnafu { subject })?;
             write(params, param, &next)
         }
-        None => Err(ParamTypeSnafu { param, expected: "a chart or table option" }.build().into()),
+        None => Err(ParamTypeSnafu { param, expected: Shape::ChartOrTableOption.required() }.build().into()),
     }
 }

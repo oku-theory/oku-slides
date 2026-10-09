@@ -9,7 +9,7 @@ use std::process::{Command, Output, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use common::{FIXTURE, Server, free_port, http, oku_slides, request, workdir};
+use common::{FIXTURE, Server, assert_stdout_lacks, assert_success, free_port, http, oku_slides, request, workdir};
 use oku_slides_core::{Deck, PackFiles, PackRef, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
@@ -167,11 +167,12 @@ fn save_with_embed_fonts_puts_the_fonts_in_the_sources() {
     let fonts = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts");
     let pdf = dir.join("deck.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "en").args(["--fonts", fonts, "save", FIXTURE]).arg(&pdf).arg("--embed-fonts"));
-    assert_that!(saved.status.success()).is_true();
+    assert_success("save --embed-fonts", &saved, &[]);
     let opened = run(oku_slides(&dir, "en").arg("open").arg(&pdf));
     // Sans ce contrôle, un `open` en échec (stdout vide) passerait le test.
-    assert_that!(opened.status.success()).is_true();
-    assert_that!(stdout(&opened)).does_not_contain(" 0 fonts");
+    assert_success("open", &opened, &[("save --embed-fonts", &saved)]);
+    // En cas d'échec : stdout et stderr des deux commandes (t-635, échec vu une fois sans cause connue).
+    assert_stdout_lacks("open", &opened, " 0 fonts", &[("save --embed-fonts", &saved)]);
 }
 
 #[test]

@@ -9,17 +9,24 @@ use tokio::sync::Notify;
 
 use super::{Limits, serve_connections};
 
+/// La grâce d'arrêt des serveurs de test.
+const GRACE: Duration = Duration::from_millis(500);
+
 /// Un serveur qui répond « ok » à tout, sur un port libre ; `stop` l'arrête.
-async fn start(limits: Limits) -> (u16, Arc<Notify>, tokio::task::JoinHandle<()>) {
+async fn start(limits: Limits) -> (u16, Arc<Notify>, tokio::task::JoinHandle<bool>) {
+    start_app(limits, Router::new().fallback(|| async { "ok" })).await
+}
+
+/// [`start`], qui sert `app`.
+async fn start_app(limits: Limits, app: Router) -> (u16, Arc<Notify>, tokio::task::JoinHandle<bool>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap_or_else(|e| panic!("écoute : {e}"));
     let port = listener.local_addr().unwrap_or_else(|e| panic!("adresse : {e}")).port();
-    let app = Router::new().fallback(|| async { "ok" });
     let stop = Arc::new(Notify::new());
     let shutdown = {
         let stop = Arc::clone(&stop);
         async move { stop.notified().await }
     };
-    let served = tokio::spawn(serve_connections(listener, app, limits, shutdown));
+    let served = tokio::spawn(serve_connections(listener, app, limits, GRACE, shutdown));
     (port, stop, served)
 }
 
@@ -115,8 +122,40 @@ async fn shutdown_closes_idle_connections_and_returns() {
     let (port, stop, served) = start(limits).await;
     let mut idle = connect_served(port).await;
     stop.notify_one();
-    assert_that!(tokio::time::timeout(Duration::from_secs(5), served).await.is_ok()).named("arrêt").is_true();
+    let abandoned = tokio::time::timeout(Duration::from_secs(5), served).await.ok().and_then(Result::ok);
+    assert_that!(abandoned).named("arrêt, rien d'abandonné").is_equal_to(Some(false));
     assert_that!(read_until_closed(&mut idle, Duration::from_secs(2)).await.is_some()).named("fermée").is_true();
+}
+
+#[tokio::test]
+async fn shutdown_drops_a_response_that_never_ends_once_the_grace_is_over() {
+    let limits = Limits { header_timeout: Duration::from_secs(30), max_connections: 8 };
+    // Une réponse qui ne vient jamais : l'arrêt gracieux l'attendrait sans fin.
+    let entered = Arc::new(Notify::new());
+    let app = {
+        let entered = Arc::clone(&entered);
+        Router::new().fallback(move || {
+            let entered = Arc::clone(&entered);
+            async move {
+                entered.notify_one();
+                std::future::pending::<&'static str>().await
+            }
+        })
+    };
+    let (port, stop, served) = start_app(limits, app).await;
+    let mut stuck = TcpStream::connect(("127.0.0.1", port)).await.unwrap_or_else(|e| panic!("connexion : {e}"));
+    let request = format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n");
+    stuck.write_all(request.as_bytes()).await.unwrap_or_else(|e| panic!("écriture : {e}"));
+    // La requête est en cours de traitement avant l'arrêt.
+    let started = tokio::time::timeout(Duration::from_secs(5), entered.notified()).await;
+    assert_that!(started.is_ok()).named("requête en cours").is_true();
+    stop.notify_one();
+    let since = Instant::now();
+    let read = read_until_closed(&mut stuck, GRACE + Duration::from_secs(2)).await;
+    assert_that!(read).named("fermée sans réponse").is_equal_to(Some(String::new()));
+    assert_that!(since.elapsed() >= GRACE - Duration::from_millis(50)).named("pas avant la grâce").is_true();
+    let abandoned = tokio::time::timeout(Duration::from_secs(1), served).await.ok().and_then(Result::ok);
+    assert_that!(abandoned).named("arrêt, connexion abandonnée").is_equal_to(Some(true));
 }
 
 #[test]

@@ -13,13 +13,33 @@ const newConversation = async (p) => {
   if (await button.count()) await button.click();
   await p.waitForSelector('.agent-thread.vacant');
 };
-/** Le fil d'une perspective se rappelle de façon asynchrone (resync) : on lui laisse arriver. */
-const settle = (p) => p.waitForTimeout(800);
-const openAtelier = async (p) => {
+/** Le fil d'une perspective se rappelle de façon asynchrone (resync) : `action` faite, on attend que
+ * l'hôte ait répondu au rappel de la portée `kind` (promesse créée avant l'action). */
+const resynced = async (p, kind, action) => {
+  const isResync = (rq) => {
+    if (!rq.url().endsWith('/api/agent')) return false;
+    const q = rq.postDataJSON();
+    return q?.cmd === 'resync' && q.scope?.kind === kind;
+  };
+  // Seules comptent les requêtes parties après ce point : un rappel déjà en vol ne satisfait pas l'attente.
+  const started = new Set();
+  const onRequest = (rq) => { if (isResync(rq)) started.add(rq); };
+  p.on('request', onRequest);
+  const done = p.waitForResponse((r) => started.has(r.request()));
+  try {
+    await action();
+    await done;
+  } finally {
+    p.off('request', onRequest);
+  }
+  // La réponse reçue, le fil se peint à l'image suivante.
+  await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+};
+const openAtelier = (p) => resynced(p, 'atelier', async () => {
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Atelier' }).click();
-  await settle(p);
-};
+});
+const closeAtelier = (p) => resynced(p, 'slides', () => p.getByRole('button', { name: 'Terminer' }).click());
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -29,9 +49,10 @@ const openAtelier = async (p) => {
   try {
     await p.goto(URL);
     await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
-    await p.reload();
-    await p.waitForSelector('.stage img');
-    await settle(p);
+    await resynced(p, 'slides', async () => {
+      await p.reload();
+      await p.waitForSelector('.stage img');
+    });
     await newConversation(p);
 
     // 1. Slides : un tour.
@@ -49,8 +70,7 @@ const openAtelier = async (p) => {
     assert.equal(await p.locator('.agent-turn').count(), 1);
 
     // 3. Retour aux slides, sans rien vider : seul leur fil.
-    await p.getByRole('button', { name: 'Terminer' }).click();
-    await settle(p);
+    await closeAtelier(p);
     await turn(p, 'portée slides').waitFor();
     assert.equal(await turn(p, 'portée atelier').count(), 0);
     assert.equal(await p.locator('.agent-turn').count(), 1);
@@ -59,8 +79,7 @@ const openAtelier = async (p) => {
     await newConversation(p);
     await openAtelier(p);
     await newConversation(p);
-    await p.getByRole('button', { name: 'Terminer' }).click();
-    await settle(p);
+    await closeAtelier(p);
 
     assert.deepEqual(errors, []);
     console.log('agent-scopes : ok');

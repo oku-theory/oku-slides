@@ -21,7 +21,67 @@ op-value-out-of-bounds = the number is outside its allowed range
 op-value-unreadable = the value does not have the expected form
 op-unknown-widget = Unknown widget: { $subject }
 op-unknown-param = Unknown parameter: { $subject }
-op-param-type = Invalid value for { $subject }
+op-param-type-because = Invalid value for { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] a string or null is expected
+   *[no] a string is expected
+}
+op-param-shape-choice = { $nullable ->
+    [yes] one of its values or null is expected
+   *[no] one of its values is expected
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] a list of paragraphs or null is expected
+   *[no] a list of paragraphs is expected
+}
+op-param-shape-elements = { $nullable ->
+    [yes] a list of elements or null is expected
+   *[no] a list of elements is expected
+}
+op-param-shape-flag = { $nullable ->
+    [yes] a boolean or null is expected
+   *[no] a boolean is expected
+}
+op-param-shape-number = { $nullable ->
+    [yes] a number or null is expected
+   *[no] a number is expected
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] a number within its bounds or null is expected
+   *[no] a number within its bounds is expected
+}
+op-param-shape-grid = { $nullable ->
+    [yes] a grid or null is expected
+   *[no] a grid is expected
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] a chart option or null is expected
+   *[no] a chart option is expected
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] a table option or null is expected
+   *[no] a table option is expected
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] a chart or table option or null is expected
+   *[no] a chart or table option is expected
+}
+op-param-shape-items = { $nullable ->
+    [yes] a list of items or null is expected
+   *[no] a list of items is expected
+}
+op-param-shape-list = { $nullable ->
+    [yes] a list or null is expected
+   *[no] a list is expected
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] elements are added through add_element, or null
+   *[no] elements are added through add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] a value is set through set_param, or null
+   *[no] a value is set through set_param
+}
 op-item-not-found = No item { $subject }
 op-list-full = The list { $subject } is full ({ $max ->
    [one] { $max } item

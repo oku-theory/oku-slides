@@ -7,7 +7,7 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Output};
 use std::time::{Duration, Instant};
 
 pub const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
@@ -46,6 +46,37 @@ pub fn oku_slides(dir: &Path, locale: &str) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_oku-slides"));
     cmd.env("OKU_SLIDES_PATHS__DATA", dir.join("data")).env("OKU_SLIDES_I18N__LOCALE", locale).env("NO_COLOR", "1");
     cmd
+}
+
+/// Le compte rendu d'une commande terminée : statut, stdout et stderr, pour qu'un échec de test
+/// dise ce que la commande a répondu (t-635).
+pub fn describe(what: &str, out: &Output) -> String {
+    format!(
+        "{what} : {}\n--- stdout ---\n{}\n--- stderr ---\n{}",
+        out.status,
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+}
+
+/// Les comptes rendus de `context` (commandes précédentes) puis celui de `what`, formatés
+/// seulement quand un test échoue.
+fn report(what: &str, out: &Output, context: &[(&str, &Output)]) -> String {
+    let before: String = context.iter().map(|(name, o)| format!("{}\n\n", describe(name, o))).collect();
+    format!("{before}{}", describe(what, out))
+}
+
+/// Échoue si la commande n'a pas réussi, en décrivant aussi les commandes de `context`.
+#[track_caller]
+pub fn assert_success(what: &str, out: &Output, context: &[(&str, &Output)]) {
+    assert!(out.status.success(), "{}", report(what, out, context));
+}
+
+/// Échoue si la sortie standard CONTIENT `needle`, en décrivant aussi les commandes de `context`.
+#[track_caller]
+pub fn assert_stdout_lacks(what: &str, out: &Output, needle: &str, context: &[(&str, &Output)]) {
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.contains(needle), "stdout contient {needle:?}\n{}", report(what, out, context));
 }
 
 /// Le processus `oku-slides serve`, tué à la fin du test.

@@ -21,7 +21,67 @@ op-value-out-of-bounds = 数值超出允许范围
 op-value-unreadable = 值的格式不符合预期
 op-unknown-widget = 未知的组件：{ $subject }
 op-unknown-param = 未知的参数：{ $subject }
-op-param-type = { $subject } 的值无效
+op-param-type-because = { $subject } 的值无效：{ $reason }
+op-param-shape-text = { $nullable ->
+    [yes] 需要文本或 null
+   *[no] 需要文本
+}
+op-param-shape-choice = { $nullable ->
+    [yes] 需要其值之一或 null
+   *[no] 需要其值之一
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] 需要段落列表或 null
+   *[no] 需要段落列表
+}
+op-param-shape-elements = { $nullable ->
+    [yes] 需要元素列表或 null
+   *[no] 需要元素列表
+}
+op-param-shape-flag = { $nullable ->
+    [yes] 需要布尔值或 null
+   *[no] 需要布尔值
+}
+op-param-shape-number = { $nullable ->
+    [yes] 需要数字或 null
+   *[no] 需要数字
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] 需要范围内的数字或 null
+   *[no] 需要范围内的数字
+}
+op-param-shape-grid = { $nullable ->
+    [yes] 需要网格或 null
+   *[no] 需要网格
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] 需要图表选项或 null
+   *[no] 需要图表选项
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] 需要表格选项或 null
+   *[no] 需要表格选项
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] 需要图表或表格选项或 null
+   *[no] 需要图表或表格选项
+}
+op-param-shape-items = { $nullable ->
+    [yes] 需要项目列表或 null
+   *[no] 需要项目列表
+}
+op-param-shape-list = { $nullable ->
+    [yes] 需要列表或 null
+   *[no] 需要列表
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] 元素通过 add_element 添加，或 null
+   *[no] 元素通过 add_element 添加
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] 值通过 set_param 设置，或 null
+   *[no] 值通过 set_param 设置
+}
 op-item-not-found = 没有项目 { $subject }
 op-list-full = 列表 { $subject } 已满（最多 { $max }个项目）
 op-list-minimum = 列表 { $subject } 至少需要 { $min }个项目

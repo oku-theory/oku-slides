@@ -142,6 +142,155 @@ impl std::fmt::Display for ValueReason {
     }
 }
 
+/// La forme qu'un paramètre attend ([`ExpectedType`]) : dite par
+/// `op-param-shape-*` (Fluent), en anglais par `Display`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub(crate) enum Shape {
+    /// Une chaîne (`plain`, `asset`).
+    Text,
+    /// L'une des valeurs d'un `choice`.
+    Choice,
+    /// Une liste de paragraphes (`rich`).
+    Paragraphs,
+    /// Une liste d'éléments (un slot).
+    Elements,
+    /// Un booléen.
+    Flag,
+    /// Un nombre.
+    Number,
+    /// Un nombre dans les bornes du paramètre.
+    BoundedNumber,
+    /// Une grille.
+    Grid,
+    /// Une option de graphique.
+    ChartOption,
+    /// Une option de tableau.
+    TableOption,
+    /// Une option de graphique ou de tableau (hôte inconnu).
+    ChartOrTableOption,
+    /// Une liste d'items.
+    Items,
+    /// Une liste (`edit_list` sur un paramètre qui n'en est pas une).
+    List,
+    /// Des éléments, ajoutés par `add_element` (jamais par `set_param`).
+    AddElementOnly,
+    /// Une valeur, donnée par `set_param` (jamais par `add_element`).
+    SetParamOnly,
+}
+
+impl Shape {
+    /// Chaque forme, dans l'ordre de [`Shape::position`] (tests : le `match` de `position`
+    /// oblige à placer une forme ajoutée, et un test vérifie que cette liste le suit).
+    #[cfg(test)]
+    pub(crate) const ALL: [Shape; 15] = [
+        Shape::Text,
+        Shape::Choice,
+        Shape::Paragraphs,
+        Shape::Elements,
+        Shape::Flag,
+        Shape::Number,
+        Shape::BoundedNumber,
+        Shape::Grid,
+        Shape::ChartOption,
+        Shape::TableOption,
+        Shape::ChartOrTableOption,
+        Shape::Items,
+        Shape::List,
+        Shape::AddElementOnly,
+        Shape::SetParamOnly,
+    ];
+
+    /// Rang de la forme dans [`Shape::ALL`] ; `match` exhaustif.
+    #[cfg(test)]
+    const fn position(self) -> usize {
+        match self {
+            Shape::Text => 0,
+            Shape::Choice => 1,
+            Shape::Paragraphs => 2,
+            Shape::Elements => 3,
+            Shape::Flag => 4,
+            Shape::Number => 5,
+            Shape::BoundedNumber => 6,
+            Shape::Grid => 7,
+            Shape::ChartOption => 8,
+            Shape::TableOption => 9,
+            Shape::ChartOrTableOption => 10,
+            Shape::Items => 11,
+            Shape::List => 12,
+            Shape::AddElementOnly => 13,
+            Shape::SetParamOnly => 14,
+        }
+    }
+
+    /// Cette forme, `null` refusé.
+    pub(crate) const fn required(self) -> ExpectedType {
+        ExpectedType { shape: self, nullable: false }
+    }
+
+    /// Cette forme, ou `null` (le paramètre se retire).
+    pub(crate) const fn or_null(self) -> ExpectedType {
+        ExpectedType { shape: self, nullable: true }
+    }
+
+    /// La clé Fluent de la forme (`op-param-shape-*`).
+    fn key(self) -> &'static str {
+        match self {
+            Shape::Text => "op-param-shape-text",
+            Shape::Choice => "op-param-shape-choice",
+            Shape::Paragraphs => "op-param-shape-paragraphs",
+            Shape::Elements => "op-param-shape-elements",
+            Shape::Flag => "op-param-shape-flag",
+            Shape::Number => "op-param-shape-number",
+            Shape::BoundedNumber => "op-param-shape-bounded-number",
+            Shape::Grid => "op-param-shape-grid",
+            Shape::ChartOption => "op-param-shape-chart-option",
+            Shape::TableOption => "op-param-shape-table-option",
+            Shape::ChartOrTableOption => "op-param-shape-chart-or-table-option",
+            Shape::Items => "op-param-shape-items",
+            Shape::List => "op-param-shape-list",
+            Shape::AddElementOnly => "op-param-shape-add-element-only",
+            Shape::SetParamOnly => "op-param-shape-set-param-only",
+        }
+    }
+}
+
+/// Ce qu'un paramètre attendait quand une valeur d'un autre type est refusée
+/// ([`OpErrorKind::ParamType`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ExpectedType {
+    /// La forme attendue.
+    pub(crate) shape: Shape,
+    /// `null` est aussi accepté (il retire le paramètre).
+    pub(crate) nullable: bool,
+}
+
+impl std::fmt::Display for ExpectedType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self.shape {
+            Shape::Text => "a string",
+            Shape::Choice => "one of its values",
+            Shape::Paragraphs => "a list of paragraphs",
+            Shape::Elements => "a list of elements",
+            Shape::Flag => "a boolean",
+            Shape::Number => "a number",
+            Shape::BoundedNumber => "a number within its bounds",
+            Shape::Grid => "a grid",
+            Shape::ChartOption => "a chart option",
+            Shape::TableOption => "a table option",
+            Shape::ChartOrTableOption => "a chart or table option",
+            Shape::Items => "a list of items",
+            Shape::List => "a list",
+            Shape::AddElementOnly => "elements, through add_element",
+            Shape::SetParamOnly => "a value, through set_param",
+        })?;
+        if self.nullable {
+            f.write_str(" or null")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum OpInner {
@@ -169,7 +318,7 @@ pub(crate) enum OpInner {
     #[snafu(display("{widget} has no parameter {param}"))]
     UnknownParam { widget: String, param: String, backtrace: Backtrace },
     #[snafu(display("{param} expects {expected}"))]
-    ParamType { param: String, expected: &'static str, backtrace: Backtrace },
+    ParamType { param: String, expected: ExpectedType, backtrace: Backtrace },
     #[snafu(display("{slot} does not accept {kind}"))]
     SlotRejects { slot: String, kind: String, backtrace: Backtrace },
     #[snafu(display("{kind} cannot be used here"))]
@@ -239,6 +388,14 @@ impl OpError {
         match &*self.0 {
             OpInner::InvalidValue { reason, .. } => Some(*reason),
             OpInner::ParseValue { .. } => Some(ValueReason::Unreadable),
+            _ => None,
+        }
+    }
+
+    /// Ce qui était attendu, pour une erreur [`OpErrorKind::ParamType`].
+    pub(crate) fn expected_type(&self) -> Option<ExpectedType> {
+        match &*self.0 {
+            OpInner::ParamType { expected, .. } => Some(*expected),
             _ => None,
         }
     }
@@ -362,6 +519,14 @@ impl Localize for OpError {
                 &[("subject", self.subject().unwrap_or_default().into()), ("reason", l.tr(reason.key()).into())],
             );
         }
+        if let Some(expected) = self.expected_type() {
+            let nullable = if expected.nullable { "yes" } else { "no" };
+            let reason = l.tr_with(expected.shape.key(), &[("nullable", nullable.into())]);
+            return l.tr_with(
+                "op-param-type-because",
+                &[("subject", self.subject().unwrap_or_default().into()), ("reason", reason.into())],
+            );
+        }
         if let OpInner::ListBound { list, bound, .. } = &*self.0 {
             let list = list.as_str().into();
             return match bound {
@@ -388,13 +553,12 @@ impl Localize for OpError {
             OpErrorKind::InvalidTable => "op-invalid-table",
             OpErrorKind::UnknownWidget => "op-unknown-widget",
             OpErrorKind::UnknownParam => "op-unknown-param",
-            OpErrorKind::ParamType => "op-param-type",
             OpErrorKind::ItemNotFound => "op-item-not-found",
             OpErrorKind::ChoiceOutOfRange => "op-choice-out-of-range",
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
-            // Traité plus haut : les bornes de liste portent leurs arguments.
-            OpErrorKind::ListBound => "op-invalid-value",
+            // Traités plus haut : ces erreurs portent leurs arguments.
+            OpErrorKind::ParamType | OpErrorKind::ListBound => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }

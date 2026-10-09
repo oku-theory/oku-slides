@@ -1,14 +1,17 @@
 //! Serveur HTTP streamable des outils : `127.0.0.1`, port libre, jeton exigé.
+//! Ses connexions ont les bornes de `[serve]` (délai d'en-têtes, plafond),
+//! comme le serveur de développement (voir `oku_slides_platform::serve_connections`).
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use oku_slides_platform::serve_connections;
 use rust_mcp_axum::axum::extract::{Request, State};
 use rust_mcp_axum::axum::http::StatusCode;
-use rust_mcp_axum::axum::http::header::AUTHORIZATION;
+use rust_mcp_axum::axum::http::header::{AUTHORIZATION, CONNECTION};
 use rust_mcp_axum::axum::middleware::{self, Next};
 use rust_mcp_axum::axum::response::{IntoResponse, Response};
-use rust_mcp_axum::{McpMountOptions, axum, mcp_routes};
+use rust_mcp_axum::{McpMountOptions, mcp_routes};
 use rust_mcp_sdk::id_generator::{FastIdGenerator, UuidGenerator};
 use rust_mcp_sdk::mcp_http::{McpAppState, McpHttpHandler};
 use rust_mcp_sdk::mcp_server::ToMcpServerHandler;
@@ -21,6 +24,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Tools;
 use crate::error::{BindSnafu, McpError, TokenSnafu};
+
+/// Grâce laissée aux connexions à l'arrêt : seuls des flux SSE restent alors
+/// ouverts (l'agent est arrêté), qui ne finissent jamais d'eux-mêmes.
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 
 /// Le serveur en marche : son adresse et son jeton.
 pub struct ToolServer {
@@ -41,6 +48,7 @@ impl ToolServer {
         let mut bytes = [0u8; 32];
         getrandom::fill(&mut bytes).context(TokenSnafu)?;
         let token = hex::encode(bytes);
+        let limits = tools.limits;
         let state = Arc::new(McpAppState {
             session_store: Arc::new(InMemorySessionStore::new()),
             id_generator: Arc::new(UuidGenerator {}),
@@ -60,11 +68,9 @@ impl ToolServer {
             .layer(middleware::from_fn_with_state(expected, require_bearer));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.context(BindSnafu)?;
         let addr = listener.local_addr().context(BindSnafu)?;
-        tokio::spawn(async move {
-            if let Err(e) = axum::serve(listener, app).with_graceful_shutdown(cancel.cancelled_owned()).await {
-                tracing::warn!(error = %e, "serveur d'outils arrêté");
-            }
-        });
+        // Personne n'attend cette tâche : l'arrêt est borné par `SHUTDOWN_GRACE`.
+        // Un flux SSE encore ouvert à l'arrêt est normal : son abandon n'est pas signalé.
+        tokio::spawn(serve_connections(listener, app, limits, SHUTDOWN_GRACE, cancel.cancelled_owned()));
         tracing::info!(%addr, "outils de l'agent prêts");
         Ok(Self { url: format!("http://{addr}/mcp"), token })
     }
@@ -82,7 +88,8 @@ impl ToolServer {
 async fn require_bearer(State(expected): State<Arc<str>>, req: Request, next: Next) -> Response {
     let ok = req.headers().get(AUTHORIZATION).and_then(|v| v.to_str().ok()) == Some(&*expected);
     if !ok {
-        return StatusCode::UNAUTHORIZED.into_response();
+        // Un client refusé ne garde pas de place (`[serve] max_connections`).
+        return (StatusCode::UNAUTHORIZED, [(CONNECTION, "close")]).into_response();
     }
     next.run(req).await
 }

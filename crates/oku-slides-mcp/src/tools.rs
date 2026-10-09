@@ -8,6 +8,7 @@ use std::sync::{Arc, OnceLock};
 
 use base64::Engine as _;
 use oku_slides_i18n::Localizer;
+use oku_slides_platform::Limits;
 use oku_slides_platform::storage::Storage;
 use oku_slides_session::Platform;
 use oku_slides_session::agent::TabSession;
@@ -29,6 +30,8 @@ pub struct Tools {
     pub(crate) settings: Arc<dyn SettingsPort>,
     pub(crate) storage: Storage,
     pub(crate) localizer: Arc<Localizer>,
+    /// Bornes des connexions du serveur d'outils (`[serve]`).
+    pub(crate) limits: Limits,
 }
 
 impl std::fmt::Debug for Tools {
@@ -45,7 +48,15 @@ impl Tools {
         settings: Arc<dyn SettingsPort>,
         platform: &Platform,
     ) -> Self {
-        Self { session, hub, settings, storage: platform.storage.clone(), localizer: platform.localizer.clone() }
+        let serve = &platform.settings.serve;
+        Self {
+            session,
+            hub,
+            settings,
+            storage: platform.storage.clone(),
+            localizer: platform.localizer.clone(),
+            limits: Limits::new(serve.header_timeout(), serve.max_connections.get()),
+        }
     }
 
     /// Travail synchrone sur la session de l'onglet, hors du fil async ; le

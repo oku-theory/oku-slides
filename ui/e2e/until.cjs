@@ -12,4 +12,23 @@ const until = async (p, fn, why, timeout = 8000) => {
   assert.fail(why);
 };
 
-module.exports = { until };
+/**
+ * Attend que la boîte (`getBoundingClientRect`) de chaque sélecteur soit identique sur deux
+ * `requestAnimationFrame` consécutifs : la mise en page a fini de suivre l'effet (redimensionnement…).
+ * Échoue après 120 images sans stabilité.
+ */
+const stable = (p, selectors) => p.evaluate((sels) => new Promise((resolve, reject) => {
+  const read = () => JSON.stringify(sels.map((s) => document.querySelector(s)?.getBoundingClientRect() ?? null));
+  let previous = read();
+  let frames = 0;
+  const tick = () => requestAnimationFrame(() => {
+    const now = read();
+    if (now === previous) return resolve();
+    if (++frames > 120) return reject(new Error(`mise en page instable : ${sels}`));
+    previous = now;
+    tick();
+  });
+  tick();
+}), selectors);
+
+module.exports = { until, stable };

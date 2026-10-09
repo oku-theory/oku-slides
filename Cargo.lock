@@ -5395,8 +5395,6 @@ dependencies = [
  "color-eyre",
  "ctrlc",
  "http-body",
- "hyper",
- "hyper-util",
  "oku-slides-agent",
  "oku-slides-core",
  "oku-slides-i18n",
@@ -5495,7 +5493,10 @@ dependencies = [
 name = "oku-slides-platform"
 version = "1.0.0"
 dependencies = [
+ "axum",
  "config",
+ "hyper",
+ "hyper-util",
  "oku-slides-i18n",
  "opendal",
  "serde",

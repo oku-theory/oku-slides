@@ -143,7 +143,8 @@ fn chart_ops_on_a_non_chart_param_return_param_type() {
     let t = Target { slide: "s".into(), element: Some("t".into()) };
     let err = apply(&mut deck, Op::SetChartOption { target: t, param: "body".into(), patch: json!({}) }).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
-    assert_that!(err.localize(&Localizer::new(Some("en")))).is_equal_to("Invalid value for body".to_owned());
+    assert_that!(err.localize(&Localizer::new(Some("en"))))
+        .is_equal_to("Invalid value for body: a chart option is expected".to_owned());
 }
 
 #[test]

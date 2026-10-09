@@ -3,7 +3,11 @@
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun e2e/layout.cjs, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
+const { until, stable } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
+const COLUMNS = ['.pile', '.stage', '.notes', '.device'];
+const hostNotes = async (p) => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes; // null : largeur par défaut
 const columns = (p) => p.evaluate(() => {
   const box = (s) => document.querySelector(s).getBoundingClientRect();
   return { pile: box('.pile').right, stage: box('.stage'), notes: box('.notes').left, notesWidth: box('.notes').width, device: box('.device').left };
@@ -18,7 +22,7 @@ const columns = (p) => p.evaluate(() => {
   // La scène est mise à l'échelle au chargement, puis la fenêtre rétrécit : elle doit suivre.
   for (const [width, height] of [[1440, 900], [1024, 640], [1000, 700]]) {
     await p.setViewportSize({ width, height });
-    await p.waitForTimeout(300);
+    await stable(p, COLUMNS);
     const c = await columns(p);
     assert.ok(c.stage.left >= c.pile, `${width} px : la feuille chevauche la pile (${c.stage.left} < ${c.pile})`);
     assert.ok(c.stage.right <= c.notes, `${width} px : la feuille chevauche le fil (${c.stage.right} > ${c.notes})`);
@@ -53,7 +57,7 @@ const columns = (p) => p.evaluate(() => {
   // Séparateurs : glisser celui du fil vers la gauche l'élargit ; la largeur est gardée par l'hôte
   // (rechargement) ; un double-clic la rend par défaut.
   await p.setViewportSize({ width: 1440, height: 900 });
-  await p.waitForTimeout(300);
+  await stable(p, COLUMNS);
   const notesWidth = () => p.evaluate(() => document.querySelector('.notes').getBoundingClientRect().width);
   const before = await notesWidth();
   // Une bande de prise de 8 px, rien de plus (sans hériter des règles des colonnes).
@@ -67,14 +71,19 @@ const columns = (p) => p.evaluate(() => {
   await p.mouse.move(x - 50, y, { steps: 5 });
   await p.mouse.move(x - 100, y, { steps: 5 });
   await p.mouse.up();
-  await p.waitForTimeout(300);
+  await stable(p, COLUMNS);
   assert.ok(Math.abs((await notesWidth()) - (before + 100)) <= 1, `fil pas élargi de 100 px (${before} → ${await notesWidth()})`);
+  // L'hôte a gardé la largeur (sauvegarde asynchrone) avant qu'on recharge.
+  await until(p, async () => Math.abs((await hostNotes(p)) - (before + 100)) <= 1, 'largeur du fil jamais gardée par l\'hôte');
   await p.reload();
   await p.waitForSelector('.stage img');
-  await p.waitForTimeout(300);
+  // La largeur gardée est reprise de l'hôte après le premier rendu : attendre la reprise, pas une image.
+  await until(p, async () => Math.abs((await notesWidth()) - (before + 100)) <= 1, 'largeur du fil non reprise au rechargement');
   assert.ok(Math.abs((await notesWidth()) - (before + 100)) <= 1, `largeur du fil perdue au rechargement (${await notesWidth()})`);
   await p.dblclick('.col-divider[data-side="notes"]');
-  await p.waitForTimeout(300);
+  // L'hôte garde « par défaut » (null) avant qu'on termine : la sauvegarde ne doit pas arriver après la fermeture.
+  await until(p, async () => (await hostNotes(p)) === null, 'largeur par défaut jamais gardée par l\'hôte (double-clic)');
+  await stable(p, COLUMNS);
   assert.ok(Math.abs((await notesWidth()) - before) <= 1, `double-clic : fil pas revenu à ${before} (${await notesWidth()})`);
   assert.deepEqual(errors, []);
   console.log('colonnes ok');

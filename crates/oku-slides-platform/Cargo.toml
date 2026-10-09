@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-platform"
-description = "Socle d'Oku Slides : journaux, réglages, fichiers et langues, partagés par l'app, la CLI, la session et la dictée."
+description = "Socle d'Oku Slides : journaux, réglages, fichiers et langues, partagés par l'app, la CLI, la session et la dictée ; boucle d'accept bornée des serveurs HTTP locaux (feature `listen`)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -18,10 +18,19 @@ snafu.workspace = true
 toml_edit.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+axum = { workspace = true, optional = true }
+hyper = { workspace = true, optional = true }
+hyper-util = { workspace = true, optional = true }
+
+[features]
+# Boucle d'accept des serveurs HTTP locaux (`listen`) : délai d'en-têtes,
+# plafond de connexions, arrêt borné. Activée par la CLI et `oku-slides-mcp`.
+listen = ["dep:axum", "dep:hyper", "dep:hyper-util", "tokio/net", "tokio/sync", "tokio/time", "tokio/macros"]
 
 [dev-dependencies]
 speculoos.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
 
 [lints]
 workspace = true

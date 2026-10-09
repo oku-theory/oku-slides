@@ -981,16 +981,21 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
 .templates-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
-/* La scène prend la place ; dessous, les réglages du modèle (mode modèles) et la carte de la cible
-   (paramètres, ou panneau d'un graphique) : au plus 40 % chacun, défilant seuls, à distance de la slide. */
+/* La scène prend la place ; dessous, la bande de la carte (`TargetPanel`) : les réglages du modèle (mode
+   modèles) et la carte de la cible (paramètres, ou panneau d'un graphique), le plus souvent réunis en une
+   fiche (`.merged`), défilant seuls, à distance de la slide. La bande a une hauteur fixe, marge au-dessus
+   de la carte comprise, et reste posée sans carte le temps de la lire : la boîte de la scène ne dépend
+   pas de la carte, qui change à la sélection (sinon, dans une fenêtre basse où la hauteur borne la
+   slide, celle-ci change de taille et se décale, t-647). Carte masquée depuis la barre : pas de bande. */
 .templates-panel { flex-direction: column; }
-.templates-panel > .host-settings, .templates-panel > .chart-panel {
-  flex: none; max-height: 40%; overflow-y: auto; margin: var(--space-10) auto 0;
+.settings-band { flex: none; height: clamp(120px, 28vh, 280px); min-height: 0; display: flex; flex-direction: column; }
+.settings-band > .host-settings, .settings-band > .chart-panel {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: var(--space-10) auto 0;
   /* Au-dessus de l'ombre de la feuille (`.stage-frame`, positionnée), qui sinon bave sur la carte. */
   position: relative; z-index: 1;
 }
-.templates-panel > :is(.host-settings, .chart-panel) + :is(.host-settings, .chart-panel) { margin-top: var(--space-4); }
-.templates-panel > .chart-panel { width: min(100% - 2 * var(--space-4), 760px); box-sizing: border-box; }
+.settings-band > :is(.host-settings, .chart-panel) + :is(.host-settings, .chart-panel) { margin-top: var(--space-4); }
+.settings-band > .chart-panel { width: min(100% - 2 * var(--space-4), 760px); box-sizing: border-box; }
 /* Réglages de l'hôte sous leur aperçu : une fiche posée, pas du verre flottant. */
 .host-settings {
   width: min(100% - 2 * var(--space-4), 560px); box-sizing: border-box; padding: var(--space-2);

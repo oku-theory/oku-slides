@@ -10,7 +10,7 @@ use super::value::param_value;
 use super::{Target, declared, target_mut, target_ref, widget};
 use crate::error::{
     DuplicateIdSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, ItemNotFoundSnafu, ListBound, ListBoundSnafu, OpError,
-    ParamTypeSnafu, UnknownParamSnafu, ValueReason,
+    ParamTypeSnafu, Shape, UnknownParamSnafu, ValueReason,
 };
 use crate::{Deck, Element, ListItem, ParamSchema, ParamType, ParamValue, Params, WidgetRegistry};
 
@@ -280,13 +280,13 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
     let rows = match value {
         Value::Null => return Ok(None),
         Value::Array(rows) => rows,
-        _ => return Err(ParamTypeSnafu { param: spec.name, expected: "a list of items or null" }.build().into()),
+        _ => return Err(ParamTypeSnafu { param: spec.name, expected: Shape::Items.or_null() }.build().into()),
     };
     spec.too_many(rows.len())?;
     let mut items: Vec<ListItem> = Vec::with_capacity(rows.len());
     for row in rows {
         let Value::Object(mut obj) = row else {
-            return Err(ParamTypeSnafu { param: spec.name, expected: "a list of items or null" }.build().into());
+            return Err(ParamTypeSnafu { param: spec.name, expected: Shape::Items.or_null() }.build().into());
         };
         let id = match obj.remove("id") {
             Some(Value::String(s)) => s,
@@ -313,7 +313,7 @@ pub(super) fn edit_list(
     let (kind, _, _) = target_ref(deck, target)?;
     let p = declared(widget(registry, kind)?, param)?.clone();
     let spec = ListSpec::of(&p.name, &p.ty)
-        .ok_or_else(|| OpError::from(ParamTypeSnafu { param, expected: "a list" }.build()))?;
+        .ok_or_else(|| OpError::from(ParamTypeSnafu { param, expected: Shape::List.required() }.build()))?;
     let (_, params) = target_mut(deck, target)?;
     let mut items = params.list(param).map(<[_]>::to_vec).unwrap_or_default();
     change.apply(&mut items, &spec)?;

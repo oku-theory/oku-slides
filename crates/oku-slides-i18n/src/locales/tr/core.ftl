@@ -21,7 +21,67 @@ op-value-out-of-bounds = sayı izin verilen aralığın dışında
 op-value-unreadable = değer beklenen biçimde değil
 op-unknown-widget = Bilinmeyen bileşen: { $subject }
 op-unknown-param = Bilinmeyen parametre: { $subject }
-op-param-type = { $subject } için geçersiz değer
+op-param-type-because = { $subject } için geçersiz değer: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] bir metin veya null bekleniyor
+   *[no] bir metin bekleniyor
+}
+op-param-shape-choice = { $nullable ->
+    [yes] değerlerinden biri veya null bekleniyor
+   *[no] değerlerinden biri bekleniyor
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] bir paragraf listesi veya null bekleniyor
+   *[no] bir paragraf listesi bekleniyor
+}
+op-param-shape-elements = { $nullable ->
+    [yes] bir öğe listesi veya null bekleniyor
+   *[no] bir öğe listesi bekleniyor
+}
+op-param-shape-flag = { $nullable ->
+    [yes] bir mantıksal değer veya null bekleniyor
+   *[no] bir mantıksal değer bekleniyor
+}
+op-param-shape-number = { $nullable ->
+    [yes] bir sayı veya null bekleniyor
+   *[no] bir sayı bekleniyor
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] sınırları içinde bir sayı veya null bekleniyor
+   *[no] sınırları içinde bir sayı bekleniyor
+}
+op-param-shape-grid = { $nullable ->
+    [yes] bir ızgara veya null bekleniyor
+   *[no] bir ızgara bekleniyor
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] bir grafik seçeneği veya null bekleniyor
+   *[no] bir grafik seçeneği bekleniyor
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] bir tablo seçeneği veya null bekleniyor
+   *[no] bir tablo seçeneği bekleniyor
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] bir grafik veya tablo seçeneği veya null bekleniyor
+   *[no] bir grafik veya tablo seçeneği bekleniyor
+}
+op-param-shape-items = { $nullable ->
+    [yes] bir madde listesi veya null bekleniyor
+   *[no] bir madde listesi bekleniyor
+}
+op-param-shape-list = { $nullable ->
+    [yes] bir liste veya null bekleniyor
+   *[no] bir liste bekleniyor
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] öğeler add_element ile eklenir, veya null
+   *[no] öğeler add_element ile eklenir
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] değer set_param ile ayarlanır, veya null
+   *[no] değer set_param ile ayarlanır
+}
 op-item-not-found = { $subject } adlı madde yok
 op-list-full = { $subject } listesi dolu (en fazla { $max } madde)
 op-list-minimum = { $subject } listesinde en az { $min } madde olmalı

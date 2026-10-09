@@ -117,6 +117,12 @@ describe("TargetPanel", () => {
     expect(host.querySelector(".chart-panel")).toBeNull();
   });
 
+  // Sans surface (le temps de la lire, ou élément sans paramètres) : la bande reste, la slide ne bouge pas.
+  test("TargetPanel no surface keeps its empty band", async () => {
+    const host = await mount({ selected: widget, shown: null });
+    expect(host.innerHTML).toBe('<div class="settings-band"></div>');
+  });
+
   test("TargetPanel read only shows nothing", async () => {
     expect((await mount({ selected: widget, readOnly: true })).innerHTML).toBe("");
   });
@@ -147,9 +153,5 @@ describe("TargetPanel", () => {
     const host = await mount({ selected: widget, folded: true, lead: templateSurface });
     const ids = [...host.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
     expect(ids).toEqual(["host-template"]);
-  });
-
-  test("TargetPanel no surface shows nothing", async () => {
-    expect((await mount({ selected: widget, shown: null })).innerHTML).toBe("");
   });
 });

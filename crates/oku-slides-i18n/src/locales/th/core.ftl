@@ -21,7 +21,67 @@ op-value-out-of-bounds = ตัวเลขอยู่นอกช่วงท�
 op-value-unreadable = ค่าไม่มีรูปแบบตามที่คาดไว้
 op-unknown-widget = ไม่รู้จักวิดเจ็ต: { $subject }
 op-unknown-param = ไม่รู้จักพารามิเตอร์: { $subject }
-op-param-type = ค่าไม่ถูกต้องสำหรับ { $subject }
+op-param-type-because = ค่าไม่ถูกต้องสำหรับ { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] ต้องเป็นข้อความ หรือ null
+   *[no] ต้องเป็นข้อความ
+}
+op-param-shape-choice = { $nullable ->
+    [yes] ต้องเป็นหนึ่งในค่าของมัน หรือ null
+   *[no] ต้องเป็นหนึ่งในค่าของมัน
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] ต้องเป็นรายการย่อหน้า หรือ null
+   *[no] ต้องเป็นรายการย่อหน้า
+}
+op-param-shape-elements = { $nullable ->
+    [yes] ต้องเป็นรายการองค์ประกอบ หรือ null
+   *[no] ต้องเป็นรายการองค์ประกอบ
+}
+op-param-shape-flag = { $nullable ->
+    [yes] ต้องเป็นค่าบูลีน หรือ null
+   *[no] ต้องเป็นค่าบูลีน
+}
+op-param-shape-number = { $nullable ->
+    [yes] ต้องเป็นตัวเลข หรือ null
+   *[no] ต้องเป็นตัวเลข
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] ต้องเป็นตัวเลขภายในขอบเขต หรือ null
+   *[no] ต้องเป็นตัวเลขภายในขอบเขต
+}
+op-param-shape-grid = { $nullable ->
+    [yes] ต้องเป็นกริด หรือ null
+   *[no] ต้องเป็นกริด
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] ต้องเป็นตัวเลือกของแผนภูมิ หรือ null
+   *[no] ต้องเป็นตัวเลือกของแผนภูมิ
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] ต้องเป็นตัวเลือกของตาราง หรือ null
+   *[no] ต้องเป็นตัวเลือกของตาราง
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] ต้องเป็นตัวเลือกของแผนภูมิหรือตาราง หรือ null
+   *[no] ต้องเป็นตัวเลือกของแผนภูมิหรือตาราง
+}
+op-param-shape-items = { $nullable ->
+    [yes] ต้องเป็นรายการของรายการย่อย หรือ null
+   *[no] ต้องเป็นรายการของรายการย่อย
+}
+op-param-shape-list = { $nullable ->
+    [yes] ต้องเป็นรายการ หรือ null
+   *[no] ต้องเป็นรายการ
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] เพิ่มองค์ประกอบด้วย add_element, หรือ null
+   *[no] เพิ่มองค์ประกอบด้วย add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] กำหนดค่าด้วย set_param, หรือ null
+   *[no] กำหนดค่าด้วย set_param
+}
 op-item-not-found = ไม่พบรายการย่อย { $subject }
 op-list-full = รายการ { $subject } เต็มแล้ว (มีรายการย่อยได้ไม่เกิน { $max })
 op-list-minimum = รายการ { $subject } ต้องมีรายการย่อยอย่างน้อย { $min }

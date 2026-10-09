@@ -21,7 +21,67 @@ op-value-out-of-bounds = 숫자가 허용 범위를 벗어났습니다
 op-value-unreadable = 값의 형식이 예상과 다릅니다
 op-unknown-widget = 알 수 없는 위젯: { $subject }
 op-unknown-param = 알 수 없는 매개변수: { $subject }
-op-param-type = { $subject }의 값이 올바르지 않습니다
+op-param-type-because = { $subject }의 값이 올바르지 않습니다: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] 텍스트 또는 null만 허용됩니다
+   *[no] 텍스트만 허용됩니다
+}
+op-param-shape-choice = { $nullable ->
+    [yes] 값 중 하나 또는 null만 허용됩니다
+   *[no] 값 중 하나만 허용됩니다
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] 단락 목록 또는 null만 허용됩니다
+   *[no] 단락 목록만 허용됩니다
+}
+op-param-shape-elements = { $nullable ->
+    [yes] 요소 목록 또는 null만 허용됩니다
+   *[no] 요소 목록만 허용됩니다
+}
+op-param-shape-flag = { $nullable ->
+    [yes] 불리언 또는 null만 허용됩니다
+   *[no] 불리언만 허용됩니다
+}
+op-param-shape-number = { $nullable ->
+    [yes] 숫자 또는 null만 허용됩니다
+   *[no] 숫자만 허용됩니다
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] 허용 범위 안의 숫자 또는 null만 허용됩니다
+   *[no] 허용 범위 안의 숫자만 허용됩니다
+}
+op-param-shape-grid = { $nullable ->
+    [yes] 그리드 또는 null만 허용됩니다
+   *[no] 그리드만 허용됩니다
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] 차트 옵션 또는 null만 허용됩니다
+   *[no] 차트 옵션만 허용됩니다
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] 표 옵션 또는 null만 허용됩니다
+   *[no] 표 옵션만 허용됩니다
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] 차트 또는 표 옵션 또는 null만 허용됩니다
+   *[no] 차트 또는 표 옵션만 허용됩니다
+}
+op-param-shape-items = { $nullable ->
+    [yes] 항목 목록 또는 null만 허용됩니다
+   *[no] 항목 목록만 허용됩니다
+}
+op-param-shape-list = { $nullable ->
+    [yes] 목록 또는 null만 허용됩니다
+   *[no] 목록만 허용됩니다
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] 요소는 add_element로 추가합니다, 또는 null
+   *[no] 요소는 add_element로 추가합니다
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] 값은 set_param으로 설정합니다, 또는 null
+   *[no] 값은 set_param으로 설정합니다
+}
 op-item-not-found = 항목 { $subject }을(를) 찾을 수 없습니다
 op-list-full = 목록 { $subject }이(가) 가득 찼습니다(항목 최대 { $max }개)
 op-list-minimum = 목록 { $subject }에는 항목이 최소 { $min }개 있어야 합니다

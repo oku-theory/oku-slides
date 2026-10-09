@@ -218,7 +218,7 @@ fn open_tabs(s: &mut crate::Session) {
         widget: Some("_commun".into()),
         ..crate::views::UiState::default()
     };
-    s.handle(crate::Request::Ui(ui)).unwrap();
+    s.handle(crate::Request::Ui { ui, order: None }).unwrap();
 }
 
 /// Sortir du mode modèles : le deck ne garde aucun sous-onglet.

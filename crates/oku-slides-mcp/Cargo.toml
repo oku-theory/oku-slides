@@ -12,7 +12,7 @@ oku-slides-core.workspace = true
 oku-slides-session.workspace = true
 oku-slides-a2ui.workspace = true
 oku-slides-i18n.workspace = true
-oku-slides-platform.workspace = true
+oku-slides-platform = { workspace = true, features = ["listen"] }
 oku-slides-chart.workspace = true
 rust-mcp-sdk.workspace = true
 rust-mcp-axum.workspace = true
@@ -31,6 +31,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 speculoos.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
 insta.workspace = true
 tempfile.workspace = true
 

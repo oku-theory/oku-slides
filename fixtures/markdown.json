@@ -356,6 +356,24 @@
       "paragraphs": [{ "runs": [{ "t": "-", "bold": true }, { "t": "a", "italic": true }] }],
       "markdown": "-*a*",
       "reread": [{ "runs": [{ "t": "-" }, { "t": "a", "italic": true }] }]
+    },
+    {
+      "name": "adresse commençant par un chevron",
+      "paragraphs": [{ "runs": [{ "t": "a", "link": "<x" }] }],
+      "markdown": "[a](%3Cx)",
+      "reread": [{ "runs": [{ "t": "a", "link": "%3Cx" }] }]
+    },
+    {
+      "name": "adresse finissant par une barre oblique inverse",
+      "paragraphs": [{ "runs": [{ "t": "a", "link": "x\\" }] }],
+      "markdown": "[a](x%5C)",
+      "reread": [{ "runs": [{ "t": "a", "link": "x%5C" }] }]
+    },
+    {
+      "name": "chevron au milieu de l'adresse : exact",
+      "paragraphs": [{ "runs": [{ "t": "a", "link": "https://a.b/?q=<x>" }] }],
+      "markdown": "[a](https://a.b/?q=<x>)",
+      "reread": [{ "runs": [{ "t": "a", "link": "https://a.b/?q=<x>" }] }]
     }
   ]
 }

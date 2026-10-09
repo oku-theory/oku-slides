@@ -4,7 +4,7 @@
 //! son slot, chaque liste dans ses bornes de taille. La profondeur est contrôlée avant ([`check_depth`](super)) :
 //! la récursion est bornée par [`MAX_SLOT_DEPTH`](crate::MAX_SLOT_DEPTH).
 
-use crate::error::{ChoiceOutOfRangeSnafu, OpError, ParamTypeSnafu, SlotRejectsSnafu};
+use crate::error::{ChoiceOutOfRangeSnafu, ExpectedType, OpError, ParamTypeSnafu, Shape, SlotRejectsSnafu};
 use crate::params::{ParamValue, Params};
 use crate::validate::{Fit, fits};
 use crate::widget::{Category, ParamType, WidgetRegistry};
@@ -52,16 +52,16 @@ pub(super) fn check_accepts(accepts: Option<&[String]>, slot: &str, kind: &str) 
 }
 
 /// Forme attendue d'un paramètre, pour le message de `ParamType`.
-fn expected(ty: &ParamType) -> &'static str {
+fn expected(ty: &ParamType) -> ExpectedType {
     match ty {
-        ParamType::Plain | ParamType::Asset => "a string",
-        ParamType::Choice { .. } => "one of its values",
-        ParamType::Rich => "a list of paragraphs",
-        ParamType::Slot { .. } => "a list of elements",
-        ParamType::Flag => "a boolean",
-        ParamType::Number { .. } => "a number within its bounds",
-        ParamType::Grid => "a grid",
+        ParamType::Plain | ParamType::Asset => Shape::Text.required(),
+        ParamType::Choice { .. } => Shape::Choice.required(),
+        ParamType::Rich => Shape::Paragraphs.required(),
+        ParamType::Slot { .. } => Shape::Elements.required(),
+        ParamType::Flag => Shape::Flag.required(),
+        ParamType::Number { .. } => Shape::BoundedNumber.required(),
+        ParamType::Grid => Shape::Grid.required(),
         ParamType::Host { host } => super::host::expected_host(*host),
-        ParamType::List { .. } => "a list of items",
+        ParamType::List { .. } => Shape::Items.required(),
     }
 }

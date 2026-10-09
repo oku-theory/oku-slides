@@ -21,7 +21,67 @@ op-value-out-of-bounds = 数値が許容範囲外です
 op-value-unreadable = 値が想定された形式ではありません
 op-unknown-widget = 不明なウィジェット：{ $subject }
 op-unknown-param = 不明なパラメーター：{ $subject }
-op-param-type = { $subject } の値が無効です
+op-param-type-because = { $subject } の値が無効です：{ $reason }
+op-param-shape-text = { $nullable ->
+    [yes] テキストまたは null が必要です
+   *[no] テキストが必要です
+}
+op-param-shape-choice = { $nullable ->
+    [yes] その値のいずれかまたは null が必要です
+   *[no] その値のいずれかが必要です
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] 段落のリストまたは null が必要です
+   *[no] 段落のリストが必要です
+}
+op-param-shape-elements = { $nullable ->
+    [yes] 要素のリストまたは null が必要です
+   *[no] 要素のリストが必要です
+}
+op-param-shape-flag = { $nullable ->
+    [yes] 真偽値または null が必要です
+   *[no] 真偽値が必要です
+}
+op-param-shape-number = { $nullable ->
+    [yes] 数値または null が必要です
+   *[no] 数値が必要です
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] 範囲内の数値または null が必要です
+   *[no] 範囲内の数値が必要です
+}
+op-param-shape-grid = { $nullable ->
+    [yes] グリッドまたは null が必要です
+   *[no] グリッドが必要です
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] グラフのオプションまたは null が必要です
+   *[no] グラフのオプションが必要です
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] 表のオプションまたは null が必要です
+   *[no] 表のオプションが必要です
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] グラフまたは表のオプションまたは null が必要です
+   *[no] グラフまたは表のオプションが必要です
+}
+op-param-shape-items = { $nullable ->
+    [yes] 項目のリストまたは null が必要です
+   *[no] 項目のリストが必要です
+}
+op-param-shape-list = { $nullable ->
+    [yes] リストまたは null が必要です
+   *[no] リストが必要です
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] 要素は add_element で追加します、または null
+   *[no] 要素は add_element で追加します
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] 値は set_param で設定します、または null
+   *[no] 値は set_param で設定します
+}
 op-item-not-found = 項目 { $subject } がありません
 op-list-full = リスト { $subject } がいっぱいです（最大 { $max }項目）
 op-list-minimum = リスト { $subject } には少なくとも { $min }項目が必要です

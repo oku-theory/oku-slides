@@ -3,6 +3,7 @@
 // E2E_URL = adresse d'un serveur neuf (le script modifie la slide 4).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { post } = require('./http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const slide = (p) => p.evaluate(() =>
   fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'slide', id: 's-constat' } }) })
@@ -54,16 +55,14 @@ const BASE = 'Dites **montrer** et ==ici=={2}';
 const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t: 'ici', highlight: 2 }];
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
-  const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+  // 0. D'abord dans une fenêtre basse (la hauteur de la boîte y borne la slide), puis à 1440×900, où
+  // la suite se déroule.
+  const p = await b.newPage({ viewport: { width: 1024, height: 640 } });
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await p.waitForSelector('.stage img');
-  // Slide 4 : le bloc de puces.
-  await p.click('.thumb >> nth=3');
-  await p.waitForSelector('.field[aria-label="Corps"]');
 
-  // 0. Sélectionner ne déplace pas la slide (la carte des paramètres change dessous) :
+  // 0. Sélectionner ne déplace ni ne réduit la slide (la carte des paramètres change dessous) :
   // sinon le 2e clic d'un double-clic tombe à côté du champ.
   // Les flèches slide précédente / suivante restent à mi-hauteur de la slide.
   const stageBox = () => p.locator('.stage').boundingBox();
@@ -73,15 +72,86 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     return mid(document.querySelector('.slide-nav.next').getBoundingClientRect())
       - mid(document.querySelector('.stage').getBoundingClientRect());
   });
-  // La carte montre d'abord les paramètres de la slide (chargés après elle), puis ceux de l'élément
-  // sélectionné, d'une autre hauteur : la mise en page a changé dessous.
-  await until(card, (t) => t.includes('Paramètres de Contenu'), 'paramètres de la slide');
-  const still = await stageBox();
-  assert.ok(still, 'pas de slide');
-  await p.click('.field[aria-label="Corps"] >> nth=0');
-  await until(card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), 'paramètres de l\'élément');
-  assert.deepEqual(await stageBox(), still, 'la slide a bougé à la sélection');
-  assert.ok(Math.abs(await navOffset()) <= 1, 'flèches hors de la mi-hauteur de la slide');
+  const steady = async (size, low) => {
+    await p.waitForSelector('.stage img');
+    // Slide 4 : le bloc de puces.
+    await p.click('.thumb >> nth=3');
+    await p.waitForSelector('.field[aria-label="Corps"]');
+    // La carte montre d'abord les paramètres de la slide (chargés après elle), puis ceux de l'élément
+    // sélectionné, d'une autre hauteur : la mise en page a changé dessous.
+    await until(card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide`);
+    // La mise en page se pose : deux relevés de suite identiques.
+    let last = null;
+    await until(async () => {
+      const now = JSON.stringify(await stageBox());
+      const same = now === last;
+      last = now;
+      return same;
+    }, (same) => same, `${size} : slide posée`);
+    const still = await stageBox();
+    assert.ok(still, `${size} : pas de slide`);
+    if (low) {
+      const box = await p.locator('.stage-box').boundingBox();
+      assert.ok(still.height >= box.height - 1 && still.width < box.width - 1, `${size} : slide pas bornée par la hauteur de sa boîte`);
+    }
+    assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
+    await p.click('.field[aria-label="Corps"] >> nth=0');
+    await until(card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), `${size} : paramètres de l'élément`);
+    // Relevée pendant 500 ms : ni la fin du changement ni un état transitoire (pas encore de carte,
+    // le temps de la lire) ne la déplacent.
+    const unmoved = async (what) => {
+      for (let i = 0; i < 20; i++) {
+        assert.deepEqual(await stageBox(), still, `${size} : la slide a bougé ${what}`);
+        await p.waitForTimeout(25);
+      }
+      assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
+    };
+    await unmoved('à la sélection');
+    // Désélection : retour à la carte de la slide, la plus haute.
+    await p.keyboard.press('Escape');
+    await until(card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide (désélection)`);
+    await unmoved('à la désélection');
+    // Du tableau (son panneau, pas de carte de paramètres) au texte : la carte du texte se lit après
+    // le clic, la slide est relevée dès le clic.
+    await p.click('.target[aria-label="table"]');
+    await p.waitForSelector('.table-panel');
+    await unmoved('à la sélection du tableau');
+    // Lecture de la carte ralentie (300 ms) : l'intervalle sans carte est relevé à coup sûr.
+    await p.route('**/api', async (route) => {
+      await new Promise((r) => setTimeout(r, 300));
+      await route.continue();
+    });
+    await p.click('.field[aria-label="Corps"] >> nth=0');
+    await unmoved('du tableau au texte');
+    await p.unroute('**/api');
+    await until(card, (t) => t.includes('Paramètres de Texte'), `${size} : paramètres du texte après le tableau`);
+    await unmoved('du tableau au texte');
+  };
+  // Un tableau sur la slide 4, retiré (annulé) après l'étape 0.
+  const tabled = await post(p, '/api', {
+    tab: 't-1',
+    req: { cmd: 'apply', label: 'tableau', merge: null, ops: [{ op: 'add_element', slot: { owner: { slide: 's-constat' }, param: 'blocks' }, element: { id: 'e2e-table', kind: 'table', params: { data: { dataset: { source: [['A', 'B'], ['x', 1]] } } } }, defaults: true }] },
+  });
+  assert.ok(!tabled.error, JSON.stringify(tabled));
+  // Fil réduit à sa largeur minimale : la feuille s'élargit, la hauteur de la boîte borne la slide (t-647).
+  await p.waitForSelector('.stage img');
+  const divider = await p.locator('.col-divider[data-side="notes"]').boundingBox();
+  const [dx, dy] = [divider.x + divider.width / 2, divider.y + divider.height / 2];
+  await p.mouse.move(dx, dy);
+  await p.mouse.down();
+  await p.mouse.move(dx + 100, dy, { steps: 5 });
+  await p.mouse.move(dx + 200, dy, { steps: 5 });
+  await p.mouse.up();
+  await steady('1024×640', true);
+  // Largeur du fil par défaut (double-clic) : les scripts suivants partent de la mise en page d'origine.
+  await p.dblclick('.col-divider[data-side="notes"]');
+  await until(async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes, (w) => w === null, 'largeur du fil par défaut');
+  await p.setViewportSize({ width: 1440, height: 900 });
+  await p.reload();
+  await steady('1440×900');
+  const undone = await post(p, '/api', { tab: 't-1', req: { cmd: 'undo' } });
+  assert.ok(!undone.error, JSON.stringify(undone));
+  await until(async () => (await slide(p)).params.blocks.map((e) => e.id).join(), (ids) => ids === 'b-points', 'tableau retiré');
 
   // 1. Géométrie héritée, markdown mis en forme pendant la saisie, première validation.
   await open(p, 'Corps');

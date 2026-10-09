@@ -21,7 +21,67 @@ op-value-out-of-bounds = संख्या अनुमत सीमा से 
 op-value-unreadable = मान अपेक्षित रूप में नहीं है
 op-unknown-widget = अज्ञात विजेट: { $subject }
 op-unknown-param = अज्ञात पैरामीटर: { $subject }
-op-param-type = { $subject } के लिए अमान्य मान
+op-param-type-because = { $subject } के लिए अमान्य मान: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] एक टेक्स्ट या null अपेक्षित है
+   *[no] एक टेक्स्ट अपेक्षित है
+}
+op-param-shape-choice = { $nullable ->
+    [yes] इसके मानों में से एक या null अपेक्षित है
+   *[no] इसके मानों में से एक अपेक्षित है
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] अनुच्छेदों की सूची या null अपेक्षित है
+   *[no] अनुच्छेदों की सूची अपेक्षित है
+}
+op-param-shape-elements = { $nullable ->
+    [yes] तत्वों की सूची या null अपेक्षित है
+   *[no] तत्वों की सूची अपेक्षित है
+}
+op-param-shape-flag = { $nullable ->
+    [yes] एक बूलियन या null अपेक्षित है
+   *[no] एक बूलियन अपेक्षित है
+}
+op-param-shape-number = { $nullable ->
+    [yes] एक संख्या या null अपेक्षित है
+   *[no] एक संख्या अपेक्षित है
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] अपनी सीमाओं के भीतर एक संख्या या null अपेक्षित है
+   *[no] अपनी सीमाओं के भीतर एक संख्या अपेक्षित है
+}
+op-param-shape-grid = { $nullable ->
+    [yes] एक ग्रिड या null अपेक्षित है
+   *[no] एक ग्रिड अपेक्षित है
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] एक चार्ट विकल्प या null अपेक्षित है
+   *[no] एक चार्ट विकल्प अपेक्षित है
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] एक तालिका विकल्प या null अपेक्षित है
+   *[no] एक तालिका विकल्प अपेक्षित है
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] एक चार्ट या तालिका विकल्प या null अपेक्षित है
+   *[no] एक चार्ट या तालिका विकल्प अपेक्षित है
+}
+op-param-shape-items = { $nullable ->
+    [yes] आइटमों की सूची या null अपेक्षित है
+   *[no] आइटमों की सूची अपेक्षित है
+}
+op-param-shape-list = { $nullable ->
+    [yes] एक सूची या null अपेक्षित है
+   *[no] एक सूची अपेक्षित है
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] तत्व add_element से जोड़े जाते हैं, या null
+   *[no] तत्व add_element से जोड़े जाते हैं
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] मान set_param से सेट किया जाता है, या null
+   *[no] मान set_param से सेट किया जाता है
+}
 op-item-not-found = { $subject } नाम का कोई आइटम नहीं है
 op-list-full = सूची { $subject } भरी हुई है (अधिकतम { $max } आइटम)
 op-list-minimum = सूची { $subject } में कम से कम { $min } आइटम होने चाहिए

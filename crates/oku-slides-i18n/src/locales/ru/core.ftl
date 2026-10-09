@@ -21,7 +21,67 @@ op-value-out-of-bounds = число вне допустимого диапазо
 op-value-unreadable = значение имеет неожиданную форму
 op-unknown-widget = Неизвестный виджет: { $subject }
 op-unknown-param = Неизвестный параметр: { $subject }
-op-param-type = Недопустимое значение для { $subject }
+op-param-type-because = Недопустимое значение для { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] ожидается текст или null
+   *[no] ожидается текст
+}
+op-param-shape-choice = { $nullable ->
+    [yes] ожидается одно из его значений или null
+   *[no] ожидается одно из его значений
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] ожидается список абзацев или null
+   *[no] ожидается список абзацев
+}
+op-param-shape-elements = { $nullable ->
+    [yes] ожидается список элементов или null
+   *[no] ожидается список элементов
+}
+op-param-shape-flag = { $nullable ->
+    [yes] ожидается логическое значение или null
+   *[no] ожидается логическое значение
+}
+op-param-shape-number = { $nullable ->
+    [yes] ожидается число или null
+   *[no] ожидается число
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] ожидается число в допустимых границах или null
+   *[no] ожидается число в допустимых границах
+}
+op-param-shape-grid = { $nullable ->
+    [yes] ожидается сетка или null
+   *[no] ожидается сетка
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] ожидается параметр диаграммы или null
+   *[no] ожидается параметр диаграммы
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] ожидается параметр таблицы или null
+   *[no] ожидается параметр таблицы
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] ожидается параметр диаграммы или таблицы или null
+   *[no] ожидается параметр диаграммы или таблицы
+}
+op-param-shape-items = { $nullable ->
+    [yes] ожидается список пунктов или null
+   *[no] ожидается список пунктов
+}
+op-param-shape-list = { $nullable ->
+    [yes] ожидается список или null
+   *[no] ожидается список
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] элементы добавляются через add_element, или null
+   *[no] элементы добавляются через add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] значение задаётся через set_param, или null
+   *[no] значение задаётся через set_param
+}
 op-item-not-found = Нет пункта { $subject }
 op-list-full = Список { $subject } заполнен (не более { $max ->
    [one] { $max } пункта

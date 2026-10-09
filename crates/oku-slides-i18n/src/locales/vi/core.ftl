@@ -21,7 +21,67 @@ op-value-out-of-bounds = số nằm ngoài khoảng cho phép
 op-value-unreadable = giá trị không có dạng như mong đợi
 op-unknown-widget = Tiện ích không xác định: { $subject }
 op-unknown-param = Tham số không xác định: { $subject }
-op-param-type = Giá trị không hợp lệ cho { $subject }
+op-param-type-because = Giá trị không hợp lệ cho { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] cần một văn bản hoặc null
+   *[no] cần một văn bản
+}
+op-param-shape-choice = { $nullable ->
+    [yes] cần một trong các giá trị của nó hoặc null
+   *[no] cần một trong các giá trị của nó
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] cần một danh sách đoạn văn hoặc null
+   *[no] cần một danh sách đoạn văn
+}
+op-param-shape-elements = { $nullable ->
+    [yes] cần một danh sách phần tử hoặc null
+   *[no] cần một danh sách phần tử
+}
+op-param-shape-flag = { $nullable ->
+    [yes] cần một giá trị boolean hoặc null
+   *[no] cần một giá trị boolean
+}
+op-param-shape-number = { $nullable ->
+    [yes] cần một số hoặc null
+   *[no] cần một số
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] cần một số nằm trong giới hạn hoặc null
+   *[no] cần một số nằm trong giới hạn
+}
+op-param-shape-grid = { $nullable ->
+    [yes] cần một lưới hoặc null
+   *[no] cần một lưới
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] cần một tùy chọn biểu đồ hoặc null
+   *[no] cần một tùy chọn biểu đồ
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] cần một tùy chọn bảng hoặc null
+   *[no] cần một tùy chọn bảng
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] cần một tùy chọn biểu đồ hoặc bảng hoặc null
+   *[no] cần một tùy chọn biểu đồ hoặc bảng
+}
+op-param-shape-items = { $nullable ->
+    [yes] cần một danh sách mục hoặc null
+   *[no] cần một danh sách mục
+}
+op-param-shape-list = { $nullable ->
+    [yes] cần một danh sách hoặc null
+   *[no] cần một danh sách
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] phần tử được thêm bằng add_element, hoặc null
+   *[no] phần tử được thêm bằng add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] giá trị được đặt bằng set_param, hoặc null
+   *[no] giá trị được đặt bằng set_param
+}
 op-item-not-found = Không có mục { $subject }
 op-list-full = Danh sách { $subject } đã đầy (tối đa { $max } mục)
 op-list-minimum = Danh sách { $subject } cần ít nhất { $min } mục

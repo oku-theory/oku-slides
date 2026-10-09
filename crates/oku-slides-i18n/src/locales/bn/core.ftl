@@ -21,7 +21,67 @@ op-value-out-of-bounds = সংখ্যাটি অনুমোদিত স�
 op-value-unreadable = মানটি প্রত্যাশিত গঠনে নেই
 op-unknown-widget = অজানা উইজেট: { $subject }
 op-unknown-param = অজানা প্যারামিটার: { $subject }
-op-param-type = { $subject }-এর জন্য অবৈধ মান
+op-param-type-because = { $subject }-এর জন্য অবৈধ মান: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] একটি টেক্সট বা null প্রত্যাশিত
+   *[no] একটি টেক্সট প্রত্যাশিত
+}
+op-param-shape-choice = { $nullable ->
+    [yes] এর মানগুলোর একটি বা null প্রত্যাশিত
+   *[no] এর মানগুলোর একটি প্রত্যাশিত
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] অনুচ্ছেদের তালিকা বা null প্রত্যাশিত
+   *[no] অনুচ্ছেদের তালিকা প্রত্যাশিত
+}
+op-param-shape-elements = { $nullable ->
+    [yes] উপাদানের তালিকা বা null প্রত্যাশিত
+   *[no] উপাদানের তালিকা প্রত্যাশিত
+}
+op-param-shape-flag = { $nullable ->
+    [yes] একটি বুলিয়ান বা null প্রত্যাশিত
+   *[no] একটি বুলিয়ান প্রত্যাশিত
+}
+op-param-shape-number = { $nullable ->
+    [yes] একটি সংখ্যা বা null প্রত্যাশিত
+   *[no] একটি সংখ্যা প্রত্যাশিত
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] সীমার মধ্যে একটি সংখ্যা বা null প্রত্যাশিত
+   *[no] সীমার মধ্যে একটি সংখ্যা প্রত্যাশিত
+}
+op-param-shape-grid = { $nullable ->
+    [yes] একটি গ্রিড বা null প্রত্যাশিত
+   *[no] একটি গ্রিড প্রত্যাশিত
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] একটি চার্ট বিকল্প বা null প্রত্যাশিত
+   *[no] একটি চার্ট বিকল্প প্রত্যাশিত
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] একটি টেবিল বিকল্প বা null প্রত্যাশিত
+   *[no] একটি টেবিল বিকল্প প্রত্যাশিত
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] একটি চার্ট বা টেবিল বিকল্প বা null প্রত্যাশিত
+   *[no] একটি চার্ট বা টেবিল বিকল্প প্রত্যাশিত
+}
+op-param-shape-items = { $nullable ->
+    [yes] আইটেমের তালিকা বা null প্রত্যাশিত
+   *[no] আইটেমের তালিকা প্রত্যাশিত
+}
+op-param-shape-list = { $nullable ->
+    [yes] একটি তালিকা বা null প্রত্যাশিত
+   *[no] একটি তালিকা প্রত্যাশিত
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] উপাদান add_element দিয়ে যোগ করা হয়, বা null
+   *[no] উপাদান add_element দিয়ে যোগ করা হয়
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] মান set_param দিয়ে সেট করা হয়, বা null
+   *[no] মান set_param দিয়ে সেট করা হয়
+}
 op-item-not-found = { $subject } নামে কোনো আইটেম নেই
 op-list-full = { $subject } তালিকা পূর্ণ (সর্বোচ্চ { $max }টি আইটেম)
 op-list-minimum = { $subject } তালিকায় কমপক্ষে { $min }টি আইটেম থাকতে হবে

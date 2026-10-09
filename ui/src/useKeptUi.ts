@@ -1,11 +1,27 @@
 // L'état d'interface gardé par l'hôte pour la reprise : slide courante, grille et fantômes de la scène,
 // largeurs des colonnes, code des widgets (affiché, largeur), sections repliées, sous-onglets.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
-import type { PileSectionName, UiState } from "./api";
+import type { PileSectionName, UiOrder, UiState } from "./api";
 import { t } from "./i18n";
 import type { KeptTabs } from "./widgetTabs";
+
+// Ordre des sauvegardes : chacune part tout de suite (rien n'attend côté page), et l'hôte ignore celle
+// qui arrive après une plus récente. À la fermeture (⌘Q, dernière fenêtre), l'hôte attend les requêtes
+// déjà parties avant de s'arrêter : une sauvegarde partie est donc gardée ; seul un changement qui n'a pas
+// encore atteint `save` (rendu en cours) peut manquer. `page` est tiré au chargement : une page rechargée
+// repart à zéro sans être ignorée. `seq` est celui du module, pas du composant : il survit au remontage
+// d'`App` d'un onglet à l'autre.
+
+/** Identifiant de la page ; `randomUUID` manque hors contexte sûr (`serve` sur une adresse réseau en HTTP). */
+export function pageId(c: { randomUUID?: () => string } | undefined = globalThis.crypto): string {
+  return c?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+const page = pageId();
+let seq = 0;
+const nextOrder = (): UiOrder => ({ page, seq: ++seq });
 
 /** Option d'affichage qu'une touche bascule : ⌘' la grille, ⌘⇧G les fantômes. */
 export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): "grid" | "ghosts" | null {
@@ -45,7 +61,8 @@ export interface KeptUi {
 
 /**
  * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
- * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, une sauvegarde à la fois.
+ * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, tout de suite, numérotés
+ * (`UiOrder`) pour que l'hôte garde la dernière quel que soit l'ordre d'arrivée.
  * `tabs` : sous-onglets à garder avec le reste.
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
@@ -53,7 +70,7 @@ export interface KeptUi {
 export function useKeptUi(
   kept: UiState | null,
   current: string | null,
-  save: (ui: UiState) => Promise<unknown>,
+  save: (ui: UiState, order: UiOrder) => Promise<unknown>,
   tabs: KeptTabs,
 ): KeptUi {
   const [grid, setGrid] = useState(true);
@@ -76,32 +93,12 @@ export function useKeptUi(
     setRestored(true);
   }, [kept, restored]);
 
-  // Une sauvegarde à la fois : des requêtes parallèles peuvent être traitées par l'hôte dans le
-  // désordre, et une plus ancienne écraserait la dernière. Pendant l'attente, seul le dernier état compte.
-  const queue = useRef<{ busy: boolean; next: UiState | null }>({ busy: false, next: null });
-  const send = (ui: UiState) => {
-    const q = queue.current;
-    if (q.busy) {
-      q.next = ui;
-      return;
-    }
-    q.busy = true;
-    save(ui)
-      .catch(() => {
-        /* reprise facultative : l'édition continue */
-      })
-      .finally(() => {
-        const next = q.next;
-        q.busy = false;
-        q.next = null;
-        if (next) send(next);
-      });
-  };
-
   useEffect(() => {
     if (!restored) return;
-    send({ slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut), `send` ne lit que lui et la file
+    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }, nextOrder()).catch(() => {
+      /* reprise facultative : l'édition continue */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
   }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.

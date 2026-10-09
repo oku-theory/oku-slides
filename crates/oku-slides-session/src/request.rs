@@ -24,6 +24,18 @@ pub enum View {
     Table,
 }
 
+/// Ordre d'une sauvegarde de l'état d'interface : chacune part tout de suite, sans attendre la
+/// précédente, et peut donc arriver après une plus récente. `page` est tiré au chargement de la page,
+/// `seq` croît pour chaque sauvegarde de cette page. Ni montré, ni gardé pour la reprise.
+///
+/// Limite : une autre `page` est toujours acceptée (rechargement), donc une requête tardive de
+/// l'ancienne page, arrivée après une de la nouvelle, passe ; la sauvegarde suivante la corrige.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UiOrder {
+    pub page: String,
+    pub seq: u64,
+}
+
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
 #[derive(Debug, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
@@ -165,7 +177,14 @@ pub enum Request {
         set: Uuid,
     },
     /// Slide courante, grille et fantômes de l'interface (gardés pour la reprise).
-    Ui(UiState),
+    ///
+    /// Sans `order` (agent, tests) : toujours appliquée.
+    Ui {
+        #[serde(flatten)]
+        ui: UiState,
+        #[serde(default)]
+        order: Option<UiOrder>,
+    },
     /// Fusionne un autre `.oku-slides.pdf` du même deck. Non annulable.
     Merge {
         path: PathBuf,
@@ -288,7 +307,7 @@ impl Request {
             | Self::RenameEditedTheme { .. }
             | Self::DeleteTemplateSet { .. }
             | Self::SaveCopy { .. }
-            | Self::Ui(_)
+            | Self::Ui { .. }
             | Self::HistoryVersions
             | Self::PackMakeCurrent
             | Self::PackNoticeClose
@@ -403,7 +422,7 @@ impl Session {
             !matches!(
                 req,
                 Request::Snapshot
-                    | Request::Ui(_)
+                    | Request::Ui { .. }
                     | Request::HistoryOpen
                     | Request::HistorySeek { .. }
                     | Request::HistoryClose
@@ -496,7 +515,7 @@ impl Session {
             Request::CloseTemplates => self.close_templates()?,
             Request::SetEditedTheme { id } => self.set_edited_theme(id)?,
             Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
-            Request::Ui(ui) => self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. })),
+            Request::Ui { ui, order } => self.keep_ui(ui, order),
             Request::HistoryOpen => self.history_open()?,
             Request::HistorySeek { index } => self.history_seek(index)?,
             Request::HistoryRestore => self.history_restore()?,
@@ -517,5 +536,20 @@ impl Session {
         self.doc.notice = None;
         self.doc.disk_replaced = false;
         Ok(out)
+    }
+
+    /// Garde l'état d'interface reçu, sauf s'il est plus ancien (même page, `seq` inférieur ou égal)
+    /// que le dernier gardé : une sauvegarde partie avant peut arriver après (t-674).
+    fn keep_ui(&mut self, ui: UiState, order: Option<UiOrder>) {
+        if let (Some(new), Some(last)) = (&order, &self.ui_order)
+            && new.page == last.page
+            && new.seq <= last.seq
+        {
+            return;
+        }
+        if order.is_some() {
+            self.ui_order = order;
+        }
+        self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. }));
     }
 }

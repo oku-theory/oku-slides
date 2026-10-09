@@ -24,8 +24,8 @@ use oku_slides_chart::DataOp;
 
 use crate::error::{
     DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu,
-    ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu, UnknownWidgetSnafu,
-    ValueReason, WrongCategorySnafu,
+    ParseValueSnafu, Shape, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu,
+    UnknownWidgetSnafu, ValueReason, WrongCategorySnafu,
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
@@ -699,7 +699,7 @@ fn set_param(
         let text = match converted {
             None => None,
             Some(ParamValue::Text(s)) => Some(s),
-            Some(_) => return Err(ParamTypeSnafu { param, expected: "a string or null" }.build().into()),
+            Some(_) => return Err(ParamTypeSnafu { param, expected: Shape::Text.or_null() }.build().into()),
         };
         deck.params.set_field(key, text);
         return Ok(());
@@ -735,14 +735,14 @@ fn add_element(
         };
         let p = declared(widget(registry, kind)?, &param)?;
         let ParamType::Slot { accepts, .. } = &p.ty else {
-            return Err(ParamTypeSnafu { param, expected: "a value, through set_param" }.build().into());
+            return Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into());
         };
         // Une valeur qui n'est pas une liste d'éléments serait écrasée par `slot_mut`.
         let len = match (params.get(&param), params.slot(&param)) {
             (None, _) => 0,
             (Some(_), Some(list)) => list.len(),
             (Some(_), None) => {
-                return Err(ParamTypeSnafu { param, expected: "a list of elements" }.build().into());
+                return Err(ParamTypeSnafu { param, expected: Shape::Elements.required() }.build().into());
             }
         };
         check_accepts(accepts.as_deref(), &param, &element.kind)?;

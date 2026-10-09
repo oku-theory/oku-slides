@@ -98,7 +98,7 @@ pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
 pub use pack_notice::PackNoticeView;
-pub use request::{Request, View};
+pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 use template_scratch::TemplateScratch;
 pub use text::{interp, paragraphs_to_text};
@@ -231,6 +231,8 @@ pub struct Session {
     svg_cache: HashMap<u128, Arc<str>>,
     /// Slide courante et grille de l'interface, gardées pour la reprise.
     ui: UiState,
+    /// Ordre de la dernière sauvegarde de `ui` reçue avec un ordre (pas gardé pour la reprise).
+    ui_order: Option<request::UiOrder>,
     /// Reprise activée (app de bureau) : l'état est écrit après chaque
     /// commande, par un fil dédié (`resume_writer`).
     resume: Option<resume_writer::Writer>,
@@ -368,6 +370,7 @@ impl Session {
             compiled: None,
             svg_cache: HashMap::new(),
             ui: UiState::default(),
+            ui_order: None,
             resume: None,
             agent_notes: Vec::new(),
             conversations: Default::default(),

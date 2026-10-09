@@ -21,12 +21,10 @@ oku-slides-stt.workspace = true
 oku-slides-agent.workspace = true
 axum.workspace = true
 http-body.workspace = true
-hyper.workspace = true
-hyper-util.workspace = true
 ctrlc.workspace = true
 color-eyre.workspace = true
 tracing.workspace = true
-oku-slides-platform.workspace = true
+oku-slides-platform = { workspace = true, features = ["listen"] }
 oku-slides-i18n.workspace = true
 clap.workspace = true
 serde.workspace = true

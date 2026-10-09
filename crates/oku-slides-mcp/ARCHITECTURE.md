@@ -46,6 +46,7 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).
+- Bornes du serveur : `[serve] header_timeout_ms` / `max_connections` (lues par `Tools::new`) via `oku_slides_platform::serve_connections`, arrêt borné par `SHUTDOWN_GRACE` (1 s), 401 avec `Connection: close`.
 
 ## Tour d'un appel d'outil
 

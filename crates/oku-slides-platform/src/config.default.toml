@@ -62,7 +62,9 @@ port = 4870
 # n'envoie pas les siens est fermée au-delà.
 header_timeout_ms = 10000
 # Connexions simultanées au plus (flux d'évènements compris) ; au-delà, une
-# nouvelle connexion est fermée aussitôt.
+# nouvelle connexion est fermée aussitôt. Ces deux bornes valent aussi pour le
+# serveur d'outils de l'agent (MCP, `127.0.0.1`, port choisi par le système).
+# Le plafond vaut par serveur : un serveur d'outils par onglet, chacun le sien.
 max_connections = 64
 
 [i18n]

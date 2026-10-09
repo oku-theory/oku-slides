@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { Paragraph, Run } from "./api";
-import { listPrefix, markdownSpans, markdownToRuns } from "./markdown";
+import { encodeLink, listPrefix, markdownSpans, markdownToRuns } from "./markdown";
 import { textToParagraphs } from "./deck";
 
 interface Case {
@@ -286,5 +286,14 @@ describe("corpus écrit par Rust : texte intact, lettres et chiffres gardent leu
     test(`cas ${i}`, () => {
       expect(formatOfLetters(markdownToRuns(c.markdown))).toEqual(formatOfLetters(c.runs));
     });
+  });
+});
+
+describe("encodeLink", () => {
+  test("chevron initial et barre oblique inverse encodés, chevron interne gardé (parité Rust, t-630)", () => {
+    expect(encodeLink("<x")).toBe("%3Cx");
+    expect(encodeLink("x\\")).toBe("x%5C");
+    expect(encodeLink("https://a.b/?q=<x>")).toBe("https://a.b/?q=<x>");
+    expect(encodeLink("A (b)")).toBe("A%20%28b%29");
   });
 });

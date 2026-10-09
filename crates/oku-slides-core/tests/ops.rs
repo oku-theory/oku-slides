@@ -695,7 +695,7 @@ fn op_errors_localize_with_their_subject_and_reason() {
         (Op::SetNotes { slide: "absente".into(), notes: String::new() }, "Slide introuvable : absente"),
         (set_param(at("s-constat", "x"), "body", json!([])), "Élément introuvable : x"),
         (Op::MoveSlide { slide: "s-fin".into(), index: 99 }, "Position hors limites"),
-        (set_param(slide("s-fin"), "text", json!(3)), "Valeur invalide pour text"),
+        (set_param(slide("s-fin"), "text", json!(3)), "Valeur invalide pour text : il faut un texte ou null"),
         (Op::SetToken { path: vec![], value: json!(1) }, "Valeur invalide pour path : le chemin est vide"),
         (Op::UnsetToken { path: vec![] }, "Valeur invalide pour path : le chemin est vide"),
         (Op::SetTokens { tokens: json!([1]) }, "Valeur invalide pour tokens : un objet ou null est attendu"),
@@ -725,6 +725,35 @@ fn op_errors_localize_with_their_subject_and_reason() {
         let err = apply(&mut deck, op).unwrap_err();
         asserting(expected).that(&err.localize(&fr)).is_equal_to(expected.to_owned());
     }
+}
+
+/// Un type refusé dit ce qui était attendu, dans la langue de l'utilisateur (t-676).
+#[rstest]
+#[case::text_or_null(slide("s-fin"), "text", json!(3), "il faut un texte ou null")]
+#[case::paragraphs_or_null(at("s-priorites", "c1"), "body", json!("texte"), "il faut une liste de paragraphes ou null")]
+#[case::flag_or_null(at("s-priorites", "c1"), "highlight", json!("oui"), "il faut un booléen ou null")]
+#[case::slot_by_value(slide("s-constat"), "blocks", json!([]), "les éléments s'ajoutent avec add_element")]
+fn param_type_says_what_was_expected_in_the_user_language(
+    #[case] target: Target,
+    #[case] param: &str,
+    #[case] value: Value,
+    #[case] reason: &str,
+) {
+    let mut deck = fixture();
+    let err = apply_err(&mut deck, set_param(target, param, value));
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
+    let fr = err.localize(&Localizer::new(Some("fr")));
+    assert_that!(fr).is_equal_to(format!("Valeur invalide pour {param} : {reason}"));
+}
+
+#[test]
+fn param_type_of_a_number_param_says_a_number_is_expected_in_french() {
+    let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "content",
+        "params": { "blocks": [{ "id": "p", "kind": "stack" }] } }] }));
+    let err = apply_err(&mut deck, set_param(at("s", "p"), "count", json!("4")));
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
+    assert_that!(err.localize(&Localizer::new(Some("fr"))))
+        .is_equal_to("Valeur invalide pour count : il faut un nombre ou null".to_owned());
 }
 
 #[test]

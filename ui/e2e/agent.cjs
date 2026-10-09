@@ -5,6 +5,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./http.cjs');
+const { until } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
@@ -124,10 +125,11 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
 
   // 3. Deux annulations : la variante, puis tout le premier tour.
   await p.locator('.stage').click({ position: { x: 5, y: 5 } });
+  const undoLabel = async () => (await api(p, { cmd: 'snapshot' })).undo_label;
   await p.keyboard.press('Control+z');
-  await p.waitForTimeout(500);
+  await until(p, async () => (await undoLabel()) === 'Agent : rends ce texte plus clair', 'première annulation (la variante) pas faite');
   await p.keyboard.press('Control+z');
-  await p.waitForTimeout(700);
+  await until(p, async () => (await textOf(p)) === original, 'seconde annulation (le premier tour) pas faite');
   assert.equal(await textOf(p), original);
 
   // 4. Un second onglet : son fil est vide ; il répond pendant que l'onglet 1, à qui

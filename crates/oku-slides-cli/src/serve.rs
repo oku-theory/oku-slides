@@ -2,7 +2,7 @@
 
 use std::net::IpAddr;
 use std::path::{Component, Path, PathBuf};
-use std::pin::{Pin, pin};
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -14,13 +14,12 @@ use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use color_eyre::eyre::Result;
 use oku_slides_agent::{AgentCommand, Stack};
-use oku_slides_platform::Platform;
+use oku_slides_platform::{Limits, Platform, serve_connections};
 use oku_slides_render::Fonts;
 use oku_slides_session::{Localize, Workspace, WorkspaceOutcome, WorkspaceRequest};
 use oku_slides_stt::Stt;
 
 use crate::guard;
-use crate::listen::{Limits, serve_connections};
 use crate::out::Out;
 use crate::sse::Clients;
 
@@ -321,29 +320,16 @@ pub fn serve(
     });
     let app = Router::new().fallback(handle).with_state(Arc::clone(&shared));
     // Les flux d'évènements ne finissent jamais d'eux-mêmes : l'arrêt les clôt,
-    // sinon l'arrêt gracieux les attendrait sans fin.
-    let stopping = Arc::new(tokio::sync::Notify::new());
-    let shutdown = {
-        let stopping = Arc::clone(&stopping);
-        async move {
-            stop.notified().await;
-            clients.close();
-            stopping.notify_one();
-        }
+    // sinon ils occuperaient toute la grâce.
+    let shutdown = async move {
+        stop.notified().await;
+        clients.close();
     };
     let limits = Limits::new(settings.serve.header_timeout(), settings.serve.max_connections.get());
-    runtime.block_on(async {
-        let mut server = pin!(serve_connections(listener, app, limits, shutdown));
-        tokio::select! {
-            () = &mut server => {}
-            () = stopping.notified() => {
-                // Une requête longue ne retient pas l'arrêt plus de `GRACE`.
-                if tokio::time::timeout(GRACE, server).await.is_err() {
-                    tracing::warn!("arrêt : requêtes en cours abandonnées");
-                }
-            }
-        }
-    });
+    // Une requête longue ne retient pas l'arrêt plus de `GRACE` (voir `serve_connections`).
+    if runtime.block_on(serve_connections(listener, app, limits, GRACE, shutdown)) {
+        tracing::warn!("arrêt : requêtes en cours abandonnées");
+    }
     // La pile de l'agent s'arrête explicitement, pendant que le runtime qui la
     // porte tourne encore ; `block_on` est permis ici, hors contexte async.
     runtime.block_on(shared.stack.shutdown());

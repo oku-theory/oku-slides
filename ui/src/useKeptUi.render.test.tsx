@@ -2,12 +2,12 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { UiState } from "./api";
+import type { UiOrder, UiState } from "./api";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { useKeptUi, viewToggle } = await import("./useKeptUi");
+const { pageId, useKeptUi, viewToggle } = await import("./useKeptUi");
 
 type Hook = ReturnType<typeof useKeptUi>;
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -32,10 +32,12 @@ async function mount(first: UiState | null = kept, answer: () => Promise<unknown
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const out: { hook: Hook | null; saved: [string | null, boolean, boolean][]; kept: UiState[] } = { hook: null, saved: [], kept: [] };
-  const save = (ui: UiState) => {
+  const out: { hook: Hook | null; saved: [string | null, boolean, boolean][]; kept: UiState[]; orders: UiOrder[] } =
+    { hook: null, saved: [], kept: [], orders: [] };
+  const save = (ui: UiState, order: UiOrder) => {
     out.saved.push([ui.slide, ui.grid, ui.ghosts]);
     out.kept.push(ui);
+    out.orders.push(order);
     return answer();
   };
   function Probe({ ui, current, tabs }: { ui: UiState | null; current: string; tabs: Tabs }) {
@@ -200,17 +202,50 @@ function held() {
   return { answer, settle };
 }
 
-// Des requêtes parallèles peuvent arriver à l'hôte dans le désordre : une plus ancienne,
-// traitée après, écraserait la dernière largeur (t-668).
-test("useKeptUi n'envoie une sauvegarde qu'après la réponse à la précédente", async () => {
-  const { answer, settle } = held();
+// Rien n'attend côté page : une sauvegarde gardée en attente se perdait à la fermeture (⌘Q) (t-674).
+test("useKeptUi envoie deux changements rapprochés sans attendre la réponse au premier, dans l'ordre", async () => {
+  const { answer } = held();
   const { out } = await mount(kept, answer);
   await act(async () => { out.hook!.setCode(false); });
   await act(async () => { out.hook!.setCodeWidth(320); });
-  expect(out.kept.length).toBe(1);
-  await settle(0);
-  expect(out.kept.length).toBe(2);
+  expect(out.kept.length).toBe(3);
   expect(out.kept.at(-1)).toMatchObject({ code: false, code_width: 320 });
+  const [a, b, c] = out.orders;
+  expect([b.page, c.page]).toEqual([a.page, a.page]);
+  expect(a.seq < b.seq && b.seq < c.seq).toBe(true);
+});
+
+// Des requêtes parallèles peuvent arriver à l'hôte dans le désordre : la dernière largeur porte le
+// plus grand numéro, l'hôte ignore donc une plus ancienne traitée après (règle testée côté session, t-668).
+test("useKeptUi donne à la dernière largeur le plus grand numéro", async () => {
+  const { answer } = held();
+  const { out } = await mount(kept, answer);
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  await act(async () => { out.hook!.setCodeWidth(480); });
+  const last = out.orders.reduce((a, b) => (b.seq > a.seq ? b : a));
+  expect(out.kept[out.orders.indexOf(last)]).toMatchObject({ code_width: 480 });
+});
+
+test("pageId sans randomUUID (hors contexte sûr) tire quand même un identifiant", () => {
+  const [a, b] = [pageId({}), pageId(undefined)];
+  expect([a.length > 0, b.length > 0, a !== b]).toEqual([true, true, true]);
+});
+
+test("pageId prend randomUUID quand il est là", () => {
+  expect(pageId({ randomUUID: () => "u" })).toBe("u");
+});
+
+// Le compteur est celui du module : il survit au remontage d'`App` d'un onglet à l'autre.
+test("useKeptUi continue la numérotation après un remontage", async () => {
+  const first = await mount();
+  const before = first.out.orders.at(-1)!;
+  const m = mounted!;
+  mounted = null;
+  await act(async () => m.root.unmount());
+  m.host.remove();
+  const second = await mount();
+  const after = second.out.orders.at(-1)!;
+  expect([after.page, after.seq > before.seq]).toEqual([before.page, true]);
 });
 
 test("useKeptUi après une sauvegarde refusée envoie encore la suivante", async () => {

@@ -21,7 +21,67 @@ op-value-out-of-bounds = العدد خارج النطاق المسموح
 op-value-unreadable = القيمة ليست بالشكل المتوقع
 op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-param = معامل غير معروف: { $subject }
-op-param-type = قيمة غير صالحة لـ { $subject }
+op-param-type-because = قيمة غير صالحة لـ { $subject }: { $reason }
+op-param-shape-text = { $nullable ->
+    [yes] المتوقع: نص أو null
+   *[no] المتوقع: نص
+}
+op-param-shape-choice = { $nullable ->
+    [yes] المتوقع: إحدى قيمه أو null
+   *[no] المتوقع: إحدى قيمه
+}
+op-param-shape-paragraphs = { $nullable ->
+    [yes] المتوقع: قائمة فقرات أو null
+   *[no] المتوقع: قائمة فقرات
+}
+op-param-shape-elements = { $nullable ->
+    [yes] المتوقع: قائمة عناصر أو null
+   *[no] المتوقع: قائمة عناصر
+}
+op-param-shape-flag = { $nullable ->
+    [yes] المتوقع: قيمة منطقية أو null
+   *[no] المتوقع: قيمة منطقية
+}
+op-param-shape-number = { $nullable ->
+    [yes] المتوقع: عدد أو null
+   *[no] المتوقع: عدد
+}
+op-param-shape-bounded-number = { $nullable ->
+    [yes] المتوقع: عدد ضمن حدوده أو null
+   *[no] المتوقع: عدد ضمن حدوده
+}
+op-param-shape-grid = { $nullable ->
+    [yes] المتوقع: شبكة أو null
+   *[no] المتوقع: شبكة
+}
+op-param-shape-chart-option = { $nullable ->
+    [yes] المتوقع: خيار مخطط أو null
+   *[no] المتوقع: خيار مخطط
+}
+op-param-shape-table-option = { $nullable ->
+    [yes] المتوقع: خيار جدول أو null
+   *[no] المتوقع: خيار جدول
+}
+op-param-shape-chart-or-table-option = { $nullable ->
+    [yes] المتوقع: خيار مخطط أو جدول أو null
+   *[no] المتوقع: خيار مخطط أو جدول
+}
+op-param-shape-items = { $nullable ->
+    [yes] المتوقع: قائمة بنود أو null
+   *[no] المتوقع: قائمة بنود
+}
+op-param-shape-list = { $nullable ->
+    [yes] المتوقع: قائمة أو null
+   *[no] المتوقع: قائمة
+}
+op-param-shape-add-element-only = { $nullable ->
+    [yes] تُضاف العناصر عبر add_element, أو null
+   *[no] تُضاف العناصر عبر add_element
+}
+op-param-shape-set-param-only = { $nullable ->
+    [yes] تُحدَّد القيمة عبر set_param, أو null
+   *[no] تُحدَّد القيمة عبر set_param
+}
 op-item-not-found = لا يوجد بند { $subject }
 op-list-full = القائمة { $subject } ممتلئة ({ $max ->
    [zero] { $max } بند
