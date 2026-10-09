@@ -196,9 +196,13 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
    - Chaque vue ignore l'écho de ses propres envois (`origin`) et les envoie
      dans l'ordre, un à la fois.
    - Le brouillon est plafonné à 256 Kio : au-delà, la commande est refusée.
-   - `follow` et `set_draft` ne démarrent jamais un onglet. Un onglet sans
-     agent démarré rejoue « rien » : repos, aucun brouillon, `slides`,
-     aucune surface.
+   - `follow` et `set_draft` ne démarrent jamais un onglet. Sur un onglet sans
+     agent démarré, `follow` rejoue « rien » (repos, aucun brouillon, `slides`,
+     aucune surface), et `set_draft` est refusé par une erreur localisée.
+   - L'`origin` d'un brouillon est plafonnée à 64 octets.
+   - Une vue compte ses envois dont l'écho n'est pas revenu. Tant qu'il en
+     reste, un brouillon venu d'ailleurs est plus ancien que sa dernière
+     écriture, et elle l'ignore.
 3. **Interface.** `AgentPanel` (t-638) a deux modes de portée :
    - **pilote** : la portée vient de la vue, c'est le mode de la fenêtre
      principale ;
@@ -212,8 +216,19 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
      rapides ne visent que le dock, et elle route les fiches d'après celle
      que la scène montre (`staged`).
 
-   Tant que l'hôte n'a pas annoncé la portée, la fenêtre de l'agent est en
-   chargement, et l'envoi d'une consigne reste désactivé.
+   Tant que l'hôte n'a pas annoncé la portée, l'envoi d'une consigne reste
+   désactivé, comme sans agent. La fenêtre de l'agent n'affiche son état de
+   chargement qu'avant la première vue de l'espace de travail.
+
+   Une fois l'agent détaché, les touches rapides de la fenêtre principale ne
+   visent plus le dock.
+
+   Sous macOS, la fenêtre de l'agent pose la même barre de saisie
+   (`.titlebar`) que les autres fenêtres : sans elle, on ne pourrait pas la
+   déplacer.
+
+   Sur un onglet en lecture seule, la fenêtre de l'agent montre un état vide,
+   mais la dictée reste visible.
 4. **Contexte d'écriture.** `agent-link:context` porte
    `{ editing, insertTo, ui, staged, keysOff }`. La fenêtre de l'agent relit
    elle-même dans l'instantané de l'onglet le vocabulaire, la lecture seule et
@@ -229,6 +244,11 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
    - `insert` attend un accusé pendant 3 s. Faute de réponse, il envoie
      `insert-cancel`, que la fenêtre principale respecte, et le texte revient
      au brouillon avec un toast.
+   - Limite connue : si la fenêtre principale a déjà écrit un texte dont
+     l'accusé arrive après l'échéance, ce texte se retrouve aussi au
+     brouillon. Il faudrait plus de 3 s pour écrire un texte.
+   - Les champs des messages sont bornés : 64 caractères pour un
+     identifiant, 256 pour un libellé, la taille du brouillon pour un texte.
 6. **Raccourcis.** La fenêtre principale relaie ⌘D, ⌘⇧D et ⌘K **bruts**
    (`auto`, `draft`, `type`). La fenêtre de l'agent les applique avec son
    propre état : ⌘⇧D arrête le tour seulement s'il n'y a pas d'écoute en

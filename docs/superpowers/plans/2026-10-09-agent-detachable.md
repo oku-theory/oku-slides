@@ -31,7 +31,8 @@
 - La frappe est envoyée en debounce de 300 ms. La dictée, Envoyer, Insérer, Abandonner et l'ouverture partent tout de suite.
 - Les envois sont chaînés (une promesse à la fois), et chacun porte l'`origin` de sa vue : une vue ignore l'écho de ses propres envois.
 - Taille maximale : 256 Kio (octets UTF-8). Au-delà, `set_draft` est refusé avec une erreur.
-- `follow` et `set_draft` ne démarrent jamais un onglet. Sans agent démarré, `follow` rejoue « rien » et `set_draft` est ignoré.
+- `follow` et `set_draft` ne démarrent jamais un onglet. Sans agent démarré, `follow` rejoue « rien » et `set_draft` est refusé (erreur localisée), pour que la vue qui écrit ne l'attende pas.
+- `origin` (identifiant de vue) : 64 octets au plus ; au-delà, `set_draft` est refusé.
 
 **Canal entre fenêtres**
 - `insert` sans `insert-ack` sous 3000 ms : `insert-cancel` est envoyé et le texte revient au brouillon. La fenêtre principale ignore toute insertion annulée.
@@ -48,7 +49,7 @@
 - Pas de `.unwrap()` ni `.expect()` hors tests. Les erreurs sont journalisées en `tracing::warn!`, comme le code voisin.
 - Tout texte visible passe par Fluent. Chaque nouvelle clé est ajoutée aux 20 langues (`crates/oku-slides-i18n/src/locales/*/`), traduite.
 - Fichiers ≤ 1000 lignes (CI). `App.tsx` en compte 815 aujourd'hui.
-- Aucun utilitaire recopié. Les minuteries réelles viennent de `debounce.ts` (`REAL_TIMERS`). Les doubles de test partagés vivent dans `ui/src/test/` (`timers.ts`, `link.ts`) et dans `crates/oku-slides-agent/tests/common/mod.rs` (`wait_after`).
+- Aucun utilitaire recopié. Les minuteries réelles viennent de `debounce.ts` (`REAL_TIMERS`). Les doubles de test partagés vivent dans `ui/src/test/` (`timers.ts`, `link.ts`) et dans `crates/oku-slides-agent/tests/common/mod.rs` (`wait_n_after`, `relayed_len`).
 
 **Commits et tests**
 - Commits : Conventional Commits en français, avec `(t-654)` à la fin du titre, **jamais** de ligne `Co-Authored-By`.
@@ -69,7 +70,8 @@
 - Modify: `crates/oku-slides-session/src/workspace_tabs.rs:232-257` : `change`.
 - Modify: `crates/oku-slides-session/src/workspace_resume.rs` : la reprise, juste après `let saved = file.layout;`.
 - Modify: `crates/oku-slides-session/src/lib.rs:114` : réexporter `is_window_label`.
-- Modify: `crates/oku-slides-session/src/test_support.rs` : ajouter `workspace_on`, `resumed_on` et `apply_json`.
+- Modify: `crates/oku-slides-session/src/test_support.rs` : y déplacer les utilitaires de `workspace_tests.rs` (`workspace_platform`, `workspace_on`, `apply_ws`) et ajouter `resumed_on`.
+- Modify: `crates/oku-slides-session/src/workspace_tests.rs` : utiliser ces utilitaires partagés au lieu de ses copies locales (`platform`, `workspace_in`, `send`).
 - Modify: `crates/oku-slides-session/ARCHITECTURE.md` : une ligne.
 - Modify: `src-tauri/src/commands.rs:42-62` : `classify`.
 - Modify: `src-tauri/src/windows.rs` : le `WorkspaceView` de repli de `sync`.
@@ -82,27 +84,53 @@
   - `Workspace::agent_detached(&self) -> bool`.
   - `pub fn oku_slides_session::is_window_label(label: &str) -> bool`.
 
-- [ ] **Step 1: Shared test helpers** (`test_support.rs`, à la fin du fichier)
+- [ ] **Step 1: Shared test helpers** (déplacés de `workspace_tests.rs` vers `test_support.rs`)
+
+Aujourd'hui, `workspace_tests.rs:25-40` définit `platform`, `workspace_in` et `send`. Les déplacer, à l'identique, en fin de `test_support.rs`, dans le style du fichier (`unwrap_or_else(|e| panic!(…))`) :
 
 ```rust
+/// Les réglages d'un espace de travail de test : données et decks sous `data`, interface en français.
+pub(crate) fn workspace_platform(data: &std::path::Path) -> crate::Platform {
+    let mut settings = crate::Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
+    settings.paths.data = Some(data.to_owned());
+    // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
+    settings.paths.decks = Some(data.join("decks"));
+    settings.i18n.locale = Some("fr".into());
+    crate::Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
+}
+
 /// Un espace de travail neuf sur `data`, sans reprise.
 pub(crate) fn workspace_on(data: &std::path::Path) -> std::sync::Mutex<crate::Workspace> {
-    let platform = crate::Platform::with_settings(settings_on(data)).unwrap();
-    std::sync::Mutex::new(crate::Workspace::new(crate::Fonts::default(), &platform, None).unwrap())
+    let ws = crate::Workspace::new(crate::Fonts::default(), &workspace_platform(data), None);
+    std::sync::Mutex::new(ws.unwrap_or_else(|e| panic!("espace de travail : {e}")))
 }
 
-/// L'espace de travail repris de `dir` (ou neuf s'il n'y a rien), sur `data`.
+/// L'espace de travail repris de `dir` (neuf s'il n'y a rien), sur `data`.
 pub(crate) fn resumed_on(data: &std::path::Path, dir: std::path::PathBuf) -> std::sync::Mutex<crate::Workspace> {
-    let platform = crate::Platform::with_settings(settings_on(data)).unwrap();
-    std::sync::Mutex::new(crate::Workspace::resume(crate::Fonts::default(), &platform, dir).unwrap())
+    let ws = crate::Workspace::resume(crate::Fonts::default(), &workspace_platform(data), dir);
+    std::sync::Mutex::new(ws.unwrap_or_else(|e| panic!("reprise : {e}")))
 }
 
-/// Applique une requête JSON de l'espace de travail ; la requête doit réussir.
-pub(crate) fn apply_json(ws: &std::sync::Mutex<crate::Workspace>, v: serde_json::Value) {
-    crate::Workspace::apply(ws, serde_json::from_value(v).unwrap()).unwrap();
+/// Applique une requête JSON de l'espace de travail.
+pub(crate) fn apply_ws(
+    ws: &std::sync::Mutex<crate::Workspace>,
+    v: serde_json::Value,
+) -> crate::Result<crate::WorkspaceOutcome> {
+    crate::Workspace::apply(ws, serde_json::from_value(v).unwrap_or_else(|e| panic!("requête : {e}")))
 }
 ```
 
+Dans `workspace_tests.rs` :
+- supprimer `platform`, `workspace_in` et `send` ;
+- importer `use crate::test_support::{apply_ws, resumed_on, workspace_on, workspace_platform};` ;
+- remplacer partout, par recherche et remplacement :
+  - `platform(&data.0)` par `workspace_platform(&data.0)` ;
+  - `workspace_in(&data)` par `workspace_on(&data.0)` ;
+  - les appels `send(` par `apply_ws(`.
+
+Les autres utilitaires du fichier (`Data`, `view`, `ids`, `set_theme`, `saved_pdf`) restent. Lancer `cargo nextest run -p oku-slides-session workspace_tests` : PASS, comme avant.
+
+`workspace_help_tests.rs` garde son `workspace(data, locale)`, qui choisit la langue : ce n'est pas une copie.
 - [ ] **Step 2: Write the failing tests** (`workspace_detach_tests.rs`)
 
 ```rust
@@ -111,7 +139,7 @@ pub(crate) fn apply_json(ws: &std::sync::Mutex<crate::Workspace>, v: serde_json:
 use serde_json::json;
 use speculoos::prelude::*;
 
-use crate::test_support::{apply_json, fresh_dir, resumed_on, workspace_on};
+use crate::test_support::{apply_ws, fresh_dir, resumed_on, workspace_on};
 use crate::{Workspace, is_window_label};
 
 #[test]
@@ -121,11 +149,16 @@ fn new_workspace_keeps_the_agent_attached() {
     assert_that!(Workspace::lock(&ws).view().agent_detached).is_false();
 }
 
+/// Applique une requête qui doit réussir.
+fn apply(ws: &std::sync::Mutex<Workspace>, v: serde_json::Value) {
+    apply_ws(ws, v).unwrap_or_else(|e| panic!("requête refusée : {e}"));
+}
+
 #[test]
 fn detach_agent_sets_the_view_flag() {
     let data = fresh_dir("oku-slides-workspace-detach-");
     let ws = workspace_on(data.path());
-    apply_json(&ws, json!({"cmd": "detach_agent"}));
+    apply(&ws, json!({"cmd": "detach_agent"}));
     assert_that!(Workspace::lock(&ws).view().agent_detached).is_true();
 }
 
@@ -133,8 +166,8 @@ fn detach_agent_sets_the_view_flag() {
 fn attach_agent_clears_the_view_flag() {
     let data = fresh_dir("oku-slides-workspace-detach-");
     let ws = workspace_on(data.path());
-    apply_json(&ws, json!({"cmd": "detach_agent"}));
-    apply_json(&ws, json!({"cmd": "attach_agent"}));
+    apply(&ws, json!({"cmd": "detach_agent"}));
+    apply(&ws, json!({"cmd": "attach_agent"}));
     assert_that!(Workspace::lock(&ws).agent_detached()).is_false();
 }
 
@@ -143,7 +176,7 @@ fn detached_agent_is_restored_by_resume() {
     let data = fresh_dir("oku-slides-workspace-detach-");
     let dir = data.path().join("resume");
     let ws = resumed_on(data.path(), dir.clone());
-    apply_json(&ws, json!({"cmd": "detach_agent"}));
+    apply(&ws, json!({"cmd": "detach_agent"}));
     Workspace::settle(&ws);
     drop(ws);
     let again = resumed_on(data.path(), dir);
@@ -265,7 +298,7 @@ Expected: PASS ; l'hôte compile.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add crates/oku-slides-session/src/workspace.rs crates/oku-slides-session/src/workspace_windows.rs crates/oku-slides-session/src/workspace_tabs.rs crates/oku-slides-session/src/workspace_resume.rs crates/oku-slides-session/src/lib.rs crates/oku-slides-session/src/test_support.rs crates/oku-slides-session/src/workspace_detach_tests.rs crates/oku-slides-session/ARCHITECTURE.md src-tauri/src/commands.rs src-tauri/src/windows.rs
+git add crates/oku-slides-session/src/workspace.rs crates/oku-slides-session/src/workspace_windows.rs crates/oku-slides-session/src/workspace_tabs.rs crates/oku-slides-session/src/workspace_resume.rs crates/oku-slides-session/src/lib.rs crates/oku-slides-session/src/test_support.rs crates/oku-slides-session/src/workspace_tests.rs crates/oku-slides-session/src/workspace_detach_tests.rs crates/oku-slides-session/ARCHITECTURE.md src-tauri/src/commands.rs src-tauri/src/windows.rs
 ```
 Message : `feat(session) : l'agent détaché, un état de l'espace de travail repris au lancement (t-654)`
 
@@ -286,7 +319,7 @@ Message : `feat(session) : l'agent détaché, un état de l'espace de travail re
   - Il est émis par `resync` **avant** la liste, et par `rename_scope` quand la portée vue est renommée.
   - `SurfaceHub::viewing(&self) -> AgentScope`.
 
-- [ ] **Step 1: Write the failing tests** (fin de `hub_scopes_tests.rs` ; importer `oku_slides_session::pack::DEFAULT_PACK` si absent)
+- [ ] **Step 1: Write the failing tests** (fin de `hub_scopes_tests.rs` ; ajouter l'import `use oku_slides_session::pack::DEFAULT_PACK;`, absent aujourd'hui)
 
 ```rust
 fn viewing_events(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<AgentScope> {
@@ -351,7 +384,9 @@ Expected: FAIL à la compilation (`no variant Viewing`, `no method viewing`).
 `hub.rs`, `McpEvent` (après `WidgetTouched`) :
 
 ```rust
-    /// La portée dont le fil est montré ; une autre vue du même onglet (fenêtre de l'agent) la suit.
+    /// La portée dont le fil est montré.
+    ///
+    /// Une autre vue du même onglet (la fenêtre de l'agent) la suit.
     Viewing {
         /// La portée montrée.
         scope: AgentScope,
@@ -367,8 +402,10 @@ Expected: FAIL à la compilation (`no variant Viewing`, `no method viewing`).
 `resync`, remplacé par :
 
 ```rust
-    /// Montre le fil de `scope` : annonce la portée (`McpEvent::Viewing`), puis envoie sa liste
-    /// entière (`McpEvent::Surfaces`) ; piloté par le gardien de l'onglet.
+    /// Montre le fil de `scope`, piloté par le gardien de l'onglet.
+    ///
+    /// Annonce la portée (`McpEvent::Viewing`), puis envoie la liste entière (`McpEvent::Surfaces`).
+
     pub fn resync(&self, scope: AgentScope) {
         let mut state = self.state();
         state.viewing = scope.clone();
@@ -415,15 +452,19 @@ Message : `feat(mcp) : le hub annonce la portée dont il montre le fil (t-654)`
 - Modify: `crates/oku-slides-agent/src/events.rs` : `AgentEvent::Draft`.
 - Modify: `crates/oku-slides-agent/src/turns.rs:147-166, :260` : les deux `match` exhaustifs.
 - Test: `crates/oku-slides-agent/src/turns_tests.rs`.
-- Modify: `crates/oku-slides-agent/src/keeper.rs` : `Keep::Replay` et son application.
+- Modify: `crates/oku-slides-agent/src/keeper.rs` : `Keep::Replay`, son application, et `Keep::failure` (match exhaustif).
+- Create: `crates/oku-slides-agent/src/command_error.rs` : `CommandError`, localisée.
+- Modify: `crates/oku-slides-agent/src/lib.rs` : modules et réexports (`CommandError`, `MAX_DRAFT_BYTES`, `MAX_ORIGIN_BYTES`).
+- Modify: `crates/oku-slides-i18n/src/locales/*/agent.ftl` (20 langues) : deux clés.
 - Modify: `crates/oku-slides-agent/src/tab_entry.rs` : `TabLink` (brouillon, `replay`), et le relais `relay_mcp` (branche `Lagged`).
 - Modify: `crates/oku-slides-agent/src/stack.rs` : `AgentCommand`, `tab()`, `handle`, `replay_closed`, `MAX_DRAFT_BYTES`.
-- Modify: `crates/oku-slides-agent/tests/common/mod.rs` : `wait_after`.
+- Modify: `crates/oku-slides-agent/tests/common/mod.rs` : `wait_n_after` et `relayed_len`.
 - Test: `crates/oku-slides-agent/tests/stack.rs`.
 - Modify: `crates/oku-slides-agent/ARCHITECTURE.md` : une ligne.
 - Modify: `ui/src/api.ts` : `AgentEvent`, `AgentCommand`, `agentApi`.
 - Modify: `ui/src/agent/useAgentScope.ts` : export `agentStatusReducer`, qui ne lit que `status`.
 - Test: `ui/src/agent/useAgentScope.render.test.tsx`.
+- Modify: `ui/src/agent/AgentPanel.render.test.tsx:168` : l'évènement d'état y est envoyé sans `kind`, caché par `as never` ; le nouveau réducteur l'ignorerait.
 
 **Interfaces:**
 - Consumes: `SurfaceHub::viewing()` (tâche 2).
@@ -432,7 +473,8 @@ Message : `feat(mcp) : le hub annonce la portée dont il montre le fil (t-654)`
   - `AgentCommand::SetDraft { tab, text: Option<String>, origin: Option<String> }`.
   - `AgentEvent::Draft { text: Option<String>, origin: Option<String> }`, sur le canal `agent`.
   - `Keep::Replay`.
-  - `pub const MAX_DRAFT_BYTES: usize = 256 * 1024`.
+  - `pub const MAX_DRAFT_BYTES: usize = 256 * 1024` et `pub const MAX_ORIGIN_BYTES: usize = 64`.
+  - `CommandError` (`impl Localize`) : brouillon ou origine trop longs, onglet sans agent démarré. `handle` rend son texte localisé, comme pour une action de surface refusée.
 - Produces (TS) :
   - `AgentEvent = { kind: "status"; … } | { kind: "draft"; text: string | null; origin: string | null }`.
   - `agentApi(tab).follow()` et `agentApi(tab).setDraft(text: string | null, origin: string)`.
@@ -443,157 +485,211 @@ Message : `feat(mcp) : le hub annonce la portée dont il montre le fil (t-654)`
   - `resync` rejoue aussi le brouillon.
   - La branche `Lagged` du relais renvoie `Viewing` avant la liste.
 
-- [ ] **Step 1: Shared test helper** (`tests/common/mod.rs`, après `wait_for`)
+- [ ] **Step 1: Shared test helpers** (`tests/common/mod.rs`, après `wait_for` ; le module a déjà `#![allow(dead_code, …)]`)
+
+Les évènements passent par un canal asynchrone avant d'arriver dans `Relayed` : on ne prend jamais de mesure (« ce qui est arrivé jusqu'ici ») juste après un `handle`. On attend toujours un évènement précis, puis on repart de **sa position**.
 
 ```rust
-/// Le premier relais reçu après les `from` premiers qui vérifie `pred` (les plus anciens sont ignorés).
-pub async fn wait_after(
-    rx: &Relayed,
-    from: usize,
-    pred: impl Fn(&(&'static str, Value)) -> bool,
-) -> (&'static str, Value) {
-    for _ in 0..500 {
-        let found =
-            rx.lock().unwrap_or_else(|e| panic!("relais : {e}")).iter().skip(from).find(|r| pred(r)).cloned();
-        if let Some(r) = found {
-            return r;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    panic!("relais attendu non reçu après les {from} premiers");
-}
-
 /// Le nombre de relais reçus jusqu'ici.
 pub fn relayed_len(rx: &Relayed) -> usize {
     rx.lock().unwrap_or_else(|e| panic!("relais : {e}")).len()
 }
+
+/// Attend `n` relais vérifiant `pred` parmi ceux reçus après les `from` premiers ; rend leurs positions et valeurs.
+pub async fn wait_n_after(
+    rx: &Relayed,
+    from: usize,
+    n: usize,
+    pred: impl Fn(&(&'static str, Value)) -> bool,
+) -> Vec<(usize, (&'static str, Value))> {
+    for _ in 0..500 {
+        let found: Vec<_> = rx
+            .lock()
+            .unwrap_or_else(|e| panic!("relais : {e}"))
+            .iter()
+            .enumerate()
+            .skip(from)
+            .filter(|(_, r)| pred(r))
+            .map(|(i, r)| (i, r.clone()))
+            .collect();
+        if found.len() >= n {
+            return found;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("{n} relais attendus après les {from} premiers, non reçus");
+}
 ```
 
-- [ ] **Step 2: Write the failing Rust tests** (fin de `tests/stack.rs` ; importer `wait_after` et `relayed_len`)
+- [ ] **Step 2: Write the failing Rust tests** (fin de `tests/stack.rs` ; importer `relayed_len`, `wait_n_after`, `TestStack`, `Relayed`)
 
 ```rust
 fn atelier_json() -> serde_json::Value {
     json!({ "kind": "atelier", "pack": DEFAULT_PACK })
 }
 
-/// Démarre l'agent de `tab` (outils et gardien) par un `resync`, et attend sa première liste.
-async fn opened(stack: &TestStack, rx: &Relayed, tab: &str) {
-    stack.handle(cmd(json!({ "cmd": "resync", "tab": tab }))).unwrap();
-    wait_surfaces(rx, tab, 1).await;
+fn is(ch: &'static str, kind: &'static str, tab: &'static str) -> impl Fn(&(&'static str, serde_json::Value)) -> bool {
+    move |(c, v)| *c == ch && v["event"]["kind"] == kind && v["tab"] == tab
+}
+
+/// Le premier relais vérifiant `pred` après `from` : sa position et sa valeur.
+async fn next(rx: &Relayed, from: usize, pred: impl Fn(&(&'static str, serde_json::Value)) -> bool) -> (usize, serde_json::Value) {
+    let (i, (_, v)) = wait_n_after(rx, from, 1, pred).await.remove(0);
+    (i, v)
+}
+
+/// Un `resync` de `tab` dans `scope` (ou les slides) : rend la position juste après sa liste.
+///
+/// La relecture des fils au démarrage de l'onglet envoie aussi une liste, sans `viewing` avant :
+/// on attend donc la portée annoncée, puis la liste qui la suit.
+async fn shown(stack: &TestStack, rx: &Relayed, tab: &'static str, scope: Option<serde_json::Value>) -> usize {
+    let from = relayed_len(rx);
+    let mut req = json!({ "cmd": "resync", "tab": tab });
+    if let Some(s) = scope {
+        req["scope"] = s;
+    }
+    stack.handle(cmd(req)).unwrap();
+    let (viewing, _) = next(rx, from, is("mcp", "viewing", tab)).await;
+    let (list, _) = next(rx, viewing, is("mcp", "surfaces", tab)).await;
+    list + 1
+}
+
+/// Écrit le brouillon de `tab` depuis la vue `v-1`, et rend la position juste après son écho.
+async fn drafted(stack: &TestStack, rx: &Relayed, tab: &'static str, text: Option<&str>, from: usize) -> usize {
+    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": tab, "text": text, "origin": "v-1" }))).unwrap();
+    let (echo, _) = next(rx, from, move |(c, v)| *c == "agent" && v["event"]["kind"] == "draft" && v["tab"] == tab && v["event"]["origin"] == "v-1" && v["event"]["text"] == json!(text)).await;
+    echo + 1
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_draft_is_broadcast_with_its_tab_and_origin() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    opened(&stack, &rx, "t-1").await;
-    let from = relayed_len(&rx);
+    let from = shown(&stack, &rx, "t-1", None).await;
     stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "à dire", "origin": "v-1" }))).unwrap();
-    let draft = wait_after(&rx, from, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "draft").await;
-    assert_that!(draft.1["tab"].clone()).is_equal_to(json!("t-1"));
-    assert_that!(draft.1["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "à dire", "origin": "v-1" }));
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "à dire", "origin": "v-1" }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_draft_null_clears_the_replayed_draft() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    opened(&stack, &rx, "t-1").await;
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "x", "origin": "v-1" }))).unwrap();
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": null, "origin": "v-1" }))).unwrap();
-    let from = relayed_len(&rx);
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
+    let from = drafted(&stack, &rx, "t-1", None, from).await;
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
-    let draft = wait_after(&rx, from, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "draft").await;
-    assert_that!(draft.1["event"]["text"].clone()).is_equal_to(json!(null));
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_draft_longer_than_the_limit_is_refused() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    opened(&stack, &rx, "t-1").await;
+    shown(&stack, &rx, "t-1", None).await;
     let long = "a".repeat(oku_slides_agent::MAX_DRAFT_BYTES + 1);
     let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": long, "origin": "v-1" })));
     assert_that!(refused).is_err();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_draft_on_a_tab_without_agent_is_dropped() {
+async fn set_draft_with_an_origin_over_the_limit_is_refused() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "perdu", "origin": "v-1" }))).unwrap();
-    let from = relayed_len(&rx);
-    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
-    let draft = wait_after(&rx, from, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "draft").await;
-    assert_that!(draft.1["event"]["text"].clone()).is_equal_to(json!(null));
+    shown(&stack, &rx, "t-1", None).await;
+    let origin = "v".repeat(oku_slides_agent::MAX_ORIGIN_BYTES + 1);
+    let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "x", "origin": origin })));
+    assert_that!(refused).is_err();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn follow_replays_state_draft_then_the_viewed_scope_and_its_list() {
+async fn set_draft_on_a_tab_without_agent_is_refused() {
+    let (stack, _rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let refused = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "perdu", "origin": "v-1" })));
+    assert_that!(refused).is_err();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_on_a_tab_without_agent_starts_nothing() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": atelier_json() }))).unwrap();
-    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "viewing" && v["event"]["scope"]["kind"] == "atelier").await;
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "gardé", "origin": "v-1" }))).unwrap();
+    let _ = stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "perdu", "origin": "v-1" })));
     let from = relayed_len(&rx);
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
-    wait_after(&rx, from, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
-    let relayed: Vec<_> = rx.lock().unwrap().iter().skip(from).cloned().collect();
-    let at = |ch: &str, kind: &str| relayed.iter().position(|(c, v)| *c == ch && v["event"]["kind"] == kind);
-    let (status, viewing, surfaces) = (at("agent", "status"), at("mcp", "viewing"), at("mcp", "surfaces"));
-    assert_that!(status.zip(viewing).is_some_and(|(s, w)| s < w)).is_true();
-    assert_that!(viewing.zip(surfaces).is_some_and(|(w, l)| w < l)).is_true();
-    let draft = relayed.iter().rev().find(|(c, v)| *c == "agent" && v["event"]["kind"] == "draft").cloned();
-    assert_that!(draft.map(|d| d.1["event"]["text"].clone())).is_equal_to(Some(json!("gardé")));
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_replays_the_draft_without_origin() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("gardé"), from).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "gardé", "origin": null }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_sends_the_state_before_the_viewed_scope_and_its_list() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = shown(&stack, &rx, "t-1", Some(atelier_json())).await;
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (status, _) = next(&rx, from, is("agent", "status", "t-1")).await;
+    let (viewing, scope) = next(&rx, from, is("mcp", "viewing", "t-1")).await;
+    let (list, _) = next(&rx, viewing, is("mcp", "surfaces", "t-1")).await;
+    assert_that!(status).is_less_than(viewing);
+    assert_that!(viewing).is_less_than(list);
+    assert_that!(scope["event"]["scope"]["kind"].clone()).is_equal_to(json!("atelier"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn follow_sent_right_after_a_resync_keeps_the_resync_scope() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    opened(&stack, &rx, "t-1").await;
-    let from = relayed_len(&rx);
+    let from = shown(&stack, &rx, "t-1", None).await;
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1", "scope": atelier_json() }))).unwrap();
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
-    // Deux listes : celle du resync, puis celle du follow, chacune précédée de sa portée.
-    wait_surfaces(&rx, "t-1", 3).await;
-    let viewings: Vec<_> = rx.lock().unwrap().iter().skip(from)
-        .filter(|(c, v)| *c == "mcp" && v["event"]["kind"] == "viewing")
-        .map(|(_, v)| v["event"]["scope"]["kind"].clone())
-        .collect();
-    assert_that!(viewings).is_equal_to(vec![json!("atelier"), json!("atelier")]);
+    // Celle du resync, puis celle du follow : toutes deux l'atelier, jamais les slides d'avant.
+    let viewings = wait_n_after(&rx, from, 2, is("mcp", "viewing", "t-1")).await;
+    let kinds: Vec<_> = viewings.iter().map(|(_, (_, v))| v["event"]["scope"]["kind"].clone()).collect();
+    assert_that!(kinds).is_equal_to(vec![json!("atelier"), json!("atelier")]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn follow_on_a_tab_without_agent_replays_nothing_in_slides() {
+async fn follow_on_a_tab_without_agent_announces_the_slides() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = relayed_len(&rx);
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
-    let viewing = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "viewing").await;
-    assert_that!(viewing.1["event"]["scope"].clone()).is_equal_to(json!({ "kind": "slides" }));
-    let surfaces = wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surfaces").await;
-    assert_that!(surfaces.1["event"]["list"].clone()).is_equal_to(json!([]));
+    let (_, viewing) = next(&rx, from, is("mcp", "viewing", "t-1")).await;
+    assert_that!(viewing["event"]["scope"].clone()).is_equal_to(json!({ "kind": "slides" }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn follow_on_a_tab_without_agent_sends_an_empty_list() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let from = relayed_len(&rx);
+    stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
+    let (_, list) = next(&rx, from, is("mcp", "surfaces", "t-1")).await;
+    assert_that!(list["event"]["list"].clone()).is_equal_to(json!([]));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn resync_replays_the_draft() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    opened(&stack, &rx, "t-1").await;
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "encore là", "origin": "v-1" }))).unwrap();
-    let from = relayed_len(&rx);
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = drafted(&stack, &rx, "t-1", Some("encore là"), from).await;
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
-    let draft = wait_after(&rx, from, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "draft").await;
-    assert_that!(draft.1["event"]["text"].clone()).is_equal_to(json!("encore là"));
-    assert_that!(draft.1["event"]["origin"].clone()).is_equal_to(json!(null));
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
+    assert_that!(draft["event"].clone()).is_equal_to(json!({ "kind": "draft", "text": "encore là", "origin": null }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn draft_of_one_tab_is_not_replayed_for_another() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1", "t-2"]).await;
-    opened(&stack, &rx, "t-1").await;
-    opened(&stack, &rx, "t-2").await;
-    stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "à t-1", "origin": "v-1" }))).unwrap();
-    let from = relayed_len(&rx);
+    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-2", None).await.max(from);
+    let from = drafted(&stack, &rx, "t-1", Some("à t-1"), from).await;
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-2" }))).unwrap();
-    let draft = wait_after(&rx, from, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "draft" && v["tab"] == "t-2").await;
-    assert_that!(draft.1["event"]["text"].clone()).is_equal_to(json!(null));
+    let (_, draft) = next(&rx, from, is("agent", "draft", "t-2")).await;
+    assert_that!(draft["event"]["text"].clone()).is_equal_to(json!(null));
 }
 ```
-
-`TestStack` et `Relayed` sont les types que rend `stack_with_sink` (`tests/common/mod.rs`). Importer aussi `wait_for` et `wait_surfaces`.
 
 Dans `turns_tests.rs` :
 
@@ -605,7 +701,6 @@ fn apply_draft_event_emits_nothing() {
     assert_that!(out).is_empty();
 }
 ```
-
 - [ ] **Step 3: Run to verify failure**
 
 Run: `cargo nextest run -p oku-slides-agent`
@@ -629,10 +724,14 @@ Expected: FAIL. `cmd()` panique sur `unknown variant set_draft`, et `Draft` n'ex
 `keeper.rs`, `Keep` (après `Show`) :
 
 ```rust
-    /// Remontrer le fil de la portée que montre le hub, lue à l'application de l'ordre : une
-    /// autre vue de l'onglet s'abonne (`follow`) sans jamais revenir sur un `Show` plus récent.
+    /// Remontrer le fil de la portée que montre le hub.
+    ///
+    /// La portée est lue à l'application de l'ordre : une autre vue de l'onglet s'abonne
+    /// (`follow`) sans jamais revenir sur un `Show` plus récent.
     Replay,
 ```
+
+`Keep::failure` (`keeper.rs:50-57`, `match` exhaustif) : `Self::Show(_) | Self::Replay | Self::Sync | Self::Flush(_) => "ordre du gardien non appliqué",`.
 
 et dans `apply`, à côté de `Keep::Show(scope) => …` :
 
@@ -646,8 +745,9 @@ et dans `apply`, à côté de `Keep::Show(scope) => …` :
 `tab_entry.rs`, `TabLink` : champ `draft: Arc<Mutex<Option<String>>>`, initialisé dans `TabEntry::start` (`Arc::new(Mutex::new(None))`), puis :
 
 ```rust
-    /// Garde le brouillon et le diffuse à toutes les vues de l'onglet, sous le même verrou :
-    /// l'ordre des diffusions est celui des écritures.
+    /// Garde le brouillon et le diffuse à toutes les vues de l'onglet.
+    ///
+    /// Diffusé sous le même verrou : l'ordre des diffusions est celui des écritures.
     pub fn set_draft(&self, out: &mpsc::UnboundedSender<Out>, text: Option<String>, origin: Option<String>) {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
         draft.clone_from(&text);
@@ -658,8 +758,9 @@ et dans `apply`, à côté de `Keep::Show(scope) => …` :
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
         let (state, scope) = self.status.lock().unwrap_or_else(PoisonError::into_inner).clone();
         emit(out, "agent", &self.tab, &AgentEvent::Status { state, scope });
-        let text = self.draft.lock().unwrap_or_else(PoisonError::into_inner).clone();
-        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin: None });
+        // Sous le verrou, comme `set_draft` : jamais un brouillon périmé diffusé après un plus récent.
+        let draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text: draft.clone(), origin: None });
     }
 ```
 
@@ -672,19 +773,91 @@ et dans `apply`, à côté de `Keep::Show(scope) => …` :
 `stack.rs` :
 
 ```rust
-/// Taille maximale d'un brouillon (octets UTF-8) : au-delà, `set_draft` est refusé.
+/// Taille maximale d'un brouillon, en octets UTF-8.
 pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
+/// Taille maximale de l'origine d'un brouillon (identifiant de vue), en octets.
+pub const MAX_ORIGIN_BYTES: usize = 64;
+```
+
+`command_error.rs` :
+
+```rust
+//! Commandes de l'interface refusées par la pile, dites dans la langue de l'utilisateur.
+//!
+//! Le message localisé ne cite aucune donnée de l'utilisateur ; l'erreur complète (tailles)
+//! reste dans `Display`, pour les journaux.
+
+use oku_slides_i18n::{Localize, Localizer};
+use snafu::{Backtrace, Snafu};
+
+/// Une commande de l'interface refusée.
+#[derive(Debug, Snafu)]
+pub struct CommandError(CommandInner);
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub(crate) enum CommandInner {
+    #[snafu(display("draft of {bytes} bytes over the {max} bytes limit"))]
+    DraftTooLong { bytes: usize, max: usize, backtrace: Backtrace },
+    #[snafu(display("draft origin of {bytes} bytes over the {max} bytes limit"))]
+    OriginTooLong { bytes: usize, max: usize, backtrace: Backtrace },
+    #[snafu(display("draft for a tab whose agent has not started"))]
+    NoAgent { backtrace: Backtrace },
+}
+
+impl Localize for CommandError {
+    fn localize(&self, l: &Localizer) -> String {
+        match &self.0 {
+            CommandInner::DraftTooLong { .. } => l.tr("agent-error-draft-too-long"),
+            CommandInner::OriginTooLong { .. } => l.tr("agent-error-draft-origin"),
+            CommandInner::NoAgent { .. } => l.tr("agent-error-draft-no-agent"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "command_error_tests.rs"]
+mod command_error_tests;
+```
+
+`command_error_tests.rs` :
+
+```rust
+use oku_slides_i18n::{Localize, Localizer};
+use speculoos::prelude::*;
+
+use super::{CommandError, DraftTooLongSnafu};
+
+#[test]
+fn draft_too_long_is_said_in_the_user_language() {
+    let e = CommandError::from(DraftTooLongSnafu { bytes: 10usize, max: 5usize }.build());
+    assert_that!(e.localize(&Localizer::new(Some("fr")))).is_equal_to("Le brouillon est trop long.".to_owned());
+}
+```
+
+Fluent, `agent.ftl` des 20 langues (fr / en ; les autres traduites) :
+
+```
+agent-error-draft-too-long = Le brouillon est trop long.
+agent-error-draft-origin = Brouillon refusé : vue inconnue.
+agent-error-draft-no-agent = L'agent de cet onglet démarre : brouillon non gardé.
+```
+```
+agent-error-draft-too-long = The draft is too long.
+agent-error-draft-origin = Draft refused: unknown view.
+agent-error-draft-no-agent = This tab's agent is starting: draft not kept.
 ```
 
 (réexporté par `lib.rs` à côté d'`AgentCommand`). Dans `AgentCommand` :
 
 ```rust
-    /// Une autre vue de l'onglet (fenêtre de l'agent) s'abonne : état, brouillon, puis le fil
-    /// de la portée que montre l'onglet. Ne démarre jamais l'onglet.
+    /// Une autre vue de l'onglet (fenêtre de l'agent) s'abonne.
+    ///
+    /// Rejoue l'état, le brouillon, puis le fil de la portée montrée ; ne démarre jamais l'onglet.
     Follow {
         tab: String,
     },
-    /// Le brouillon de l'onglet ; `None` : fermé. Ignoré si l'onglet n'a pas d'agent démarré.
+    /// Le brouillon de l'onglet ; `None` : fermé. Refusé si l'onglet n'a pas d'agent démarré.
     SetDraft {
         tab: String,
         text: Option<String>,
@@ -704,12 +877,28 @@ pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
                 None => self.replay_closed(&tab),
             },
             AgentCommand::SetDraft { tab, text, origin } => {
-                if text.as_ref().is_some_and(|t| t.len() > MAX_DRAFT_BYTES) {
-                    return Err("draft too long".to_owned());
+                let checked = match (text.as_ref().map(String::len), origin.as_ref().map(String::len)) {
+                    (Some(bytes), _) if bytes > MAX_DRAFT_BYTES => {
+                        Err(DraftTooLongSnafu { bytes, max: MAX_DRAFT_BYTES }.build())
+                    }
+                    (_, Some(bytes)) if bytes > MAX_ORIGIN_BYTES => {
+                        Err(OriginTooLongSnafu { bytes, max: MAX_ORIGIN_BYTES }.build())
+                    }
+                    _ => Ok(()),
+                };
+                if let Err(inner) = checked {
+                    let e = CommandError::from(inner);
+                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+                    return Err(e.localize(&self.platform.localizer));
                 }
                 match self.tab(&tab) {
                     Some(t) => t.set_draft(&self.out_tx, text, origin),
-                    None => tracing::debug!(tab, "brouillon d'un onglet sans agent : ignoré"),
+                    // Refusé, pas ignoré : la vue qui écrit attend un écho ou une erreur (tâche 6).
+                    None => {
+                        let e = CommandError::from(NoAgentSnafu.build());
+                        tracing::debug!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+                        return Err(e.localize(&self.platform.localizer));
+                    }
                 }
             }
 ```
@@ -717,7 +906,9 @@ pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
 et, dans `impl Stack` :
 
 ```rust
-    /// Ce que voit une vue d'un onglet sans agent démarré : repos, aucun brouillon, les slides, aucune surface.
+    /// Ce que voit une vue d'un onglet sans agent démarré.
+    ///
+    /// Repos, aucun brouillon, les slides, aucune surface.
     fn replay_closed(&self, tab: &str) {
         emit(&self.out_tx, "agent", tab, &AgentEvent::idle());
         emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None });
@@ -751,7 +942,8 @@ Run: `cd ui && bun test .render. -t "évènement draft"` → FAIL (typecheck : `
 `api.ts` :
 
 ```ts
-/** Évènements du canal `agent` : l'état de l'agent et le brouillon de l'onglet (le fil passe par les surfaces). */
+/** Évènements du canal `agent` : état de l'agent et brouillon de l'onglet. */
+
 export type AgentEvent =
   | { kind: "status"; state: AgentState; scope?: AgentScope }
   | { kind: "draft"; text: string | null; origin: string | null };
@@ -775,7 +967,9 @@ export function agentStatusReducer(cur: AgentStatus, e: AgentEvent): AgentStatus
 }
 ```
 
-et `useReducer(agentStatusReducer, IDLE)`. `IDLE` est exporté pour la tâche 5.
+et `useReducer(agentStatusReducer, IDLE)`. `const IDLE` (`useAgentScope.ts:8`) devient `export const IDLE` : la tâche 5 l'importe.
+
+`AgentPanel.render.test.tsx:168` : `onAgent({ kind: "status", state: "working", scope: { kind: "slides" } })`, sans `as never`.
 
 - [ ] **Step 8: Run TS checks**
 
@@ -785,7 +979,8 @@ Expected: PASS.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add crates/oku-slides-agent ui/src/api.ts ui/src/agent/useAgentScope.ts ui/src/agent/useAgentScope.render.test.tsx
+git add crates/oku-slides-agent crates/oku-slides-i18n/src/locales ui/src/api.ts ui/src/agent/useAgentScope.ts ui/src/agent/useAgentScope.render.test.tsx ui/src/agent/AgentPanel.render.test.tsx
+
 ```
 Message : `feat(agent) : brouillon tenu par l'hôte et suivi d'un onglet par une autre vue (t-654)`
 
@@ -796,7 +991,7 @@ Message : `feat(agent) : brouillon tenu par l'hôte et suivi d'un onglet par une
 **Files:**
 - Create: `src-tauri/src/agent_window.rs`, `src-tauri/src/agent_window_tests.rs`
 - Modify: `src-tauri/src/main.rs` : module, en-tête de module, `on_menu_event`.
-- Modify: `src-tauri/src/windows.rs` : `sync` et `rects`.
+- Modify: `src-tauri/src/windows.rs` : `sync`, et `overlay_title_bar` (partagée avec `agent_window::open`).
 - Modify: `src-tauri/src/commands.rs:168-187` : `focused`.
 - Modify: `src-tauri/src/menu.rs` : case à cocher (macOS) et état géré.
 - Modify: `src-tauri/capabilities/default.json`
@@ -909,9 +1104,8 @@ fn open(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .title(title)
         .inner_size(SIZE.0, SIZE.1)
         .min_inner_size(MIN_SIZE.0, MIN_SIZE.1);
-    #[cfg(target_os = "macos")]
-    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
-    builder.build()
+    // Comme les fenêtres de l'espace de travail : la page pose sa barre de saisie (`.titlebar`).
+    windows::overlay_title_bar(builder).build()
 }
 
 /// Met la fenêtre de l'agent d'accord avec `detached`.
@@ -942,6 +1136,8 @@ pub fn toggle(app: &AppHandle) {
             if state.closing.load(Ordering::SeqCst) {
                 return Ok(());
             }
+            // Lu puis appliqué sous deux verrous : deux clics très rapprochés peuvent faire la même
+            // bascule ; sans danger, `sync` remet la case d'accord avec l'espace de travail.
             let detached = Workspace::lock(&state.workspace).agent_detached();
             let req = if detached { WorkspaceRequest::AttachAgent } else { WorkspaceRequest::DetachAgent };
             Workspace::apply(&state.workspace, req).map_err(|e| state.refuse(e))?;
@@ -966,7 +1162,20 @@ mod agent_window_tests;
 
 - [ ] **Step 4: Wire `windows.rs`**
 
-`sync` : dans la boucle de destruction, ne jamais détruire la fenêtre de l'agent ; puis réconcilier et cocher le menu, avant `emit(app, &view)` :
+`windows.rs::open` : ses deux lignes `#[cfg(target_os = "macos")] let builder = builder.title_bar_style(…).hidden_title(true);` deviennent un appel à une fonction partagée :
+
+```rust
+/// La barre de titre des fenêtres de l'app : sous macOS, fondue dans la page (barre `.titlebar`).
+pub(crate) fn overlay_title_bar<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
+    builder: WebviewWindowBuilder<'a, R, M>,
+) -> WebviewWindowBuilder<'a, R, M> {
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    builder
+}
+```
+
+`sync` : dans la boucle de destruction, ne jamais détruire la fenêtre de l'agent. Juste après cette boucle, **avant** le bloc qui met la fenêtre active au premier plan (la fenêtre de l'agent ouverte au lancement ne lui vole pas le focus), réconcilier et cocher le menu :
 
 ```rust
     for (label, w) in app.webview_windows() {
@@ -981,11 +1190,7 @@ mod agent_window_tests;
     menu::set_agent_checked(app, view.agent_detached);
 ```
 
-`rects` : ne garder que les fenêtres de l'espace de travail (un onglet lâché sur la fenêtre de l'agent ne vise pas celle de dessous) :
-
-```rust
-        .filter(|(label, _)| oku_slides_session::is_window_label(label))
-```
+`rects` ne change pas : `Workspace::window_at` ne cherche déjà que parmi les fenêtres de l'espace de travail (`recent`). Un onglet lâché au-dessus de la fenêtre de l'agent vise la fenêtre de l'espace de travail qui est dessous, si elle y est, sinon une nouvelle fenêtre : comportement accepté.
 
 - [ ] **Step 5: Focus**
 
@@ -1025,10 +1230,11 @@ Dans la tâche `spawn_blocking`, le bloc `if let Err(e) = ws.focus(&label) { …
 pub const AGENT_ID: &str = "agent-detached";
 
 /// La case de l'agent, gardée par l'app : `Menu::get` ne cherche pas dans les sous-menus.
+#[cfg_attr(not(target_os = "macos"), expect(dead_code, reason = "menu d'app : macOS seulement"))]
 struct AgentCheck<R: Runtime>(CheckMenuItem<R>);
 ```
 
-Dans `build`, créer `let agent = CheckMenuItem::with_id(app, AGENT_ID, l.tr("menu-agent-detached"), true, false, None::<&str>)?;`. L'ajouter au sous-menu « Fenêtre » après `&PredefinedMenuItem::separator(app)?`, puis appeler `app.manage(AgentCheck(agent.clone()));` avant de rendre le menu. Ensuite :
+Dans `build`, créer `let agent = CheckMenuItem::with_id(app, AGENT_ID, l.tr("menu-agent-detached"), true, false, None::<&str>)?;`. L'ajouter à la fin du sous-menu « Fenêtre », après un séparateur à ajouter (`&PredefinedMenuItem::separator(app)?`, puis `&agent`), puis appeler `app.manage(AgentCheck(agent.clone()));` avant de rendre le menu. Ensuite :
 
 ```rust
 /// Coche la case de l'agent d'après l'espace de travail (macOS ; ailleurs, aucun menu : rien).
@@ -1040,7 +1246,8 @@ pub fn set_agent_checked<R: Runtime>(app: &AppHandle<R>, detached: bool) {
 }
 ```
 
-Hors macOS, `build` n'est pas appelé, donc l'état n'existe pas et la fonction ne fait rien. Retirer de `build` l'attribut `cfg_attr(... expect(dead_code ...))` si `set_agent_checked` le rend inutile, sinon le garder. Importer `CheckMenuItem` et `Manager`.
+Hors macOS, `build` n'est pas appelé, donc l'état n'existe pas et la fonction ne fait rien. `build` garde son attribut `cfg_attr(not(target_os = "macos"), expect(dead_code, …))` (`menu.rs:23`) : hors macOS, il n'est toujours pas appelé. Importer `CheckMenuItem` et `Manager`.
+
 
 `main.rs::on_menu_event`, à côté de `QUIT_ID` :
 
@@ -1086,7 +1293,7 @@ Message : `feat(app) : fenêtre de l'agent, ouverte et fermée d'après l'espace
 
 **Files:**
 - Create: `ui/src/agent/useFollowScope.ts`, `ui/src/agent/useFollowScope.render.test.tsx`
-- Create: `ui/src/useSlideThumbs.ts`
+- Create: `ui/src/useSlideThumbs.ts`, `ui/src/useSlideThumbs.render.test.tsx`
 - Modify: `ui/src/agent/AgentPanel.tsx` : props `scope`, `route`, `ui`, `keyPlaces` et `onDraft` ; abonnement.
 - Modify: `ui/src/agent/AgentPanel.render.test.tsx` : montage avec les nouvelles props, et nouveaux tests.
 - Modify: `ui/src/agent/surfaces.ts` : `routeStaged`. Test : `ui/src/agent/surfaces.test.ts`.
@@ -1109,11 +1316,11 @@ export type ScopeSource = { kind: "drive"; view: ScopeView | null } | { kind: "f
 //   onDraft?: (e: { text: string | null; origin: string | null }) => void;  // brouillon reçu de l'hôte
 
 // useFollowScope.ts
-/** La portée suivie : celle que montre l'hôte (`viewing`), après un `follow` à l'abonnement. */
-export function useFollowScope(agent: { follow: () => Promise<void> }): AgentScopeState & { onMcp: (e: McpEvent) => void };
+/** La portée suivie : celle que l'hôte annonce (`viewing`) après `follow`. */
+export function useFollowScope(agent: Pick<ReturnType<typeof agentApi>, "follow">): AgentScopeState & { onMcp: (e: McpEvent) => void };
 
 // surfaces.ts
-/** Le routage d'une vue qui ne voit pas la scène : la fiche `staged` y est posée, les autres vont au fil. */
+/** Le routage d'une vue sans scène : seule la fiche `staged` reste hors du fil. */
 export function routeStaged(list: Surface[], staged: string | null): Routed;
 
 // draft.ts
@@ -1121,33 +1328,31 @@ export function routeStaged(list: Surface[], staged: string | null): Routed;
 export function deckVocabulary(snap: Snapshot | null): string[];
 
 // useSlideThumbs.ts
-/** Les miniatures des reçus de l'agent : le cache des SVG de l'onglet, aux empreintes actuelles du deck. */
+/** Les miniatures des reçus de l'agent, aux empreintes actuelles du deck. */
 export function useSlideThumbs(api: TabApi, slides: Snapshot["slides"] | undefined): SlideThumbs;
 ```
 
-`useFollowScope` : `scope` vaut `{ kind: "slides" }` et `ready` vaut faux jusqu'au premier `viewing` **et** au succès de `follow`. `onReady` appelle `follow()`, à chaque abonnement et à chaque reconnexion.
+`useFollowScope` : `scope` vaut `{ kind: "slides" }` et `ready` vaut faux jusqu'au premier `viewing` **et** au succès de `follow`. `onReady` appelle `follow()`, à chaque abonnement et à chaque reconnexion ; seule la réponse du **dernier** `follow` compte (un échec tardif d'un appel plus ancien n'écrase pas un succès plus récent).
 
 - [ ] **Step 1: Write the failing pure tests**
 
-`surfaces.test.ts` (reprendre l'usine de surfaces du fichier) :
+`surfaces.test.ts`, dans le `describe` où est définie l'usine `sheet(id, slide, owner, field?)` (`surfaces.test.ts:59`) :
 
 ```ts
-test("routeStaged la fiche posée sur la scène n'est pas dans le fil", () => {
-  const a = { ...sheet("s-a"), anchor: { slide: "s1", owner: "e1" } };
-  const b = { ...sheet("s-b"), anchor: { slide: "s2", owner: "e2" } };
-  const routed = routeStaged([a, b], "s-a");
-  expect(routed.stage?.id).toBe("s-a");
-  expect(routed.loose.map((s) => s.id)).toEqual(["s-b"]);
-});
+  test("routeStaged la fiche posée sur la scène n'est pas dans le fil", () => {
+    const routed = routeStaged([sheet("s-a", "s1", "e1"), sheet("s-b", "s2", "e2")], "s-a");
+    expect(routed.loose.map((s) => s.id)).toEqual(["s-b"]);
+  });
 
-test("routeStaged sans fiche posée : toutes les fiches vont au fil", () => {
-  const a = { ...sheet("s-a"), anchor: { slide: "s1", owner: "e1" } };
-  expect(routeStaged([a], null).loose.map((s) => s.id)).toEqual(["s-a"]);
-});
+  test("routeStaged la fiche posée est rendue comme fiche de la scène", () => {
+    const routed = routeStaged([sheet("s-a", "s1", "e1")], "s-a");
+    expect(routed.stage?.id).toBe("s-a");
+  });
+
+  test("routeStaged sans fiche posée : toutes les fiches vont au fil", () => {
+    expect(routeStaged([sheet("s-a", "s1", "e1")], null).loose.map((s) => s.id)).toEqual(["s-a"]);
+  });
 ```
-
-`sheet(id)` est l'usine de fiches du fichier. S'il n'en a pas, l'écrire en haut du fichier : `const sheet = (id: string): Surface => ({ id, place: "sheet", live: true, question: false, messages: [] });`.
-
 `draft.test.ts` :
 
 ```ts
@@ -1179,7 +1384,41 @@ export function deckVocabulary(snap: Snapshot | null): string[] {
 }
 ```
 
-`useDictation.ts:44-47` : `const vocabulary = useMemo(() => deckVocabulary(snap), [snap]);`. `useSlideThumbs.ts` reprend `App.tsx:92-97` tel quel (`useSvgCache(api)` puis `useMemo`). `App.tsx` : `const slideThumbs = useSlideThumbs(api, snap?.slides);`.
+`useDictation.ts:44-47` : `const vocabulary = useMemo(() => deckVocabulary(snap), [snap]);`. `App.tsx` : `const slideThumbs = useSlideThumbs(api, snap?.slides);`. `useSlideThumbs.ts` reprend `App.tsx:92-97` tel quel :
+
+```ts
+// Les miniatures des reçus de l'agent : le cache des SVG de l'onglet (partagé avec la pile),
+// aux empreintes actuelles du deck. Utilisé par `App` et par la fenêtre de l'agent.
+
+import { useMemo } from "react";
+import type { Snapshot, TabApi } from "./api";
+import type { SlideThumbs } from "./a2ui/slideThumbs";
+import { useSvgCache } from "./useSvgCache";
+
+export function useSlideThumbs(api: TabApi, slides: Snapshot["slides"] | undefined): SlideThumbs {
+  const svgs = useSvgCache(api);
+  return useMemo<SlideThumbs>(
+    () => ({ cached: svgs.cached, svg: svgs.svg, current: (id) => slides?.find((s) => s.id === id)?.hash }),
+    [svgs, slides],
+  );
+}
+```
+
+`useSlideThumbs.render.test.tsx` (montage comme les autres tests de rendu ; `api` factice `{ svg: async () => "<svg/>" }` typé `as unknown as TabApi`) :
+
+```tsx
+test("useSlideThumbs donne l'empreinte actuelle d'une slide", async () => {
+  const thumbs = await mountThumbs([{ id: "s1", hash: "h1" }]);
+  expect(thumbs().current("s1")).toBe("h1");
+});
+
+test("useSlideThumbs slide disparue : pas d'empreinte", async () => {
+  const thumbs = await mountThumbs([]);
+  expect(thumbs().current("s1")).toBeUndefined();
+});
+```
+
+(`mountThumbs(slides)` monte un composant qui appelle `useSlideThumbs(api, slides as never)` et rend `() => dernière valeur`.)
 
 Run: `cd ui && bun test src/agent/surfaces.test.ts src/draft.test.ts` → PASS.
 
@@ -1258,35 +1497,70 @@ test("useFollowScope follow en échec : pas prêt", async () => {
   await act(async () => h.state().onMcp({ kind: "viewing", scope: { kind: "slides" } }));
   expect(h.state().ready).toBe(false);
 });
+
+test("useFollowScope un échec tardif d'un follow plus ancien ne défait pas le plus récent", async () => {
+  const replies: { resolve: () => void; reject: (e: Error) => void }[] = [];
+  const agent = { follow: () => new Promise<void>((resolve, reject) => void replies.push({ resolve, reject })) };
+  let state: ReturnType<typeof useFollowScope> | null = null;
+  const Probe = () => {
+    state = useFollowScope(agent);
+    return null;
+  };
+  const root = createRoot(document.createElement("div"));
+  await act(async () => root.render(createElement(Probe)));
+  cleanup = async () => act(async () => root.unmount());
+  await act(async () => state!.onReady());
+  await act(async () => state!.onReady());
+  await act(async () => state!.onMcp({ kind: "viewing", scope: { kind: "slides" } }));
+  await act(async () => replies[1].resolve());
+  await act(async () => replies[0].reject(new Error("tard")));
+  expect(state!.ready).toBe(true);
+});
 ```
 
-`AgentPanel.render.test.tsx` :
-- `mount()` passe désormais `scope: { kind: "drive", view: SCOPE_VIEW }`, `route: (list) => routeSurfaces(list, { slide: "s1", has: () => true })` et `ui: UI`, où `SCOPE_VIEW = { templates: false, history: false, pack: null, widget: null }` et `UI = { slide: "s1", element: null, field: null, editing: false, widget: null }`. Il ne passe plus `view`, `current`, `selected`, `editField`, `widget` ni `scopeView`.
-- `mount()` prend une option `scope` (défaut : `drive`), une option `keyPlaces` et un rappel `onDraft` (qui pousse dans un tableau `drafts`). Il ajoute `follow: async () => void follows.push(1)` au faux `agent`.
+`AgentPanel.render.test.tsx`, utilitaire `mount()` (aujourd'hui lignes 47-128) :
+- il prend des options `{ promptFails = false, scope = DRIVE, keyPlaces }`, avec `const DRIVE: ScopeSource = { kind: "drive", view: { templates: false, history: false, pack: null, widget: null } }` ;
+- il passe `scope`, `keyPlaces`, `route: (list) => routeSurfaces(list, { slide: "s1", has: () => true })`, `ui: UI` (`{ slide: "s1", element: null, field: null, editing: false, widget: null }`) et `onDraft: (e) => void drafts.push(e)`. Il ne passe plus `view`, `current`, `selected`, `editField`, `widget` ni `scopeView` ;
+- son faux `agent` enregistre : `prompt: async (s, text) => { prompts.push(text); promptScopes.push(s); … }`, `resync: async (s) => void resyncs.push(s)`, `follow: async () => void follows.push(1)` et `surfaceAction: async (id, name) => void actions.push(`${id}:${name}`)` ;
+- il rend en plus `slots`, `drafts`, `promptScopes`, `resyncs`, `follows` et `actions`.
 
 Nouveaux tests :
 
 ```tsx
-test("AgentPanel suiveur à l'abonnement prêt demande follow, pas resync", async () => {
+const escape = () => act(async () => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+
+test("AgentPanel suiveur à l'abonnement prêt demande follow", async () => {
   const m = await mount({ scope: { kind: "follow" } });
   await act(async () => m.handlers().onReady?.());
   expect(m.follows).toHaveLength(1);
+});
+
+test("AgentPanel suiveur à l'abonnement prêt ne demande jamais resync", async () => {
+  const m = await mount({ scope: { kind: "follow" } });
+  await act(async () => m.handlers().onReady?.());
   expect(m.resyncs).toEqual([]);
 });
 
 test("AgentPanel suiveur une consigne part dans la portée annoncée par l'hôte", async () => {
   const m = await mount({ scope: { kind: "follow" } });
   await act(async () => m.handlers().onReady?.());
-  await act(async () => m.handlers().onMcp({ kind: "viewing", scope: { kind: "atelier", pack: "p-1" } }));
+  await m.mcp({ kind: "viewing", scope: { kind: "atelier", pack: "p-1" } });
   await act(async () => void (await m.handle.current!.prompt("bonjour")));
   expect(m.promptScopes).toEqual([{ kind: "atelier", pack: "p-1" }]);
 });
 
-test("AgentPanel touches limitées au dock : une fenêtre de l'agent n'a pas de rappel", async () => {
+test("AgentPanel toutes places : Échap répond à la fenêtre de confirmation", async () => {
+  const m = await mount();
+  await m.mcp({ kind: "surface", surface: modal });
+  await escape();
+  expect(m.actions.some((a) => a.startsWith("m-1:"))).toBe(true);
+});
+
+test("AgentPanel touches limitées au dock : Échap laisse la fenêtre de confirmation", async () => {
   const m = await mount({ keyPlaces: ["dock"] });
-  await act(async () => m.handlers().onMcp({ kind: "surface", surface: surface("m-1", "OK", { place: "modal", question: true }) }));
-  expect(m.slots.modal.get()).not.toBeNull();
-  expect(m.lastModalHints()).toBe(false);
+  await m.mcp({ kind: "surface", surface: modal });
+  await escape();
+  expect(m.actions).toEqual([]);
 });
 
 test("AgentPanel un brouillon reçu de l'hôte est transmis", async () => {
@@ -1296,38 +1570,34 @@ test("AgentPanel un brouillon reçu de l'hôte est transmis", async () => {
 });
 ```
 
-Pour ces tests, `mount()` doit aussi exposer :
-- `handlers()`, les `HostHandlers` capturés ;
-- `resyncs`, les portées passées à `resync` ;
-- `promptScopes`, les portées passées à `prompt` ;
-- `lastModalHints()`, qui lit la prop `hints` du nœud posé dans `slots.modal`.
+(`modal` est la surface déjà définie dans ce fichier, ligne 134. Le premier test d'Échap est le témoin positif : sans lui, le second passerait même si Échap n'agissait jamais.)
 
-Le nœud posé est un élément React : `(slots.modal.get() as ReactElement).props.children.props.hints`, sous `Suspense`. Si cet accès casse, compter les rappels `.quick-hint` rendus dans un `SlotView` monté pour la fenêtre.
-
-Run: `cd ui && bun test .render. -t "useFollowScope|AgentPanel"` → FAIL.
-
+Run: `cd ui && bun test .render. -t "useFollowScope|AgentPanel|useSlideThumbs"` → FAIL.
 - [ ] **Step 4: Implement `useFollowScope.ts`**
 
 ```ts
 // La portée suivie par une autre vue de l'onglet (fenêtre de l'agent) : celle que montre l'hôte.
 
-import { useCallback, useReducer, useState } from "react";
-import type { AgentEvent, AgentScope, McpEvent } from "../api";
+import { useCallback, useReducer, useRef, useState } from "react";
+import type { AgentEvent, AgentScope, McpEvent, agentApi } from "../api";
 import { t } from "../i18n";
 import { busyElsewhere, scopePlace } from "./scope";
 import { IDLE, agentStatusReducer, type AgentScopeState } from "./useAgentScope";
 
 const SLIDES: AgentScope = { kind: "slides" };
 
-export function useFollowScope(agent: { follow: () => Promise<void> }): AgentScopeState & { onMcp: (e: McpEvent) => void } {
+export function useFollowScope(agent: Pick<ReturnType<typeof agentApi>, "follow">): AgentScopeState & { onMcp: (e: McpEvent) => void } {
   const [viewing, setViewing] = useState<AgentScope | null>(null);
   const [followed, setFollowed] = useState(false);
   const [status, onStatus] = useReducer(agentStatusReducer, IDLE);
+  // Seule la réponse du dernier `follow` compte : une reconnexion en relance un.
+  const asked = useRef(0);
   const onReady = useCallback(() => {
+    const n = ++asked.current;
     agent.follow().then(
-      () => setFollowed(true),
+      () => n === asked.current && setFollowed(true),
       (err) => {
-        setFollowed(false);
+        if (n === asked.current) setFollowed(false);
         console.warn("follow", err);
       },
     );
@@ -1357,20 +1627,34 @@ Dans `AgentPanel.tsx` :
 
   Un panneau ne change jamais de mode : il est monté par onglet et par fenêtre. Un `useAgentScope` dont la vue vaut `null` ne rappelle jamais le fil.
 - Routage : `const routed = useMemo(() => props.route(surfaces), [surfaces, props.route]);`.
-- Abonnement, dans `onMcp`, après `onSurfaceEvent(e)` : `latest.current.onMcpFollow(e);`. `onMcpFollow` vaut `followed.onMcp` en suiveur, et sinon une fonction vide (lue via `latest`). Puis :
+- Abonnement, dans `onMcp`, après `onSurfaceEvent(e)` : `latest.current!.onMcpFollow(e);`. Les rappels existants (`onChanged`, `onFocus`, `onWidgetTouched`) se lisent désormais dans `latest.current!.props`. Puis :
 
 ```ts
         onAgent: (e) => {
-          latest.current.scopeState.onAgentEvent(e);
-          if (e.kind === "draft") latest.current.onDraft?.({ text: e.text, origin: e.origin });
+          latest.current!.scopeState.onAgentEvent(e);
+          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin });
         },
         onReady: () => {
-          latest.current.scopeState.onReady();
-          latest.current.onChanged();
+          latest.current!.scopeState.onReady();
+          latest.current!.props.onChanged();
         },
 ```
 
-  `latest` porte maintenant `{ ...props, scopeState: agentScopeState, onMcpFollow }`.
+
+  `latest` change de forme. Aujourd'hui `const latest = useRef(props); latest.current = props;` est en tête du composant. Il devient, **après** les hooks de portée :
+
+```ts
+  /** Ce que lit l'abonnement, posé une fois par onglet : toujours la dernière version. */
+  interface Latest {
+    props: AgentPanelProps;
+    scopeState: AgentScopeState;
+    onMcpFollow: (e: McpEvent) => void;
+  }
+  const latest = useRef<Latest | null>(null);
+  latest.current = { props, scopeState: agentScopeState, onMcpFollow: props.scope.kind === "follow" ? followed.onMcp : NOOP };
+```
+
+  (`interface Latest` au niveau du module, `const NOOP = () => {};` aussi.) Les rappels de l'abonnement lisent `latest.current!.props.onChanged()`, `latest.current!.scopeState…` et `latest.current!.onMcpFollow(e)`. Ils ne s'exécutent qu'après le premier rendu, donc `latest.current` est posé.
 - Touches : `const keyed = !keysOff && keysTarget && (props.keyPlaces ?? ALL_PLACES).includes(keysTarget.kind) ? keysTarget : null;`, avec `const ALL_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "dock"];`. L'`answerTarget` des consignes reste calculé sur `keysTarget` entier, comme aujourd'hui.
 - Consignes : `agent.prompt(scope, text, props.ui, answer)`. `agentUi` n'est plus importé ici.
 
@@ -1383,9 +1667,12 @@ Dans `App.tsx` :
   );
   const route = useCallback((list: Surface[]) => routeSurfaces(list, shown), [shown]);
   const ui = useMemo(() => agentUi(current, selected, editField, widgets.activeName), [current, selected, editField, widgets.activeName]);
+  const templates = !!snap?.editing;
+  const inHistory = !!snap?.history;
+  const pack = snap?.editing?.set ?? null;
   const scopeSource = useMemo<ScopeSource>(
-    () => ({ kind: "drive", view: { templates: !!snap?.editing, history: !!snap?.history, pack: snap?.editing?.set ?? null, widget: widgets.activeName } }),
-    [snap?.editing, snap?.history, widgets.activeName],
+    () => ({ kind: "drive", view: { templates, history: inHistory, pack, widget: widgets.activeName } }),
+    [templates, inHistory, pack, widgets.activeName],
   );
 ```
 
@@ -1399,7 +1686,7 @@ Expected: PASS, dont `agent.cjs`, `agent-scopes.cjs`, `lists-dock.cjs` et `targe
 - [ ] **Step 7: Commit**
 
 ```bash
-git add ui/src/agent/AgentPanel.tsx ui/src/agent/AgentPanel.render.test.tsx ui/src/agent/useFollowScope.ts ui/src/agent/useFollowScope.render.test.tsx ui/src/agent/surfaces.ts ui/src/agent/surfaces.test.ts ui/src/draft.ts ui/src/draft.test.ts ui/src/useSlideThumbs.ts ui/src/useDictation.ts ui/src/App.tsx
+git add ui/src/agent/AgentPanel.tsx ui/src/agent/AgentPanel.render.test.tsx ui/src/agent/useFollowScope.ts ui/src/agent/useFollowScope.render.test.tsx ui/src/agent/surfaces.ts ui/src/agent/surfaces.test.ts ui/src/draft.ts ui/src/draft.test.ts ui/src/useSlideThumbs.ts ui/src/useSlideThumbs.render.test.tsx ui/src/useDictation.ts ui/src/App.tsx
 ```
 Message : `refactor(ui) : panneau de l'agent pilote ou suiveur de la portée (t-654)`
 
@@ -1410,9 +1697,10 @@ Message : `refactor(ui) : panneau de l'agent pilote ou suiveur de la portée (t-
 **Files:**
 - Create: `ui/src/agent/useDraft.ts`, `ui/src/agent/useDraft.render.test.tsx`
 - Create: `ui/src/agent/draftActions.ts`, `ui/src/agent/draftActions.test.ts`
-- Create: `ui/src/test/timers.ts`
+- Create: `ui/src/test/timers.ts`, `ui/src/randomId.ts`, `ui/src/randomId.test.ts`
 - Modify: `ui/src/debounce.ts` (export `REAL_TIMERS`), `ui/src/debounce.test.ts` (utilise `test/timers.ts`)
 - Modify: `ui/src/useDictation.ts` (le brouillon vient de `useDraft` ; `insertText` rend un booléen)
+- Modify: `ui/src/useDictation.render.test.tsx` (il appelle `onDictated` et `sendDraft`, déplacés dans `actions`, et monte sans `setDraft`)
 - Modify: `ui/src/App.tsx` (`onDraft` du panneau ; `DictationDraft` et `Dictation` lisent le nouveau brouillon)
 
 **Interfaces:**
@@ -1442,8 +1730,8 @@ export interface Draft {
   change: (text: string) => void;
   /** Ferme le brouillon (envoyé tout de suite). */
   close: () => void;
-  /** Envoie tout de suite la frappe en attente. */
-  flush: () => void;
+  /** Envoie tout de suite la frappe en attente ; résolue une fois tous les envois partis. */
+  flush: () => Promise<void>;
 }
 export function useDraft(setDraft: (text: string | null, origin: string) => Promise<void>, timers?: Timers): Draft;
 
@@ -1456,14 +1744,27 @@ export interface DraftActions {
   /** « Insérer » : le brouillon se ferme, le texte s'écrit ; refusé, il revient au brouillon. */
   insertDraft: (text: string) => Promise<void>;
 }
-export function draftActions(deps: {
+/** Ce dont les sorties du brouillon ont besoin. */
+export interface DraftActionsDeps {
   draft: Pick<Draft, "append" | "close">;
   editing: boolean;
   /** Écrit le texte dans le deck ; `false` : nulle part où l'écrire. */
   insert: (text: string) => boolean | Promise<boolean>;
   prompt: (text: string) => Promise<boolean>;
-}): DraftActions;
+}
+export function draftActions(deps: DraftActionsDeps): DraftActions;
+
+// randomId.ts
+/** Un identifiant aléatoire court, préfixé ; jamais un secret. */
+export function randomId(prefix: string): string;
 ```
+
+**Synchronisation.** L'hôte diffuse les écritures dans l'ordre où il les applique. Une vue compte ses envois dont l'écho n'est pas encore revenu (`inflight`) :
+- chaque envoi incrémente `inflight` ;
+- l'écho de la vue, reconnu par son `origin`, le décrémente ;
+- un envoi en échec le décrémente aussi. L'hôte refuse explicitement `set_draft` sans agent démarré (tâche 3), donc chaque envoi rend soit un écho, soit une erreur.
+
+Tant que `inflight > 0` (ou qu'une frappe attend), un brouillon venu d'ailleurs est **plus ancien** que la dernière écriture de cette vue : il est ignoré. Une fois le dernier écho revenu, ce qui arrive est plus récent, donc appliqué.
 
 `useDictation` rend `{ dictated, insertTo, destination, vocabulary, draft, actions, insertText }` : `draft` est un `Draft`, `actions` un `DraftActions`, et `insertText(text): boolean` vaut vrai s'il a écrit. Les anciens `setDraftText`, `closeDraft`, `typeDraft`, `sendDraft`, `insertDraft` et `onDictated` sont supprimés. `useDictation` reçoit en plus `setDraft` (`agent.setDraft`).
 
@@ -1497,7 +1798,29 @@ export function manualTimers(): Timers & { run: () => void; delays: number[] } {
 }
 ```
 
-`debounce.test.ts` : remplacer ses minuteries écrites dans le fichier par `manualTimers()`, sans changer ses assertions.
+`debounce.test.ts` : remplacer ses minuteries écrites dans le fichier (`manual()`) par `manualTimers()`. Les assertions suivent l'utilitaire partagé : `m.fire()` devient `m.timers.run()`, et `m.delay()` devient `m.timers.delays.at(-1) ?? null`. Le fichier garde ses scénarios.
+
+`randomId.ts` (partagé par `useDraft` et `link.ts`) :
+
+```ts
+// Identifiants aléatoires courts : relier un envoi à sa réponse, reconnaître une vue. Jamais un secret.
+
+export function randomId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 12)}`;
+}
+```
+
+`randomId.test.ts` :
+
+```ts
+test("randomId commence par son préfixe", () => {
+  expect(randomId("v").startsWith("v-")).toBe(true);
+});
+
+test("randomId deux appels donnent deux identifiants", () => {
+  expect(randomId("v")).not.toBe(randomId("v"));
+});
+```
 
 `useDraft.render.test.tsx` :
 
@@ -1516,13 +1839,14 @@ afterEach(async () => {
   cleanup = null;
 });
 
-async function mount({ strict = false, slow = false } = {}) {
+async function mount({ strict = false, slow = false, fail = false }: { strict?: boolean; slow?: boolean; fail?: boolean } = {}) {
   const timers = manualTimers();
   const sent: (string | null)[] = [];
   const origins = new Set<string>();
   let release: () => void = () => {};
   const setDraft = (text: string | null, origin: string) => {
     origins.add(origin);
+    if (fail) return Promise.reject(new Error("no agent"));
     if (!slow) return Promise.resolve(void sent.push(text));
     return new Promise<void>((resolve) => {
       release = () => {
@@ -1640,8 +1964,43 @@ describe("useDraft", () => {
     await act(async () => m.release());
     expect(m.sent).toEqual(["un", null]);
   });
+
+  test("useDraft brouillon d'ailleurs reçu avant l'écho de cette vue est ignoré", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("mien"));
+    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre" }));
+    expect(m.draft().state.text).toBe("mien");
+  });
+
+  test("useDraft brouillon d'ailleurs reçu après l'écho de cette vue est appliqué", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("mien"));
+    const [own] = [...m.origins];
+    await act(async () => m.draft().onHost({ text: "mien", origin: own }));
+    await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre" }));
+    expect(m.draft().state.text).toBe("plus récent");
+  });
+
+  test("useDraft un envoi en échec ne bloque pas les brouillons suivants", async () => {
+    const failing = await mount({ fail: true });
+    await act(async () => failing.draft().append("refusé"));
+    await act(async () => failing.draft().onHost({ text: "d'ailleurs", origin: "autre" }));
+    expect(failing.draft().state.text).toBe("d'ailleurs");
+  });
+
+  test("useDraft flush se résout une fois la frappe envoyée", async () => {
+    const m = await mount({ slow: true });
+    await act(async () => m.draft().change("dernier mot"));
+    let done = false;
+    const flushed = m.draft().flush().then(() => void (done = true));
+    await act(async () => m.release());
+    await act(async () => flushed);
+    expect(done).toBe(true);
+    expect(m.sent).toEqual(["dernier mot"]);
+  });
 });
 ```
+
 
 `draftActions.test.ts` :
 
@@ -1715,6 +2074,7 @@ Expected: FAIL (modules absents).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REAL_TIMERS, debounced, type Timers } from "../debounce";
 import { appendDraft } from "../draft";
+import { randomId } from "../randomId";
 
 /** Délai d'envoi de la frappe. */
 export const DRAFT_TYPING_MS = 300;
@@ -1722,7 +2082,7 @@ export const DRAFT_TYPING_MS = 300;
 const EMPTY: DraftState = { text: null, dictations: 0, typing: 0 };
 
 /** Un identifiant de vue, pour reconnaître ses propres échos. */
-const newOrigin = () => `v-${Math.random().toString(36).slice(2)}`;
+
 
 export function useDraft(setDraft: (text: string | null, origin: string) => Promise<void>, timers: Timers = REAL_TIMERS): Draft {
   const [state, setState] = useState<DraftState>(EMPTY);
@@ -1731,14 +2091,23 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     current.current = next;
     setState(next);
   }, []);
-  const [origin] = useState(newOrigin);
+  const [origin] = useState(() => randomId("v"));
   const push = useRef(setDraft);
   push.current = setDraft;
   // Un envoi à la fois : l'hôte reçoit les écritures dans l'ordre où elles ont été faites.
   const queue = useRef(Promise.resolve());
+  // Envois dont l'écho n'est pas revenu : tant qu'il y en a, ce qui vient d'ailleurs est plus ancien.
+  const inflight = useRef(0);
   const send = useCallback(
     (text: string | null) => {
-      queue.current = queue.current.then(() => push.current(text, origin)).catch((e) => console.warn("brouillon", e));
+      inflight.current++;
+      queue.current = queue.current
+        .then(() => push.current(text, origin))
+        .catch((e) => {
+          // Pas d'écho pour un envoi refusé : il ne compte plus.
+          inflight.current = Math.max(0, inflight.current - 1);
+          console.warn("brouillon", String(e));
+        });
     },
     [origin],
   );
@@ -1766,7 +2135,11 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
   );
   const onHost = useCallback(
     (e: { text: string | null; origin: string | null }) => {
-      if (e.origin === origin || pending.current) return;
+      if (e.origin === origin) {
+        inflight.current = Math.max(0, inflight.current - 1);
+        return;
+      }
+      if (pending.current || inflight.current > 0) return;
       if (current.current.text !== e.text) write({ ...current.current, text: e.text });
     },
     [origin, write],
@@ -1798,7 +2171,10 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     write({ ...current.current, text: null });
     now(null);
   }, [write, now]);
-  const flush = useCallback(() => typing.flush(), [typing]);
+  const flush = useCallback(() => {
+    typing.flush();
+    return queue.current;
+  }, [typing]);
   return useMemo(() => ({ state, onHost, append, type, change, close, flush }), [state, onHost, append, type, change, close, flush]);
 }
 ```
@@ -1836,6 +2212,8 @@ export function draftActions({ draft, editing, insert, prompt }: DraftActionsDep
 
 (`DraftActionsDeps` et `DraftActions` sont déclarés et exportés comme dans l'interface.)
 
+`useDictation.render.test.tsx` : le montage passe `setDraft: async () => {}`, et les deux tests appellent `out!.actions.onDictated(…)` / `d.state().actions.sendDraft(…)` puis lisent `d.state().draft.state.text`. Les scénarios et les assertions ne changent pas (t-211 : brouillon gardé si la consigne échoue).
+
 Le test « dictée pendant l'édition » attend `insert:mot` sans `append` : `write` attend le booléen, qui vaut vrai.
 
 `useDictation.ts` :
@@ -1859,7 +2237,7 @@ Expected: PASS (`agent-scopes.cjs` envoie par le brouillon avec ⌘K).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add ui/src/agent/useDraft.ts ui/src/agent/useDraft.render.test.tsx ui/src/agent/draftActions.ts ui/src/agent/draftActions.test.ts ui/src/test/timers.ts ui/src/debounce.ts ui/src/debounce.test.ts ui/src/useDictation.ts ui/src/App.tsx
+git add ui/src/randomId.ts ui/src/randomId.test.ts ui/src/useDictation.render.test.tsx ui/src/agent/useDraft.ts ui/src/agent/useDraft.render.test.tsx ui/src/agent/draftActions.ts ui/src/agent/draftActions.test.ts ui/src/test/timers.ts ui/src/debounce.ts ui/src/debounce.test.ts ui/src/useDictation.ts ui/src/App.tsx
 ```
 Message : `feat(ui) : le brouillon de l'agent est tenu par l'hôte (t-654)`
 
@@ -1905,7 +2283,11 @@ export interface LinkTransport {
   listen(cb: (m: LinkMessage) => void): () => void;
   /** Résolue une fois l'écoute de l'hôte en place (Tauri : `listen` est asynchrone). */
   ready: Promise<void>;
+  /** Arrête l'écoute de l'hôte (ferme le `BroadcastChannel`). */
+  close(): void;
 }
+/** Plus long texte accepté dans un message (`insert`), en caractères : la limite du brouillon. */
+export const MAX_LINK_TEXT = 256 * 1024;
 /** Le message, s'il a la forme d'un `LinkMessage` (schéma zod) ; sinon null. */
 export function parseLink(raw: unknown): LinkMessage | null;
 /** Évènement Tauri « agent-link », émis à toutes les fenêtres (l'émettrice comprise). */
@@ -1934,6 +2316,7 @@ export function memoryTransport(): LinkTransport & { sent: LinkMessage[]; listen
     sent,
     listeners: () => listeners.size,
     ready: Promise.resolve(),
+    close: () => listeners.clear(),
     send: (m) => {
       sent.push(m);
       [...listeners].forEach((cb) => cb(m));
@@ -1952,7 +2335,7 @@ export function memoryTransport(): LinkTransport & { sent: LinkMessage[]; listen
 import { describe, expect, test } from "bun:test";
 import { memoryTransport } from "../test/link";
 import { manualTimers } from "../test/timers";
-import { channelTransport, insertWithAck, onlyFor, parseLink, type LinkMessage } from "./link";
+import { MAX_LINK_TEXT, channelTransport, insertWithAck, onlyFor, parseLink, type LinkMessage } from "./link";
 
 /** Une fenêtre principale qui accuse chaque `insert` de `tab` avec `ok`. */
 function answering(t: ReturnType<typeof memoryTransport>, tab: string, ok: boolean) {
@@ -1974,14 +2357,22 @@ describe("agent-link", () => {
     expect(await insertWithAck(t, "t-1", "texte", 3000, manualTimers())).toBe(false);
   });
 
-  test("insertWithAck sans réponse : false et insert-cancel à l'échéance", async () => {
+  test("insertWithAck sans réponse : false à l'échéance", async () => {
     const t = memoryTransport();
     const timers = manualTimers();
     const done = insertWithAck(t, "t-1", "texte", 3000, timers);
     timers.run();
     expect(await done).toBe(false);
-    const insert = t.sent.find((m) => m.kind === "insert");
-    expect(t.sent).toContainEqual({ to: "main", kind: "insert-cancel", tab: "t-1", id: (insert as { id: string }).id });
+  });
+
+  test("insertWithAck sans réponse : insert-cancel envoyé pour cet identifiant", async () => {
+    const t = memoryTransport();
+    const timers = manualTimers();
+    const done = insertWithAck(t, "t-1", "texte", 3000, timers);
+    timers.run();
+    await done;
+    const insert = t.sent.find((m) => m.kind === "insert") as { id: string };
+    expect(t.sent).toContainEqual({ to: "main", kind: "insert-cancel", tab: "t-1", id: insert.id });
   });
 
   test("insertWithAck ignore l'accusé d'un autre envoi", async () => {
@@ -2040,6 +2431,10 @@ describe("agent-link", () => {
     expect(got).toEqual([mine]);
   });
 
+  test("parseLink écarte un texte plus long que la limite", () => {
+    expect(parseLink({ to: "main", kind: "insert", tab: "t-1", id: "i-1", text: "a".repeat(MAX_LINK_TEXT + 1) })).toBeNull();
+  });
+
   test("parseLink écarte un message mal formé", () => {
     expect(parseLink({ to: "main", kind: "insert", tab: "t-1", text: 3 })).toBeNull();
   });
@@ -2049,17 +2444,30 @@ describe("agent-link", () => {
     expect(parseLink(m)).toEqual(m);
   });
 
-  test("channelTransport livre à la page elle-même", async () => {
+  test("channelTransport livre à la page elle-même", () => {
     const t = channelTransport();
     const got: LinkMessage[] = [];
     t.listen((m) => void got.push(m));
     t.send({ to: "main", kind: "hello", tab: "t-1" });
+    t.close();
+    expect(got).toEqual([{ to: "main", kind: "hello", tab: "t-1" }]);
+  });
+
+  test("channelTransport livre à une autre page du même navigateur", async () => {
+    const a = channelTransport();
+    const b = channelTransport();
+    const got: LinkMessage[] = [];
+    b.listen((m) => void got.push(m));
+    a.send({ to: "main", kind: "hello", tab: "t-1" });
+    for (let i = 0; i < 50 && got.length === 0; i++) await new Promise((r) => setTimeout(r, 5));
+    a.close();
+    b.close();
     expect(got).toEqual([{ to: "main", kind: "hello", tab: "t-1" }]);
   });
 });
 ```
 
-(happy-dom fournit `BroadcastChannel` ; sinon, `channelTransport` le teste avec `typeof BroadcastChannel` et le test reste valable, puisque la livraison locale ne dépend pas du canal.)
+(`link.test.ts` tourne sans happy-dom : c'est le `BroadcastChannel` de Bun, entre deux instances du même processus. Chaque test ferme ses transports, pour ne pas garder le lanceur en vie.)
 
 - [ ] **Step 3: Run to verify failure**
 
@@ -2077,22 +2485,27 @@ import { z } from "zod";
 import type { AgentUi } from "../api";
 import { inTauri, listenTauri } from "../api";
 import { REAL_TIMERS, type Timers } from "../debounce";
+import { randomId } from "../randomId";
 
 export const AGENT_LABEL = "agent";
+
 export const INSERT_ACK_MS = 3000;
 const EVENT = "agent-link";
 
 // … types de l'interface ci-dessus …
 
-const Ui = z.object({ slide: z.string().nullable(), element: z.string().nullable(), field: z.string().nullable(), editing: z.boolean(), widget: z.string().nullable() });
-const Context = z.object({ editing: z.boolean(), insertTo: z.string().nullable(), ui: Ui, staged: z.string().nullable(), keysOff: z.boolean() });
+// Bornes : un identifiant (onglet, envoi, élément) reste court ; un libellé, une ligne.
+const Id = z.string().max(64);
+const Label = z.string().max(256);
+const Ui = z.object({ slide: Id.nullable(), element: Id.nullable(), field: Label.nullable(), editing: z.boolean(), widget: Label.nullable() });
+const Context = z.object({ editing: z.boolean(), insertTo: Label.nullable(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean() });
 const Message = z.discriminatedUnion("kind", [
-  z.object({ to: z.literal("agent"), kind: z.literal("context"), tab: z.string(), context: Context }),
-  z.object({ to: z.literal("main"), kind: z.literal("hello"), tab: z.string() }),
-  z.object({ to: z.literal("main"), kind: z.literal("insert"), tab: z.string(), id: z.string(), text: z.string() }),
-  z.object({ to: z.literal("main"), kind: z.literal("insert-cancel"), tab: z.string(), id: z.string() }),
-  z.object({ to: z.literal("agent"), kind: z.literal("insert-ack"), tab: z.string(), id: z.string(), ok: z.boolean() }),
-  z.object({ to: z.literal("agent"), kind: z.literal("shortcut"), tab: z.string(), key: z.enum(["auto", "draft", "type"]) }),
+  z.object({ to: z.literal("agent"), kind: z.literal("context"), tab: Id, context: Context }),
+  z.object({ to: z.literal("main"), kind: z.literal("hello"), tab: Id }),
+  z.object({ to: z.literal("main"), kind: z.literal("insert"), tab: Id, id: Id, text: z.string().max(MAX_LINK_TEXT) }),
+  z.object({ to: z.literal("main"), kind: z.literal("insert-cancel"), tab: Id, id: Id }),
+  z.object({ to: z.literal("agent"), kind: z.literal("insert-ack"), tab: Id, id: Id, ok: z.boolean() }),
+  z.object({ to: z.literal("agent"), kind: z.literal("shortcut"), tab: Id, key: z.enum(["auto", "draft", "type"]) }),
 ]);
 
 export function parseLink(raw: unknown): LinkMessage | null {
@@ -2119,7 +2532,7 @@ export function tauriTransport(): LinkTransport {
   const out = fanOut();
   let resolveReady: () => void = () => {};
   const ready = new Promise<void>((r) => (resolveReady = r));
-  listenTauri(async () => {
+  const stopListening = listenTauri(async () => {
     const { listen } = await import("@tauri-apps/api/event");
     const stop = await listen(EVENT, (e) => out.deliver(e.payload));
     resolveReady();
@@ -2128,6 +2541,7 @@ export function tauriTransport(): LinkTransport {
   return {
     ready,
     listen: out.listen,
+    close: stopListening,
     send: (m) => void import("@tauri-apps/api/event").then(({ emit }) => emit(EVENT, m)).catch((e) => console.warn(EVENT, String(e))),
   };
 }
@@ -2139,6 +2553,7 @@ export function channelTransport(): LinkTransport {
   return {
     ready: Promise.resolve(),
     listen: out.listen,
+    close: () => channel?.close(),
     // Un BroadcastChannel ne se livre pas à lui-même : la page reçoit aussi, comme avec Tauri.
     send: (m) => {
       channel?.postMessage(m);
@@ -2159,10 +2574,11 @@ export function onlyFor(to: "agent" | "main", tab: string, cb: (m: LinkMessage) 
   };
 }
 
-const newId = () => `i-${Math.random().toString(36).slice(2)}`;
 
 export function insertWithAck(t: LinkTransport, tab: string, text: string, ms = INSERT_ACK_MS, timers: Timers = REAL_TIMERS): Promise<boolean> {
-  const id = newId();
+  // L'écoute de l'hôte est en place depuis le `hello` de la fenêtre (attendu sur `ready`) :
+  // un `insert` ne part qu'ensuite, sur un geste de l'utilisateur.
+  const id = randomId("i");
   return new Promise((resolve) => {
     let done = false;
     let handle: unknown = null;
@@ -2297,10 +2713,13 @@ Message : `fix(ui) : l'édition d'un texte continue quand la fenêtre perd le fo
 **Files:**
 - Create: `ui/src/agent/target.ts`, `ui/src/agent/target.test.ts`
 - Create: `ui/src/AgentWindow.tsx`, `ui/src/AgentWindow.render.test.tsx`
+- Create: `ui/src/useToast.tsx`, `ui/src/useToast.render.test.tsx`
 - Modify: `ui/src/main.tsx`
+- Modify: `ui/src/App.tsx` (le toast passe par `useToast`)
 - Modify: `ui/src/api.ts` (`WorkspaceView.agent_detached`, `WorkspaceRequest`, `workspace.detachAgent/attachAgent`)
+- Modify: `ui/src/agent/keys.ts` (`shortcutAction`) ; test `ui/src/agent/keys.test.ts`
 - Modify: `ui/src/Dictation.tsx` (`applyShortcut`, prop `remote`) ; test `ui/src/Dictation.render.test.tsx`
-- Modify: `ui/src/agent/AgentThread.tsx` (props `onDetach`, `onAttach`)
+- Modify: `ui/src/agent/AgentThread.tsx`, `ui/src/agent/AgentPanel.tsx` (props `onDetach`, `onAttach`)
 - Modify: `ui/src/icons.tsx` (`Icon.detach`, `Icon.attach`)
 - Modify: `ui/src/styles.css` (`.agent-window`)
 - Modify: `crates/oku-slides-i18n/src/locales/*/ui.ftl` (20 langues)
@@ -2308,13 +2727,23 @@ Message : `fix(ui) : l'édition d'un texte continue quand la fenêtre perd le fo
 **Interfaces:**
 - Consumes: tâches 3 (`follow`, `setDraft`), 5 (`AgentPanel` suiveur, `routeStaged`, `useSlideThumbs`, `deckVocabulary`), 6 (`useDraft`, `draftActions`), 7 (`link`).
 - Produces:
-  - `agentTarget(view: WorkspaceView): string | null` ; `isAgentWindow(): boolean`, synchrone, qui lit `window.__TAURI_INTERNALS__.metadata.currentWindow.label` dans Tauri et `?window=agent` ailleurs.
-  - `workspace.detachAgent()`, `workspace.attachAgent()` : `Promise<WorkspaceView>`.
-  - `Dictation` : `applyShortcut(key: "auto" | "draft" | "type")` interne, que partagent le clavier et `remote?: { seq: number; key: LinkShortcut }`. Un `seq` déjà vu au montage ne déclenche rien.
-  - `AgentThread` : `onDetach?: () => void` (`.agent-detach`), `onAttach?: () => void` (`.agent-attach`).
-  - `AgentWindowHost` (injectable) :
 
 ```ts
+// agent/target.ts
+/** L'onglet actif de la fenêtre au premier plan ; null si elle est inconnue. */
+export function agentTarget(view: WorkspaceView): string | null;
+/** Cette page est-elle la fenêtre de l'agent ? Synchrone : label Tauri, ou `?window=agent`. */
+export function isAgentWindow(): boolean;
+
+// agent/keys.ts
+/** Ce que fait ⌘D (`auto`) ou ⌘⇧D (`draft`) : dicter, ou arrêter un tour qui n'écoute pas. */
+export function shortcutAction(key: "auto" | "draft", s: { agentBusy: boolean; recording: boolean }): DictationMode | "agent-cancel";
+
+// useToast.tsx
+/** Un avis passager : texte, erreur ou non, effacé après un délai. */
+export function useToast(): { say: (text: string, error?: boolean) => void; node: ReactNode };
+
+// AgentWindow.tsx
 export interface AgentWindowHost {
   agent: AgentApi;
   api: TabApi;
@@ -2325,11 +2754,18 @@ export interface AgentWindowHost {
   onCloseRequested: (cb: () => void) => () => void;
   attach: () => Promise<unknown>;
 }
+export function AgentWindowView(props: { view: WorkspaceView | null }): JSX.Element;
+export function AgentWindowFor(props: { tab: string; transport: LinkTransport; host: AgentWindowHost }): JSX.Element;
+export default function AgentWindow(): JSX.Element;
 ```
 
-  - Clés Fluent : `ui-agent-detach`, `ui-agent-attach`, `ui-agent-window-empty`, `ui-agent-kept-in-draft`.
+- `workspace.detachAgent()`, `workspace.attachAgent()` : `Promise<WorkspaceView>`.
+- `Dictation` : prop `remote?: { seq: number; key: LinkShortcut }`. Un numéro plus grand que le dernier vu agit une fois ; celui présent au montage n'agit pas. Les numéros viennent d'un compteur du module `AgentWindow`, qui ne repart jamais à zéro, même à travers un changement d'onglet.
+- `AgentThread` et `AgentPanel` : `onDetach?: () => void` (`.agent-detach`) et `onAttach?: () => void` (`.agent-attach`).
+- Clés Fluent : `ui-agent-detach`, `ui-agent-attach`, `ui-agent-window-empty`, `ui-agent-kept-in-draft`.
+- Sous macOS, la fenêtre de l'agent pose la même barre de saisie que les fenêtres de l'espace de travail (`div.titlebar[data-tauri-drag-region]`, `Workspace.tsx:248`), dans tous ses états : sans elle, la fenêtre ne se déplace pas (barre de titre `Overlay`).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing pure tests**
 
 `target.test.ts` :
 
@@ -2357,27 +2793,182 @@ describe("agentTarget", () => {
 });
 ```
 
-`Dictation.render.test.tsx`, nouveaux tests. Reprendre le montage du fichier, ses faux `stt` compris, et lui passer `remote` :
+`keys.test.ts` :
 
-```tsx
-  test("Dictation remote type ouvre le brouillon une fois", async () => {
-    const m = await mountDictation({ remote: { seq: 1, key: "type" } });
-    expect(m.typed).toBe(1);
-  });
+```ts
+test("shortcutAction ⌘⇧D pendant un tour, sans écoute : arrête l'agent", () => {
+  expect(shortcutAction("draft", { agentBusy: true, recording: false })).toBe("agent-cancel");
+});
 
-  test("Dictation remote déjà vu au montage ne rejoue rien", async () => {
-    const m = await mountDictation({ remote: { seq: 1, key: "type" } });
-    await m.remount({ remote: { seq: 1, key: "type" } });
-    expect(m.typed).toBe(1);
-  });
+test("shortcutAction ⌘⇧D pendant une écoute : arrête l'écoute, jamais l'agent", () => {
+  expect(shortcutAction("draft", { agentBusy: true, recording: true })).toBe("draft");
+});
 
-  test("Dictation remote draft pendant un tour, sans écoute : arrête l'agent", async () => {
-    const m = await mountDictation({ agentBusy: true, remote: { seq: 1, key: "draft" } });
-    expect(m.cancels).toBe(1);
-  });
+test("shortcutAction ⌘D : dicte", () => {
+  expect(shortcutAction("auto", { agentBusy: true, recording: false })).toBe("auto");
+});
 ```
 
-`mountDictation` (dans ce fichier) rend `typed` (compte d'`onType`), `cancels` (compte d'`onAgentCancel`) et `remount(props)`. Si le fichier a déjà un utilitaire de montage, l'étendre plutôt que d'en écrire un second.
+Run: `cd ui && bun test src/agent/target.test.ts src/agent/keys.test.ts` → FAIL.
+
+- [ ] **Step 2: Implement the pure parts**
+
+`target.ts` :
+
+```ts
+// La fenêtre de l'agent : laquelle elle est, et quel onglet elle suit.
+
+import { inTauri, type WorkspaceView } from "../api";
+import { AGENT_LABEL } from "./link";
+
+export function agentTarget(view: WorkspaceView): string | null {
+  return view.windows.find((w) => w.label === view.focused)?.active ?? null;
+}
+
+export function isAgentWindow(): boolean {
+  if (!inTauri) return new URLSearchParams(window.location.search).get("window") === AGENT_LABEL;
+  const internals = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__;
+  return internals?.metadata?.currentWindow?.label === AGENT_LABEL;
+}
+```
+
+`keys.ts` : la règle de ⌘⇧D, aujourd'hui à la fin de `dictationShortcut`, devient une fonction, que `dictationShortcut` appelle :
+
+```ts
+export function shortcutAction(key: "auto" | "draft", { agentBusy, recording }: { agentBusy: boolean; recording: boolean }): DictationMode | "agent-cancel" {
+  return key === "draft" && agentBusy && !recording ? "agent-cancel" : key;
+}
+```
+
+et, dans `dictationShortcut`, `if (!e.shiftKey) return "auto"; return agentBusy && !recording ? "agent-cancel" : "draft";` devient `return shortcutAction(e.shiftKey ? "draft" : "auto", { agentBusy, recording });`.
+
+`api.ts` : `WorkspaceView` gagne `agent_detached: boolean` ; `WorkspaceRequest` gagne `| { cmd: "detach_agent" } | { cmd: "attach_agent" }` ; `workspace` gagne :
+
+```ts
+  /** L'agent passe dans sa propre fenêtre. */
+  detachAgent: () => ws<WorkspaceView>({ cmd: "detach_agent" }),
+  /** L'agent revient dans la colonne de droite. */
+  attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
+```
+
+`main.tsx` : `const agentWindow = isAgentWindow();` avant `createRoot` ; `render` monte `agentWindow ? <AgentWindow key={generation++} /> : <Workspace key={generation++} />`. Aucun `await`.
+
+Run: `cd ui && bun test src/agent/target.test.ts src/agent/keys.test.ts && bun run typecheck` → PASS.
+
+- [ ] **Step 3: `useToast`, the failing test, then the hook**
+
+`useToast.render.test.tsx` (montage comme les autres tests de rendu, minuteries de `test/timers.ts` injectées) :
+
+```tsx
+test("useToast say affiche le texte", async () => {
+  const m = await mountToast();
+  await act(async () => m.toast().say("enregistré"));
+  expect(m.host.querySelector(".toast")?.textContent).toBe("enregistré");
+});
+
+test("useToast une erreur s'annonce comme alerte", async () => {
+  const m = await mountToast();
+  await act(async () => m.toast().say("refusé", true));
+  expect(m.host.querySelector(".toast.error")?.getAttribute("role")).toBe("alert");
+});
+
+test("useToast l'avis s'efface après son délai", async () => {
+  const m = await mountToast();
+  await act(async () => m.toast().say("enregistré"));
+  await act(async () => m.timers.run());
+  expect(m.host.querySelector(".toast")).toBeNull();
+});
+```
+
+(`mountToast()` monte un composant qui rend `useToast(timers).node` et expose le hook.)
+
+`useToast.tsx` reprend `App.tsx:89-101` et le rendu du toast d'`App` :
+
+```tsx
+// Un avis passager en bas de l'écran : partagé par `App` et la fenêtre de l'agent.
+
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { REAL_TIMERS, type Timers } from "./debounce";
+
+/** Durée d'un avis, et d'une erreur (plus longue à lire). */
+const SHOW_MS = 2500;
+const ERROR_MS = 6000;
+
+export function useToast(timers: Timers = REAL_TIMERS): { say: (text: string, error?: boolean) => void; node: ReactNode } {
+  const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
+  const handle = useRef<unknown>(null);
+  useEffect(() => () => void (handle.current !== null && timers.clear(handle.current)), [timers]);
+  const say = useCallback(
+    (text: string, error = false) => {
+      setToast({ text, error });
+      handle.current = timers.set(() => setToast((cur) => (cur?.text === text ? null : cur)), error ? ERROR_MS : SHOW_MS);
+    },
+    [timers],
+  );
+  const node = toast ? <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div> : null;
+  return { say, node };
+}
+```
+
+`App.tsx` : `const { say, node: toastNode } = useToast();` remplace l'état `toast` et `say`. `{toastNode}` remplace le rendu du toast, au même endroit. `say` garde la même signature pour tous ses appelants.
+
+- [ ] **Step 4: `Dictation` remote — failing tests, then implementation**
+
+`Dictation.render.test.tsx` : l'utilitaire existant `mount(agentBusy = false, vocabulary = [])` gagne un troisième paramètre, `remote?: { seq: number; key: LinkShortcut }`, passé à `Dictation`. Il rend en plus `rerenderRemote(remote)`, qui rend à nouveau le même composant avec ce `remote`, et `remount(remote)`, qui démonte puis remonte un composant neuf avec ce `remote`. Ses rendus `typed()` et `cancels()` ne changent pas.
+
+```tsx
+test("Dictation remote type ouvre le brouillon une fois", async () => {
+  const m = await mount();
+  await m.rerenderRemote({ seq: 1, key: "type" });
+  expect(m.typed()).toBe(1);
+});
+
+test("Dictation remote même numéro au rendu suivant : rien de plus", async () => {
+  const m = await mount();
+  await m.rerenderRemote({ seq: 1, key: "type" });
+  await m.rerenderRemote({ seq: 1, key: "type" });
+  expect(m.typed()).toBe(1);
+});
+
+test("Dictation remote présent au montage : rien", async () => {
+  const m = await mount(false, [], { seq: 3, key: "type" });
+  expect(m.typed()).toBe(0);
+});
+
+test("Dictation remote draft pendant un tour, sans écoute : arrête l'agent", async () => {
+  const m = await mount(true);
+  await m.rerenderRemote({ seq: 1, key: "draft" });
+  expect(m.cancels()).toBe(1);
+});
+```
+
+Dans `Dictation.tsx`, après `keys` (`Dictation.tsx:137`) :
+
+```tsx
+  /** Ce que fait un raccourci de dictée, au clavier ou relayé par la fenêtre principale. */
+  const applyShortcut = (key: LinkShortcut) => {
+    const { status: now, agentBusy: busy, toggle: switchMode } = keys.current;
+    if (key === "type") return handlers.current.onType();
+    const action = shortcutAction(key, { agentBusy: busy, recording: now?.state === "recording" });
+    if (action === "agent-cancel") handlers.current.onAgentCancel();
+    else switchMode(action);
+  };
+
+  // Un raccourci relayé (agent détaché) : chaque numéro neuf agit une fois ; celui présent au montage, jamais.
+  const seen = useRef(remote?.seq ?? 0);
+  useEffect(() => {
+    if (!remote || remote.seq <= seen.current) return;
+    seen.current = remote.seq;
+    // `applyShortcut` ne lit que des refs (`keys`, `handlers`) : sa version courante suffit.
+    applyShortcut(remote.key);
+  }, [remote?.seq]);
+```
+
+`onKey` passe par la même décision : `typingShortcut(e)` → `applyShortcut("type")` ; sinon, si `dictationShortcut(e, …)` n'est pas nul, `applyShortcut(e.shiftKey ? "draft" : "auto")`. Échap, `preventDefault` et `stopPropagation` ne changent pas.
+
+Run: `cd ui && bun test .render. -t "Dictation"` → PASS.
+
+- [ ] **Step 5: Write the failing `AgentWindow` tests**
 
 `AgentWindow.render.test.tsx` :
 
@@ -2385,7 +2976,10 @@ describe("agentTarget", () => {
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import { memoryTransport } from "./test/link";
+import type { Snapshot, Surface } from "./api";
 import type { HostHandlers } from "./agent/events";
+import type { LinkContext } from "./agent/link";
+import type { AgentWindowHost } from "./AgentWindow";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -2397,9 +2991,13 @@ afterEach(async () => {
   cleanup = null;
 });
 
-const SNAP = { title: "Deck", slides: [], read_only: false } as never;
+const SNAP = { title: "Deck", slides: [], read_only: false } as unknown as Snapshot;
+const READ_ONLY = { title: "Aide", slides: [], read_only: true } as unknown as Snapshot;
+const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
+const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, insertTo: "titre", ui: UI, staged: null, keysOff: false, ...over });
+const sheetOn = (id: string): Surface => ({ id, place: "sheet", live: true, question: false, anchor: { slide: "s1", owner: "e1" }, messages: [] });
 
-function fakeHost(over: { snapshot?: unknown } = {}) {
+function fakeHost(snapshot: Snapshot = SNAP) {
   const calls: string[] = [];
   let handlers: HostHandlers | null = null;
   let closing: () => void = () => {};
@@ -2413,56 +3011,76 @@ function fakeHost(over: { snapshot?: unknown } = {}) {
       newConversation: async () => {},
       surfaceAction: async () => {},
     },
-    api: { snapshot: async () => over.snapshot ?? SNAP, svg: async () => "" },
+    api: { snapshot: async () => snapshot, svg: async () => "<svg/>" },
     subscribe: (_tab: string, h: HostHandlers) => ((handlers = h), () => {}),
     focusSelf: () => void calls.push("focus"),
     onCloseRequested: (cb: () => void) => ((closing = cb), () => {}),
     attach: async () => void calls.push("attach"),
-  };
-  return { host, calls, handlers: () => handlers!, close: () => closing() };
+  } satisfies Partial<Record<keyof AgentWindowHost, unknown>>;
+  return { host: host as unknown as AgentWindowHost, calls, handlers: () => handlers!, close: () => closing() };
 }
 
-async function mountWindow(tab = "t-1", over = {}) {
+async function mountWindow(snapshot?: Snapshot) {
   const transport = memoryTransport();
-  const h = fakeHost(over);
+  const h = fakeHost(snapshot);
   const el = document.createElement("div");
   const root = createRoot(el);
-  await act(async () => root.render(createElement(AgentWindowFor, { tab, transport, host: h.host as never })));
+  await act(async () => root.render(createElement(AgentWindowFor, { tab: "t-1", transport, host: h.host })));
   cleanup = async () => act(async () => root.unmount());
-  return { ...h, transport, el };
+  const ready = () => act(async () => h.handlers().onReady?.());
+  const send = (m: Parameters<typeof transport.send>[0]) => act(async () => transport.send(m));
+  return { ...h, transport, el, ready, send };
 }
 
 describe("AgentWindow", () => {
-  test("AgentWindow abonnée : demande follow, jamais resync", async () => {
+  test("AgentWindow abonnée : demande follow", async () => {
     const m = await mountWindow();
-    await act(async () => m.handlers().onReady?.());
-    expect(m.calls.filter((c) => c === "follow" || c === "resync")).toEqual(["follow"]);
+    await m.ready();
+    expect(m.calls.filter((c) => c === "follow")).toHaveLength(1);
   });
 
-  test("AgentWindow dit hello une fois son écoute du canal en place", async () => {
+  test("AgentWindow abonnée : ne demande jamais resync", async () => {
     const m = await mountWindow();
-    expect(m.transport.sent).toContainEqual({ to: "main", kind: "hello", tab: "t-1" });
+    await m.ready();
+    expect(m.calls).not.toContain("resync");
   });
 
-  test("AgentWindow ignore le contexte d'un autre onglet", async () => {
+  test("AgentWindow dit hello une seule fois, écoute du canal en place", async () => {
     const m = await mountWindow();
-    const ctx = { editing: true, insertTo: "ailleurs", ui: { slide: null, element: null, field: null, editing: true, widget: null }, staged: null, keysOff: false };
-    await act(async () => m.transport.send({ to: "agent", kind: "context", tab: "t-2", context: ctx }));
-    expect(m.el.querySelector(".draft-insert-to")?.textContent ?? "").not.toContain("ailleurs");
+    expect(m.transport.sent.filter((x) => x.kind === "hello")).toEqual([{ to: "main", kind: "hello", tab: "t-1" }]);
+    expect(m.transport.listeners()).toBeGreaterThan(0);
   });
 
-  test("AgentWindow une fiche posée sur la scène n'est pas rendue dans le fil", async () => {
+  test("AgentWindow le contexte de son onglet donne la cible d'insertion", async () => {
     const m = await mountWindow();
-    const ctx = { editing: false, insertTo: null, ui: { slide: "s1", element: null, field: null, editing: false, widget: null }, staged: "sheet-1", keysOff: false };
-    await act(async () => m.transport.send({ to: "agent", kind: "context", tab: "t-1", context: ctx }));
-    const sheet = { id: "sheet-1", place: "sheet", live: true, question: false, anchor: { slide: "s1", owner: "e1" }, messages: [] };
-    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheet as never] }));
-    expect(m.el.querySelector('[data-surface="sheet-1"]')).toBeNull();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
+    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
+  });
+
+  test("AgentWindow le contexte d'un autre onglet est ignoré", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
+    await m.send({ to: "agent", kind: "context", tab: "t-2", context: ctx({ insertTo: "ailleurs" }) });
+    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
+  });
+
+  test("AgentWindow une fiche non posée sur la scène est rendue dans le fil", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheetOn("sheet-1")] }));
+    expect(m.el.querySelector('[data-surface-id="sheet-1"]')).not.toBeNull();
+  });
+
+  test("AgentWindow la fiche posée sur la scène n'est pas rendue dans le fil", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ staged: "sheet-1" }) });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheetOn("sheet-1")] }));
+    expect(m.el.querySelector('[data-surface-id="sheet-1"]')).toBeNull();
   });
 
   test("AgentWindow ⌘K relayé met la fenêtre devant", async () => {
     const m = await mountWindow();
-    await act(async () => m.transport.send({ to: "agent", kind: "shortcut", tab: "t-1", key: "type" }));
+    await m.send({ to: "agent", kind: "shortcut", tab: "t-1", key: "type" });
     expect(m.calls).toContain("focus");
   });
 
@@ -2473,9 +3091,15 @@ describe("AgentWindow", () => {
   });
 
   test("AgentWindow onglet en lecture seule : état vide", async () => {
-    const m = await mountWindow("t-1", { snapshot: { title: "Aide", slides: [], read_only: true } });
-    await act(async () => m.handlers().onReady?.());
+    const m = await mountWindow(READ_ONLY);
+    await m.ready();
     expect(m.el.querySelector(".agent-window-empty")).not.toBeNull();
+  });
+
+  test("AgentWindow onglet en lecture seule : la dictée reste", async () => {
+    const m = await mountWindow(READ_ONLY);
+    await m.ready();
+    expect(m.el.querySelector(".device")).not.toBeNull();
   });
 
   test("AgentWindowView sans vue reçue : chargement", async () => {
@@ -2497,100 +3121,66 @@ describe("AgentWindow", () => {
 });
 ```
 
-Le sélecteur `[data-surface="…"]` doit correspondre à l'attribut que `AgentSurfaceBox` / `SurfaceView` pose sur une surface rendue. S'il en pose un autre (`data-surface-id`, par exemple), utiliser celui-là. S'il n'en pose aucun, ajouter `data-surface={surface.id}` à la boîte de `AgentSurfaceBox` dans cette tâche.
+Les sélecteurs viennent du code actuel :
+- `data-surface-id` est posé par `AgentSurfaceBox.tsx:84` et `AgentThread.tsx:116/123` ;
+- `.draft-insert-to` vient de `DictationDraft.tsx:128` ;
+- `.device` est la classe racine de `Dictation` (`Dictation.tsx:179`).
 
-- [ ] **Step 2: Run to verify failure**
+Run: `cd ui && bun test .render. -t "AgentWindow|useToast"` → FAIL.
 
-Run: `cd ui && bun test src/agent/target.test.ts && bun test .render. -t "AgentWindow|Dictation remote"`
-Expected: FAIL.
+- [ ] **Step 6: Implement `AgentWindow.tsx`**
 
-- [ ] **Step 3: Implement `target.ts`, `api.ts`, `main.tsx`**
-
-```ts
-// La fenêtre de l'agent : laquelle elle est, et quel onglet elle suit.
-
-import { inTauri, type WorkspaceView } from "../api";
-import { AGENT_LABEL } from "./link";
-
-/** L'onglet actif de la fenêtre au premier plan ; null si elle est inconnue. */
-export function agentTarget(view: WorkspaceView): string | null {
-  return view.windows.find((w) => w.label === view.focused)?.active ?? null;
-}
-
-/** Cette page est-elle la fenêtre de l'agent ? Hors Tauri : `?window=agent` (e2e). */
-export function isAgentWindow(): boolean {
-  if (!inTauri) return new URLSearchParams(window.location.search).get("window") === AGENT_LABEL;
-  const internals = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__;
-  return internals?.metadata?.currentWindow?.label === AGENT_LABEL;
-}
-```
-
-Dans `api.ts` :
-- `WorkspaceView` gagne `agent_detached: boolean`, et `WorkspaceRequest` gagne `| { cmd: "detach_agent" } | { cmd: "attach_agent" }` ;
-- `workspace` gagne :
-
-```ts
-  /** L'agent passe dans sa propre fenêtre. */
-  detachAgent: () => ws<WorkspaceView>({ cmd: "detach_agent" }),
-  /** L'agent revient dans la colonne de droite. */
-  attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
-```
-
-`main.tsx` : `const agentWindow = isAgentWindow();` avant `createRoot`. `render` monte `agentWindow ? <AgentWindow key={generation++} /> : <Workspace key={generation++} />`. Aucun `await` : la détection est synchrone.
-
-- [ ] **Step 4: Implement `Dictation` remote**
-
-Dans `Dictation.tsx`, extraire du gestionnaire `onKey` la décision commune :
+Exporter trois composants. Un compteur de module numérote les raccourcis relayés :
 
 ```tsx
-  /** Ce que fait un raccourci de dictée, au clavier ou relayé par la fenêtre principale. */
-  const applyShortcut = (key: "auto" | "draft" | "type") => {
-    const { status: now, agentBusy: busy, toggle: switchMode } = keys.current;
-    if (key === "type") return handlers.current.onType();
-    if (key === "draft" && busy && now?.state !== "recording") return handlers.current.onAgentCancel();
-    switchMode(key);
-  };
+/** Numéro du prochain raccourci relayé : jamais remis à zéro, même quand l'onglet suivi change. */
+let remoteSeq = 0;
+const FOLLOW: ScopeSource = { kind: "follow" };
+const DOCK_ONLY: QuickTarget["kind"][] = ["dock"];
+const NO_UI: AgentUi = { slide: null, element: null, field: null, editing: false, widget: null };
+const NOOP = () => {};
+/** Délai avant de relire l'instantané quand le contexte change (vocabulaire, miniatures). */
+const REREAD_MS = 500;
+
+/** La barre de saisie de la fenêtre (macOS, barre de titre fondue) : sans elle, elle ne se déplace pas. */
+const TitleBar = () => (inTauri && isMac ? <div className="titlebar" data-tauri-drag-region /> : null);
 ```
-
-`onKey` appelle `applyShortcut("type")` pour `typingShortcut(e)`, et `applyShortcut(e.shiftKey ? "draft" : "auto")` quand `dictationShortcut(...)` n'est pas nul. Le reste ne change pas : Échap, `preventDefault`, `stopPropagation`. Puis :
-
-```tsx
-/** Dernier raccourci relayé joué, par onglet : un remontage ne le rejoue pas. */
-const lastRemoteSeq = new Map<string, number>();
-
-  // Un raccourci relayé (agent détaché) : chaque numéro neuf agit une fois, même à travers un remontage.
-  useEffect(() => {
-    if (!remote || remote.seq <= (lastRemoteSeq.get(tab) ?? 0)) return;
-    lastRemoteSeq.set(tab, remote.seq);
-    applyShortcut(remote.key);
-  }, [tab, remote?.seq]);
-```
-
-`Dictation` reçoit une nouvelle prop, `tab: string` ; `App` la lui passe sans `remote`. Comportement attendu :
-- « remote type ouvre le brouillon une fois » : `seq` 1 est plus grand que 0, donc l'action est jouée.
-- « déjà vu au montage » : au remontage, la `Map` vaut déjà 1 pour cet onglet, donc rien n'est rejoué.
-
-La `Map` survit d'un test à l'autre dans la même passe : chaque test utilise donc son propre onglet (`t-r1`, `t-r2`, `t-r3`).
-
-- [ ] **Step 5: Implement `AgentWindow.tsx`**
-
-Exporter trois composants.
 
 **`AgentWindowView({ view })`**
-- `view === null` : `<div className="agent-window agent-window-loading"><p>{t("ui-loading")}</p></div>`.
-- `agentTarget(view) === null` : `<div className="agent-window agent-window-empty"><p>{t("ui-agent-window-empty")}</p></div>`.
-- Sinon : `<AgentWindowFor key={tab} tab={tab} transport={linkTransport()} host={tauriHost(tab)} />`.
+- `view === null` : `<div className="agent-window agent-window-loading"><TitleBar /><p>{t("ui-loading")}</p></div>`.
+- `agentTarget(view) === null` : `<div className="agent-window agent-window-empty"><TitleBar /><p>{t("ui-agent-window-empty")}</p></div>`.
+- Sinon : `<TauriAgentWindow key={tab} tab={tab} />`.
+
+`TauriAgentWindow({ tab })` construit l'hôte **une fois par onglet**, pour qu'un évènement `workspace` ne réabonne pas le panneau :
+
+```tsx
+function TauriAgentWindow({ tab }: { tab: string }) {
+  const [host] = useState(() => tauriHost(tab));
+  return <AgentWindowFor tab={tab} transport={linkTransport()} host={host} />;
+}
+```
+
+`tauriHost(tab)` fournit :
+- `agent: agentApi(tab)`, `api: tabApi(tab)`, `subscribe: subscribeHost`, `attach: workspace.attachAgent` ;
+- `focusSelf` : `import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().setFocus())`, sans effet hors Tauri ;
+- `onCloseRequested` : écoute `close-requested` sur la fenêtre courante, comme `Workspace.tsx:163` (`getCurrentWebviewWindow().listen`), via `listenTauri`, qui rend de quoi arrêter. Sans effet hors Tauri.
 
 **`AgentWindowFor({ tab, transport, host })`** : la vue d'un onglet.
 
 État :
 - `[context, setContext] = useState<LinkContext | null>(null)` ;
 - `[snap, setSnap] = useState<Snapshot | null>(null)` ;
-- `[remote, setRemote] = useState<{ seq: number; key: LinkShortcut } | null>(null)` ;
+- `[remote, setRemote] = useState<{ seq: number; key: LinkShortcut } | undefined>()` ;
 - `[status, setStatus] = useState(IDLE_AGENT)` ;
 - `handle = useRef<AgentHandle>(null)` ;
-- `slots`, créés une fois par `createSlot()` et jamais affichés : fiches, tiroir et fenêtre restent dans la fenêtre principale ;
-- `toast` et `say`, comme dans `App.tsx`.
+- `[slots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }))`, jamais affichés : fiches, tiroir et fenêtre restent dans la fenêtre principale ;
+- `const { say, node: toastNode } = useToast()`.
+
+Brouillon et sorties :
+- `draft = useDraft(host.agent.setDraft)` ;
+- `insertOrKeep = async (text) => { const ok = await insertWithAck(transport, tab, text); if (!ok) say(t("ui-agent-kept-in-draft"), true); return ok; }` ;
+- `actions = draftActions({ draft, editing: context?.editing ?? false, insert: insertOrKeep, prompt: (text) => handle.current?.prompt(text) ?? Promise.resolve(false) })`. Un refus remet le texte au brouillon (`draftActions`).
+- `attach = () => void draft.flush().then(() => host.attach())` : la dernière frappe est chez l'hôte **avant** que la fenêtre se ferme.
 
 Effets :
 - **Canal**, effet `[tab, transport]` :
@@ -2601,34 +3191,52 @@ Effets :
       if (m.kind === "context") setContext(m.context);
       if (m.kind === "shortcut") {
         if (m.key === "type") host.focusSelf();
-        setRemote((r) => ({ seq: (r?.seq ?? 0) + 1, key: m.key }));
+        setRemote({ seq: ++remoteSeq, key: m.key });
       }
     }));
     void transport.ready.then(() => live && transport.send({ to: "main", kind: "hello", tab }));
-    return () => { live = false; stop(); };
+    return () => {
+      live = false;
+      stop();
+    };
 ```
 
-- **Fermeture système**, effet `[]` : `host.onCloseRequested(() => { draft.flush(); void host.attach(); })`.
-- **Instantané** : `reread = () => void host.api.snapshot().then(setSnap).catch((e) => say(String(e), true))`, appelé par `onChanged` du panneau. `onChanged` est déjà appelé à l'abonnement prêt.
+- **Fermeture système**, effet `[host]` : `return host.onCloseRequested(attach);`.
+- **Instantané** : `reread = useCallback(() => void host.api.snapshot().then(setSnap).catch((e) => say(String(e), true)), [host, say])`, appelé par `onChanged` du panneau (à l'abonnement prêt et après un outil de l'agent). Une modification faite dans la fenêtre principale n'émet pas `changed` : relire aussi, au plus une fois par `REREAD_MS`, quand le contexte change. Utiliser un `debounced(reread, REREAD_MS)` mémorisé, appelé dans un effet sur `JSON.stringify(context)`.
 
 Valeurs dérivées :
-- `draft = useDraft(host.agent.setDraft)` ;
-- `actions = draftActions({ draft, editing: context?.editing ?? false, insert: (text) => insertWithAck(transport, tab, text), prompt: (text) => handle.current?.prompt(text) ?? Promise.resolve(false) })`.
-- Le repli d'un `insert` refusé est fait par `draftActions` (texte remis au brouillon). Le toast `ui-agent-kept-in-draft` l'accompagne : passer `insert: async (text) => { const ok = await insertWithAck(transport, tab, text); if (!ok) say(t("ui-agent-kept-in-draft"), true); return ok; }`.
-- `thumbs = useSlideThumbs(host.api, snap?.slides)`, `vocabulary = useMemo(() => deckVocabulary(snap), [snap])` et `route = useCallback((list) => routeStaged(list, context?.staged ?? null), [context?.staged])`.
+- `thumbs = useSlideThumbs(host.api, snap?.slides)` ;
+- `vocabulary = useMemo(() => deckVocabulary(snap), [snap])` ;
+- `route = useCallback((list) => routeStaged(list, context?.staged ?? null), [context?.staged])`.
 
 Rendu :
 
 ```tsx
-    if (snap?.read_only) return <div className="agent-window agent-window-empty"><p>{t("ui-agent-window-empty")}</p></div>;
+    const dictation = (
+      <Dictation
+        destination={t(context?.editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft")}
+        vocabulary={vocabulary} onText={actions.onDictated} onError={(m) => say(m, true)}
+        agentBusy={status.busy} onAgentCancel={() => handle.current?.cancel()}
+        onType={draft.type} remote={remote}
+      />
+    );
+    if (snap?.read_only)
+      return (
+        <div className="agent-window agent-window-empty">
+          <TitleBar />
+          <p>{t("ui-agent-window-empty")}</p>
+          {dictation}
+          {toastNode}
+        </div>
+      );
     return (
       <div className="agent-window">
+        <TitleBar />
         <AgentPanel
           tab={tab} agent={host.agent} scope={FOLLOW} route={route} ui={context?.ui ?? NO_UI}
           keysOff={context?.keysOff ?? false} keyPlaces={DOCK_ONLY} thread thumbs={thumbs} slots={slots} handle={handle}
-          onHostAction={() => false} onStatus={setStatus} onChanged={reread} onFocus={() => {}} onWidgetTouched={() => {}}
-          onDraft={draft.onHost} say={say} subscribe={host.subscribe}
-          onAttach={() => { draft.flush(); void host.attach(); }}
+          onHostAction={() => false} onStatus={setStatus} onChanged={reread} onFocus={NOOP} onWidgetTouched={NOOP}
+          onDraft={draft.onHost} say={say} subscribe={host.subscribe} onAttach={attach}
         />
         <DictationDraft
           text={draft.state.text} dictations={draft.state.dictations} typing={draft.state.typing}
@@ -2639,32 +3247,15 @@ Rendu :
           onSend={(text) => void actions.sendDraft(text)}
           onDiscard={draft.close}
         />
-        <Dictation
-          tab={tab}
-          destination={t(context?.editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft")}
-          vocabulary={vocabulary} onText={actions.onDictated} onError={(m) => say(m, true)}
-          agentBusy={status.busy} onAgentCancel={() => handle.current?.cancel()}
-          onType={draft.type} remote={remote ?? undefined}
-        />
-        {toast && <div className={`toast${toast.error ? " error" : ""}`} role={toast.error ? "alert" : "status"}>{toast.text}</div>}
+        {dictation}
+        {toastNode}
       </div>
     );
 ```
 
-Constantes du module :
-- `const FOLLOW: ScopeSource = { kind: "follow" };`
-- `const DOCK_ONLY: QuickTarget["kind"][] = ["dock"];`
-- `const NO_UI: AgentUi = { slide: null, element: null, field: null, editing: false, widget: null };`
+En lecture seule, une dictée vers le curseur part à la fenêtre principale (`insert`), qui la refuse comme aujourd'hui (la session est en lecture seule). Tout autre texte va au brouillon, qui n'est pas affiché ici. L'envoi d'une consigne reste désactivé tant que la portée n'est pas annoncée : `status.ready` est faux, et `DictationDraft` grise « Envoyer » (t-211).
 
-`AgentPanel` gagne la prop optionnelle `onAttach`, transmise à `AgentThread`. Dans `App.tsx`, `onDetach` est passé de la même façon, à la tâche 10.
-
-**`default export AgentWindow()`**
-- Lit la vue : `workspace.view()` d'abord, puis l'évènement Tauri `workspace`, comme `Workspace.tsx` (avec `newest()`).
-- Rend `<AgentWindowView view={view} />`.
-- `tauriHost(tab)` construit l'hôte réel :
-  - `agent: agentApi(tab)`, `api: tabApi(tab)`, `subscribe: subscribeHost`, `attach: workspace.attachAgent` ;
-  - `focusSelf` : `import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().setFocus())`, ou rien hors Tauri ;
-  - `onCloseRequested` : écoute `close-requested`, comme `Workspace.tsx:163` (rien hors Tauri).
+**`default export AgentWindow()`** lit la vue : `workspace.view()`, puis l'évènement Tauri `workspace`, comme `Workspace.tsx:72-95` (avec `newest()`). Il rend `<AgentWindowView view={view} />`.
 
 **`AgentThread.tsx`**, dans l'en-tête, après « nouvelle conversation » :
 
@@ -2673,7 +3264,7 @@ Constantes du module :
           {onAttach && <button type="button" className="token ghost agent-attach" aria-label={t("ui-agent-attach")} title={t("ui-agent-attach")} onClick={onAttach}>{Icon.attach}</button>}
 ```
 
-`AgentPanel` transmet `onDetach` et `onAttach`, deux props optionnelles, à `AgentThread`.
+`AgentPanel` transmet ses props optionnelles `onDetach` et `onAttach` à `AgentThread`.
 
 **`icons.tsx`** (même `stroke` que `newChat`) :
 
@@ -2685,12 +3276,13 @@ Constantes du module :
 **`styles.css`**, à côté de `.notes`, avec les jetons de `.notes` et de `body` :
 
 ```css
-.agent-window { height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px; padding: var(--space-6); overflow-y: auto; }
+.agent-window { height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px; padding: 0 var(--space-6) var(--space-6); overflow-y: auto; }
+.agent-window > .titlebar { margin: 0 calc(-1 * var(--space-6)); }
 .agent-window .agent-thread { flex: 1; min-height: 0; }
 .agent-window-empty, .agent-window-loading { justify-content: center; align-items: center; }
 ```
 
-Fluent, `ui.ftl` des 20 langues. Seules fr et en sont données ici ; les autres sont à traduire :
+Fluent, `ui.ftl` des 20 langues (fr et en ci-dessous ; les autres traduites) :
 
 ```
 ui-agent-detach = Ouvrir l'agent dans une fenêtre séparée
@@ -2705,15 +3297,15 @@ ui-agent-window-empty = No agent for this tab
 ui-agent-kept-in-draft = Nowhere to write: text kept in the draft
 ```
 
-- [ ] **Step 6: Run checks**
+- [ ] **Step 7: Run checks**
 
-Run: `cd ui && bun run typecheck && bun run test`
-Expected: PASS, y compris `i18n-keys.test.ts` et les boutons à pictogramme seul (`expectIconOnly`).
+Run: `cd ui && bun run typecheck && bun run test && just e2e <port libre>`
+Expected: PASS, y compris `i18n-keys.test.ts` et les boutons à pictogramme seul (`expectIconOnly`). Le toast d'`App` est inchangé à l'écran.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add ui/src/agent/target.ts ui/src/agent/target.test.ts ui/src/AgentWindow.tsx ui/src/AgentWindow.render.test.tsx ui/src/main.tsx ui/src/api.ts ui/src/Dictation.tsx ui/src/Dictation.render.test.tsx ui/src/agent/AgentThread.tsx ui/src/agent/AgentPanel.tsx ui/src/agent/AgentSurfaceBox.tsx ui/src/icons.tsx ui/src/styles.css crates/oku-slides-i18n/src/locales
+git add ui/src/agent/target.ts ui/src/agent/target.test.ts ui/src/agent/keys.ts ui/src/agent/keys.test.ts ui/src/AgentWindow.tsx ui/src/AgentWindow.render.test.tsx ui/src/useToast.tsx ui/src/useToast.render.test.tsx ui/src/main.tsx ui/src/App.tsx ui/src/api.ts ui/src/Dictation.tsx ui/src/Dictation.render.test.tsx ui/src/agent/AgentThread.tsx ui/src/agent/AgentPanel.tsx ui/src/icons.tsx ui/src/styles.css crates/oku-slides-i18n/src/locales
 ```
 Message : `feat(ui) : fenêtre de l'agent — fil, brouillon et dictée de l'onglet au premier plan (t-654)`
 
@@ -2723,7 +3315,8 @@ Message : `feat(ui) : fenêtre de l'agent — fil, brouillon et dictée de l'ong
 
 **Files:**
 - Create: `ui/src/agent/useMainLink.ts`, `ui/src/agent/useMainLink.render.test.tsx`
-- Modify: `ui/src/App.tsx` (prop `agentDetached`, colonne, contexte, bouton ⧉)
+- Modify: `ui/src/App.tsx` (prop `agentDetached`, colonne, contexte, bouton ⧉, touches rapides sans le dock)
+- Modify: `ui/src/agent/AgentPanel.tsx` (`AgentStatusView.sheetId`, `IDLE_AGENT.sheetId: null`)
 - Modify: `ui/src/Workspace.tsx` (passe `agentDetached={view.agent_detached}` à `App`)
 - Modify: `ui/src/styles.css` (`.table.agent-detached`)
 
@@ -2841,13 +3434,22 @@ describe("useMainLink", () => {
     expect(m.transport.sent).toContainEqual({ to: "agent", kind: "shortcut", tab: "t-1", key: "draft" });
   });
 
-  test("useMainLink rattaché : hello, insert et ⌘K restent sans effet", async () => {
+  test("useMainLink rattaché : hello ne publie rien", async () => {
     const m = await mountLink({ detached: false });
     await act(async () => m.transport.send({ to: "main", kind: "hello", tab: "t-1" }));
-    await act(async () => m.transport.send({ to: "main", kind: "insert", tab: "t-1", id: "i-1", text: "x" }));
-    await press({ key: "k", code: "KeyK", metaKey: true });
-    expect(m.written).toEqual([]);
     expect(m.transport.sent.filter((x) => x.to === "agent")).toEqual([]);
+  });
+
+  test("useMainLink rattaché : insert n'écrit rien", async () => {
+    const m = await mountLink({ detached: false });
+    await act(async () => m.transport.send({ to: "main", kind: "insert", tab: "t-1", id: "i-1", text: "x" }));
+    expect(m.written).toEqual([]);
+  });
+
+  test("useMainLink rattaché : ⌘K n'est pas relayé", async () => {
+    const m = await mountLink({ detached: false });
+    await press({ key: "k", code: "KeyK", metaKey: true });
+    expect(m.transport.sent.filter((x) => x.kind === "shortcut")).toEqual([]);
   });
 
   test("useMainLink détaché puis rattaché : l'écoute est retirée", async () => {
@@ -2883,11 +3485,21 @@ export function useMainLink({ tab, detached, context, insert, transport }: MainL
   }, [detached, tab, contextKey, transport]);
   useEffect(() => {
     if (!detached) return;
-    const cancelled = new Set<string>();
+    // Insertions annulées par la fenêtre de l'agent avant d'arriver ici ; bornées : une annulation
+    // ne sert qu'à l'insertion qui la suit de près.
+    const cancelled: string[] = [];
     return transport.listen(onlyFor("main", tab, (m) => {
       if (m.kind === "hello") transport.send({ to: "agent", kind: "context", tab, context: latest.current.context });
-      if (m.kind === "insert-cancel") cancelled.add(m.id);
-      if (m.kind === "insert" && !cancelled.has(m.id)) {
+      if (m.kind === "insert-cancel") {
+        cancelled.push(m.id);
+        if (cancelled.length > 64) cancelled.shift();
+      }
+      if (m.kind === "insert") {
+        const at = cancelled.indexOf(m.id);
+        if (at >= 0) {
+          cancelled.splice(at, 1);
+          return;
+        }
         const ok = latest.current.insert(m.text);
         transport.send({ to: "agent", kind: "insert-ack", tab, id: m.id, ok });
       }
@@ -2919,10 +3531,11 @@ export function useMainLink({ tab, detached, context, insert, transport }: MainL
 - Prop `agentDetached?: boolean`, passée par `Workspace.tsx` (`agentDetached={view.agent_detached}` sur `<App … />`).
 - `const transport = useMemo(() => linkTransport(), []);`.
 - Contexte : `const linkContext = useMemo<LinkContext>(() => ({ editing: editing !== null, insertTo: dictation.insertTo, ui, staged: agentStatus.sheet ? stagedId : null, keysOff: !!editing || picking || widgetActive }), [...])`.
-- `stagedId` est l'identifiant de la fiche posée. `AgentStatusView` gagne `sheetId: string | null`, rempli par `AgentPanel` à côté de `sheet` (`sheet?.id ?? null`), et ajouté aux dépendances de son `useLayoutEffect`.
+- `stagedId` est l'identifiant de la fiche posée : `agentStatus.sheetId`. `AgentStatusView` gagne `sheetId: string | null`, rempli par `AgentPanel` à côté de `sheet` (`sheet?.id ?? null`) et ajouté aux dépendances de son `useLayoutEffect` ; `IDLE_AGENT` (`AgentPanel.tsx:52`) gagne `sheetId: null`.
 - `useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport })`.
 - Détaché :
-  - `AgentPanel` reste monté avec `thread={false}` : fiches, tiroir, fenêtre, touches rapides et portée restent ici ;
+  - `AgentPanel` reste monté avec `thread={false}` : fiches, tiroir, fenêtre, touches rapides et portée restent ici. Ses touches rapides ne visent plus le dock, invisible ici : `keyPlaces={agentDetached ? MAIN_PLACES : undefined}`, avec `const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];` au niveau du module ;
+
   - `DictationDraft` et `Dictation` ne sont pas montés.
 - Rattaché : `AgentPanel` reçoit `onDetach={inTauri ? () => void workspace.detachAgent() : undefined}`.
 - La classe de la grille : `table` plus ` agent-detached` quand `agentDetached && !themeActive`, ajoutée là où `App` compose déjà la classe de `.table`.
@@ -2969,12 +3582,14 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
+const INSERTED = 'inséré par la fenêtre agent';
 
-/** Le brouillon que tient l'hôte pour t-1, tel que le rejoue `follow`. */
-const hostDraft = async (p) => {
-  await post(p, '/api/agent', { cmd: 'follow', tab: 't-1' });
-  return p.evaluate(() => document.querySelector('.draft-note')?.textContent ?? null);
-};
+/** Le deck de t-1 contient-il `text` ? */
+const deckHas = (p, text) =>
+  p.evaluate(async (needle) => {
+    const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
+    return JSON.stringify(await r.json()).includes(needle);
+  }, text);
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -2992,13 +3607,12 @@ const hostDraft = async (p) => {
     // 1. La fenêtre principale n'a plus le fil.
     assert.equal(await main.locator('.agent-thread').count(), 0);
 
-    // 2. La fenêtre de l'agent l'a, avec sa dictée.
+    // 2. La fenêtre de l'agent l'a, avec sa dictée ; on part d'une conversation vide.
     const agent = await ctx.newPage();
     agent.on('pageerror', (e) => errors.push(e.message));
     await agent.goto(`${URL}?window=agent`);
     await agent.waitForSelector('.agent-window .agent-thread');
-    const fresh = agent.locator('.agent-new');
-    if (await fresh.count()) await fresh.click();
+    await agent.locator('.agent-new').click();
     await agent.waitForSelector('.agent-thread.vacant');
 
     // 3. Une consigne écrite dans le brouillon de la fenêtre de l'agent ouvre un tour.
@@ -3006,7 +3620,7 @@ const hostDraft = async (p) => {
     await agent.locator('.draft-text').fill('depuis la fenêtre agent');
     await agent.locator('.draft-send').click();
     await agent.locator('.agent-turn', { hasText: 'depuis la fenêtre agent' }).waitFor();
-    await agent.waitForFunction(() => !document.querySelector('.draft-text'));
+    await agent.waitForSelector('.draft-text', { state: 'detached' });
 
     // 4. ⌘K dans la fenêtre principale ouvre le brouillon de la fenêtre de l'agent.
     await main.bringToFront();
@@ -3019,21 +3633,25 @@ const hostDraft = async (p) => {
     await main.waitForSelector('.overlay .target');
     await main.locator('.overlay .target').first().click({ position: { x: 4, y: 4 } });
     await main.waitForSelector('.overlay .target.selected');
-    await agent.locator('.draft-text').fill('inséré par la fenêtre agent');
+    await agent.locator('.draft-text').fill(INSERTED);
     await agent.locator('.draft-insert').click();
-    await main.waitForFunction(async () => {
+    await main.waitForFunction(async (needle) => {
       const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
-      return JSON.stringify(await r.json()).includes('inséré par la fenêtre agent');
-    });
+      return JSON.stringify(await r.json()).includes(needle);
+    }, INSERTED);
+    // Annulé, pour les scripts suivants : le deck ne contient plus le texte.
+    await main.bringToFront();
     await main.keyboard.press('ControlOrMeta+z');
+    await main.waitForFunction(async (needle) => {
+      const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
+      return !JSON.stringify(await r.json()).includes(needle);
+    }, INSERTED);
+    assert.equal(await deckHas(main, INSERTED), false);
 
-    // 6. Le brouillon survit au rattachement : la colonne le retrouve.
+    // 6. Le brouillon survit au rattachement : « Rattacher » envoie la frappe en attente, puis rattache.
     await agent.keyboard.press('ControlOrMeta+k');
     await agent.locator('.draft-text').fill('brouillon gardé');
-    await agent.locator('.draft-text').blur();
-    await agent.waitForFunction(() => true); // la frappe part au plus tard à la fermeture (flush)
-    await post(main, '/api/workspace', { cmd: 'attach_agent' });
-    await agent.close(); // démontage : la frappe en attente part (useDraft)
+    await agent.locator('.agent-attach').click();
     await main.reload();
     await main.waitForSelector('.notes .agent-thread');
     await main.locator('.draft-note', { hasText: 'brouillon gardé' }).waitFor();
@@ -3053,9 +3671,7 @@ const hostDraft = async (p) => {
 });
 ```
 
-Supprimer `hostDraft` s'il n'est pas utilisé.
-
-L'étape 6 suppose que `agent.close()` démonte la page proprement : Playwright déclenche `pagehide` et React démonte, puis `useDraft` vide sa frappe en attente. Si la frappe n'arrive pas à l'hôte, remplacer `agent.close()` par un clic sur `.agent-attach` (`onAttach` appelle `draft.flush()`, puis `attach`). Dans ce cas, retirer l'appel `post(... attach_agent)` qui précède.
+`deckHas` sert à la dernière vérification de l'étape 5 ; les deux `waitForFunction` gardent leur requête en ligne, parce qu'une fonction passée à `waitForFunction` s'exécute dans la page et ne voit pas les fonctions de Node.
 
 - [ ] **Step 2: Run it**
 
@@ -3098,7 +3714,11 @@ Noter le résultat de chaque point :
 7. Déplacer la fenêtre de l'agent sur un second écran, quitter avec ⌘Q, relancer : elle revient détachée, au même endroit (t-672).
 8. Fermer la fenêtre de l'agent (bouton système) juste après une frappe : l'agent revient dans la colonne, avec la frappe dans le brouillon.
 9. Le menu Fenêtre › « Agent dans une fenêtre séparée » détache, puis rattache.
+10. Sous macOS, la fenêtre de l'agent se déplace par sa barre du haut (`.titlebar`) et se pose sur un second écran.
+11. Pendant un tour, avec l'agent détaché, une question du dock ne reçoit pas les touches 1–4 depuis la fenêtre principale ; elle les reçoit depuis la fenêtre de l'agent.
 
 - [ ] **Step 4: Clôture**
 
-Marquer t-654 et ses sous-tâches faites avec `oku cli task done`. Suivre les quatre tâches différées : t-669, t-670, t-671 et t-672.
+Marquer t-654 et ses sous-tâches faites avec `oku cli task done`. Suivre les tâches différées : t-669, t-670, t-671, t-672 et t-673.
+
+Le commit qui rassemble le travail sur `main` (squash) est un `feat!` : les types de l'IPC (`AgentEvent`, `AgentCommand`, `McpEvent`) et les props d'`AgentPanel` changent.
