@@ -63,6 +63,26 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.click('.thumb >> nth=3');
   await p.waitForSelector('.field[aria-label="Corps"]');
 
+  // 0. Sélectionner ne déplace pas la slide (la carte des paramètres change dessous) :
+  // sinon le 2e clic d'un double-clic tombe à côté du champ.
+  // Les flèches slide précédente / suivante restent à mi-hauteur de la slide.
+  const stageBox = () => p.locator('.stage').boundingBox();
+  const card = () => p.evaluate(() => [...document.querySelectorAll('.host-settings')].map((e) => e.innerText).join('\n'));
+  const navOffset = () => p.evaluate(() => {
+    const mid = (r) => (r.top + r.bottom) / 2;
+    return mid(document.querySelector('.slide-nav.next').getBoundingClientRect())
+      - mid(document.querySelector('.stage').getBoundingClientRect());
+  });
+  // La carte montre d'abord les paramètres de la slide (chargés après elle), puis ceux de l'élément
+  // sélectionné, d'une autre hauteur : la mise en page a changé dessous.
+  await until(card, (t) => t.includes('Paramètres de Contenu'), 'paramètres de la slide');
+  const still = await stageBox();
+  assert.ok(still, 'pas de slide');
+  await p.click('.field[aria-label="Corps"] >> nth=0');
+  await until(card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), 'paramètres de l\'élément');
+  assert.deepEqual(await stageBox(), still, 'la slide a bougé à la sélection');
+  assert.ok(Math.abs(await navOffset()) <= 1, 'flèches hors de la mi-hauteur de la slide');
+
   // 1. Géométrie héritée, markdown mis en forme pendant la saisie, première validation.
   await open(p, 'Corps');
   const fit = await p.evaluate(() => {

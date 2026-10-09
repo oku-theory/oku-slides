@@ -255,12 +255,23 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .slide-nav.previous { inset-inline-start: calc(-1 * (var(--space-2) + 24px)); }
 .slide-nav.next { inset-inline-end: calc(-1 * (var(--space-2) + 24px)); }
+/* À mi-hauteur de la slide, posée en haut de sa boîte (voir `.stage-box > .stage-wrap`) ; à défaut (pas
+   d'ancrage CSS, ou slide en cours de rendu, sans cadre), à mi-hauteur de la boîte. Même sélecteur que
+   la règle de base, pour passer devant son `top`. */
+@supports (anchor-name: --stage) {
+  .stage-box > .stage-wrap > .stage-frame { anchor-name: --stage; }
+  .token.ghost.slide-nav { position-anchor: --stage; top: anchor(center, 50%); }
+}
 .slide-nav:hover, .slide-nav:focus-visible { opacity: 1; }
 .slide-nav:disabled { visibility: hidden; }
 .slide-nav svg { width: 18px; height: 18px; }
 [dir="rtl"] .slide-nav svg { transform: scaleX(-1); }
 /* `min-width: 0` : sinon la scène déjà dessinée fixe la largeur mesurée, et déborde sur le fil. */
 .stage-wrap { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* La slide en haut de sa boîte : la carte des paramètres dessous peut grandir à la sélection sans la
+   déplacer (le 2e clic d'un double-clic retombe sur le même champ). La place libre d'une fenêtre haute
+   reste entre la slide et la carte. */
+.stage-box > .stage-wrap:not(.empty) { align-items: flex-start; }
 /* Même taille que la scène, sans la rogner : ce qui déborde (fiche de l'agent) s'y pose. */
 .stage-frame { position: relative; }
 .stage { position: relative; background: var(--t-bg); border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet); overflow: hidden; }

@@ -67,7 +67,7 @@ test("la feuille prend le plus de place possible dans sa zone", () => {
 });
 
 test("les boutons slide précédente / suivante restent discrets hors survol", () => {
-  expect(ruleOf(own("styles.css"), ".slide-nav")).toMatch(/opacity:\s*0\.35/);
+  expect(ruleOf(own("styles.css"), ".token.ghost.slide-nav")).toMatch(/opacity:\s*0\.35/);
   expect(ruleOf(own("styles.css"), ".slide-nav:disabled")).toMatch(/visibility:\s*hidden/);
 });
 

@@ -35,19 +35,26 @@ const state = (p) => p.evaluate(() => ({
   assert.equal((await state(p)).slides, before);
   // Plus de carte d'ajout ni de suppression dans le panneau.
   assert.equal(await p.locator('.notes .add-note').count(), 0);
-  // Fenêtre minimale (1024 px) : la barre reste sous la feuille, ses jetons ne s'écrasent pas.
+  // Fenêtre minimale (1024 px) : la barre reste sous la feuille, dans sa colonne, ses jetons ne s'écrasent pas.
+  // La colonne, marges comprises (où passent les flèches slide précédente / suivante) : à 1024 px, le fil
+  // (40 % de la table) ne laisse pas à la slide la largeur de la barre, qui la déborde, d'une marge au plus.
   await p.setViewportSize({ width: 1024, height: 640 });
   await p.waitForTimeout(300);
   const fit = await p.evaluate(() => {
     const tray = document.querySelector('.tools-tray').getBoundingClientRect();
     const stage = document.querySelector('.stage').getBoundingClientRect();
+    const column = document.querySelector('.sheet-area').getBoundingClientRect();
+    const gutter = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6'));
     return {
-      under: tray.top >= stage.bottom && tray.left >= stage.left && tray.right <= stage.right,
+      under: tray.top >= stage.bottom && tray.left >= column.left && tray.right <= column.right,
+      overhang: Math.max(stage.left - tray.left, tray.right - stage.right),
+      gutter,
       tokens: [...document.querySelectorAll('.tools-tray .token')].map((e) => e.getBoundingClientRect().width),
     };
   });
   assert.ok(fit.under, 'barre d\'outils hors de la colonne de la feuille');
-  assert.ok(fit.tokens.every((w) => w === 36), `jetons écrasés : ${fit.tokens}`);
+  assert.ok(fit.overhang <= fit.gutter, `barre plus large que la slide de ${fit.overhang} px (marge ${fit.gutter})`);
+  assert.ok(fit.tokens.length > 0 && fit.tokens.every((w) => w === 36), `jetons écrasés : ${fit.tokens}`);
   assert.deepEqual(errors, []);
   console.log('barre d\'outils ok');
   await b.close();
