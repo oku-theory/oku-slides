@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
 import type { PileSectionName, UiOrder, UiState } from "./api";
+import { REAL_TIMERS, type Timers } from "./debounce";
 import { t } from "./i18n";
 import { randomId } from "./randomId";
 import type { KeptTabs } from "./widgetTabs";
@@ -20,6 +21,25 @@ import type { KeptTabs } from "./widgetTabs";
 const page = randomId("page");
 let seq = 0;
 const nextOrder = (): UiOrder => ({ page, seq: ++seq });
+
+/** Délai avant de renvoyer une sauvegarde échouée, en ms : assez court pour que l'hôte ne garde pas
+ *  longtemps l'ancien état, assez long pour laisser passer un à-coup (requête perdue, réponse en erreur). */
+export const UI_RESEND_DELAY_MS = 300;
+
+/**
+ * Envoie `ui` ; à l'échec, le renvoie une fois après `UI_RESEND_DELAY_MS`, avec le même ordre (t-749) :
+ * l'hôte ignore un `seq` déjà vu, un envoi appliqué dont seule la réponse s'est perdue ne double donc rien.
+ * Pas de renvoi si une sauvegarde plus récente est partie entre-temps : elle porte un état plus neuf.
+ * Un renvoi échoué n'est pas renvoyé : la reprise est facultative, l'édition continue.
+ */
+function send(save: (ui: UiState, order: UiOrder) => Promise<unknown>, ui: UiState, timers: Timers) {
+  const order = nextOrder();
+  save(ui, order).catch(() => {
+    timers.set(() => {
+      if (seq === order.seq) save(ui, order).catch(() => {});
+    }, UI_RESEND_DELAY_MS);
+  });
+}
 
 /** Option d'affichage qu'une touche bascule : ⌘' la grille, ⌘⇧G les fantômes. */
 export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): "grid" | "ghosts" | null {
@@ -61,7 +81,7 @@ export interface KeptUi {
  * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
  * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, tout de suite, numérotés
  * (`UiOrder`) pour que l'hôte garde la dernière quel que soit l'ordre d'arrivée.
- * `tabs` : sous-onglets à garder avec le reste.
+ * `tabs` : sous-onglets à garder avec le reste. Une sauvegarde échouée est renvoyée une fois (`timers` : tests).
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
  */
@@ -70,6 +90,7 @@ export function useKeptUi(
   current: string | null,
   save: (ui: UiState, order: UiOrder) => Promise<unknown>,
   tabs: KeptTabs,
+  timers: Timers = REAL_TIMERS,
 ): KeptUi {
   const [grid, setGrid] = useState(true);
   const [ghosts, setGhosts] = useState(false);
@@ -93,10 +114,8 @@ export function useKeptUi(
 
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }, nextOrder()).catch(() => {
-      /* reprise facultative : l'édition continue */
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
+    send(save, { slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }, timers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
   }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.

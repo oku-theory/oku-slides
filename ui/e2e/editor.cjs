@@ -135,6 +135,9 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await steady('1024×640', true);
   // Largeur du fil par défaut (double-clic) : les scripts suivants partent de la mise en page d'origine.
   await p.dblclick('.col-divider[data-side="notes"]');
+  // Côté page d'abord, pour départager un échec : la largeur posée sur la table s'efface au double-clic.
+  // Échec ici : double-clic non traité ; ici ok mais l'hôte non : chemin de la sauvegarde.
+  await untilValue(p, () => p.evaluate(() => document.querySelector('.table').style.getPropertyValue('--notes-w')), (v) => v === '', 'fil remis par défaut (page)');
   await untilValue(p, async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes, (w) => w === null, 'largeur du fil par défaut');
   await p.setViewportSize({ width: 1440, height: 900 });
   await p.reload();

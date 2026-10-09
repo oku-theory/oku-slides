@@ -3,17 +3,13 @@
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { stageSvg } = require('./stage.cjs');
 const { untilValue } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const SURFACE = '#theme-panel [data-surface-id="host-theme"]';
 // La ligne d'un jeton : le composant qui la porte a pour id le chemin du jeton suivi de `:row`.
 const row = (token) => `${SURFACE} [data-component-id="${token}:row"]`;
 const RED = /#ff0000/i;
-// La scène visible (un sous-onglet de widget caché a la sienne).
-const stageSvg = (p) => p.evaluate(async () => {
-  const img = [...document.querySelectorAll('.stage img')].find((i) => i.checkVisibility());
-  return img ? (await fetch(img.src)).text() : '';
-});
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });

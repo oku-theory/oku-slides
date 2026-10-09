@@ -6,6 +6,8 @@
 // Lancer : just e2e. À la main : bun e2e/help.cjs, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { stageImage } = require('./stage.cjs');
+const { settled, untilValue } = require('./until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Délai du premier rendu de l'aide (deck entier), en ms.
 const FIRST_RENDER_MS = 120_000;
@@ -38,11 +40,15 @@ const FIRST_RENDER_MS = 120_000;
   await p.keyboard.press('ArrowRight');
   await p.keyboard.press('ArrowRight');
   await caption('Slide 4 sur');
-  await p.waitForSelector('.stage img');
-  // Le contenu du rendu (SVG), pas l'adresse de l'image : revenir sur la slide peut en créer une autre.
-  const svg = () => p.evaluate(async () => (await fetch(document.querySelector('.stage img').src)).text());
-  const before = await svg();
-  const box = await p.locator('.stage img').boundingBox();
+  // Le contenu du rendu (SVG) de l'image visible, pas l'adresse de l'image : revenir sur la slide peut
+  // en créer une autre. La légende peut devancer l'image : on attend que l'image visible soit celle de la
+  // slide 4 (`alt`), puis deux lectures identiques (son adresse peut encore suivre) (t-750).
+  const slide4 = (v) => v.alt === 'Slide 4' && v.svg !== '';
+  await untilValue(p, () => stageImage(p), slide4, 'image de la slide 4');
+  const shown = await settled(p, () => stageImage(p), 'rendu de la slide 4 stable');
+  assert.ok(slide4(shown), `image de la slide 4 après stabilité : ${shown.alt}`);
+  const before = shown.svg;
+  const box = await p.locator('.stage img').filter({ visible: true }).boundingBox();
   await p.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
   await p.keyboard.press('Delete');
   await p.keyboard.press(`${mod}+z`);
@@ -54,8 +60,8 @@ const FIRST_RENDER_MS = 120_000;
   await caption('Slide 5 sur');
   await p.keyboard.press('ArrowLeft');
   await caption('Slide 4 sur');
-  await p.waitForSelector('.stage img');
-  assert.equal(await svg(), before, 'la slide de l\'aide a changé');
+  // Une édition fautive persiste : le rendu ne revient jamais à celui d'avant, pas de faux vert.
+  await untilValue(p, () => stageImage(p), (v) => v.alt === 'Slide 4' && v.svg === before, 'la slide de l\'aide a changé');
 
   // Recherche : ⌘F, un mot, Entrée montre la slide trouvée.
   await p.keyboard.press(`${mod}+f`);

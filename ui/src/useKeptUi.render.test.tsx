@@ -3,11 +3,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { UiOrder, UiState } from "./api";
+import type { Timers } from "./debounce";
+import { manualTimers } from "./test/timers";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { useKeptUi, viewToggle } = await import("./useKeptUi");
+const { UI_RESEND_DELAY_MS, useKeptUi, viewToggle } = await import("./useKeptUi");
 
 type Hook = ReturnType<typeof useKeptUi>;
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -27,7 +29,7 @@ const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
-async function mount(first: UiState | null = kept, answer: () => Promise<unknown> = async () => {}) {
+async function mount(first: UiState | null = kept, answer: () => Promise<unknown> = async () => {}, timers?: Timers) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -41,7 +43,7 @@ async function mount(first: UiState | null = kept, answer: () => Promise<unknown
     return answer();
   };
   function Probe({ ui, current, tabs }: { ui: UiState | null; current: string; tabs: Tabs }) {
-    out.hook = useKeptUi(ui, current, save, tabs);
+    out.hook = useKeptUi(ui, current, save, tabs, timers);
     return null;
   }
   const render = (ui: UiState | null, current = "s1", tabs: Tabs = { widgets: [], widget: null }) =>
@@ -245,6 +247,45 @@ test("useKeptUi après une sauvegarde refusée envoie encore la suivante", async
   await act(async () => { out.hook!.setCodeWidth(320); });
   await settle(0, false);
   expect(out.kept.at(-1)).toMatchObject({ code_width: 320 });
+});
+
+// Une sauvegarde perdue (requête échouée) laissait à l'hôte l'ancien état jusqu'au changement suivant (t-749).
+test("useKeptUi renvoie une sauvegarde refusée une fois, après un délai, avec le même ordre", async () => {
+  const { answer, settle } = held();
+  const timers = manualTimers();
+  const { out } = await mount(kept, answer, timers);
+  await act(async () => { out.hook!.setColumns({ pile: 200, notes: null }); });
+  await settle(1, false);
+  expect(out.kept.length).toBe(2);
+  await act(async () => timers.run());
+  expect(out.kept.length).toBe(3);
+  expect([out.kept[2], out.orders[2]]).toEqual([out.kept[1], out.orders[1]]);
+  expect(timers.delays).toEqual([UI_RESEND_DELAY_MS]);
+});
+
+test("useKeptUi ne renvoie pas une sauvegarde refusée si une plus récente est partie", async () => {
+  const { answer, settle } = held();
+  const timers = manualTimers();
+  const { out } = await mount(kept, answer, timers);
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  await settle(1, false);
+  await act(async () => { out.hook!.setCodeWidth(480); });
+  await act(async () => timers.run());
+  expect(out.kept.length).toBe(3);
+  expect(out.kept.at(-1)).toMatchObject({ code_width: 480 });
+});
+
+test("useKeptUi ne renvoie qu'une fois une sauvegarde dont le renvoi échoue aussi", async () => {
+  const { answer, settle } = held();
+  const timers = manualTimers();
+  const { out } = await mount(kept, answer, timers);
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  await settle(1, false);
+  await act(async () => timers.run());
+  expect(out.kept.length).toBe(3);
+  await settle(2, false);
+  await act(async () => timers.run());
+  expect([out.kept.length, timers.delays.length]).toEqual([3, 1]);
 });
 
 test("useKeptUi handleKey leaves other keys alone", async () => {
