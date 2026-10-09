@@ -64,6 +64,7 @@ issue-unsupported-link = رابط غير مدعوم: { $link }
 issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
 issue-unreadable-element = عنصر غير مقروء، نُحّي جانبًا
 issue-unreadable-item = بند قائمة غير مقروء، نُحّي جانبًا
+issue-unreadable-row = صف جدول غير مقروء، نُحّي جانبًا
 issue-data-truncated = بيانات كبيرة جدًا، اقتُطعت عند القراءة
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه

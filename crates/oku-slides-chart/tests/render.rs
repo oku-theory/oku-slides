@@ -332,3 +332,65 @@ fn render_text_categories_that_look_like_numbers_stay_as_typed() {
     assert_that!(svg.as_str()).does_not_contain("75\u{202F}001");
     assert_that!(svg.as_str()).contains("12\u{202F}345");
 }
+
+fn render_fr(option: serde_json::Value) -> String {
+    let option = parse_option(&option).unwrap_or_else(|e| panic!("{e}"));
+    let renderer = ChartsRsRenderer { numbers: NumberFormat::for_lang(Some("fr")), ..ChartsRsRenderer::default() };
+    renderer.render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
+}
+
+#[test]
+fn render_pie_labels_localize_their_value() {
+    let svg = render_fr(json!({
+        "dataset": { "source": [["Nom", "Ventes"], ["A", 12345.5], ["B", 20000]] },
+        "series": [{ "type": "pie", "label": { "show": true } }]
+    }));
+    // Étiquette « {a}: {d} » de charts-rs : nom et pourcentage.
+    assert_that!(svg.as_str()).contains(">\nA: 38,2%\n<");
+    assert_that!(svg.as_str()).contains(">\nB: 61,8%\n<");
+}
+
+#[test]
+fn render_negative_value_labels_use_the_minus_sign() {
+    let svg = render_fr(json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", -12345.5], ["Fév", 3]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    }));
+    assert_that!(svg.as_str()).contains("\u{2212}12\u{202F}345,5");
+}
+
+#[test]
+fn render_values_equal_to_a_row_id_are_still_localized() {
+    let svg = render_fr(json!({
+        "dataset": {
+            "source": [["Mois", "Ventes"], ["Jan", 12345678]],
+            "ids": ["00000000", "12345678"],
+            "columns": ["87654321", "11223344"]
+        },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    }));
+    assert_that!(svg.as_str()).contains("12\u{202F}345\u{202F}678");
+}
+
+#[test]
+fn render_without_language_uses_the_minus_sign_without_groups() {
+    let renderer = ChartsRsRenderer::default();
+    let draw = |v: serde_json::Value| {
+        let option = parse_option(&v).unwrap_or_else(|e| panic!("{e}"));
+        renderer.render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
+    };
+    let bars = draw(json!({
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", -12345.5], ["Fév", 3]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar", "label": { "show": true } }]
+    }));
+    assert_that!(bars.as_str()).contains(">\n\u{2212}12345.5\n<");
+    assert_that!(bars.as_str()).does_not_contain(">\n-12345.5\n<");
+    let pie = draw(json!({
+        "dataset": { "source": [["Nom", "Ventes"], ["A", 12345.5], ["B", 20000]] },
+        "series": [{ "type": "pie", "label": { "show": true } }]
+    }));
+    assert_that!(pie.as_str()).contains(">\nA: 38.2%\n<");
+}

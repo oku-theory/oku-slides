@@ -3,7 +3,8 @@
 //!
 //! Séparateur décimal et séparateur des milliers, posés seulement à partir
 //! de 10 000 (règle typographique française, appliquée à toutes les langues).
-//! Langue inconnue ou absente : point décimal, pas de groupes.
+//! Négatifs : signe moins typographique « − » (U+2212) dans toutes les
+//! langues, comme Typst. Langue inconnue ou absente : point décimal, pas de groupes.
 //! Miroir Typst : `typst/oku-slides/src/numbers.typ` ; interface :
 //! `ui/src/table/numbers.ts`.
 
@@ -20,6 +21,12 @@ const NBSP: char = '\u{00A0}';
 
 /// Partie entière à partir de laquelle les milliers sont groupés.
 const GROUP_FROM_DIGITS: usize = 5;
+
+/// Signe moins typographique, celui que Typst écrit.
+const MINUS: char = '\u{2212}';
+
+/// Séparateur entre le nom et la valeur d'une étiquette (« {a}: {d} » des secteurs).
+const NAME_VALUE: &str = ": ";
 
 /// Unités qu'un moteur accole à un nombre (graduations « 22.2k », « 40% »).
 const UNITS: [char; 5] = ['k', 'M', 'G', 'T', '%'];
@@ -61,7 +68,7 @@ impl NumberFormat {
     /// Réécrit un nombre écrit sans langue (`-12345.5`, `22.2k`) ; `None` si
     /// `plain` n'en est pas un.
     pub fn localize(&self, plain: &str) -> Option<String> {
-        let (sign, rest) = plain.strip_prefix('-').map_or(("", plain), |r| ("-", r));
+        let (sign, rest) = plain.strip_prefix('-').map_or((None, plain), |r| (Some(MINUS), r));
         let (number, unit) = match rest.strip_suffix(UNITS) {
             Some(n) => (n, &rest[n.len()..]),
             None => (rest, ""),
@@ -72,7 +79,7 @@ impl NumberFormat {
             return None;
         }
         let mut out = String::with_capacity(plain.len() + int.len() / 3 * 3);
-        out.push_str(sign);
+        out.extend(sign);
         match self.group {
             Some(g) if int.len() >= GROUP_FROM_DIGITS => {
                 for (i, c) in int.chars().enumerate() {
@@ -92,13 +99,22 @@ impl NumberFormat {
         Some(out)
     }
 
-    /// Réécrit les textes d'un SVG qui ne sont qu'un nombre (étiquettes de
-    /// valeurs, graduations, catégories numériques) ; le reste est inchangé,
-    /// comme les textes de `keep` (saisis en texte : « 75001 » reste tel quel).
-    pub fn localize_svg(&self, svg: &str, keep: &HashSet<String>) -> String {
-        if *self == Self::default() {
-            return svg.to_owned();
+    /// Un texte qui est un nombre, ou une étiquette « nom: nombre » dont seule
+    /// la valeur est réécrite ; `None` sinon.
+    fn localize_text(&self, text: &str) -> Option<String> {
+        if let Some(local) = self.localize(text) {
+            return Some(local);
         }
+        let (name, value) = text.rsplit_once(NAME_VALUE)?;
+        self.localize(value).map(|local| format!("{name}{NAME_VALUE}{local}"))
+    }
+
+    /// Réécrit les textes d'un SVG qui ne sont qu'un nombre (étiquettes de
+    /// valeurs, graduations, catégories numériques) ou finissent par « : nombre »
+    /// (secteurs) ; le reste est inchangé, comme les textes de `keep` (saisis
+    /// en texte : « 75001 » reste tel quel).
+    /// Sans langue, seul le signe des négatifs change.
+    pub fn localize_svg(&self, svg: &str, keep: &HashSet<String>) -> String {
         let mut out = String::with_capacity(svg.len() + svg.len() / 64);
         let mut rest = svg;
         while let Some(start) = find_text_open(rest) {
@@ -112,7 +128,7 @@ impl NumberFormat {
             out.push_str(&rest[..open_end]);
             let content = &rest[open_end..close];
             let trimmed = content.trim();
-            match self.localize(trimmed).filter(|_| !keep.contains(trimmed)) {
+            match self.localize_text(trimmed).filter(|_| !keep.contains(trimmed)) {
                 Some(local) => {
                     let lead = content.len() - content.trim_start().len();
                     out.push_str(&content[..lead]);
@@ -130,10 +146,12 @@ impl NumberFormat {
 
 /// Textes des options qui ressemblent à un nombre (catégories, noms,
 /// indicateurs saisis en texte) : [`NumberFormat::localize_svg`] les laisse tels quels.
+/// Les identifiants de lignes et de colonnes (`dataset.ids`, `dataset.columns`)
+/// n'en sont pas : ils ne s'affichent pas.
 pub(crate) fn numeric_texts(option: &ChartOption) -> HashSet<String> {
     fn visit(v: &Json, out: &mut HashSet<String>) {
         match v {
-            Json::String(s) if NumberFormat::default().localize(s.trim()).is_some() => {
+            Json::String(s) if NumberFormat::default().localize_text(s.trim()).is_some() => {
                 out.insert(s.trim().to_owned());
             }
             Json::Array(items) => items.iter().for_each(|i| visit(i, out)),
@@ -142,7 +160,11 @@ pub(crate) fn numeric_texts(option: &ChartOption) -> HashSet<String> {
         }
     }
     let mut out = HashSet::new();
-    if let Ok(v) = serde_json::to_value(option) {
+    if let Ok(mut v) = serde_json::to_value(option) {
+        if let Some(dataset) = v.get_mut("dataset").and_then(Json::as_object_mut) {
+            dataset.remove("ids");
+            dataset.remove("columns");
+        }
         visit(&v, &mut out);
     }
     out

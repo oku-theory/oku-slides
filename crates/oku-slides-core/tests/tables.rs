@@ -264,3 +264,55 @@ fn apply_all_keeps_existing_ids() {
     assert_that!(after["dataset"]["ids"]).is_equal_to(before["dataset"]["ids"].clone());
     assert_that!(after["dataset"]["columns"]).is_equal_to(before["dataset"]["columns"].clone());
 }
+
+/// Un deck dont l'élément `t1` porte `params` tels quels, sans passer par les ops.
+fn forged_deck(kind: &str, params: Value) -> Deck {
+    let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+        { "id": "t1", "kind": kind, "params": params }] } }] });
+    Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+fn forged_stored(deck: &Deck, param: &str) -> Value {
+    let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("t1 absent")).element;
+    e.params.value(param).unwrap_or_else(|| panic!("{param} absent")).clone()
+}
+
+#[test]
+fn add_element_table_inside_a_stack_stores_aligned_ids_and_columns() {
+    let stack = element(json!({ "id": "p", "kind": "stack", "params": { "children": [
+        { "id": "t1", "kind": "table", "params": { "data": data() } } ] } }));
+    let deck = deck_with(stack);
+    let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("t1 absent")).element;
+    let v = e.params.value("data").unwrap_or_else(|| panic!("data absent")).clone();
+    assert_aligned(&v, 2, 2);
+}
+
+#[test]
+fn set_kind_table_keeping_a_value_without_ids_normalizes_it() {
+    let mut deck = forged_deck("table", json!({ "data": data() }));
+    assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
+    apply(&mut deck, Op::SetKind { target: t1(), kind: "table".into() }).unwrap_or_else(|e| panic!("{e}"));
+    assert_aligned(&forged_stored(&deck, "data"), 2, 2);
+}
+
+#[test]
+fn set_chart_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
+    let option = json!({ "dataset": { "source": [["M", "V"], ["a", 1]] }, "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }] });
+    let mut deck = forged_deck("chart", json!({ "option": option }));
+    assert_that!(forged_stored(&deck, "option")["dataset"]["ids"].is_null()).is_true();
+    let patch = json!({ "title": { "text": "T" } });
+    apply(&mut deck, Op::SetChartOption { target: t1(), param: "option".into(), patch })
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert_aligned(&forged_stored(&deck, "option"), 2, 2);
+}
+
+#[test]
+fn set_table_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
+    let mut deck = forged_deck("table", json!({ "data": data() }));
+    assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
+    let patch = json!({ "striped": true });
+    apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch })
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert_aligned(&forged_stored(&deck, "data"), 2, 2);
+}

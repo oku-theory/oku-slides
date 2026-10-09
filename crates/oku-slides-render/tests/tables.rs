@@ -238,6 +238,8 @@ fn number_cells_follow_the_deck_language() {
         ("ru", 100000.0, "100\u{00A0}000"),
         // Le signe de Typst (« − ») reste le sien.
         ("fr", -12345.5, "\u{2212}12\u{202F}345,5"),
+        ("en", -0.25, "\u{2212}0.25"),
+        ("de", -12345.0, "\u{2212}12.345"),
         ("xx", 12345.5, "12345.5"),
     ];
     for (lang, n, written) in cases {

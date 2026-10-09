@@ -50,6 +50,7 @@ issue-unsupported-link = 不支援的連結：{ $link }
 issue-highlight-zero = 醒目提示顏色從 1 開始編號
 issue-unreadable-element = 無法讀取的元素，已移出
 issue-unreadable-item = 無法讀取的清單項目，已移出
+issue-unreadable-row = 無法讀取的表格列，已移出
 issue-data-truncated = 資料過大，讀取時已截斷
 issue-unreadable-slide = 無法讀取的投影片，已移出
 issue-unreadable-field = 無法讀取的簡報欄位 { $field }，已重設

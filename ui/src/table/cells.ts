@@ -1,17 +1,17 @@
 // Cellules d'une grille : collage TSV et conversion d'une saisie, partagés par
 // les tableaux du dock, la grille des graphiques et celle du widget tableau.
 
-// Décimal sans ambiguïté : signe, partie entière sans zéro initial (hors « 0 »),
+// Décimal sans ambiguïté : signe (« - » ou « − »), partie entière sans zéro initial (hors « 0 »),
 // milliers par espace / NBSP / fine insécable (groupes de 3), partie décimale « . » ou « , ».
 const NUMBER =
-  /^[+-]?(0|[1-9]\d*|[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+)(?:[.,]\d+)?$/;
+  /^[+\-\u2212]?(0|[1-9]\d*|[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+)(?:[.,]\d+)?$/;
 
 /** "1 234,5" → 1234.5 ; vide → null ; sinon (« 007 », « 1e3 »…) texte. */
 export function parseCell(raw: string): number | string | null {
   const t = raw.trim();
   if (t === "") return null;
   if (!NUMBER.test(t)) return t;
-  return Number(t.replace(/[ \u00a0\u202f]/g, "").replace(",", "."));
+  return Number(t.replace(/[ \u00a0\u202f]/g, "").replace(",", ".").replace("\u2212", "-"));
 }
 
 /** Case collée : cochée sauf si vide ou fausse (« false », « faux », « 0 », « non »…). */

@@ -25,6 +25,8 @@ describe("parseCell", () => {
   test("décimaux sans ambiguïté convertis en nombre", () => {
     expect(parseCell("12")).toBe(12);
     expect(parseCell("-3,5")).toBe(-3.5);
+    expect(parseCell("\u22123,5")).toBe(-3.5);
+    expect(parseCell("\u221212\u202f345")).toBe(-12345);
     expect(parseCell("+4")).toBe(4);
     expect(parseCell("0")).toBe(0);
     expect(parseCell("0,25")).toBe(0.25);

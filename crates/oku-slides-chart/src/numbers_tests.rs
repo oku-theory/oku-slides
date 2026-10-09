@@ -2,7 +2,8 @@ use speculoos::prelude::*;
 
 use std::collections::HashSet;
 
-use super::NumberFormat;
+use super::{NumberFormat, numeric_texts};
+use crate::option::ChartOption;
 
 const NNBSP: char = '\u{202F}';
 const NBSP: char = '\u{00A0}';
@@ -59,9 +60,16 @@ fn format_integers_print_without_decimals() {
 }
 
 #[test]
-fn format_negatives_keep_the_ascii_sign() {
-    assert_that!(fmt(Some("fr"), -12345.5)).is_equal_to(format!("-12{NNBSP}345,5"));
-    assert_that!(fmt(Some("en"), -0.25)).is_equal_to("-0.25".to_owned());
+fn format_negatives_use_the_minus_sign() {
+    assert_that!(fmt(Some("fr"), -12345.5)).is_equal_to(format!("\u{2212}12{NNBSP}345,5"));
+    assert_that!(fmt(Some("en"), -0.25)).is_equal_to("\u{2212}0.25".to_owned());
+    assert_that!(fmt(Some("de"), -12345.0)).is_equal_to("\u{2212}12.345".to_owned());
+}
+
+#[test]
+fn format_negatives_without_language_use_the_minus_sign_without_groups() {
+    assert_that!(fmt(None, -12345.5)).is_equal_to("\u{2212}12345.5".to_owned());
+    assert_that!(fmt(Some("xx"), -0.25)).is_equal_to("\u{2212}0.25".to_owned());
 }
 
 #[test]
@@ -80,7 +88,7 @@ fn localize_rewrites_a_plain_number_with_unit() {
     let fr = NumberFormat::for_lang(Some("fr"));
     assert_that!(fr.localize("22.2k")).is_equal_to(Some("22,2k".to_owned()));
     assert_that!(fr.localize("12345.5")).is_equal_to(Some(format!("12{NNBSP}345,5")));
-    assert_that!(fr.localize("-0.5")).is_equal_to(Some("-0,5".to_owned()));
+    assert_that!(fr.localize("-0.5")).is_equal_to(Some("\u{2212}0,5".to_owned()));
 }
 
 #[test]
@@ -101,9 +109,17 @@ fn localize_svg_rewrites_numeric_text_nodes_only() {
 }
 
 #[test]
-fn localize_svg_plain_format_returns_the_svg_unchanged() {
-    let svg = "<svg><text>12345.5</text></svg>";
+fn localize_svg_plain_format_leaves_positive_numbers_unchanged() {
+    let svg = "<svg><text>12345.5</text><text>A: 38.2%</text></svg>";
     assert_that!(NumberFormat::default().localize_svg(svg, &HashSet::new())).is_equal_to(svg.to_owned());
+}
+
+#[test]
+fn localize_svg_plain_format_only_rewrites_the_sign() {
+    let svg = "<svg><text>-12345.5</text><text>A: -2.5%</text><text>-1.5</text></svg>";
+    let keep: HashSet<String> = ["-1.5".to_owned()].into();
+    assert_that!(NumberFormat::default().localize_svg(svg, &keep))
+        .is_equal_to("<svg><text>\u{2212}12345.5</text><text>A: \u{2212}2.5%</text><text>-1.5</text></svg>".to_owned());
 }
 
 #[test]
@@ -130,4 +146,58 @@ fn localize_svg_skips_self_closing_text_path_and_mixed_text() {
 fn localize_svg_unterminated_text_is_left_unchanged() {
     let fr = NumberFormat::for_lang(Some("fr"));
     assert_that!(fr.localize_svg("<text>2.5", &HashSet::new())).is_equal_to("<text>2.5".to_owned());
+}
+
+#[test]
+fn localize_svg_rewrites_the_value_of_a_name_value_label() {
+    let fr = NumberFormat::for_lang(Some("fr"));
+    let svg = "<text>A: 12345.5</text><text>B: x: -2.5%</text><text>C: v1.2</text><text>D:12345</text>";
+    assert_that!(fr.localize_svg(svg, &HashSet::new())).is_equal_to(format!(
+        "<text>A: 12{NNBSP}345,5</text><text>B: x: \u{2212}2,5%</text><text>C: v1.2</text><text>D:12345</text>"
+    ));
+}
+
+#[test]
+fn localize_svg_keeps_name_value_texts_typed_as_text() {
+    let fr = NumberFormat::for_lang(Some("fr"));
+    let keep: HashSet<String> = ["Ratio: 1.5".to_owned()].into();
+    let svg = "<text>Ratio: 1.5</text><text>Autre: 1.5</text>";
+    assert_that!(fr.localize_svg(svg, &keep)).is_equal_to("<text>Ratio: 1.5</text><text>Autre: 1,5</text>".to_owned());
+}
+
+fn option(v: serde_json::Value) -> ChartOption {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn numeric_texts_collects_numbers_and_name_value_texts() {
+    let texts = numeric_texts(&option(serde_json::json!({
+        "dataset": { "source": [["Code", "Ventes"], ["75001", 1], ["Ratio: 1.5", 2], ["Jan", 3]] },
+        "series": [{ "type": "bar" }]
+    })));
+    assert_that!(texts.contains("75001")).is_true();
+    assert_that!(texts.contains("Ratio: 1.5")).is_true();
+    assert_that!(texts.contains("Jan")).is_false();
+}
+
+#[test]
+fn numeric_texts_ignores_row_and_column_ids() {
+    let texts = numeric_texts(&option(serde_json::json!({
+        "dataset": {
+            "source": [["Mois", "Ventes"], ["Jan", 12345678]],
+            "ids": ["00000000", "12345678"],
+            "columns": ["87654321", "11223344"]
+        },
+        "series": [{ "type": "bar" }]
+    })));
+    for id in ["00000000", "12345678", "87654321", "11223344"] {
+        asserting(id).that(&texts.contains(id)).is_false();
+    }
+}
+
+#[test]
+fn cell_as_f64_accepts_both_minus_signs() {
+    use crate::option::Cell;
+    assert_that!(Cell::Text("-2.5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
+    assert_that!(Cell::Text("\u{2212}2,5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
 }

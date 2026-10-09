@@ -94,7 +94,7 @@ impl Cell {
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Cell::Number(n) => Some(*n),
-            Cell::Text(s) => s.trim().replace(',', ".").parse().ok(),
+            Cell::Text(s) => parse_number(s),
             Cell::Bool(_) | Cell::Null => None,
         }
     }
@@ -112,6 +112,11 @@ impl Cell {
             Cell::Null => String::new(),
         }
     }
+}
+
+/// Nombre saisi en texte : virgule ou point décimal, signe « - » ou « − ».
+pub(crate) fn parse_number(s: &str) -> Option<f64> {
+    s.trim().replace(',', ".").replace('\u{2212}', "-").parse().ok()
 }
 
 pub(crate) fn format_number(n: f64) -> String {

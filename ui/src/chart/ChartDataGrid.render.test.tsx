@@ -17,12 +17,13 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(numberLang: string | undefined, onOp = (_op: unknown) => {}) {
+const SOURCE = [["Mois", "Ventes"], ["Jan", 12345.5], ["Fév", 1234.5]];
+
+async function mount(numberLang: string | undefined, onOp = (_op: unknown) => {}, source: unknown[][] = SOURCE) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const source = [["Mois", "Ventes"], ["Jan", 12345.5], ["Fév", 1234.5]];
   await act(async () => {
     root.render(createElement(ChartDataGrid, { source, onOp, numberLang }));
   });
@@ -38,6 +39,19 @@ describe("ChartDataGrid", () => {
   test("ChartDataGrid numbers follow the deck language en", async () => {
     const inputs = await mount("en");
     expect(inputs.map((i) => i.value)).toEqual(["12,345.5", "1234.5"]);
+  });
+
+  test("ChartDataGrid shows negatives with the minus sign and the shortest decimals, like the slide", async () => {
+    const source = [["Mois", "Ventes"], ["Jan", -12345.5], ["Fév", 0.1 + 0.2]];
+    expect((await mount("fr", undefined, source)).map((i) => i.value)).toEqual([
+      "\u221212\u202f345,5",
+      "0,30000000000000004",
+    ]);
+  });
+
+  test("ChartDataGrid in an unknown deck language writes the minus sign without groups", async () => {
+    const source = [["Mois", "Ventes"], ["Jan", -12345.5]];
+    expect((await mount("xx", undefined, source)).map((i) => i.value)).toEqual(["\u221212345.5"]);
   });
 
   test("ChartDataGrid blur on an unchanged grouped number sends nothing", async () => {

@@ -249,6 +249,13 @@ fn patch_table_then_inverse_restores_original() {
 }
 
 #[test]
+fn patch_table_with_too_many_align_entries_truncates_to_the_columns() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A", "B"], [1, 2]] } })).unwrap();
+    let (next, _) = patch_table(&t, &json!({ "align": ["start", "end", "auto"] })).unwrap();
+    assert_that!(next.align).is_equal_to(vec![ColumnAlign::Start, ColumnAlign::End]);
+}
+
+#[test]
 fn patch_table_touching_dataset_is_refused() {
     let r = patch_table(&table(), &json!({ "dataset": null }));
     assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::PatchTouchesDataset);

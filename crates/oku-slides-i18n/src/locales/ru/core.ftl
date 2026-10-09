@@ -60,6 +60,7 @@ issue-unsupported-link = неподдерживаемая ссылка: { $link 
 issue-highlight-zero = цвета выделения нумеруются с 1
 issue-unreadable-element = нечитаемый элемент, отложен
 issue-unreadable-item = нечитаемый пункт списка, отложен
+issue-unreadable-row = нечитаемая строка таблицы, отложена
 issue-data-truncated = данные слишком велики, усечены при чтении
 issue-unreadable-slide = нечитаемый слайд, отложен
 issue-unreadable-field = нечитаемое поле { $field } презентации, сброшено

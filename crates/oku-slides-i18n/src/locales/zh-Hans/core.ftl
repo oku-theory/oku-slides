@@ -50,6 +50,7 @@ issue-unsupported-link = 不支持的链接：{ $link }
 issue-highlight-zero = 高亮颜色从 1 开始编号
 issue-unreadable-element = 无法读取的元素，已移出
 issue-unreadable-item = 无法读取的列表项，已移出
+issue-unreadable-row = 无法读取的表格行，已移出
 issue-data-truncated = 数据过大，读取时已截断
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置

@@ -56,6 +56,7 @@ issue-unsupported-link = link não suportado: { $link }
 issue-highlight-zero = as cores de destaque são numeradas a partir de 1
 issue-unreadable-element = elemento ilegível, deixado de lado
 issue-unreadable-item = item de lista ilegível, deixado de lado
+issue-unreadable-row = linha de tabela ilegível, deixada de lado
 issue-data-truncated = dados grandes demais, truncados na leitura
 issue-unreadable-slide = slide ilegível, deixado de lado
 issue-unreadable-field = campo { $field } do deck ilegível, redefinido

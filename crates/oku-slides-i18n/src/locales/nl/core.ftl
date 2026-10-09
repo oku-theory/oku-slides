@@ -56,6 +56,7 @@ issue-unsupported-link = niet-ondersteunde link: { $link }
 issue-highlight-zero = markeerkleuren worden genummerd vanaf 1
 issue-unreadable-element = onleesbaar element, apart gezet
 issue-unreadable-item = onleesbaar lijstitem, apart gezet
+issue-unreadable-row = onleesbare tabelrij, apart gezet
 issue-data-truncated = gegevens te groot, bij het lezen ingekort
 issue-unreadable-slide = onleesbare dia, apart gezet
 issue-unreadable-field = onleesbaar deckveld { $field }, hersteld

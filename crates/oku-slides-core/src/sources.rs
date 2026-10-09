@@ -357,7 +357,8 @@ impl SourceBundle {
 
     /// Ramène le deck à la version `index` de `preview` (bornée à la
     /// dernière), par un nouveau commit annulable `label` : le deck devient
-    /// exactement `preview.deck_at(index)`. Un historique vide ne change rien.
+    /// exactement `preview.deck_at(index)`, données d'hôte normalisées. Un
+    /// historique vide ne change rien.
     ///
     /// Comme à l'ouverture ou à la fusion, une version lue en partie est
     /// restaurée telle qu'elle a été lue (celle que l'aperçu a montrée) ; ce
@@ -368,7 +369,10 @@ impl SourceBundle {
         if preview.is_empty() {
             return Ok(Vec::new());
         }
-        let (deck, issues) = preview.deck_at(index).context(ReplicaSnafu)?;
+        let (mut deck, issues) = preview.deck_at(index).context(ReplicaSnafu)?;
+        // Comme `new`, que l'aperçu emprunte : sans identifiants, le jeu de
+        // données serait rangé opaque (fusion grossière) et la vue différerait.
+        crate::ops::normalize_hosts(self.replica.registry(), &mut deck);
         self.replica.restore(&deck, label).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();

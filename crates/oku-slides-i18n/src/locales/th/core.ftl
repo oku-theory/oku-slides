@@ -50,6 +50,7 @@ issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { 
 issue-highlight-zero = สีไฮไลต์เริ่มนับจาก 1
 issue-unreadable-element = องค์ประกอบที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-item = รายการย่อยที่อ่านไม่ได้ ถูกแยกไว้
+issue-unreadable-row = แถวของตารางที่อ่านไม่ได้ ถูกแยกไว้
 issue-data-truncated = ข้อมูลใหญ่เกินไป ถูกตัดทอนขณะอ่าน
 issue-unreadable-slide = สไลด์ที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-field = ช่อง { $field } ของงานนำเสนอที่อ่านไม่ได้ ถูกรีเซ็ต

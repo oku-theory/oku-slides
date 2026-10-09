@@ -140,3 +140,23 @@ fn table_to_chart_keeps_ids_and_columns() {
     let restored = table_to_chart(&chart_to_table(&c).unwrap(), ChartLabels::english()).unwrap();
     assert_that!(restored.dataset).is_equal_to(Some(t.dataset));
 }
+
+#[test]
+fn table_to_chart_after_removing_a_value_column_keeps_the_remaining_series() {
+    let c = chart(json!({ "dataset": { "source": [["M", "A", "B", "C"], ["x", 1, 2, 3], ["y", 4, 5, 6]] },
+        "xAxis": { "type": "category" },
+        "series": [
+            { "type": "line", "itemStyle": { "color": "#ff0000" } },
+            { "type": "line", "itemStyle": { "color": "#00ff00" } },
+            { "type": "line", "itemStyle": { "color": "#0000ff" } }
+        ] }));
+    let t = chart_to_table(&c).unwrap();
+    let t = crate::table_data(&t, &crate::DataOp::RemoveColumn { at: 3 }).unwrap();
+    let v = serde_json::to_value(table_to_chart(&t, ChartLabels::english()).unwrap()).unwrap();
+    let series = v["series"].as_array().unwrap();
+    assert_that!(series.len()).is_equal_to(2);
+    assert_that!(series.iter().map(|s| s["type"].clone()).collect::<Vec<_>>())
+        .is_equal_to(vec![json!("line"), json!("line")]);
+    assert_that!(series.iter().map(|s| s["itemStyle"]["color"].clone()).collect::<Vec<_>>())
+        .is_equal_to(vec![json!("#ff0000"), json!("#00ff00")]);
+}

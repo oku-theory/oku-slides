@@ -56,6 +56,7 @@ issue-unsupported-link = unsupported link: { $link }
 issue-highlight-zero = highlight colors are numbered from 1
 issue-unreadable-element = unreadable element, set aside
 issue-unreadable-item = unreadable list item, set aside
+issue-unreadable-row = unreadable table row, set aside
 issue-data-truncated = data too large, truncated on read
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset

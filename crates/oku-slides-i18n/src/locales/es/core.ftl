@@ -56,6 +56,7 @@ issue-unsupported-link = enlace no admitido: { $link }
 issue-highlight-zero = los colores de resaltado se numeran desde 1
 issue-unreadable-element = elemento ilegible, apartado
 issue-unreadable-item = ítem de lista ilegible, apartado
+issue-unreadable-row = fila de tabla ilegible, apartada
 issue-data-truncated = datos demasiado grandes, truncados al leer
 issue-unreadable-slide = diapositiva ilegible, apartada
 issue-unreadable-field = campo { $field } del deck ilegible, restablecido

@@ -157,6 +157,56 @@ fn apply_with_misaligned_ids_does_not_panic() {
     }
 }
 
+fn all_ops() -> Vec<DataOp> {
+    vec![
+        DataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) },
+        DataOp::SetCell { row: 0, col: 0, value: Cell::Null },
+        DataOp::InsertRow { at: 1, cells: vec![Cell::Null; 4], id: None },
+        DataOp::InsertRow { at: 9, cells: vec![], id: None },
+        DataOp::RemoveRow { at: 1 },
+        DataOp::RemoveRow { at: 7 },
+        DataOp::InsertColumn { at: 0, cells: vec![Cell::Null; 4], id: None },
+        DataOp::InsertColumn { at: 9, cells: vec![], id: None },
+        DataOp::RemoveColumn { at: 0 },
+        DataOp::RemoveColumn { at: 9 },
+        DataOp::Replace { source: vec![] },
+        DataOp::Replace { source: vec![vec![]] },
+        DataOp::Replace { source: vec![vec![Cell::Null; 2], vec![Cell::Null; 5]] },
+    ]
+}
+
+#[test]
+fn apply_with_ragged_or_empty_source_does_not_panic() {
+    let t = |s: &str| Cell::Text(s.into());
+    let sources: Vec<Vec<Vec<Cell>>> = vec![
+        vec![vec![t("a")], vec![t("x"), Cell::Number(1.0), Cell::Number(2.0)], vec![t("y"), Cell::Number(3.0)]],
+        vec![vec![t("a"), t("b"), t("c"), t("d")], vec![t("x")], vec![]],
+        vec![],
+        vec![vec![]],
+    ];
+    for source in sources {
+        for op in all_ops() {
+            for (ids, columns) in
+                [(vec![], vec![]), (strings(&["h"]), strings(&[])), (strings(&["a"; 5]), strings(&["x", "y", "z"]))]
+            {
+                let mut d = Dataset { source: source.clone(), ids, columns };
+                let _ = op.apply(&mut d);
+                asserting(&format!("{op:?} sur {source:?} laisse des ids mal alignés")).that(&aligned(&d)).is_true();
+            }
+        }
+    }
+}
+
+#[test]
+fn validate_ids_wrong_length_and_invalid_id_reports_the_length_first() {
+    let mut d = ds();
+    d.ids = strings(&["h", "a b"]);
+    let e = validate_ids(&d).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.localize(&fr)).is_equal_to(Message::new("chart-data-ids-length").localize(&fr));
+    assert_that!(e.localize(&fr)).is_not_equal_to(Message::new("chart-data-ids-invalid").localize(&fr));
+}
+
 #[test]
 fn ensure_ids_is_idempotent_and_keeps_valid_ids() {
     let mut d = ds();

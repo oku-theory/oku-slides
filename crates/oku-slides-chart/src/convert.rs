@@ -13,7 +13,7 @@ use snafu::ResultExt;
 use crate::error::{InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::model::{ChartKind, normalize};
-use crate::option::{Cell, ChartOption, Dataset, SeriesType};
+use crate::option::{Cell, ChartOption, Dataset, SeriesType, parse_number};
 
 /// Tableau neutre : libellés des lignes et colonnes de valeurs.
 struct Table {
@@ -140,7 +140,7 @@ fn waterfall_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
 
 /// Une paire de colonnes (x, y) par série ; une valeur absente n'est pas un point.
 fn scatter_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
-    let parsed: Option<Vec<f64>> = table.rows.iter().map(|r| r.trim().replace(',', ".").parse().ok()).collect();
+    let parsed: Option<Vec<f64>> = table.rows.iter().map(|r| parse_number(r)).collect();
     let xs = parsed.unwrap_or_else(|| (1..=table.rows.len()).map(|i| i as f64).collect());
     let header = table.columns.iter().flat_map(|(name, _)| [Cell::Text(labels.x_of(name)), Cell::Text(name.clone())]);
     let rows = xs.iter().enumerate().map(|(i, x)| {

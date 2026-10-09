@@ -448,7 +448,9 @@ fn forged_unreadable_row_is_set_aside_and_reported() {
     rows(&r).push_container(LoroMap::new()).unwrap().insert("id", "x").unwrap();
     r.doc.commit();
     let (data, issues) = read(&r);
-    assert_that!(issues).is_equal_to(vec!["issue-unreadable-item".to_owned()]);
+    assert_that!(issues).is_equal_to(vec!["issue-unreadable-row".to_owned()]);
+    assert_that!(oku_slides_i18n::Localizer::new(Some("fr")).tr("issue-unreadable-row"))
+        .is_equal_to("ligne de tableau illisible, mise de côté".to_owned());
     assert_that!(data["dataset"]["ids"]).is_equal_to(json!(["h", "fr", "de"]));
 }
 

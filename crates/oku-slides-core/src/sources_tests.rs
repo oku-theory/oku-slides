@@ -818,3 +818,31 @@ fn concurrent_cell_edits_of_a_json_deck_both_survive_the_merge() {
     let source = dataset_of(a.deck(), "t", "data")["source"].clone();
     assert_that!(source).is_equal_to(serde_json::json!([["Pays", "Ventes"], ["FR", 7.0], ["DE", 9.0]]));
 }
+
+/// Un deck au tableau `t`, dont `data` est écrit tel quel (sans identifiants).
+fn raw_table_deck() -> Deck {
+    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+        { "id": "t", "kind": "table", "params": { "data": { "dataset": {
+            "source": [["Pays", "Ventes"], ["FR", 1]] } } } } ] } }] });
+    Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))
+}
+
+/// Régression t-631 : restaurer normalise les données d'hôte comme l'aperçu,
+/// jusque dans le replica (sinon le jeu est stocké opaque, fusion grossière).
+/// En ligne (`sources_tests`) : le stockage n'est lisible que dans la crate.
+#[test]
+fn restore_of_a_version_without_host_ids_normalizes_it_like_the_preview() {
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    // `apply` n'normalise pas : la version est inscrite telle quelle.
+    b.apply(raw_table_deck(), "tableau", None).unwrap();
+    b.apply(roadmap(), "retrait", None).unwrap();
+    let preview = b.history();
+    b.restore(&preview, 1, "restaurer").unwrap();
+    // Les identifiants sont tirés au hasard : on compare leur forme, pas leur valeur.
+    let dataset = dataset_of(b.deck(), "t", "data");
+    assert_that!(dataset["source"]).is_equal_to(serde_json::json!([["Pays", "Ventes"], ["FR", 1.0]]));
+    assert_that!(dataset["ids"].as_array().map(Vec::len)).is_equal_to(Some(2));
+    assert_that!(dataset["columns"].as_array().map(Vec::len)).is_equal_to(Some(2));
+    // Le replica relit exactement la vue : le jeu n'est pas resté opaque.
+    assert_that!(b.replica().deck().0).is_equal_to(b.deck().clone());
+}

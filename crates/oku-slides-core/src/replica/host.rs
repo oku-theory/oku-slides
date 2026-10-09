@@ -267,7 +267,7 @@ pub(super) fn read_dataset(map: &LoroMap, depth: u32, issues: &mut Vec<Issue>) -
     let mut kept: HashSet<(String, String)> = HashSet::new();
     for i in 0..rows.len().min(max_rows) {
         let Some((id, cells)) = row_parts(rows.get(i)) else {
-            issues.push(issue(Message::new("issue-unreadable-item")));
+            issues.push(issue(Message::new("issue-unreadable-row")));
             continue;
         };
         let row = Value::Array(raw_columns.iter().map(|c| cell(&cells, c.as_deref(), depth + 3)).collect());

@@ -1,10 +1,12 @@
 // Écriture des nombres d'une grille dans la langue du deck, comme le rendu
 // (crates/oku-slides-chart/src/numbers.rs, typst/oku-slides/src/numbers.typ) :
-// séparateur décimal, milliers groupés à partir de 10 000.
+// séparateur décimal, milliers groupés à partir de 10 000 ; signe moins « − » dans toutes les langues.
+// Comme la slide, l'écriture la plus courte qui relit le même nombre, jamais
+// en notation scientifique.
 //
-// Pas `Intl.NumberFormat(lang)` seul : il écrit des chiffres arabes ou
+// Pas `Intl.NumberFormat(lang)` : il écrit des chiffres arabes ou
 // bengalis, groupe à l'indienne (hi, bn) ; la grille doit montrer ce que la
-// slide affiche. Intl ne sert qu'à l'écriture courte (10 décimales au plus).
+// slide affiche.
 
 import { parseCell } from "./cells";
 
@@ -12,6 +14,7 @@ type Separators = { decimal: string; group: string };
 
 const NNBSP = " ";
 const NBSP = " ";
+const MINUS = "\u2212";
 
 const SEPARATORS: Record<string, Separators> = {
   fr: { decimal: ",", group: NNBSP },
@@ -24,13 +27,31 @@ function separators(lang: string): Separators | undefined {
   return SEPARATORS[lang.split(/[-_]/)[0].toLowerCase()];
 }
 
-/** `n` écrit dans la langue `lang` (étiquette BCP 47) ; langue inconnue : point décimal, sans groupes. */
+/**
+ * `n` en chiffres, sans exposant : l'écriture la plus courte de JS (comme
+ * `{}` en Rust, `str` en Typst), développée quand JS écrirait « 1e+21 ».
+ */
+function plainNumber(n: number): string {
+  const s = String(n);
+  const m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(s);
+  if (!m) return s;
+  const [, sign, lead, rest = "", exp] = m;
+  const digits = lead + rest;
+  const point = 1 + Number(exp);
+  if (point <= 0) return `${sign}0.${"0".repeat(-point)}${digits}`;
+  if (point >= digits.length) return sign + digits.padEnd(point, "0");
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
+/** `n` écrit dans la langue `lang` (étiquette BCP 47), négatif avec « − » ; langue inconnue : point décimal, sans groupes. */
 export function formatNumber(n: number, lang: string): string {
-  const plain = n.toLocaleString("en-US", { maximumFractionDigits: 10, useGrouping: false });
+  const plain = plainNumber(n);
   const sep = separators(lang);
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(plain);
-  if (!sep || !m) return plain;
-  const [, sign, int, frac] = m;
+  if (!m) return plain;
+  const [, minus, int, frac] = m;
+  const sign = minus && MINUS;
+  if (!sep) return sign + plain.slice(minus.length);
   const grouped = int.length < 5 ? int : int.replace(/\B(?=(\d{3})+$)/g, sep.group);
   return sign + grouped + (frac === undefined ? "" : sep.decimal + frac);
 }
@@ -49,8 +70,8 @@ export function parseNumber(raw: string, lang: string): number | string | null {
   if (sep && (sep.group === "," || sep.group === ".")) {
     const g = escape(sep.group);
     const d = escape(sep.decimal);
-    if (new RegExp(`^[+-]?(?:[1-9]\\d{1,2}(?:${g}\\d{3})+|[1-9]\\d{0,2}(?:${g}\\d{3}){2,})(?:${d}\\d+)?$`).test(t))
-      return Number(t.split(sep.group).join("").replace(sep.decimal, "."));
+    if (new RegExp(`^[+\\-${MINUS}]?(?:[1-9]\\d{1,2}(?:${g}\\d{3})+|[1-9]\\d{0,2}(?:${g}\\d{3}){2,})(?:${d}\\d+)?$`).test(t))
+      return Number(t.split(sep.group).join("").replace(sep.decimal, ".").replace(MINUS, "-"));
   }
   return parseCell(t);
 }

@@ -56,6 +56,7 @@ issue-unsupported-link = lien non pris en charge : { $link }
 issue-highlight-zero = les couleurs de pastille se numérotent à partir de 1
 issue-unreadable-element = élément illisible, mis de côté
 issue-unreadable-item = item de liste illisible, mis de côté
+issue-unreadable-row = ligne de tableau illisible, mise de côté
 issue-data-truncated = données trop grandes, tronquées à la lecture
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé

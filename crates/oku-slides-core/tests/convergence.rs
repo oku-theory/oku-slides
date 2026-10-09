@@ -28,6 +28,10 @@ enum Edit {
     RemoveRow(usize),
     InsertColumn(usize),
     RemoveColumn(usize),
+    /// Colle un tableau de même forme dont quelques cellules changent : `Replace`.
+    Replace(usize),
+    /// Annule la dernière édition locale du pair.
+    Undo,
 }
 
 /// Une référence de thème de test : version `<c>` répété 64 fois.
@@ -50,6 +54,8 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::RemoveRow),
         any::<usize>().prop_map(Edit::InsertColumn),
         any::<usize>().prop_map(Edit::RemoveColumn),
+        any::<usize>().prop_map(Edit::Replace),
+        Just(Edit::Undo),
     ]
 }
 
@@ -93,6 +99,17 @@ fn edit_table(deck: &mut Deck, e: &Edit) {
         Edit::RemoveColumn(at) if columns.get(at % width) != Some(&KEPT_COLUMN) => {
             DataOp::RemoveColumn { at: at % width }
         }
+        // Collage de la même forme : une cellule sur trois change.
+        Edit::Replace(seed) => {
+            let Ok(table) = parse_table(data) else { return };
+            let mut source = table.dataset.source;
+            for (i, cell) in source.iter_mut().flatten().enumerate() {
+                if (i + seed) % 3 == 0 {
+                    *cell = Cell::Number((seed % 97) as f64);
+                }
+            }
+            DataOp::Replace { source }
+        }
         _ => return,
     };
     let target = Target { slide: "s-constat".into(), element: Some("t".into()) };
@@ -133,9 +150,14 @@ fn toggle_bold(params: &mut Params) -> bool {
 fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
     let len = deck.slides.len();
     match e {
-        Edit::SetCell(..) | Edit::InsertRow(_) | Edit::RemoveRow(_) | Edit::InsertColumn(_) | Edit::RemoveColumn(_) => {
-            edit_table(deck, e)
-        }
+        Edit::SetCell(..)
+        | Edit::InsertRow(_)
+        | Edit::RemoveRow(_)
+        | Edit::InsertColumn(_)
+        | Edit::RemoveColumn(_)
+        | Edit::Replace(_) => edit_table(deck, e),
+        // L'annulation passe par le réplica (voir `peers_editing_in_parallel_converge`).
+        Edit::Undo => {}
         Edit::Add(i) => {
             *n += 1;
             let s = Slide::new(format!("p{peer}-{n}"), "content");
@@ -181,8 +203,32 @@ proptest! {
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
         for (p, (replica, list)) in peers.iter_mut().zip(&edits).enumerate() {
             let (mut d, mut n) = (replica.deck().0, 0);
+            // L'annulation ne vise que des éditions du tableau : défaire une suppression ou un
+            // déplacement de slide face à un pair qui la déplace duplique l'identifiant de la slide
+            // (hors sujet ici).
+            let mut last_is_table = false;
             for e in list {
+                if matches!(e, Edit::Undo) {
+                    if last_is_table {
+                        replica.undo().unwrap();
+                        d = replica.deck().0;
+                        last_is_table = false;
+                    }
+                    continue;
+                }
+                let before = d.clone();
                 apply(&mut d, e, p, &mut n);
+                // Une édition sans effet (tableau supprimé, op refusée) ne s'annule pas.
+                last_is_table = d != before
+                    && matches!(
+                        e,
+                        Edit::SetCell(..)
+                            | Edit::InsertRow(_)
+                            | Edit::RemoveRow(_)
+                            | Edit::InsertColumn(_)
+                            | Edit::RemoveColumn(_)
+                            | Edit::Replace(_)
+                    );
                 replica.apply(&d, "edit", None).unwrap();
             }
         }

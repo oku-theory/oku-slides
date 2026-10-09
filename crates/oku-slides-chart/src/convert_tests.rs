@@ -83,6 +83,18 @@ fn convert_scatter_with_numeric_categories_keeps_them_as_x() {
 }
 
 #[test]
+fn convert_scatter_with_minus_sign_categories_keeps_them_as_x() {
+    let lines = opt(json!({
+        "dataset": { "source": [["Écart", "CA"], ["\u{2212}2,5", 1], ["-1", 2], ["3", 3]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "line" }]
+    }));
+    let scatter = convert(&lines, SeriesType::Scatter, en()).unwrap();
+    let ChartKind::Scatter(s) = normalize(&scatter, en()).unwrap().kind else { panic!("nuage attendu") };
+    assert_that!(s.series[0].points).is_equal_to(vec![(-2.5, 1.0), (-1.0, 2.0), (3.0, 3.0)]);
+}
+
+#[test]
 fn convert_every_kind_to_every_kind_stays_drawable() {
     let kinds = [SeriesType::Bar, SeriesType::Line, SeriesType::Pie, SeriesType::Scatter, SeriesType::Radar];
     for from in kinds {
