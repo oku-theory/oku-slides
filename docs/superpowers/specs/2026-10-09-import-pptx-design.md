@@ -89,7 +89,8 @@ Crate `crates/oku-slides-import` :
 | `pptx/` | lecteur OOXML : rels, presentation, theme, master, layout, slide, chart, table |
 | `pptx/cascade.rs` | résolution des styles texte (une seule fonction) |
 | `pptx/geometry.rs` | presets `prstGeom` → path, EMU → pt |
-| `fonts.rs` | recherche et substitution des polices |
+| `pptx/fonts.rs` | inventaire des familles utilisées, polices embarquées (lot 1) |
+| `fonts.rs` | recherche système et substitution des polices (lot 2) |
 | `hifi/` | projecteur hi-fi : thème, générateur Typst, pack, ops |
 | `retrofit/` | projecteur retrofit : score des templates, grille, couleurs, replis |
 | `pattern.rs` | signature de motif (partagée retrofit / regroupement hi-fi) |
@@ -275,14 +276,20 @@ référence disponible ou non, `widget_requests`. Messages via Fluent
 ## Erreurs
 
 `ImportError` Snafu opaque, **seulement pour le fatal** : zip invalide,
-`presentation.xml` absent, fichier chiffré, pack cible introuvable. Un item
+`presentation.xml` absent, fichier chiffré (ou `.ppt` 97-2003), limites de
+lecture dépassées (`ReadLimits` : protection contre les bombes zip), pack
+cible introuvable. Un item
 illisible ne fait jamais échouer l'import : il devient `Opaque`, avec une
 entrée au rapport.
 
 ## Tests
 
-- **Fixtures** `.pptx` générées par un script `python-pptx` versionné
-  (`fixtures/import/`), plus un ou deux vrais decks variés.
+- **Fixtures** : OOXML décompressé écrit à la main
+  (`fixtures/import/<nom>/`, zippé à la volée par les tests — lisible et
+  relu en diff), plus `libreoffice.pptx`, le même deck réécrit par
+  LibreOffice (verbeux, réaliste). *(Précisé au plan du lot 1 :
+  `python-pptx` n'est pas disponible et des XML écrits à la main se
+  relisent mieux.)*
 - **Snapshots `insta`** de `SourceDeck` et d'`ImportPlan` par fixture.
 - **Cascade des styles** testée en table (`rstest`).
 - **Or hi-fi** : PDF de référence **versionnés** (pas de LibreOffice en
@@ -295,7 +302,8 @@ entrée au rapport.
 
 Un plan et ses sous-tâches par lot, dans cet ordre :
 
-1. `SourceDeck` + lecteur PPTX (cascade des styles comprise).
+1. `SourceDeck` + lecteur PPTX (cascade des styles comprise) — plan :
+   `docs/superpowers/plans/2026-10-09-import-pptx-lot1.md`.
 2. Projecteur retrofit + CLI — valide la représentation de bout en bout
    sans générateur ni référence.
 3. Projecteur hi-fi : thème, générateur Typst, pack.
