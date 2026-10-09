@@ -9,8 +9,8 @@ use oku_slides_core::{FieldOwner, Op, Paragraph, ParamType, Target, TextField};
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 
-use super::check_len;
 use super::forms::{self, Anchor, AskRewrite, Surface};
+use super::{AgentFormReason, check_len};
 use crate::error::{
     AgentFormSnafu, FieldNeededSnafu, NoSlideSnafu, ResponseSnafu, UnknownFieldSnafu, UnknownOwnerSnafu,
 };
@@ -70,7 +70,8 @@ impl Session {
             FieldOwner::Element(e) => Some(e.id.clone()),
         };
         let value = if tf.param.ty == ParamType::Rich {
-            let paragraphs = paragraphs.context(AgentFormSnafu { reason: "paragraphs missing" })?;
+            let paragraphs =
+                paragraphs.context(AgentFormSnafu { reason: AgentFormReason::Missing { at: "paragraphs".into() } })?;
             serde_json::to_value(paragraphs).context(ResponseSnafu)?
         } else {
             Value::String(text.to_owned())

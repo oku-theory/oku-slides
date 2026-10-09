@@ -25,16 +25,18 @@ type Tabs = Pick<UiState, "widgets" | "widget">;
 const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true,
   code_width: 640, folded: ["widgets"] };
 
-/** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde. */
-async function mount(first: UiState | null = kept) {
+/** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
+ *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
+async function mount(first: UiState | null = kept, answer: () => Promise<unknown> = async () => {}) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const out: { hook: Hook | null; saved: [string | null, boolean, boolean][]; kept: UiState[] } = { hook: null, saved: [], kept: [] };
-  const save = async (ui: UiState) => {
+  const save = (ui: UiState) => {
     out.saved.push([ui.slide, ui.grid, ui.ghosts]);
     out.kept.push(ui);
+    return answer();
   };
   function Probe({ ui, current, tabs }: { ui: UiState | null; current: string; tabs: Tabs }) {
     out.hook = useKeptUi(ui, current, save, tabs);
@@ -187,6 +189,36 @@ test("useKeptUi ne renvoie pas à l'hôte un cas courant d'un état plus ancien"
   const { out, render } = await mount(older);
   await render(older, "s2");
   expect(out.kept.at(-1)).not.toHaveProperty("case");
+});
+
+/** Réponses de l'hôte tenues en attente : `settle(i, ok)` répond à la i-ème sauvegarde. */
+function held() {
+  const answers: { resolve: () => void; reject: (e: Error) => void }[] = [];
+  const answer = () => new Promise<void>((resolve, reject) => { answers.push({ resolve, reject }); });
+  const settle = (i: number, ok = true) =>
+    act(async () => { if (ok) answers[i].resolve(); else answers[i].reject(new Error("hôte parti")); });
+  return { answer, settle };
+}
+
+// Des requêtes parallèles peuvent arriver à l'hôte dans le désordre : une plus ancienne,
+// traitée après, écraserait la dernière largeur (t-668).
+test("useKeptUi n'envoie une sauvegarde qu'après la réponse à la précédente", async () => {
+  const { answer, settle } = held();
+  const { out } = await mount(kept, answer);
+  await act(async () => { out.hook!.setCode(false); });
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  expect(out.kept.length).toBe(1);
+  await settle(0);
+  expect(out.kept.length).toBe(2);
+  expect(out.kept.at(-1)).toMatchObject({ code: false, code_width: 320 });
+});
+
+test("useKeptUi après une sauvegarde refusée envoie encore la suivante", async () => {
+  const { answer, settle } = held();
+  const { out } = await mount(kept, answer);
+  await act(async () => { out.hook!.setCodeWidth(320); });
+  await settle(0, false);
+  expect(out.kept.at(-1)).toMatchObject({ code_width: 320 });
 });
 
 test("useKeptUi handleKey leaves other keys alone", async () => {

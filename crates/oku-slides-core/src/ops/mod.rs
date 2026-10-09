@@ -25,7 +25,7 @@ use oku_slides_chart::DataOp;
 use crate::error::{
     DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu,
     ParseValueSnafu, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu, UnknownWidgetSnafu,
-    WrongCategorySnafu,
+    ValueReason, WrongCategorySnafu,
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
@@ -41,14 +41,6 @@ pub use list::{
     text_fits,
 };
 pub use value::{GRID_TRACKS, param_value};
-
-/// Refus d'une grille ou d'une cellule sur un slot `flow` : dit comment
-/// passer ses éléments sur la grille.
-const BLOCKS_OFF_GRID: &str = "flow slots are laid out by the slide and a grid hides them; \
-    move each element to a free slot first";
-
-/// Refus d'un élément dont un descendant dépasserait [`MAX_SLOT_DEPTH`].
-const TOO_DEEP: &str = "elements nest too deeply";
 
 /// Une slide, ou un élément d'une slide. JSON : `{"slide": "s1"}` ou
 /// `{"slide": "s1", "element": "e1"}`.
@@ -402,7 +394,7 @@ fn check_ids<'a>(mut taken: HashSet<&'a str>, new: &'a Element) -> Result<(), Op
 /// (0 : slot de la slide), un de ses descendants dépasse [`MAX_SLOT_DEPTH`] slots.
 fn check_depth(owner_slots: usize, e: &Element) -> Result<(), OpError> {
     if owner_slots + 1 + slot_depth(e) > MAX_SLOT_DEPTH {
-        return Err(InvalidValueSnafu { field: "element", reason: TOO_DEEP }.build().into());
+        return Err(InvalidValueSnafu { field: "element", reason: ValueReason::TooDeep }.build().into());
     }
     Ok(())
 }
@@ -425,7 +417,7 @@ fn set_path(root: &mut Value, path: &[String], value: Value) -> Option<Value> {
 /// Un chemin de jeton n'est pas vide.
 fn token_path(path: &[String]) -> Result<(), OpError> {
     if path.is_empty() {
-        return Err(InvalidValueSnafu { field: "path", reason: "empty path" }.build().into());
+        return Err(InvalidValueSnafu { field: "path", reason: ValueReason::EmptyPath }.build().into());
     }
     Ok(())
 }
@@ -462,7 +454,7 @@ fn opt_string(field: &str, v: Value) -> Result<Option<String>, OpError> {
         // relit un texte vide en `None`. Bords rognés : même règle que l'UI.
         Value::String(s) if s.trim().is_empty() => Ok(None),
         Value::String(s) => Ok(Some(s.trim().to_owned())),
-        _ => Err(InvalidValueSnafu { field, reason: "expected a string or null" }.build().into()),
+        _ => Err(InvalidValueSnafu { field, reason: ValueReason::NotText }.build().into()),
     }
 }
 
@@ -536,7 +528,7 @@ impl Op {
                 if let Some(f) = frame
                     && !(f.w > 0.0 && f.h > 0.0)
                 {
-                    return Err(InvalidValueSnafu { field: "frame", reason: "w and h must be > 0" }.build().into());
+                    return Err(InvalidValueSnafu { field: "frame", reason: ValueReason::EmptyFrame }.build().into());
                 }
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
@@ -549,10 +541,14 @@ impl Op {
                     let l = located(s, &element)?;
                     // Un slot `flow` suit le layout : la grille ne place que les éléments libres.
                     if containing_slot(registry, s, &l).is_some_and(|(mode, _)| mode == SlotMode::Flow) {
-                        return Err(InvalidValueSnafu { field: "cell", reason: BLOCKS_OFF_GRID }.build().into());
+                        return Err(InvalidValueSnafu { field: "cell", reason: ValueReason::BlocksOffGrid }
+                            .build()
+                            .into());
                     }
                     if !c.fits(&s.resolved_grid(registry)) {
-                        return Err(InvalidValueSnafu { field: "cell", reason: "outside the grid" }.build().into());
+                        return Err(InvalidValueSnafu { field: "cell", reason: ValueReason::OutsideGrid }
+                            .build()
+                            .into());
                     }
                 }
                 let s = slide_mut(deck, &slide)?;
@@ -666,7 +662,7 @@ impl Op {
             }
             Op::SetTokens { tokens } => {
                 if !(tokens.is_object() || tokens.is_null()) {
-                    return Err(InvalidValueSnafu { field: "tokens", reason: "an object or null" }.build().into());
+                    return Err(InvalidValueSnafu { field: "tokens", reason: ValueReason::NotTokens }.build().into());
                 }
                 deck.tokens = tokens;
                 Ok(())
@@ -697,7 +693,7 @@ fn set_param(
         && target.element.is_none()
         && has_filled_flow_slot(schema, params)
     {
-        return Err(InvalidValueSnafu { field: param, reason: BLOCKS_OFF_GRID }.build().into());
+        return Err(InvalidValueSnafu { field: param, reason: ValueReason::BlocksOffGrid }.build().into());
     }
     if let Some(key) = &p.bind {
         let text = match converted {
@@ -769,7 +765,7 @@ fn add_element(
         None => &mut s.params,
         Some(id) => &mut element_mut(s, id).ok_or_else(|| not_found(&owner.slide, id))?.params,
     };
-    let list = params.slot_mut(&param).context(InvalidValueSnafu { field: &param, reason: "not a slot" })?;
+    let list = params.slot_mut(&param).context(InvalidValueSnafu { field: &param, reason: ValueReason::NotASlot })?;
     if at > list.len() {
         return Err(IndexOutOfRangeSnafu { index: at, len: list.len() }.build().into());
     }

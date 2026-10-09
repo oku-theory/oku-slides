@@ -72,6 +72,10 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   en attendant, s'il y en a une), puis l'image dès sa réception ; slide en cours de re-rendu → la dernière
   image reçue de la slide reste montrée (`useSvgCache`), marquée d'après l'empreinte actuelle, jusqu'à la
   suivante ; snapshot pas encore chargé → pas de miniature.
+- `agent::reason::AgentFormReason` : pourquoi une surface de l'agent est refusée (`AgentForm`), une variante par
+  nature de refus (trop long, trop d'entrées, identifiant en double, bornes inversées…) avec ses arguments (`at` :
+  `fields[2].options`, bornes, identifiants envoyés par l'agent ; jamais un chemin de l'hôte). Dite par
+  `session-agent-form-*` (Fluent) ; `Display` reste l'anglais des journaux ; `SessionError::agent_form_reason`.
 - `agent::forms::Surface` : `place`, `turn` (rempli par le hub, au tour de l'appel), `live`, et `question` (attend la
   réponse de l'utilisateur : `ask_*`, confirmation, permission ; marqué par leurs constructeurs, jamais déduit de l'identifiant).
 - `agent/address.rs` (`resolve_field`, `check_anchor`, `rewrite_surface`/`rewrite_ops`) : l'agent adresse un champ par

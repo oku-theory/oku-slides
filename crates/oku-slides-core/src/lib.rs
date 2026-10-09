@@ -41,7 +41,7 @@ pub use canonical::canonicalize;
 pub use color::is_hex_color;
 pub use error::{
     ListBound, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError,
-    SourcesErrorKind, TransactionError, WidgetError, WidgetErrorKind, WidgetFileError,
+    SourcesErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};

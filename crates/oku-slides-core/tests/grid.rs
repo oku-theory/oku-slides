@@ -115,6 +115,7 @@ fn set_grid_out_of_range_is_refused(#[case] columns: Option<u32>, #[case] rows: 
     let before = deck.clone();
     let err = apply_all(&mut deck, vec![set_grid("s-4", columns, rows)], &with_quatre()).unwrap_err();
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(err.op_error().value_reason()).is_equal_to(Some(ValueReason::GridTracks));
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -142,6 +143,7 @@ fn set_grid_on_a_slide_with_a_filled_flow_slot_is_refused() {
     let before = deck.clone();
     let err = apply_all(&mut deck, vec![set_grid("s-constat", Some(6), None)], &registry()).unwrap_err();
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(err.op_error().value_reason()).is_equal_to(Some(ValueReason::BlocksOffGrid));
     assert_that!(deck).is_equal_to(before);
 }
 

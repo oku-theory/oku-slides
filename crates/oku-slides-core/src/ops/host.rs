@@ -11,7 +11,7 @@ use oku_slides_chart::{
 };
 
 use super::{declared, typed, widget};
-use crate::error::{ChartSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, TableSnafu};
+use crate::error::{ChartSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, TableSnafu, ValueReason};
 use crate::model::{Deck, Element};
 use crate::params::{ParamValue, Params};
 use crate::widget::{HostType, WidgetRegistry, WidgetSchema};
@@ -124,7 +124,7 @@ fn normalize_params(registry: &WidgetRegistry, kind: &str, params: &mut Params) 
 fn read<T: DeserializeOwned>(params: &Params, param: &str, host: HostType) -> Result<T, OpError> {
     match params.get(param) {
         Some(ParamValue::Value(v)) => typed(param, v.clone()),
-        None => Err(InvalidValueSnafu { field: param, reason: "the parameter has no value" }.build().into()),
+        None => Err(InvalidValueSnafu { field: param, reason: ValueReason::NoValue }.build().into()),
         Some(_) => Err(ParamTypeSnafu { param, expected: expected_host(host) }.build().into()),
     }
 }
@@ -177,7 +177,7 @@ pub(super) fn set_data(
             let option: ChartOption = read(params, param, host)?;
             if option.dataset.is_none() {
                 // Garde le refus historique (`InvalidValue`) pour un graphique sans dataset.
-                return Err(InvalidValueSnafu { field: "dataset", reason: "the chart has no dataset" }.build().into());
+                return Err(InvalidValueSnafu { field: "dataset", reason: ValueReason::NoDataset }.build().into());
             }
             let next = chart_data(&option, change).context(ChartSnafu { subject })?;
             write(params, param, &next)

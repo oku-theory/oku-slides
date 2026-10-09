@@ -1,7 +1,7 @@
 // L'état d'interface gardé par l'hôte pour la reprise : slide courante, grille et fantômes de la scène,
 // largeurs des colonnes, code des widgets (affiché, largeur), sections repliées, sous-onglets.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MenuEntry } from "./ActionMenu";
 import type { PileSectionName, UiState } from "./api";
 import { t } from "./i18n";
@@ -45,7 +45,7 @@ export interface KeptUi {
 
 /**
  * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
- * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement.
+ * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, une sauvegarde à la fois.
  * `tabs` : sous-onglets à garder avec le reste.
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
@@ -76,12 +76,32 @@ export function useKeptUi(
     setRestored(true);
   }, [kept, restored]);
 
+  // Une sauvegarde à la fois : des requêtes parallèles peuvent être traitées par l'hôte dans le
+  // désordre, et une plus ancienne écraserait la dernière. Pendant l'attente, seul le dernier état compte.
+  const queue = useRef<{ busy: boolean; next: UiState | null }>({ busy: false, next: null });
+  const send = (ui: UiState) => {
+    const q = queue.current;
+    if (q.busy) {
+      q.next = ui;
+      return;
+    }
+    q.busy = true;
+    save(ui)
+      .catch(() => {
+        /* reprise facultative : l'édition continue */
+      })
+      .finally(() => {
+        const next = q.next;
+        q.busy = false;
+        q.next = null;
+        if (next) send(next);
+      });
+  };
+
   useEffect(() => {
     if (!restored) return;
-    save({ slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }).catch(() => {
-      /* reprise facultative : l'édition continue */
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut)
+    send({ slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` est stable (voir plus haut), `send` ne lit que lui et la file
   }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.

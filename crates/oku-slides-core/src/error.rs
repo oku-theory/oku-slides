@@ -58,6 +58,90 @@ pub enum ListBound {
     TooManyItems { max: usize },
 }
 
+/// Pourquoi une valeur est refusée ([`OpErrorKind::InvalidValue`]) : dite par
+/// `op-value-*` (Fluent), en anglais par `Display`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ValueReason {
+    /// Le paramètre n'a pas de valeur.
+    NoValue,
+    /// Le graphique n'a pas de jeu de données.
+    NoDataset,
+    /// Une grille a de 1 à 24 colonnes et lignes.
+    GridTracks,
+    /// Un id d'item est un texte non vide, sans `/`.
+    BadItemId,
+    /// Chaque item a un id.
+    MissingItemId,
+    /// Les éléments s'imbriquent trop profondément.
+    TooDeep,
+    /// Chemin vide.
+    EmptyPath,
+    /// Un texte ou `null` attendu.
+    NotText,
+    /// Largeur et hauteur d'un cadre nulles ou négatives.
+    EmptyFrame,
+    /// Une grille cacherait les éléments d'un slot `flow`.
+    BlocksOffGrid,
+    /// Cellule hors de la grille.
+    OutsideGrid,
+    /// Jetons : un objet ou `null` attendu.
+    NotTokens,
+    /// Le paramètre n'est pas un slot.
+    NotASlot,
+    /// Nombre hors de ses bornes.
+    OutOfBounds,
+    /// La valeur n'a pas la forme attendue (illisible).
+    Unreadable,
+}
+
+impl ValueReason {
+    /// La clé Fluent de la raison (`op-value-*`).
+    fn key(self) -> &'static str {
+        match self {
+            ValueReason::NoValue => "op-value-no-value",
+            ValueReason::NoDataset => "op-value-no-dataset",
+            ValueReason::GridTracks => "op-value-grid-tracks",
+            ValueReason::BadItemId => "op-value-bad-item-id",
+            ValueReason::MissingItemId => "op-value-missing-item-id",
+            ValueReason::TooDeep => "op-value-too-deep",
+            ValueReason::EmptyPath => "op-value-empty-path",
+            ValueReason::NotText => "op-value-not-text",
+            ValueReason::EmptyFrame => "op-value-empty-frame",
+            ValueReason::BlocksOffGrid => "op-value-blocks-off-grid",
+            ValueReason::OutsideGrid => "op-value-outside-grid",
+            ValueReason::NotTokens => "op-value-not-tokens",
+            ValueReason::NotASlot => "op-value-not-a-slot",
+            ValueReason::OutOfBounds => "op-value-out-of-bounds",
+            ValueReason::Unreadable => "op-value-unreadable",
+        }
+    }
+}
+
+impl std::fmt::Display for ValueReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ValueReason::NoValue => "the parameter has no value",
+            ValueReason::NoDataset => "the chart has no dataset",
+            ValueReason::GridTracks => "1 to 24 columns and rows",
+            ValueReason::BadItemId => "an item id is a non-empty string without /",
+            ValueReason::MissingItemId => "every item needs an id",
+            ValueReason::TooDeep => "elements nest too deeply",
+            ValueReason::EmptyPath => "empty path",
+            ValueReason::NotText => "expected a string or null",
+            ValueReason::EmptyFrame => "w and h must be > 0",
+            ValueReason::BlocksOffGrid => {
+                "flow slots are laid out by the slide and a grid hides them; move each element to a free slot first"
+            }
+            ValueReason::OutsideGrid => "outside the grid",
+            ValueReason::NotTokens => "an object or null",
+            ValueReason::NotASlot => "not a slot",
+            ValueReason::OutOfBounds => "out of bounds",
+            ValueReason::Unreadable => "unreadable value",
+        })
+    }
+}
+
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum OpInner {
@@ -70,7 +154,7 @@ pub(crate) enum OpInner {
     #[snafu(display("index out of range: {index} (length {len})"))]
     IndexOutOfRange { index: usize, len: usize, backtrace: Backtrace },
     #[snafu(display("invalid value for {field}: {reason}"))]
-    InvalidValue { field: String, reason: &'static str, backtrace: Backtrace },
+    InvalidValue { field: String, reason: ValueReason, backtrace: Backtrace },
     #[snafu(display("invalid value for {field}"))]
     ParseValue { field: String, source: serde_json::Error, backtrace: Backtrace },
     /// `subject` : l'élément du graphique, ou le paramètre quand l'élément
@@ -147,6 +231,15 @@ impl OpError {
             OpInner::ItemNotFound { item, .. } => Some(item),
             OpInner::ListBound { list, .. } => Some(list),
             OpInner::IndexOutOfRange { .. } => None,
+        }
+    }
+
+    /// Pourquoi la valeur est refusée, pour une erreur [`OpErrorKind::InvalidValue`].
+    pub fn value_reason(&self) -> Option<ValueReason> {
+        match &*self.0 {
+            OpInner::InvalidValue { reason, .. } => Some(*reason),
+            OpInner::ParseValue { .. } => Some(ValueReason::Unreadable),
+            _ => None,
         }
     }
 
@@ -262,6 +355,12 @@ impl Localize for OpError {
         };
         if let Some((key, subject, source)) = host {
             return l.tr_with(key, &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())]);
+        }
+        if let Some(reason) = self.value_reason() {
+            return l.tr_with(
+                "op-invalid-value-because",
+                &[("subject", self.subject().unwrap_or_default().into()), ("reason", l.tr(reason.key()).into())],
+            );
         }
         if let OpInner::ListBound { list, bound, .. } = &*self.0 {
             let list = list.as_str().into();
@@ -561,3 +660,7 @@ pub struct WidgetFileError {
     value: String,
     backtrace: Backtrace,
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod error_tests;

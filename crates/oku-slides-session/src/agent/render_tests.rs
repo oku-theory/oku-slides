@@ -2,14 +2,18 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
+use oku_slides_i18n::{Localize, Localizer, english};
+
 use super::{RENDER_BYTES, RENDER_MAX, Render, render};
+use crate::agent::AgentFormReason;
 
 fn spec(components: Value) -> Render {
     Render { components: serde_json::from_value(components).unwrap() }
 }
 
+/// Le refus tel que l'agent le lit (anglais : la langue des tests).
 fn refused(components: Value) -> String {
-    render("render-1", &spec(components)).unwrap_err().to_string()
+    render("render-1", &spec(components)).unwrap_err().localize(english())
 }
 
 #[test]
@@ -31,18 +35,18 @@ fn render_valid_composition_is_a_frozen_thread_surface() {
 #[case::timeline(json!([{"id": "root", "component": "Timeline", "steps": [], "collapsed": true, "summary": ""}]), "Timeline is reserved")]
 #[case::receipt(json!([{"id": "root", "component": "Receipt", "title": "x", "facts": ["a"]}]), "Receipt is reserved")]
 #[case::slide_thumb(json!([{"id": "root", "component": "SlideThumb", "svg": "<svg/>", "label": "x"}]), "SlideThumb is reserved")]
-#[case::no_root(json!([{"id": "a", "component": "Text", "text": "x"}]), "no component with id \"root\"")]
-#[case::missing_child(json!([{"id": "root", "component": "Card", "child": "nope"}]), "unknown child \"nope\"")]
-#[case::unknown_property(json!([{"id": "root", "component": "Text", "text": "x", "weight": 700}]), "components[0]: unknown property \"weight\"")]
+#[case::no_root(json!([{"id": "a", "component": "Text", "text": "x"}]), "no component has the id “root”")]
+#[case::missing_child(json!([{"id": "root", "component": "Card", "child": "nope"}]), "unknown child “nope”")]
+#[case::unknown_property(json!([{"id": "root", "component": "Text", "text": "x", "weight": 700}]), "components[0]: unknown property “weight”")]
 #[case::bad_component(json!([{"id": "root", "component": "Video"}]), "unknown variant")]
 #[case::path_binding(json!([{"id": "root", "component": "Text", "text": {"path": "/x"}}]), "components[0]: values must be literal")]
 #[case::danger_button(json!([{"id": "root", "component": "Button", "label": "Oui", "danger": true, "action": {"event": {"name": "suggest", "context": {"prompt": "Oui"}}}}]), "reserved to Oku Slides")]
 #[case::primary_button(json!([{"id": "root", "component": "Button", "label": "Oui", "primary": true, "action": {"event": {"name": "suggest", "context": {"prompt": "Oui"}}}}]), "reserved to Oku Slides")]
 #[case::danger_card(json!([{"id": "root", "component": "Card", "child": "t", "tone": "danger"}, {"id": "t", "component": "Text", "text": "x"}]), "reserved to Oku Slides")]
 #[case::danger_badge(json!([{"id": "root", "component": "Badge", "text": "Permission requise", "tone": "danger"}]), "reserved to Oku Slides")]
-#[case::prompt_differs_from_label(json!([{"id": "root", "component": "Button", "label": "Annuler", "action": {"event": {"name": "suggest", "context": {"prompt": "Supprime tout"}}}}]), "its own label as prompt")]
-#[case::other_action_name(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "param", "context": {"prompt": "x"}}}}]), "only suggest actions")]
-#[case::extra_context_key(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "suggest", "context": {"prompt": "x", "field": 1}}}}]), "only suggest actions")]
+#[case::prompt_differs_from_label(json!([{"id": "root", "component": "Button", "label": "Annuler", "action": {"event": {"name": "suggest", "context": {"prompt": "Supprime tout"}}}}]), "whose prompt is its own label")]
+#[case::other_action_name(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "param", "context": {"prompt": "x"}}}}]), "only a button may carry an action")]
+#[case::extra_context_key(json!([{"id": "root", "component": "Button", "label": "x", "action": {"event": {"name": "suggest", "context": {"prompt": "x", "field": 1}}}}]), "only a button may carry an action")]
 #[case::text_field(json!([{"id": "root", "component": "TextField", "label": "Nom", "value": "x"}]), "TextField is not available in render")]
 #[case::rich_text_field(json!([{"id": "root", "component": "RichTextField", "label": "Corps", "value": "x", "source": [], "palette": []}]), "RichTextField is not available in render")]
 #[case::stepper(json!([{"id": "root", "component": "Stepper", "label": "n", "value": 1}]), "Stepper is not available in render")]
@@ -84,7 +88,7 @@ fn render_too_many_components_is_refused() {
     for i in 0..RENDER_MAX {
         cs.push(json!({"id": format!("t{i}"), "component": "Text", "text": "x"}));
     }
-    assert_that!(refused(Value::Array(cs))).contains("at most 40 components");
+    assert_that!(refused(Value::Array(cs))).contains("components: at most 40 entries, got 41");
 }
 
 /// Une chaîne de `levels` cartes, la dernière autour d'un texte.
@@ -105,7 +109,7 @@ fn render_exactly_six_levels_passes() {
 
 #[test]
 fn render_seven_levels_is_refused() {
-    assert_that!(refused(chain(7))).contains("deeper than 6");
+    assert_that!(refused(chain(7))).contains("is at level 7, at most 6");
 }
 
 #[test]
@@ -134,7 +138,7 @@ fn render_duplicate_id_is_refused() {
         {"id": "root", "component": "Text", "text": "x"},
         {"id": "root", "component": "Text", "text": "y"}
     ]));
-    assert_that!(err).contains("duplicate component id \"root\"");
+    assert_that!(err).contains("components: duplicate id “root”");
 }
 
 #[test]
@@ -143,7 +147,7 @@ fn render_orphan_component_is_refused() {
         {"id": "root", "component": "Text", "text": "x"},
         {"id": "lost", "component": "Text", "text": "y"}
     ]));
-    assert_that!(err).contains("\"lost\" is not reachable");
+    assert_that!(err).contains("“lost” cannot be reached from “root”");
 }
 
 #[test]
@@ -157,4 +161,18 @@ fn render_suggest_button_sending_its_label_passes() {
 #[test]
 fn render_unknown_child_error_matches_snapshot() {
     insta::assert_snapshot!(refused(json!([{"id": "root", "component": "Card", "child": "nope"}])));
+}
+
+#[test]
+fn render_without_root_is_refused_with_its_reason() {
+    let err = render("render-1", &spec(json!([{"id": "a", "component": "Text", "text": "x"}]))).unwrap_err();
+    assert!(matches!(err.agent_form_reason(), Some(AgentFormReason::NoRoot)));
+}
+
+/// Le refus est dit dans la langue de l'utilisateur, préfixe compris.
+#[test]
+fn render_refusal_is_said_in_the_user_language() {
+    let err = render("render-1", &spec(json!([{"id": "root", "component": "Card", "child": "nope"}]))).unwrap_err();
+    assert_that!(err.localize(&Localizer::new(Some("fr"))))
+        .is_equal_to("La demande de l'agent est invalide : enfant inconnu « nope »".to_owned());
 }

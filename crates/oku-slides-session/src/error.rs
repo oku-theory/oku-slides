@@ -164,7 +164,7 @@ pub(crate) enum SessionInner {
     #[snafu(display("the response could not be written as JSON"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid surface: {reason}"))]
-    AgentForm { reason: String, backtrace: Backtrace },
+    AgentForm { reason: crate::agent::AgentFormReason, backtrace: Backtrace },
     #[snafu(display("{owner} is neither slide {slide} nor one of its elements"))]
     UnknownOwner { slide: String, owner: String, backtrace: Backtrace },
     #[snafu(display("{owner} has no text field {field}"))]
@@ -305,6 +305,14 @@ impl SessionError {
         }
     }
 
+    /// Pourquoi une surface de l'agent est refusée, pour une erreur [`SessionErrorKind::AgentForm`].
+    pub fn agent_form_reason(&self) -> Option<&crate::agent::AgentFormReason> {
+        match &*self.0 {
+            SessionInner::AgentForm { reason, .. } => Some(reason),
+            _ => None,
+        }
+    }
+
     /// L'erreur de rendu d'en dessous, s'il y en a une (sonde des widgets comprise).
     pub(crate) fn render_error(&self) -> Option<&oku_slides_render::RenderError> {
         match &*self.0 {
@@ -372,7 +380,7 @@ impl Localize for SessionError {
             ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
-            AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.as_str().into())]),
+            AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
             UnknownOwner { slide, owner, .. } => l.tr_with(
                 "session-unknown-owner",
                 &[("slide", slide.as_str().into()), ("owner", owner.as_str().into())],

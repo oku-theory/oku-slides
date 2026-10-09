@@ -17,6 +17,20 @@ const boxes = (p) => p.evaluate((sel) => {
   };
 }, TAB);
 
+/** Réponse de l'hôte à la sauvegarde de l'état d'interface dont la largeur du code vérifie `ok` :
+ *  la sauvegarde part après le rendu et peut tarder sur une machine chargée (t-668). */
+const saved = (p, ok) =>
+  p.waitForResponse((res) => {
+    const q = res.request();
+    if (q.method() !== 'POST') return false;
+    try {
+      const { req } = JSON.parse(q.postData() ?? '');
+      return req?.cmd === 'ui' && ok(req.code_width);
+    } catch {
+      return false;
+    }
+  });
+
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
   const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
@@ -50,12 +64,13 @@ const boxes = (p) => p.evaluate((sel) => {
   await p.mouse.move(d.x + d.width / 2, d.y + d.height / 2);
   await p.mouse.down();
   await p.mouse.move(d.x + d.width / 2 - 60, d.y + d.height / 2, { steps: 6 });
+  const widened = saved(p, (w) => w !== null && Math.abs(w - before - 60) <= 2);
   await p.mouse.up();
   r = await boxes(p);
   assert.ok(Math.abs(r.code.width - before - 60) <= 2, `largeur ${r.code.width}, attendue ${before + 60}`);
   const wide = r.code.width;
-  // La sauvegarde chez l'hôte part après le rendu.
-  await p.waitForTimeout(500);
+  // Recharger avant que l'hôte ait gardé la largeur la perdrait.
+  assert.ok((await widened).ok(), 'largeur non gardée par l\'hôte');
 
   // Rechargé : même largeur.
   await p.reload();
@@ -74,8 +89,9 @@ const boxes = (p) => p.evaluate((sel) => {
   assert.ok(r.side.width >= 240 - 1, `réglages trop étroits : ${r.side.width}`);
   assert.ok(r.overflow <= 0, `le sous-onglet déborde de ${r.overflow} px`);
   // Retour à la proportion par défaut, pour les tests suivants.
+  const reset = saved(p, (w) => w === null);
   await p.locator(`${TAB} .code-divider`).dblclick();
-  await p.waitForTimeout(500);
+  assert.ok((await reset).ok(), 'proportion par défaut non gardée par l\'hôte');
 
   assert.deepEqual(errors, []);
   console.log('disposition du code ok');

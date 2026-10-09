@@ -14,9 +14,9 @@ use serde_json::json;
 use snafu::{OptionExt, ensure};
 
 use super::bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_hex, check_text};
-use super::check_len;
 use super::forms::{Place, Surface, lit, surface};
 use super::turn_view::first_line;
+use super::{AgentFormReason, check_len};
 use crate::error::{AgentFormSnafu, NoSlideSnafu};
 use crate::views::PageHash;
 use crate::{Result, Session};
@@ -143,12 +143,15 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
 impl Session {
     /// Surface `report` : bornes vérifiées, faits blancs écartés, slide désignée par l'empreinte de sa page.
     pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
-        ensure!(!spec.title.trim().is_empty(), AgentFormSnafu { reason: "title: must not be empty".to_string() });
+        ensure!(
+            !spec.title.trim().is_empty(),
+            AgentFormSnafu { reason: AgentFormReason::Empty { at: "title".into() } }
+        );
         // Un fait blanc est écarté : la carte ne montre pas de ligne vide (t-458) ; la borne
         // compte donc les faits montrés (t-465).
         let facts: Vec<String> = spec.facts.iter().filter(|f| !f.trim().is_empty()).cloned().collect();
         // Des faits tous blancs ne disent rien : le reçu montrerait une ligne vide.
-        ensure!(!facts.is_empty(), AgentFormSnafu { reason: "facts: give at least one fact".to_string() });
+        ensure!(!facts.is_empty(), AgentFormSnafu { reason: AgentFormReason::Empty { at: "facts".into() } });
         check_len("facts", facts.len(), FACTS)?;
         check_len("actions", spec.actions.len(), ACTIONS)?;
         check_text("title", &spec.title, TEXT_MAX)?;

@@ -75,3 +75,27 @@ async fn a_missing_argument_is_named_so_the_agent_can_fix_its_call() {
     assert_that!(text.as_str()).starts_with("Les arguments de l'outil sont invalides");
     assert_that!(text.as_str()).contains("missing field `id`");
 }
+
+/// t-650 : la raison d'un refus d'une surface est dite dans la langue de l'utilisateur, pas en anglais.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_refused_surface_says_its_reason_in_the_user_language() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let options = json!([{ "id": "a", "label": "A" }, { "id": "a", "label": "B" }]);
+    let r = call(&c, "ask_choice", json!({ "question": "?", "options": options })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r))
+        .is_equal_to("La demande de l'agent est invalide : options[1] : identifiant « a » en double".to_owned());
+}
+
+/// t-650 : une valeur refusée dit pourquoi, dans la langue de l'utilisateur.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_invalid_value_says_why_in_the_user_language() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "apply", json!({ "ops": [{ "op": "set_grid", "slide": "s-libre", "columns": 30 }] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(
+        "Opération 0 refusée : Valeur invalide pour grid : une grille a de 1 à 24 colonnes et lignes".to_owned(),
+    );
+}

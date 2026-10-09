@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::ensure;
 
+use super::AgentFormReason;
 use super::bounds::{LABEL_MAX, TEXT_MAX, WHY_MAX, check_text};
 use super::forms::{Place, Surface, surface};
 use crate::Result;
@@ -30,7 +31,7 @@ pub const RENDER_DEPTH: usize = 6;
 pub const RENDER_BYTES: usize = 64 * 1024;
 
 /// Refus lisible par l'agent.
-fn refuse<T>(reason: String) -> Result<T> {
+fn refuse<T>(reason: AgentFormReason) -> Result<T> {
     Err(AgentFormSnafu { reason }.build().into())
 }
 
@@ -59,10 +60,7 @@ fn check_host_styles(i: usize, c: &Component) -> Result<()> {
             | ComponentKind::Card { tone: Some(Tone::Danger), .. }
             | ComponentKind::Badge { tone: Some(Tone::Danger), .. }
     );
-    ensure!(
-        !reserved,
-        AgentFormSnafu { reason: format!("components[{i}]: primary/danger styles are reserved to Oku Slides") }
-    );
+    ensure!(!reserved, AgentFormSnafu { reason: AgentFormReason::ReservedStyle { at: format!("components[{i}]") } });
     Ok(())
 }
 
@@ -70,12 +68,12 @@ fn check_host_styles(i: usize, c: &Component) -> Result<()> {
 fn lit(i: usize, d: &Dynamic<String>) -> Result<&str> {
     match d {
         Dynamic::Literal(s) => Ok(s),
-        Dynamic::Path { .. } => refuse(format!("components[{i}]: values must be literal (no {{path}} bindings)")),
+        Dynamic::Path { .. } => refuse(AgentFormReason::NotLiteral { at: format!("components[{i}]") }),
     }
 }
 
 /// Les longueurs de chaque texte visible ; sans `_` : un nouveau composant doit dire comment il se borne.
-fn check_content(i: usize, c: &Component) -> Result<()> {
+fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
     let at = |what: &str| format!("components[{i}].{what}");
     match &c.kind {
         ComponentKind::Text { text, .. } | ComponentKind::Markdown { text } => {
@@ -101,7 +99,11 @@ fn check_content(i: usize, c: &Component) -> Result<()> {
         | ComponentKind::SlideThumb { .. }
         | ComponentKind::Prompt { .. }
         | ComponentKind::Timeline { .. }
-        | ComponentKind::Receipt { .. } => refuse(format!("components[{i}]: component not available in render")),
+        | ComponentKind::Receipt { .. } => refuse(AgentFormReason::NotAvailable {
+            at: format!("components[{i}]"),
+            name: name.to_owned(),
+            tool: "render",
+        }),
     }
 }
 
@@ -121,52 +123,49 @@ fn check_available(i: usize, c: &Component, name: &str) -> Result<()> {
     ensure!(
         !field,
         AgentFormSnafu {
-            reason: format!("components[{i}]: {name} is not available in render (use show_params for settings)")
+            reason: AgentFormReason::SettingInRender { at: format!("components[{i}]"), name: name.to_owned() }
         }
     );
     Ok(())
 }
 
 fn parse(i: usize, v: &Value) -> Result<Component> {
-    ensure!(
-        !has_path(v),
-        AgentFormSnafu { reason: format!("components[{i}]: values must be literal (no {{path}} bindings)") }
-    );
+    ensure!(!has_path(v), AgentFormSnafu { reason: AgentFormReason::NotLiteral { at: format!("components[{i}]") } });
     let c: Component = match serde_json::from_value(v.clone()) {
         Ok(c) => c,
-        Err(e) => return refuse(format!("components[{i}]: {e}")),
+        Err(e) => return refuse(AgentFormReason::Malformed { at: format!("components[{i}]"), detail: e.to_string() }),
     };
     let back = serde_json::to_value(&c).unwrap_or(Value::Null);
     if let Some(extra) = unknown_key(v, &back) {
-        return refuse(format!("components[{i}]: unknown property {extra:?}"));
+        return refuse(AgentFormReason::UnknownProperty { at: format!("components[{i}]"), name: extra.clone() });
     }
     if !c.agent_allowed() {
         let name = back.get("component").and_then(Value::as_str).unwrap_or_default();
-        return refuse(format!("components[{i}]: {name} is reserved to Oku Slides"));
+        return refuse(AgentFormReason::Reserved { at: format!("components[{i}]"), name: name.to_owned() });
     }
     // Le composant relu : un `{path, …}` à clés en trop devient `{path}` et se voit ici.
     ensure!(
         !has_path(&back),
-        AgentFormSnafu { reason: format!("components[{i}]: values must be literal (no {{path}} bindings)") }
+        AgentFormSnafu { reason: AgentFormReason::NotLiteral { at: format!("components[{i}]") } }
     );
     let name = back.get("component").and_then(Value::as_str).unwrap_or_default();
     check_available(i, &c, name)?;
     check_host_styles(i, &c)?;
     for a in c.kind.actions() {
         let ComponentKind::Button { label: Dynamic::Literal(label), .. } = &c.kind else {
-            return refuse(format!("components[{i}]: only buttons may carry an action"));
+            return refuse(AgentFormReason::BadAction { at: format!("components[{i}]") });
         };
         let prompt = match a.event.context.get("prompt") {
             Some(Dynamic::Literal(Value::String(p))) if a.event.context.len() == 1 && a.event.name == "suggest" => p,
-            _ => return refuse(format!("components[{i}]: only suggest actions with a literal prompt are allowed")),
+            _ => return refuse(AgentFormReason::BadAction { at: format!("components[{i}]") }),
         };
         // Ce que l'on voit est ce qui part : le bouton porte exactement la consigne qu'il envoie.
         ensure!(
             label == prompt,
-            AgentFormSnafu { reason: format!("components[{i}]: a suggest button must send its own label as prompt") }
+            AgentFormSnafu { reason: AgentFormReason::BadAction { at: format!("components[{i}]") } }
         );
     }
-    check_content(i, &c)?;
+    check_content(i, &c, name)?;
     Ok(c)
 }
 
@@ -179,10 +178,10 @@ fn check_tree(components: &[Component]) -> Result<()> {
     let mut by_id: HashMap<&str, &Component> = HashMap::with_capacity(components.len());
     for c in components {
         if by_id.insert(c.id.as_str(), c).is_some() {
-            return refuse(format!("duplicate component id {:?}", c.id));
+            return refuse(AgentFormReason::DuplicateId { at: "components".into(), id: c.id.clone() });
         }
     }
-    ensure!(by_id.contains_key("root"), AgentFormSnafu { reason: "no component with id \"root\"".to_owned() });
+    ensure!(by_id.contains_key("root"), AgentFormSnafu { reason: AgentFormReason::NoRoot });
     let mut seen: HashSet<&str> = HashSet::with_capacity(components.len());
     let mut level: Vec<&str> = vec!["root"];
     let mut depth = 0;
@@ -190,20 +189,22 @@ fn check_tree(components: &[Component]) -> Result<()> {
         depth += 1;
         ensure!(
             depth <= RENDER_DEPTH,
-            AgentFormSnafu { reason: format!("deeper than {RENDER_DEPTH} levels (level {depth}, at {:?})", level[0]) }
+            AgentFormSnafu {
+                reason: AgentFormReason::TooDeep { max: RENDER_DEPTH, level: depth, id: level[0].to_owned() }
+            }
         );
         let mut next = Vec::new();
         for id in level {
             if !seen.insert(id) {
-                return refuse(format!("component {id:?} is used more than once (the components must form a tree)"));
+                return refuse(AgentFormReason::SharedComponent { id: id.to_owned() });
             }
-            let Some(c) = by_id.get(id) else { return refuse(format!("unknown child {id:?}")) };
+            let Some(c) = by_id.get(id) else { return refuse(AgentFormReason::UnknownChild { id: id.to_owned() }) };
             next.extend(c.kind.children());
         }
         level = next;
     }
     if let Some(orphan) = components.iter().find(|c| !seen.contains(c.id.as_str())) {
-        return refuse(format!("component {:?} is not reachable from \"root\"", orphan.id));
+        return refuse(AgentFormReason::Unreachable { id: orphan.id.clone() });
     }
     Ok(())
 }
@@ -213,12 +214,16 @@ pub fn render(id: &str, spec: &Render) -> Result<Surface> {
     // Le nombre d'abord : on ne sérialise pas une liste démesurée pour la mesurer.
     ensure!(
         spec.components.len() <= RENDER_MAX,
-        AgentFormSnafu { reason: format!("at most {RENDER_MAX} components, got {}", spec.components.len()) }
+        AgentFormSnafu {
+            reason: AgentFormReason::TooMany { at: "components".into(), max: RENDER_MAX, count: spec.components.len() }
+        }
     );
     let bytes = serde_json::to_vec(spec.components.as_slice()).map_or(usize::MAX, |b| b.len());
     ensure!(
         bytes <= RENDER_BYTES,
-        AgentFormSnafu { reason: format!("at most {RENDER_BYTES} bytes of components, got {bytes}") }
+        AgentFormSnafu {
+            reason: AgentFormReason::TooLarge { at: "components".into(), max: RENDER_BYTES, size: bytes }
+        }
     );
     let components: Vec<Component> =
         spec.components.iter().enumerate().map(|(i, v)| parse(i, v)).collect::<Result<_>>()?;

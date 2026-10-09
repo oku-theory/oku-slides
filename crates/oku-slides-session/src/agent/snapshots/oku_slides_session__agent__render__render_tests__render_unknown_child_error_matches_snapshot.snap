@@ -3,4 +3,4 @@ source: crates/oku-slides-session/src/agent/render_tests.rs
 assertion_line: 147
 expression: "refused(json!([{\"id\": \"root\", \"component\": \"Card\", \"child\": \"nope\"}]))"
 ---
-invalid surface: unknown child "nope"
+The agent's request is invalid: unknown child “nope”

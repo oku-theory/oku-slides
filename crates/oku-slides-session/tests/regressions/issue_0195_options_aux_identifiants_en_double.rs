@@ -1,8 +1,9 @@
 //! t-195 : une liste `select` de `show_params` aux identifiants en double était acceptée.
 
 use oku_slides_a2ui::ChoiceOption;
+use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_session::SessionErrorKind;
-use oku_slides_session::agent::{FieldKind, ParamField, ShowParams};
+use oku_slides_session::agent::{AgentFormReason, FieldKind, ParamField, ShowParams};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -34,7 +35,14 @@ fn select_with_a_duplicate_option_id_is_refused() {
     s.open(&fixture_path()).unwrap_or_else(|e| panic!("{e}"));
     let err = s.params_surface("show-1", &select(vec![option("a"), option("b"), option("a")])).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
-    assert_that!(err.one_line().contains("fields[0]")).is_true();
+    assert!(matches!(
+        err.agent_form_reason(),
+        Some(AgentFormReason::DuplicateId { at, id }) if at == "fields[0].options[2]" && id == "a"
+    ));
+    // Dite dans la langue de l'utilisateur, raison comprise (t-650).
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_equal_to(
+        "La demande de l'agent est invalide : fields[0].options[2] : identifiant « a » en double".to_owned(),
+    );
 }
 
 #[test]

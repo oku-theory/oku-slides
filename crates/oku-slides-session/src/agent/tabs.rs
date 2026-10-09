@@ -81,7 +81,9 @@ impl TabSession {
         // `Sessions::with` appelle `f` au plus une fois ; `Ok` sans appel est
         // une faute de l'implémentation.
         out.ok_or_else(|| {
-            crate::error::AgentFormSnafu { reason: format!("{}: session not called", self.tab) }.build().into()
+            crate::error::AgentFormSnafu { reason: super::AgentFormReason::SessionNotCalled { tab: self.tab.clone() } }
+                .build()
+                .into()
         })
     }
 }

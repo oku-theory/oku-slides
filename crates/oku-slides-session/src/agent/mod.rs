@@ -9,6 +9,7 @@ pub mod context;
 pub mod conversation;
 pub mod diff;
 pub mod forms;
+pub mod reason;
 pub mod receipt;
 pub mod render;
 pub mod scope;
@@ -25,6 +26,7 @@ pub use forms::{
     ShowParams, ShowVariants, Surface, Variant,
 };
 pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep};
+pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
 pub use scope::AgentScope;
@@ -54,7 +56,7 @@ impl Session {
 pub fn check_len(what: &str, len: usize, (min, max): (usize, usize)) -> Result<()> {
     snafu::ensure!(
         (min..=max).contains(&len),
-        AgentFormSnafu { reason: format!("{what}: expected {min} to {max} entries, got {len}") }
+        AgentFormSnafu { reason: AgentFormReason::Count { at: what.to_owned(), min, max, count: len } }
     );
     Ok(())
 }

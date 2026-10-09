@@ -5,7 +5,7 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use super::list::{ListSpec, list_value};
-use crate::error::{ChoiceOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu};
+use crate::error::{ChoiceOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, ValueReason};
 use crate::model::{Grid, Paragraph};
 use crate::params::ParamValue;
 use crate::widget::ParamType;
@@ -55,7 +55,7 @@ pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<P
             Value::Number(n) => {
                 let x = n.as_f64().unwrap_or(f64::NAN);
                 if min.is_some_and(|m| x < m) || max.is_some_and(|m| x > m) || x.is_nan() {
-                    return Err(InvalidValueSnafu { field: param, reason: "out of bounds" }.build().into());
+                    return Err(InvalidValueSnafu { field: param, reason: ValueReason::OutOfBounds }.build().into());
                 }
                 Ok(Some(ParamValue::Value(Value::Number(n))))
             }
@@ -66,7 +66,7 @@ pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<P
             v @ Value::Object(_) => {
                 let grid: Grid = serde_json::from_value(v).context(ParseValueSnafu { field: param })?;
                 if !GRID_TRACKS.contains(&grid.columns) || !GRID_TRACKS.contains(&grid.rows) {
-                    return Err(InvalidValueSnafu { field: param, reason: "1 to 24 columns and rows" }.build().into());
+                    return Err(InvalidValueSnafu { field: param, reason: ValueReason::GridTracks }.build().into());
                 }
                 let v = serde_json::to_value(grid).context(ParseValueSnafu { field: param })?;
                 Ok(Some(ParamValue::Value(v)))

@@ -1,7 +1,9 @@
 use oku_slides_core::{Op, Paragraph, Run, Target};
+use oku_slides_i18n::{Localize, Localizer, english};
 use oku_slides_session::SessionErrorKind;
 use oku_slides_session::agent::{
-    AgentUi, Anchor, AskRewrite, FieldKind, ParamField, Place, Report, ShowParams, ShowVariants, Surface, Variant,
+    AgentFormReason, AgentUi, Anchor, AskRewrite, FieldKind, ParamField, Place, Report, ShowParams, ShowVariants,
+    Surface, Variant,
 };
 use serde_json::json;
 use speculoos::prelude::*;
@@ -88,19 +90,19 @@ fn report(title: &str, facts: &[&str], swatch: Option<&str>) -> Report {
 
 /// Les bornes de `report`, vérifiées au niveau de la session (là où l'outil les fait respecter).
 #[rstest::rstest]
-#[case::swatch_not_hex(report("Fait", &["a"], Some("bleu")), "swatch: bleu is not a hex color")]
+#[case::swatch_not_hex(report("Fait", &["a"], Some("bleu")), "swatch: “bleu” is not a hex color")]
 #[case::swatch_without_hash(report("Fait", &["a"], Some("00154e")), "is not a hex color")]
 #[case::swatch_bad_length(report("Fait", &["a"], Some("#00154")), "is not a hex color")]
 #[case::long_title(report(&"x".repeat(121), &["a"], None), "title: 121 characters, at most 120")]
 #[case::long_fact(report("Fait", &["a", &"é".repeat(121)], None), "facts[1]: 121 characters, at most 120")]
 #[case::bidi_title(report("Fait\u{202E}", &["a"], None), "title: invisible or bidirectional")]
 #[case::bidi_fact(report("Fait", &["\u{2066}a"], None), "facts[0]: invisible or bidirectional")]
-#[case::blank_facts(report("Fait", &["  ", "", "\t"], None), "facts: give at least one fact")]
+#[case::blank_facts(report("Fait", &["  ", "", "\t"], None), "facts: must not be empty")]
 fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case] reason: &str) {
     let mut s = session();
     let err = s.report_surface("report-1", &spec).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
-    assert_that!(err.to_string()).contains(reason);
+    assert_that!(err.localize(english())).contains(reason);
 }
 
 /// t-458 : un fait blanc parmi des faits non blancs est écarté (pas de ligne vide sur la carte).
@@ -179,7 +181,12 @@ fn rewrite_ops_of_element_without_paragraphs_returns_agent_form_error() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let spec = rewrite("s-libre", "e-texte", None, &["a", "b"]);
-    assert_that!(s.rewrite_ops(&spec, "Nouveau", None).unwrap_err().kind()).is_equal_to(SessionErrorKind::AgentForm);
+    let err = s.rewrite_ops(&spec, "Nouveau", None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
+    assert!(matches!(err.agent_form_reason(), Some(AgentFormReason::Missing { at }) if at == "paragraphs"));
+    // t-326 : la raison est dite dans la langue de l'utilisateur, pas en anglais.
+    assert_that!(err.localize(&Localizer::new(Some("fr"))))
+        .is_equal_to("La demande de l'agent est invalide : paragraphs : manquant".to_owned());
 }
 
 #[test]
@@ -421,7 +428,7 @@ fn params_surface_rich_field_without_paragraphs_returns_agent_form() {
     let spec = ShowParams { title: "Texte".into(), slide: "s-libre".into(), fields: vec![rich_field(json!("Un"))] };
     let err = s.params_surface("show-rich", &spec).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
-    assert_that!(err.one_line()).contains("fields[0]: a rich value must be a list of paragraphs");
+    assert_that!(err.localize(english())).contains("fields[0]: a rich value must be a list of paragraphs");
 }
 
 #[test]
@@ -432,7 +439,11 @@ fn params_surface_list_field_returns_agent_form() {
     let spec = ShowParams { title: "Liste".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-list", &spec).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
-    assert_that!(err.one_line()).contains("fields[0]: a list field is not available in show_params");
+    assert!(matches!(
+        err.agent_form_reason(),
+        Some(AgentFormReason::NotAvailable { at, tool: "show_params", .. }) if at == "fields[0]"
+    ));
+    assert_that!(err.localize(english())).contains("fields[0]: list is not available in show_params");
 }
 
 #[test]

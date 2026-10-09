@@ -36,6 +36,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
 ## Erreurs
 
 `error.rs` : `OpError`, `ReplicaError`, `SourcesError`, `TransactionError` — Snafu, `Localize`, Fluent.
+Une valeur refusée porte sa raison (`ValueReason`, `OpError::value_reason`) : `op-invalid-value-because` + `op-value-*`.
 
 ## Points d'extension
 

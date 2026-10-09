@@ -10,7 +10,7 @@ use super::value::param_value;
 use super::{Target, declared, target_mut, target_ref, widget};
 use crate::error::{
     DuplicateIdSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, ItemNotFoundSnafu, ListBound, ListBoundSnafu, OpError,
-    ParamTypeSnafu, UnknownParamSnafu,
+    ParamTypeSnafu, UnknownParamSnafu, ValueReason,
 };
 use crate::{Deck, Element, ListItem, ParamSchema, ParamType, ParamValue, Params, WidgetRegistry};
 
@@ -163,9 +163,7 @@ fn item_values(spec: &ListSpec<'_>, values: &Map<String, Value>) -> Result<Param
 
 fn check_id(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<(), OpError> {
     if id.is_empty() || id.contains('/') {
-        return Err(InvalidValueSnafu { field: spec.name, reason: "an item id is a non-empty string without /" }
-            .build()
-            .into());
+        return Err(InvalidValueSnafu { field: spec.name, reason: ValueReason::BadItemId }.build().into());
     }
     id_fits(spec, id)?;
     if items.iter().any(|i| i.id == id) {
@@ -292,7 +290,7 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         };
         let id = match obj.remove("id") {
             Some(Value::String(s)) => s,
-            _ => return Err(InvalidValueSnafu { field: spec.name, reason: "every item needs an id" }.build().into()),
+            _ => return Err(InvalidValueSnafu { field: spec.name, reason: ValueReason::MissingItemId }.build().into()),
         };
         check_id(spec, &items, &id)?;
         let values = item_values(spec, &obj)?;

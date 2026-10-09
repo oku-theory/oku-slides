@@ -10,7 +10,7 @@ use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use super::forms::{self, FieldKind, ParamField, ShowParams, ShowVariants, Surface};
-use super::{check_len, check_options};
+use super::{AgentFormReason, check_len, check_options};
 use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
 use crate::{Result, Session, new_renderer};
 
@@ -43,6 +43,16 @@ fn parse_op(template: &Value, value: &Value) -> std::result::Result<Op, serde_js
     serde_json::from_value(fill_template(template, value))
 }
 
+/// Un gabarit ou une valeur JSON d'une autre forme que celle attendue (`at` : où).
+fn malformed(at: String, e: &serde_json::Error) -> crate::SessionError {
+    AgentFormSnafu { reason: AgentFormReason::Malformed { at, detail: e.to_string() } }.build().into()
+}
+
+/// Des ops refusées par le deck (`at` : le champ ou la variante qui les porte).
+fn refused(at: String, e: oku_slides_core::TransactionError) -> crate::SessionError {
+    AgentFormSnafu { reason: AgentFormReason::Refused { at, source: Box::new(e) } }.build().into()
+}
+
 /// Valeur d'un champ riche (des paragraphes) et bornes d'un champ à curseur, cohérentes pour son `kind`.
 ///
 /// Le nombre minimal d'`options` n'est volontairement pas borné ici (seuls un plafond large, leurs
@@ -55,12 +65,18 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
     // Le tableau d'une liste envoie un changement, pas une valeur pour `op_template`.
     ensure!(
         field.kind != FieldKind::List,
-        AgentFormSnafu { reason: format!("fields[{i}]: a list field is not available in show_params") }
+        AgentFormSnafu {
+            reason: AgentFormReason::NotAvailable {
+                at: format!("fields[{i}]"),
+                name: "list".into(),
+                tool: "show_params"
+            }
+        }
     );
     if field.kind == FieldKind::Rich {
         ensure!(
             Vec::<Paragraph>::deserialize(&field.value).is_ok(),
-            AgentFormSnafu { reason: format!("fields[{i}]: a rich value must be a list of paragraphs") }
+            AgentFormSnafu { reason: AgentFormReason::NotParagraphs { at: format!("fields[{i}]") } }
         );
     }
     if field.kind == FieldKind::Select {
@@ -68,14 +84,18 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
         ensure!(
             field.options.len() <= max,
             AgentFormSnafu {
-                reason: format!("fields[{i}]: options: at most {max} entries, got {}", field.options.len())
+                reason: AgentFormReason::TooMany {
+                    at: format!("fields[{i}].options"),
+                    max,
+                    count: field.options.len()
+                }
             }
         );
-        check_options(&format!("fields[{i}]: options"), &field.options)?;
+        check_options(&format!("fields[{i}].options"), &field.options)?;
     }
     if matches!(field.kind, FieldKind::Slider | FieldKind::Stepper) {
         let finite = [field.min, field.max].into_iter().flatten().all(|v| v.is_finite());
-        ensure!(finite, AgentFormSnafu { reason: format!("fields[{i}]: min/max must be finite") });
+        ensure!(finite, AgentFormSnafu { reason: AgentFormReason::NotFinite { at: format!("fields[{i}]") } });
         // Un `Stepper` sans borne la laisse simplement non contrainte (`None`
         // reste `None` côté composant) : on ne compare que les deux bornes
         // présentes. Un `Slider`, lui, retombe sur `forms::SLIDER_DEFAULT_*`
@@ -90,7 +110,10 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
             _ => field.min.zip(field.max),
         };
         if let Some((min, max)) = bounds {
-            ensure!(min < max, AgentFormSnafu { reason: format!("fields[{i}]: min ({min}) must be < max ({max})") });
+            ensure!(
+                min < max,
+                AgentFormSnafu { reason: AgentFormReason::BoundsInverted { at: format!("fields[{i}]"), min, max } }
+            );
         }
     }
     Ok(())
@@ -99,8 +122,7 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
 impl Session {
     /// L'op d'un champ pour `value`.
     pub fn param_op(&self, field: &ParamField, value: &Value) -> Result<Op> {
-        parse_op(&field.op_template, value)
-            .map_err(|e| AgentFormSnafu { reason: format!("op_template: {e}") }.build().into())
+        parse_op(&field.op_template, value).map_err(|e| malformed("op_template".into(), &e))
     }
 
     /// Surface `show_params`. Chaque gabarit est rempli avec sa valeur
@@ -111,10 +133,9 @@ impl Session {
         for (i, field) in spec.fields.iter().enumerate() {
             check_field(i, field)?;
             let op = parse_op(&field.op_template, &field.value)
-                .map_err(|e| AgentFormSnafu { reason: format!("fields[{i}]: op_template: {e}") }.build())?;
+                .map_err(|e| malformed(format!("fields[{i}].op_template"), &e))?;
             let mut deck = self.deck().clone();
-            apply_all(&mut deck, vec![op], &self.registry)
-                .map_err(|e| AgentFormSnafu { reason: format!("fields[{i}]: {e}") }.build())?;
+            apply_all(&mut deck, vec![op], &self.registry).map_err(|e| refused(format!("fields[{i}]"), e))?;
         }
         let palette = self.slide_palette();
         Ok(forms::params(id, spec, &palette, &self.localizer))
@@ -152,19 +173,23 @@ impl Session {
             ensure!(
                 (min..=max).contains(&variant.ops.len()),
                 AgentFormSnafu {
-                    reason: format!("variants[{i}]: ops: expected {min} to {max} entries, got {}", variant.ops.len())
+                    reason: AgentFormReason::Count {
+                        at: format!("variants[{i}].ops"),
+                        min,
+                        max,
+                        count: variant.ops.len()
+                    }
                 }
             );
             let mut deck = self.doc.sources.deck().clone();
             apply_all(&mut deck, variant.ops.clone(), &self.registry)
-                .map_err(|e| AgentFormSnafu { reason: format!("variants[{i}]: {e}") }.build())?;
+                .map_err(|e| refused(format!("variants[{i}]"), e))?;
             // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
             let compiled = crate::deck_theme::render_themed(renderer, &deck, tokens.as_ref(), &self.doc.sources.assets)
                 .context(RenderSnafu)?;
-            let page = compiled
-                .layout()
-                .page_of(&spec.slide)
-                .context(AgentFormSnafu { reason: format!("variants[{i}]: slide {} removed", spec.slide) })?;
+            let page = compiled.layout().page_of(&spec.slide).context(AgentFormSnafu {
+                reason: AgentFormReason::SlideRemoved { at: format!("variants[{i}]"), slide: spec.slide.clone() },
+            })?;
             svgs.push(compiled.svg(page - 1).context(RenderSnafu)?.into());
         }
         Ok(svgs)

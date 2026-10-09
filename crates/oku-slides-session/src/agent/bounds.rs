@@ -3,6 +3,7 @@
 use oku_slides_a2ui::ChoiceOption;
 use snafu::ensure;
 
+use super::AgentFormReason;
 use crate::Result;
 use crate::error::AgentFormSnafu;
 
@@ -32,10 +33,10 @@ fn is_hidden_control(c: char) -> bool {
 /// Refuse un texte de l'agent trop long (`max` caractères) ou contenant un contrôle invisible.
 pub fn check_text(what: &str, text: &str, max: usize) -> Result<()> {
     let n = text.chars().count();
-    ensure!(n <= max, AgentFormSnafu { reason: format!("{what}: {n} characters, at most {max}") });
+    ensure!(n <= max, AgentFormSnafu { reason: AgentFormReason::TooLong { at: what.to_owned(), count: n, max } });
     ensure!(
         !text.chars().any(is_hidden_control),
-        AgentFormSnafu { reason: format!("{what}: invisible or bidirectional control characters are not allowed") }
+        AgentFormSnafu { reason: AgentFormReason::HiddenCharacters { at: what.to_owned() } }
     );
     Ok(())
 }
@@ -52,18 +53,26 @@ pub fn check_options(what: &str, options: &[ChoiceOption]) -> Result<()> {
         }
         ensure!(
             seen.insert(option.id.as_str()),
-            AgentFormSnafu { reason: format!("{what}[{i}]: duplicate option id {:?}", option.id) }
+            AgentFormSnafu {
+                reason: AgentFormReason::DuplicateId { at: format!("{what}[{i}]"), id: option.id.clone() }
+            }
         );
     }
     Ok(())
 }
 
-/// Refuse une couleur qui n'est pas `#rgb`, `#rgba`, `#rrggbb` ou `#rrggbbaa`.
+/// Refuse une couleur qui n'est pas `#rgb`, `#rgba`, `#rrggbb` ou `#rrggbbaa` (la valeur
+/// citée dans le refus est coupée à [`LABEL_MAX`] caractères).
 pub fn check_hex(what: &str, color: &str) -> Result<()> {
     let hex = color.strip_prefix('#').unwrap_or_default();
     ensure!(
         matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit()),
-        AgentFormSnafu { reason: format!("{what}: {color} is not a hex color") }
+        AgentFormSnafu {
+            reason: AgentFormReason::NotHexColor {
+                at: what.to_owned(),
+                value: color.chars().take(LABEL_MAX).collect()
+            }
+        }
     );
     Ok(())
 }

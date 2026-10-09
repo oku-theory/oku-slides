@@ -689,24 +689,27 @@ fn ops_schema_generates_schema_naming_ops() {
 }
 
 #[test]
-fn op_errors_localize_with_their_subject() {
+fn op_errors_localize_with_their_subject_and_reason() {
     let fr = Localizer::new(Some("fr"));
     let cases: Vec<(Op, &str)> = vec![
         (Op::SetNotes { slide: "absente".into(), notes: String::new() }, "Slide introuvable : absente"),
         (set_param(at("s-constat", "x"), "body", json!([])), "Élément introuvable : x"),
         (Op::MoveSlide { slide: "s-fin".into(), index: 99 }, "Position hors limites"),
         (set_param(slide("s-fin"), "text", json!(3)), "Valeur invalide pour text"),
-        (Op::SetToken { path: vec![], value: json!(1) }, "Valeur invalide pour path"),
-        (Op::UnsetToken { path: vec![] }, "Valeur invalide pour path"),
-        (Op::SetTokens { tokens: json!([1]) }, "Valeur invalide pour tokens"),
-        (set_param(slide("s-libre"), "grid", json!({ "columns": 0, "rows": 6 })), "Valeur invalide pour grid"),
+        (Op::SetToken { path: vec![], value: json!(1) }, "Valeur invalide pour path : le chemin est vide"),
+        (Op::UnsetToken { path: vec![] }, "Valeur invalide pour path : le chemin est vide"),
+        (Op::SetTokens { tokens: json!([1]) }, "Valeur invalide pour tokens : un objet ou null est attendu"),
+        (
+            set_param(slide("s-libre"), "grid", json!({ "columns": 0, "rows": 6 })),
+            "Valeur invalide pour grid : une grille a de 1 à 24 colonnes et lignes",
+        ),
         (
             Op::SetFrame {
                 slide: "s-libre".into(),
                 element: "e-texte".into(),
                 frame: Some(Frame { x: 0.0, y: 0.0, w: 0.0, h: 1.0 }),
             },
-            "Valeur invalide pour frame",
+            "Valeur invalide pour frame : la largeur et la hauteur doivent être supérieures à 0",
         ),
         (Op::SetKind { target: slide("s-fin"), kind: "inconnu".into() }, "Widget inconnu : inconnu"),
         (set_param(slide("s-fin"), "titre", json!("x")), "Paramètre inconnu : titre"),

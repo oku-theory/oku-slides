@@ -6,7 +6,7 @@
 use serde_json::{Map, Value};
 
 use super::{GRID_TRACKS, Target, set_param, slide_mut, slide_ref};
-use crate::error::{InvalidValueSnafu, OpError};
+use crate::error::{InvalidValueSnafu, OpError, ValueReason};
 use crate::{Cell, Deck, Grid, ParamType, SlotMode, WidgetRegistry};
 
 /// Nouvelle place de `cell` quand la grille passe de `from` à `to`.
@@ -41,7 +41,7 @@ pub(super) fn set_grid(
     let from = s.resolved_grid(registry);
     let to = Grid { columns: columns.unwrap_or(from.columns), rows: rows.unwrap_or(from.rows), gap: None };
     if !GRID_TRACKS.contains(&to.columns) || !GRID_TRACKS.contains(&to.rows) {
-        return Err(InvalidValueSnafu { field: "grid", reason: "1 to 24 columns and rows" }.build().into());
+        return Err(InvalidValueSnafu { field: "grid", reason: ValueReason::GridTracks }.build().into());
     }
     if (to.columns, to.rows) == (from.columns, from.rows) {
         return Ok(());
