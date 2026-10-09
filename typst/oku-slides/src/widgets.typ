@@ -106,12 +106,13 @@
   let aligns = if type(aligns) == array { aligns } else { () }
   let first = if head-row { 1 } else { 0 }
   let data-rows = rows.slice(first)
-  // `auto` : à la fin pour une colonne de nombres (au moins un), au début sinon.
+  // Colonne de nombres : que des nombres ou des vides, au moins un nombre.
+  let numeric = range(n).map(x => data-rows.all(r => _numeric(r.at(x))) and data-rows.any(r => r.at(x) != none))
+  // `auto` : à la fin pour une colonne de nombres, au début sinon.
   let col-aligns = range(n).map(x => {
     let a = aligns.at(x, default: "auto")
     if a == "start" { start } else if a == "center" { center } else if a == "end" { end }
-    else if data-rows.all(r => _numeric(r.at(x))) and data-rows.any(r => r.at(x) != none) { end }
-    else { start }
+    else if numeric.at(x) { end } else { start }
   })
   let header-bg = color-of(t, k.header-bg)
   let stripe-bg = color-of(t, k.stripe-bg)
@@ -145,15 +146,19 @@
     calc.max(0pt, ..words.map(w => measure(styled-cell(x, y, w)).width))
   }))
   set text(size: size-of(t, k.size))
-  // Tient sans retour à la ligne : toute la largeur, l'excédent réparti au
-  // prorata des largeurs naturelles. Sinon, chaque colonne a au moins la
+  // Tient sans retour à la ligne : toute la largeur, l'excédent donné aux
+  // colonnes de texte au prorata de leur largeur naturelle (à toutes s'il n'y
+  // en a pas), les nombres restent serrés. Sinon, chaque colonne a au moins la
   // largeur de son plus long mot, le reste réparti selon ce qui lui manque
   // pour tenir sur une ligne ; trop large même ainsi, le tableau est posé à
   // cette largeur minimale puis réduit. Pas de pagination.
   layout(size => {
     let natural = range(n).map(x => col-width(x, true))
     let (columns, width) = if natural.sum() <= size.width {
-      (natural.map(w => w * (size.width / natural.sum())), size.width)
+      let grows = if numeric.all(v => v) { range(n) } else { range(n).filter(x => not numeric.at(x)) }
+      let share = grows.map(x => natural.at(x)).sum()
+      let spare = size.width - natural.sum()
+      (range(n).map(x => natural.at(x) + if x in grows { spare * (natural.at(x) / share) } else { 0pt }), size.width)
     } else {
       let least = range(n).map(x => calc.min(col-width(x, false), natural.at(x)))
       let spare = size.width - least.sum()

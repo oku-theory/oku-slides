@@ -256,3 +256,43 @@ fn number_cells_without_deck_language_stay_plain() {
 fn number_cells_in_french_differ_from_plain() {
     assert_that!(lang_hash(Some("fr"), json!(12345.5))).is_not_equal_to(lang_hash(Some("fr"), json!("12345.5")));
 }
+
+/// Pixels RGBA de la page 1, à 1 px par pt.
+fn pixels(d: &Deck) -> Vec<u8> {
+    let png = compile(d).png(0, 1.0).unwrap_or_else(|e| panic!("{e}"));
+    let mut reader = png::Decoder::new(std::io::Cursor::new(png)).read_info().unwrap_or_else(|e| panic!("{e}"));
+    let mut buf = vec![0; reader.output_buffer_size().unwrap_or_else(|| panic!("taille de PNG inconnue"))];
+    let info = reader.next_frame(&mut buf).unwrap_or_else(|e| panic!("{e}"));
+    buf.truncate(info.buffer_size());
+    buf
+}
+
+/// Tableau texte + deux nombres au bord droit en x = 410, de largeur `w`, sous
+/// un cache qui couvre tout à gauche de x = 300 (la colonne de texte comprise).
+fn right_edge(w: f64) -> Deck {
+    let data = json!({ "dataset": { "source": [["Mois", "A", "B"], ["Jan", 1, 2]] } });
+    let elements = json!([
+        { "id": "t1", "kind": "table", "params": { "data": data },
+            "frame": { "x": 410.0 - w, "y": 10, "w": w, "h": 120 } },
+        { "id": "cache", "kind": "shape", "params": { "shape": "rect" }, "style": { "fill": "ink" },
+            "frame": { "x": 0, "y": 0, "w": 300, "h": 140 } },
+    ]);
+    deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
+}
+
+#[test]
+fn spare_width_goes_to_text_columns_number_columns_keep_their_width() {
+    // À l'arrondi près : la position des glyphes passe par des flottants.
+    let (narrow, wide) = (pixels(&right_edge(300.0)), pixels(&right_edge(400.0)));
+    assert_that!(narrow.len()).is_equal_to(wide.len());
+    let gap = narrow.iter().zip(&wide).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or_else(|| panic!("page vide"));
+    assert_that!(gap).is_less_than_or_equal_to(8);
+}
+
+#[test]
+fn empty_text_column_beside_numbers_compiles() {
+    // Une colonne vide a quand même une largeur naturelle (marges + 0,1 pt) :
+    // l'excédent lui revient sans division par zéro.
+    let data = json!({ "header-row": false, "dataset": { "source": [[null, 1], [null, 2]] } });
+    assert_that!(compile(&deck_of(in_flow(data), None)).page_count()).is_equal_to(1);
+}

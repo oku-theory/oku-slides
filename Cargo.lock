@@ -5520,6 +5520,7 @@ dependencies = [
  "oku-slides-core",
  "oku-slides-i18n",
  "oku-slides-pdf",
+ "png 0.18.1",
  "rstest",
  "serde",
  "serde_json",
