@@ -1,213 +1,275 @@
 # Oku Slides
 
-`echo "une idée" > deck` : ce que vous dites devient des slides. Oku Slides crée et
-modifie des présentations à la voix ; le document est un PDF (`.oku-slides.pdf`) qui
-contient ses propres sources : n'importe quel lecteur l'affiche, Oku Slides le rouvre
-pour continuer l'édition.
+`echo "an idea" > deck`: what you say becomes slides. Oku Slides creates and edits
+presentations by voice. The document is a PDF (`.oku-slides.pdf`) that carries its
+own sources: any viewer displays it, and Oku Slides reopens it to keep editing.
 
-Dans le code : crates `oku-slides-*`, outil `oku-slides`, bibliothèque Typst
-`oku-slides`.
+In the code: crates `oku-slides-*`, the `oku-slides` tool, the `oku-slides` Typst
+library.
 
-Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
+Implementation plan: [Oku Slides — implementation plan](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
+Design decisions: [`docs/adr/`](docs/adr/README.md). Decision records, plans, code
+comments and tool output are in French.
 
-## Contenu du dépôt
+## Repository layout
 
-| Chemin | Rôle |
+| Path | Role |
 | --- | --- |
-| `crates/oku-slides-core` | Modèle du deck, opérations réversibles, historique, validation, zip des sources |
-| `crates/oku-slides-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
-| `crates/oku-slides-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
-| `crates/oku-slides-import` | Import PPTX : représentation intermédiaire `SourceDeck` et lecteur |
-| `crates/oku-slides-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
-| `crates/oku-slides-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
-| `crates/oku-slides-a2ui` | Surfaces A2UI v0.9 (catalogue de composants), partagées par le panneau et l'agent |
-| `crates/oku-slides-mcp` | Outils MCP de l'agent (HTTP local, jeton) : lecture, `apply`, surfaces, confirmations |
-| `crates/oku-slides-agent` | Agent vocal : client ACP (agent en sous-processus), tours, pile pour l'app et le serveur ; faux agent de test |
-| `crates/oku-slides-cli` | Outil `oku-slides` : rendu, enregistrement, relecture, mesures, serveur de dev |
-| `src-tauri` | Application de bureau Tauri 2 |
-| `ui` | Interface React + TypeScript (design system Papier) |
-| `assets/fonts` | Polices livrées (Newsreader, Instrument Sans, Inter) |
-| `typst/oku-slides` | Bibliothèque Typst de slides (structure, jetons par défaut et thèmes intégrés `papier` et `pro`, en JSON) |
-| `fixtures/` | Decks d'exemple |
-| `docs/aide/` | Aide de l'app : un deck JSON par langue (fr, en), compilé dans l'app, ouvert en lecture seule (⌘?) |
+| `crates/oku-slides-core` | Deck model, reversible operations, history, validation, Loro replica, source bundle |
+| `crates/oku-slides-render` | Embedded Typst: one SVG per slide, PDF, element boxes |
+| `crates/oku-slides-render-worker` | Typst rendering in a worker process, bounded in time and memory |
+| `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
+| `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
+| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation and reader |
+| `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server |
+| `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
+| `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
+| `crates/oku-slides-stt` | Dictation: microphone, voice detection, Apple's engine (macOS 26+) or local Whisper (CTranslate2) |
+| `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
+| `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
+| `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |
+| `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, benchmarks, dev server |
+| `src-tauri` | Tauri 2 desktop app |
+| `ui` | React + TypeScript interface (Papier design system) |
+| `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts), in Git LFS |
+| `typst/oku-slides` | Typst slide library (structure, default tokens, built-in `papier` and `pro` themes as JSON) |
+| `templates/` | Built-in template sets (`essentiel`, `grilles`) |
+| `fixtures/` | Sample decks, agent scripts, import, dictation and widget samples |
+| `docs/aide/` | In-app help: one JSON deck per language (fr, en), compiled into the app, opened read-only (⌘?) |
+| `docs/adr/` | Architecture decision records |
 
-## Outil en ligne de commande
+## Command-line tool
 
 ```sh
-just oku-slides check fixtures/roadmap.json                       # valider un deck
-just oku-slides render fixtures/roadmap.json --out out --theme pro # SVG + layout.json ; thème par nom
-just save fixtures/roadmap.json deck.oku-slides.pdf                # enregistrer en .oku-slides.pdf
-just oku-slides open deck.oku-slides.pdf --out extrait/                # deck.json + assets
-just oku-slides strip deck.oku-slides.pdf copie.pdf                    # copie sans sources
-just bench                                                     # latences
-just oku-slides schema                                             # schéma JSON des opérations
+just oku-slides check fixtures/roadmap.json                         # validate a deck
+just oku-slides render fixtures/roadmap.json --out out --theme pro  # SVG + layout.json; theme by name
+just save fixtures/roadmap.json deck.oku-slides.pdf                 # save as .oku-slides.pdf
+just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json + assets
+just oku-slides strip deck.oku-slides.pdf copy.pdf                  # copy without sources
+just bench                                                          # render and save latencies (release build)
+just oku-slides schema                                              # JSON schema of operations
 ```
 
-`--fonts <dossier>` ajoute des polices (TTF/OTF) ; sans elles, Typst utilise
-ses polices intégrées (Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
+`--fonts <dir>` adds fonts (TTF/OTF); without it, Typst uses its built-in fonts
+(Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
 
-## Lancer l'application
+## Running the app
 
-Tout se lance depuis la racine du dépôt avec [just](https://just.systems).
-Prérequis : Rust, [Bun](https://bun.sh), just, cmake (pour CTranslate2), la CLI Tauri
-(`cargo install tauri-cli --version "^2"`) et [Git LFS](https://git-lfs.com) pour les
-polices de `assets/fonts` (`git lfs install` avant de cloner, sinon `git lfs pull`).
-`just doctor` vérifie tout.
+Everything runs from the repository root with [just](https://just.systems).
+Prerequisites: Rust, [Bun](https://bun.sh), just, cmake (for CTranslate2), the Tauri
+CLI (`cargo install tauri-cli --version "^2"`), on a Mac Xcode with the macOS 26 SDK
+(required: the Swift bridge to Apple's dictation engine is always built), and [Git LFS](https://git-lfs.com) for the fonts in
+`assets/fonts` (`git lfs install` before cloning, otherwise `git lfs pull`).
+The `typst` CLI is optional (`just typst`). `just doctor` checks everything.
 
 ```sh
-just dev      # app de bureau en développement (installe les dépendances de l'interface)
-just build    # paquet .app / .dmg
-just web      # interface dans le navigateur avec rechargement à chaud (localhost:5173)
-just serve    # interface compilée dans le navigateur (127.0.0.1:4870)
-just test     # tests Rust
-just check    # format, clippy, types TypeScript
-just          # toutes les commandes
+just dev      # desktop app in development (installs the interface dependencies)
+just build    # .app / .dmg bundle
+just web      # interface in the browser with hot reload (localhost:5173)
+just serve    # built interface in the browser (127.0.0.1:4870)
+just test     # Rust and interface tests
+just e2e      # end-to-end tests (Playwright) against a fresh server, port 4872
+just check    # format, clippy, TypeScript types, LFS fonts
+just          # every command
 ```
 
-### Édition à la main
+`just e2e 4999` picks another port when one is already taken; `just e2e` keeps its data
+in a temporary folder, removed at the end. When running the app or the Playwright
+scripts directly, point `OKU_SLIDES_PATHS__DATA` and `OKU_SLIDES_PATHS__DECKS` to a
+temporary directory to keep your own data untouched.
 
-| Geste | Effet |
+## Using the app
+
+### The workspace
+
+- **Pile** (left): slide thumbnails. Click to show, drag to reorder (or ⌥↑ / ⌥↓),
+  `+` adds a slide from a template.
+- **Sheet** (middle): the slide exactly as it prints; elements are selected, moved
+  and edited right on it.
+- **Thread** (right): the conversation with the agent and the dictation draft. The
+  menu at the top right holds everything rarely used.
+
+### Editing by hand
+
+| Gesture | Effect |
 | --- | --- |
-| Clic | Sélectionne un élément ou un champ (titre, surtitre…) |
-| Glisser, poignées | Déplace ou redimensionne un élément libre |
-| Double-clic ou Entrée | Modifie le texte (une ligne par paragraphe, `- ` pour une puce) |
-| Flèches (Maj : ×10) | Déplace l'élément libre sélectionné de 1 pt |
-| Suppr | Supprime l'élément sélectionné |
-| ⌘Z, ⇧⌘Z | Annuler, rétablir (un geste = une annulation) |
-| ⌘S, ⇧⌘S, ⌘O | Enregistrer, enregistrer sous, ouvrir |
-| ⌘? | Aide de l'app (deck en lecture seule, `docs/aide/`) |
+| Click | Select an element or a field (title, kicker…) |
+| Drag, handles | Move or resize a free element, cell by cell |
+| Double-click or Enter | Edit the text (one line per paragraph, `- ` for a bullet) |
+| Arrows (Shift: 10 pt) | Move the selected free element by one cell (by 1 pt if it is placed by frame, off the grid) |
+| Delete | Delete the selected element |
+| ⌘C, ⌘X, ⌘V | Copy, cut, paste an element; pasted text becomes a text element |
+| ⌘Z, ⌘⇧Z | Undo, redo (one gesture = one undo) |
+| ⌘S, ⌘⇧S, ⌘O | Save now, save a copy, open |
+| ⌘T, ⌘W, ⌘⇧N | New tab, close tab, new window |
+| ⌃Tab, ⌃⇧Tab | Next, previous tab |
+| ⌘⇧G | Show the ghosts |
+| ⌘K | Type an instruction for the agent |
+| ⌘1…⌘9 | Go to tab n (⌘9: the last one) |
+| ⌘? | App help (read-only deck in French or English, otherwise English; `docs/aide/`) |
 
+The bottom bar adds a text, a card, a shape, a chart, a table or a widget from the
+deck's template set.
 
-### Grille, modèles, ordre des slides
+### Charts, tables, widgets
 
-- **Grille** : chaque slide a une grille (12 × 6 par défaut). Son nombre de
-  colonnes et de lignes se règle dans le modèle (post-it « Grille » en mode
-  Modèles) ; les slides créées depuis ce modèle la reprennent. L'accrochage
-  est automatique et ne se désactive pas : un élément occupe un bloc de
-  cases, se déplace de case en case (souris ou flèches), et chaque coin
-  s'accroche aux nœuds. Le bouton à points de la barre du haut (ou ⌘')
-  affiche ou masque la grille, dans les slides comme dans les modèles : un
-  petit point sur chaque nœud ; pendant un glisser, elle s'affiche de toute
-  façon. La géométrie est calculée à l'identique par `ui/src/grid.ts`
-  (édition) et `grid-frame` dans `data.typ` (rendu).
-- **Ensembles de modèles** : les modèles de « Nouvelle slide » sont groupés en
-  ensembles (`templates/<id>/pack.json` intégrés : Essentiel, Grilles ; ceux de
-  l'utilisateur dans le dossier de données de l'app). Un ensemble ne dépend
-  pas du thème : le deck choisit son ensemble et son thème séparément.
-- **Édition des modèles** (bouton « Modèles ») : chaque modèle devient une
-  slide qu'on modifie comme une autre (grille, éléments, textes), avec son nom
-  et sa description. Un ensemble intégré s'enregistre comme copie ; le deck
-  est mis de côté et retrouvé avec « Terminer ».
-- **Thèmes** : un thème est un jeu de jetons de design (couleurs, polices,
-  tailles, marges, composants) versionné comme les ensembles de modèles :
-  Papier et Pro sont intégrés (`typst/oku-slides/themes/*.json`), ceux de
-  l'utilisateur vont dans le dossier `themes/` des données de l'app. Le menu ⋯
-  choisit le thème du deck ; le deck embarque sa version, et un fichier reçu
-  garde le sien (« Thème du fichier »). En mode modèles, l'onglet « Thème »
-  règle les jetons un par un (filtre, état de chaque jeton, ↺) : la scène suit
-  chaque changement, et « Terminer » enregistre le brouillon, en copie
-  (« Papier (copie) ») pour un thème intégré.
-- **Ordre des slides** : glisser une miniature dans la pile (une ligne montre
-  où elle se posera), ou ⌥↑ / ⌥↓.
+- **Charts**: a subset of ECharts options rendered to SVG (`oku-slides-chart`); the
+  data is edited in a grid in the side panel.
+- **Tables**: the same data grid; header row, first column as header, striped rows
+  and per-column alignment (automatic puts numbers at the end). A chart converts to
+  a table and back.
+- **Widgets**: template sets can ship Typst widgets. In template mode, the Widgets
+  section of the pile opens their code next to a live preview. Rendering runs in a
+  separate worker process, bounded in time and memory (`[render]` settings); past
+  the limit, the deck falls back to the base widgets.
 
-### Dictée
+### Grid, templates, themes
 
-Tout se passe sur la machine : Whisper sur CTranslate2 (le moteur de
-faster-whisper, via [ct2rs](https://crates.io/crates/ct2rs)), poids quantifiés
-en int8, calcul par Accelerate sur Mac. Au premier appui sur le micro, le
-modèle choisi est téléchargé une fois, puis l'écoute démarre toute seule.
+- **Grid**: every slide has a grid (12 × 6 by default), set in its template (template mode,
+  template settings); slides created from the template inherit it.
+  Snapping is always on: an element covers a block of cells, moves cell by cell
+  (mouse or arrows), and each corner snaps to the nodes. ⌘' (or menu ▸ Show the grid)
+  shows the nodes; during a drag they show anyway. The geometry is computed
+  identically by `ui/src/grid.ts` (editing) and `grid-frame` in `typst/oku-slides/src/zone.typ`
+  (rendering).
+- **Template sets**: “New slide” templates are grouped into sets (built-in
+  `templates/<id>/pack.json`: Essentiel, Grilles; user sets in the app data folder).
+  A set does not depend on the theme: a deck picks its set and its theme
+  independently.
+- **Editing templates** (menu ▸ Workshop): each template becomes a slide edited like
+  any other (grid, elements, texts), with its name and description. A built-in set is
+  saved as a copy; the deck is set aside and comes back with “Done”.
+- **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins,
+  components), versioned like template sets. Papier and Pro are built in
+  (`typst/oku-slides/themes/*.json`); user themes go to the `themes/` folder of the
+  app data. The menu picks the deck's theme; the deck embeds its version, and a
+  received file keeps its own (“File theme”). In template mode, the Theme tab sets
+  tokens one by one (filter, state of each token, ↺): the sheet follows every change,
+  and “Done” saves the draft, as a copy (“Papier (copy)”) for a built-in theme.
 
-| Modèle | Taille | Usage |
+### Files, tabs, history
+
+- **Automatic saving**: every change goes to the file; a new deck goes to
+  `Documents/Oku Slides` (`[paths] decks`).
+- **Tabs and windows**: one deck per tab, several windows; everything comes back at
+  next launch.
+- **History** (menu ▸ History): a slider walks every version stored in the file;
+  Restore makes one current again.
+- **Merge** (menu ▸ Merge with a PDF…): two copies of the same deck, edited
+  separately, merge without conflicts. Deck sources are a Loro CRDT (see
+  [ADR 0002](docs/adr/0002-sources-du-deck-en-crdt-loro.md) and
+  [ADR 0005](docs/adr/0005-elements-d-une-slide-en-arbre-loro.md)).
+
+### Dictation
+
+Everything happens on the machine. On macOS 26+, Apple's speech engine is the default when it knows the language
+(streaming, language installed by the system; `[stt] apple = false` turns it off).
+Otherwise, Whisper runs on CTranslate2 (faster-whisper's engine, through
+[ct2rs](https://crates.io/crates/ct2rs)), int8-quantized weights, Accelerate on Mac.
+On the first press of the mic, the chosen Whisper model downloads once, then
+listening starts on its own.
+
+| Model | Size | Use |
 | --- | --- | --- |
-| Large v3 Turbo (par défaut) | 818 Mo | Rapide et précis, multilingue |
-| Large v3 | 3,1 Go | Le plus précis, multilingue, plus lent |
-| Base | 148 Mo | Léger, pour les petites machines |
+| Apple (macOS 26+) | — | Default when it knows the language; streaming |
+| Large v3 Turbo | 818 MB | Default otherwise; fast and accurate, multilingual |
+| Large v3 | 3.1 GB | Most accurate, multilingual, slower |
+| Base | 148 MB | Lightweight, for small machines |
 
-- **Détection de la voix** ([earshot](https://crates.io/crates/earshot)) :
-  seuls les passages parlés sont transcrits ; l'écoute s'arrête seule après un
-  silence (1,5 s par défaut, réglable, désactivable), ou au bout de 10 s si
-  rien n'est dit.
-- **Phrase par phrase** : à chaque pause, la phrase qui vient de finir est
-  transcrite en qualité finale, avec le texte déjà dicté et le vocabulaire du
-  deck en contexte. L'aperçu ne retranscrit que la phrase en cours. À l'arrêt,
-  il ne reste que la dernière phrase à traiter.
-- **Langue** : imposée, ou détectée sur la première phrase puis gardée.
+- **Voice detection** ([earshot](https://crates.io/crates/earshot)): only spoken
+  passages are transcribed; listening stops by itself after a silence (1.5 s by default, adjustable,
+  can be turned off), or after 10 s if nothing is said.
+- **Sentence by sentence**: at each pause, the sentence that just ended is
+  transcribed at final quality, with the text dictated so far and the deck's
+  vocabulary as context. The preview only re-transcribes the current sentence. On
+  stop, only the last sentence remains to process.
+- **Language**: forced, or detected on the first sentence and then kept.
 
-Les modèles vont dans le dossier de données de l'app
-(`~/Library/Application Support/me.dartiguenave.oku-slides/models` sur Mac) ;
-`OKU_SLIDES_PATHS__MODELS` le remplace (voir [Réglages](#réglages)). Les anciens fichiers `ggml-*.bin` (whisper.cpp)
-peuvent y être supprimés.
+Models go to the app data folder
+(`~/Library/Application Support/me.dartiguenave.oku-slides/models` on Mac);
+`OKU_SLIDES_PATHS__MODELS` overrides it (see [Settings](#settings)).
 
-| Geste | Effet |
+| Gesture | Effect |
 | --- | --- |
-| ⌘D ou le micro | Commencer, puis terminer la dictée |
-| ⌘⇧D | Dicter dans le brouillon, même pendant l'édition d'un texte |
-| Échap | Abandonner l'écoute ou le téléchargement |
+| ⌘D or the mic | Start, then stop dictation |
+| ⌘⇧D | Dictate into the draft, even while editing a text |
+| Esc | Cancel listening or the download, stop the agent's turn |
 
-Pendant l'édition d'un texte, ⌘D écrit au curseur. Ailleurs, la dictée va dans
-un **brouillon** du panneau de droite : on la relit, la retouche ou la complète
-(chaque dictée s'y ajoute), puis on choisit :
+While editing a text, ⌘D writes at the cursor. Elsewhere, dictation goes into a
+**draft** in the right panel: you review it, fix it or extend it (each dictation is
+appended), then choose:
 
-- **Insérer** (⌘⇧↩) l'écrit tel quel dans la zone sélectionnée (un champ est
-  remplacé, un bloc est complété), sinon dans un nouveau bloc ;
-- **Envoyer à l'agent** (⌘↩) en fait une consigne (voir [Agent](#agent)).
+- **Insert** (⌘⇧↩) writes it as is into the selected area (a field is replaced, a
+  block is extended), otherwise into a new block;
+- **Send to the agent** (⌘↩) turns it into an instruction (see [Agent](#agent)).
 
-Une pause ne décide donc jamais à votre place. Chaque insertion s'annule avec ⌘Z.
+A pause never decides for you. Each insertion undoes with ⌘Z.
 
 ```sh
-just transcribe voix.wav turbo fr   # découpe en phrases, transcrit, mesure
-OKU_SLIDES_STT__FAKE_MIC=voix.wav just serve   # simule le micro dans l'interface
+just transcribe voice.wav turbo fr                # split into sentences, transcribe, measure
+OKU_SLIDES_STT__FAKE_MIC=voice.wav just serve     # simulate the mic in the interface
+just test-apple                                   # Apple's engine for real (macOS 26, French installed)
 ```
 
 ### Agent
 
-Un agent modifie la présentation sur consigne. La consigne se dicte comme un
-texte, dans le [brouillon](#dictée) ; **Envoyer à l'agent** (⌘↩) la donne par
-[ACP](https://agentclientprotocol.com) à un agent lancé par Oku Slides. Il
-n'a ni fichiers ni terminal : il n'agit que par les outils d'Oku Slides,
-servis en MCP sur `127.0.0.1` avec un jeton propre à chaque onglet.
+An agent edits the presentation on instruction. The instruction is dictated like any
+text, or typed (⌘K), into the [draft](#dictation); **Send to the agent** (⌘↩) hands it over
+[ACP](https://agentclientprotocol.com) to an agent launched by Oku Slides. Oku Slides
+gives it no file or terminal access (ACP `fs` and `terminal` capabilities off): it
+works through Oku Slides' tools, served over MCP on `127.0.0.1` with a token per tab.
+The agent process itself runs with your user rights; any tool of its own it wants to
+use goes through a permission request you answer. Its instructions are in English; the interface and
+deck languages are passed in its context, and it answers in yours.
 
-- **Tout s'annule** : un tour de l'agent est une seule entrée ⌘Z.
-- **Ce qui ne s'annule pas** (enregistrer, ouvrir, supprimer un ensemble de
-  modèles, changer un réglage) attend votre confirmation, comme les
-  permissions que l'agent demande : un clic, jamais Entrée, et jamais
-  « toujours autoriser » par défaut.
-- **Décisions** : l'agent pose ses questions dans une fiche sous l'élément
-  (choix, reformulations : `1`–`4`, Entrée, `E` pour retoucher, Échap), propose
-  des variantes rendues dans un tiroir sous la scène, et des réglages en direct
-  dans un post-it. On peut répondre à une question à la voix, par le brouillon.
-- **Conversation** : une par onglet, jamais enregistrée ; les onglets
-  travaillent en même temps. « Nouvelle conversation » repart de zéro. ⌘⇧D
-  pendant un tour l'arrête.
+- **Everything undoes**: one agent turn is a single ⌘Z entry.
+- **What cannot be undone** (saving, opening, deleting a template set, changing a
+  setting) waits for your confirmation, like the permissions the agent requests: a
+  click, never Enter, and never “always allow” by default.
+- **Decisions**: the agent asks its questions in a card under the element (choices,
+  rewordings: `1`–`4`, Enter, `E` to edit, Esc), proposes variants rendered in a
+  drawer under the sheet, and live settings in a sticky note. A question can be
+  answered by voice, through the draft.
+- **Conversation**: one per tab, restored with the tab at next launch; tabs work at the
+  same time. “New conversation” starts from scratch. ⌘⇧D during a turn stops it.
+- **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
+  the agent in its own window, for a second screen. It follows the active tab of the
+  front window.
 
-| Réglage | Défaut |
+| Setting | Default |
 | --- | --- |
 | `[agent] command` / `OKU_SLIDES_AGENT__COMMAND` | `npx` |
-| `[agent] args` / `OKU_SLIDES_AGENT__ARGS` (séparés par des espaces) | `-y @agentclientprotocol/claude-agent-acp@0.81.2` |
+| `[agent] args` / `OKU_SLIDES_AGENT__ARGS` (space-separated) | `-y @agentclientprotocol/claude-agent-acp@0.81.2` |
 
-N'importe quel agent ACP qui accepte des serveurs MCP en HTTP convient.
+Any ACP agent that accepts MCP servers over HTTP works.
 
 ```sh
-just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"   # vrai agent
+just agent-smoke fixtures/roadmap.json "Make the title of slide 2 punchier"   # real agent (network, account)
 ```
 
-## Réglages
+## Settings
 
-Les réglages ont trois couches, la dernière l'emporte :
+Settings come in three layers, the last one wins:
 
-1. les défauts, embarqués ([`config.default.toml`](crates/oku-slides-platform/src/config.default.toml),
-   commentés) ;
-2. `config.toml` dans le dossier de données de l'app, facultatif ;
-3. les variables d'environnement `OKU_SLIDES_<SECTION>__<CLÉ>`, avec un double
-   soulignement pour descendre d'un niveau.
+1. the defaults, embedded and commented
+   ([`config.default.toml`](crates/oku-slides-platform/src/config.default.toml));
+2. `config.toml` in the app data folder, optional;
+3. environment variables `OKU_SLIDES_<SECTION>__<KEY>`, with a double underscore to
+   go down one level.
 
-| Variable | Effet |
+| Variable | Effect |
 | --- | --- |
-| `OKU_SLIDES_PATHS__DATA` | Dossier de données de l'app |
-| `OKU_SLIDES_PATHS__MODELS` | Dossier des modèles de dictée |
-| `OKU_SLIDES_PATHS__FONTS` | Polices supplémentaires (TTF/OTF) |
-| `OKU_SLIDES_STT__FAKE_MIC` | Fichier WAV rejoué à la place du micro |
-| `OKU_SLIDES_STT__VAD__PAUSE` | Pause qui clôt une phrase (s), comme toute clé de `[stt.vad]` |
-| `OKU_SLIDES_SERVE__PORT` | Port du serveur de développement |
-| `OKU_SLIDES_I18N__LOCALE` | Langue de l'interface (`fr`, `en`) |
+| `OKU_SLIDES_PATHS__DATA` | App data folder |
+| `OKU_SLIDES_PATHS__DECKS` | Where new decks are saved automatically (default `Documents/Oku Slides`) |
+| `OKU_SLIDES_PATHS__MODELS` | Dictation models folder |
+| `OKU_SLIDES_PATHS__FONTS` | Extra fonts (TTF/OTF) |
+| `OKU_SLIDES_STT__APPLE` | `false`: Whisper only |
+| `OKU_SLIDES_STT__FAKE_MIC` | WAV file replayed instead of the microphone |
+| `OKU_SLIDES_STT__VAD__PAUSE` | Pause that ends a sentence (s), like any `[stt.vad]` key |
+| `OKU_SLIDES_SERVE__PORT` | Dev server port |
+| `OKU_SLIDES_I18N__LOCALE` | Interface language (`en`, `fr`, `de`, `ja`…); default: the system's |
+| `OKU_SLIDES_APPEARANCE__SCHEME` | `light` or `dark`; default: the system's |
+| `OKU_SLIDES_AUTHOR__NAME` | Name recorded in the history of decks you edit |
 
+The interface ships in 20 languages (`crates/oku-slides-i18n/src/locales`), English
+being the reference.
