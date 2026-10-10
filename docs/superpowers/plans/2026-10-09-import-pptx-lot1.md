@@ -25,7 +25,7 @@
 5. **Lien placeholder** (`Item.placeholder: PlaceholderLink { idx, layout, master }`) ; les placeholders héritent aussi remplissage, trait et géométrie de leurs parents.
 6. **Styles par niveau typés** : `Paragraph { level, style: ParaStyle, runs }`, `Placeholder.levels: Vec<LevelStyle { para, run }>`.
 7. **Ajouts pour le vrai deck et les lots suivants** : `RunStyle.char_spacing`, `Run.field`, `Item.alt`, `Table.flags`, `FontFace.{fs_type, subset}`, avertissements `Approximated`, `UnreadablePart`, `UnknownTableStyle`, `UnsafeLink`, `NestingTooDeep`, `Truncated`.
-8. **Fatal restreint** : paquet illisible, pas une présentation, protégé, aucun master utilisable, limite dépassée. Slide ou layout illisible → omis/`layout: None` + `UnreadablePart`.
+8. **Fatal restreint** : paquet illisible, pas une présentation, protégé, aucun master utilisable, limite dépassée. Slide ou layout illisible → omis/`layout: None` + `UnreadablePart`. *(Précisé à l'exécution :)* dépasser `max_xml_nodes` est `TooLarge` (`error::xml_error` convertit le `NodesLimitReached` de roxmltree) ; les notes (`slide.rs`), `frame.rs::chart_item` et `smartart.rs::parse_part` envoient une erreur `TooLarge` à `cx.fail` au lieu de l'avaler.
 9. **Lire une fois.** Relations en cache ; assets dédupliqués par chemin avant lecture ; thème analysé une fois et ses listes de styles indexées (`NodeId`) ; `tableStyles.xml` analysé une fois ; masters dédupliqués par chemin ; nombre d'entrées du zip contrôlé **avant** d'indexer le répertoire central.
 10. **Bornes sur les valeurs** (amplification mémoire comprise) : `attr_f64` rejette les non-finis ; échelles de groupe dans `[1e-6, 1e6]`, cadres dans `±1e6` pt, rotation ramenée à `[0, 360)`, rognages tels que `l + r < 1` et `t + b < 1` ; `gridSpan`/`rowSpan` bornés à la grille ; `numCol` dans `[1, 16]` (illisible → 1) ; au plus `MAX_COLOR_MODS = 16` modificateurs par couleur, `MAX_GRADIENT_STOPS = 64`, `MAX_PATHS = 64` sous-tracés et `MAX_PATH_CMDS = 10_000` commandes par géométrie ; noms de police ≤ 128 caractères, caractère de puce ≤ 8 ; `clrMap` limité à ses 12 clés et 12 valeurs ; points de graphique : longueur `min(max(ptCount, idx max + 1), nombre de points présents + 64, 10 000)` (proportionnelle à ce que le fichier contient vraiment), au plus `MAX_SERIES = 256` séries ; liens : `http`, `https`, `mailto`, ≤ 2048 caractères, sans contrôle ni espace (sinon `UnsafeLink`).
 11. **`AlternateContent` : la branche est choisie avant d'être lue.** Équation (`oMath` dans `Choice`) → `Opaque { Math, fallback }`. Sinon `Choice` si chaque préfixe de `Requires` désigne un espace de noms connu (`a14`, `p14`, `p15`, `a16`, `asvg`) ; sinon `Fallback` ; sinon `Choice`. La branche écartée n'est jamais analysée (aucun id consommé, aucun asset lu, aucune erreur fatale).
@@ -33,6 +33,14 @@
 13. **Styles de tableau** absents de `tableStyles.xml` → `UnknownTableStyle` (styles intégrés : t-725).
 14. **Pas de `#[non_exhaustive]`** sur la représentation (les projecteurs `match`ent exhaustivement) ; seul `ImportErrorKind` l'est. `ReadLimits` implémente `Default` (valeurs conservatrices), pour qu'une limite ajoutée plus tard ne casse pas les appelants.
 15. **Identifiants stables** : `cNvPr@id` lu comme entier (sinon `x`), `dsp:sp@modelId` pour les formes de SmartArt (PowerPoint y écrit `cNvPr id="0"`), suffixe `~2`, `~3`… jusqu'à un id libre.
+
+**Revue finale** (revue de toute la branche, après la tâche 16 ; correctifs appliqués après coup, les blocs de code des tâches ne les reprennent pas) :
+
+16. **Bombe zip relue : paquet épuisé.** `Package::bytes` décompresse au plus `min(max_part_bytes, budget restant) + 1` octets, compte ce qui a été décompressé même en cas d'échec, et après un premier `TooLarge` (drapeau `exhausted`) toute lecture échoue sans rien décompresser ; `PartCtx::asset` garde aussi les échecs par chemin (`Sink::fail_asset`) : ni relecture ni avertissement répété. Régression : `issue_692_bomb_rereads`.
+17. **Une seule lecture dégradable des parts liées** : `PartCtx::soft` (limite dépassée → fatal ; autre erreur → `None` + l'avertissement donné) et `PartCtx::linked_doc` (analyse d'une part liée) servent graphique (`UnreadableItem`), SmartArt (`UnreadableItem`, relations du dessin comprises : dessin lu sans ses images) et notes (`UnreadablePart`) ; `part_text` passe aussi par `soft`.
+18. **Layouts lus une fois par master** : un layout cité deux fois par les relations d'un même master n'est lu qu'une fois ; partagé entre masters, il reste lu par chacun. Régression : `issue_692_layout_dedup`.
+19. **Cellules fusionnées** : bord droit/bas et parties `lastCol`/`lastRow` se lisent à la fin de la fusion (`c + gridSpan == nc`, `r + rowSpan == nr`), plus à l'ancre. Régression : `issue_692_merged_cell_edges`.
+20. **`collect::clip`** retire aussi U+061C, U+180E, U+2028, U+2029 et U+FFF9 à U+FFFB. Régression : `issue_692_invisible_chars`.
 
 ## Global Constraints
 
@@ -6429,6 +6437,8 @@ oku cli task done --project slider --id t-715
 
 ### Task 11: Slides, notes et `read_pptx` — de bout en bout, vrai deck compris
 
+> *Alignement sur l'exécution :* régression supplémentaire `tests/regressions/issue_692_xml_nodes_limit.rs` et test `oversized_structure_part_is_too_large_not_a_warning`.
+
 **Files:**
 - Create: `src/pptx/slide.rs`, `tests/read.rs`, `tests/alto.rs`, `tests/regressions/main.rs`, `tests/regressions/issue_692_xml_depth.rs`, fichiers restants de `fixtures/import/minimal/`, `fixtures/import/README.md`, `fixtures/import/alto-wealth.pptx`, `fixtures/import/alto-wealth.pdf` (LFS)
 - Modify: `src/pptx/mod.rs` (réécrit), `src/lib.rs` (forme finale), `.gitattributes`
@@ -7597,6 +7607,8 @@ oku cli task done --project slider --id t-717
 
 ### Task 13: Graphiques
 
+> *Alignement sur l'exécution :* `chart_item` route `TooLarge` vers `cx.fail` (voir décision 8) ; test ajouté `chart_part_over_the_node_limit_is_fatal_not_swallowed`.
+
 **Files:**
 - Create: `src/pptx/chart.rs`, `src/pptx/chart_tests.rs`, `fixtures/import/kitchen/ppt/charts/chart1.xml`
 - Modify: `src/pptx/mod.rs` (`pub(crate) mod chart;`), `src/pptx/frame.rs` (réécrit), `src/pptx/test_support.rs` (`BAR`, relation et part de graphique), `src/lib.rs` (retirer l'`#[allow(dead_code)]` de `mod pptx;` et son commentaire)
@@ -7901,9 +7913,16 @@ fn chart_item(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str) -> ItemKind {
         return unknown("chart");
     };
     let Some(xml) = cx.part_text(&part, id) else { return unknown("chart") };
-    let Ok(doc) = parse(&xml, &part, cx.nodes()) else {
-        cx.warn(Some(id), WarningKind::UnreadableItem(clip(&part)));
-        return unknown("chart");
+    let doc = match parse(&xml, &part, cx.nodes()) {
+        Ok(d) => d,
+        Err(e) if e.kind() == ImportErrorKind::TooLarge => {
+            cx.fail(e);
+            return unknown("chart");
+        }
+        Err(_) => {
+            cx.warn(Some(id), WarningKind::UnreadableItem(clip(&part)));
+            return unknown("chart");
+        }
     };
     match parse_chart(doc.root_element(), cx, id) {
         Ok(c) => ItemKind::Chart(c),
@@ -7935,6 +7954,8 @@ oku cli task done --project slider --id t-718
 ---
 
 ### Task 14: SmartArt et objets OLE
+
+> *Alignement sur l'exécution :* `smartart.rs` définit `parse_part(xml, part, cx, id) -> Option<Document>` (limite dépassée : `cx.fail`, sinon `UnreadableItem` et `None`), utilisée par `smartart` et `drawing_part`. Tests ajoutés : `chart_part_over_the_node_limit_is_fatal_not_swallowed` (Task 13, `shapes_tests.rs`) et `smartart_drawing_over_the_node_limit_is_fatal_not_swallowed` (Task 14).
 
 **Files:**
 - Create: `src/pptx/smartart.rs`, `src/pptx/smartart_tests.rs`, `fixtures/import/kitchen/ppt/diagrams/data1.xml`, `fixtures/import/kitchen/ppt/diagrams/drawing1.xml`
@@ -8099,7 +8120,7 @@ Dans `context.rs`, ajouter à `impl<'p> PartCtx<'p>` :
 
 use std::rc::Rc;
 
-use roxmltree::Node;
+use roxmltree::{Document, Node};
 
 use crate::ImportErrorKind;
 use crate::collect::clip;
@@ -8109,11 +8130,26 @@ use crate::pptx::shapes::{GroupCtx, MAX_NESTING, opaque, parse_tree};
 use crate::pptx::xml::{attr_r, attr_str, child, descendant, parse};
 use crate::source::{Frame, Item, ItemKind, OpaqueReason, WarningKind};
 
+/// Analyse une part ; une limite dépassée est fatale, toute autre erreur rend `None` avec `UnreadableItem`.
+fn parse_part<'a>(xml: &'a str, part: &str, cx: &PartCtx<'_>, id: &str) -> Option<Document<'a>> {
+    match parse(xml, part, cx.nodes()) {
+        Ok(d) => Some(d),
+        Err(e) if e.kind() == ImportErrorKind::TooLarge => {
+            cx.fail(e);
+            None
+        }
+        Err(_) => {
+            cx.warn(Some(id), WarningKind::UnreadableItem(clip(part)));
+            None
+        }
+    }
+}
+
 /// Part du dessin d'un SmartArt, via sa part de données ; `None` si une étape manque.
 fn drawing_part(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str) -> Option<String> {
     let dm = child(data, "relIds").and_then(|r| attr_r(r, "dm")).and_then(|r| cx.rels.target(r))?.to_owned();
     let xml = cx.part_text(&dm, id)?;
-    let doc = parse(&xml, &dm, cx.nodes()).ok()?;
+    let doc = parse_part(&xml, &dm, cx, id)?;
     let rel = descendant(doc.root_element(), "dataModelExt").and_then(|e| attr_str(e, "relId"))?;
     cx.rels.target(rel).map(str::to_owned)
 }
@@ -8126,14 +8162,13 @@ pub(crate) fn smartart(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str, frame: Fr
         return not_drawn();
     }
     let Some(part) = drawing_part(data, cx, id) else {
-        cx.warn(Some(id), WarningKind::MissingPart("diagramDrawing".into()));
+        if !cx.shared.sink.borrow().has_fatal() {
+            cx.warn(Some(id), WarningKind::MissingPart("diagramDrawing".into()));
+        }
         return not_drawn();
     };
     let Some(xml) = cx.part_text(&part, id) else { return not_drawn() };
-    let Ok(doc) = parse(&xml, &part, cx.nodes()) else {
-        cx.warn(Some(id), WarningKind::UnreadableItem(clip(&part)));
-        return not_drawn();
-    };
+    let Some(doc) = parse_part(&xml, &part, cx, id) else { return not_drawn() };
     let Some(tree) = descendant(doc.root_element(), "spTree") else { return not_drawn() };
     let rels = match cx.pkg().rels(&part) {
         Ok(r) => r,
@@ -8144,7 +8179,15 @@ pub(crate) fn smartart(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str, frame: Fr
         Err(_) => Rc::new(Rels::default()),
     };
     let sub = cx.sub(rels, id.to_owned());
-    let inner = GroupCtx { sx: g.sx, sy: g.sy, tx: frame.x, ty: frame.y, fill: None, depth: g.depth.saturating_add(1), in_drawing: true };
+    let inner = GroupCtx {
+        sx: g.sx,
+        sy: g.sy,
+        tx: frame.x,
+        ty: frame.y,
+        fill: None,
+        depth: g.depth.saturating_add(1),
+        in_drawing: true,
+    };
     let items: Vec<Item> = parse_tree(tree, &sub, &inner).into_iter().map(|p| p.item).collect();
     if items.is_empty() { not_drawn() } else { ItemKind::Group { items } }
 }
@@ -8200,9 +8243,16 @@ fn chart_item(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str) -> ItemKind {
         return unknown("chart");
     };
     let Some(xml) = cx.part_text(&part, id) else { return unknown("chart") };
-    let Ok(doc) = parse(&xml, &part, cx.nodes()) else {
-        cx.warn(Some(id), WarningKind::UnreadableItem(clip(&part)));
-        return unknown("chart");
+    let doc = match parse(&xml, &part, cx.nodes()) {
+        Ok(d) => d,
+        Err(e) if e.kind() == ImportErrorKind::TooLarge => {
+            cx.fail(e);
+            return unknown("chart");
+        }
+        Err(_) => {
+            cx.warn(Some(id), WarningKind::UnreadableItem(clip(&part)));
+            return unknown("chart");
+        }
     };
     match parse_chart(doc.root_element(), cx, id) {
         Ok(c) => ItemKind::Chart(c),
@@ -8684,6 +8734,8 @@ oku cli task done --project slider --id t-720
 ---
 
 ### Task 16: Fixture « kitchen », aller-retour LibreOffice, résumé du vrai deck et consolidation
+
+> *Alignement sur l'exécution :* le dépôt ignore `*.png` ; `fixtures/import/kitchen/ppt/media/image1.png` est ajouté par `git add -f`. `libreoffice_round_trip_reads_the_same_deck` vérifie aussi `lo.warnings.is_empty()`.
 
 **Files:**
 - Create: fichiers restants de `fixtures/import/kitchen/`, `fixtures/import/libreoffice.pptx`, `tests/kitchen.rs`, snapshots

@@ -31,3 +31,8 @@ registry-schema-remote = Ongeldig widgetregister: { $message }
 probe-not-probed = Nog niet gecontroleerd: de tijd voor de widgets van het pakket is op. Dit gebeurt bij de volgende weergave.
 probe-too-many-files = Het pakket heeft meer dan { $max } widgetbestanden: dit bestand wordt niet geladen.
 probe-too-large = Groter dan { $max } KiB: niet geladen.
+
+import-unreadable = Deze presentatie kan niet worden gelezen
+import-not-a-presentation = Dit bestand is geen PowerPoint-presentatie
+import-protected = Deze presentatie is versleuteld of in het oude .ppt-formaat: sla haar eerst op als .pptx
+import-too-large = Deze presentatie is te groot om te importeren

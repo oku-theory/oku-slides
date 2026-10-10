@@ -31,3 +31,8 @@ registry-schema-remote = ทะเบียนวิดเจ็ตไม่ถ�
 probe-not-probed = ยังไม่ได้ตรวจสอบ: เวลาที่กำหนดให้วิดเจ็ตของแพ็กหมดแล้ว จะตรวจสอบในการเรนเดอร์ครั้งถัดไป
 probe-too-many-files = แพ็กมีไฟล์วิดเจ็ตเกิน { $max } ไฟล์: ไม่ได้โหลดไฟล์นี้
 probe-too-large = เกิน { $max } KiB: ไม่ได้โหลด
+
+import-unreadable = ไม่สามารถอ่านงานนำเสนอนี้ได้
+import-not-a-presentation = ไฟล์นี้ไม่ใช่งานนำเสนอ PowerPoint
+import-protected = งานนำเสนอนี้ถูกเข้ารหัสหรือเป็นรูปแบบ .ppt แบบเก่า: โปรดบันทึกเป็น .pptx ก่อน
+import-too-large = งานนำเสนอนี้ใหญ่เกินกว่าจะนำเข้าได้

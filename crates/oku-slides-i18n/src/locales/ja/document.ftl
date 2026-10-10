@@ -30,3 +30,8 @@ registry-schema-remote = ウィジェットレジストリが無効です: { $me
 probe-not-probed = 未確認：パックのウィジェットに割り当てられた時間を使い切りました。次の描画時に確認します。
 probe-too-many-files = パックのウィジェットファイルが { $max }個を超えています：このファイルは読み込まれません。
 probe-too-large = { $max } KiB を超えています：読み込まれません。
+
+import-unreadable = このプレゼンテーションを読み込めません
+import-not-a-presentation = このファイルは PowerPoint プレゼンテーションではありません
+import-protected = このプレゼンテーションは暗号化されているか旧形式の .ppt です。先に .pptx として保存してください
+import-too-large = このプレゼンテーションは大きすぎてインポートできません

@@ -31,3 +31,8 @@ registry-schema-remote = 위젯 레지스트리가 올바르지 않습니다: { 
 probe-not-probed = 아직 확인되지 않음: 팩의 위젯에 할당된 시간이 끝났습니다. 다음 렌더링 때 확인합니다.
 probe-too-many-files = 팩의 위젯 파일이 { $max }개를 넘습니다: 이 파일은 불러오지 않습니다.
 probe-too-large = { $max } KiB를 넘습니다: 불러오지 않습니다.
+
+import-unreadable = 이 프레젠테이션을 읽을 수 없습니다
+import-not-a-presentation = 이 파일은 PowerPoint 프레젠테이션이 아닙니다
+import-protected = 이 프레젠테이션은 암호화되었거나 이전 .ppt 형식입니다. 먼저 .pptx로 저장하세요
+import-too-large = 이 프레젠테이션은 너무 커서 가져올 수 없습니다

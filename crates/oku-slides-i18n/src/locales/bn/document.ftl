@@ -31,3 +31,8 @@ registry-schema-remote = উইজেট রেজিস্ট্রি অব�
 probe-not-probed = এখনও যাচাই করা হয়নি: প্যাকের উইজেটগুলোর জন্য নির্ধারিত সময় শেষ। পরের রেন্ডারে যাচাই করা হবে।
 probe-too-many-files = প্যাকে { $max }টির বেশি উইজেট ফাইল আছে: এটি লোড করা হয়নি।
 probe-too-large = { $max } KiB-এর চেয়ে বড়: লোড করা হয়নি।
+
+import-unreadable = এই উপস্থাপনাটি পড়া যায়নি
+import-not-a-presentation = এই ফাইলটি PowerPoint উপস্থাপনা নয়
+import-protected = এই উপস্থাপনাটি এনক্রিপ্ট করা বা পুরোনো .ppt ফরম্যাটে: আগে এটি .pptx হিসেবে সংরক্ষণ করুন
+import-too-large = এই উপস্থাপনাটি ইমপোর্ট করার জন্য খুব বড়

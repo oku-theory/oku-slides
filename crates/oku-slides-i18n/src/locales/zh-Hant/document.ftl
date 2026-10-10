@@ -31,3 +31,8 @@ registry-schema-remote = 小工具登錄表無效：{ $message }
 probe-not-probed = 尚未檢查：分配給此套件小工具的時間已用完，將於下次轉譯時檢查。
 probe-too-many-files = 套件中的小工具檔案超過 { $max }個：此檔案未載入。
 probe-too-large = 超過 { $max } KiB：未載入。
+
+import-unreadable = 無法讀取此簡報
+import-not-a-presentation = 此檔案不是 PowerPoint 簡報
+import-protected = 此簡報已加密或為舊版 .ppt 格式：請先另存為 .pptx
+import-too-large = 此簡報太大，無法匯入

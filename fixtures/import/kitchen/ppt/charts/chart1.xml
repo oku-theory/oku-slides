@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Ventes</a:t></a:r><a:r><a:t> 2026</a:t></a:r></a:p></c:rich></c:tx></c:title>
+<c:plotArea><c:barChart><c:barDir val="col"/><c:grouping val="stacked"/>
+<c:ser><c:idx val="0"/><c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>Nord</c:v></c:pt></c:strCache></c:strRef></c:tx>
+<c:spPr><a:solidFill><a:srgbClr val="4472C4"/></a:solidFill></c:spPr>
+<c:cat><c:strRef><c:strCache><c:ptCount val="3"/><c:pt idx="0"><c:v>T1</c:v></c:pt><c:pt idx="1"><c:v>T2</c:v></c:pt><c:pt idx="2"><c:v>T3</c:v></c:pt></c:strCache></c:strRef></c:cat>
+<c:val><c:numRef><c:numCache><c:ptCount val="3"/><c:pt idx="0"><c:v>10</c:v></c:pt><c:pt idx="2"><c:v>12.5</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>
+<c:ser><c:idx val="1"/><c:tx><c:v>Sud</c:v></c:tx>
+<c:val><c:numLit><c:ptCount val="3"/><c:pt idx="0"><c:v>4</c:v></c:pt><c:pt idx="1"><c:v>#N/A</c:v></c:pt><c:pt idx="2"><c:v>6</c:v></c:pt></c:numLit></c:val></c:ser>
+</c:barChart><c:lineChart><c:grouping val="standard"/></c:lineChart></c:plotArea></c:chart></c:chartSpace>

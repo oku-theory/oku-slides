@@ -5448,6 +5448,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "oku-slides-import"
+version = "1.0.0"
+dependencies = [
+ "insta",
+ "oku-slides-core",
+ "oku-slides-i18n",
+ "roxmltree 0.21.1",
+ "rstest",
+ "serde",
+ "serde_json",
+ "snafu",
+ "speculoos",
+ "zip 8.6.0",
+]
+
+[[package]]
 name = "oku-slides-mcp"
 version = "1.0.0"
 dependencies = [

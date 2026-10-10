@@ -31,3 +31,8 @@ registry-schema-remote = Geçersiz widget kaydı: { $message }
 probe-not-probed = Henüz denetlenmedi: paketin widget'larına ayrılan süre doldu. Bir sonraki işlemede denetlenecek.
 probe-too-many-files = Pakette { $max } widget dosyasından fazlası var: bu dosya yüklenmedi.
 probe-too-large = { $max } KiB'tan büyük: yüklenmedi.
+
+import-unreadable = Bu sunu okunamıyor
+import-not-a-presentation = Bu dosya bir PowerPoint sunusu değil
+import-protected = Bu sunu şifreli veya eski .ppt biçiminde: önce .pptx olarak kaydedin
+import-too-large = Bu sunu içe aktarılamayacak kadar büyük

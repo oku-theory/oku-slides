@@ -30,3 +30,8 @@ registry-schema-remote = Invalid widget registry: { $message }
 probe-not-probed = Not checked yet: the time allowed for the pack's widgets ran out. It will be checked at the next render.
 probe-too-many-files = The pack has more than { $max } widget files: this one is not loaded.
 probe-too-large = Larger than { $max } KiB: not loaded.
+
+import-unreadable = This presentation could not be read
+import-not-a-presentation = This file is not a PowerPoint presentation
+import-protected = This presentation is encrypted or in the old .ppt format: save it as .pptx first
+import-too-large = This presentation is too large to import

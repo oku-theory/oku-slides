@@ -31,3 +31,8 @@ registry-schema-remote = Nieprawidłowy rejestr widżetów: { $message }
 probe-not-probed = Jeszcze niesprawdzony: skończył się czas przeznaczony na widżety pakietu. Zostanie sprawdzony przy następnym renderowaniu.
 probe-too-many-files = Pakiet ma więcej niż { $max } plików widżetów: ten nie jest wczytywany.
 probe-too-large = Ponad { $max } KiB: nie wczytano.
+
+import-unreadable = Nie można odczytać tej prezentacji
+import-not-a-presentation = Ten plik nie jest prezentacją PowerPoint
+import-protected = Ta prezentacja jest zaszyfrowana lub w starym formacie .ppt: najpierw zapisz ją jako .pptx
+import-too-large = Ta prezentacja jest zbyt duża, aby ją zaimportować

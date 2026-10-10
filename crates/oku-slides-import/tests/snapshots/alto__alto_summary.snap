@@ -1,0 +1,14 @@
+---
+source: crates/oku-slides-import/tests/alto.rs
+expression: lines
+---
+[
+  "s1: text text shape text shape shape shape text text text text text text",
+  "s2: text shape text shape shape text text shape shape text text shape shape text text text text picture",
+  "s3: text shape text text text shape text text picture shape text text picture shape text text text shape text text picture shape text text picture shape text text text text text picture",
+  "s4: text shape text text shape text text text text shape text text text text shape text text text text shape shape text text text picture",
+  "s5: text shape text text shape text text text text shape text text text text shape shape text text text picture",
+  "s6: text shape text text shape text text text shape text text text shape text text text shape shape text text text picture",
+  "s7: text shape text shape shape text text text shape shape text text text shape text text text shape shape text text text picture",
+  "s8: text shape text shape text text text shape text text text shape text text text shape shape text text text text text picture"
+]

@@ -30,3 +30,8 @@ registry-schema-remote = Registro dei widget non valido: { $message }
 probe-not-probed = Non ancora verificato: il tempo concesso ai widget del pacchetto è scaduto. Verrà verificato al prossimo rendering.
 probe-too-many-files = Il pacchetto ha più di { $max } file di widget: questo non viene caricato.
 probe-too-large = Più di { $max } KiB: non caricato.
+
+import-unreadable = Impossibile leggere questa presentazione
+import-not-a-presentation = Questo file non è una presentazione PowerPoint
+import-protected = Questa presentazione è crittografata o nel vecchio formato .ppt: salvala prima come .pptx
+import-too-large = Questa presentazione è troppo grande per essere importata

@@ -17,6 +17,7 @@ Plan d'implémentation : [Oku Slides — plan d'implémentation](https://claude.
 | `crates/oku-slides-core` | Modèle du deck, opérations réversibles, historique, validation, zip des sources |
 | `crates/oku-slides-render` | Typst embarqué : SVG par slide, PDF, boîtes des éléments |
 | `crates/oku-slides-pdf` | Blob des sources dans le PDF (`/PieceInfo`) : écriture, lecture, retrait |
+| `crates/oku-slides-import` | Import PPTX : représentation intermédiaire `SourceDeck` et lecteur |
 | `crates/oku-slides-session` | Session d'édition (deck ouvert, historique, rendu, fichier), partagée par l'app et le serveur de dev |
 | `crates/oku-slides-stt` | Dictée : micro, détection de la voix, Whisper (CTranslate2) en local, modèles téléchargés à la demande |
 | `crates/oku-slides-a2ui` | Surfaces A2UI v0.9 (catalogue de composants), partagées par le panneau et l'agent |

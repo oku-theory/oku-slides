@@ -31,3 +31,8 @@ registry-schema-remote = سجل عناصر الواجهة غير صالح: { $me
 probe-not-probed = لم يُفحص بعد: انتهى الوقت المخصص لعناصر واجهة الحزمة. سيُفحص عند العرض التالي.
 probe-too-many-files = تحتوي الحزمة على أكثر من { $max } ملفًا لعناصر الواجهة: لم يُحمَّل هذا الملف.
 probe-too-large = أكبر من { $max } كيلوبايت: لم يُحمَّل.
+
+import-unreadable = تعذّرت قراءة هذا العرض التقديمي
+import-not-a-presentation = هذا الملف ليس عرضًا تقديميًا من PowerPoint
+import-protected = هذا العرض التقديمي مشفّر أو بتنسيق .ppt القديم: احفظه أولًا بتنسيق .pptx
+import-too-large = هذا العرض التقديمي أكبر من أن يُستورد

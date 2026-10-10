@@ -1,0 +1,25 @@
+[package]
+name = "oku-slides-import"
+description = "Import d'une présentation (PPTX) : représentation intermédiaire et lecteur."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+oku-slides-core.workspace = true
+oku-slides-i18n.workspace = true
+roxmltree.workspace = true
+serde.workspace = true
+snafu.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+rstest.workspace = true
+serde_json.workspace = true
+speculoos.workspace = true
+
+[lints]
+workspace = true

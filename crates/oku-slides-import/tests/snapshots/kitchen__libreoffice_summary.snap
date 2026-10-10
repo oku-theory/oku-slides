@@ -1,0 +1,9 @@
+---
+source: crates/oku-slides-import/tests/kitchen.rs
+expression: summary(&lo)
+---
+[
+  "s1: text table",
+  "s2: text chart picture group[text,text]",
+  "s3: text group[shape,shape] shape"
+]

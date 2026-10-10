@@ -31,3 +31,8 @@ registry-schema-remote = विजेट रजिस्ट्री अमा�
 probe-not-probed = अभी जाँचा नहीं गया: पैक के विजेट के लिए तय समय समाप्त हो गया। अगले रेंडर पर इसकी जाँच होगी।
 probe-too-many-files = पैक में { $max } से अधिक विजेट फ़ाइलें हैं: यह फ़ाइल लोड नहीं की गई।
 probe-too-large = { $max } KiB से बड़ा: लोड नहीं किया गया।
+
+import-unreadable = यह प्रस्तुति पढ़ी नहीं जा सकी
+import-not-a-presentation = यह फ़ाइल PowerPoint प्रस्तुति नहीं है
+import-protected = यह प्रस्तुति एन्क्रिप्टेड है या पुराने .ppt फ़ॉर्मैट में है: पहले इसे .pptx के रूप में सहेजें
+import-too-large = यह प्रस्तुति आयात करने के लिए बहुत बड़ी है

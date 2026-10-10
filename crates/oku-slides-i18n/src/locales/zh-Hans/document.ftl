@@ -31,3 +31,8 @@ registry-schema-remote = 小组件注册表无效：{ $message }
 probe-not-probed = 尚未检查：分配给该包小组件的时间已用完，将在下次渲染时检查。
 probe-too-many-files = 包中的小组件文件超过 { $max }个：此文件未加载。
 probe-too-large = 超过 { $max } KiB：未加载。
+
+import-unreadable = 无法读取此演示文稿
+import-not-a-presentation = 此文件不是 PowerPoint 演示文稿
+import-protected = 此演示文稿已加密或为旧版 .ppt 格式：请先另存为 .pptx
+import-too-large = 此演示文稿太大，无法导入

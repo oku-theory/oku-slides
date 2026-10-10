@@ -23,6 +23,7 @@ oku-slides-i18n = { path = "crates/oku-slides-i18n" }
 oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
 oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
+oku-slides-import = { path = "crates/oku-slides-import" }
 # Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
 rust-mcp-sdk = "=1.1.0"
 rust-mcp-axum = "=1.0.2"
@@ -39,6 +40,8 @@ schemars = "1"
 snafu = "0.9"
 toml_edit = "0.25"
 zip = { version = "8", default-features = false, features = ["deflate"] }
+# Lecture des parts XML d'un .pptx (import, t-692) : DOM en lecture seule, sans dépendance.
+roxmltree = "0.21"
 sha2 = "0.10"
 hex = "0.4"
 lopdf = "0.45"

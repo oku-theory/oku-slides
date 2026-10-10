@@ -31,3 +31,8 @@ registry-schema-remote = Sổ đăng ký widget không hợp lệ: { $message }
 probe-not-probed = Chưa kiểm tra: đã hết thời gian dành cho các widget của gói. Sẽ kiểm tra ở lần hiển thị tiếp theo.
 probe-too-many-files = Gói có hơn { $max } tệp widget: tệp này không được tải.
 probe-too-large = Lớn hơn { $max } KiB: không được tải.
+
+import-unreadable = Không thể đọc bản trình bày này
+import-not-a-presentation = Tệp này không phải là bản trình bày PowerPoint
+import-protected = Bản trình bày này đã được mã hóa hoặc ở định dạng .ppt cũ: hãy lưu thành .pptx trước
+import-too-large = Bản trình bày này quá lớn để nhập

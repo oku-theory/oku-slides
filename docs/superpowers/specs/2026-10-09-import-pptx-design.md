@@ -87,8 +87,14 @@ Crate `crates/oku-slides-import` :
 |---|---|
 | `source/` | `SourceDeck` et ses types (format neutre) |
 | `pptx/` | lecteur OOXML : rels, presentation, theme, master, layout, slide, chart, table |
+| `collect.rs` | sorties neutres de toute lecture : assets dédupliqués, avertissements bornés, erreur fatale différée, assainissement des chaînes |
 | `pptx/cascade.rs` | résolution des styles texte (une seule fonction) |
-| `pptx/geometry.rs` | presets `prstGeom` → path, EMU → pt |
+| `pptx/context.rs` | contexte d'une part (relations, couleurs, parts liées) |
+| `pptx/placeholder.rs` | lien et héritage des placeholders |
+| `pptx/frame.rs` | cadres graphiques : tableau, graphique, SmartArt, OLE |
+| `pptx/units.rs` | EMU → pt, angles, pourcentages |
+| `pptx/eot.rs` | polices embarquées EOT (`.fntdata`) |
+| `pptx/geometry.rs` | lecture des géométries (`prstGeom`, `custGeom`) ; la conversion preset → path appartient au lot 3 |
 | `pptx/fonts.rs` | inventaire des familles utilisées, polices embarquées (lot 1) |
 | `fonts.rs` | recherche système et substitution des polices (lot 2) |
 | `hifi/` | projecteur hi-fi : thème, générateur Typst, pack, ops |
@@ -107,24 +113,12 @@ widgets, le pack et le thème cibles, et rend un plan.
 ## Représentation intermédiaire : `SourceDeck`
 
 **Résolue** (plus aucun héritage à calculer), mais chaque valeur stylée
-garde **sa provenance**.
-
-```rust
-SourceDeck { size, theme: SourceTheme, masters, layouts, slides, assets, fonts }
-SourceTheme { colors: {dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink}, fonts: {major, minor} }
-SourceSlide { id, layout: Option<LayoutId>, background: Fill, items: Vec<Item>, notes }
-Item { id, frame: {x, y, w, h, rot}, z, role: Option<Role>, kind: ItemKind }
-Role = Title | Subtitle | Body | Picture | Footer | SlideNum | Date
-ItemKind =
-    Text(TextBox { paragraphs, insets, anchor, autofit })
-  | Shape { geom: Preset(name, adj) | Path, fill, stroke, text: Option<TextBox> }
-  | Picture { asset, crop }
-  | Table { col_widths, rows, cells (fusions comprises), styles résolus }
-  | Chart { kind, categories, series }
-  | Group(Vec<Item>)
-  | Opaque { reason, fallback: Option<AssetId> }
-Styled<T> { value: T, origin: Scheme(name) | Explicit | Default }
-```
+garde **sa provenance**. La définition faisant foi est le code :
+`crates/oku-slides-import/src/source/mod.rs` (et ses sous-modules), avec les
+« Décisions de la revue » du plan du lot 1
+(`docs/superpowers/plans/2026-10-09-import-pptx-lot1.md`) qui priment sur
+tout croquis antérieur : un thème par master, `Origin::Scheme { name, slot,
+mods }`, `PlaceholderLink`, styles par niveau typés, avertissements typés.
 
 - `frame` est en **pt source** ; la mise à l'échelle vers 1920×1080 est du
   ressort du projecteur.
@@ -145,8 +139,10 @@ Styled<T> { value: T, origin: Scheme(name) | Explicit | Default }
   placeholder de layout de même `type`/`idx`, lui-même de celui du master.
 - **SmartArt** : importé depuis sa version déjà dessinée
   (`ppt/diagrams/drawingN.xml`) en `Group` de formes éditables.
-- **`mc:AlternateContent`** : `mc:Choice` si on sait le lire, sinon
-  `mc:Fallback` (image) → `Opaque { fallback }`.
+- **`mc:AlternateContent`** (décision 11 du plan du lot 1) : la branche est
+  choisie d'après `Requires` avant d'être lue (`Choice` si chaque préfixe
+  désigne un espace de noms connu, sinon `Fallback`) ; seule l'équation
+  (`oMath`) devient `Opaque { Math, fallback }`.
 - **Graphiques** : `ppt/charts/chartN.xml`, valeurs lues dans
   `c:numCache`/`c:strCache` (le classeur embarqué n'est pas ouvert).
 - **Tableaux** : `a:tbl`, fusions (`gridSpan`, `rowSpan`, `hMerge`,
@@ -277,8 +273,17 @@ référence disponible ou non, `widget_requests`. Messages via Fluent
 
 `ImportError` Snafu opaque, **seulement pour le fatal** : zip invalide,
 `presentation.xml` absent, fichier chiffré (ou `.ppt` 97-2003), limites de
-lecture dépassées (`ReadLimits` : protection contre les bombes zip), pack
-cible introuvable. Un item
+lecture dépassées (`ReadLimits` : protection contre les bombes zip ;
+dépasser `max_xml_nodes` est `TooLarge`, fatal, jamais une part omise), pack
+cible introuvable. Un `TooLarge` levé en lisant une part quelconque (slide, notes,
+graphique, SmartArt, polices, styles de tableau) est propagé comme erreur
+fatale (`PartCtx::fail` / `soft`), jamais dégradé en part omise avec
+`UnreadablePart`. À l'inverse, une part XML imbriquée sur plus de 256
+niveaux n'est pas une limite de `ReadLimits` : elle est refusée comme
+illisible (`Unreadable`) et traitée comme toute part illisible — omise avec
+`UnreadablePart` (item lié : `Opaque` + `UnreadableItem`), fatale seulement
+pour une part de structure (`[Content_Types].xml`, relations racine,
+`presentation.xml`) ou faute de master utilisable. Un item
 illisible ne fait jamais échouer l'import : il devient `Opaque`, avec une
 entrée au rapport.
 
@@ -290,6 +295,8 @@ entrée au rapport.
   LibreOffice (verbeux, réaliste). *(Précisé au plan du lot 1 :
   `python-pptx` n'est pas disponible et des XML écrits à la main se
   relisent mieux.)*
+- **Vrai deck** : `fixtures/import/alto-wealth.pptx` (généré par PptxGenJS)
+  et son PDF de référence `alto-wealth.pdf`, cible visuelle des lots 4 et 6.
 - **Snapshots `insta`** de `SourceDeck` et d'`ImportPlan` par fixture.
 - **Cascade des styles** testée en table (`rstest`).
 - **Or hi-fi** : PDF de référence **versionnés** (pas de LibreOffice en
@@ -302,7 +309,7 @@ entrée au rapport.
 
 Un plan et ses sous-tâches par lot, dans cet ordre :
 
-1. `SourceDeck` + lecteur PPTX (cascade des styles comprise) — plan :
+1. *(livré, t-692)* `SourceDeck` + lecteur PPTX (cascade des styles comprise) — plan :
    `docs/superpowers/plans/2026-10-09-import-pptx-lot1.md`.
 2. Projecteur retrofit + CLI — valide la représentation de bout en bout
    sans générateur ni référence.
