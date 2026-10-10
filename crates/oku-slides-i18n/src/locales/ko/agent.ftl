@@ -28,6 +28,8 @@ agent-confirm-new = 새 프레젠테이션을 시작할까요?
 agent-confirm-new-dirty = 새 프레젠테이션을 시작할까요? 저장하지 않은 변경 사항이 사라집니다.
 agent-confirm-save-templates = 템플릿 세트 “{ $name }”을(를) 저장할까요?
 agent-confirm-delete-set = 템플릿 세트 “{ $name }”을(를) 삭제할까요? 되돌릴 수 없습니다.
+agent-confirm-edit-theme = 테마 “{ $name }”의 새 버전을 저장할까요?
+agent-confirm-copy-theme = 기본 제공 테마 “{ $name }”의 편집된 사본을 저장할까요?
 agent-confirm-setting = { $key } 변경: { $old } → { $new }?
 
 agent-not-found = 에이전트를 찾을 수 없습니다: { $command }. 설정 [agent] command.

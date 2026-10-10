@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use oku_slides_session::{Request, Session};
+use oku_slides_session::{Request, Session, TokenOp};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -16,7 +16,7 @@ use crate::settings::writable;
 use crate::tool_error::{
     DeniedSnafu, NoFileSnafu, OpenElsewhereSnafu, SessionSnafu, SettingLockedSnafu, TaskSnafu, ToolError,
 };
-use crate::tools::Tools;
+use crate::tools::{Tools, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SaveArgs {
@@ -36,6 +36,19 @@ pub(crate) struct SaveTemplatesArgs {
     /// Enregistrer comme nouvel ensemble.
     #[serde(default)]
     pub as_new: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct EditThemeArgs {
+    /// Id du thème (UUID, voir `deck_outline`), édité dans sa version courante.
+    #[schemars(with = "String")]
+    pub theme: uuid::Uuid,
+    /// Nouveau nom ; absent : le nom actuel (« (copie) » pour un thème intégré).
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Ops de jetons, appliquées dans l'ordre.
+    #[serde(default)]
+    pub ops: Vec<TokenOp>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -203,6 +216,30 @@ impl Tools {
             .unwrap_or_else(|| set.to_string());
         let message = self.localizer.tr_with("agent-confirm-delete-set", &[("name", name.into())]);
         self.guarded(message, true, Request::DeleteTemplateSet { set }).await
+    }
+
+    /// Nouvelle version d'un thème (copie d'un thème intégré), en mode deck :
+    /// l'écran reste sur les slides. Répond le thème obtenu.
+    pub(crate) async fn edit_theme(&self, args: Value) -> CallToolResult {
+        let EditThemeArgs { theme, name, ops } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        // Un thème inconnu est refusé sans rien demander.
+        let info = match self.with_session(move |s| s.theme_info(theme)).await {
+            Ok(i) => i,
+            Err(e) => return self.fail_with(e),
+        };
+        let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
+        let message = self.localizer.tr_with(key, &[("name", info.name.into())]);
+        if !self.hub.confirm(message, false).await {
+            return self.denied();
+        }
+        let done = self.with_session(move |s| s.handle(Request::EditTheme { id: theme, name, ops })).await;
+        self.reply(done, |edited| {
+            self.hub.emit(McpEvent::Changed);
+            text(edited)
+        })
     }
 
     pub(crate) async fn set_setting(&self, args: Value) -> CallToolResult {

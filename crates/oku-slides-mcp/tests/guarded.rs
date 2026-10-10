@@ -163,3 +163,44 @@ async fn delete_template_set_confirmation_of_unknown_pack_shows_its_id() {
     let json = delete_confirmation(&h, "00000000-0000-4000-8000-000000000001").await;
     assert_that!(json.contains("00000000-0000-4000-8000-000000000001")).is_true();
 }
+
+/// Le thème intégré Papier, thème du deck de test.
+const PAPIER: &str = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
+
+/// Le thème du deck, lu par `deck_outline`.
+async fn deck_theme_name(h: &Harness) -> Value {
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    json_of(&call(&c, "deck_outline", json!({})).await)["theme"]["name"].clone()
+}
+
+/// t-783 : l'agent renomme le thème du deck sans passer par l'édition des modèles.
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_theme_confirmed_renames_the_deck_theme_in_deck_mode() {
+    let h = start().await;
+    let r = guarded(&h, "edit_theme", json!({ "theme": PAPIER, "name": "Vinci" }), true).await;
+    let v = json_of(&r);
+    assert_that!(v["name"]).is_equal_to(json!("Vinci"));
+    assert_that!(v["adopted"]).is_equal_to(json!(true));
+    assert_that!(deck_theme_name(&h).await).is_equal_to(json!("Vinci"));
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    assert_that!(json_of(&call(&c, "deck_outline", json!({})).await)["mode"]).is_equal_to(json!("deck"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_theme_denied_changes_nothing() {
+    let h = start().await;
+    let r = guarded(&h, "edit_theme", json!({ "theme": PAPIER, "name": "Vinci" }), false).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(deck_theme_name(&h).await).is_equal_to(json!("Papier"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_theme_of_an_unknown_theme_is_refused_without_asking() {
+    let h = start().await;
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let r = call(&c, "edit_theme", json!({ "theme": "00000000-0000-4000-8000-000000000001", "name": "Vinci" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+}

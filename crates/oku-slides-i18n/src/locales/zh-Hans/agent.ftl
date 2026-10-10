@@ -28,6 +28,8 @@ agent-confirm-new = 要新建一个演示文稿吗？
 agent-confirm-new-dirty = 要新建一个演示文稿吗？未保存的更改将丢失。
 agent-confirm-save-templates = 要保存模板集“{ $name }”吗？
 agent-confirm-delete-set = 要删除模板集“{ $name }”吗？此操作无法撤销。
+agent-confirm-edit-theme = 要保存主题“{ $name }”的新版本吗？
+agent-confirm-copy-theme = 要保存内置主题“{ $name }”的修改副本吗？
 agent-confirm-setting = 要更改{ $key }：{ $old } → { $new }吗？
 
 agent-not-found = 未找到智能体：{ $command }。设置 [agent] command。

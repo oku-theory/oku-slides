@@ -28,6 +28,8 @@ agent-confirm-new = 要開始新的簡報嗎？
 agent-confirm-new-dirty = 要開始新的簡報嗎？未儲存的變更將遺失。
 agent-confirm-save-templates = 要儲存範本組「{ $name }」嗎？
 agent-confirm-delete-set = 要刪除範本組「{ $name }」嗎？此操作無法復原。
+agent-confirm-edit-theme = 要儲存主題「{ $name }」的新版本嗎？
+agent-confirm-copy-theme = 要儲存內建主題「{ $name }」的修改副本嗎？
 agent-confirm-setting = 要變更{ $key }：{ $old } → { $new }嗎？
 
 agent-not-found = 找不到 AI 代理：{ $command }。設定 [agent] command。

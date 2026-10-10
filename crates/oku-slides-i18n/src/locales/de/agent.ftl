@@ -28,6 +28,8 @@ agent-confirm-new = Neue Präsentation beginnen?
 agent-confirm-new-dirty = Neue Präsentation beginnen? Nicht gespeicherte Änderungen gehen verloren.
 agent-confirm-save-templates = Vorlagensatz „{ $name }“ speichern?
 agent-confirm-delete-set = Vorlagensatz „{ $name }“ löschen? Das kann nicht rückgängig gemacht werden.
+agent-confirm-edit-theme = Eine neue Version des Designs „{ $name }“ speichern?
+agent-confirm-copy-theme = Eine bearbeitete Kopie des integrierten Designs „{ $name }“ speichern?
 agent-confirm-setting = { $key } ändern: { $old } → { $new }?
 
 agent-not-found = Agent nicht gefunden: { $command }. Einstellung [agent] command.

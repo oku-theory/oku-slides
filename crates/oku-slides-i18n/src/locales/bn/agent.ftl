@@ -28,6 +28,8 @@ agent-confirm-new = নতুন উপস্থাপনা শুরু কর
 agent-confirm-new-dirty = নতুন উপস্থাপনা শুরু করবেন? সংরক্ষণ না করা পরিবর্তনগুলো হারিয়ে যাবে।
 agent-confirm-save-templates = টেমপ্লেট সেট “{ $name }” সংরক্ষণ করবেন?
 agent-confirm-delete-set = টেমপ্লেট সেট “{ $name }” মুছে ফেলবেন? এটি পূর্বাবস্থায় ফেরানো যাবে না।
+agent-confirm-edit-theme = “{ $name }” থিমের একটি নতুন সংস্করণ সংরক্ষণ করবেন?
+agent-confirm-copy-theme = বিল্ট-ইন থিম “{ $name }”-এর একটি সম্পাদিত কপি সংরক্ষণ করবেন?
 agent-confirm-setting = { $key } পরিবর্তন করবেন: { $old } → { $new }?
 
 agent-not-found = এজেন্ট পাওয়া যায়নি: { $command }। সেটিং [agent] command।

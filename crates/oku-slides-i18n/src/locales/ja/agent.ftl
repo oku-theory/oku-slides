@@ -28,6 +28,8 @@ agent-confirm-new = 新しいプレゼンテーションを開始しますか？
 agent-confirm-new-dirty = 新しいプレゼンテーションを開始しますか？保存されていない変更は失われます。
 agent-confirm-save-templates = テンプレートセット「{ $name }」を保存しますか？
 agent-confirm-delete-set = テンプレートセット「{ $name }」を削除しますか？元に戻せません。
+agent-confirm-edit-theme = テーマ「{ $name }」の新しいバージョンを保存しますか？
+agent-confirm-copy-theme = 組み込みテーマ「{ $name }」の編集済みコピーを保存しますか？
 agent-confirm-setting = { $key }を変更しますか：{ $old } → { $new }
 
 agent-not-found = エージェントが見つかりません：{ $command }。設定 [agent] command。

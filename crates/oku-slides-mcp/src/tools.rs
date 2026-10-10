@@ -216,7 +216,7 @@ pub(crate) fn list() -> Vec<Tool> {
         vec![
             tool::<NoArgs>(
                 "deck_outline",
-                "List the slides of the open deck: id, kind, title, element count; theme {id, name} of the deck (null in templates mode), the available themes [{id, name, version}] (set_theme takes {id, version}), template set, mode. In templates mode, edited_theme {id, version, name, dirty} is the theme being edited: a set_theme op alone (no other op in the transaction) makes the draft start from that theme; edit its tokens with set_token.",
+                "List the slides of the open deck: id, kind, title, element count; theme {id, name} of the deck (null in templates mode), the available themes [{id, name, version}] (set_theme takes {id, version}), template set, mode. To change or rename a theme, use edit_theme: never enter templates mode for a theme. In templates mode, edited_theme {id, version, name, dirty} is the theme being edited: a set_theme op alone (no other op in the transaction) makes the draft start from that theme; edit its tokens with set_token.",
             ),
             tool::<NoArgs>(
                 "widgets",
@@ -235,7 +235,7 @@ pub(crate) fn list() -> Vec<Tool> {
             tool::<crate::edit_tools::ApplyArgs>("apply", "Apply deck ops atomically (all or nothing). set_param changes a parameter of a slide or an element (see widgets for its schema); a rich value is a list of paragraphs, never a string: [{\"runs\":[{\"t\":\"Plain, \"},{\"t\":\"bold\",\"bold\":true}]},{\"runs\":[{\"t\":\"A bullet\"}],\"list\":\"bullet\"}] (run: t, bold?, italic?, link?; list?: bullet|number; slide shows existing values in this shape). set_grid changes a slide's grid (columns, rows; placed elements follow); set_deck_param changes a deck parameter (title, author…); set_kind changes the widget of a slide or an element; add_element adds an element to a slot; add_element and add_slide take \"defaults\": true to seed a new widget's list defaults (never when re-inserting or moving). edit_list changes a list parameter item by item, addressed by target and param, with change insert (index?, id, values?), remove (item), move (item, to) or set_field (item, field, value); items are addressed by id and you supply the id. set_chart_option changes a chart's option; set_data changes the data of a chart or a table (dataset.source, row 0 = column names), addressed by target and param. set_table_option changes a table's display (header-row, header-column, striped, align: auto|start|center|end per column) as a JSON merge patch; table data is the same dataset as a chart's. Every change the user can undo. Prefer one apply with several ops over many calls."),
             tool::<crate::edit_tools::ChartKindArgs>("chart_kind", "Change a chart's type; its data is converted."),
             tool::<crate::edit_tools::ShowAsArgs>("show_as", "Show a chart as a table, or a table as a chart, keeping its data; one undo step."),
-            tool::<crate::edit_tools::SetArgs>("edit_templates", "Switch to editing the current version of a template pack (the deck is put aside, nothing is lost)."),
+            tool::<crate::edit_tools::SetArgs>("edit_templates", "Switch to editing the current version of a template pack (the deck is put aside, nothing is lost). Not for themes: use edit_theme."),
             tool::<NoArgs>("close_templates", "Leave template editing and get the deck back (unsaved template changes are dropped)."),
             tool::<NoArgs>("widget_sources", "Widget files of the pack in use (the edited template pack, or the deck's pack): name, schema when valid, diagnostics (file, line, column, message). `_commun` holds shared code. Works in deck and template modes."),
             tool::<crate::widget_tools::WidgetName>("widget_source", "Typst source of one widget file."),
@@ -256,6 +256,7 @@ pub(crate) fn list() -> Vec<Tool> {
             tool::<NoArgs>("new", "Start a new blank deck. The user confirms first."),
             tool::<crate::guarded_tools::SaveTemplatesArgs>("save_templates", "Save the template pack being edited as a new version (as_new: a copy with a new id). The user confirms first."),
             tool::<crate::edit_tools::SetArgs>("delete_template_set", "Delete one of the user's template packs, all versions included. The user confirms first."),
+            tool::<crate::guarded_tools::EditThemeArgs>("edit_theme", "Edit or rename a theme from deck mode (the user stays on the slides): saves a new current version of the theme with ops (set_token {path, value}, unset_token {path}, checked like the theme editor) and/or a new name; a built-in theme is saved as a copy (new id, \"(copy)\" unless named). A deck using the theme moves to the new version (one undo step); deck token overrides stay on top. Returns {id, version, name, changed, adopted}. The user confirms first."),
             tool::<crate::guarded_tools::SetSettingArgs>("set_setting", "Change an app setting (whitelisted keys only). The user confirms first; returns {applied: now|next_launch}."),
         ]
     })

@@ -43,6 +43,9 @@ Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
   reproche de serde sans position, pour que l'agent corrige son appel) ; `Tools::parse`, `with_session`,
   `json_result` et `reply` y passent. `error::say_session` dit une erreur de la session sans chemin
   de fichier : aucune erreur envoyée à l'agent ou à l'interface ne contient de chemin absolu.
+- `guarded_tools` : outils confirmés par l'utilisateur (`save`, `open`, `new`, `save_templates`,
+  `delete_template_set`, `edit_theme`, `set_setting`). `edit_theme` édite ou renomme un thème depuis
+  le mode deck (requête `EditTheme`) : l'agent n'entre pas dans l'atelier pour un thème.
 - `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
 - `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
   jeton porteur).

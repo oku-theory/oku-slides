@@ -77,6 +77,7 @@ impl Tools {
             "new" => self.new_deck().await,
             "save_templates" => self.save_templates(args).await,
             "delete_template_set" => self.delete_template_set(args).await,
+            "edit_theme" => self.edit_theme(args).await,
             "set_setting" => self.set_setting(args).await,
             _ => self.fail_with(UnknownToolSnafu { name }.build()),
         }

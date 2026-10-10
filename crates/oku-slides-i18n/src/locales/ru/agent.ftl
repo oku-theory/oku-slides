@@ -28,6 +28,8 @@ agent-confirm-new = Начать новую презентацию?
 agent-confirm-new-dirty = Начать новую презентацию? Несохранённые изменения будут потеряны.
 agent-confirm-save-templates = Сохранить набор шаблонов «{ $name }»?
 agent-confirm-delete-set = Удалить набор шаблонов «{ $name }»? Это необратимо.
+agent-confirm-edit-theme = Сохранить новую версию темы «{ $name }»?
+agent-confirm-copy-theme = Сохранить изменённую копию встроенной темы «{ $name }»?
 agent-confirm-setting = Изменить { $key }: { $old } → { $new }?
 
 agent-not-found = Агент не найден: { $command }. Настройка [agent] command.

@@ -33,6 +33,11 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   de côté y passe. `theme_panel.rs` + `theme_controls.rs` : surface `host-theme` (`host_theme`,
   filtrée ; `host_token` : `set`, `reset`, `remove`, `clear`). Le chemin du jeton part sous la clé
   `token` du contexte d'action, jamais `path` (que @a2ui prend pour une liaison de données).
+- Éditer un thème en mode deck (`deck_theme_edit.rs`, requête `EditTheme`, outil `edit_theme` de
+  l'agent) : `edit_theme` applique des `TokenOp` (vérifiées comme le brouillon, `check_token_ops_on`)
+  et un nom à la version courante d'un thème, puis l'enregistre comme `save_theme_edit` (version
+  courante, copie d'un intégré) ; un deck qui l'utilise y passe en une étape. Pas de mode modèles :
+  l'écran reste sur les slides. Répond `EditedTheme`.
 - `widgets_edit.rs`, `widget_preview.rs` : fichiers de widgets, statuts, aperçu ; `widget_examples.rs`, `widget_params.rs` : valeurs d'exemple des widgets (un jeu par widget), dans le pack (`edit_example_list` pour une liste ; une entrée mal formée d'un `pack.json` reçu est écartée au journal, les autres restent ; `trial_fits` applique aussi les bornes de taille des textes) ; `param_fields.rs` : champs de réglage d'un paramètre (atelier et cible), `coerce`, `schema_default` ; `items.rs` : `ItemView`, les items d'une liste. `widgets_deck.rs` (`SetTemplates`, une étape d'annulation par séance). En mode modèles, une écriture de widget est aussi une étape du document des modèles (`adopt_session_version`, clé de séance) ; annuler/rétablir réaligne l'édition (`realign_templates`).
 - `panel.rs` : réglages de l'hôte au dock (modèle, widget), adressés par clé.
 - `target_params.rs` : réglages de la cible (surface `host-target`) : élément sélectionné, sinon widget de la slide, lus dans le deck ; `target_param` / `target_list` annulables.

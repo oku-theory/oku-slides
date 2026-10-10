@@ -28,6 +28,8 @@ agent-confirm-new = هل تريد بدء عرض تقديمي جديد؟
 agent-confirm-new-dirty = هل تريد بدء عرض تقديمي جديد؟ ستُفقد التغييرات غير المحفوظة.
 agent-confirm-save-templates = هل تريد حفظ مجموعة القوالب «{ $name }»؟
 agent-confirm-delete-set = هل تريد حذف مجموعة القوالب «{ $name }»؟ لا يمكن التراجع عن هذا.
+agent-confirm-edit-theme = هل تريد حفظ إصدار جديد من السمة «{ $name }»؟
+agent-confirm-copy-theme = هل تريد حفظ نسخة معدّلة من السمة المدمجة «{ $name }»؟
 agent-confirm-setting = هل تريد تغيير { $key }: { $old } → { $new }؟
 
 agent-not-found = لم يتم العثور على الوكيل: { $command }. إعداد [agent] command.

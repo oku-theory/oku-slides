@@ -28,6 +28,8 @@ agent-confirm-new = Nieuwe presentatie beginnen?
 agent-confirm-new-dirty = Nieuwe presentatie beginnen? Niet-opgeslagen wijzigingen gaan verloren.
 agent-confirm-save-templates = Sjabloonset “{ $name }” opslaan?
 agent-confirm-delete-set = Sjabloonset “{ $name }” verwijderen? Dit kan niet ongedaan worden gemaakt.
+agent-confirm-edit-theme = Een nieuwe versie van het thema ‘{ $name }’ opslaan?
+agent-confirm-copy-theme = Een bewerkte kopie van het ingebouwde thema ‘{ $name }’ opslaan?
 agent-confirm-setting = { $key } wijzigen: { $old } → { $new }?
 
 agent-not-found = Agent niet gevonden: { $command }. Instelling [agent] command.

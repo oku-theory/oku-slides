@@ -28,6 +28,8 @@ agent-confirm-new = เริ่มงานนำเสนอใหม่ไห
 agent-confirm-new-dirty = เริ่มงานนำเสนอใหม่ไหม การเปลี่ยนแปลงที่ยังไม่ได้บันทึกจะหายไป
 agent-confirm-save-templates = บันทึกชุดเทมเพลต “{ $name }” ไหม
 agent-confirm-delete-set = ลบชุดเทมเพลต “{ $name }” ไหม การกระทำนี้ไม่สามารถย้อนกลับได้
+agent-confirm-edit-theme = บันทึกเวอร์ชันใหม่ของธีม “{ $name }” หรือไม่
+agent-confirm-copy-theme = บันทึกสำเนาที่แก้ไขของธีมในตัว “{ $name }” หรือไม่
 agent-confirm-setting = เปลี่ยน { $key }: { $old } → { $new } ไหม
 
 agent-not-found = ไม่พบเอเจนต์: { $command } การตั้งค่า [agent] command

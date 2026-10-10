@@ -28,6 +28,8 @@ agent-confirm-new = Start a new presentation?
 agent-confirm-new-dirty = Start a new presentation? Unsaved changes will be lost.
 agent-confirm-save-templates = Save the template set “{ $name }”?
 agent-confirm-delete-set = Delete the template set “{ $name }”? This cannot be undone.
+agent-confirm-edit-theme = Save a new version of the theme “{ $name }”?
+agent-confirm-copy-theme = Save an edited copy of the built-in theme “{ $name }”?
 agent-confirm-setting = Change { $key }: { $old } → { $new }?
 
 agent-not-found = Agent not found: { $command }. Setting [agent] command.

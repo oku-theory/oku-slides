@@ -28,6 +28,8 @@ agent-confirm-new = Rozpocząć nową prezentację?
 agent-confirm-new-dirty = Rozpocząć nową prezentację? Niezapisane zmiany zostaną utracone.
 agent-confirm-save-templates = Zapisać zestaw szablonów „{ $name }”?
 agent-confirm-delete-set = Usunąć zestaw szablonów „{ $name }”? Tej operacji nie można cofnąć.
+agent-confirm-edit-theme = Zapisać nową wersję motywu „{ $name }”?
+agent-confirm-copy-theme = Zapisać zmienioną kopię wbudowanego motywu „{ $name }”?
 agent-confirm-setting = Zmienić { $key }: { $old } → { $new }?
 
 agent-not-found = Nie znaleziono agenta: { $command }. Ustawienie [agent] command.

@@ -28,6 +28,8 @@ agent-confirm-new = Bắt đầu bài trình bày mới?
 agent-confirm-new-dirty = Bắt đầu bài trình bày mới? Các thay đổi chưa lưu sẽ bị mất.
 agent-confirm-save-templates = Lưu bộ mẫu “{ $name }”?
 agent-confirm-delete-set = Xóa bộ mẫu “{ $name }”? Không thể hoàn tác thao tác này.
+agent-confirm-edit-theme = Lưu phiên bản mới của chủ đề “{ $name }”?
+agent-confirm-copy-theme = Lưu bản sao đã chỉnh sửa của chủ đề tích hợp “{ $name }”?
 agent-confirm-setting = Thay đổi { $key }: { $old } → { $new }?
 
 agent-not-found = Không tìm thấy tác nhân AI: { $command }. Cài đặt [agent] command.

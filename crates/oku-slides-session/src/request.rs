@@ -170,6 +170,15 @@ pub enum Request {
     RenameEditedTheme {
         name: String,
     },
+    /// Mode deck : nouvelle version du thème `id` (ops de jetons, nom), que
+    /// le deck adopte s'il l'utilise. Répond `EditedTheme`.
+    EditTheme {
+        id: Uuid,
+        #[serde(default)]
+        name: Option<String>,
+        #[serde(default)]
+        ops: Vec<crate::TokenOp>,
+    },
     /// Supprime un pack de l'utilisateur, toutes versions comprises.
     ///
     /// Refusé sous l'id d'un pack intégré.
@@ -269,6 +278,7 @@ impl Request {
             Self::Save { .. }
             | Self::Apply { .. }
             | Self::SetTheme { .. }
+            | Self::EditTheme { .. }
             | Self::Undo
             | Self::Redo
             | Self::ChartKind { .. }
@@ -324,6 +334,7 @@ impl Request {
             self,
             Self::Apply { .. }
                 | Self::SetTheme { .. }
+                | Self::EditTheme { .. }
                 | Self::Undo
                 | Self::Redo
                 | Self::Save { .. }
@@ -385,6 +396,7 @@ impl Session {
             && matches!(
                 req,
                 Request::Save { .. }
+                    | Request::EditTheme { .. }
                     | Request::Merge { .. }
                     | Request::Move { .. }
                     | Request::SaveCopy { .. }
@@ -473,6 +485,8 @@ impl Session {
                 self.persist(true);
                 return json(&statuses);
             }
+            // `apply` (adoption par le deck) écrit son état de reprise.
+            Request::EditTheme { id, name, ops } => return json(&self.edit_theme(id, name, ops)?),
             Request::PreviewWidget { name, params } => {
                 return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
             }

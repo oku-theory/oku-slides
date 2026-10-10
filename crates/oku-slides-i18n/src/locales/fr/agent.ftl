@@ -28,6 +28,8 @@ agent-confirm-new = Commencer une nouvelle présentation ?
 agent-confirm-new-dirty = Commencer une nouvelle présentation ? Les modifications non enregistrées seront perdues.
 agent-confirm-save-templates = Enregistrer l'ensemble de modèles « { $name } » ?
 agent-confirm-delete-set = Supprimer l'ensemble de modèles « { $name } » ? C'est définitif.
+agent-confirm-edit-theme = Enregistrer une nouvelle version du thème « { $name } » ?
+agent-confirm-copy-theme = Enregistrer une copie modifiée du thème intégré « { $name } » ?
 agent-confirm-setting = Changer { $key } : { $old } → { $new } ?
 
 agent-not-found = Agent introuvable : { $command }. Réglage [agent] command.

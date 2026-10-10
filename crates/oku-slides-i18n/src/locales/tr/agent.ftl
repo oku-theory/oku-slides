@@ -28,6 +28,8 @@ agent-confirm-new = Yeni bir sunum başlatılsın mı?
 agent-confirm-new-dirty = Yeni bir sunum başlatılsın mı? Kaydedilmemiş değişiklikler kaybolacak.
 agent-confirm-save-templates = “{ $name }” şablon seti kaydedilsin mi?
 agent-confirm-delete-set = “{ $name }” şablon seti silinsin mi? Bu geri alınamaz.
+agent-confirm-edit-theme = “{ $name }” temasının yeni bir sürümü kaydedilsin mi?
+agent-confirm-copy-theme = Yerleşik “{ $name }” temasının düzenlenmiş bir kopyası kaydedilsin mi?
 agent-confirm-setting = { $key } değiştirilsin mi: { $old } → { $new }?
 
 agent-not-found = Ajan bulunamadı: { $command }. Ayar [agent] command.

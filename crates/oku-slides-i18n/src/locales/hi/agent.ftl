@@ -28,6 +28,8 @@ agent-confirm-new = नई प्रस्तुति शुरू करें
 agent-confirm-new-dirty = नई प्रस्तुति शुरू करें? न सहेजे गए बदलाव खो जाएँगे।
 agent-confirm-save-templates = टेम्पलेट सेट “{ $name }” सहेजें?
 agent-confirm-delete-set = टेम्पलेट सेट “{ $name }” हटाएं? यह पूर्ववत नहीं किया जा सकता।
+agent-confirm-edit-theme = थीम “{ $name }” का नया संस्करण सहेजें?
+agent-confirm-copy-theme = बिल्ट-इन थीम “{ $name }” की संपादित प्रति सहेजें?
 agent-confirm-setting = { $key } बदलें: { $old } → { $new }?
 
 agent-not-found = एजेंट नहीं मिला: { $command }। सेटिंग [agent] command।

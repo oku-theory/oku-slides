@@ -23,8 +23,9 @@ use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
-use oku_slides_core::{DECK_VERSION, Deck, Op, ThemeRef};
+use oku_slides_core::{Deck, Op, ThemeRef};
 
+use crate::deck_theme_edit::token_deck;
 use crate::error::{
     NotEditingTemplatesSnafu, SourcesSnafu, ThemeChoiceAloneSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu,
     UnknownThemeSnafu,
@@ -77,6 +78,11 @@ fn tokens_of(v: &Value) -> Map<String, Value> {
 /// `tokens` en valeur de deck : un objet vide n'en est pas une.
 pub(crate) fn tokens_value(tokens: Map<String, Value>) -> Value {
     if tokens.is_empty() { Value::Null } else { Value::Object(tokens) }
+}
+
+/// Une op qui touche aux jetons.
+fn is_token_op(op: &Op) -> bool {
+    matches!(op, Op::SetToken { .. } | Op::UnsetToken { .. } | Op::SetTokens { .. })
 }
 
 /// Le jeton `path` existe dans `tokens`.
@@ -347,8 +353,7 @@ impl Session {
         if drafting && ops.iter().any(|op| matches!(op, Op::SetTheme { .. })) {
             return ThemeChoiceAloneSnafu.fail()?;
         }
-        let token_op = |op: &Op| matches!(op, Op::SetToken { .. } | Op::UnsetToken { .. } | Op::SetTokens { .. });
-        if !ops.iter().any(token_op) {
+        if !ops.iter().any(is_token_op) {
             return Ok(());
         }
         let deck = self.doc.sources.deck();
@@ -356,22 +361,28 @@ impl Session {
         if let Some(theme) = self.theme_tokens(deck) {
             merge(&mut lower, &theme);
         }
+        self.check_token_ops_on(&lower, &deck.tokens, ops, drafting)
+    }
+
+    /// Vérifie les ops de jetons de `ops`, appliquées une à une à `tokens`
+    /// au-dessus de `lower` (voir `check_token_ops`). `drafting` : les règles
+    /// du brouillon d'un thème (tout `SetToken` passe par le schéma, un jeton
+    /// retiré ne doit plus être nommé) ; sinon, couleurs et palettes seules.
+    pub(crate) fn check_token_ops_on(
+        &self,
+        lower: &Map<String, Value>,
+        tokens: &Value,
+        ops: &[Op],
+        drafting: bool,
+    ) -> Result<()> {
         let effective = |own: &Value| {
             let mut tokens = lower.clone();
             merge(&mut tokens, &tokens_of(own));
             tokens
         };
-        let mut own = Deck {
-            version: DECK_VERSION,
-            theme: None,
-            params: Default::default(),
-            vars: Default::default(),
-            tokens: deck.tokens.clone(),
-            templates: None,
-            slides: Vec::new(),
-        };
+        let mut own = token_deck(tokens.clone());
         for op in ops {
-            if !token_op(op) {
+            if !is_token_op(op) {
                 continue;
             }
             match op {

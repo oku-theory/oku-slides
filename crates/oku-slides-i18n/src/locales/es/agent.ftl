@@ -28,6 +28,8 @@ agent-confirm-new = ¿Empezar una nueva presentación?
 agent-confirm-new-dirty = ¿Empezar una nueva presentación? Se perderán los cambios sin guardar.
 agent-confirm-save-templates = ¿Guardar el conjunto de plantillas «{ $name }»?
 agent-confirm-delete-set = ¿Eliminar el conjunto de plantillas «{ $name }»? Esto no se puede deshacer.
+agent-confirm-edit-theme = ¿Guardar una nueva versión del tema «{ $name }»?
+agent-confirm-copy-theme = ¿Guardar una copia modificada del tema integrado «{ $name }»?
 agent-confirm-setting = ¿Cambiar { $key }: { $old } → { $new }?
 
 agent-not-found = Agente no encontrado: { $command }. Ajuste [agent] command.
