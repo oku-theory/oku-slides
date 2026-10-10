@@ -76,4 +76,4 @@ agent-error-rewrite-text = 改写返回时没有文本。
 agent-error-paragraphs = 改写的段落无效。
 agent-error-draft-too-long = 草稿太长。
 agent-error-draft-origin = 草稿被拒绝：未知的视图。
-agent-error-draft-no-agent = 此标签页的智能体正在启动：草稿未保留。
+agent-error-draft-no-agent = 此标签页的智能体尚未启动：草稿被拒绝。

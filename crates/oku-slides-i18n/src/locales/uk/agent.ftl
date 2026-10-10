@@ -86,4 +86,4 @@ agent-error-rewrite-text = Перефразування повернулося �
 agent-error-paragraphs = Абзаци перефразування недійсні.
 agent-error-draft-too-long = Чернетка занадто довга.
 agent-error-draft-origin = Чернетку відхилено: невідоме подання.
-agent-error-draft-no-agent = Агент цієї вкладки запускається: чернетку не збережено.
+agent-error-draft-no-agent = Агента цієї вкладки ще не запущено: чернетку відхилено.

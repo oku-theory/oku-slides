@@ -76,4 +76,4 @@ agent-error-rewrite-text = การเรียบเรียงใหม่�
 agent-error-paragraphs = ย่อหน้าของการเรียบเรียงใหม่ไม่ถูกต้อง
 agent-error-draft-too-long = ฉบับร่างยาวเกินไป
 agent-error-draft-origin = ปฏิเสธฉบับร่าง: ไม่รู้จักมุมมองนี้
-agent-error-draft-no-agent = เอเจนต์ของแท็บนี้กำลังเริ่มทำงาน: ไม่ได้เก็บฉบับร่างไว้
+agent-error-draft-no-agent = เอเจนต์ของแท็บนี้ยังไม่เริ่มทำงาน: ปฏิเสธฉบับร่าง

@@ -82,4 +82,4 @@ agent-error-rewrite-text = La riformulazione è tornata senza testo.
 agent-error-paragraphs = I paragrafi della riformulazione non sono validi.
 agent-error-draft-too-long = La bozza è troppo lunga.
 agent-error-draft-origin = Bozza rifiutata: vista sconosciuta.
-agent-error-draft-no-agent = L'agente di questa scheda si sta avviando: bozza non conservata.
+agent-error-draft-no-agent = L'agente di questa scheda non è ancora avviato: bozza rifiutata.

@@ -82,4 +82,4 @@ agent-error-rewrite-text = পুনর্লিখন কোনো লেখা
 agent-error-paragraphs = পুনর্লিখনের অনুচ্ছেদগুলো অবৈধ।
 agent-error-draft-too-long = খসড়াটি অনেক দীর্ঘ।
 agent-error-draft-origin = খসড়া প্রত্যাখ্যাত: অজানা ভিউ।
-agent-error-draft-no-agent = এই ট্যাবের এজেন্ট শুরু হচ্ছে: খসড়া রাখা হয়নি।
+agent-error-draft-no-agent = এই ট্যাবের এজেন্ট এখনও চালু হয়নি: খসড়া প্রত্যাখ্যাত।

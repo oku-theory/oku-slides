@@ -76,4 +76,4 @@ agent-error-rewrite-text = 改寫傳回時沒有文字。
 agent-error-paragraphs = 改寫的段落無效。
 agent-error-draft-too-long = 草稿太長。
 agent-error-draft-origin = 草稿被拒絕：未知的檢視。
-agent-error-draft-no-agent = 此分頁的代理程式正在啟動：草稿未保留。
+agent-error-draft-no-agent = 此分頁的代理尚未啟動：草稿被拒絕。

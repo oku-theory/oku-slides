@@ -76,4 +76,4 @@ agent-error-rewrite-text = 다시 쓰기가 텍스트 없이 돌아왔습니다.
 agent-error-paragraphs = 다시 쓰기의 단락이 올바르지 않습니다.
 agent-error-draft-too-long = 초안이 너무 깁니다.
 agent-error-draft-origin = 초안이 거부되었습니다: 알 수 없는 보기입니다.
-agent-error-draft-no-agent = 이 탭의 에이전트가 시작 중입니다: 초안이 보관되지 않았습니다.
+agent-error-draft-no-agent = 이 탭의 에이전트가 아직 시작되지 않았습니다: 초안이 거부되었습니다.

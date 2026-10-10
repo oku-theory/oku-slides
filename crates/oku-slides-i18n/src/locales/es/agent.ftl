@@ -82,4 +82,4 @@ agent-error-rewrite-text = La reformulación volvió sin texto.
 agent-error-paragraphs = Los párrafos de la reformulación no son válidos.
 agent-error-draft-too-long = El borrador es demasiado largo.
 agent-error-draft-origin = Borrador rechazado: vista desconocida.
-agent-error-draft-no-agent = El agente de esta pestaña está arrancando: borrador no guardado.
+agent-error-draft-no-agent = El agente de esta pestaña aún no se ha iniciado: borrador rechazado.

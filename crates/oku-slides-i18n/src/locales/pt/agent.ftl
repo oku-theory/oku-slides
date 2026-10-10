@@ -82,4 +82,4 @@ agent-error-rewrite-text = A reformulação voltou sem texto.
 agent-error-paragraphs = Os parágrafos da reformulação são inválidos.
 agent-error-draft-too-long = O rascunho é demasiado longo.
 agent-error-draft-origin = Rascunho recusado: vista desconhecida.
-agent-error-draft-no-agent = O agente deste separador está a iniciar: rascunho não guardado.
+agent-error-draft-no-agent = O agente deste separador ainda não foi iniciado: rascunho recusado.

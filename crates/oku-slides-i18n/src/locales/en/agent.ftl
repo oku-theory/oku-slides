@@ -83,4 +83,4 @@ agent-error-rewrite-text = The rewording came back without text.
 agent-error-paragraphs = The paragraphs of the rewording are invalid.
 agent-error-draft-too-long = The draft is too long.
 agent-error-draft-origin = Draft refused: unknown view.
-agent-error-draft-no-agent = This tab's agent is starting: draft not kept.
+agent-error-draft-no-agent = This tab's agent has not started yet: draft refused.

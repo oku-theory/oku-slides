@@ -76,4 +76,4 @@ agent-error-rewrite-text = Yeniden yazım metin olmadan döndü.
 agent-error-paragraphs = Yeniden yazımın paragrafları geçersiz.
 agent-error-draft-too-long = Taslak çok uzun.
 agent-error-draft-origin = Taslak reddedildi: bilinmeyen görünüm.
-agent-error-draft-no-agent = Bu sekmenin ajanı başlıyor: taslak saklanmadı.
+agent-error-draft-no-agent = Bu sekmenin ajanı henüz başlamadı: taslak reddedildi.

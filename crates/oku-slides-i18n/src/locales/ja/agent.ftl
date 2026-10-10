@@ -76,4 +76,4 @@ agent-error-rewrite-text = 言い換えがテキストなしで返されまし�
 agent-error-paragraphs = 言い換えの段落が無効です。
 agent-error-draft-too-long = 下書きが長すぎます。
 agent-error-draft-origin = 下書きを拒否しました：不明なビューです。
-agent-error-draft-no-agent = このタブのエージェントを起動中です：下書きは保持されませんでした。
+agent-error-draft-no-agent = このタブのエージェントはまだ起動していません：下書きを拒否しました。

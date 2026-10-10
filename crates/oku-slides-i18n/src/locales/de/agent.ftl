@@ -82,4 +82,4 @@ agent-error-rewrite-text = Die Umformulierung kam ohne Text zurück.
 agent-error-paragraphs = Die Absätze der Umformulierung sind ungültig.
 agent-error-draft-too-long = Der Entwurf ist zu lang.
 agent-error-draft-origin = Entwurf abgelehnt: unbekannte Ansicht.
-agent-error-draft-no-agent = Der Agent dieses Tabs startet: Entwurf nicht gespeichert.
+agent-error-draft-no-agent = Der Agent dieses Tabs ist noch nicht gestartet: Entwurf abgelehnt.

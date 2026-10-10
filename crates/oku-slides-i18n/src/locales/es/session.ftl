@@ -181,7 +181,7 @@ menu-edit = Edición
 menu-window = Ventana
 menu-quit = Salir
 window-agent-title = Agente — Oku Slides
-menu-agent-detached = Agente en una ventana separada
+menu-agent-detached = Agente en una ventana aparte
 
 ## Éditeur de thème (surface host-theme)
 

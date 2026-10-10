@@ -86,4 +86,4 @@ agent-error-rewrite-text = Перефразирование вернулось �
 agent-error-paragraphs = Абзацы перефразирования недопустимы.
 agent-error-draft-too-long = Черновик слишком длинный.
 agent-error-draft-origin = Черновик отклонён: неизвестное представление.
-agent-error-draft-no-agent = Агент этой вкладки запускается: черновик не сохранён.
+agent-error-draft-no-agent = Агент этой вкладки ещё не запущен: черновик отклонён.

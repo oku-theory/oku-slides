@@ -82,4 +82,4 @@ agent-error-rewrite-text = De herformulering kwam terug zonder tekst.
 agent-error-paragraphs = De alinea's van de herformulering zijn ongeldig.
 agent-error-draft-too-long = Het concept is te lang.
 agent-error-draft-origin = Concept geweigerd: onbekende weergave.
-agent-error-draft-no-agent = De agent van dit tabblad start op: concept niet bewaard.
+agent-error-draft-no-agent = De agent van dit tabblad is nog niet gestart: concept geweigerd.

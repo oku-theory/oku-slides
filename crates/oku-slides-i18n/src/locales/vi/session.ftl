@@ -180,8 +180,8 @@ session-param-toc-title = Tiêu đề
 menu-edit = Sửa
 menu-window = Cửa sổ
 menu-quit = Thoát
-window-agent-title = Tác tử — Oku Slides
-menu-agent-detached = Tác tử trong cửa sổ riêng
+window-agent-title = Tác nhân — Oku Slides
+menu-agent-detached = Tác nhân trong cửa sổ riêng
 
 ## Éditeur de thème (surface host-theme)
 
