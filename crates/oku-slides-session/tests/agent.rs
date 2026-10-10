@@ -796,6 +796,7 @@ fn agent_context_describes_mode_slide_selection_and_drains_notes() {
         field: None,
         editing: false,
         widget: None,
+        locale: None,
     };
     let ctx = s.agent_context(&ui);
     insta::assert_snapshot!(ctx);

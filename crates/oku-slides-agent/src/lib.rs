@@ -16,6 +16,7 @@ mod command_error;
 mod config;
 mod error;
 mod events;
+mod instructions;
 mod keeper;
 mod link;
 mod permission;

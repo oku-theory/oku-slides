@@ -1,6 +1,6 @@
 //! Ce que l'agent sait à chaque tour : le bloc `<oku-slides-context>`
-//! (mode, langue, thème, slide, sélection, actions faites sans lui), et
-//! les tours d'annulation (un tour = une entrée ⌘Z).
+//! (mode, langues de l'interface et du deck, thème, slide, sélection, actions
+//! faites sans lui), et les tours d'annulation (un tour = une entrée ⌘Z).
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -28,6 +28,9 @@ pub struct AgentUi {
     /// Sous-onglet de widget actif (mode modèles).
     #[serde(default)]
     pub widget: Option<String>,
+    /// Langue que l'interface affiche : elle change à chaud, la session garde celle du lancement.
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 /// Début de la consigne, coupé à 40 caractères.
@@ -43,6 +46,24 @@ pub(crate) fn clipped(s: &str, max: usize) -> String {
     let mut cut: String = s.chars().take(max).collect();
     cut.push('…');
     cut
+}
+
+/// Longueur d'une étiquette de langue BCP 47, au plus.
+const LANG_TAG_MAX: usize = 35;
+
+/// La langue déclarée du deck pour le contexte : entre guillemets, `unset`, ou
+/// `invalid` si ce n'est pas une étiquette de langue (un deck reçu peut porter
+/// n'importe quel texte).
+pub(crate) fn declared_language(lang: Option<&str>) -> String {
+    match lang {
+        None => "unset".to_owned(),
+        Some(l)
+            if (1..=LANG_TAG_MAX).contains(&l.len()) && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') =>
+        {
+            format!("{l:?}")
+        }
+        Some(_) => "invalid".to_owned(),
+    }
 }
 
 /// Essais cités au contexte, au plus.
@@ -102,10 +123,14 @@ impl Session {
                 deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map_or_else(|| "none".to_owned(), |m| m.name)
             ),
         };
+        // La langue affichée par l'interface ; sans elle (ou inconnue), celle de la session.
+        let locale = ui.locale.as_deref().and_then(oku_slides_i18n::shipped).unwrap_or(self.localizer.locale());
         let _ = writeln!(
             out,
-            "locale: {} · {theme} · template_set: {}",
-            self.localizer.locale(),
+            "interface language: {} ({locale}) · deck language: {} · {theme} · template_set: {}",
+            // `locale` est livrée : son nom existe (`locales!`), le code n'est qu'un secours.
+            oku_slides_i18n::english_name(locale).unwrap_or(locale),
+            declared_language(deck.params.lang.as_deref()),
             self.deck_pack().map_or_else(|| "none".to_owned(), |r| r.id.to_string())
         );
         if let Some((i, slide)) =

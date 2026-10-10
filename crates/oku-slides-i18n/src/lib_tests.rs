@@ -188,43 +188,31 @@ fn shipped_maps_a_region_tag_and_refuses_the_unknown() {
 }
 
 #[test]
-fn widgets_prompt_mentions_slide_category_and_optional_label_and_default_in_every_locale() {
-    for locale in crate::available() {
-        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
-        for part in ["category: \"slide\"", "label:", "default:"] {
-            assert!(text.contains(part), "{locale} : « {part} » absent");
-        }
+fn english_names_are_distinct_and_not_empty() {
+    let names: BTreeSet<&str> = ENGLISH_NAMES.iter().map(|(_, n)| *n).filter(|n| !n.is_empty()).collect();
+    assert_that!(names.len()).is_equal_to(ENGLISH_NAMES.len());
+}
+
+#[test]
+fn english_name_names_every_shipped_language() {
+    for locale in available() {
+        asserting(locale).that(&english_name(locale)).is_some();
     }
 }
 
 #[test]
-fn widgets_prompt_documents_lists_and_their_ops_in_every_locale() {
-    for locale in crate::available() {
-        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
-        for part in ["p.list", "list-item", "edit_list", "set_param", "\"defaults\": true"] {
-            assert!(text.contains(part), "{locale} : « {part} » absent");
-        }
+fn english_name_names_the_language_in_english() {
+    for (locale, expected) in
+        [("fr", "French"), ("en", "English"), ("zh-Hant", "Traditional Chinese"), ("zh-Hans", "Simplified Chinese")]
+    {
+        asserting(locale).that(&english_name(locale)).is_equal_to(Some(expected));
     }
 }
 
 #[test]
-fn widgets_prompt_import_line_lists_list_item_in_every_locale() {
-    for locale in crate::available() {
-        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
-        let at = text.find("fields-stack").unwrap_or_else(|| panic!("{locale} : ligne d'import absente"));
-        let line: String = text[at..].chars().take(80).collect();
-        assert!(line.contains("list-item"), "{locale} : list-item absent de l'import : {line}");
-    }
-}
-
-#[test]
-fn agent_instructions_ask_for_report_not_suggest_next() {
-    for lang in crate::available() {
-        let text = Localizer::new(Some(lang)).tr("agent-instructions");
-        assert!(text.contains("report"), "{lang} : report absent");
-        assert!(text.contains("render"), "{lang} : render absent");
-        assert!(!text.contains("suggest_next"), "{lang} : suggest_next present");
-    }
+fn english_name_of_an_unshipped_code_is_none() {
+    assert_that!(english_name("xx")).is_none();
+    assert_that!(english_name("fr-CA")).is_none();
 }
 
 /// Le résumé d'un tour suit les règles de pluriel de chaque langue, pas seulement celles du français.
@@ -473,18 +461,6 @@ fn list_messages_use_the_reference_variables_in_every_locale() {
         let reference = variables(&source_of(REFERENCE, id));
         for locale in crate::available() {
             asserting(&format!("{locale} : {id}")).that(&variables(&source_of(locale, id))).is_equal_to(&reference);
-        }
-    }
-}
-
-#[test]
-fn widgets_prompt_lists_sentence_keeps_its_code_tokens_in_every_locale() {
-    for locale in crate::available() {
-        let text = Localizer::new(Some(locale)).tr("agent-instructions-widgets");
-        let at = text.find("p.list(").unwrap_or_else(|| panic!("{locale} : phrase des listes absente"));
-        let sentence = &text[at..];
-        for token in ["p.list", "list-item", "edit_list", "defaults", "set_param"] {
-            assert!(sentence.contains(token), "{locale} : « {token} » absent de la phrase des listes");
         }
     }
 }

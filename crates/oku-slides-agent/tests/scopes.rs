@@ -101,7 +101,9 @@ async fn loaded_session_replay_stays_out_of_events_and_surfaces() {
 async fn unresumed_session_opens_a_new_one_with_instructions_and_a_card_only_if_refused() {
     let l = oku_slides_i18n::Localizer::new(Some("fr"));
     let lost: String = l.tr("agent-memory-lost").chars().take(30).collect();
-    let instructions: String = l.tr("agent-instructions").chars().take(40).collect();
+    // Les consignes (`src/instructions/*.md`) sont en anglais seul, quelle que soit la langue
+    // de l'interface ; le contexte leur donne la langue que leur règle cite.
+    let instructions = ["You edit an Oku Slides presentation", "Creating a widget:", "interface language: French (fr)"];
     for caps in [json!({ "resume": true }), json!({ "load_session": true }), json!({})] {
         // Sans capacité, la reprise n'est pas tentée : pas de carte (t-611).
         let refused = caps.as_object().is_some_and(|c| !c.is_empty());
@@ -114,7 +116,10 @@ async fn unresumed_session_opens_a_new_one_with_instructions_and_a_card_only_if_
         wait_turn_ended(t).await;
         assert_that!(logged(&h.log, "session/new")).has_length(1);
         assert_that!(serde_json::to_string(&t.hub.surfaces()).unwrap().contains(lost.as_str())).is_equal_to(refused);
-        assert_that!(logged(&h.log, "session/prompt")[0].to_string()).contains(instructions.as_str());
+        let prompt = logged(&h.log, "session/prompt")[0].to_string();
+        for part in instructions {
+            assert_that!(prompt.as_str()).named(part).contains(part);
+        }
         // La reprise a été tentée avec la capacité annoncée, et refusée (aucune tentative sans capacité).
         let tried = |method: &str, cap: &str| {
             let expected: Vec<String> = if caps[cap] == true { vec!["sess-42".into()] } else { vec![] };

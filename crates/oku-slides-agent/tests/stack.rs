@@ -142,6 +142,16 @@ async fn handle_passes_the_ui_context_with_the_prompt() {
     assert_that!(prompt[2]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
 }
 
+/// La clé `locale` que l'UI envoie (`AgentUiSent`, ui/src/api.ts) arrive au contexte de l'agent.
+#[tokio::test(flavor = "multi_thread")]
+async fn handle_passes_the_language_the_ui_shows_to_the_context() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "bonjour", "ui": { "locale": "de" } }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let prompt = common::logged(&log, "session/prompt")[0]["prompt"].to_string();
+    assert_that!(prompt.as_str()).contains("interface language: German (de)");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn surface_action_on_an_unknown_surface_or_tab_is_an_error() {
     let (stack, _) = stack_with_sink(json!({ "turns": [{}] }), &["t-1"]).await;

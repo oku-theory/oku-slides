@@ -4,6 +4,7 @@
 //!   pour un message qui manquerait.
 //! - [`Localize`] : ce qui sait se dire dans une langue (erreurs, rapports).
 //! - [`resolve`] : le code de langue choisi, sans charger les messages.
+//! - [`english_name`] : le nom anglais d'une langue livrée, pour l'agent.
 //! - [`english`] : l'anglais de référence, pour les journaux et `Display`.
 //! - [`Message`] : un message à dire plus tard (dans une erreur).
 //! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
@@ -43,29 +44,38 @@ macro_rules! locale {
     };
 }
 
-/// Langues livrées, la référence d'abord.
-const LOCALES: &[(&str, &[&str])] = &[
-    locale!("en"),
-    locale!("fr"),
-    locale!("zh-Hans"),
-    locale!("zh-Hant"),
-    locale!("es"),
-    locale!("ar"),
-    locale!("hi"),
-    locale!("bn"),
-    locale!("pt"),
-    locale!("ru"),
-    locale!("ja"),
-    locale!("de"),
-    locale!("ko"),
-    locale!("it"),
-    locale!("tr"),
-    locale!("vi"),
-    locale!("pl"),
-    locale!("uk"),
-    locale!("nl"),
-    locale!("th"),
-];
+/// `LOCALES` et `ENGLISH_NAMES` d'une seule liste : une langue livrée a toujours son nom.
+macro_rules! locales {
+    ($($lang:literal => $name:literal),+ $(,)?) => {
+        /// Langues livrées, la référence d'abord.
+        const LOCALES: &[(&str, &[&str])] = &[$(locale!($lang)),+];
+        /// Nom anglais de chaque langue livrée : l'agent le lit mieux qu'un code (`zh-Hant`).
+        const ENGLISH_NAMES: &[(&str, &str)] = &[$(($lang, $name)),+];
+    };
+}
+
+locales! {
+    "en" => "English",
+    "fr" => "French",
+    "zh-Hans" => "Simplified Chinese",
+    "zh-Hant" => "Traditional Chinese",
+    "es" => "Spanish",
+    "ar" => "Arabic",
+    "hi" => "Hindi",
+    "bn" => "Bengali",
+    "pt" => "Portuguese",
+    "ru" => "Russian",
+    "ja" => "Japanese",
+    "de" => "German",
+    "ko" => "Korean",
+    "it" => "Italian",
+    "tr" => "Turkish",
+    "vi" => "Vietnamese",
+    "pl" => "Polish",
+    "uk" => "Ukrainian",
+    "nl" => "Dutch",
+    "th" => "Thai",
+}
 
 /// Langue de référence : chaque message y existe.
 pub const REFERENCE: &str = "en";
@@ -190,6 +200,11 @@ impl Localizer {
 /// Les langues livrées (`en`, `fr`…), la référence d'abord.
 pub fn available() -> Vec<&'static str> {
     LOCALES.iter().map(|(l, _)| *l).collect()
+}
+
+/// Nom anglais de la langue livrée `locale` (`fr` → `French`) ; `None` si elle ne l'est pas.
+pub fn english_name(locale: &str) -> Option<&'static str> {
+    ENGLISH_NAMES.iter().find(|(l, _)| *l == locale).map(|(_, n)| *n)
 }
 
 /// Le code de langue que `Localizer::new` choisirait, sans charger les messages.

@@ -9,6 +9,7 @@ use oku_slides_session::agent::{AgentScope, AgentUi};
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
+use crate::instructions::{INSTRUCTIONS, WIDGETS};
 use crate::tab_agent::{Command, Ctx};
 use crate::{AgentEvent, AgentState};
 
@@ -65,8 +66,8 @@ pub(crate) async fn run(
     ctx.emit(AgentEvent::Status { state: AgentState::Working, scope: Some(scope.clone()) });
     let mut blocks = Vec::with_capacity(4);
     if first {
-        blocks.push(ContentBlock::Text(TextContent::new(ctx.localizer.tr("agent-instructions"))));
-        blocks.push(ContentBlock::Text(TextContent::new(ctx.localizer.tr("agent-instructions-widgets"))));
+        blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
+        blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.push(ContentBlock::Text(TextContent::new(text)));

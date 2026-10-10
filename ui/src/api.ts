@@ -4,7 +4,7 @@
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Cell, ZoneView } from "./grid";
-import { t } from "./i18n";
+import { locale, t } from "./i18n";
 import type { View } from "./table/ShowAsButton";
 
 export type SlideKind = string;
@@ -581,6 +581,9 @@ export interface AgentUi {
   widget: string | null;
 }
 
+/** `AgentUi` tel qu'il part : avec la langue affichée, lue à l'envoi pour suivre un changement à chaud. */
+export type AgentUiSent = AgentUi & { locale: string };
+
 /** L'agent au repos, en lancement, ou en plein tour. */
 export type AgentState = "idle" | "starting" | "working";
 
@@ -633,7 +636,7 @@ export type McpEvent =
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
-  | { cmd: "prompt"; tab: string; scope: AgentScope; text: string; ui: AgentUi; answer: string | null }
+  | { cmd: "prompt"; tab: string; scope: AgentScope; text: string; ui: AgentUiSent; answer: string | null }
   | { cmd: "cancel"; tab: string }
   | { cmd: "new_conversation"; tab: string; scope: AgentScope }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
@@ -651,7 +654,7 @@ export function agentApi(tab: string) {
      * ou si elle n'attend plus, une consigne ordinaire.
      */
     prompt: (scope: AgentScope, text: string, ui: AgentUi, answer: string | null) =>
-      agentCall({ cmd: "prompt", tab, scope, text, ui, answer }),
+      agentCall({ cmd: "prompt", tab, scope, text, ui: { ...ui, locale: locale() }, answer }),
     cancel: () => agentCall({ cmd: "cancel", tab }),
     newConversation: (scope: AgentScope) => agentCall({ cmd: "new_conversation", tab, scope }),
     surfaceAction: (surface: string, name: string, context: Record<string, unknown>) =>

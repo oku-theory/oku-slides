@@ -14,6 +14,8 @@ les consignes dictées relayées avec le contexte de l'interface.
   notifications et permissions routées par lancement et `SessionId`).
 - `tab_agent` : `AgentHandle`, l'acteur d'un onglet (`prompt`, `cancel`,
   `new_conversation`) : sa session ACP et ses outils (`ToolsAccess`).
+- `instructions` : consignes du premier tour, en anglais seul (`instructions/*.md`) ; la langue de
+  ce que lit l'utilisateur vient de `interface language` du contexte de chaque tour.
 - `turn` : un tour, simultané entre onglets ; `permission` : `PermissionChoice` ;
   `settings_port` : `AppSettings`, les réglages de l'app pour `set_setting`.
 - `stack` : `Stack`, table des onglets (1re commande → `tab_closed`, puis commandes ignorées ;
