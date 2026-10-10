@@ -86,6 +86,9 @@ const deckHas = (p, text) =>
     // 7. Sans fenêtre de l'agent (ouverture échouée), la fenêtre principale garde de quoi rattacher.
     await post(main, '/api/workspace', { cmd: 'detach_agent' });
     await main.reload();
+    // Le séparateur du fil part avec lui (régression : il restait visible, sous son enveloppe `display: contents`).
+    await main.waitForSelector('.table.agent-detached');
+    assert.equal(await main.locator('.col-divider[data-side="notes"]').isVisible(), false);
     await main.locator('.table.agent-detached .agent-reattach').click();
     await main.reload();
     await main.waitForSelector('.notes .agent-thread');
