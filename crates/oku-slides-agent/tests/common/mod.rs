@@ -477,7 +477,7 @@ pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (TestStack, Relaye
     (stack, seen)
 }
 
-/// Le tour `n` de l'onglet `tab` est fini : sa surface (canal `mcp`) est repliée.
+/// Le tour `n` de l'onglet `tab` est fini : sa surface (canal `mcp`) ne court plus.
 pub async fn wait_turn_done(rx: &Relayed, tab: &str, n: u32) -> (&'static str, Value) {
     let id = format!("turn-{n}");
     wait_for(rx, |(ch, v)| {
@@ -486,7 +486,7 @@ pub async fn wait_turn_done(rx: &Relayed, tab: &str, n: u32) -> (&'static str, V
             && v["event"]["kind"] == "surface_patch"
             && v["event"]["id"] == id.as_str()
             && v["event"]["messages"].as_array().is_some_and(|ms| {
-                ms.iter().any(|m| m["updateDataModel"]["path"] == "/collapsed" && m["updateDataModel"]["value"] == true)
+                ms.iter().any(|m| m["updateDataModel"]["path"] == "/running" && m["updateDataModel"]["value"] == false)
             })
     })
     .await

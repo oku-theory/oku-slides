@@ -452,7 +452,7 @@ fn turns_end_turn_patches_every_changed_key_at_once() {
         .iter()
         .map(|m| serde_json::to_value(m).unwrap()["updateDataModel"]["path"].as_str().unwrap().to_owned())
         .collect();
-    assert_that!(paths).is_equal_to(["/collapsed", "/summary", "/narration", "/outcome"].map(str::to_owned).to_vec());
+    assert_that!(paths).is_equal_to(["/running", "/summary", "/narration", "/outcome"].map(str::to_owned).to_vec());
 }
 
 /// Une narration toute blanche ne devient pas une note vide quand un outil arrive.

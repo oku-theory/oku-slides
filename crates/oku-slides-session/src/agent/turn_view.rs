@@ -88,12 +88,18 @@ pub fn turn_data(v: &TurnView, l: &Localizer) -> Value {
     if v.notes > 0 {
         parts.push(l.tr_with("agent-turn-notes", &[("notes", v.notes.into())]));
     }
-    parts.push(l.tr_with("agent-turn-secs", &[("secs", secs.into())]));
+    // La durée ne se lit qu'une fois le tour fini : pendant, elle resterait à 0 s.
+    if !running {
+        parts.push(l.tr_with("agent-turn-secs", &[("secs", secs.into())]));
+    }
     let summary = parts.join(" · ");
     let steps: Vec<&TimelineStep> = v.plan.iter().chain(&v.steps).collect();
+    // Repliée dès l'ouverture : le fil ne s'allonge pas d'une ligne par outil ; un clic la déplie.
     json!({
         "steps": steps,
-        "collapsed": !running,
+        "collapsed": true,
+        // L'état du tour, lisible par l'hôte et les tests : sa fin ne se voit plus au repli.
+        "running": running,
         "summary": summary,
         "narration": if running { first_line(&v.narration, NOTE_CHARS) } else { String::new() },
         "outcome": outcome(&v.state, l),

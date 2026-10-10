@@ -85,6 +85,7 @@ expression: s
             }
           ],
           "collapsed": true,
+          "running": false,
           "summary": "6 outils · 1 note · 38 s",
           "narration": "",
           "outcome": ""

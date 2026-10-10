@@ -26,17 +26,26 @@ fn view(state: TurnState) -> TurnView {
 }
 
 #[test]
-fn turn_data_running_is_expanded_with_narration() {
+fn turn_data_running_is_collapsed_with_narration() {
     let d = turn_data(&view(TurnState::Running), &fr());
-    assert_that!(d["collapsed"].clone()).is_equal_to(json!(false));
+    assert_that!(d["collapsed"].clone()).is_equal_to(json!(true));
+    assert_that!(d["running"].clone()).is_equal_to(json!(true));
     assert_that!(d["narration"].clone()).is_equal_to(json!("Je vérifie le rendu"));
     assert_that!(d["outcome"].clone()).is_equal_to(json!(""));
+}
+
+/// Pendant le tour, le résumé compte outils et notes ; la durée ne vient qu'à la fin.
+#[test]
+fn turn_data_running_summary_omits_the_duration() {
+    let d = turn_data(&view(TurnState::Running), &fr());
+    assert_that!(d["summary"].as_str().unwrap()).is_equal_to("6 outils · 1 note");
 }
 
 #[test]
 fn turn_data_done_collapses_with_summary() {
     let d = turn_data(&view(TurnState::Done { secs: 38 }), &fr());
     assert_that!(d["collapsed"].clone()).is_equal_to(json!(true));
+    assert_that!(d["running"].clone()).is_equal_to(json!(false));
     assert_that!(d["narration"].clone()).is_equal_to(json!(""));
     insta::assert_snapshot!(d["summary"].as_str().unwrap());
 }
