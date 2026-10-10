@@ -9,6 +9,8 @@ import { t } from "./i18n";
 import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
 import { cycle, nth, tabShortcut } from "./tabs";
+import { ERROR_MS } from "./useToast";
+import { useTransient } from "./useTransient";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
 async function ownLabel(view: WorkspaceView): Promise<string> {
@@ -23,7 +25,10 @@ export default function Workspace() {
   // Réponses et événements peuvent arriver dans le désordre : jamais une vue plus ancienne.
   const setView = useCallback((v: WorkspaceView) => setShown((cur) => newest(cur, v)), []);
   const [label, setLabel] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Une erreur s'efface d'elle-même, comme l'avis d'erreur d'un onglet : rien d'autre ne la retire
+  // tant qu'aucune commande de la fenêtre ne réussit.
+  const [error, showError] = useTransient<string>();
+  const setError = useCallback((m: string | null) => showError(m, ERROR_MS), [showError]);
   // Composant démonté (StrictMode, ou fenêtre fermée) : on ignore les réponses tardives.
   const alive = useRef(true);
   useEffect(() => {
