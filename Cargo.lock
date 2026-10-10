@@ -5311,7 +5311,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-a2ui"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -5321,7 +5321,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-agent"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -5350,7 +5350,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-app"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "color-eyre",
  "oku-slides-agent",
@@ -5372,7 +5372,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-chart"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "charts-rs",
  "json-patch",
@@ -5388,7 +5388,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-cli"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "axum",
  "clap",
@@ -5415,7 +5415,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-core"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bytes",
  "hex",
@@ -5439,7 +5439,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-i18n"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "fluent-bundle",
  "speculoos",
@@ -5449,7 +5449,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-import"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "insta",
  "oku-slides-core",
@@ -5465,7 +5465,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-mcp"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -5495,7 +5495,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-pdf"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "hex",
  "lopdf",
@@ -5508,7 +5508,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-platform"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "axum",
  "config",
@@ -5529,7 +5529,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-render"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -5557,7 +5557,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-render-worker"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "hex",
  "libc",
@@ -5577,7 +5577,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-session"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "hex",
  "insta",
@@ -5608,7 +5608,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-stt"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "cpal",
  "ct2rs",
