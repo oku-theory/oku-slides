@@ -89,7 +89,6 @@ ui-undo-move-template = Mover la plantilla
 ui-undo-move-slide = Mover la diapositiva
 ui-undo-remove-slide = Eliminar la diapositiva
 ui-undo-remove = Eliminar
-ui-undo-cut = Cortar
 ui-undo-paste = Pegar
 ui-undo-place-on-grid = Colocar en la cuadrícula
 ui-undo-move-on-grid = Mover en la cuadrícula

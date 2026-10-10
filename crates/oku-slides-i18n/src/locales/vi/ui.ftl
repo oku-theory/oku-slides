@@ -87,7 +87,6 @@ ui-undo-move-template = Di chuyển mẫu
 ui-undo-move-slide = Di chuyển trang chiếu
 ui-undo-remove-slide = Xóa trang chiếu
 ui-undo-remove = Xóa
-ui-undo-cut = Cắt
 ui-undo-paste = Dán
 ui-undo-place-on-grid = Đặt lên lưới
 ui-undo-move-on-grid = Di chuyển trên lưới

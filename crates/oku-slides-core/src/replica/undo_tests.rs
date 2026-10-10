@@ -161,16 +161,32 @@ fn a_new_group_closes_the_open_one() {
     assert_that!(r.undo_label()).is_equal_to(Some("Premier".to_owned()));
 }
 
+/// `roadmap` et, dans `blocks` de `s-constat`, l'élément `f` (`liste`) aux items `ids`.
+fn with_items(ids: &[String]) -> Deck {
+    let items: Vec<serde_json::Value> = ids.iter().map(|id| serde_json::json!({ "id": id, "date": id })).collect();
+    let ops = vec![
+        json_op(
+            serde_json::json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+            "element": { "id": "f", "kind": "liste" } }),
+        ),
+        json_op(serde_json::json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" },
+            "param": "etapes", "value": items })),
+    ];
+    let mut deck = roadmap();
+    ok(crate::apply_all(&mut deck, ops, &crate::test_registry::with_list()));
+    deck
+}
+
 #[test]
 fn step_partly_dropped_by_loro_is_no_longer_undoable() {
-    // Limite 1 : Loro garde 64 items ; renverser 80 slides en fait 79.
-    let mut deck = roadmap();
-    let model = deck.slides[2].clone();
-    deck.slides = (0..80).map(|k| Slide { id: format!("s{k}"), ..model.clone() }).collect();
-    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    // Limite 1 : Loro garde 64 items ; renverser 80 items d'une liste en fait
+    // 79, un commit par `mov` (parade t-263). Les slides, dans l'arbre du
+    // deck, n'en font qu'un.
+    let ids: Vec<String> = (0..80).map(|k| format!("i{k}")).collect();
+    let deck = with_items(&ids);
+    let mut r = DeckReplica::new(&deck, crate::test_registry::with_list()).unwrap();
     r.set_undo_limit(1);
-    let mut reversed = deck.clone();
-    reversed.slides.reverse();
+    let reversed = with_items(&ids.iter().rev().cloned().collect::<Vec<_>>());
     r.apply(&reversed, "Inverser", None).unwrap();
     assert_that!(r.can_undo()).is_false();
     assert_that!(r.undo().unwrap()).is_false();
@@ -457,7 +473,7 @@ fn undo_redo_of_a_slide_removal_restores_its_element_tree() {
     let mut r = ok(DeckReplica::new(&before, crate::test_registry::shared()));
     ok(r.apply(&after, "Supprimer", None));
     assert_that!(ok(r.undo())).is_true();
-    // `node_of` exige une carte `@elements` de type arbre.
+    // `node_of` exige l'arbre du deck.
     let (tree, pile) = super::super::tree::node_of(&r.doc, "s-constat", "pile");
     assert_that!(tree.children_num(pile)).is_equal_to(Some(2));
     assert_that!(ok(r.redo())).is_true();
@@ -584,4 +600,201 @@ fn undo_a_stale_move_after_the_peer_moved_it_again_converges() {
     assert_that!(place.len()).is_equal_to(1);
     let declared = [(None, "blocks"), (None, "elements"), (Some("pile".to_owned()), "children")];
     assert_that!(declared.iter().any(|(o, s)| *o == place[0].0 && *s == place[0].1)).is_true();
+}
+
+// Le deck en un seul arbre (t-746), sans la parade t-263 pour les slides :
+// annuler et rétablir des `mov` de slides et d'éléments d'une slide à
+// l'autre rend l'état exact, et ce qu'ils produisent passe le contrôle
+// d'entrée (relecture d'un snapshot, fusion avec un pair).
+
+/// Comme [`assert_undo_redo_exact`], puis, après « rétablir » : relecture d'un
+/// snapshot et fusion dans un pair du départ, sans `Issue`. Avec `repair`,
+/// le premier `apply` du deck relu écrit la réparation (entrée `@slot` d'un
+/// parent recréé par « rétablir ») ; sinon il n'écrit rien. Le second, jamais.
+fn assert_deck_undo_redo_exact(before: &Deck, after: &Deck, repair: bool) {
+    let mut r = ok(DeckReplica::new(before, crate::test_registry::shared()));
+    let start = ok(r.snapshot());
+    ok(r.apply(after, "Éditer", None));
+    assert_that!(r.deck()).is_equal_to((after.clone(), Vec::new()));
+    assert_that!(ok(r.undo())).is_true();
+    assert_that!(r.deck()).is_equal_to((before.clone(), Vec::new()));
+    assert_that!(ok(r.redo())).is_true();
+    assert_that!(r.deck()).is_equal_to((after.clone(), Vec::new()));
+    let reread = ok(DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, crate::test_registry::shared())).1;
+    assert_that!(reread).is_equal_to((after.clone(), Vec::new()));
+    let mut peer = ok(DeckReplica::from_snapshot(&start, 1 << 24, crate::test_registry::shared())).0;
+    ok(peer.merge(&r));
+    assert_that!(peer.deck()).is_equal_to((after.clone(), Vec::new()));
+    let read = r.deck().0;
+    let redone = r.len_ops();
+    ok(r.apply(&read, "Relire", None));
+    let settled = r.len_ops();
+    assert_that!(settled > redone).named("réparation écrite au premier apply").is_equal_to(repair);
+    ok(r.apply(&read, "Relire", None));
+    assert_that!(r.len_ops()).is_equal_to(settled);
+    assert_that!(r.deck()).is_equal_to((after.clone(), Vec::new()));
+}
+
+/// Ajoute `element` en `index` du slot `param` de `owner` (`None` : la slide) de `slide`.
+fn add_to(
+    slide: &str,
+    owner: Option<&str>,
+    param: &str,
+    index: Option<usize>,
+    element: serde_json::Value,
+) -> crate::Op {
+    let owner = match owner {
+        Some(e) => serde_json::json!({ "slide": slide, "element": e }),
+        None => serde_json::json!({ "slide": slide }),
+    };
+    json_op(serde_json::json!({ "op": "add_element", "slot": { "owner": owner, "param": param }, "index": index,
+        "element": element }))
+}
+
+/// `deck` où `b-points` passe de `s-constat` en tête de `blocks` de `s-priorites`.
+fn points_to_priorities(deck: &Deck) -> Deck {
+    let points = element(deck, "b-points");
+    with_ops(deck, vec![remove("b-points"), add_to("s-priorites", None, "blocks", Some(0), points)])
+}
+
+#[test]
+fn undo_redo_of_a_slide_reversal_restores_exactly() {
+    let before = roadmap();
+    let mut after = before.clone();
+    after.slides.reverse();
+    assert_deck_undo_redo_exact(&before, &after, false);
+}
+
+#[test]
+fn undo_redo_of_a_move_between_slides_restores_exactly() {
+    let before = roadmap();
+    assert_deck_undo_redo_exact(&before, &points_to_priorities(&before), false);
+}
+
+#[test]
+fn undo_redo_of_a_slide_removal_an_element_move_and_a_reorder_in_one_apply_restores_exactly() {
+    let before = roadmap();
+    let mut after = points_to_priorities(&before);
+    after.slides.retain(|s| s.id != "s-ch1");
+    let at = after.slides.iter().position(|s| s.id == "s-libre").unwrap_or_else(|| panic!("s-libre absente"));
+    let libre = after.slides.remove(at);
+    after.slides.insert(0, libre);
+    assert_deck_undo_redo_exact(&before, &after, false);
+}
+
+/// `pile` (enfants `k1`, `k2`) ajoutée à `blocks` de `s-constat`.
+fn pile_with_children() -> Vec<crate::Op> {
+    vec![
+        add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+        add(Some("pile"), "children", text("k1", "Un")),
+        add(Some("pile"), "children", text("k2", "Deux")),
+    ]
+}
+
+/// Rétablir l'ajout recrée `pile` sous un autre `TreeID` : `k1` et `k2` ne
+/// portent que l'entrée de l'ancien `pile`, supprimé (règle 3a, sans `Issue`).
+#[test]
+fn undo_redo_of_adding_an_owner_with_children_restores_exactly() {
+    let before = roadmap();
+    assert_deck_undo_redo_exact(&before, &with_ops(&before, pile_with_children()), true);
+}
+
+#[test]
+fn undo_redo_of_adding_a_slide_with_elements_restores_exactly() {
+    let before = roadmap();
+    let mut after = before.clone();
+    after.slides.insert(2, Slide::new("s-neuve", "content"));
+    let after = with_ops(
+        &after,
+        vec![
+            add_to("s-neuve", None, "blocks", None, text("n1", "Un")),
+            add_to("s-neuve", None, "blocks", None, serde_json::json!({ "id": "n2", "kind": "stack" })),
+        ],
+    );
+    assert_deck_undo_redo_exact(&before, &after, true);
+}
+
+/// Après « rétablir », `b-points` porte l'entrée de `s-constat` (vivant, pas
+/// son parent : périmée) et celle de l'ancien `pile` (supprimé) : règle 3a.
+#[test]
+fn undo_redo_of_moving_an_element_into_a_new_owner_restores_exactly() {
+    let before = roadmap();
+    let points = element(&before, "b-points");
+    let after = with_ops(
+        &before,
+        vec![
+            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+            remove("b-points"),
+            add(Some("pile"), "children", points),
+        ],
+    );
+    assert_deck_undo_redo_exact(&before, &after, true);
+}
+
+/// Où est `b-points` dans `deck` (slide, slot) et son premier run est-il gras ?
+fn points_home(deck: &Deck) -> Vec<(String, String, bool)> {
+    deck.slides
+        .iter()
+        .flat_map(|slide| {
+            slide.walk().filter(|l| l.element.id == "b-points").map(|l| {
+                let bold = match l.element.params.get("body") {
+                    Some(crate::ParamValue::Rich(b)) => b.first().and_then(|p| p.runs.first()).is_some_and(|r| r.bold),
+                    _ => false,
+                };
+                (slide.id.clone(), l.slot.to_owned(), bold)
+            })
+        })
+        .collect()
+}
+
+/// A passe `b-points` dans `s-priorites`, B le met en gras : l'annulation de
+/// A rend `b-points` à `s-constat` avec l'édition de B (le `mov` ne l'écrase pas).
+#[test]
+fn undo_move_between_slides_keeps_a_remote_edit() {
+    let deck = roadmap();
+    let (mut a, mut b) = two_peers(&deck);
+    ok(a.apply(&points_to_priorities(&deck), "Déplacer", None));
+    ok(b.apply(&points_bold(&deck), "Gras", None));
+    ok(a.merge(&b));
+    assert_that!(ok(a.undo())).is_true();
+    let (read, issues) = a.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(points_home(&read)).is_equal_to(vec![("s-constat".to_owned(), "blocks".to_owned(), true)]);
+    assert_that!(ok(a.redo())).is_true();
+    let (read, issues) = a.deck();
+    assert_that!(issues).is_empty();
+    assert_that!(points_home(&read)).is_equal_to(vec![("s-priorites".to_owned(), "blocks".to_owned(), true)]);
+    ok(b.merge(&a));
+    assert_that!(b.deck()).is_equal_to(a.deck());
+}
+
+/// A retire `s-constat`, B en sort `b-points` : après l'échange, `b-points`
+/// est dans `s-priorites`. Annuler le retrait rend la slide sans lui.
+#[test]
+fn undo_of_a_slide_removal_keeps_a_remote_move_of_one_of_its_elements() {
+    let deck = roadmap();
+    let (mut a, mut b) = two_peers(&deck);
+    let mut removed = deck.clone();
+    removed.slides.retain(|s| s.id != "s-constat");
+    ok(a.apply(&removed, "Retirer", None));
+    ok(b.apply(&points_to_priorities(&deck), "Déplacer", None));
+    ok(a.merge(&b));
+    ok(b.merge(&a));
+    for peer in [&a, &b] {
+        let (read, issues) = peer.deck();
+        assert_that!(issues).is_empty();
+        assert_that!(read.slide("s-constat").is_none()).is_true();
+        assert_that!(points_home(&read)).is_equal_to(vec![("s-priorites".to_owned(), "blocks".to_owned(), false)]);
+    }
+    assert_that!(ok(a.undo())).is_true();
+    ok(b.merge(&a));
+    ok(a.merge(&b));
+    for peer in [&a, &b] {
+        let (read, issues) = peer.deck();
+        assert_that!(issues).is_empty();
+        let back = read.slide("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+        assert_that!(back.locate("b-points").is_none()).is_true();
+        assert_that!(points_home(&read)).is_equal_to(vec![("s-priorites".to_owned(), "blocks".to_owned(), false)]);
+    }
+    assert_that!(a.deck()).is_equal_to(b.deck());
 }

@@ -1,4 +1,4 @@
-//! Le zip des sources (format `oku-slides-sources`, version 8) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 9) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
 //! versions de packs de modèles (`packs/<hex>/pack.json`,
 //! `packs/<hex>/widgets/<nom>.typ`) et les versions de thèmes
@@ -13,7 +13,7 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 7) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 8) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -32,6 +32,7 @@ use crate::error::{
 };
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
+use crate::ops::Moved;
 use crate::pack::{PackFiles, PackVersion, WidgetFile};
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
 use crate::validate::{Issue, validate};
@@ -43,7 +44,7 @@ mod themes;
 use themes::{THEME_JSON, THEME_VERSIONS_DIR, theme_entry, theme_issues, verify_themes};
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 8;
+pub const SOURCES_VERSION: u32 = 9;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
@@ -276,13 +277,25 @@ impl SourceBundle {
     /// en une étape d'annulation `label`. Avec `merge`, l'application rejoint
     /// l'étape du sommet de même clé (voir `DeckReplica::apply`).
     pub fn apply(&mut self, deck: Deck, label: &str, merge: Option<&str>) -> Result<(), SourcesError> {
+        self.apply_moving(deck, label, merge, &[])
+    }
+
+    /// Comme `apply`, en gardant le nœud des éléments de `moves` (voir
+    /// [`DeckReplica::apply_moving`]).
+    pub fn apply_moving(
+        &mut self,
+        deck: Deck,
+        label: &str,
+        merge: Option<&str>,
+        moves: &[Moved],
+    ) -> Result<(), SourcesError> {
         // Non atomique (voir `DeckReplica::apply`) : les changements déjà
         // faits restent dans le doc ; le prochain commit, ou le prochain
         // export (dont le snapshot de reprise), valide ceux en attente.
         // Avant la réconciliation : la première édition de ce pair inscrit
         // son auteur dans le même commit.
         self.replica.claim_author().context(ReplicaSnafu)?;
-        self.replica.apply(&deck, label, merge).context(ReplicaSnafu)?;
+        self.replica.apply_moving(&deck, label, merge, moves).context(ReplicaSnafu)?;
         self.deck = deck;
         self.debug_assert_view_matches_replica();
         Ok(())

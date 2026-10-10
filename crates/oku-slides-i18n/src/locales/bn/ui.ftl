@@ -89,7 +89,6 @@ ui-undo-move-template = টেমপ্লেট সরান
 ui-undo-move-slide = স্লাইড সরান
 ui-undo-remove-slide = স্লাইড মুছুন
 ui-undo-remove = মুছুন
-ui-undo-cut = কাট
 ui-undo-paste = পেস্ট
 ui-undo-place-on-grid = গ্রিডে বসান
 ui-undo-move-on-grid = গ্রিডে সরান

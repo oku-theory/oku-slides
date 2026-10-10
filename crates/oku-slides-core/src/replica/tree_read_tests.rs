@@ -1,11 +1,10 @@
-//! L'arbre des éléments d'une slide : lecture, réparations, doublons.
+//! Les éléments dans l'arbre du deck : lecture, réparations, doublons.
 
 use serde_json::json;
 use speculoos::prelude::*;
 
 use loro::{LoroMap, LoroValue, TreeParentId};
 
-use super::super::schema::ELEMENTS;
 use super::tree_tests::*;
 use super::*;
 use crate::Deck;
@@ -26,25 +25,34 @@ fn read_element_without_owner_entry_joins_the_first_sibling_slot() {
         .is_equal_to((Some("s-constat"), Some("x")));
 }
 
+/// Règle 3b : la seule entrée désigne un nœud vivant (`b-points`), pas le parent.
 #[test]
 fn read_element_with_only_another_owner_entry_keeps_that_slot() {
     let r = new(&roadmap());
-    forge(&r, "s-title", None, &text_meta("x"), Some(&[("pile", "children")]));
+    let points = node_of(&r.doc, "s-constat", "b-points").1.to_string();
+    forge(&r, "s-title", None, &text_meta("x"), Some(&[(points.as_str(), "children")]));
     let (read, issues) = reread(&r);
     assert_that!(ids_in(&read, "s-title", None, "children")).is_equal_to(vec!["x".to_owned()]);
     assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-slot-repaired"]);
+}
+
+/// Règle 3a : la seule entrée désigne un nœud absent ; son slot est pris sans `Issue`.
+#[test]
+fn read_element_with_only_an_absent_parent_entry_keeps_that_slot_silently() {
+    let r = new(&roadmap());
+    forge(&r, "s-title", None, &text_meta("x"), Some(&[("7@1", "children")]));
+    let (read, issues) = reread(&r);
+    assert_that!(ids_in(&read, "s-title", None, "children")).is_equal_to(vec!["x".to_owned()]);
+    assert_that!(issues).is_empty();
 }
 
 #[test]
 fn read_element_without_any_slot_goes_to_orphans() {
     let r = new(&roadmap());
     forge(&r, "s-title", None, &text_meta("x"), None);
-    let mut meta = text_meta("y");
-    meta.push((SLOT, LoroValue::I64(3)));
-    forge(&r, "s-title", None, &meta, None);
     let (read, issues) = reread(&r);
-    assert_that!(ids_in(&read, "s-title", None, ORPHANS)).is_equal_to(vec!["x".to_owned(), "y".into()]);
-    assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-slot-repaired", "issue-slot-repaired"]);
+    assert_that!(ids_in(&read, "s-title", None, ORPHANS)).is_equal_to(vec!["x".to_owned()]);
+    assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-slot-repaired"]);
 }
 
 #[test]
@@ -154,7 +162,8 @@ fn duplicate_ids_round_trip_keeps_the_edited_node() {
         "blocks": [text("x", "A"), text("x", "B")] } }] }));
     let mut r = new(&deck);
     let tree = slide_tree(&r, "s");
-    let first = tree.children(TreeParentId::Root).unwrap_or_default()[0];
+    let s = TreeParentId::Node(slide_node(&r, "s"));
+    let first = tree.children(s).unwrap_or_default()[0];
     let (read, issues) = reread(&r);
     assert_that!(issues).is_empty();
     assert_that!(ids_in(&read, "s", None, "blocks")).is_equal_to(vec!["x".to_owned(), "x-2".into()]);
@@ -169,21 +178,20 @@ fn duplicate_ids_round_trip_keeps_the_edited_node() {
     assert_that!(r.deck().0).is_equal_to(&read);
     assert_that!(reread(&r)).is_equal_to((read.clone(), Vec::new()));
     assert_that!(text_of(&r.deck().0, "x-2")).is_equal_to("B".to_owned());
-    assert_that!(tree.children(TreeParentId::Root).unwrap_or_default()[0]).is_equal_to(first);
+    assert_that!(tree.children(s).unwrap_or_default()[0]).is_equal_to(first);
     let settled = ops_of(&r);
     apply(&mut r, &read);
     assert_that!(ops_of(&r)).is_equal_to(settled);
 }
 
 #[test]
-fn read_slide_with_elements_of_another_type_reads_none_and_reports() {
+fn read_slides_of_another_type_reads_no_slide() {
     let r = new(&roadmap());
-    ok(slide_map(&r, "s-constat").insert_container(ELEMENTS, LoroMap::new()));
+    ok(r.doc.get_map(super::super::ROOT).insert_container("slides", LoroMap::new()));
     r.doc.commit();
     // Défense en profondeur : l'import et la fusion refusent ce replica, la lecture seule l'ignore.
     let (read, issues) = ok(super::super::read_deck(&r.doc));
-    assert_that!(ids_in(&read, "s-constat", None, "blocks")).is_empty();
-    assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-unreadable-element"]);
-    assert_that!(issues[0].slide.as_deref()).is_equal_to(Some("s-constat"));
-    assert_that!(issues[0].element.is_none()).is_true();
+    assert_that!(read.slides.is_empty()).is_true();
+    assert_that!(read.params).is_equal_to(&roadmap().params);
+    assert_that!(issues).is_empty();
 }

@@ -220,16 +220,17 @@ fn restore_across_a_swap_can_be_undone() {
     restore_and_undo(&mut b, &h, 0);
 }
 
-/// Un réordonnancement fait plusieurs changes Loro (un `mov` par commit),
-/// mais une seule édition : un seul cran, à l'état d'après, sous son libellé.
+/// Un réordonnancement de slides est un seul change Loro (arbre du deck,
+/// sans commit intermédiaire) : un seul cran, à l'état d'après, sous son libellé.
 #[test]
 fn a_reorder_of_several_slides_is_one_version() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut reordered = deck.clone();
     reordered.slides.reverse();
+    let changes = b.replica().len_changes();
     b.apply(reordered.clone(), "Réordonner", None).unwrap();
-    assert_that!(b.replica().len_changes()).is_greater_than(2);
+    assert_that!(b.replica().len_changes()).is_equal_to(changes + 1);
     let h = b.history();
     assert_that!(h.len()).is_equal_to(2);
     assert_that!(h.versions()[1].label.as_deref()).is_equal_to(Some("Réordonner"));
@@ -343,4 +344,93 @@ fn restore_across_a_move_across_slots_brings_back_the_old_slot() {
     assert_that!(points_slot(&h.deck_at(0).unwrap().0)).is_equal_to(Some("blocks".to_owned()));
     restore_and_undo(&mut b, &h, 0);
     assert_that!(points_slot(b.deck())).is_equal_to(Some("elements".to_owned()));
+}
+
+/// `b-points` quitte `s-constat` pour `s-priorites`.
+fn points_to_priorities(deck: &Deck) -> Deck {
+    let mut d = deck.clone();
+    let points = {
+        let slide = d.slide_mut("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+        let blocks = slide.params.slot_mut("blocks").unwrap_or_else(|| panic!("blocks absent"));
+        let at = blocks.iter().position(|e| e.id == "b-points").unwrap_or_else(|| panic!("b-points absent"));
+        blocks.remove(at)
+    };
+    let slide = d.slide_mut("s-priorites").unwrap_or_else(|| panic!("s-priorites absente"));
+    slide.params.slot_mut("blocks").unwrap_or_else(|| panic!("blocks absent")).insert(0, points);
+    crate::canonicalize(&mut d);
+    d
+}
+
+#[test]
+fn a_move_between_slides_is_one_version() {
+    let deck = roadmap();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    let (versions, changes) = (b.history().len(), b.replica().len_changes());
+    // Le renommage de la slide d'arrivée s'écrit avant le `mov` : un commit entre les deux se verrait.
+    let mut moved = points_to_priorities(&deck);
+    let target = moved.slide_mut("s-priorites").unwrap_or_else(|| panic!("s-priorites absente"));
+    target.params.set("title", crate::ParamValue::Text("Priorités".into()));
+    b.apply(moved, "Déplacer", None).unwrap();
+    assert_that!(b.history().len()).is_equal_to(versions + 1);
+    assert_that!(b.replica().len_changes()).is_equal_to(changes + 1);
+}
+
+/// Un deck où `s-constat` est retirée, avec l'historique d'avant et d'après.
+fn after_removing_constat() -> (Deck, SourceBundle) {
+    let deck = roadmap();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    let mut removed = deck.clone();
+    removed.slides.retain(|s| s.id != "s-constat");
+    b.apply(removed, "Retirer", None).unwrap();
+    (deck, b)
+}
+
+#[test]
+fn deck_at_before_a_slide_removal_shows_the_slide() {
+    let (deck, b) = after_removing_constat();
+    let h = b.history();
+    let last = h.len() - 1;
+    assert_that!(h.deck_at(last - 1).unwrap().0).is_equal_to(&deck);
+    assert_that!(h.deck_at(last).unwrap().0.slide("s-constat").is_none()).is_true();
+}
+
+/// Les racines du deck brut dont l'`id` est `slide`, avec leur marque (lue brute).
+fn raw_roots(b: &SourceBundle, slide: &str) -> Vec<(loro::TreeID, bool)> {
+    use loro::{Container, LoroValue, TreeParentId, ValueOrContainer};
+    let Some(ValueOrContainer::Container(Container::Tree(tree))) =
+        b.replica().doc.get_map(crate::replica::ROOT).get("slides")
+    else {
+        panic!("arbre du deck attendu")
+    };
+    tree.children(TreeParentId::Root)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|n| {
+            let meta = tree.get_meta(n).unwrap_or_else(|e| panic!("{e:?}"));
+            let named =
+                matches!(meta.get("id"), Some(ValueOrContainer::Value(LoroValue::String(s))) if s.as_str() == slide);
+            named.then(|| (n, meta.keys().any(|k| k.starts_with("@deleted/"))))
+        })
+        .collect()
+}
+
+/// Restaurer avant le retrait rend la slide sous un nouveau nœud : l'ancien
+/// garde sa marque, jamais ranimé par son id (R5, point 6).
+#[test]
+fn restore_before_a_slide_removal_brings_it_back_as_a_new_node() {
+    let (deck, mut b) = after_removing_constat();
+    let removed = raw_roots(&b, "s-constat");
+    assert_that!(removed.len()).is_equal_to(1);
+    assert_that!(removed[0].1).is_true();
+    let h = b.history();
+    restore_and_undo(&mut b, &h, 0);
+    b.restore(&h, 0, "Restaurer").unwrap();
+    assert_that!(b.deck()).is_equal_to(&deck);
+    let roots = raw_roots(&b, "s-constat");
+    assert_that!(roots.len()).is_equal_to(2);
+    let old = roots.iter().find(|(n, _)| *n == removed[0].0).unwrap_or_else(|| panic!("ancien nœud perdu"));
+    assert_that!(old.1).named("l'ancien nœud garde sa marque").is_true();
+    let new: Vec<_> = roots.iter().filter(|(n, _)| *n != removed[0].0).collect();
+    assert_that!(new.len()).is_equal_to(1);
+    assert_that!(new[0].1).named("le nouveau nœud est vivant").is_false();
 }

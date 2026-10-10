@@ -232,3 +232,32 @@ fn read_list_item_without_id_is_set_aside_and_reported() {
     assert_that!(ids(&read)).is_equal_to(vec!["d0".to_owned()]);
     assert_that!(issues.iter().map(|i| i.message.id()).collect::<Vec<_>>()).is_equal_to(vec!["issue-unreadable-item"]);
 }
+
+/// Messages des changes Loro, du plus ancien au plus récent.
+fn messages(r: &DeckReplica) -> Vec<String> {
+    let heads: Vec<loro::ID> = r.doc.oplog_frontiers().iter().collect();
+    let mut all = Vec::new();
+    let _ = r.doc.travel_change_ancestors(&heads, &mut |m| {
+        all.push((m.lamport, m.message.map(|s| s.to_string()).unwrap_or_default()));
+        std::ops::ControlFlow::Continue(())
+    });
+    all.sort();
+    all.into_iter().map(|(_, m)| m).collect()
+}
+
+#[test]
+fn apply_reorder_of_items_marks_intermediate_commits_as_parts() {
+    let deck = deck_with_list(&["a", "b", "c", "d"]);
+    let mut r = DeckReplica::new(&deck, registry()).unwrap();
+    let before = messages(&r).len();
+    let moves = [("d", 0), ("c", 1), ("b", 2)];
+    let reversed =
+        with_ops(&deck, moves.iter().map(|(item, to)| edit(json!({ "op": "move", "item": item, "to": to }))).collect());
+    assert_that!(ids(&reversed)).is_equal_to(vec!["d".to_owned(), "c".into(), "b".into(), "a".into()]);
+    r.apply(&reversed, "Inverser", None).unwrap();
+    let got = messages(&r).split_off(before);
+    // Trois `mov` d'items, chacun précédé d'un commit (parade t-263) : le
+    // premier ne committe rien, puis deux commits intermédiaires et le dernier.
+    assert_that!(got).is_equal_to(vec![format!("{PART}Inverser"), format!("{PART}Inverser"), "Inverser".to_owned()]);
+    assert_that!(ids(&r.deck().0)).is_equal_to(ids(&reversed));
+}

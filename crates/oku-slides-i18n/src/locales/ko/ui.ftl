@@ -87,7 +87,6 @@ ui-undo-move-template = 템플릿 이동
 ui-undo-move-slide = 슬라이드 이동
 ui-undo-remove-slide = 슬라이드 삭제
 ui-undo-remove = 삭제
-ui-undo-cut = 잘라내기
 ui-undo-paste = 붙여넣기
 ui-undo-place-on-grid = 그리드에 배치
 ui-undo-move-on-grid = 그리드에서 이동

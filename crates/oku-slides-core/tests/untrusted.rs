@@ -4,6 +4,7 @@
 
 mod common;
 
+use loro::{Container, ExportMode, LoroDoc, LoroMap, LoroTree, LoroValue, TreeParentId, ValueOrContainer};
 use oku_slides_core::{Deck, DeckReplica, ReplicaErrorKind};
 use speculoos::prelude::*;
 
@@ -105,4 +106,88 @@ fn from_snapshot_of_foreign_loro_doc_returns_corrupted() {
     let bytes = doc.export(loro::ExportMode::Snapshot).unwrap();
     let err = DeckReplica::from_snapshot(&bytes, 1 << 20, common::shared()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
+}
+
+/// Vrai si la méta porte l'`id` `id`.
+fn has_id(m: &LoroMap, id: &str) -> bool {
+    matches!(m.get("id"), Some(ValueOrContainer::Value(LoroValue::String(s))) if *s == id)
+}
+
+/// Le snapshot de `roadmap` après `edit` sur l'arbre du deck, sous le nœud de `slide`.
+fn forged(slide: &str, edit: impl FnOnce(&LoroTree, TreeParentId)) -> Vec<u8> {
+    let doc = LoroDoc::new();
+    doc.import(&snapshot()).unwrap_or_else(|e| panic!("import : {e}"));
+    let Some(ValueOrContainer::Container(Container::Tree(tree))) = doc.get_map("deck").get("slides") else {
+        panic!("arbre du deck attendu")
+    };
+    let node = tree
+        .children(TreeParentId::Root)
+        .unwrap_or_default()
+        .into_iter()
+        .find(|n| tree.get_meta(*n).is_ok_and(|m| has_id(&m, slide)))
+        .unwrap_or_else(|| panic!("slide {slide} absente"));
+    edit(&tree, TreeParentId::Node(node));
+    doc.commit();
+    doc.export(ExportMode::Snapshot).unwrap_or_else(|e| panic!("export : {e}"))
+}
+
+/// Relit `bytes` dans un fil à pile de 256 Kio : le deck et les ids des `Issue`.
+fn read_on_a_small_stack(bytes: Vec<u8>) -> (Deck, Vec<&'static str>) {
+    std::thread::Builder::new()
+        .stack_size(256 * 1024)
+        .spawn(move || {
+            let (_, (deck, issues)) = DeckReplica::from_snapshot(&bytes, 1 << 26, common::shared())
+                .unwrap_or_else(|e| panic!("from_snapshot : {e}"));
+            (deck, issues.iter().map(|i| i.message.id()).collect())
+        })
+        .unwrap_or_else(|e| panic!("fil : {e}"))
+        .join()
+        .unwrap_or_else(|_| panic!("la lecture a paniqué ou débordé la pile"))
+}
+
+/// Nombre de clés forgées dans une méta.
+const HOSTILE_KEYS: u64 = 100_000;
+
+/// Garde (sans mesure de temps) : un nœud porte 100 000 marques bien
+/// formées. L'import les contrôle toutes, la lecture cache le nœud.
+#[test]
+fn from_snapshot_with_many_marks_on_one_node_hides_it() {
+    let bytes = forged("s-constat", |tree, slide| {
+        let points = tree
+            .children(slide)
+            .unwrap_or_default()
+            .into_iter()
+            .find(|n| tree.get_meta(*n).is_ok_and(|m| has_id(&m, "b-points")))
+            .unwrap_or_else(|| panic!("b-points absent"));
+        let meta = tree.get_meta(points).unwrap_or_else(|e| panic!("méta : {e}"));
+        for peer in 0..HOSTILE_KEYS {
+            meta.insert(&format!("@deleted/{peer}"), true).unwrap_or_else(|e| panic!("marque : {e}"));
+        }
+    });
+    let (deck, issues) = read_on_a_small_stack(bytes);
+    assert_that!(issues).is_empty();
+    let slide = deck.slide("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    assert_that!(slide.locate("b-points").is_none()).is_true();
+}
+
+/// Garde de coût (sans mesure de temps) : un `@slot` porte 100 000 entrées,
+/// aucune pour le parent réel, toutes pour des nœuds absents et un même slot.
+/// La règle 3 s'applique une fois (3a, sans `Issue`).
+#[test]
+fn from_snapshot_with_a_huge_slot_map_reads() {
+    let bytes = forged("s-title", |tree, slide| {
+        let node = tree.create(slide).unwrap_or_else(|e| panic!("nœud : {e}"));
+        let meta = tree.get_meta(node).unwrap_or_else(|e| panic!("méta : {e}"));
+        meta.insert("id", "x").unwrap_or_else(|e| panic!("id : {e}"));
+        meta.insert("kind", "text").unwrap_or_else(|e| panic!("kind : {e}"));
+        let slot = meta.ensure_mergeable_map("@slot").unwrap_or_else(|e| panic!("@slot : {e}"));
+        for i in 0..HOSTILE_KEYS {
+            slot.insert(&format!("{i}@1"), "blocks").unwrap_or_else(|e| panic!("entrée : {e}"));
+        }
+    });
+    let (deck, issues) = read_on_a_small_stack(bytes);
+    assert_that!(issues).is_empty();
+    let slide = deck.slide("s-title").unwrap_or_else(|| panic!("s-title absente"));
+    let ids: Vec<&str> = slide.params.slot("blocks").unwrap_or_default().iter().map(|e| e.id.as_str()).collect();
+    assert_that!(ids).is_equal_to(vec!["x"]);
 }

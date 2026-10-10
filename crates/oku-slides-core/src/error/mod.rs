@@ -408,12 +408,12 @@ pub(crate) enum ReplicaInner {
     UnsupportedDeckVersion { found: String, backtrace: Backtrace },
     #[snafu(display("unsupported replica format: {found}"))]
     UnsupportedReplicaFormat { found: String, backtrace: Backtrace },
-    #[snafu(display("slide elements are not a tree"))]
-    ElementsNotATree { backtrace: Backtrace },
+    #[snafu(display("malformed deck tree: {what}"))]
+    MalformedDeckTree { what: &'static str, backtrace: Backtrace },
     #[snafu(display("element placed before its owner"))]
     TreeOrder { backtrace: Backtrace },
-    #[snafu(display("collection inside the widget params"))]
-    CollectionInParams { backtrace: Backtrace },
+    #[snafu(display("slides inside the widget params"))]
+    SlidesInParams { backtrace: Backtrace },
     #[snafu(display("elements nested deeper than {max} slots"))]
     SlotsTooDeep { max: usize, backtrace: Backtrace },
 }
@@ -424,7 +424,7 @@ impl ReplicaError {
             ReplicaInner::Import { .. }
             | ReplicaInner::NotADeck { .. }
             | ReplicaInner::ImportPanicked { .. }
-            | ReplicaInner::ElementsNotATree { .. } => ReplicaErrorKind::Corrupted,
+            | ReplicaInner::MalformedDeckTree { .. } => ReplicaErrorKind::Corrupted,
             ReplicaInner::TooLarge { .. } => ReplicaErrorKind::TooLarge,
             ReplicaInner::Unrelated { .. } => ReplicaErrorKind::Unrelated,
             ReplicaInner::UnsupportedDeckVersion { .. } | ReplicaInner::UnsupportedReplicaFormat { .. } => {
@@ -435,7 +435,7 @@ impl ReplicaError {
             | ReplicaInner::Export { .. }
             | ReplicaInner::ContainerOutsideParams { .. }
             | ReplicaInner::TreeOrder { .. }
-            | ReplicaInner::CollectionInParams { .. }
+            | ReplicaInner::SlidesInParams { .. }
             | ReplicaInner::SlotsTooDeep { .. }
             | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
         }

@@ -62,10 +62,13 @@ pub fn canonicalize(deck: &mut Deck) {
 /// d'un identifiant déjà gardé est renommée `{id}-{n}`, au premier `n ≥ 2`
 /// libre. Un identifiant vide n'est pas touché (`issue-empty-*-id`).
 ///
-/// Défaire une suppression recrée l'objet dans un nouveau conteneur Loro ; un
-/// `mov` concurrent d'un pair garde l'original : deux objets au même id
-/// (t-652). Partagée par [`canonicalize`] et la relecture du replica : la vue
-/// d'un deck JSON aux ids en double égale la relecture de son replica.
+/// Deux objets au même id naissent d'une annulation. Défaire la suppression
+/// d'un item recrée l'objet dans un nouveau conteneur Loro, et un `mov`
+/// concurrent d'un pair garde l'original (t-652). Une slide ou un élément
+/// retiré est marqué, jamais supprimé (t-746, t-747) : un id réajouté, puis
+/// l'annulation de son ancien retrait, donnent deux nœuds. Partagée par [`canonicalize`] et
+/// la relecture du replica : la vue d'un deck JSON aux ids en double égale la
+/// relecture de son replica.
 /// Déterministe, linéaire (signature calculée pour les seuls ids en double).
 pub(crate) fn unique_ids(slides: &mut Vec<Slide>) {
     let mut deck = Ids::new(slides.iter().map(|s| s.id.clone()));
@@ -83,22 +86,41 @@ struct Ids {
     taken: HashSet<String>,
     /// Identifiants des objets gardés jusqu'ici.
     kept: HashSet<String>,
+    /// Prochain `n` à essayer par id de base : tous les plus petits sont pris.
+    next: HashMap<String, u64>,
+    /// Candidats essayés par `fresh` (tests : coût linéaire, t-693).
+    #[cfg(test)]
+    tries: usize,
 }
 
 impl Ids {
     fn new(taken: impl IntoIterator<Item = String>) -> Self {
-        Self { taken: taken.into_iter().collect(), kept: HashSet::new() }
+        Self {
+            taken: taken.into_iter().collect(),
+            kept: HashSet::new(),
+            next: HashMap::new(),
+            #[cfg(test)]
+            tries: 0,
+        }
     }
 
     /// `{id}-{n}`, au premier `n ≥ 2` libre ; désormais pris.
+    ///
+    /// Reprend au dernier `n` essayé pour `id` : `taken` ne fait que grandir,
+    /// donc les `n` déjà essayés restent pris. Même résultat qu'une recherche
+    /// depuis 2, en coût linéaire sur toute la réparation.
     fn fresh(&mut self, id: &str) -> String {
-        let mut n = 2_u64;
+        let n = self.next.entry(id.to_owned()).or_insert(2);
         loop {
             let candidate = format!("{id}-{n}");
+            *n += 1;
+            #[cfg(test)]
+            {
+                self.tries += 1;
+            }
             if self.taken.insert(candidate.clone()) {
                 return candidate;
             }
-            n += 1;
         }
     }
 }

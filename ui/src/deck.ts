@@ -259,6 +259,43 @@ export function pasteOps(view: SlideView, source: Element): { id: string; ops: O
   return { id: copy.id, ops: [{ op: "add_element", slot: { owner: { slide: slide.id }, param }, element }] };
 }
 
+/** Ops qui déplacent `source` (de la slide `from`) sur la slide de `view`. Même placement que `pasteOps`, ids gardés. */
+export function moveOps(view: SlideView, source: Element, from: string): { id: string; ops: Op[] } {
+  const slide = view.slide;
+  const grid = view.zone?.grid;
+  const id = source.id;
+  // Le slot `blocks` retire case et cadre côté cœur ; hors grille, le cadre est gardé tel quel.
+  const param = slot(slide, "blocks").length > 0 || (!grid && !source.frame) ? "blocks" : "elements";
+  const ops: Op[] = [{ op: "move_element", slide: from, element: id, to: { owner: { slide: slide.id }, param } }];
+  if (param === "elements" && grid) {
+    const span = source.cell ? { cols: source.cell.cols ?? 1, rows: source.cell.rows ?? 1 } : {};
+    ops.push({ op: "set_cell", slide: slide.id, element: id, cell: freeCell(slide, grid, span) });
+    if (source.frame) ops.push({ op: "set_frame", slide: slide.id, element: id, frame: null });
+  }
+  return { id, ops };
+}
+
+/**
+ * Après un `move_element` refusé : coller une copie à la place ?
+ *
+ * Seulement si l'élément n'est plus sur la slide `from` (retirée, ou
+ * l'élément en est sorti). Sinon le refus tient (slot refusé, profondeur…) :
+ * une copie doublerait l'élément. Vue illisible : pas de copie.
+ */
+export async function copyAfterRefusedMove(
+  slides: { id: string }[],
+  from: string,
+  element: string,
+  fetchSlide: (id: string) => Promise<SlideView>,
+): Promise<boolean> {
+  if (!slides.some((s) => s.id === from)) return true;
+  try {
+    return !findElement((await fetchSlide(from)).slide, element);
+  } catch {
+    return false;
+  }
+}
+
 /** Slide à montrer après avoir retiré `removed` : la suivante, sinon la précédente. */
 export function neighbourSlide(slides: { id: string }[], removed: string): string | null {
   const i = slides.findIndex((s) => s.id === removed);

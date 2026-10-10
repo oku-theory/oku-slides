@@ -2,9 +2,9 @@
 //! de l'`UndoManager` de Loro, qui ne défait que les changements de ce pair.
 //!
 //! Loro 1.16.2 défait mal un item qui porte plusieurs `mov` sur une
-//! `LoroMovableList` de conteneurs (t-263) : la réconciliation committe donc
-//! avant chaque `mov` des slides et des items de liste. L'arbre des éléments
-//! d'une slide n'en a pas besoin (ADR-0005). Une application est une étape,
+//! `LoroMovableList` de conteneurs (t-263). La réconciliation committe donc
+//! avant chaque `mov` d'une liste (items, lignes et colonnes d'un `dataset`).
+//! L'arbre du deck n'en a pas besoin (ADR-0006). Une application est une étape,
 //! faite d'un item par commit, défaits ou rétablis tous ensemble. Pour la même
 //! raison, les groupes (un tour de l'agent) sont des étapes à nous, jamais
 //! un `group_start` de Loro, qui fusionnerait leurs items en un seul.

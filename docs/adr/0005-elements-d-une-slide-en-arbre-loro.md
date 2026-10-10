@@ -5,6 +5,8 @@
 - **Tâches :** t-694 (t-740 à t-745)
 - **Remplace en partie :** [ADR-0002](0002-sources-du-deck-en-crdt-loro.md)
   (les slots en `LoroMovableList`)
+- **Remplacée en partie par :** [ADR-0006](0006-deck-en-un-seul-arbre-suppression-douce.md)
+  (un arbre pour tout le deck, `@slot` par `TreeID`, suppression douce)
 - **Sonde :** `crates/oku-slides-core/tests/loro_tree_probe.rs`
 
 ## Contexte
@@ -80,27 +82,19 @@ Aucune. `SOURCES_VERSION` passe de 7 à 8, et `DECK_VERSION` ne change pas
 - Un déplacement entre slots ou entre profondeurs garde les éditions
   concurrentes de l'élément.
 - La parade t-263 disparaît pour les éléments : l'arbre s'écrit sans commit par
-  `mov`. Elle reste pour les slides et les items de liste.
+  `mov`. Elle reste pour les items de liste seulement.
 
 ## Limites
 
-- Un élément déplacé sous un élément supprimé en parallèle disparaît avec lui
-  (`loro_tree_probe.rs`, point 3a).
+- Un élément déplacé sous un élément supprimé en parallèle est caché avec lui ;
+  l'annulation du retrait le rend (ADR-0006) (`loro_tree_probe.rs`, point 3a).
 - Deux imbrications croisées qui formeraient un cycle : le premier `mov`
   dans l'ordre (lamport, pair) gagne. Le perdant reste visible à son ancienne
   place, car son entrée `@slot` pour l'ancien parent est intacte.
-- Défaire une suppression recrée un nœud neuf, avec un autre `TreeID` et une
-  copie de la méta. Loro ne ressuscite jamais un nœud supprimé : le `mov`
-  concurrent d'un pair perd face à la suppression, quel que soit l'ordre des
-  pairs. Après fusion, seule la copie reste, et l'édition concurrente du pair
-  sur l'original est perdue, sans `Issue`. Avec les listes (t-652), le `mov`
-  du pair gardait l'original et la copie était renommée (`c2-2`) : les deux
-  versions restaient. Suite : t-747.
-- **Déplacer un élément d'une slide à une autre perd toujours l'édition
-  concurrente** : il y a un arbre par slide. Suite : t-746.
 - Avec un jitter de 0, deux insertions concurrentes au même endroit reçoivent
   le même fractionnaire. Une insertion entre elles fait émettre par Loro un
   `Rearrange`, c'est-à-dire des `mov` implicites de frères, qui peuvent
   ramener un frère qu'un pair déplaçait en parallèle.
 - Loro est figé par `Cargo.lock` (1.16.2) : pas de `cargo update -p loro`
-  sans relancer la sonde (`tests/loro_tree_probe.rs`).
+  sans relancer les sondes (`tests/loro_tree_probe.rs`,
+  `tests/loro_deck_tree_probe.rs`).

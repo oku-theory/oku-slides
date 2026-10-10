@@ -105,19 +105,35 @@ fn framed(e: &Element) -> Element {
     Element { frame: Some(Frame { x: 0.0, y: 0.0, w: 400.0, h: 200.0 }), ..e.clone() }
 }
 
+/// Vrai si le premier run du `body` de `e` est gras.
+fn is_bold(e: &Element) -> bool {
+    matches!(e.params.get("body"), Some(ParamValue::Rich(b)) if b.first().and_then(|p| p.runs.first()).is_some_and(|r| r.bold))
+}
+
+/// Les ids du slot `param` de `owner` (`None` : la slide `s-constat`).
+fn slot_ids(deck: &Deck, owner: Option<&str>, param: &str) -> Vec<String> {
+    let slide = deck.slide("s-constat").unwrap_or_else(|| panic!("s-constat absente"));
+    let params = match owner {
+        Some(o) => &slide.locate(o).unwrap_or_else(|| panic!("{o} absent")).element.params,
+        None => &slide.params,
+    };
+    params.slot(param).unwrap_or_default().iter().map(|e| e.id.clone()).collect()
+}
+
 #[test]
-fn undo_remove_while_peer_moves_and_bolds_element_across_slots_keeps_one_unique_copy() {
+fn undo_remove_while_peer_moves_and_bolds_element_across_slots_keeps_the_peer_move_and_bold() {
     let deck = roadmap();
     let points = find(&deck, "b-points").unwrap_or_else(|| panic!("b-points absent"));
     let removed = with_ops(&deck, vec![remove("b-points")]);
     let moved = with_ops(&deck, vec![remove("b-points"), add(None, "elements", &framed(&bolded(&points)))]);
     let merged = undo_vs_move(&deck, &removed, &moved);
     assert_that!(ids_unique(&merged)).is_true();
-    // Limite acceptée (t-747, voir `issue_0652`) : Loro ne ressuscite jamais un
-    // nœud supprimé, donc le `mov` de B perd face au retrait de A et son gras
-    // aussi. Annuler recrée une copie de la version de A : un seul `b-points`.
-    let kept = ["b-points", "b-points-2"].iter().filter(|id| find(&merged, id).is_some()).count();
-    assert_that!(kept).is_equal_to(1);
+    let all: Vec<String> = elements_of(&merged).into_iter().map(|(id, _)| id).collect();
+    assert_that!(all.iter().filter(|id| id.starts_with("b-points")).count()).is_equal_to(1);
+    assert_that!(slot_ids(&merged, None, "elements")).contains("b-points".to_owned());
+    let got = find(&merged, "b-points").unwrap_or_else(|| panic!("b-points absent"));
+    assert_that!(got.frame).is_equal_to(framed(&points).frame);
+    assert_that!(is_bold(&got)).is_true();
 }
 
 #[test]
@@ -151,4 +167,7 @@ fn undo_remove_while_peer_moves_owner_with_children_keeps_ids_unique_at_every_de
     let ids: Vec<String> = elements_of(&merged).into_iter().map(|(id, _)| id).collect();
     assert_that!(ids.iter().any(|id| id.starts_with("pile"))).is_true();
     assert_that!(ids.iter().filter(|id| id.starts_with('k')).count()).is_greater_than_or_equal_to(2);
+    assert_that!(slot_ids(&merged, None, "elements")).contains("pile".to_owned());
+    assert_that!(slot_ids(&merged, Some("pile"), "children")).is_equal_to(vec!["k1".to_owned(), "k2".into()]);
+    assert_that!(is_bold(&find(&merged, "k1").unwrap_or_else(|| panic!("k1 absent")))).is_true();
 }

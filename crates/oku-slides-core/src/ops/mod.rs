@@ -10,6 +10,7 @@ mod check;
 mod grid;
 mod host;
 mod list;
+mod moving;
 mod value;
 
 use std::collections::{BTreeMap, HashSet};
@@ -40,6 +41,7 @@ pub use list::{
     ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
     text_fits,
 };
+pub use moving::Moved;
 pub use value::{GRID_TRACKS, param_value};
 
 /// Une slide, ou un élément d'une slide. JSON : `{"slide": "s1"}` ou
@@ -180,6 +182,16 @@ pub enum Op {
     RemoveElement {
         slide: String,
         element: String,
+    },
+    /// Déplace un élément, avec ses enfants, vers un slot d'une slide ou d'un élément.
+    /// Même slide admise. Entrer dans un slot `flow` retire `frame` et `cell`.
+    MoveElement {
+        slide: String,
+        element: String,
+        to: SlotRef,
+        /// Position dans le slot cible ; absent = à la fin.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        index: Option<usize>,
     },
     /// Nom ou description d'une slide ; `null` l'efface.
     SetSlideField {
@@ -582,6 +594,9 @@ impl Op {
                 let removed = s.params.slots_mut().find_map(|(_, list)| remove_from(list, &element));
                 removed.map(drop).ok_or_else(|| not_found(&slide, &element))
             }
+            Op::MoveElement { slide, element, to, index } => {
+                moving::move_element(deck, registry, slide, element, to, index)
+            }
             Op::SetSlideField { slide, field, value } => {
                 let s = slide_mut(deck, &slide)?;
                 match field {
@@ -722,50 +737,67 @@ fn add_element(
     defaults: bool,
     mut element: Element,
 ) -> Result<(), OpError> {
-    let SlotRef { owner, param } = slot;
-    let at = {
-        let s = slide_ref(deck, &owner.slide)?;
-        // Profondeur du propriétaire en slots sous la slide (0 : la slide).
-        let (kind, params, owner_slots) = match &owner.element {
-            None => (s.kind.as_str(), &s.params, 0),
-            Some(id) => {
-                let l = located(s, id)?;
-                (l.element.kind.as_str(), &l.element.params, l.depth + 1)
-            }
-        };
-        let p = declared(widget(registry, kind)?, &param)?;
-        let ParamType::Slot { accepts, .. } = &p.ty else {
-            return Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into());
-        };
-        // Une valeur qui n'est pas une liste d'éléments serait écrasée par `slot_mut`.
-        let len = match (params.get(&param), params.slot(&param)) {
-            (None, _) => 0,
-            (Some(_), Some(list)) => list.len(),
-            (Some(_), None) => {
-                return Err(ParamTypeSnafu { param, expected: Shape::Elements.required() }.build().into());
-            }
-        };
-        check_accepts(accepts.as_deref(), &param, &element.kind)?;
-        widget_of(registry, &element.kind, Category::Element)?;
-        host::check_hosts(registry, &mut element)?;
-        check_ids(s.element_ids().collect(), &element)?;
-        check_depth(owner_slots, &element)?;
-        check_params(registry, &element.kind, Category::Element, &element.params)?;
-        let at = index.unwrap_or(len);
-        if at > len {
-            return Err(IndexOutOfRangeSnafu { index: at, len }.build().into());
-        }
-        at
-    };
+    let (at, _) = check_add(registry, slide_ref(deck, &slot.owner.slide)?, &slot, index, &mut element)?;
     if defaults {
         list::seed_element(registry, &mut element);
     }
-    let s = slide_mut(deck, &owner.slide)?;
+    insert_at(slide_mut(deck, &slot.owner.slide)?, &slot, at, element)
+}
+
+/// Contrôles d'`add_element` dans la slide `s` : rend la position et le mode du slot.
+///
+/// Slot déclaré qui accepte l'élément, élément connu et cohérent (hôtes
+/// normalisés), identifiants libres dans `s`, profondeur bornée, position
+/// dans les bornes du slot.
+fn check_add(
+    registry: &WidgetRegistry,
+    s: &Slide,
+    slot: &SlotRef,
+    index: Option<usize>,
+    element: &mut Element,
+) -> Result<(usize, SlotMode), OpError> {
+    let SlotRef { owner, param } = slot;
+    // Profondeur du propriétaire en slots sous la slide (0 : la slide).
+    let (kind, params, owner_slots) = match &owner.element {
+        None => (s.kind.as_str(), &s.params, 0),
+        Some(id) => {
+            let l = located(s, id)?;
+            (l.element.kind.as_str(), &l.element.params, l.depth + 1)
+        }
+    };
+    let p = declared(widget(registry, kind)?, param)?;
+    let ParamType::Slot { accepts, mode } = &p.ty else {
+        return Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into());
+    };
+    // Une valeur qui n'est pas une liste d'éléments serait écrasée par `slot_mut`.
+    let len = match (params.get(param), params.slot(param)) {
+        (None, _) => 0,
+        (Some(_), Some(list)) => list.len(),
+        (Some(_), None) => {
+            return Err(ParamTypeSnafu { param, expected: Shape::Elements.required() }.build().into());
+        }
+    };
+    check_accepts(accepts.as_deref(), param, &element.kind)?;
+    widget_of(registry, &element.kind, Category::Element)?;
+    host::check_hosts(registry, element)?;
+    check_ids(s.element_ids().collect(), element)?;
+    check_depth(owner_slots, element)?;
+    check_params(registry, &element.kind, Category::Element, &element.params)?;
+    let at = index.unwrap_or(len);
+    if at > len {
+        return Err(IndexOutOfRangeSnafu { index: at, len }.build().into());
+    }
+    Ok((at, *mode))
+}
+
+/// Insère `element` en `at` du slot `slot` de la slide `s` (contrôlé par [`check_add`]).
+fn insert_at(s: &mut Slide, slot: &SlotRef, at: usize, element: Element) -> Result<(), OpError> {
+    let SlotRef { owner, param } = slot;
     let params = match &owner.element {
         None => &mut s.params,
         Some(id) => &mut element_mut(s, id).ok_or_else(|| not_found(&owner.slide, id))?.params,
     };
-    let list = params.slot_mut(&param).context(InvalidValueSnafu { field: &param, reason: ValueReason::NotASlot })?;
+    let list = params.slot_mut(param).context(InvalidValueSnafu { field: param, reason: ValueReason::NotASlot })?;
     if at > list.len() {
         return Err(IndexOutOfRangeSnafu { index: at, len: list.len() }.build().into());
     }
@@ -777,13 +809,28 @@ fn add_element(
 /// n'a pas changé. Le deck obtenu est sous forme canonique
 /// ([`canonicalize`](crate::canonicalize)) : celle que relit le replica.
 pub fn apply_all(deck: &mut Deck, ops: Vec<Op>, registry: &WidgetRegistry) -> Result<(), TransactionError> {
+    apply_all_moving(deck, ops, registry).map(drop)
+}
+
+/// Comme `apply_all`, et rend les déplacements entre slides de la transaction.
+///
+/// Un même élément déplacé plusieurs fois donne une entrée, de sa première
+/// slide à la dernière (voir [`Moved`]).
+pub fn apply_all_moving(
+    deck: &mut Deck,
+    ops: Vec<Op>,
+    registry: &WidgetRegistry,
+) -> Result<Vec<Moved>, TransactionError> {
     let mut next = deck.clone();
+    let mut moves = Vec::new();
     for (index, op) in ops.into_iter().enumerate() {
+        let effect = moving::Effect::of(&op);
         op.apply(&mut next, registry).map_err(|source| TransactionSnafu { index }.into_error(source))?;
+        effect.record(&mut moves);
     }
     crate::canonicalize(&mut next);
     *deck = next;
-    Ok(())
+    Ok(moves)
 }
 
 /// Schéma JSON d'une liste d'ops, pour la sortie structurée des LLM.

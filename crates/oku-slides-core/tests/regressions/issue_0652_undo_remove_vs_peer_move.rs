@@ -83,8 +83,9 @@ fn undo_remove_while_peer_moves_slide_keeps_ids_unique() {
     }
 }
 
+/// Suppression douce (t-747) dans l'arbre du deck (t-746) : plus de `s-toc-2`.
 #[test]
-fn undo_remove_while_peer_moves_and_edits_slide_keeps_both_versions_and_converges() {
+fn undo_remove_while_peer_moves_and_edits_slide_keeps_one_slide_with_the_peer_edit() {
     let deck = roadmap();
     let mut removed = deck.clone();
     removed.slides.remove(1);
@@ -94,12 +95,11 @@ fn undo_remove_while_peer_moves_and_edits_slide_keeps_both_versions_and_converge
     moved.slides.insert(0, s);
     let merged = undo_vs_move(&deck, &crate::common::shared(), &removed, &moved);
     assert_that!(ids(&merged)).is_equal_to(
-        ["s-toc", "s-title", "s-toc-2", "s-ch1", "s-constat", "s-priorites", "s-ch2", "s-libre", "s-fin"]
+        ["s-toc", "s-title", "s-ch1", "s-constat", "s-priorites", "s-ch2", "s-libre", "s-fin"]
             .map(str::to_owned)
             .to_vec(),
     );
     assert_that!(merged.slides[0].notes.ends_with(" (B)")).is_true();
-    assert_that!(merged.slides[2].notes).is_equal_to(&deck.slides[1].notes);
 }
 
 /// Le slot `blocks` de `s-priorites` (`c1`, `c2`, `c3`).
@@ -127,29 +127,22 @@ fn undo_remove_while_peer_moves_element_keeps_ids_unique() {
     assert_that!(block_ids(&merged)).is_equal_to(["c2", "c1", "c3"].map(str::to_owned).to_vec());
 }
 
-/// Limite acceptée (t-694, suivi t-747) : les éléments sont des nœuds d'un
-/// `LoroTree`, et Loro ne ressuscite jamais un nœud supprimé ; le `mov`
-/// concurrent de B perd face à la suppression de A. Défaire la suppression
-/// recrée une copie (autre `TreeID`) de la version de A, et l'édition de B,
-/// restée sur le nœud supprimé, est perdue. Avec les listes (t-652), le `mov`
-/// de B gardait l'original et la copie était renommée `c2-2`.
+/// Suppression douce (t-747, ADR-0006) : annuler retire la marque, et le
+/// même nœud revient avec le `mov` et l'édition de B.
 #[test]
-fn undo_remove_while_peer_moves_and_edits_element_keeps_the_undone_copy() {
+fn undo_remove_while_peer_moves_and_edits_element_keeps_the_peer_edit() {
     let deck = roadmap();
     let mut removed = deck.clone();
     blocks(&mut removed).remove(1);
     let mut moved = deck.clone();
     let mut c2 = blocks(&mut moved).remove(1);
-    let kicker = c2.params.get("kicker").cloned();
     c2.params.set("kicker", ParamValue::Text("Pilier B".into()));
     blocks(&mut moved).insert(0, c2);
     // `undo_vs_move` vérifie déjà la convergence des deux pairs, sans `Issue`.
     let mut merged = undo_vs_move(&deck, &crate::common::shared(), &removed, &moved);
-    let got = block_ids(&merged);
-    assert_that!(unique(&got)).is_true();
-    assert_that!(got.iter().filter(|id| id.starts_with("c2")).count()).is_equal_to(1);
+    assert_that!(block_ids(&merged)).is_equal_to(["c2", "c1", "c3"].map(str::to_owned).to_vec());
     let c2 = blocks(&mut merged).iter().find(|e| e.id == "c2").cloned().unwrap_or_else(|| panic!("c2 absent"));
-    assert_that!(c2.params.get("kicker").cloned()).is_equal_to(kicker);
+    assert_that!(c2.params.get("kicker").cloned()).is_equal_to(Some(ParamValue::Text("Pilier B".into())));
 }
 
 /// `roadmap` et, dans les blocs de `s-constat`, l'élément `f` (`liste`) aux items `a`, `b`, `c`.

@@ -49,8 +49,12 @@ async fn apply_schema_accepts_every_op_kind_in_tool_list() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let tools = c.request_tool_list(None).await.unwrap().tools;
     let apply = tools.into_iter().find(|t| t.name == "apply").unwrap();
+    let description = apply.description.clone().unwrap_or_default();
+    assert_that!(description).contains("move_element moves an element with its children");
     let schema = serde_json::to_string(&apply.input_schema).unwrap();
-    for op in ["set_param", "set_chart_option", "set_data", "set_table_option", "add_slide", "set_theme"] {
+    for op in
+        ["set_param", "set_chart_option", "set_data", "set_table_option", "add_slide", "set_theme", "move_element"]
+    {
         assert_that!(schema.contains(op)).named(op).is_true();
     }
 }
@@ -75,6 +79,72 @@ async fn apply_set_param_through_mcp_changes_the_slide() {
     let located = s.deck().slide("s-libre").unwrap().locate("e-texte").unwrap();
     let text = located.element.params.rich("body").unwrap()[0].runs[0].t.as_str();
     assert_that!(text).is_equal_to("Changé par MCP");
+}
+
+/// Le premier run du `body` de l'élément `id` de la slide `slide` est-il gras ?
+fn bold_in(deck: &oku_slides_core::Deck, slide: &str, id: &str) -> Option<bool> {
+    let located = deck.slide(slide)?.locate(id)?;
+    Some(located.element.params.rich("body")?.first()?.runs.first()?.bold)
+}
+
+/// t-777 : l'agent déplace un élément d'id répété vers une autre slide, pendant
+/// qu'une autre copie du deck le met en gras ; après fusion, il est déplacé et gras.
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_move_element_through_mcp_keeps_the_concurrent_edit() {
+    let h = start().await;
+    let path = h.data().join("deck.oku-slides.pdf");
+    let other = h.data().join("autre.oku-slides.pdf");
+    let session = h.session.clone();
+    let (saved, copy) = (path.clone(), other.clone());
+    // `dup` dans trois slides, et une slide `s-neuve` vide ; puis une autre
+    // copie, partie du même fichier, met en gras le `dup` de `s-constat`.
+    tokio::task::spawn_blocking(move || {
+        let dup = |slide: &str| {
+            json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+                "element": { "id": "dup", "kind": "text", "params": { "body": [{ "runs": [{ "t": slide }] }] } } })
+        };
+        let neuve = json!({ "op": "add_slide", "slide": { "id": "s-neuve", "kind": "content" } });
+        let ops = serde_json::from_value(json!([dup("s-constat"), dup("s-priorites"), dup("s-libre"), neuve]))
+            .unwrap_or_else(|e| panic!("ops : {e}"));
+        let mut a = session.lock().unwrap_or_else(|e| panic!("session : {e}"));
+        a.apply("Préparation", ops, None).unwrap_or_else(|e| panic!("préparation : {}", e.one_line()));
+        a.save(Some(&saved)).unwrap_or_else(|e| panic!("enregistrement : {}", e.one_line()));
+        drop(a);
+        let (platform, data) = platform();
+        let mut b = oku_slides_session::Session::new(oku_slides_session::Fonts::default(), &platform)
+            .unwrap_or_else(|e| panic!("session B : {}", e.one_line()));
+        b.open(&saved).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
+        let bold = json!([{ "op": "set_param", "target": { "slide": "s-constat", "element": "dup" }, "param": "body",
+            "value": [{ "runs": [{ "t": "s-constat", "bold": true }] }] }]);
+        let bold = serde_json::from_value(bold).unwrap_or_else(|e| panic!("op : {e}"));
+        b.apply("Gras", bold, None).unwrap_or_else(|e| panic!("gras : {}", e.one_line()));
+        b.save(Some(&copy)).unwrap_or_else(|e| panic!("copie : {}", e.one_line()));
+        // La plateforme porte un runtime : libérée ici, hors du fil async.
+        drop((b, platform, data));
+    })
+    .await
+    .unwrap_or_else(|e| panic!("préparation : {e}"));
+
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let ops = json!([{ "op": "move_element", "slide": "s-constat", "element": "dup",
+        "to": { "owner": { "slide": "s-neuve" }, "param": "blocks" } }]);
+    let r = call(&c, "apply", json!({ "ops": ops })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+
+    let session = h.session.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut a = session.lock().unwrap_or_else(|e| panic!("session : {e}"));
+        a.merge_file(&other).unwrap_or_else(|e| panic!("fusion : {}", e.one_line()));
+    })
+    .await
+    .unwrap_or_else(|e| panic!("fusion : {e}"));
+
+    let s = h.session.lock().unwrap();
+    let deck = s.deck();
+    assert_that!(bold_in(deck, "s-constat", "dup")).is_none();
+    assert_that!(bold_in(deck, "s-neuve", "dup")).is_equal_to(Some(true));
+    assert_that!(bold_in(deck, "s-priorites", "dup")).is_equal_to(Some(false));
+    assert_that!(bold_in(deck, "s-libre", "dup")).is_equal_to(Some(false));
 }
 
 #[tokio::test(flavor = "multi_thread")]

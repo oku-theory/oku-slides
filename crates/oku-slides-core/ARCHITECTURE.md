@@ -29,7 +29,7 @@ sources. Aucune dépendance à Typst ni à Tauri.
   `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
   `validate`, `locate`) ; `new` refuse un deck trop profond, met sous forme canonique avant et après la normalisation des hôtes, `merge` et `restore` passent `validate`.
-  Zip v8 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
+  Zip v9 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
   `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
   (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
   `issue-*-version-missing`), nom invalide → `BadName`, unis à la fusion.

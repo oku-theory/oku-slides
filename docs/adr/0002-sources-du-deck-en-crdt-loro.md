@@ -4,6 +4,9 @@
 - **Date :** 2026-09-27
 - **Tâches :** t-198 … t-207 (plan 1 : fondation) ; t-243 … t-248 (plan 3 :
   mode historique)
+- **Remplacée en partie par :** [ADR-0004](0004-donnees-des-hotes-fusionnees-par-cellule.md),
+  [ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md),
+  [ADR-0006](0006-deck-en-un-seul-arbre-suppression-douce.md)
 - **Spec :** [sources-loro-design.md](../superpowers/specs/2026-09-27-sources-loro-design.md)
 
 ## Contexte
@@ -41,17 +44,17 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   Loro : plus petite surface à maintenir, un seul chemin de vérité.
 - **Quatre catégories de champs**, posées une fois pour toutes dans le
   schéma du replica (`replica::schema`) :
-  - collections ordonnées à `id` : `slides` → `LoroMovableList` de
-    `LoroMap` ; les slots (`blocks`, `elements`, `children`) → nœuds d'un
-    `LoroTree` par slide, voir l'[ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md) ;
+  - collections ordonnées à `id` : `slides` et slots (`blocks`, `elements`,
+    `children`) → nœuds d'un seul `LoroTree` (slides en racine), voir
+    l'[ADR-0006](0006-deck-en-un-seul-arbre-suppression-douce.md) ;
   - prose simple → `LoroText` ;
   - prose riche (`text: Vec<Paragraph>`) → `LoroText` avec marques par
     bloc de paragraphes (`bold`, `italic`, `color`, `size`, `highlight`,
     `link`, `list`) ;
   - le reste → scalaire ou atome JSON en dernier écrivain gagne (LWW), sauf
-    `chart.option` : l'[ADR-0004](0004-donnees-des-hotes-fusionnees-par-cellule.md)
-    remplace en partie cette règle, en fusionnant les données des hôtes par
-    cellule.
+    `chart.option` :
+    l'[ADR-0004](0004-donnees-des-hotes-fusionnees-par-cellule.md) remplace
+    en partie cette règle, en fusionnant les données des hôtes par cellule.
 - **Vide = absent**, invariant du modèle : toute prose vide (chaîne vide ou
   faite d'espaces) se lit comme `None`, s'écrit comme un `LoroText` vide,
   jamais comme une clé retirée. Prose et collections à `id` sont **toujours
@@ -64,7 +67,8 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   Conséquences). Une étape d'annulation (une application, ou un tour de
   l'agent) regroupe plusieurs items Loro dans une pile à nous, avec son
   libellé : Loro 1.16.2 défait mal un item qui porte plusieurs `mov`, d'où
-  un commit par `mov` (t-263) ; plus nécessaire pour les éléments depuis l'ADR-0005.
+  un commit par `mov` (t-263) ; plus nécessaire pour l'arbre du deck depuis
+  l'ADR-0006 (reste pour les listes d'items et de données).
 - **Lecture totale.** `DeckReplica::deck()` ne renvoie jamais d'erreur : un
   sous-arbre illisible (élément, slide, champ de haut niveau) est écarté et
   signalé par un `Issue`, remis à sa valeur par défaut si nécessaire. Un
@@ -81,9 +85,9 @@ qu'en écrasant l'une des deux. Trois objectifs se posaient à la fois :
   concurrente plus ancienne dans l'ordre disparaîtrait d'un cran à l'autre) ;
   restaurer une version fait une **seule** nouvelle étape annulable (un
   cran), en réconciliant le deck de cette version comme toute édition (la map
-  `peers` n'est pas touchée). Pas de `revert_to` : il perdait des slides
-  déplacées dans la `LoroMovableList` (`mov`), ou échouait. Détail dans la
-  spec, section « Mode historique ».
+  `peers` n'est pas touchée). Pas de `revert_to` (constaté sur les
+  `LoroMovableList` de conteneurs, qui portent encore les items de liste).
+  Détail dans la spec, section « Mode historique ».
 
 ## Conséquences
 

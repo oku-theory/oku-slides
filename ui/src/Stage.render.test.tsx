@@ -121,6 +121,13 @@ test("Stage editing a field opens the editor on its text", async () => {
   expect(host.querySelector(".editor-hint")?.textContent).toContain("Tab");
 });
 
+test("Stage marks the cut element", async () => {
+  const { host, render } = await mount({ cut: "c1" });
+  expect(host.querySelector(".target")?.classList.contains("cut")).toBe(true);
+  await render({ cut: null });
+  expect(host.querySelector(".target")?.classList.contains("cut")).toBe(false);
+});
+
 test("Stage empty field of the selected element shows its placeholder", async () => {
   const empty = { ...fv("c1", "kicker", "", 60), empty: true, side: "before" as const, h: 0, w: 0 };
   const v = { ...view, fields: [empty, fv("c1", "title", "Titre", 60)] } as SlideView;

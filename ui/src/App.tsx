@@ -12,7 +12,7 @@ import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
 import { changeScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
-import { findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
+import { copyAfterRefusedMove, findElement, gridPlacement, instantiate, moveOps, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
@@ -198,7 +198,22 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   // Presse-papiers : ⌘C, ⌘X et ⌘V passent par les événements du navigateur.
   // L'élément copié reste ici ; le presse-papiers du système reçoit son texte,
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
-  const clip = useRef<{ element: Element; text: string } | null>(null);
+  // Couper, comme dans un tableur, ne retire rien : l'élément est marqué, et
+  // le collage le déplace (`move_element`), ids et éditions des pairs gardés.
+  const clip = useRef<{ element: Element; text: string; cut?: { slide: string } } | null>(null);
+  const [cutMark, setCutMark] = useState<{ slide: string; element: string } | null>(null);
+  /** Abandonne la coupe : le presse-papiers redevient une simple copie. */
+  const dropCut = useCallback(() => {
+    if (clip.current) clip.current.cut = undefined;
+    setCutMark(null);
+  }, []);
+  // L'élément coupé (ou sa slide) a disparu : plus rien à déplacer.
+  useEffect(() => {
+    if (!cutMark) return;
+    const gone = (snap && !snap.slides.some((s) => s.id === cutMark.slide))
+      || (view?.slide.id === cutMark.slide && !findElement(view.slide, cutMark.element));
+    if (gone) dropCut();
+  }, [snap, view, cutMark, dropCut]);
   useEffect(() => {
     const skip = (e: ClipboardEvent) => editing || picking || widgetActive || !view || snap?.history || snap?.read_only || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
@@ -209,24 +224,43 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       e.preventDefault();
       e.clipboardData?.setData("text/plain", text);
       clip.current = { element, text };
+      setCutMark(null);
       return true;
     };
     const cut = (e: ClipboardEvent) => {
-      if (!view || !selected || !copy(e)) return;
-      apply(t("ui-undo-cut"), [{ op: "remove_element", slide: view.slide.id, element: selected }]);
-      setSelected(null);
+      if (!view || !selected || !copy(e) || !clip.current) return;
+      clip.current.cut = { slide: view.slide.id };
+      setCutMark({ slide: view.slide.id, element: selected });
     };
     const paste = (e: ClipboardEvent) => {
       if (skip(e) || !view) return;
       const text = e.clipboardData?.getData("text/plain") ?? "";
       if (clip.current && text === clip.current.text) {
         e.preventDefault();
-        if (!canAdd(clip.current.element.kind, view.slide.kind)) return;
-        const { id, ops } = pasteOps(view, clip.current.element);
-        apply(t("ui-undo-paste"), ops).then(() => setSelected(id));
+        const { element, cut: from } = clip.current;
+        if (!canAdd(element.kind, view.slide.kind)) return;
+        const here = view;
+        const copyHere = () => {
+          const { id, ops } = pasteOps(here, element);
+          return apply(t("ui-undo-paste"), ops).then((ok) => ok && setSelected(id));
+        };
+        if (!from) {
+          copyHere();
+          return;
+        }
+        // Déplacer, une seule fois : ensuite, le presse-papiers colle des copies.
+        dropCut();
+        const { id, ops } = moveOps(here, element, from.slide);
+        // Refusé : une copie seulement si l'élément n'est plus sur sa slide
+        // (retiré entre-temps). Sinon l'erreur de l'hôte, déjà affichée, suffit.
+        apply(t("ui-undo-move"), ops).then(async (ok) => {
+          if (ok) setSelected(id);
+          else if (await copyAfterRefusedMove(snapRef.current?.slides ?? [], from.slide, element.id, (s) => api.slide(s))) copyHere();
+        });
       } else if (text.trim() && canAdd("text", view.slide.kind)) {
         // Du texte venu d'ailleurs devient un élément texte.
         e.preventDefault();
+        dropCut();
         addElement("text", textToParagraphs(text), t("ui-undo-paste"));
       }
     };
@@ -242,8 +276,12 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
 
   const apply = useCallback(
     /** Vrai si l'hôte a appliqué les ops. */
-    async (label: string, ops: Op[], merge?: string) => (await run(api.apply(label, ops, merge))) !== null,
-    [run],
+    async (label: string, ops: Op[], merge?: string) => {
+      // Toute modification abandonne la coupe, comme dans un tableur.
+      dropCut();
+      return (await run(api.apply(label, ops, merge))) !== null;
+    },
+    [run, dropCut],
   );
 
   const open = async () => {
@@ -495,6 +533,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       if (mod && e.key.toLowerCase() === "z") {
         if (widgetActive) return;
         e.preventDefault();
+        dropCut();
         run(e.shiftKey ? api.redo() : api.undo());
       } else if (mod && e.key.toLowerCase() === "s") {
         // Tout s'enregistre de soi-même : ⌘S n'avance que l'échéance, ⌘⇧S fait une copie.
@@ -509,6 +548,9 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         const i = snap.slides.findIndex((s) => s.id === current);
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
         if (slot >= 0 && slot <= snap.slides.length) moveSlide(current, slot);
+      } else if (e.key === "Escape" && cutMark) {
+        // Échap abandonne d'abord la coupe ; l'appui suivant reprend son rôle.
+        dropCut();
       } else if (e.key === "Escape") {
         const action = escapeAction({ selected: selected !== null, agentBusy: agentStatus.cancellable });
         if (action === "deselect") setSelected(null);
@@ -761,6 +803,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
             view={view}
             svgUrl={cur ? svgs.svg(cur.id, cur.hash) : null}
             selected={readOnly ? null : selected}
+            cut={!readOnly && cutMark?.slide === view.slide.id ? cutMark.element : null}
             editing={readOnly ? null : editing}
             onSelect={readOnly ? noop : setSelected}
             onEdit={readOnly ? noop : setEditing}

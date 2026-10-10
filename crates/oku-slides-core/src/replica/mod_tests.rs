@@ -456,31 +456,6 @@ fn deck_on_deeply_nested_plain_value_tokens_stops_at_the_depth_bound() {
     assert_that!(depth).is_less_than_or_equal_to(super::read::MAX_DEPTH as usize);
 }
 
-/// Messages des changes Loro, du plus ancien au plus récent.
-fn messages(r: &DeckReplica) -> Vec<String> {
-    let heads: Vec<loro::ID> = r.doc.oplog_frontiers().iter().collect();
-    let mut all = Vec::new();
-    let _ = r.doc.travel_change_ancestors(&heads, &mut |m| {
-        all.push((m.lamport, m.message.map(|s| s.to_string()).unwrap_or_default()));
-        std::ops::ControlFlow::Continue(())
-    });
-    all.sort();
-    all.into_iter().map(|(_, m)| m).collect()
-}
-
-#[test]
-fn apply_reorder_marks_intermediate_commits_as_parts() {
-    let deck = roadmap();
-    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
-    let before = messages(&r).len();
-    let mut swapped = deck.clone();
-    swapped.slides.swap(0, 3);
-    r.apply(&swapped, "Échanger", None).unwrap();
-    let got = messages(&r).split_off(before);
-    // Trois `mov` (0↔3 déplace aussi les voisines) : deux commits intermédiaires, puis le dernier.
-    assert_that!(got).is_equal_to(vec![format!("{PART}Échanger"), format!("{PART}Échanger"), "Échanger".to_owned()]);
-}
-
 fn slot<'a>(s: &'a crate::Slide, name: &str) -> &'a [crate::Element] {
     s.params.slot(name).unwrap_or_default()
 }
@@ -665,8 +640,8 @@ fn read_deeply_nested_slots_stops_at_the_depth_bound() {
         let meta = tree.get_meta(node).unwrap();
         meta.insert("id", format!("pile-{i}")).unwrap();
         meta.insert("kind", "stack").unwrap();
-        let slot = meta.insert_container(schema::SLOT, loro::LoroMap::new()).unwrap();
-        slot.insert(&format!("pile-{}", i - 1), "children").unwrap();
+        let slot = meta.ensure_mergeable_map(schema::SLOT).unwrap();
+        slot.insert(&prev.to_string(), "children").unwrap();
         prev = node;
     }
     r.doc.commit();

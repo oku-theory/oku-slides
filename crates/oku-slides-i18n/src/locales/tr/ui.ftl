@@ -89,7 +89,6 @@ ui-undo-move-template = Şablonu taşı
 ui-undo-move-slide = Slaytı taşı
 ui-undo-remove-slide = Slaytı sil
 ui-undo-remove = Sil
-ui-undo-cut = Kes
 ui-undo-paste = Yapıştır
 ui-undo-place-on-grid = Izgaraya yerleştir
 ui-undo-move-on-grid = Izgarada taşı

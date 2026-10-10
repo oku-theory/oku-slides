@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { Element, FieldView, Paragraph, SlideView } from "./api";
 import {
+  copyAfterRefusedMove,
   fieldChanged,
   fieldOps,
   fieldValue,
   gridPlacement,
   instantiate,
+  moveOps,
   neighbourSlide,
   newElementOps,
   pasteOps,
@@ -300,6 +302,50 @@ describe("pasteOps", () => {
   });
 });
 
+describe("moveOps", () => {
+  test("moveOps keeps the ids and targets blocks on a block slide", () => {
+    const source = { id: "e", kind: "card", cell: { col: 1, row: 1 }, params: { children: [{ id: "c", kind: "text" }] } };
+    const v = view({ blocks: [{ id: "a", kind: "text" }] });
+    const { id, ops } = moveOps(v, source, "t");
+    expect(id).toBe("e");
+    expect(ops).toEqual([{ op: "move_element", slide: "t", element: "e", to: { owner: { slide: "s" }, param: "blocks" } }]);
+  });
+
+  test("moveOps places on a free cell on a grid slide", () => {
+    const source = { id: "e", kind: "canvas", cell: { col: 2, row: 0, cols: 2, rows: 1 } };
+    const v = view({ elements: [{ id: "f", kind: "text", cell: { col: 0, row: 0, cols: 4, rows: 2 } }] });
+    const { id, ops } = moveOps(v, source, "t");
+    expect(id).toBe("e");
+    expect(ops).toEqual([
+      { op: "move_element", slide: "t", element: "e", to: { owner: { slide: "s" }, param: "elements" } },
+      { op: "set_cell", slide: "s", element: "e", cell: { col: 0, row: 2, cols: 2, rows: 1 } },
+    ]);
+  });
+
+  test("moveOps drops the frame of a framed element placed on a grid", () => {
+    const source = { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } };
+    const { ops } = moveOps(view({ elements: [] }), source, "t");
+    expect(ops.map((o) => o.op)).toEqual(["move_element", "set_cell", "set_frame"]);
+    expect(ops[2]).toEqual({ op: "set_frame", slide: "s", element: "e", frame: null });
+  });
+
+  test("moveOps keeps the frame on a free slide without grid", () => {
+    const v = { ...view({ elements: [] }), zone: null };
+    const { ops } = moveOps(v, { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } }, "t");
+    expect(ops).toEqual([{ op: "move_element", slide: "t", element: "e", to: { owner: { slide: "s" }, param: "elements" } }]);
+  });
+
+  test("moveOps within the same slide moves, never copies", () => {
+    const source = { id: "e", kind: "text", params: { children: [{ id: "c", kind: "text" }] } };
+    const v = view({ blocks: [source, { id: "a", kind: "text" }] });
+    const { id, ops } = moveOps(v, source, "s");
+    expect(id).toBe("e");
+    expect(ops.map((o) => o.op)).not.toContain("add_element");
+    expect(ops[0]).toMatchObject({ op: "move_element", slide: "s", element: "e", to: { owner: { slide: "s" } } });
+    expect(JSON.stringify(ops)).not.toContain('"c"');
+  });
+});
+
 describe("neighbourSlide", () => {
   const slides = [{ id: "a" }, { id: "b" }, { id: "c" }];
 
@@ -397,5 +443,34 @@ describe("previewLook", () => {
 
   test("previewLook_same_snapshot_keeps_the_key", () => {
     expect(previewLook(snap())).toBe(previewLook(snap()));
+  });
+});
+
+describe("copyAfterRefusedMove", () => {
+  const slides = [{ id: "t" }, { id: "s" }];
+  const fetched = (blocks: Element[]) => async (id: string) => ({ ...view({ blocks }), slide: { id, kind: "content", params: { blocks } } }) as SlideView;
+
+  test("copyAfterRefusedMove copies when the source slide is gone", async () => {
+    const never = async (): Promise<SlideView> => {
+      throw new Error("la slide retirée n'a pas à être lue");
+    };
+    expect(await copyAfterRefusedMove([{ id: "s" }], "t", "e", never)).toBe(true);
+  });
+
+  test("copyAfterRefusedMove copies when the element left the source slide", async () => {
+    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "a", kind: "text" }]))).toBe(true);
+  });
+
+  test("copyAfterRefusedMove keeps the refusal when the element is still there", async () => {
+    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "e", kind: "text" }]))).toBe(false);
+    const nested = [{ id: "p", kind: "stack", params: { children: [{ id: "e", kind: "text" }] } }];
+    expect(await copyAfterRefusedMove(slides, "t", "e", fetched(nested))).toBe(false);
+  });
+
+  test("copyAfterRefusedMove keeps the refusal when the source slide cannot be read", async () => {
+    const broken = async (): Promise<SlideView> => {
+      throw new Error("hôte injoignable");
+    };
+    expect(await copyAfterRefusedMove(slides, "t", "e", broken)).toBe(false);
   });
 });

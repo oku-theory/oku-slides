@@ -74,6 +74,8 @@ interface CommonProps {
 interface DeckProps extends CommonProps {
   mode?: "deck";
   selected: string | null;
+  /** Élément coupé (⌘X), à déplacer au prochain collage : il reste visible, marqué. */
+  cut?: string | null;
   onSelect: (id: string | null) => void;
   /**
    * `merge` : clé de la session de saisie ; ses applications font une seule étape d'annulation.
@@ -154,7 +156,7 @@ export default function Stage(props: Props) {
   const deck = props.mode === "preview" ? null : props;
   const preview = deck === null;
   const {
-    selected = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
+    selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
     templates = false, showGhosts = false, packWidgets, onOpenWidget,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
@@ -352,7 +354,7 @@ export default function Stage(props: Props) {
               return (
                 <div
                   key={tg.id}
-                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}${editField?.owner === tg.id ? " editing" : ""}`}
+                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}${tg.id === cut ? " cut" : ""}${editField?.owner === tg.id ? " editing" : ""}`}
                   style={box(tg)}
                   aria-label={label}
                   aria-selected={sel}

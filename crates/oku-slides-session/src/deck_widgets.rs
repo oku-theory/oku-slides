@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use snafu::{OptionExt, ResultExt};
 
-use oku_slides_core::{Deck, Op, PackFiles, PackRef, PackVersion, WidgetFile, WidgetRegistry};
+use oku_slides_core::{Deck, Moved, Op, PackFiles, PackRef, PackVersion, WidgetFile, WidgetRegistry};
 use oku_slides_i18n::Localize;
 use oku_slides_render::{FileProbe, PackWidgets, RenderError, RenderErrorKind};
 use oku_slides_render_worker::RemoteCompiled;
@@ -221,10 +221,10 @@ impl Session {
         let registry = widgets.as_ref().map_or_else(|| self.registry.clone(), |w| w.registry.clone());
         charts::canonicalize_charts(&mut ops, &self.chart_labels, &registry);
         let mut next = self.doc.sources.deck().clone();
-        oku_slides_core::apply_all(&mut next, ops, &registry).context(OpSnafu)?;
+        let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
         let previous = widgets.map(|w| self.install_widgets(w)).transpose()?;
         self.doc.sources.set_registry(registry);
-        let compiled = match self.commit(next, label, merge) {
+        let compiled = match self.commit(next, label, merge, &moves) {
             Ok(compiled) => compiled,
             Err(e) => {
                 // Rien n'est appliqué : le registre d'avant revient aussi.
@@ -246,14 +246,15 @@ impl Session {
         Ok(())
     }
 
-    /// Rend `next`, puis l'inscrit dans les sources sous `label`.
-    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>) -> Result<RemoteCompiled> {
+    /// Rend `next`, puis l'inscrit dans les sources sous `label`. Les
+    /// éléments de `moves` gardent leur nœud d'une slide à l'autre.
+    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>, moves: &[Moved]) -> Result<RemoteCompiled> {
         let compiled = self.render_deck(&next)?;
         #[cfg(test)]
         if std::mem::take(&mut self.failpoints.sources_apply) {
             return crate::error::NotRenderedSnafu.fail()?;
         }
-        self.doc.sources.apply(next, label, merge).context(SourcesSnafu)?;
+        self.doc.sources.apply_moving(next, label, merge, moves).context(SourcesSnafu)?;
         Ok(compiled)
     }
 

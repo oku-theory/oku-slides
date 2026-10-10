@@ -89,7 +89,6 @@ ui-undo-move-template = Vorlage verschieben
 ui-undo-move-slide = Folie verschieben
 ui-undo-remove-slide = Folie löschen
 ui-undo-remove = Löschen
-ui-undo-cut = Ausschneiden
 ui-undo-paste = Einfügen
 ui-undo-place-on-grid = Im Raster platzieren
 ui-undo-move-on-grid = Im Raster verschieben

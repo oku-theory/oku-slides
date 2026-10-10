@@ -89,7 +89,6 @@ ui-undo-move-template = 移动模板
 ui-undo-move-slide = 移动幻灯片
 ui-undo-remove-slide = 删除幻灯片
 ui-undo-remove = 删除
-ui-undo-cut = 剪切
 ui-undo-paste = 粘贴
 ui-undo-place-on-grid = 放到网格上
 ui-undo-move-on-grid = 在网格上移动

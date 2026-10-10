@@ -286,6 +286,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .target:hover { outline: 1px dashed var(--accent); outline-offset: 3px; }
 .target.free { cursor: move; }
 .target.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Coupé (⌘X) : reste en place, estompé, jusqu'au collage qui le déplace. */
+.target.cut { outline: 2px dashed var(--accent); outline-offset: 3px; background: color-mix(in srgb, var(--t-bg) 55%, transparent); }
 /* Objet en édition : son cadre passe au-dessus de l'éditeur, sans prendre les clics. */
 .target.editing { z-index: 6; pointer-events: none; outline: 2px solid var(--accent); outline-offset: 3px; }
 /* Champs : zones de clic transparentes au-dessus des objets. */

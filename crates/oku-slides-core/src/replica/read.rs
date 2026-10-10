@@ -12,8 +12,8 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::DeckRead;
-use super::schema::{Ctx, DATASET, ELEMENTS, Kind, LIST, RICH, ROOT_OWNER};
-use super::tree::ordered_children;
+use super::schema::{Ctx, DATASET, Kind, LIST, RICH};
+use super::tree::{Children, ordered_children, slide_order, stray_roots};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
@@ -124,7 +124,7 @@ impl Reader {
         }
         for key in map.keys() {
             let key = key.to_string();
-            if ctx.reserved().contains(&key.as_str()) {
+            if ctx.reserved(&key) {
                 continue;
             }
             let Some(entry) = map.get(&key) else { continue };
@@ -138,6 +138,12 @@ impl Reader {
                 continue;
             }
             let value = match (ctx.kind(&key), entry) {
+                // `slides` est obligatoire, même vide.
+                (Kind::Slides, ValueOrContainer::Container(Container::Tree(t))) => {
+                    Value::Array(self.read_deck_tree(&t, depth.deeper()))
+                }
+                // Refusé à l'entrée ; la lecture seule le saute, `materialize` pose `slides: []`.
+                (Kind::Slides, _) => continue,
                 (Kind::Nested(Ctx::Params), ValueOrContainer::Container(Container::Map(m))) => {
                     let params = self.read_params(&m, depth.deeper());
                     if params.is_empty() {
@@ -149,10 +155,6 @@ impl Reader {
                     Some(v) => v,
                     None => continue,
                 },
-                // `slides` est obligatoire, même vide.
-                (Kind::Collection, ValueOrContainer::Container(Container::MovableList(l))) => {
-                    Value::Array(self.read_slides(&l, depth.deeper()))
-                }
                 (kind, ValueOrContainer::Container(Container::Map(m))) => {
                     let child = match kind {
                         Kind::Nested(c) => c,
@@ -166,41 +168,28 @@ impl Reader {
             };
             out.insert(key, value);
         }
-        if ctx == Ctx::Slide {
-            match map.get(ELEMENTS) {
-                Some(ValueOrContainer::Container(Container::Tree(t))) => {
-                    let inner = Depth { levels: depth.levels + 1, slots: 0 };
-                    let slots = self.read_tree(&t, TreeParentId::Root, ROOT_OWNER, inner);
-                    for param in merge_slots(&mut out, slots) {
-                        self.issues.push(issue(None, None, Message::new("issue-param-type").arg("param", param)));
-                    }
-                }
-                None => {}
-                // Forgé : ignoré et signalé ; la slide est renseignée par `read_slides`.
-                Some(_) => self.issues.push(issue(None, None, Message::new("issue-unreadable-element"))),
-            }
-        }
         // Clés triées, comme la forme canonique (`canonical::numbers`).
         out.sort_keys();
         out
     }
 
-    /// Les slots des enfants de `parent`, par nom (voir les règles de lecture).
+    /// Les slots des enfants visibles `kids`, par nom (voir les règles de lecture).
     ///
     /// `depth.slots` est la profondeur des nœuds lus (0 pour les racines).
     /// Un élément illisible est écarté avec son sous-arbre ; un élément au
-    /// slot réparé est gardé et signalé ; des enfants au-delà de
-    /// [`MAX_SLOT_DEPTH`] ne sont pas lus (une `Issue` par nœud).
-    fn read_tree(&mut self, tree: &LoroTree, parent: TreeParentId, pid: &str, depth: Depth) -> Map<String, Value> {
+    /// slot réparé est gardé et signalé ; des enfants visibles au-delà de
+    /// [`MAX_SLOT_DEPTH`] ne sont pas lus (une `Issue` par nœud). Les enfants
+    /// de chaque nœud sont calculés ici, avec son `TreeID` comme `pid`.
+    fn read_tree(&mut self, tree: &LoroTree, kids: &Children, depth: Depth) -> Map<String, Value> {
         let mut out = Map::new();
-        for (slot, children) in ordered_children(tree, parent, pid) {
+        for (slot, children) in &kids.slots {
             let mut items = Vec::with_capacity(children.len());
             for child in children {
-                let Ok(meta) = tree.get_meta(child.node) else {
+                let Some(meta) = &child.meta else {
                     self.issues.push(issue(None, None, Message::new("issue-unreadable-element")));
                     continue;
                 };
-                let mut obj = self.read_map_at(&meta, Ctx::Element, Depth { levels: depth.levels + 2, ..depth });
+                let mut obj = self.read_map_at(meta, Ctx::Element, Depth { levels: depth.levels + 2, ..depth });
                 let id = obj.get("id").and_then(Value::as_str).map(str::to_owned);
                 if Element::deserialize(&Value::Object(obj.clone())).is_err() {
                     self.issues.push(issue(None, id, Message::new("issue-unreadable-element")));
@@ -210,15 +199,15 @@ impl Reader {
                     let message = Message::new("issue-slot-repaired").arg("slot", slot.clone());
                     self.issues.push(issue(None, id.clone(), message));
                 }
-                let kids = tree.children_num(TreeParentId::Node(child.node)).unwrap_or_default();
-                if kids > 0 && depth.slots + 1 >= MAX_SLOT_DEPTH {
-                    for _ in 0..kids {
+                let grand = ordered_children(tree, TreeParentId::Node(child.node), &child.node.to_string());
+                let count = grand.len();
+                if count > 0 && depth.slots + 1 >= MAX_SLOT_DEPTH {
+                    for _ in 0..count {
                         self.issues.push(issue(None, None, Message::new("issue-slot-too-deep")));
                     }
-                } else if kids > 0 {
+                } else if count > 0 {
                     let inner = Depth { levels: depth.levels + 2, slots: depth.slots + 1 };
-                    let slots =
-                        self.read_tree(tree, TreeParentId::Node(child.node), id.as_deref().unwrap_or_default(), inner);
+                    let slots = self.read_tree(tree, &grand, inner);
                     for param in merge_slots(&mut obj, slots) {
                         let message = Message::new("issue-param-type").arg("param", param);
                         self.issues.push(issue(None, id.clone(), message));
@@ -228,7 +217,7 @@ impl Reader {
                 items.push(Value::Object(obj));
             }
             if !items.is_empty() {
-                out.insert(slot, Value::Array(items));
+                out.insert(slot.clone(), Value::Array(items));
             }
         }
         out
@@ -297,19 +286,36 @@ impl Reader {
         out
     }
 
-    /// Les slides de la liste `slides` (ex-`read_list`). Les `Issue` de ses
-    /// éléments reçoivent l'id de la slide.
-    fn read_slides(&mut self, list: &LoroMovableList, depth: Depth) -> Vec<Value> {
-        let mut out = Vec::with_capacity(list.len());
-        for i in 0..list.len() {
-            let Some(ValueOrContainer::Container(Container::Map(m))) = list.get(i) else { continue };
+    /// Les slides de l'arbre du deck, dans l'ordre de `slide_order` (R8).
+    ///
+    /// Une racine non vide sans `@slide = true` est écartée et signalée. Les
+    /// `Issue` des éléments d'une slide reçoivent son id.
+    fn read_deck_tree(&mut self, tree: &LoroTree, depth: Depth) -> Vec<Value> {
+        for stray in stray_roots(tree) {
+            let id = tree.get_meta(stray).ok().and_then(|m| match m.get("id") {
+                Some(ValueOrContainer::Value(LoroValue::String(s))) => Some(s.to_string()),
+                _ => None,
+            });
+            self.issues.push(issue(id, None, Message::new("issue-unreadable-slide")));
+        }
+        let order = slide_order(tree);
+        let mut out = Vec::with_capacity(order.len());
+        for node in order {
+            // Listé par `slide_order`, qui vient d'en lire la méta.
+            let Ok(meta) = tree.get_meta(node) else { continue };
             let first = self.issues.len();
-            let item = Value::Object(self.read_map_at(&m, Ctx::Slide, depth));
-            let id = item.get("id").and_then(Value::as_str).unwrap_or_default();
+            let mut obj = self.read_map_at(&meta, Ctx::Slide, depth);
+            let kids = ordered_children(tree, TreeParentId::Node(node), &node.to_string());
+            let slots = self.read_tree(tree, &kids, Depth { levels: depth.levels + 1, slots: 0 });
+            for param in merge_slots(&mut obj, slots) {
+                self.issues.push(issue(None, None, Message::new("issue-param-type").arg("param", param)));
+            }
+            obj.sort_keys();
+            let id = obj.get("id").and_then(Value::as_str).unwrap_or_default();
             for i in &mut self.issues[first..] {
                 i.slide.get_or_insert_with(|| id.to_owned());
             }
-            out.push(item);
+            out.push(Value::Object(obj));
         }
         out
     }

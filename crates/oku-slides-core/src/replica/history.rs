@@ -5,11 +5,11 @@
 //! préfixe est une coupe causale. Un cran montre l'état après **tous** les
 //! changes du préfixe, branches concurrentes comprises.
 //!
-//! Un cran par édition, pas par change : une édition qui déplace des slides
-//! ou des items de liste fait un commit par `mov` (t-263), dont seuls les
-//! intermédiaires portent le message `oku-part:<libellé>`. Ils n'ont pas de
-//! cran ; celui du commit final de l'édition les contient. Les `mov` de
-//! l'arbre des éléments n'ajoutent aucun commit par `mov` (ADR-0005).
+//! Un cran par édition, pas par change : une édition qui déplace des items
+//! de liste ou des lignes de données fait un commit par `mov` (t-263), dont
+//! seuls les intermédiaires portent le message `oku-part:<libellé>`. Ils n'ont
+//! pas de cran ; celui du commit final de l'édition les contient. Les `mov`
+//! de l'arbre du deck n'ajoutent aucun commit (ADR-0006).
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap, HashSet};

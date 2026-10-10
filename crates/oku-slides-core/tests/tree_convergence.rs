@@ -1,10 +1,14 @@
-//! Convergence des déplacements dans l'arbre des éléments d'une slide (t-694).
+//! Convergence des déplacements dans l'arbre du deck : dans une slide (t-694),
+//! d'une slide à l'autre et face aux retraits annulés (t-746, t-747).
 
 mod common;
 
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, DeckReplica, Element, Frame, Located, Op, ParamValue, Params, apply_all, validate};
+use oku_slides_core::{
+    Deck, DeckReplica, Element, Frame, Located, Moved, Op, ParamValue, Params, Slide, apply_all, apply_all_moving,
+    validate,
+};
 use serde_json::{Value, json};
 
 fn op(v: Value) -> Op {
@@ -177,10 +181,10 @@ fn concurrent_nest_and_reorder_keep_the_element_in_a_declared_slot() {
     assert_valid_slots(&merged);
 }
 
-/// Comportement documenté (ADR-0005, Limites ; sonde, point 3) : un élément
-/// déplacé sous un propriétaire retiré en parallèle disparaît avec lui.
+/// ADR-0006 : l'élément est caché avec le propriétaire retiré ; l'annulation
+/// du retrait le rend (sonde du deck en arbre, point 3).
 #[test]
-fn move_under_a_concurrently_removed_owner_is_a_documented_loss() {
+fn move_under_a_concurrently_removed_owner_is_hidden_until_undo() {
     let deck = with_pile(roadmap(), "pile");
     let (mut a, mut b) = peers(&deck);
     ok(a.apply(&with_ops(&deck, vec![remove("pile")]), "A", None));
@@ -194,4 +198,279 @@ fn move_under_a_concurrently_removed_owner_is_a_documented_loss() {
     }
     let again = exchange(&mut a, &mut b);
     assert_eq!(again, merged);
+    assert!(ok(a.undo()), "le retrait de A devait s'annuler");
+    let restored = exchange(&mut a, &mut b);
+    assert_eq!(place(&restored, "pile"), (None, "blocks"));
+    assert_eq!(place(&restored, "b-points"), (Some("pile"), "children"));
+}
+
+/// Les slides où `id` apparaît, à toutes les profondeurs, une fois par occurrence.
+fn slide_of<'a>(deck: &'a Deck, id: &str) -> Vec<&'a str> {
+    deck.slides.iter().flat_map(|s| s.walk().filter(|l| l.element.id == id).map(move |_| s.id.as_str())).collect()
+}
+
+/// Un `move_element` de `id` (présent dans une seule slide) vers `slot` de `slide`.
+fn to_slide(deck: &Deck, id: &str, slide: &str, slot: &str, at: Option<usize>) -> Vec<Op> {
+    let from = slide_of(deck, id);
+    assert_eq!(from.len(), 1, "{id} : {from:?}");
+    vec![op(json!({ "op": "move_element", "slide": from[0], "element": id,
+        "to": { "owner": { "slide": slide }, "param": slot }, "index": at }))]
+}
+
+/// `deck` après `ops`, et les déplacements entre slides qu'elles annoncent.
+fn moving(deck: &Deck, ops: Vec<Op>) -> (Deck, Vec<Moved>) {
+    let mut d = deck.clone();
+    let moves = apply_all_moving(&mut d, ops, &common::registry()).unwrap_or_else(|e| panic!("ops refusées : {e:?}"));
+    (d, moves)
+}
+
+/// `r` écrit `deck` après `ops`, déplacements annoncés compris.
+fn apply_ops(r: &mut DeckReplica, deck: &Deck, ops: Vec<Op>, label: &str) {
+    let (target, moves) = moving(deck, ops);
+    ok(r.apply_moving(&target, label, None, &moves));
+}
+
+/// (slide, propriétaire, slot) de l'unique occurrence de `id` dans le deck.
+fn spot<'a>(deck: &'a Deck, id: &str) -> (&'a str, Option<&'a str>, &'a str) {
+    let found: Vec<_> = deck
+        .slides
+        .iter()
+        .flat_map(|s| s.walk().filter(|l| l.element.id == id).map(move |l| (s.id.as_str(), l.owner, l.slot)))
+        .collect();
+    assert_eq!(found.len(), 1, "{id} : {found:?}");
+    found[0]
+}
+
+/// F1 : relire puis réécrire le deck n'écrit rien, sur chaque pair.
+fn assert_settled(peers: &mut [&mut DeckReplica], case: &str) {
+    for (i, r) in peers.iter_mut().enumerate() {
+        let before = r.len_ops();
+        let read = r.deck().0;
+        ok(r.apply(&read, "relire", None));
+        assert_eq!(r.len_ops(), before, "{case} : le pair {i} a écrit en réécrivant le deck relu");
+    }
+}
+
+fn slide_ids(deck: &Deck) -> Vec<&str> {
+    deck.slides.iter().map(|s| s.id.as_str()).collect()
+}
+
+fn without_slide(deck: &Deck, id: &str) -> Deck {
+    let mut d = deck.clone();
+    d.slides.retain(|s| s.id != id);
+    d
+}
+
+/// Les ids du slot `slot` de la slide `slide`.
+fn slot_ids(deck: &Deck, slide: &str, slot: &str) -> Vec<String> {
+    let s = deck.slide(slide).unwrap_or_else(|| panic!("{slide} absente"));
+    s.params.slot(slot).unwrap_or_default().iter().map(|e| e.id.clone()).collect()
+}
+
+#[test]
+fn concurrent_move_between_slides_and_nest_agree() {
+    let deck = with_pile(roadmap(), "pile");
+    let (mut a, mut b) = peers(&deck);
+    apply_ops(&mut a, &deck, to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0)), "A");
+    ok(b.apply(&with_ops(&deck, nest(&deck, "b-points", "pile")), "B", None));
+    let merged = exchange(&mut a, &mut b);
+    let got = spot(&merged, "b-points");
+    assert!(
+        got == ("s-priorites", None, "blocks") || got == ("s-constat", Some("pile"), "children"),
+        "couple incohérent : {got:?}"
+    );
+    assert_valid_slots(&merged);
+    assert_settled(&mut [&mut a, &mut b], "déplacement et imbrication");
+}
+
+#[test]
+fn concurrent_moves_of_one_element_to_two_slides_agree() {
+    let deck = roadmap();
+    let (mut a, mut b) = peers(&deck);
+    apply_ops(&mut a, &deck, to_slide(&deck, "b-points", "s-priorites", "blocks", None), "A");
+    apply_ops(&mut b, &deck, to_slide(&deck, "b-points", "s-libre", "elements", None), "B");
+    let merged = exchange(&mut a, &mut b);
+    let got = spot(&merged, "b-points");
+    assert!(
+        got == ("s-priorites", None, "blocks") || got == ("s-libre", None, "elements"),
+        "couple incohérent : {got:?}"
+    );
+    assert_valid_slots(&merged);
+    assert_settled(&mut [&mut a, &mut b], "deux déplacements");
+}
+
+/// ADR-0006 : l'élément envoyé dans une slide retirée est caché avec elle,
+/// et l'annulation du retrait le rend à sa place.
+#[test]
+fn move_into_a_concurrently_removed_slide_hides_the_element_until_undo() {
+    let deck = roadmap();
+    let (mut a, mut b) = peers(&deck);
+    ok(a.apply(&without_slide(&deck, "s-priorites"), "A", None));
+    apply_ops(&mut b, &deck, to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0)), "B");
+    let merged = exchange(&mut a, &mut b);
+    assert!(merged.slide("s-priorites").is_none(), "s-priorites encore là");
+    assert!(slide_of(&merged, "b-points").is_empty(), "b-points encore là");
+    assert_settled(&mut [&mut a, &mut b], "slide retirée");
+    assert!(ok(a.undo()), "le retrait de A devait s'annuler");
+    let restored = exchange(&mut a, &mut b);
+    assert_eq!(slot_ids(&restored, "s-priorites", "blocks"), ["b-points", "c1", "c2", "c3"]);
+    assert_eq!(slide_of(&restored, "b-points"), ["s-priorites"]);
+    assert_settled(&mut [&mut a, &mut b], "retrait annulé");
+}
+
+/// Parade par pair, pour une slide : l'annulation de A ne retire que sa marque.
+#[test]
+fn concurrent_removals_of_a_slide_then_one_undo_keep_it_removed() {
+    let deck = roadmap();
+    let removed = without_slide(&deck, "s-ch2");
+    let check = |a: &mut DeckReplica, b: &mut DeckReplica, case: &str| {
+        let merged = exchange(a, b);
+        assert!(merged.slide("s-ch2").is_none(), "{case} : s-ch2 revenue");
+        assert_eq!(merged, removed, "{case}");
+        assert_settled(&mut [a, b], case);
+    };
+
+    let (mut a, mut b) = peers(&deck);
+    ok(a.apply(&removed, "A", None));
+    ok(b.apply(&removed, "B", None));
+    exchange(&mut a, &mut b);
+    assert!(ok(a.undo()));
+    check(&mut a, &mut b, "retraits croisés, puis A annule");
+
+    let (mut a, mut b) = peers(&deck);
+    ok(a.apply(&removed, "A", None));
+    assert!(ok(a.undo()));
+    ok(b.apply(&removed, "B", None));
+    check(&mut a, &mut b, "A retire et annule, B retire");
+
+    // A reçoit le retrait de B avant de retirer : rien à marquer, rien à annuler.
+    let (mut a, mut b) = peers(&deck);
+    ok(b.apply(&removed, "B", None));
+    exchange(&mut a, &mut b);
+    ok(a.apply(&removed, "A", None));
+    exchange(&mut a, &mut b);
+    assert!(!ok(a.undo()));
+    check(&mut a, &mut b, "B retire, puis A retire et annule");
+}
+
+/// Annuler un retrait ne retire que la marque : l'élément reste où B l'a
+/// envoyé, avec le gras de B.
+#[test]
+fn undo_of_an_element_removal_keeps_the_peer_move_to_another_slide() {
+    let deck = roadmap();
+    let (mut a, mut b) = peers(&deck);
+    ok(a.apply(&with_ops(&deck, vec![remove("b-points")]), "A", None));
+    let (mut sent, moves) = moving(&deck, to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0)));
+    let Some(slide) = sent.slide_mut("s-priorites") else { panic!("s-priorites absente") };
+    assert!(toggle_bold_of(&mut slide.params, "b-points"), "B n'a pas basculé b-points");
+    ok(b.apply_moving(&sent, "B", None, &moves));
+    ok(a.merge(&b));
+    assert!(ok(a.undo()), "le retrait de A devait s'annuler");
+    let merged = exchange(&mut a, &mut b);
+    assert_eq!(slide_of(&merged, "b-points"), ["s-priorites"]);
+    let points = merged.slide("s-priorites").and_then(|s| s.locate("b-points")).map(|l| l.element);
+    assert!(points.is_some_and(first_run_bold), "gras de B perdu");
+    assert_settled(&mut [&mut a, &mut b], "retrait annulé");
+}
+
+/// Jitter 0 sur les slides (ADR-0006) : des insertions concurrentes au même
+/// rang et un déplacement ne perdent ni ne doublent aucune slide.
+///
+/// La place de `s-fin` n'est pas vérifiée : le `Rearrange` peut ramener une
+/// slide qu'un pair déplaçait, selon l'ordre des pairs (ADR-0006, Limites).
+#[test]
+fn concurrent_slide_inserts_at_one_place_and_a_reorder_keep_every_slide() {
+    let deck = roadmap();
+    let registry = Arc::new(common::registry());
+    let snap = ok(ok(DeckReplica::new(&deck, registry.clone())).snapshot());
+    let open = || ok(DeckReplica::from_snapshot(&snap, 1 << 24, registry.clone())).0;
+    let (mut a, mut b, mut c) = (open(), open(), open());
+    let inserted = |id: &str| {
+        let mut d = deck.clone();
+        d.slides.insert(2, Slide::new(id, "content"));
+        d
+    };
+    ok(a.apply(&inserted("s-a"), "A", None));
+    ok(b.apply(&inserted("s-b"), "B", None));
+    let mut first = deck.clone();
+    let Some(at) = first.slides.iter().position(|s| s.id == "s-fin") else { panic!("s-fin absente") };
+    let fin = first.slides.remove(at);
+    first.slides.insert(0, fin);
+    ok(c.apply(&first, "C", None));
+    let all = |a: &mut DeckReplica, b: &mut DeckReplica, c: &mut DeckReplica| {
+        for _ in 0..2 {
+            ok(a.merge(b));
+            ok(a.merge(c));
+            ok(b.merge(a));
+            ok(c.merge(a));
+        }
+        let (merged, issues) = a.deck();
+        assert!(issues.is_empty(), "lecture partielle : {issues:?}");
+        assert_eq!(b.deck().0, merged);
+        assert_eq!(c.deck().0, merged);
+        merged
+    };
+    let merged = all(&mut a, &mut b, &mut c);
+    let ids = slide_ids(&merged);
+    let (Some(ia), Some(ib)) = (ids.iter().position(|s| *s == "s-a"), ids.iter().position(|s| *s == "s-b")) else {
+        panic!("s-a ou s-b perdue : {ids:?}")
+    };
+    let mut between = merged.clone();
+    between.slides.insert(ia.max(ib), Slide::new("s-c", "content"));
+    ok(a.apply(&between, "A", None));
+    let last = all(&mut a, &mut b, &mut c);
+    let mut got: Vec<&str> = slide_ids(&last);
+    got.sort_unstable();
+    let mut want: Vec<&str> = slide_ids(&deck);
+    want.extend(["s-a", "s-b", "s-c"]);
+    want.sort_unstable();
+    assert_eq!(got, want);
+    assert_settled(&mut [&mut a, &mut b, &mut c], "trois pairs");
+}
+
+/// Vider une slide dans une autre puis la retirer, dans une transaction :
+/// le déplacement annoncé fait foi, l'élément garde le gras de B.
+#[test]
+fn move_then_removal_of_the_source_slide_keeps_the_peer_edit() {
+    let deck = roadmap();
+    let (mut a, mut b) = peers(&deck);
+    let mut ops = to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0));
+    ops.push(op(json!({ "op": "remove_slide", "slide": "s-constat" })));
+    apply_ops(&mut a, &deck, ops, "A");
+    let mut bold = deck.clone();
+    let Some(slide) = bold.slide_mut("s-constat") else { panic!("s-constat absente") };
+    assert!(toggle_bold_of(&mut slide.params, "b-points"), "B n'a pas basculé b-points");
+    ok(b.apply(&bold, "B", None));
+    let merged = exchange(&mut a, &mut b);
+    assert!(merged.slide("s-constat").is_none(), "s-constat encore là");
+    assert_eq!(slide_of(&merged, "b-points"), ["s-priorites"]);
+    let points = merged.slide("s-priorites").and_then(|s| s.locate("b-points")).map(|l| l.element);
+    assert!(points.is_some_and(first_run_bold), "gras de B perdu");
+    assert_settled(&mut [&mut a, &mut b], "déplacement puis retrait de la source");
+}
+
+/// Le même geste, avec le retrait d'un enfant de l'élément déplacé : seul
+/// cet enfant disparaît, et les deux pairs relisent le deck écrit.
+#[test]
+fn move_then_removal_of_the_source_slide_drops_a_removed_child() {
+    let child = |id: &str| -> Element {
+        ok(serde_json::from_value(
+            json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": id }] }] } }),
+        ))
+    };
+    let deck = with_pile(roadmap(), "pile");
+    let deck =
+        with_ops(&deck, vec![add(Some("pile"), "children", &child("k1")), add(Some("pile"), "children", &child("k2"))]);
+    let (mut a, mut b) = peers(&deck);
+    let mut ops = to_slide(&deck, "pile", "s-priorites", "blocks", Some(0));
+    ops.push(op(json!({ "op": "remove_element", "slide": "s-priorites", "element": "k1" })));
+    ops.push(op(json!({ "op": "remove_slide", "slide": "s-constat" })));
+    let (target, moves) = moving(&deck, ops);
+    ok(a.apply_moving(&target, "A", None, &moves));
+    assert_eq!(a.deck().0, target);
+    let merged = exchange(&mut a, &mut b);
+    assert_eq!(merged, target);
+    assert!(slide_of(&merged, "k1").is_empty(), "k1 encore là");
+    assert_eq!(slide_of(&merged, "k2"), ["s-priorites"]);
+    assert_settled(&mut [&mut a, &mut b], "déplacement, retrait d'un enfant et de la source");
 }

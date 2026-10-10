@@ -3,10 +3,10 @@
 //! - [`DeckReplica`] : création, snapshot, lecture ([`DeckReplica::deck`]),
 //!   application d'un `Deck` modifié ([`DeckReplica::apply`]), annuler.
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
-//! - Modules : `schema`, `read`, `write`, `tree` (éléments d'une slide en
-//!   `LoroTree`), `host` (options des hôtes), `rich`, `undo`, `authors`,
-//!   `history` ; tests à côté (`*_tests.rs`, dont `list_tests`, `host_tests`
-//!   et `tree_tests`). Voir `ARCHITECTURE.md`.
+//! - Modules : `schema`, `read`, `write`, `tree` (le deck en un seul
+//!   `LoroTree`, slides en racine ; `tree/deck`), `host` (options des hôtes),
+//!   `rich`, `undo`, `authors`, `history` ; tests à côté (`*_tests.rs`, dont
+//!   `list_tests`, `host_tests` et `tree_tests`). Voir `ARCHITECTURE.md`.
 
 mod authors;
 mod history;
@@ -24,18 +24,19 @@ pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
-use loro::{Container, ExportMode, LoroDoc, LoroValue, ValueOrContainer};
+use loro::{Container, ContainerTrait, ExportMode, LoroDoc, LoroValue, TreeParentId, ValueOrContainer};
 use snafu::{ResultExt, ensure};
 
 use crate::error::{
-    DeckJsonSnafu, ElementsNotATreeSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, NotADeckSnafu,
+    DeckJsonSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, MalformedDeckTreeSnafu, NotADeckSnafu,
     ReplicaError, ReplicaInner, TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu,
     UnsupportedReplicaFormatSnafu,
 };
 use crate::model::{DECK_VERSION, Deck};
+use crate::ops::Moved;
 use crate::widget::WidgetRegistry;
 pub(crate) use rich::SEP as PARAGRAPH_SEPARATOR;
-use schema::{Ctx, ELEMENTS};
+use schema::{Ctx, SLIDE, SLIDES};
 use undo::Undo;
 
 const ROOT: &str = "deck";
@@ -43,11 +44,12 @@ const META: &str = "meta";
 const DECK_UID: &str = "deck_uid";
 /// Clé de `meta` : format du replica.
 const FORMAT: &str = "format";
-/// 2 : éléments d'une slide en `LoroTree` (ADR-0005). Le changer impose de changer `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 2;
+/// 3 : le deck en un seul `LoroTree`, suppression douce (ADR-0006). Le changer
+/// impose de changer `SOURCES_VERSION`.
+const REPLICA_FORMAT: i64 = 3;
 
 /// Préfixe du message d'un commit intermédiaire d'une application (avant
-/// un `mov`) : l'état qui suit n'est pas une version du deck.
+/// un `mov` de liste) : l'état qui suit n'est pas une version du deck.
 pub(crate) const PART: &str = "oku-part:";
 
 fn part_message(label: &str) -> String {
@@ -113,20 +115,41 @@ fn check_format(doc: &LoroDoc) -> Result<(), ReplicaInner> {
     }
 }
 
-/// Refuse une slide dont `@elements` n'est pas un arbre.
+/// Refuse un arbre du deck que la réconciliation ne produit jamais (R0).
 ///
-/// Sans ce refus, la lecture l'ignorerait avec une `Issue`, mais tout `apply`
-/// échouerait ensuite : le deck resterait figé.
+/// Refusés : `deck.slides` qui n'est pas un arbre, `@slide` hors de la
+/// racine, une marque de suppression mal formée, un `@slot` qui n'est pas une
+/// carte fusionnable. Sans ce refus, la lecture cacherait ou déplacerait un
+/// nœud, ou tout `apply` échouerait et le deck resterait figé. Une racine
+/// sans `@slide = true` est acceptée : Loro en crée une en défaisant un `mov`.
+///
+/// Un seul parcours itératif des nœuds (supprimés par Loro exclus), linéaire
+/// en nœuds et en clés de méta, sans borne de profondeur.
 fn check_trees(doc: &LoroDoc) -> Result<(), ReplicaInner> {
-    let Some(ValueOrContainer::Container(Container::MovableList(slides))) = doc.get_map(ROOT).get("slides") else {
-        return Ok(());
+    let tree = match doc.get_map(ROOT).get(SLIDES) {
+        None => return Ok(()),
+        Some(ValueOrContainer::Container(Container::Tree(tree))) => tree,
+        Some(_) => return MalformedDeckTreeSnafu { what: "slides are not a tree" }.fail(),
     };
-    for i in 0..slides.len() {
-        let Some(ValueOrContainer::Container(Container::Map(slide))) = slides.get(i) else { continue };
-        ensure!(
-            matches!(slide.get(ELEMENTS), None | Some(ValueOrContainer::Container(Container::Tree(_)))),
-            ElementsNotATreeSnafu
-        );
+    for node in tree.nodes() {
+        if tree.is_node_deleted(&node).context(LoroSnafu)? {
+            continue;
+        }
+        let meta = tree.get_meta(node).context(LoroSnafu)?;
+        let root = tree.parent(node) == Some(TreeParentId::Root);
+        for key in meta.keys() {
+            if key.starts_with(schema::DELETED) {
+                ensure!(tree::is_mark(&meta, &key), MalformedDeckTreeSnafu { what: "malformed deletion mark" });
+            } else if &*key == SLIDE {
+                ensure!(root, MalformedDeckTreeSnafu { what: "@slide outside the root" });
+            } else if &*key == schema::SLOT {
+                let mergeable = matches!(
+                    meta.get(&key),
+                    Some(ValueOrContainer::Container(Container::Map(m))) if m.id().is_mergeable()
+                );
+                ensure!(mergeable, MalformedDeckTreeSnafu { what: "@slot is not a mergeable map" });
+            }
+        }
     }
     Ok(())
 }
@@ -154,8 +177,9 @@ fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
 /// hors de `deck` et `meta`, et les sous-arbres au-delà de `read::MAX_DEPTH`.
 /// Loro peut les décoder plus tard (export d'un snapshot, réconciliation,
 /// annuler) ; une panique y remonterait alors à l'appelant. Les nœuds de
-/// l'arbre des éléments au-delà de `MAX_SLOT_DEPTH` ne sont ni lus ni écrits
-/// (`live_index`, `wanted_index`).
+/// l'arbre du deck au-delà de `MAX_SLOT_DEPTH` ne sont ni lus ni écrits
+/// (`live_index`, `wanted_index`) ; le contrôle d'entrée (`check_trees`) lit,
+/// lui, la méta de tous les nœuds de cet arbre unique, sans récursion.
 fn guarded<T>(doc: LoroDoc, f: impl FnOnce(&LoroDoc) -> Result<T, ReplicaInner>) -> Result<(LoroDoc, T), ReplicaInner> {
     match catch_unwind(AssertUnwindSafe(|| f(&doc))) {
         Ok(r) => r.map(|t| (doc, t)),
@@ -180,7 +204,7 @@ impl DeckReplica {
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
         doc.get_map(META).insert(FORMAT, REPLICA_FORMAT).context(LoroSnafu)?;
         // Des insertions seulement : aucun `mov`, rien à découper.
-        Self::reconcile_doc(&doc, deck, &registry, &|| ())?;
+        Self::reconcile_doc(&doc, deck, &registry, &|| (), &[])?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
@@ -295,12 +319,27 @@ impl DeckReplica {
     /// changements déjà faits restent dans le doc ; ceux qui ne sont pas encore
     /// committés rejoignent le prochain commit, et son étape.
     pub fn apply(&mut self, deck: &Deck, label: &str, merge: Option<&str>) -> Result<(), ReplicaError> {
+        self.apply_moving(deck, label, merge, &[])
+    }
+
+    /// Comme `apply`, en gardant le nœud des éléments de `moves` (ADR-0006).
+    ///
+    /// Chaque entrée annonce un élément passé d'une slide à l'autre (op
+    /// `move_element`) : il est apparié à son nœud même si son id figure dans
+    /// d'autres slides. Une entrée qui ne se résout pas est ignorée.
+    pub fn apply_moving(
+        &mut self,
+        deck: &Deck,
+        label: &str,
+        merge: Option<&str>,
+        moves: &[Moved],
+    ) -> Result<(), ReplicaError> {
         let doc = &self.doc;
         let split = || {
             doc.set_next_commit_message(&part_message(label));
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &split)?;
+        Self::reconcile_doc(doc, deck, &self.registry, &split, moves)?;
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -318,7 +357,7 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &commit)?;
+        Self::reconcile_doc(doc, deck, &self.registry, &commit, &[])?;
         commit();
         Ok(())
     }
@@ -329,6 +368,7 @@ impl DeckReplica {
         deck: &Deck,
         registry: &WidgetRegistry,
         split: write::Split<'_>,
+        moves: &[Moved],
     ) -> Result<(), ReplicaInner> {
         ensure!(deck.version == DECK_VERSION, UnsupportedDeckVersionSnafu { found: deck.version.to_string() });
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
@@ -338,7 +378,11 @@ impl DeckReplica {
             serde_json::Value::Object(o) => o,
             _ => return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail(),
         };
-        write::Writer { registry, split }.sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck)
+        write::Writer { registry, split, mark_key: schema::mark_key(doc.peer_id()), moves }.sync_map(
+            &doc.get_map(ROOT),
+            &obj,
+            Ctx::Deck,
+        )
     }
 
     /// Ouvre un groupe : les applications qui suivent forment une seule étape
@@ -423,9 +467,9 @@ impl DeckReplica {
     /// [`Self::apply`]. Les noms d'auteurs plus récents restent : seule la
     /// racine `deck` est écrite.
     ///
-    /// Pas de `revert_to` : sur la liste `slides` (`LoroMovableList`, dont
-    /// les slides sont déplacées par `mov`), il perd des slides ou échoue
-    /// (`ContainerDeleted`) dès qu'un déplacement suit la version visée.
+    /// Pas de `revert_to` : sur une `LoroMovableList` de conteneurs (items de
+    /// liste), il perd des items ou échoue (`ContainerDeleted`) dès qu'un
+    /// déplacement suit la version visée.
     ///
     /// Tout ou rien, contrairement à `apply` : Loro n'a pas d'annulation d'un
     /// commit, et une réconciliation qui échoue en route laisserait des
@@ -435,7 +479,7 @@ impl DeckReplica {
     pub fn restore(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
         let trial = self.doc.fork();
         configure(&trial);
-        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit()))?;
+        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit(), &[]))?;
         self.claim_author()?;
         self.apply(deck, label, None)
     }

@@ -1,4 +1,4 @@
-//! L'arbre des éléments d'une slide : écriture, lecture, placement.
+//! Les éléments dans l'arbre du deck : écriture, lecture, placement.
 
 use std::sync::Arc;
 
@@ -6,7 +6,6 @@ use loro::{Container, LoroMap, LoroTree, LoroValue, TreeID, TreeParentId, ValueO
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use super::super::schema::ELEMENTS;
 use super::super::{DeckReplica, ROOT};
 use super::*;
 use crate::error::ReplicaErrorKind;
@@ -49,7 +48,7 @@ pub(super) fn text(id: &str, t: &str) -> Value {
 }
 
 /// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
-fn add(owner: Option<&str>, param: &str, index: Option<usize>, element: Value) -> Op {
+pub(super) fn add(owner: Option<&str>, param: &str, index: Option<usize>, element: Value) -> Op {
     let owner = match owner {
         Some(e) => json!({ "slide": "s-constat", "element": e }),
         None => json!({ "slide": "s-constat" }),
@@ -57,7 +56,7 @@ fn add(owner: Option<&str>, param: &str, index: Option<usize>, element: Value) -
     op(json!({ "op": "add_element", "slot": { "owner": owner, "param": param }, "index": index, "element": element }))
 }
 
-fn remove(id: &str) -> Op {
+pub(super) fn remove(id: &str) -> Op {
     op(json!({ "op": "remove_element", "slide": "s-constat", "element": id }))
 }
 
@@ -69,7 +68,7 @@ pub(super) fn two_slots() -> Deck {
 }
 
 /// `roadmap` et un `stack` `pile` dans `blocks` de `s-constat`.
-fn with_pile() -> Deck {
+pub(super) fn with_pile() -> Deck {
     with_ops(&roadmap(), vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "stack" }))])
 }
 
@@ -91,6 +90,76 @@ pub(super) fn exchange(a: &mut DeckReplica, b: &mut DeckReplica) {
     ok(b.merge(a));
 }
 
+/// Deux pairs `a` et `b` (identifiants fixés) issus d'un même snapshot de `deck`.
+pub(super) fn fixed_peers(deck: &Deck, a: u64, b: u64) -> (DeckReplica, DeckReplica) {
+    let snap = ok(new(deck).snapshot());
+    let open = |peer: u64| {
+        let r = ok(DeckReplica::from_snapshot(&snap, 1 << 24, registry())).0;
+        ok(r.doc.set_peer_id(peer));
+        r
+    };
+    (open(a), open(b))
+}
+
+/// L'arbre du deck de `r`, lu brut.
+pub(super) fn deck_tree(r: &DeckReplica) -> LoroTree {
+    match r.doc.get_map(ROOT).get("slides") {
+        Some(ValueOrContainer::Container(Container::Tree(t))) => t,
+        other => panic!("arbre du deck attendu : {other:?}"),
+    }
+}
+
+/// Vrai si la méta porte une clé de marque (préfixe `@deleted/`), lue brute.
+fn raw_marked(meta: &LoroMap) -> bool {
+    meta.keys().any(|k| k.starts_with("@deleted/"))
+}
+
+/// Vrai si la méta porte `@slide = true`, lue brute.
+fn raw_slide(meta: &LoroMap) -> bool {
+    matches!(meta.get("@slide"), Some(ValueOrContainer::Value(LoroValue::Bool(true))))
+}
+
+/// Le nœud de la slide `slide` : première racine non marquée dont la méta a cet `id`.
+pub(super) fn slide_node(r: &DeckReplica, slide: &str) -> TreeID {
+    let tree = deck_tree(r);
+    tree.children(TreeParentId::Root)
+        .unwrap_or_default()
+        .into_iter()
+        .find(|n| {
+            let meta = ok(tree.get_meta(*n));
+            !raw_marked(&meta) && name(meta.get("id")).as_deref() == Some(slide)
+        })
+        .unwrap_or_else(|| panic!("slide {slide} absente"))
+}
+
+/// Les ids des slides, dans l'ordre brut des racines ; marquées et sans `@slide` exclues.
+pub(super) fn slide_ids(r: &DeckReplica) -> Vec<String> {
+    let tree = deck_tree(r);
+    tree.children(TreeParentId::Root)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|n| ok(tree.get_meta(n)))
+        .filter(|m| !raw_marked(m) && raw_slide(m))
+        .map(|m| name(m.get("id")).unwrap_or_default())
+        .collect()
+}
+
+/// La clé `@slot` du propriétaire `owner` (`None` : la slide `slide`) : son `TreeID`.
+pub(super) fn owner_key(r: &DeckReplica, slide: &str, owner: Option<&str>) -> String {
+    match owner {
+        Some(id) => node_of(&r.doc, slide, id).1.to_string(),
+        None => slide_node(r, slide).to_string(),
+    }
+}
+
+/// Les clés de marque (préfixe `@deleted`) de la méta de `node`, triées, lues brutes.
+pub(super) fn marks(tree: &LoroTree, node: TreeID) -> Vec<String> {
+    let mut keys: Vec<String> =
+        ok(tree.get_meta(node)).keys().map(|k| k.to_string()).filter(|k| k.starts_with("@deleted")).collect();
+    keys.sort();
+    keys
+}
+
 pub(super) fn as_map(v: Option<ValueOrContainer>) -> LoroMap {
     match v {
         Some(ValueOrContainer::Container(Container::Map(m))) => m,
@@ -98,23 +167,14 @@ pub(super) fn as_map(v: Option<ValueOrContainer>) -> LoroMap {
     }
 }
 
-/// La carte de la slide `slide`.
+/// La carte de la slide `slide` : la méta de son nœud.
 pub(super) fn slide_map(r: &DeckReplica, slide: &str) -> LoroMap {
-    let Some(ValueOrContainer::Container(Container::MovableList(slides))) = r.doc.get_map(ROOT).get("slides") else {
-        panic!("pas de liste `slides`")
-    };
-    (0..slides.len())
-        .map(|i| as_map(slides.get(i)))
-        .find(|m| matches!(m.get("id"), Some(ValueOrContainer::Value(LoroValue::String(s))) if *s == slide))
-        .unwrap_or_else(|| panic!("slide {slide} absente"))
+    ok(deck_tree(r).get_meta(slide_node(r, slide)))
 }
 
-/// L'arbre de la slide `slide`.
-pub(super) fn slide_tree(r: &DeckReplica, slide: &str) -> LoroTree {
-    match slide_map(r, slide).get(ELEMENTS) {
-        Some(ValueOrContainer::Container(Container::Tree(t))) => t,
-        other => panic!("arbre attendu : {other:?}"),
-    }
+/// L'arbre qui porte les éléments de `slide` : l'arbre du deck.
+pub(super) fn slide_tree(r: &DeckReplica, _slide: &str) -> LoroTree {
+    deck_tree(r)
 }
 
 /// La carte `@slot` de la méta de `node`, en JSON.
@@ -125,8 +185,10 @@ pub(super) fn slots(tree: &LoroTree, node: TreeID) -> Value {
     }
 }
 
-/// Forge un nœud sous `parent` (id d'un élément, ou la racine), avec la méta
-/// `meta` puis, si `slot` est donné, la carte `@slot`.
+/// Forge un nœud sous `parent` (id d'un élément, ou la slide), avec la méta
+/// `meta` puis, si `slot` est donné, la carte `@slot`. Une clé de `slot` vaut
+/// `""` pour la slide, ou l'id d'un élément visible de la slide : elle devient
+/// leur `TreeID` ; toute autre chaîne est gardée telle quelle.
 pub(super) fn forge(
     r: &DeckReplica,
     slide: &str,
@@ -134,20 +196,24 @@ pub(super) fn forge(
     meta: &[(&str, LoroValue)],
     slot: Option<&[(&str, &str)]>,
 ) -> TreeID {
-    let tree = slide_tree(r, slide);
+    let tree = deck_tree(r);
     let parent = match parent {
-        Some(id) => TreeParentId::Node(node_of(&r.doc, slide, id).1),
-        None => TreeParentId::Root,
+        Some(id) => node_of(&r.doc, slide, id).1,
+        None => slide_node(r, slide),
     };
-    let node = ok(tree.create(parent));
+    let key = |k: &str| match k {
+        "" => slide_node(r, slide).to_string(),
+        id => find_node(&r.doc, slide, id).map_or_else(|| id.to_owned(), |(_, n)| n.to_string()),
+    };
+    let node = ok(tree.create(TreeParentId::Node(parent)));
     let m = ok(tree.get_meta(node));
     for (k, v) in meta {
         ok(m.insert(k, v.clone()));
     }
     if let Some(slot) = slot {
-        let s = ok(m.insert_container(SLOT, LoroMap::new()));
+        let s = ok(m.ensure_mergeable_map(SLOT));
         for (k, v) in slot {
-            ok(s.insert(k, *v));
+            ok(s.insert(&key(k), *v));
         }
     }
     r.doc.commit();
@@ -168,11 +234,32 @@ pub(super) fn ids_in(deck: &Deck, slide: &str, owner: Option<&str>, name: &str) 
     params.slot(name).unwrap_or_default().iter().map(|e| e.id.clone()).collect()
 }
 
-/// Les ids des racines de l'arbre de `slide`, dans l'ordre brut de Loro.
+/// Les ids des enfants du nœud de `slide`, dans l'ordre brut de Loro.
 fn root_ids(r: &DeckReplica, slide: &str) -> Vec<String> {
-    let tree = slide_tree(r, slide);
-    let roots = tree.children(TreeParentId::Root).unwrap_or_default();
+    let tree = deck_tree(r);
+    let roots = tree.children(TreeParentId::Node(slide_node(r, slide))).unwrap_or_default();
     roots.into_iter().map(|n| name(ok(tree.get_meta(n)).get("id")).unwrap_or_default()).collect()
+}
+
+/// `@slot` attendu : une entrée par propriétaire (`None` : la slide) de `slide`.
+fn slot_entries(r: &DeckReplica, slide: &str, entries: &[(Option<&str>, &str)]) -> Value {
+    Value::Object(entries.iter().map(|(owner, slot)| (owner_key(r, slide, *owner), json!(slot))).collect())
+}
+
+/// Les ids des nœuds visibles sous `root`, en préordre, lus bruts : un nœud
+/// marqué (clé `@deleted/…`) est sauté avec son sous-arbre.
+pub(super) fn visible_ids(tree: &LoroTree, root: TreeParentId) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut stack: Vec<TreeID> = tree.children(root).unwrap_or_default().into_iter().rev().collect();
+    while let Some(n) = stack.pop() {
+        let meta = ok(tree.get_meta(n));
+        if meta.keys().any(|k| k.starts_with("@deleted/")) {
+            continue;
+        }
+        out.push(name(meta.get("id")).unwrap_or_default());
+        stack.extend(tree.children(TreeParentId::Node(n)).unwrap_or_default().into_iter().rev());
+    }
+    out
 }
 
 pub(super) fn issue_ids(issues: &[crate::Issue]) -> Vec<&'static str> {
@@ -222,6 +309,9 @@ fn reserved_keys_never_collide_with_model_fields() {
         let keys: Vec<String> = v.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default();
         assert_that!(keys.len()).is_greater_than(3);
         assert_that!(keys.iter().any(|k| k.starts_with('@'))).is_false();
+        for reserved in [SLOT, "@slide", "@deleted/7"] {
+            assert_that!(keys.iter().any(|k| k == reserved)).named(reserved).is_false();
+        }
     }
 }
 
@@ -229,23 +319,26 @@ fn reserved_keys_never_collide_with_model_fields() {
 fn param_named_like_a_reserved_key_stays_in_params() {
     let mut deck = roadmap();
     let Some(blocks) = deck.slide_mut("s-constat").and_then(|s| s.params.slot_mut("blocks")) else { panic!() };
-    blocks[0].params.0.insert(SLOT.to_owned(), ParamValue::Text("pas un slot".into()));
+    for key in [SLOT, "@slide", "@deleted/7"] {
+        blocks[0].params.0.insert(key.to_owned(), ParamValue::Text(format!("pas {key}")));
+    }
     let r = new(&deck);
     let (read, issues) = reread(&r);
     assert_that!(read).is_equal_to(&deck);
     assert_that!(issues).is_empty();
     let (tree, node) = node_of(&r.doc, "s-constat", "b-points");
-    assert_that!(slots(&tree, node)).is_equal_to(json!({ "": "blocks" }));
+    assert_that!(slots(&tree, node)).is_equal_to(slot_entries(&r, "s-constat", &[(None, "blocks")]));
 }
 
 #[test]
-fn reconcile_slide_elements_live_in_the_slide_tree() {
+fn reconcile_slide_elements_live_under_the_slide_node() {
     let r = new(&roadmap());
     let slide = slide_map(&r, "s-constat");
-    assert_that!(matches!(slide.get(ELEMENTS), Some(ValueOrContainer::Container(Container::Tree(_))))).is_true();
+    assert_that!(slide.keys().any(|k| k.starts_with("@elements"))).is_false();
     assert_that!(as_map(slide.get("params")).get("blocks").is_none()).is_true();
     let (tree, node) = node_of(&r.doc, "s-constat", "b-points");
-    assert_that!(slots(&tree, node)).is_equal_to(json!({ "": "blocks" }));
+    assert_that!(tree.parent(node)).is_equal_to(Some(TreeParentId::Node(slide_node(&r, "s-constat"))));
+    assert_that!(slots(&tree, node)).is_equal_to(slot_entries(&r, "s-constat", &[(None, "blocks")]));
 }
 
 #[test]
@@ -292,7 +385,7 @@ fn apply_move_across_slots_keeps_the_tree_node() {
     apply(&mut r, &target);
     let (tree, after) = node_of(&r.doc, "s-constat", "b-points");
     assert_that!(after).is_equal_to(before);
-    assert_that!(slots(&tree, after)[""]).is_equal_to(json!("elements"));
+    assert_that!(slots(&tree, after)).is_equal_to(slot_entries(&r, "s-constat", &[(None, "elements")]));
     assert_that!(r.deck().0).is_equal_to(&target);
 }
 
@@ -311,7 +404,8 @@ fn apply_move_into_a_child_slot_keeps_the_tree_node() {
     let (_, pile) = node_of(&r.doc, "s-constat", "pile");
     assert_that!(after).is_equal_to(before);
     assert_that!(tree.parent(after)).is_equal_to(Some(TreeParentId::Node(pile)));
-    assert_that!(slots(&tree, after)).is_equal_to(json!({ "": "blocks", "pile": "children" }));
+    let want = slot_entries(&r, "s-constat", &[(None, "blocks"), (Some("pile"), "children")]);
+    assert_that!(slots(&tree, after)).is_equal_to(want);
     assert_that!(r.deck().0).is_equal_to(&target);
 }
 
@@ -344,7 +438,7 @@ fn moving_the_first_of_three_to_the_end_is_one_move() {
     let before = ops_of(&r);
     apply(&mut r, &reordered(&deck, &["b", "c", "a"]));
     assert_that!(ops_of(&r) - before).is_equal_to(1);
-    assert_that!(slots(&tree, a)).is_equal_to(json!({ "": "blocks" }));
+    assert_that!(slots(&tree, a)).is_equal_to(slot_entries(&r, "s", &[(None, "blocks")]));
     assert_that!(ids_in(&r.deck().0, "s", None, "blocks")).is_equal_to(vec!["b".to_owned(), "c".into(), "a".into()]);
 }
 
@@ -368,8 +462,9 @@ fn nested_duplicate_keeps_the_outer_tree_id() {
         "blocks": [pile, text("x", "B")] } }] }));
     let mut r = new(&deck);
     let tree = slide_tree(&r, "s");
+    let s = slide_node(&r, "s");
     let root_x = |tree: &LoroTree| {
-        tree.children(TreeParentId::Root)
+        tree.children(TreeParentId::Node(s))
             .unwrap_or_default()
             .into_iter()
             .find(|n| tree.get_meta(*n).is_ok_and(|m| name(m.get("id")).as_deref() == Some("x")))
@@ -432,7 +527,7 @@ fn apply_of_a_too_deep_deck_leaves_the_slide_untouched() {
 }
 
 #[test]
-fn removing_the_first_of_three_writes_one_delete() {
+fn removing_the_first_of_three_writes_one_mark() {
     let deck = texts(&["a", "b", "c"]);
     let mut r = new(&deck);
     let before = ops_of(&r);
@@ -538,13 +633,8 @@ fn removing_an_owner_removes_its_subtree() {
     let target = with_ops(&deck, vec![remove("pile")]);
     apply(&mut r, &target);
     let tree = slide_tree(&r, "s-constat");
-    let live: Vec<Option<String>> = tree
-        .nodes()
-        .into_iter()
-        .filter(|n| !ok(tree.is_node_deleted(n)))
-        .map(|n| name(ok(tree.get_meta(n)).get("id")))
-        .collect();
-    assert_that!(live).is_equal_to(vec![Some("b-points".to_owned())]);
+    let constat = TreeParentId::Node(slide_node(&r, "s-constat"));
+    assert_that!(visible_ids(&tree, constat)).is_equal_to(vec!["b-points".to_owned()]);
     assert_that!(reread(&r)).is_equal_to((target, Vec::new()));
 }
 
@@ -603,12 +693,7 @@ fn apply_on_a_forged_deep_chain_leaves_unread_nodes_untouched() {
         .unwrap_or_else(|_| panic!("l'écriture a paniqué ou débordé la pile"));
     ok(outcome);
     let tree = slide_tree(&r, "s-constat");
-    let live: Vec<String> = tree
-        .nodes()
-        .into_iter()
-        .filter(|n| !ok(tree.is_node_deleted(n)))
-        .filter_map(|n| name(ok(tree.get_meta(n)).get("id")))
-        .collect();
+    let live = visible_ids(&tree, TreeParentId::Node(slide_node(&r, "s-constat")));
     for i in 0..200 {
         assert_that!(live.contains(&format!("c{i}"))).named(&format!("c{i}")).is_true();
     }
@@ -617,73 +702,12 @@ fn apply_on_a_forged_deep_chain_leaves_unread_nodes_untouched() {
 }
 
 #[test]
-fn apply_with_elements_of_another_type_fails_without_overwriting() {
-    let deck = roadmap();
-    let mut r = new(&deck);
-    ok(slide_map(&r, "s-constat").insert_container(ELEMENTS, LoroMap::new()));
-    r.doc.commit();
-    let mut titled = deck.clone();
-    let Some(slide) = titled.slide_mut("s-constat") else { panic!("s-constat absente") };
-    slide.params.set("title", ParamValue::Text("Autre titre".into()));
-    let Err(e) = r.apply(&titled, "test", None) else { panic!("un `@elements` d'un autre type devait être refusé") };
-    assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
-    assert_that!(matches!(
-        slide_map(&r, "s-constat").get(ELEMENTS),
-        Some(ValueOrContainer::Container(Container::Map(_)))
-    ))
-    .is_true();
-    let read = r.deck().0;
-    let title = |d: &Deck| d.slide("s-constat").and_then(|s| s.params.get("title").cloned());
-    assert_that!(title(&read)).is_equal_to(title(&deck));
-}
-
-/// Un snapshot dont la slide `s-constat` porte un `@elements` qui n'est pas un arbre.
-fn snapshot_with_map_elements(r: &DeckReplica) -> Vec<u8> {
-    ok(slide_map(r, "s-constat").insert_container(ELEMENTS, LoroMap::new()));
-    r.doc.commit();
-    ok(r.snapshot())
-}
-
-#[test]
-fn from_snapshot_with_elements_of_another_type_is_refused_as_corrupted() {
-    let r = new(&roadmap());
-    let bytes = snapshot_with_map_elements(&r);
-    let Err(e) = DeckReplica::from_snapshot(&bytes, 1 << 24, registry()) else {
-        panic!("un `@elements` d'un autre type devait être refusé à l'import")
-    };
-    assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
-}
-
-#[test]
-fn merge_of_elements_of_another_type_is_refused_and_keeps_self() {
-    let r = new(&roadmap());
-    let mut a = ok(DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry())).0;
-    let b = ok(DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry())).0;
-    snapshot_with_map_elements(&b);
-    let before = a.deck();
-    let Err(e) = a.merge(&b) else { panic!("un `@elements` d'un autre type devait être refusé à la fusion") };
-    assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
-    assert_that!(a.deck()).is_equal_to(before);
-    assert_that!(matches!(
-        slide_map(&a, "s-constat").get(ELEMENTS),
-        Some(ValueOrContainer::Container(Container::Tree(_)))
-    ))
-    .is_true();
-}
-
-#[test]
 fn empty_param_name_with_elements_round_trips() {
     let host = json!({ "id": "host", "kind": "stack", "params": { "": [text("dedans", "Dedans")] } });
     let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [host] } }] }));
     let mut r = new(&deck);
     let tree = slide_tree(&r, "s");
-    let live: Vec<Option<String>> = tree
-        .nodes()
-        .into_iter()
-        .filter(|n| !ok(tree.is_node_deleted(n)))
-        .map(|n| name(ok(tree.get_meta(n)).get("id")))
-        .collect();
-    assert_that!(live).is_equal_to(vec![Some("host".to_owned())]);
+    assert_that!(visible_ids(&tree, TreeParentId::Node(slide_node(&r, "s")))).is_equal_to(vec!["host".to_owned()]);
     assert_that!(reread(&r)).is_equal_to((deck.clone(), Vec::new()));
     let before = ops_of(&r);
     apply(&mut r, &deck);
@@ -691,11 +715,11 @@ fn empty_param_name_with_elements_round_trips() {
     assert_that!(r.deck().0).is_equal_to(&deck);
 }
 
-fn meta_of(r: &DeckReplica) -> LoroMap {
+pub(super) fn meta_of(r: &DeckReplica) -> LoroMap {
     r.doc.get_map("meta")
 }
 
-fn format_of_meta(r: &DeckReplica) -> Option<LoroValue> {
+pub(super) fn format_of_meta(r: &DeckReplica) -> Option<LoroValue> {
     match meta_of(r).get("format") {
         Some(ValueOrContainer::Value(v)) => Some(v),
         _ => None,
@@ -703,13 +727,13 @@ fn format_of_meta(r: &DeckReplica) -> Option<LoroValue> {
 }
 
 /// Le snapshot de `r` après `edit` sur sa carte `meta`.
-fn snapshot_with_meta(r: &DeckReplica, edit: impl FnOnce(&LoroMap)) -> Vec<u8> {
+pub(super) fn snapshot_with_meta(r: &DeckReplica, edit: impl FnOnce(&LoroMap)) -> Vec<u8> {
     edit(&meta_of(r));
     r.doc.commit();
     ok(r.snapshot())
 }
 
-fn refused_kind(bytes: &[u8]) -> ReplicaErrorKind {
+pub(super) fn refused_kind(bytes: &[u8]) -> ReplicaErrorKind {
     match DeckReplica::from_snapshot(bytes, 1 << 24, registry()) {
         Err(e) => e.kind(),
         Ok(_) => panic!("un replica d'un autre format devait être refusé"),
@@ -719,7 +743,7 @@ fn refused_kind(bytes: &[u8]) -> ReplicaErrorKind {
 #[test]
 fn new_replica_carries_the_replica_format() {
     let r = new(&roadmap());
-    assert_that!(format_of_meta(&r)).is_equal_to(Some(LoroValue::I64(2)));
+    assert_that!(format_of_meta(&r)).is_equal_to(Some(LoroValue::I64(3)));
 }
 
 #[test]
@@ -732,7 +756,7 @@ fn from_snapshot_without_replica_format_is_refused() {
 #[test]
 fn from_snapshot_of_another_replica_format_is_refused() {
     let r = new(&roadmap());
-    let bytes = snapshot_with_meta(&r, |m| ok(m.insert("format", 3_i64)));
+    let bytes = snapshot_with_meta(&r, |m| ok(m.insert("format", 4_i64)));
     assert_that!(refused_kind(&bytes)).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
 }
 
@@ -763,11 +787,11 @@ fn merge_of_a_peer_that_rewrites_the_format_is_refused() {
     let snap = ok(new(&deck).snapshot());
     let open = || ok(DeckReplica::from_snapshot(&snap, 1 << 24, registry())).0;
     let (mut a, b) = (open(), open());
-    ok(meta_of(&b).insert("format", 3_i64));
+    ok(meta_of(&b).insert("format", 4_i64));
     b.doc.commit();
     let Err(e) = a.merge(&b) else { panic!("un pair qui réécrit le format devait être refusé") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(2)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(3)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }
 

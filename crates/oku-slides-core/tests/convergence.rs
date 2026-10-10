@@ -2,13 +2,13 @@
 
 mod common;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
 use oku_slides_chart::{Cell, DataOp, parse_table};
 use oku_slides_core::{
-    Deck, DeckReplica, Element, Frame, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemeRef,
-    WidgetRegistry, apply_all, validate,
+    Deck, DeckReplica, Element, Frame, Moved, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemeRef,
+    WidgetRegistry, apply_all, apply_all_moving, validate,
 };
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -42,6 +42,15 @@ enum Edit {
     RemoveColumn(usize),
     /// Colle un tableau de même forme dont quelques cellules changent : `Replace`.
     Replace(usize),
+    /// Fait passer l'élément `a` (modulo, toutes profondeurs, slides `content`)
+    /// en position `at` du premier slot d'une autre slide `content`, la `b`-ième
+    /// (modulo), par l'op `move_element` : `MoveToSlide(a, b, at)`.
+    MoveToSlide(usize, usize, usize),
+    /// Retire l'élément `i` (modulo) d'un slot à deux éléments ([`busy_slot`]),
+    /// puis annule aussitôt.
+    RemoveElementThenUndo(usize),
+    /// Retire la slide `i` (modulo), puis annule aussitôt.
+    DeleteThenUndo(usize),
     /// Annule la dernière édition locale du pair.
     Undo,
 }
@@ -72,6 +81,9 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::InsertColumn),
         any::<usize>().prop_map(Edit::RemoveColumn),
         any::<usize>().prop_map(Edit::Replace),
+        (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(a, b, at)| Edit::MoveToSlide(a, b, at)),
+        any::<usize>().prop_map(Edit::RemoveElementThenUndo),
+        any::<usize>().prop_map(Edit::DeleteThenUndo),
         Just(Edit::Undo),
     ]
 }
@@ -145,8 +157,9 @@ fn assert_table_ok(data: &Value) -> Vec<Vec<Cell>> {
 }
 
 /// Bascule le gras du premier run du premier `text` de `params` (slots
-/// parcourus en profondeur) ; `true` si un run a été trouvé.
-fn toggle_bold(params: &mut Params) -> bool {
+/// parcourus en profondeur) ; l'id du texte et son nouveau gras, si un run a
+/// été trouvé.
+fn toggle_bold(params: &mut Params) -> Option<(String, bool)> {
     for (_, list) in params.slots_mut() {
         for el in list.iter_mut() {
             if el.kind == "text"
@@ -154,14 +167,14 @@ fn toggle_bold(params: &mut Params) -> bool {
                 && let Some(run) = body.first_mut().and_then(|p| p.runs.first_mut())
             {
                 run.bold = !run.bold;
-                return true;
+                return Some((el.id.clone(), run.bold));
             }
-            if toggle_bold(&mut el.params) {
-                return true;
+            if let Some(found) = toggle_bold(&mut el.params) {
+                return Some(found);
             }
         }
     }
-    false
+    None
 }
 
 /// Le premier slot à deux éléments au moins (premier niveau) de la `i`-ième
@@ -310,7 +323,66 @@ fn remove_owner(slide: &mut Slide, i: usize) {
     }
 }
 
-fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
+/// Le premier slot déclaré par le layout `content`.
+fn first_content_slot() -> &'static str {
+    base()
+        .get("content")
+        .and_then(|w| w.params.iter().find(|p| matches!(p.ty, ParamType::Slot { .. })))
+        .map(|p| p.name.as_str())
+        .unwrap_or_else(|| panic!("le layout content ne déclare aucun slot"))
+}
+
+/// `Edit::MoveToSlide` par l'op `move_element` ; ses déplacements entre
+/// slides, vides s'il n'y a qu'une slide `content` ou si l'op est refusée.
+fn move_to_slide(deck: &mut Deck, a: usize, b: usize, at: usize) -> Vec<Moved> {
+    let contents: Vec<&Slide> = deck.slides.iter().filter(|s| s.kind == "content").collect();
+    if contents.len() < 2 {
+        return Vec::new();
+    }
+    let all: Vec<(&str, &str)> =
+        contents.iter().flat_map(|s| s.walk().map(|l| (s.id.as_str(), l.element.id.as_str()))).collect();
+    let Some(&(from, id)) = all.get(a % all.len().max(1)) else { return Vec::new() };
+    let others: Vec<&Slide> = contents.iter().copied().filter(|s| s.id != from).collect();
+    let to = others[b % others.len()];
+    let slot = first_content_slot();
+    let len = to.params.slot(slot).map_or(0, <[Element]>::len);
+    let mv = op(json!({ "op": "move_element", "slide": from, "element": id,
+        "to": { "owner": { "slide": to.id }, "param": slot }, "index": at % (len + 1) }));
+    apply_all_moving(deck, vec![mv], base()).unwrap_or_default()
+}
+
+/// Les ids des slides et des éléments de `deck`, chacun avec « slide ou pile ».
+fn ids_of(deck: &Deck) -> HashMap<String, bool> {
+    let mut ids = HashMap::new();
+    for s in &deck.slides {
+        ids.insert(s.id.clone(), true);
+        for l in s.walk() {
+            ids.entry(l.element.id.clone()).or_insert(l.element.kind == PILE);
+        }
+    }
+    ids
+}
+
+/// Le gras du premier run de l'élément `id`, à sa première occurrence.
+fn bold_of(deck: &Deck, id: &str) -> Option<bool> {
+    let el = deck.slides.iter().flat_map(Slide::walk).find(|l| l.element.id == id)?.element;
+    match el.params.get("body") {
+        Some(ParamValue::Rich(body)) => Some(body.first().and_then(|p| p.runs.first()).is_some_and(|r| r.bold)),
+        _ => Some(false),
+    }
+}
+
+/// Ce qu'une édition locale annonce au replica et à l'oracle du gras.
+#[derive(Default)]
+struct Applied {
+    /// Les déplacements entre slides de `move_element`.
+    moves: Vec<Moved>,
+    /// Le texte basculé par `Edit::Bold`, et son nouveau gras.
+    bold: Option<(String, bool)>,
+}
+
+/// Applique `e` à `deck`.
+fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) -> Applied {
     let len = deck.slides.len();
     match e {
         Edit::SetCell(..)
@@ -319,8 +391,9 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
         | Edit::InsertColumn(_)
         | Edit::RemoveColumn(_)
         | Edit::Replace(_) => edit_table(deck, e),
+        Edit::MoveToSlide(a, b, at) => return Applied { moves: move_to_slide(deck, *a, *b, *at), bold: None },
         // L'annulation passe par le réplica (voir `peers_editing_in_parallel_converge`).
-        Edit::Undo => {}
+        Edit::Undo | Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_) => {}
         Edit::Add(i) => {
             *n += 1;
             let s = Slide::new(format!("p{peer}-{n}"), "content");
@@ -346,9 +419,7 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
             deck.slides.remove(i % len);
         }
         Edit::Theme(t) => deck.theme = t.clone(),
-        Edit::Bold(i) => {
-            toggle_bold(&mut deck.slides[i % len].params);
-        }
+        Edit::Bold(i) => return Applied { moves: Vec::new(), bold: toggle_bold(&mut deck.slides[i % len].params) },
         Edit::MoveElement(i, a, b) => {
             if let Some(list) = busy_slot(deck, *i) {
                 let el = list.remove(a % list.len());
@@ -376,6 +447,25 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) {
             }
         }
     }
+    Applied::default()
+}
+
+/// Le deck `d` après le retrait que `e` annule aussitôt, `None` si `e` n'en
+/// est pas un ou ne retire rien.
+fn removed_then_undone(d: &Deck, e: &Edit) -> Option<Deck> {
+    let mut next = d.clone();
+    match *e {
+        Edit::RemoveElementThenUndo(i) => {
+            let list = busy_slot(&mut next, i)?;
+            list.remove(i % list.len());
+        }
+        Edit::DeleteThenUndo(i) if !next.slides.is_empty() => {
+            let len = next.slides.len();
+            next.slides.remove(i % len);
+        }
+        _ => return None,
+    }
+    Some(next)
 }
 
 proptest! {
@@ -391,18 +481,61 @@ proptest! {
         let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
         let mut peers: Vec<DeckReplica> =
             edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
+        // Oracles : ids jamais créés, textes mis en gras, ids retirés par une
+        // édition locale (avec « slide ou pile » : un tel retrait cache aussi ce
+        // qu'un pair y a mis).
+        let mut known: HashSet<String> = ids_of(&deck).into_keys().collect();
+        let mut bolds: HashMap<String, bool> = HashMap::new();
+        let mut removed: HashMap<String, bool> = HashMap::new();
         for (p, (replica, list)) in peers.iter_mut().zip(&edits).enumerate() {
+            known.extend((1..=list.len()).map(|k| format!("p{p}-{k}")));
             let (mut d, mut n) = (replica.deck().0, 0);
+            // Le deck relu avant la dernière édition locale qui a écrit, tant
+            // qu'aucune annulation ne l'a consommée.
+            let mut undoable: Option<Deck> = None;
+            // Les textes que ce pair a mis en gras ; une annulation peut défaire le gras.
+            let mut mine: Vec<String> = Vec::new();
             for e in list {
-                // Annule la dernière édition locale, quelle qu'elle soit (t-652 : y compris
-                // la suppression d'une slide ou d'un élément qu'un pair déplace).
-                if matches!(e, Edit::Undo) {
-                    replica.undo().unwrap();
+                let ids = ids_of(&d);
+                if let Some(next) = removed_then_undone(&d, e) {
+                    // Annulation exacte d'un retrait, en local.
+                    let before = replica.deck().0;
+                    let ops = replica.len_ops();
+                    replica.apply(&next, "edit", None).unwrap();
+                    prop_assert!(replica.len_ops() > ops, "le retrait n'a rien écrit : {e:?}");
+                    prop_assert!(replica.undo().unwrap(), "rien à annuler après {e:?}");
                     d = replica.deck().0;
-                    continue;
+                    prop_assert_eq!(&d, &before, "annulation inexacte de {:?}", e);
+                    undoable = None;
+                } else if matches!(e, Edit::Undo) {
+                    // Annule la dernière édition locale, quelle qu'elle soit (t-652 : y compris
+                    // la suppression d'une slide ou d'un élément qu'un pair déplace).
+                    let undone = replica.undo().unwrap();
+                    d = replica.deck().0;
+                    if let Some(before) = undoable.take() {
+                        prop_assert!(undone, "rien à annuler après une édition écrite");
+                        prop_assert_eq!(&d, &before, "annulation inexacte");
+                    }
+                    for id in mine.drain(..) {
+                        bolds.insert(id, false);
+                    }
+                } else if !matches!(e, Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_)) {
+                    let before = replica.deck().0;
+                    let applied = apply(&mut d, e, p, &mut n);
+                    let ops = replica.len_ops();
+                    replica.apply_moving(&d, "edit", None, &applied.moves).unwrap();
+                    if replica.len_ops() != ops {
+                        undoable = Some(before);
+                    }
+                    if let Some((id, bold)) = applied.bold {
+                        // Gras attendu seulement si tous les pairs qui touchent ce texte le posent.
+                        let kept = bolds.get(&id).copied().unwrap_or(true) && bold;
+                        bolds.insert(id.clone(), kept);
+                        mine.push(id);
+                    }
                 }
-                apply(&mut d, e, p, &mut n);
-                replica.apply(&d, "edit", None).unwrap();
+                let after = ids_of(&d);
+                removed.extend(ids.into_iter().filter(|(id, _)| !after.contains_key(id)));
             }
         }
         // Échanges dans un ordre pseudo-aléatoire, jusqu'à ce que chacun ait tout.
@@ -420,9 +553,7 @@ proptest! {
             }
         }
         let (first, issues) = peers[0].deck();
-        // Une annulation qui défait une entrée `@slot` face à un `mov` concurrent
-        // répare le slot à la lecture : ce n'est pas une perte.
-        prop_assert!(issues.iter().all(|i| i.message.id() == "issue-slot-repaired"), "lecture partielle : {issues:?}");
+        prop_assert!(issues.is_empty(), "lecture partielle : {issues:?}");
         for p in &peers[1..] {
             prop_assert_eq!(&p.deck().0, &first);
         }
@@ -430,6 +561,19 @@ proptest! {
         prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
         if let Some(data) = table_data(&first) {
             assert_table_ok(data);
+        }
+        // Aucun id renommé (t-652) : la stratégie ne réajoute jamais un id retiré.
+        let renamed: Vec<String> = ids_of(&first).into_keys().filter(|id| !known.contains(id)).collect();
+        prop_assert!(renamed.is_empty(), "ids jamais créés : {renamed:?}");
+        // Survie du gras : un texte mis en gras que personne ne retire le reste.
+        // Un retrait de slide ou de pile peut le cacher : il doit alors être
+        // absent ou gras.
+        let hidden = removed.values().any(|&owner| owner);
+        for (id, _) in bolds.iter().filter(|&(id, &bold)| bold && !removed.contains_key(id)) {
+            match bold_of(&first, id) {
+                Some(bold) => prop_assert!(bold, "gras de {} perdu", id),
+                None => prop_assert!(hidden, "{} perdu", id),
+            }
         }
         // Relire puis réécrire : le premier `apply` peut écrire une réparation
         // faite à la lecture (t-652, slot réparé), le second n'écrit rien (F1).
@@ -775,7 +919,7 @@ fn concurrent_move_across_slots_and_edit_converge() {
     // B : met `b-points` en gras, à sa place d'origine.
     let mut bold = deck.clone();
     let slide = bold.slides.iter_mut().find(|s| s.id == "s-constat").unwrap_or_else(|| panic!("s-constat absente"));
-    assert!(toggle_bold(&mut slide.params));
+    assert!(toggle_bold(&mut slide.params).is_some());
     assert!(occurrences(&bold, "b-points").iter().all(|(_, e)| first_run_bold(e)), "B n'a pas basculé b-points");
     ok(b.apply(&bold, "B", None));
     ok(a.merge(&b));

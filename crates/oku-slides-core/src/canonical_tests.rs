@@ -491,3 +491,38 @@ proptest! {
         prop_assert_eq!(bundle.replica().deck().0, b);
     }
 }
+
+#[test]
+fn ids_fresh_with_two_thousand_suffixes_taken_is_linear() {
+    let mut ids = Ids::new((2..=2_000).map(|n| format!("x-{n}")).chain(["x".to_owned()]));
+    let names: Vec<String> = (0..2_000).map(|_| ids.fresh("x")).collect();
+    let expected: Vec<String> = (2_001..=4_000).map(|n| format!("x-{n}")).collect();
+    assert_eq!(names, expected);
+    // 1 999 suffixes pris sautés, plus 2 000 succès.
+    assert_eq!(ids.tries, 3_999);
+}
+
+#[test]
+fn ids_fresh_bases_do_not_interfere() {
+    let mut ids = Ids::new(["x".to_owned(), "x-3".to_owned()]);
+    assert_eq!(ids.fresh("x"), "x-2");
+    assert_eq!(ids.fresh("x-2"), "x-2-2");
+    assert_eq!(ids.fresh("x"), "x-4");
+    assert_eq!(ids.fresh("x-2"), "x-2-3");
+}
+
+#[test]
+fn unique_ids_after_a_taken_suffix_keeps_the_same_names() {
+    let blocks = ["x", "x", "x-2", "x"]
+        .into_iter()
+        .zip(["a", "b", "c", "d"])
+        .map(|(id, text)| Element::text(id, vec![Paragraph { runs: vec![run(text)], list: None }]))
+        .collect();
+    let mut deck = deck_with(blocks);
+    unique_ids(&mut deck.slides);
+    let ids: Vec<String> = match deck.slides[0].params.get("blocks") {
+        Some(ParamValue::Slot(elements)) => elements.iter().map(|e| e.id.clone()).collect(),
+        other => panic!("slot attendu : {other:?}"),
+    };
+    assert_eq!(ids, ["x", "x-3", "x-2", "x-4"]);
+}

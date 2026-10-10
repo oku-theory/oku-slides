@@ -89,7 +89,6 @@ ui-undo-move-template = Move the template
 ui-undo-move-slide = Move the slide
 ui-undo-remove-slide = Delete the slide
 ui-undo-remove = Delete
-ui-undo-cut = Cut
 ui-undo-paste = Paste
 ui-undo-place-on-grid = Place on the grid
 ui-undo-move-on-grid = Move on the grid

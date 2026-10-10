@@ -87,7 +87,6 @@ ui-undo-move-template = ย้ายเทมเพลต
 ui-undo-move-slide = ย้ายสไลด์
 ui-undo-remove-slide = ลบสไลด์
 ui-undo-remove = ลบ
-ui-undo-cut = ตัด
 ui-undo-paste = วาง
 ui-undo-place-on-grid = วางบนเส้นตาราง
 ui-undo-move-on-grid = ย้ายบนเส้นตาราง

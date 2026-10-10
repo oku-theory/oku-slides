@@ -2,6 +2,9 @@
 //! une `LoroMovableList` de conteneurs perd des éléments (suppression
 //! durable dans l'oplog), voire panique. Échanger deux slides non voisines
 //! suffisait : 42 échanges sur 56 perdaient une slide du fixture.
+//!
+//! Les slides sont désormais les racines de l'arbre du deck (t-746), sans
+//! cette parade : ce test reste une garde.
 
 use oku_slides_core::{Deck, ParamValue, SourceBundle};
 use speculoos::prelude::*;

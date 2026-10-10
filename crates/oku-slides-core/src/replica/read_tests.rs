@@ -1,11 +1,11 @@
-use loro::{LoroDoc, LoroMap, LoroMovableList, LoroTree, TreeParentId};
+use loro::{Container, LoroDoc, LoroMap, LoroMovableList, LoroTree, TreeID, TreeParentId, ValueOrContainer};
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
 use super::*;
 use crate::error::ReplicaError;
-use crate::replica::schema::SLOT;
-use crate::replica::tree::tree_at;
+use crate::replica::schema::{SLIDE, SLOT};
+use crate::replica::tree::deck_tree_at;
 use crate::replica::write::json_to_loro;
 
 fn issues_ids(issues: &[crate::Issue]) -> Vec<&'static str> {
@@ -41,7 +41,7 @@ fn as_elements(v: &Value) -> Option<&[Value]> {
 }
 
 /// Écrit les `params` de `obj` sous `map` ; leurs slots deviennent des
-/// nœuds de `tree` sous `parent`, d'id de propriétaire `owner`.
+/// nœuds de `tree` sous `parent`, de `TreeID` de propriétaire `owner`.
 fn put_params(map: &LoroMap, obj: &Map<String, Value>, tree: &LoroTree, parent: TreeParentId, owner: &str) {
     for (k, v) in obj {
         match (k.as_str(), v) {
@@ -65,50 +65,96 @@ fn put_params(map: &LoroMap, obj: &Map<String, Value>, tree: &LoroTree, parent: 
     }
 }
 
-/// Les `elements` du slot `slot` de `owner`, nœuds de `tree` sous `parent`.
+/// Les `elements` du slot `slot` de `owner` (`TreeID` en chaîne), nœuds de `tree` sous `parent`.
 fn put_nodes(tree: &LoroTree, parent: TreeParentId, owner: &str, slot: &str, elements: &[Value]) {
     for e in elements {
         let node = tree.create(parent).unwrap();
         let meta = tree.get_meta(node).unwrap();
-        let id = e.get("id").and_then(Value::as_str).unwrap_or_default();
-        put_params(&meta, e.as_object().unwrap(), tree, TreeParentId::Node(node), id);
-        meta.insert_container(SLOT, LoroMap::new()).unwrap().insert(owner, slot).unwrap();
+        put_params(&meta, e.as_object().unwrap(), tree, TreeParentId::Node(node), &node.to_string());
+        meta.ensure_mergeable_map(SLOT).unwrap().insert(owner, slot).unwrap();
     }
 }
 
-/// La slide `slide` en `i` de `list` ; ses éléments dans son arbre.
-fn put_slide(list: &LoroMovableList, i: usize, slide: &Map<String, Value>) {
-    let m = list.insert_container(i, LoroMap::new()).unwrap();
-    let tree = tree_at(&m, crate::replica::schema::ELEMENTS).unwrap();
-    put_params(&m, slide, &tree, TreeParentId::Root, crate::replica::schema::ROOT_OWNER);
+/// La slide `slide`, racine de l'arbre du deck ; ses éléments en descendants.
+fn put_slide(tree: &LoroTree, slide: &Map<String, Value>) {
+    let n = tree.create(TreeParentId::Root).unwrap();
+    let meta = tree.get_meta(n).unwrap();
+    meta.insert(SLIDE, true).unwrap();
+    put_params(&meta, slide, tree, TreeParentId::Node(n), &n.to_string());
 }
 
-fn read(root: Value) -> Result<crate::DeckRead, ReplicaError> {
+/// Le doc forgé de `root`, sans passer par la réconciliation.
+fn forged_doc(root: &Value) -> LoroDoc {
     let doc = LoroDoc::new();
     doc.config_text_style(crate::replica::rich::styles());
     let map = doc.get_map("deck");
     for (k, v) in root.as_object().unwrap() {
         match (k.as_str(), v) {
             ("slides", Value::Array(slides)) => {
-                let list = map.insert_container("slides", LoroMovableList::new()).unwrap();
-                for (i, s) in slides.iter().enumerate() {
-                    put_slide(&list, i, s.as_object().unwrap());
+                let tree = deck_tree_at(&map).unwrap();
+                for s in slides {
+                    put_slide(&tree, s.as_object().unwrap());
                 }
             }
             _ => put(&map, k, v),
         }
     }
     doc.commit();
-    Ok(deck(&map)?)
+    doc
+}
+
+fn read(root: Value) -> Result<crate::DeckRead, ReplicaError> {
+    Ok(deck(&forged_doc(&root).get_map("deck"))?)
+}
+
+/// L'arbre du deck de `doc`.
+fn deck_tree_of(doc: &LoroDoc) -> LoroTree {
+    match doc.get_map("deck").get("slides") {
+        Some(ValueOrContainer::Container(Container::Tree(t))) => t,
+        other => panic!("arbre du deck attendu : {other:?}"),
+    }
+}
+
+/// La forme brute d'un arbre du deck, en préordre : par nœud, son id, ses clés
+/// réservées (`@…`) triées, et `@slot` où chaque `TreeID` devient l'id de son nœud.
+fn raw_form(tree: &LoroTree) -> Vec<(Value, Vec<String>, Value)> {
+    let id_of = |n: TreeID| tree.get_meta(n).unwrap().get_value().into_map().unwrap().get("id").map(loro_to_json);
+    let mut out = Vec::new();
+    let mut stack: Vec<TreeID> = tree.children(TreeParentId::Root).unwrap_or_default().into_iter().rev().collect();
+    while let Some(n) = stack.pop() {
+        let meta = tree.get_meta(n).unwrap();
+        let mut keys: Vec<String> = meta.keys().map(|k| k.to_string()).filter(|k| k.starts_with('@')).collect();
+        keys.sort();
+        let slot = match meta.get(SLOT) {
+            Some(ValueOrContainer::Container(Container::Map(m))) => Value::Object(
+                m.keys()
+                    .map(|k| {
+                        let owner =
+                            TreeID::try_from(&*k).ok().and_then(id_of).and_then(|v| v.as_str().map(str::to_owned));
+                        (
+                            owner.unwrap_or_else(|| k.to_string()),
+                            loro_to_json(&m.get_value()).get(&*k).cloned().unwrap_or_default(),
+                        )
+                    })
+                    .collect(),
+            ),
+            _ => Value::Null,
+        };
+        out.push((id_of(n).unwrap_or_default(), keys, slot));
+        stack.extend(tree.children(TreeParentId::Node(n)).unwrap_or_default().into_iter().rev());
+    }
+    out
 }
 
 #[test]
 fn put_slide_matches_the_writer() {
     let roadmap = crate::Deck::from_json(include_str!("../../../../fixtures/roadmap.json")).unwrap();
-    let (forged, issues) = read(serde_json::to_value(&roadmap).unwrap()).unwrap();
-    let written = crate::DeckReplica::new(&roadmap, crate::test_registry::shared()).unwrap().deck().0;
-    assert_that!(forged).is_equal_to(written);
+    let json = serde_json::to_value(&roadmap).unwrap();
+    let (forged, issues) = read(json.clone()).unwrap();
+    let replica = crate::DeckReplica::new(&roadmap, crate::test_registry::shared()).unwrap();
+    assert_that!(forged).is_equal_to(replica.deck().0);
     assert_that!(issues).is_empty();
+    assert_that!(raw_form(&deck_tree_of(&forged_doc(&json)))).is_equal_to(raw_form(&deck_tree_of(&replica.doc)));
 }
 
 fn slot<'a>(s: &'a crate::Slide, name: &str) -> &'a [crate::Element] {

@@ -89,7 +89,6 @@ ui-undo-move-template = Sjabloon verplaatsen
 ui-undo-move-slide = Dia verplaatsen
 ui-undo-remove-slide = Dia verwijderen
 ui-undo-remove = Verwijderen
-ui-undo-cut = Knippen
 ui-undo-paste = Plakken
 ui-undo-place-on-grid = Op het raster plaatsen
 ui-undo-move-on-grid = Op het raster verplaatsen

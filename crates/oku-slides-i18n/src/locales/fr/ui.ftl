@@ -89,7 +89,6 @@ ui-undo-move-template = Déplacer le modèle
 ui-undo-move-slide = Déplacer la slide
 ui-undo-remove-slide = Supprimer la slide
 ui-undo-remove = Supprimer
-ui-undo-cut = Couper
 ui-undo-paste = Coller
 ui-undo-place-on-grid = Placer sur la grille
 ui-undo-move-on-grid = Déplacer sur la grille

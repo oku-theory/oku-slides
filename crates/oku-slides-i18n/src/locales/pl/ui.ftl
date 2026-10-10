@@ -93,7 +93,6 @@ ui-undo-move-template = Przenieś szablon
 ui-undo-move-slide = Przenieś slajd
 ui-undo-remove-slide = Usuń slajd
 ui-undo-remove = Usuń
-ui-undo-cut = Wytnij
 ui-undo-paste = Wklej
 ui-undo-place-on-grid = Umieść na siatce
 ui-undo-move-on-grid = Przenieś na siatce

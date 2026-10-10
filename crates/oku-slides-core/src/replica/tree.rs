@@ -1,29 +1,41 @@
-//! L'arbre des éléments d'une slide : placement par id, ordre des enfants.
+//! Les éléments dans l'arbre du deck : placement par id, ordre des enfants.
 //!
-//! Chaque slide porte un `LoroTree` sous [`ELEMENTS`]. Ses racines sont les
-//! éléments des slots de la slide ; les enfants d'un nœud, ceux des slots de
-//! l'élément. La méta d'un nœud est la carte de l'élément, plus [`SLOT`] :
-//! le nom du slot, par id de parent. Un déplacement, même d'un slot à un
-//! autre, est un `mov` : les éditions concurrentes du nœud restent.
+//! Le deck est un seul `LoroTree` sous [`SLIDES`](super::schema::SLIDES) : ses
+//! racines sont les slides (`tree/deck.rs`), leurs descendants les éléments
+//! des slots. La méta d'un nœud est la carte de l'élément, plus [`SLOT`] : le
+//! nom du slot, par `TreeID` du parent. Un déplacement, même d'un slot ou
+//! d'une slide à l'autre, est un `mov` : les éditions concurrentes du nœud
+//! restent. Un retrait est une marque [`mark_key`](super::schema::mark_key)
+//! du pair, jamais un `tree.delete` : annuler la retire, et le nœud revient
+//! avec ce que les autres pairs y ont fait.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashSet};
 
-use loro::{Container, LoroMap, LoroTree, LoroValue, TreeID, TreeParentId, ValueOrContainer};
+use loro::{Container, ContainerTrait, LoroMap, LoroTree, LoroValue, TreeID, TreeParentId, ValueOrContainer};
 use serde_json::{Map, Value};
-use snafu::{ResultExt, ensure};
+use snafu::{OptionExt, ResultExt, ensure};
 
-use super::schema::{Ctx, Kind, ORPHANS, ROOT_OWNER, SLOT, param_kind};
-use super::write::{Res, Writer, keyed, map_at, set_value};
-use crate::error::{ElementsNotATreeSnafu, LoroSnafu, ReplicaInner, SlotsTooDeepSnafu, TreeOrderSnafu};
+use super::schema::{Kind, ORPHANS, SLIDE, SLOT, mark_peer, param_kind};
+use super::write::{Res, Writer, keyed, set_value};
+use crate::error::{LoroSnafu, MalformedDeckTreeSnafu, ReplicaInner, SlotsTooDeepSnafu, TreeOrderSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::widget::{ParamSchema, WidgetRegistry};
+
+mod deck;
+mod place;
+
+use place::arrange;
+#[cfg(test)]
+use place::lis;
+
+pub(super) use deck::{deck_tree_at, slide_order, stray_roots, wanted_slides};
 
 /// L'arbre de `map[key]`, créé au besoin ; erreur si la clé porte autre chose.
 pub(super) fn tree_at(map: &LoroMap, key: &str) -> Result<LoroTree, ReplicaInner> {
     let tree = match map.get(key) {
         Some(ValueOrContainer::Container(Container::Tree(t))) => t,
         None => map.insert_container(key, LoroTree::new()).context(LoroSnafu)?,
-        Some(_) => return ElementsNotATreeSnafu.fail(),
+        Some(_) => return MalformedDeckTreeSnafu { what: "slides are not a tree" }.fail(),
     };
     // Actif par défaut en 1.16.2 ; explicité (sonde, ADR-0005).
     tree.enable_fractional_index(0);
@@ -35,6 +47,32 @@ fn slot_map(meta: &LoroMap) -> Option<LoroMap> {
     match meta.get(SLOT) {
         Some(ValueOrContainer::Container(Container::Map(m))) => Some(m),
         _ => None,
+    }
+}
+
+/// Vrai si `key` est une marque de suppression bien formée de valeur `true` (R1).
+pub(super) fn is_mark(meta: &LoroMap, key: &str) -> bool {
+    mark_peer(key).is_some() && matches!(meta.get(key), Some(ValueOrContainer::Value(LoroValue::Bool(true))))
+}
+
+/// Vrai si la méta porte une marque de suppression (R1).
+///
+/// Une marque est une clé `@deleted/<pair>` de valeur `true` ; le contrôle
+/// d'entrée refuse toute autre forme.
+pub(super) fn is_marked(meta: &LoroMap) -> bool {
+    meta.keys().any(|k| is_mark(meta, &k))
+}
+
+/// La carte `@slot` fusionnable d'une méta, créée au besoin (R3).
+///
+/// Fusionnable : deux pairs qui la créent en concurrence sur un même nœud
+/// gardent leurs deux entrées (parade t-188). Un `@slot` d'une autre forme est
+/// refusé à l'entrée ; il ne se voit ici que par un bogue.
+pub(super) fn slot_map_at(meta: &LoroMap) -> Result<LoroMap, ReplicaInner> {
+    match meta.get(SLOT) {
+        None => meta.ensure_mergeable_map(SLOT).context(LoroSnafu),
+        Some(ValueOrContainer::Container(Container::Map(m))) if m.id().is_mergeable() => Ok(m),
+        Some(_) => MalformedDeckTreeSnafu { what: "@slot is not a mergeable map" }.fail(),
     }
 }
 
@@ -51,12 +89,32 @@ pub(super) fn slot_for(meta: &LoroMap, owner: &str) -> Option<String> {
     name(slot_map(meta)?.get(owner))
 }
 
-/// Première valeur valide de `@slot`, par ordre des clés (règle 3).
-pub(super) fn any_slot(meta: &LoroMap) -> Option<String> {
+/// Le slot inscrit dans `@slot` pour un autre parent (R2, règle 3), et s'il est réparé.
+///
+/// Seules comptent les clés `TreeID` canoniques à valeur non vide. 3a : si
+/// les clés de nœuds absents ou supprimés donnent toutes le même slot, il
+/// est pris sans réparation (parent recréé par « rétablir »). 3b : sinon, la
+/// première clé, nœuds vivants compris, avec réparation.
+fn inscribed_slot(tree: &LoroTree, meta: &LoroMap) -> Option<(String, bool)> {
     let slots = slot_map(meta)?;
-    let mut keys: Vec<String> = slots.keys().map(|k| k.to_string()).collect();
-    keys.sort();
-    keys.into_iter().find_map(|k| name(slots.get(&k)))
+    let mut entries: Vec<(String, TreeID)> = slots
+        .keys()
+        .filter_map(|k| {
+            let id = TreeID::try_from(&*k).ok()?;
+            (id.to_string() == *k).then(|| (k.to_string(), id))
+        })
+        .collect();
+    entries.sort();
+    let named: Vec<(TreeID, String)> =
+        entries.into_iter().filter_map(|(k, id)| Some((id, name(slots.get(&k))?))).collect();
+    let gone = |id: &TreeID| !tree.contains(*id) || tree.is_node_deleted(id).unwrap_or(true);
+    let mut vanished = named.iter().filter(|(id, _)| gone(id)).map(|(_, slot)| slot);
+    if let Some(first) = vanished.next()
+        && vanished.all(|slot| slot == first)
+    {
+        return Some((first.clone(), false));
+    }
+    named.into_iter().next().map(|(_, slot)| (slot, true))
 }
 
 /// Un enfant, son slot résolu, et si ce slot a été réparé (règles 2 à 4).
@@ -65,22 +123,53 @@ pub(super) struct Child {
     pub(super) node: TreeID,
     pub(super) slot: String,
     pub(super) repaired: bool,
+    /// Sa méta, lue une fois ; `None` si elle est illisible.
+    pub(super) meta: Option<LoroMap>,
 }
 
-/// Enfants vivants de `parent` (d'id `pid`), groupés (stable) par slot résolu.
-pub(super) fn ordered_children(tree: &LoroTree, parent: TreeParentId, pid: &str) -> BTreeMap<String, Vec<Child>> {
-    let kids = tree.children(parent).unwrap_or_default();
-    let metas: Vec<Option<LoroMap>> = kids.iter().map(|k| tree.get_meta(*k).ok()).collect();
-    let own: Vec<Option<String>> = metas.iter().map(|m| m.as_ref().and_then(|m| slot_for(m, pid))).collect();
+/// Les enfants visibles d'un parent, groupés par slot résolu.
+#[derive(Debug, Default)]
+pub(super) struct Children {
+    /// Par nom de slot, dans l'ordre des enfants de Loro.
+    pub(super) slots: BTreeMap<String, Vec<Child>>,
+}
+
+impl Children {
+    /// Nombre d'enfants visibles, tous slots confondus.
+    pub(super) fn len(&self) -> usize {
+        self.slots.values().map(Vec::len).sum()
+    }
+}
+
+/// Enfants visibles de `parent` (de `TreeID` `pid`), groupés (stable) par slot résolu.
+///
+/// La méta de chaque enfant est lue une fois. Un enfant marqué, vide (méta
+/// sans clé, R1) ou portant `@slide` (refusé à l'entrée) est écarté avec son
+/// sous-arbre avant le calcul du slot hérité (R2, règle 2), sans `Issue`.
+pub(super) fn ordered_children(tree: &LoroTree, parent: TreeParentId, pid: &str) -> Children {
+    let kids: Vec<(TreeID, Option<LoroMap>)> = tree
+        .children(parent)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|k| {
+            #[cfg(test)]
+            deck::visit();
+            (k, tree.get_meta(k).ok())
+        })
+        .filter(|(_, meta)| meta.as_ref().is_none_or(|m| !m.is_empty() && !is_marked(m) && m.get(SLIDE).is_none()))
+        .collect();
+    let own: Vec<Option<String>> = kids.iter().map(|(_, m)| m.as_ref().and_then(|m| slot_for(m, pid))).collect();
     let sibling = own.iter().flatten().next().cloned();
-    let mut out: BTreeMap<String, Vec<Child>> = BTreeMap::new();
-    for ((node, meta), own) in kids.into_iter().zip(&metas).zip(own) {
-        let repaired = own.is_none();
-        let slot = own
-            .or_else(|| sibling.clone())
-            .or_else(|| meta.as_ref().and_then(any_slot))
-            .unwrap_or_else(|| ORPHANS.to_owned());
-        out.entry(slot.clone()).or_default().push(Child { node, slot, repaired });
+    let mut out = Children::default();
+    for ((node, meta), own) in kids.into_iter().zip(own) {
+        let (slot, repaired) = match (own, &sibling) {
+            (Some(slot), _) => (slot, false),
+            (None, Some(slot)) => (slot.clone(), true),
+            (None, None) => {
+                meta.as_ref().and_then(|m| inscribed_slot(tree, m)).unwrap_or_else(|| (ORPHANS.to_owned(), true))
+            }
+        };
+        out.slots.entry(slot.clone()).or_default().push(Child { node, slot, repaired, meta });
     }
     out
 }
@@ -105,39 +194,18 @@ pub(super) fn slots_of<'v>(
     out
 }
 
-/// Les positions d'une plus longue sous-suite croissante de `ranks` (stables).
-///
-/// Patience, O(k log k) ; à longueur égale, la sous-suite qui finit au plus
-/// petit rang.
-fn lis(ranks: &[usize]) -> Vec<bool> {
-    // `tails[l]` : position de la plus petite fin d'une sous-suite de longueur `l + 1`.
-    let mut tails: Vec<usize> = Vec::new();
-    let mut prev: Vec<Option<usize>> = vec![None; ranks.len()];
-    for (i, r) in ranks.iter().enumerate() {
-        let l = tails.partition_point(|&t| ranks[t] < *r);
-        prev[i] = l.checked_sub(1).map(|p| tails[p]);
-        match tails.get_mut(l) {
-            Some(t) => *t = i,
-            None => tails.push(i),
-        }
-    }
-    let mut out = vec![false; ranks.len()];
-    let mut at = tails.last().copied();
-    while let Some(i) = at {
-        out[i] = true;
-        at = prev[i];
-    }
-    out
-}
-
-/// Clé de réconciliation d'un élément : son id et son rang d'occurrence.
+/// Clé de réconciliation d'un objet : son id et son rang d'occurrence.
 type Key = (String, usize);
 
-/// Un nœud vivant de l'arbre, dans l'ordre `uorder`.
+/// Un nœud élément vivant, dans l'ordre `uorder` de sa slide.
 struct Live {
     key: Key,
     node: TreeID,
-    /// Index du parent dans l'index ; `None` pour une racine.
+    /// `kind` de la méta (appariement d'une slide à l'autre).
+    kind: String,
+    /// Slot résolu sous son parent.
+    slot: String,
+    /// Index du parent dans l'index ; `None` sous la slide.
     parent: Option<usize>,
     /// Fin (exclue) de son sous-arbre, en positions du préordre.
     end: usize,
@@ -150,17 +218,6 @@ pub(super) struct Wanted<'a> {
     owner: Option<usize>,
     slot: &'a str,
     obj: &'a Map<String, Value>,
-}
-
-/// Les deux index d'une réconciliation, et leurs correspondances.
-struct Index<'a> {
-    wanted: Vec<Wanted<'a>>,
-    /// Index dans `wanted` d'une clé voulue.
-    wanted_at: HashMap<Key, usize>,
-    /// Nœud vivant d'une clé de l'arbre.
-    known: HashMap<Key, TreeID>,
-    /// Clé d'un nœud vivant.
-    key_of: HashMap<TreeID, Key>,
 }
 
 /// Un slot à compter du parcours de l'arbre : ses enfants, sous `parent`.
@@ -184,43 +241,55 @@ enum Step<P, S> {
     Slot(S),
 }
 
-/// L'id d'une méta ; vide s'il n'y en a pas.
-fn meta_id(tree: &LoroTree, node: TreeID) -> String {
-    tree.get_meta(node).ok().and_then(|m| name(m.get("id"))).unwrap_or_default()
+/// La chaîne `key` d'une méta ; vide s'il n'y en a pas.
+fn meta_str(meta: &LoroMap, key: &str) -> String {
+    name(meta.get(key)).unwrap_or_default()
 }
 
-/// Nœuds vivants de profondeur < `MAX_SLOT_DEPTH`, dans l'ordre `uorder`, et leur préordre.
-fn live_index(tree: &LoroTree) -> (Vec<Live>, Vec<usize>) {
-    // (nœud, id, parent), dans l'ordre `uorder` ; les profondeurs sont à part.
-    let mut found: Vec<(TreeID, String, Option<usize>)> = Vec::new();
+/// Un nœud trouvé par [`live_index`] : nœud, id, `kind`, slot, parent.
+type Found = (TreeID, String, String, String, Option<usize>);
+
+/// Nœuds éléments visibles de `slide`, en ordre `uorder`. Bornés par `MAX_SLOT_DEPTH` ; rend aussi leur préordre.
+///
+/// Jamais sous un nœud marqué. La méta de chaque nœud n'est lue qu'une fois,
+/// par [`ordered_children`].
+fn live_index(tree: &LoroTree, slide: TreeID) -> (Vec<Live>, Vec<usize>) {
+    let mut found: Vec<Found> = Vec::new();
     let mut depths: Vec<usize> = Vec::new();
     let mut stack: Vec<Step<Option<usize>, LiveSlot>> = vec![Step::Expand(None)];
     while let Some(step) = stack.pop() {
         match step {
             Step::Expand(parent) => {
-                let (tp, pid, depth) = match parent {
-                    None => (TreeParentId::Root, String::from(ROOT_OWNER), 0),
-                    Some(i) => (TreeParentId::Node(found[i].0), found[i].1.clone(), depths[i] + 1),
+                let (node, depth) = match parent {
+                    None => (slide, 0),
+                    Some(i) => (found[i].0, depths[i] + 1),
                 };
                 if depth >= MAX_SLOT_DEPTH {
                     continue;
                 }
-                let groups = ordered_children(tree, tp, &pid);
+                let groups = ordered_children(tree, TreeParentId::Node(node), &node.to_string()).slots;
                 stack.extend(groups.into_values().rev().map(|kids| Step::Slot(LiveSlot { parent, depth, kids })));
             }
             Step::Slot(LiveSlot { parent, depth, kids }) => {
                 let first = found.len();
                 for c in kids {
-                    found.push((c.node, meta_id(tree, c.node), parent));
+                    let (id, kind) = match &c.meta {
+                        Some(m) => (meta_str(m, "id"), meta_str(m, "kind")),
+                        None => (String::new(), String::new()),
+                    };
+                    found.push((c.node, id, kind, c.slot, parent));
                     depths.push(depth);
                 }
                 stack.extend((first..found.len()).rev().map(|i| Step::Expand(Some(i))));
             }
         }
     }
-    let ids: Vec<String> = found.iter().map(|(_, id, _)| id.clone()).collect();
-    let mut live: Vec<Live> =
-        found.into_iter().zip(keyed(&ids)).map(|((node, _, parent), key)| Live { key, node, parent, end: 0 }).collect();
+    let ids: Vec<String> = found.iter().map(|f| f.1.clone()).collect();
+    let mut live: Vec<Live> = found
+        .into_iter()
+        .zip(keyed(&ids))
+        .map(|((node, _, kind, slot, parent), key)| Live { key, node, kind, slot, parent, end: 0 })
+        .collect();
     // Préordre : enfants dans l'ordre de l'index.
     let mut children: Vec<Vec<usize>> = vec![Vec::new(); live.len()];
     let mut roots = Vec::new();
@@ -286,181 +355,105 @@ pub(super) fn wanted_index<'a>(
 }
 
 impl Writer<'_> {
-    /// Amène l'arbre `tree` aux éléments voulus `wanted` de la slide.
+    /// Temps 1 d'une slide : marque les non voulus. Rend les différés.
     ///
-    /// `wanted` vient de [`wanted_index`], appelé avant toute écriture.
-    ///
-    /// Temps 0 : index, sans écriture. Temps 1 : suppressions des nœuds non
-    /// voulus sans descendant voulu. Temps 2 : placement par (parent, slot),
-    /// en laissant en place une plus longue sous-suite déjà ordonnée. Temps
-    /// 3 : suppression des nœuds non voulus dont les descendants voulus sont
-    /// partis.
-    pub(super) fn sync_tree(&self, tree: &LoroTree, wanted: Vec<Wanted<'_>>) -> Res {
-        let (current, pre) = live_index(tree);
-        let ix = Index {
-            wanted_at: wanted.iter().enumerate().map(|(i, w)| (w.key.clone(), i)).collect(),
-            known: current.iter().map(|l| (l.key.clone(), l.node)).collect(),
-            key_of: current.iter().map(|l| (l.node, l.key.clone())).collect(),
-            wanted,
-        };
-        let wanted = &ix.wanted;
-        let wanted_at = &ix.wanted_at;
-
-        // Temps 1.
-        let mut has_wanted: Vec<bool> = current.iter().map(|l| wanted_at.contains_key(&l.key)).collect();
+    /// Un nœud non voulu sans descendant voulu est marqué, sous-arbre sauté ;
+    /// un nœud non voulu dont un descendant est voulu est différé (temps 3).
+    /// Avec `whole` faux (slide retirée, cachée par sa propre marque), seuls
+    /// les descendants d'un nœud voulu sont touchés : ceux qui en sortent.
+    fn mark_elements(
+        &self,
+        tree: &LoroTree,
+        live: &[Live],
+        pre: &[usize],
+        wanted: &HashSet<TreeID>,
+        whole: bool,
+    ) -> Result<Vec<TreeID>, ReplicaInner> {
+        let mut has_wanted: Vec<bool> = live.iter().map(|l| wanted.contains(&l.node)).collect();
         for &i in pre.iter().rev() {
-            if has_wanted[i]
-                && let Some(p) = current[i].parent
+            if has_wanted.get(i).copied().unwrap_or_default()
+                && let Some(p) = live.get(i).and_then(|l| l.parent)
+                && let Some(h) = has_wanted.get_mut(p)
             {
-                has_wanted[p] = true;
+                *h = true;
+            }
+        }
+        // Sous un nœud voulu ; le préordre lit un parent avant ses enfants.
+        let mut inside = vec![whole; live.len()];
+        if !whole {
+            for &i in pre {
+                let Some(p) = live.get(i).and_then(|l| l.parent) else { continue };
+                let under =
+                    live.get(p).is_some_and(|l| wanted.contains(&l.node)) || inside.get(p).copied().unwrap_or_default();
+                if let Some(x) = inside.get_mut(i) {
+                    *x = under;
+                }
             }
         }
         let mut deferred = Vec::new();
         let mut at = 0;
         while let Some(&i) = pre.get(at) {
-            let l = &current[i];
-            if wanted_at.contains_key(&l.key) {
+            let l = live.get(i).context(TreeOrderSnafu)?;
+            if wanted.contains(&l.node) {
                 at += 1;
-            } else if has_wanted[i] {
+            } else if !inside.get(i).copied().unwrap_or_default() {
+                // Hors de tout nœud voulu : caché avec la slide.
+                at = if has_wanted.get(i).copied().unwrap_or_default() { at + 1 } else { l.end.max(at + 1) };
+            } else if has_wanted.get(i).copied().unwrap_or_default() {
                 deferred.push(l.node);
                 at += 1;
             } else {
-                tree.delete(l.node).context(LoroSnafu)?;
-                at = l.end;
+                self.mark(tree, l.node)?;
+                at = l.end.max(at + 1);
             }
         }
-
-        // Temps 2 : la slide, puis chaque élément voulu ; un propriétaire
-        // précède toujours ses éléments.
-        let mut by_owner: Vec<BTreeMap<&str, Vec<usize>>> = vec![BTreeMap::new(); wanted.len() + 1];
-        for (i, w) in wanted.iter().enumerate() {
-            by_owner[w.owner.map_or(0, |o| o + 1)].entry(w.slot).or_default().push(i);
-        }
-        let mut placed: Vec<Option<TreeID>> = vec![None; wanted.len()];
-        for (o, slots) in by_owner.iter().enumerate() {
-            if slots.is_empty() {
-                continue;
-            }
-            let (parent, pid) = match o.checked_sub(1) {
-                None => (TreeParentId::Root, ROOT_OWNER),
-                Some(p) => match placed[p] {
-                    Some(n) => (TreeParentId::Node(n), wanted[p].key.0.as_str()),
-                    None => return TreeOrderSnafu.fail(),
-                },
-            };
-            self.place(tree, (parent, pid), slots, &ix, &mut placed)?;
-        }
-
-        // Temps 3.
-        for n in deferred {
-            if !tree.is_node_deleted(&n).context(LoroSnafu)? {
-                tree.delete(n).context(LoroSnafu)?;
-            }
-        }
-        Ok(())
+        Ok(deferred)
     }
 
-    /// Place les enfants voulus `slots` de `parent` (d'id `pid`), slot par slot.
-    fn place(
-        &self,
-        tree: &LoroTree,
-        (parent, pid): (TreeParentId, &str),
-        slots: &BTreeMap<&str, Vec<usize>>,
-        ix: &Index<'_>,
-        placed: &mut [Option<TreeID>],
-    ) -> Res {
-        let wanted = &ix.wanted;
-        let mut kids = tree.children(parent).unwrap_or_default();
-        // Slots résolus une fois, avant tout `mov` sous ce parent.
-        let resolved: HashMap<TreeID, String> =
-            ordered_children(tree, parent, pid).into_values().flatten().map(|c| (c.node, c.slot)).collect();
-        for (&slot, list) in slots {
-            let rank_of: HashMap<usize, usize> = list.iter().enumerate().map(|(r, w)| (*w, r)).collect();
-            // Les enfants déjà là, voulus sous (parent, slot), et leur rang dans `list`.
-            let present: Vec<(TreeID, usize)> = kids
-                .iter()
-                .filter(|n| resolved.get(n).is_some_and(|s| s == slot))
-                .filter_map(|n| {
-                    let w = *ix.wanted_at.get(ix.key_of.get(n)?)?;
-                    Some((*n, *rank_of.get(&w)?))
-                })
-                .collect();
-            let ranks: Vec<usize> = present.iter().map(|(_, r)| *r).collect();
-            let mut stable: Vec<Option<TreeID>> = vec![None; list.len()];
-            for ((n, r), keep) in present.iter().zip(lis(&ranks)) {
-                if keep {
-                    stable[*r] = Some(*n);
-                }
-            }
-            let mut pred: Option<TreeID> = None;
-            for (r, &w) in list.iter().enumerate() {
-                let next_stable = stable[r + 1..].iter().flatten().next().copied();
-                let n = match (stable[r], ix.known.get(&wanted[w].key)) {
-                    (Some(n), _) => n,
-                    (None, Some(&n)) => {
-                        match (pred, next_stable) {
-                            (Some(p), _) => tree.mov_after(n, p).context(LoroSnafu)?,
-                            (None, Some(s)) => tree.mov_before(n, s).context(LoroSnafu)?,
-                            (None, None) => tree.mov(n, parent).context(LoroSnafu)?,
-                        }
-                        kids.retain(|k| *k != n);
-                        let at = insertion(&kids, pred, next_stable);
-                        kids.insert(at, n);
-                        n
-                    }
-                    (None, None) => {
-                        let at = insertion(&kids, pred, next_stable);
-                        let n = tree.create_at(parent, at).context(LoroSnafu)?;
-                        kids.insert(at, n);
-                        map_at(&tree.get_meta(n).context(LoroSnafu)?, SLOT)?;
-                        n
-                    }
-                };
-                let meta = tree.get_meta(n).context(LoroSnafu)?;
-                set_value(&map_at(&meta, SLOT)?, pid, LoroValue::from(slot))?;
-                self.sync_map(&meta, wanted[w].obj, Ctx::Element)?;
-                placed[w] = Some(n);
-                pred = Some(n);
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Position dans `kids` qui suit `pred`, sinon celle de `next`, sinon la fin.
-fn insertion(kids: &[TreeID], pred: Option<TreeID>, next: Option<TreeID>) -> usize {
-    let at = |n: TreeID| kids.iter().position(|k| *k == n);
-    match (pred, next) {
-        (Some(p), _) => at(p).map_or(kids.len(), |i| i + 1),
-        (None, Some(s)) => at(s).unwrap_or(kids.len()),
-        (None, None) => kids.len(),
+    /// Marque `node` retiré par ce pair (R1), sans `tree.delete`.
+    ///
+    /// Ne vise qu'un nœud visible : Loro saute un `insert` de même valeur, et
+    /// l'annulation n'aurait alors rien à défaire.
+    fn mark(&self, tree: &LoroTree, node: TreeID) -> Res {
+        set_value(&tree.get_meta(node).context(LoroSnafu)?, &self.mark_key, LoroValue::Bool(true))
     }
 }
 
 #[cfg(test)]
-/// Le nœud vivant d'id `id` de la slide `slide`, et son arbre (tests).
-pub(super) fn node_of(doc: &loro::LoroDoc, slide: &str, id: &str) -> (LoroTree, TreeID) {
+/// Le nœud visible d'id `id` de la slide `slide`, et l'arbre du deck (tests).
+///
+/// Parcours brut et itératif, en préordre, sans borne de profondeur : un nœud
+/// marqué (clé `@deleted/…`) est sauté avec son sous-arbre.
+pub(super) fn find_node(doc: &loro::LoroDoc, slide: &str, id: &str) -> Option<(LoroTree, TreeID)> {
     let is = |m: &LoroMap, want: &str| name(m.get("id")).as_deref() == Some(want);
-    let Some(ValueOrContainer::Container(Container::MovableList(slides))) = doc.get_map(super::ROOT).get("slides")
+    let marked = |m: &LoroMap| m.keys().any(|k| k.starts_with("@deleted/"));
+    let Some(ValueOrContainer::Container(Container::Tree(tree))) = doc.get_map(super::ROOT).get(super::schema::SLIDES)
     else {
-        panic!("pas de liste `slides`")
+        panic!("arbre du deck attendu")
     };
-    let map = (0..slides.len())
-        .find_map(|i| match slides.get(i) {
-            Some(ValueOrContainer::Container(Container::Map(m))) if is(&m, slide) => Some(m),
-            _ => None,
-        })
-        .unwrap_or_else(|| panic!("slide {slide} absente"));
-    let Some(ValueOrContainer::Container(Container::Tree(tree))) = map.get(super::schema::ELEMENTS) else {
-        panic!("slide {slide} sans arbre")
-    };
-    let node = tree
-        .nodes()
-        .into_iter()
-        .filter(|n| !tree.is_node_deleted(n).unwrap_or(true))
-        .find(|n| tree.get_meta(*n).is_ok_and(|m| is(&m, id)))
-        .unwrap_or_else(|| panic!("élément {id} absent de {slide}"));
-    (tree, node)
+    let root = tree.children(TreeParentId::Root).unwrap_or_default().into_iter().find(|n| {
+        let meta = tree.get_meta(*n).unwrap_or_else(|e| panic!("méta de {n:?} : {e}"));
+        !marked(&meta) && is(&meta, slide)
+    })?;
+    let mut stack: Vec<TreeID> = tree.children(TreeParentId::Node(root)).unwrap_or_default();
+    stack.reverse();
+    while let Some(n) = stack.pop() {
+        let meta = tree.get_meta(n).unwrap_or_else(|e| panic!("méta de {n:?} : {e}"));
+        if marked(&meta) {
+            continue;
+        }
+        if is(&meta, id) {
+            return Some((tree, n));
+        }
+        stack.extend(tree.children(TreeParentId::Node(n)).unwrap_or_default().into_iter().rev());
+    }
+    None
+}
+
+#[cfg(test)]
+/// Le nœud visible d'id `id` de la slide `slide`, et l'arbre du deck (tests) ; panique s'il manque.
+pub(super) fn node_of(doc: &loro::LoroDoc, slide: &str, id: &str) -> (LoroTree, TreeID) {
+    find_node(doc, slide, id).unwrap_or_else(|| panic!("élément {id} absent de {slide}"))
 }
 
 #[cfg(test)]
@@ -470,3 +463,7 @@ mod tree_tests;
 #[cfg(test)]
 #[path = "tree_read_tests.rs"]
 mod tree_read_tests;
+
+#[cfg(test)]
+#[path = "soft_delete_tests.rs"]
+mod soft_delete_tests;

@@ -93,7 +93,6 @@ ui-undo-move-template = Переместить шаблон
 ui-undo-move-slide = Переместить слайд
 ui-undo-remove-slide = Удалить слайд
 ui-undo-remove = Удалить
-ui-undo-cut = Вырезать
 ui-undo-paste = Вставить
 ui-undo-place-on-grid = Разместить на сетке
 ui-undo-move-on-grid = Переместить по сетке

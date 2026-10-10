@@ -89,7 +89,6 @@ ui-undo-move-template = टेम्पलेट खिसकाएँ
 ui-undo-move-slide = स्लाइड खिसकाएँ
 ui-undo-remove-slide = स्लाइड हटाएँ
 ui-undo-remove = हटाएँ
-ui-undo-cut = काटें
 ui-undo-paste = चिपकाएँ
 ui-undo-place-on-grid = ग्रिड पर रखें
 ui-undo-move-on-grid = ग्रिड पर खिसकाएँ

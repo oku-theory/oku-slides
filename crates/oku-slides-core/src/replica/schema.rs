@@ -39,9 +39,9 @@ pub(super) enum Kind {
     Prose,
     /// `LoroMap { rich: LoroText à marques }` (paragraphes).
     Rich,
-    /// `LoroMovableList` de `LoroMap` à `id` : les slides.
-    Collection,
-    /// Éléments d'un slot : nœuds de l'arbre de la slide (`tree.rs`).
+    /// Un `LoroTree` : slides en racine, éléments en descendants (ADR-0006).
+    Slides,
+    /// Éléments d'un slot : nœuds de l'arbre du deck (`tree.rs`).
     Slot,
     /// `LoroMap { list: LoroMovableList de LoroMap à id }` : items d'un
     /// paramètre `list`, lisibles sans registre.
@@ -54,14 +54,29 @@ pub(super) enum Kind {
     Host,
 }
 
-/// Clé de la carte d'une slide qui porte l'arbre de ses éléments.
-pub(super) const ELEMENTS: &str = "@elements";
+/// Clé de la carte `deck` qui porte l'arbre du deck.
+pub(super) const SLIDES: &str = "slides";
 
-/// Clé de la méta d'un nœud : slot par id de parent.
+/// Clé de la méta d'une racine : `true`, la marque d'une slide.
+pub(super) const SLIDE: &str = "@slide";
+
+/// Clé de la méta d'un nœud : slot par `TreeID` de parent (`counter@peer`).
 pub(super) const SLOT: &str = "@slot";
 
-/// Clé de `@slot` d'un élément d'un slot de la slide.
-pub(super) const ROOT_OWNER: &str = "";
+/// Préfixe réservé des marques de suppression : `@deleted/<pair>`.
+pub(super) const DELETED: &str = "@deleted";
+
+/// La marque de suppression du pair `peer`.
+pub(super) fn mark_key(peer: u64) -> String {
+    format!("{DELETED}/{peer}")
+}
+
+/// Le pair d'une marque bien formée, `None` sinon (forme canonique exigée).
+pub(super) fn mark_peer(key: &str) -> Option<u64> {
+    let digits = key.strip_prefix(DELETED)?.strip_prefix('/')?;
+    let peer: u64 = digits.parse().ok()?;
+    (peer.to_string() == digits).then_some(peer)
+}
 
 /// Slot de repli d'un élément sans slot lisible.
 pub(super) const ORPHANS: &str = "orphans";
@@ -92,7 +107,7 @@ impl Ctx {
         match (self, key) {
             // Une référence de pack ou de thème entière : l'id et la version ne se mêlent jamais.
             (Deck, "templates" | "theme") => Kind::Atom,
-            (Deck, "slides") => Kind::Collection,
+            (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
             (Vars, _) => Kind::Atom,
@@ -114,28 +129,20 @@ impl Ctx {
         }
     }
 
-    /// Collections créées dès la création de l'objet.
-    pub(super) fn lists(self) -> &'static [&'static str] {
-        match self {
-            Ctx::Deck => &["slides"],
-            _ => &[],
-        }
-    }
-
-    /// Arbres créés dès la création de l'objet : les éléments d'une slide.
+    /// Arbres créés dès la création de l'objet : l'arbre du deck.
     pub(super) fn trees(self) -> &'static [&'static str] {
         match self {
-            Ctx::Slide => &[ELEMENTS],
+            Ctx::Deck => &[SLIDES],
             _ => &[],
         }
     }
 
-    /// Clés du replica, jamais lues ni écrites comme des champs.
-    pub(super) fn reserved(self) -> &'static [&'static str] {
+    /// Vrai pour une clé du replica, jamais lue ni écrite comme un champ :
+    /// dans la méta d'une slide ou d'un élément, `SLOT`, `SLIDE` et le préfixe `DELETED`.
+    pub(super) fn reserved(self, key: &str) -> bool {
         match self {
-            Ctx::Slide => &[ELEMENTS],
-            Ctx::Element => &[SLOT],
-            _ => &[],
+            Ctx::Slide | Ctx::Element => key == SLOT || key == SLIDE || key.starts_with(DELETED),
+            _ => false,
         }
     }
 }
@@ -201,7 +208,7 @@ pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Val
 pub(super) fn column_kind(columns: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
     match param_kind(columns, name, value) {
         _ if name == "id" => Kind::Atom,
-        Kind::Collection | Kind::Slot | Kind::List | Kind::Host => Kind::Atom,
+        Kind::Slides | Kind::Slot | Kind::List | Kind::Host => Kind::Atom,
         kind => kind,
     }
 }
@@ -216,8 +223,8 @@ pub(super) fn columns<'a>(params: Option<&'a [ParamSchema]>, name: &str) -> Opti
 
 /// Champs à conteneur de `params` (`plain`, `rich`, `list`), créés d'avance :
 /// deux premières éditions concurrentes visent alors le même conteneur et
-/// fusionnent (parade t-188). Un slot vit dans l'arbre de la slide, créé
-/// avec elle.
+/// fusionnent (parade t-188). Un slot vit dans l'arbre du deck, sous le nœud
+/// de son propriétaire.
 pub(super) fn declared(params: Option<&[ParamSchema]>) -> impl Iterator<Item = (&str, Kind)> {
     params
         .into_iter()

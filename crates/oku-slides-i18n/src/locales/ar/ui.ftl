@@ -97,7 +97,6 @@ ui-undo-move-template = نقل القالب
 ui-undo-move-slide = نقل الشريحة
 ui-undo-remove-slide = حذف الشريحة
 ui-undo-remove = حذف
-ui-undo-cut = قص
 ui-undo-paste = لصق
 ui-undo-place-on-grid = وضع على الشبكة
 ui-undo-move-on-grid = نقل على الشبكة
