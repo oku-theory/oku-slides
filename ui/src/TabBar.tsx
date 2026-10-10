@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { listenTauri, type TabAt, type WindowView, type WorkspaceView } from "./api";
 import { t } from "./i18n";
 import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, outside, slotAt } from "./tabs";
@@ -232,32 +233,38 @@ export default function TabBar(props: Props) {
       <button className="tab-new" aria-label={t("ui-tab-new")} title={t("ui-tab-new")} onClick={onNew}>
         +
       </button>
-      {ghost && (
-        <div className="tab active tab-ghost" aria-hidden style={{ left: ghost.left, top: ghost.top }}>
-          <span className="tab-title">{ghost.title}</span>
-        </div>
-      )}
-      {menu && (
-        <div
-          ref={menuRef}
-          className="tab-menu object"
-          role="menu"
-          style={{ left: menu.x, top: menu.y }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {windows && <button role="menuitem" onClick={pick(() => onMove(menu.id, null))}>{t("ui-tab-move-new-window")}</button>}
-          {windows &&
-            view.windows.map((w, i) =>
-              w.label === win.label ? null : (
-                <button key={w.label} role="menuitem" onClick={pick(() => onMove(menu.id, w.label))}>
-                  {t("ui-tab-move-to", { n: i + 1 })}
-                </button>
-              ),
-            )}
-          <button role="menuitem" disabled={win.tabs.length < 2} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
-          <button role="menuitem" disabled={lastStays} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
-        </div>
-      )}
+      {/* Fantôme et menu dans `body` : la vitre de la barre (`backdrop-filter`)
+          deviendrait leur bloc conteneur, et leur `position: fixed` y serait relative. */}
+      {ghost &&
+        createPortal(
+          <div className="tab active tab-ghost" aria-hidden style={{ left: ghost.left, top: ghost.top }}>
+            <span className="tab-title">{ghost.title}</span>
+          </div>,
+          document.body,
+        )}
+      {menu &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="tab-menu object"
+            role="menu"
+            style={{ left: menu.x, top: menu.y }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {windows && <button role="menuitem" onClick={pick(() => onMove(menu.id, null))}>{t("ui-tab-move-new-window")}</button>}
+            {windows &&
+              view.windows.map((w, i) =>
+                w.label === win.label ? null : (
+                  <button key={w.label} role="menuitem" onClick={pick(() => onMove(menu.id, w.label))}>
+                    {t("ui-tab-move-to", { n: i + 1 })}
+                  </button>
+                ),
+              )}
+            <button role="menuitem" disabled={win.tabs.length < 2} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
+            <button role="menuitem" disabled={lastStays} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

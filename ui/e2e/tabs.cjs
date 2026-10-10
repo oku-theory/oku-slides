@@ -49,6 +49,12 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await tabs.nth(1).locator('.tab-close').click();
   await count(1);
   assert.deepEqual(asked, []);
+  // Clic droit : le menu s'ouvre dans la fenêtre, pas sous la barre en verre (t-812).
+  await tabs.nth(0).click({ button: 'right' });
+  const box = await p.getByRole('menu').boundingBox();
+  assert.ok(box && box.y >= 0 && box.y + box.height <= 900, `menu hors de la fenêtre : ${JSON.stringify(box)}`);
+  await p.keyboard.press('Escape');
+  await p.getByRole('menu').waitFor({ state: 'detached' });
   assert.deepEqual(errors, []);
   await b.close();
   console.log('tabs: ok');
