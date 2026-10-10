@@ -2,7 +2,7 @@
 
 import "./test/dom";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import type { SttState, SttStatus } from "./api";
+import type { Surface, SttState, SttStatus } from "./api";
 import { stt } from "./api";
 import type { DictationMode } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
@@ -14,6 +14,7 @@ const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: Dictation } = await import("./Dictation");
 const { expectIconOnly } = await import("./test/iconOnly");
+const { PICKER } = await import("./a2ui/fixtures/agentPicker");
 
 /** Un faux moteur : `start` écoute, `stop` rend `heard` (seq + 1), `cancel` revient au repos. */
 function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
@@ -77,6 +78,9 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
   const texts: [string, DictationMode][] = [];
   let cancels = 0;
   let typed = 0;
+  let pickerOpens = 0;
+  const selected: string[] = [];
+  let picker: Surface | null = null;
   const host = document.createElement("div");
   document.body.append(host);
   let root = createRoot(host);
@@ -92,6 +96,9 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
         onAgentCancel: () => cancels++,
         onType: () => typed++,
         remote: shortcut,
+        agentPicker: picker,
+        onAgentPickerOpen: () => void pickerOpens++,
+        onAgentSelect: (id: string) => void selected.push(id),
       }),
     );
   await act(async () => render(agentBusy, remote));
@@ -101,6 +108,16 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
     texts,
     cancels: () => cancels,
     typed: () => typed,
+    pickerOpens: () => pickerOpens,
+    selected,
+    /** Le panneau des agents reçu de l'hôte (ou retiré), rendu à nouveau. */
+    showPicker: async (surface: Surface | null) => {
+      picker = surface;
+      await act(async () => render(agentBusy, remote));
+      await settle();
+      // La surface est chargée à la demande (lazy) : laisser Suspense la résoudre.
+      for (let i = 0; i < 50 && surface && !host.querySelector(".agent-picker .chip"); i++) await settle();
+    },
     rerender: async (busy: boolean) => {
       await act(async () => render(busy, remote));
       await settle();
@@ -371,5 +388,50 @@ describe("raccourci relayé", () => {
     const m = await mount();
     await m.rerenderRemote({ seq: 1, key: "auto" });
     expect(engine.calls).toContain("start");
+  });
+});
+
+const agentChip = (host: HTMLElement, label: string) =>
+  [...host.querySelectorAll<HTMLButtonElement>(".dictation-settings .agent-picker .chip")].find((b) => b.textContent?.trim() === label);
+
+describe("agent dans les réglages", () => {
+  test("Dictation opening the settings asks for the agents picker", async () => {
+    const { host, pickerOpens } = await mount();
+    await openSettings(host);
+    expect(pickerOpens()).toBe(1);
+  });
+
+  test("Dictation closing the settings does not ask for the picker again", async () => {
+    const { host, pickerOpens } = await mount();
+    await openSettings(host);
+    await openSettings(host);
+    expect(pickerOpens()).toBe(1);
+  });
+
+  test("Dictation settings show the agents section at the bottom, with every agent", async () => {
+    const { host, showPicker } = await mount();
+    await openSettings(host);
+    await showPicker(PICKER);
+    const panel = host.querySelector(".dictation-settings")!;
+    expect(panel.lastElementChild?.classList.contains("dictation-agents")).toBe(true);
+    expect(agentChip(host, "Claude")).toBeDefined();
+    expect(agentChip(host, "Gemini")).toBeDefined();
+  });
+
+  test("Dictation choosing an agent calls onAgentSelect and keeps the settings open", async () => {
+    const { host, showPicker, selected } = await mount();
+    await openSettings(host);
+    await showPicker(PICKER);
+    await act(async () => agentChip(host, "Claude")!.click());
+    await settle();
+    expect(selected).toEqual(["claude"]);
+    expect(host.querySelector(".dictation-settings")).not.toBeNull();
+  });
+
+  test("Dictation without a picker surface shows no agents section", async () => {
+    const { host } = await mount();
+    await openSettings(host);
+    expect(host.querySelector(".dictation-settings")).not.toBeNull();
+    expect(host.querySelector(".dictation-agents, .agent-picker")).toBeNull();
   });
 });

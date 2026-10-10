@@ -1,9 +1,10 @@
 // La fenêtre de l'agent : le fil, le brouillon et la dictée de l'onglet au premier plan.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { memoryTransport } from "./test/link";
-import type { Snapshot, Surface } from "./api";
+import type { Snapshot, Surface, SttStatus } from "./api";
+import { stt } from "./api";
 import type { HostHandlers } from "./agent/events";
 import type { LinkContext } from "./agent/link";
 import type { AgentWindowHost } from "./AgentWindow";
@@ -42,6 +43,8 @@ function fakeHost(snapshot: Snapshot = SNAP) {
       cancel: async () => {},
       newConversation: async () => {},
       surfaceAction: async () => {},
+      picker: async () => void calls.push("picker"),
+      selectAgent: async () => {},
     },
     api: { snapshot: async () => snapshot, svg: async () => "<svg/>" },
     subscribe: (_tab: string, h: HostHandlers) => ((handlers = h), () => {}),
@@ -151,6 +154,48 @@ describe("AgentWindow", () => {
     const m = await mountWindow(READ_ONLY);
     await m.ready();
     expect(m.el.querySelector(".device")).not.toBeNull();
+  });
+
+  /** Un moteur de dictée au repos (le bouton des réglages n'existe qu'avec un état reçu). */
+  const idleStt = () =>
+    spyOn(stt, "status").mockImplementation(() =>
+      Promise.resolve({
+        state: "idle",
+        config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1 },
+        models: [{ id: "turbo", label: "Turbo", size: 1, installed: true, available: true }],
+        download: null, level: 0, speaking: false, committed: "", partial: "", detected: null,
+        stop_in: null, text: null, seq: 0, seconds: 0, error: null,
+      } as SttStatus),
+    );
+  /** Ouvre les réglages de la dictée, une fois la fenêtre prête et l'état de la dictée reçu. */
+  const openSettings = async (m: Awaited<ReturnType<typeof mountWindow>>) => {
+    await m.ready();
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    const gear = m.el.querySelector('[aria-label="ui-dictation-settings"]') as HTMLButtonElement;
+    await act(async () => gear.click());
+  };
+
+  test("AgentWindow ouvrir les réglages de la dictée demande le panneau des agents", async () => {
+    const spy = idleStt();
+    try {
+      const m = await mountWindow();
+      await openSettings(m);
+      expect(m.calls.filter((c) => c === "picker")).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("AgentWindow onglet en lecture seule : les réglages ne demandent pas le panneau des agents", async () => {
+    const spy = idleStt();
+    try {
+      const m = await mountWindow(READ_ONLY);
+      await openSettings(m);
+      expect(m.el.querySelector(".dictation-settings")).not.toBeNull();
+      expect(m.calls).not.toContain("picker");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("AgentWindowView sans vue reçue : chargement", async () => {

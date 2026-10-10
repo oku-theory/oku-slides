@@ -54,7 +54,7 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
 
 type State = "idle" | "starting" | "working";
 
-async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void; onPicker?: () => void } = {}) {
+async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void } = {}) {
   const actions: [string, string][] = [];
   let fresh = 0;
   const host = document.createElement("div");
@@ -429,19 +429,9 @@ describe("fil de l'agent par tours", () => {
     expectIconOnly(host.querySelector(".agent-detach"));
   });
 
-  test("AgentThread with onPicker shows the agents button even when empty", async () => {
-    const { host } = await mount([], "idle", { onPicker: () => {} });
-    const button = host.querySelector('button[aria-label="ui-agent-picker"]');
-    expectIconOnly(button);
-    expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(false);
-  });
-
-  test("AgentThread agents button calls onPicker", async () => {
-    let asked = 0;
-    const { host } = await mount([realSurface("turn-3")], "idle", { onPicker: () => asked++ });
-    const button = host.querySelector('button[aria-label="ui-agent-picker"]') as HTMLButtonElement;
-    await act(async () => button.click());
-    expect(asked).toBe(1);
+  test("AgentThread has no agents button: the picker lives in the dictation settings", async () => {
+    const { host } = await mount([realSurface("turn-3")], "idle", { onDetach: () => {} });
+    expect(host.querySelector(".agent-picker-toggle, .agent-picker")).toBeNull();
   });
 
   test("fil vide sans onDetach ni onAttach : aucun en-tête de plus", async () => {

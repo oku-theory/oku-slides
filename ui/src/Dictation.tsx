@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SttConfig, SttModel, SttStatus } from "./api";
+import type { Surface, SttConfig, SttModel, SttStatus } from "./api";
 import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import { AgentPicker } from "./agent/AgentPicker";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
@@ -71,10 +72,16 @@ interface Props {
    * le dernier vu agit une fois ; celui présent au montage n'agit pas.
    */
   remote?: { seq: number; key: LinkShortcut };
+  /** Le panneau des agents reçu de l'hôte (`useAgentPicker`), en bas des réglages ; `null` : pas encore reçu. */
+  agentPicker: Surface | null;
+  /** Les réglages s'ouvrent : l'hôte renvoie le panneau des agents à jour. */
+  onAgentPickerOpen: () => void;
+  /** Un agent choisi ; les réglages restent ouverts. */
+  onAgentSelect: (id: string) => void;
 }
 
-/** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle. */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote }: Props) {
+/** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle et de l'agent. */
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, agentPicker, onAgentPickerOpen, onAgentSelect }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
@@ -336,7 +343,10 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
           aria-label={t("ui-dictation-settings")}
           aria-expanded={settings}
           disabled={state !== "idle"}
-          onClick={() => setSettings((v) => !v)}
+          onClick={() => {
+            if (!settings) onAgentPickerOpen();
+            setSettings(!settings);
+          }}
         >
           {GearIcon}
         </button>
@@ -397,6 +407,12 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
           <p className="caption">{t("ui-dictation-phrases-note")}</p>
           {model && model.available && !model.installed && (
             <button className="btn" onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</button>
+          )}
+          {/* L'agent de l'app, sous les réglages de la dictée (la surface porte son titre). */}
+          {agentPicker && (
+            <div className="dictation-agents">
+              <AgentPicker surface={agentPicker} onSelect={onAgentSelect} onError={onError} />
+            </div>
           )}
         </div>
       )}

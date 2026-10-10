@@ -19,6 +19,7 @@ import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShort
 import { createSlot } from "./agent/slot";
 import { routeStaged } from "./agent/surfaces";
 import { agentTarget } from "./agent/target";
+import { useAgentPicker } from "./agent/useAgentPicker";
 import { useDraft } from "./agent/useDraft";
 import { AttachButton } from "./agent/AttachButton";
 import { useAppearance } from "./useAppearance";
@@ -151,6 +152,8 @@ export function AgentWindowFor({
   const { say, node: toastNode } = useToast();
 
   const draft = useDraft(host.agent.setDraft);
+  // Le panneau des agents, dans le menu des réglages de la dictée.
+  const agentPicker = useAgentPicker(host.agent, (m) => say(m, true));
   const insertOrKeep = async (text: string) => {
     const ok = await insertWithAck(transport, tab, text);
     if (!ok) say(t("ui-agent-kept-in-draft"), true);
@@ -207,7 +210,8 @@ export function AgentWindowFor({
   const staged = context?.staged ?? null;
   const route = useCallback((list: Parameters<typeof routeStaged>[0]) => routeStaged(list, staged), [staged]);
 
-  const dictation = (onText: (text: string, mode: DictationMode) => void) => (
+  // `picker` faux : pas d'AgentPanel (lecture seule), le panneau des agents n'arriverait jamais.
+  const dictation = (onText: (text: string, mode: DictationMode) => void, picker = true) => (
     <Dictation
       destination={t(context?.editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft")}
       vocabulary={vocabulary}
@@ -217,6 +221,9 @@ export function AgentWindowFor({
       onAgentCancel={() => handle.current?.cancel()}
       onType={draft.type}
       remote={remote}
+      agentPicker={picker ? agentPicker.surface : null}
+      onAgentPickerOpen={picker ? agentPicker.open : NOOP}
+      onAgentSelect={agentPicker.select}
     />
   );
 
@@ -227,7 +234,7 @@ export function AgentWindowFor({
         <p>{t("ui-agent-window-empty")}</p>
         <AttachButton onClick={attach} />
         {/* Lecture seule : pas de brouillon (rien ne l'afficherait) ; le texte part à la fenêtre principale, qui le refuse. */}
-        {dictation((text) => void insertWithAck(transport, tab, text))}
+        {dictation((text) => void insertWithAck(transport, tab, text), false)}
         {toastNode}
       </div>
     );
@@ -253,6 +260,7 @@ export function AgentWindowFor({
         onFocus={NOOP}
         onWidgetTouched={NOOP}
         onDraft={draft.onHost}
+        onPicker={agentPicker.onPicker}
         say={say}
         subscribe={host.subscribe}
         onAttach={attach}

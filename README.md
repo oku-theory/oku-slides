@@ -244,7 +244,7 @@ deck languages are passed in its context, and it answers in yours.
 - **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
   the agent in its own window, for a second screen. It follows the active tab of the
   front window.
-- **Choosing the agent**: the ⚙ button at the top of the thread lists the agents of the
+- **Choosing the agent**: the settings menu of the dictation bar lists, at its bottom, the agents of the
   configuration (`[agent.presets]`); picking one saves it and switches at once (a turn in
   progress stops). Add an agent in `config.toml`; `OKU_SLIDES_AGENT__SELECTED` imposes the
   choice. The agent itself cannot change it.

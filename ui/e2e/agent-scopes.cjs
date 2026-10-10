@@ -11,8 +11,7 @@ const turn = (p, text) => p.locator('.agent-turn', { hasText: text });
 const newConversation = async (p) => {
   const button = p.locator('.agent-new');
   if (await button.count()) await button.click();
-  // L'en-tête (bouton des agents) reste visible : le fil n'est jamais `.vacant`, on attend l'absence de tours.
-  await p.waitForFunction(() => !document.querySelector('.agent-turn'));
+  await p.waitForSelector('.agent-thread.vacant');
 };
 /** Le fil d'une perspective se rappelle de façon asynchrone (resync) : `action` faite, on attend que
  * l'hôte ait répondu au rappel de la portée `kind` (promesse créée avant l'action). */

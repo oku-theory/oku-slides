@@ -1,4 +1,4 @@
-// Fiche du panneau des agents dans un DOM happy-dom.
+// Section des agents (menu des réglages de la dictée) dans un DOM happy-dom.
 
 import "../test/dom";
 import { afterEach, describe, expect, test } from "bun:test";
@@ -22,7 +22,6 @@ afterEach(async () => {
 
 async function mount(surface: Surface | null) {
   const selected: string[] = [];
-  let closed = 0;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -32,7 +31,6 @@ async function mount(surface: Surface | null) {
       createElement(AgentPicker, {
         surface,
         onSelect: (id: string) => void selected.push(id),
-        onClose: () => void closed++,
         onError: (m: string) => {
           throw new Error(m);
         },
@@ -41,7 +39,7 @@ async function mount(surface: Surface | null) {
   );
   // La surface est chargée à la demande (lazy) : laisser Suspense la résoudre.
   for (let i = 0; i < 50 && !host.querySelector(".chip"); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
-  return { host, selected, closed: () => closed };
+  return { host, selected };
 }
 
 const chip = (host: HTMLElement, label: string) =>
@@ -60,11 +58,12 @@ describe("AgentPicker", () => {
     expect(selected).toEqual(["claude"]);
   });
 
-  test("AgentPicker escape calls onClose", async () => {
-    const { host, closed } = await mount(PICKER);
+  test("AgentPicker is an inline section, not a dialog, and takes no focus", async () => {
+    const { host } = await mount(PICKER);
     const box = host.querySelector(".agent-picker")!;
-    await act(async () => void box.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-    expect(closed()).toBe(1);
+    expect(box.getAttribute("role")).toBeNull();
+    expect(box.hasAttribute("tabindex")).toBe(false);
+    expect(document.activeElement).not.toBe(box);
   });
 
   test("AgentPicker without surface renders nothing", async () => {

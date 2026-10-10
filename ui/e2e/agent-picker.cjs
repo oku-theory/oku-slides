@@ -1,4 +1,5 @@
-// Panneau des agents : ouvrir la fiche, passer au second faux agent, lire sa réponse, revenir au premier.
+// Panneau des agents (menu des réglages de la dictée) : l'ouvrir, passer au second faux agent, lire sa
+// réponse, revenir au premier.
 // Contre `oku-slides serve` lancé par `just e2e` (deux presets : « Faux » choisi, « Faux bis »).
 // Dernier de la liste : choisir un agent change l'agent de tout le serveur.
 const { chromium } = require('playwright');
@@ -14,9 +15,35 @@ const isChosen = (c) =>
     const on = (v) => v === 'true';
     return on(el.getAttribute('aria-pressed')) || on(el.getAttribute('aria-checked')) || on(el.getAttribute('aria-selected')) || /\b(selected|active|on)\b/.test(el.className);
   });
-const openSheet = async (p) => {
-  await p.locator('button.agent-picker-toggle').click();
-  await p.waitForSelector('.agent-picker');
+/**
+ * Attend que la pastille `name` soit choisie : le menu rouvert montre d'abord la dernière surface
+ * reçue, puis celle que l'hôte renvoie à jour.
+ */
+const untilChosen = async (p, name) => {
+  for (let i = 0; i < 50; i++) {
+    if (await isChosen(chip(p, name))) return;
+    await p.waitForTimeout(100);
+  }
+  assert.fail(`« ${name} » devrait être choisi`);
+};
+/** Clique la pastille de l'agent `name` et attend que l'hôte ait accepté le choix (réponse à `select_agent`). */
+const choose = async (p, name) => {
+  const accepted = p.waitForResponse((r) => r.url().endsWith('/api/agent') && (r.request().postData() ?? '').includes('"select_agent"'));
+  await chip(p, name).click();
+  const response = await accepted;
+  assert.ok(response.ok(), `choix de « ${name} » refusé : ${response.status()}`);
+};
+/** Le bouton des réglages de la barre de dictée. */
+const gear = (p) => p.locator('.device.dictation button[aria-label="Réglages"]');
+/** Ouvre le menu des réglages ; sa section des agents arrive de l'hôte. */
+const openSettings = async (p) => {
+  await gear(p).click();
+  await p.waitForSelector('.dictation-settings .agent-picker');
+};
+/** Ferme le menu des réglages (même bouton). */
+const closeSettings = async (p) => {
+  await gear(p).click();
+  await p.waitForSelector('.dictation-settings', { state: 'detached' });
 };
 
 (async () => {
@@ -30,26 +57,27 @@ const openSheet = async (p) => {
   await p.reload();
   await p.waitForSelector('.stage img');
 
-  // 1. La fiche montre les deux agents ; « Faux » est choisi.
-  await openSheet(p);
+  // 1. La section des agents montre les deux agents ; « Faux » est choisi.
+  await openSettings(p);
   await chip(p, 'Faux').waitFor();
   await chip(p, 'Faux bis').waitFor();
   assert.ok(await isChosen(chip(p, 'Faux')), '« Faux » devrait être choisi');
   assert.ok(!(await isChosen(chip(p, 'Faux bis'))), '« Faux bis » ne devrait pas être choisi');
 
-  // 2. Choisir « Faux bis » ferme la fiche ; son agent répond au prochain tour.
-  await chip(p, 'Faux bis').click();
-  await p.waitForSelector('.agent-picker', { state: 'detached' });
+  // 2. Choisir « Faux bis » laisse le menu ouvert ; son agent répond au prochain tour.
+  await choose(p, 'Faux bis');
+  assert.equal(await p.locator('.dictation-settings').count(), 1, 'le menu des réglages devrait rester ouvert');
+  await closeSettings(p);
   await prompt(p, 'bonjour');
   await p.locator('.agent-turn', { hasText: "Réponse de l'agent bis." }).waitFor();
 
-  // 3. La fiche rouverte retient « Faux bis » ; on revient à « Faux » (agent par défaut des specs suivantes).
-  await openSheet(p);
-  assert.ok(await isChosen(chip(p, 'Faux bis')), '« Faux bis » devrait être choisi');
-  await chip(p, 'Faux').click();
-  await p.waitForSelector('.agent-picker', { state: 'detached' });
-  await openSheet(p);
-  assert.ok(await isChosen(chip(p, 'Faux')), '« Faux » devrait être de nouveau choisi');
+  // 3. Le menu rouvert retient « Faux bis » ; on revient à « Faux » (agent par défaut des specs suivantes).
+  await openSettings(p);
+  await untilChosen(p, 'Faux bis');
+  await choose(p, 'Faux');
+  await closeSettings(p);
+  await openSettings(p);
+  await untilChosen(p, 'Faux');
 
   assert.deepEqual(errors, []);
   await b.close();

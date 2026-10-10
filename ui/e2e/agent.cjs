@@ -144,14 +144,10 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   assert.notEqual(tab2, 't-1');
   await p.reload();
   await p.waitForSelector('.stage img');
-  // Fil vide : seul son en-tête (bouton des agents) reste visible ; aucun tour, la zone des
-  // tours ne prend aucune hauteur, le dock vide et la région annoncée restent montés sans place (t-451, t-775).
+  // Fil vide : rien de visible, seules ses régions annoncées restent montées (t-451).
   assert.equal(await p.locator('.agent-turn').count(), 0);
-  assert.equal(await p.locator('.agent-thread.vacant').count(), 0);
-  assert.equal(await p.locator('.agent-thread-head .agent-picker-toggle').count(), 1);
-  const scrollerHeight = await p.locator('.agent-scroller').evaluate((el) => el.getBoundingClientRect().height);
-  assert.ok(scrollerHeight <= 1, `la zone des tours vide prend de la place : ${scrollerHeight}px`);
-  for (const selector of ['.agent-dock.vacant', '.agent-announce']) await assertUnobtrusive(p, selector);
+  assert.equal(await p.locator('.agent-thread.vacant').count(), 1);
+  for (const selector of ['.agent-thread.vacant', '.agent-dock.vacant', '.agent-announce']) await assertUnobtrusive(p, selector);
 
   // Son tour (propre à cette session, voir e2e.json → sessions.2) applique un vrai
   // changement sur son propre deck vierge (slide « s-1 ») : le vérifier confirme que

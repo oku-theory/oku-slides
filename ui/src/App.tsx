@@ -37,6 +37,7 @@ import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel, IDLE_AGENT, type AgentHandle, type ScopeSource } from "./agent/AgentPanel";
 import { routeSurfaces } from "./agent/surfaces";
+import { useAgentPicker } from "./agent/useAgentPicker";
 import { agentUi } from "./agent/ui";
 import { escapeAction, targetOwnsKeys } from "./agent/keys";
 import { createSlot, SlotView } from "./agent/slot";
@@ -398,6 +399,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   const [agent] = useState(() => agentApi(tab));
   const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
+  // Le panneau des agents, dans le menu des réglages de la dictée.
+  const agentPicker = useAgentPicker(agent, (m) => say(m, true));
   // Les fiches ancrées se posent sous leur élément, sur la slide affichée.
   const shown = useMemo(
     () => (view && view.slide.id === current ? { slide: view.slide.id, has: (a: Anchor) => anchorBox(view, a) !== null } : null),
@@ -857,6 +860,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
           onDraft={dictation.draft.onHost}
+          onPicker={agentPicker.onPicker}
         />
         {!snap.read_only && !agentDetached && <DictationDraft
           text={dictation.draft.state.text}
@@ -890,6 +894,9 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         agentBusy={agentStatus.busy}
         onAgentCancel={cancelAgent}
         onType={dictation.draft.type}
+        agentPicker={agentPicker.surface}
+        onAgentPickerOpen={agentPicker.open}
+        onAgentSelect={agentPicker.select}
       />}
 
       {picking && (
