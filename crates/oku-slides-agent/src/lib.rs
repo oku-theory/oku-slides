@@ -8,7 +8,8 @@
 //! - [`Keeper`] : le gardien d'un onglet, seul passage vers ses conversations gardées.
 //! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
 //! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
-//!   évènements relayés en enveloppes `{tab, event}`.
+//!   évènements relayés en enveloppes `{tab, event}`, et le panneau des agents
+//!   (`picker`, `select_agent`).
 //!
 //! L'agent n'a ni fichiers ni terminal : il n'agit que par les outils.
 
@@ -20,6 +21,7 @@ mod instructions;
 mod keeper;
 mod link;
 mod permission;
+mod picker;
 mod settings_port;
 mod stack;
 mod tab_agent;

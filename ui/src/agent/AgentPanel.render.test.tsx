@@ -14,6 +14,7 @@ const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
 const { createSlot, SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
 const { ARMING_MS } = await import("./useQuickKeys");
+const { PICKER } = await import("../a2ui/fixtures/agentPicker");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -55,7 +56,12 @@ const escape = async () => {
 };
 
 /** Monte le panneau dans un hôte qui compte ses rendus, avec une scène et une pile qui comptent les leurs. */
-async function mount({ promptFails = false, scope = DRIVE, keyPlaces }: { promptFails?: boolean; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][] } = {}) {
+async function mount({
+  promptFails = false,
+  selectFails = null,
+  scope = DRIVE,
+  keyPlaces,
+}: { promptFails?: boolean; selectFails?: string | null; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][] } = {}) {
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -68,6 +74,8 @@ async function mount({ promptFails = false, scope = DRIVE, keyPlaces }: { prompt
   const follows: number[] = [];
   const actions: string[] = [];
   const drafts: { text: string | null; origin: string | null }[] = [];
+  const pickers: number[] = [];
+  const selected: string[] = [];
   const agent = {
     prompt: async (s: AgentScope, text: string) => {
       prompts.push(text);
@@ -79,6 +87,12 @@ async function mount({ promptFails = false, scope = DRIVE, keyPlaces }: { prompt
     surfaceAction: async (id: string, name: string) => void actions.push(`${id}:${name}`),
     resync: async (s: AgentScope) => void resyncs.push(s),
     follow: async () => void follows.push(1),
+    setDraft: async () => {},
+    picker: async () => void pickers.push(1),
+    selectAgent: async (id: string) => {
+      selected.push(id);
+      if (selectFails !== null) throw selectFails;
+    },
   };
   const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
   const handle = createRef<import("./AgentPanel").AgentHandle>();
@@ -141,7 +155,7 @@ async function mount({ promptFails = false, scope = DRIVE, keyPlaces }: { prompt
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions };
+  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions, pickers, selected };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -269,4 +283,79 @@ test("AgentPanel un brouillon reçu de l'hôte est transmis", async () => {
   const m = await mount();
   await act(async () => m.handlers().onAgent({ kind: "draft", text: "x", origin: "v-2" }));
   expect(m.drafts).toEqual([{ text: "x", origin: "v-2" }]);
+});
+
+/** Le bouton des agents de l'en-tête du fil. */
+const pickerButton = (host: HTMLElement) => host.querySelector('button[aria-label="ui-agent-picker"]') as HTMLButtonElement;
+const claudeChip = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".agent-picker .chip")].find((b) => b.textContent?.trim() === "Claude");
+
+test("AgentPanel agents button asks the host for the picker", async () => {
+  const m = await mount();
+  await act(async () => pickerButton(m.host).click());
+  expect(m.pickers).toHaveLength(1);
+});
+
+test("AgentPanel picker event shows the sheet and a choice sends select_agent then closes", async () => {
+  const m = await mount();
+  await act(async () => pickerButton(m.host).click());
+  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
+  await m.until(() => !!claudeChip(m.host));
+  expect(m.host.querySelector(".agent-picker")).not.toBeNull();
+  await act(async () => claudeChip(m.host)!.click());
+  expect(m.selected).toEqual(["claude"]);
+  await m.until(() => !m.host.querySelector(".agent-picker"));
+  expect(m.host.querySelector(".agent-picker")).toBeNull();
+});
+
+test("AgentPanel refused choice keeps the sheet and says the error", async () => {
+  const m = await mount({ selectFails: "refus" });
+  await act(async () => pickerButton(m.host).click());
+  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
+  await m.until(() => !!claudeChip(m.host));
+  await act(async () => claudeChip(m.host)!.click());
+  await act(async () => new Promise((r) => setTimeout(r, 0)));
+  expect(m.said).toEqual(["refus"]);
+  expect(m.host.querySelector(".agent-picker")).not.toBeNull();
+});
+
+/** Une touche frappée dans l'élément qui a le focus (elle remonte jusqu'à la fenêtre). */
+const keyInFocus = async (key: string, code: string) =>
+  act(async () => void document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true })));
+
+/** Une question en fiche sur la scène, puis la fiche des agents ouverte (elle prend le focus). */
+const pickerOverSheet = async () => {
+  const m = await mount();
+  await m.mcp({ kind: "surface", surface: sheet });
+  await m.until(() => (m.host.querySelector(".stage-probe")?.textContent ?? "").includes("Choisir"));
+  await act(async () => pickerButton(m.host).click());
+  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
+  await m.until(() => !!claudeChip(m.host));
+  expect(document.activeElement?.classList.contains("agent-picker")).toBe(true);
+  return m;
+};
+
+test("AgentPanel Escape in the open picker closes it and leaves the sheet question alone", async () => {
+  const m = await pickerOverSheet();
+  await keyInFocus("Escape", "Escape");
+  expect(m.actions).toEqual([]);
+  expect(m.host.querySelector(".agent-picker")).toBeNull();
+  expect(m.host.querySelector(".stage-probe")?.textContent).toContain("Choisir");
+});
+
+test("AgentPanel digit key in the open picker sends no answer to the sheet question", async () => {
+  const m = await pickerOverSheet();
+  await keyInFocus("1", "Digit1");
+  expect(m.actions).toEqual([]);
+  expect(m.host.querySelector(".agent-picker")).not.toBeNull();
+});
+
+test("AgentPanel refused choice asks the host for the picker again (shown and saved choice agree)", async () => {
+  const m = await mount({ selectFails: "refus" });
+  await act(async () => pickerButton(m.host).click());
+  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
+  await m.until(() => !!claudeChip(m.host));
+  expect(m.pickers).toHaveLength(1);
+  await act(async () => claudeChip(m.host)!.click());
+  await act(async () => new Promise((r) => setTimeout(r, 0)));
+  expect(m.pickers).toHaveLength(2);
 });

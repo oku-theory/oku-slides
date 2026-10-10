@@ -1,0 +1,79 @@
+---
+source: crates/oku-slides-agent/src/picker_tests.rs
+expression: s
+---
+{
+  "id": "agent-picker",
+  "place": "sheet",
+  "live": true,
+  "question": false,
+  "messages": [
+    {
+      "version": "v0.9",
+      "createSurface": {
+        "surfaceId": "agent-picker",
+        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "agent-picker",
+        "components": [
+          {
+            "id": "root",
+            "component": "Column",
+            "children": [
+              "title",
+              "agents"
+            ]
+          },
+          {
+            "id": "title",
+            "component": "Text",
+            "text": "Agent",
+            "variant": "h4"
+          },
+          {
+            "id": "agents",
+            "component": "ChoiceChips",
+            "options": [
+              {
+                "id": "claude",
+                "label": "Claude",
+                "hint": "npx -y claude-agent-acp"
+              },
+              {
+                "id": "gemini",
+                "label": "Gemini",
+                "hint": "npx -y gemini --acp"
+              }
+            ],
+            "value": {
+              "path": "/choice"
+            },
+            "action": {
+              "event": {
+                "name": "select",
+                "context": {
+                  "id": {
+                    "path": "/choice"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9",
+      "updateDataModel": {
+        "surfaceId": "agent-picker",
+        "value": {
+          "choice": "gemini"
+        }
+      }
+    }
+  ]
+}

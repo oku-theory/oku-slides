@@ -258,7 +258,7 @@ impl TabAgent {
                 None
             }
         };
-        let cwd = dir.unwrap_or_else(|| self.link.fallback_cwd().to_path_buf());
+        let cwd = dir.unwrap_or_else(|| self.link.fallback_cwd());
         let tools = McpServer::Http(
             McpServerHttp::new("oku-slides", self.tools.url.clone())
                 .headers(vec![HttpHeader::new("Authorization", self.tools.authorization.clone())]),

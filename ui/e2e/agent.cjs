@@ -1,7 +1,7 @@
 // Agent (faux agent ACP) : reformulation dans une fiche, variantes dans le tiroir, annulation,
 // puis un second onglet qui répond pendant que le premier attend toujours une question.
-// Contre `oku-slides serve fixtures/roadmap.json` lancé avec OKU_SLIDES_AGENT__COMMAND = faux agent
-// (just e2e s'en charge).
+// Contre `oku-slides serve fixtures/roadmap.json` lancé avec le faux agent comme agent actif
+// (`config.toml` du dossier de données isolé ; just e2e s'en charge).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./http.cjs');
@@ -144,10 +144,14 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   assert.notEqual(tab2, 't-1');
   await p.reload();
   await p.waitForSelector('.stage img');
-  // Fil vide : rien de visible, seules ses régions annoncées restent montées (t-451).
+  // Fil vide : seul son en-tête (bouton des agents) reste visible ; aucun tour, la zone des
+  // tours ne prend aucune hauteur, le dock vide et la région annoncée restent montés sans place (t-451, t-775).
   assert.equal(await p.locator('.agent-turn').count(), 0);
-  assert.equal(await p.locator('.agent-thread.vacant').count(), 1);
-  for (const selector of ['.agent-thread.vacant', '.agent-dock.vacant', '.agent-announce']) await assertUnobtrusive(p, selector);
+  assert.equal(await p.locator('.agent-thread.vacant').count(), 0);
+  assert.equal(await p.locator('.agent-thread-head .agent-picker-toggle').count(), 1);
+  const scrollerHeight = await p.locator('.agent-scroller').evaluate((el) => el.getBoundingClientRect().height);
+  assert.ok(scrollerHeight <= 1, `la zone des tours vide prend de la place : ${scrollerHeight}px`);
+  for (const selector of ['.agent-dock.vacant', '.agent-announce']) await assertUnobtrusive(p, selector);
 
   // Son tour (propre à cette session, voir e2e.json → sessions.2) applique un vrai
   // changement sur son propre deck vierge (slide « s-1 ») : le vérifier confirme que

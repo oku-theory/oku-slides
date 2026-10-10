@@ -589,10 +589,14 @@ export type AgentUiSent = AgentUi & { locale: string };
 /** L'agent au repos, en lancement, ou en plein tour. */
 export type AgentState = "idle" | "starting" | "working";
 
-/** Évènements du canal `agent` : état de l'agent et brouillon de l'onglet (le fil passe par les surfaces). */
+/**
+ * Évènements du canal `agent` : état de l'agent, brouillon de l'onglet et panneau des agents
+ * (le fil passe par les surfaces).
+ */
 export type AgentEvent =
   | { kind: "status"; state: AgentState; scope?: AgentScope }
-  | { kind: "draft"; text: string | null; origin: string | null };
+  | { kind: "draft"; text: string | null; origin: string | null }
+  | { kind: "picker"; surface: Surface };
 
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
@@ -644,7 +648,9 @@ type AgentCommand =
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
   | { cmd: "resync"; tab: string; scope: AgentScope }
   | { cmd: "follow"; tab: string }
-  | { cmd: "set_draft"; tab: string; text: string | null; origin: string };
+  | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
+  | { cmd: "picker"; tab: string }
+  | { cmd: "select_agent"; tab: string; id: string };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
 
@@ -667,6 +673,10 @@ export function agentApi(tab: string) {
     follow: () => agentCall({ cmd: "follow", tab }),
     /** Le brouillon de l'onglet, tenu par l'hôte ; `null` : fermé. `origin` : la vue qui l'écrit. */
     setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
+    /** Demande le panneau des agents (évènement `picker` pour cet onglet). */
+    picker: () => agentCall({ cmd: "picker", tab }),
+    /** Choisit l'agent de l'app ; l'hôte réémet le panneau. */
+    selectAgent: (id: string) => agentCall({ cmd: "select_agent", tab, id }),
   };
 }
 

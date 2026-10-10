@@ -1,9 +1,10 @@
 //! La connexion ACP partagée par tous les onglets : un seul sous-processus,
-//! lancé à la première demande et relancé après un arrêt ; notifications et
+//! lancé à la première demande et relancé après un arrêt ou un changement
+//! d'agent ([`Link::switch`]) ; notifications et
 //! demandes de permission routées vers l'onglet de leur `SessionId`.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
@@ -41,6 +42,10 @@ pub(crate) struct Live {
     pub closed: CancellationToken,
     /// Ce que l'agent sait faire d'une session existante.
     pub caps: SessionCaps,
+    /// Époque du lancement (voir [`Link::switch`]) : d'une autre, la connexion est périmée.
+    pub epoch: u64,
+    /// Arrête cette connexion (agent changé) ; enfant de l'arrêt de l'app.
+    pub stop: CancellationToken,
 }
 
 /// Ce que l'agent sait faire d'une session existante.
@@ -103,7 +108,10 @@ pub struct Link {
 
 #[derive(Debug)]
 struct Inner {
-    launch: Launch,
+    /// Le lancement courant et son époque ; `switch` change les deux ensemble.
+    launch: StdMutex<(Launch, u64)>,
+    /// Le jeton `stop` de la connexion vivante ou en cours de lancement : `switch` l'annule.
+    current_stop: StdMutex<Option<CancellationToken>>,
     state: Mutex<State>,
     routes: Routes,
     /// Arrête la connexion courante quand `Inner` est lâché.
@@ -127,7 +135,8 @@ impl Link {
     pub fn new(launch: Launch) -> Self {
         Self {
             inner: Arc::new(Inner {
-                launch,
+                launch: StdMutex::new((launch, 0)),
+                current_stop: StdMutex::default(),
                 state: Mutex::new(State::default()),
                 routes: Routes::default(),
                 shutdown: CancellationToken::new(),
@@ -137,7 +146,30 @@ impl Link {
 
     /// L'empreinte de l'agent lancé : une session ne se reprend qu'avec le même.
     pub fn agent_id(&self) -> String {
-        agent_fingerprint(&self.inner.launch.command, &self.inner.launch.args)
+        let (launch, _) = self.launch_now();
+        agent_fingerprint(&launch.command, &launch.args)
+    }
+
+    /// Le lancement courant et son époque, copiés sous le verrou.
+    fn launch_now(&self) -> (Launch, u64) {
+        self.inner.launch.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// Change d'agent : le prochain [`Link::connect`] lance `launch`.
+    ///
+    /// La connexion vivante est arrêtée tout de suite (ses tours échouent comme pour tout arrêt) ;
+    /// un lancement en cours est interrompu, et `connect` relance aussitôt avec `launch`.
+    /// Aucun lancement après `shutdown`.
+    pub fn switch(&self, launch: Launch) {
+        {
+            let mut current = self.inner.launch.lock().unwrap_or_else(PoisonError::into_inner);
+            current.0 = launch;
+            current.1 += 1;
+        }
+        if let Some(stop) = self.inner.current_stop.lock().unwrap_or_else(PoisonError::into_inner).take() {
+            stop.cancel();
+        }
+        tracing::info!("agent changé");
     }
 
     /// Le lancement vivant, s'il y en a un ; `None` aussi pendant un lancement (verrou pris).
@@ -147,35 +179,55 @@ impl Link {
     }
 
     /// Dossier de travail d'une session sans document enregistré.
-    pub(crate) fn fallback_cwd(&self) -> &Path {
-        &self.inner.launch.fallback_cwd
+    pub(crate) fn fallback_cwd(&self) -> PathBuf {
+        self.launch_now().0.fallback_cwd
     }
 
     /// La connexion courante, ou une nouvelle (sous-processus lancé et
-    /// poignée de main faite) si la précédente est finie.
+    /// poignée de main faite) si la précédente est finie ou d'un autre agent.
     pub(crate) async fn connect(&self) -> Result<Live, AgentError> {
         let mut state = self.inner.state.lock().await;
-        // Arrêtée pour de bon (`shutdown`) : plus aucun lancement.
-        if self.inner.shutdown.is_cancelled() {
-            return Err(StoppedSnafu { message: "shut down".to_owned() }.build().into());
+        loop {
+            // Arrêtée pour de bon (`shutdown`) : plus aucun lancement.
+            if self.inner.shutdown.is_cancelled() {
+                return Err(StoppedSnafu { message: "shut down".to_owned() }.build().into());
+            }
+            let (launch, epoch) = self.launch_now();
+            if let Some(live) = &state.live {
+                if !live.closed.is_cancelled() && live.epoch == epoch {
+                    return Ok(live.clone());
+                }
+                // D'une autre époque : l'agent a été changé, celui-ci s'arrête.
+                live.stop.cancel();
+            }
+            state.live = None;
+            state.generation += 1;
+            // Posé avant la poignée de main : `switch` interrompt aussi un lancement en cours.
+            let stop = self.inner.shutdown.child_token();
+            *self.inner.current_stop.lock().unwrap_or_else(PoisonError::into_inner) = Some(stop.clone());
+            // Un `switch` entre `launch_now` et la ligne ci-dessus a arrêté le jeton précédent, pas
+            // celui-ci : l'époque relue le voit (`switch` la change avant de prendre le jeton).
+            if self.launch_now().1 != epoch {
+                stop.cancel();
+                continue;
+            }
+            match self.launch(state.generation, launch, epoch, stop).await {
+                // Changé pendant la poignée de main : on repasse par le haut de la boucle.
+                Ok(live) => state.live = Some(live),
+                // Lancement interrompu ou raté après une bascule : on tente le nouvel agent.
+                Err(e) if self.launch_now().1 != epoch => {
+                    tracing::debug!(error = %e, "lancement abandonné : agent changé");
+                }
+                Err(e) => return Err(e),
+            }
         }
-        if let Some(live) = &state.live
-            && !live.closed.is_cancelled()
-        {
-            return Ok(live.clone());
-        }
-        state.live = None;
-        state.generation += 1;
-        let live = self.launch(state.generation).await?;
-        state.live = Some(live.clone());
-        Ok(live)
     }
 
     /// Arrête l'agent pour de bon (fin de l'app) : le sous-processus est tué,
     /// aucun autre ne sera lancé. Attend la fin de la connexion au plus
     /// `within` ; un lancement en cours n'est pas attendu (sa poignée de main
     /// s'interrompt, et son sous-processus avec).
-    pub(crate) async fn shutdown(&self, within: Duration) {
+    pub async fn shutdown(&self, within: Duration) {
         self.inner.shutdown.cancel();
         let live = self.inner.state.try_lock().ok().and_then(|s| s.live.clone());
         if let Some(live) = live
@@ -205,11 +257,18 @@ impl Link {
         self.inner.routes.lock().unwrap_or_else(PoisonError::into_inner).remove(&(generation, id));
     }
 
-    /// Lance l'agent et attend sa poignée de main, au plus `ready_within`.
-    async fn launch(&self, generation: u64) -> Result<Live, AgentError> {
-        let Launch { command, args, .. } = &self.inner.launch;
-        let mut child = tokio::process::Command::new(command)
-            .args(args)
+    /// Lance l'agent `launch` (de l'époque `epoch`) et attend sa poignée de main, au plus
+    /// `ready_within` ; `stop` l'interrompt et arrêtera la connexion.
+    async fn launch(
+        &self,
+        generation: u64,
+        launch: Launch,
+        epoch: u64,
+        stop: CancellationToken,
+    ) -> Result<Live, AgentError> {
+        let Launch { command, args, ready_within, .. } = launch;
+        let mut child = tokio::process::Command::new(&command)
+            .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -225,14 +284,10 @@ impl Link {
         tracing::info!(command = %command, generation, "agent lancé");
         let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
         let (ready_tx, ready_rx) = oneshot::channel();
-        let serving = Serving {
-            routes: self.inner.routes.clone(),
-            shutdown: self.inner.shutdown.clone(),
-            closed: CancellationToken::new(),
-            generation,
-        };
+        let serving =
+            Serving { routes: self.inner.routes.clone(), stop, closed: CancellationToken::new(), generation, epoch };
         let serving = tokio::spawn(serving.run(transport, child, ready_tx));
-        match tokio::time::timeout(self.inner.launch.ready_within, ready_rx).await {
+        match tokio::time::timeout(ready_within, ready_rx).await {
             Ok(Ok(ready)) => ready,
             Ok(Err(_)) => Err(StoppedSnafu { message: "connection ended before handshake".to_owned() }.build().into()),
             Err(_) => {
@@ -248,9 +303,11 @@ impl Link {
 /// Ce que la tâche de la connexion garde.
 struct Serving {
     routes: Routes,
-    shutdown: CancellationToken,
+    /// Arrête la connexion : fin de l'app ou agent changé.
+    stop: CancellationToken,
     closed: CancellationToken,
     generation: u64,
+    epoch: u64,
 }
 
 impl Serving {
@@ -262,7 +319,7 @@ impl Serving {
         mut child: Child,
         ready: oneshot::Sender<Result<Live, AgentError>>,
     ) {
-        let Self { routes, shutdown, closed, generation } = self;
+        let Self { routes, stop, closed, generation, epoch } = self;
         let result = Client
             .builder()
             .name(CLIENT_NAME)
@@ -326,9 +383,10 @@ impl Serving {
                 async move |cx: ConnectionTo<Agent>| {
                     let shaken = tokio::select! {
                         r = handshake(&cx) => r,
-                        // Fin de l'app pendant la poignée de main : le sous-processus part avec la tâche.
-                        () = shutdown.cancelled() => {
-                            let _ = ready.send(Err(StoppedSnafu { message: "shut down".to_owned() }.build().into()));
+                        // Fin de l'app ou agent changé pendant la poignée de main :
+                        // le sous-processus part avec la tâche.
+                        () = stop.cancelled() => {
+                            let _ = ready.send(Err(StoppedSnafu { message: "stopped".to_owned() }.build().into()));
                             return Ok(());
                         }
                     };
@@ -343,12 +401,20 @@ impl Serving {
                             return Ok(());
                         }
                     };
-                    let _ = ready.send(Ok(Live { cx: cx.clone(), generation, closed: closed.clone(), caps }));
+                    let _ = ready.send(Ok(Live {
+                        cx: cx.clone(),
+                        generation,
+                        closed: closed.clone(),
+                        caps,
+                        epoch,
+                        stop: stop.clone(),
+                    }));
                     tokio::select! {
                         () = cx.incoming_closed() => {}
                         _ = child.wait() => {}
-                        // Tué tout de suite, avant `closed` : `Link::shutdown` n'attend que lui.
-                        () = shutdown.cancelled() => {
+                        // Fin de l'app ou agent changé. Tué tout de suite, avant `closed` :
+                        // `Link::shutdown` n'attend que lui.
+                        () = stop.cancelled() => {
                             if let Err(e) = child.start_kill() {
                                 tracing::debug!(generation, error = %e, "agent déjà arrêté");
                             }

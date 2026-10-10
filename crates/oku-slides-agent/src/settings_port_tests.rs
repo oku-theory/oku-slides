@@ -37,6 +37,33 @@ fn write_config_key_goes_to_config_toml_for_next_launch() {
 }
 
 #[test]
+fn write_agent_selected_is_refused_and_config_untouched() {
+    let (p, _dir) = platform();
+    let port = AppSettings::new(&p, None);
+    assert_that!(port.write("agent.selected", &json!("x")))
+        .is_equal_to(Err("agent settings are reserved to the user".to_owned()));
+    assert_that!(p.settings.config_file().exists()).is_false();
+}
+
+#[test]
+fn write_agent_presets_key_is_refused_and_config_untouched() {
+    let (p, _dir) = platform();
+    let port = AppSettings::new(&p, None);
+    assert_that!(port.write("agent.presets.x.command", &json!("x")))
+        .is_equal_to(Err("agent settings are reserved to the user".to_owned()));
+    assert_that!(p.settings.config_file().exists()).is_false();
+}
+
+#[test]
+fn write_agent_root_key_is_refused_and_config_untouched() {
+    let (p, _dir) = platform();
+    let port = AppSettings::new(&p, None);
+    assert_that!(port.write("agent", &json!("x")))
+        .is_equal_to(Err("agent settings are reserved to the user".to_owned()));
+    assert_that!(p.settings.config_file().exists()).is_false();
+}
+
+#[test]
 fn write_dictation_key_without_dictation_is_an_error() {
     let (p, _dir) = platform();
     let port = Arc::new(AppSettings::new(&p, None));

@@ -244,11 +244,15 @@ deck languages are passed in its context, and it answers in yours.
 - **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
   the agent in its own window, for a second screen. It follows the active tab of the
   front window.
+- **Choosing the agent**: the ⚙ button at the top of the thread lists the agents of the
+  configuration (`[agent.presets]`); picking one saves it and switches at once (a turn in
+  progress stops). Add an agent in `config.toml`; `OKU_SLIDES_AGENT__SELECTED` imposes the
+  choice. The agent itself cannot change it.
 
 | Setting | Default |
 | --- | --- |
-| `[agent] command` / `OKU_SLIDES_AGENT__COMMAND` | `npx` |
-| `[agent] args` / `OKU_SLIDES_AGENT__ARGS` (space-separated) | `-y @agentclientprotocol/claude-agent-acp@0.81.2` |
+| `[agent] selected` / `OKU_SLIDES_AGENT__SELECTED` | `claude` |
+| `[agent.presets.<id>]` `name`, `command`, `args` | Claude, Codex, Gemini (`npx`, pinned versions) |
 
 Any ACP agent that accepts MCP servers over HTTP works.
 

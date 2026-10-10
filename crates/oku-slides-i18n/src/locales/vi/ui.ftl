@@ -166,6 +166,7 @@ ui-undo-list-move = Di chuyển { $item }
 ui-agent-color-other = Màu khác
 ui-agent-thread = Tác nhân AI
 ui-agent-new-conversation = Cuộc trò chuyện mới
+ui-agent-picker = Chọn tác nhân
 ui-agent-detach = Mở tác nhân trong cửa sổ riêng
 ui-agent-attach = Đưa tác nhân trở lại cửa sổ chính
 ui-agent-window-empty = Không có tác nhân cho thẻ này

@@ -168,6 +168,7 @@ ui-undo-list-move = Sposta { $item }
 ui-agent-color-other = Altro colore
 ui-agent-thread = Agente
 ui-agent-new-conversation = Nuova conversazione
+ui-agent-picker = Scegli l'agente
 ui-agent-detach = Apri l'agente in una finestra separata
 ui-agent-attach = Riporta l'agente nella finestra principale
 ui-agent-window-empty = Nessun agente per questa scheda

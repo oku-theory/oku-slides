@@ -1,5 +1,6 @@
 //! Les réglages de l'app pour l'agent : la dictée tout de suite, le reste
-//! dans `config.toml` (au prochain lancement).
+//! dans `config.toml` (au prochain lancement), sauf les réglages de l'agent,
+//! réservés à l'utilisateur.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -69,6 +70,10 @@ impl SettingsPort for AppSettings {
     }
 
     fn write(&self, key: &str, value: &Value) -> Result<Applied, String> {
+        // L'agent ne choisit ni ne lance un autre agent : réservé au panneau de l'utilisateur.
+        if key == "agent" || key.starts_with("agent.") {
+            return Err("agent settings are reserved to the user".to_owned());
+        }
         if let Some(field) = key.strip_prefix("dictation.") {
             let stt = self.stt.as_ref().ok_or_else(|| "dictation unavailable".to_owned())?;
             let mut config = serde_json::to_value(stt.handle(SttRequest::Status).config).map_err(|e| e.to_string())?;

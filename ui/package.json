@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "test": "bun test --path-ignore-patterns='**/*.render.test.tsx' && bun test .render.test.",
-    "e2e": "bun e2e/editor.cjs && bun e2e/toolbar.cjs && bun e2e/panel.cjs && bun e2e/tabs.cjs && bun e2e/help.cjs && bun e2e/agent.cjs && bun e2e/agent-scopes.cjs && bun e2e/agent-window.cjs && bun e2e/layout.cjs && bun e2e/fields.cjs && bun e2e/widget-shadow.cjs && bun e2e/clipping.cjs && bun e2e/handles.cjs && bun e2e/lists.cjs && bun e2e/target-panel.cjs && bun e2e/widgets.cjs && bun e2e/code-layout.cjs && bun e2e/widget-values.cjs && bun e2e/lists-dock.cjs && bun e2e/theme-editor.cjs"
+    "e2e": "bun e2e/editor.cjs && bun e2e/toolbar.cjs && bun e2e/panel.cjs && bun e2e/tabs.cjs && bun e2e/help.cjs && bun e2e/agent.cjs && bun e2e/agent-scopes.cjs && bun e2e/agent-window.cjs && bun e2e/layout.cjs && bun e2e/fields.cjs && bun e2e/widget-shadow.cjs && bun e2e/clipping.cjs && bun e2e/handles.cjs && bun e2e/lists.cjs && bun e2e/target-panel.cjs && bun e2e/widgets.cjs && bun e2e/code-layout.cjs && bun e2e/widget-values.cjs && bun e2e/lists-dock.cjs && bun e2e/theme-editor.cjs && bun e2e/agent-picker.cjs"
   },
   "dependencies": {
     "@a2ui/react": "0.11.1",

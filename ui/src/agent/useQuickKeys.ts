@@ -52,7 +52,7 @@ const inDock = (el: EventTarget | null) => el instanceof Element && !!el.closest
  * Les touches rapides de `target` (voir `quickTarget`) : 1–4, Entrée, E, Échap. `null` : aucune
  * (touches coupées pendant l'édition d'un texte, le pointage ou un widget actif ; l'app ne montre
  * alors aucun rappel des touches).
- * Ignorées dans un champ, avec un modificateur, en répétition, ou si l'évènement
+ * Ignorées dans un champ ou dans la fiche des agents, avec un modificateur, en répétition, ou si l'évènement
  * est déjà traité (Échap d'une dictée). Entrée sur un bouton reste son clic. Une
  * question du dock prend 1–4 ; Échap seulement avec le focus dans le dock. Une fenêtre
  * n'accepte qu'Échap : confirmer une action non annulable ou une permission demande un
@@ -66,6 +66,8 @@ export function useQuickKeys(target: QuickTarget | null, onAction: (s: Surface, 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // La fiche des agents garde ses touches (Échap la ferme) : rien ne va à la question ouverte.
+      if (e.target instanceof Element && e.target.closest(".agent-picker")) return;
       const { target: t, onAction: send } = state.current;
       if (!t || e.defaultPrevented || editable(e.target)) return;
       const key = quickKey(e);

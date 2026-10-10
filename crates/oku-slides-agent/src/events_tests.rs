@@ -2,6 +2,10 @@ use agent_client_protocol::schema::v1::{
     ContentBlock, ContentChunk, Plan, PlanEntry, PlanEntryPriority, PlanEntryStatus, SessionUpdate, TextContent,
     ToolCall, ToolCallStatus,
 };
+use std::collections::BTreeMap;
+
+use oku_slides_i18n::Localizer;
+use serde_json::json;
 use speculoos::prelude::*;
 
 use oku_slides_session::agent::AgentScope;
@@ -53,4 +57,12 @@ fn status_json_carries_the_scope_only_when_set() {
         .is_equal_to(r#"{"kind":"status","state":"working","scope":{"kind":"slides"}}"#.to_owned());
     assert_that!(serde_json::to_string(&AgentEvent::idle()).unwrap())
         .is_equal_to(r#"{"kind":"status","state":"idle"}"#.to_owned());
+}
+
+#[test]
+fn picker_event_serializes_with_its_surface() {
+    let s = crate::picker::picker_surface(&BTreeMap::new(), "x", false, false, &Localizer::new(Some("fr")));
+    let v = serde_json::to_value(AgentEvent::Picker { surface: s }).unwrap();
+    assert_that!(v["kind"].clone()).is_equal_to(json!("picker"));
+    assert_that!(v["surface"]["id"].clone()).is_equal_to(json!("agent-picker"));
 }

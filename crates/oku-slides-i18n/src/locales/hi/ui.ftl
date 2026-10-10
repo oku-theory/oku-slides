@@ -168,6 +168,7 @@ ui-undo-list-move = { $item } खिसकाएँ
 ui-agent-color-other = अन्य रंग
 ui-agent-thread = एजेंट
 ui-agent-new-conversation = नई बातचीत
+ui-agent-picker = एजेंट चुनें
 ui-agent-detach = एजेंट को अलग विंडो में खोलें
 ui-agent-attach = एजेंट को मुख्य विंडो में वापस लाएँ
 ui-agent-window-empty = इस टैब के लिए कोई एजेंट नहीं है

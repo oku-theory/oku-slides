@@ -121,8 +121,24 @@ post_roll = 0.25
 max_phrase = 25.0
 
 [agent]
-# Agent ACP lancé par ⌘⇧D : commande et arguments. Il ne reçoit que les
-# outils d'Oku Slides (serveur MCP local), ni fichiers ni terminal.
-# OKU_SLIDES_AGENT__ARGS se découpe sur les espaces.
+# Agent ACP lancé par ⌘⇧D : une clé de [agent.presets], choisie dans le
+# panneau de l'agent (écrite dans config.toml). Il ne reçoit que les outils
+# d'Oku Slides (serveur MCP local), ni fichiers ni terminal.
+# OKU_SLIDES_AGENT__SELECTED impose le choix (le panneau est alors verrouillé).
+# Un config.toml peut ajouter un agent : [agent.presets.<id>] name, command, args.
+selected = "claude"
+
+[agent.presets.claude]
+name = "Claude"
 command = "npx"
 args = ["-y", "@agentclientprotocol/claude-agent-acp@0.81.2"]
+
+[agent.presets.codex]
+name = "Codex"
+command = "npx"
+args = ["-y", "@agentclientprotocol/codex-acp@2.2.2"]
+
+[agent.presets.gemini]
+name = "Gemini"
+command = "npx"
+args = ["-y", "@google/gemini-cli@0.63.0", "--acp"]

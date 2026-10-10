@@ -1,7 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate};
-use oku_slides_session::agent::AgentScope;
+use oku_slides_session::agent::{AgentScope, Surface};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -24,7 +24,7 @@ pub struct PlanItem {
 /// Tout ce qui arrive pendant un tour porte le numéro de ce tour (`turn`, donné par
 /// `SurfaceHub::begin_turn`) : le réducteur des tours range chaque évènement dans le sien,
 /// même si l'ouverture du tour (`UserText`) s'est perdue (relais en retard).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentEvent {
     /// L'état de l'agent, avec la portée qu'il sert quand il travaille.
@@ -82,6 +82,10 @@ pub enum AgentEvent {
         text: Option<String>,
         /// La vue qui l'a écrit ; absente quand l'hôte le rejoue. Une vue ignore ses propres échos.
         origin: Option<String>,
+    },
+    /// Le panneau de l'agent, pour les vues de l'onglet qui l'ont demandé.
+    Picker {
+        surface: Surface,
     },
 }
 

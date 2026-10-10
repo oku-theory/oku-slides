@@ -621,9 +621,12 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
    Sans fond, posé sur la table ; les cartes se bordent d'un filet intérieur (pas
    d'ombre portée à rogner) et le défilement se fait dans `.agent-scroller`. */
 .agent-thread { position: relative; z-index: 3; }
-.agent-thread-head { display: flex; justify-content: space-between; align-items: center; }
-.agent-thread-head > :only-child { margin-left: auto; }
+.agent-thread-head { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-1); }
+.agent-thread-head > .caption { margin-right: auto; }
 .agent-thread-head .token.ghost { width: 28px; height: 28px; }
+.agent-thread-head .agent-picker-toggle.active { background: var(--paper-200); color: var(--ink); }
+/* Le panneau des agents : la carte des fiches, sous l'en-tête du fil. */
+.agent-picker { margin: var(--space-1) 0 var(--space-2); }
 /* Le Markdown d'une réponse : des blocs serrés, à la taille de la carte. */
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
@@ -689,8 +692,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 
 /* --- Fiche, tiroir et fenêtre de l'agent ---------------------------------- */
 .agent-sheet { position: absolute; z-index: 6; width: min(320px, 60%); }
-.agent-sheet-box, .variant-drawer, .agent-modal { background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); padding: var(--space-2); outline: none; }
-.agent-sheet-box:focus-visible, .variant-drawer:focus-visible, .agent-modal:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.agent-sheet-box, .agent-picker, .variant-drawer, .agent-modal { background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); padding: var(--space-2); outline: none; }
+.agent-sheet-box:focus-visible, .agent-picker:focus-visible, .variant-drawer:focus-visible, .agent-modal:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 /* Sous la scène, à sa place dans la feuille (voir `.sheet-area`) ; au plus 40 % de la fenêtre, défilant seul. */
 .sheet-area > .variant-drawer { grid-row: 2; margin: var(--space-2) var(--space-4) 0; max-height: 40vh; overflow-y: auto; position: relative; z-index: 4; }
 .variant-drawer .a2ui-row > * { flex: 1 1 0; min-width: 0; }

@@ -8,14 +8,20 @@ use std::time::Duration;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
+use oku_slides_platform::config_write::write_value;
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
+use snafu::{OptionExt, ResultExt, ensure};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
+use crate::command_error::{
+    AgentLockedSnafu, AgentNotSavedSnafu, CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu,
+    UnknownAgentSnafu,
+};
 use crate::keeper::{Keep, Keeper};
+use crate::picker::picker_surface;
 use crate::settings_port::AppSettings;
 use crate::tab_agent::Command;
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
@@ -80,6 +86,16 @@ pub enum AgentCommand {
         /// La vue qui l'écrit, rendue avec l'écho.
         origin: Option<String>,
     },
+    /// L'interface ouvre le panneau des agents : la surface est émise à cet onglet.
+    Picker {
+        tab: String,
+    },
+    /// Choisit l'agent de l'app (bascule immédiate), puis réémet le panneau à cet onglet.
+    SelectAgent {
+        tab: String,
+        /// L'agent choisi, clé de `[agent.presets]`.
+        id: String,
+    },
 }
 
 impl AgentCommand {
@@ -92,7 +108,9 @@ impl AgentCommand {
             | Self::SurfaceAction { tab, .. }
             | Self::Resync { tab, .. }
             | Self::Follow { tab }
-            | Self::SetDraft { tab, .. } => tab,
+            | Self::SetDraft { tab, .. }
+            | Self::Picker { tab }
+            | Self::SelectAgent { tab, .. } => tab,
         }
     }
 }
@@ -134,6 +152,8 @@ pub struct Stack {
     table: Mutex<Table>,
     out_tx: mpsc::UnboundedSender<Out>,
     out_rx: Mutex<Option<mpsc::UnboundedReceiver<Out>>>,
+    /// L'agent choisi (clé de `[agent.presets]`) : celui du prochain lancement.
+    active: Mutex<String>,
 }
 
 impl Stack {
@@ -141,7 +161,7 @@ impl Stack {
     /// à sa première commande, `resync` compris ; l'agent ACP au premier
     /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour `set_setting`.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
-        let a = &platform.settings.agent;
+        let a = platform.settings.agent.active();
         let link = Link::new(Launch {
             command: a.command.clone(),
             args: a.args.clone(),
@@ -158,10 +178,13 @@ impl Stack {
             table: Mutex::new(Table::default()),
             out_tx,
             out_rx: Mutex::new(Some(out_rx)),
+            active: Mutex::new(platform.settings.agent.selected.clone()),
         }
     }
 
     /// Traite une commande de l'interface ; l'erreur est lue par l'interface.
+    ///
+    /// Peut bloquer (`select_agent` écrit `config.toml`) : à appeler hors des fils du runtime.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
@@ -244,6 +267,14 @@ impl Stack {
                     }
                 }
             }
+            AgentCommand::Picker { tab } => self.emit_picker(&tab),
+            AgentCommand::SelectAgent { tab, id } => {
+                if let Err(e) = self.select_agent(&id) {
+                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "choix d'agent refusé");
+                    return Err(e.localize(&self.platform.localizer));
+                }
+                self.emit_picker(&tab);
+            }
         }
         Ok(())
     }
@@ -292,6 +323,44 @@ impl Stack {
             tracing::warn!("conversations de l'agent pas toutes écrites à temps");
         }
         self.link.shutdown(SHUTDOWN_WITHIN).await;
+    }
+
+    /// Choisit l'agent `id` pour toute l'app : enregistré dans `config.toml`, puis bascule.
+    ///
+    /// Rien ne change si le choix est refusé (inconnu, imposé, non enregistré).
+    fn select_agent(&self, id: &str) -> Result<(), CommandError> {
+        let agent = &self.platform.settings.agent;
+        ensure!(!agent.locked, AgentLockedSnafu);
+        let preset = agent.presets.get(id).context(UnknownAgentSnafu { id })?;
+        // Gardé jusqu'à la bascule : deux choix croisés s'appliquent l'un après l'autre.
+        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
+        if *active == id {
+            return Ok(());
+        }
+        write_value(
+            &self.platform.storage,
+            &self.platform.settings.config_file(),
+            "agent.selected",
+            &serde_json::Value::from(id),
+        )
+        .context(AgentNotSavedSnafu)?;
+        self.link.switch(Launch {
+            command: preset.command.clone(),
+            args: preset.args.clone(),
+            fallback_cwd: self.platform.settings.paths.data(),
+            ready_within: crate::READY_WITHIN,
+        });
+        id.clone_into(&mut active);
+        Ok(())
+    }
+
+    /// Émet le panneau des agents aux vues de `tab` ; un tour ouvert dans un onglet l'annonce.
+    fn emit_picker(&self, tab: &str) {
+        let busy = self.table().tabs.values().any(|e| e.link.hub.turn().is_some());
+        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let agent = &self.platform.settings.agent;
+        let surface = picker_surface(&agent.presets, &active, busy, agent.locked, &self.platform.localizer);
+        emit(&self.out_tx, "agent", tab, &AgentEvent::Picker { surface });
     }
 
     /// Ce que voit une vue d'un onglet sans agent démarré.

@@ -60,9 +60,10 @@ e2e port="4872": install
     if curl -s -o /dev/null "http://127.0.0.1:$port/"; then echo "e2e : port $port déjà pris" >&2; exit 2; fi
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/oku-slides-e2e.XXXXXX")"
     export OKU_SLIDES_PATHS__DATA="$tmp/data" OKU_SLIDES_PATHS__DECKS="$tmp/decks"
-    OKU_SLIDES_AGENT__COMMAND="$bin/oku-slides-fake-agent" \
-    OKU_SLIDES_AGENT__ARGS="--script $PWD/fixtures/agent/e2e.json" \
-      "$bin/oku-slides" --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port "$port" &
+    mkdir -p "$tmp/data"
+    printf '[agent]\nselected = "e2e"\n\n[agent.presets.e2e]\nname = "Faux"\ncommand = "%s"\nargs = ["--script", "%s"]\n\n[agent.presets.e2e-bis]\nname = "Faux bis"\ncommand = "%s"\nargs = ["--script", "%s"]\n' \
+      "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e.json" "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e-bis.json" > "$tmp/data/config.toml"
+    "$bin/oku-slides" --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port "$port" &
     server=$!
     trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; rm -rf "$tmp"' EXIT
     for _ in $(seq 1 50); do curl -sf -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.2; done

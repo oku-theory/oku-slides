@@ -41,6 +41,7 @@ export const Icon = {
   detach: stroke(<><path d="M14 4h6v6" /><path d="M20 4l-8 8" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>),
   attach: stroke(<><path d="M10 20H4v-6" /><path d="M4 20l8-8" /><path d="M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5" /></>),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
+  settings: stroke(<><circle cx="12" cy="12" r="3" /><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" /></>),
   addRow: stroke(<><rect x="4" y="4" width="16" height="10" rx="1.5" /><path d="M4 9h16" /><path d="M12 16.5v4M10 18.5h4" /></>),
   addColumn: stroke(<><rect x="4" y="4" width="10" height="16" rx="1.5" /><path d="M9 4v16" /><path d="M16.5 12h4M18.5 10v4" /></>),
   /** Barre latérale : replier / rouvrir la pile des miniatures. */

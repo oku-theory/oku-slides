@@ -6,7 +6,7 @@
 //! `OKU_SLIDES_<SECTION>__<CLÉ>` (double soulignement pour descendre d'un niveau :
 //! `OKU_SLIDES_STT__VAD__PAUSE=0.9`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -240,13 +240,55 @@ pub struct VadSettings {
     pub max_phrase: f32,
 }
 
-/// Agent ACP de la dictée vers l'agent (⌘⇧D).
+/// Agents ACP proposés et celui qui est lancé par ⌘⇧D.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct AgentSettings {
+    /// L'agent actif : une clé de `presets` (vérifiée au chargement).
+    pub selected: String,
+    /// Les agents proposés, par identifiant (ordre d'affichage : celui des clés).
+    pub presets: BTreeMap<String, AgentPreset>,
+    /// `OKU_SLIDES_AGENT__SELECTED` impose le choix : le panneau ne le change pas.
+    #[serde(skip)]
+    pub locked: bool,
+}
+
+/// Un agent proposé : son nom affiché et comment le lancer.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct AgentPreset {
+    /// Nom propre affiché tel quel (pas traduit).
+    pub name: String,
     /// Programme lancé (cherché dans le `PATH`).
     pub command: String,
     pub args: Vec<String>,
+}
+
+impl AgentPreset {
+    /// Un agent proposé (tests, outils).
+    pub fn new(name: impl Into<String>, command: impl Into<String>, args: Vec<String>) -> Self {
+        Self { name: name.into(), command: command.into(), args }
+    }
+}
+
+impl AgentSettings {
+    /// L'agent actif. `selected` est vérifié au chargement : l'absence est un invariant violé.
+    pub fn active(&self) -> &AgentPreset {
+        self.presets.get(&self.selected).unwrap_or_else(|| panic!("agent.selected = {:?} non vérifié", self.selected))
+    }
+
+    /// `selected` désigne-t-il un agent de la liste ? Sinon, le message de l'erreur.
+    fn check(&self) -> Result<(), String> {
+        if self.presets.contains_key(&self.selected) {
+            return Ok(());
+        }
+        let known: Vec<&str> = self.presets.keys().map(String::as_str).collect();
+        Err(format!(
+            "agent.selected = {:?} names no [agent.presets] entry (known: {})",
+            self.selected,
+            known.join(", ")
+        ))
+    }
 }
 
 impl Settings {
@@ -254,17 +296,14 @@ impl Settings {
     pub fn load() -> Result<Self, ConfigError> {
         let env = Self::environment();
         let data = std::env::var_os("OKU_SLIDES_PATHS__DATA").map_or_else(default_data_dir, PathBuf::from);
-        Self::from_sources(Some(&data.join("config.toml")), env)
+        let mut settings = Self::from_sources(Some(&data.join("config.toml")), env)?;
+        settings.agent.locked = std::env::var_os("OKU_SLIDES_AGENT__SELECTED").is_some();
+        Ok(settings)
     }
 
-    /// Variables `OKU_SLIDES_<SECTION>__<CLÉ>` ; `agent.args` se découpe sur les espaces.
+    /// Variables `OKU_SLIDES_<SECTION>__<CLÉ>`.
     pub(crate) fn environment() -> config::Environment {
-        config::Environment::with_prefix("OKU_SLIDES")
-            .prefix_separator("_")
-            .separator("__")
-            .try_parsing(true)
-            .list_separator(" ")
-            .with_list_parse_key("agent.args")
+        config::Environment::with_prefix("OKU_SLIDES").prefix_separator("_").separator("__").try_parsing(true)
     }
 
     /// `config.toml` du dossier de données (facultatif, écrit par `set_setting`).
@@ -284,7 +323,10 @@ impl Settings {
         if let Some(path) = file {
             builder = builder.add_source(config::File::from(path).format(config::FileFormat::Toml).required(false));
         }
-        builder.add_source(env).build().and_then(config::Config::try_deserialize).context(ConfigSnafu)
+        let settings: Self =
+            builder.add_source(env).build().and_then(config::Config::try_deserialize).context(ConfigSnafu)?;
+        settings.agent.check().map_err(config::ConfigError::Message).context(ConfigSnafu)?;
+        Ok(settings)
     }
 }
 

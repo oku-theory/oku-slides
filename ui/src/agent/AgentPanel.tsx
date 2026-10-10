@@ -6,12 +6,13 @@
 // route : un état réduit à des valeurs simples (`onStatus`, appelé quand elles changent) et une
 // poignée (`handle`) pour envoyer une consigne, une action de surface ou arrêter le tour.
 
-import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { AgentUi, McpEvent, Surface } from "../api";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
+import { AgentPicker } from "./AgentPicker";
 import { AgentThread } from "./AgentThread";
 import { subscribeHost } from "./events";
 import type { QuickAction } from "./quick";
@@ -144,6 +145,9 @@ export function AgentPanel(props: AgentPanelProps) {
   const routed = useMemo(() => props.route(surfaces), [surfaces, props.route]);
   const { stage: sheet, drawer, modal, dock } = routed;
   const cancel = () => void agent.cancel().catch((err) => say(String(err), true));
+  /** Le panneau des agents : la dernière surface reçue de l'hôte, et s'il est ouvert. */
+  const [picker, setPicker] = useState<Surface | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const subscribe = props.subscribe ?? subscribeHost;
   useEffect(
     () =>
@@ -160,6 +164,8 @@ export function AgentPanel(props: AgentPanelProps) {
         onAgent: (e) => {
           latest.current!.scopeState.onAgentEvent(e);
           if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin });
+          // Un setter de `useState` est stable : lu directement.
+          if (e.kind === "picker") setPicker(e.surface);
         },
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
@@ -217,6 +223,24 @@ export function AgentPanel(props: AgentPanelProps) {
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
   useQuickKeys(keyed, sendAction);
+  /** Ouvre le panneau des agents (l'hôte le renvoie à jour), ou le ferme. */
+  const togglePicker = () => {
+    if (pickerOpen) return setPickerOpen(false);
+    setPickerOpen(true);
+    void agent.picker().catch((err) => say(String(err), true));
+  };
+  /**
+   * Un agent choisi : le panneau se ferme une fois le choix accepté. Un refus est dit, le panneau
+   * reste, et l'hôte le renvoie : la puce surlignée d'avance revient au choix enregistré.
+   */
+  const selectAgent = (id: string) =>
+    void agent.selectAgent(id).then(
+      () => setPickerOpen(false),
+      (err) => {
+        say(String(err), true);
+        void agent.picker().catch((e) => say(String(e), true));
+      },
+    );
   useImperativeHandle(props.handle, () => ({ prompt: (text) => promptAgent(text), onSurfaceAction, cancel }));
 
   // `App` ne se re-rend que si l'une de ces valeurs change.
@@ -286,6 +310,9 @@ export function AgentPanel(props: AgentPanelProps) {
         onNewConversation={() => agent.newConversation(scope).catch((err) => say(String(err), true))}
         onDetach={props.onDetach}
         onAttach={props.onAttach}
+        onPicker={togglePicker}
+        pickerOpen={pickerOpen}
+        picker={pickerOpen ? <AgentPicker surface={picker} onSelect={selectAgent} onClose={() => setPickerOpen(false)} onError={onError} /> : null}
         onError={onError}
       />
     </SlideThumbsContext.Provider>

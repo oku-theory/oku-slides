@@ -54,7 +54,7 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
 
 type State = "idle" | "starting" | "working";
 
-async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void } = {}) {
+async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void; onPicker?: () => void } = {}) {
   const actions: [string, string][] = [];
   let fresh = 0;
   const host = document.createElement("div");
@@ -427,6 +427,21 @@ describe("fil de l'agent par tours", () => {
   test("fil vide avec onDetach : le bouton détacher reste visible", async () => {
     const { host } = await mount([], "idle", { onDetach: () => {} });
     expectIconOnly(host.querySelector(".agent-detach"));
+  });
+
+  test("AgentThread with onPicker shows the agents button even when empty", async () => {
+    const { host } = await mount([], "idle", { onPicker: () => {} });
+    const button = host.querySelector('button[aria-label="ui-agent-picker"]');
+    expectIconOnly(button);
+    expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(false);
+  });
+
+  test("AgentThread agents button calls onPicker", async () => {
+    let asked = 0;
+    const { host } = await mount([realSurface("turn-3")], "idle", { onPicker: () => asked++ });
+    const button = host.querySelector('button[aria-label="ui-agent-picker"]') as HTMLButtonElement;
+    await act(async () => button.click());
+    expect(asked).toBe(1);
   });
 
   test("fil vide sans onDetach ni onAttach : aucun en-tête de plus", async () => {

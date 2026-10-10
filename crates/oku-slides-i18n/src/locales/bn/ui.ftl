@@ -168,6 +168,7 @@ ui-undo-list-move = { $item } সরিয়ে নিন
 ui-agent-color-other = অন্য রং
 ui-agent-thread = এজেন্ট
 ui-agent-new-conversation = নতুন কথোপকথন
+ui-agent-picker = এজেন্ট বেছে নিন
 ui-agent-detach = এজেন্টকে আলাদা উইন্ডোতে খুলুন
 ui-agent-attach = এজেন্টকে মূল উইন্ডোতে ফিরিয়ে আনুন
 ui-agent-window-empty = এই ট্যাবের জন্য কোনো এজেন্ট নেই

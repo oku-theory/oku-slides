@@ -172,6 +172,7 @@ ui-undo-list-move = Przenieś { $item }
 ui-agent-color-other = Inny kolor
 ui-agent-thread = Agent
 ui-agent-new-conversation = Nowa rozmowa
+ui-agent-picker = Wybierz agenta
 ui-agent-detach = Otwórz agenta w osobnym oknie
 ui-agent-attach = Przywróć agenta do głównego okna
 ui-agent-window-empty = Brak agenta dla tej karty

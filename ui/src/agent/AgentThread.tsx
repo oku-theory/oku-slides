@@ -2,6 +2,7 @@
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { QuickHintsContext } from "../a2ui/quickHints";
 import type { AgentState, Surface } from "../api";
 import { t } from "../i18n";
@@ -35,8 +36,17 @@ export function AgentThread({
   onNewConversation,
   onDetach,
   onAttach,
+  onPicker,
+  pickerOpen,
+  picker,
   onError,
 }: {
+  /** Ouvre ou ferme le panneau des agents : le bouton n'existe que si le panneau le donne. */
+  onPicker?: () => void;
+  /** Le panneau des agents est ouvert (bouton enfoncé). */
+  pickerOpen?: boolean;
+  /** Le panneau des agents, posé sous l'en-tête. */
+  picker?: ReactNode;
   /** Ouvre l'agent dans sa propre fenêtre (fenêtre principale). */
   onDetach?: () => void;
   /** Ramène l'agent dans la fenêtre principale (fenêtre de l'agent). */
@@ -87,9 +97,9 @@ export function AgentThread({
   // Le tour en cours : le dernier, tant que l'agent travaille ; une resynchronisation ne le tait pas.
   const spoken = useSpeech(threadSurfaces, dock, resyncs, state === "idle" ? null : (lastTurn ?? null));
   const empty = turns.length === 0 && loose.length === 0 && dock.length === 0;
-  // Les boutons de fenêtre restent à portée même sans tour : le fil n'est alors pas caché.
+  // Les boutons de fenêtre et des agents restent à portée même sans tour : le fil n'est alors pas caché.
   const windowButtons = !!(onDetach || onAttach);
-  const vacant = empty && !windowButtons;
+  const vacant = empty && !windowButtons && !onPicker;
   const view = (s: Surface) => (
     <Suspense fallback={null}>
       <SurfaceView surfaceId={s.id} messages={s.messages} onAction={(a) => onAction(s, a)} onError={onError} />
@@ -103,10 +113,12 @@ export function AgentThread({
         <header className="agent-thread-head">
           {!empty && <span className="caption">{t(STATE_KEY[state])}</span>}
           {!empty && <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>}
+          {onPicker && <button type="button" className={`token ghost agent-picker-toggle${pickerOpen ? " active" : ""}`} aria-label={t("ui-agent-picker")} aria-expanded={!!pickerOpen} title={t("ui-agent-picker")} onClick={onPicker}>{Icon.settings}</button>}
           {onDetach && <button type="button" className="token ghost agent-detach" aria-label={t("ui-agent-detach")} title={t("ui-agent-detach")} onClick={onDetach}>{Icon.detach}</button>}
           {onAttach && <button type="button" className="token ghost agent-attach" aria-label={t("ui-agent-attach")} title={t("ui-agent-attach")} onClick={onAttach}>{Icon.attach}</button>}
         </header>
       )}
+      {picker}
       <div
         ref={scroller}
         className="agent-scroller"

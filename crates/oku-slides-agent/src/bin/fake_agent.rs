@@ -20,7 +20,7 @@
 //! (questions parallèles) ; leurs résultats sont notés dans l'ordre du scénario. Le résultat de chaque appel MCP est noté
 //! (`mcp/result` : `session`, `tool`, `out`), jamais raconté : comme un vrai agent, le texte du tour
 //! n'est que ses `chunks` (le reçu de repli en prend la première phrase). `"hang_initialize": true` (au niveau du scénario) ne
-//! répond jamais à `initialize` (démarrage bloqué). `load_session` / `resume`
+//! répond jamais à `initialize` (démarrage bloqué) ; `init_delay_ms` en retarde la réponse. `load_session` / `resume`
 //! (bool) annoncent et acceptent `session/load` / `session/resume` ;
 //! `unknown_sessions` (bool) les fait échouer ; `replay` (liste de textes) est
 //! rejoué en `agent_message_chunk` par `session/load` ; `by_prompt`
@@ -70,6 +70,9 @@ struct Script {
     /// Ne jamais répondre à `initialize` : un démarrage qui ne finit pas.
     #[serde(default)]
     hang_initialize: bool,
+    /// Attente avant de répondre à `initialize`, en millisecondes (démarrage lent).
+    #[serde(default)]
+    init_delay_ms: Option<u64>,
     /// Annonce `session/load` et le sait faire.
     #[serde(default)]
     load_session: bool,
@@ -326,6 +329,7 @@ async fn main() -> agent_client_protocol::Result<()> {
             crash_on_session: None,
             sessions: HashMap::new(),
             hang_initialize: false,
+            init_delay_ms: None,
             load_session: false,
             resume: false,
             unknown_sessions: false,
@@ -356,6 +360,9 @@ async fn main() -> agent_client_protocol::Result<()> {
                 s1.log("pid", serde_json::json!(std::process::id()));
                 if s1.script.hang_initialize {
                     std::future::pending::<()>().await;
+                }
+                if let Some(ms) = s1.script.init_delay_ms {
+                    tokio::time::sleep(Duration::from_millis(ms)).await;
                 }
                 let sessions = if s1.script.resume {
                     SessionCapabilities::new().resume(SessionResumeCapabilities::new())

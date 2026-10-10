@@ -120,22 +120,61 @@ fn app_id_names_oku_slides() {
 }
 
 #[test]
-fn defaults_agent_runs_claude_agent_acp_through_npx() {
+fn defaults_agent_presets_are_claude_codex_gemini_with_claude_selected() {
     let s = Settings::defaults().unwrap();
-    assert_that!(s.agent.command.as_str()).is_equal_to("npx");
-    assert_that!(s.agent.args.clone())
+    assert_that!(s.agent.presets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![
+        "claude".to_owned(),
+        "codex".to_owned(),
+        "gemini".to_owned(),
+    ]);
+    assert_that!(s.agent.selected.as_str()).is_equal_to("claude");
+    let claude = s.agent.active();
+    assert_that!(claude.command.as_str()).is_equal_to("npx");
+    assert_that!(claude.args.clone())
         .is_equal_to(vec!["-y".to_owned(), "@agentclientprotocol/claude-agent-acp@0.81.2".to_owned()]);
+    assert_that!(s.agent.presets["codex"].args.clone())
+        .is_equal_to(vec!["-y".to_owned(), "@agentclientprotocol/codex-acp@2.2.2".to_owned()]);
+    assert_that!(s.agent.presets["gemini"].args.clone()).is_equal_to(vec![
+        "-y".to_owned(),
+        "@google/gemini-cli@0.63.0".to_owned(),
+        "--acp".to_owned(),
+    ]);
+    assert_that!(s.agent.locked).is_false();
 }
 
 #[test]
-fn env_agent_args_split_on_spaces() {
-    let env = Settings::environment().source(Some(std::collections::HashMap::from([
-        ("OKU_SLIDES_AGENT__COMMAND".to_owned(), "/bin/faux".to_owned()),
-        ("OKU_SLIDES_AGENT__ARGS".to_owned(), "--scenario e2e.json".to_owned()),
-    ])));
-    let s = Settings::from_sources(None, env).unwrap();
-    assert_that!(s.agent.command.as_str()).is_equal_to("/bin/faux");
-    assert_that!(s.agent.args.clone()).is_equal_to(vec!["--scenario".to_owned(), "e2e.json".to_owned()]);
+fn config_file_preset_is_added_without_dropping_the_defaults() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("config.toml");
+    std::fs::write(
+        &file,
+        "[agent]\nselected = \"faux\"\n[agent.presets.faux]\nname = \"Faux\"\ncommand = \"/bin/faux\"\nargs = [\"--x\"]\n",
+    )
+    .unwrap();
+    let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
+    assert_that!(s.agent.presets.len()).is_equal_to(4);
+    assert_that!(s.agent.active().command.as_str()).is_equal_to("/bin/faux");
+}
+
+#[test]
+fn unknown_selected_agent_fails_to_load_and_names_the_known_ones() {
+    let env = Settings::environment()
+        .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "mistral".to_owned())])));
+    let e = Settings::from_sources(None, env).unwrap_err();
+    let chain = snafu::Report::from_error(&e).to_string();
+    assert_that!(chain.contains("mistral")).is_true();
+    assert_that!(chain.contains("claude, codex, gemini")).is_true();
+}
+
+#[test]
+fn env_selected_agent_wins_over_config_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("config.toml");
+    std::fs::write(&file, "[agent]\nselected = \"claude\"\n").unwrap();
+    let env = Settings::environment()
+        .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "codex".to_owned())])));
+    let s = Settings::from_sources(Some(&file), env).unwrap();
+    assert_that!(s.agent.selected.as_str()).is_equal_to("codex");
 }
 
 #[test]

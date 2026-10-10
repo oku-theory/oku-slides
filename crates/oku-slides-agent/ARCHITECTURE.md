@@ -6,7 +6,8 @@ les consignes dictées relayées avec le contexte de l'interface.
 
 ## Modules
 
-- `config` : `Launch` (commande, arguments, dossier de repli, `ready_within`).
+- `config` : `Launch` (commande, arguments, dossier de repli, `ready_within`), tiré de
+  `AgentSettings::active()` (l'agent choisi parmi `[agent.presets]`).
 - `error` : `AgentError`, opaque, `Localize` (`agent-not-found`, `-no-http`, `-stopped`, `-failed`).
 - `events` : `AgentEvent` (`UserText` ouvre le tour `turn` ; chaque évènement d'un tour porte
   son `turn`), `AgentState`, `PlanItem`, `from_update` (mise à jour ACP → évènement du tour).
@@ -14,6 +15,7 @@ les consignes dictées relayées avec le contexte de l'interface.
   notifications et permissions routées par lancement et `SessionId`).
 - `tab_agent` : `AgentHandle`, l'acteur d'un onglet (`prompt`, `cancel`,
   `new_conversation`) : sa session ACP et ses outils (`ToolsAccess`).
+- `picker` : surface du panneau des agents, pure (`picker_surface`, `PICKER_ID`).
 - `instructions` : consignes du premier tour, en anglais seul (`instructions/*.md`) ; la langue de
   ce que lit l'utilisateur vient de `interface language` du contexte de chaque tour.
 - `turn` : un tour, simultané entre onglets ; `permission` : `PermissionChoice` ;
@@ -22,7 +24,8 @@ les consignes dictées relayées avec le contexte de l'interface.
   onglets démarrés et fermés sous un seul verrou) ; `forward` relaie `{tab, event}` ;
   `resync` : état de l'agent puis surfaces ; `shutdown` : fin de l'app, agent ACP tué ;
   `follow` (une autre vue suit l'onglet, `Keep::Replay`) et `set_draft` (brouillon tenu par
-  `TabLink`, `AgentEvent::Draft`). Chaque `resync` ou `follow` est poussé à toutes les vues
+  `TabLink`, `AgentEvent::Draft`) ; `picker` (panneau des agents, `AgentEvent::Picker`) et
+  `select_agent` (choix de l'agent de l'app, refusé s'il est inconnu, imposé ou non enregistré). Chaque `resync` ou `follow` est poussé à toutes les vues
   de l'onglet : leur compteur de resynchronisations avance aussi ; seules les annonces lues
   du fil hors du tour ouvert sont tenues pour lues, le défilement ne bouge pas.
 - `tab_entry` : un onglet ; outils puis agent démarrés dans `rt`, commandes
@@ -52,6 +55,9 @@ l'app ; pas prêt dans `ready_within` : tué) puis ouvre la session de l'onglet.
 questions ; le prompt suivant relance l'agent. Une requête refusée
 (`agent-failed`) garde la session. Lâcher le dernier `Link` arrête l'agent ;
 `Stack::shutdown` (fin de l'app) le tue et n'en relance plus.
+`select_agent` (panneau) écrit `agent.selected` puis `Link::switch` : la connexion vivante
+s'arrête (tours → `agent-stopped`), le prompt suivant lance le nouvel agent ; pas de reprise
+d'une session de l'autre agent (empreinte différente).
 `open` de l'agent ouvre le fichier dans un nouvel onglet (`Sessions::open_tab`),
 dont l'agent démarre à sa première commande ; le sien garde son deck et sa
 conversation. `save {path}` refuse le fichier d'un autre onglet.
@@ -62,6 +68,7 @@ L'agent n'a ni `fs` ni `terminal` (annoncés à `false`) : il n'agit que par
 les outils d'`oku-slides-mcp`, en HTTP local avec un jeton en en-tête
 `Authorization`, jamais en URL ni en journal. Un agent sans MCP HTTP
 (`agent_capabilities.mcp.http`) est refusé avant toute session.
+`set_setting` refuse `agent.*` : l'agent ne choisit pas l'agent.
 
 ## Dépendances
 

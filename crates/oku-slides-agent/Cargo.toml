@@ -13,6 +13,7 @@ name = "oku-slides-fake-agent"
 path = "src/bin/fake_agent.rs"
 
 [dependencies]
+oku-slides-a2ui.workspace = true
 oku-slides-session.workspace = true
 oku-slides-mcp.workspace = true
 oku-slides-i18n.workspace = true
