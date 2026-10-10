@@ -53,6 +53,16 @@ const columns = (p) => p.evaluate(() => {
     assert.ok(Math.abs(label.center - label.stage) <= 2, `${width} px : titre décentré (${label.center} ≠ ${label.stage})`);
     assert.equal(label.shadow, 'none');
     assert.equal(label.bg, 'rgba(0, 0, 0, 0)');
+    // La pile et le fil montent jusqu'en haut de la table ; le menu, au bout de la rangée du titre,
+    // ne chevauche ni le titre ni le fil (t-810).
+    const top = await p.evaluate(() => {
+      const box = (s) => document.querySelector(s).getBoundingClientRect();
+      return { table: box('.table').top, pile: box('.pile-column').top, notes: box('.notes').top, label: box('.label'), tray: box('.tray'), fil: box('.notes').left };
+    });
+    assert.ok(Math.abs(top.pile - top.table) <= 1, `${width} px : la pile ne monte pas en haut (${top.pile} ≠ ${top.table})`);
+    assert.ok(Math.abs(top.notes - top.table) <= 1, `${width} px : le fil ne monte pas en haut (${top.notes} ≠ ${top.table})`);
+    assert.ok(top.label.right <= top.tray.left, `${width} px : le titre passe sous le menu (${top.label.right} > ${top.tray.left})`);
+    assert.ok(top.tray.right <= top.fil, `${width} px : le menu déborde sur le fil (${top.tray.right} > ${top.fil})`);
   }
   // Séparateurs : glisser celui du fil vers la gauche l'élargit ; la largeur est gardée par l'hôte
   // (rechargement) ; un double-clic la rend par défaut.

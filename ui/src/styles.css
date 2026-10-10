@@ -138,10 +138,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
      Largeurs par défaut, remplacées sur la table par celles choisies aux séparateurs ;
      le fil cède toujours 320px à la feuille (fenêtre rétrécie depuis le choix). */
   --pile-w: 236px;
+  /* Place gardée de part et d'autre du titre centré pour les outils : un jeton et la marge,
+     deux en mode modèles (voir `.tray`). */
+  --tray-reserve: 80px;
   --notes-w: clamp(420px, 40vw, 760px);
   grid-template-columns: var(--pile-w) minmax(0, 1fr) max(300px, min(var(--notes-w), 100% - var(--pile-w) - 320px));
   grid-template-rows: 104px minmax(0, 1fr) 104px;
-  grid-template-areas: ". label tray" "pile sheet notes" "pile tools device";
+  grid-template-areas: "pile label notes" "pile sheet notes" "pile tools device";
   background:
     radial-gradient(ellipse 80% 70% at 50% 45%, color-mix(in oklab, var(--paper-000) 92%, white) 0%, transparent 70%),
     radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, color-mix(in oklab, var(--paper-000) 88%, black) 100%),
@@ -166,7 +169,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Au-dessus de la feuille, centré sur elle : rien à soulever, juste un titre. */
 .label {
   grid-area: label; justify-self: center; align-self: center; position: relative; z-index: 2;
-  display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; max-width: min(480px, 50vw);
+  display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; max-width: min(480px, 50vw, 100% - 2 * var(--tray-reserve));
   text-align: center; cursor: default;
 }
 .brand { font: 600 11px/14px var(--sans); color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
@@ -186,10 +189,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Sans la marge négative du champ : centré, elle rognerait le titre de sa largeur. */
 .label .doc-name-button, .label .doc-name-input { margin: 0; text-align: center; }
 
-/* ---- Outils en haut à droite ---- */
-.tray { grid-area: tray; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-inline-end: var(--space-6); }
+/* ---- Outils au bout de la rangée du titre, au-dessus de la feuille ; le fil monte jusqu'en haut ---- */
+.tray { grid-area: label; justify-self: end; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-inline-end: var(--space-6); }
 /* Trop étroit : les outils passent sur deux lignes plutôt que de s'écraser. */
 .tray > * { flex: none; }
+.table:has(> .tray > :nth-child(2)) { --tray-reserve: 136px; }
 .btn {
   height: 44px; padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2);
   font-size: 13px; font-weight: 500; line-height: 18px;
@@ -340,7 +344,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Une bande de prise de 8px à cheval sur la frontière ; un trait d'un pixel n'y paraît qu'au survol.
    Sous une enveloppe `display: contents` : les viser en descendants de la table, pas en enfants. */
 .col-divider {
-  grid-row: 2 / -1; justify-self: start; position: relative; z-index: 4; width: 8px; height: 100%;
+  grid-row: 1 / -1; justify-self: start; position: relative; z-index: 4; width: 8px; height: 100%;
   margin-inline-start: -4px; cursor: col-resize; touch-action: none; outline: none;
 }
 .col-divider[data-side="pile"] { grid-column: 2; }
@@ -739,7 +743,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 /* Le menu burger en haut à droite : ce qui sert rarement, hors de la vue. */
 .action-menu { position: relative; }
 /* Le z-index de la liste reste prisonnier du contexte du tray (2) : menu ouvert, on hisse le tray
-   au-dessus du fil de l'agent et de la feuille a2ui (3 à 6), sous les voiles modaux (20). */
+   au-dessus de la feuille a2ui et des séparateurs (3 à 6), sous les voiles modaux (20). */
 .tray:has(.action-menu-trigger[aria-expanded="true"]) { z-index: 10; }
 .action-menu-trigger { width: 40px; height: 40px; opacity: 0.7; }
 .action-menu-trigger:hover, .action-menu-trigger[aria-expanded="true"] { opacity: 1; }
@@ -776,6 +780,9 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   padding: 10px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
 }
+/* Le bandeau couvre toute la rangée du titre : la pile, le fil et les séparateurs commencent dessous. */
+.table:has(> .history-bar) > .pile-column, .table:has(> .history-bar) > .notes { grid-row-start: 2; }
+.table:has(> .history-bar) .col-divider { grid-row-start: 2; }
 .history-version { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .history-title { font: 500 16px/22px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-version .caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -804,15 +811,13 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .table:has(> .help-bar) > .notes, .table:has(> .help-bar) .col-divider[data-side="notes"] { display: none; }
 .table.agent-detached { grid-template-columns: var(--pile-w) minmax(0, 1fr) var(--space-6); }
 .table.agent-detached > .notes, .table.agent-detached .col-divider[data-side="notes"] { display: none; }
-/* À la place du fil : « Rattacher », en haut de la colonne étroite. */
-.table > .agent-reattach { grid-area: notes; justify-self: center; align-self: start; margin-top: var(--space-2); padding: 0; width: var(--space-6); height: var(--space-6); }
-/* ---- Bandeau du pack : une barre sous le titre, sur toute la largeur ---- */
-/* Une rangée de plus sur la table, entre le titre et la feuille ; la pile et le fil commencent dessous. */
+/* À la place du fil : « Rattacher », en haut de la colonne étroite, centré sur la rangée du titre (104px). */
+.table > .agent-reattach { grid-area: notes; justify-self: center; align-self: start; margin-top: calc((104px - var(--space-6)) / 2); padding: 0; width: var(--space-6); height: var(--space-6); }
+/* ---- Bandeau du pack : une rangée de plus entre le titre et la feuille, sur la largeur de la feuille ---- */
 .table:has(> .pack-notice) {
   grid-template-rows: 104px auto minmax(0, 1fr) 104px;
-  grid-template-areas: ". label tray" "notice notice notice" "pile sheet notes" "pile tools device";
+  grid-template-areas: "pile label notes" "pile notice notes" "pile sheet notes" "pile tools device";
 }
-.table:has(> .pack-notice) .col-divider { grid-row: 3 / -1; }
 .pack-notice {
   grid-area: notice; position: relative; z-index: 2; margin: 0 var(--space-6) var(--space-2);
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
@@ -982,11 +987,11 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 /* Mode modèles : la barre des sous-onglets prend une rangée au-dessus de la feuille. */
 .table:has(> .template-tabs) {
   grid-template-rows: 104px auto minmax(0, 1fr) 104px;
-  grid-template-areas: ". label tray" "pile subtabs notes" "pile sheet notes" "pile tools device";
+  grid-template-areas: "pile label notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
 }
 .table:has(> .pack-notice):has(> .template-tabs) {
   grid-template-rows: 104px auto auto minmax(0, 1fr) 104px;
-  grid-template-areas: ". label tray" "notice notice notice" "pile subtabs notes" "pile sheet notes" "pile tools device";
+  grid-template-areas: "pile label notes" "pile notice notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
 }
 .template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */

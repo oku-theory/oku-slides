@@ -35,6 +35,9 @@ const FIRST_RENDER_MS = 120_000;
   // Lecture seule : ni outils, ni agent, ni dictée, ni ajout de slide.
   for (const sel of ['.tools-tray', '.notes', '.tray']) assert.equal(await p.locator(sel).isVisible(), false, sel);
   assert.equal(await p.getByRole('button', { name: 'Nouvelle slide' }).count(), 0);
+  // Le bandeau couvre la rangée du titre : la pile commence dessous, sans être masquée (t-810).
+  const bar = await p.evaluate(() => [document.querySelector('.help-bar').getBoundingClientRect().bottom, document.querySelector('.pile-column').getBoundingClientRect().top]);
+  assert.ok(bar[1] >= bar[0], `bandeau de l'aide sur la pile (${bar[1]} < ${bar[0]})`);
 
   await p.keyboard.press('ArrowRight');
   await p.keyboard.press('ArrowRight');
