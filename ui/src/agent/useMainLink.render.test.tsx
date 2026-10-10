@@ -13,7 +13,7 @@ afterEach(async () => {
   cleanup = null;
 });
 
-const context: LinkContext = { editing: false, insertTo: "nouveau bloc", ui: { slide: "s1", element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false };
+const context: LinkContext = { editing: false, insertTo: "nouveau bloc", ui: { slide: "s1", element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look: "" };
 
 async function mountLink({ detached = true, insert = (_t: string) => true } = {}) {
   const transport = memoryTransport();

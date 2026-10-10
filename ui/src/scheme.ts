@@ -2,7 +2,7 @@
 // menu et gardé par l'hôte (requêtes « scheme » et « set_scheme »).
 
 import { useSyncExternalStore } from "react";
-import { type Appearance, inTauri, workspace } from "./api";
+import { type Appearance, type SchemeSetting, inTauri, listenTauri, workspace } from "./api";
 import { luminance } from "./color";
 
 /** Schéma montré par l'interface. */
@@ -91,6 +91,15 @@ export function applyScheme(choice: SchemeChoice): void {
 /** Charge le choix gardé par l'hôte. */
 export async function loadScheme(): Promise<void> {
   applyScheme((await workspace.scheme()).scheme);
+}
+
+/** Suit le choix fait dans n'importe quelle fenêtre (`scheme`, diffusé par l'hôte) ; rend de quoi arrêter. */
+export function followScheme(): () => void {
+  if (!inTauri) return () => {};
+  return listenTauri(async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<SchemeSetting>("scheme", (e) => applyScheme(e.payload.scheme));
+  });
 }
 
 /** Change le schéma de l'interface (`null` : celui du système). */

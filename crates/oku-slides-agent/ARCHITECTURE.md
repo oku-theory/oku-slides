@@ -20,7 +20,9 @@ les consignes dictées relayées avec le contexte de l'interface.
   onglets démarrés et fermés sous un seul verrou) ; `forward` relaie `{tab, event}` ;
   `resync` : état de l'agent puis surfaces ; `shutdown` : fin de l'app, agent ACP tué ;
   `follow` (une autre vue suit l'onglet, `Keep::Replay`) et `set_draft` (brouillon tenu par
-  `TabLink`, `AgentEvent::Draft`).
+  `TabLink`, `AgentEvent::Draft`). Chaque `resync` ou `follow` est poussé à toutes les vues
+  de l'onglet : leur compteur de resynchronisations avance aussi ; seules les annonces lues
+  du fil hors du tour ouvert sont tenues pour lues, le défilement ne bouge pas.
 - `tab_entry` : un onglet ; outils puis agent démarrés dans `rt`, commandes
   en file d'ici là ; relais muets une fois fermé (retard : `changed`, `surfaces`) ;
   fermé, son hub refuse toute question (`SurfaceHub::close`).

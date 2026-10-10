@@ -25,6 +25,8 @@ export interface LinkContext {
   staged: string | null;
   /** Touches rapides coupées (édition, pointage, widget actif). */
   keysOff: boolean;
+  /** Empreinte de l'apparence du deck (`appearanceLook`) : changée, la fenêtre de l'agent relit l'onglet. */
+  look: string;
 }
 
 /** Raccourci brut relayé : la fenêtre de l'agent l'interprète avec son propre état. */
@@ -56,7 +58,7 @@ export const MAX_LINK_TEXT = 256 * 1024;
 const Id = z.string().max(64);
 const Label = z.string().max(256);
 const Ui = z.object({ slide: Id.nullable(), element: Id.nullable(), field: Label.nullable(), editing: z.boolean(), widget: Label.nullable() });
-const Context = z.object({ editing: z.boolean(), insertTo: Label.nullable(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean() });
+const Context = z.object({ editing: z.boolean(), insertTo: Label.nullable(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean(), look: Id });
 const Message = z.discriminatedUnion("kind", [
   z.object({ to: z.literal("agent"), kind: z.literal("context"), tab: Id, context: Context }),
   z.object({ to: z.literal("main"), kind: z.literal("hello"), tab: Id }),

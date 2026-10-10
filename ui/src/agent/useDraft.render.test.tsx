@@ -15,11 +15,13 @@ afterEach(async () => {
 async function mount({ strict = false, slow = false, fail = false }: { strict?: boolean; slow?: boolean; fail?: boolean } = {}) {
   const timers = manualTimers();
   const sent: (string | null)[] = [];
-  const origins = new Set<string>();
+  // Origines dans l'ordre des envois (une par envoi).
+  const origins: string[] = [];
+  const refusing = { on: fail };
   let release: () => void = () => {};
   const setDraft = (text: string | null, origin: string) => {
-    origins.add(origin);
-    if (fail) return Promise.reject(new Error("no agent"));
+    origins.push(origin);
+    if (refusing.on) return Promise.reject(new Error("no agent"));
     if (!slow) return Promise.resolve(void sent.push(text));
     return new Promise<void>((resolve) => {
       release = () => {
@@ -37,7 +39,7 @@ async function mount({ strict = false, slow = false, fail = false }: { strict?: 
   const tree = strict ? createElement(StrictMode, null, createElement(Probe)) : createElement(Probe);
   await act(async () => root.render(tree));
   cleanup = async () => act(async () => root.unmount());
-  return { timers, sent, origins, draft: () => draft!, release: () => release(), unmount: () => act(async () => root.unmount()) };
+  return { timers, sent, origins, refusing, draft: () => draft!, release: () => release(), unmount: () => act(async () => root.unmount()) };
 }
 
 describe("useDraft", () => {
@@ -99,7 +101,7 @@ describe("useDraft", () => {
     const m = await mount();
     await act(async () => m.draft().append("a"));
     await act(async () => m.draft().close());
-    const [own] = [...m.origins];
+    const own = m.origins[0]!;
     await act(async () => m.draft().onHost({ text: "a", origin: own }));
     expect(m.draft().state.text).toBeNull();
   });
@@ -115,7 +117,7 @@ describe("useDraft", () => {
     const m = await mount();
     await act(async () => m.draft().change("ici"));
     await act(async () => m.timers.run());
-    const [own] = [...m.origins];
+    const own = m.origins[0]!;
     await act(async () => m.draft().onHost({ text: "ici", origin: own }));
     await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre" }));
     expect(m.draft().state.text).toBe("ailleurs");
@@ -158,7 +160,7 @@ describe("useDraft", () => {
   test("useDraft brouillon d'ailleurs reçu après l'écho de cette vue est appliqué", async () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
-    const [own] = [...m.origins];
+    const own = m.origins[0]!;
     await act(async () => m.draft().onHost({ text: "mien", origin: own }));
     await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre" }));
     expect(m.draft().state.text).toBe("plus récent");
@@ -182,8 +184,7 @@ describe("useDraft", () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
     await act(async () => m.draft().onHost({ text: "ancien", origin: null }));
-    const [own] = [...m.origins];
-    await act(async () => m.draft().onHost({ text: "mien", origin: own }));
+    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins.at(-1)! }));
     await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre" }));
     expect(m.draft().state.text).toBe("plus récent");
   });
@@ -200,5 +201,48 @@ describe("useDraft", () => {
     await act(async () => flushed);
     expect(done).toBe(true);
     expect(m.sent).toEqual(["dernier mot"]);
+  });
+  test("useDraft chaque envoi porte sa propre origine, de même préfixe", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("un"));
+    await act(async () => m.draft().close());
+    const [a, b] = m.origins;
+    expect(a).not.toBe(b);
+    expect(a!.split(":")[0]).toBe(b!.split(":")[0]!);
+  });
+
+  test("useDraft écho en retard après un rejeu : ce qui vient d'ailleurs attend l'écho du renvoi", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("mien"));
+    await act(async () => m.draft().onHost({ text: "ancien", origin: null }));
+    // L'écho du premier envoi n'était qu'en retard : celui du renvoi manque encore.
+    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins[0]! }));
+    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre" }));
+    expect(m.draft().state.text).toBe("mien");
+  });
+
+  test("useDraft dernier envoi refusé puis rejeu de l'hôte : le brouillon local est gardé", async () => {
+    const m = await mount({ fail: true });
+    await act(async () => m.draft().type());
+    m.refusing.on = false;
+    await act(async () => m.draft().onHost({ text: null, origin: null }));
+    expect(m.draft().state.text).toBe("");
+  });
+
+  test("useDraft dernier envoi refusé puis rejeu de l'hôte : le brouillon local est renvoyé", async () => {
+    const m = await mount({ fail: true });
+    await act(async () => m.draft().append("dicté tôt"));
+    m.refusing.on = false;
+    await act(async () => m.draft().onHost({ text: null, origin: null }));
+    expect(m.sent).toEqual(["dicté tôt"]);
+  });
+
+  test("useDraft envoi refusé puis brouillon d'ailleurs : le rejeu suivant est appliqué", async () => {
+    const m = await mount({ fail: true });
+    await act(async () => m.draft().append("refusé"));
+    m.refusing.on = false;
+    await act(async () => m.draft().onHost({ text: "d'ailleurs", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "rejoué", origin: null }));
+    expect(m.draft().state.text).toBe("rejoué");
   });
 });

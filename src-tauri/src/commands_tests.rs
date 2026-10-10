@@ -52,3 +52,14 @@ fn is_newer_only_when_strictly_greater_than_the_last_applied() {
     // une fois qu'un focus plus récent a déjà été appliqué.
     assert_that!(is_newer(5, 10)).is_false();
 }
+
+#[test]
+fn broadcast_set_scheme_reaches_every_window() {
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "set_scheme", "scheme": "dark"}))))
+        .is_equal_to(Some("scheme"));
+}
+
+#[test]
+fn broadcast_scheme_read_stays_with_its_window() {
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "scheme"})))).is_none();
+}

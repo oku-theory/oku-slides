@@ -71,6 +71,19 @@ export async function applyAppearance(a: Appearance, scheme: Scheme) {
 }
 
 /**
+ * Empreinte courte d'une apparence (FNV-1a sur 32 bits) : la fenêtre de l'agent
+ * relit l'instantané de l'onglet quand elle change.
+ */
+export function appearanceLook(a: Appearance): string {
+  let h = 0x811c9dc5;
+  for (const c of JSON.stringify(a)) {
+    h ^= c.codePointAt(0)!;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+/**
  * Avant le premier thème reçu : les défauts de la feuille de style (Papier,
  * clair), dérivés si le schéma montré est sombre. Évite un éclair clair.
  */

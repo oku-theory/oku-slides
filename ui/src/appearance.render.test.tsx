@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { Appearance } from "./api";
-import { applyAppearance, applyDefaultScheme } from "./appearance";
+import { appearanceLook, applyAppearance, applyDefaultScheme } from "./appearance";
 
 const papier: Appearance = {
   scheme: "light",
@@ -60,5 +60,20 @@ describe("applyDefaultScheme", () => {
     applyDefaultScheme("dark");
     applyDefaultScheme("light");
     expect(root().hasAttribute("data-derived")).toBe(false);
+  });
+});
+
+describe("appearanceLook", () => {
+  test("appearanceLook d'une couleur changée diffère", () => {
+    const other = { ...papier, app: { desk: "#000000" } };
+    expect(appearanceLook(other)).not.toBe(appearanceLook(papier));
+  });
+
+  test("appearanceLook de la même apparence est stable", () => {
+    expect(appearanceLook({ ...papier })).toBe(appearanceLook(papier));
+  });
+
+  test("appearanceLook tient dans un identifiant du canal", () => {
+    expect(appearanceLook(papier).length).toBeLessThanOrEqual(64);
   });
 });

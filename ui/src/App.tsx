@@ -7,8 +7,10 @@ import { saveGuarded } from "./merge";
 import { createAutosave, wantsAutosave } from "./autosave";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
-import { applyAppearance } from "./appearance";
-import { changeScheme, useScheme, useSchemeChoice } from "./scheme";
+import { appearanceLook } from "./appearance";
+import { useAppearance } from "./useAppearance";
+import { AttachButton } from "./agent/AttachButton";
+import { changeScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
 import { findElement, gridPlacement, instantiate, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
@@ -165,13 +167,9 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   }, [run, nonce]);
 
   // L'interface suit le thème des slides et le schéma (clair, sombre), à chaque changement.
-  const scheme = useScheme();
   const schemeChoice = useSchemeChoice();
-  const appearanceKey = snap ? JSON.stringify(snap.appearance) : "";
-  useEffect(() => {
-    if (snap) applyAppearance(snap.appearance, scheme);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appearanceKey, scheme]);
+  useAppearance(snap?.appearance);
+  const deckLook = useMemo(() => (snap ? appearanceLook(snap.appearance) : ""), [snap?.appearance]);
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
   const keptUi = useKeptUi(snap?.ui ?? null, current, api.ui, widgets.kept);
@@ -545,8 +543,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   const [transport] = useState(() => linkTransport());
   const linkContext = useMemo<LinkContext>(
-    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || picking || widgetActive }),
-    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, picking, widgetActive],
+    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || picking || widgetActive, look: deckLook }),
+    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, picking, widgetActive, deckLook],
   );
   useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });
 
@@ -805,6 +803,10 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
           onDiscard={dictation.draft.close}
         />}
       </aside>
+      {/* Agent détaché : la colonne reste pour rattacher, même si sa fenêtre n'a pas pu s'ouvrir. */}
+      {agentDetached && !themeActive && (
+        <AttachButton className="agent-reattach" onClick={() => void workspace.attachAgent().catch((e) => say(errorText(e), true))} />
+      )}
 
       {/* Entre pile et feuille, entre feuille et fil : de quoi régler les largeurs. */}
       <ColumnDividers columns={keptUi.columns} onChange={keptUi.setColumns} />
@@ -823,7 +825,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
 
       {picking && (
         <TemplatePicker
-          themeKey={appearanceKey}
+          themeKey={deckLook}
           initialSet={snap.editing ? snap.editing.set : snap.templates?.id ?? null}
           title={t(snap.editing ? "ui-picker-new-template" : "ui-picker-new-slide")}
           onPick={insertTemplate}

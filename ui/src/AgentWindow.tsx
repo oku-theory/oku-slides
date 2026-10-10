@@ -3,7 +3,6 @@
 // le canal `agent-link` ; tout le reste (fil, brouillon, portée) passe par l'hôte.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "./icons";
 import { agentApi, inTauri, isMac, listenTauri, tabApi, workspace, type AgentUi, type Snapshot, type TabApi, type WorkspaceView } from "./api";
 import { newest } from "./latest";
 import { t } from "./i18n";
@@ -21,6 +20,8 @@ import { createSlot } from "./agent/slot";
 import { routeStaged } from "./agent/surfaces";
 import { agentTarget } from "./agent/target";
 import { useDraft } from "./agent/useDraft";
+import { AttachButton } from "./agent/AttachButton";
+import { useAppearance } from "./useAppearance";
 import type { DictationMode } from "./agent/keys";
 import type { QuickTarget } from "./agent/useQuickKeys";
 
@@ -77,13 +78,6 @@ function onCloseRequested(cb: () => void): () => void {
 /** Ce que la page entière demande à l'hôte : la fermeture système et le rattachement. */
 export type AgentWindowClose = Pick<AgentWindowHost, "onCloseRequested" | "attach">;
 const TAURI_CLOSE: AgentWindowClose = { onCloseRequested, attach: workspace.attachAgent };
-
-/** Le bouton qui ramène l'agent dans la fenêtre principale, dans tous les états de la fenêtre. */
-const AttachButton = ({ onClick }: { onClick: () => void }) => (
-  <button type="button" className="token ghost agent-attach" aria-label={t("ui-agent-attach")} title={t("ui-agent-attach")} onClick={onClick}>
-    {Icon.attach}
-  </button>
-);
 
 /** Vide la frappe en attente d'un onglet. */
 type Flush = () => Promise<void>;
@@ -206,6 +200,8 @@ export function AgentWindowFor({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- déclenché par le contenu du contexte
   }, [contextKey, rereadSoon]);
 
+  // Le thème du deck, comme la fenêtre principale : relu avec l'instantané quand `look` change.
+  useAppearance(snap?.appearance);
   const thumbs = useSlideThumbs(host.api, snap?.slides);
   const vocabulary = useMemo(() => deckVocabulary(snap), [snap]);
   const staged = context?.staged ?? null;

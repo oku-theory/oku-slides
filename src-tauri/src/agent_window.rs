@@ -10,7 +10,7 @@
 use std::sync::atomic::Ordering;
 
 use oku_slides_session::{Workspace, WorkspaceRequest};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::commands::blocking;
 use crate::menu;
@@ -42,6 +42,26 @@ pub fn step(detached: bool, open: bool) -> Step {
         (true, false) => Step::Open,
         (false, true) => Step::Close,
         _ => Step::Keep,
+    }
+}
+
+/// Ce que fait une bascule du menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Toggle {
+    /// Agent rattaché : le détacher.
+    Detach,
+    /// Agent détaché, fenêtre ouverte : sa page vide la frappe en attente, puis rattache.
+    AskPage,
+    /// Agent détaché sans fenêtre (ouverture échouée) : le rattacher tout de suite.
+    Attach,
+}
+
+/// La bascule du menu, l'agent étant détaché ou non et sa fenêtre ouverte ou non.
+pub fn toggle_step(detached: bool, open: bool) -> Toggle {
+    match (detached, open) {
+        (false, _) => Toggle::Detach,
+        (true, true) => Toggle::AskPage,
+        (true, false) => Toggle::Attach,
     }
 }
 
@@ -82,6 +102,9 @@ pub fn reconcile(app: &AppHandle, detached: bool) {
 }
 
 /// Détache l'agent s'il est rattaché, et inversement (menu), hors du fil principal.
+///
+/// Rattacher passe par la page de la fenêtre de l'agent quand elle est ouverte : sa frappe en
+/// attente part d'abord (voir `Toggle::AskPage`).
 pub fn toggle(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -94,7 +117,18 @@ pub fn toggle(app: &AppHandle) {
             // Lu puis appliqué sous deux verrous : deux clics très rapprochés peuvent faire la même
             // bascule ; sans danger, `sync` remet la case d'accord avec l'espace de travail.
             let detached = Workspace::lock(&state.workspace).agent_detached();
-            let req = if detached { WorkspaceRequest::AttachAgent } else { WorkspaceRequest::DetachAgent };
+            let req = match toggle_step(detached, app.get_webview_window(LABEL).is_some()) {
+                Toggle::Detach => WorkspaceRequest::DetachAgent,
+                Toggle::Attach => WorkspaceRequest::AttachAgent,
+                // Comme la fermeture système : la page rattache, et `sync` remettra la case.
+                Toggle::AskPage => {
+                    if let Err(e) = app.emit_to(LABEL, "close-requested", ()) {
+                        menu::set_agent_checked(app, detached);
+                        tracing::warn!(error = %e, "rattachement non transmis à la fenêtre de l'agent");
+                    }
+                    return Ok(());
+                }
+            };
             if let Err(e) = Workspace::apply(&state.workspace, req) {
                 menu::set_agent_checked(app, detached);
                 return Err(state.refuse(e));

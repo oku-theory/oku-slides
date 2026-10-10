@@ -142,4 +142,19 @@ describe("agent-link", () => {
       spy.mockRestore();
     }
   });
+
+  const context = (look: string) => ({
+    to: "agent",
+    kind: "context",
+    tab: "t-1",
+    context: { editing: false, insertTo: null, ui: { slide: null, element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look },
+  });
+
+  test("parseLink contexte avec l'empreinte de l'apparence : accepté", () => {
+    expect(parseLink(context("a1b2c3d4"))).not.toBeNull();
+  });
+
+  test("parseLink contexte à l'empreinte trop longue : écarté", () => {
+    expect(parseLink(context("x".repeat(65)))).toBeNull();
+  });
 });

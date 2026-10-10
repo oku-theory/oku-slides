@@ -20,9 +20,13 @@ afterEach(async () => {
 });
 
 const SNAP = { title: "Deck", slides: [], read_only: false } as unknown as Snapshot;
+const PAPIER = {
+  scheme: "light", slide: { bg: "#fffdf9", ink: "#2e2b26" }, app: { desk: "#ece8e0" },
+  variants: {}, metrics: {}, font_display: [], font_body: [], chart_palette: [],
+};
 const READ_ONLY = { title: "Aide", slides: [], read_only: true } as unknown as Snapshot;
 const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
-const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, insertTo: "titre", ui: UI, staged: null, keysOff: false, ...over });
+const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, insertTo: "titre", ui: UI, staged: null, keysOff: false, look: "", ...over });
 const sheetOn = (id: string): Surface => ({ id, place: "sheet", live: true, question: false, anchor: { slide: "s1", owner: "e1" }, messages: [] });
 
 function fakeHost(snapshot: Snapshot = SNAP) {
@@ -61,6 +65,14 @@ async function mountWindow(snapshot?: Snapshot) {
 }
 
 describe("AgentWindow", () => {
+  test("AgentWindow l'instantané relu applique l'apparence du deck", async () => {
+    document.documentElement.style.removeProperty("--app-desk");
+    const m = await mountWindow({ ...SNAP, appearance: PAPIER } as Snapshot);
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+    await act(async () => new Promise((r) => setTimeout(r, 600)));
+    expect(document.documentElement.style.getPropertyValue("--app-desk")).toBe("#ece8e0");
+  });
+
   test("AgentWindow abonnée : demande follow", async () => {
     const m = await mountWindow();
     await m.ready();

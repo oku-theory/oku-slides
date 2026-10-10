@@ -82,6 +82,13 @@ const deckHas = (p, text) =>
 
     // Rangement : brouillon fermé, conversation vidée.
     await main.locator('.draft-discard').click();
+
+    // 7. Sans fenêtre de l'agent (ouverture échouée), la fenêtre principale garde de quoi rattacher.
+    await post(main, '/api/workspace', { cmd: 'detach_agent' });
+    await main.reload();
+    await main.locator('.table.agent-detached .agent-reattach').click();
+    await main.reload();
+    await main.waitForSelector('.notes .agent-thread');
     assert.deepEqual(errors, []);
   } finally {
     await post(main, '/api/agent', { cmd: 'new_conversation', tab: 't-1', scope: { kind: 'slides' } }).catch(() => {});

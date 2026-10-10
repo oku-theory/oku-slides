@@ -6,14 +6,16 @@ import { isAgentWindow } from "./agent/target";
 import { loadMessages, onLocaleChange } from "./i18n";
 import { applyDefaultScheme } from "./appearance";
 import { applyLens } from "./lens";
-import { currentScheme, loadScheme } from "./scheme";
+import { currentScheme, followScheme, loadScheme } from "./scheme";
 import "./styles.css";
 import "./a2ui/a2ui.css";
 import "./glass.css";
 
 // Les messages d'abord : chaque texte de l'interface en dépend. Sans hôte
 // joignable, l'interface s'affiche quand même (identifiants des messages).
-// Le schéma choisi en même temps : pas d'éclair clair avant le sombre.
+// Le schéma choisi en même temps : pas d'éclair clair avant le sombre. Puis
+// chaque fenêtre suit le choix fait dans une autre.
+followScheme();
 Promise.all([
   loadMessages().catch((e) => console.error("messages de l'interface", e)),
   loadScheme().catch((e) => console.error("schéma de l'interface", e)),

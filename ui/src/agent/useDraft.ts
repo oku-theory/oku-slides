@@ -1,5 +1,6 @@
 // Le brouillon de l'onglet, tenu par l'hôte : il survit au détachement de l'agent. Chaque vue
-// garde le sien en local, l'envoie dans l'ordre, et ignore l'écho de ses propres envois.
+// garde le sien en local, l'envoie dans l'ordre, et ignore l'écho de ses propres envois ; un rejeu
+// de l'hôte qui n'a pas sa dernière écriture (écho perdu, envoi refusé) la lui renvoie.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REAL_TIMERS, debounced, type Timers } from "../debounce";
@@ -40,26 +41,32 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     current.current = next;
     setState(next);
   }, []);
-  // Un identifiant de vue, pour reconnaître ses propres échos.
-  const [origin] = useState(() => randomId("v"));
+  // Un identifiant de vue ; chaque envoi y ajoute son numéro (`v-xxx:n`) pour reconnaître ses échos.
+  const [view] = useState(() => randomId("v"));
   const push = useRef(setDraft);
   push.current = setDraft;
   // Un envoi à la fois : l'hôte reçoit les écritures dans l'ordre où elles ont été faites.
   const queue = useRef(Promise.resolve());
-  // Envois dont l'écho n'est pas revenu : tant qu'il y en a, ce qui vient d'ailleurs est plus ancien.
-  const inflight = useRef(0);
+  // Numéro du dernier envoi, et le plus grand revenu (écho ou refus) : tant que le dernier n'est pas
+  // revenu, ce qui vient d'ailleurs est plus ancien que la dernière écriture de cette vue.
+  const sent = useRef(0);
+  const settled = useRef(0);
+  // Dernière écriture refusée (onglet pas encore démarré) : l'hôte n'a pas ce brouillon.
+  const refused = useRef(false);
   const send = useCallback(
     (text: string | null) => {
-      inflight.current++;
+      const n = ++sent.current;
+      refused.current = false;
       queue.current = queue.current
-        .then(() => push.current(text, origin))
+        .then(() => push.current(text, `${view}:${n}`))
         .catch((e) => {
-          // Pas d'écho pour un envoi refusé : il ne compte plus.
-          inflight.current = Math.max(0, inflight.current - 1);
+          // Pas d'écho pour un envoi refusé : il est revenu.
+          settled.current = Math.max(settled.current, n);
+          if (n === sent.current) refused.current = true;
           console.warn("brouillon", String(e));
         });
     },
-    [origin],
+    [view],
   );
   const pending = useRef(false);
   const typing = useMemo(
@@ -85,22 +92,24 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
   );
   const onHost = useCallback(
     (e: { text: string | null; origin: string | null }) => {
-      if (e.origin === origin) {
-        inflight.current = Math.max(0, inflight.current - 1);
+      const own = e.origin?.startsWith(`${view}:`) ? Number(e.origin.slice(view.length + 1)) : null;
+      if (own !== null) {
+        settled.current = Math.max(settled.current, own);
         return;
       }
-      // Un rejeu de l'hôte (`follow`, `resync`) pendant qu'un écho manque : l'écho est perdu
-      // (relais en retard, vue sans abonnement). Cette vue a écrit en dernier : elle se resynchronise
-      // en renvoyant son texte, au lieu d'ignorer pour toujours ce qui vient d'ailleurs.
-      if (e.origin === null && inflight.current > 0 && !pending.current) {
-        inflight.current = 0;
+      const waiting = settled.current < sent.current;
+      // Un rejeu de l'hôte (`follow`, `resync`) quand cette vue a écrit en dernier mais que l'hôte
+      // ne l'a pas : écho perdu (relais en retard, vue sans abonnement) ou écriture refusée (onglet
+      // pas encore démarré). Elle renvoie son texte, au lieu d'ignorer ou de subir le rejeu.
+      if (e.origin === null && (waiting || refused.current) && !pending.current) {
         send(current.current.text);
         return;
       }
-      if (pending.current || inflight.current > 0) return;
+      if (pending.current || waiting) return;
+      refused.current = false;
       if (current.current.text !== e.text) write({ ...current.current, text: e.text });
     },
-    [origin, write, send],
+    [view, write, send],
   );
   const append = useCallback(
     (text: string) => {

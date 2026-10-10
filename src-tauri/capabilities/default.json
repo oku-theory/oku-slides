@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenêtres de l'app (w-<n>, et la fenêtre de l'agent, même confiance) : commandes, événements, dialogues.",
-  "windows": ["w-*", "agent"],
+  "description": "Fenêtres de l'espace de travail (w-<n>) : commandes, événements, dialogues. La fenêtre de l'agent a la sienne (agent.json).",
+  "windows": ["w-*"],
   "permissions": [
     "core:default",
     "core:window:allow-set-background-color",

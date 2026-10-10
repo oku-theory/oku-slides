@@ -200,9 +200,13 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
      agent démarré, `follow` rejoue « rien » (repos, aucun brouillon, `slides`,
      aucune surface), et `set_draft` est refusé par une erreur localisée.
    - L'`origin` d'un brouillon est plafonnée à 64 octets.
-   - Une vue compte ses envois dont l'écho n'est pas revenu. Tant qu'il en
-     reste, un brouillon venu d'ailleurs est plus ancien que sa dernière
-     écriture, et elle l'ignore.
+   - Chaque envoi d'une vue porte son numéro dans l'origine (`v-xxx:n`).
+     Tant que l'écho du dernier n'est pas revenu, un brouillon venu
+     d'ailleurs est plus ancien que sa dernière écriture, et elle l'ignore.
+   - Un rejeu (`origin` nulle) alors que l'hôte n'a pas la dernière écriture
+     de la vue (écho manquant, ou envoi refusé faute d'onglet démarré) : la
+     vue lui renvoie son brouillon local. Ainsi un ⌘K ou une dictée faits
+     avant le premier `resync` survivent au démarrage de l'onglet.
 3. **Interface.** `AgentPanel` (t-638) a deux modes de portée :
    - **pilote** : la portée vient de la vue, c'est le mode de la fenêtre
      principale ;
@@ -231,8 +235,11 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
    mais la dictée reste visible.
 4. **Contexte d'écriture.** `agent-link:context` porte
    `{ editing, insertTo, ui, staged, keysOff }`. La fenêtre de l'agent relit
-   elle-même dans l'instantané de l'onglet le vocabulaire, la lecture seule et
-   les miniatures.
+   elle-même dans l'instantané de l'onglet le vocabulaire, la lecture seule,
+   les miniatures et l'apparence du deck. Le contexte porte aussi `look`,
+   l'empreinte de cette apparence : quand elle change, la fenêtre de l'agent
+   relit l'instantané. Le schéma (clair, sombre) vaut pour l'app : l'hôte
+   diffuse le choix (`scheme`) à toutes les fenêtres.
 5. **Transport.** Un seul évènement Tauri, `agent-link`, diffusé à toutes les
    fenêtres (l'émettrice comprise).
    - Chaque page n'écoute qu'une fois et garde les messages qui lui sont
@@ -268,7 +275,9 @@ mécanique. Ces points remplacent tout ce qui les contredit plus haut.
    l'agent. Le bouton « Rattacher » fait de même.
 9. **Menu.** Seul macOS a un menu d'app : la case à cocher n'existe que là.
    La case reflète l'espace de travail, et un clic bascule l'état lu dans
-   l'espace de travail.
+   l'espace de travail. Rattacher par le menu passe par la page de la
+   fenêtre de l'agent (`close-requested`), comme la fermeture système ; sans
+   cette fenêtre (ouverture échouée), l'hôte rattache directement.
 10. **Tests.** L'e2e tourne dans un navigateur, sans Tauri. Il couvre :
     détacher, envoyer depuis la fenêtre de l'agent, ⌘K relayé, insérer dans
     la zone sélectionnée et brouillon gardé au rattachement.

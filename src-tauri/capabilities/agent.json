@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "agent",
+  "description": "Fenêtre de l'agent détaché : commandes, événements, fond, thème, focus et déplacement ; pas de dialogues de fichiers.",
+  "windows": ["agent"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-background-color",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-theme",
+    "core:window:allow-start-dragging"
+  ]
+}

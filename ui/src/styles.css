@@ -803,6 +803,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .table:has(> .help-bar) > .notes, .table:has(> .help-bar) > .col-divider[data-side="notes"] { display: none; }
 .table.agent-detached { grid-template-columns: var(--pile-w) minmax(0, 1fr) var(--space-6); }
 .table.agent-detached > .notes, .table.agent-detached > .col-divider[data-side="notes"] { display: none; }
+/* À la place du fil : « Rattacher », en haut de la colonne étroite. */
+.table > .agent-reattach { grid-area: notes; justify-self: center; align-self: start; margin-top: var(--space-2); padding: 0; width: var(--space-6); height: var(--space-6); }
 /* ---- Bandeau du pack : une barre sous le titre, sur toute la largeur ---- */
 /* Une rangée de plus sur la table, entre le titre et la feuille ; la pile et le fil commencent dessous. */
 .table:has(> .pack-notice) {

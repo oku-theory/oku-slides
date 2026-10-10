@@ -63,6 +63,24 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
     }
 }
 
+/// L'évènement diffusé à toutes les fenêtres avec la réponse, s'il y en a un.
+///
+/// Le schéma vaut pour l'app entière : chaque fenêtre (celle de l'agent comprise) le suit.
+fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
+    matches!(req, WorkspaceRequest::SetScheme { .. }).then_some("scheme")
+}
+
+/// Diffuse `json` (une réponse déjà sérialisée) à toutes les fenêtres sous `event`.
+fn emit_json(app: &AppHandle, event: &str, json: &str) {
+    use tauri::Emitter;
+    let sent = serde_json::from_str::<serde_json::Value>(json)
+        .map_err(|e| e.to_string())
+        .and_then(|value| app.emit(event, value).map_err(|e| e.to_string()));
+    if let Err(e) = sent {
+        tracing::warn!(event, error = %e, "réponse non diffusée");
+    }
+}
+
 /// Une requête pour l'onglet `tab`.
 #[tauri::command]
 pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Response, String> {
@@ -93,6 +111,7 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
 #[tauri::command]
 pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response, String> {
     let (changes, focus) = classify(&req);
+    let event = broadcast(&req);
     let reply = blocking(&app, move |app, state| {
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
@@ -109,7 +128,11 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
             let view = windows::sync(app, None, focus);
             serde_json::to_string(&view).map_err(|e| e.to_string())
         } else {
-            Ok(outcome.into_json())
+            let json = outcome.into_json();
+            if let Some(event) = event {
+                emit_json(app, event, &json);
+            }
+            Ok(json)
         }
     })
     .await?;
