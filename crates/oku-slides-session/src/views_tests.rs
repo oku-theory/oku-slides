@@ -51,6 +51,11 @@ fn sanitized_outside_templates_keeps_folded_sections() {
 }
 
 #[test]
+fn ui_state_default_has_the_band_at_its_default_height() {
+    assert_that!(UiState::default().band).is_none();
+}
+
+#[test]
 fn ui_state_default_has_the_code_at_its_default_width() {
     assert_that!(UiState::default().code_width).is_none();
 }

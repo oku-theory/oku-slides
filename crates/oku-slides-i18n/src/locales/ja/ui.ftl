@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = ゴーストを表示
 ui-divider-pile = スライド一覧の幅
 ui-divider-notes = エージェントのスレッドの幅
 ui-divider-code = コードのサイズ
+ui-divider-band = 設定の高さ
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-embedded = ファイルのテーマ
 ui-toolbar-save-copy = コピーを保存

@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = Hayaletleri göster
 ui-divider-pile = Slayt yığınının genişliği
 ui-divider-notes = Ajan akışının genişliği
 ui-divider-code = Kod boyutu
+ui-divider-band = Ayarların yüksekliği
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Dosyanın teması
 ui-toolbar-save-copy = Kopyasını kaydet

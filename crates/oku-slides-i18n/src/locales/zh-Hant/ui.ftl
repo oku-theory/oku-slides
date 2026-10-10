@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = 顯示虛影
 ui-divider-pile = 投影片堆寬度
 ui-divider-notes = AI 代理對話寬度
 ui-divider-code = 程式碼大小
+ui-divider-band = 設定區高度
 ui-toolbar-theme = 主題
 ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-save-copy = 儲存副本

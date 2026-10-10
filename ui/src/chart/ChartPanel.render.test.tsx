@@ -72,4 +72,10 @@ describe("ChartPanel", () => {
     const button = host.querySelector(".show-as button") as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
+
+  test("ChartPanel show-as button closes the kinds toolbar row, after the stack toggle", async () => {
+    const host = await mount([{ type: "bar" }, { type: "bar" }]);
+    const toolbar = host.querySelector(".panel-toolbar") as HTMLElement;
+    expect([...toolbar.children].map((c) => c.classList[0])).toEqual(["chart-kinds", "chart-stack", "show-as"]);
+  });
 });

@@ -47,6 +47,7 @@ ui-toolbar-ghosts-show = Показати привидів
 ui-divider-pile = Ширина стосу слайдів
 ui-divider-notes = Ширина стрічки агента
 ui-divider-code = Розмір коду
+ui-divider-band = Висота налаштувань
 ui-toolbar-theme = Тема
 ui-toolbar-theme-embedded = Тема з файлу
 ui-toolbar-save-copy = Зберегти копію

@@ -11,6 +11,7 @@ import type { HostSettings } from "./useHostSettings";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { TargetPanel } = await import("./TargetPanel");
+const { bandHeight } = await import("./bandSplit");
 const { wait } = await import("./test/widgetApi");
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -67,9 +68,10 @@ const table = {
 } as unknown as Element;
 const widget = { id: "fr", kind: "frise", params: {} } as unknown as Element;
 
-interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface }
+interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface;
+  band?: number | null; onBand?: (band: number | null) => void }
 
-async function mount({ selected, shown = surface, readOnly = false, withView = true, folded = false, lead }: Opts) {
+async function mount({ selected, shown = surface, readOnly = false, withView = true, folded = false, lead, band = null, onBand = () => {} }: Opts) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -79,7 +81,7 @@ async function mount({ selected, shown = surface, readOnly = false, withView = t
       createElement(TargetPanel, {
         view: withView ? view : null, readOnly, selected, target, palette: ["#0077b6"],
         onApply: () => {}, onKind: () => {}, onSurfaceAction: () => {}, onError: () => {},
-        folded,
+        folded, band, onBand,
         lead: lead && { surface: lead, outcome: { current: null } },
       }),
     );
@@ -120,7 +122,69 @@ describe("TargetPanel", () => {
   // Sans surface (le temps de la lire, ou élément sans paramètres) : la bande reste, la slide ne bouge pas.
   test("TargetPanel no surface keeps its empty band", async () => {
     const host = await mount({ selected: widget, shown: null });
-    expect(host.innerHTML).toBe('<div class="settings-band"></div>');
+    const band = host.querySelector(".settings-band") as HTMLElement;
+    expect([...band.children].map((c) => c.getAttribute("role"))).toEqual(["separator"]);
+  });
+
+  test("TargetPanel band opens on a horizontal separator above its card", async () => {
+    const host = await mount({ selected: table });
+    const band = host.querySelector(".settings-band") as HTMLElement;
+    expect(band.firstElementChild?.getAttribute("aria-orientation")).toBe("horizontal");
+  });
+
+  test("TargetPanel chosen band height is set on the band", async () => {
+    const host = await mount({ selected: table, band: 320 });
+    const band = host.querySelector(".settings-band") as HTMLElement;
+    expect(band.style.getPropertyValue("--band-h")).toBe(bandHeight(320));
+  });
+
+  test("TargetPanel default band height leaves the style sheet in charge", async () => {
+    const host = await mount({ selected: table });
+    const band = host.querySelector(".settings-band") as HTMLElement;
+    expect(band.style.getPropertyValue("--band-h")).toBe("");
+  });
+
+  test("TargetPanel double click on the separator resets the band height", async () => {
+    const bands: (number | null)[] = [];
+    const host = await mount({ selected: table, band: 320, onBand: (b) => bands.push(b) });
+    await act(async () => {
+      host.querySelector("[role=separator]")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    expect(bands).toEqual([null]);
+  });
+
+  /** Glisse le séparateur de `from` à `to` (clientY) dans une colonne de 800 px dont 320 à la bande. */
+  async function drag(host: HTMLElement, moves: number[]) {
+    const band = host.querySelector(".settings-band") as HTMLElement;
+    Object.defineProperty(host, "clientHeight", { configurable: true, value: 800 });
+    Object.defineProperty(band, "offsetHeight", { configurable: true, value: 320 });
+    const sep = band.querySelector("[role=separator]") as HTMLElement;
+    sep.setPointerCapture = () => {};
+    const [first, ...rest] = moves;
+    const fire = (type: string, y: number) =>
+      act(async () => {
+        sep.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: 0, clientY: y }));
+      });
+    await fire("pointerdown", first);
+    for (const y of rest.slice(0, -1)) await fire("pointermove", y);
+    return { band, release: () => fire("pointerup", rest[rest.length - 1]) };
+  }
+
+  test("TargetPanel dragging the separator shows the height live, kept only on release", async () => {
+    const bands: (number | null)[] = [];
+    const host = await mount({ selected: table, band: 320, onBand: (b) => bands.push(b) });
+    const { band, release } = await drag(host, [500, 450, 440]);
+    expect([band.style.getPropertyValue("--band-h"), bands]).toEqual([bandHeight(370), []]);
+    await release();
+    expect([band.style.getPropertyValue("--band-h"), bands]).toEqual([bandHeight(380), [380]]);
+  });
+
+  test("TargetPanel drag released back on the kept height shows the kept height", async () => {
+    const bands: (number | null)[] = [];
+    const host = await mount({ selected: table, band: 320, onBand: (b) => bands.push(b) });
+    const { band, release } = await drag(host, [500, 440, 500]);
+    await release();
+    expect([band.style.getPropertyValue("--band-h"), bands]).toEqual([bandHeight(320), [320]]);
   });
 
   test("TargetPanel read only shows nothing", async () => {

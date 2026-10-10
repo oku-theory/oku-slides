@@ -47,6 +47,7 @@ ui-toolbar-ghosts-show = Pokaż duchy
 ui-divider-pile = Szerokość stosu slajdów
 ui-divider-notes = Szerokość wątku agenta
 ui-divider-code = Rozmiar kodu
+ui-divider-band = Wysokość ustawień
 ui-toolbar-theme = Motyw
 ui-toolbar-theme-embedded = Motyw z pliku
 ui-toolbar-save-copy = Zapisz kopię

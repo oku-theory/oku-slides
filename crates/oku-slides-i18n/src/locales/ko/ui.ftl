@@ -41,6 +41,7 @@ ui-toolbar-ghosts-show = 고스트 표시
 ui-divider-pile = 슬라이드 더미 너비
 ui-divider-notes = 에이전트 스레드 너비
 ui-divider-code = 코드 크기
+ui-divider-band = 설정 높이
 ui-toolbar-theme = 테마
 ui-toolbar-theme-embedded = 파일의 테마
 ui-toolbar-save-copy = 사본 저장

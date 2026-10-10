@@ -51,6 +51,7 @@ ui-toolbar-ghosts-show = إظهار الأشباح
 ui-divider-pile = عرض كومة الشرائح
 ui-divider-notes = عرض سلسلة الوكيل
 ui-divider-code = حجم الشيفرة
+ui-divider-band = ارتفاع الإعدادات
 ui-toolbar-theme = السمة
 ui-toolbar-theme-embedded = سمة الملف
 ui-toolbar-save-copy = حفظ نسخة

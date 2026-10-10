@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = ঘোস্ট দেখান
 ui-divider-pile = স্লাইড স্তূপের প্রস্থ
 ui-divider-notes = এজেন্ট থ্রেডের প্রস্থ
 ui-divider-code = কোডের আকার
+ui-divider-band = সেটিংসের উচ্চতা
 ui-toolbar-theme = থিম
 ui-toolbar-theme-embedded = ফাইলের থিম
 ui-toolbar-save-copy = একটি কপি সংরক্ষণ করুন

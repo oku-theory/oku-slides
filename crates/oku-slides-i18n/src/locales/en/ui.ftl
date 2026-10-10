@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = Show the ghosts
 ui-divider-pile = Width of the slide pile
 ui-divider-notes = Width of the agent thread
 ui-divider-code = Code size
+ui-divider-band = Settings height
 ui-toolbar-theme = Theme
 ui-toolbar-theme-embedded = File theme
 ui-toolbar-save-copy = Save a copy

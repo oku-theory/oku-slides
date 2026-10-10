@@ -36,18 +36,20 @@ export function TablePanel({ slide, element, onApply, onShowAs }: {
   const header = option.dataset.source[0] ?? [];
   return (
     <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
-      <div className="table-options chart-options" role="group" aria-label={t("ui-table-options")}>
-        {FLAGS.map(({ key, label, icon }) => {
-          const pressed = flag(option, key);
-          return (
-            <button key={key} aria-label={t(label)} title={t(label)} aria-pressed={pressed} className={pressed ? "on" : ""}
-              onClick={() => patch(t("ui-undo-table-option"), { [key]: !pressed })}>
-              {icon}
-            </button>
-          );
-        })}
+      <div className="panel-toolbar">
+        <div className="table-options chart-options" role="group" aria-label={t("ui-table-options")}>
+          {FLAGS.map(({ key, label, icon }) => {
+            const pressed = flag(option, key);
+            return (
+              <button key={key} aria-label={t(label)} title={t(label)} aria-pressed={pressed} className={pressed ? "on" : ""}
+                onClick={() => patch(t("ui-undo-table-option"), { [key]: !pressed })}>
+                {icon}
+              </button>
+            );
+          })}
+        </div>
+        <ShowAsButton view="chart" onShowAs={onShowAs} />
       </div>
-      <ShowAsButton view="chart" onShowAs={onShowAs} />
       <div className="table-align" role="group" aria-label={t("ui-table-alignment")}>
         {header.map((name, i) => {
           const shown = String(name ?? "").trim() || String(i + 1);

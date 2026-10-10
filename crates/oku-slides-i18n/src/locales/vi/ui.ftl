@@ -41,6 +41,7 @@ ui-toolbar-ghosts-show = Hiện bóng mờ
 ui-divider-pile = Độ rộng chồng trang chiếu
 ui-divider-notes = Độ rộng luồng của tác nhân AI
 ui-divider-code = Kích thước mã
+ui-divider-band = Chiều cao phần cài đặt
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-embedded = Chủ đề của tệp
 ui-toolbar-save-copy = Lưu bản sao

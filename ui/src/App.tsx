@@ -789,6 +789,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
             view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
             onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
             folded={paramsHidden}
+            band={keptUi.band} onBand={keptUi.setBand}
             lead={host.surface?.id === HOST_TEMPLATE ? { surface: host.surface, outcome: host.outcome } : undefined}
             onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
             onShowAs={(v) => view && selectedElement && run(api.showAs(t(v === "table" ? "ui-undo-show-as-table" : "ui-undo-show-as-chart"), view.slide.id, selectedElement.id, v))}

@@ -358,14 +358,15 @@ button, select, input, textarea { font: inherit; color: inherit; }
 body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 /* Poignée : une pastille discrète au repos dit que la zone se redimensionne ; plus nette au survol,
    elle s'efface au glisser et au focus, où le trait d'accent prend le relais. */
-.col-divider::after, .code-divider::after {
+.col-divider::after, .code-divider::after, .band-divider::after {
   content: ""; position: absolute; border-radius: 2px; background: var(--ink); opacity: 0.16;
   transition: opacity 160ms ease-out; pointer-events: none;
 }
 .col-divider::after { top: 50%; inset-inline-start: 2px; width: 4px; height: 32px; margin-top: -16px; }
-.col-divider:hover::after, .code-divider:hover::after { opacity: 0.32; }
+.col-divider:hover::after, .code-divider:hover::after, .band-divider:hover::after { opacity: 0.32; }
 .col-divider.active::after, .col-divider:focus-visible::after,
-.code-divider.active::after, .code-divider:focus-visible::after { opacity: 0; }
+.code-divider.active::after, .code-divider:focus-visible::after,
+.band-divider.active::after, .band-divider:focus-visible::after { opacity: 0; }
 
 /* ---- Appareil de dictée ---- */
 .device {
@@ -1001,15 +1002,28 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
    fiche (`.merged`), défilant seuls, à distance de la slide. La bande a une hauteur fixe, marge au-dessus
    de la carte comprise, et reste posée sans carte le temps de la lire : la boîte de la scène ne dépend
    pas de la carte, qui change à la sélection (sinon, dans une fenêtre basse où la hauteur borne la
-   slide, celle-ci change de taille et se décale, t-647). Carte masquée depuis la barre : pas de bande. */
+   slide, celle-ci change de taille et se décale, t-647). Carte masquée depuis la barre : pas de bande.
+   Sa hauteur se règle au séparateur (`BandDivider`), qui occupe la marge au-dessus de la carte. */
 .templates-panel { flex-direction: column; }
-.settings-band { flex: none; height: clamp(120px, 28vh, 280px); min-height: 0; display: flex; flex-direction: column; }
+.settings-band { flex: none; height: var(--band-h, clamp(120px, 28vh, 280px)); min-height: 0; display: flex; flex-direction: column; }
 .settings-band > .host-settings, .settings-band > .chart-panel {
-  flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: var(--space-10) auto 0;
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 0 auto;
   /* Au-dessus de l'ombre de la feuille (`.stage-frame`, positionnée), qui sinon bave sur la carte. */
   position: relative; z-index: 1;
 }
 .settings-band > :is(.host-settings, .chart-panel) + :is(.host-settings, .chart-panel) { margin-top: var(--space-4); }
+/* Séparateur entre la scène et la bande, comme ceux des colonnes, à l'horizontale : un trait au survol,
+   accentué au glisser ; la pastille au repos dit que la bande se redimensionne. Une prise fine, centrée dans
+   la distance d'avant entre la slide et la carte : le reste de cette marge n'est pas une poignée. */
+.band-divider { flex: none; height: 12px; margin-block: calc((var(--space-10) - 12px) / 2); position: relative; cursor: row-resize; touch-action: none; outline: none; }
+.band-divider::before {
+  content: ""; position: absolute; inset-inline: var(--space-6); top: 5.5px; height: 1px; border-radius: 1px;
+  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.band-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
+.band-divider.active::before, .band-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
+body:has(.band-divider.active) { cursor: row-resize; user-select: none; -webkit-user-select: none; }
+.band-divider::after { left: 50%; top: 50%; width: 32px; height: 4px; margin: -2px 0 0 -16px; }
 .settings-band > .chart-panel { width: min(100% - 2 * var(--space-4), 760px); box-sizing: border-box; }
 /* Réglages de l'hôte sous leur aperçu : une fiche posée, pas du verre flottant. */
 .host-settings {

@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = Mostrar los fantasmas
 ui-divider-pile = Ancho de la pila de diapositivas
 ui-divider-notes = Ancho del hilo del agente
 ui-divider-code = Tamaño del código
+ui-divider-band = Altura de los ajustes
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Tema del archivo
 ui-toolbar-save-copy = Guardar una copia

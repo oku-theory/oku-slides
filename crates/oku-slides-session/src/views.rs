@@ -119,7 +119,8 @@ pub struct HistoryView<'a> {
 }
 
 /// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié et sa largeur, sections repliées de la pile.
+/// sous-onglets de widgets, code source des widgets déplié et sa largeur, hauteur de la bande sous la
+/// scène, sections repliées de la pile.
 ///
 /// Les champs inconnus d'un `state.json` plus ancien (`board`, `code_place`,
 /// `code_height`, retirés par t-526 ; `case`, retiré par t-541) sont ignorés à la lecture.
@@ -151,6 +152,10 @@ pub struct UiState {
     /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
+    /// Hauteur de la bande sous la scène en px, choisie au séparateur ; `None` : hauteur par défaut.
+    /// Une seule pour toutes les cartes : la slide ne change pas de taille à la sélection (t-647).
+    #[serde(default)]
+    pub band: Option<u32>,
     /// Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut.
     #[serde(default)]
     pub folded: Vec<PileSection>,
@@ -186,6 +191,7 @@ impl Default for UiState {
             widget: None,
             code: false,
             code_width: None,
+            band: None,
             folded: Vec::new(),
         }
     }

@@ -54,11 +54,27 @@ test("la carte de la cible se pose sous la scène, défilant seule", () => {
   // L'ombre de la feuille (positionnée) passe sous la carte, posée à distance de la slide.
   expect(rule).toMatch(/position:\s*relative/);
   expect(rule).toMatch(/z-index:\s*1/);
-  expect(rule).toMatch(/margin:\s*var\(--space-10\) auto/);
-  // Bande de hauteur fixe sous la scène : la boîte de la slide ne suit pas la hauteur de la carte (t-647).
+  // La distance à la slide est celle du séparateur au-dessus de la carte (`.band-divider`).
+  expect(rule).toMatch(/margin:\s*0 auto/);
+  // Bande de hauteur fixe sous la scène : la boîte de la slide ne suit pas la hauteur de la carte (t-647) ;
+  // la hauteur choisie au séparateur (`--band-h`) l'emporte sur le défaut.
   const band = ruleOf(own("styles.css"), ".settings-band");
   expect(band).toMatch(/flex:\s*none/);
-  expect(band).toMatch(/height:\s*clamp\([^)]*vh[^)]*\)/);
+  expect(band).toMatch(/height:\s*var\(--band-h,\s*clamp\([^)]*vh[^)]*\)\)/);
+});
+
+test("le panneau d'un graphique ou d'un tableau remplit la bande, sans plafond propre", () => {
+  expect(ruleOf(own("chart/ChartDataGrid.css"), ".chart-panel")).not.toMatch(/max-height/);
+});
+
+test("la bascule graphique / tableau se cale en fin de rangée, de droite à gauche aussi", () => {
+  expect(ruleOf(own("chart/ChartDataGrid.css"), ".panel-toolbar > .show-as")).toMatch(/margin-inline-start:\s*auto/);
+});
+
+test("le séparateur de la bande garde à la carte la distance d'avant à la slide", () => {
+  const rule = ruleOf(own("styles.css"), ".band-divider");
+  expect(rule).toMatch(/height:\s*12px/);
+  expect(rule).toMatch(/margin-block:\s*calc\(\(var\(--space-10\) - 12px\) \/ 2\)/);
 });
 
 test("la feuille prend le plus de place possible dans sa zone", () => {

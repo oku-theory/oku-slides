@@ -119,7 +119,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, bande et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -137,6 +137,8 @@ export interface UiState {
   code: boolean;
   /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
   code_width: number | null;
+  /** Hauteur de la bande sous la scène en px, choisie au séparateur ; `null` : hauteur par défaut. */
+  band: number | null;
   /** Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
 }

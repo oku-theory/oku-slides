@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = Geesten tonen
 ui-divider-pile = Breedte van de diastapel
 ui-divider-notes = Breedte van de agentdraad
 ui-divider-code = Grootte van de code
+ui-divider-band = Hoogte van de instellingen
 ui-toolbar-theme = Thema
 ui-toolbar-theme-embedded = Thema van het bestand
 ui-toolbar-save-copy = Kopie opslaan

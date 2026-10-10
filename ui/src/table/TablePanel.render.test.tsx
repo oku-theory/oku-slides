@@ -101,4 +101,11 @@ describe("TablePanel", () => {
     await act(async () => button.click());
     expect(views).toEqual(["chart"]);
   });
+
+  test("TablePanel show-as button closes the options toolbar row", async () => {
+    const { host } = await mount();
+    const toolbar = host.querySelector(".panel-toolbar") as HTMLElement;
+    expect(toolbar.querySelector(".table-options")).not.toBeNull();
+    expect(toolbar.lastElementChild?.classList.contains("show-as")).toBe(true);
+  });
 });

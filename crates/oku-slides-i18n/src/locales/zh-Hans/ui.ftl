@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = 显示虚影
 ui-divider-pile = 幻灯片堆宽度
 ui-divider-notes = 智能体对话宽度
 ui-divider-code = 代码大小
+ui-divider-band = 设置区高度
 ui-toolbar-theme = 主题
 ui-toolbar-theme-embedded = 文件主题
 ui-toolbar-save-copy = 保存副本

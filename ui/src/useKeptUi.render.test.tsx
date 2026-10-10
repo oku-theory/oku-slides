@@ -25,7 +25,7 @@ type Tabs = Pick<UiState, "widgets" | "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true,
-  code_width: 640, folded: ["widgets"] };
+  code_width: 640, band: 320, folded: ["widgets"] };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -119,7 +119,7 @@ test("useKeptUi setColumns saves the new widths with the rest of the state", asy
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true,
-    code_width: 640, folded: ["widgets"] });
+    code_width: 640, band: 320, folded: ["widgets"] });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -142,6 +142,23 @@ test("useKeptUi setCodeWidth sauve la largeur du code avec le reste", async () =
   const { out } = await mount();
   await act(async () => { out.hook!.setCodeWidth(320); });
   expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: true, code_width: 320 });
+});
+
+test("useKeptUi premier snapshot reprend la hauteur de la bande gardée par l'hôte", async () => {
+  const { out } = await mount();
+  expect(out.hook!.band).toBe(320);
+});
+
+test("useKeptUi setBand sauve la hauteur de la bande avec le reste", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setBand(400); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code_width: 640, band: 400 });
+});
+
+test("useKeptUi setBand(null) sauve la hauteur par défaut", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setBand(null); });
+  expect([out.hook!.band, out.kept.at(-1)?.band]).toEqual([null, null]);
 });
 
 test("useKeptUi setCodeWidth(null) sauve la proportion par défaut", async () => {

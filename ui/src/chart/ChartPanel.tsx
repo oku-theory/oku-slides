@@ -46,21 +46,23 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
     ]);
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
-      <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
-        {CHART_KINDS.map((k) => (
-          <button key={k} aria-label={kindLabel(k)} title={kindLabel(k)} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
-            {KIND_ICON[k]}
-          </button>
-        ))}
-      </div>
-      <ShowAsButton view="table" onShowAs={onShowAs} disabled={!source} />
-      {stackable(element) && (
-        <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
-          <button aria-label={t("ui-chart-stack")} title={t("ui-chart-stack")} aria-pressed={stacked} className={stacked ? "on" : ""} onClick={toggleStack}>
-            {Icon.stack}
-          </button>
+      <div className="panel-toolbar">
+        <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
+          {CHART_KINDS.map((k) => (
+            <button key={k} aria-label={kindLabel(k)} title={kindLabel(k)} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
+              {KIND_ICON[k]}
+            </button>
+          ))}
         </div>
-      )}
+        {stackable(element) && (
+          <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
+            <button aria-label={t("ui-chart-stack")} title={t("ui-chart-stack")} aria-pressed={stacked} className={stacked ? "on" : ""} onClick={toggleStack}>
+              {Icon.stack}
+            </button>
+          </div>
+        )}
+        <ShowAsButton view="table" onShowAs={onShowAs} disabled={!source} />
+      </div>
       <SeriesColors
         element={element}
         colors={paletteOf(palette)}

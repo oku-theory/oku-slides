@@ -41,6 +41,7 @@ ui-toolbar-ghosts-show = แสดงโครงร่าง
 ui-divider-pile = ความกว้างของกองสไลด์
 ui-divider-notes = ความกว้างของเธรดเอเจนต์
 ui-divider-code = ขนาดโค้ด
+ui-divider-band = ความสูงของการตั้งค่า
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-embedded = ธีมของไฟล์
 ui-toolbar-save-copy = บันทึกสำเนา

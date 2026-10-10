@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = घोस्ट दिखाएँ
 ui-divider-pile = स्लाइड ढेर की चौड़ाई
 ui-divider-notes = एजेंट थ्रेड की चौड़ाई
 ui-divider-code = कोड का आकार
+ui-divider-band = सेटिंग्स की ऊँचाई
 ui-toolbar-theme = थीम
 ui-toolbar-theme-embedded = फ़ाइल की थीम
 ui-toolbar-save-copy = कॉपी सहेजें

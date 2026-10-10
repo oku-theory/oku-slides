@@ -43,6 +43,7 @@ ui-toolbar-ghosts-show = Geister einblenden
 ui-divider-pile = Breite des Folienstapels
 ui-divider-notes = Breite des Agenten-Verlaufs
 ui-divider-code = Codegröße
+ui-divider-band = Höhe der Einstellungen
 ui-toolbar-theme = Design
 ui-toolbar-theme-embedded = Design der Datei
 ui-toolbar-save-copy = Kopie speichern
