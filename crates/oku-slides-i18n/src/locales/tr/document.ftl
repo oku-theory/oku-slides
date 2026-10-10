@@ -36,3 +36,42 @@ import-unreadable = Bu sunu okunamıyor
 import-not-a-presentation = Bu dosya bir PowerPoint sunusu değil
 import-protected = Bu sunu şifreli veya eski .ppt biçiminde: önce .pptx olarak kaydedin
 import-too-large = Bu sunu içe aktarılamayacak kadar büyük
+import-loss-list-levels = Liste düzeyleri tek düzeye indirildi
+import-loss-merged-cells = Birleştirilmiş hücreler ayrıldı
+import-loss-percent-stacked = %100 yığılmış grafik yığılmış olarak gösterildi
+import-loss-run-style = { $effect ->
+    [underline] Altı çizili biçim kayboldu
+    [strike] Üstü çizili biçim kayboldu
+    [baseline] Üst simge veya alt simge kayboldu
+    [caps] Büyük harfler kayboldu
+   *[highlight] Vurgulama kayboldu
+}
+import-loss-transform = Döndürme, çevirme veya kırpma kayboldu
+import-loss-color-dropped = { $color } renginin temada yakın bir rengi yok: tema rengi kullanıldı
+import-loss-text-truncated = Metin sınırlara sığması için kısaltıldı
+import-loss-table-truncated = Tablo sınırlara sığması için kısaltıldı
+import-loss-opaque = { $reason ->
+    [media] Video veya ses içe aktarılmadı (yedek görüntü yok)
+    [ole] Gömülü nesne içe aktarılmadı (yedek görüntü yok)
+    [math] Denklem içe aktarılmadı (yedek görüntü yok)
+    [smartart] SmartArt içe aktarılmadı (yedek görüntü yok)
+   *[unknown] Desteklenmeyen nesne içe aktarılmadı (yedek görüntü yok)
+}
+import-loss-unsupported-image = { $format } biçimindeki görüntü içe aktarılmadı
+import-loss-hidden-slide = Gizli slayt görünür olarak içe aktarıldı
+import-loss-effects = Gölgeler, yansımalar ve 3B efektler kayboldu
+import-loss-series-dropped = Pasta grafik tek bir seri gösterir: { $kept } korundu, { $dropped } çıkarıldı
+import-loss-repeated-decor = { $slides } slaytta tekrarlanan “{ $text }” üst veya alt bilgisi atlandı: tema kendisininkini çizer
+import-loss-no-slot = İçerik atlandı: seçilen şablonda ona yer yok
+import-warning-effect-ignored = Efekt içe aktarılmadı: { $detail }
+import-warning-approximated = Yaklaşık olarak gösterildi: { $detail }
+import-warning-unreadable-item = Okunamayan öğe atlandı: { $detail }
+import-warning-unreadable-part = Okunamayan bölüm: { $detail }
+import-warning-missing-part = Eksik bölüm: { $detail }
+import-warning-unsupported-chart = Desteklenmeyen grafik: { $detail }
+import-warning-unsupported-image = Desteklenmeyen görüntü biçimi: { $detail }
+import-warning-unknown-table-style = Bilinmeyen tablo stili: { $detail }
+import-warning-unsafe-link = Bağlantı reddedildi: { $detail }
+import-warning-nesting-too-deep = İç içe yerleştirme çok derin, kesildi: { $detail }
+import-warning-font-embedded-unreadable = Gömülü yazı tipi okunamadı: { $detail }
+import-warning-truncated = Çok fazla uyarı: sonrakiler atlandı

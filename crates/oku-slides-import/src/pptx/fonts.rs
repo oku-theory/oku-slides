@@ -47,7 +47,7 @@ fn items(list: &[Item], out: &mut BTreeSet<String>) {
             ItemKind::Text(tb) => textbox(tb, out),
             ItemKind::Shape(s) => s.text.iter().for_each(|tb| textbox(tb, out)),
             ItemKind::Table(t) => t.rows.iter().flatten().for_each(|c| textbox(&c.text, out)),
-            ItemKind::Group { items: kids } => items(kids, out),
+            ItemKind::Group { items: kids, .. } => items(kids, out),
             ItemKind::Picture(_) | ItemKind::Chart(_) | ItemKind::Opaque(_) => {}
         }
     }

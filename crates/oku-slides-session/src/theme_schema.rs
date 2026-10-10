@@ -138,17 +138,8 @@ pub fn default_tokens() -> &'static Map<String, Value> {
     &DEFAULT_TOKENS
 }
 
-/// Fusion profonde de `over` dans `base`, comme `merge` côté Typst.
-pub fn merge(base: &mut Map<String, Value>, over: &Map<String, Value>) {
-    for (k, v) in over {
-        match (base.get_mut(k), v) {
-            (Some(Value::Object(b)), Value::Object(o)) => merge(b, o),
-            _ => {
-                base.insert(k.clone(), v.clone());
-            }
-        }
-    }
-}
+/// Fusion profonde de `over` dans `base`, comme `merge` côté Typst (celle du cœur).
+pub use oku_slides_core::tokens::merge;
 
 /// Toutes les entrées du schéma, dans l'ordre du fichier.
 pub fn schema() -> &'static [TokenSpec] {

@@ -32,6 +32,25 @@ cli-bad-request = अमान्य अनुरोध: { $reason }
 cli-sse-full = पहले से ही बहुत सारे इवेंट स्ट्रीम खुले हैं
 cli-forbidden = अनुरोध अस्वीकृत: यह स्थानीय इंटरफ़ेस से नहीं आया
 cli-exposed = { $host } पर सुन रहा है: सर्वर में प्रमाणीकरण नहीं है और यह नेटवर्क से पहुँच योग्य है; स्थानीय Host हेडर भेजने वाले हर क्लाइंट को जवाब दिया जाता है। [serve] host को 127.0.0.1 पर ही रखें
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } स्लाइड
+      *[other] { $slides } स्लाइड
+    }, { $pages ->
+       [one] { $pages } पेज
+      *[other] { $pages } पेज
+    }, { $losses ->
+       [one] { $losses } हानि
+      *[other] { $losses } हानियाँ
+    }, { $requests ->
+       [one] { $requests } विजेट अनुरोध
+      *[other] { $requests } विजेट अनुरोध
+    }
+cli-import-label = PowerPoint आयात
+cli-import-pack-required = retrofit मोड में --pack ज़रूरी है: टेम्पलेट पैक की आईडी, फ़ोल्डर या नाम
+cli-import-unknown-pack = अज्ञात टेम्पलेट पैक: { $pack }
+cli-import-bad-pack = अपठनीय टेम्पलेट पैक { $pack }: इसकी pack.json टेम्पलेट पैक का वर्णन नहीं करती
+cli-import-write-failed = आयात किया गया डेक { $path } लिखा नहीं जा सका
+cli-import-hifi-later = उच्च-निष्ठा आयात (--mode hifi) अभी उपलब्ध नहीं है: --mode retrofit इस्तेमाल करें
 
 cli-about = Oku Slides प्रेज़ेंटेशन रेंडर और संग्रहीत करें
 cli-arg-fonts = अतिरिक्त फ़ॉन्ट फ़ोल्डर (TTF/OTF); डिफ़ॉल्ट: सेटिंग्स में paths.fonts
@@ -55,3 +74,9 @@ cli-cmd-serve = डेवलपमेंट सर्वर: ब्राउज�
 cli-arg-serve-input = खोलने के लिए प्रेज़ेंटेशन (.oku-slides.pdf या .json)
 cli-arg-port = पोर्ट; डिफ़ॉल्ट: सेटिंग्स में serve.port
 cli-arg-ui = बने हुए इंटरफ़ेस का फ़ोल्डर (ui/dist)
+cli-cmd-import = PowerPoint प्रेज़ेंटेशन (.pptx) को .oku-slides.pdf के रूप में आयात करें
+cli-arg-pptx = PowerPoint प्रेज़ेंटेशन (.pptx)
+cli-arg-mode = retrofit: मौजूदा टेम्पलेट पैक और थीम पर सामग्री; hifi: हूबहू प्रति (अभी उपलब्ध नहीं)
+cli-arg-pack = लक्ष्य टेम्पलेट पैक: आईडी, पैक फ़ोल्डर (pack.json, widgets/) या नाम
+cli-arg-import-theme = लक्ष्य थीम: बिल्ट-इन या लाइब्रेरी की थीम, आईडी या नाम से; डिफ़ॉल्ट: डिफ़ॉल्ट थीम
+cli-arg-report = आयात रिपोर्ट (JSON) भी लिखें: हानियाँ, विकल्प, कवरेज

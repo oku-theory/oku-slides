@@ -32,6 +32,25 @@ cli-bad-request = ungültige Anfrage: { $reason }
 cli-sse-full = zu viele Ereignisströme bereits geöffnet
 cli-forbidden = Anfrage abgelehnt: sie stammt nicht von der lokalen Oberfläche
 cli-exposed = lauscht auf { $host }: der Server hat keine Authentifizierung und ist aus dem Netzwerk erreichbar; jeder Client, der einen lokalen Host-Header sendet, wird bedient. Belassen Sie [serve] host auf 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } Folie
+      *[other] { $slides } Folien
+    }, { $pages ->
+       [one] { $pages } Seite
+      *[other] { $pages } Seiten
+    }, { $losses ->
+       [one] { $losses } Verlust
+      *[other] { $losses } Verluste
+    }, { $requests ->
+       [one] { $requests } Widget-Anfrage
+      *[other] { $requests } Widget-Anfragen
+    }
+cli-import-label = PowerPoint-Import
+cli-import-pack-required = --pack ist im Modus retrofit erforderlich: ID, Ordner oder Name eines Vorlagenpakets
+cli-import-unknown-pack = unbekanntes Vorlagenpaket: { $pack }
+cli-import-bad-pack = unlesbares Vorlagenpaket { $pack }: seine pack.json beschreibt kein Vorlagenpaket
+cli-import-write-failed = das importierte Deck { $path } konnte nicht geschrieben werden
+cli-import-hifi-later = der originalgetreue Import (--mode hifi) ist noch nicht verfügbar: verwenden Sie --mode retrofit
 
 cli-about = Oku-Slides-Präsentationen rendern und speichern
 cli-arg-fonts = Zusätzlicher Schriftordner (TTF/OTF); Standard: paths.fonts in den Einstellungen
@@ -55,3 +74,9 @@ cli-cmd-serve = Entwicklungsserver: die Oberfläche im Browser, ohne Tauri
 cli-arg-serve-input = Zu öffnende Präsentation (.oku-slides.pdf oder .json)
 cli-arg-port = Port; Standard: serve.port in den Einstellungen
 cli-arg-ui = Ordner der gebauten Oberfläche (ui/dist)
+cli-cmd-import = Eine PowerPoint-Präsentation (.pptx) als .oku-slides.pdf importieren
+cli-arg-pptx = PowerPoint-Präsentation (.pptx)
+cli-arg-mode = retrofit: der Inhalt auf einem vorhandenen Vorlagenpaket und Design; hifi: originalgetreue Kopie (noch nicht verfügbar)
+cli-arg-pack = Ziel-Vorlagenpaket: ID, Paketordner (pack.json, widgets/) oder Name
+cli-arg-import-theme = Ziel-Design: ein mitgeliefertes oder eines aus der Bibliothek, per ID oder Name; Standard: das Standarddesign
+cli-arg-report = Zusätzlich den Importbericht (JSON) schreiben: Verluste, Ersatzlösungen, Abdeckung

@@ -32,6 +32,41 @@ cli-bad-request = طلب غير صالح: { $reason }
 cli-sse-full = عدد كبير جدًا من تدفقات الأحداث مفتوحة بالفعل
 cli-forbidden = تم رفض الطلب: لم يصدر عن الواجهة المحلية
 cli-exposed = الاستماع على { $host }: الخادم بلا مصادقة ويمكن الوصول إليه من الشبكة؛ يُخدَم أي عميل يرسل ترويسة Host محلية. أبقِ [serve] host على 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [zero] لا شرائح
+       [one] شريحة واحدة
+       [two] شريحتان
+       [few] { $slides } شرائح
+       [many] { $slides } شريحة
+      *[other] { $slides } شريحة
+    }، { $pages ->
+       [zero] لا صفحات
+       [one] صفحة واحدة
+       [two] صفحتان
+       [few] { $pages } صفحات
+       [many] { $pages } صفحة
+      *[other] { $pages } صفحة
+    }، { $losses ->
+       [zero] لا فقد
+       [one] فقد واحد
+       [two] فقدان
+       [few] { $losses } حالات فقد
+       [many] { $losses } حالة فقد
+      *[other] { $losses } حالة فقد
+    }، { $requests ->
+       [zero] لا طلبات أدوات
+       [one] طلب أداة واحد
+       [two] طلبا أداة
+       [few] { $requests } طلبات أدوات
+       [many] { $requests } طلب أداة
+      *[other] { $requests } طلب أداة
+    }
+cli-import-label = استيراد من PowerPoint
+cli-import-pack-required = الخيار --pack مطلوب في وضع retrofit: معرّف حزمة القوالب أو مجلدها أو اسمها
+cli-import-unknown-pack = حزمة قوالب غير معروفة: { $pack }
+cli-import-bad-pack = حزمة قوالب غير مقروءة { $pack }: ملف pack.json الخاص بها لا يصف حزمة قوالب
+cli-import-write-failed = تعذّرت كتابة العرض المستورد { $path }
+cli-import-hifi-later = الاستيراد عالي الدقة (--mode hifi) غير متاح بعد: استخدم --mode retrofit
 
 cli-about = عرض عروض Oku Slides التقديمية وحفظها
 cli-arg-fonts = مجلد خطوط إضافي (TTF/OTF)؛ الافتراضي: paths.fonts في الإعدادات
@@ -55,3 +90,9 @@ cli-cmd-serve = خادم التطوير: الواجهة في متصفح، دون
 cli-arg-serve-input = العرض التقديمي المراد فتحه (.oku-slides.pdf أو .json)
 cli-arg-port = المنفذ؛ الافتراضي: serve.port في الإعدادات
 cli-arg-ui = مجلد الواجهة المبنية (ui/dist)
+cli-cmd-import = استيراد عرض PowerPoint (.pptx) بصيغة .oku-slides.pdf
+cli-arg-pptx = عرض PowerPoint (.pptx)
+cli-arg-mode = retrofit: المحتوى على حزمة قوالب وسمة موجودتين؛ hifi: نسخة مطابقة (غير متاحة بعد)
+cli-arg-pack = حزمة القوالب الهدف: المعرّف أو مجلد الحزمة (pack.json، widgets/) أو الاسم
+cli-arg-import-theme = السمة الهدف: سمة مدمجة أو من المكتبة، بمعرّفها أو اسمها؛ الافتراضي: السمة الافتراضية
+cli-arg-report = كتابة تقرير الاستيراد (JSON) أيضًا: المفقودات والبدائل والتغطية

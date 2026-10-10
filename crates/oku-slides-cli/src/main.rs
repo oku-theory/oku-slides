@@ -1,11 +1,13 @@
-//! `oku-slides` : outil en ligne de commande pour rendre, enregistrer et rouvrir
-//! des decks Oku Slides sans l'app. Sert aussi aux tests et aux mesures.
+//! `oku-slides` : outil en ligne de commande pour rendre, enregistrer, rouvrir
+//! et importer des decks Oku Slides sans l'app. Sert aussi aux tests et aux mesures.
 //!
 //! Les résultats vont sur stdout ([`out`]), les journaux sur stderr ; l'aide
 //! et les messages sont dans la langue des réglages.
 
 mod bench;
 mod guard;
+mod import;
+mod library;
 mod out;
 mod pack_render;
 mod serve;
@@ -19,19 +21,15 @@ use std::time::Instant;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::eyre::{Result, WrapErr};
 
-use oku_slides_core::{
-    Deck, PackFiles, PackRef, PackVersion, SourceBundle, SourceLimits, ThemeRef, WidgetFile, WidgetRegistry, validate,
-};
+use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
-use oku_slides_platform::errors::one_line;
 use oku_slides_render::Fonts;
-use oku_slides_session::{
-    PackLibrary, Storage, ThemeLibrary, adopt_default_pack, adopt_default_theme, check_pack_id, read_document,
-    theme_tokens,
-};
+use oku_slides_session::{PackLibrary, Storage, adopt_default_pack, adopt_default_theme, read_document, theme_tokens};
 
 use crate::bench::ms;
+use crate::import::{ImportArgs, ImportMode};
+use crate::library::{beside_deck, embed_theme, pack_library, theme_library};
 use crate::out::Out;
 use crate::pack_render::DeckWidgets;
 
@@ -76,6 +74,19 @@ enum Cmd {
     Strip {
         input: PathBuf,
         output: PathBuf,
+    },
+    Import {
+        input: PathBuf,
+        #[arg(long, value_enum, default_value_t = ImportMode::Retrofit)]
+        mode: ImportMode,
+        #[arg(long)]
+        pack: Option<String>,
+        #[arg(long)]
+        theme: Option<String>,
+        #[arg(short = 'o', long)]
+        output: PathBuf,
+        #[arg(long)]
+        report: Option<PathBuf>,
     },
     Bench {
         deck: PathBuf,
@@ -122,6 +133,15 @@ fn command(l: &Localizer) -> clap::Command {
             c.about(help("cli-cmd-strip"))
                 .mut_arg("input", |a| a.help(help("cli-arg-input")))
                 .mut_arg("output", |a| a.help(help("cli-arg-output")))
+        })
+        .mut_subcommand("import", |c| {
+            c.about(help("cli-cmd-import"))
+                .mut_arg("input", |a| a.help(help("cli-arg-pptx")))
+                .mut_arg("mode", |a| a.help(help("cli-arg-mode")))
+                .mut_arg("pack", |a| a.help(help("cli-arg-pack")))
+                .mut_arg("theme", |a| a.help(help("cli-arg-import-theme")))
+                .mut_arg("output", |a| a.help(help("cli-arg-output")))
+                .mut_arg("report", |a| a.help(help("cli-arg-report")))
         })
         .mut_subcommand("bench", |c| {
             c.about(help("cli-cmd-bench"))
@@ -231,55 +251,30 @@ fn sources_with_pack(
     Ok((bundle, widgets))
 }
 
-/// La version `r` extraite à côté du deck, si elle s'y trouve intacte et
-/// que son `pack.json` est bien celui du pack `r.id`.
-fn beside_deck(storage: &Storage, deck_dir: &Path, r: &PackRef) -> Option<PackFiles> {
-    let v = &r.version;
-    let dir = deck_dir.join("packs").join(v.hex());
-    let read = |path: &Path| -> Option<Vec<u8>> {
-        match storage.len(path) {
-            Ok(Some(_)) => storage
-                .read(path)
-                .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "fichier du pack illisible"))
-                .ok(),
-            _ => None,
-        }
-    };
-    let mut widgets = BTreeMap::new();
-    let listed = storage.list_files(&dir.join("widgets")).unwrap_or_default();
-    for path in listed {
-        let Some(name) = path.file_name().and_then(|n| n.to_str()).and_then(WidgetFile::from_file_name) else {
-            continue;
-        };
-        widgets.insert(name, read(&path)?);
-    }
-    let files =
-        PackFiles::from_bytes(&read(&dir.join("pack.json"))?, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))?;
-    if !files.matches(v) {
-        tracing::warn!(dir = %dir.display(), "pack altéré à côté du deck : ignoré");
-        return None;
-    }
-    match check_pack_id(r, &files) {
-        Ok(()) => Some(files),
-        Err(e) => {
-            tracing::warn!(dir = %dir.display(), error = %one_line(&e), "pack à côté du deck : ignoré");
-            None
-        }
-    }
+/// Les tailles d'un document écrit : pages, PDF et sources en octets.
+struct Written {
+    pages: usize,
+    pdf: usize,
+    sources: usize,
 }
 
-/// Embarque dans `bundle` la version courante du thème nommé `name` (intégré
-/// ou de la bibliothèque, sans casse) ; sa référence. Un nom inconnu est une erreur.
-fn embed_theme(themes: &ThemeLibrary, l: &Localizer, name: &str, bundle: &mut SourceBundle) -> Result<ThemeRef> {
-    let unknown = || color_eyre::eyre::eyre!(l.tr_with("session-unknown-theme", &[("theme", name.into())]));
-    let info = themes.themes().into_iter().find(|t| t.name.eq_ignore_ascii_case(name)).ok_or_else(unknown)?;
-    let current = themes.current_version(info.id).ok_or_else(unknown)?;
-    Ok(ThemeRef { id: info.id, version: bundle.add_theme(current.files) })
-}
-
-/// La bibliothèque des thèmes de l'utilisateur (et les intégrés).
-fn theme_library(platform: &Platform) -> ThemeLibrary {
-    ThemeLibrary::new(Some(platform.settings.paths.themes()), platform.storage.clone())
+/// Rend `bundle` avec `widgets`, joint ses sources au PDF et écrit le tout
+/// dans `output` (écriture atomique).
+fn write_document(
+    platform: &Platform,
+    l: &Localizer,
+    fonts: Fonts,
+    widgets: &DeckWidgets,
+    bundle: &SourceBundle,
+    output: &Path,
+) -> Result<Written> {
+    let doc = pack_render::render(platform, l, fonts, widgets, bundle, bundle.deck())?;
+    let pdf = doc.pdf()?;
+    let zip = bundle.to_zip()?;
+    let written = oku_slides_pdf::embed_sources(&pdf, &zip)?;
+    let pdf = written.len();
+    platform.storage.write_atomic(output, written)?;
+    Ok(Written { pages: doc.page_count(), pdf, sources: zip.len() })
 }
 
 /// Registre de base des widgets, compilé depuis Typst une fois par processus
@@ -326,7 +321,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let base = registry(&app_fonts)?;
             let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let deck = read_deck(storage, l, &deck)?;
-            let library = PackLibrary::new(Some(platform.settings.paths.templates()), storage.clone());
+            let library = pack_library(platform);
             // Un pack introuvable n'arrête pas la vérification : signalé, ses widgets sont inconnus.
             let packs = deck_pack(storage, &library, l, &deck_dir, &deck).unwrap_or_else(|e| {
                 tracing::warn!("{e}");
@@ -373,7 +368,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let base = registry(&app_fonts)?;
             let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let deck = read_deck(storage, l, &deck)?;
-            let library = PackLibrary::new(Some(platform.settings.paths.templates()), storage.clone());
+            let library = pack_library(platform);
             let packs = deck_pack(storage, &library, l, &deck_dir, &deck)?;
             let (mut bundle, widgets) = sources_with_pack(platform, l, &library, &base, deck, packs)?;
             let themes = theme_library(platform);
@@ -393,19 +388,14 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 bundle.fonts = fonts;
             }
             report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
-            let doc = pack_render::render(platform, l, app_fonts.clone(), &widgets, &bundle, bundle.deck())?;
-            let pdf = doc.pdf()?;
-            let zip = bundle.to_zip()?;
-            let written = oku_slides_pdf::embed_sources(&pdf, &zip)?;
-            let size = written.len();
-            storage.write_atomic(&output, written)?;
+            let written = write_document(platform, l, app_fonts.clone(), &widgets, &bundle, &output)?;
             out.line(
                 "cli-saved",
                 &[
                     ("path", output.display().to_string().into()),
-                    ("pages", doc.page_count().into()),
-                    ("pdf", (size / 1024).into()),
-                    ("sources", (zip.len() / 1024).into()),
+                    ("pages", written.pages.into()),
+                    ("pdf", (written.pdf / 1024).into()),
+                    ("sources", (written.sources / 1024).into()),
                 ],
             )?;
         }
@@ -443,6 +433,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let pdf = storage.read(&input)?;
             storage.write_atomic(&output, oku_slides_pdf::strip_sources(&pdf)?)?;
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
+        }
+        Cmd::Import { input, mode, pack, theme, output, report } => {
+            let args = ImportArgs { input, mode, pack, theme, output, report };
+            import::import(platform, out, &app_fonts, args)?;
         }
         Cmd::Bench { deck, iterations } => {
             let deck = read_deck(storage, l, &deck)?;

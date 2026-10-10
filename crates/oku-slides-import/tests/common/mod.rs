@@ -73,3 +73,34 @@ pub fn file(name: &str) -> Vec<u8> {
 pub fn text(name: &str) -> String {
     fs::read_to_string(root().join(name)).unwrap_or_else(|e| panic!("lecture de {name}: {e}"))
 }
+
+/// Le registre des widgets de base (`fixtures/widgets/base-registry.json`).
+pub fn registry() -> oku_slides_core::WidgetRegistry {
+    let text = fs::read_to_string(root().join("../widgets/base-registry.json")).unwrap_or_else(|e| panic!("{e}"));
+    oku_slides_core::WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}")))
+        .unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Les modèles du pack intégré `name` (`templates/<name>/pack.json`), dans l'ordre du pack.
+pub fn templates(name: &str) -> Vec<oku_slides_core::Template> {
+    let path = root().join(format!("../../templates/{name}/pack.json"));
+    let pack: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display())))
+            .unwrap_or_else(|e| panic!("{e}"));
+    serde_json::from_value(pack["templates"].clone()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Les jetons effectifs du thème intégré `name` (`papier`, `pro`) : les défauts, puis les siens.
+pub fn tokens(name: &str) -> serde_json::Map<String, serde_json::Value> {
+    let typst = root().join("../../typst/oku-slides");
+    let read = |p: PathBuf| -> serde_json::Value {
+        serde_json::from_str(&fs::read_to_string(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display())))
+            .unwrap_or_else(|e| panic!("{e}"))
+    };
+    let serde_json::Value::Object(defaults) = read(typst.join("src/default-tokens.json")) else { panic!("jetons") };
+    let theme = read(typst.join(format!("themes/{name}.json")));
+    oku_slides_core::tokens::effective_tokens(
+        &defaults,
+        theme["tokens"].as_object().unwrap_or_else(|| panic!("tokens de {name}")),
+    )
+}

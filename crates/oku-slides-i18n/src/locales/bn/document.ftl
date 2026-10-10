@@ -36,3 +36,45 @@ import-unreadable = এই উপস্থাপনাটি পড়া যা
 import-not-a-presentation = এই ফাইলটি PowerPoint উপস্থাপনা নয়
 import-protected = এই উপস্থাপনাটি এনক্রিপ্ট করা বা পুরোনো .ppt ফরম্যাটে: আগে এটি .pptx হিসেবে সংরক্ষণ করুন
 import-too-large = এই উপস্থাপনাটি ইমপোর্ট করার জন্য খুব বড়
+import-loss-list-levels = তালিকার স্তরগুলো একটি স্তরে নামানো হয়েছে
+import-loss-merged-cells = একত্রিত ঘরগুলো আলাদা করা হয়েছে
+import-loss-percent-stacked = ১০০% স্তূপীকৃত চার্ট স্তূপীকৃত হিসেবে দেখানো হয়েছে
+import-loss-run-style = { $effect ->
+    [underline] আন্ডারলাইন হারিয়েছে
+    [strike] কাটা দাগ হারিয়েছে
+    [baseline] সুপারস্ক্রিপ্ট বা সাবস্ক্রিপ্ট হারিয়েছে
+    [caps] বড় হাতের অক্ষর হারিয়েছে
+   *[highlight] হাইলাইট হারিয়েছে
+}
+import-loss-transform = ঘোরানো, উল্টানো বা ক্রপ হারিয়েছে
+import-loss-color-dropped = { $color } রঙের কাছাকাছি কোনো থিম রঙ নেই: থিমের রঙ ব্যবহার করা হয়েছে
+import-loss-text-truncated = সীমার মধ্যে রাখতে লেখা ছোট করা হয়েছে
+import-loss-table-truncated = সীমার মধ্যে রাখতে টেবিল ছোট করা হয়েছে
+import-loss-opaque = { $reason ->
+    [media] ভিডিও বা শব্দ ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
+    [ole] এমবেড করা অবজেক্ট ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
+    [math] সমীকরণ ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
+    [smartart] SmartArt ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
+   *[unknown] অসমর্থিত অবজেক্ট ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
+}
+import-loss-unsupported-image = { $format } ফরম্যাটের ছবি ইমপোর্ট করা হয়নি
+import-loss-hidden-slide = লুকানো স্লাইড দৃশ্যমান হিসেবে ইমপোর্ট করা হয়েছে
+import-loss-effects = ছায়া, প্রতিফলন ও 3D প্রভাব হারিয়েছে
+import-loss-series-dropped = পাই চার্ট শুধু একটি সিরিজ দেখায়: { $kept }টি রাখা হয়েছে, { $dropped }টি বাদ দেওয়া হয়েছে
+import-loss-repeated-decor = { $slides ->
+   [one] { $slides }টি স্লাইডে পুনরাবৃত্ত হেডার বা ফুটার “{ $text }” বাদ দেওয়া হয়েছে: থিম নিজেরটি আঁকে
+  *[other] { $slides }টি স্লাইডে পুনরাবৃত্ত হেডার বা ফুটার “{ $text }” বাদ দেওয়া হয়েছে: থিম নিজেরটি আঁকে
+}
+import-loss-no-slot = বিষয়বস্তু বাদ দেওয়া হয়েছে: বেছে নেওয়া টেমপ্লেটে এর জায়গা নেই
+import-warning-effect-ignored = ইফেক্ট ইমপোর্ট করা হয়নি: { $detail }
+import-warning-approximated = আনুমানিকভাবে দেখানো হয়েছে: { $detail }
+import-warning-unreadable-item = অপাঠযোগ্য আইটেম বাদ দেওয়া হয়েছে: { $detail }
+import-warning-unreadable-part = অপাঠযোগ্য অংশ: { $detail }
+import-warning-missing-part = অনুপস্থিত অংশ: { $detail }
+import-warning-unsupported-chart = অসমর্থিত চার্ট: { $detail }
+import-warning-unsupported-image = অসমর্থিত ছবির ফরম্যাট: { $detail }
+import-warning-unknown-table-style = অজানা টেবিল স্টাইল: { $detail }
+import-warning-unsafe-link = লিঙ্ক প্রত্যাখ্যান করা হয়েছে: { $detail }
+import-warning-nesting-too-deep = নেস্টিং খুব গভীর, কেটে দেওয়া হয়েছে: { $detail }
+import-warning-font-embedded-unreadable = এমবেড করা ফন্ট পড়া যায়নি: { $detail }
+import-warning-truncated = অনেক বেশি সতর্কবার্তা: বাকিগুলো বাদ দেওয়া হয়েছে

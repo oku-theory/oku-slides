@@ -418,7 +418,7 @@ impl Session {
                 views
             }
         };
-        let info: PackInfo = shown.manifest.info(shown.version, PackLibrary::is_builtin(shown.manifest.id));
+        let info = PackInfo::of(&shown.manifest, shown.version, PackLibrary::is_builtin(shown.manifest.id));
         Ok(TemplatesView { set: info, sets: self.library.packs(), templates: views })
     }
 

@@ -36,3 +36,45 @@ import-unreadable = Deze presentatie kan niet worden gelezen
 import-not-a-presentation = Dit bestand is geen PowerPoint-presentatie
 import-protected = Deze presentatie is versleuteld of in het oude .ppt-formaat: sla haar eerst op als .pptx
 import-too-large = Deze presentatie is te groot om te importeren
+import-loss-list-levels = Lijstniveaus teruggebracht tot één
+import-loss-merged-cells = Samengevoegde cellen gesplitst
+import-loss-percent-stacked = 100%-gestapelde grafiek als gestapeld weergegeven
+import-loss-run-style = { $effect ->
+    [underline] Onderstreping verloren
+    [strike] Doorhaling verloren
+    [baseline] Superscript of subscript verloren
+    [caps] Hoofdletters verloren
+   *[highlight] Markering verloren
+}
+import-loss-transform = Draaiing, spiegeling of bijsnijding verloren
+import-loss-color-dropped = De kleur { $color } heeft geen nabije themakleur: themakleur gebruikt
+import-loss-text-truncated = Tekst ingekort om binnen de grenzen te blijven
+import-loss-table-truncated = Tabel ingekort om binnen de grenzen te blijven
+import-loss-opaque = { $reason ->
+    [media] Video of geluid niet geïmporteerd (geen vervangende afbeelding)
+    [ole] Ingesloten object niet geïmporteerd (geen vervangende afbeelding)
+    [math] Vergelijking niet geïmporteerd (geen vervangende afbeelding)
+    [smartart] SmartArt niet geïmporteerd (geen vervangende afbeelding)
+   *[unknown] Niet-ondersteund object niet geïmporteerd (geen vervangende afbeelding)
+}
+import-loss-unsupported-image = Afbeelding in { $format }-indeling niet geïmporteerd
+import-loss-hidden-slide = Verborgen dia als zichtbaar geïmporteerd
+import-loss-effects = Schaduwen, weerspiegelingen en 3D-effecten verloren
+import-loss-series-dropped = Een cirkeldiagram toont één reeks: { $kept } behouden, { $dropped } weggelaten
+import-loss-repeated-decor = { $slides ->
+   [one] Kop- of voettekst “{ $text }” herhaald op { $slides } dia weggelaten: het thema tekent er zelf een
+  *[other] Kop- of voettekst “{ $text }” herhaald op { $slides } dia’s weggelaten: het thema tekent er zelf een
+}
+import-loss-no-slot = Inhoud weggelaten: de gekozen sjabloon heeft er geen plaats voor
+import-warning-effect-ignored = Effect niet geïmporteerd: { $detail }
+import-warning-approximated = Benaderd weergegeven: { $detail }
+import-warning-unreadable-item = Onleesbaar element overgeslagen: { $detail }
+import-warning-unreadable-part = Onleesbaar onderdeel: { $detail }
+import-warning-missing-part = Ontbrekend onderdeel: { $detail }
+import-warning-unsupported-chart = Niet-ondersteunde grafiek: { $detail }
+import-warning-unsupported-image = Afbeeldingsindeling niet ondersteund: { $detail }
+import-warning-unknown-table-style = Onbekende tabelstijl: { $detail }
+import-warning-unsafe-link = Koppeling geweigerd: { $detail }
+import-warning-nesting-too-deep = Nesting te diep, afgekapt: { $detail }
+import-warning-font-embedded-unreadable = Ingesloten lettertype onleesbaar: { $detail }
+import-warning-truncated = Te veel waarschuwingen: de rest wordt weggelaten

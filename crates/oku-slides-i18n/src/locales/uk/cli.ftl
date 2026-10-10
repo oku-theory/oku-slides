@@ -32,6 +32,33 @@ cli-bad-request = недопустимий запит: { $reason }
 cli-sse-full = забагато вже відкритих потоків подій
 cli-forbidden = запит відхилено: він надійшов не з локального інтерфейсу
 cli-exposed = прослуховування на { $host }: сервер не має автентифікації й доступний із мережі; обслуговується будь-який клієнт, що надсилає локальний заголовок Host. Залиште [serve] host рівним 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } слайд
+       [few] { $slides } слайди
+       [many] { $slides } слайдів
+      *[other] { $slides } слайда
+    }, { $pages ->
+       [one] { $pages } сторінка
+       [few] { $pages } сторінки
+       [many] { $pages } сторінок
+      *[other] { $pages } сторінки
+    }, { $losses ->
+       [one] { $losses } втрата
+       [few] { $losses } втрати
+       [many] { $losses } втрат
+      *[other] { $losses } втрати
+    }, { $requests ->
+       [one] { $requests } запит віджета
+       [few] { $requests } запити віджетів
+       [many] { $requests } запитів віджетів
+      *[other] { $requests } запиту віджетів
+    }
+cli-import-label = Імпорт із PowerPoint
+cli-import-pack-required = у режимі retrofit потрібен --pack: ідентифікатор, тека або назва пакета
+cli-import-unknown-pack = невідомий пакет: { $pack }
+cli-import-bad-pack = нечитабельний пакет { $pack }: його pack.json не описує пакет шаблонів
+cli-import-write-failed = не вдалося записати імпортовану презентацію { $path }
+cli-import-hifi-later = імпорт із високою точністю (--mode hifi) поки недоступний: використовуйте --mode retrofit
 
 cli-about = Відтворення та зберігання презентацій Oku Slides
 cli-arg-fonts = Додаткова тека шрифтів (TTF/OTF); типово: paths.fonts у налаштуваннях
@@ -55,3 +82,9 @@ cli-cmd-serve = Сервер розробки: інтерфейс у брауз�
 cli-arg-serve-input = Презентація для відкриття (.oku-slides.pdf або .json)
 cli-arg-port = Порт; типово: serve.port у налаштуваннях
 cli-arg-ui = Тека зібраного інтерфейсу (ui/dist)
+cli-cmd-import = Імпортувати презентацію PowerPoint (.pptx) у .oku-slides.pdf
+cli-arg-pptx = Презентація PowerPoint (.pptx)
+cli-arg-mode = retrofit: вміст на наявному пакеті й темі; hifi: точна копія (поки недоступно)
+cli-arg-pack = Цільовий пакет: ідентифікатор, тека пакета (pack.json, widgets/) або назва
+cli-arg-import-theme = Цільова тема: вбудована або з бібліотеки, за ідентифікатором чи назвою; типово: тема за замовчуванням
+cli-arg-report = Також записати звіт про імпорт (JSON): втрати, заміни, охоплення

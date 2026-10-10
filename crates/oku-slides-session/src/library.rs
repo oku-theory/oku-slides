@@ -361,7 +361,10 @@ impl PackLibrary {
     /// Tous les packs dans leur version courante : intégrés d'abord, puis
     /// ceux de l'utilisateur, par nom.
     pub fn packs(&self) -> Vec<PackInfo> {
-        self.entries().into_iter().map(|s| s.manifest.info(s.version, Self::is_builtin(s.manifest.id))).collect()
+        self.entries()
+            .into_iter()
+            .map(|s| PackInfo::of(&s.manifest, s.version, Self::is_builtin(s.manifest.id)))
+            .collect()
     }
 }
 

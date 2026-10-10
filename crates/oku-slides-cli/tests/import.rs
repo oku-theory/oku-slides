@@ -1,0 +1,248 @@
+//! `oku-slides import`, lancée pour de vrai : une présentation PowerPoint en
+//! `.oku-slides.pdf` rouvrable. Chaque test a son dossier de données
+//! (OKU_SLIDES_PATHS__DATA, par `oku_slides`) ; aucun ne lance LibreOffice.
+
+mod common;
+
+use std::collections::HashSet;
+use std::io::{Cursor, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+use std::sync::Arc;
+
+use common::{assert_success, oku_slides, workdir};
+use oku_slides_core::{SourceBundle, SourceLimits, WidgetRegistry, validate};
+use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
+use speculoos::prelude::*;
+use zip::write::SimpleFileOptions;
+
+const LIMITS: SourceLimits = SourceLimits { replica_bytes: 64 << 20, total_bytes: 512 << 20 };
+
+fn fixtures() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import")
+}
+
+fn run(cmd: &mut Command) -> Output {
+    cmd.output().unwrap_or_else(|e| panic!("oku-slides ne se lance pas : {e}"))
+}
+
+fn stdout(out: &Output) -> String {
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+fn stderr(out: &Output) -> String {
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+fn files(dir: &Path, out: &mut Vec<PathBuf>) {
+    for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
+        let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+        if p.file_name().is_some_and(|n| n == ".DS_Store") {
+            continue;
+        }
+        if p.is_dir() { files(&p, out) } else { out.push(p) }
+    }
+}
+
+/// Le `.pptx` de la fixture décompressée `name`, zippé dans `dir` ; son chemin.
+fn pptx(dir: &Path, name: &str) -> PathBuf {
+    let root = fixtures().join(name);
+    let mut paths = Vec::new();
+    files(&root, &mut paths);
+    paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
+    let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    for p in paths {
+        let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
+        w.start_file(rel, SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
+        w.write_all(&std::fs::read(&p).unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("zip : {e}"));
+    }
+    let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
+    let path = dir.join(format!("{name}.pptx"));
+    std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
+    path
+}
+
+fn base_registry() -> Arc<WidgetRegistry> {
+    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/base-registry.json"))
+        .unwrap_or_else(|e| panic!("registre de base : {e}"));
+    Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre de base : {e}")))
+}
+
+/// Les sources d'un `.oku-slides.pdf`, relues ; échoue si le deck lève une `Issue`.
+fn reopened(pdf: &Path) -> SourceBundle {
+    let bytes = std::fs::read(pdf).unwrap_or_else(|e| panic!("lecture du PDF : {e}"));
+    let found = oku_slides_pdf::extract_sources(&bytes)
+        .unwrap_or_else(|e| panic!("sources du PDF : {e}"))
+        .unwrap_or_else(|| panic!("PDF sans sources"));
+    let (bundle, issues) =
+        SourceBundle::from_zip(&found.zip, LIMITS, base_registry()).unwrap_or_else(|e| panic!("sources : {e}"));
+    assert_that!(issues).is_empty();
+    let assets: HashSet<String> = bundle.assets.keys().cloned().collect();
+    assert_that!(validate(bundle.deck(), &base_registry(), Some(&assets))).is_empty();
+    bundle
+}
+
+#[test]
+fn import_minimal_on_essentiel_and_pro_writes_a_reopenable_deck() {
+    let dir = workdir("import-minimal");
+    let (input, pdf) = (pptx(&dir, "minimal"), dir.join("minimal.oku-slides.pdf"));
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "Essentiel", "--theme", "Pro", "-o"])
+        .arg(&pdf));
+    assert_success("import", &out, &[]);
+    // Une perte : le second niveau de puce de la slide 2, aplati.
+    assert_that!(stdout(&out))
+        .is_equal_to(format!("{}: 3 slides, 3 pages, 1 loss, 0 widget requests\n", pdf.display()));
+    let bundle = reopened(&pdf);
+    let deck = bundle.deck();
+    assert_that!((deck.slides.len(), deck.params.title.as_deref())).is_equal_to((3, Some("Rapport annuel")));
+    assert_that!(deck.templates.as_ref().map(|r| r.id)).is_equal_to(Some(DEFAULT_PACK));
+    assert_that!(deck.theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
+    assert_that!(deck.slides[1].notes.starts_with("Dire bonjour.")).is_true();
+}
+
+#[test]
+fn import_kitchen_on_grilles_writes_its_report_with_coverage_and_messages() {
+    let dir = workdir("import-kitchen");
+    let (input, pdf, report) = (pptx(&dir, "kitchen"), dir.join("k.oku-slides.pdf"), dir.join("k.json"));
+    let out = run(oku_slides(&dir, "fr")
+        .arg("import")
+        .arg(&input)
+        .args(["--mode", "retrofit", "--pack", "grilles", "-o"])
+        .arg(&pdf)
+        .arg("--report")
+        .arg(&report));
+    assert_success("import", &out, &[]);
+    let bundle = reopened(&pdf);
+    assert_that!(bundle.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(GRID_PACK));
+    assert_that!(bundle.assets.len()).is_equal_to(1);
+    let r: serde_json::Value = serde_json::from_slice(&std::fs::read(&report).unwrap_or_else(|e| panic!("{e}")))
+        .unwrap_or_else(|e| panic!("rapport : {e}"));
+    assert_that!(r["mode"]).is_equal_to(serde_json::json!("retrofit"));
+    assert_that!(r["coverage"]["runs"]["found"]).is_equal_to(r["coverage"]["runs"]["total"].clone());
+    assert_that!(r["coverage"]["missing"]).is_equal_to(serde_json::json!([]));
+    assert_that!(r["warnings"][0]["message"])
+        .is_equal_to(serde_json::json!("Graphique non pris en charge : combo: barChart"));
+    assert_that!(r["widget_requests"].as_array().map(Vec::len)).is_equal_to(Some(1));
+}
+
+#[test]
+fn import_alto_with_pack_and_theme_ids_keeps_its_images() {
+    let dir = workdir("import-alto");
+    let pdf = dir.join("alto.oku-slides.pdf");
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(fixtures().join("alto-wealth.pptx"))
+        .args(["--pack", &DEFAULT_PACK.to_string(), "--theme", &PRO_THEME.to_string(), "-o"])
+        .arg(&pdf));
+    assert_success("import", &out, &[]);
+    let bundle = reopened(&pdf);
+    assert_that!(bundle.deck().slides.len()).is_equal_to(8);
+    assert_that!(bundle.assets.is_empty()).is_false();
+}
+
+#[test]
+fn import_with_a_pack_folder_uses_that_pack() {
+    let dir = workdir("import-folder");
+    let pack = dir.join("mon-pack");
+    std::fs::create_dir_all(&pack).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(pack.join("pack.json"), include_str!("../../../templates/grilles/pack.json"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
+    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).arg("--pack").arg(&pack).arg("-o").arg(&pdf));
+    assert_success("import", &out, &[]);
+    assert_that!(reopened(&pdf).deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(GRID_PACK));
+}
+
+#[test]
+fn import_hifi_is_refused_with_a_localized_message() {
+    let dir = workdir("import-hifi");
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(fixtures().join("alto-wealth.pptx"))
+        .args(["--mode", "hifi", "--pack", "Essentiel", "-o"])
+        .arg(dir.join("x.oku-slides.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("high-fidelity import (--mode hifi) is not available yet");
+}
+
+#[test]
+fn import_without_pack_is_refused_in_retrofit_mode() {
+    let dir = workdir("import-nopack");
+    let out = run(oku_slides(&dir, "fr")
+        .arg("import")
+        .arg(fixtures().join("alto-wealth.pptx"))
+        .arg("-o")
+        .arg(dir.join("x.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("--pack est obligatoire en mode retrofit");
+}
+
+#[test]
+fn import_with_an_unknown_pack_fails_with_its_name() {
+    let dir = workdir("import-unknown");
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(fixtures().join("alto-wealth.pptx"))
+        .args(["--pack", "Nope", "-o"])
+        .arg(dir.join("x.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("unknown pack: Nope");
+}
+
+#[test]
+fn import_with_a_pack_folder_whose_manifest_is_not_a_pack_fails_with_its_name() {
+    let dir = workdir("import-badpack");
+    let pack = dir.join("faux-pack");
+    std::fs::create_dir_all(&pack).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(pack.join("pack.json"), r#"{"templates": "aucun"}"#).unwrap_or_else(|e| panic!("{e}"));
+    let out = run(oku_slides(&dir, "fr")
+        .arg("import")
+        .arg(fixtures().join("alto-wealth.pptx"))
+        .arg("--pack")
+        .arg(&pack)
+        .arg("-o")
+        .arg(dir.join("x.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("pack illisible");
+}
+
+/// Un fichier creux de 257 Mio (au-delà des 256 Mio de `ReadLimits::default()`) :
+/// refusé sur sa taille, sans être lu.
+#[test]
+fn import_of_a_file_beyond_the_input_limit_is_refused_before_reading() {
+    let dir = workdir("import-toolarge");
+    let input = dir.join("huge.pptx");
+    let file = std::fs::File::create(&input).unwrap_or_else(|e| panic!("{e}"));
+    file.set_len(257 << 20).unwrap_or_else(|e| panic!("{e}"));
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "Essentiel", "-o"])
+        .arg(dir.join("x.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("This presentation is too large to import");
+}
+
+#[test]
+fn import_of_a_file_that_is_not_a_zip_fails_with_the_reader_message() {
+    let dir = workdir("import-notpptx");
+    let input = dir.join("deck.pptx");
+    std::fs::write(&input, b"not a zip").unwrap_or_else(|e| panic!("{e}"));
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "Essentiel", "-o"])
+        .arg(dir.join("x.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("This presentation could not be read");
+}
+
+#[test]
+fn import_help_is_in_the_configured_language() {
+    let dir = workdir("import-help");
+    let out = run(oku_slides(&dir, "fr").args(["import", "--help"]));
+    assert_that!(stdout(&out)).contains("Importe une présentation PowerPoint (.pptx)");
+}

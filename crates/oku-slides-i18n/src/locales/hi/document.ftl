@@ -36,3 +36,45 @@ import-unreadable = यह प्रस्तुति पढ़ी नहीं
 import-not-a-presentation = यह फ़ाइल PowerPoint प्रस्तुति नहीं है
 import-protected = यह प्रस्तुति एन्क्रिप्टेड है या पुराने .ppt फ़ॉर्मैट में है: पहले इसे .pptx के रूप में सहेजें
 import-too-large = यह प्रस्तुति आयात करने के लिए बहुत बड़ी है
+import-loss-list-levels = सूची के स्तर एक स्तर में बदल दिए गए
+import-loss-merged-cells = मर्ज किए गए सेल अलग कर दिए गए
+import-loss-percent-stacked = 100% स्टैक्ड चार्ट स्टैक्ड के रूप में दिखाया गया
+import-loss-run-style = { $effect ->
+    [underline] रेखांकन खो गया
+    [strike] काट-रेखा खो गई
+    [baseline] सुपरस्क्रिप्ट या सबस्क्रिप्ट खो गया
+    [caps] बड़े अक्षर खो गए
+   *[highlight] हाइलाइट खो गया
+}
+import-loss-transform = घुमाव, पलटाव या क्रॉप खो गया
+import-loss-color-dropped = रंग { $color } के लिए थीम में कोई निकट रंग नहीं है: थीम का रंग इस्तेमाल हुआ
+import-loss-text-truncated = सीमाओं में रखने के लिए टेक्स्ट छोटा किया गया
+import-loss-table-truncated = सीमाओं में रखने के लिए तालिका छोटी की गई
+import-loss-opaque = { $reason ->
+    [media] वीडियो या ध्वनि आयात नहीं हुई (कोई वैकल्पिक छवि नहीं)
+    [ole] एम्बेड किया गया ऑब्जेक्ट आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
+    [math] समीकरण आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
+    [smartart] SmartArt आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
+   *[unknown] असमर्थित ऑब्जेक्ट आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
+}
+import-loss-unsupported-image = { $format } फ़ॉर्मैट की छवि आयात नहीं हुई
+import-loss-hidden-slide = छिपी स्लाइड दिखाई देने वाली के रूप में आयात हुई
+import-loss-effects = छाया, प्रतिबिंब और 3D प्रभाव खो गए
+import-loss-series-dropped = पाई चार्ट केवल एक शृंखला दिखाता है: { $kept } रखी गई, { $dropped } हटाई गईं
+import-loss-repeated-decor = { $slides ->
+   [one] { $slides } स्लाइड पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
+  *[other] { $slides } स्लाइडों पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
+}
+import-loss-no-slot = सामग्री छोड़ दी गई: चुने गए टेम्पलेट में इसके लिए जगह नहीं है
+import-warning-effect-ignored = प्रभाव आयात नहीं हुआ: { $detail }
+import-warning-approximated = अनुमानित रूप में दिखाया गया: { $detail }
+import-warning-unreadable-item = अपठनीय आइटम छोड़ा गया: { $detail }
+import-warning-unreadable-part = अपठनीय भाग: { $detail }
+import-warning-missing-part = अनुपस्थित भाग: { $detail }
+import-warning-unsupported-chart = असमर्थित चार्ट: { $detail }
+import-warning-unsupported-image = असमर्थित छवि फ़ॉर्मैट: { $detail }
+import-warning-unknown-table-style = अज्ञात तालिका शैली: { $detail }
+import-warning-unsafe-link = लिंक अस्वीकार किया गया: { $detail }
+import-warning-nesting-too-deep = नेस्टिंग बहुत गहरी, काटी गई: { $detail }
+import-warning-font-embedded-unreadable = एम्बेड किया गया फ़ॉन्ट अपठनीय: { $detail }
+import-warning-truncated = बहुत अधिक चेतावनियाँ: बाकी छोड़ दी गईं

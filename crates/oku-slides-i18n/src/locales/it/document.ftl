@@ -35,3 +35,45 @@ import-unreadable = Impossibile leggere questa presentazione
 import-not-a-presentation = Questo file non è una presentazione PowerPoint
 import-protected = Questa presentazione è crittografata o nel vecchio formato .ppt: salvala prima come .pptx
 import-too-large = Questa presentazione è troppo grande per essere importata
+import-loss-list-levels = Livelli dell'elenco ridotti a uno
+import-loss-merged-cells = Celle unite separate
+import-loss-percent-stacked = Grafico in pila al 100% mostrato in pila
+import-loss-run-style = { $effect ->
+    [underline] Sottolineatura persa
+    [strike] Barrato perso
+    [baseline] Apice o pedice perso
+    [caps] Maiuscole perse
+   *[highlight] Evidenziazione persa
+}
+import-loss-transform = Rotazione, capovolgimento o ritaglio persi
+import-loss-color-dropped = Il colore { $color } non ha un colore vicino nel tema: usato un colore del tema
+import-loss-text-truncated = Testo accorciato per rispettare i limiti
+import-loss-table-truncated = Tabella accorciata per rispettare i limiti
+import-loss-opaque = { $reason ->
+    [media] Video o audio non importato (nessuna immagine sostitutiva)
+    [ole] Oggetto incorporato non importato (nessuna immagine sostitutiva)
+    [math] Equazione non importata (nessuna immagine sostitutiva)
+    [smartart] SmartArt non importato (nessuna immagine sostitutiva)
+   *[unknown] Oggetto non supportato non importato (nessuna immagine sostitutiva)
+}
+import-loss-unsupported-image = Immagine in formato { $format } non importata
+import-loss-hidden-slide = Diapositiva nascosta importata come visibile
+import-loss-effects = Ombre, riflessi ed effetti 3D persi
+import-loss-series-dropped = Un grafico a torta mostra una sola serie: { $kept } mantenuta, { $dropped } scartate
+import-loss-repeated-decor = { $slides ->
+   [one] Intestazione o piè di pagina «{ $text }» ripetuto su { $slides } diapositiva omesso: il tema disegna i propri
+  *[other] Intestazione o piè di pagina «{ $text }» ripetuto su { $slides } diapositive omesso: il tema disegna i propri
+}
+import-loss-no-slot = Contenuto omesso: il modello scelto non ha posto per esso
+import-warning-effect-ignored = Effetto non importato: { $detail }
+import-warning-approximated = Resa approssimata: { $detail }
+import-warning-unreadable-item = Elemento illeggibile ignorato: { $detail }
+import-warning-unreadable-part = Parte illeggibile: { $detail }
+import-warning-missing-part = Parte mancante: { $detail }
+import-warning-unsupported-chart = Grafico non supportato: { $detail }
+import-warning-unsupported-image = Formato immagine non supportato: { $detail }
+import-warning-unknown-table-style = Stile di tabella sconosciuto: { $detail }
+import-warning-unsafe-link = Collegamento rifiutato: { $detail }
+import-warning-nesting-too-deep = Annidamento troppo profondo, troncato: { $detail }
+import-warning-font-embedded-unreadable = Carattere incorporato illeggibile: { $detail }
+import-warning-truncated = Troppi avvisi: i successivi sono omessi

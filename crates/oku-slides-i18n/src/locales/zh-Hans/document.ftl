@@ -36,3 +36,42 @@ import-unreadable = 无法读取此演示文稿
 import-not-a-presentation = 此文件不是 PowerPoint 演示文稿
 import-protected = 此演示文稿已加密或为旧版 .ppt 格式：请先另存为 .pptx
 import-too-large = 此演示文稿太大，无法导入
+import-loss-list-levels = 列表级别已合并为一级
+import-loss-merged-cells = 已拆分合并的单元格
+import-loss-percent-stacked = 百分比堆积图已显示为堆积图
+import-loss-run-style = { $effect ->
+    [underline] 下划线已丢失
+    [strike] 删除线已丢失
+    [baseline] 上标或下标已丢失
+    [caps] 大写已丢失
+   *[highlight] 突出显示已丢失
+}
+import-loss-transform = 旋转、翻转或裁剪已丢失
+import-loss-color-dropped = 颜色 { $color } 在主题中没有相近的颜色：已使用主题颜色
+import-loss-text-truncated = 文本已缩短以符合限制
+import-loss-table-truncated = 表格已缩短以符合限制
+import-loss-opaque = { $reason ->
+    [media] 视频或声音未导入（无替代图像）
+    [ole] 嵌入对象未导入（无替代图像）
+    [math] 公式未导入（无替代图像）
+    [smartart] SmartArt 未导入（无替代图像）
+   *[unknown] 不支持的对象未导入（无替代图像）
+}
+import-loss-unsupported-image = { $format } 格式的图像未导入
+import-loss-hidden-slide = 隐藏的幻灯片已作为可见幻灯片导入
+import-loss-effects = 阴影、映像和三维效果已丢失
+import-loss-series-dropped = 饼图只显示一个系列：保留 { $kept }个，舍弃 { $dropped }个
+import-loss-repeated-decor = 已省略在 { $slides }张幻灯片上重复的页眉或页脚“{ $text }”：主题会绘制自己的页眉页脚
+import-loss-no-slot = 已省略内容：所选模板中没有可放置它的位置
+import-warning-effect-ignored = 效果未导入：{ $detail }
+import-warning-approximated = 近似呈现：{ $detail }
+import-warning-unreadable-item = 已跳过无法读取的项目：{ $detail }
+import-warning-unreadable-part = 无法读取的部件：{ $detail }
+import-warning-missing-part = 缺少部件：{ $detail }
+import-warning-unsupported-chart = 不支持的图表：{ $detail }
+import-warning-unsupported-image = 不支持的图像格式：{ $detail }
+import-warning-unknown-table-style = 未知的表格样式：{ $detail }
+import-warning-unsafe-link = 链接被拒绝：{ $detail }
+import-warning-nesting-too-deep = 嵌套过深，已截断：{ $detail }
+import-warning-font-embedded-unreadable = 无法读取嵌入的字体：{ $detail }
+import-warning-truncated = 警告过多：其余警告已省略

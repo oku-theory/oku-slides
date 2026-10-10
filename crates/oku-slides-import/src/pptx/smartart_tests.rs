@@ -8,7 +8,7 @@ const FRAME: &str = r#"<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="15" name
 
 fn group_kids(items: &[crate::pptx::shapes::ParsedItem]) -> Vec<crate::source::Item> {
     match &items[0].item.kind {
-        ItemKind::Group { items } => items.clone(),
+        ItemKind::Group { items, .. } => items.clone(),
         k => panic!("groupe attendu, trouvé {k:?}"),
     }
 }
@@ -18,6 +18,12 @@ fn smartart_becomes_a_group_identified_by_model_ids() {
     let (items, _, _) = tree(FRAME);
     assert_that!(group_kids(&items).iter().map(|k| k.id.clone()).collect::<Vec<_>>())
         .is_equal_to(vec!["s1/15/{A}".to_owned(), "s1/15/{B}".to_owned()]);
+}
+
+#[test]
+fn smartart_group_is_flagged_as_smartart() {
+    let (items, _, _) = tree(FRAME);
+    assert_that!(matches!(items[0].item.kind, ItemKind::Group { smartart: true, .. })).is_true();
 }
 
 #[test]
@@ -36,7 +42,7 @@ fn smartart_inside_a_scaled_group_keeps_the_group_scale() {
         r#"<p:grpSp><p:nvGrpSpPr><p:cNvPr id="30" name="G"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="25400000" cy="25400000"/><a:chOff x="0" y="0"/><a:chExt cx="12700000" cy="12700000"/></a:xfrm></p:grpSpPr>{frame}</p:grpSp>"#
     );
     let (items, _, _) = tree(&g);
-    let ItemKind::Group { items: shapes } = &group_kids(&items)[0].kind else { panic!("SmartArt attendu") };
+    let ItemKind::Group { items: shapes, .. } = &group_kids(&items)[0].kind else { panic!("SmartArt attendu") };
     assert_that!((shapes[1].frame.x, shapes[1].frame.w)).is_equal_to((400.0, 200.0));
 }
 

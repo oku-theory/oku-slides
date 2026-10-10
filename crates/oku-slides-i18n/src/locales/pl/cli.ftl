@@ -32,6 +32,33 @@ cli-bad-request = nieprawidłowe żądanie: { $reason }
 cli-sse-full = zbyt wiele otwartych strumieni zdarzeń
 cli-forbidden = żądanie odrzucone: nie pochodzi z lokalnego interfejsu
 cli-exposed = nasłuchiwanie na { $host }: serwer nie ma uwierzytelniania i jest dostępny z sieci; obsłużony zostanie każdy klient, który wyśle lokalny nagłówek Host. Pozostaw [serve] host na 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } slajd
+       [few] { $slides } slajdy
+       [many] { $slides } slajdów
+      *[other] { $slides } slajdu
+    }, { $pages ->
+       [one] { $pages } strona
+       [few] { $pages } strony
+       [many] { $pages } stron
+      *[other] { $pages } strony
+    }, { $losses ->
+       [one] { $losses } strata
+       [few] { $losses } straty
+       [many] { $losses } strat
+      *[other] { $losses } straty
+    }, { $requests ->
+       [one] { $requests } prośba o widżet
+       [few] { $requests } prośby o widżet
+       [many] { $requests } próśb o widżet
+      *[other] { $requests } prośby o widżet
+    }
+cli-import-label = Import z PowerPointa
+cli-import-pack-required = --pack jest wymagany w trybie retrofit: identyfikator, folder lub nazwa pakietu
+cli-import-unknown-pack = nieznany pakiet: { $pack }
+cli-import-bad-pack = nieczytelny pakiet { $pack }: jego pack.json nie opisuje pakietu szablonów
+cli-import-write-failed = nie udało się zapisać zaimportowanej prezentacji { $path }
+cli-import-hifi-later = import o wysokiej wierności (--mode hifi) nie jest jeszcze dostępny: użyj --mode retrofit
 
 cli-about = Renderowanie i zapisywanie prezentacji Oku Slides
 cli-arg-fonts = Dodatkowy folder czcionek (TTF/OTF); domyślnie: paths.fonts w ustawieniach
@@ -55,3 +82,9 @@ cli-cmd-serve = Serwer deweloperski: interfejs w przeglądarce, bez Tauri
 cli-arg-serve-input = Prezentacja do otwarcia (.oku-slides.pdf lub .json)
 cli-arg-port = Port; domyślnie: serve.port w ustawieniach
 cli-arg-ui = Folder zbudowanego interfejsu (ui/dist)
+cli-cmd-import = Zaimportuj prezentację PowerPoint (.pptx) jako .oku-slides.pdf
+cli-arg-pptx = Prezentacja PowerPoint (.pptx)
+cli-arg-mode = retrofit: treść na istniejącym pakiecie i motywie; hifi: wierna kopia (jeszcze niedostępna)
+cli-arg-pack = Pakiet docelowy: identyfikator, folder pakietu (pack.json, widgets/) lub nazwa
+cli-arg-import-theme = Motyw docelowy: wbudowany lub z biblioteki, wskazany identyfikatorem lub nazwą; domyślnie: motyw domyślny
+cli-arg-report = Zapisz też raport importu (JSON): straty, zamienniki, pokrycie

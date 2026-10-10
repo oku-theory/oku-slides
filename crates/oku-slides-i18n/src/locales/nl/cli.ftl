@@ -32,6 +32,25 @@ cli-bad-request = ongeldig verzoek: { $reason }
 cli-sse-full = te veel gebeurtenisstromen al geopend
 cli-forbidden = verzoek geweigerd: het komt niet van de lokale interface
 cli-exposed = luistert op { $host }: de server heeft geen authenticatie en is bereikbaar vanaf het netwerk; elke client die een lokale Host-header stuurt, wordt bediend. Houd [serve] host op 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } dia
+      *[other] { $slides } dia's
+    }, { $pages ->
+       [one] { $pages } pagina
+      *[other] { $pages } pagina's
+    }, { $losses ->
+       [one] { $losses } verlies
+      *[other] { $losses } verliezen
+    }, { $requests ->
+       [one] { $requests } widgetverzoek
+      *[other] { $requests } widgetverzoeken
+    }
+cli-import-label = PowerPoint-import
+cli-import-pack-required = --pack is verplicht in de modus retrofit: de id, map of naam van een sjabloonpakket
+cli-import-unknown-pack = onbekend sjabloonpakket: { $pack }
+cli-import-bad-pack = onleesbaar sjabloonpakket { $pack }: de pack.json beschrijft geen sjabloonpakket
+cli-import-write-failed = kon de geïmporteerde presentatie { $path } niet schrijven
+cli-import-hifi-later = import met hoge getrouwheid (--mode hifi) is nog niet beschikbaar: gebruik --mode retrofit
 
 cli-about = Oku Slides-presentaties weergeven en opslaan
 cli-arg-fonts = Extra lettertypemap (TTF/OTF); standaard: paths.fonts in de instellingen
@@ -55,3 +74,9 @@ cli-cmd-serve = Ontwikkelserver: de interface in een browser, zonder Tauri
 cli-arg-serve-input = Te openen presentatie (.oku-slides.pdf of .json)
 cli-arg-port = Poort; standaard: serve.port in de instellingen
 cli-arg-ui = Map van de gebouwde interface (ui/dist)
+cli-cmd-import = Een PowerPoint-presentatie (.pptx) importeren als .oku-slides.pdf
+cli-arg-pptx = PowerPoint-presentatie (.pptx)
+cli-arg-mode = retrofit: de inhoud op een bestaand sjabloonpakket en thema; hifi: getrouwe kopie (nog niet beschikbaar)
+cli-arg-pack = Doelpakket: id, pakketmap (pack.json, widgets/) of naam
+cli-arg-import-theme = Doelthema: een ingebouwd thema of een uit de bibliotheek, op id of naam; standaard: het standaardthema
+cli-arg-report = Ook het importrapport (JSON) schrijven: verliezen, vervangingen, dekking

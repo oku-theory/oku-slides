@@ -317,7 +317,16 @@ fn parse_group(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<Parsed
         return None;
     }
     Some(ParsedItem {
-        item: Item { id, name, alt, frame, z: 0, role: None, placeholder: None, kind: ItemKind::Group { items } },
+        item: Item {
+            id,
+            name,
+            alt,
+            frame,
+            z: 0,
+            role: None,
+            placeholder: None,
+            kind: ItemKind::Group { items, smartart: false },
+        },
         ph: None,
     })
 }

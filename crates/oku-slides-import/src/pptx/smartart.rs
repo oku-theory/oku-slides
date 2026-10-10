@@ -56,7 +56,7 @@ pub(crate) fn smartart(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str, frame: Fr
         in_drawing: true,
     };
     let items: Vec<Item> = parse_tree(tree, &sub, &inner).into_iter().map(|p| p.item).collect();
-    if items.is_empty() { not_drawn() } else { ItemKind::Group { items } }
+    if items.is_empty() { not_drawn() } else { ItemKind::Group { items, smartart: true } }
 }
 
 #[cfg(test)]

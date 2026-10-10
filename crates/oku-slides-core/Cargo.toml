@@ -20,6 +20,7 @@ hex.workspace = true
 uuid.workspace = true
 loro.workspace = true
 tracing.workspace = true
+time.workspace = true
 
 [features]
 # Crochets de test pour les crates qui dépendent du cœur (en dev-dependencies

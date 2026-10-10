@@ -36,3 +36,42 @@ import-unreadable = ไม่สามารถอ่านงานนำเส
 import-not-a-presentation = ไฟล์นี้ไม่ใช่งานนำเสนอ PowerPoint
 import-protected = งานนำเสนอนี้ถูกเข้ารหัสหรือเป็นรูปแบบ .ppt แบบเก่า: โปรดบันทึกเป็น .pptx ก่อน
 import-too-large = งานนำเสนอนี้ใหญ่เกินกว่าจะนำเข้าได้
+import-loss-list-levels = ลดระดับรายการเหลือระดับเดียว
+import-loss-merged-cells = แยกเซลล์ที่ผสานไว้
+import-loss-percent-stacked = แสดงแผนภูมิแบบเรียงซ้อน 100% เป็นแบบเรียงซ้อน
+import-loss-run-style = { $effect ->
+    [underline] ขีดเส้นใต้หายไป
+    [strike] ขีดทับหายไป
+    [baseline] ตัวยกหรือตัวห้อยหายไป
+    [caps] ตัวพิมพ์ใหญ่หายไป
+   *[highlight] การไฮไลต์หายไป
+}
+import-loss-transform = การหมุน การพลิก หรือการครอบตัดหายไป
+import-loss-color-dropped = สี { $color } ไม่มีสีใกล้เคียงในธีม: ใช้สีของธีมแทน
+import-loss-text-truncated = ย่อข้อความให้อยู่ในขีดจำกัด
+import-loss-table-truncated = ย่อตารางให้อยู่ในขีดจำกัด
+import-loss-opaque = { $reason ->
+    [media] ไม่ได้นำเข้าวิดีโอหรือเสียง (ไม่มีภาพสำรอง)
+    [ole] ไม่ได้นำเข้าวัตถุที่ฝังไว้ (ไม่มีภาพสำรอง)
+    [math] ไม่ได้นำเข้าสมการ (ไม่มีภาพสำรอง)
+    [smartart] ไม่ได้นำเข้า SmartArt (ไม่มีภาพสำรอง)
+   *[unknown] ไม่ได้นำเข้าวัตถุที่ไม่รองรับ (ไม่มีภาพสำรอง)
+}
+import-loss-unsupported-image = ไม่ได้นำเข้าภาพรูปแบบ { $format }
+import-loss-hidden-slide = นำเข้าสไลด์ที่ซ่อนไว้เป็นสไลด์ที่มองเห็น
+import-loss-effects = เงา การสะท้อน และเอฟเฟกต์ 3 มิติหายไป
+import-loss-series-dropped = แผนภูมิวงกลมแสดงได้เพียงชุดข้อมูลเดียว: เก็บไว้ { $kept } ตัดออก { $dropped }
+import-loss-repeated-decor = ละส่วนหัวหรือท้ายกระดาษ “{ $text }” ที่ซ้ำใน { $slides } สไลด์: ธีมวาดของตัวเอง
+import-loss-no-slot = ละเนื้อหา: เทมเพลตที่เลือกไม่มีที่สำหรับเนื้อหานี้
+import-warning-effect-ignored = ไม่ได้นำเข้าเอฟเฟกต์: { $detail }
+import-warning-approximated = แสดงผลแบบประมาณ: { $detail }
+import-warning-unreadable-item = ข้ามรายการที่อ่านไม่ได้: { $detail }
+import-warning-unreadable-part = ส่วนที่อ่านไม่ได้: { $detail }
+import-warning-missing-part = ส่วนที่ขาดหายไป: { $detail }
+import-warning-unsupported-chart = แผนภูมิที่ไม่รองรับ: { $detail }
+import-warning-unsupported-image = รูปแบบรูปภาพที่ไม่รองรับ: { $detail }
+import-warning-unknown-table-style = สไตล์ตารางที่ไม่รู้จัก: { $detail }
+import-warning-unsafe-link = ปฏิเสธลิงก์: { $detail }
+import-warning-nesting-too-deep = การซ้อนลึกเกินไป ถูกตัด: { $detail }
+import-warning-font-embedded-unreadable = อ่านฟอนต์ที่ฝังไว้ไม่ได้: { $detail }
+import-warning-truncated = คำเตือนมากเกินไป: ละคำเตือนที่เหลือ

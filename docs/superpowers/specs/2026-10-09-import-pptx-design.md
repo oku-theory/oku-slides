@@ -57,12 +57,29 @@ S'appuie sur `2026-10-01-packs-portables-design.md` (packs embarqués,
    difficile — cascade des styles et géométrie — est isolée dans le
    lecteur ; les projecteurs sont des fonctions pures testées en snapshots.
 
+Décisions du plan du lot 2 (2026-10-10) :
+
+- **Modèles dans le cœur.** `Template` et `PackManifest` sont dans
+  `oku-slides-core` (`pack.rs`) ; la session les ré-exporte. La crate
+  d'import lit les modèles d'un pack sans dépendre de la session.
+- **Pas de pack enfant au lot 2.** Le retrofit émet les `WidgetRequest`
+  (au plan et au rapport) ; le pack enfant est créé au lot 5, avec le
+  premier widget créé par l'agent. `ImportPlan` n'a pas de champ `pack`
+  au lot 2.
+- **Polices au lot 3.** Le retrofit prend le style du thème cible :
+  aucune police n'est cherchée ni substituée. `fonts.rs` (recherche
+  système, substitution) arrive avec le hi-fi.
+- **Couverture du contenu au lot 2.** `coverage.rs` mesure sur le deck
+  obtenu le rappel des runs, la présence des images et l'égalité des
+  données des tableaux et graphiques ; le lot 4 garde la référence
+  LibreOffice et l'écart visuel (`metrics.rs`).
+
 Défauts retenus sans question :
 
 - **Taille de page.** Hi-fi : les tokens `page` du thème généré prennent le
   ratio source (4:3, perso…). Retrofit : la page du thème cible, la
   projection sur la grille absorbe l'écart de ratio.
-- **Polices.** Ordre de recherche : polices embarquées dans le PPTX →
+- **Polices** (hi-fi, lot 3). Ordre de recherche : polices embarquées dans le PPTX →
   polices système → substitut métriquement compatible (Carlito ↔ Calibri,
   Caladea ↔ Cambria, Liberation ↔ Arial/Times/Courier), signalé au rapport.
   La police retenue est embarquée dans `fonts/` du deck.
@@ -96,19 +113,21 @@ Crate `crates/oku-slides-import` :
 | `pptx/eot.rs` | polices embarquées EOT (`.fntdata`) |
 | `pptx/geometry.rs` | lecture des géométries (`prstGeom`, `custGeom`) ; la conversion preset → path appartient au lot 3 |
 | `pptx/fonts.rs` | inventaire des familles utilisées, polices embarquées (lot 1) |
-| `fonts.rs` | recherche système et substitution des polices (lot 2) |
+| `fonts.rs` | recherche système et substitution des polices (lot 3) |
 | `hifi/` | projecteur hi-fi : thème, générateur Typst, pack, ops |
 | `retrofit/` | projecteur retrofit : score des templates, grille, couleurs, replis |
 | `pattern.rs` | signature de motif (partagée retrofit / regroupement hi-fi) |
 | `plan.rs` | `ImportPlan`, `WidgetRequest` |
 | `reference.rs` | appel `soffice`, rasterisation `hayro` |
-| `metrics.rs` | écart visuel (hi-fi), couverture du contenu (retrofit) |
+| `coverage.rs` | couverture du contenu, mesurée sur le deck obtenu (lot 2) |
+| `metrics.rs` | écart visuel (hi-fi, lot 4) |
 | `report.rs` | `ImportReport` |
 
 Dépendances : `zip` (existant), `roxmltree` (nouveau, DOM lecture seule),
 `hayro` (déjà transitif, devient direct pour `reference.rs`). La crate ne
 dépend ni de la session ni de l'UI : elle prend en entrée le registre de
-widgets, le pack et le thème cibles, et rend un plan.
+widgets, les modèles du pack (`oku_slides_core::Template`) et les jetons du
+thème cibles, et rend un plan.
 
 ## Représentation intermédiaire : `SourceDeck`
 
@@ -155,7 +174,7 @@ mods }`, `PlaceholderLink`, styles par niveau typés, avertissements typés.
 ```rust
 ImportPlan {
     theme: Option<Theme>,          // hi-fi : thème généré
-    pack: Option<Pack>,            // hi-fi : pack généré ; retrofit : pack enfant vide si requests
+    pack: Option<Pack>,            // hi-fi : pack généré (lot 3) ; retrofit : aucun au lot 2, pack enfant au lot 5
     assets, fonts,
     ops: Vec<Op>,                  // ops `apply` existantes
     widget_requests: Vec<WidgetRequest>,
@@ -209,17 +228,43 @@ thème cible.
    champs requis remplissables, slots compatibles avec les types de
    contenu, concordance du `type` de layout source (`title`, `secHead`,
    `obj`, `twoObj`, `titleOnly`, `blank`…). Égalité → ordre du pack.
-2. **Disposition.** Boîtes source projetées sur la grille 12×6 →
-   cellules, ou layout `columns`/`rows` de `content`.
+   Avant le choix (lot 2) : le décor répété (en-tête, pied, logo dans les
+   bandes haute et basse de la page, sur au moins la moitié des slides) et
+   les placeholders date, pied, numéro sont omis, dits une fois au rapport ;
+   sans placeholder de titre, titre, surtitre et sous-titre se déduisent de
+   la taille et de la position des textes, et une couverture d'un titre
+   d'au moins 40 pt ; une forme remplie qui porte des textes devient une
+   carte (titre, surtitre, corps), et les textes voisins dont les cellules
+   se chevauchent fusionnent. Une rangée de cartes fait des colonnes.
+2. **Disposition.** Une slide « titre + un corps » ou une rangée de
+   colonnes va en blocs `flow` (layout `columns`/`split` du modèle ; une
+   rangée entre des textes pleine largeur devient une pile en colonnes).
+   Sinon la boîte englobante des contenus est ajustée dans la zone de corps
+   (échelle uniforme, centrée) : cadres sur un modèle libre, cellules de la
+   grille du modèle si elles ne se recouvrent pas, sinon cadres.
 3. **Couleurs.** `Scheme(accentN)` → table fixe vers les tokens cibles ;
-   `Explicit` → token le plus proche en **ΔE OKLab** sous un seuil, sinon
-   abandonnée. Gras et italique conservés.
+   les couleurs saturées du deck sans jeton proche, rangées par usage,
+   prennent `accent` puis les autres `accent-*` du thème ; `Explicit` →
+   token le plus proche en **ΔE OKLab** sous un seuil, sinon abandonnée.
+   Une couleur de texte n'est émise que lisible (contraste WCAG ≥ 3:1 sur
+   son fond, page ou carte ; sur fond sombre, un jeton de texte clair du
+   thème). Une carte sombre devient une carte en relief. Gras et italique
+   conservés ; les capitales sont écrites en majuscules.
 4. **Motifs sans widget.** Le repli (p. ex. `stack` de `card` pour un
    SmartArt) est appliqué tout de suite : le deck est **complet et
-   rendable**. Si le repli perd de l'information, une `WidgetRequest` est
+   rendable**. Si le repli perd de l'information (formes omises, motif
+   régulier d'au moins trois boîtes, SmartArt), une `WidgetRequest` est
    émise, groupée par **signature de motif** (multiset des types d'items +
    disposition relative normalisée, `pattern.rs`). L'agent la traite au
-   fine-tuning (décision 5).
+   fine-tuning (décision 5), dans un pack enfant créé au lot 5.
+
+**Limite connue du lot 2 (t-816).** En flux, un contenu plus haut que sa zone
+déborde de la page sans que l'import le voie : un thème cible au corps plus
+grand (Papier, slides 6 et 7 d'alto), ou, avec le thème par défaut, un
+graphique ou une image qui remplit une colonne en flux `columns` (kitchen,
+slide 2, sur Essentiel et Pro : « Gauche » et « Droite » sont coupés sous le
+graphique). La couverture du contenu mesure le modèle de deck, pas le rendu :
+elle ne le voit pas ; seul le rendu de référence (lot 4) le mesurera.
 
 ## Rendu de référence et métriques
 
@@ -262,9 +307,11 @@ référence disponible ou non, `widget_requests`. Messages via Fluent
 ## Points d'entrée
 
 - **CLI** (`oku-slides-cli`), purement déterministe :
-  `oku-slides import deck.pptx --mode hifi|retrofit [--pack <id|chemin>]
-  [--theme <id>] [--reference auto|none] -o out.oku-slides.pdf
-  [--report r.json]`. `--pack` est requis en retrofit.
+  `oku-slides import deck.pptx --mode hifi|retrofit [--pack <id|chemin|nom>]
+  [--theme <id|nom>] [--reference auto|none] -o out.oku-slides.pdf
+  [--report r.json]`. `--pack` est requis en retrofit. Au lot 2 : `--mode`
+  vaut `retrofit` par défaut, `hifi` est refusé avec un message localisé
+  (lot 3) ; `--reference` arrive au lot 4.
 - **App** : « Ouvrir » accepte `.pptx` ; un dialogue demande le mode, et en
   retrofit le pack et le thème cibles. L'app crée un deck neuf à partir du
   plan, puis lance l'agent avec les consignes de fine-tuning.
@@ -311,11 +358,13 @@ Un plan et ses sous-tâches par lot, dans cet ordre :
 
 1. *(livré, t-692)* `SourceDeck` + lecteur PPTX (cascade des styles comprise) — plan :
    `docs/superpowers/plans/2026-10-09-import-pptx-lot1.md`.
-2. Projecteur retrofit + CLI — valide la représentation de bout en bout
-   sans générateur ni référence.
-3. Projecteur hi-fi : thème, générateur Typst, pack.
-4. Rendu de référence + métriques.
-5. App + fine-tuning par agent (outils MCP, consignes).
+2. *(livré, t-692)* Projecteur retrofit + CLI + couverture du contenu —
+   valide la représentation de bout en bout sans générateur ni référence ;
+   plan : `docs/superpowers/plans/2026-10-10-import-pptx-lot2.md`.
+3. Projecteur hi-fi : thème, générateur Typst, pack, polices (`fonts.rs`).
+4. Rendu de référence + écart visuel.
+5. App + fine-tuning par agent (outils MCP, consignes, pack enfant des
+   widgets créés pour les `WidgetRequest`).
 6. *(Phase 2, spec séparée)* Lecteur PDF → `SourceDeck` par
    `hayro-interpret`, avec inférence des indices sémantiques (rôles,
    master par éléments répétés, paragraphes).

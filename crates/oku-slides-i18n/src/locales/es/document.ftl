@@ -35,3 +35,45 @@ import-unreadable = No se puede leer esta presentación
 import-not-a-presentation = Este archivo no es una presentación de PowerPoint
 import-protected = Esta presentación está cifrada o en el antiguo formato .ppt: guárdela primero como .pptx
 import-too-large = Esta presentación es demasiado grande para importarla
+import-loss-list-levels = Niveles de lista reducidos a uno
+import-loss-merged-cells = Celdas combinadas separadas
+import-loss-percent-stacked = Gráfico apilado al 100 % mostrado como apilado
+import-loss-run-style = { $effect ->
+    [underline] Subrayado perdido
+    [strike] Tachado perdido
+    [baseline] Superíndice o subíndice perdido
+    [caps] Mayúsculas perdidas
+   *[highlight] Resaltado perdido
+}
+import-loss-transform = Rotación, volteo o recorte perdidos
+import-loss-color-dropped = El color { $color } no tiene un color cercano en el tema: se usa un color del tema
+import-loss-text-truncated = Texto acortado para respetar los límites
+import-loss-table-truncated = Tabla acortada para respetar los límites
+import-loss-opaque = { $reason ->
+    [media] Vídeo o sonido no importado (sin imagen de respaldo)
+    [ole] Objeto incrustado no importado (sin imagen de respaldo)
+    [math] Ecuación no importada (sin imagen de respaldo)
+    [smartart] SmartArt no importado (sin imagen de respaldo)
+   *[unknown] Objeto no compatible no importado (sin imagen de respaldo)
+}
+import-loss-unsupported-image = Imagen en formato { $format } no importada
+import-loss-hidden-slide = Diapositiva oculta importada como visible
+import-loss-effects = Sombras, reflejos y efectos 3D perdidos
+import-loss-series-dropped = Un gráfico circular muestra una sola serie: { $kept } conservada, { $dropped } descartadas
+import-loss-repeated-decor = { $slides ->
+   [one] Encabezado o pie «{ $text }» repetido en { $slides } diapositiva omitido: el tema dibuja los suyos
+  *[other] Encabezado o pie «{ $text }» repetido en { $slides } diapositivas omitido: el tema dibuja los suyos
+}
+import-loss-no-slot = Contenido omitido: la plantilla elegida no tiene sitio para él
+import-warning-effect-ignored = Efecto no importado: { $detail }
+import-warning-approximated = Representación aproximada: { $detail }
+import-warning-unreadable-item = Elemento ilegible omitido: { $detail }
+import-warning-unreadable-part = Parte ilegible: { $detail }
+import-warning-missing-part = Falta una parte: { $detail }
+import-warning-unsupported-chart = Gráfico no compatible: { $detail }
+import-warning-unsupported-image = Formato de imagen no compatible: { $detail }
+import-warning-unknown-table-style = Estilo de tabla desconocido: { $detail }
+import-warning-unsafe-link = Vínculo rechazado: { $detail }
+import-warning-nesting-too-deep = Anidamiento demasiado profundo, cortado: { $detail }
+import-warning-font-embedded-unreadable = Fuente incrustada ilegible: { $detail }
+import-warning-truncated = Demasiadas advertencias: se omiten las siguientes

@@ -5398,6 +5398,7 @@ dependencies = [
  "oku-slides-agent",
  "oku-slides-core",
  "oku-slides-i18n",
+ "oku-slides-import",
  "oku-slides-pdf",
  "oku-slides-platform",
  "oku-slides-render",
@@ -5411,6 +5412,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "zip 8.6.0",
 ]
 
 [[package]]
@@ -5431,6 +5433,7 @@ dependencies = [
  "sha2 0.10.9",
  "snafu",
  "speculoos",
+ "time",
  "tracing",
  "uuid",
  "xxhash-rust",
@@ -5452,6 +5455,7 @@ name = "oku-slides-import"
 version = "2.0.0"
 dependencies = [
  "insta",
+ "oku-slides-chart",
  "oku-slides-core",
  "oku-slides-i18n",
  "roxmltree 0.21.1",

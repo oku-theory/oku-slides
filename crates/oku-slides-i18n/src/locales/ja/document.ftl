@@ -35,3 +35,42 @@ import-unreadable = このプレゼンテーションを読み込めません
 import-not-a-presentation = このファイルは PowerPoint プレゼンテーションではありません
 import-protected = このプレゼンテーションは暗号化されているか旧形式の .ppt です。先に .pptx として保存してください
 import-too-large = このプレゼンテーションは大きすぎてインポートできません
+import-loss-list-levels = リストの階層を 1 段にまとめました
+import-loss-merged-cells = 結合セルを解除しました
+import-loss-percent-stacked = 100% 積み上げグラフを積み上げグラフとして表示しました
+import-loss-run-style = { $effect ->
+    [underline] 下線が失われました
+    [strike] 取り消し線が失われました
+    [baseline] 上付きまたは下付きが失われました
+    [caps] 大文字表示が失われました
+   *[highlight] 蛍光ペンが失われました
+}
+import-loss-transform = 回転、反転、トリミングが失われました
+import-loss-color-dropped = 色 { $color } に近いテーマの色がありません。テーマの色を使用しました
+import-loss-text-truncated = 上限に収まるようテキストを短くしました
+import-loss-table-truncated = 上限に収まるよう表を短くしました
+import-loss-opaque = { $reason ->
+    [media] 動画または音声はインポートされませんでした (代替画像なし)
+    [ole] 埋め込みオブジェクトはインポートされませんでした (代替画像なし)
+    [math] 数式はインポートされませんでした (代替画像なし)
+    [smartart] SmartArt はインポートされませんでした (代替画像なし)
+   *[unknown] 未対応のオブジェクトはインポートされませんでした (代替画像なし)
+}
+import-loss-unsupported-image = { $format } 形式の画像はインポートされませんでした
+import-loss-hidden-slide = 非表示のスライドを表示状態でインポートしました
+import-loss-effects = 影、反射、3D 効果が失われました
+import-loss-series-dropped = 円グラフは 1 系列のみ表示します。{ $kept } 系列を保持、{ $dropped } 系列を除外しました
+import-loss-repeated-decor = { $slides }枚のスライドで繰り返されるヘッダーまたはフッター「{ $text }」を省きました。テーマが独自に描画します
+import-loss-no-slot = コンテンツを省きました。選んだテンプレートに配置できる場所がありません
+import-warning-effect-ignored = 効果はインポートされませんでした: { $detail }
+import-warning-approximated = 近似して表示しました: { $detail }
+import-warning-unreadable-item = 読み取れない項目をスキップしました: { $detail }
+import-warning-unreadable-part = 読み取れないパーツ: { $detail }
+import-warning-missing-part = パーツがありません: { $detail }
+import-warning-unsupported-chart = 未対応のグラフ: { $detail }
+import-warning-unsupported-image = 未対応の画像形式: { $detail }
+import-warning-unknown-table-style = 不明な表のスタイル: { $detail }
+import-warning-unsafe-link = リンクを拒否しました: { $detail }
+import-warning-nesting-too-deep = 入れ子が深すぎるため切り詰めました: { $detail }
+import-warning-font-embedded-unreadable = 埋め込みフォントを読み取れません: { $detail }
+import-warning-truncated = 警告が多すぎます。以降の警告は省略されます

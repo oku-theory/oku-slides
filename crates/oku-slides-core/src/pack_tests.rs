@@ -253,3 +253,109 @@ fn pack_files_verified_with_untrustworthy_input_returns_none(
     let hex = if hex.is_empty() { pack.version().hex().to_owned() } else { hex.to_owned() };
     assert_that!(PackFiles::verified(&hex, manifest, [(wf("kpi"), widget)])).is_none();
 }
+
+fn manifest(name: &str) -> PackManifest {
+    PackManifest {
+        id: Uuid::new_v4(),
+        name: name.into(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        templates: Vec::new(),
+        examples: BTreeMap::new(),
+    }
+}
+
+#[test]
+fn pack_manifest_round_trips_through_pack_files() {
+    let m = manifest("Mien");
+    let files = m.to_files(files(&[("kpi", "#let widget = none")])).unwrap();
+    assert_that!(PackManifest::from_files(&files).unwrap()).is_equal_to(&m);
+    assert_that!(files.widget(&wf("kpi"))).is_equal_to(Some("#let widget = none"));
+}
+
+#[test]
+fn pack_manifest_with_a_template_round_trips_through_pack_files() {
+    let mut m = manifest("Mien");
+    m.templates.push(Template {
+        id: "texte".into(),
+        name: "Texte".into(),
+        description: String::new(),
+        slide: Slide::new("s-texte", "content"),
+    });
+    let files = m.to_files(BTreeMap::new()).unwrap();
+    assert_that!(PackManifest::from_files(&files).unwrap().templates).is_equal_to(&m.templates);
+}
+
+#[test]
+fn pack_manifest_without_uuid_id_is_refused() {
+    let json = json!({ "id": "essentiel", "name": "E", "parent": null, "created": "x", "templates": [] });
+    let files = PackFiles::new(object(json), BTreeMap::new());
+    assert_that!(PackManifest::from_files(&files).is_err()).is_true();
+}
+
+#[test]
+fn now_created_is_utc_to_the_second() {
+    let s = now_created();
+    assert_that!(s.len()).is_equal_to(20);
+    assert_that!(s.ends_with('Z') && s.as_bytes()[10] == b'T').is_true();
+}
+
+fn with_values(m: &mut PackManifest, widget: &str, values: Value) {
+    m.examples.insert(wf(widget), object(values));
+}
+
+#[test]
+fn pack_manifest_examples_round_trip_through_pack_files() {
+    let mut m = manifest("Mien");
+    with_values(&mut m, "kpi", json!({ "value": "12" }));
+    let files = m.to_files(files(&[("kpi", "#let widget = none")])).unwrap();
+    assert_that!(PackManifest::from_files(&files).unwrap()).is_equal_to(&m);
+    assert_that!(files.manifest()["examples"]["kpi"]["value"].as_str()).is_equal_to(Some("12"));
+}
+
+#[test]
+fn pack_manifest_examples_change_the_version() {
+    let mut m = manifest("Mien");
+    let before = m.to_files(BTreeMap::new()).unwrap().version();
+    with_values(&mut m, "kpi", json!({ "value": "12" }));
+    let after = m.to_files(BTreeMap::new()).unwrap().version();
+    assert_that!(after).is_not_equal_to(before);
+}
+
+fn read_examples(examples: Value) -> PackManifest {
+    let mut json = serde_json::to_value(manifest("Mien")).unwrap();
+    json["examples"] = examples;
+    PackManifest::from_files(&PackFiles::new(object(json), BTreeMap::new())).unwrap()
+}
+
+/// Un `pack.json` d'avant t-541 (une liste de cas nommés par widget) se lit : le
+/// premier cas donne les valeurs du widget, les autres sont oubliés.
+#[test]
+fn pack_manifest_with_the_old_example_cases_keeps_the_first_ones_values() {
+    let m = read_examples(json!({
+        "kpi": [{ "name": "Court", "values": { "value": "12" } }, { "name": "Long", "values": { "value": "1 234" } }]
+    }));
+    assert_that!(m.examples.get(&wf("kpi")).cloned()).is_equal_to(Some(object(json!({ "value": "12" }))));
+}
+
+/// Un widget aux valeurs vides (ancien sans cas, premier cas sans valeurs, objet vide) n'a pas d'entrée.
+#[test]
+fn pack_manifest_with_empty_values_keeps_no_entry() {
+    let m = read_examples(json!({ "kpi": [], "quote": [{ "name": "Exemple", "values": {} }], "carte": {} }));
+    assert_that!(m.examples.is_empty()).is_true();
+}
+
+/// Une entrée mal formée est écartée ; les autres restent.
+#[test]
+fn pack_manifest_with_a_malformed_example_entry_keeps_the_others() {
+    let m = read_examples(json!({ "Mauvais Nom": { "value": "1" }, "kpi": 3, "carte": { "title": "T" } }));
+    assert_that!(m.examples.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![wf("carte")]);
+}
+
+/// Sans valeurs, `pack.json` n'a pas de clé `examples` : les versions existantes gardent leur empreinte.
+#[test]
+fn pack_manifest_without_examples_writes_no_examples_key() {
+    let files = manifest("Mien").to_files(BTreeMap::new()).unwrap();
+    assert_that!(files.manifest().contains_key("examples")).is_false();
+}

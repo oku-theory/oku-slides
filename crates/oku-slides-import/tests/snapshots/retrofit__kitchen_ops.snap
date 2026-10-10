@@ -1,0 +1,236 @@
+---
+source: crates/oku-slides-import/tests/retrofit.rs
+expression: plan.ops
+---
+[
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s1",
+      "kind": "content",
+      "params": {
+        "blocks": [
+          {
+            "id": "s1-1",
+            "kind": "table",
+            "params": {
+              "data": {
+                "dataset": {
+                  "source": [
+                    [
+                      "Titre",
+                      null
+                    ],
+                    [
+                      "A",
+                      "1"
+                    ],
+                    [
+                      "B",
+                      "2"
+                    ]
+                  ]
+                },
+                "header-row": true,
+                "header-column": false,
+                "striped": true
+              }
+            }
+          }
+        ],
+        "title": "Tableau"
+      }
+    }
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s2",
+      "kind": "content",
+      "params": {
+        "blocks": [
+          {
+            "id": "s2-1",
+            "kind": "stack",
+            "params": {
+              "children": [
+                {
+                  "id": "s2-1-1",
+                  "kind": "chart",
+                  "params": {
+                    "option": {
+                      "dataset": {
+                        "source": [
+                          [
+                            "",
+                            "Nord",
+                            "Sud"
+                          ],
+                          [
+                            "T1",
+                            10.0,
+                            4.0
+                          ],
+                          [
+                            "T2",
+                            null,
+                            null
+                          ],
+                          [
+                            "T3",
+                            12.5,
+                            6.0
+                          ]
+                        ]
+                      },
+                      "xAxis": {
+                        "type": "category"
+                      },
+                      "yAxis": {
+                        "type": "value"
+                      },
+                      "series": [
+                        {
+                          "type": "bar",
+                          "stack": "total"
+                        },
+                        {
+                          "type": "bar",
+                          "stack": "total"
+                        }
+                      ],
+                      "title": {
+                        "text": "Ventes 2026"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "s2-1-2",
+                  "kind": "image",
+                  "params": {
+                    "asset": "sha256:d28c139bba718d60154960eaca75535a5cc5b59fe2153e998a29251e8e5f4667",
+                    "fit": "contain"
+                  }
+                }
+              ],
+              "layout": "columns"
+            }
+          },
+          {
+            "id": "s2-2",
+            "kind": "stack",
+            "params": {
+              "children": [
+                {
+                  "id": "s2-2-1",
+                  "kind": "card",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Gauche"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "s2-2-2",
+                  "kind": "card",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Droite"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "layout": "columns"
+            }
+          }
+        ],
+        "layout": "default",
+        "title": "Graphique et image"
+      }
+    }
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s3",
+      "kind": "content",
+      "params": {
+        "elements": [
+          {
+            "id": "s3-1",
+            "kind": "stack",
+            "frame": {
+              "x": 590.0,
+              "y": 155.0,
+              "w": 500.0,
+              "h": 100.0
+            },
+            "params": {
+              "children": [
+                {
+                  "id": "s3-1-1",
+                  "kind": "card",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Étape 1"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "s3-1-2",
+                  "kind": "card",
+                  "params": {
+                    "body": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Étape 2"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "layout": "columns"
+            }
+          },
+          {
+            "id": "s3-2",
+            "kind": "image",
+            "frame": {
+              "x": 590.0,
+              "y": 455.0,
+              "w": 400.0,
+              "h": 80.0
+            },
+            "params": {
+              "asset": "sha256:d28c139bba718d60154960eaca75535a5cc5b59fe2153e998a29251e8e5f4667",
+              "fit": "contain"
+            }
+          }
+        ],
+        "title": "Processus et équation"
+      }
+    }
+  }
+]

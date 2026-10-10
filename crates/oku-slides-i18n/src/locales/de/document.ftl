@@ -35,3 +35,45 @@ import-unreadable = Diese Präsentation kann nicht gelesen werden
 import-not-a-presentation = Diese Datei ist keine PowerPoint-Präsentation
 import-protected = Diese Präsentation ist verschlüsselt oder im alten .ppt-Format: Speichern Sie sie zuerst als .pptx
 import-too-large = Diese Präsentation ist zu groß für den Import
+import-loss-list-levels = Listenebenen auf eine Ebene reduziert
+import-loss-merged-cells = Verbundene Zellen aufgelöst
+import-loss-percent-stacked = 100-%-gestapeltes Diagramm als gestapelt dargestellt
+import-loss-run-style = { $effect ->
+    [underline] Unterstreichung verloren
+    [strike] Durchstreichung verloren
+    [baseline] Hoch- oder Tiefstellung verloren
+    [caps] Großbuchstaben verloren
+   *[highlight] Hervorhebung verloren
+}
+import-loss-transform = Drehung, Spiegelung oder Zuschnitt verloren
+import-loss-color-dropped = Die Farbe { $color } hat keine ähnliche Designfarbe: Designfarbe verwendet
+import-loss-text-truncated = Text gekürzt, um die Grenzen einzuhalten
+import-loss-table-truncated = Tabelle gekürzt, um die Grenzen einzuhalten
+import-loss-opaque = { $reason ->
+    [media] Video oder Ton nicht importiert (kein Ersatzbild)
+    [ole] Eingebettetes Objekt nicht importiert (kein Ersatzbild)
+    [math] Formel nicht importiert (kein Ersatzbild)
+    [smartart] SmartArt nicht importiert (kein Ersatzbild)
+   *[unknown] Nicht unterstütztes Objekt nicht importiert (kein Ersatzbild)
+}
+import-loss-unsupported-image = Bild im Format { $format } nicht importiert
+import-loss-hidden-slide = Ausgeblendete Folie als sichtbar importiert
+import-loss-effects = Schatten, Spiegelungen und 3D-Effekte verloren
+import-loss-series-dropped = Ein Kreisdiagramm zeigt nur eine Datenreihe: { $kept } behalten, { $dropped } verworfen
+import-loss-repeated-decor = { $slides ->
+   [one] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folie wiederholt, weggelassen: das Design zeichnet eigene
+  *[other] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folien wiederholt, weggelassen: das Design zeichnet eigene
+}
+import-loss-no-slot = Inhalt weggelassen: die gewählte Vorlage hat keinen Platz dafür
+import-warning-effect-ignored = Effekt nicht importiert: { $detail }
+import-warning-approximated = Näherungsweise dargestellt: { $detail }
+import-warning-unreadable-item = Unlesbares Element übersprungen: { $detail }
+import-warning-unreadable-part = Unlesbarer Teil: { $detail }
+import-warning-missing-part = Fehlender Teil: { $detail }
+import-warning-unsupported-chart = Nicht unterstütztes Diagramm: { $detail }
+import-warning-unsupported-image = Bildformat nicht unterstützt: { $detail }
+import-warning-unknown-table-style = Unbekannte Tabellenformatvorlage: { $detail }
+import-warning-unsafe-link = Link abgelehnt: { $detail }
+import-warning-nesting-too-deep = Verschachtelung zu tief, abgeschnitten: { $detail }
+import-warning-font-embedded-unreadable = Eingebettete Schriftart unlesbar: { $detail }
+import-warning-truncated = Zu viele Warnungen: weitere werden ausgelassen

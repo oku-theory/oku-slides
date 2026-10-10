@@ -35,3 +35,45 @@ import-unreadable = Cette présentation est illisible
 import-not-a-presentation = Ce fichier n'est pas une présentation PowerPoint
 import-protected = Cette présentation est chiffrée ou à l'ancien format .ppt : enregistrez-la d'abord en .pptx
 import-too-large = Cette présentation est trop volumineuse pour être importée
+import-loss-list-levels = Niveaux de liste ramenés à un seul
+import-loss-merged-cells = Cellules fusionnées séparées
+import-loss-percent-stacked = Graphique empilé à 100 % rendu en empilé simple
+import-loss-run-style = { $effect ->
+    [underline] Soulignement perdu
+    [strike] Barré perdu
+    [baseline] Exposant ou indice perdu
+    [caps] Capitales perdues
+   *[highlight] Surlignage perdu
+}
+import-loss-transform = Rotation, miroir ou rognage perdus
+import-loss-color-dropped = La couleur { $color } n'a pas de couleur proche dans le thème : couleur du thème utilisée
+import-loss-text-truncated = Texte raccourci pour tenir dans les limites
+import-loss-table-truncated = Tableau raccourci pour tenir dans les limites
+import-loss-opaque = { $reason ->
+    [media] Vidéo ou son non importé (pas d'image de repli)
+    [ole] Objet incorporé non importé (pas d'image de repli)
+    [math] Équation non importée (pas d'image de repli)
+    [smartart] SmartArt non importé (pas d'image de repli)
+   *[unknown] Objet non pris en charge non importé (pas d'image de repli)
+}
+import-loss-unsupported-image = Image au format { $format } non importée
+import-loss-hidden-slide = Slide masquée importée comme visible
+import-loss-effects = Ombres, reflets et effets 3D perdus
+import-loss-series-dropped = Un graphique en secteurs ne montre qu'une série : { $kept } gardée, { $dropped } écartées
+import-loss-repeated-decor = { $slides ->
+   [one] En-tête ou pied « { $text } » répété sur { $slides } slide omis : le thème dessine les siens
+  *[other] En-tête ou pied « { $text } » répété sur { $slides } slides omis : le thème dessine les siens
+}
+import-loss-no-slot = Contenu omis : le modèle choisi n'a pas de place pour lui
+import-warning-effect-ignored = Effet non importé : { $detail }
+import-warning-approximated = Rendu approché : { $detail }
+import-warning-unreadable-item = Élément illisible ignoré : { $detail }
+import-warning-unreadable-part = Partie illisible : { $detail }
+import-warning-missing-part = Partie manquante : { $detail }
+import-warning-unsupported-chart = Graphique non pris en charge : { $detail }
+import-warning-unsupported-image = Format d'image non pris en charge : { $detail }
+import-warning-unknown-table-style = Style de tableau inconnu : { $detail }
+import-warning-unsafe-link = Lien refusé : { $detail }
+import-warning-nesting-too-deep = Imbrication trop profonde, coupée : { $detail }
+import-warning-font-embedded-unreadable = Police incorporée illisible : { $detail }
+import-warning-truncated = Trop d'avertissements : les suivants sont omis

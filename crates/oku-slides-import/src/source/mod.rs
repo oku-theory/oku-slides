@@ -240,6 +240,9 @@ pub enum ItemKind {
     Group {
         /// Enfants, dans l'ordre de dessin.
         items: Vec<Item>,
+        /// Version dessinée d'un SmartArt (`dsp:drawing`), plutôt qu'un groupe de l'auteur.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        smartart: bool,
     },
     /// Intraduisible.
     Opaque(Opaque),
@@ -264,6 +267,22 @@ pub struct Item {
     pub placeholder: Option<PlaceholderLink>,
     /// Contenu.
     pub kind: ItemKind,
+}
+
+impl Item {
+    /// Le texte de l'item : celui d'une boîte de texte ou d'une forme.
+    pub fn text(&self) -> Option<&TextBox> {
+        match &self.kind {
+            ItemKind::Text(tb) => Some(tb),
+            ItemKind::Shape(s) => s.text.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// L'item porte-t-il un texte non vide (autre que des espaces) ?
+    pub fn has_text(&self) -> bool {
+        self.text().is_some_and(|tb| tb.paragraphs.iter().flat_map(|p| &p.runs).any(|r| !r.text.trim().is_empty()))
+    }
 }
 
 /// Ce que le lecteur a ignoré, approché ou dû replier.

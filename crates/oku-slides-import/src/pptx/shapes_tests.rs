@@ -23,7 +23,7 @@ fn group(id: u32, off: (i64, i64), ext: (i64, i64), ch_off: (i64, i64), ch_ext: 
 
 fn kids(items: &[crate::pptx::shapes::ParsedItem]) -> Vec<crate::source::Item> {
     match &items[0].item.kind {
-        ItemKind::Group { items } => items.clone(),
+        ItemKind::Group { items, .. } => items.clone(),
         k => panic!("groupe attendu, trouvé {k:?}"),
     }
 }
@@ -173,7 +173,8 @@ fn nested_groups_compose_their_transforms() {
     let inner = group(11, (10 * PT, 10 * PT), (40 * PT, 40 * PT), (5 * PT, 5 * PT), (20 * PT, 20 * PT), &leaf);
     let outer = group(10, (0, 0), (200 * PT, 200 * PT), (0, 0), (100 * PT, 100 * PT), &inner);
     let (items, _, _) = tree(&outer);
-    let ItemKind::Group { items: leaves } = &kids(&items)[0].kind else { panic!("groupe attendu") };
+    let ItemKind::Group { items: leaves, smartart } = &kids(&items)[0].kind else { panic!("groupe attendu") };
+    assert_that!(*smartart).is_false();
     // feuille : dans l'extérieur 10 + 2×(10 − 5) = 20, puis ×2 → 40 ; taille 10 × 2 × 2 = 40.
     let f = leaves[0].frame;
     assert_that!((f.x, f.y, f.w, f.h)).is_equal_to((40.0, 40.0, 40.0, 40.0));

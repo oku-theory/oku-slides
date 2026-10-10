@@ -1,0 +1,114 @@
+---
+source: crates/oku-slides-import/tests/retrofit.rs
+expression: summary(&plan)
+---
+[
+  {
+    "slide": "s1",
+    "template": "libre",
+    "placement": "grid",
+    "kicker": "FROM A SURVIVAL QUESTION TO A GENERATIONAL OPPORTUNITY",
+    "title": "The Agent Is the New Front Door",
+    "elements": [
+      "text @152,0 189×37",
+      "text @1073,6 266×25",
+      "text @152,442 1375×30",
+      "text @152,491 1375×155",
+      "text @152,665 1375×25"
+    ]
+  },
+  {
+    "slide": "s2",
+    "template": "cartes",
+    "placement": "flow",
+    "kicker": "OUR CONVICTION",
+    "title": "The agent becomes the only interface — and, soon, the more trusted confidant.",
+    "elements": [
+      "card « The only window »",
+      "card « A deeper confidant »",
+      "card « Attacked on two fronts »"
+    ]
+  },
+  {
+    "slide": "s3",
+    "template": "libre",
+    "placement": "grid",
+    "kicker": "THE SHIFT",
+    "title": "From selling software to a connected bank",
+    "elements": [
+      "text @0,44 1680×116",
+      "card @0,173 481×132 « Alto Wealth »",
+      "image @504,229 47×22",
+      "card @575,173 481×132 « Private banker »",
+      "image @1080,229 47×22",
+      "card @1150,173 481×132 « End client »",
+      "text @0,349 1680×34",
+      "card @1,398 480×134 « End client »",
+      "image @506,454 47×22",
+      "card @577,398 480×134 « Claude · ChatGPT »",
+      "image @1082,454 47×22",
+      "card @1153,399 478×132 « Alto Wealth »",
+      "text @0,576 1514×70"
+    ]
+  },
+  {
+    "slide": "s4",
+    "template": "cartes",
+    "placement": "flow",
+    "kicker": "OUR MOAT",
+    "title": "Our moat isn't the code. It's the ecosystem behind it.",
+    "elements": [
+      "text",
+      "stack [card « Amundi Funds », card « Alto Wealth », card « Amundi Services »]",
+      "card"
+    ]
+  },
+  {
+    "slide": "s5",
+    "template": "colonnes",
+    "placement": "flow",
+    "kicker": "OUR RESPONSE",
+    "title": "Expose the ecosystem, not just the software",
+    "elements": [
+      "text",
+      "stack [card « MCP », card « AG-UI »]",
+      "card"
+    ]
+  },
+  {
+    "slide": "s6",
+    "template": "cartes",
+    "placement": "flow",
+    "kicker": "WHY US, NOT JUST ANY MCP SERVER",
+    "title": "The financial coach for someone's entire life",
+    "elements": [
+      "text",
+      "stack [card « A lifelong financial planner », card « Products no one else offers », card « A product for every life stage »]",
+      "card"
+    ]
+  },
+  {
+    "slide": "s7",
+    "template": "cartes",
+    "placement": "flow",
+    "kicker": "ROADMAP",
+    "title": "First mover, standard setter",
+    "elements": [
+      "stack [card « Live in every agent marketplace », card « Transact from the marketplace », card « Become the default choice »]",
+      "card"
+    ]
+  },
+  {
+    "slide": "s8",
+    "template": "cartes",
+    "placement": "flow",
+    "kicker": "ORGANIZATIONAL ANATOMY",
+    "title": "The wealth management value chain, front to back",
+    "elements": [
+      "card « Front & Distribution »",
+      "card « Product & Investment »",
+      "card « Operations & Custody »",
+      "card « Governance & Control »"
+    ]
+  }
+]

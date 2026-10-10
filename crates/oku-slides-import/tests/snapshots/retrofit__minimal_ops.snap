@@ -1,0 +1,129 @@
+---
+source: crates/oku-slides-import/tests/retrofit.rs
+expression: plan.ops
+---
+[
+  {
+    "op": "set_deck_param",
+    "key": "title",
+    "value": "Rapport annuel"
+  },
+  {
+    "op": "set_deck_param",
+    "key": "subtitle",
+    "value": "Exercice 2026"
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s1",
+      "kind": "title"
+    }
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s2",
+      "kind": "content",
+      "params": {
+        "elements": [
+          {
+            "id": "s2-1",
+            "kind": "text",
+            "frame": {
+              "x": 58.08,
+              "y": 0.0,
+              "w": 1563.84,
+              "h": 690.0
+            },
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Chiffre d'affaires en hausse"
+                    }
+                  ],
+                  "list": "bullet"
+                },
+                {
+                  "runs": [
+                    {
+                      "t": "+12 % sur un an"
+                    }
+                  ],
+                  "list": "bullet"
+                },
+                {
+                  "runs": [
+                    {
+                      "t": "Source : comptes 2026",
+                      "color": "accent"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2-2",
+            "kind": "card",
+            "frame": {
+              "x": 1179.97,
+              "y": 0.0,
+              "w": 441.95,
+              "h": 203.98
+            },
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "+12 %",
+                      "bold": true,
+                      "color": "bg"
+                    }
+                  ]
+                }
+              ],
+              "highlight": true
+            }
+          }
+        ],
+        "title": "Résultats"
+      }
+    }
+  },
+  {
+    "op": "set_notes",
+    "slide": "s2",
+    "notes": "Dire bonjour.\nPuis\nenchaîner."
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s3",
+      "kind": "content",
+      "params": {
+        "blocks": [
+          {
+            "id": "s3-1",
+            "kind": "text",
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Texte sans couleur"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "title": "Section sombre"
+      }
+    }
+  }
+]

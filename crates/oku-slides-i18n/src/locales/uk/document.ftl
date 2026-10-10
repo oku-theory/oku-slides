@@ -36,3 +36,47 @@ import-unreadable = Не вдається прочитати цю презент
 import-not-a-presentation = Цей файл не є презентацією PowerPoint
 import-protected = Ця презентація зашифрована або має старий формат .ppt: спершу збережіть її як .pptx
 import-too-large = Ця презентація завелика для імпорту
+import-loss-list-levels = Рівні списку зведено до одного
+import-loss-merged-cells = Об'єднані клітинки розділено
+import-loss-percent-stacked = Нормовану діаграму з накопиченням показано як діаграму з накопиченням
+import-loss-run-style = { $effect ->
+    [underline] Підкреслення втрачено
+    [strike] Закреслення втрачено
+    [baseline] Надрядковий або підрядковий індекс втрачено
+    [caps] Великі літери втрачено
+   *[highlight] Виділення кольором втрачено
+}
+import-loss-transform = Поворот, віддзеркалення або обрізання втрачено
+import-loss-color-dropped = Для кольору { $color } немає близького кольору теми: використано колір теми
+import-loss-text-truncated = Текст скорочено, щоб вкластися в обмеження
+import-loss-table-truncated = Таблицю скорочено, щоб вкластися в обмеження
+import-loss-opaque = { $reason ->
+    [media] Відео або звук не імпортовано (немає запасного зображення)
+    [ole] Вбудований об'єкт не імпортовано (немає запасного зображення)
+    [math] Формулу не імпортовано (немає запасного зображення)
+    [smartart] SmartArt не імпортовано (немає запасного зображення)
+   *[unknown] Непідтримуваний об'єкт не імпортовано (немає запасного зображення)
+}
+import-loss-unsupported-image = Зображення у форматі { $format } не імпортовано
+import-loss-hidden-slide = Прихований слайд імпортовано як видимий
+import-loss-effects = Тіні, відображення та 3D-ефекти втрачено
+import-loss-series-dropped = Кругова діаграма показує один ряд: збережено { $kept }, відкинуто { $dropped }
+import-loss-repeated-decor = { $slides ->
+   [one] Колонтитул «{ $text }», повторений на { $slides } слайді, пропущено: тема малює власний
+   [few] Колонтитул «{ $text }», повторений на { $slides } слайдах, пропущено: тема малює власний
+   [many] Колонтитул «{ $text }», повторений на { $slides } слайдах, пропущено: тема малює власний
+  *[other] Колонтитул «{ $text }», повторений на { $slides } слайда, пропущено: тема малює власний
+}
+import-loss-no-slot = Вміст пропущено: у вибраному шаблоні для нього немає місця
+import-warning-effect-ignored = Ефект не імпортовано: { $detail }
+import-warning-approximated = Наближене відображення: { $detail }
+import-warning-unreadable-item = Нечитабельний елемент пропущено: { $detail }
+import-warning-unreadable-part = Нечитабельна частина: { $detail }
+import-warning-missing-part = Відсутня частина: { $detail }
+import-warning-unsupported-chart = Непідтримувана діаграма: { $detail }
+import-warning-unsupported-image = Непідтримуваний формат зображення: { $detail }
+import-warning-unknown-table-style = Невідомий стиль таблиці: { $detail }
+import-warning-unsafe-link = Посилання відхилено: { $detail }
+import-warning-nesting-too-deep = Надто глибоке вкладення, обрізано: { $detail }
+import-warning-font-embedded-unreadable = Нечитабельний вбудований шрифт: { $detail }
+import-warning-truncated = Забагато попереджень: решту пропущено

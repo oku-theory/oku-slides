@@ -17,6 +17,19 @@ fn text_item() -> Item {
 }
 
 #[test]
+fn item_text_is_the_box_of_a_text_or_a_shape_only() {
+    let shape = |text| Shape { geom: Geometry::Path { paths: Vec::new() }, fill: Fill::None, stroke: None, text };
+    let mut item = text_item();
+    assert_that!(item.text()).is_equal_to(Some(&TextBox::default()));
+    item.kind = ItemKind::Shape(Box::new(shape(Some(TextBox::default()))));
+    assert_that!(item.text()).is_equal_to(Some(&TextBox::default()));
+    item.kind = ItemKind::Shape(Box::new(shape(None)));
+    assert_that!(item.text()).is_none();
+    item.kind = ItemKind::Group { items: Vec::new(), smartart: false };
+    assert_that!(item.text()).is_none();
+}
+
+#[test]
 fn item_text_serializes_with_kind_tag_and_role() {
     let v = serde_json::to_value(text_item()).unwrap();
     assert_that!((v["kind"]["type"].clone(), v["role"].clone())).is_equal_to((json!("text"), json!("title")));

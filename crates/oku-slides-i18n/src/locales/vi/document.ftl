@@ -36,3 +36,42 @@ import-unreadable = Không thể đọc bản trình bày này
 import-not-a-presentation = Tệp này không phải là bản trình bày PowerPoint
 import-protected = Bản trình bày này đã được mã hóa hoặc ở định dạng .ppt cũ: hãy lưu thành .pptx trước
 import-too-large = Bản trình bày này quá lớn để nhập
+import-loss-list-levels = Các cấp danh sách được gộp thành một cấp
+import-loss-merged-cells = Các ô đã hợp nhất được tách ra
+import-loss-percent-stacked = Biểu đồ xếp chồng 100% được hiển thị dạng xếp chồng
+import-loss-run-style = { $effect ->
+    [underline] Mất gạch chân
+    [strike] Mất gạch ngang
+    [baseline] Mất chỉ số trên hoặc chỉ số dưới
+    [caps] Mất chữ in hoa
+   *[highlight] Mất tô sáng
+}
+import-loss-transform = Mất xoay, lật hoặc cắt xén
+import-loss-color-dropped = Màu { $color } không có màu gần giống trong chủ đề: đã dùng màu của chủ đề
+import-loss-text-truncated = Văn bản đã được rút gọn để nằm trong giới hạn
+import-loss-table-truncated = Bảng đã được rút gọn để nằm trong giới hạn
+import-loss-opaque = { $reason ->
+    [media] Không nhập video hoặc âm thanh (không có ảnh thay thế)
+    [ole] Không nhập đối tượng nhúng (không có ảnh thay thế)
+    [math] Không nhập phương trình (không có ảnh thay thế)
+    [smartart] Không nhập SmartArt (không có ảnh thay thế)
+   *[unknown] Không nhập đối tượng không được hỗ trợ (không có ảnh thay thế)
+}
+import-loss-unsupported-image = Không nhập ảnh định dạng { $format }
+import-loss-hidden-slide = Trang chiếu ẩn được nhập dưới dạng hiển thị
+import-loss-effects = Mất bóng đổ, phản chiếu và hiệu ứng 3D
+import-loss-series-dropped = Biểu đồ tròn chỉ hiển thị một chuỗi: giữ { $kept }, bỏ { $dropped }
+import-loss-repeated-decor = Đã bỏ đầu trang hoặc chân trang “{ $text }” lặp lại trên { $slides } trang chiếu: chủ đề tự vẽ của nó
+import-loss-no-slot = Đã bỏ nội dung: mẫu đã chọn không có chỗ cho nó
+import-warning-effect-ignored = Không nhập hiệu ứng: { $detail }
+import-warning-approximated = Hiển thị gần đúng: { $detail }
+import-warning-unreadable-item = Đã bỏ qua mục không đọc được: { $detail }
+import-warning-unreadable-part = Phần không đọc được: { $detail }
+import-warning-missing-part = Thiếu phần: { $detail }
+import-warning-unsupported-chart = Biểu đồ không được hỗ trợ: { $detail }
+import-warning-unsupported-image = Định dạng ảnh không được hỗ trợ: { $detail }
+import-warning-unknown-table-style = Kiểu bảng không xác định: { $detail }
+import-warning-unsafe-link = Liên kết bị từ chối: { $detail }
+import-warning-nesting-too-deep = Lồng nhau quá sâu, đã cắt: { $detail }
+import-warning-font-embedded-unreadable = Không đọc được phông chữ nhúng: { $detail }
+import-warning-truncated = Quá nhiều cảnh báo: các cảnh báo tiếp theo bị bỏ qua

@@ -32,6 +32,25 @@ cli-bad-request = invalid request: { $reason }
 cli-sse-full = too many event streams already open
 cli-forbidden = request refused: it does not come from the local interface
 cli-exposed = listening on { $host }: the server has no authentication and is reachable from the network; any client that sends a local Host header is served. Keep [serve] host on 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } slide
+      *[other] { $slides } slides
+    }, { $pages ->
+       [one] { $pages } page
+      *[other] { $pages } pages
+    }, { $losses ->
+       [one] { $losses } loss
+      *[other] { $losses } losses
+    }, { $requests ->
+       [one] { $requests } widget request
+      *[other] { $requests } widget requests
+    }
+cli-import-label = PowerPoint import
+cli-import-pack-required = --pack is required in retrofit mode: a pack id, folder or name
+cli-import-unknown-pack = unknown pack: { $pack }
+cli-import-bad-pack = unreadable pack { $pack }: its pack.json does not describe a template pack
+cli-import-write-failed = could not write the imported deck { $path }
+cli-import-hifi-later = high-fidelity import (--mode hifi) is not available yet: use --mode retrofit
 
 cli-about = Render and store Oku Slides decks
 cli-arg-fonts = Extra font folder (TTF/OTF); default: paths.fonts in the settings
@@ -55,3 +74,9 @@ cli-cmd-serve = Development server: the interface in a browser, without Tauri
 cli-arg-serve-input = Deck to open (.oku-slides.pdf or .json)
 cli-arg-port = Port; default: serve.port in the settings
 cli-arg-ui = Folder of the built interface (ui/dist)
+cli-cmd-import = Import a PowerPoint presentation (.pptx) as an .oku-slides.pdf deck
+cli-arg-pptx = PowerPoint presentation (.pptx)
+cli-arg-mode = retrofit: the content on an existing pack and theme; hifi: faithful copy (not available yet)
+cli-arg-pack = Target pack: id, pack folder (pack.json, widgets/) or name
+cli-arg-import-theme = Target theme: a built-in or library theme, by id or name; default: the default theme
+cli-arg-report = Also write the import report (JSON): losses, fallbacks, coverage

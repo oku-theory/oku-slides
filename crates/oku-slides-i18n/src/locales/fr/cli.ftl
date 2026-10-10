@@ -32,6 +32,25 @@ cli-bad-request = requête invalide : { $reason }
 cli-sse-full = trop de flux d'évènements déjà ouverts
 cli-forbidden = requête refusée : elle ne vient pas de l'interface locale
 cli-exposed = écoute sur { $host } : le serveur, sans authentification, est joignable depuis le réseau ; tout client qui envoie un en-tête Host local est servi. Gardez [serve] host sur 127.0.0.1
+cli-imported = { $path } : { $slides ->
+       [one] { $slides } slide
+      *[other] { $slides } slides
+    }, { $pages ->
+       [one] { $pages } page
+      *[other] { $pages } pages
+    }, { $losses ->
+       [one] { $losses } perte
+      *[other] { $losses } pertes
+    }, { $requests ->
+       [one] { $requests } demande de widget
+      *[other] { $requests } demandes de widget
+    }
+cli-import-label = Import PowerPoint
+cli-import-pack-required = --pack est obligatoire en mode retrofit : un id, un dossier ou un nom de pack
+cli-import-unknown-pack = pack inconnu : { $pack }
+cli-import-bad-pack = pack illisible { $pack } : son pack.json ne décrit pas un pack de modèles
+cli-import-write-failed = impossible d'écrire le deck importé { $path }
+cli-import-hifi-later = l'import haute fidélité (--mode hifi) n'est pas encore disponible : utilisez --mode retrofit
 
 cli-about = Rendu et stockage des decks Oku Slides
 cli-arg-fonts = Dossier de polices supplémentaires (TTF/OTF) ; défaut : paths.fonts des réglages
@@ -55,3 +74,9 @@ cli-cmd-serve = Serveur de développement : l'interface dans un navigateur, sans
 cli-arg-serve-input = Deck à ouvrir (.oku-slides.pdf ou .json)
 cli-arg-port = Port d'écoute ; défaut : serve.port des réglages
 cli-arg-ui = Dossier de l'interface compilée (ui/dist)
+cli-cmd-import = Importe une présentation PowerPoint (.pptx) en deck .oku-slides.pdf
+cli-arg-pptx = Présentation PowerPoint (.pptx)
+cli-arg-mode = retrofit : le contenu sur un pack et un thème existants ; hifi : copie fidèle (pas encore disponible)
+cli-arg-pack = Pack cible : id, dossier de pack (pack.json, widgets/) ou nom
+cli-arg-import-theme = Thème cible : un thème intégré ou de la bibliothèque, par son id ou son nom ; défaut : le thème par défaut
+cli-arg-report = Écrit aussi le rapport d'import (JSON) : pertes, replis, couverture

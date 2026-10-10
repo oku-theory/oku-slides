@@ -32,6 +32,25 @@ cli-bad-request = geçersiz istek: { $reason }
 cli-sse-full = zaten çok fazla olay akışı açık
 cli-forbidden = istek reddedildi: yerel arayüzden gelmiyor
 cli-exposed = { $host } üzerinde dinleniyor: sunucunun kimlik doğrulaması yok ve ağdan erişilebilir; yerel bir Host başlığı gönderen her istemciye yanıt verilir. [serve] host değerini 127.0.0.1 olarak bırakın
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } slayt
+      *[other] { $slides } slayt
+    }, { $pages ->
+       [one] { $pages } sayfa
+      *[other] { $pages } sayfa
+    }, { $losses ->
+       [one] { $losses } kayıp
+      *[other] { $losses } kayıp
+    }, { $requests ->
+       [one] { $requests } widget isteği
+      *[other] { $requests } widget isteği
+    }
+cli-import-label = PowerPoint içe aktarma
+cli-import-pack-required = retrofit modunda --pack gerekir: bir şablon paketinin kimliği, klasörü ya da adı
+cli-import-unknown-pack = bilinmeyen şablon paketi: { $pack }
+cli-import-bad-pack = okunamayan şablon paketi { $pack }: pack.json dosyası bir şablon paketi tanımlamıyor
+cli-import-write-failed = içe aktarılan sunu { $path } yazılamadı
+cli-import-hifi-later = yüksek doğruluklu içe aktarma (--mode hifi) henüz kullanılamıyor: --mode retrofit kullanın
 
 cli-about = Oku Slides sunularını oluşturur ve saklar
 cli-arg-fonts = Ek yazı tipi klasörü (TTF/OTF); varsayılan: ayarlardaki paths.fonts
@@ -55,3 +74,9 @@ cli-cmd-serve = Geliştirme sunucusu: arayüz tarayıcıda, Tauri olmadan
 cli-arg-serve-input = Açılacak sunu (.oku-slides.pdf veya .json)
 cli-arg-port = Bağlantı noktası; varsayılan: ayarlardaki serve.port
 cli-arg-ui = Derlenmiş arayüzün klasörü (ui/dist)
+cli-cmd-import = Bir PowerPoint sunusunu (.pptx) .oku-slides.pdf olarak içe aktar
+cli-arg-pptx = PowerPoint sunusu (.pptx)
+cli-arg-mode = retrofit: içerik mevcut bir şablon paketi ve tema üzerinde; hifi: aslına uygun kopya (henüz kullanılamıyor)
+cli-arg-pack = Hedef şablon paketi: kimlik, paket klasörü (pack.json, widgets/) ya da ad
+cli-arg-import-theme = Hedef tema: yerleşik ya da kitaplıktaki bir tema, kimliği ya da adıyla; varsayılan: varsayılan tema
+cli-arg-report = İçe aktarma raporunu da (JSON) yaz: kayıplar, yedekler, kapsam

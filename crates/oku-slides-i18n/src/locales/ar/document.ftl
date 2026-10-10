@@ -36,3 +36,49 @@ import-unreadable = تعذّرت قراءة هذا العرض التقديمي
 import-not-a-presentation = هذا الملف ليس عرضًا تقديميًا من PowerPoint
 import-protected = هذا العرض التقديمي مشفّر أو بتنسيق .ppt القديم: احفظه أولًا بتنسيق .pptx
 import-too-large = هذا العرض التقديمي أكبر من أن يُستورد
+import-loss-list-levels = تم دمج مستويات القائمة في مستوى واحد
+import-loss-merged-cells = تم فصل الخلايا المدمجة
+import-loss-percent-stacked = عُرض المخطط المكدس بنسبة 100% كمخطط مكدس
+import-loss-run-style = { $effect ->
+    [underline] فُقد التسطير
+    [strike] فُقد الشطب
+    [baseline] فُقد النص المرتفع أو المنخفض
+    [caps] فُقدت الأحرف الكبيرة
+   *[highlight] فُقد التمييز
+}
+import-loss-transform = فُقد التدوير أو القلب أو الاقتصاص
+import-loss-color-dropped = لا يوجد للون { $color } لون قريب في السمة: استُخدم لون السمة
+import-loss-text-truncated = اختُصر النص ليبقى ضمن الحدود
+import-loss-table-truncated = اختُصر الجدول ليبقى ضمن الحدود
+import-loss-opaque = { $reason ->
+    [media] لم يُستورد الفيديو أو الصوت (لا توجد صورة بديلة)
+    [ole] لم يُستورد الكائن المضمّن (لا توجد صورة بديلة)
+    [math] لم تُستورد المعادلة (لا توجد صورة بديلة)
+    [smartart] لم يُستورد SmartArt (لا توجد صورة بديلة)
+   *[unknown] لم يُستورد الكائن غير المدعوم (لا توجد صورة بديلة)
+}
+import-loss-unsupported-image = لم تُستورد الصورة بتنسيق { $format }
+import-loss-hidden-slide = استُوردت الشريحة المخفية كشريحة ظاهرة
+import-loss-effects = فُقدت الظلال والانعكاسات والتأثيرات ثلاثية الأبعاد
+import-loss-series-dropped = يعرض المخطط الدائري سلسلة واحدة: تم الاحتفاظ بـ { $kept } واستبعاد { $dropped }
+import-loss-repeated-decor = { $slides ->
+   [zero] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
+   [one] حُذف الرأس أو التذييل «{ $text }» المكرر في شريحة واحدة: يرسم النسق رأسه وتذييله
+   [two] حُذف الرأس أو التذييل «{ $text }» المكرر في شريحتين: يرسم النسق رأسه وتذييله
+   [few] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شرائح: يرسم النسق رأسه وتذييله
+   [many] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
+  *[other] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
+}
+import-loss-no-slot = حُذف المحتوى: لا مكان له في القالب المختار
+import-warning-effect-ignored = لم يُستورد التأثير: { $detail }
+import-warning-approximated = عرض تقريبي: { $detail }
+import-warning-unreadable-item = تم تخطي عنصر غير مقروء: { $detail }
+import-warning-unreadable-part = جزء غير مقروء: { $detail }
+import-warning-missing-part = جزء مفقود: { $detail }
+import-warning-unsupported-chart = مخطط غير مدعوم: { $detail }
+import-warning-unsupported-image = تنسيق صورة غير مدعوم: { $detail }
+import-warning-unknown-table-style = نمط جدول غير معروف: { $detail }
+import-warning-unsafe-link = تم رفض الرابط: { $detail }
+import-warning-nesting-too-deep = تداخل عميق جدًا، تم قطعه: { $detail }
+import-warning-font-embedded-unreadable = خط مضمَّن غير مقروء: { $detail }
+import-warning-truncated = تحذيرات كثيرة جدًا: تم حذف التحذيرات التالية

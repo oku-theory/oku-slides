@@ -32,6 +32,25 @@ cli-bad-request = solicitação inválida: { $reason }
 cli-sse-full = muitos fluxos de eventos já abertos
 cli-forbidden = pedido recusado: não vem da interface local
 cli-exposed = a escutar em { $host }: o servidor não tem autenticação e é acessível a partir da rede; qualquer cliente que envie um cabeçalho Host local é servido. Mantenha [serve] host em 127.0.0.1
+cli-imported = { $path }: { $slides ->
+       [one] { $slides } slide
+      *[other] { $slides } slides
+    }, { $pages ->
+       [one] { $pages } página
+      *[other] { $pages } páginas
+    }, { $losses ->
+       [one] { $losses } perda
+      *[other] { $losses } perdas
+    }, { $requests ->
+       [one] { $requests } pedido de widget
+      *[other] { $requests } pedidos de widget
+    }
+cli-import-label = Importação do PowerPoint
+cli-import-pack-required = --pack é obrigatório no modo retrofit: o id, a pasta ou o nome de um pacote
+cli-import-unknown-pack = pacote desconhecido: { $pack }
+cli-import-bad-pack = pacote ilegível { $pack }: o seu pack.json não descreve um pacote de modelos
+cli-import-write-failed = não foi possível gravar a apresentação importada { $path }
+cli-import-hifi-later = a importação de alta fidelidade (--mode hifi) ainda não está disponível: use --mode retrofit
 
 cli-about = Renderiza e armazena apresentações do Oku Slides
 cli-arg-fonts = Pasta de tipos de letra extra (TTF/OTF); padrão: paths.fonts nas configurações
@@ -55,3 +74,9 @@ cli-cmd-serve = Servidor de desenvolvimento: a interface em um navegador, sem Ta
 cli-arg-serve-input = Apresentação a abrir (.oku-slides.pdf ou .json)
 cli-arg-port = Porta; padrão: serve.port nas configurações
 cli-arg-ui = Pasta da interface compilada (ui/dist)
+cli-cmd-import = Importar uma apresentação do PowerPoint (.pptx) como .oku-slides.pdf
+cli-arg-pptx = Apresentação do PowerPoint (.pptx)
+cli-arg-mode = retrofit: o conteúdo sobre um pacote e um tema existentes; hifi: cópia fiel (ainda não disponível)
+cli-arg-pack = Pacote de destino: id, pasta do pacote (pack.json, widgets/) ou nome
+cli-arg-import-theme = Tema de destino: um tema incluído ou da biblioteca, pelo id ou nome; padrão: o tema padrão
+cli-arg-report = Gravar também o relatório de importação (JSON): perdas, substituições, cobertura

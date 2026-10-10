@@ -18,6 +18,11 @@ sources. Aucune dépendance à Typst ni à Tauri.
 - `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, fusion et historique ; voir [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `PackVersion`/`PackRef`/`PackFiles`/`WidgetFile` (`pack.rs`) : version adressée par contenu
   (sha-256 de `pack.json` à clés triées, `0`, puis nom, `0`, source, `0` par fichier de widget).
+  Le contenu de `pack.json` y vit aussi : `PackManifest` (`from_files`, `to_files`, lecture
+  tolérante des `examples`), `Template` (un modèle : sa slide d'exemple) et `now_created` ; la
+  session les ré-exporte, l'import les lit sans dépendre d'elle.
+- `tokens.rs` : jetons effectifs d'un thème (`effective_tokens` : défauts puis thème) et fusion
+  profonde `merge`, partagés par la session (éditeur de thème), la CLI et l'import.
   `ThemeRef` (`Deck.theme`, atome du replica) : une version de thème est un `PackFiles` sans
   widget dont le manifeste est `theme.json` ; `SetTheme` change la seule référence (`null` : thème
   par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),

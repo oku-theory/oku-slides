@@ -32,6 +32,25 @@ cli-bad-request = অবৈধ অনুরোধ: { $reason }
 cli-sse-full = ইতিমধ্যে অনেক বেশি ইভেন্ট স্ট্রিম খোলা আছে
 cli-forbidden = অনুরোধ প্রত্যাখ্যাত: এটি স্থানীয় ইন্টারফেস থেকে আসেনি
 cli-exposed = { $host }-এ শুনছে: সার্ভারে কোনো প্রমাণীকরণ নেই এবং নেটওয়ার্ক থেকে পৌঁছানো যায়; স্থানীয় Host হেডার পাঠানো যেকোনো ক্লায়েন্টকে সেবা দেওয়া হয়। [serve] host 127.0.0.1-এ রাখুন
+cli-imported = { $path }: { $slides ->
+       [one] { $slides }টি স্লাইড
+      *[other] { $slides }টি স্লাইড
+    }, { $pages ->
+       [one] { $pages } পৃষ্ঠা
+      *[other] { $pages } পৃষ্ঠা
+    }, { $losses ->
+       [one] { $losses }টি ক্ষতি
+      *[other] { $losses }টি ক্ষতি
+    }, { $requests ->
+       [one] { $requests }টি উইজেট অনুরোধ
+      *[other] { $requests }টি উইজেট অনুরোধ
+    }
+cli-import-label = PowerPoint ইমপোর্ট
+cli-import-pack-required = retrofit মোডে --pack আবশ্যক: টেমপ্লেট প্যাকের আইডি, ফোল্ডার বা নাম
+cli-import-unknown-pack = অজানা টেমপ্লেট প্যাক: { $pack }
+cli-import-bad-pack = অপাঠযোগ্য টেমপ্লেট প্যাক { $pack }: এর pack.json কোনো টেমপ্লেট প্যাক বর্ণনা করে না
+cli-import-write-failed = ইমপোর্ট করা ডেক { $path } লেখা যায়নি
+cli-import-hifi-later = উচ্চ বিশ্বস্ততার ইমপোর্ট (--mode hifi) এখনো উপলব্ধ নয়: --mode retrofit ব্যবহার করুন
 
 cli-about = Oku Slides প্রেজেন্টেশন রেন্ডার ও সংরক্ষণ করুন
 cli-arg-fonts = অতিরিক্ত ফন্ট ফোল্ডার (TTF/OTF); ডিফল্ট: সেটিংসে paths.fonts
@@ -55,3 +74,9 @@ cli-cmd-serve = ডেভেলপমেন্ট সার্ভার: ব্�
 cli-arg-serve-input = যে প্রেজেন্টেশন খোলা হবে (.oku-slides.pdf বা .json)
 cli-arg-port = পোর্ট; ডিফল্ট: সেটিংসে serve.port
 cli-arg-ui = বিল্ড করা ইন্টারফেসের ফোল্ডার (ui/dist)
+cli-cmd-import = একটি PowerPoint প্রেজেন্টেশন (.pptx) .oku-slides.pdf হিসেবে ইমপোর্ট করুন
+cli-arg-pptx = PowerPoint প্রেজেন্টেশন (.pptx)
+cli-arg-mode = retrofit: বিদ্যমান টেমপ্লেট প্যাক ও থিমে বিষয়বস্তু; hifi: হুবহু কপি (এখনো উপলব্ধ নয়)
+cli-arg-pack = লক্ষ্য টেমপ্লেট প্যাক: আইডি, প্যাক ফোল্ডার (pack.json, widgets/) বা নাম
+cli-arg-import-theme = লক্ষ্য থিম: অন্তর্নির্মিত বা লাইব্রেরির থিম, আইডি বা নাম দিয়ে; ডিফল্ট: ডিফল্ট থিম
+cli-arg-report = ইমপোর্ট রিপোর্টও (JSON) লিখুন: ক্ষতি, বিকল্প, কভারেজ

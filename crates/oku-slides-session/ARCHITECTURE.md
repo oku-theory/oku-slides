@@ -18,6 +18,8 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
   (`SourceBundle.packs[deck.templates.version]`, jamais la bibliothèque ; sonde par fichier, avis
   `session-widgets-broken`) ; absente : base + `session-pack-missing`. `deck_pack.rs` : deck sans
   pack → version courante du pack par défaut ; `SetTemplates` embarque depuis la bibliothèque.
+  `pack.rs` : `PackInfo` (`PackInfo::of`), `Relation`, `DEFAULT_PACK`, `GRID_PACK` ; `Template`,
+  `PackManifest` et `now_created` viennent du cœur (`oku_slides_core::pack`), ré-exportés ici.
   `library.rs` : `Library<K>` versionnée, générique sur la sorte (`library_kind.rs` : `LibraryKind`, `Templates`) ; `<data>/templates/<uuid>/{current, versions/<hex>/pack.json + widgets/}`. `theme.rs` : sorte `Themes` (`<data>/themes/<uuid>/{current, versions/<hex>/theme.json}`, sans widgets), `ThemeManifest`, `ThemeLibrary`, thèmes intégrés Papier et Pro (`PAPIER_THEME`, `PRO_THEME`, `DEFAULT_THEME`) ; `Session.themes` (chemin `paths.themes()`).
 - Thème du deck (`deck_theme.rs`) : la version embarquée (`SourceBundle.themes[deck.theme.version]`)
   fait foi, jamais la bibliothèque ; deck sans thème → version courante du thème par défaut,

@@ -36,3 +36,45 @@ import-unreadable = Não foi possível ler esta apresentação
 import-not-a-presentation = Este arquivo não é uma apresentação do PowerPoint
 import-protected = Esta apresentação está criptografada ou no antigo formato .ppt: salve-a primeiro como .pptx
 import-too-large = Esta apresentação é grande demais para ser importada
+import-loss-list-levels = Níveis de lista reduzidos a um
+import-loss-merged-cells = Células mescladas separadas
+import-loss-percent-stacked = Gráfico empilhado 100% exibido como empilhado
+import-loss-run-style = { $effect ->
+    [underline] Sublinhado perdido
+    [strike] Tachado perdido
+    [baseline] Sobrescrito ou subscrito perdido
+    [caps] Maiúsculas perdidas
+   *[highlight] Realce perdido
+}
+import-loss-transform = Rotação, espelhamento ou corte perdidos
+import-loss-color-dropped = A cor { $color } não tem cor próxima no tema: cor do tema usada
+import-loss-text-truncated = Texto encurtado para caber nos limites
+import-loss-table-truncated = Tabela encurtada para caber nos limites
+import-loss-opaque = { $reason ->
+    [media] Vídeo ou som não importado (sem imagem substituta)
+    [ole] Objeto incorporado não importado (sem imagem substituta)
+    [math] Equação não importada (sem imagem substituta)
+    [smartart] SmartArt não importado (sem imagem substituta)
+   *[unknown] Objeto não suportado não importado (sem imagem substituta)
+}
+import-loss-unsupported-image = Imagem no formato { $format } não importada
+import-loss-hidden-slide = Slide oculto importado como visível
+import-loss-effects = Sombras, reflexos e efeitos 3D perdidos
+import-loss-series-dropped = Um gráfico de pizza mostra uma única série: { $kept } mantida, { $dropped } descartadas
+import-loss-repeated-decor = { $slides ->
+   [one] Cabeçalho ou rodapé “{ $text }” repetido em { $slides } slide omitido: o tema desenha os seus
+  *[other] Cabeçalho ou rodapé “{ $text }” repetido em { $slides } slides omitido: o tema desenha os seus
+}
+import-loss-no-slot = Conteúdo omitido: o modelo escolhido não tem lugar para ele
+import-warning-effect-ignored = Efeito não importado: { $detail }
+import-warning-approximated = Renderização aproximada: { $detail }
+import-warning-unreadable-item = Item ilegível ignorado: { $detail }
+import-warning-unreadable-part = Parte ilegível: { $detail }
+import-warning-missing-part = Parte ausente: { $detail }
+import-warning-unsupported-chart = Gráfico não suportado: { $detail }
+import-warning-unsupported-image = Formato de imagem não suportado: { $detail }
+import-warning-unknown-table-style = Estilo de tabela desconhecido: { $detail }
+import-warning-unsafe-link = Link recusado: { $detail }
+import-warning-nesting-too-deep = Aninhamento profundo demais, cortado: { $detail }
+import-warning-font-embedded-unreadable = Fonte incorporada ilegível: { $detail }
+import-warning-truncated = Avisos demais: os seguintes foram omitidos

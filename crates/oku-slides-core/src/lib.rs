@@ -20,6 +20,7 @@
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu.
+//! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`]).
 
 mod canonical;
 mod color;
@@ -34,6 +35,7 @@ pub mod replica;
 pub mod sources;
 #[cfg(test)]
 pub(crate) mod test_registry;
+pub mod tokens;
 pub mod validate;
 pub mod widget;
 
@@ -50,7 +52,9 @@ pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, Op, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX,
     SlideField, SlotRef, Target, apply_all, default_items, ops_schema, param_value, text_fits,
 };
-pub use pack::{COMMON_WIDGET_FILE, PackFiles, PackRef, PackVersion, ThemeRef, WidgetFile};
+pub use pack::{
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackVersion, Template, ThemeRef, WidgetFile, now_created,
+};
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
 pub use sources::{SourceBundle, SourceLimits, asset_id};

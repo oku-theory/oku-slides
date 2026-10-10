@@ -20,7 +20,7 @@ comments and tool output are in French.
 | `crates/oku-slides-render-worker` | Typst rendering in a worker process, bounded in time and memory |
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
-| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation and reader |
+| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit projector, report and content coverage |
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
@@ -28,7 +28,7 @@ comments and tool output are in French.
 | `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
 | `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
 | `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |
-| `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, benchmarks, dev server |
+| `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, PPTX import, benchmarks, dev server |
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |
 | `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts), in Git LFS |
@@ -46,12 +46,21 @@ just oku-slides render fixtures/roadmap.json --out out --theme pro  # SVG + layo
 just save fixtures/roadmap.json deck.oku-slides.pdf                 # save as .oku-slides.pdf
 just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json + assets
 just oku-slides strip deck.oku-slides.pdf copy.pdf                  # copy without sources
+just oku-slides import deck.pptx --pack Essentiel --theme Pro -o deck.oku-slides.pdf --report r.json  # PPTX → deck (retrofit)
 just bench                                                          # render and save latencies (release build)
 just oku-slides schema                                              # JSON schema of operations
 ```
 
 `--fonts <dir>` adds fonts (TTF/OTF); without it, Typst uses its built-in fonts
 (Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
+
+`import` maps the content of a `.pptx` onto an existing pack (`--pack`: id, pack
+folder or name) and theme (`--theme`: id or name; default: the default theme):
+the style comes from the target theme. Titles are inferred when the slides have no
+placeholders, drawn cards become `card` elements, repeated headers and footers are
+left to the theme. `--report` writes the JSON report: template chosen per slide,
+losses, fallbacks, widget requests, reader warnings and content coverage.
+`--mode` defaults to `retrofit`; `--mode hifi` (faithful copy) is not available yet.
 
 ## Running the app
 

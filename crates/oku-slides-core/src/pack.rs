@@ -11,17 +11,25 @@
 //!
 //! Un thème ([`ThemeRef`]) suit le même modèle : une version de thème est un
 //! [`PackFiles`] dont le manifeste est `theme.json`, sans fichier de widget.
+//!
+//! Le contenu d'une version de pack, `pack.json`, se lit en [`PackManifest`] :
+//! des modèles ([`Template`], des slides complètes, nommées), indépendants du
+//! thème (ils ne parlent qu'en jetons).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::sync::{Mutex, PoisonError};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
+use time::OffsetDateTime;
+use time::macros::format_description;
 use uuid::Uuid;
 
 use crate::error::{PackVersionError, PackVersionSnafu, WidgetFileError, WidgetFileSnafu};
+use crate::model::Slide;
 
 /// Préfixe d'une [`PackVersion`].
 const PREFIX: &str = "sha256:";
@@ -276,6 +284,136 @@ fn sorted(v: &Value) -> Value {
         Value::Array(a) => Value::Array(a.iter().map(sorted).collect()),
         other => other.clone(),
     }
+}
+
+/// Un modèle : une slide complète, nommée.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Template {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub slide: Slide,
+}
+
+/// `pack.json` : un pack dans une version.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PackManifest {
+    pub id: Uuid,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Version dont celle-ci est issue ; `None` pour une première version.
+    #[serde(default)]
+    pub parent: Option<PackVersion>,
+    /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
+    pub created: String,
+    pub templates: Vec<Template>,
+    /// Valeurs d'exemple de chaque widget : celles de son aperçu et de ses réglages.
+    ///
+    /// Les valeurs ont la forme de celles de l'aperçu (texte riche : tableau de
+    /// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée. Un
+    /// widget sans valeurs n'a pas d'entrée ; vide, la clé n'est pas écrite (les
+    /// versions sans valeurs gardent leur empreinte). Lu aussi dans sa forme
+    /// d'avant t-541 (voir [`lenient_examples`]).
+    #[serde(default, deserialize_with = "lenient_examples", skip_serializing_if = "BTreeMap::is_empty")]
+    pub examples: BTreeMap<WidgetFile, Map<String, Value>>,
+}
+
+/// Les valeurs d'exemple d'un widget dans `pack.json`, telles qu'écrites.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredValues {
+    /// Forme actuelle : les valeurs.
+    Values(Map<String, Value>),
+    /// Forme d'avant t-541 : une liste de cas nommés (`{"name", "values"}`).
+    Cases(Vec<StoredCase>),
+}
+
+/// Un cas nommé d'avant t-541 : seules ses valeurs comptent.
+#[derive(Deserialize)]
+struct StoredCase {
+    #[serde(default)]
+    values: Map<String, Value>,
+}
+
+/// Lit `examples` sans rendre illisible le pack qui le porte (t-524) : d'un
+/// pack d'avant t-541 (une liste de cas), le premier cas donne les valeurs du
+/// widget (celles que montraient l'aperçu et les réglages par défaut), les
+/// autres sont oubliés. Une entrée mal formée (nom qui n'est pas celui d'un
+/// fichier de widget, valeurs qui ne sont pas un objet) est écartée avec un
+/// diagnostic au journal ; les autres restent. Les valeurs vides sont omises.
+///
+/// Les bornes des valeurs (`PLAIN_MAX`…) dépendent du schéma du widget : elles
+/// s'appliquent à leur usage (`trial_fits`), pas ici.
+fn lenient_examples<'de, D>(de: D) -> std::result::Result<BTreeMap<WidgetFile, Map<String, Value>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Value::Object(stored) = Value::deserialize(de)? else {
+        diagnose("", "`examples` n'est pas un objet, ignoré");
+        return Ok(BTreeMap::new());
+    };
+    Ok(stored
+        .into_iter()
+        .filter_map(|(name, v)| {
+            let Some(widget) = WidgetFile::parse(&name) else {
+                diagnose(&name, "valeurs d'exemple d'un nom de widget invalide, ignorées");
+                return None;
+            };
+            let values = match serde_json::from_value(v) {
+                Ok(StoredValues::Values(m)) => m,
+                Ok(StoredValues::Cases(cases)) => cases.into_iter().next().map(|c| c.values).unwrap_or_default(),
+                Err(e) => {
+                    diagnose(&name, &format!("valeurs d'exemple mal formées, ignorées : {e}"));
+                    return None;
+                }
+            };
+            (!values.is_empty()).then_some((widget, values))
+        })
+        .collect())
+}
+
+/// Problèmes distincts déjà signalés : au-delà, plus rien n'est retenu.
+const DIAGNOSED_MAX: usize = 256;
+
+/// Signale un problème de `examples` : au journal (`warn`) la première fois
+/// dans le processus, puis en `debug` (le manifeste est relu à chaque accès
+/// à la bibliothèque).
+fn diagnose(widget: &str, problem: &str) {
+    static SEEN: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+    let key = format!("{widget}\0{problem}");
+    let first = {
+        let mut seen = SEEN.lock().unwrap_or_else(PoisonError::into_inner);
+        seen.len() < DIAGNOSED_MAX && seen.insert(key)
+    };
+    if first {
+        tracing::warn!(widget, "pack.json : {problem}");
+    } else {
+        tracing::debug!(widget, "pack.json : {problem}");
+    }
+}
+
+impl PackManifest {
+    /// Lit le `pack.json` de `files`.
+    pub fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
+        serde_json::from_value(Value::Object(files.manifest().clone()))
+    }
+
+    /// Les fichiers de cette version, avec ses fichiers de widgets.
+    pub fn to_files(&self, widgets: BTreeMap<WidgetFile, String>) -> serde_json::Result<PackFiles> {
+        match serde_json::to_value(self)? {
+            Value::Object(manifest) => Ok(PackFiles::new(manifest, widgets)),
+            _ => Err(serde::ser::Error::custom("pack manifest is not an object")),
+        }
+    }
+}
+
+/// Maintenant, au format de `created`.
+pub fn now_created() -> String {
+    OffsetDateTime::now_utc()
+        .format(format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
