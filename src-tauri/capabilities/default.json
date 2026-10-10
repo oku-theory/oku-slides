@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenêtres de l'espace de travail (w-<n>) : commandes, événements, dialogues. La fenêtre de l'agent a la sienne (agent.json).",
+  "description": "Fenêtres de l'espace de travail (w-<n>) : commandes, événements, dialogues, plein écran (présentation). La fenêtre de l'agent a la sienne (agent.json).",
   "windows": ["w-*"],
   "permissions": [
     "core:default",
     "core:window:allow-set-background-color",
     "core:window:allow-set-focus",
+    "core:window:allow-set-fullscreen",
     "core:window:allow-set-theme",
     "core:window:allow-start-dragging",
     "dialog:allow-open",

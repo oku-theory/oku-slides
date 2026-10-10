@@ -569,6 +569,28 @@
         {
          "runs": [
           {
+           "t": "⌘↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Présenter en plein écran"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Présenter dans la fenêtre"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "⌘?",
            "highlight": 1
           },

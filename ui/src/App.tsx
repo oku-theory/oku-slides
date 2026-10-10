@@ -58,6 +58,9 @@ import { useTargetSettings } from "./useTargetSettings";
 import WidgetPane from "./WidgetPane";
 import WidgetTools from "./WidgetTools";
 import TemplateTabs from "./TemplateTabs";
+import Presenter from "./Presenter";
+import type { PresentMode } from "./present";
+import { presentShortcut } from "./present";
 import PileWidgets from "./PileWidgets";
 import PileColumn from "./PileColumn";
 import SlideNav from "./SlideNav";
@@ -438,17 +441,36 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
     if (widgetActive) widgets.activate(null);
   };
 
+  // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
+  const [presenting, setPresenting] = useState<PresentMode | null>(null);
+  /** Présente le deck depuis la slide montrée ; la saisie ouverte s'enregistre d'abord. */
+  const present = (mode: PresentMode) => {
+    if (!snap?.slides.length || snap.editing || snap.history || snap.read_only) return;
+    stage.current?.commitEditing();
+    setSelected(null);
+    setEditing(null);
+    setPresenting(mode);
+  };
+
   // Raccourcis clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Déjà prise par un composant (barre des sous-onglets, pile…) : pas deux actions pour une touche.
       if (e.defaultPrevented) return;
+      // La présentation prend ses touches (`Presenter`) ; derrière elle, rien ne réagit.
+      if (presenting) return;
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
       // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
       if (agentStatus.modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
       // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
       if (snap?.read_only) return;
       const mod = e.metaKey || e.ctrlKey;
+      const presentMode = presentShortcut(e);
+      if (presentMode && !snap?.editing && !snap?.history) {
+        e.preventDefault();
+        present(presentMode);
+        return;
+      }
       // Grille et fantômes se basculent partout, historique compris.
       if (keptUi.handleKey(e)) return;
       if (snap?.history) {
@@ -580,6 +602,9 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ]
     : [
+        { kind: "item", label: t("ui-present-screen"), shortcut: "⌘↩", onSelect: () => present("screen") },
+        { kind: "item", label: t("ui-present-window"), shortcut: "⌘⇧↩", onSelect: () => present("window") },
+        { kind: "separator" },
         { kind: "item", label: t("ui-toolbar-open"), shortcut: "⌘O", onSelect: open },
         { kind: "item", label: t("ui-merge"), onSelect: merge },
         { kind: "separator" },
@@ -836,6 +861,10 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       )}
 
       <SlotView slot={agentSlots.modal} />
+
+      {presenting && (
+        <Presenter mode={presenting} slides={snap.slides} current={current} svg={svgs.svg} onShow={showSlide} onExit={() => setPresenting(null)} />
+      )}
 
       {toastNode}
     </div>

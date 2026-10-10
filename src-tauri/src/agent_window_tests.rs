@@ -59,3 +59,9 @@ fn capability_default_leaves_agent_window_out() {
     let default = capability(include_str!("../capabilities/default.json"));
     assert_that!(strings(&default["windows"])).does_not_contain(super::LABEL);
 }
+
+#[test]
+fn capability_default_allows_fullscreen_for_presentation() {
+    let default = capability(include_str!("../capabilities/default.json"));
+    assert_that!(strings(&default["permissions"])).contains("core:window:allow-set-fullscreen");
+}

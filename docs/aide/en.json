@@ -569,6 +569,28 @@
         {
          "runs": [
           {
+           "t": "⌘↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Present full screen"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "⌘⇧↩",
+           "highlight": 1
+          },
+          {
+           "t": "  Present in the window"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "⌘?",
            "highlight": 1
           },
