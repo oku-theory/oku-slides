@@ -7,3 +7,4 @@ mod common;
 mod issue_0273_test_dirs_never_removed;
 mod issue_0611_memory_lost_only_on_refused_resume;
 mod issue_0612_late_load_replay_ignored;
+mod issue_0811_prompt_queued_before_tab_closed;

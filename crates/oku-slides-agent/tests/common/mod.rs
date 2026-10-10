@@ -263,6 +263,11 @@ pub fn read_log(log: &Path) -> Vec<Value> {
         .collect()
 }
 
+/// La commande de l'interface décrite par `v` (JSON `{"cmd": …, "tab": …}`).
+pub fn cmd(v: Value) -> oku_slides_agent::AgentCommand {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("commande : {e}"))
+}
+
 /// Paramètres des messages notés par le faux agent pour `method`.
 pub fn logged(log: &Path, method: &str) -> Vec<Value> {
     read_log(log).into_iter().filter(|v| v["method"] == method).map(|v| v["params"].clone()).collect()

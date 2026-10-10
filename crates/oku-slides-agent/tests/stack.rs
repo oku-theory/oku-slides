@@ -3,7 +3,7 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    Relayed, TestStack, frozen_turn, is_tool_surface, relayed_len, sessions_in, stack_resumed, stack_resumed_from,
+    Relayed, TestStack, cmd, frozen_turn, is_tool_surface, relayed_len, sessions_in, stack_resumed, stack_resumed_from,
     stack_with_sink, stack_with_sink_and_log, wait_for, wait_n_after, wait_surfaces, wait_turn_done,
 };
 use oku_slides_agent::AgentCommand;
@@ -11,10 +11,6 @@ use oku_slides_session::agent::AgentScope;
 use oku_slides_session::pack::DEFAULT_PACK;
 use serde_json::json;
 use speculoos::prelude::*;
-
-fn cmd(v: serde_json::Value) -> AgentCommand {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("commande : {e}"))
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn forward_wraps_every_event_with_its_tab() {
@@ -205,23 +201,6 @@ async fn dropping_the_stack_ends_the_forwarding() {
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
     panic!("le relais survit à la pile");
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_prompt_queued_before_tab_closed_never_reaches_the_agent() {
-    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1", "t-2"]).await;
-    // Fermé avant que ses outils n'aient démarré : la consigne est encore en file.
-    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "perdue" }))).unwrap();
-    stack.tab_closed("t-1");
-    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-2", "text": "gardée" }))).unwrap();
-    wait_turn_done(&rx, "t-2", 1).await;
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-    assert_that!(common::logged(&log, "session/new")).has_length(1);
-    let prompts = common::logged(&log, "session/prompt");
-    assert_that!(prompts).has_length(1);
-    assert_that!(prompts[0].to_string().contains("gardée")).is_true();
-    let from_closed = rx.lock().unwrap().iter().filter(|(_, v)| v["tab"] == "t-1").count();
-    assert_that!(from_closed).is_equal_to(0);
 }
 
 #[tokio::test(flavor = "multi_thread")]
