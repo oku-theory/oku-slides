@@ -3,7 +3,7 @@
 // l'utilisateur le recouvre, message par message.
 
 import { FluentBundle, FluentResource, type FluentVariable } from "@fluent/bundle";
-import { type Messages, workspace } from "./api";
+import { type Messages, inTauri, listenTauri, workspace } from "./api";
 
 let bundle = new FluentBundle("en", { useIsolating: false });
 
@@ -77,12 +77,44 @@ export function languageName(code: string): string {
   return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);
 }
 
+/**
+ * Génération des messages : avance à chaque demande et à chaque diffusion reçue. Une réponse
+ * de l'hôte n'est appliquée que si rien de plus récent n'est arrivé entre-temps (réponses
+ * dans le désordre, diffusion arrivée avant la réponse ou pendant le premier chargement).
+ */
+let generation = 0;
+
 /** Charge les messages de l'hôte ; à attendre avant le premier rendu. */
 export async function loadMessages(): Promise<void> {
-  applyMessages(await workspace.messages());
+  const asked = ++generation;
+  const m = await workspace.messages();
+  if (asked === generation) applyMessages(m);
+}
+
+/**
+ * Messages diffusés par l'hôte après un choix de langue (seul `set_locale` les diffuse) :
+ * appliqués s'ils changent la langue ou le choix, sinon ignorés. Quel que soit l'ordre de
+ * la diffusion et de la réponse, la fenêtre qui a choisi n'est remontée qu'une fois.
+ */
+export function receiveMessages(m: Messages): boolean {
+  generation++;
+  if (m.locale === locale() && (m.chosen ?? null) === chosen) return false;
+  applyMessages(m);
+  return true;
+}
+
+/** Suit la langue choisie dans n'importe quelle fenêtre (`messages`, diffusé par l'hôte) ; rend de quoi arrêter. */
+export function followLocale(): () => void {
+  if (!inTauri) return () => {};
+  return listenTauri(async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<Messages>("messages", (e) => receiveMessages(e.payload));
+  });
 }
 
 /** Change la langue de l'interface (`null` : celle du système). */
 export async function changeLocale(code: string | null): Promise<void> {
-  applyMessages(await workspace.setLocale(code));
+  const asked = ++generation;
+  const m = await workspace.setLocale(code);
+  if (asked === generation) receiveMessages(m);
 }

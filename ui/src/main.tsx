@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import AgentWindow from "./AgentWindow";
 import Workspace from "./Workspace";
 import { isAgentWindow } from "./agent/target";
-import { loadMessages, onLocaleChange } from "./i18n";
+import { followLocale, loadMessages, onLocaleChange } from "./i18n";
 import { applyDefaultScheme } from "./appearance";
 import { applyLens } from "./lens";
 import { currentScheme, followScheme, loadScheme } from "./scheme";
@@ -14,8 +14,9 @@ import "./glass.css";
 // Les messages d'abord : chaque texte de l'interface en dépend. Sans hôte
 // joignable, l'interface s'affiche quand même (identifiants des messages).
 // Le schéma choisi en même temps : pas d'éclair clair avant le sombre. Puis
-// chaque fenêtre suit le choix fait dans une autre.
+// chaque fenêtre suit le schéma et la langue choisis dans une autre.
 followScheme();
+followLocale();
 Promise.all([
   loadMessages().catch((e) => console.error("messages de l'interface", e)),
   loadScheme().catch((e) => console.error("schéma de l'interface", e)),

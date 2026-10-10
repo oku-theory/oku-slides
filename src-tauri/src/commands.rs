@@ -65,9 +65,32 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
 
 /// L'évènement diffusé à toutes les fenêtres avec la réponse, s'il y en a un.
 ///
-/// Le schéma vaut pour l'app entière : chaque fenêtre (celle de l'agent comprise) le suit.
+/// Le schéma et la langue valent pour l'app entière : chaque fenêtre (celle de
+/// l'agent comprise) les suit ; la langue part avec ses messages (`messages`).
+/// Seule une requête sans resynchronisation des fenêtres (`classify`) est diffusée.
+///
+/// Exhaustif à dessein, comme `classify` : un réglage ajouté doit dire s'il vaut
+/// pour toutes les fenêtres.
 fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
-    matches!(req, WorkspaceRequest::SetScheme { .. }).then_some("scheme")
+    match req {
+        WorkspaceRequest::SetScheme { .. } => Some("scheme"),
+        WorkspaceRequest::SetLocale { .. } => Some("messages"),
+        WorkspaceRequest::View
+        | WorkspaceRequest::Messages
+        | WorkspaceRequest::Scheme
+        | WorkspaceRequest::SameDeck { .. }
+        | WorkspaceRequest::NewTab { .. }
+        | WorkspaceRequest::Activate { .. }
+        | WorkspaceRequest::Close { .. }
+        | WorkspaceRequest::Reorder { .. }
+        | WorkspaceRequest::CloseWindow { .. }
+        | WorkspaceRequest::DetachAgent
+        | WorkspaceRequest::AttachAgent
+        | WorkspaceRequest::OpenTab { .. }
+        | WorkspaceRequest::OpenHelp { .. }
+        | WorkspaceRequest::NewWindow
+        | WorkspaceRequest::MoveTab { .. } => None,
+    }
 }
 
 /// Diffuse `json` (une réponse déjà sérialisée) à toutes les fenêtres sous `event`.

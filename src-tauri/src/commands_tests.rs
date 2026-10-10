@@ -60,6 +60,29 @@ fn broadcast_set_scheme_reaches_every_window() {
 }
 
 #[test]
+fn broadcast_set_locale_reaches_every_window_as_messages() {
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "set_locale", "locale": "de"}))))
+        .is_equal_to(Some("messages"));
+}
+
+#[test]
+fn broadcast_only_requests_that_leave_windows_unsynced() {
+    // `workspace` ne diffuse que dans la branche sans resynchronisation des fenêtres.
+    for json in [
+        serde_json::json!({"cmd": "set_locale", "locale": "de"}),
+        serde_json::json!({"cmd": "set_scheme", "scheme": "dark"}),
+    ] {
+        let r = req(json);
+        assert_that!(classify(&r).0).is_false();
+    }
+}
+
+#[test]
+fn broadcast_messages_read_stays_with_its_window() {
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "messages"})))).is_none();
+}
+
+#[test]
 fn broadcast_scheme_read_stays_with_its_window() {
     assert_that!(broadcast(&req(serde_json::json!({"cmd": "scheme"})))).is_none();
 }
