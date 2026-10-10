@@ -18,7 +18,7 @@ const IDLE_MS = 2000;
 const SCREEN_STEP_MS = 3000;
 
 /**
- * Entrées et sorties du plein écran, l'une après l'autre (StrictMode monte deux fois).
+ * Entrées et sorties du plein écran, l'une après l'autre (sortir puis vite représenter).
  * Une étape qui ne répond jamais (requête refusée en silence) ne bloque pas les suivantes.
  */
 let screenQueue: Promise<unknown> = Promise.resolve();
@@ -27,6 +27,13 @@ function serial<T>(step: () => Promise<T>): Promise<T> {
   screenQueue = Promise.race([next.catch(() => {}), new Promise((r) => setTimeout(r, SCREEN_STEP_MS))]);
   return next;
 }
+
+/**
+ * Le plein écran d'une présentation qui vient de se démonter, quitté seulement après le commit.
+ * Un remontage aussitôt (StrictMode, déplacement dans l'arbre) le reprend : sous macOS,
+ * entrer, sortir et rentrer pendant l'animation laisse la fenêtre fenêtrée.
+ */
+let releasing: { screen: Screen; made: Promise<boolean>; kept: boolean } | null = null;
 
 interface Props {
   mode: PresentMode;
@@ -82,15 +89,26 @@ export default function Presenter({ mode, slides, current, svg, onShow, onExit, 
   useEffect(() => {
     if (mode !== "screen") return;
     const stop = screen.onLeft(() => latest.current.onExit());
-    const made = serial(() => screen.enter()).catch((e) => {
-      console.error("plein écran", e);
-      return false;
-    });
+    const prior = releasing?.screen === screen ? releasing : null;
+    if (prior) prior.kept = true;
+    releasing = null;
+    const made =
+      prior?.made ??
+      serial(() => screen.enter()).catch((e) => {
+        console.error("plein écran", e);
+        return false;
+      });
     return () => {
       stop();
-      void serial(async () => {
-        if (await made) await screen.leave();
-      }).catch((e) => console.error("plein écran", e));
+      const release = { screen, made, kept: false };
+      releasing = release;
+      queueMicrotask(() => {
+        if (release.kept) return;
+        if (releasing === release) releasing = null;
+        void serial(async () => {
+          if (await made) await screen.leave();
+        }).catch((e) => console.error("plein écran", e));
+      });
     };
   }, [mode, screen]);
 

@@ -7,7 +7,7 @@ import type { Screen } from "./fullscreen";
 import type { PresentMode } from "./present";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
-const { act, createElement } = await import("react");
+const { act, createElement, StrictMode } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: Presenter } = await import("./Presenter");
 
@@ -41,7 +41,7 @@ function fakeScreen(wasFull = false) {
   return { screen, calls, left: () => leftCb?.() };
 }
 
-async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen } = {}) {
+async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen, strict = false } = {}) {
   const shown: string[] = [];
   const asked: string[] = [];
   const exits: number[] = [];
@@ -50,9 +50,10 @@ async function mount({ current = "a", mode = "window" as PresentMode, screen = f
   document.body.appendChild(host);
   const root = createRoot(host);
   mounted = { root, host };
+  const wrap = (el: ReturnType<typeof createElement>) => (strict ? createElement(StrictMode, null, el) : el);
   await act(async () =>
     root.render(
-      createElement(Presenter, {
+      wrap(createElement(Presenter, {
         mode,
         slides,
         current,
@@ -64,7 +65,7 @@ async function mount({ current = "a", mode = "window" as PresentMode, screen = f
         onExit: () => exits.push(1),
         screen,
         timers,
-      }),
+      })),
     ),
   );
   const root$ = host.querySelector<HTMLElement>(".presenter")!;
@@ -149,6 +150,24 @@ describe("Presenter", () => {
   test("Presenter in screen mode enters then leaves full screen", async () => {
     const fake = fakeScreen();
     await mount({ mode: "screen", screen: fake.screen });
+    const m = mounted!;
+    await act(async () => m.root.unmount());
+    mounted = null;
+    m.host.remove();
+    await settle();
+    expect(fake.calls).toEqual(["enter", "leave"]);
+  });
+
+  test("Presenter in screen mode under StrictMode enters full screen once", async () => {
+    const fake = fakeScreen();
+    await mount({ mode: "screen", screen: fake.screen, strict: true });
+    await settle();
+    expect(fake.calls).toEqual(["enter"]);
+  });
+
+  test("Presenter in screen mode under StrictMode leaves full screen on unmount", async () => {
+    const fake = fakeScreen();
+    await mount({ mode: "screen", screen: fake.screen, strict: true });
     const m = mounted!;
     await act(async () => m.root.unmount());
     mounted = null;
