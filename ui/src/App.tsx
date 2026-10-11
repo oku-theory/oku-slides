@@ -666,6 +666,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         { kind: "separator" },
         { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ];
+  const mainMenu = <ActionMenu label={t("ui-menu")} entries={menuEntries} triggerClass="token ghost" />;
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
@@ -735,7 +736,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       </header>
       {snap.editing && <TemplateTabs tabs={widgets.tabs.tabs} active={widgets.tabs.active} unsaved={widgets.files.unsaved} onActivate={widgets.activate} onClose={widgets.close} />}
 
-      {/* Ce qu'on ajoute à la slide, puis annuler / rétablir : posés sous la feuille. */}
+      {/* Ce qu'on ajoute à la slide, les paramètres et le menu de ce qui sert rarement, puis
+          annuler / rétablir : posés sous la feuille. */}
       <div className="object theme-card tools-tray">
         <div className="add-group" role="group" aria-label={t("ui-toolbar-add-label")} hidden={widgetActive}>
           {ADD_KINDS.map((k) => {
@@ -758,21 +760,25 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         </div>
         <span className="tools-sep" aria-hidden hidden={widgetActive} />
         {widgetActive ? (<>
+          {mainMenu}
+          <span className="tools-sep" aria-hidden />
           <WidgetTools tab={activeWidget(widgets.tabs)} history={widgets.history} onUndo={widgets.undo} onRedo={widgets.redo} options={keptUi} />
         </>) : (<>
           {/* Les paramètres de contenu sous la slide : affichés ou masqués (gardé par l'hôte). */}
           <button className="token ghost" aria-pressed={!paramsHidden} aria-label={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} title={t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide")} onClick={() => keptUi.setFolded("params", !paramsHidden)}>{Icon.panelBottom}</button>
+          {mainMenu}
           <span className="tools-sep" aria-hidden />
           <button className="token ghost" aria-label={snap.undo_label ? t("ui-toolbar-undo-label", { label: snap.undo_label }) : t("ui-toolbar-undo")} title={snap.undo_label ?? t("ui-toolbar-undo")} disabled={!snap.can_undo} onClick={() => run(api.undo())}>{Icon.undo}</button>
           <button className="token ghost" aria-label={snap.redo_label ? t("ui-toolbar-redo-label", { label: snap.redo_label }) : t("ui-toolbar-redo")} title={snap.redo_label ?? t("ui-toolbar-redo")} disabled={!snap.can_redo} onClick={() => run(api.redo())}>{Icon.redo}</button>
         </>)}
       </div>
 
-      {/* En haut à droite, tout ce qui sert rarement : un seul menu. */}
-      <div className="tray">
-        {snap.editing && <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishTemplates}>{Icon.check}</button>}
-        <ActionMenu label={t("ui-menu")} entries={menuEntries} />
-      </div>
+      {/* En haut à droite, en mode modèles : terminer. */}
+      {snap.editing && (
+        <div className="tray">
+          <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishTemplates}>{Icon.check}</button>
+        </div>
+      )}
       </>)}
 
       {/* Pile de slides (repliable), à gauche ; en mode modèles, sections Modèles et Widgets. */}

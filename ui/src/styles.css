@@ -138,8 +138,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
      Largeurs par défaut, remplacées sur la table par celles choisies aux séparateurs ;
      le fil cède toujours 320px à la feuille (fenêtre rétrécie depuis le choix). */
   --pile-w: 236px;
-  /* Place gardée de part et d'autre du titre centré pour les outils : un jeton et la marge,
-     deux en mode modèles (voir `.tray`). */
+  /* Place gardée de part et d'autre du titre centré pour le jeton « Terminer » du mode modèles
+     et sa marge (voir `.tray`). */
   --tray-reserve: 80px;
   --notes-w: clamp(420px, 40vw, 760px);
   grid-template-columns: var(--pile-w) minmax(0, 1fr) max(300px, min(var(--notes-w), 100% - var(--pile-w) - 320px));
@@ -193,7 +193,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .tray { grid-area: label; justify-self: end; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: var(--space-2) var(--space-4); padding-inline-end: var(--space-6); }
 /* Trop étroit : les outils passent sur deux lignes plutôt que de s'écraser. */
 .tray > * { flex: none; }
-.table:has(> .tray > :nth-child(2)) { --tray-reserve: 136px; }
 .btn {
   height: 44px; padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2);
   font-size: 13px; font-weight: 500; line-height: 18px;
@@ -212,6 +211,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
 .add-group { display: flex; align-items: center; gap: 2px; }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
+/* Fenêtre étroite : des jetons plus petits, pour que la barre tienne sous la slide. */
+@media (max-width: 1199px) { .tools-tray .token.ghost { width: 32px; height: 32px; } }
 /* Enfoncé : le code est affiché, même survolé (la règle de survol de .ghost vient plus tard, dans glass.css). */
 .tools-tray .code-switch.on, .tools-tray .code-switch.on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
 .tools-sep { width: 1px; height: 20px; margin-inline: var(--space-1); background: color-mix(in oklab, var(--edge) 55%, transparent); }
@@ -751,7 +752,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .tab-close:disabled { opacity: 0; pointer-events: none; }
 .tab-new { margin-top: 4px; }
 .tab-close:hover, .tab-new:hover { background: var(--paper-200); }
-/* Le menu burger en haut à droite : ce qui sert rarement, hors de la vue. */
+/* Le menu burger, dans la barre d'outils : ce qui sert rarement, hors de la vue. */
 .action-menu { position: relative; }
 /* Le z-index de la liste reste prisonnier du contexte du tray (2) : menu ouvert, on hisse le tray
    au-dessus de la feuille a2ui et des séparateurs (3 à 6), sous les voiles modaux (20). */
@@ -776,6 +777,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .tools-tray .action-menu-trigger { opacity: 1; }
 .tools-tray .action-menu-list { top: auto; bottom: calc(100% + 8px); inset-inline-end: auto; inset-inline-start: 50%; translate: -50% 0; min-width: 200px; }
 [dir="rtl"] .tools-tray .action-menu-list { translate: 50% 0; }
+/* Le menu burger de la barre : sa liste s'ouvre au-dessus, alignée sur lui. */
+.tools-tray > .action-menu .action-menu-list { inset-inline-start: 0; translate: none; min-width: 260px; }
 .action-menu-sep { border: 0; border-top: 1px solid color-mix(in oklab, var(--edge) 50%, transparent); margin: 5px 4px; }
 .action-menu-custom { padding: 4px 10px; }
 .menu-theme { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
