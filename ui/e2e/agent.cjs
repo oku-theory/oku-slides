@@ -70,9 +70,17 @@ const assertPills = async (p) => {
       out[`btn-${dir}`] = aligned(`<div class="a2ui-row"><button class="btn probe">${text}</button></div>`, dir);
     }
     host.dir = 'ltr';
-    host.innerHTML = '<button class="token agent-jump probe">↓ Tour en cours</button>';
+    host.innerHTML = '<button class="object token agent-jump probe">↓ Tour en cours</button>';
     const jump = host.querySelector('.probe');
-    out.jump = { lines: new Set(lines(jump).map((r) => Math.round(r.top))).size, overflow: jump.scrollWidth - jump.clientWidth };
+    const look = getComputedStyle(jump);
+    out.jump = {
+      lines: new Set(lines(jump).map((r) => Math.round(r.top))).size,
+      overflow: jump.scrollWidth - jump.clientWidth,
+      shadow: look.boxShadow,
+      border: look.borderTopWidth,
+      radius: parseFloat(look.borderTopLeftRadius),
+      height: jump.offsetHeight,
+    };
     host.remove();
     return out;
   });
@@ -82,6 +90,9 @@ const assertPills = async (p) => {
     assert.ok(s.spread < 1, `${key} : lignes non alignées au début : ${JSON.stringify(s)}`);
   }
   assert.ok(seen.jump.lines === 1 && seen.jump.overflow <= 0, `« ↓ Tour en cours » déborde ou passe à la ligne : ${JSON.stringify(seen.jump)}`);
+  // Un objet de l'interface en pilule (ombre, sans bordure), pas le bouton natif gris biseauté (t-830).
+  const { shadow, border, radius, height } = seen.jump;
+  assert.ok(shadow !== 'none' && border === '0px' && radius >= height / 2, `« ↓ Tour en cours » n'a pas l'allure d'un objet : ${JSON.stringify(seen.jump)}`);
 };
 const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fields.find((f) => f.owner === 'e-texte').text;
 

@@ -301,6 +301,8 @@ describe("fil de l'agent par tours", () => {
     await act(async () => scroller.dispatchEvent(new Event("scroll")));
     const jump = host.querySelector(".agent-jump") as HTMLButtonElement;
     expect(jump).not.toBeNull();
+    // Un objet de l'interface (verre, ombre), pas un bouton natif gris.
+    expect(jump.classList.contains("object")).toBe(true);
     await act(async () => jump.click());
     expect(scroller.scrollTop).toBe(1000);
     expect(host.querySelector(".agent-jump")).toBeNull();

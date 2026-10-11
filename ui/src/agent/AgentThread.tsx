@@ -140,7 +140,7 @@ export function AgentThread({
       {!empty && !pinned && state === "working" && (
         <button
           type="button"
-          className="token agent-jump"
+          className="object token agent-jump"
           onClick={() => {
             pinnedRef.current = true;
             setPinned(true);
