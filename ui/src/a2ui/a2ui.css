@@ -26,10 +26,29 @@
   all: unset; cursor: pointer; font: 400 12px/16px var(--sans); color: var(--ink-muted);
 }
 .a2ui-timeline-summary:focus-visible, .a2ui-disclosure > button:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.a2ui-timeline { --a2ui-mono: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .a2ui-steps { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.a2ui-step { display: flex; gap: 6px; align-items: baseline; font: 400 12px/16px var(--sans); color: var(--ink-muted); }
-.a2ui-step-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.a2ui-step.failed { color: var(--danger); }
+.a2ui-step { font: 400 12px/16px var(--sans); color: var(--ink-muted); }
+.a2ui-step-row, .a2ui-call-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+/* La place de la flèche ▸ d'une ligne dépliable : marques et libellés restent alignés. */
+.a2ui-step-row::before, .a2ui-call-row::before { content: "▸"; visibility: hidden; }
+.a2ui-step-toggle, .a2ui-call-toggle { all: unset; display: flex; gap: 6px; align-items: baseline; min-width: 0; width: 100%; box-sizing: border-box; cursor: pointer; }
+.a2ui-step-toggle:focus-visible, .a2ui-call-toggle:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.a2ui-step-label, .a2ui-call-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a2ui-step.failed > :first-child, .a2ui-call.failed > :first-child { color: var(--danger); }
+/* Le détail d'une étape : texte entier d'une note, appels d'outils en retrait. */
+.a2ui-step-detail { margin: 2px 0 4px 18px; color: var(--ink); }
+.a2ui-calls { list-style: none; margin: 2px 0 4px 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.a2ui-call-label { flex: 0 1 auto; }
+.a2ui-call-args { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 400 11px/16px var(--a2ui-mono); opacity: 0.8; }
+.a2ui-call-io { margin: 2px 0 4px 18px; }
+.a2ui-call-io dt { font: 500 11px/16px var(--sans); color: var(--ink-muted); }
+.a2ui-call-io dd { margin: 0 0 4px; }
+.a2ui-call-io pre {
+  margin: 0; padding: 4px 6px; max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 400 11px/15px var(--a2ui-mono); color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 5%, transparent); border-radius: 4px;
+}
 .a2ui-badge {
   display: inline-block; padding: 0 6px; border-radius: 999px; font: 500 11px/16px var(--sans);
   background: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink-muted);

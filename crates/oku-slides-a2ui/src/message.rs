@@ -269,6 +269,39 @@ pub struct TimelineStep {
     /// Nombre d'outils de l'étape ; absent pour une note ou une entrée du plan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
+    /// Texte entier d'une note, quand `label` n'en montre que la première ligne.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// Les appels d'une étape d'outils, dans l'ordre.
+    ///
+    /// Les plus anciens d'un long tour en sortent : ils ne comptent plus que dans `count`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub calls: Vec<ToolCallDetail>,
+}
+
+impl TimelineStep {
+    /// Une étape sans compte, ni détail, ni appels.
+    pub fn new(label: impl Into<String>, status: StepStatus) -> Self {
+        Self { label: label.into(), status, count: None, detail: None, calls: Vec::new() }
+    }
+}
+
+/// Un appel d'outil d'une étape : ses arguments et son résultat.
+///
+/// Les textes sont déjà bornés et filtrés par l'hôte.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolCallDetail {
+    /// Nom lisible de l'outil.
+    pub label: String,
+    /// Dernier statut de l'appel.
+    pub status: StepStatus,
+    /// Arguments, en JSON indenté.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
+    /// Résultat : texte rendu par l'outil, sinon sa sortie brute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 /// Style d'un texte (sous-ensemble des variantes v0.9).

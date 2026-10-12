@@ -17,6 +17,8 @@ pub const WHY_MAX: usize = 4000;
 pub const LABEL_MAX: usize = 60;
 /// Consigne envoyée par une suite.
 pub const PROMPT_MAX: usize = 2000;
+/// Arguments ou résultat d'un appel d'outil, montrés au dépliage du tour.
+pub const DETAIL_CHARS: usize = 1500;
 
 /// Contrôles d'ordre bidirectionnel, caractères invisibles et caractères « tag » (U+E0000..U+E007F,
 /// un texte invisible que lit un LLM) : un libellé ne doit pas se lire autrement qu'il ne s'envoie.
@@ -28,6 +30,23 @@ fn is_hidden_control(c: char) -> bool {
             | '\u{200B}' | '\u{2060}'..='\u{2064}' | '\u{FEFF}' | '\u{180E}' | '\u{00AD}'
             | '\u{E0000}'..='\u{E007F}'
     )
+}
+
+/// Texte de l'agent affichable : sans caractères invisibles, coupé à `max`.
+///
+/// La coupure compte le « … » final. Pour un texte montré tel quel, sans être refusé
+/// (détail d'un outil, texte entier d'une note).
+pub fn clip(text: &str, max: usize) -> String {
+    if max == 0 {
+        return String::new();
+    }
+    let mut kept = text.chars().filter(|c| !is_hidden_control(*c));
+    let mut out: String = kept.by_ref().take(max).collect();
+    if kept.next().is_some() {
+        out.pop();
+        out.push('…');
+    }
+    out
 }
 
 /// Refuse un texte de l'agent trop long (`max` caractères) ou contenant un contrôle invisible.

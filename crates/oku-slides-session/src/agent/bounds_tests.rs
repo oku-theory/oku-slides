@@ -3,7 +3,7 @@ use speculoos::prelude::*;
 
 use oku_slides_a2ui::ChoiceOption;
 
-use super::{LABEL_MAX, TEXT_MAX, check_hex, check_options, check_text};
+use super::{LABEL_MAX, TEXT_MAX, check_hex, check_options, check_text, clip};
 
 #[test]
 fn check_text_at_the_limit_passes() {
@@ -82,4 +82,30 @@ fn check_options_with_a_too_long_id_or_hint_is_refused() {
     assert_that!(check_options("options", &[option("a", "A"), option(&long, "B")])).is_err();
     let hinted = ChoiceOption { id: "b".into(), label: "B".into(), hint: Some("h".repeat(TEXT_MAX + 1)) };
     assert_that!(check_options("options", &[option("a", "A"), hinted])).is_err();
+}
+
+#[test]
+fn clip_short_text_is_kept() {
+    assert_that!(clip("{\n  \"slide\": 4\n}", 40)).is_equal_to("{\n  \"slide\": 4\n}".to_owned());
+}
+
+#[test]
+fn clip_long_text_is_cut_with_an_ellipsis() {
+    assert_that!(clip("abcdef", 4)).is_equal_to("abc…".to_owned());
+}
+
+/// Un détail d'outil vient de l'agent : ses caractères invisibles ne s'affichent pas.
+#[test]
+fn clip_drops_hidden_controls() {
+    assert_that!(clip("a\u{202E}b\u{E0041}c", 10)).is_equal_to("abc".to_owned());
+}
+
+#[test]
+fn clip_text_of_exactly_max_chars_is_kept_whole() {
+    assert_that!(clip("abcd", 4)).is_equal_to("abcd".to_owned());
+}
+
+#[test]
+fn clip_to_zero_chars_is_empty() {
+    assert_that!(clip("abc", 0)).is_equal_to(String::new());
 }

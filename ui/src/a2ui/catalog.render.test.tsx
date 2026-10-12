@@ -316,6 +316,69 @@ describe("composants du fil (v3)", () => {
     expect(host.querySelector(".a2ui-step .a2ui-badge")?.textContent).toBe("3");
   });
 
+  const timeline = { component: "Timeline", steps: { path: "/steps" }, collapsed: { path: "/collapsed" }, summary: { path: "/summary" } };
+
+  test("Timeline : une étape d'outils se déplie sur chacun de ses appels", async () => {
+    const calls = [
+      { label: "widgets", status: "completed", input: '{\n  "slide": 4\n}' },
+      { label: "widgets", status: "failed", output: "index hors bornes" },
+    ];
+    const data = { steps: [{ label: "widgets", status: "failed", count: 2, calls }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    expect(host.querySelector(".a2ui-call")).toBeNull();
+    await click(host.querySelector(".a2ui-step-toggle")!);
+    const rows = host.querySelectorAll(".a2ui-call");
+    expect(rows.length).toBe(2);
+    expect(rows[1].classList.contains("failed")).toBe(true);
+    // Replié, un appel résume ses arguments sur une ligne.
+    expect(rows[0].querySelector(".a2ui-call-args")?.textContent).toBe('{ "slide": 4 }');
+  });
+
+  test("Timeline : un appel se déplie sur ses arguments et son résultat", async () => {
+    const calls = [{ label: "widgets", status: "completed", input: '{\n  "slide": 4\n}', output: "3 widgets" }];
+    const data = { steps: [{ label: "widgets", status: "completed", count: 1, calls }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    await click(host.querySelector(".a2ui-step-toggle")!);
+    expect(host.querySelector(".a2ui-call-io")).toBeNull();
+    await click(host.querySelector(".a2ui-call-toggle")!);
+    const blocks = [...host.querySelectorAll(".a2ui-call-io pre")].map((x) => x.textContent);
+    expect(blocks).toEqual(['{\n  "slide": 4\n}', "3 widgets"]);
+    expect(host.querySelector(".a2ui-call-io")?.textContent).toContain(t("ui-agent-tool-input"));
+    expect(host.querySelector(".a2ui-call-io")?.textContent).toContain(t("ui-agent-tool-output"));
+  });
+
+  test("Timeline : un appel sans arguments ni résultat n'a rien à déplier", async () => {
+    const data = { steps: [{ label: "slides", status: "completed", count: 1, calls: [{ label: "slides", status: "completed" }] }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    await click(host.querySelector(".a2ui-step-toggle")!);
+    expect(host.querySelector(".a2ui-call .a2ui-call-label")?.textContent).toBe("slides");
+    expect(host.querySelector(".a2ui-call-toggle")).toBeNull();
+  });
+
+  test("Timeline : un appel aux arguments vides n'a rien à déplier", async () => {
+    const data = { steps: [{ label: "slides", status: "completed", count: 1, calls: [{ label: "slides", status: "completed", input: "" }] }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    await click(host.querySelector(".a2ui-step-toggle")!);
+    expect(host.querySelector(".a2ui-call-toggle")).toBeNull();
+    expect(host.querySelector(".a2ui-call-args")).toBeNull();
+  });
+
+  test("Timeline : une note coupée se déplie sur son texte entier", async () => {
+    const detail = "Corrections en une transaction.\n\nPuis **la grille**.";
+    const data = { steps: [{ label: "Corrections en une transaction.", status: "completed", detail }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    expect(host.querySelector(".a2ui-step-detail")).toBeNull();
+    await click(host.querySelector(".a2ui-step-toggle")!);
+    expect(host.querySelector(".a2ui-step-detail strong")?.textContent).toBe("la grille");
+  });
+
+  test("Timeline : une étape sans détail n'est pas un bouton", async () => {
+    const data = { steps: [{ label: "Lire la slide", status: "completed" }], collapsed: false, summary: "" };
+    const { host } = await mount(timeline, data);
+    expect(host.querySelector(".a2ui-step-toggle")).toBeNull();
+    expect(host.querySelector(".a2ui-step-label")?.textContent).toBe("Lire la slide");
+  });
+
   test("Receipt montre titre, faits et pastille de couleur", async () => {
     const { host } = await mount({
       component: "Receipt",

@@ -365,14 +365,18 @@ fn every_form() -> Vec<super::Surface> {
         plan: Vec::new(),
         steps: vec![
             oku_slides_a2ui::TimelineStep {
-                label: "Bleu nuit choisi".into(),
-                status: oku_slides_a2ui::StepStatus::Completed,
-                count: None,
+                detail: Some("Bleu nuit choisi.\n\nLe titre passe en blanc.".into()),
+                ..oku_slides_a2ui::TimelineStep::new("Bleu nuit choisi.", oku_slides_a2ui::StepStatus::Completed)
             },
             oku_slides_a2ui::TimelineStep {
-                label: "apply".into(),
-                status: oku_slides_a2ui::StepStatus::Completed,
                 count: Some(6),
+                calls: vec![oku_slides_a2ui::ToolCallDetail {
+                    label: "apply".into(),
+                    status: oku_slides_a2ui::StepStatus::Completed,
+                    input: Some("{\n  \"slide\": 4\n}".into()),
+                    output: Some("fond posé".into()),
+                }],
+                ..oku_slides_a2ui::TimelineStep::new("apply", oku_slides_a2ui::StepStatus::Completed)
             },
         ],
         tools: 6,

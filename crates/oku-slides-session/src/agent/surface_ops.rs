@@ -9,9 +9,10 @@ impl Surface {
     /// Applique des messages de mise à jour à la copie de l'hôte (resynchronisation).
     ///
     /// Un modèle racine remplace celui de la surface (et rend caducs les
-    /// chemins écrits avant lui) ; un chemin `/clé` (JSON Pointer, `~0`/`~1`
-    /// décodés) y écrit sa valeur, ou retire la clé sans valeur ; tout autre
-    /// message est ajouté tel quel.
+    /// chemins écrits avant lui) ; un chemin (JSON Pointer, `~0`/`~1` décodés,
+    /// `/steps/4` compris) y écrit sa valeur, ou retire la clé sans valeur ; un
+    /// chemin qui n'y mène pas est ignoré ; sans modèle racine, ou pour tout autre message,
+    /// le message est ajouté tel quel.
     pub fn apply_patch(&mut self, messages: &[ServerMessage]) {
         for m in messages {
             let ServerBody::UpdateDataModel(patch) = &m.body else {
@@ -27,21 +28,16 @@ impl Surface {
                         None => self.messages.push(m.clone()),
                     }
                 }
-                Some(path) => {
-                    if let Some(key) = path.strip_prefix('/')
-                        && !key.contains('/')
-                        && let Some(root) = self.root_model()
-                        && let Some(Value::Object(map)) = &mut root.value
-                    {
-                        let key = key.replace("~1", "/").replace("~0", "~");
-                        match &patch.value {
-                            Some(v) => map.insert(key, v.clone()),
-                            None => map.remove(&key),
-                        };
-                    } else {
-                        self.messages.push(m.clone());
+                Some(path) => match self.root_model().and_then(|root| root.value.as_mut()) {
+                    // Un chemin qui n'y mène pas est caduc : rejoué après la racine, il
+                    // écraserait un état plus récent (resynchronisation).
+                    Some(value) => {
+                        if !write_pointer(value, path, patch.value.as_ref()) {
+                            tracing::debug!(path, "écriture sans destination dans le modèle : ignorée");
+                        }
                     }
-                }
+                    None => self.messages.push(m.clone()),
+                },
             }
         }
     }
@@ -110,6 +106,35 @@ impl Surface {
             _ => None,
         })
     }
+}
+
+/// Écrit `value` (ou retire, sans valeur) au chemin `pointer` de `root`, comme `DataModel.set`
+/// de l'interface : un index de liste égal à sa longueur ajoute. Rend `false` si le chemin
+/// ne mène pas à un objet ou une liste existants (rien n'est écrit).
+fn write_pointer(root: &mut Value, pointer: &str, value: Option<&Value>) -> bool {
+    let Some((parent, last)) = pointer.rsplit_once('/') else { return false };
+    let key = last.replace("~1", "/").replace("~0", "~");
+    let Some(target) = (if parent.is_empty() { Some(root) } else { root.pointer_mut(parent) }) else {
+        return false;
+    };
+    match (target, value) {
+        (Value::Object(map), Some(v)) => {
+            map.insert(key, v.clone());
+        }
+        (Value::Object(map), None) => {
+            map.remove(&key);
+        }
+        (Value::Array(list), Some(v)) => match key.parse::<usize>() {
+            Ok(i) if i == list.len() => list.push(v.clone()),
+            Ok(i) => match list.get_mut(i) {
+                Some(slot) => *slot = v.clone(),
+                None => return false,
+            },
+            Err(_) => return false,
+        },
+        _ => return false,
+    }
+    true
 }
 
 #[cfg(test)]

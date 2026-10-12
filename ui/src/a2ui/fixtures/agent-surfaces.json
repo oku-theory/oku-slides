@@ -859,13 +859,22 @@
           "value": {
             "steps": [
               {
-                "label": "Bleu nuit choisi",
-                "status": "completed"
+                "label": "Bleu nuit choisi.",
+                "status": "completed",
+                "detail": "Bleu nuit choisi.\n\nLe titre passe en blanc."
               },
               {
                 "label": "apply",
                 "status": "completed",
-                "count": 6
+                "count": 6,
+                "calls": [
+                  {
+                    "label": "apply",
+                    "status": "completed",
+                    "input": "{\n  \"slide\": 4\n}",
+                    "output": "fond posé"
+                  }
+                ]
               }
             ],
             "collapsed": true,

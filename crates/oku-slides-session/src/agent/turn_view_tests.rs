@@ -15,8 +15,8 @@ fn view(state: TurnState) -> TurnView {
         prompt: "Change le fond de la slide quatre.".into(),
         plan: Vec::new(),
         steps: vec![
-            TimelineStep { label: "Bleu nuit choisi".into(), status: StepStatus::Completed, count: None },
-            TimelineStep { label: "apply".into(), status: StepStatus::Completed, count: Some(6) },
+            TimelineStep::new("Bleu nuit choisi", StepStatus::Completed),
+            TimelineStep { count: Some(6), ..TimelineStep::new("apply", StepStatus::Completed) },
         ],
         tools: 6,
         notes: 1,
@@ -73,7 +73,7 @@ fn turn_data_without_notes_omits_them_from_the_summary() {
 #[test]
 fn turn_data_with_plan_lists_plan_before_steps() {
     let mut v = view(TurnState::Running);
-    v.plan = vec![TimelineStep { label: "Lire la slide".into(), status: StepStatus::Completed, count: None }];
+    v.plan = vec![TimelineStep::new("Lire la slide", StepStatus::Completed)];
     let d = turn_data(&v, &fr());
     let labels: Vec<_> = d["steps"].as_array().unwrap().iter().map(|s| s["label"].clone()).collect();
     assert_that!(labels).is_equal_to(vec![json!("Lire la slide"), json!("Bleu nuit choisi"), json!("apply")]);
@@ -104,6 +104,51 @@ fn turn_patches_writes_one_update_per_changed_key() {
     let paths: Vec<_> = patches.as_array().unwrap().iter().map(|m| m["updateDataModel"]["path"].clone()).collect();
     // Dans l'ordre des clés du nouveau modèle ; `summary`, inchangé, ne repart pas.
     assert_that!(paths).is_equal_to(vec![json!("/narration"), json!("/collapsed")]);
+}
+
+fn paths(patches: &[oku_slides_a2ui::ServerMessage]) -> Vec<serde_json::Value> {
+    let v = serde_json::to_value(patches).unwrap();
+    v.as_array().unwrap().iter().map(|m| m["updateDataModel"]["path"].clone()).collect()
+}
+
+/// Ce qui change dans une étape repart seul : pas toute la liste, ni les détails des autres appels.
+#[test]
+fn turn_patches_changed_field_writes_only_that_field() {
+    let sent = json!({"steps": [{"label": "note"}, {"label": "widgets", "count": 1}]});
+    let data = json!({"steps": [{"label": "note"}, {"label": "widgets", "count": 2}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps/1/count")]);
+}
+
+/// Le statut d'un appel qui change dans un long groupe : seul ce statut repart, pas les arguments des autres.
+#[test]
+fn turn_patches_call_status_writes_only_that_status() {
+    let call = |status: &str| json!({"label": "widgets", "status": status, "input": "{\"slide\": 4}"});
+    let sent = json!({"steps": [{"label": "widgets", "calls": [call("completed"), call("in_progress")]}]});
+    let data = json!({"steps": [{"label": "widgets", "calls": [call("completed"), call("failed")]}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps/0/calls/1/status")]);
+}
+
+/// Un objet qui perd une clé est réécrit entier : une écriture par clé ne retirerait rien.
+#[test]
+fn turn_patches_object_losing_a_key_is_rewritten_whole() {
+    let sent = json!({"steps": [{"label": "Lire la slide"}, {"label": "a", "count": 1}]});
+    let data = json!({"steps": [{"label": "Lire la slide"}, {"label": "a"}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps/1")]);
+}
+
+#[test]
+fn turn_patches_appended_step_writes_only_the_new_step() {
+    let sent = json!({"steps": [{"label": "note"}]});
+    let data = json!({"steps": [{"label": "note"}, {"label": "widgets"}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps/1")]);
+}
+
+/// Une liste qui raccourcit (plan remplacé) repart entière : une écriture par index ne retirerait rien.
+#[test]
+fn turn_patches_shorter_list_rewrites_the_whole_list() {
+    let sent = json!({"steps": [{"label": "a"}, {"label": "b"}]});
+    let data = json!({"steps": [{"label": "a"}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps")]);
 }
 
 #[test]
@@ -158,4 +203,61 @@ fn turn_surface_without_prompt_has_no_prompt_component() {
     assert_that!(json).does_not_contain("\"Prompt\"");
     assert_that!(json).does_not_contain("\"prompt\"");
     assert_that!(json).contains("\"Timeline\"");
+}
+
+#[test]
+fn turn_patches_root_losing_a_key_rewrites_the_whole_model() {
+    let patches = serde_json::to_value(super::turn_patches(3, &json!({"a": 1, "b": 2}), &json!({"a": 1}))).unwrap();
+    assert_that!(patches).is_equal_to(json!([
+        {"version": "v0.9", "updateDataModel": {"surfaceId": "turn-3", "value": {"a": 1}}}
+    ]));
+}
+
+/// Le plus ancien appel sorti de la liste (plafond) décale tous les autres : la liste repart
+/// en une écriture, pas une par champ de chaque appel décalé.
+#[test]
+fn turn_patches_shifted_list_is_written_whole() {
+    let call = |n: u32| json!({"label": "apply", "status": "completed", "input": n.to_string()});
+    let sent = json!({"steps": [{"calls": [call(0), call(1), call(2)]}]});
+    let data = json!({"steps": [{"calls": [call(1), call(2), call(3)]}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data))).is_equal_to(vec![json!("/steps/0/calls")]);
+}
+
+/// Contrat entre l'écrivain (`turn_patches`) et la copie de l'hôte (`apply_patch`) : les écritures
+/// appliquées au modèle envoyé donnent le nouveau, quel que soit le changement.
+#[rstest::rstest]
+#[case::append(json!({"steps": [{"a": 1}]}), json!({"steps": [{"a": 1}, {"b": 2}]}))]
+#[case::nested_field(json!({"steps": [{"calls": [{"s": "x"}]}]}), json!({"steps": [{"calls": [{"s": "y"}]}]}))]
+#[case::lost_key(json!({"steps": [{"a": 1, "c": 2}]}), json!({"steps": [{"a": 1}]}))]
+#[case::shorter_list(json!({"steps": [{"a": 1}, {"a": 2}]}), json!({"steps": [{"a": 3}]}))]
+#[case::shift(json!({"steps": [{"calls": [1, 2, 3]}]}), json!({"steps": [{"calls": [2, 3, 4]}]}))]
+#[case::lost_root_key(json!({"steps": [], "x": 1}), json!({"steps": []}))]
+#[case::escaped_key(json!({"steps": [{"a/b~c": 1}]}), json!({"steps": [{"a/b~c": 2}]}))]
+#[case::type_change(json!({"x": "s"}), json!({"x": {"y": 1}}))]
+#[case::plan_update(json!({"steps": [{"s": "in_progress"}, {"s": "pending"}, {"calls": [1]}]}), json!({"steps": [{"s": "completed"}, {"s": "in_progress"}, {"calls": [1]}]}))]
+fn turn_patches_applied_to_the_sent_model_give_the_new_one(
+    #[case] sent: serde_json::Value,
+    #[case] data: serde_json::Value,
+) {
+    let mut s = crate::agent::forms::confirm(
+        "turn-3",
+        &crate::agent::AskConfirm { message: "Ok ?".into(), danger: false },
+        &fr(),
+    );
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("turn-3", sent.clone())]);
+    s.apply_patch(&super::turn_patches(3, &sent, &data));
+    let json = serde_json::to_value(&s).unwrap();
+    let models: Vec<_> = json["messages"].as_array().unwrap().iter().filter_map(|m| m.get("updateDataModel")).collect();
+    assert_that!(models).has_length(1);
+    assert_that!(models[0]["value"].clone()).is_equal_to(data);
+}
+
+/// Une mise à jour du plan coche deux entrées : deux écritures, pas la liste entière et ses appels.
+#[test]
+fn turn_patches_plan_update_writes_only_the_two_entries() {
+    let calls = json!([{"label": "apply", "status": "completed", "input": "x".repeat(500)}]);
+    let sent = json!({"steps": [{"label": "Lire", "status": "in_progress"}, {"label": "Peindre", "status": "pending"}, {"label": "apply", "calls": calls}]});
+    let data = json!({"steps": [{"label": "Lire", "status": "completed"}, {"label": "Peindre", "status": "in_progress"}, {"label": "apply", "calls": calls}]});
+    assert_that!(paths(&super::turn_patches(3, &sent, &data)))
+        .is_equal_to(vec![json!("/steps/0/status"), json!("/steps/1/status")]);
 }

@@ -60,7 +60,7 @@ L'app Tauri et le serveur de développement (`oku-slides-cli`, `serve`) exposent
 - `paragraphs_to_text` (`text.rs`, `inline.rs`) : markdown d'édition relu par `@lezer/markdown` ; contrat `fixtures/markdown*.json`.
 - `agent::tabs` : `Sessions` (fourni par l'hôte), `TabSession` ; `workspace_agent.rs` l'implémente
   (`with_session`, `open_elsewhere`, `open_beside`). Un tour = un groupe d'annulation (`begin_turn`).
-- `agent::turn_view` (surface d'un tour : consigne, timeline, note, issue), `receipt` (`report` et reçu de repli), `render` (composition libre validée) : constructeurs purs, formes A2UI de `oku-slides-a2ui`.
+- `agent::turn_view` (surface d'un tour : consigne, timeline, note, issue), `receipt` (`report` et reçu de repli), `render` (composition libre validée) : constructeurs purs, formes A2UI de `oku-slides-a2ui`. `turn_patches` écrit au plus profond chemin changé (`/steps/4/calls/2/status`) ; `Surface::apply_patch` replie ces chemins dans la copie de l'hôte.
 - Miniature d'un reçu (t-450) : le reçu ne porte jamais le rendu de la slide, seulement `SlideRef { id, hash }`
   (empreinte de sa page au moment du `report`, écrite comme `SlideSummary.hash`) ; sa taille ne dépend pas du
   contenu de la slide, ni dans le hub, ni dans l'état de l'interface, ni à chaque resynchronisation.

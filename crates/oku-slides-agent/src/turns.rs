@@ -18,7 +18,9 @@ use oku_slides_i18n::Localizer;
 use oku_slides_session::agent::turn_view::{
     TurnState, TurnView, first_line, turn_data, turn_id, turn_patches, turn_surface,
 };
-use oku_slides_session::agent::{AgentScope, NOTE_CHARS, ServerMessage, StepStatus, Surface, TimelineStep, WHY_MAX};
+use oku_slides_session::agent::{
+    AgentScope, LABEL_MAX, NOTE_CHARS, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail, WHY_MAX, clip,
+};
 use serde_json::Value;
 
 use crate::{AgentEvent, AgentState};
@@ -27,6 +29,10 @@ use crate::{AgentEvent, AgentState};
 pub(crate) use oku_slides_session::agent::KEPT_TURNS;
 /// Étapes gardées au plus par tour ; au-delà, les outils et notes ne comptent plus que dans le résumé.
 pub(crate) const STEPS_MAX: usize = 60;
+/// Appels listés au plus par tour, les plus récents.
+///
+/// Les plus anciens sortent de la liste et ne font plus que compter.
+pub(crate) const CALLS_MAX: usize = 60;
 
 /// Ce que le relais doit faire après un évènement.
 #[derive(Debug)]
@@ -41,14 +47,35 @@ pub(crate) enum TurnOut {
     Ended { turn: u32, narration: String },
 }
 
+/// Un appel d'outil du tour.
+#[derive(Debug)]
+struct Tool {
+    /// L'étape où il est rangé.
+    step: usize,
+    /// Son dernier statut.
+    status: StepStatus,
+    /// Sa place dans les appels listés de l'étape ; `None` une fois sorti de la liste ([`CALLS_MAX`]).
+    call: Option<usize>,
+}
+
+/// Ce qu'une annonce ou une mise à jour change d'un appel (`None` : inchangé).
+#[derive(Debug, Default, Clone, Copy)]
+struct CallFields<'a> {
+    title: Option<&'a str>,
+    input: Option<&'a str>,
+    output: Option<&'a str>,
+}
+
 #[derive(Debug)]
 struct Turn {
     view: TurnView,
     /// La portée du tour : l'éviction se compte par portée.
     scope: AgentScope,
     started: Instant,
-    /// Chaque outil : l'étape où il est rangé et son dernier statut.
-    tools: HashMap<String, (usize, StepStatus)>,
+    /// Chaque appel d'outil, par identifiant.
+    tools: HashMap<String, Tool>,
+    /// Les appels listés du tour, du plus ancien au plus récent (au plus [`CALLS_MAX`]).
+    listed: VecDeque<String>,
     /// La dernière étape est-elle une étape d'outils ?
     in_tools: bool,
     /// L'étape du groupe d'outils en cours ; `None` si le plafond d'étapes l'a refusée (outils seulement comptés).
@@ -77,6 +104,17 @@ fn status(s: &str) -> StepStatus {
     }
 }
 
+/// Le nom lisible d'un outil, borné et filtré : `mcp__oku-slides__widgets` devient `widgets`.
+fn tool_label(title: &str) -> String {
+    let name = title
+        .strip_prefix("mcp__")
+        .and_then(|rest| rest.split_once("__"))
+        .map(|(_, name)| name)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(title);
+    clip(name, LABEL_MAX)
+}
+
 /// Rang d'un statut dans une étape groupée : le plus bas l'emporte (un échec reste visible).
 fn rank(st: StepStatus) -> u8 {
     match st {
@@ -95,7 +133,10 @@ impl Turn {
             self.last_text = text.to_owned();
             if self.view.steps.len() < STEPS_MAX {
                 let note = first_line(text, NOTE_CHARS);
-                self.view.steps.push(TimelineStep { label: note, status: StepStatus::Completed, count: None });
+                // Le texte entier, quand la note n'en montre qu'une partie.
+                // Sans ses caractères invisibles, comme le détail d'un outil.
+                let detail = (note != text).then(|| clip(text, WHY_MAX));
+                self.view.steps.push(TimelineStep { detail, ..TimelineStep::new(note, StepStatus::Completed) });
             }
             self.view.notes = self.view.notes.saturating_add(1);
         }
@@ -104,7 +145,7 @@ impl Turn {
 
     /// Statut d'une étape d'outils : un échec reste visible, sinon « en cours » tant qu'un outil l'est.
     fn settle_step(&mut self, step: usize) {
-        let worst = self.tools.values().filter(|(s, _)| *s == step).map(|(_, st)| *st).min_by_key(|st| rank(*st));
+        let worst = self.tools.values().filter(|x| x.step == step).map(|x| x.status).min_by_key(|st| rank(*st));
         if let (Some(worst), Some(row)) = (worst, self.view.steps.get_mut(step)) {
             row.status = worst;
         }
@@ -113,12 +154,16 @@ impl Turn {
     /// Ferme le tour : les outils restés en cours sont soldés selon l'issue ; rend le dernier texte.
     fn finish(&mut self, state: TurnState) -> String {
         let leftover = if matches!(state, TurnState::Done { .. }) { StepStatus::Completed } else { StepStatus::Failed };
-        for (_, st) in self.tools.values_mut() {
-            if matches!(st, StepStatus::Pending | StepStatus::InProgress) {
-                *st = leftover;
-            }
+        let open: Vec<String> = self
+            .tools
+            .iter()
+            .filter(|(_, x)| matches!(x.status, StepStatus::Pending | StepStatus::InProgress))
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in open {
+            self.update_call(&id, Some(leftover), CallFields::default());
         }
-        let steps: BTreeSet<usize> = self.tools.values().map(|(s, _)| *s).collect();
+        let steps: BTreeSet<usize> = self.tools.values().map(|x| x.step).collect();
         for step in steps {
             self.settle_step(step);
         }
@@ -128,11 +173,95 @@ impl Turn {
         text
     }
 
+    /// Ouvre l'appel `id` dans le groupe d'outils en cours (une nouvelle étape s'il n'y en a
+    /// pas) ; au-delà de [`CALLS_MAX`] appels listés, le plus ancien sort de la liste.
+    fn add_call(&mut self, id: &str, status: StepStatus, f: CallFields<'_>) {
+        let label = tool_label(f.title.unwrap_or_default());
+        if !self.in_tools {
+            self.close_narration();
+            self.group = None;
+            if self.view.steps.len() < STEPS_MAX {
+                self.view.steps.push(TimelineStep { count: Some(1), ..TimelineStep::new(label.clone(), status) });
+                self.group = Some(self.view.steps.len() - 1);
+            }
+            self.in_tools = true;
+        }
+        self.view.tools = self.view.tools.saturating_add(1);
+        let Some(step) = self.group else { return };
+        let count = self.tools.values().filter(|x| x.step == step).count() + 1;
+        let Some(row) = self.view.steps.get_mut(step) else { return };
+        row.label.clone_from(&label);
+        row.count = Some(u32::try_from(count).unwrap_or(u32::MAX));
+        row.calls.push(ToolCallDetail {
+            label,
+            status,
+            input: f.input.map(str::to_owned),
+            output: f.output.map(str::to_owned),
+        });
+        let call = Some(row.calls.len() - 1);
+        self.tools.insert(id.to_owned(), Tool { step, status, call });
+        self.listed.push_back(id.to_owned());
+        if self.listed.len() > CALLS_MAX
+            && let Some(oldest) = self.listed.pop_front()
+        {
+            self.unlist(&oldest);
+        }
+        self.settle_step(step);
+    }
+
+    /// Retire l'appel `id` de la liste de son étape (il y est le premier : le plus ancien) ;
+    /// les suivants de l'étape remontent d'une place.
+    fn unlist(&mut self, id: &str) {
+        let Some(tool) = self.tools.get_mut(id) else { return };
+        let (step, Some(at)) = (tool.step, tool.call.take()) else { return };
+        if let Some(row) = self.view.steps.get_mut(step)
+            && at < row.calls.len()
+        {
+            row.calls.remove(at);
+        }
+        for x in self.tools.values_mut().filter(|x| x.step == step) {
+            if let Some(i) = x.call.as_mut()
+                && *i > at
+            {
+                *i -= 1;
+            }
+        }
+    }
+
+    /// Met à jour l'appel `id` (statut et champs donnés) ; rend son étape.
+    fn update_call(&mut self, id: &str, status: Option<StepStatus>, f: CallFields<'_>) -> Option<usize> {
+        let tool = self.tools.get_mut(id)?;
+        if let Some(st) = status {
+            tool.status = st;
+        }
+        let (step, call) = (tool.step, tool.call);
+        let row = self.view.steps.get_mut(step)?;
+        let label = f.title.map(tool_label);
+        if let Some(label) = &label {
+            row.label.clone_from(label);
+        }
+        if let Some(c) = call.and_then(|i| row.calls.get_mut(i)) {
+            if let Some(st) = status {
+                c.status = st;
+            }
+            if let Some(label) = label {
+                c.label = label;
+            }
+            if let Some(input) = f.input {
+                c.input = Some(input.to_owned());
+            }
+            if let Some(output) = f.output {
+                c.output = Some(output.to_owned());
+            }
+        }
+        Some(step)
+    }
+
     fn secs(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.started).as_secs()
     }
 
-    /// Les écritures des clés qui ont changé depuis le dernier envoi ; rien si rien n'a changé.
+    /// Les écritures minimales de ce qui a changé depuis le dernier envoi ; rien si rien n'a changé.
     fn patch(&mut self, l: &Localizer) -> Option<TurnOut> {
         let data = turn_data(&self.view, l);
         let messages = turn_patches(self.view.n, &self.sent, &data);
@@ -187,54 +316,27 @@ impl Turns {
                     t.in_tools = false;
                 }
             }
-            AgentEvent::ToolCall { id, title, status: s, .. } => {
+            AgentEvent::ToolCall { id, title, status: s, input, output, .. } => {
+                let f = CallFields { title: Some(title), input: input.as_deref(), output: output.as_deref() };
+                // Un même appel annoncé deux fois : traité comme une mise à jour.
                 if t.tools.contains_key(id) {
-                    // Un même appel annoncé deux fois : traité comme une mise à jour.
-                    let step = t.tools[id].0;
-                    t.tools.insert(id.clone(), (step, status(s)));
-                    t.settle_step(step);
-                } else {
-                    if !t.in_tools {
-                        t.close_narration();
-                        t.group = None;
-                        if t.view.steps.len() < STEPS_MAX {
-                            t.view.steps.push(TimelineStep { label: title.clone(), status: status(s), count: Some(1) });
-                            t.group = Some(t.view.steps.len() - 1);
-                        }
-                        t.in_tools = true;
-                    }
-                    t.view.tools = t.view.tools.saturating_add(1);
-                    if let Some(step) = t.group {
-                        t.tools.insert(id.clone(), (step, status(s)));
-                        let count = t.tools.values().filter(|(s, _)| *s == step).count();
-                        if let Some(row) = t.view.steps.get_mut(step) {
-                            row.label.clone_from(title);
-                            row.count = Some(u32::try_from(count).unwrap_or(u32::MAX));
-                        }
+                    if let Some(step) = t.update_call(id, Some(status(s)), f) {
                         t.settle_step(step);
                     }
+                } else {
+                    t.add_call(id, status(s), f);
                 }
             }
-            AgentEvent::ToolUpdate { id, title, status: s, .. } => {
-                let Some((step, st)) = t.tools.get_mut(id) else { return out };
-                let step = *step;
-                if let Some(s) = s {
-                    *st = status(s);
-                }
-                if let (Some(title), Some(row)) = (title, t.view.steps.get_mut(step)) {
-                    row.label.clone_from(title);
-                }
+            AgentEvent::ToolUpdate { id, title, status: s, input, output, .. } => {
+                let f = CallFields { title: title.as_deref(), input: input.as_deref(), output: output.as_deref() };
+                let Some(step) = t.update_call(id, s.as_deref().map(status), f) else { return out };
                 t.settle_step(step);
             }
             AgentEvent::Plan { entries, .. } => {
                 t.view.plan = entries
                     .iter()
                     .take(STEPS_MAX)
-                    .map(|p| TimelineStep {
-                        label: first_line(&p.content, NOTE_CHARS),
-                        status: status(&p.status),
-                        count: None,
-                    })
+                    .map(|p| TimelineStep::new(first_line(&p.content, NOTE_CHARS), status(&p.status)))
                     .collect();
             }
             AgentEvent::TurnEnded { stop, .. } => {
@@ -300,6 +402,7 @@ impl Turns {
             scope: scope.clone(),
             started: now,
             tools: HashMap::new(),
+            listed: VecDeque::new(),
             in_tools: false,
             group: None,
             last_text: String::new(),

@@ -18,14 +18,14 @@ mod tabs;
 pub mod turn_view;
 pub mod variants;
 
-pub use bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options};
+pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
 pub use context::AgentUi;
 pub use conversation::{SavedConversation, ScopeMove};
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
     ShowParams, ShowVariants, Surface, Variant,
 };
-pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep};
+pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep, ToolCallDetail};
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;

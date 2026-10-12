@@ -52,7 +52,14 @@ fn turns_tool_after_text_turns_it_into_a_note() {
     t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::Chunk { turn: 1, text: "Bleu nuit choisi.".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "apply".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "apply".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -68,17 +75,38 @@ fn turns_consecutive_tools_share_one_step() {
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "slide".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "slide".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "b".into(), title: "apply".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "b".into(),
+            title: "apply".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolUpdate { turn: 1, id: "b".into(), title: None, status: Some("completed".into()) },
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "b".into(),
+            title: None,
+            status: Some("completed".into()),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -163,29 +191,64 @@ fn turns_update_of_an_earlier_tool_is_applied_and_a_failure_stays_visible() {
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "slide".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "slide".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "b".into(), title: "apply".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "b".into(),
+            title: "apply".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     // Une note entre deux groupes : l'outil `a` n'est plus dans la dernière étape.
     t.apply(&AgentEvent::Chunk { turn: 1, text: "Je vérifie.".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "c".into(), title: "render_slide".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "c".into(),
+            title: "render_slide".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolUpdate { turn: 1, id: "a".into(), title: None, status: Some("failed".into()) },
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "a".into(),
+            title: None,
+            status: Some("failed".into()),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolUpdate { turn: 1, id: "b".into(), title: None, status: Some("completed".into()) },
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "b".into(),
+            title: None,
+            status: Some("completed".into()),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -198,7 +261,14 @@ fn turns_update_of_an_unknown_tool_is_ignored() {
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
     let out = t.apply(
-        &AgentEvent::ToolUpdate { turn: 1, id: "zz".into(), title: None, status: Some("failed".into()) },
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "zz".into(),
+            title: None,
+            status: Some("failed".into()),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -211,7 +281,14 @@ fn turns_tools_still_running_at_the_end_are_settled() {
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "apply".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "apply".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -245,7 +322,14 @@ fn turns_text_then_tool_then_end_reports_the_text() {
     t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::Chunk { turn: 1, text: "Fond posé. Titre en blanc.".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "render_slide".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "render_slide".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -284,7 +368,14 @@ fn turns_repeated_tool_call_counts_once() {
     let mut t = Turns::default();
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
-    let call = AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "apply".into(), status: "in_progress".into() };
+    let call = AgentEvent::ToolCall {
+        turn: 1,
+        id: "a".into(),
+        title: "apply".into(),
+        status: "in_progress".into(),
+        input: None,
+        output: None,
+    };
     t.apply(&call, now, &fr());
     t.apply(&call, now, &fr());
     assert_that!(data(&t)["steps"][0]["count"].as_u64().unwrap()).is_equal_to(1);
@@ -297,13 +388,27 @@ fn turns_blank_chunk_between_tools_keeps_one_step() {
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "slide".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "slide".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(&AgentEvent::Chunk { turn: 1, text: "\n\n".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "b".into(), title: "apply".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "b".into(),
+            title: "apply".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -372,7 +477,14 @@ fn turns_tool_group_past_the_step_cap_is_only_counted() {
     for i in 0..super::STEPS_MAX / 2 {
         t.apply(&AgentEvent::Chunk { turn: 1, text: format!("note {i}") }, now, &fr());
         t.apply(
-            &AgentEvent::ToolCall { turn: 1, id: format!("t{i}"), title: "apply".into(), status: "completed".into() },
+            &AgentEvent::ToolCall {
+                turn: 1,
+                id: format!("t{i}"),
+                title: "apply".into(),
+                status: "completed".into(),
+                input: None,
+                output: None,
+            },
             now,
             &fr(),
         );
@@ -382,12 +494,26 @@ fn turns_tool_group_past_the_step_cap_is_only_counted() {
     let tools = t.turns.back().unwrap().view.tools;
     t.apply(&AgentEvent::Chunk { turn: 1, text: "encore".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "late".into(), title: "render".into(), status: "in_progress".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "late".into(),
+            title: "render".into(),
+            status: "in_progress".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
     t.apply(
-        &AgentEvent::ToolUpdate { turn: 1, id: "late".into(), title: None, status: Some("failed".into()) },
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "late".into(),
+            title: None,
+            status: Some("failed".into()),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -463,7 +589,14 @@ fn turns_blank_narration_before_a_tool_adds_no_note() {
     t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::Chunk { turn: 1, text: "  \n\t\n ".into() }, now, &fr());
     t.apply(
-        &AgentEvent::ToolCall { turn: 1, id: "a".into(), title: "apply".into(), status: "completed".into() },
+        &AgentEvent::ToolCall {
+            turn: 1,
+            id: "a".into(),
+            title: "apply".into(),
+            status: "completed".into(),
+            input: None,
+            output: None,
+        },
         now,
         &fr(),
     );
@@ -505,4 +638,228 @@ fn apply_draft_event_emits_nothing() {
     let mut turns = Turns::default();
     let out = turns.apply(&AgentEvent::Draft { text: Some("x".into()), origin: None }, Instant::now(), &fr());
     assert_that!(out).is_empty();
+}
+
+fn call(id: &str, title: &str, status: &str, input: Option<&str>) -> AgentEvent {
+    AgentEvent::ToolCall {
+        turn: 1,
+        id: id.into(),
+        title: title.into(),
+        status: status.into(),
+        input: input.map(str::to_owned),
+        output: None,
+    }
+}
+
+fn update(id: &str, status: &str, output: Option<&str>) -> AgentEvent {
+    AgentEvent::ToolUpdate {
+        turn: 1,
+        id: id.into(),
+        title: None,
+        status: Some(status.into()),
+        input: None,
+        output: output.map(str::to_owned),
+    }
+}
+
+/// Déplié, un groupe d'outils montre chaque appel : son nom, son statut, ses arguments, son résultat.
+#[test]
+fn turns_tool_step_lists_each_call_with_its_input_and_output() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("a", "slide", "completed", Some("{\"n\": 4}")), now, &fr());
+    t.apply(&call("b", "apply", "in_progress", None), now, &fr());
+    t.apply(&update("b", "failed", Some("index hors bornes")), now, &fr());
+    let calls = data(&t)["steps"][0]["calls"].clone();
+    assert_that!(calls).is_equal_to(serde_json::json!([
+        {"label": "slide", "status": "completed", "input": "{\"n\": 4}"},
+        {"label": "apply", "status": "failed", "output": "index hors bornes"},
+    ]));
+}
+
+/// Le titre ACP d'un outil MCP (`mcp__serveur__outil`) se lit par son seul nom d'outil.
+#[test]
+fn turns_mcp_tool_title_shows_only_the_tool_name() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("a", "mcp__oku-slides__widgets", "completed", None), now, &fr());
+    let d = data(&t);
+    assert_that!(d["steps"][0]["label"].as_str().unwrap()).is_equal_to("widgets");
+    assert_that!(d["steps"][0]["calls"][0]["label"].as_str().unwrap()).is_equal_to("widgets");
+}
+
+/// Une note coupée à sa première ligne garde son texte entier pour le dépliage.
+#[test]
+fn turns_long_note_keeps_its_full_text_as_detail() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    let text = "Corrections en une transaction.\n\nPuis le placement sur la grille.";
+    t.apply(&AgentEvent::Chunk { turn: 1, text: text.into() }, now, &fr());
+    t.apply(&call("a", "apply", "completed", None), now, &fr());
+    let d = data(&t);
+    assert_that!(d["steps"][0]["label"].as_str().unwrap()).is_equal_to("Corrections en une transaction.");
+    assert_that!(d["steps"][0]["detail"].as_str().unwrap()).is_equal_to(text);
+}
+
+#[test]
+fn turns_one_line_note_has_no_detail() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&AgentEvent::Chunk { turn: 1, text: "Bleu nuit choisi.".into() }, now, &fr());
+    t.apply(&call("a", "apply", "completed", None), now, &fr());
+    assert_that!(data(&t)["steps"][0].get("detail")).is_none();
+}
+
+/// Au-delà de `CALLS_MAX` appels dans un tour, les plus anciens sortent de la liste (ils restent
+/// comptés) : les derniers, souvent ceux qui ont échoué, gardent leur détail.
+#[test]
+fn turns_calls_past_the_cap_keep_the_latest() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    for i in 0..=super::CALLS_MAX {
+        t.apply(&call(&format!("t{i}"), "apply", "completed", Some(&i.to_string())), now, &fr());
+    }
+    let d = data(&t);
+    assert_that!(d["steps"][0]["count"].as_u64().unwrap()).is_equal_to(super::CALLS_MAX as u64 + 1);
+    let calls = d["steps"][0]["calls"].as_array().unwrap();
+    assert_that!(calls).has_length(super::CALLS_MAX);
+    assert_that!(calls[0]["input"].as_str().unwrap()).is_equal_to("1");
+    assert_that!(calls[super::CALLS_MAX - 1]["input"].as_str().unwrap())
+        .is_equal_to(super::CALLS_MAX.to_string().as_str());
+}
+
+/// Un appel sorti de la liste puis mis à jour ne touche à aucun autre appel ; les suivants restent à leur place.
+#[test]
+fn turns_update_of_a_dropped_call_changes_no_other_call() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    for i in 0..=super::CALLS_MAX {
+        t.apply(&call(&format!("t{i}"), "apply", "in_progress", None), now, &fr());
+    }
+    let before = data(&t)["steps"][0]["calls"].clone();
+    t.apply(&update("t0", "completed", Some("vieux")), now, &fr());
+    assert_that!(data(&t)["steps"][0]["calls"].clone()).is_equal_to(before);
+    t.apply(&update("t1", "failed", Some("index hors bornes")), now, &fr());
+    let first = data(&t)["steps"][0]["calls"][0].clone();
+    assert_that!(first["status"].as_str().unwrap()).is_equal_to("failed");
+    assert_that!(first["output"].as_str().unwrap()).is_equal_to("index hors bornes");
+}
+
+/// La limite compte les appels du tour, pas ceux d'une étape.
+#[test]
+fn turns_call_cap_spans_the_steps_of_the_turn() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("first", "slide", "completed", None), now, &fr());
+    t.apply(&AgentEvent::Chunk { turn: 1, text: "Je corrige.".into() }, now, &fr());
+    for i in 0..super::CALLS_MAX {
+        t.apply(&call(&format!("t{i}"), "apply", "completed", None), now, &fr());
+    }
+    let d = data(&t);
+    assert_that!(d["steps"][0].get("calls")).is_none();
+    assert_that!(d["steps"][0]["count"].as_u64().unwrap()).is_equal_to(1);
+    assert_that!(d["steps"][2]["calls"].as_array().unwrap()).has_length(super::CALLS_MAX);
+}
+
+/// Les appels restés en cours sont soldés avec leur étape : aucun ◌ ne reste au dépliage.
+fn settled_call_status(stop: &str) -> String {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("a", "apply", "in_progress", None), now, &fr());
+    t.apply(&AgentEvent::TurnEnded { turn: 1, stop: stop.into() }, now, &fr());
+    data(&t)["steps"][0]["calls"][0]["status"].as_str().unwrap_or_default().to_owned()
+}
+
+#[test]
+fn turns_end_settles_each_call_as_completed() {
+    assert_that!(settled_call_status("end_turn")).is_equal_to("completed".to_owned());
+}
+
+#[test]
+fn turns_cancelled_end_settles_each_call_as_failed() {
+    assert_that!(settled_call_status("cancelled")).is_equal_to("failed".to_owned());
+}
+
+/// Un appel annoncé deux fois reste une ligne, complétée par la seconde annonce.
+#[test]
+fn turns_repeated_call_fills_its_single_row() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("a", "apply", "in_progress", None), now, &fr());
+    t.apply(&call("a", "apply", "in_progress", Some("{\"n\": 4}")), now, &fr());
+    let calls = data(&t)["steps"][0]["calls"].clone();
+    assert_that!(calls)
+        .is_equal_to(serde_json::json!([{"label": "apply", "status": "in_progress", "input": "{\"n\": 4}"}]));
+}
+
+/// Une note d'une seule ligne trop longue (coupée par « … ») garde, elle aussi, son texte entier.
+#[test]
+fn turns_long_single_line_note_keeps_its_full_text() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    let text = "Corrections en une transaction : puces, puis placement sur la grille. ".repeat(3);
+    t.apply(&AgentEvent::Chunk { turn: 1, text: text.clone() }, now, &fr());
+    t.apply(&call("a", "apply", "completed", None), now, &fr());
+    let d = data(&t);
+    assert_that!(d["steps"][0]["label"].as_str().unwrap().ends_with('…')).is_true();
+    assert_that!(d["steps"][0]["detail"].as_str().unwrap()).is_equal_to(text.trim());
+}
+
+/// Le texte entier d'une note vient de l'agent : ses caractères invisibles ne s'affichent pas.
+#[test]
+fn turns_note_detail_drops_hidden_controls() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&AgentEvent::Chunk { turn: 1, text: "Ligne un.\n\nDeux\u{202E}trois.".into() }, now, &fr());
+    t.apply(&call("a", "apply", "completed", None), now, &fr());
+    assert_that!(data(&t)["steps"][0]["detail"].as_str().unwrap()).is_equal_to("Ligne un.\n\nDeuxtrois.");
+}
+
+/// Un nouveau titre d'appel (outil MCP) se lit lui aussi par son seul nom.
+#[test]
+fn turns_updated_mcp_title_shows_only_the_tool_name() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("a", "outil", "in_progress", None), now, &fr());
+    t.apply(
+        &AgentEvent::ToolUpdate {
+            turn: 1,
+            id: "a".into(),
+            title: Some("mcp__oku-slides__widgets".into()),
+            status: None,
+            input: None,
+            output: None,
+        },
+        now,
+        &fr(),
+    );
+    assert_that!(data(&t)["steps"][0]["calls"][0]["label"].as_str().unwrap()).is_equal_to("widgets");
+}
+
+/// Le titre d'un outil vient de l'agent : borné, sans caractères invisibles.
+#[test]
+fn turns_tool_label_is_bounded_and_filtered() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    let title = format!("mcp__s__a\u{202E}b{}", "x".repeat(500));
+    t.apply(&call("a", &title, "completed", None), now, &fr());
+    let d = data(&t);
+    let label = d["steps"][0]["calls"][0]["label"].as_str().unwrap_or_default().to_owned();
+    assert_that!(label.starts_with("abx")).is_true();
+    assert_that!(label.ends_with('…')).is_true();
+    assert_that!(label.chars().count()).is_equal_to(oku_slides_session::agent::LABEL_MAX);
+    assert_that!(d["steps"][0]["label"].as_str().unwrap_or_default()).is_equal_to(label.as_str());
 }

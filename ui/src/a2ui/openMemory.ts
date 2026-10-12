@@ -9,11 +9,14 @@ export type OpenMemory = Map<string, boolean>;
 
 export const OpenMemoryContext = createContext<OpenMemory | null>(null);
 
-/** L'état déplié du composant de `context`, `initial` par défaut ; gardé dans la mémoire de sa surface. */
-export function useRememberedOpen(context: ComponentContext, initial = false): [boolean, (open: boolean) => void] {
+/**
+ * L'état déplié du composant de `context`, `initial` par défaut ; gardé dans la mémoire de sa surface.
+ * `part` distingue les lignes dépliables d'un même composant (étapes et appels d'une timeline).
+ */
+export function useRememberedOpen(context: ComponentContext, initial = false, part = ""): [boolean, (open: boolean) => void] {
   const memory = useContext(OpenMemoryContext);
   // Le chemin distingue les copies d'un même composant dans une liste.
-  const key = `${context.componentModel.id}@${context.dataContext.path}`;
+  const key = `${context.componentModel.id}@${context.dataContext.path}${part ? `#${part}` : ""}`;
   const [open, setOpen] = useState(() => memory?.get(key) ?? initial);
   return [
     open,

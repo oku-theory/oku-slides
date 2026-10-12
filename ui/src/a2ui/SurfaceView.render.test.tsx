@@ -150,3 +150,55 @@ test("une suite avec un Slider aux bornes inversées est signalée et ne rend au
   expect(errors[0]).toContain("min must be < max");
   expect(host.querySelector('input[type="range"]')).toBeNull();
 });
+
+/** Une timeline de tour : une étape d'outils dépliable (un appel), comme l'envoie l'hôte. */
+const turn = () => [
+  { version: "v0.9", createSurface: { surfaceId: "s", catalogId: CATALOG_ID } },
+  { version: "v0.9", updateComponents: { surfaceId: "s", components: [
+    { id: "root", component: "Timeline", steps: { path: "/steps" }, collapsed: false, summary: "" },
+  ] } },
+  { version: "v0.9", updateDataModel: { surfaceId: "s", value: { steps: [
+    { label: "widgets", status: "completed", count: 1, calls: [{ label: "widgets", status: "completed", input: "{}" }] },
+  ] } } },
+] as unknown as A2uiMessage[];
+
+const write = (path: string, value: unknown) =>
+  ({ version: "v0.9", updateDataModel: { surfaceId: "s", path, value } }) as unknown as A2uiMessage;
+
+test("une étape écrite par son index (/steps/1) s'ajoute ; l'étape dépliée le reste", async () => {
+  const base = turn();
+  const { host, root } = await mountView(base);
+  await act(async () => (host.querySelector(".a2ui-step-toggle") as HTMLElement).click());
+  const next = [...base, write("/steps/1", { label: "Fini.", status: "completed" }), write("/steps/0/calls/0/status", "failed")];
+  await act(async () => root.render(view(next)));
+  expect([...host.querySelectorAll(".a2ui-step-label")].map((x) => x.textContent)).toEqual(["widgets", "Fini."]);
+  expect(host.querySelector(".a2ui-call")?.classList.contains("failed")).toBe(true);
+});
+
+test("une entrée de plan ajoutée devant les étapes ne déplie pas une autre étape", async () => {
+  const base = turn();
+  const { host, root } = await mountView(base);
+  await act(async () => (host.querySelector(".a2ui-step-toggle") as HTMLElement).click());
+  const steps = [
+    { label: "Lire la slide", status: "completed" },
+    { label: "widgets", status: "completed", count: 1, calls: [{ label: "widgets", status: "completed", input: "{}" }] },
+  ];
+  await act(async () => root.render(view([...base, write("/steps", steps)])));
+  expect(host.querySelectorAll(".a2ui-call").length).toBe(1);
+  expect(host.querySelector(".a2ui-step-toggle")?.getAttribute("aria-expanded")).toBe("true");
+});
+
+test("une étape d'outils vidée par le plafond ne fait pas passer l'état déplié à sa voisine", async () => {
+  const base = [
+    ...turn().slice(0, 2),
+    { version: "v0.9", updateDataModel: { surfaceId: "s", value: { steps: [
+      { label: "slide", status: "completed", count: 1, calls: [{ label: "slide", status: "completed", input: "{}" }] },
+      { label: "apply", status: "completed", count: 1, calls: [{ label: "apply", status: "completed", input: "{}" }] },
+    ] } } },
+  ] as unknown as A2uiMessage[];
+  const { host, root } = await mountView(base);
+  await act(async () => (host.querySelectorAll(".a2ui-step-toggle")[1] as HTMLElement).click());
+  // Le plus ancien appel du tour sort de la liste : la première étape n'a plus d'appels listés.
+  await act(async () => root.render(view([...base, write("/steps/0", { label: "slide", status: "completed", count: 1 })])));
+  expect([...host.querySelectorAll(".a2ui-call-label")].map((x) => x.textContent)).toEqual(["apply"]);
+});

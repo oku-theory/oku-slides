@@ -3,7 +3,8 @@ use speculoos::prelude::*;
 
 use crate::{
     Action, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ListColumn,
-    ServerBody, ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep, UpdateDataModel, Version,
+    ServerBody, ServerMessage, SlideRef, StepStatus, TextVariant, TimelineStep, ToolCallDetail, UpdateDataModel,
+    Version,
 };
 
 #[test]
@@ -311,7 +312,7 @@ fn timeline_step_round_trips_with_every_status_and_optional_count() {
         [StepStatus::Pending, StepStatus::InProgress, StepStatus::Completed, StepStatus::Failed]
             .into_iter()
             .zip([None, Some(1), Some(6), None])
-            .map(|(status, count)| TimelineStep { label: "apply".into(), status, count })
+            .map(|(status, count)| TimelineStep { count, ..TimelineStep::new("apply", status) })
             .collect();
     assert_that!(round_trip(&steps)).is_equal_to(&steps);
     let timeline = Component::new(
@@ -323,6 +324,30 @@ fn timeline_step_round_trips_with_every_status_and_optional_count() {
         },
     );
     assert_that!(round_trip(&timeline)).is_equal_to(&timeline);
+}
+
+#[test]
+fn timeline_step_with_note_detail_and_calls_round_trips() {
+    let call = ToolCallDetail {
+        label: "widgets".into(),
+        status: StepStatus::Failed,
+        input: Some("{\n  \"slide\": 4\n}".into()),
+        output: Some("aucun widget".into()),
+    };
+    let steps = vec![
+        TimelineStep {
+            detail: Some("Corrections en une transaction.\n\nPuis la grille.".into()),
+            ..TimelineStep::new("Corrections", StepStatus::Completed)
+        },
+        TimelineStep { count: Some(1), calls: vec![call], ..TimelineStep::new("widgets", StepStatus::Failed) },
+    ];
+    assert_that!(round_trip(&steps)).is_equal_to(&steps);
+}
+
+#[test]
+fn timeline_step_without_detail_or_calls_omits_them() {
+    let v = serde_json::to_value(TimelineStep::new("apply", StepStatus::Completed)).unwrap();
+    assert_that!(v).is_equal_to(json!({"label": "apply", "status": "completed"}));
 }
 
 #[test]

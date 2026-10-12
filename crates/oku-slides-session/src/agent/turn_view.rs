@@ -143,14 +143,64 @@ pub fn turn_surface(v: &TurnView, l: &Localizer) -> Surface {
     s
 }
 
-/// Les écritures qui font passer la surface du tour `n` de `sent` à `data` : une par clé
-/// racine qui a changé (`/narration` seule pendant que l'agent écrit, pas tout le modèle).
+/// Les écritures minimales qui font passer le tour `n` de `sent` à `data`.
+///
+/// Chacune au plus profond où c'est possible : `/narration` seule pendant que l'agent écrit,
+/// `/steps/4/calls/2/status` quand un appel finit. Un objet qui perd une clé, une liste qui
+/// raccourcit ou se décale, un changement de type s'écrivent entiers. Aucune suppression
+/// n'est écrite sous la racine : l'interface (`liftPatch`) n'en relève pas.
 pub fn turn_patches(n: u32, sent: &Value, data: &Value) -> Vec<ServerMessage> {
-    let Value::Object(next) = data else { return vec![ServerMessage::set_data_model(turn_id(n), data.clone())] };
-    next.iter()
-        .filter(|(k, v)| sent.get(k.as_str()) != Some(*v))
-        .map(|(k, v)| ServerMessage::update_data_model(turn_id(n), &format!("/{k}"), v.clone()))
-        .collect()
+    let id = turn_id(n);
+    // Une racine qui n'est pas un objet, ou qui perd une clé, se réécrit entière (pas de chemin vide).
+    let (Value::Object(was), Value::Object(now)) = (sent, data) else {
+        return vec![ServerMessage::set_data_model(id, data.clone())];
+    };
+    if !was.keys().all(|k| now.contains_key(k)) {
+        return vec![ServerMessage::set_data_model(id, data.clone())];
+    }
+    let mut out = Vec::new();
+    diff(&id, "", sent, data, &mut out);
+    out
+}
+
+/// Taille sérialisée de `v` (0 si elle ne se sérialise pas).
+fn bytes(v: &impl serde::Serialize) -> usize {
+    serde_json::to_vec(v).map_or(0, |b| b.len())
+}
+
+/// Ajoute à `out` les écritures qui font passer `old` à `new`, au chemin `path`.
+fn diff(id: &str, path: &str, old: &Value, new: &Value, out: &mut Vec<ServerMessage>) {
+    match (old, new) {
+        _ if old == new => {}
+        (Value::Object(a), Value::Object(b)) if a.keys().all(|k| b.contains_key(k)) => {
+            for (k, v) in b {
+                let at = format!("{path}/{}", k.replace('~', "~0").replace('/', "~1"));
+                match a.get(k) {
+                    Some(was) => diff(id, &at, was, v, out),
+                    None => out.push(ServerMessage::update_data_model(id, &at, v.clone())),
+                }
+            }
+        }
+        (Value::Array(a), Value::Array(b)) if b.len() >= a.len() => {
+            let mut items = Vec::new();
+            for (i, v) in b.iter().enumerate() {
+                let at = format!("{path}/{i}");
+                match a.get(i) {
+                    Some(was) => diff(id, &at, was, v, &mut items),
+                    None => items.push(ServerMessage::update_data_model(id, &at, v.clone())),
+                }
+            }
+            // Une liste décalée (l'appel le plus ancien sorti, une entrée de plan insérée) change
+            // chaque élément : écrite entière, elle pèse moins que ses écritures par champ.
+            let whole = ServerMessage::update_data_model(id, path, new.clone());
+            if bytes(&items) > bytes(&whole) {
+                out.push(whole);
+            } else {
+                out.extend(items);
+            }
+        }
+        _ => out.push(ServerMessage::update_data_model(id, path, new.clone())),
+    }
 }
 
 #[cfg(test)]

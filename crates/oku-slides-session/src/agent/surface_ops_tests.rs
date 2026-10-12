@@ -136,3 +136,72 @@ fn has_actions_sees_a_button() {
     assert_that!(params().has_actions()).is_true();
     assert_that!(params().without_actions().has_actions()).is_false();
 }
+
+fn root_value(s: &Surface) -> serde_json::Value {
+    let json = serde_json::to_value(s).unwrap();
+    json["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap()["value"].clone()
+}
+
+fn path_writes(s: &Surface) -> usize {
+    s.messages
+        .iter()
+        .filter(|m| matches!(&m.body, oku_slides_a2ui::ServerBody::UpdateDataModel(u) if u.path.is_some()))
+        .count()
+}
+
+/// Une écriture dans un élément de liste (`/steps/1`, d'un tour) se replie dans le modèle :
+/// la copie de l'hôte ne grossit pas d'un message par outil.
+#[test]
+fn apply_patch_folds_an_array_element_write_into_the_root_model() {
+    let mut s = surface();
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("show-5", json!({"steps": [{"n": 0}, {"n": 1}]}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps/1", json!({"n": 9}))]);
+    assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 0}, {"n": 9}]}));
+    assert_that!(path_writes(&s)).is_equal_to(0);
+}
+
+#[test]
+fn apply_patch_at_the_list_length_appends() {
+    let mut s = surface();
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("show-5", json!({"steps": [{"n": 0}]}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps/1", json!({"n": 1}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps/0/calls", json!([1]))]);
+    assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 0, "calls": [1]}, {"n": 1}]}));
+}
+
+/// Une liste réécrite plus courte après des écritures par élément : rien d'ancien ne se rejoue.
+#[test]
+fn apply_patch_shorter_list_after_element_writes_leaves_nothing_stale() {
+    let mut s = surface();
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("show-5", json!({"steps": [{"n": 0}]}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps/1", json!({"n": 1}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps", json!([{"n": 7}]))]);
+    assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 7}]}));
+    assert_that!(path_writes(&s)).is_equal_to(0);
+}
+
+/// Un index au-delà de la longueur ne mène nulle part : l'écriture, caduque, n'est pas gardée.
+#[test]
+fn apply_patch_index_past_the_length_is_dropped() {
+    let mut s = surface();
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("show-5", json!({"steps": [{"n": 0}]}))]);
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::update_data_model("show-5", "/steps/9", json!({"n": 9}))]);
+    assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 0}]}));
+    assert_that!(path_writes(&s)).is_equal_to(0);
+}
+
+#[test]
+fn apply_patch_nested_removal_drops_the_key() {
+    let mut s = surface();
+    s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("show-5", json!({"steps": [{"n": 0, "c": 1}]}))]);
+    let delete = oku_slides_a2ui::ServerMessage {
+        version: oku_slides_a2ui::Version::V0_9,
+        body: oku_slides_a2ui::ServerBody::UpdateDataModel(oku_slides_a2ui::UpdateDataModel {
+            surface_id: "show-5".into(),
+            path: Some("/steps/0/c".into()),
+            value: None,
+        }),
+    };
+    s.apply_patch(&[delete]);
+    assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 0}]}));
+}
