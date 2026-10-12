@@ -35,6 +35,8 @@
 .a2ui-step-toggle, .a2ui-call-toggle { all: unset; display: flex; gap: 6px; align-items: baseline; min-width: 0; width: 100%; box-sizing: border-box; cursor: pointer; }
 .a2ui-step-toggle:focus-visible, .a2ui-call-toggle:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 .a2ui-step-label, .a2ui-call-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Dépliée, une note se lit en entier : son libellé passe à la ligne (son détail n'en est que la suite). */
+.a2ui-step-toggle[aria-expanded="true"] > .a2ui-step-label { white-space: normal; overflow-wrap: anywhere; }
 .a2ui-step.failed > :first-child, .a2ui-call.failed > :first-child { color: var(--danger); }
 /* Le détail d'une étape : texte entier d'une note, appels d'outils en retrait. */
 .a2ui-step-detail { margin: 2px 0 4px 18px; color: var(--ink); }

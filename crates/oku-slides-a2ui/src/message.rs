@@ -269,7 +269,7 @@ pub struct TimelineStep {
     /// Nombre d'outils de l'étape ; absent pour une note ou une entrée du plan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
-    /// Texte entier d'une note, quand `label` n'en montre que la première ligne.
+    /// Ce que `label` ne montre pas d'une note : sa suite, ou son texte entier si coupé.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     /// Les appels d'une étape d'outils, dans l'ordre.

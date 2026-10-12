@@ -133,9 +133,12 @@ impl Turn {
             self.last_text = text.to_owned();
             if self.view.steps.len() < STEPS_MAX {
                 let note = first_line(text, NOTE_CHARS);
-                // Le texte entier, quand la note n'en montre qu'une partie.
-                // Sans ses caractères invisibles, comme le détail d'un outil.
-                let detail = (note != text).then(|| clip(text, WHY_MAX));
+                // Ce que le libellé ne montre pas : la suite, s'il montre la première ligne
+                // entière ; sinon le texte entier. Sans caractères invisibles, comme un outil.
+                let detail = (note != text).then(|| match text.split_once('\n') {
+                    Some((first, rest)) if first.trim() == note => clip(rest.trim(), WHY_MAX),
+                    _ => clip(text, WHY_MAX),
+                });
                 self.view.steps.push(TimelineStep { detail, ..TimelineStep::new(note, StepStatus::Completed) });
             }
             self.view.notes = self.view.notes.saturating_add(1);

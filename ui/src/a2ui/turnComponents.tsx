@@ -23,7 +23,7 @@ const Step = z.object({
   label: z.string(),
   status: Status,
   count: z.number().int().optional(),
-  /** Texte entier d'une note coupée. */
+  /** Ce que le libellé ne montre pas d'une note : sa suite, ou son texte entier s'il est coupé. */
   detail: z.string().optional(),
   /** Les appels d'une étape d'outils. */
   calls: z.array(Call).optional(),

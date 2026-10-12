@@ -692,7 +692,7 @@ fn turns_mcp_tool_title_shows_only_the_tool_name() {
 
 /// Une note coupée à sa première ligne garde son texte entier pour le dépliage.
 #[test]
-fn turns_long_note_keeps_its_full_text_as_detail() {
+fn turns_long_note_keeps_the_rest_of_its_text_as_detail() {
     let mut t = Turns::default();
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
@@ -701,7 +701,20 @@ fn turns_long_note_keeps_its_full_text_as_detail() {
     t.apply(&call("a", "apply", "completed", None), now, &fr());
     let d = data(&t);
     assert_that!(d["steps"][0]["label"].as_str().unwrap()).is_equal_to("Corrections en une transaction.");
-    assert_that!(d["steps"][0]["detail"].as_str().unwrap()).is_equal_to(text);
+    // Le libellé montre déjà la première ligne entière : le détail n'en est que la suite.
+    assert_that!(d["steps"][0]["detail"].as_str().unwrap()).is_equal_to("Puis le placement sur la grille.");
+}
+
+/// Une première ligne coupée (« … ») : le détail reprend le texte entier, pour la lire jusqu'au bout.
+#[test]
+fn turns_note_with_a_cut_first_line_keeps_its_full_text() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    let text = format!("{}\n\nPuis la grille.", "Corrections en une transaction. ".repeat(5).trim());
+    t.apply(&AgentEvent::Chunk { turn: 1, text: text.clone() }, now, &fr());
+    t.apply(&call("a", "apply", "completed", None), now, &fr());
+    assert_that!(data(&t)["steps"][0]["detail"].as_str().unwrap()).is_equal_to(text.as_str());
 }
 
 #[test]
@@ -823,7 +836,7 @@ fn turns_note_detail_drops_hidden_controls() {
     t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::Chunk { turn: 1, text: "Ligne un.\n\nDeux\u{202E}trois.".into() }, now, &fr());
     t.apply(&call("a", "apply", "completed", None), now, &fr());
-    assert_that!(data(&t)["steps"][0]["detail"].as_str().unwrap()).is_equal_to("Ligne un.\n\nDeuxtrois.");
+    assert_that!(data(&t)["steps"][0]["detail"].as_str().unwrap()).is_equal_to("Deuxtrois.");
 }
 
 /// Un nouveau titre d'appel (outil MCP) se lit lui aussi par son seul nom.

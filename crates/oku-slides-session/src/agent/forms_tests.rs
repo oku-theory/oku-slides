@@ -365,7 +365,7 @@ fn every_form() -> Vec<super::Surface> {
         plan: Vec::new(),
         steps: vec![
             oku_slides_a2ui::TimelineStep {
-                detail: Some("Bleu nuit choisi.\n\nLe titre passe en blanc.".into()),
+                detail: Some("Le titre passe en blanc.".into()),
                 ..oku_slides_a2ui::TimelineStep::new("Bleu nuit choisi.", oku_slides_a2ui::StepStatus::Completed)
             },
             oku_slides_a2ui::TimelineStep {
