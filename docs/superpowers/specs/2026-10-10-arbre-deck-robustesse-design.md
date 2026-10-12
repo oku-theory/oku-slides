@@ -1,65 +1,30 @@
-# Arbre du deck : profondeur, défaire un ajout, compaction — design
+# Arbre du deck : défaire un ajout, compaction, profondeur — design
 
-- **Date :** 2026-10-10
-- **Tâches :** t-809 (haute, sécurité), t-776 (haute), t-770
+- **Date :** 2026-10-10, révisé le 2026-10-11 après deux relectures du plan et les sondes Loro
+- **Tâches :** t-776 (haute), t-770, t-809 (haute, sécurité)
 - **Contexte :** [ADR-0006](../../adr/0006-deck-en-un-seul-arbre-suppression-douce.md)
-- **Ordre des lots :** t-809, puis t-776, puis t-770 (t-770 date la marque
-  que t-776 pose aussi à la création).
+- **Ordre des lots :** t-776, puis t-770, puis t-809. La sonde de t-809 ouvre son lot
+  ; un arrêt n'y bloque pas les deux premiers.
 
 ## Décisions de cadrage (utilisateur)
 
 1. Compaction : à l'ouverture, seulement les nœuds dont la marque a plus de
    N jours, N = 30 (réglage).
-2. Historique Loro gardé entier : pas de snapshot *shallow*. t-770 vise le
-   coût de lecture et d'écriture ; la taille est mesurée et notée.
+2. Historique Loro gardé entier : pas de snapshot *shallow* produit par l'app.
 3. Les nœuds vides (nés d'un `mov` défait) sont compactés par la même règle.
+4. t-809, option D : l'état d'un snapshot reçu n'est jamais lu ; le document
+   est rejoué à partir de ses opérations, puis borné. (L'option 1, grande pile
+   et plafond d'octets, est écartée : un snapshot *shallow* de Loro tient déjà
+   une chaîne en 7,5 o par niveau, un état forgé bien moins.)
+5. Profondeur maximale de l'arbre : 1024 (une suppression garde son
+   sous-arbre caché, qu'un `mov` emporte : 64 était atteignable par l'usage).
+6. Horloges : `limit = min(now, change le plus récent du document) − N jours`.
+   Conséquence voulue : une marque n'est compactée qu'après N jours
+   d'activité du document. Une date nulle ou négative n'est jamais ancienne.
+7. Une marque remise par ⌘Z ou rétablir garde sa date d'origine : limite
+   documentée, pas de redatation.
 
-## Lot 1 — t-809 : chaîne d'arbre forgée très profonde
-
-**Problème.** Loro 1.16.2 décode l'arbre récursivement au premier accès ;
-une chaîne forgée de ~500 niveaux déborde une pile de 256 Kio en debug. Un
-débordement de pile n'est pas rattrapé par `catch_unwind` : un `.slider` ou
-un `deck.loro` hostile fait avorter le processus.
-
-**Sonde d'abord** (`tests/loro_depth_probe.rs`, release et debug) : pile
-consommée par niveau au décodage, à l'export et au drop ; nombre de niveaux
-qu'une chaîne peut atteindre sous `max_replica_mib = 32`. Elle fixe la
-taille de pile du fil de garde. **Arrêt :** si la pile nécessaire dépasse
-environ 1 Gio de réservation virtuelle, le lot s'arrête et l'utilisateur
-décide (G9).
-
-**Garde à grande pile.** `guarded` exécute sa fermeture (import, contrôles,
-première lecture) dans un fil dédié, `std::thread::Builder::stack_size`
-fixé par la sonde. Le `LoroDoc` accepté revient au fil appelant.
-
-**Borne de profondeur.** `check_trees` mesure, de façon itérative, la
-profondeur de chaque nœud non supprimé par Loro. Au-delà de
-`MAX_TREE_DEPTH = 64` (racine = 1), le replica est refusé
-(`MalformedDeckTree { what: "deck tree too deep" }`, donc `Corrupted`).
-64 laisse de la marge à `MAX_SLOT_DEPTH = 16` : deux pairs qui imbriquent en
-parallèle additionnent leurs profondeurs. Un document refusé, ou dont la
-garde a paniqué, est oublié (`forget`) ou libéré **dans le fil de garde**,
-jamais dans l'appelant : son drop est récursif.
-
-Un document accepté a un arbre peu profond : ni l'export, ni la
-réconciliation, ni l'annulation, ni le drop ne débordent ensuite.
-
-**Points d'entrée couverts :** `from_snapshot`, l'essai de `merge`,
-l'essai de `restore`, et la lecture d'une version passée dans
-l'historique (`history.rs`) : un fichier forgé peut cacher une chaîne
-profonde dans une version ancienne, aplatie ensuite. La lecture d'une
-version passe par la même garde et la même borne ; une version trop
-profonde est refusée (`Corrupted`), le panneau d'historique reste utilisable.
-
-**Tests.**
-- Régression `crates/oku-slides-core/tests/regressions/issue_0809_deep_tree_chain.rs` :
-  sur un fil à pile de 256 Kio, un snapshot à chaîne de plusieurs milliers
-  de niveaux est refusé (`Corrupted`) sans débordement ; idem pour `merge`.
-- `deep_element_chain_…` (deck_tree_tests) passe à une chaîne de
-  `MAX_TREE_DEPTH - 1` niveaux, acceptée sur petite pile.
-- Une version d'historique trop profonde est refusée, les autres se lisent.
-
-## Lot 2 — t-776 : défaire un ajout ne perd plus le sous-arbre
+## Lot 1 — t-776 : défaire un ajout ne perd plus le sous-arbre
 
 **Problème.** Loro inverse `create` par `delete` : défaire un ajout emporte
 le sous-arbre qu'un pair a déplacé dessous (B crée une slide, A y déplace un
@@ -67,93 +32,158 @@ le sous-arbre qu'un pair a déplacé dessous (B crée une slide, A y déplace un
 le rend pas).
 
 **Naître marqué.** Dans une réconciliation annulable (`apply`,
-`apply_moving`), quand `place.rs` doit créer un nœud :
+`apply_moving`), quand un nœud doit être créé :
 
-1. ce qui précède est committé en partie (`oku-part:<libellé>`, origine
-   normale, annulable) ;
-2. le nœud est créé (`create_at`) avec la marque `@deleted/<pair>` du pair
-   courant, dans un commit d'origine `SILENT` (exclu de l'`UndoManager`) ;
+1. ce qui précède est committé en partie (`oku-part:<libellé>`, annulable) ;
+2. le nœud est créé avec la marque du pair courant (`Writer::mark`), dans un
+   commit d'origine `SILENT` (exclu de l'`UndoManager`, qui n'y pousse aucun
+   item) ;
 3. la réconciliation reprend : méta, `@slot` et **retrait de la marque**
    tombent dans les commits annulables de l'étape.
 
-Défaire l'ajout remet la marque (suppression douce) et retire la méta : le
-nœud est caché, son sous-arbre aussi, rien n'est perdu. Le ⌘Z de A ramène son
-élément vers son ancien parent ; le rétablir de B rend la slide et ce qui
-est dessous.
+Défaire l'ajout remet la marque (suppression douce) : le nœud est caché, son
+sous-arbre aussi, rien n'est perdu. Le ⌘Z de A ramène son élément ; le
+rétablir de B rend la slide et ce qui est dessous. `new` et `apply_silent`
+créent directement ; l'essai de `restore` suit le même chemin que l'`apply`
+qui le suit.
 
-`DeckReplica::new` et `apply_silent` (non annulables) créent directement,
-sans marque. Le `Writer` reçoit pour cela une stratégie de création
-(directe ou « naître marqué »).
+**Effet de bord.** Plus aucun chemin du code ne fait de `tree.delete` hors
+compaction. Les commits de naissance sont des parties : ni cran d'historique,
+ni compte dans le rapport de fusion (qui ne compte plus aucune partie).
 
-**Coût.** Deux commits de plus par nœud créé, sans cran d'historique
-(parties). Mesure sur un collage de 50 éléments (durée de `apply`, items
-Loro de l'étape). Si une étape ordinaire dépasse `ITEMS_PER_STEP = 64`
-items, la constante est relevée et la raison notée dans `undo.rs`.
+**Coût.** Un change Loro de plus par nœud créé, un item d'annulation de plus
+par partie non vide. Mesure : collage de 50 et 500 éléments, à plat et
+imbriqués. Une étape de plus de 64 items relève `ITEMS_PER_STEP` ; un ⌘Z de
+500 éléments au-delà de 100 ms arrête le lot pour décision (regrouper les
+créations d'un `arrange` en un commit silencieux est la piste prévue).
 
-**Tests.**
-- Régression `tests/regressions/issue_0776_undo_add_keeps_moved_subtree.rs` :
-  le scénario ci-dessus ; après le ⌘Z de B, l'élément est caché ; après le
-  ⌘Z de A, il est revenu dans sa slide d'origine ; variante : le rétablir de
-  B rend la slide avec l'élément.
-- Les tests d'annulation existants (undo_tests, soft_delete_tests) restent
-  verts : défaire un ajout cache le nœud, rétablir le rend avec le même
-  `TreeID`.
-- ADR-0006, Limites : retirer « défaire un ajout supprime pour de bon » et
-  la régression acceptée ; décrire « naître marqué ».
+**Tests.** Régression `issue_0776_undo_add_keeps_moved_subtree.rs` (précondition
+vérifiée ; nœud de la slide non supprimé par Loro après le ⌘Z de B ; ⌘Z de A ;
+rétablir de B). Tests existants inversés (`soft_delete_tests`). Un collage se
+défait et se rétablit d'un bloc, nœuds marqués et non supprimés. `apply_silent`
+n'ajoute qu'un change ; `apply` en ajoute un de plus par nœud créé.
 
-## Lot 3 — t-770 : compaction des nœuds morts
+## Lot 2 — t-770 : compaction des nœuds morts
 
 **Marque datée.** La valeur de `@deleted/<pair>` passe de `true` à l'heure
-Unix de la pose, en secondes (`i64`, horloge de l'auteur). Loro n'expose pas
-l'op qui a écrit une clé de carte (seulement son dernier auteur) : la date
-est donc portée par la valeur. Une marque de naissance (lot 2) porte l'heure
-de la création ; défaire l'ajout la remet avec cette heure-là.
-`REPLICA_FORMAT` 3 → 4, `SOURCES_VERSION` 9 → 10, sans compatibilité (un
-`deck.loro` v3 est refusé, la reprise est mise de côté comme en ADR-0006).
-`check_trees` refuse une marque dont la valeur n'est pas un entier.
+Unix de la pose (`i64`, horloge de l'auteur ; Loro n'expose que le dernier
+auteur d'une clé, pas son op). `REPLICA_FORMAT` 3 → 4, `SOURCES_VERSION`
+9 → 10, sans compatibilité. `check_trees` refuse une marque qui n'est pas un
+entier.
 
-**Nœud vide daté** par `tree.get_last_move_id(node)` puis
-`doc.get_change(id).timestamp`.
+**Nœud vide daté** par `get_last_move_id` puis `get_change(id).timestamp`.
 
-**Règle.** À l'ouverture (`from_snapshot`, après la garde et avant
-`Undo::new`), un `tree.delete` silencieux retire, avec son sous-arbre :
-- tout nœud qui porte **au moins une** marque de plus de N jours (seul le
-  pair d'une marque peut la retirer ; sa fenêtre est passée, le nœud resterait
-  caché de toute façon) ;
-- tout nœud vide daté de plus de N jours.
+**Règle** (`compact_doc`, tout entière dans `replica/compact.rs`) : avec
+`limit = min(now, horodatage le plus récent des changes) − N jours`, est
+supprimé par `tree.delete`, avec son sous-arbre déjà caché :
+- tout nœud qui porte au moins une marque datée de `]0, limit]` ;
+- tout nœud vide daté de `]0, limit]`.
+Un nœud emporté par un ancêtre compacté n'est pas compté. Ordre de
+suppression déterministe.
 
-À l'ouverture, le pair est neuf : toutes les marques viennent de sessions
-closes. Les descendants vivants d'un nœud compacté étaient déjà cachés.
-**Risque assumé :** une autre copie restée ouverte plus de N jours, qui
-annule alors sa marque ou le `mov` d'un élément sous ce nœud, perd ce nœud
-à la fusion.
+**Où.** Dans l'ouverture (`from_snapshot`), sous la garde, après la première
+lecture, avant `Undo::new`. Commit silencieux, message `oku-compact` : ni
+cran d'historique, ni compte dans le rapport de fusion. Loro date un change
+au moins comme ses prédécesseurs : le commit de compaction porte la date du
+change le plus récent. Aucune méthode publique ne compacte en session.
 
-**Réglage.** `compact_after_days = 30` dans `[sources]` de
-`config.default.toml` ; passé à `from_snapshot` avec la limite d'octets
-(une structure de limites du replica remplace l'argument `max_bytes` seul).
-L'heure courante est un paramètre de la fonction interne (tests).
+**Risques assumés :** une autre copie ouverte plus de N jours d'activité,
+qui annule alors sa marque ou le `mov` d'un élément sous ce nœud, le perd à
+la fusion ; une horloge d'auteur en retard raccourcit la fenêtre ; une marque
+remise par ⌘Z garde sa date ; un fichier forgé peut faire compacter un nœud
+qu'il pouvait déjà cacher ; un message `oku-compact` forgé cache un change de
+l'historique et du rapport (le contenu reste dans les versions suivantes).
 
-**Historique.** Le commit de compaction est une partie (`oku-part:`,
-origine `SILENT`) : pas de cran propre, il rejoint la prochaine édition.
-Les versions passées gardent les nœuds compactés.
+**Réglage.** `compact_after_days = 30` dans `[sources]` (0 : jamais).
+`ReplicaLimits { max_bytes, compact_after_secs }` remplace l'argument
+d'octets de `from_snapshot` et de `Resume::read_doc` (`From<usize>` : sans
+compaction, pour les tests et outils) ; `SourceLimits` gagne
+`compact_after_secs` et `replica()`.
 
-**Mesure** (notée dans l'ADR) : `deck()`, `apply`, `from_snapshot`, `merge`
-et taille du snapshot, avant et après compaction, sur 40×20 avec ~10 000
-nœuds marqués.
+**Mesure** (ADR-0007) : `deck()`, `apply`, `from_snapshot`, `merge`, taille,
+avant et après compaction, 40×20 avec ~10 000 nœuds marqués.
 
-**Tests.**
-- Marque de 31 jours : nœud supprimé par Loro après l'ouverture ; marque de
-  29 jours : gardé. Deux marques, une ancienne une récente : supprimé.
-- Nœud vide ancien supprimé, récent gardé.
-- Compaction non annulable (`can_undo` faux après l'ouverture), deck lu
-  identique avant et après.
-- Convergence : la copie compactée fusionnée avec une copie non compactée
-  donne le même deck des deux côtés.
-- Marque non entière refusée à l'import.
-- ADR-0006 : marque datée, compaction, risque des N jours, mesures ; Limites
-  « les nœuds marqués ne sont jamais libérés » et « nœud vide » mises à jour.
+**Tests.** Datés par la valeur des marques et par
+`set_next_commit_timestamp` (les dates de changes ne reculent pas) : marque
+ancienne compactée, récente gardée, à la limite exacte compactée et une
+seconde après gardée ; une ancienne parmi des récentes ; horloge locale en
+avance bornée par le change le plus récent ; nœud vide compacté après
+N jours d'activité ; prédicat d'âge sur 0 et négatif ; parent et enfant morts
+comptés une fois ; aucun commit sans rien à compacter ; ouverture non
+annulable, sans cran ; convergence avec une copie non compactée ; rapport de
+fusion vide ; marque non entière refusée ; `from_zip` et reprise.
+
+**ADR-0007** « Compaction des nœuds morts » (remplace en partie ADR-0006 :
+« jamais `tree.delete` »).
+
+## Lot 3 — t-809 : chaîne d'arbre forgée très profonde
+
+**Problème.** Loro 1.16.2 récurse sur la profondeur d'un arbre : au premier
+accès de l'état décodé d'un snapshot, puis, même supprimé, dans
+`is_node_deleted`, l'export et `fork`. Un débordement de pile avorte le
+processus ; `catch_unwind` ne le rattrape pas. L'état d'un snapshot n'est pas
+vérifié par Loro contre son historique : il peut être forgé, dense, cyclique.
+
+**Sonde du 2026-10-11** (release, pile de 256 Kio, 100 000 niveaux) :
+- snapshot importé : 1er accès, `is_node_deleted`, export, `fork`, drop
+  débordent ;
+- **document rejoué** (import des updates exportées d'un document dont l'état
+  n'est jamais lu) : 1er accès, remontée `parent()`, drop passent ; seul
+  l'export d'un arbre profond déborde ;
+- version passée profonde relue par rejeu (`updates_till`) : passe, 2 ms ;
+- 50 000 cartes imbriquées rejouées : import, export, `fork`, drop passent
+  (`get_deep_value` déborde ; jamais appelé hors tests) ; au-delà de 65 535,
+  Loro panique (rattrapé) ;
+- snapshot *shallow* : `export(all_updates)` impossible → refusé par
+  `is_shallow()` ;
+- coût du rejeu : chaîne de 100 000 ops 60 ms (direct 4 ms) ; 1 M ops 0,8 s
+  (5 ms) ; arbre large d'un million de nœuds ~10 s (relecture n°3).
+
+**Ouverture par rejeu.** Sous `guarded` (`catch_unwind`, inchangé) :
+1. le snapshot est importé dans un document A dont l'état n'est **jamais lu** ;
+   refusé s'il est *shallow* ; ses opérations sont exportées
+   (`all_updates`), puis A est libéré (son drop ne récurse pas : état non
+   décodé ; après une panique, A est oublié) ;
+2. les opérations sont importées dans le document neuf du replica ;
+3. **contrôles d'entrée, dans cet ordre, même sans `deck.slides`** : aucun
+   arbre autre que `deck.slides` dans les conteneurs touchés par l'historique
+   (tout arbre s'il manque) ; profondeur de **tous** les nœuds, supprimés
+   compris (remontée de `parent()`, jamais `is_node_deleted`), au plus
+   `MAX_TREE_DEPTH = 1024`. La même passe, linéaire, rend l'ensemble des nœuds
+   supprimés par Loro : `check_trees` et la compaction le lisent au lieu
+   d'appeler `is_node_deleted` en boucle (O(nœuds × profondeur) : ~29 s pour un
+   balai d'un million de feuilles). Puis les contrôles existants, la première
+   lecture, la compaction.
+
+Un document accepté n'a qu'un arbre, de 1024 niveaux au plus (export,
+`fork` et drop tiennent dans ~1 Mio de pile, sous les 2 Mio des fils de
+l'app ; fusion, restauration et historique à la borne testés sur 2 Mio) :
+rien ne déborde ensuite. Refusé : `Corrupted`.
+
+**Fusion.** L'essai (copie de `self` + updates de l'autre) passe les mêmes
+contrôles (`check_trees` porte les deux nouveaux).
+
+**Version passée.** `deck_at` ne fait plus de `checkout` : il exporte les
+opérations jusqu'à la version (`updates_till`), les rejoue dans un document
+neuf, le contrôle comme à l'ouverture, le lit et le libère. Une version
+refusée rend `Corrupted` ; les autres restent lisibles.
+
+**Résidus documentés.** Valeurs plates imbriquées (t-223) ; ne jamais appeler
+`get_deep_value` sur un document reçu ; coût du rejeu à l'ouverture (un
+fichier hostile de ~18 Mio peut geler l'ouverture ~10 s, sans plantage).
+
+**Tests.** Sonde committée (`tests/loro_depth_probe.rs`). Régression
+`issue_0809_deep_tree_chain.rs` sur pile de 256 Kio : chaîne vivante, chaîne à
+tête supprimée, snapshot *shallow*, arbre hors `deck.slides` (avec ou sans
+`deck.slides`) refusés ; chaîne à la borne acceptée puis enregistrée, fusionnée,
+restaurée et libérée sur une pile de 2 Mio ; fichier à historique profond et
+état plat ouvert sur 2 Mio. Fusion
+d'un pair forgé (chaîne profonde, arbre étranger) refusée, `self` intact.
+Version passée profonde refusée, première et dernière lues à l'identique.
 
 ## Hors champ
 
-- Snapshot *shallow* (taille du fichier) : tâche à part si la taille gêne.
-- Compaction en cours de session ou à l'enregistrement.
+- Snapshot *shallow* produit par l'app ; compaction en session.
+- Valeurs plates imbriquées (t-223) ; débordement d'entier sur un compteur de
+  change dans `history::build` (préexistant) ; épingler `loro = "=1.16.2"` dans
+  le workspace : tâches à part.
