@@ -3,7 +3,7 @@
 //! appeler les outils MCP que le client lui injecte.
 //!
 //! Scénario : `{ "http": true, "turns": [ { "plan": [{"content","status"}],
-//! "tool_calls": [{"id","title"}], "mcp": [{"tool","args"}], "chunks": ["…"],
+//! "tool_calls": [{"id","title","input","output","status","before"}], "mcp": [{"tool","args"}], "chunks": ["…"],
 //! "wait_cancel": false, "crash": false, "delay_ms": 0, "error": null, "parallel": false } ],
 //! "sessions": { "<n>": [ <turns> ] }, "crash_on_session": null }` ; le
 //! n-ième prompt d'une session joue le tour n de cette session (modulo le
@@ -138,6 +138,18 @@ struct Step {
 struct ToolStep {
     id: String,
     title: String,
+    /// Arguments envoyés en `raw_input`.
+    #[serde(default)]
+    input: Option<Value>,
+    /// Résultat envoyé en `raw_output`.
+    #[serde(default)]
+    output: Option<Value>,
+    /// `failed` : l'appel échoue ; sinon il réussit.
+    #[serde(default)]
+    status: Option<String>,
+    /// Texte de l'agent envoyé juste avant l'appel (il devient une note de la timeline).
+    #[serde(default)]
+    before: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -276,7 +288,16 @@ async fn play(
         cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::Plan(Plan::new(entries))))?;
     }
     for t in &turn.tool_calls {
-        let call = ToolCall::new(t.id.clone(), t.title.clone()).status(ToolCallStatus::Completed);
+        if let Some(text) = &t.before {
+            let chunk = ContentChunk::new(ContentBlock::Text(TextContent::new(text.clone())));
+            cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::AgentMessageChunk(chunk)))?;
+        }
+        let status =
+            if t.status.as_deref() == Some("failed") { ToolCallStatus::Failed } else { ToolCallStatus::Completed };
+        let call = ToolCall::new(t.id.clone(), t.title.clone())
+            .status(status)
+            .raw_input(t.input.clone())
+            .raw_output(t.output.clone());
         cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::ToolCall(call)))?;
     }
     if turn.delay_ms > 0 {
