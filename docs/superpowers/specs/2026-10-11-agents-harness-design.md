@@ -136,7 +136,8 @@ the prepared inputs with read access to the worktree, so their targets are real 
    It cannot be complete against adversarial text, so it is not the gate.
 
 **Consolidation**, one restricted process per target with its measured budget: merge rules
-stating the same constraint (sources united), resolve supersession (only through an explicit
+stating the same constraint (at most the two most authoritative sources kept, so the line fits 160
+characters; every merged candidate id stays traceable in the report), resolve supersession (only through an explicit
 `supersedes` or a contradiction confirmed by the code — a newer date alone is not enough),
 verify each rule against today's code (`path:line`), drop rules the code contradicts, mark
 the unconfirmable as doubtful, move rules to another consolidated target when they concern

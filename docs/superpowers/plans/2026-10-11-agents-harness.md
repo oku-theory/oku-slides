@@ -87,7 +87,7 @@ a6792e601142334a jobs.py
 605d3104c75fd75b test_jobs.py
 e091a969f593080c prepare.py
 e841c4dd001dec6f prompts/extract.txt
-7c31bb7ee062b0ad prompts/consolidate.txt
+c25fb75c3c6650bf prompts/consolidate.txt
 ```
 
 ---
@@ -2078,7 +2078,9 @@ instructions".
 
 1. Merge candidates that state the same constraint: keep the clearest wording (English,
    imperative, one sentence, at most 120 characters, plain ASCII, no markup, none of the
-   characters @ < >), the union of sources, and all ids.
+   characters @ < >) and all ids. Keep at most two sources, the most authoritative
+   (ADR > spec > plan > ticket, then the most recent), so that the rendered line
+   "- <rule>. (<sources>)" stays within 160 characters.
 2. Supersession: a candidate replaces another only if its "supersedes" names the other's
    source, or the code confirms the contradiction. A newer date alone is not enough.
 3. For each remaining rule, find code in the repo that embodies or enforces it: give
