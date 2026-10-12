@@ -77,7 +77,7 @@ Expected output, exactly (any difference means the plan was altered: stop):
 ```text
 147f40bf20924962 agents-lint-test.just
 b1a86cbdcb5524d4 agents-lint.just
-ae7d17c864c08490 mutate.sh
+6ede481e375f5c07 mutate.sh
 79b24068c556c03a harness.py
 21f5e4e0f3c7adf2 test_harness.py
 7511e8d8b15572d5 mutate_harness.py
@@ -373,7 +373,7 @@ mut "'*CLAUDE.md' '*CLAUDE.local.md' \\" "'*CLAUDE.local.md' \\"
 mut '[ -f .claude/CLAUDE.md ] && echo .claude/CLAUDE.md' 'true'
 mut "git ls-files --others --ignored --exclude-standard -- '*CLAUDE.local.md'" "git ls-files --others --exclude-standard -- '*CLAUDE.local.md'"
 mut '--exclude-standard' ''
-mut "awk 'END { print NR }' \"\$f\")" "wc -l < \"\$f\" | tr -d ' ')"
+mut "      n=\$(awk 'END { print NR }' \"\$f\")" "      n=\$(wc -l < \"\$f\" | tr -d ' ')"
 mut '| sort -u)
       while IFS= read -r ref; do
         fail' '| cat)
