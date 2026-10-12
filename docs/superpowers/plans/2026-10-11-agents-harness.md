@@ -79,12 +79,12 @@ Expected output, exactly (any difference means the plan was altered: stop):
 b1a86cbdcb5524d4 agents-lint.just
 ae7d17c864c08490 mutate.sh
 79b24068c556c03a harness.py
-8e22782f40e9e462 test_harness.py
+21f5e4e0f3c7adf2 test_harness.py
 7511e8d8b15572d5 mutate_harness.py
 5d5f7ce66e0451db run_agents.py
-e95804e7adffcb14 test_run_agents.py
+4fbe9ad47497a936 test_run_agents.py
 a6792e601142334a jobs.py
-59419a928693f453 test_jobs.py
+605d3104c75fd75b test_jobs.py
 e091a969f593080c prepare.py
 e841c4dd001dec6f prompts/extract.txt
 7c31bb7ee062b0ad prompts/consolidate.txt
@@ -444,6 +444,8 @@ line counts equal (827 on 2026-10-12, more if tickets were created since).
 
 ```bash
 H=<literal> WT=/Users/matthieu/Projects/slider/.worktrees/833-feature/agents-harness
+# The suites were calibrated on a checkout that has these git-ignored paths; recreate them.
+mkdir -p "$WT/target" "$WT/ui/dist" && cp /Users/matthieu/Projects/slider/target/CACHEDIR.TAG "$WT/target/" && : > "$WT/ui/dist/index.html"
 cd "$H/bin"
 python3 -I test_run_agents.py | tail -1
 python3 -I test_jobs.py "$WT" | tail -1
@@ -1019,6 +1021,7 @@ if __name__ == "__main__":
 The repo must be a git work tree whose root CLAUDE.md carries the render anchors; it is only
 read. Prints one line per check; exit status 1 if any failed.
 """
+import atexit
 import json
 import pathlib
 import shutil
@@ -1032,6 +1035,18 @@ sys.path.insert(0, str(tool.parent))
 import harness  # noqa: E402
 
 fails = 0
+_temp_dirs = []
+
+
+def mkdtemp(prefix):
+    """A temp dir removed when the tests exit (mutation runs create thousands)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    _temp_dirs.append(d)
+    return d
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _temp_dirs])
+
 
 
 def run(*args, ok=True):
@@ -1051,7 +1066,7 @@ def expect(name, got, want):
 
 
 def fresh():
-    h = pathlib.Path(tempfile.mkdtemp(prefix="harness-test."))
+    h = pathlib.Path(mkdtemp(prefix="harness-test."))
     (h / "candidates").mkdir()
     shutil.copy(tickets, h / "tickets.jsonl")
     return h
@@ -1294,7 +1309,7 @@ expect("draft marks an unsafe summary pending", (h / "map.tsv").read_text(),
 
 # --- render and lint ------------------------------------------------------------------------------
 def tree_copy():
-    t = pathlib.Path(tempfile.mkdtemp(prefix="harness-tree."))
+    t = pathlib.Path(mkdtemp(prefix="harness-tree."))
     shutil.copytree(repo / "docs", t / "docs")
     shutil.copy(repo / "CLAUDE.md", t / "CLAUDE.md")
     (t / CORE).mkdir(parents=True)
@@ -1327,7 +1342,7 @@ expect("render is idempotent on its own output", {f: (tree / f).read_text() for 
 (h / "map.tsv").write_text("")
 p = run("render", repo, h, h / "kept.jsonl", tree, ok=False)
 expect("render refuses a target without summary", p.returncode != 0 and "no map summary" in p.stderr, True)
-bad_root = pathlib.Path(tempfile.mkdtemp(prefix="harness-badroot."))
+bad_root = pathlib.Path(mkdtemp(prefix="harness-badroot."))
 (bad_root / "CLAUDE.md").write_text((repo / "CLAUDE.md").read_text().replace("## Workflow", "## Flow"))
 write(h / "none.jsonl", [])
 p = run("render", bad_root, h, h / "none.jsonl", bad_root, ok=False)
@@ -1534,9 +1549,11 @@ if __name__ == "__main__":
 
 ```python file=test_run_agents.py
 """Tests of run_agents.py with a fake claude. Usage: python3 -I test_run_agents.py"""
+import atexit
 import json
 import os
 import pathlib
+import shutil
 import stat
 import subprocess
 import sys
@@ -1544,7 +1561,19 @@ import tempfile
 import time
 
 tool = pathlib.Path(__file__).with_name("run_agents.py")
-d = pathlib.Path(tempfile.mkdtemp(prefix="run-agents."))
+_temp_dirs = []
+
+
+def mkdtemp(prefix):
+    """A temp dir removed when the tests exit (mutation runs create thousands)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    _temp_dirs.append(d)
+    return d
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _temp_dirs])
+
+d = pathlib.Path(mkdtemp(prefix="run-agents."))
 fake = d / "claude"
 fake.write_text("""#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -1712,8 +1741,10 @@ if __name__ == "__main__":
 
 ```python file=test_jobs.py
 """Tests of jobs.py. Usage: python3 -I test_jobs.py <repo>"""
+import atexit
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1721,6 +1752,18 @@ import tempfile
 repo = pathlib.Path(sys.argv[1])
 tool = pathlib.Path(__file__).with_name("jobs.py")
 fails = 0
+_temp_dirs = []
+
+
+def mkdtemp(prefix):
+    """A temp dir removed when the tests exit (mutation runs create thousands)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    _temp_dirs.append(d)
+    return d
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _temp_dirs])
+
 
 
 def expect(name, got, want):
@@ -1733,7 +1776,7 @@ def run(*args):
     return subprocess.run([sys.executable, "-I", str(tool), *map(str, args)], capture_output=True, text=True)
 
 
-h = pathlib.Path(tempfile.mkdtemp(prefix="jobs-test."))
+h = pathlib.Path(mkdtemp(prefix="jobs-test."))
 for d in ("prompts", "lots", "inputs", "by-target"):
     (h / d).mkdir()
 (h / "prompts" / "extract.txt").write_text("Read:\n<FILES>\nFocus: <FOCUS>\nRepo: <WT>\nKeep & and $X and <OTHER>.\n")
