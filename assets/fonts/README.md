@@ -15,6 +15,9 @@ ne contient que des pointeurs texte et le rendu n'a plus ses polices.
 | Noto Sans Devanagari, Bengali, Thai | `noto-sans-{devanagari,bengali,thai}-{400,700}.ttf` | tous (hindi, bengali, thaï) |
 | Noto Sans JP, SC, TC, KR | `noto-sans-{jp,sc,tc,kr}-{400,700}.otf` | tous (japonais, chinois, coréen) |
 | Noto Serif JP, SC, TC, KR | `noto-serif-{jp,sc,tc,kr}-{400,700}.otf` | papier (titres en japonais, chinois, coréen) |
+| Carlito | `carlito-{400,700}{,-italic}.ttf` | import PPTX (substitut de Calibri) |
+| Caladea | `caladea-{400,700}{,-italic}.ttf` | import PPTX (substitut de Cambria) |
+| Liberation Sans, Serif, Mono | `liberation-{sans,serif,mono}-{400,700}{,-italic}.ttf` | import PPTX (substituts d'Arial et Helvetica, Times New Roman, Courier New) |
 
 Versions statiques, sous-ensemble latin, converties depuis les paquets
 Fontsource (`@fontsource-variable/newsreader`, `@fontsource-variable/instrument-sans`,
@@ -40,3 +43,15 @@ en serif).
 
 À remplacer par les polices variables complètes (Google Fonts) pour couvrir
 toutes les graisses et les autres alphabets.
+
+Substituts de l'import PPTX (`oku-slides-import`, `fonts.rs`) : polices aux
+métriques compatibles, prises quand la police d'une présentation n'est ni
+embarquée ni installée, pour que le texte garde ses retours à la ligne.
+Carlito : [google/fonts](https://github.com/google/fonts) `ofl/carlito`
+(projet [googlefonts/carlito](https://github.com/googlefonts/carlito)),
+Caladea : [google/fonts](https://github.com/google/fonts) `ofl/caladea`
+(projet [huertatipografica/Caladea](https://github.com/huertatipografica/Caladea)),
+Liberation 2.1.5 : [liberationfonts](https://github.com/liberationfonts/liberation-fonts)
+(`liberation-fonts-ttf-2.1.5`). Licence : SIL Open Font License 1.1, texte
+joint (`carlito-OFL.txt`, `caladea-OFL.txt`, `liberation-LICENSE.txt`). Livrées
+avec l'app, elles ne sont pas recopiées dans les decks importés.

@@ -364,6 +364,7 @@ theme-token-component-table-size = 표 · 글자 크기
 theme-token-component-table-header-bg = 표 · 머리글 배경
 theme-token-component-table-header-color = 표 · 머리글 글자
 theme-token-component-table-header-weight = 표 · 머리글 굵기
+theme-token-component-table-body-bg = 표 · 행 배경
 theme-token-component-table-stripe-bg = 표 · 줄무늬 배경
 theme-token-component-table-rule-color = 표 · 구분선 색
 theme-token-component-table-rule-width = 표 · 구분선 두께

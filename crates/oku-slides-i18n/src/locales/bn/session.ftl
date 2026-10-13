@@ -364,6 +364,7 @@ theme-token-component-table-size = টেবিল · লেখার আকা�
 theme-token-component-table-header-bg = টেবিল · শিরোনাম সারির পটভূমি
 theme-token-component-table-header-color = টেবিল · শিরোনাম সারির লেখা
 theme-token-component-table-header-weight = টেবিল · শিরোনাম সারির পুরুত্ব
+theme-token-component-table-body-bg = টেবিল · মূল সারির পটভূমি
 theme-token-component-table-stripe-bg = টেবিল · একান্তর সারির পটভূমি
 theme-token-component-table-rule-color = টেবিল · বিভাজক রেখার রং
 theme-token-component-table-rule-width = টেবিল · বিভাজক রেখার পুরুত্ব

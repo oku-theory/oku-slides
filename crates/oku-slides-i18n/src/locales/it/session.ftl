@@ -364,6 +364,7 @@ theme-token-component-table-size = Tabella · dimensione del testo
 theme-token-component-table-header-bg = Tabella · sfondo dell'intestazione
 theme-token-component-table-header-color = Tabella · testo dell'intestazione
 theme-token-component-table-header-weight = Tabella · peso dell'intestazione
+theme-token-component-table-body-bg = Tabella · sfondo delle righe
 theme-token-component-table-stripe-bg = Tabella · sfondo delle righe alternate
 theme-token-component-table-rule-color = Tabella · colore dei filetti
 theme-token-component-table-rule-width = Tabella · spessore dei filetti

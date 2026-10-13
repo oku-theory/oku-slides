@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] 删除线已丢失
     [baseline] 上标或下标已丢失
     [caps] 大写已丢失
+    [font] 部分文字的字体已替换为文本框的字体
+    [tracking] 部分文字的字距已替换为文本框的字距
+    [weight] 常规文字段按文本框显示为粗体
+    [slant] 正体文字段按文本框显示为斜体
    *[highlight] 突出显示已丢失
 }
 import-loss-transform = 旋转、翻转或裁剪已丢失
@@ -63,6 +67,24 @@ import-loss-effects = 阴影、映像和三维效果已丢失
 import-loss-series-dropped = 饼图只显示一个系列：保留 { $kept }个，舍弃 { $dropped }个
 import-loss-repeated-decor = 已省略在 { $slides }张幻灯片上重复的页眉或页脚“{ $text }”：主题会绘制自己的页眉页脚
 import-loss-no-slot = 已省略内容：所选模板中没有可放置它的位置
+import-loss-page-fitted = 源页面（{ $width } × { $height } pt）不是 16:9：内容已缩放并居中
+import-loss-paragraph-style = 段落的对齐方式、行距或段间距已改为文本框的设置
+import-loss-shape-style = { $effect ->
+    [gradient] 渐变已显示为纯色
+    [picture] 填充图片已拉伸至形状的边框
+    [dash] 虚线已显示为实线
+   *[geometry] 未知形状已显示为矩形
+}
+import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没有模板，其幻灯片使用空白组件，并以元素形式获得其装饰
+import-loss-decor-truncated = 为适应包文件大小而截断了装饰：省略了{ $omitted }个元素
+import-loss-table-style = 表格样式为近似：其自身的单元格背景、边框、列宽或文字大小已丢失
+import-font-substituted = { $family } 已替换为度量兼容的 { $by }
+import-font-missing = 找不到 { $family }：文本使用 { $by }
+import-font-restricted = { $family }：其许可证禁止将部分字形嵌入演示文稿
+import-font-restricted-substituted = { $family } 不能嵌入演示文稿（许可证）：已替换为度量兼容的 { $by }
+import-font-restricted-missing = { $family } 不能嵌入演示文稿（许可证）：文本使用 { $by }
+import-font-too-large = { $family }：文件太大，无法嵌入演示文稿；文本使用 { $by }
+import-font-missing-no-fallback = 找不到 { $family }，也找不到主题的正文字体：文本以引擎的默认字体显示
 import-warning-effect-ignored = 效果未导入：{ $detail }
 import-warning-approximated = 近似呈现：{ $detail }
 import-warning-unreadable-item = 已跳过无法读取的项目：{ $detail }

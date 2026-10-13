@@ -7,11 +7,13 @@
 mod bench;
 mod guard;
 mod import;
+mod import_hifi;
 mod library;
 mod out;
 mod pack_render;
 mod serve;
 mod sse;
+mod system_fonts;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -87,6 +89,8 @@ enum Cmd {
         output: PathBuf,
         #[arg(long)]
         report: Option<PathBuf>,
+        #[arg(long)]
+        no_system_fonts: bool,
     },
     Bench {
         deck: PathBuf,
@@ -142,6 +146,7 @@ fn command(l: &Localizer) -> clap::Command {
                 .mut_arg("theme", |a| a.help(help("cli-arg-import-theme")))
                 .mut_arg("output", |a| a.help(help("cli-arg-output")))
                 .mut_arg("report", |a| a.help(help("cli-arg-report")))
+                .mut_arg("no_system_fonts", |a| a.help(help("cli-arg-no-system-fonts")))
         })
         .mut_subcommand("bench", |c| {
             c.about(help("cli-cmd-bench"))
@@ -434,8 +439,8 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             storage.write_atomic(&output, oku_slides_pdf::strip_sources(&pdf)?)?;
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
         }
-        Cmd::Import { input, mode, pack, theme, output, report } => {
-            let args = ImportArgs { input, mode, pack, theme, output, report };
+        Cmd::Import { input, mode, pack, theme, output, report, no_system_fonts } => {
+            let args = ImportArgs { input, mode, pack, theme, output, report, system_fonts: !no_system_fonts };
             import::import(platform, out, &app_fonts, args)?;
         }
         Cmd::Bench { deck, iterations } => {

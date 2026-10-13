@@ -74,15 +74,96 @@ Décisions du plan du lot 2 (2026-10-10) :
   données des tableaux et graphiques ; le lot 4 garde la référence
   LibreOffice et l'écart visuel (`metrics.rs`).
 
+Décisions du plan du lot 3 (2026-10-11) :
+
+1. **Base étendue** (cœur et Typst). Le widget `shape` gagne `shape:
+   "path"` et le paramètre hôte `path` (`{ d }`, coordonnées 0..1 étirées
+   au cadre, comme une image) ; `Style.radius` numérique ; `Style` gagne
+   `valign` (`top`/`middle`/`bottom`), `inset` (4 marges en pt) et
+   `tracking` (pt), lus par le widget `text`. Une forme qui porte du texte
+   donne deux éléments (la forme, puis le texte) sur le même cadre.
+   Rotation, police par run, soulignement et barré des éléments : pertes
+   signalées, sans extension.
+2. **Page.** Le thème généré garde 1920 × 1080 ; une source d'un autre
+   ratio est mise à l'échelle uniforme (`min(1920 / w, 1080 / h)`) et
+   centrée, signalé (`PageFitted`). Marges de page du thème généré nulles :
+   la zone de corps est la page, les cadres sont en pt page.
+3. **Polices** (`fonts/`, pur) : embarquée dans le PPTX → catalogue (polices
+   de l'app, puis du système, énumérées par la CLI avec `fontdb`) →
+   substitut aux métriques compatibles (Calibri → Carlito, Cambria →
+   Caladea, Arial/Helvetica → Liberation Sans, Times New Roman → Liberation
+   Serif, Courier New → Liberation Mono ; livrés dans `assets/fonts`) →
+   police du corps, signalé. `fsType` « restricted » jamais embarqué.
+4. **Couleurs.** `Origin::Scheme` sans modificateur → référence de jeton
+   (`lt1 → bg`, `dk1 → ink`, `dk2 → ink-muted`, `lt2 → surface`, `accent1 →
+   accent`, `accent2..6 → accent-2..accent-6`, `hlink → link`, `folHlink →
+   link-visited`) ; avec modificateurs ou `Explicit` → `#rrggbb` résolu
+   (`#rrggbbaa` avec alpha).
+5. **Presets.** Un interpréteur des guides ECMA-376 évalue
+   `presetShapeDefinitions.xml` embarqué (tous les presets, `adj` compris) ;
+   `rect`, `roundRect`, `ellipse`, `line` restent natifs.
+6. **Pack et thème générés vivent dans le deck seulement** (embarqués) ; la
+   bibliothèque n'est pas touchée.
+7. **Sonde.** Le projecteur déclare les schémas des widgets générés (types
+   du cœur) en plus du Typst ; la CLI sonde le pack par le processus de
+   rendu et refuse tout écart (un bogue du générateur).
+8. **Pack.** `_commun.typ` (décor de chaque master), un widget de slide par
+   layout utilisé (`[a-z][a-z0-9-]*`), placeholders → `field(ctx, …)` à
+   leur position (`rich` ; `plain` pour date, pied, numéro), slot `free`
+   `extras` ; un modèle par layout, la première slide source qui l'utilise
+   en exemple.
+9. **Effets.** `LossKind::Effects` (t-817) est émis par le hi-fi pour les
+   ombres, reflets et 3D ignorés.
+10. **Bornes** (revue du plan). Le pack généré respecte les limites de la
+    sonde (`[render]` de la config : 64 fichiers, 256 Kio par fichier) : au
+    plus `max_files − 1` widgets de layout, pour les layouts les plus
+    employés ; les autres slides prennent `blank`, fond et décor en
+    éléments (`LayoutDropped`) ; un fichier trop gros perd ses derniers
+    items de décor (`DecorTruncated`). La CLI relance la sonde tant que le
+    budget laisse des fichiers non sondés et distingue une borne atteinte
+    (`cli-import-probe-limit`) d'un écart de schéma. Polices embarquées :
+    32 Mio par fichier, 64 Mio en tout. Police du corps absente : première
+    police de repli livrée et chargée (Liberation Sans, Carlito, Inter),
+    sinon le rapport le dit ; le message nomme le repli retenu.
+11. **Interligne** (revue du plan). Le widget `text` rend `leading` (un
+    `set` enfermé dans un `if` ne s'appliquait pas). Première ligne de base
+    au modèle CSS (police centrée dans le pas de ligne), commune aux
+    éléments, placeholders et décor ; l'espace entre paragraphes et items
+    de liste d'un élément passe par `Style.spacing` (pt).
+12. **Tableaux** (revue du plan). Le style se lit sur les cellules ; le
+    thème généré règle `component.table` (en-tête, bandes, `body-bg`
+    nullable, taille, filet) d'après le premier tableau ; chaque tableau
+    pose `header-row` et `striped` ; le reste (largeurs de colonnes,
+    couleurs par cellule, bordures) donne une perte `TableStyle` ; un en-tête ou un corps de style
+    hétérogène (couleur, gras, italique, police) en est une aussi.
+
+Précisions prises en chemin :
+
+- Les polices de l'app (substituts compris) ne sont pas embarquées : elles
+  sont partout où le deck s'ouvre ; seules les faces du PPTX ou du système
+  vont dans `fonts/` du deck.
+- Le paramètre `numero` vaut `{n}` (le numéro de la page) par défaut.
+- Un paramètre `decor` (`flag`, défaut vrai) existe quand une slide du
+  layout masque le décor (`showMasterSp="0"`).
+- Le fond propre d'une slide (autre que celui de son layout) est le premier
+  élément d'`extras`, sur toute la page.
+- `ThemeManifest` descend dans le cœur (`oku_slides_core::pack`), ré-exporté
+  par la session, construit par l'import.
+- CLI : `--no-system-fonts` ; ids du pack et du thème dérivés du SHA-256 du
+  `.pptx` (UUID v8, deux moitiés) : deux imports du même fichier donnent le
+  même pack.
+- `component.list.marker` prend la puce du corps du master ;
+  `marker-color` est nullable (`null` : la couleur du texte).
+
 Défauts retenus sans question :
 
-- **Taille de page.** Hi-fi : les tokens `page` du thème généré prennent le
-  ratio source (4:3, perso…). Retrofit : la page du thème cible, la
+- **Taille de page.** Hi-fi : 1920 × 1080, la source mise à l'échelle et
+  centrée (décision 2 du lot 3). Retrofit : la page du thème cible, la
   projection sur la grille absorbe l'écart de ratio.
 - **Polices** (hi-fi, lot 3). Ordre de recherche : polices embarquées dans le PPTX →
-  polices système → substitut métriquement compatible (Carlito ↔ Calibri,
+  polices de l'app et du système → substitut métriquement compatible (Carlito ↔ Calibri,
   Caladea ↔ Cambria, Liberation ↔ Arial/Times/Courier), signalé au rapport.
-  La police retenue est embarquée dans `fonts/` du deck.
+  La police retenue est embarquée dans `fonts/` du deck, sauf celles de l'app.
 
 ## Architecture
 
@@ -111,10 +192,16 @@ Crate `crates/oku-slides-import` :
 | `pptx/frame.rs` | cadres graphiques : tableau, graphique, SmartArt, OLE |
 | `pptx/units.rs` | EMU → pt, angles, pourcentages |
 | `pptx/eot.rs` | polices embarquées EOT (`.fntdata`) |
-| `pptx/geometry.rs` | lecture des géométries (`prstGeom`, `custGeom`) ; la conversion preset → path appartient au lot 3 |
+| `pptx/geometry.rs` | lecture des géométries (`prstGeom`, `custGeom`) ; la conversion en chemin est dans `hifi/geometry/` |
 | `pptx/fonts.rs` | inventaire des familles utilisées, polices embarquées (lot 1) |
-| `fonts.rs` | recherche système et substitution des polices (lot 3) |
-| `hifi/` | projecteur hi-fi : thème, générateur Typst, pack, ops |
+| `fonts/` | résolution des polices : catalogue (app, système), substituts, faces à embarquer (lot 3) |
+| `hifi/mod.rs` | projecteur hi-fi : page, polices, thème, pack, slides, ops, couverture (lot 3) |
+| `hifi/page.rs`, `hifi/color.rs` | page source sur 1920 × 1080 ; couleur en jeton ou en hexadécimal |
+| `hifi/theme.rs` | jetons et `ThemeManifest` du thème généré |
+| `hifi/geometry/` | presets ECMA-376 et `custGeom` en chemins normalisés au cadre (guides, crayon) |
+| `hifi/typst/` | générateur Typst du décor (formes, chemins, texte, images) et des placeholders |
+| `hifi/widget.rs`, `hifi/pack.rs` | widget de slide d'un layout ; pack généré, schémas déclarés, `pack.json` |
+| `hifi/slide.rs`, `hifi/element*.rs` | une slide : placeholders en paramètres, le reste en éléments d'`extras` |
 | `retrofit/` | projecteur retrofit : score des templates, grille, couleurs, replis |
 | `pattern.rs` | signature de motif (partagée retrofit / regroupement hi-fi) |
 | `plan.rs` | `ImportPlan`, `WidgetRequest` |
@@ -173,9 +260,10 @@ mods }`, `PlaceholderLink`, styles par niveau typés, avertissements typés.
 
 ```rust
 ImportPlan {
-    theme: Option<Theme>,          // hi-fi : thème généré
-    pack: Option<Pack>,            // hi-fi : pack généré (lot 3) ; retrofit : aucun au lot 2, pack enfant au lot 5
-    assets, fonts,
+    theme: Option<PackFiles>,      // hi-fi : thème généré (`theme.json`)
+    pack: Option<PackFiles>,       // hi-fi : pack généré (lot 3) ; retrofit : aucun au lot 2, pack enfant au lot 5
+    schemas: Vec<WidgetSchema>,    // hi-fi : schémas déclarés, que la sonde doit retrouver
+    assets, fonts,                 // fonts : fichiers de `fonts/` du deck
     ops: Vec<Op>,                  // ops `apply` existantes
     widget_requests: Vec<WidgetRequest>,
     report: ImportReport,
@@ -189,35 +277,47 @@ validations que l'agent et s'annule d'un coup.
 
 ## Projecteur hi-fi
 
-**Thème généré** (`parent` : aucun) :
+Livré au lot 3 (décisions du plan du lot 3 ci-dessus).
+
+**Thème généré** (`parent` : aucun ; celui du master de la première slide) :
 
 | Source | Tokens |
 |---|---|
-| `clrScheme` | `color` : `lt1→bg`, `dk1→ink`, `dk2→ink-muted`, `lt2→surface`, `accent1→accent`, `accent2..6` et `hlink` en clés perso ; `chart.palette` = `accent1..6` |
-| `fontScheme` | `font.display = major`, `font.body = minor` |
-| `txStyles` du master | `size`/`weight`/`leading` : titre → `size.title`, niveaux de corps → `size.body`… |
-| `sldSz` | `page` (ratio source) |
+| `clrScheme` | `color` : `lt1→bg`, `dk1→ink`, `dk2→ink-muted`, `lt2→surface`, `accent1→accent`, `accent2..6→accent-2..accent-6`, `hlink→link`, `folHlink→link-visited` ; `on-accent` (`bg` ou `ink` selon le contraste), `rule` ; `chart.palette` = `accent1..6` |
+| `fontScheme`, polices | `font.display = major`, `font.body = minor`, par la famille retenue (`FontPlan::used`) ; défaut gardé si absente |
+| placeholders du master et des layouts, sinon `txStyles` | `size.title`, `size.subtitle`, `size.body`, `size.small` (× échelle) ; `weight.body` 400, `weight.strong` 700 |
+| puce du premier niveau du corps | `component.list.marker`, `marker-color` (sa couleur ou `null`) |
+| premier tableau du deck (cellules résolues) | `component.table` : `header-bg`, `header-color`, `header-weight`, `body-bg` (nullable, ajouté à la base), `stripe-bg`, `size`, `rule-color`, `rule-width` ; chaque tableau pose `header-row`/`striped` lus sur ses cellules, perte `TableStyle` pour ce que le widget ne rend pas |
+| `sldSz` | `page` : 1920 × 1080, marges nulles ; échelle et centrage portés par les cadres |
 
 **Pack généré** :
 
-- `_commun.typ` dessine le décor du master.
-- **Un widget de slide par layout utilisé** : décor du master + du layout ;
-  chaque placeholder → `field(ctx, …)` à sa position exacte (`rich`, ou
-  `plain` pour le pied de page) ; un slot `free` nommé `extras` pour les
-  éléments propres à la slide.
+- `_commun.typ` : `champ` et le décor de chaque master.
+- **Un widget de slide par layout utilisé** (`l<rang>-<slug>`) : fond, décor
+  du master (si le layout le montre) et du layout ; chaque placeholder de
+  texte → `field(ctx, …)` à sa position exacte (`titre`, `sous-titre`,
+  `corps`… en `rich` ; `date`, `pied`, `numero` en `plain`, `numero` à
+  `{n}`) ; rien pour les placeholders d'image, graphique, tableau, média ;
+  `grid` ; un slot `free` nommé `extras` sur toute la page ; `decor` (`flag`)
+  si une slide masque le décor.
 - Un template par layout dans `pack.json`, avec la première slide source
   qui l'utilise comme exemple.
 
 **Générateur Typst** (déterministe) : un `Item` de décor → `place(dx, dy,
-rect | ellipse | path | image | text)`. Table de correspondance pour la
-vingtaine de presets courants ; les autres convertis en `path` par les
-formules de géométrie de l'ECMA-376 (`presetShapeDefinitions.xml`).
+rect | ellipse | line | curve | image | text)` en pt page. `rect`,
+`roundRect`, `ellipse`, `line` natifs ; tout autre preset (et `custGeom`)
+converti en `curve` par les formules de géométrie de l'ECMA-376
+(`presetShapeDefinitions.xml`, interprété). Rotation et miroirs dessinés ;
+tableau, graphique, opaque sans repli → perte `Opaque`. Tout texte source
+passe par un littéral de chaîne échappé.
 
-**Deck** : chaque slide → `add_slide` avec `kind = <widget du layout>`,
-placeholders → `params`, autres items → `add_element` (`text`, `shape`,
-`image`, `table`, `chart`) dans `extras`, `frame` ×(1920 / largeur
-source). Couleur `origin = Scheme` → **référence de token** ; `Explicit` →
-hexadécimal.
+**Deck** : chaque slide → `add_slide` avec `kind = <widget du layout>`
+(`blank` sans layout lisible), placeholders de texte restés à leur boîte →
+`params`, autres items → éléments (`text`, `shape` natif ou `path`,
+`image`, `table`, `chart`) dans `extras`, cadres mis à l'échelle et
+centrés ; fond propre d'abord. Couleur `Scheme` sans modificateur →
+**référence de token** ; sinon hexadécimal. Slide masquée → perte
+`HiddenSlide`.
 
 ## Projecteur retrofit
 
@@ -282,8 +382,9 @@ elle ne le voit pas ; seul le rendu de référence (lot 4) le mesurera.
 ## Rapport d'import
 
 `ImportReport` (JSON) : par slide, score (écart ou couverture), replis
-appliqués, `Opaque`, effets ignorés ; globalement, polices substituées,
-référence disponible ou non, `widget_requests`. Messages via Fluent
+appliqués, `Opaque`, effets ignorés ; globalement, polices substituées
+(`fonts` : une décision par famille, lot 3), référence disponible ou non,
+`widget_requests`. Messages via Fluent
 (`oku-slides-i18n`).
 
 ## Fine-tuning par agent (app)
@@ -309,9 +410,12 @@ référence disponible ou non, `widget_requests`. Messages via Fluent
 - **CLI** (`oku-slides-cli`), purement déterministe :
   `oku-slides import deck.pptx --mode hifi|retrofit [--pack <id|chemin|nom>]
   [--theme <id|nom>] [--reference auto|none] -o out.oku-slides.pdf
-  [--report r.json]`. `--pack` est requis en retrofit. Au lot 2 : `--mode`
-  vaut `retrofit` par défaut, `hifi` est refusé avec un message localisé
-  (lot 3) ; `--reference` arrive au lot 4.
+  [--report r.json] [--no-system-fonts]`. `--mode` vaut `retrofit` par
+  défaut ; `--pack` y est requis. `--mode hifi` est livré au lot 3 :
+  `--pack` et `--theme` y sont refusés (le pack et le thème sont générés,
+  embarqués dans le deck seulement) ; les polices de la présentation sont
+  cherchées parmi celles de l'app (`--fonts`) et, sauf `--no-system-fonts`,
+  du système. `--reference` arrive au lot 4.
 - **App** : « Ouvrir » accepte `.pptx` ; un dialogue demande le mode, et en
   retrofit le pack et le thème cibles. L'app crée un deck neuf à partir du
   plan, puis lance l'agent avec les consignes de fine-tuning.
@@ -361,7 +465,9 @@ Un plan et ses sous-tâches par lot, dans cet ordre :
 2. *(livré, t-692)* Projecteur retrofit + CLI + couverture du contenu —
    valide la représentation de bout en bout sans générateur ni référence ;
    plan : `docs/superpowers/plans/2026-10-10-import-pptx-lot2.md`.
-3. Projecteur hi-fi : thème, générateur Typst, pack, polices (`fonts.rs`).
+3. *(livré, t-692)* Projecteur hi-fi : thème, générateur Typst, pack,
+   polices (`fonts/`), base étendue (chemins, ancrage du texte) ; plan :
+   `docs/superpowers/plans/2026-10-11-import-pptx-lot3.md`.
 4. Rendu de référence + écart visuel.
 5. App + fine-tuning par agent (outils MCP, consignes, pack enfant des
    widgets créés pour les `WidgetRequest`).

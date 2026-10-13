@@ -27,6 +27,8 @@ tracing.workspace = true
 oku-slides-platform = { workspace = true, features = ["listen"] }
 oku-slides-i18n.workspace = true
 oku-slides-import.workspace = true
+fontdb.workspace = true
+sha2.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -34,6 +36,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "sync", "macro
 uuid.workspace = true
 
 [dev-dependencies]
+rstest.workspace = true
 speculoos.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true

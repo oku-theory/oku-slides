@@ -9,16 +9,53 @@
 #import "zone.typ": free-area, zone-marker, default-grid
 #import "numbers.typ": format-number, deck-lang
 
+#let _inset-max = 4096   // STYLE_INSET_MAX (oku-slides-core)
+#let _spacing-max = 4096   // STYLE_SPACING_MAX (oku-slides-core)
+
+// Marges intérieures d'un style (`inset` : pt haut, droite, bas, gauche),
+// ou none si la clé manque ou n'a pas cette forme.
+#let _inset(v) = {
+  let ok = (type(v) == array and v.len() == 4
+    and v.all(x => (type(x) == int or type(x) == float) and x >= 0 and x <= _inset-max))
+  if ok { (top: v.at(0) * 1pt, right: v.at(1) * 1pt, bottom: v.at(2) * 1pt, left: v.at(3) * 1pt) }
+}
+
+// Espace entre paragraphes d'un style (`spacing` : pt), ou none si la clé
+// manque ou n'est pas un nombre permis.
+#let _spacing(v) = {
+  if (type(v) == int or type(v) == float) and v >= 0 and v <= _spacing-max { v * 1pt }
+}
+
+// Ancrage d'un texte : `inset` l'écarte des bords, `valign` (`top`,
+// `middle`, `bottom`) le place en hauteur dans son cadre fixe. Le champ
+// est dans `body` : sa boîte suit le texte déplacé. Sans ces clés (ou sans
+// cadre pour `valign`), le corps tel quel.
+#let _anchored(style, framed, body) = {
+  let inset = _inset(style.at("inset", default: none))
+  let v = (top: top, middle: horizon, bottom: bottom).at(str(style.at("valign", default: "")), default: none)
+  let v = if framed { v }
+  if inset == none and v == none { return body }
+  let body = if inset != none { pad(..inset, body) } else { body }
+  if v == none { body } else { block(width: 100%, height: 100%, align(v, body)) }
+}
+
 #let _text = widget("text", params: (body: p.rich()), (args, ctx) => {
   let t = ctx.tokens
   let style = ctx.style
   set text(.._text-args(t, style))
-  if "leading" in style { set par(leading: leading-of(t, style.leading)) }
+  // Forme conditionnelle : un `set` dans le bloc d'un `if` ne vaudrait que dans ce bloc.
+  set par(leading: leading-of(t, style.leading)) if "leading" in style
+  // L'espace entre paragraphes vaut aussi entre items de liste, et entre un
+  // paragraphe et une liste (Typst y prend celui des paragraphes).
+  let gap = _spacing(style.at("spacing", default: none))
+  set par(spacing: gap) if gap != none
+  set list(spacing: gap) if gap != none
+  set enum(spacing: gap) if gap != none
   // Sans alignement choisi, le texte part du début de la ligne : à gauche,
   // ou à droite dans une langue écrite de droite à gauche.
   let al = style.at("align", default: "start")
-  field(ctx, "body", style: _text-over(t, style), empty: args.body == [],
-    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body))
+  _anchored(style, ctx.framed, field(ctx, "body", style: _text-over(t, style), empty: args.body == [],
+    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body)))
 })
 
 #let _card = widget("card",
@@ -116,6 +153,8 @@
   })
   let header-bg = color-of(t, k.header-bg)
   let stripe-bg = color-of(t, k.stripe-bg)
+  // Fond des lignes du corps hors bandes ; `none` (le défaut) : sans fond.
+  let body-bg = color-of(t, k.at("body-bg", default: none))
   let header-color = color-of(t, k.header-color)
   let header-weight = weight-of(t, k.header-weight)
   // Style d'une cellule, repris pour mesurer ses mots.
@@ -133,7 +172,7 @@
     inset: (x: pad-x, y: space-of(t, k.padding-y)),
     align: (x, y) => col-aligns.at(x) + horizon,
     fill: (x, y) => if head-row and y == 0 { header-bg }
-      else if striped and calc.odd(y - first) { stripe-bg } else { none },
+      else if striped and calc.odd(y - first) { stripe-bg } else { body-bg },
     stroke: (x, y) => (bottom: rule),
     ..if head-row { (table.header(..cells.slice(0, n)),) } else { () },
     ..cells.slice(first * n),
@@ -176,12 +215,62 @@
   })
 })
 
-#let _shape = widget("shape", params: (shape: p.choice("rect", "ellipse", "line")), (args, ctx) => {
+#let _path-max = 65536        // SHAPE_PATH_MAX (oku-slides-core)
+#let _path-coord-max = 1000   // SHAPE_PATH_COORD_MAX
+// Nombre de valeurs de chaque commande d'un chemin.
+#let _path-arity = (M: 2, L: 2, C: 6, Q: 4, Z: 0)
+#let _path-number = regex("^[-+]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)$")
+
+// Commandes du chemin `d` : (lettre, nombres), ou none s'il est vide ou mal
+// formé. Même syntaxe que `oku_slides_core::ShapePath` : `M x y`, `L x y`,
+// `C x1 y1 x2 y2 x y`, `Q x1 y1 x y`, `Z`, nombres décimaux, mots séparés
+// par des espaces, `M` en tête ; coordonnées relatives au cadre.
+#let _path-commands(d) = {
+  if type(d) != str or d.len() > _path-max { return none }
+  let out = ()
+  for w in d.split(regex("\\s+")).filter(w => w != "") {
+    if w in _path-arity { out.push((w, ())) }
+    else if out.len() == 0 or w.match(_path-number) == none { return none }
+    else {
+      let n = float(w)
+      if calc.abs(n) > _path-coord-max { return none }
+      out.last().at(1).push(n)
+    }
+  }
+  let ok = (out.len() > 0 and out.first().at(0) == "M"
+    and out.all(((c, n)) => n.len() == _path-arity.at(c)))
+  if ok { out }
+}
+
+// Tracé d'un chemin mis à l'échelle du cadre (`w` × `h`) ; none s'il est
+// vide ou mal formé. Remplissage non nul : un sous-chemin de sens contraire
+// évide (anneau).
+#let _path-curve(d, w, h, fill, stroke) = {
+  let cmds = _path-commands(d)
+  if cmds == none { return none }
+  let pt(n, i) = (n.at(i) * w, n.at(i + 1) * h)
+  let parts = cmds.map(((c, n)) => {
+    if c == "M" { curve.move(pt(n, 0)) }
+    else if c == "L" { curve.line(pt(n, 0)) }
+    else if c == "C" { curve.cubic(pt(n, 0), pt(n, 2), pt(n, 4)) }
+    else if c == "Q" { curve.quad(pt(n, 0), pt(n, 2)) }
+    else { curve.close(mode: "straight") }
+  })
+  curve(fill: fill, fill-rule: "non-zero", stroke: stroke, ..parts)
+}
+
+// `path` : `{ d }` (voir `_path-commands`), lu avec `shape: "path"`.
+#let _shape = widget("shape", params: (shape: p.choice("rect", "ellipse", "line", "path"), path: p.host("path")),
+  (args, ctx) => {
   let t = ctx.tokens
   let style = ctx.style
   let fill = color-of(t, style.at("fill", default: none))
   let stroke = if "stroke" in style { stroke-of(t, style.at("stroke-width", default: "rule")) + color-of(t, style.stroke) }
-  if args.shape == "ellipse" { ellipse(width: 100%, height: 100%, fill: fill, stroke: stroke) }
+  // Hors cadre, la hauteur est infinie : le chemin s'inscrit dans un carré de la largeur.
+  let d = if type(args.path) == dictionary { args.path.at("d", default: none) }
+  if args.shape == "path" { layout(sz => _path-curve(d, sz.width,
+    if sz.height == float.inf * 1pt { sz.width } else { sz.height }, fill, stroke)) }
+  else if args.shape == "ellipse" { ellipse(width: 100%, height: 100%, fill: fill, stroke: stroke) }
   else if args.shape == "line" { line(length: 100%, stroke: if stroke != none { stroke } else { stroke-of(t, "rule") + color-of(t, "rule") }) }
   else { rect(width: 100%, height: 100%, fill: fill, stroke: stroke, radius: radius-of(t, style.at("radius", default: "flat"))) }
 })

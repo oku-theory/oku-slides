@@ -364,6 +364,7 @@ theme-token-component-table-size = तालिका · पाठ का आक
 theme-token-component-table-header-bg = तालिका · शीर्ष पंक्ति की पृष्ठभूमि
 theme-token-component-table-header-color = तालिका · शीर्ष पंक्ति का पाठ
 theme-token-component-table-header-weight = तालिका · शीर्ष पंक्ति की मोटाई
+theme-token-component-table-body-bg = तालिका · पंक्तियों की पृष्ठभूमि
 theme-token-component-table-stripe-bg = तालिका · वैकल्पिक पंक्तियों की पृष्ठभूमि
 theme-token-component-table-rule-color = तालिका · विभाजक रेखा का रंग
 theme-token-component-table-rule-width = तालिका · विभाजक रेखा की मोटाई

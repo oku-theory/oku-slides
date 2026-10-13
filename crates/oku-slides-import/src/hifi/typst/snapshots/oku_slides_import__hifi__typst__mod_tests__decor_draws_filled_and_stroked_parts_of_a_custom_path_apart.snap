@@ -1,0 +1,19 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: "Fixture::new().decor(&[path]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  curve(fill: color-of(t, "accent"), stroke: none,
+    curve.move((0pt, 0pt)),
+    curve.line((200pt, 0pt)),
+    curve.quad((200pt, 100pt), (0pt, 100pt)),
+    curve.close(mode: "straight"),
+  ),
+)
+place(top + left, dx: 20pt, dy: 40pt,
+  curve(fill: none, stroke: (paint: color-of(t, "#123456"), thickness: 4pt, dash: "loosely-dashed"),
+    curve.move((0pt, 0pt)),
+    curve.line((200pt, 0pt)),
+    curve.quad((200pt, 100pt), (0pt, 100pt)),
+  ),
+)

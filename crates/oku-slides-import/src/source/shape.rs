@@ -39,8 +39,19 @@ pub enum Geometry {
     /// Tracé libre (`custGeom`).
     Path {
         /// Sous-tracés (64 au plus ; 10 000 commandes au plus au total).
-        paths: Vec<Vec<PathCmd>>,
+        paths: Vec<SubPath>,
     },
+}
+
+/// Sous-tracé d'un tracé libre.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SubPath {
+    /// Commandes.
+    pub cmds: Vec<PathCmd>,
+    /// Rempli (`fill` autre que `none`).
+    pub fill: bool,
+    /// Contour tracé (`stroke` autre que `false`).
+    pub stroke: bool,
 }
 
 /// Forme dessinée, éventuellement porteuse de texte.

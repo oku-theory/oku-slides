@@ -1,0 +1,13 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: fixture_decor(&fixture(name))
+---
+// m1 : assets {}, pertes []
+// l1 : assets {}, pertes []
+place(top + left, dx: 0pt, dy: 1039.97pt,
+  rect(width: 1919.96pt, height: 39.97pt, fill: color-of(t, "accent"), stroke: none),
+)
+// l2 : assets {}, pertes []
+place(top + left, dx: 0pt, dy: 1039.97pt,
+  rect(width: 1919.96pt, height: 39.97pt, fill: color-of(t, "accent"), stroke: none),
+)

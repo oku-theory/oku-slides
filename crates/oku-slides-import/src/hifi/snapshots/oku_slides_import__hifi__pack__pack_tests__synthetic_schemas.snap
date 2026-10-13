@@ -1,0 +1,107 @@
+---
+source: crates/oku-slides-import/src/hifi/pack_tests.rs
+expression: schemas
+---
+[
+  {
+    "name": "l2-blank",
+    "label": "blank",
+    "category": "slide",
+    "params": [
+      {
+        "name": "grid",
+        "label": null,
+        "type": "grid",
+        "default": {
+          "columns": 12,
+          "rows": 6
+        },
+        "bind": null
+      },
+      {
+        "name": "extras",
+        "label": null,
+        "type": "slot",
+        "mode": "free",
+        "accepts": null,
+        "default": null,
+        "bind": null
+      }
+    ]
+  },
+  {
+    "name": "l3-titre-deux-contenus-et-pied",
+    "label": "Titre, deux contenus et pied",
+    "category": "slide",
+    "params": [
+      {
+        "name": "titre",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "corps",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "corps-2",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "date",
+        "label": null,
+        "type": "plain",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "pied",
+        "label": null,
+        "type": "plain",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "numero",
+        "label": null,
+        "type": "plain",
+        "default": "{n}",
+        "bind": null
+      },
+      {
+        "name": "decor",
+        "label": null,
+        "type": "flag",
+        "default": true,
+        "bind": null
+      },
+      {
+        "name": "grid",
+        "label": null,
+        "type": "grid",
+        "default": {
+          "columns": 12,
+          "rows": 6
+        },
+        "bind": null
+      },
+      {
+        "name": "extras",
+        "label": null,
+        "type": "slot",
+        "mode": "free",
+        "accepts": null,
+        "default": null,
+        "bind": null
+      }
+    ]
+  }
+]

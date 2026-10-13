@@ -4,6 +4,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::fonts::FontOrigin;
 use crate::source::{Warning, WarningKind};
 
 fn slide(losses: Vec<Loss>) -> SlideReport {
@@ -26,6 +27,10 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::RunStyle(RunEffect::Baseline))]
 #[case(LossKind::RunStyle(RunEffect::Caps))]
 #[case(LossKind::RunStyle(RunEffect::Highlight))]
+#[case(LossKind::RunStyle(RunEffect::Font))]
+#[case(LossKind::RunStyle(RunEffect::Tracking))]
+#[case(LossKind::RunStyle(RunEffect::Weight))]
+#[case(LossKind::RunStyle(RunEffect::Slant))]
 #[case(LossKind::Transform)]
 #[case(LossKind::ColorDropped("#ff0000".into()))]
 #[case(LossKind::TextTruncated)]
@@ -42,6 +47,15 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::RepeatedDecor { text: "CONFIDENTIAL".into(), slides: 1 })]
 #[case(LossKind::NoSlot)]
 #[case(LossKind::SeriesDropped { kept: 1, dropped: 2 })]
+#[case(LossKind::PageFitted { width: 720, height: 540 })]
+#[case(LossKind::ParagraphStyle)]
+#[case(LossKind::ShapeStyle(ShapeEffect::Gradient))]
+#[case(LossKind::ShapeStyle(ShapeEffect::Picture))]
+#[case(LossKind::ShapeStyle(ShapeEffect::Dash))]
+#[case(LossKind::ShapeStyle(ShapeEffect::Geometry))]
+#[case(LossKind::LayoutDropped { layout: "Titre".into() })]
+#[case(LossKind::DecorTruncated { omitted: 12 })]
+#[case(LossKind::TableStyle)]
 fn loss_localize_in_every_locale_formats_its_own_message(#[case] kind: LossKind) {
     let id = kind.message_id();
     let loss = Loss::slide(kind);
@@ -65,10 +79,38 @@ fn loss_localize_run_style_in_french_names_the_effect() {
     assert_that!(msg).is_equal_to("Soulignement perdu".to_owned());
 }
 
+#[rstest]
+#[case(LossKind::RunStyle(RunEffect::Font), "Police d'un passage remplacée par celle de la boîte")]
+#[case(LossKind::RunStyle(RunEffect::Tracking), "Espacement des lettres d'un passage remplacé par celui de la boîte")]
+#[case(LossKind::RunStyle(RunEffect::Weight), "Passage maigre rendu gras comme la boîte")]
+#[case(LossKind::RunStyle(RunEffect::Slant), "Passage droit rendu en italique comme la boîte")]
+#[case(LossKind::ShapeStyle(ShapeEffect::Gradient), "Dégradé rendu en couleur unie")]
+#[case(LossKind::ShapeStyle(ShapeEffect::Dash), "Trait en tirets rendu continu")]
+#[case(LossKind::ShapeStyle(ShapeEffect::Geometry), "Forme inconnue rendue en rectangle")]
+fn loss_localize_hifi_effects_in_french_name_the_effect(#[case] kind: LossKind, #[case] expected: &str) {
+    let msg = Loss::slide(kind).localize(&Localizer::new(Some("fr")));
+    assert_that!(msg).is_equal_to(expected.to_owned());
+}
+
 #[test]
 fn loss_localize_opaque_in_english_names_the_reason() {
     let msg = Loss::slide(LossKind::Opaque(OpaqueReason::Math)).localize(english());
     assert_that!(msg).is_equal_to("Equation not imported (no fallback image)".to_owned());
+}
+
+#[test]
+fn loss_localize_bounds_of_the_pack_name_the_layout_and_the_count() {
+    let fr = Localizer::new(Some("fr"));
+    let msg = Loss::slide(LossKind::LayoutDropped { layout: "Titre seul".into() }).localize(&fr);
+    assert_that!(msg).contains("« Titre seul »");
+    let msg = Loss::on("l3/9", LossKind::DecorTruncated { omitted: 12 }).localize(&fr);
+    assert_that!(msg).contains("12 éléments omis");
+}
+
+#[test]
+fn loss_localize_page_fitted_gives_the_source_size() {
+    let msg = Loss::slide(LossKind::PageFitted { width: 720, height: 540 }).localize(english());
+    assert_that!(msg).is_equal_to("Source page 720 × 540 pt is not 16:9: content scaled and centered".to_owned());
 }
 
 #[test]
@@ -177,6 +219,118 @@ fn import_report_loss_count_sums_every_slide() {
     report.slides.push(slide(vec![Loss::slide(LossKind::HiddenSlide)]));
     report.slides.push(slide(vec![Loss::slide(LossKind::Effects), Loss::slide(LossKind::Transform)]));
     assert_that!(report.loss_count()).is_equal_to(3);
+}
+
+/// Le choix pour Calibri ; une famille introuvable prend Carlito, la police du corps.
+fn font(used: Option<&str>, decision: FontDecision, restricted: bool) -> FontChoice {
+    let fallback = (decision == FontDecision::Missing).then(|| "Carlito".to_owned());
+    FontChoice {
+        family: "Calibri".into(),
+        used: used.map(str::to_owned),
+        decision,
+        restricted,
+        too_large: false,
+        fallback,
+    }
+}
+
+#[rstest]
+#[case(font(Some("Carlito"), FontDecision::Substituted { origin: FontOrigin::App }, false), "import-font-substituted")]
+#[case(font(Some("Carlito"), FontDecision::Substituted { origin: FontOrigin::App }, true), "import-font-restricted-substituted")]
+#[case(font(None, FontDecision::Missing, false), "import-font-missing")]
+#[case(font(None, FontDecision::Missing, true), "import-font-restricted-missing")]
+#[case(font(Some("Calibri"), FontDecision::Embedded, true), "import-font-restricted")]
+#[case(FontChoice { too_large: true, ..font(None, FontDecision::Missing, false) }, "import-font-too-large")]
+#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, true) }, "import-font-missing-no-fallback")]
+fn font_notice_in_every_locale_names_the_families(#[case] choice: FontChoice, #[case] id: &str) {
+    for tag in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(tag));
+        let msg = font_notice(&choice, &l).unwrap_or_default();
+        assert_that!(l.has(id)).named(tag).is_true();
+        assert_that!(msg.contains("Calibri")).named(tag).is_true();
+        assert_that!(msg.contains('{')).named(tag).is_false();
+        if choice.decision != FontDecision::Missing {
+            assert_that!(msg.contains("Carlito") || id == "import-font-restricted").named(tag).is_true();
+        }
+        // Une famille introuvable nomme le repli retenu, quand il y en a un.
+        if let Some(fallback) = &choice.fallback {
+            assert_that!(msg.contains(fallback.as_str())).named(tag).is_true();
+        }
+    }
+}
+
+#[rstest]
+#[case(FontChoice { too_large: true, ..font(None, FontDecision::Missing, false) }, "Calibri : fichiers trop gros pour être embarqués dans le deck ; le texte prend Carlito")]
+#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, false) }, "Calibri introuvable, comme la police du corps du thème : le texte est rendu avec la police par défaut du moteur")]
+fn font_notice_of_a_missing_family_says_what_the_text_takes(#[case] choice: FontChoice, #[case] expected: &str) {
+    assert_that!(font_notice(&choice, &Localizer::new(Some("fr")))).is_equal_to(Some(expected.to_owned()));
+}
+
+#[test]
+fn font_notice_of_the_missing_body_font_names_the_app_fallback() {
+    // Calibri est la police du corps : le repli vient de `FALLBACKS`, le message le nomme.
+    let choice = FontChoice { fallback: Some("Liberation Sans".into()), ..font(None, FontDecision::Missing, false) };
+    assert_that!(font_notice(&choice, &Localizer::new(Some("fr"))))
+        .is_equal_to(Some("Calibri introuvable : le texte prend Liberation Sans".to_owned()));
+}
+
+#[test]
+fn font_notice_of_a_missing_family_other_than_the_body_names_the_body_font() {
+    // Aptos introuvable, Calibri (corps) disponible en Carlito : le repli est Carlito.
+    let choice = FontChoice { family: "Aptos".into(), ..font(None, FontDecision::Missing, false) };
+    assert_that!(font_notice(&choice, &Localizer::new(Some("fr"))))
+        .is_equal_to(Some("Aptos introuvable : le texte prend Carlito".to_owned()));
+}
+
+#[test]
+fn font_notice_of_a_too_large_body_font_names_the_app_fallback() {
+    let choice = FontChoice {
+        too_large: true,
+        fallback: Some("Liberation Sans".into()),
+        ..font(None, FontDecision::Missing, false)
+    };
+    assert_that!(font_notice(&choice, &Localizer::new(Some("fr")))).is_equal_to(Some(
+        "Calibri : fichiers trop gros pour être embarqués dans le deck ; le texte prend Liberation Sans".to_owned(),
+    ));
+}
+
+#[test]
+fn font_notice_of_a_restricted_missing_family_names_the_fallback() {
+    let choice = FontChoice { fallback: Some("Liberation Sans".into()), ..font(None, FontDecision::Missing, true) };
+    assert_that!(font_notice(&choice, &Localizer::new(Some("fr")))).is_equal_to(Some(
+        "Calibri ne peut pas être embarquée dans le deck (licence) : le texte prend Liberation Sans".to_owned(),
+    ));
+}
+
+#[rstest]
+#[case(font(Some("Calibri"), FontDecision::Embedded, false))]
+#[case(font(Some("Calibri"), FontDecision::Available { origin: FontOrigin::System }, false))]
+fn font_notice_of_a_font_kept_as_is_is_none(#[case] choice: FontChoice) {
+    assert_that!(font_notice(&choice, english())).is_none();
+}
+
+#[test]
+fn import_report_to_json_lists_fonts_with_a_message_when_there_is_one() {
+    let mut report = ImportReport::new(Mode::Retrofit);
+    report.fonts.push(font(Some("Carlito"), FontDecision::Substituted { origin: FontOrigin::App }, false));
+    report.fonts.push(FontChoice { family: "Inter".into(), ..font(Some("Inter"), FontDecision::Embedded, false) });
+    let v = report.to_json(&Localizer::new(Some("fr")));
+    assert_that!(v["fonts"]).is_equal_to(json!([
+        {
+            "family": "Calibri",
+            "used": "Carlito",
+            "decision": { "type": "substituted", "origin": "app" },
+            "restricted": false,
+            "message": "Calibri remplacée par Carlito, aux métriques compatibles"
+        },
+        { "family": "Inter", "used": "Inter", "decision": { "type": "embedded" }, "restricted": false }
+    ]));
+}
+
+#[test]
+fn import_report_to_json_without_fonts_writes_no_fonts_section() {
+    let v = ImportReport::new(Mode::Retrofit).to_json(english());
+    assert_that!(v.get("fonts")).is_none();
 }
 
 #[rstest]

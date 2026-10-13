@@ -364,6 +364,7 @@ theme-token-component-table-size = Tabla · tamaño del texto
 theme-token-component-table-header-bg = Tabla · fondo del encabezado
 theme-token-component-table-header-color = Tabla · texto del encabezado
 theme-token-component-table-header-weight = Tabla · grosor del encabezado
+theme-token-component-table-body-bg = Tabla · fondo de las filas
 theme-token-component-table-stripe-bg = Tabla · fondo de las filas alternas
 theme-token-component-table-rule-color = Tabla · color de los filetes
 theme-token-component-table-rule-width = Tabla · grosor de los filetes

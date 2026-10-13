@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] 刪除線已遺失
     [baseline] 上標或下標已遺失
     [caps] 大寫已遺失
+    [font] 部分文字的字型已改用文字方塊的字型
+    [tracking] 部分文字的字距已改用文字方塊的字距
+    [weight] 一般文字段依文字方塊顯示為粗體
+    [slant] 正體文字段依文字方塊顯示為斜體
    *[highlight] 醒目提示已遺失
 }
 import-loss-transform = 旋轉、翻轉或裁剪已遺失
@@ -63,6 +67,24 @@ import-loss-effects = 陰影、反射與立體效果已遺失
 import-loss-series-dropped = 圓餅圖只顯示一個數列：保留 { $kept }個，捨棄 { $dropped }個
 import-loss-repeated-decor = 已省略在 { $slides }張投影片上重複的頁首或頁尾「{ $text }」：佈景主題會繪製自己的頁首頁尾
 import-loss-no-slot = 已省略內容：所選範本中沒有可放置它的位置
+import-loss-page-fitted = 來源頁面（{ $width } × { $height } pt）不是 16:9：內容已縮放並置中
+import-loss-paragraph-style = 段落的對齊方式、行距或段間距已改為文字方塊的設定
+import-loss-shape-style = { $effect ->
+    [gradient] 漸層已顯示為單色
+    [picture] 填滿圖片已延展至圖案的外框
+    [dash] 虛線已顯示為實線
+   *[geometry] 未知圖案已顯示為矩形
+}
+import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有範本，其投影片使用空白元件，並以元素形式取得其裝飾
+import-loss-decor-truncated = 為符合套件檔案大小而截斷了裝飾：省略了{ $omitted }個元素
+import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬或文字大小已遺失
+import-font-substituted = { $family } 已替換為度量相容的 { $by }
+import-font-missing = 找不到 { $family }：文字使用 { $by }
+import-font-restricted = { $family }：其授權禁止將部分字樣內嵌到簡報
+import-font-restricted-substituted = { $family } 不能內嵌到簡報（授權）：已替換為度量相容的 { $by }
+import-font-restricted-missing = { $family } 不能內嵌到簡報（授權）：文字使用 { $by }
+import-font-too-large = { $family }：檔案太大，無法嵌入簡報；文字使用 { $by }
+import-font-missing-no-fallback = 找不到 { $family }，也找不到主題的內文字型：文字以引擎的預設字型顯示
 import-warning-effect-ignored = 效果未匯入：{ $detail }
 import-warning-approximated = 近似呈現：{ $detail }
 import-warning-unreadable-item = 已略過無法讀取的項目：{ $detail }

@@ -21,6 +21,8 @@ fn every_value_reason_key_exists_in_every_locale() {
         ValueReason::NotASlot,
         ValueReason::OutOfBounds,
         ValueReason::Unreadable,
+        ValueReason::Valign,
+        ValueReason::Path,
     ];
     for locale in oku_slides_i18n::available() {
         let l = Localizer::new(Some(locale));

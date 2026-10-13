@@ -364,6 +364,7 @@ theme-token-component-table-size = Tableau · taille du texte
 theme-token-component-table-header-bg = Tableau · fond de l'en-tête
 theme-token-component-table-header-color = Tableau · texte de l'en-tête
 theme-token-component-table-header-weight = Tableau · graisse de l'en-tête
+theme-token-component-table-body-bg = Tableau · fond des lignes
 theme-token-component-table-stripe-bg = Tableau · fond des lignes zébrées
 theme-token-component-table-rule-color = Tableau · couleur des filets
 theme-token-component-table-rule-width = Tableau · épaisseur des filets

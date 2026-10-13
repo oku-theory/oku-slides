@@ -1,0 +1,48 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/text_tests.rs
+expression: "Fixture::new().decor(&[text_item(tb)]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  block(width: 800pt, height: 400pt, inset: (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), {
+    align(horizon, stack(
+      block(width: 100%, {
+        set text(size: 36pt, top-edge: 1.175em, bottom-edge: -0.492em)
+        set par(justify: false, leading: 0pt)
+        set align(center)
+        text(font: ("Carlito",), size: 36pt, weight: "bold", fill: color-of(t, "ink"), "Gras ")
+        text(font: ("Carlito",), size: 36pt, style: "italic", fill: color-of(t, "ink"), "italique ")
+        underline(text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "souligné "))
+        strike(text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "barré"))
+        linebreak()
+        text(font: ("Carlito",), baseline: -10.8pt, size: 24pt, fill: color-of(t, "ink"), "2")
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), upper("capitales"))
+        smallcaps(text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "petites"))
+        highlight(fill: color-of(t, "#ffff00"), text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "surligné"))
+        link("https://example.com/?a=\"b\"", text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "lien"))
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), tracking: 3pt, "espacé")
+        text(font: font-of(t, "body"), size: 36pt, fill: color-of(t, "ink"), "Inconnue")
+      }),
+      33.6pt,
+      block(width: 100%, inset: (left: 27pt), {
+        set text(size: 36pt, top-edge: 0.942em, bottom-edge: -0.258em)
+        set par(justify: false, leading: 0pt, hanging-indent: 27pt)
+        set align(left)
+        box(width: 27pt, text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "•"))
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "puce")
+      }),
+      block(width: 100%, {
+        set text(size: 36pt, top-edge: 0.95em, bottom-edge: -0.25em)
+        set par(justify: false, leading: 0pt)
+        set align(left)
+        text("\u{200b}")
+      }),
+      block(width: 100%, {
+        set text(size: 36pt, top-edge: 0.942em, bottom-edge: -0.258em)
+        set par(justify: true, leading: 0pt, first-line-indent: (amount: 36pt, all: true))
+        set align(left)
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "a)") + h(0.25em)
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "numéro")
+      }),
+    ))
+  }),
+)

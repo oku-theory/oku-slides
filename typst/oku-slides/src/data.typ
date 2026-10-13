@@ -166,7 +166,8 @@
 }
 
 /// Rend une slide avec le widget de son `kind` (catégorie "slide") ; sans
-/// widget, une page qui le signale.
+/// widget, une page qui le signale. `ctx.load` charge une image d'un asset
+/// du deck (le décor d'un widget de slide, `(ctx.load)(asset: …, fit: …)`).
 #let render-slide(s, image-loader: none, widgets: none) = context {
   let c = config()
   let t = c.tokens
@@ -175,7 +176,8 @@
   let id = s.at("id", default: none)
   let w = _widget(widgets, kind, "slide")
   if w == none { return blank-slide(text(fill: red)[oku-slides : slide inconnue « #kind »], id: id) }
-  let ctx = (id: id, tokens: t, vars: c.vars, style: (:), framed: false, load: none)
+  let ctx = (id: id, tokens: t, vars: c.vars, style: (:), framed: false,
+    load: if image-loader != none { (..a) => image-loader(s, ..a) } else { none })
   (w.render)(_args(t, w.schema, s.at("params", default: (:)), c.vars, c.params, image-loader, widgets,
     render-element), ctx)
 }

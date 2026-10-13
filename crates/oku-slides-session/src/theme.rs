@@ -6,10 +6,10 @@
 
 use std::sync::LazyLock;
 
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde::Serialize;
 use uuid::Uuid;
 
+pub use oku_slides_core::ThemeManifest;
 use oku_slides_core::{PackFiles, PackVersion};
 
 use crate::library::Library;
@@ -22,35 +22,9 @@ pub const PRO_THEME: Uuid = Uuid::from_u128(0x7e1b9c3d_2f4a_4d6e_a8b0_5c7d9e1f3b
 /// Thème d'un deck neuf.
 pub const DEFAULT_THEME: Uuid = PAPIER_THEME;
 
-/// `theme.json` : un thème dans une version.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ThemeManifest {
-    pub id: Uuid,
-    pub name: String,
-    #[serde(default)]
-    pub description: String,
-    /// Version dont celle-ci est issue ; `None` pour une première version.
-    #[serde(default)]
-    pub parent: Option<PackVersion>,
-    /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
-    pub created: String,
-    /// Jetons de conception, par groupe (`color`, `font`, …).
-    pub tokens: Map<String, Value>,
-}
-
-impl ThemeManifest {
-    /// Les fichiers de cette version : le seul `theme.json`.
-    pub fn to_files(&self) -> Result<PackFiles, serde_json::Error> {
-        match serde_json::to_value(self)? {
-            Value::Object(manifest) => Ok(PackFiles::new(manifest, Default::default())),
-            _ => Err(serde::ser::Error::custom("theme manifest is not an object")),
-        }
-    }
-}
-
 impl VersionManifest for ThemeManifest {
     fn from_files(files: &PackFiles) -> Result<Self, serde_json::Error> {
-        serde_json::from_value(Value::Object(files.manifest().clone()))
+        Self::from_files(files)
     }
 
     fn id(&self) -> Uuid {

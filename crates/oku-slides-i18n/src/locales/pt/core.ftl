@@ -19,6 +19,8 @@ op-value-not-tokens = é esperado um objeto ou null
 op-value-not-a-slot = este parâmetro não é um slot
 op-value-out-of-bounds = o número está fora do intervalo permitido
 op-value-unreadable = o valor não tem a forma esperada
+op-value-valign = espera-se top, middle ou bottom
+op-value-path = o traçado é composto por comandos M, L, C, Q e Z seguidos dos seus números, começando por M
 op-unknown-widget = Widget desconhecido: { $subject }
 op-unknown-param = Parâmetro desconhecido: { $subject }
 op-param-type-because = Valor inválido para { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] o valor é definido com set_param, ou null
    *[no] o valor é definido com set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] espera-se um traçado de forma (um objeto com d) ou null
+   *[no] espera-se um traçado de forma (um objeto com d)
+}
 op-item-not-found = Nenhum item { $subject }
 op-list-full = A lista { $subject } está cheia (no máximo { $max ->
    [one] { $max } item
@@ -123,6 +129,7 @@ issue-slot-rejects = { $kind } não é aceito aqui
 issue-placed-in-flow = elemento posicionado com um quadro numa lista diagramada
 issue-unknown-bind = { $param } está ligado a uma configuração do deck desconhecida
 issue-slot-too-deep = elementos aninhados profundamente demais
+issue-invalid-style = valor de estilo inválido: { $field }
 issue-missing-asset = recurso ausente: { $asset }
 issue-pack-version-mismatch = versão de pacote alterada descartada: { $version }
 issue-pack-version-missing = versão de pacote ausente das fontes: { $version }

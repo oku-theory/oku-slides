@@ -19,6 +19,8 @@ op-value-not-tokens = المتوقع كائن أو null
 op-value-not-a-slot = هذا المعامل ليس خانة
 op-value-out-of-bounds = العدد خارج النطاق المسموح
 op-value-unreadable = القيمة ليست بالشكل المتوقع
+op-value-valign = المتوقع top أو middle أو bottom
+op-value-path = يتكوّن المسار من أوامر M وL وC وQ وZ تتبعها أرقامها، ويبدأ بـ M
 op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-param = معامل غير معروف: { $subject }
 op-param-type-because = قيمة غير صالحة لـ { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] تُحدَّد القيمة عبر set_param, أو null
    *[no] تُحدَّد القيمة عبر set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] المتوقع مسار شكل (كائن بالمفتاح d) أو null
+   *[no] المتوقع مسار شكل (كائن بالمفتاح d)
+}
 op-item-not-found = لا يوجد بند { $subject }
 op-list-full = القائمة { $subject } ممتلئة ({ $max ->
    [zero] { $max } بند
@@ -131,6 +137,7 @@ issue-slot-rejects = { $kind } غير مقبول هنا
 issue-placed-in-flow = عنصر موضوع بإطار في قائمة منسّقة
 issue-unknown-bind = { $param } مرتبط بإعداد عرض غير معروف
 issue-slot-too-deep = العناصر متداخلة بعمق مفرط
+issue-invalid-style = قيمة نمط غير صالحة: { $field }
 issue-missing-asset = مورد مفقود: { $asset }
 issue-pack-version-mismatch = أُهملت نسخة حزمة معدَّلة: { $version }
 issue-pack-version-missing = نسخة الحزمة مفقودة من المصادر: { $version }

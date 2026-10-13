@@ -7,7 +7,14 @@ sources. Aucune dépendance à Typst ni à Tauri.
 
 - `Deck` (`model.rs`) : slides et éléments génériques `{id, kind, params}`
   (`Params`/`ParamValue`, `params.rs`), thème, `vars`, `templates` (`PackRef` : id et version
-  embarquée, atome du replica) ; schéma JSON (`schemars`).
+  embarquée, atome du replica) ; schéma JSON (`schemars`). `Style` (`Element.style`, en `Box`) :
+  typographie et dessin d'un élément, dont `valign` (`STYLE_VALIGNS`, élément à cadre seulement),
+  `inset` (4 marges en pt, `STYLE_INSET_MAX`), `tracking` (pt, `STYLE_TRACKING_MAX`) et `spacing` (espace
+  entre paragraphes et items de liste, pt, de 0 à `STYLE_SPACING_MAX`) ; `radius` en pt ou jeton.
+- `ShapePath` (`shape_path.rs`) : paramètre hôte `path` du widget `shape` (`shape: "path"`), `{ d }`
+  en mots séparés (`M`, `L`, `C`, `Q`, `Z`, décimaux sans exposant), coordonnées 0..1 étirées au cadre,
+  bornées (`SHAPE_PATH_MAX`, `SHAPE_PATH_COORD_MAX`) ; `from_commands(&[PathCommand])` (arrondi à 6
+  décimales) et `commands()`.
 - `WidgetRegistry` (`widget.rs`) : le schéma des widgets (`WidgetSchema`, `ParamSchema`,
   `ParamType`, `Category`, `HostType`, `SlotMode`) déclarés côté Typst, lu par le rendu ; les
   ops et `validate` s'y réfèrent pour ce qu'un `kind` accepte.
@@ -24,7 +31,8 @@ sources. Aucune dépendance à Typst ni à Tauri.
 - `tokens.rs` : jetons effectifs d'un thème (`effective_tokens` : défauts puis thème) et fusion
   profonde `merge`, partagés par la session (éditeur de thème), la CLI et l'import.
   `ThemeRef` (`Deck.theme`, atome du replica) : une version de thème est un `PackFiles` sans
-  widget dont le manifeste est `theme.json` ; `SetTheme` change la seule référence (`null` : thème
+  widget dont le manifeste est `theme.json` (`ThemeManifest`, `pack.rs` : `from_files`, `to_files` ;
+  ré-exporté par la session, construit par l'import hi-fi) ; `SetTheme` change la seule référence (`null` : thème
   par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),
   `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
 - `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,

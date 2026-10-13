@@ -19,6 +19,8 @@ op-value-not-tokens = een object of null wordt verwacht
 op-value-not-a-slot = deze parameter is geen slot
 op-value-out-of-bounds = het getal ligt buiten het toegestane bereik
 op-value-unreadable = de waarde heeft niet de verwachte vorm
+op-value-valign = top, middle of bottom wordt verwacht
+op-value-path = het pad bestaat uit M-, L-, C-, Q- en Z-opdrachten met hun getallen en begint met M
 op-unknown-widget = Onbekende widget: { $subject }
 op-unknown-param = Onbekende parameter: { $subject }
 op-param-type-because = Ongeldige waarde voor { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] een waarde wordt ingesteld met set_param, of null
    *[no] een waarde wordt ingesteld met set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] een vormpad (object met d) of null wordt verwacht
+   *[no] een vormpad (object met d) wordt verwacht
+}
 op-item-not-found = Geen item { $subject }
 op-list-full = De lijst { $subject } is vol (maximaal { $max ->
    [one] { $max } item
@@ -123,6 +129,7 @@ issue-slot-rejects = { $kind } wordt hier niet geaccepteerd
 issue-placed-in-flow = element met een kader in een opgemaakte lijst
 issue-unknown-bind = { $param } is gekoppeld aan een onbekende deckinstelling
 issue-slot-too-deep = elementen zijn te diep genest
+issue-invalid-style = ongeldige stijlwaarde: { $field }
 issue-missing-asset = ontbrekende bron: { $asset }
 issue-pack-version-mismatch = gewijzigde pakketversie verworpen: { $version }
 issue-pack-version-missing = pakketversie ontbreekt in de bronnen: { $version }

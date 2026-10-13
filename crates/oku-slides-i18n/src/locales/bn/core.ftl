@@ -19,6 +19,8 @@ op-value-not-tokens = অবজেক্ট বা null প্রত্যাশ
 op-value-not-a-slot = এই প্যারামিটারটি স্লট নয়
 op-value-out-of-bounds = সংখ্যাটি অনুমোদিত সীমার বাইরে
 op-value-unreadable = মানটি প্রত্যাশিত গঠনে নেই
+op-value-valign = top, middle অথবা bottom প্রত্যাশিত
+op-value-path = পথটি M, L, C, Q ও Z কমান্ড ও তাদের সংখ্যা দিয়ে গঠিত, শুরু হয় M দিয়ে
 op-unknown-widget = অজানা উইজেট: { $subject }
 op-unknown-param = অজানা প্যারামিটার: { $subject }
 op-param-type-because = { $subject }-এর জন্য অবৈধ মান: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] মান set_param দিয়ে সেট করা হয়, বা null
    *[no] মান set_param দিয়ে সেট করা হয়
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] একটি আকৃতির পথ (d কী-সহ অবজেক্ট) অথবা null প্রত্যাশিত
+   *[no] একটি আকৃতির পথ (d কী-সহ অবজেক্ট) প্রত্যাশিত
+}
 op-item-not-found = { $subject } নামে কোনো আইটেম নেই
 op-list-full = { $subject } তালিকা পূর্ণ (সর্বোচ্চ { $max }টি আইটেম)
 op-list-minimum = { $subject } তালিকায় কমপক্ষে { $min }টি আইটেম থাকতে হবে
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind } এখানে গ্রহণযোগ্য �
 issue-placed-in-flow = সাজানো তালিকায় ফ্রেমসহ রাখা উপাদান
 issue-unknown-bind = { $param } একটি অজানা ডেক সেটিংয়ের সাথে যুক্ত
 issue-slot-too-deep = উপাদানগুলি খুব গভীরে নেস্টেড
+issue-invalid-style = অবৈধ স্টাইল মান: { $field }
 issue-missing-asset = অ্যাসেট অনুপস্থিত: { $asset }
 issue-pack-version-mismatch = পরিবর্তিত প্যাক সংস্করণ বাদ দেওয়া হয়েছে: { $version }
 issue-pack-version-missing = উৎসে প্যাক সংস্করণ অনুপস্থিত: { $version }

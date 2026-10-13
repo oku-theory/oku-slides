@@ -32,7 +32,7 @@ fn import_plan_serializes_ops_assets_by_length_and_requests() {
             sample: vec![item()],
             fallback: "stack".into(),
         }],
-        report: ImportReport::new(Mode::Retrofit),
+        ..ImportPlan::new(ImportReport::new(Mode::Retrofit))
     };
     let v = serde_json::to_value(&plan).unwrap();
     assert_that!(v["ops"][0]["op"]).is_equal_to(json!("add_slide"));
@@ -45,15 +45,13 @@ fn import_plan_serializes_ops_assets_by_length_and_requests() {
 #[test]
 fn import_plan_report_json_adds_the_widget_requests_to_the_report() {
     let plan = ImportPlan {
-        ops: Vec::new(),
-        assets: BTreeMap::new(),
         widget_requests: vec![WidgetRequest {
             signature: "text×1|0044".into(),
             slides: vec!["s2".into()],
             sample: vec![item()],
             fallback: "stack".into(),
         }],
-        report: ImportReport::new(Mode::Retrofit),
+        ..ImportPlan::new(ImportReport::new(Mode::Retrofit))
     };
     let v = plan.report_json(oku_slides_i18n::english());
     assert_that!(v["mode"]).is_equal_to(json!("retrofit"));

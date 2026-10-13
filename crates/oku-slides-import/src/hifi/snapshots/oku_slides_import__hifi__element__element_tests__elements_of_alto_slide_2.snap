@@ -1,0 +1,511 @@
+---
+source: crates/oku-slides-import/src/hifi/element_tests.rs
+expression: "DeckSetup::new(&deck).slide(&deck, 2)"
+---
+{
+  "elements": [
+    {
+      "id": "s2-1",
+      "kind": "text",
+      "frame": {
+        "x": 128.0,
+        "y": 112.0,
+        "w": 1713.92,
+        "h": 30.59
+      },
+      "style": {
+        "size": 19.0,
+        "color": "#0072b0",
+        "weight": "bold",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.67,
+        "valign": "top",
+        "inset": [
+          6.39,
+          0.0,
+          6.39,
+          0.0
+        ],
+        "tracking": 1.0
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "OUR CONVICTION"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-2",
+      "kind": "shape",
+      "frame": {
+        "x": 128.0,
+        "y": 156.59,
+        "w": 64.0,
+        "h": 5.0
+      },
+      "style": {
+        "fill": "#00bef4"
+      },
+      "params": {
+        "shape": "rect"
+      }
+    },
+    {
+      "id": "s2-3",
+      "kind": "text",
+      "frame": {
+        "x": 128.0,
+        "y": 179.59,
+        "w": 1545.0,
+        "h": 132.8
+      },
+      "style": {
+        "size": 56.0,
+        "color": "#00154e",
+        "weight": "bold",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.42,
+        "valign": "top",
+        "inset": [
+          11.83,
+          0.0,
+          11.83,
+          0.0
+        ],
+        "tracking": -1.0
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "The agent becomes the only interface — and, soon, the more trusted confidant."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-4",
+      "kind": "shape",
+      "frame": {
+        "x": 128.0,
+        "y": 352.39,
+        "w": 554.66,
+        "h": 567.61
+      },
+      "style": {
+        "fill": "#ffffff"
+      },
+      "params": {
+        "shape": "rect"
+      }
+    },
+    {
+      "id": "s2-5",
+      "kind": "shape",
+      "frame": {
+        "x": 128.0,
+        "y": 354.39,
+        "w": 554.66,
+        "h": 1.0
+      },
+      "style": {
+        "stroke": "#00bef4",
+        "stroke-width": 4.0
+      },
+      "params": {
+        "shape": "line"
+      }
+    },
+    {
+      "id": "s2-6",
+      "kind": "text",
+      "frame": {
+        "x": 160.0,
+        "y": 392.39,
+        "w": 505.38,
+        "h": 35.2
+      },
+      "style": {
+        "size": 26.0,
+        "color": "#00154e",
+        "weight": "bold",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.47,
+        "valign": "top",
+        "inset": [
+          6.14,
+          0.0,
+          6.14,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "The only window"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-7",
+      "kind": "text",
+      "frame": {
+        "x": 160.0,
+        "y": 439.59,
+        "w": 505.38,
+        "h": 138.37
+      },
+      "style": {
+        "size": 21.0,
+        "color": "#3d4756",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.87,
+        "valign": "top",
+        "inset": [
+          9.16,
+          0.0,
+          9.16,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "The agent becomes the single window through which clients see all their content, and the only channel of communication. Applications, in the traditional sense, disappear."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-8",
+      "kind": "shape",
+      "frame": {
+        "x": 682.66,
+        "y": 352.39,
+        "w": 554.67,
+        "h": 567.61
+      },
+      "style": {
+        "fill": "#ffffff"
+      },
+      "params": {
+        "shape": "rect"
+      }
+    },
+    {
+      "id": "s2-9",
+      "kind": "shape",
+      "frame": {
+        "x": 682.66,
+        "y": 354.39,
+        "w": 554.67,
+        "h": 1.0
+      },
+      "style": {
+        "stroke": "#00bef4",
+        "stroke-width": 4.0
+      },
+      "params": {
+        "shape": "line"
+      }
+    },
+    {
+      "id": "s2-10",
+      "kind": "text",
+      "frame": {
+        "x": 714.66,
+        "y": 392.39,
+        "w": 505.39,
+        "h": 35.2
+      },
+      "style": {
+        "size": 26.0,
+        "color": "#00154e",
+        "weight": "bold",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.47,
+        "valign": "top",
+        "inset": [
+          6.14,
+          0.0,
+          6.14,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "A deeper confidant"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-11",
+      "kind": "text",
+      "frame": {
+        "x": 714.66,
+        "y": 439.59,
+        "w": 505.39,
+        "h": 171.97
+      },
+      "style": {
+        "size": 21.0,
+        "color": "#3d4756",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.87,
+        "valign": "top",
+        "inset": [
+          9.16,
+          0.0,
+          9.16,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "People will confide in a Claude or a ChatGPT more easily than in a private banker. An AI soon holds a more intimate, continuous knowledge of a client's situation than any human relationship can sustain over time."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-12",
+      "kind": "shape",
+      "frame": {
+        "x": 1237.34,
+        "y": 352.39,
+        "w": 554.66,
+        "h": 567.61
+      },
+      "style": {
+        "fill": "#00154e"
+      },
+      "params": {
+        "shape": "rect"
+      }
+    },
+    {
+      "id": "s2-13",
+      "kind": "shape",
+      "frame": {
+        "x": 1237.34,
+        "y": 354.39,
+        "w": 554.66,
+        "h": 1.0
+      },
+      "style": {
+        "stroke": "#00bef4",
+        "stroke-width": 4.0
+      },
+      "params": {
+        "shape": "line"
+      }
+    },
+    {
+      "id": "s2-14",
+      "kind": "text",
+      "frame": {
+        "x": 1269.34,
+        "y": 392.39,
+        "w": 505.38,
+        "h": 35.2
+      },
+      "style": {
+        "size": 26.0,
+        "color": "#ffffff",
+        "weight": "bold",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.47,
+        "valign": "top",
+        "inset": [
+          6.14,
+          0.0,
+          6.14,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "Attacked on two fronts"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-15",
+      "kind": "text",
+      "frame": {
+        "x": 1269.34,
+        "y": 439.59,
+        "w": 505.38,
+        "h": 171.97
+      },
+      "style": {
+        "size": 21.0,
+        "color": "#b9c4d6",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.87,
+        "valign": "top",
+        "inset": [
+          9.16,
+          0.0,
+          9.16,
+          0.0
+        ]
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "The private banker's role is challenged on the "
+              },
+              {
+                "t": "relationship",
+                "color": "#00bef4"
+              },
+              {
+                "t": " — the agent owns the channel and knows the client best — and on "
+              },
+              {
+                "t": "competence",
+                "color": "#00bef4"
+              },
+              {
+                "t": ": an AI's financial knowledge and analytical depth already outclass any individual advisor."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-16",
+      "kind": "text",
+      "frame": {
+        "x": 128.0,
+        "y": 995.0,
+        "w": 539.22,
+        "h": 25.0
+      },
+      "style": {
+        "size": 15.0,
+        "color": "#5b6675",
+        "font": "Inter",
+        "align": "left",
+        "leading": 0.67,
+        "valign": "top",
+        "inset": [
+          5.04,
+          0.0,
+          5.04,
+          0.0
+        ],
+        "tracking": 0.2
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "1 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-17",
+      "kind": "text",
+      "frame": {
+        "x": 880.14,
+        "y": 989.41,
+        "w": 159.71,
+        "h": 30.59
+      },
+      "style": {
+        "size": 19.0,
+        "color": "#5b6675",
+        "font": "Inter",
+        "align": "center",
+        "leading": 0.67,
+        "valign": "top",
+        "inset": [
+          6.39,
+          0.0,
+          6.39,
+          0.0
+        ],
+        "tracking": 1.0
+      },
+      "params": {
+        "body": [
+          {
+            "runs": [
+              {
+                "t": "CONFIDENTIAL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-18",
+      "kind": "image",
+      "frame": {
+        "x": 1647.86,
+        "y": 968.0,
+        "w": 144.14,
+        "h": 64.0
+      },
+      "params": {
+        "asset": "sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab",
+        "fit": "stretch"
+      }
+    }
+  ],
+  "losses": []
+}

@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] فُقد الشطب
     [baseline] فُقد النص المرتفع أو المنخفض
     [caps] فُقدت الأحرف الكبيرة
+    [font] استُبدل خط مقطع بخط المربع
+    [tracking] تباعد أحرف مقطع استُبدل بتباعد المربع
+    [weight] عُرض مقطع عادي بخط عريض مثل المربع
+    [slant] عُرض مقطع مستقيم بخط مائل مثل المربع
    *[highlight] فُقد التمييز
 }
 import-loss-transform = فُقد التدوير أو القلب أو الاقتصاص
@@ -70,6 +74,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
 }
 import-loss-no-slot = حُذف المحتوى: لا مكان له في القالب المختار
+import-loss-page-fitted = صفحة المصدر { $width } × { $height } نقطة ليست بنسبة 16:9: غُيّر حجم المحتوى ووُسِّط
+import-loss-paragraph-style = وُحّدت محاذاة فقرة أو تباعد أسطرها أو تباعد الفقرات مع المربع
+import-loss-shape-style = { $effect ->
+    [gradient] عُرض التدرج بلون واحد
+    [picture] مُدّت صورة التعبئة على إطار الشكل
+    [dash] عُرض الخط المتقطع متصلاً
+   *[geometry] عُرض شكل غير معروف كمستطيل
+}
+import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة واحدة: «{ $layout }» بلا قالب؛ تستخدم شرائحه الأداة الفارغة وتتلقى زخرفته كعناصر
+import-loss-decor-truncated = قُصّت الزخرفة لتلائم حجم ملف الحزمة: عناصر محذوفة: { $omitted }
+import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو أحجام النص الخاصة به فُقدت
+import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة
+import-font-missing = لم يُعثر على { $family }: يستخدم النص { $by }
+import-font-restricted = { $family }: يمنع ترخيصه تضمين بعض أنماطه في العرض التقديمي
+import-font-restricted-substituted = لا يمكن تضمين { $family } في العرض التقديمي (الترخيص): استُبدل بـ { $by } ذي المقاييس المتوافقة
+import-font-restricted-missing = لا يمكن تضمين { $family } في العرض التقديمي (الترخيص): يستخدم النص { $by }
+import-font-too-large = { $family }: الملفات أكبر من أن تُضمَّن في العرض؛ يستخدم النص { $by }
+import-font-missing-no-fallback = لم يُعثر على { $family } ولا على خط متن السمة: يُعرض النص بالخط الافتراضي للمحرك
 import-warning-effect-ignored = لم يُستورد التأثير: { $detail }
 import-warning-approximated = عرض تقريبي: { $detail }
 import-warning-unreadable-item = تم تخطي عنصر غير مقروء: { $detail }

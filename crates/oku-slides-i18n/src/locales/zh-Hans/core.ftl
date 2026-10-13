@@ -19,6 +19,8 @@ op-value-not-tokens = 需要对象或 null
 op-value-not-a-slot = 此参数不是插槽
 op-value-out-of-bounds = 数值超出允许范围
 op-value-unreadable = 值的格式不符合预期
+op-value-valign = 应为 top、middle 或 bottom
+op-value-path = 路径由 M、L、C、Q、Z 命令及其数字组成，以 M 开头
 op-unknown-widget = 未知的组件：{ $subject }
 op-unknown-param = 未知的参数：{ $subject }
 op-param-type-because = { $subject } 的值无效：{ $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] 值通过 set_param 设置，或 null
    *[no] 值通过 set_param 设置
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] 应为形状路径（带键 d 的对象）或 null
+   *[no] 应为形状路径（带键 d 的对象）
+}
 op-item-not-found = 没有项目 { $subject }
 op-list-full = 列表 { $subject } 已满（最多 { $max }个项目）
 op-list-minimum = 列表 { $subject } 至少需要 { $min }个项目
@@ -117,6 +123,7 @@ issue-slot-rejects = 此处不接受 { $kind }
 issue-placed-in-flow = 在排版列表中以框架放置的元素
 issue-unknown-bind = { $param } 关联到未知的演示文稿设置
 issue-slot-too-deep = 元素嵌套过深
+issue-invalid-style = 无效的样式值：{ $field }
 issue-missing-asset = 缺少资源：{ $asset }
 issue-pack-version-mismatch = 已丢弃被篡改的模板包版本：{ $version }
 issue-pack-version-missing = 源文件中缺少模板包版本：{ $version }

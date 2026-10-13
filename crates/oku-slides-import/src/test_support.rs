@@ -1,17 +1,22 @@
 //! Aides de test du projecteur : jetons effectifs des thèmes intégrés, texte, items,
 //! slides, layouts et decks source, registre de base, application d'une slide ou d'un
-//! plan par les ops du cœur, modèles des packs intégrés.
+//! plan par les ops du cœur, modèles des packs intégrés, thème Office, fixtures
+//! d'import lues et polices de l'app.
 
 use std::collections::{BTreeMap, HashSet};
+use std::fs;
+use std::io::{Cursor, Write};
+use std::path::{Path, PathBuf};
 
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{Deck, Element, Op, ParamValue, Slide, Template, WidgetRegistry, apply_all, validate};
 use serde_json::{Map, Value};
 
+use crate::fonts::{FontCatalog, FontOrigin};
 use crate::retrofit::ColorTokens;
 use crate::source::{
     Align, Bullet, Caps, Color, Fill, Frame, Item, ItemKind, Layout, ParaStyle, Paragraph, Rgba, Role, Run, RunStyle,
-    Size, SourceDeck, SourceSlide, Spacing, Styled, TextBox,
+    Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox, ThemeFonts,
 };
 
 /// Jetons par défaut du rendu.
@@ -36,6 +41,33 @@ pub(crate) fn colors(theme: &str) -> ColorTokens {
 /// Couleur du texte par défaut d'un thème Office : `tx1`, emplacement `dk1`, noir.
 pub(crate) fn tx1() -> Color {
     Styled::mapped(Rgba::new(0, 0, 0), "tx1", "dk1", Vec::new())
+}
+
+/// Le thème Office (2013–2022) : ses 12 couleurs, Calibri Light et Calibri.
+pub(crate) fn office_theme() -> SourceTheme {
+    let colors = [
+        ("dk1", "000000"),
+        ("lt1", "ffffff"),
+        ("dk2", "44546a"),
+        ("lt2", "e7e6e6"),
+        ("accent1", "4472c4"),
+        ("accent2", "ed7d31"),
+        ("accent3", "a5a5a5"),
+        ("accent4", "ffc000"),
+        ("accent5", "5b9bd5"),
+        ("accent6", "70ad47"),
+        ("hlink", "0563c1"),
+        ("folHlink", "954f72"),
+    ];
+    let rgb = |hex: &str| {
+        let c = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
+        Rgba::new(c(0), c(2), c(4))
+    };
+    SourceTheme {
+        name: "Office".into(),
+        colors: colors.iter().map(|(slot, hex)| ((*slot).to_owned(), rgb(hex))).collect(),
+        fonts: ThemeFonts { major: "Calibri Light".into(), minor: "Calibri".into() },
+    }
 }
 
 /// Style de run neutre : Calibri 18 pt, `tx1`, sans effet.
@@ -101,7 +133,7 @@ pub(crate) fn text_box(paragraphs: Vec<Paragraph>) -> TextBox {
 /// Le registre des widgets de base (`fixtures/widgets/base-registry.json`).
 pub(crate) fn registry() -> WidgetRegistry {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
 }
 
@@ -214,4 +246,60 @@ pub(crate) fn applied(ops: Vec<Op>, assets: &[String]) -> Deck {
     let issues = validate(&deck, &registry, Some(&known));
     assert!(issues.is_empty(), "issues : {issues:?}");
     deck
+}
+
+/// Racine des fixtures d'import (`fixtures/import`).
+fn import_fixtures() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import")
+}
+
+/// Les fichiers sous `dir`, chemins relatifs à `root` avec des `/`, hors `.DS_Store`.
+fn files_under(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.file_name().is_some_and(|n| n == ".DS_Store") {
+            continue;
+        }
+        if path.is_dir() {
+            files_under(root, &path, out);
+        } else {
+            let rel = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+            out.push((rel, fs::read(&path).unwrap()));
+        }
+    }
+}
+
+/// La fixture d'import `name`, lue : un `.pptx` (`alto-wealth.pptx`) ou un dossier OOXML zippé à la volée (`kitchen`).
+pub(crate) fn fixture(name: &str) -> SourceDeck {
+    let path = import_fixtures().join(name);
+    let bytes = if path.is_dir() {
+        let mut files = Vec::new();
+        files_under(&path, &path, &mut files);
+        files.sort_by(|a, b| (a.0 != "[Content_Types].xml", &a.0).cmp(&(b.0 != "[Content_Types].xml", &b.0)));
+        let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for (rel, data) in files {
+            w.start_file(rel, zip::write::SimpleFileOptions::default()).unwrap();
+            w.write_all(&data).unwrap();
+        }
+        w.finish().unwrap().into_inner()
+    } else {
+        fs::read(&path).unwrap()
+    };
+    crate::read_pptx(&bytes, &crate::ReadLimits::default()).unwrap()
+}
+
+/// Les polices livrées avec l'app (`assets/fonts/*.ttf`), sans police système.
+pub(crate) fn app_fonts() -> FontCatalog {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/fonts");
+    let mut paths: Vec<_> = fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "ttf"))
+        .collect();
+    paths.sort();
+    let mut catalog = FontCatalog::new();
+    for p in paths {
+        catalog.add(FontOrigin::App, fs::read(p).unwrap());
+    }
+    catalog
 }

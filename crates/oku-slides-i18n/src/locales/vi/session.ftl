@@ -364,6 +364,7 @@ theme-token-component-table-size = Bảng · cỡ chữ
 theme-token-component-table-header-bg = Bảng · nền tiêu đề
 theme-token-component-table-header-color = Bảng · chữ tiêu đề
 theme-token-component-table-header-weight = Bảng · độ đậm tiêu đề
+theme-token-component-table-body-bg = Bảng · nền hàng
 theme-token-component-table-stripe-bg = Bảng · nền hàng xen kẽ
 theme-token-component-table-rule-color = Bảng · màu đường kẻ
 theme-token-component-table-rule-width = Bảng · độ dày đường kẻ

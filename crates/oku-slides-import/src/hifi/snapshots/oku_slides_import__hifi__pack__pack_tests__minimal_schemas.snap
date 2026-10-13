@@ -1,0 +1,86 @@
+---
+source: crates/oku-slides-import/src/hifi/pack_tests.rs
+expression: schemas
+---
+[
+  {
+    "name": "l1-diapositive-de-titre",
+    "label": "Diapositive de titre",
+    "category": "slide",
+    "params": [
+      {
+        "name": "titre",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "sous-titre",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "grid",
+        "label": null,
+        "type": "grid",
+        "default": {
+          "columns": 12,
+          "rows": 6
+        },
+        "bind": null
+      },
+      {
+        "name": "extras",
+        "label": null,
+        "type": "slot",
+        "mode": "free",
+        "accepts": null,
+        "default": null,
+        "bind": null
+      }
+    ]
+  },
+  {
+    "name": "l2-titre-et-contenu",
+    "label": "Titre et contenu",
+    "category": "slide",
+    "params": [
+      {
+        "name": "titre",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "corps",
+        "label": null,
+        "type": "rich",
+        "default": null,
+        "bind": null
+      },
+      {
+        "name": "grid",
+        "label": null,
+        "type": "grid",
+        "default": {
+          "columns": 12,
+          "rows": 6
+        },
+        "bind": null
+      },
+      {
+        "name": "extras",
+        "label": null,
+        "type": "slot",
+        "mode": "free",
+        "accepts": null,
+        "default": null,
+        "bind": null
+      }
+    ]
+  }
+]

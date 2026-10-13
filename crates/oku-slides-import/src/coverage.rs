@@ -22,9 +22,13 @@
 //! `origins` (id d'item → id d'élément, enfants compris) ; un titre posé en
 //! paramètre n'y est pas et se cherche dans la slide.
 //!
-//! Les items omis par règle ([`Decor::skips`] : date, pied, numéro, en-tête et
-//! pied répétés) sont hors du compte : la projection et la couverture partagent
-//! ce prédicat.
+//! Les items que le projecteur omet par règle sont hors du compte (`omitted`) :
+//! la projection et la couverture partagent ce prédicat. Le retrofit omet le
+//! décor des slides ([`crate::retrofit::decor::Decor::skips`] : date, pied,
+//! numéro, en-tête et pied répétés) ; le hi-fi n'omet rien, le décor des
+//! masters et des layouts (que son pack dessine) n'étant pas dans les items
+//! des slides. Un champ numéro de slide (`slidenum`) non plus : le deck le
+//! recalcule, son texte en cache n'est pas un contenu.
 
 use std::collections::BTreeMap;
 
@@ -32,9 +36,8 @@ use oku_slides_core::{Deck, Element, HostType, ParamType, ParamValue, Params, Sl
 use serde_json::Value;
 
 use crate::report::{Coverage, Missing, Ratio};
-use crate::retrofit::decor::Decor;
 use crate::retrofit::text::plain;
-use crate::source::{self, Caps, Fill, Item, ItemKind, SourceDeck, TextBox};
+use crate::source::{self, Caps, Fill, Item, ItemKind, SLIDE_NUMBER, SourceDeck, TextBox};
 
 /// Longueur (en caractères) sous laquelle un run se cherche par son paragraphe entier.
 const SHORT_RUN: usize = 3;
@@ -100,7 +103,7 @@ impl<'d> Seen<'d> {
                     match t.host() {
                         Some(HostType::Table) => self.tables.push(v),
                         Some(HostType::Chart) => self.charts.push(v),
-                        None => continue,
+                        Some(HostType::Path) | None => continue,
                     }
                     self.data_texts(v, owners);
                 }
@@ -165,7 +168,8 @@ fn probes(tb: &TextBox, whole: Option<&str>) -> Vec<Probe> {
         let paragraph = whole.map_or_else(|| norm(&raw.concat()), norm);
         for (k, r) in p.runs.iter().enumerate() {
             let text = norm(&r.text);
-            if !text.chars().any(char::is_alphanumeric) {
+            // Le numéro de slide est recalculé par le deck : hors du compte.
+            if !text.chars().any(char::is_alphanumeric) || r.field.as_deref() == Some(SLIDE_NUMBER) {
                 continue;
             }
             let before = raw[..k].concat().chars().last();
@@ -294,7 +298,7 @@ impl Tally {
     /// Compte `item` (et ses enfants) de la slide source `slide` contre `seen` ;
     /// `element` : l'élément projeté depuis un parent.
     fn item(&mut self, slide: u32, item: &Item, seen: &Seen<'_>, cx: &Cx<'_>, element: Option<&str>) {
-        if cx.decor.skips(item) {
+        if (cx.omitted)(item) {
             return;
         }
         let element = cx.origins.get(&item.id).map(String::as_str).or(element);
@@ -338,23 +342,26 @@ impl Tally {
     }
 }
 
-/// Ce que le compte partage : le décor omis, l'origine des éléments.
+/// Ce que le compte partage : les items omis, l'origine des éléments.
 struct Cx<'a> {
-    decor: Decor,
+    omitted: &'a dyn Fn(&Item) -> bool,
     origins: &'a BTreeMap<String, String>,
 }
 
 /// La couverture du contenu de `source` dans `deck` (registre `registry` du
 /// pack) ; `origins` : l'id de l'élément projeté depuis chaque item source.
-/// `deck_slide` : le numéro de la slide source dont le titre et le sous-titre remplissent ceux du deck.
+/// `deck_slide` : le numéro de la slide source dont le titre et le sous-titre
+/// remplissent ceux du deck. `omitted` : les items que le projecteur omet par
+/// règle, hors du compte (avec leurs enfants).
 pub fn coverage(
     source: &SourceDeck,
     deck: &Deck,
     registry: &WidgetRegistry,
     origins: &BTreeMap<String, String>,
     deck_slide: Option<u32>,
+    omitted: &dyn Fn(&Item) -> bool,
 ) -> Coverage {
-    let cx = Cx { decor: Decor::of(source), origins };
+    let cx = Cx { omitted, origins };
     let mut tally = Tally::default();
     for s in &source.slides {
         let seen = Seen::of(deck, deck.slide(&format!("s{}", s.number)), deck_slide == Some(s.number), registry);

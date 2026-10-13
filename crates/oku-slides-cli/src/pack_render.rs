@@ -1,22 +1,49 @@
 //! Widgets et rendu d'un deck pour la CLI. Le pack qu'il embarque est sondé
 //! par le processus de rendu ([`DeckWidgets::probe`]) : chaque fichier à part,
 //! les widgets cassés écartés (diagnostics au journal) ; le registre sondé
-//! valide le deck (t-355). Le rendu se fait en mémoire, ou par ce processus
+//! valide le deck (t-355). Une commande n'a pas de « rendu suivant » : les
+//! fichiers laissés non sondés (budget épuisé) sont sondés de nouveau, tant
+//! qu'un appel en sonde au moins un, en [`PROBE_ROUNDS`] appels au plus. Le rendu se fait en mémoire, ou par ce processus
 //! quand le pack a des widgets valides. Le code d'un pack reçu y est isolé et
 //! borné (délai, mémoire : spec t-327).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use color_eyre::eyre::Result;
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, WidgetRegistry};
+use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, WidgetFile, WidgetRegistry};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::errors::one_line;
 use oku_slides_render::{Compiled, Diagnostic, Fonts, Layout, PackWidgets, RenderError, Renderer};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 use oku_slides_session::{ThemeLibrary, theme_tokens};
+
+/// Appels de sonde d'un pack au plus. Les sondes faites sont gardées par le
+/// processus de rendu : un appel qui ne fait pas baisser le nombre de fichiers
+/// non sondés (processus indisponible) arrête la relance avant cette borne.
+const PROBE_ROUNDS: usize = 8;
+
+/// Appelle `probe` tant que des fichiers restent non sondés (`unprobed`) et
+/// que chaque appel en fait baisser le nombre, en [`PROBE_ROUNDS`] appels au
+/// plus ; la première erreur arrête tout.
+fn probe_rounds<T, E>(mut probe: impl FnMut() -> Result<T, E>, unprobed: impl Fn(&T) -> usize) -> Result<T, E> {
+    let mut last = probe()?;
+    for _ in 1..PROBE_ROUNDS {
+        let left = unprobed(&last);
+        if left == 0 {
+            break;
+        }
+        let next = probe()?;
+        let progressed = unprobed(&next) < left;
+        last = next;
+        if !progressed {
+            break;
+        }
+    }
+    Ok(last)
+}
 
 /// Jetons d'un thème, par groupe.
 type Tokens = serde_json::Map<String, serde_json::Value>;
@@ -74,6 +101,8 @@ impl Rendered {
 pub(crate) struct DeckWidgets {
     /// Le registre qui valide le deck et ses sources.
     pub(crate) registry: Arc<WidgetRegistry>,
+    /// Fichiers du pack toujours non sondés après la relance (budget épuisé, lien indisponible).
+    pub(crate) unprobed: BTreeSet<WidgetFile>,
     remote: Option<(RenderWorker, PackWidgets)>,
 }
 
@@ -89,7 +118,7 @@ impl DeckWidgets {
         deck: &Deck,
         packs: &BTreeMap<PackVersion, PackFiles>,
     ) -> Self {
-        let base_only = || Self { registry: base.clone(), remote: None };
+        let base_only = || Self { registry: base.clone(), unprobed: BTreeSet::new(), remote: None };
         let Some(r) = &deck.templates else { return base_only() };
         let Some(files) = packs.get(&r.version) else {
             tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
@@ -99,8 +128,8 @@ impl DeckWidgets {
             return base_only();
         }
         let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
-        let probed =
-            PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| worker.probe_pack(&pack));
+        let probed = PackWidgets::new(r.version.hex(), files.widgets().clone())
+            .and_then(|pack| probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len()));
         let probe = match probed {
             Ok(probe) => probe,
             Err(e) => {
@@ -114,8 +143,8 @@ impl DeckWidgets {
             }
         }
         match probe.pack {
-            Some(pack) => Self { registry: probe.registry, remote: Some((worker, pack)) },
-            None => base_only(),
+            Some(pack) => Self { registry: probe.registry, unprobed: probe.unprobed, remote: Some((worker, pack)) },
+            None => Self { unprobed: probe.unprobed, ..base_only() },
         }
     }
 }
@@ -151,3 +180,7 @@ fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck, tokens
     renderer.set_theme(tokens)?;
     Ok(Rendered::Local(renderer.render(deck, &bundle.assets)?))
 }
+
+#[cfg(test)]
+#[path = "pack_render_tests.rs"]
+mod pack_render_tests;

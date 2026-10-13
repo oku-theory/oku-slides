@@ -364,6 +364,7 @@ theme-token-component-table-size = Tabelle · Textgröße
 theme-token-component-table-header-bg = Tabelle · Kopfzeilenhintergrund
 theme-token-component-table-header-color = Tabelle · Kopfzeilentext
 theme-token-component-table-header-weight = Tabelle · Kopfzeilenstärke
+theme-token-component-table-body-bg = Tabelle · Hintergrund der Zeilen
 theme-token-component-table-stripe-bg = Tabelle · Hintergrund der Streifen
 theme-token-component-table-rule-color = Tabelle · Linienfarbe
 theme-token-component-table-rule-width = Tabelle · Linienstärke

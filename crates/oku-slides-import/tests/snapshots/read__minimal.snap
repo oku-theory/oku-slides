@@ -1159,7 +1159,160 @@ expression: minimal()
             "columns": 1
           }
         }
-      ]
+      ],
+      "text_styles": {
+        "title": {
+          "para": {
+            "align": "left",
+            "indent": 0.0,
+            "margin_left": 0.0,
+            "line_spacing": {
+              "percent": 1.0
+            },
+            "space_before": {
+              "points": 0.0
+            },
+            "space_after": {
+              "points": 0.0
+            },
+            "bullet": {
+              "type": "none"
+            }
+          },
+          "run": {
+            "font": {
+              "value": "Calibri Light",
+              "origin": {
+                "scheme": {
+                  "name": "major",
+                  "slot": "major"
+                }
+              }
+            },
+            "size": 44.0,
+            "bold": false,
+            "italic": false,
+            "underline": false,
+            "strike": false,
+            "color": {
+              "value": "#000000",
+              "origin": {
+                "scheme": {
+                  "name": "tx1",
+                  "slot": "dk1"
+                }
+              }
+            },
+            "highlight": null,
+            "baseline": 0,
+            "caps": "none",
+            "char_spacing": 1.0,
+            "link": null
+          }
+        },
+        "body": {
+          "para": {
+            "align": "left",
+            "indent": -18.0,
+            "margin_left": 18.0,
+            "line_spacing": {
+              "percent": 1.0
+            },
+            "space_before": {
+              "points": 0.0
+            },
+            "space_after": {
+              "points": 0.0
+            },
+            "bullet": {
+              "type": "char",
+              "char": "•",
+              "color": null,
+              "size_pct": 1.0,
+              "font": "Arial"
+            }
+          },
+          "run": {
+            "font": {
+              "value": "Calibri",
+              "origin": {
+                "scheme": {
+                  "name": "minor",
+                  "slot": "minor"
+                }
+              }
+            },
+            "size": 28.0,
+            "bold": false,
+            "italic": false,
+            "underline": false,
+            "strike": false,
+            "color": {
+              "value": "#000000",
+              "origin": {
+                "scheme": {
+                  "name": "tx1",
+                  "slot": "dk1"
+                }
+              }
+            },
+            "highlight": null,
+            "baseline": 0,
+            "caps": "none",
+            "char_spacing": 1.0,
+            "link": null
+          }
+        },
+        "other": {
+          "para": {
+            "align": "left",
+            "indent": 0.0,
+            "margin_left": 0.0,
+            "line_spacing": {
+              "percent": 1.0
+            },
+            "space_before": {
+              "points": 0.0
+            },
+            "space_after": {
+              "points": 0.0
+            },
+            "bullet": {
+              "type": "none"
+            }
+          },
+          "run": {
+            "font": {
+              "value": "Calibri",
+              "origin": {
+                "scheme": {
+                  "name": "minor",
+                  "slot": "minor"
+                }
+              }
+            },
+            "size": 16.0,
+            "bold": false,
+            "italic": false,
+            "underline": false,
+            "strike": false,
+            "color": {
+              "value": "#000000",
+              "origin": {
+                "scheme": {
+                  "name": "tx1",
+                  "slot": "dk1"
+                }
+              }
+            },
+            "highlight": null,
+            "baseline": 0,
+            "caps": "none",
+            "char_spacing": 1.0,
+            "link": null
+          }
+        }
+      }
     }
   ],
   "layouts": [

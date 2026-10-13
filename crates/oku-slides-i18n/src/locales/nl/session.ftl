@@ -364,6 +364,7 @@ theme-token-component-table-size = Tabel · tekstgrootte
 theme-token-component-table-header-bg = Tabel · achtergrond koprij
 theme-token-component-table-header-color = Tabel · tekst koprij
 theme-token-component-table-header-weight = Tabel · gewicht koprij
+theme-token-component-table-body-bg = Tabel · achtergrond rijen
 theme-token-component-table-stripe-bg = Tabel · achtergrond streeprijen
 theme-token-component-table-rule-color = Tabel · lijnkleur
 theme-token-component-table-rule-width = Tabel · lijndikte

@@ -257,7 +257,7 @@ fn removing_frame_and_style_round_trips() {
     let slide = edited.slides.iter_mut().find(|s| s.id == "s-libre").unwrap();
     let el = slot_mut(slide, "elements").iter_mut().find(|e| e.id == "e-fond").unwrap();
     el.frame = None;
-    el.style = crate::Style::default();
+    *el.style = crate::Style::default();
     r.apply(&edited, "retirer cadre et style", None).unwrap();
     assert_that!(r.deck().0).is_equal_to(&edited);
 }

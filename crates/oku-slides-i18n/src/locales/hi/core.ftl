@@ -19,6 +19,8 @@ op-value-not-tokens = ऑब्जेक्ट या null अपेक्षि
 op-value-not-a-slot = यह पैरामीटर स्लॉट नहीं है
 op-value-out-of-bounds = संख्या अनुमत सीमा से बाहर है
 op-value-unreadable = मान अपेक्षित रूप में नहीं है
+op-value-valign = top, middle या bottom अपेक्षित है
+op-value-path = पथ M, L, C, Q और Z कमांड और उनकी संख्याओं से बनता है, और M से शुरू होता है
 op-unknown-widget = अज्ञात विजेट: { $subject }
 op-unknown-param = अज्ञात पैरामीटर: { $subject }
 op-param-type-because = { $subject } के लिए अमान्य मान: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] मान set_param से सेट किया जाता है, या null
    *[no] मान set_param से सेट किया जाता है
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] आकृति का पथ (d कुंजी वाला ऑब्जेक्ट) या null अपेक्षित है
+   *[no] आकृति का पथ (d कुंजी वाला ऑब्जेक्ट) अपेक्षित है
+}
 op-item-not-found = { $subject } नाम का कोई आइटम नहीं है
 op-list-full = सूची { $subject } भरी हुई है (अधिकतम { $max } आइटम)
 op-list-minimum = सूची { $subject } में कम से कम { $min } आइटम होने चाहिए
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind } यहाँ स्वीकार नहीं �
 issue-placed-in-flow = व्यवस्थित सूची में फ़्रेम के साथ रखा गया तत्व
 issue-unknown-bind = { $param } एक अज्ञात डेक सेटिंग से जुड़ा है
 issue-slot-too-deep = तत्व बहुत गहराई तक नेस्टेड हैं
+issue-invalid-style = अमान्य शैली मान: { $field }
 issue-missing-asset = एसेट गायब है: { $asset }
 issue-pack-version-mismatch = बदला हुआ पैक संस्करण हटाया गया: { $version }
 issue-pack-version-missing = पैक संस्करण स्रोतों में नहीं है: { $version }

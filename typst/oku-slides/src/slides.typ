@@ -50,7 +50,7 @@
   )
   set par(leading: leading-of(t, "normal"), spacing: space-of(t, "md"))
   set list(
-    marker: text(fill: color-of(t, lst.marker-color), lst.marker),
+    marker: list-marker(t, lst.marker, lst.at("marker-color", default: none)),
     indent: 0pt,
     body-indent: space-of(t, lst.indent),
     spacing: space-of(t, lst.spacing),
@@ -370,7 +370,8 @@
       place(top + left, rect(width: 100%, height: k.top-rule-width * 1pt, fill: color-of(t, k.top-rule-color)))
       block(inset: (x: space-of(t, k.padding-x), y: space-of(t, k.padding-y)), {
         if ink != none { set text(fill: ink) }
-        set list(marker: text(fill: color-of(t, if highlight { k.highlight-kicker } else { t.component.list.marker-color }), t.component.list.marker))
+        let lst = t.component.list
+        set list(marker: list-marker(t, lst.marker, if highlight { k.highlight-kicker } else { lst.at("marker-color", default: none) }))
         let kicker-c = t.component.kicker + if highlight { (color: k.highlight-kicker) } else { (:) }
         let title-style = (size: size-of(t, k.title-size), weight: weight-of(t, k.title-weight),
           fill: color-of(t, if highlight { k.highlight-title } else { k.title-color }))

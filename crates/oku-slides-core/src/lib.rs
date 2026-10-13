@@ -32,6 +32,7 @@ pub mod ops;
 pub mod pack;
 pub mod params;
 pub mod replica;
+mod shape_path;
 pub mod sources;
 #[cfg(test)]
 pub(crate) mod test_registry;
@@ -54,10 +55,12 @@ pub use ops::{
     param_value, text_fits,
 };
 pub use pack::{
-    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackVersion, Template, ThemeRef, WidgetFile, now_created,
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackVersion, Template, ThemeManifest, ThemeRef, WidgetFile,
+    now_created,
 };
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
+pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};
 pub use widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};

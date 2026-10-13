@@ -43,6 +43,10 @@ import-loss-run-style = { $effect ->
     [strike] Durchstreichung verloren
     [baseline] Hoch- oder Tiefstellung verloren
     [caps] Großbuchstaben verloren
+    [font] Schriftart eines Abschnitts durch die des Felds ersetzt
+    [tracking] Zeichenabstand eines Abschnitts durch den des Felds ersetzt
+    [weight] Normaler Abschnitt wie das Feld fett dargestellt
+    [slant] Aufrechter Abschnitt wie das Feld kursiv dargestellt
    *[highlight] Hervorhebung verloren
 }
 import-loss-transform = Drehung, Spiegelung oder Zuschnitt verloren
@@ -65,6 +69,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folien wiederholt, weggelassen: das Design zeichnet eigene
 }
 import-loss-no-slot = Inhalt weggelassen: die gewählte Vorlage hat keinen Platz dafür
+import-loss-page-fitted = Quellseite { $width } × { $height } pt ist nicht 16:9: Inhalt skaliert und zentriert
+import-loss-paragraph-style = Ausrichtung, Zeilen- oder Absatzabstand eines Absatzes an das Feld angeglichen
+import-loss-shape-style = { $effect ->
+    [gradient] Farbverlauf als Volltonfarbe dargestellt
+    [picture] Füllbild auf den Rahmen der Form gestreckt
+    [dash] Gestrichelte Linie durchgehend dargestellt
+   *[geometry] Unbekannte Form als Rechteck dargestellt
+}
+import-loss-layout-dropped = Zu viele Layouts für ein Paket: „{ $layout }“ hat keine Vorlage; seine Folien nutzen das leere Widget und erhalten seine Dekoration als Elemente
+import-loss-decor-truncated = Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Elemente ausgelassen
+import-loss-table-style = Tabellenstil angenähert: eigene Zellhintergründe, Rahmen, Spaltenbreiten oder Textgrößen gehen verloren
+import-font-substituted = { $family } ersetzt durch { $by } mit passenden Metriken
+import-font-missing = { $family } nicht gefunden: der Text verwendet { $by }
+import-font-restricted = { $family }: die Lizenz verbietet, einige Schnitte in die Präsentation einzubetten
+import-font-restricted-substituted = { $family } darf nicht in die Präsentation eingebettet werden (Lizenz): ersetzt durch { $by } mit passenden Metriken
+import-font-restricted-missing = { $family } darf nicht in die Präsentation eingebettet werden (Lizenz): der Text verwendet { $by }
+import-font-too-large = { $family }: Dateien zu groß, um sie in das Deck einzubetten; der Text verwendet { $by }
+import-font-missing-no-fallback = { $family } nicht gefunden, ebenso wenig die Fließtextschrift des Themes: der Text wird mit der Standardschrift der Engine dargestellt
 import-warning-effect-ignored = Effekt nicht importiert: { $detail }
 import-warning-approximated = Näherungsweise dargestellt: { $detail }
 import-warning-unreadable-item = Unlesbares Element übersprungen: { $detail }

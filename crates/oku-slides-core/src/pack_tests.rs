@@ -295,6 +295,21 @@ fn pack_manifest_without_uuid_id_is_refused() {
 }
 
 #[test]
+fn theme_manifest_round_trips_through_pack_files_without_widgets() {
+    let m = ThemeManifest {
+        id: Uuid::new_v4(),
+        name: "Importé".into(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
+    };
+    let files = m.to_files().unwrap();
+    assert_that!(ThemeManifest::from_files(&files).unwrap()).is_equal_to(&m);
+    assert_that!(files.widgets().len()).is_equal_to(0);
+}
+
+#[test]
 fn now_created_is_utc_to_the_second() {
     let s = now_created();
     assert_that!(s.len()).is_equal_to(20);

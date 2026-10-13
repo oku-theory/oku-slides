@@ -101,6 +101,13 @@
   panic("oku-slides : couleur inconnue : " + repr(v))
 }
 
+// Puce de liste `marker` dans la couleur `c` ; sans couleur (none, jeton
+// `null`), dans celle du texte.
+#let list-marker(t, marker, c) = {
+  let fill = color-of(t, c)
+  if fill == none { [#marker] } else { text(fill: fill, marker) }
+}
+
 // Pastille n (dès 1) : couleur de la palette des graphiques, en rebouclant.
 #let highlight-of(t, n) = {
   let palette = t.chart.palette

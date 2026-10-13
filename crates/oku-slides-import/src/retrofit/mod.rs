@@ -10,15 +10,15 @@
 //! widget et le rapport, couverture du contenu comprise. Aucun aléa, aucune
 //! horloge : même source, même plan.
 
-mod chart;
+pub(crate) mod chart;
 mod cluster;
-mod color;
-mod content;
+pub(crate) mod color;
+pub(crate) mod content;
 pub(crate) mod decor;
 mod group;
 mod heading;
 mod slide;
-mod table;
+pub(crate) mod table;
 mod template;
 pub(crate) mod text;
 mod zone;
@@ -117,7 +117,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
     };
     let mut report = ImportReport::new(Mode::Retrofit);
     report.warnings = deck.warnings.clone();
-    let mut plan = ImportPlan { ops: Vec::new(), assets: BTreeMap::new(), widget_requests: Vec::new(), report };
+    let mut plan = ImportPlan::new(report);
     let mut origins = BTreeMap::new();
     let mut deck_titled = false;
     let mut deck_slide = None;
@@ -141,7 +141,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
     }
     let mut scratch = Deck::empty();
     plan.report.coverage = match apply_all(&mut scratch, plan.ops.clone(), target.registry) {
-        Ok(()) => Some(coverage(deck, &scratch, target.registry, &origins, deck_slide)),
+        Ok(()) => Some(coverage(deck, &scratch, target.registry, &origins, deck_slide, &|i| decor.skips(i))),
         Err(e) => {
             debug_assert!(false, "le cœur refuse le plan, valide par construction : {e:?}");
             None

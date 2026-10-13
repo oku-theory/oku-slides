@@ -1,0 +1,27 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: "Fixture::new().decor(&[s]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  scale(x: -100%, y: -100%, reflow: false,
+    box(width: 200pt, height: 100pt,
+      ellipse(width: 200pt, height: 100pt, fill: color-of(t, "accent"), stroke: none),
+    ),
+  ),
+)
+place(top + left, dx: 49.29pt, dy: 54.64pt,
+  rotate(180deg, reflow: false,
+    box(width: 141.42pt, height: 70.71pt,
+      block(width: 141.42pt, height: 70.71pt, inset: (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), {
+        align(top, stack(
+          block(width: 100%, {
+            set text(size: 36pt, top-edge: 0.942em, bottom-edge: -0.258em)
+            set par(justify: false, leading: 0pt)
+            set align(left)
+            text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "Dans l'ellipse")
+          }),
+        ))
+      }),
+    ),
+  ),
+)

@@ -19,6 +19,8 @@ op-value-not-tokens = 객체 또는 null이어야 합니다
 op-value-not-a-slot = 이 매개변수는 슬롯이 아닙니다
 op-value-out-of-bounds = 숫자가 허용 범위를 벗어났습니다
 op-value-unreadable = 값의 형식이 예상과 다릅니다
+op-value-valign = top, middle 또는 bottom이어야 합니다
+op-value-path = 경로는 M, L, C, Q, Z 명령과 그 숫자로 이루어지며 M으로 시작합니다
 op-unknown-widget = 알 수 없는 위젯: { $subject }
 op-unknown-param = 알 수 없는 매개변수: { $subject }
 op-param-type-because = { $subject }의 값이 올바르지 않습니다: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] 값은 set_param으로 설정합니다, 또는 null
    *[no] 값은 set_param으로 설정합니다
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] 도형 경로(키 d가 있는 객체) 또는 null이어야 합니다
+   *[no] 도형 경로(키 d가 있는 객체)여야 합니다
+}
 op-item-not-found = 항목 { $subject }을(를) 찾을 수 없습니다
 op-list-full = 목록 { $subject }이(가) 가득 찼습니다(항목 최대 { $max }개)
 op-list-minimum = 목록 { $subject }에는 항목이 최소 { $min }개 있어야 합니다
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind }은(는) 여기에서 허용되지 않습니다
 issue-placed-in-flow = 배치된 목록에 프레임으로 놓인 요소
 issue-unknown-bind = { $param }이(가) 알 수 없는 덱 설정에 연결되어 있습니다
 issue-slot-too-deep = 요소가 너무 깊이 중첩되었습니다
+issue-invalid-style = 잘못된 스타일 값: { $field }
 issue-missing-asset = 누락된 에셋: { $asset }
 issue-pack-version-mismatch = 변경된 팩 버전을 버렸습니다: { $version }
 issue-pack-version-missing = 소스에 팩 버전이 없습니다: { $version }

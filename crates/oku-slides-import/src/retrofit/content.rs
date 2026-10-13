@@ -41,7 +41,7 @@ use crate::report::{Loss, LossKind};
 use crate::source::{self, Asset, Fill, Geometry, Item, ItemKind, TextBox};
 
 /// Types MIME que le rendu sait dessiner.
-const DRAWABLE: [&str; 5] = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+pub(crate) const DRAWABLE: [&str; 5] = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
 /// Presets dessinés en ellipse.
 const ELLIPSES: [&str; 3] = ["ellipse", "flowChartConnector", "donut"];
 /// Part d'une piste de grille sous laquelle une forme est un filet.

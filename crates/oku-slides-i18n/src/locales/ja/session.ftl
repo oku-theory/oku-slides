@@ -364,6 +364,7 @@ theme-token-component-table-size = 表 · 文字サイズ
 theme-token-component-table-header-bg = 表 · 見出しの背景
 theme-token-component-table-header-color = 表 · 見出しの文字
 theme-token-component-table-header-weight = 表 · 見出しのウェイト
+theme-token-component-table-body-bg = 表 · 行の背景
 theme-token-component-table-stripe-bg = 表 · 縞模様の背景
 theme-token-component-table-rule-color = 表 · 罫線の色
 theme-token-component-table-rule-width = 表 · 罫線の太さ

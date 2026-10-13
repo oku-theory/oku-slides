@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] Mất gạch ngang
     [baseline] Mất chỉ số trên hoặc chỉ số dưới
     [caps] Mất chữ in hoa
+    [font] Phông chữ của một đoạn được thay bằng phông của hộp
+    [tracking] Khoảng cách chữ của một đoạn được thay bằng khoảng cách của hộp
+    [weight] Đoạn thường hiển thị in đậm như hộp
+    [slant] Đoạn đứng hiển thị in nghiêng như hộp
    *[highlight] Mất tô sáng
 }
 import-loss-transform = Mất xoay, lật hoặc cắt xén
@@ -63,6 +67,24 @@ import-loss-effects = Mất bóng đổ, phản chiếu và hiệu ứng 3D
 import-loss-series-dropped = Biểu đồ tròn chỉ hiển thị một chuỗi: giữ { $kept }, bỏ { $dropped }
 import-loss-repeated-decor = Đã bỏ đầu trang hoặc chân trang “{ $text }” lặp lại trên { $slides } trang chiếu: chủ đề tự vẽ của nó
 import-loss-no-slot = Đã bỏ nội dung: mẫu đã chọn không có chỗ cho nó
+import-loss-page-fitted = Trang nguồn { $width } × { $height } pt không phải 16:9: nội dung đã được co giãn và căn giữa
+import-loss-paragraph-style = Căn lề, giãn dòng hoặc khoảng cách đoạn của đoạn văn được đưa về theo hộp
+import-loss-shape-style = { $effect ->
+    [gradient] Dải màu được hiển thị thành màu đơn
+    [picture] Ảnh tô được kéo giãn theo khung của hình
+    [dash] Nét đứt được hiển thị liền
+   *[geometry] Hình không xác định được hiển thị thành hình chữ nhật
+}
+import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có mẫu; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử
+import-loss-decor-truncated = Phần trang trí bị cắt để vừa kích thước tệp gói: bỏ qua { $omitted } phần tử
+import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột hoặc cỡ chữ riêng của bảng bị mất
+import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích
+import-font-missing = Không tìm thấy { $family }: văn bản dùng phông chữ { $by }
+import-font-restricted = { $family }: giấy phép cấm nhúng một số kiểu của phông vào bản trình bày
+import-font-restricted-substituted = Không thể nhúng { $family } vào bản trình bày (giấy phép): đã thay bằng { $by }, có số đo tương thích
+import-font-restricted-missing = Không thể nhúng { $family } vào bản trình bày (giấy phép): văn bản dùng phông chữ { $by }
+import-font-too-large = { $family }: tệp quá lớn để nhúng vào bộ trình chiếu; văn bản dùng phông chữ { $by }
+import-font-missing-no-fallback = Không tìm thấy { $family } cũng như phông chữ nội dung của chủ đề: văn bản hiển thị bằng phông chữ mặc định của bộ máy
 import-warning-effect-ignored = Không nhập hiệu ứng: { $detail }
 import-warning-approximated = Hiển thị gần đúng: { $detail }
 import-warning-unreadable-item = Đã bỏ qua mục không đọc được: { $detail }

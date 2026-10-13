@@ -1,0 +1,95 @@
+---
+source: crates/oku-slides-import/src/hifi/pack_tests.rs
+expression: files_text(&pack)
+---
+// ==== _commun.typ ====
+// Code partagé du pack généré par l'import : le champ d'un placeholder et
+// le décor de chaque master.
+#import "/oku-slides/lib.typ": field, color-of, font-of
+
+/// Le champ `name` d'un placeholder : `body` dans sa boîte (pt page), à ses
+/// marges `inset`, ancré en `anchor`. Vide, il garde sa boîte (l'éditeur la
+/// montre) ; dans un texte, `{n}` est le numéro de la page.
+#let champ(ctx, name, body, x, y, w, h, inset, anchor) = {
+  let body = if body == none or body == "" { [] } else if type(body) == str and body.contains("{n}") {
+    context body.replace("{n}", str(counter(page).get().first()))
+  } else { body }
+  place(top + left, dx: x, dy: y, block(width: w, height: h, inset: inset, align(anchor, field(ctx, name, body))))
+}
+
+/// Décor du master m1.
+#let master-1(t, ctx) = {
+  place(top + left, dx: 0pt, dy: 1040pt,
+    rect(width: 1920pt, height: 40pt, fill: color-of(t, "accent"), stroke: none),
+  )
+}
+// ==== l1-diapositive-de-titre.typ ====
+// Widget de slide généré par l'import : le layout l1 (master m1).
+#import "/oku-slides/lib.typ": widget, params as p, blank-slide, free-area, default-grid, color-of, font-of
+#import "_commun.typ": champ, master-1
+
+#let widget = widget("l1-diapositive-de-titre", label: "Diapositive de titre", category: "slide",
+  params: (
+    "titre": p.rich(),
+    "sous-titre": p.rich(),
+    "grid": p.grid(default: default-grid),
+    "extras": p.slot(mode: "free"),
+  ),
+  (args, ctx) => blank-slide(id: ctx.id, {
+    let t = ctx.tokens
+    place(top + left, rect(width: 1920pt, height: 1080pt, fill: color-of(t, "bg"), stroke: none))
+    master-1(t, ctx)
+    {
+      set text(font: font-of(t, "display"), size: 120pt, fill: color-of(t, "ink"), tracking: 2pt, top-edge: 0.942em, bottom-edge: -0.258em)
+      set par(leading: 0pt, spacing: 0pt, justify: false)
+      set align(center)
+      set list(indent: 0pt, spacing: 0pt)
+      set enum(indent: 0pt, body-indent: 0.5em, spacing: 0pt)
+      champ(ctx, "titre", args.at("titre"), 240pt, 176.75pt, 1440pt, 376pt, (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), bottom)
+    }
+    {
+      set text(font: font-of(t, "body"), size: 48pt, fill: color-of(t, "ink"), tracking: 2pt, top-edge: 0.942em, bottom-edge: -0.258em)
+      set par(leading: 0pt, spacing: 0pt, justify: false)
+      set align(center)
+      set list(indent: 0pt, spacing: 0pt)
+      set enum(indent: 0pt, body-indent: 0.5em, spacing: 0pt)
+      champ(ctx, "sous-titre", args.at("sous-titre"), 240pt, 567.25pt, 1440pt, 260.75pt, (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), top)
+    }
+    free-area(t, args.at("extras"), grid: args.at("grid"))
+  }),
+)
+// ==== l2-titre-et-contenu.typ ====
+// Widget de slide généré par l'import : le layout l2 (master m1).
+#import "/oku-slides/lib.typ": widget, params as p, blank-slide, free-area, default-grid, color-of, font-of
+#import "_commun.typ": champ, master-1
+
+#let widget = widget("l2-titre-et-contenu", label: "Titre et contenu", category: "slide",
+  params: (
+    "titre": p.rich(),
+    "corps": p.rich(),
+    "grid": p.grid(default: default-grid),
+    "extras": p.slot(mode: "free"),
+  ),
+  (args, ctx) => blank-slide(id: ctx.id, {
+    let t = ctx.tokens
+    place(top + left, rect(width: 1920pt, height: 1080pt, fill: color-of(t, "bg"), stroke: none))
+    master-1(t, ctx)
+    {
+      set text(font: font-of(t, "display"), size: 88pt, fill: color-of(t, "ink"), tracking: 2pt, top-edge: 0.942em, bottom-edge: -0.258em)
+      set par(leading: 0pt, spacing: 0pt, justify: false)
+      set align(left)
+      set list(indent: 0pt, spacing: 0pt)
+      set enum(indent: 0pt, body-indent: 0.5em, spacing: 0pt)
+      champ(ctx, "titre", args.at("titre"), 132pt, 57.5pt, 1656pt, 208.75pt, (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), horizon)
+    }
+    {
+      set text(font: font-of(t, "body"), size: 56pt, fill: color-of(t, "ink"), tracking: 2pt, top-edge: 0.942em, bottom-edge: -0.258em)
+      set par(leading: 0pt, spacing: 0pt, justify: false)
+      set align(left)
+      set list(indent: 0pt, spacing: 0pt, body-indent: 0pt, marker: box(width: 36pt, text(font: ("Liberation Sans",), size: 56pt, fill: color-of(t, "ink"), "•")))
+      set enum(indent: 0pt, body-indent: 0.5em, spacing: 0pt)
+      champ(ctx, "corps", args.at("corps"), 132pt, 287.5pt, 1656pt, 685.25pt, (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), top)
+    }
+    free-area(t, args.at("extras"), grid: args.at("grid"))
+  }),
+)

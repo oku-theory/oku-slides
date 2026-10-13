@@ -364,6 +364,7 @@ theme-token-component-table-size = الجدول · حجم النص
 theme-token-component-table-header-bg = الجدول · خلفية الترويسة
 theme-token-component-table-header-color = الجدول · نص الترويسة
 theme-token-component-table-header-weight = الجدول · سماكة الترويسة
+theme-token-component-table-body-bg = الجدول · خلفية صفوف المتن
 theme-token-component-table-stripe-bg = الجدول · خلفية الصفوف المتناوبة
 theme-token-component-table-rule-color = الجدول · لون الفواصل
 theme-token-component-table-rule-width = الجدول · سماكة الفواصل

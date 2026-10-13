@@ -231,6 +231,7 @@
       "header-bg": "accent",
       "header-color": "on-accent",
       "header-weight": "strong",
+      "body-bg": null,
       "stripe-bg": "surface",
       "rule-color": "rule",
       "rule-width": "hairline",

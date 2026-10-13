@@ -43,6 +43,12 @@ impl Fonts {
         self.0.files.iter().map(Bytes::as_slice)
     }
 
+    /// Les fichiers fournis, partagés sans copie (chacun vit autant que ses
+    /// détenteurs), dans l'ordre d'ajout.
+    pub fn shared_files(&self) -> impl Iterator<Item = impl AsRef<[u8]> + Send + Sync + 'static> + '_ {
+        self.0.files.iter().cloned()
+    }
+
     fn from_fonts(fonts: Vec<Font>, files: Vec<Bytes>) -> Self {
         let book = LazyHash::new(FontBook::from_fonts(&fonts));
         Self(Arc::new(Inner { fonts, files, book }))

@@ -19,6 +19,8 @@ op-value-not-tokens = очікується об'єкт або null
 op-value-not-a-slot = цей параметр не є слотом
 op-value-out-of-bounds = число поза допустимим діапазоном
 op-value-unreadable = значення має неочікувану форму
+op-value-valign = очікується top, middle або bottom
+op-value-path = шлях складається з команд M, L, C, Q і Z з їхніми числами й починається з M
 op-unknown-widget = Невідомий віджет: { $subject }
 op-unknown-param = Невідомий параметр: { $subject }
 op-param-type-because = Недопустиме значення для { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] значення задається через set_param, або null
    *[no] значення задається через set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] очікується шлях фігури (об'єкт із ключем d) або null
+   *[no] очікується шлях фігури (об'єкт із ключем d)
+}
 op-item-not-found = Немає пункту { $subject }
 op-list-full = Список { $subject } заповнено (не більше { $max ->
    [one] { $max } пункту
@@ -127,6 +133,7 @@ issue-slot-rejects = { $kind } тут не приймається
 issue-placed-in-flow = елемент із рамкою у впорядкованому списку
 issue-unknown-bind = { $param } пов'язано з невідомим налаштуванням презентації
 issue-slot-too-deep = елементи вкладено надто глибоко
+issue-invalid-style = неприпустиме значення стилю: { $field }
 issue-missing-asset = бракує ресурсу: { $asset }
 issue-pack-version-mismatch = змінену версію пакета відкинуто: { $version }
 issue-pack-version-missing = версії пакета немає в джерелах: { $version }

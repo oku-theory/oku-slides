@@ -19,6 +19,8 @@ op-value-not-tokens = an object or null is expected
 op-value-not-a-slot = this parameter is not a slot
 op-value-out-of-bounds = the number is outside its allowed range
 op-value-unreadable = the value does not have the expected form
+op-value-valign = top, middle or bottom is expected
+op-value-path = the path is made of M, L, C, Q and Z commands followed by their numbers, starting with M
 op-unknown-widget = Unknown widget: { $subject }
 op-unknown-param = Unknown parameter: { $subject }
 op-param-type-because = Invalid value for { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] a value is set through set_param, or null
    *[no] a value is set through set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] a shape path (an object with d) or null is expected
+   *[no] a shape path (an object with d) is expected
+}
 op-item-not-found = No item { $subject }
 op-list-full = The list { $subject } is full ({ $max ->
    [one] { $max } item
@@ -123,6 +129,7 @@ issue-slot-rejects = { $kind } is not accepted here
 issue-placed-in-flow = element placed with a frame in a laid-out list
 issue-unknown-bind = { $param } is linked to an unknown deck setting
 issue-slot-too-deep = elements nest too deeply
+issue-invalid-style = invalid style value: { $field }
 issue-missing-asset = missing asset: { $asset }
 issue-pack-version-mismatch = altered pack version discarded: { $version }
 issue-pack-version-missing = pack version missing from the sources: { $version }

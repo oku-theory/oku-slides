@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] Doorhaling verloren
     [baseline] Superscript of subscript verloren
     [caps] Hoofdletters verloren
+    [font] Lettertype van een passage vervangen door dat van het vak
+    [tracking] Letterafstand van een passage vervangen door die van het vak
+    [weight] Normale passage vet weergegeven zoals het vak
+    [slant] Rechte passage cursief weergegeven zoals het vak
    *[highlight] Markering verloren
 }
 import-loss-transform = Draaiing, spiegeling of bijsnijding verloren
@@ -66,6 +70,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] Kop- of voettekst “{ $text }” herhaald op { $slides } dia’s weggelaten: het thema tekent er zelf een
 }
 import-loss-no-slot = Inhoud weggelaten: de gekozen sjabloon heeft er geen plaats voor
+import-loss-page-fitted = Bronpagina van { $width } × { $height } pt is geen 16:9: inhoud geschaald en gecentreerd
+import-loss-paragraph-style = Uitlijning, regelafstand of alinea-afstand van een alinea gelijkgetrokken met het vak
+import-loss-shape-style = { $effect ->
+    [gradient] Kleurverloop weergegeven als effen kleur
+    [picture] Opvulafbeelding uitgerekt tot het kader van de vorm
+    [dash] Stippellijn doorgetrokken weergegeven
+   *[geometry] Onbekende vorm weergegeven als rechthoek
+}
+import-loss-layout-dropped = Te veel lay-outs voor één pakket: ‘{ $layout }’ heeft geen sjabloon; de dia's ervan gebruiken de lege widget en krijgen de decoratie als elementen
+import-loss-decor-truncated = Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } elementen weggelaten
+import-loss-table-style = Tabelstijl benaderd: eigen celachtergronden, randen, kolombreedtes of tekstgroottes gaan verloren
+import-font-substituted = { $family } vervangen door { $by }, met passende metrieken
+import-font-missing = { $family } niet gevonden: de tekst gebruikt { $by }
+import-font-restricted = { $family }: de licentie verbiedt sommige stijlen in de presentatie in te sluiten
+import-font-restricted-substituted = { $family } mag niet in de presentatie worden ingesloten (licentie): vervangen door { $by }, met passende metrieken
+import-font-restricted-missing = { $family } mag niet in de presentatie worden ingesloten (licentie): de tekst gebruikt { $by }
+import-font-too-large = { $family }: bestanden te groot om in het deck in te sluiten; de tekst gebruikt { $by }
+import-font-missing-no-fallback = { $family } niet gevonden, net als het hoofdtekstlettertype van het thema: de tekst wordt weergegeven met het standaardlettertype van de engine
 import-warning-effect-ignored = Effect niet geïmporteerd: { $detail }
 import-warning-approximated = Benaderd weergegeven: { $detail }
 import-warning-unreadable-item = Onleesbaar element overgeslagen: { $detail }

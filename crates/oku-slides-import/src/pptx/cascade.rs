@@ -139,14 +139,15 @@ pub(crate) fn resolve_textbox(raw: &RawText, chain: &TextChain<'_>, env: &TextEn
     }
 }
 
+/// Style du niveau `level` (0..8) d'un placeholder.
+pub(crate) fn resolve_level(chain: &TextChain<'_>, lst: &LevelProps, env: &TextEnv<'_>, level: usize) -> LevelStyle {
+    let p = level_props(chain, env, lst, level);
+    LevelStyle { para: para_style(&p, env), run: run_style(&p.run, env) }
+}
+
 /// Style de chaque niveau 0..8 d'un placeholder.
 pub(crate) fn resolve_levels(chain: &TextChain<'_>, lst: &LevelProps, env: &TextEnv<'_>) -> Vec<LevelStyle> {
-    (0..LEVELS)
-        .map(|l| {
-            let p = level_props(chain, env, lst, l);
-            LevelStyle { para: para_style(&p, env), run: run_style(&p.run, env) }
-        })
-        .collect()
+    (0..LEVELS).map(|l| resolve_level(chain, lst, env, l)).collect()
 }
 
 #[cfg(test)]

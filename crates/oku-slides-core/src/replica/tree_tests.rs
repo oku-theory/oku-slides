@@ -840,3 +840,17 @@ fn concurrent_crossed_nesting_moves_converge_without_cycle() {
         assert_that!(ops_of(r)).is_equal_to(before);
     }
 }
+
+#[test]
+fn style_anchor_and_shape_path_round_trip_through_the_replica() {
+    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
+        { "id": "t", "kind": "text", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
+          "style": { "valign": "bottom", "inset": [7.2, 3.6, 0.0, 3.6], "tracking": -1.5, "spacing": 9.0 },
+          "params": { "body": [{ "runs": [{ "t": "x" }] }] } },
+        { "id": "p", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
+          "params": { "shape": "path", "path": { "d": "M 0 0 L 1 1 Z" } } }
+    ] } }] }));
+    let (read, issues) = reread(&new(&deck));
+    assert_that!(read).is_equal_to(&deck);
+    assert_that!(issues).is_empty();
+}

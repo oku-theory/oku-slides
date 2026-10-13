@@ -1,0 +1,198 @@
+---
+source: crates/oku-slides-import/tests/hifi.rs
+expression: "op_lines(&plan(\"alto\"))"
+---
+{"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:92b83be33128d4d0047d576ec9a528defbbc3c547db1a1f07b55534e8e886a22"}}
+{"op":"set_templates","templates":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:1326d849d9c1a8335c08ec49d09b1e2ed987c7a1c08759edbbe15fda06ed958e"}}
+slide s1 l1-default {}
+  extras s1-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s1-2 text @128,96 236×46 {"size":30.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[10.09,0.0,10.09,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ALTO WEALTH"}]}]}
+  extras s1-3 text @1275,104 332×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"D2C Strategy — Working Document"}]}]}
+  extras s1-4 shape @1613,98 179×37 {"fill":"#00bef4","radius":4.0} {"shape":"rect"}
+  extras s1-5 text @1629,104 155×29 {"size":18.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.05,0.0,6.05,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s1-6 shape @128,138 1664×6 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s1-7 shape @0,216 1920×864 {"fill":"#00154e"} {"shape":"rect"}
+  extras s1-8 shape @128,312 88×6 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s1-9 text @128,346 1714×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"FROM A SURVIVAL QUESTION TO A GENERATIONAL OPPORTUNITY"}]}]}
+  extras s1-10 text @128,400 1714×222 {"size":104.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.32,"valign":"top","inset":[16.77,0.0,16.77,0.0],"tracking":-2.0,"spacing":33.54} {"body":[{"runs":[{"t":"The Agent Is"}]},{"runs":[{"t":"the New Front Door"}]}]}
+  extras s1-11 text @128,647 1714×38 {"size":24.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[8.07,0.0,8.07,0.0],"tracking":0.5} {"body":[{"runs":[{"t":"From Software Vendor to Wealth Infrastructure"}]}]}
+  extras s1-12 text @128,708 1288×138 {"size":32.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[10.76,0.0,10.76,0.0]} {"body":[{"runs":[{"t":"As the conversational agent becomes the end client's only interface, our relationship with them is at risk — and that same shift is our chance to become the infrastructure that powers it."}]}]}
+  extras s1-13 text @128,871 1714×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Distribution to Customer · Internal strategic reflection"}]}]}
+  extras s1-14 text @128,925 1714×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Matthieu Dartiguenave · September 20, 2026"}]}]}
+slide s2 l1-default {}
+  extras s2-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s2-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR CONVICTION"}]}]}
+  extras s2-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s2-4 text @128,180 1545×133 {"size":56.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"The agent becomes the only interface — and, soon, the more trusted confidant."}]}]}
+  extras s2-5 shape @128,352 555×568 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s2-6 shape @128,354 555×1 {"stroke":"#00bef4","stroke-width":4.0} {"shape":"line"}
+  extras s2-7 text @160,392 505×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"The only window"}]}]}
+  extras s2-8 text @160,440 505×138 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"The agent becomes the single window through which clients see all their content, and the only channel of communication. Applications, in the traditional sense, disappear."}]}]}
+  extras s2-9 shape @683,352 555×568 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s2-10 shape @683,354 555×1 {"stroke":"#00bef4","stroke-width":4.0} {"shape":"line"}
+  extras s2-11 text @715,392 505×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"A deeper confidant"}]}]}
+  extras s2-12 text @715,440 505×172 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"People will confide in a Claude or a ChatGPT more easily than in a private banker. An AI soon holds a more intimate, continuous knowledge of a client's situation than any human relationship can sustain over time."}]}]}
+  extras s2-13 shape @1237,352 555×568 {"fill":"#00154e"} {"shape":"rect"}
+  extras s2-14 shape @1237,354 555×1 {"stroke":"#00bef4","stroke-width":4.0} {"shape":"line"}
+  extras s2-15 text @1269,392 505×35 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Attacked on two fronts"}]}]}
+  extras s2-16 text @1269,440 505×172 {"size":21.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"The private banker's role is challenged on the "},{"t":"relationship","color":"#00bef4"},{"t":" — the agent owns the channel and knows the client best — and on "},{"t":"competence","color":"#00bef4"},{"t":": an AI's financial knowledge and analytical depth already outclass any individual advisor."}]}]}
+  extras s2-17 text @128,995 539×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"1 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s2-18 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s2-19 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s3 l1-default {}
+  extras s3-1 shape @0,0 1920×1080 {"fill":"#00154e"} {"shape":"rect"}
+  extras s3-2 text @128,112 1714×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"THE SHIFT"}]}]}
+  extras s3-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s3-4 text @128,180 1714×68 {"size":56.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"From selling software to a connected bank"}]}]}
+  extras s3-5 text @128,262 1442×43 {"size":28.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[9.41,0.0,9.41,0.0]} {"body":[{"runs":[{"t":"Our client is disappearing — and with it, the model built to sell them software."}]}]}
+  extras s3-6 text @128,345 1714×35 {"size":22.0,"color":"#7c93b8","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[7.4,0.0,7.4,0.0]} {"body":[{"runs":[{"t":"Today — B2B2C"}]}]}
+  extras s3-7 shape @128,394 491×135 {"fill":"#0a2a6e","radius":8.0} {"shape":"rect"}
+  extras s3-8 text @154,430 439×40 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"Alto Wealth"}]}]}
+  extras s3-9 text @154,466 439×31 {"size":19.0,"color":"#8fa3c2","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"software vendor"}]}]}
+  extras s3-10 image @643,450 48×22 {} {"asset":"sha256:f336d1a2bcd9072c6e1da1ebebac45753f02c27cb7456eed2193454a6477fb0b","fit":"stretch"}
+  extras s3-11 shape @715,394 491×135 {"fill":"#0a2a6e","radius":8.0} {"shape":"rect"}
+  extras s3-12 text @740,430 439×40 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"Private banker"}]}]}
+  extras s3-13 text @740,466 439×31 {"size":19.0,"color":"#8fa3c2","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"equipped with the software"}]}]}
+  extras s3-14 image @1229,450 48×22 {} {"asset":"sha256:f336d1a2bcd9072c6e1da1ebebac45753f02c27cb7456eed2193454a6477fb0b","fit":"stretch"}
+  extras s3-15 shape @1301,394 491×135 {"fill":"#0a2a6e","radius":8.0} {"shape":"rect"}
+  extras s3-16 text @1327,430 439×40 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"End client"}]}]}
+  extras s3-17 text @1327,466 439×31 {"size":19.0,"color":"#8fa3c2","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"receives the service"}]}]}
+  extras s3-18 text @128,573 1714×35 {"size":22.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[7.4,0.0,7.4,0.0]} {"body":[{"runs":[{"t":"Tomorrow — Agentic D2C"}]}]}
+  extras s3-19 shape @129,623 490×137 {"fill":"#0a2a6e","stroke":"#00bef4","stroke-width":2.0,"radius":7.0} {"shape":"rect"}
+  extras s3-20 text @156,660 437×40 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"End client"}]}]}
+  extras s3-21 text @156,696 437×31 {"size":19.0,"color":"#b9c4d6","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"on their AI agent"}]}]}
+  extras s3-22 image @644,680 48×22 {} {"asset":"sha256:f336d1a2bcd9072c6e1da1ebebac45753f02c27cb7456eed2193454a6477fb0b","fit":"stretch"}
+  extras s3-23 shape @717,623 490×137 {"fill":"#0a2a6e","stroke":"#00bef4","stroke-width":2.0,"radius":7.0} {"shape":"rect"}
+  extras s3-24 text @744,660 437×40 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"Claude · ChatGPT"}]}]}
+  extras s3-25 text @744,696 437×31 {"size":19.0,"color":"#b9c4d6","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"single interface"}]}]}
+  extras s3-26 image @1232,680 48×22 {} {"asset":"sha256:f336d1a2bcd9072c6e1da1ebebac45753f02c27cb7456eed2193454a6477fb0b","fit":"stretch"}
+  extras s3-27 shape @1304,624 488×135 {"fill":"#00bef4","radius":8.0} {"shape":"rect"}
+  extras s3-28 text @1330,660 437×40 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[8.74,0.0,8.74,0.0]} {"body":[{"runs":[{"t":"Alto Wealth"}]}]}
+  extras s3-29 text @1330,696 437×31 {"size":19.0,"color":"#00304f","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Wealth Bank as an API"}]}]}
+  extras s3-30 text @128,805 1545×71 {"size":21.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"The private banker is no longer a mandatory gateway to the digital channel: Alto Wealth becomes the infrastructure layer that feeds the conversation directly, whichever agent the client uses."}]}]}
+  extras s3-31 text @128,995 542×25 {"size":15.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"2 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s3-32 text @880,989 160×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s3-33 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s4 l1-default {}
+  extras s4-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s4-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR MOAT"}]}]}
+  extras s4-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s4-4 text @128,180 1545×68 {"size":56.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"Our moat isn't the code. It's the ecosystem behind it."}]}]}
+  extras s4-5 text @128,288 1545×71 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Code is a commodity: it can be copied, outsourced, or rebuilt by any competitor with enough capital. It buys no defensibility. What cannot be copied overnight is regulatory depth, operational service, and a connected ecosystem — the real barriers to entry in an agentic world."}]}]}
+  extras s4-6 shape @128,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s4-7 text @161,436 487×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 1 — PRODUCT"}]}]}
+  extras s4-8 text @161,479 487×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Amundi Funds"}]}]}
+  extras s4-9 text @161,526 487×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Investment products"}]}]}
+  extras s4-10 text @161,569 487×105 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"A manufacturing capability across asset classes that a pure tech entrant cannot license or fake."}]}]}
+  extras s4-11 shape @691,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s4-12 text @724,436 487×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 2 — INFRASTRUCTURE"}]}]}
+  extras s4-13 text @724,479 487×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Alto Wealth"}]}]}
+  extras s4-14 text @724,526 487×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Technology platform"}]}]}
+  extras s4-15 text @724,569 487×105 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"The layer that turns the other two pillars into something an agent can actually reach and act on."}]}]}
+  extras s4-16 shape @1254,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s4-17 text @1286,436 487×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 3 — SERVICE"}]}]}
+  extras s4-18 text @1286,479 487×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Amundi Services"}]}]}
+  extras s4-19 text @1286,526 487×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Middle office, corporate actions, trading"}]}]}
+  extras s4-20 text @1286,569 487×105 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Operational depth built over years — the part of the stack no startup can spin up in a product cycle."}]}]}
+  extras s4-21 shape @128,788 1664×132 {"fill":"#00154e","radius":8.0} {"shape":"rect"}
+  extras s4-22 shape @160,824 8×60 {"fill":"#00bef4","radius":2.0} {"shape":"rect"}
+  extras s4-23 text @192,837 1225×38 {"size":24.0,"color":"#ffffff","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[8.07,0.0,8.07,0.0]} {"body":[{"runs":[{"t":"A competitor can copy our interface in a quarter. It cannot rebuild "},{"t":"this ecosystem","bold":true},{"t":" in less than a decade."}]}]}
+  extras s4-24 text @128,995 542×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"3 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s4-25 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s4-26 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s5 l1-default {}
+  extras s5-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s5-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR RESPONSE"}]}]}
+  extras s5-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s5-4 text @128,180 1545×68 {"size":56.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"Expose the ecosystem, not just the software"}]}]}
+  extras s5-5 text @128,288 1545×71 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"MCP and AG-UI are how the three pillars — product, infrastructure, service — become something an agent can actually call and use, instead of features locked inside an application."}]}]}
+  extras s5-6 shape @128,400 819×337 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s5-7 text @161,436 777×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"BUILDING BLOCK 1"}]}]}
+  extras s5-8 text @161,479 777×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"MCP"}]}]}
+  extras s5-9 text @161,526 777×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Model Context Protocol"}]}]}
+  extras s5-10 text @161,569 777×105 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"We expose the full ecosystem as tools any agent can call — Amundi Funds' products, Alto Wealth's infrastructure, Amundi's service layer — in a secure, standardized way."}]}]}
+  extras s5-11 shape @972,400 819×337 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s5-12 text @1005,436 777×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"BUILDING BLOCK 2"}]}]}
+  extras s5-13 text @1005,479 777×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"AG-UI"}]}]}
+  extras s5-14 text @1005,526 777×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Agent-User Interaction Protocol"}]}]}
+  extras s5-15 text @1005,569 777×71 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"We deliver a rich, generative interface directly inside the conversation — charts, forms, tables — for a personalized experience, not plain text."}]}]}
+  extras s5-16 shape @128,781 1664×139 {"fill":"#00154e","radius":8.0} {"shape":"rect"}
+  extras s5-17 shape @160,820 8×60 {"fill":"#00bef4","radius":2.0} {"shape":"rect"}
+  extras s5-18 text @192,817 1615×71 {"size":24.0,"color":"#ffffff","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[8.07,0.0,8.07,0.0]} {"body":[{"runs":[{"t":"Result: the agent doesn't just call software — it draws on Amundi Funds, Alto Wealth, and Amundi Services as one "},{"t":"Wealth Bank as an API","bold":true},{"t":"."}]}]}
+  extras s5-19 text @128,995 543×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"4 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s5-20 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s5-21 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s6 l1-default {}
+  extras s6-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s6-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"WHY US, NOT JUST ANY MCP SERVER"}]}]}
+  extras s6-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s6-4 text @128,180 1545×68 {"size":56.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"The financial coach for someone's entire life"}]}]}
+  extras s6-5 text @128,288 1545×71 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Any agent can call a fund list. Our differentiators are what turn a single transaction into a relationship an agent keeps coming back to for decades — the real source of stickiness."}]}]}
+  extras s6-6 shape @128,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s6-7 text @161,436 487×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"DIFFERENTIATOR 1"}]}]}
+  extras s6-8 text @161,479 487×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"A lifelong financial planner"}]}]}
+  extras s6-9 text @161,526 487×172 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Not a one-off recommendation, but a planning capability that maps a client's entire financial life — income, projects, family, retirement — so the agent can advise at every stage, not just at the point of sale."}]}]}
+  extras s6-10 shape @691,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s6-11 text @724,436 487×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"DIFFERENTIATOR 2"}]}]}
+  extras s6-12 text @724,479 487×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Products no one else offers"}]}]}
+  extras s6-13 text @724,526 487×172 {"size":21.0,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Innovative solutions absent elsewhere in the market — such as "},{"t":"individual guarantees","color":"#00bef4"},{"t":" — give the agent something genuinely differentiated to recommend, not a commodity fund any competitor's API can also expose."}]}]}
+  extras s6-14 shape @1254,400 538×344 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s6-15 text @1286,436 487×28 {"size":17.46,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.87,0.0,5.87,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"DIFFERENTIATOR 3"}]}]}
+  extras s6-16 text @1286,477 487×33 {"size":24.54,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[5.79,0.0,5.79,0.0]} {"body":[{"runs":[{"t":"A product for every life stage"}]}]}
+  extras s6-17 text @1286,521 487×190 {"size":20.48,"color":"#3d4756","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[8.93,0.0,8.93,0.0]} {"body":[{"runs":[{"t":"Amundi's manufacturing breadth means the agent can always match the right product to where the client actually is — first savings, home purchase, children, retirement — rather than a single generic offer stretched across a lifetime."}]}]}
+  extras s6-18 shape @128,788 1664×132 {"fill":"#00154e","radius":8.0} {"shape":"rect"}
+  extras s6-19 shape @160,824 8×60 {"fill":"#00bef4","radius":2.0} {"shape":"rect"}
+  extras s6-20 text @192,837 1475×38 {"size":24.0,"color":"#ffffff","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[8.07,0.0,8.07,0.0]} {"body":[{"runs":[{"t":"The planner and the products create "},{"t":"stickiness for the duration of a client's life","bold":true},{"t":" — not just for the duration of a conversation."}]}]}
+  extras s6-21 text @128,995 542×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"5 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s6-22 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s6-23 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s7 l1-default {}
+  extras s7-1 shape @0,0 1920×1080 {"fill":"#00154e"} {"shape":"rect"}
+  extras s7-2 text @128,112 1714×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ROADMAP"}]}]}
+  extras s7-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s7-4 text @128,180 1714×68 {"size":56.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0],"tracking":-1.0} {"body":[{"runs":[{"t":"First mover, standard setter"}]}]}
+  extras s7-5 shape @128,288 555×449 {"fill":"#0a2a6e","radius":8.0} {"shape":"rect"}
+  extras s7-6 shape @682,288 1×449 {"stroke":"#00154e","stroke-width":1.0} {"path":{"d":"M 0.5 0 L 0.5 1"},"shape":"path"}
+  extras s7-7 text @160,324 505×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"PHASE 1 · SHORT TERM"}]}]}
+  extras s7-8 text @160,367 505×35 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Live in every agent marketplace"}]}]}
+  extras s7-9 text @160,414 505×138 {"size":21.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Publish read-only simulators — savings allocation, retirement projection — directly into the marketplaces of every major agent, not as an API embedded in our own bank websites."}]}]}
+  extras s7-10 shape @683,288 555×449 {"fill":"#0a2a6e"} {"shape":"rect"}
+  extras s7-11 shape @1237,288 1×449 {"stroke":"#00154e","stroke-width":1.0} {"path":{"d":"M 0.5 0 L 0.5 1"},"shape":"path"}
+  extras s7-12 text @715,324 505×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"PHASE 2 · MEDIUM TERM"}]}]}
+  extras s7-13 text @715,367 505×35 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Transact from the marketplace"}]}]}
+  extras s7-14 text @715,414 505×239 {"size":21.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Turn the simulator into a transaction: agent-to-agent onboarding — KYC, account and contract opening resolved instantly from what the user's agent already knows about them, no forms, no friction — then subscriptions and arbitrages via AG-UI. A full acquisition channel, not just a service for existing clients."}]}]}
+  extras s7-15 shape @1238,288 554×449 {"fill":"#00bef4","radius":8.0} {"shape":"rect"}
+  extras s7-16 text @1270,324 505×31 {"size":19.0,"color":"#00304f","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"PHASE 3 · LONG TERM"}]}]}
+  extras s7-17 text @1270,367 505×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Become the default choice"}]}]}
+  extras s7-18 text @1270,414 505×239 {"size":21.0,"color":"#00304f","font":"Inter","align":"left","leading":0.87,"valign":"top","inset":[9.16,0.0,9.16,0.0]} {"body":[{"runs":[{"t":"Agents surface our services on their own — \"I see you're holding cash,\" \"you asked about this, here's an option\" — turning every agent into an acquisition channel and making us the wealth manager recommended by default across every marketplace, reaching far beyond our historical client base."}]}]}
+  extras s7-19 shape @128,781 1664×139 {"fill":"#00bef4","radius":8.0} {"shape":"rect"}
+  extras s7-20 shape @160,820 8×60 {"fill":"#00154e","radius":2.0} {"shape":"rect"}
+  extras s7-21 text @192,817 1615×71 {"size":24.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[8.07,0.0,8.07,0.0]} {"body":[{"runs":[{"t":"What starts as a threat to the relationship ends as our biggest distribution opportunity in a decade — first mover today, the standard every agent builds on tomorrow."}]}]}
+  extras s7-22 text @128,995 543×25 {"size":15.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"6 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
+  extras s7-23 text @880,989 160×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s7-24 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
+slide s8 l1-default {}
+  extras s8-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
+  extras s8-2 text @128,112 1714×32 {"size":20.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.72,0.0,6.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ORGANIZATIONAL ANATOMY"}]}]}
+  extras s8-3 shape @128,158 64×5 {"fill":"#00bef4"} {"shape":"rect"}
+  extras s8-4 text @128,181 1714×68 {"size":56.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.42,"valign":"top","inset":[11.83,0.0,11.83,0.0]} {"body":[{"runs":[{"t":"The wealth management value chain, front to back"}]}]}
+  extras s8-5 shape @128,290 398×630 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s8-6 text @161,326 342×28 {"size":17.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.72,0.0,5.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 1"}]}]}
+  extras s8-7 text @161,366 342×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Front & Distribution"}]}]}
+  extras s8-8 text @181,413 322×184 {"size":19.0,"color":"#3d4756","font":"Inter","align":"left","leading":1.17,"valign":"top","inset":[11.14,0.0,11.14,0.0],"spacing":22.28} {"body":[{"runs":[{"t":"Advisory & relationship management"}],"list":"bullet"},{"runs":[{"t":"Multi-channel distribution"}],"list":"bullet"},{"runs":[{"t":"Client onboarding & KYC"}],"list":"bullet"},{"runs":[{"t":"Wealth & tax engineering"}],"list":"bullet"}]}
+  extras s8-9 shape @551,290 398×630 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s8-10 text @584,326 342×28 {"size":17.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.72,0.0,5.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 2"}]}]}
+  extras s8-11 text @584,366 342×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Product & Investment"}]}]}
+  extras s8-12 text @604,413 322×184 {"size":19.0,"color":"#3d4756","font":"Inter","align":"left","leading":1.17,"valign":"top","inset":[11.14,0.0,11.14,0.0],"spacing":22.28} {"body":[{"runs":[{"t":"Asset management & mandates"}],"list":"bullet"},{"runs":[{"t":"Structured products & alternatives"}],"list":"bullet"},{"runs":[{"t":"Insurance-linked products"}],"list":"bullet"},{"runs":[{"t":"Product governance"}],"list":"bullet"}]}
+  extras s8-13 shape @974,290 398×630 {"fill":"#ffffff","stroke":"#e1e5ea","stroke-width":1.0,"radius":7.5} {"shape":"rect"}
+  extras s8-14 text @1006,326 342×28 {"size":17.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.72,0.0,5.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 3"}]}]}
+  extras s8-15 text @1006,366 342×35 {"size":26.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Operations & Custody"}]}]}
+  extras s8-16 text @1026,413 322×148 {"size":19.0,"color":"#3d4756","font":"Inter","align":"left","leading":1.17,"valign":"top","inset":[11.14,0.0,11.14,0.0],"spacing":22.28} {"body":[{"runs":[{"t":"Middle office (matching, NAV)"}],"list":"bullet"},{"runs":[{"t":"Corporate actions processing"}],"list":"bullet"},{"runs":[{"t":"Custody & depositary control"}],"list":"bullet"},{"runs":[{"t":"Settlement & reconciliation"}],"list":"bullet"}]}
+  extras s8-17 shape @1396,289 396×631 {"fill":"#00154e","radius":8.0} {"shape":"rect"}
+  extras s8-18 shape @1396,291 396×1 {"stroke":"#00bef4","stroke-width":4.0} {"shape":"line"}
+  extras s8-19 text @1428,329 342×28 {"size":17.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.72,0.0,5.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"PILLAR 4"}]}]}
+  extras s8-20 text @1428,369 342×35 {"size":26.0,"color":"#ffffff","weight":"bold","font":"Inter","align":"left","leading":0.47,"valign":"top","inset":[6.14,0.0,6.14,0.0]} {"body":[{"runs":[{"t":"Governance & Control"}]}]}
+  extras s8-21 text @1448,416 322×184 {"size":19.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":1.17,"valign":"top","inset":[11.14,0.0,11.14,0.0],"spacing":22.28} {"body":[{"runs":[{"t":"Risk (market, credit, liquidity, model)"}],"list":"bullet"},{"runs":[{"t":"Compliance & regulatory"}],"list":"bullet"},{"runs":[{"t":"Legal, tax & actuarial"}],"list":"bullet"},{"runs":[{"t":"Finance, data & IT"}],"list":"bullet"}]}
+  extras s8-22 text @128,988 19×32 {"size":20.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.72,0.0,6.72,0.0]} {"body":[{"runs":[{"t":"7"}]}]}
+  extras s8-23 text @876,988 167×32 {"size":20.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.72,0.0,6.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
+  extras s8-24 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}

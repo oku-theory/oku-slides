@@ -19,6 +19,8 @@ op-value-not-tokens = oczekiwano obiektu lub null
 op-value-not-a-slot = ten parametr nie jest slotem
 op-value-out-of-bounds = liczba jest poza dozwolonym zakresem
 op-value-unreadable = wartość nie ma oczekiwanej postaci
+op-value-valign = oczekiwano top, middle lub bottom
+op-value-path = ścieżka składa się z poleceń M, L, C, Q i Z z ich liczbami i zaczyna się od M
 op-unknown-widget = Nieznany widżet: { $subject }
 op-unknown-param = Nieznany parametr: { $subject }
 op-param-type-because = Nieprawidłowa wartość dla { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] wartość ustawia się przez set_param, lub null
    *[no] wartość ustawia się przez set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] oczekiwano ścieżki kształtu (obiektu z kluczem d) lub null
+   *[no] oczekiwano ścieżki kształtu (obiektu z kluczem d)
+}
 op-item-not-found = Brak pozycji { $subject }
 op-list-full = Lista { $subject } jest pełna (najwyżej { $max ->
    [one] { $max } pozycja
@@ -127,6 +133,7 @@ issue-slot-rejects = { $kind } nie jest tu akceptowany
 issue-placed-in-flow = element umieszczony z ramką na liście z układem
 issue-unknown-bind = { $param } jest powiązany z nieznanym ustawieniem prezentacji
 issue-slot-too-deep = elementy są zagnieżdżone zbyt głęboko
+issue-invalid-style = nieprawidłowa wartość stylu: { $field }
 issue-missing-asset = brakujący zasób: { $asset }
 issue-pack-version-mismatch = zmieniona wersja pakietu odrzucona: { $version }
 issue-pack-version-missing = brak wersji pakietu w źródłach: { $version }

@@ -228,9 +228,18 @@
           "values": [
             "rect",
             "ellipse",
-            "line"
+            "line",
+            "path"
           ],
           "default": "rect",
+          "bind": null
+        },
+        {
+          "name": "path",
+          "label": null,
+          "type": "host",
+          "host": "path",
+          "default": null,
           "bind": null
         }
       ]

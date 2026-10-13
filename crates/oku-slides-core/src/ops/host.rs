@@ -1,5 +1,5 @@
-//! Paramètres fournis par l'hôte (`host(chart)`, `host(table)`) : contrôle
-//! des valeurs, options et données.
+//! Paramètres fournis par l'hôte (`host(chart)`, `host(table)`,
+//! `host(path)`) : contrôle des valeurs, options et données.
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -17,6 +17,7 @@ use crate::error::{
 };
 use crate::model::{Deck, Element};
 use crate::params::{ParamValue, Params};
+use crate::shape_path::ShapePath;
 use crate::widget::{HostType, WidgetRegistry, WidgetSchema};
 
 /// Forme attendue d'un paramètre de l'hôte `host`, pour `ParamType`.
@@ -24,6 +25,7 @@ pub(super) fn expected_host(host: HostType) -> ExpectedType {
     match host {
         HostType::Chart => Shape::ChartOption.required(),
         HostType::Table => Shape::TableOption.required(),
+        HostType::Path => Shape::PathOption.required(),
     }
 }
 
@@ -44,6 +46,14 @@ pub(crate) fn host_option(host: HostType, subject: &str, v: &Value) -> Result<Va
             let mut option = parse_table(v).context(TableSnafu { subject })?;
             ensure_ids(&mut option.dataset);
             serde_json::to_value(option)
+        }
+        // Un chemin que le widget ne saurait pas dessiner est refusé ici.
+        HostType::Path => {
+            let path: ShapePath = typed(subject, v.clone())?;
+            if path.commands().is_none() {
+                return Err(InvalidValueSnafu { field: subject, reason: ValueReason::Path }.build().into());
+            }
+            serde_json::to_value(path)
         }
     };
     Ok(serialized.context(ParseValueSnafu { field: subject })?)
@@ -162,6 +172,8 @@ pub(super) fn set_option(
             ensure_ids(&mut next.dataset);
             write(params, param, &next)
         }
+        // Un chemin se remplace entier (`set_param`) : il n'a pas d'options à fusionner.
+        HostType::Path => Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into()),
     }
 }
 
@@ -189,6 +201,8 @@ pub(super) fn set_data(
             let next = table_data(&read(params, param, host)?, change).context(TableSnafu { subject })?;
             write(params, param, &next)
         }
-        None => Err(ParamTypeSnafu { param, expected: Shape::ChartOrTableOption.required() }.build().into()),
+        Some(HostType::Path) | None => {
+            Err(ParamTypeSnafu { param, expected: Shape::ChartOrTableOption.required() }.build().into())
+        }
     }
 }

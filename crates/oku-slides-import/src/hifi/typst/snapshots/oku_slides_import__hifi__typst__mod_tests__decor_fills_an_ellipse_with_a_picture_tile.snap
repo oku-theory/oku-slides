@@ -1,0 +1,7 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: d.code
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  ellipse(width: 200pt, height: 100pt, fill: tiling(size: (200pt, 100pt), box(width: 200pt, height: 100pt, if ctx.load != none { (ctx.load)(asset: "sha256:aa", fit: "stretch") })), stroke: none),
+)

@@ -1,0 +1,256 @@
+---
+source: crates/oku-slides-import/tests/hifi.rs
+expression: "plan(\"minimal\").ops"
+---
+[
+  {
+    "op": "set_theme",
+    "theme": {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "version": "sha256:6a9b94b7a098d4100724f7b7709552f887c11fbc4c114c3f798fa4cc248b296f"
+    }
+  },
+  {
+    "op": "set_templates",
+    "templates": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "version": "sha256:866a3284c31612df4e84483feaf123aa55a254dcfec0ae08f270a6a725ca1e6a"
+    }
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s1",
+      "kind": "l1-diapositive-de-titre",
+      "params": {
+        "sous-titre": [
+          {
+            "runs": [
+              {
+                "t": "Exercice 2026"
+              }
+            ]
+          }
+        ],
+        "titre": [
+          {
+            "runs": [
+              {
+                "t": "Rapport annuel"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s2",
+      "kind": "l2-titre-et-contenu",
+      "params": {
+        "corps": [
+          {
+            "runs": [
+              {
+                "t": "Chiffre d'affaires en hausse"
+              }
+            ],
+            "list": "bullet"
+          },
+          {
+            "runs": [
+              {
+                "t": "+12 % sur un an",
+                "size": 48.0
+              }
+            ],
+            "list": "bullet"
+          }
+        ],
+        "extras": [
+          {
+            "id": "s2-1",
+            "kind": "text",
+            "frame": {
+              "x": 132.0,
+              "y": 960.0,
+              "w": 480.0,
+              "h": 58.16
+            },
+            "style": {
+              "size": 32.0,
+              "color": "#ff0000",
+              "font": "body",
+              "align": "left",
+              "leading": 0.56,
+              "valign": "top",
+              "inset": [
+                16.81,
+                14.4,
+                15.46,
+                14.4
+              ],
+              "tracking": 2.0
+            },
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Source : comptes 2026"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "s2-2",
+            "kind": "shape",
+            "frame": {
+              "x": 1320.0,
+              "y": 287.5,
+              "w": 468.0,
+              "h": 216.0
+            },
+            "style": {
+              "fill": "accent",
+              "stroke": "#2f528f",
+              "stroke-width": 2.0,
+              "radius": 36.0
+            },
+            "params": {
+              "shape": "rect"
+            }
+          },
+          {
+            "id": "s2-3",
+            "kind": "text",
+            "frame": {
+              "x": 1320.0,
+              "y": 287.5,
+              "w": 468.0,
+              "h": 216.0
+            },
+            "style": {
+              "size": 64.0,
+              "color": "bg",
+              "weight": "bold",
+              "font": "body",
+              "align": "center",
+              "leading": 0.56,
+              "valign": "middle",
+              "inset": [
+                36.95,
+                24.94,
+                34.27,
+                24.94
+              ],
+              "tracking": 2.0
+            },
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "+12 %"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "titre": [
+          {
+            "runs": [
+              {
+                "t": "Résultats"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "op": "set_notes",
+    "slide": "s2",
+    "notes": "Dire bonjour.\nPuis\nenchaîner."
+  },
+  {
+    "op": "add_slide",
+    "slide": {
+      "id": "s3",
+      "kind": "l2-titre-et-contenu",
+      "params": {
+        "extras": [
+          {
+            "id": "s3-1",
+            "kind": "shape",
+            "frame": {
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1920.0,
+              "h": 1080.0
+            },
+            "style": {
+              "fill": "ink"
+            },
+            "params": {
+              "shape": "rect"
+            }
+          },
+          {
+            "id": "s3-2",
+            "kind": "text",
+            "frame": {
+              "x": 132.0,
+              "y": 480.0,
+              "w": 480.0,
+              "h": 58.16
+            },
+            "style": {
+              "size": 32.0,
+              "color": "bg",
+              "font": "body",
+              "align": "left",
+              "leading": 0.56,
+              "valign": "top",
+              "inset": [
+                16.81,
+                14.4,
+                15.46,
+                14.4
+              ],
+              "tracking": 2.0
+            },
+            "params": {
+              "body": [
+                {
+                  "runs": [
+                    {
+                      "t": "Texte sans couleur"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "titre": [
+          {
+            "runs": [
+              {
+                "t": "Section sombre",
+                "color": "bg"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

@@ -101,6 +101,10 @@ sont pas proposées, même si la bibliothèque les accepte.
   `top-left`, `top-right`, `badge`, puis une bande sombre `band-bg` qui occupe
   `band-ratio` de la hauteur).
 - **Carte** : `height: "auto"` ou `"fill"`.
+- **Liste** : `marker` (la puce, un caractère) dans `marker-color` ; `null`
+  la dessine dans la couleur du texte (`list-marker`).
+- **Tableau** : `body-bg` peint les lignes du corps hors bandes (`stripe-bg`) ;
+  `null` (le défaut) les laisse sans fond.
 
 ## Thèmes fournis
 
@@ -175,6 +179,18 @@ zone de corps) ou une `cell` de la grille de la slide.
   ]
 }
 ```
+
+Un élément porte aussi un `style` facultatif (taille, couleur, graisse,
+police, `tracking` (espacement des lettres, en pt), alignement, fond, trait,
+`radius`…). Le widget `text` y lit en plus `valign` (`"top"`, `"middle"`,
+`"bottom"` : ancrage dans le cadre, élément à cadre seulement), `inset`
+(quatre marges en pt : haut, droite, bas, gauche) et `spacing` (espace entre
+deux paragraphes, items de liste compris, en pt : de la dernière ligne de base
+de l'un au haut de la première ligne du suivant ; sans la clé, celui du thème).
+Le widget `shape` dessine un
+chemin avec `shape: "path"` et `path: { "d": "M 0 0 L 1 0 L 0.5 1 Z" }` :
+commandes `M`, `L`, `C`, `Q`, `Z`, chaque lettre et nombre séparés par des
+blancs, coordonnées de 0 à 1 étirées au cadre, remplissage non nul.
 
 `tokens` (facultatif) surcharge les jetons du thème pour ce deck. `theme`
 (facultatif) est la référence `{ id, version }` d'un thème de l'app : l'hôte
@@ -276,7 +292,7 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 | `p.slot(label:, mode:, accepts:)` | Éléments enfants ; `mode` : `"flow"` ou `"free"` ; `accepts` : noms de widgets admis, ou `none` |
 | `p.grid(label:, default:)` | Grille `(columns:, rows:, gap:)` |
 | `p.list(label:, item-label:, item:, min:, max:, default:)` | Liste d'items aux colonnes typées (`plain`, `rich`, `number`, `flag`, `choice`, `asset`), saisie en tableau ; liste absente = vide, `default` n'amorce qu'un objet créé |
-| `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`, `"table"`) |
+| `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`, `"table"`, `"path"`) |
 
 ### `widget(name, label:, category:, params:, render)`
 
@@ -288,7 +304,8 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 - `ctx` : `id` (l'élément ou la slide), `tokens`, `vars`, `style` (la
   typographie effective de l'élément), `framed` (l'élément a un cadre),
   `load` (chargeur de l'hôte, ou `none`) : `(ctx.load)(asset: …, fit: …)`
-  pour une image, `(ctx.load)(chart: true)` pour un graphique.
+  pour une image (un widget de slide aussi : son décor), `(ctx.load)(chart: true)`
+  pour un graphique (élément seulement).
 
 `category` vaut `"element"` (widget de corps de slide) ou `"slide"`.
 

@@ -364,6 +364,7 @@ theme-token-component-table-size = Table · text size
 theme-token-component-table-header-bg = Table · header background
 theme-token-component-table-header-color = Table · header text
 theme-token-component-table-header-weight = Table · header weight
+theme-token-component-table-body-bg = Table · row background
 theme-token-component-table-stripe-bg = Table · stripe background
 theme-token-component-table-rule-color = Table · rule color
 theme-token-component-table-rule-width = Table · rule width

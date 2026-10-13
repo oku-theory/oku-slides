@@ -1,0 +1,329 @@
+---
+source: crates/oku-slides-import/src/hifi/element_tests.rs
+expression: slides
+---
+[
+  {
+    "elements": [
+      {
+        "id": "s1-1",
+        "kind": "table",
+        "frame": {
+          "x": 132.0,
+          "y": 287.5,
+          "w": 600.0,
+          "h": 180.0
+        },
+        "params": {
+          "data": {
+            "dataset": {
+              "source": [
+                [
+                  "Titre",
+                  null
+                ],
+                [
+                  "A",
+                  "1"
+                ],
+                [
+                  "B",
+                  "2"
+                ]
+              ]
+            },
+            "header-row": true,
+            "header-column": false,
+            "striped": true
+          }
+        }
+      }
+    ],
+    "losses": [
+      {
+        "item": "s1/4",
+        "kind": {
+          "type": "table_style"
+        }
+      },
+      {
+        "item": "s1/4",
+        "kind": {
+          "type": "merged_cells"
+        }
+      }
+    ]
+  },
+  {
+    "elements": [
+      {
+        "id": "s2-1",
+        "kind": "chart",
+        "frame": {
+          "x": 132.0,
+          "y": 287.5,
+          "w": 960.0,
+          "h": 540.0
+        },
+        "params": {
+          "option": {
+            "dataset": {
+              "source": [
+                [
+                  "",
+                  "Nord",
+                  "Sud"
+                ],
+                [
+                  "T1",
+                  10.0,
+                  4.0
+                ],
+                [
+                  "T2",
+                  null,
+                  null
+                ],
+                [
+                  "T3",
+                  12.5,
+                  6.0
+                ]
+              ]
+            },
+            "xAxis": {
+              "type": "category"
+            },
+            "yAxis": {
+              "type": "value"
+            },
+            "series": [
+              {
+                "type": "bar",
+                "stack": "total",
+                "itemStyle": {
+                  "color": "#4472c4"
+                }
+              },
+              {
+                "type": "bar",
+                "stack": "total"
+              }
+            ],
+            "title": {
+              "text": "Ventes 2026"
+            }
+          }
+        }
+      },
+      {
+        "id": "s2-2",
+        "kind": "image",
+        "frame": {
+          "x": 1152.0,
+          "y": 287.5,
+          "w": 480.0,
+          "h": 480.0
+        },
+        "params": {
+          "asset": "sha256:d28c139bba718d60154960eaca75535a5cc5b59fe2153e998a29251e8e5f4667",
+          "fit": "stretch"
+        }
+      },
+      {
+        "id": "s2-3",
+        "kind": "text",
+        "frame": {
+          "x": 132.0,
+          "y": 864.0,
+          "w": 480.0,
+          "h": 80.0
+        },
+        "style": {
+          "size": 32.0,
+          "color": "ink",
+          "font": "body",
+          "align": "left",
+          "leading": 0.56,
+          "valign": "top",
+          "inset": [
+            16.81,
+            14.4,
+            15.46,
+            14.4
+          ]
+        },
+        "params": {
+          "body": [
+            {
+              "runs": [
+                {
+                  "t": "Gauche"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "s2-4",
+        "kind": "text",
+        "frame": {
+          "x": 612.0,
+          "y": 864.0,
+          "w": 480.0,
+          "h": 80.0
+        },
+        "style": {
+          "size": 32.0,
+          "color": "ink",
+          "font": "body",
+          "align": "left",
+          "leading": 0.56,
+          "valign": "top",
+          "inset": [
+            16.81,
+            14.4,
+            15.46,
+            14.4
+          ]
+        },
+        "params": {
+          "body": [
+            {
+              "runs": [
+                {
+                  "t": "Droite"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "losses": []
+  },
+  {
+    "elements": [
+      {
+        "id": "s3-1",
+        "kind": "shape",
+        "frame": {
+          "x": 200.0,
+          "y": 200.0,
+          "w": 200.0,
+          "h": 100.0
+        },
+        "style": {
+          "fill": "#4472c4",
+          "radius": 16.67
+        },
+        "params": {
+          "shape": "rect"
+        }
+      },
+      {
+        "id": "s3-2",
+        "kind": "text",
+        "frame": {
+          "x": 200.0,
+          "y": 200.0,
+          "w": 200.0,
+          "h": 100.0
+        },
+        "style": {
+          "size": 36.0,
+          "color": "ink",
+          "font": "body",
+          "align": "left",
+          "leading": 0.56,
+          "valign": "top",
+          "inset": [
+            22.89,
+            19.28,
+            21.38,
+            19.28
+          ]
+        },
+        "params": {
+          "body": [
+            {
+              "runs": [
+                {
+                  "t": "Étape 1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "s3-3",
+        "kind": "shape",
+        "frame": {
+          "x": 500.0,
+          "y": 200.0,
+          "w": 200.0,
+          "h": 100.0
+        },
+        "style": {
+          "fill": "#4472c4",
+          "radius": 16.67
+        },
+        "params": {
+          "shape": "rect"
+        }
+      },
+      {
+        "id": "s3-4",
+        "kind": "text",
+        "frame": {
+          "x": 500.0,
+          "y": 200.0,
+          "w": 200.0,
+          "h": 100.0
+        },
+        "style": {
+          "size": 36.0,
+          "color": "ink",
+          "font": "body",
+          "align": "left",
+          "leading": 0.56,
+          "valign": "top",
+          "inset": [
+            22.89,
+            19.28,
+            21.38,
+            19.28
+          ]
+        },
+        "params": {
+          "body": [
+            {
+              "runs": [
+                {
+                  "t": "Étape 2"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "s3-5",
+        "kind": "image",
+        "frame": {
+          "x": 200.0,
+          "y": 500.0,
+          "w": 400.0,
+          "h": 80.0
+        },
+        "params": {
+          "asset": "sha256:d28c139bba718d60154960eaca75535a5cc5b59fe2153e998a29251e8e5f4667",
+          "fit": "stretch"
+        }
+      }
+    ],
+    "losses": []
+  }
+]

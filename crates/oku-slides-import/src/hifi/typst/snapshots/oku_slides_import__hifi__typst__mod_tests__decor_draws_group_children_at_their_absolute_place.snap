@@ -1,0 +1,10 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: "Fixture::new().decor(&[group]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  rect(width: 200pt, height: 100pt, fill: color-of(t, "accent"), stroke: none),
+)
+place(top + left, dx: 800pt, dy: 600pt,
+  box(width: 100pt, height: 100pt, if ctx.load != none { (ctx.load)(asset: "sha256:aa", fit: "stretch") }),
+)

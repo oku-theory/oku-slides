@@ -1,0 +1,86 @@
+---
+source: crates/oku-slides-import/tests/hifi.rs
+expression: summary(&plan(fixture))
+---
+{
+  "slides": [
+    {
+      "slide": "s1",
+      "kind": "l2-titre-et-contenu",
+      "params": [
+        "titre"
+      ],
+      "elements": [
+        "table @132,287 600×180"
+      ],
+      "losses": {
+        "merged_cells": 1,
+        "table_style": 1
+      }
+    },
+    {
+      "slide": "s2",
+      "kind": "l2-titre-et-contenu",
+      "params": [
+        "titre"
+      ],
+      "elements": [
+        "chart @132,287 960×540",
+        "image @1152,287 480×480",
+        "text @132,864 480×80",
+        "text @612,864 480×80"
+      ],
+      "losses": {}
+    },
+    {
+      "slide": "s3",
+      "kind": "l2-titre-et-contenu",
+      "params": [
+        "titre"
+      ],
+      "elements": [
+        "shape @200,200 200×100",
+        "text @200,200 200×100",
+        "shape @500,200 200×100",
+        "text @500,200 200×100",
+        "image @200,500 400×80"
+      ],
+      "losses": {}
+    }
+  ],
+  "coverage": {
+    "runs": {
+      "found": 12,
+      "total": 12
+    },
+    "images": {
+      "found": 2,
+      "total": 2
+    },
+    "tables": {
+      "found": 1,
+      "total": 1
+    },
+    "charts": {
+      "found": 1,
+      "total": 1
+    },
+    "missing": []
+  },
+  "fonts": [
+    [
+      "Arial",
+      "Liberation Sans"
+    ],
+    [
+      "Calibri",
+      "Carlito"
+    ],
+    [
+      "Calibri Light",
+      "Carlito"
+    ]
+  ],
+  "embedded": [],
+  "assets": 1
+}

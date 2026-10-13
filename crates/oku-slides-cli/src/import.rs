@@ -1,11 +1,17 @@
 //! `oku-slides import` : une présentation PowerPoint en deck Oku.
 //!
-//! Mode `retrofit` (lot 2) : le contenu de la présentation est projeté sur
-//! un pack et un thème existants (`oku_slides_import::retrofit`). Le pack est
-//! obligatoire (id, dossier ou nom) ; le thème est facultatif (id ou nom ;
-//! défaut : le thème par défaut). Les ops du plan s'appliquent en une
-//! transaction, puis le deck est rendu et enregistré en `.oku-slides.pdf`,
-//! comme `save`. Le mode `hifi` est reconnu et refusé : il arrive au lot 3.
+//! Mode `retrofit` (lot 2, le défaut) : le contenu de la présentation est
+//! projeté sur un pack et un thème existants (`oku_slides_import::retrofit`).
+//! Le pack est obligatoire (id, dossier ou nom) ; le thème est facultatif (id
+//! ou nom ; défaut : le thème par défaut).
+//!
+//! Mode `hifi` (lot 3, [`crate::import_hifi`]) : la présentation est reproduite
+//! fidèlement sur un pack et un thème générés pour elle, embarqués dans le
+//! deck seulement ; `--pack` et `--theme` y sont refusés.
+//!
+//! Dans les deux modes, la lecture est bornée, puis les ops du plan
+//! s'appliquent en une transaction et le deck est rendu et enregistré en
+//! `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -15,9 +21,10 @@ use serde_json::{Map, Value};
 
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{Deck, PackManifest, PackRef, SourceBundle, apply_all};
-use oku_slides_i18n::Localize;
+use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
-use oku_slides_import::{ReadLimits, RetrofitTarget, read_pptx};
+use oku_slides_import::source::SourceDeck;
+use oku_slides_import::{ImportPlan, ReadLimits, RetrofitTarget, read_pptx};
 use oku_slides_platform::Platform;
 use oku_slides_platform::storage::StorageErrorKind;
 use oku_slides_render::Fonts;
@@ -26,13 +33,14 @@ use oku_slides_session::{ThemeLibrary, adopt_default_theme, theme_tokens};
 
 use crate::library::{embed_theme, pack_library, resolve_pack, theme_library};
 use crate::out::Out;
+use crate::pack_render::DeckWidgets;
 
 /// Mode d'import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum ImportMode {
     /// Contenu projeté sur un pack et un thème existants.
     Retrofit,
-    /// Copie fidèle (lot 3) : refusée pour l'instant.
+    /// Copie fidèle, sur un pack et un thème générés.
     Hifi,
 }
 
@@ -51,6 +59,22 @@ pub(crate) struct ImportArgs {
     pub(crate) output: PathBuf,
     /// Le rapport JSON à écrire.
     pub(crate) report: Option<PathBuf>,
+    /// Hi-fi : chercher les polices de la présentation parmi celles du système.
+    pub(crate) system_fonts: bool,
+}
+
+/// La présentation lue : ses octets (l'identité du hi-fi en dérive) et sa source.
+pub(crate) struct Input {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) source: SourceDeck,
+}
+
+/// Un import prêt à s'appliquer : les sources (packs et thèmes embarqués),
+/// les widgets sondés de leur pack et le plan.
+pub(crate) struct Prepared {
+    pub(crate) bundle: SourceBundle,
+    pub(crate) widgets: DeckWidgets,
+    pub(crate) plan: ImportPlan,
 }
 
 /// Les jetons effectifs du thème de `bundle` : les défauts, puis ceux du thème.
@@ -61,19 +85,29 @@ fn deck_tokens(themes: &ThemeLibrary, bundle: &SourceBundle) -> Map<String, Valu
 
 /// Importe `args.input` et écrit le deck obtenu dans `args.output`.
 pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: ImportArgs) -> Result<()> {
-    let (storage, l) = (&platform.storage, out.localizer());
-    if args.mode == ImportMode::Hifi {
-        return Err(eyre!(l.tr("cli-import-hifi-later")));
-    }
-    let wanted = args.pack.as_deref().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?;
-    let library = pack_library(platform);
-    let files = resolve_pack(storage, &library, l, wanted)?;
-    let manifest = PackManifest::from_files(&files)
-        .map_err(|_| eyre!(l.tr_with("cli-import-bad-pack", &[("pack", wanted.into())])))?;
+    let l = out.localizer();
+    // Les arguments d'abord : une erreur de forme ne lit pas la présentation.
+    let pack = match args.mode {
+        ImportMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
+            return Err(eyre!(l.tr("cli-import-hifi-no-target")));
+        }
+        ImportMode::Hifi => None,
+        ImportMode::Retrofit => Some(args.pack.as_deref().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?),
+    };
+    let input = read_input(platform, l, &args)?;
+    let prepared = match pack {
+        Some(pack) => prepare_retrofit(platform, l, fonts, &args, pack, &input.source)?,
+        None => crate::import_hifi::prepare(platform, l, fonts, &args, &input)?,
+    };
+    finish(platform, out, fonts, &args, prepared)
+}
+
+/// Lit `args.input`, borné par [`ReadLimits::default`].
+fn read_input(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<Input> {
     let shown = args.input.display().to_string();
     let limits = ReadLimits::default();
     // Taille vue avant toute lecture : un fichier trop gros n'entre jamais en mémoire.
-    let bytes = storage.read_limited(&args.input, limits.max_input_bytes).map_err(|e| {
+    let bytes = platform.storage.read_limited(&args.input, limits.max_input_bytes).map_err(|e| {
         if e.kind() == StorageErrorKind::TooLarge {
             eyre!(l.tr("import-too-large"))
         } else {
@@ -81,7 +115,22 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
         }
     })?;
     let source = read_pptx(&bytes, &limits).map_err(|e| eyre!(e.localize(l)))?;
+    Ok(Input { bytes, source })
+}
 
+/// Le retrofit de `source` sur le pack `wanted` et le thème `args.theme`.
+fn prepare_retrofit(
+    platform: &Platform,
+    l: &Localizer,
+    fonts: &Fonts,
+    args: &ImportArgs,
+    wanted: &str,
+    source: &SourceDeck,
+) -> Result<Prepared> {
+    let library = pack_library(platform);
+    let files = resolve_pack(&platform.storage, &library, l, wanted)?;
+    let manifest = PackManifest::from_files(&files)
+        .map_err(|_| eyre!(l.tr_with("cli-import-bad-pack", &[("pack", wanted.into())])))?;
     let version = files.version();
     let mut deck = Deck::empty();
     deck.templates = Some(PackRef { id: manifest.id, version: version.clone() });
@@ -103,24 +152,33 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
     };
-    let plan = retrofit::project(&source, &target);
+    let plan = retrofit::project(source, &target);
+    Ok(Prepared { bundle, widgets, plan })
+}
+
+/// Applique le plan de `prepared` en une transaction, rend et écrit le deck
+/// (avec ses polices embarquées), puis le rapport ; une ligne de résultat.
+fn finish(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: &ImportArgs, prepared: Prepared) -> Result<()> {
+    let l = out.localizer();
+    let Prepared { mut bundle, widgets, mut plan } = prepared;
     for asset in plan.assets.values() {
         bundle.add_asset(asset.bytes.clone());
     }
     let mut deck = bundle.deck().clone();
-    apply_all(&mut deck, plan.ops.clone(), &widgets.registry).map_err(|e| eyre!(e.localize(l)))?;
+    apply_all(&mut deck, std::mem::take(&mut plan.ops), &widgets.registry).map_err(|e| eyre!(e.localize(l)))?;
     bundle.apply(deck, &l.tr("cli-import-label"), None).map_err(|e| eyre!(e.localize(l)))?;
     crate::report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
     let target = args.output.display().to_string();
-    let written = crate::write_document(platform, l, fonts.clone(), &widgets, &bundle, &args.output)
+    let fonts = fonts.with(bundle.fonts.values().cloned());
+    let written = crate::write_document(platform, l, fonts, &widgets, &bundle, &args.output)
         .wrap_err_with(|| l.tr_with("cli-import-write-failed", &[("path", target.as_str().into())]))?;
     if let Some(path) = &args.report {
-        storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
+        platform.storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
     }
     out.line(
         "cli-imported",
         &[
-            ("path", args.output.display().to_string().into()),
+            ("path", target.into()),
             ("slides", bundle.deck().slides.len().into()),
             ("pages", written.pages.into()),
             ("losses", plan.report.loss_count().into()),

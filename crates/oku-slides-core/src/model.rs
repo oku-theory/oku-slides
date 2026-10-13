@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::error::ValueReason;
 use crate::pack::{PackRef, ThemeRef};
 use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
@@ -257,7 +258,40 @@ pub struct Style {
     pub stroke_width: Option<TokenValue>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<TokenValue>,
+    /// Ancrage vertical d'un texte dans son cadre : `top`, `middle` ou
+    /// `bottom` (voir [`STYLE_VALIGNS`]). Sans cadre, sans effet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valign: Option<String>,
+    /// Marges intérieures d'un texte, en pt : haut, droite, bas, gauche ;
+    /// chacune finie, de 0 à [`STYLE_INSET_MAX`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inset: Option<[f64; 4]>,
+    /// Espacement ajouté entre les lettres d'un texte, en pt (négatif :
+    /// resserré) ; fini, de -[`STYLE_TRACKING_MAX`] à [`STYLE_TRACKING_MAX`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking: Option<f64>,
+    /// Espace entre deux paragraphes d'un texte (items de liste compris),
+    /// en pt : de la dernière ligne de base de l'un au haut de la première
+    /// ligne du suivant ; fini, de 0 à [`STYLE_SPACING_MAX`]. Sans la clé,
+    /// celui du thème.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spacing: Option<f64>,
 }
+
+/// Valeurs de [`Style::valign`].
+pub const STYLE_VALIGNS: [&str; 3] = ["top", "middle", "bottom"];
+
+/// Plus grande marge intérieure ([`Style::inset`]), en pt : au-delà de
+/// toute page raisonnable.
+pub const STYLE_INSET_MAX: f64 = 4096.0;
+
+/// Plus grand espacement des lettres ([`Style::tracking`]), en pt, dans un
+/// sens ou dans l'autre : au-delà de toute page raisonnable.
+pub const STYLE_TRACKING_MAX: f64 = 4096.0;
+
+/// Plus grand espace entre paragraphes ([`Style::spacing`]), en pt : au-delà
+/// de toute page raisonnable.
+pub const STYLE_SPACING_MAX: f64 = 4096.0;
 
 impl Style {
     /// Applique les champs définis de `patch` sur `self`.
@@ -265,7 +299,44 @@ impl Style {
         macro_rules! take {
             ($($f:ident),*) => { $( if patch.$f.is_some() { self.$f = patch.$f; } )* };
         }
-        take!(size, color, weight, font, italic, align, leading, fill, stroke, stroke_width, radius);
+        take!(
+            size,
+            color,
+            weight,
+            font,
+            italic,
+            align,
+            leading,
+            fill,
+            stroke,
+            stroke_width,
+            radius,
+            valign,
+            inset,
+            tracking,
+            spacing
+        );
+    }
+
+    /// Le premier champ hors de son domaine (`style.<champ>`) et pourquoi ;
+    /// `None` si tout est permis. Seuls `valign`, `inset`, `tracking` et
+    /// `spacing` ont un domaine fermé : les autres champs se résolvent au rendu (jeton ou
+    /// repli). Un nombre non fini ne se relirait pas (JSON l'écrit `null`).
+    pub fn invalid(&self) -> Option<(&'static str, ValueReason)> {
+        if self.valign.as_deref().is_some_and(|v| !STYLE_VALIGNS.contains(&v)) {
+            return Some(("style.valign", ValueReason::Valign));
+        }
+        let fits = |v: &f64| v.is_finite() && (0.0..=STYLE_INSET_MAX).contains(v);
+        if self.inset.is_some_and(|inset| !inset.iter().all(fits)) {
+            return Some(("style.inset", ValueReason::OutOfBounds));
+        }
+        if self.tracking.is_some_and(|v| !(v.is_finite() && v.abs() <= STYLE_TRACKING_MAX)) {
+            return Some(("style.tracking", ValueReason::OutOfBounds));
+        }
+        if self.spacing.is_some_and(|v| !(v.is_finite() && (0.0..=STYLE_SPACING_MAX).contains(&v))) {
+            return Some(("style.spacing", ValueReason::OutOfBounds));
+        }
+        None
     }
 }
 
@@ -326,14 +397,17 @@ pub struct Element {
     /// Accroche à la grille de la slide ; prioritaire sur `frame`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cell: Option<Cell>,
+    /// En boîte : un élément garde une taille modeste sur la pile, où les
+    /// slots imbriqués se lisent et s'écrivent récursivement.
     #[serde(default, skip_serializing_if = "is_default_style")]
-    pub style: Style,
+    pub style: Box<Style>,
     #[serde(default, skip_serializing_if = "Params::is_empty")]
     pub params: Params,
 }
 
-fn is_default_style(s: &Style) -> bool {
-    *s == Style::default()
+#[expect(clippy::borrowed_box, reason = "signature imposée par skip_serializing_if sur un Box<Style>")]
+fn is_default_style(s: &Box<Style>) -> bool {
+    **s == Style::default()
 }
 
 impl Element {
@@ -343,7 +417,7 @@ impl Element {
             kind: kind.to_owned(),
             frame: None,
             cell: None,
-            style: Style::default(),
+            style: Box::default(),
             params: Params::default(),
         }
     }

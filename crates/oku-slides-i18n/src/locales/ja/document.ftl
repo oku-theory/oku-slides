@@ -43,6 +43,10 @@ import-loss-run-style = { $effect ->
     [strike] 取り消し線が失われました
     [baseline] 上付きまたは下付きが失われました
     [caps] 大文字表示が失われました
+    [font] 一部のフォントがボックスのフォントに置き換えられました
+    [tracking] 一部の文字間隔がボックスの文字間隔に置き換えられました
+    [weight] 標準の部分がボックスに合わせて太字で表示されました
+    [slant] 斜体でない部分がボックスに合わせて斜体で表示されました
    *[highlight] 蛍光ペンが失われました
 }
 import-loss-transform = 回転、反転、トリミングが失われました
@@ -62,6 +66,24 @@ import-loss-effects = 影、反射、3D 効果が失われました
 import-loss-series-dropped = 円グラフは 1 系列のみ表示します。{ $kept } 系列を保持、{ $dropped } 系列を除外しました
 import-loss-repeated-decor = { $slides }枚のスライドで繰り返されるヘッダーまたはフッター「{ $text }」を省きました。テーマが独自に描画します
 import-loss-no-slot = コンテンツを省きました。選んだテンプレートに配置できる場所がありません
+import-loss-page-fitted = 元のページ（{ $width } × { $height } pt）は 16:9 ではありません。内容を拡大縮小して中央に配置しました
+import-loss-paragraph-style = 段落の配置、行間、または段落間隔がボックスに合わせられました
+import-loss-shape-style = { $effect ->
+    [gradient] グラデーションが単色で表示されました
+    [picture] 塗りつぶしの画像が図形の枠に合わせて引き伸ばされました
+    [dash] 破線が実線で表示されました
+   *[geometry] 不明な図形が四角形で表示されました
+}
+import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはテンプレートがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります
+import-loss-decor-truncated = パックファイルのサイズに収めるため装飾を切り詰めました：{ $omitted }個の要素を省きました
+import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、文字サイズは失われます
+import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました
+import-font-missing = { $family } が見つかりません。テキストは { $by } を使います
+import-font-restricted = { $family }：ライセンスにより一部のスタイルをプレゼンテーションに埋め込めません
+import-font-restricted-substituted = { $family } はライセンスによりプレゼンテーションに埋め込めません。メトリクス互換の { $by } に置き換えました
+import-font-restricted-missing = { $family } はライセンスによりプレゼンテーションに埋め込めません。テキストは { $by } を使います
+import-font-too-large = { $family }：ファイルが大きすぎてデッキに埋め込めません。テキストは { $by } を使います
+import-font-missing-no-fallback = { $family } もテーマの本文フォントも見つかりません：テキストはエンジンの既定フォントで表示されます
 import-warning-effect-ignored = 効果はインポートされませんでした: { $detail }
 import-warning-approximated = 近似して表示しました: { $detail }
 import-warning-unreadable-item = 読み取れない項目をスキップしました: { $detail }

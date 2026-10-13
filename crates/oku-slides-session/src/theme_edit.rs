@@ -30,7 +30,6 @@ use crate::error::{
     NotEditingTemplatesSnafu, SourcesSnafu, ThemeChoiceAloneSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu,
     UnknownThemeSnafu,
 };
-use crate::library_kind::VersionManifest;
 use crate::pack::now_created;
 use crate::templates_mode::adopt_merge_key;
 use crate::theme::{DEFAULT_THEME, ThemeLibrary, ThemeManifest};

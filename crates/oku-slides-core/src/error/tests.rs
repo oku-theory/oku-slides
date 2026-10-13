@@ -47,6 +47,12 @@ fn invalid(reason: ValueReason) -> OpError {
     "the number is outside its allowed range",
     "le nombre est hors des limites permises"
 )]
+#[case::valign(ValueReason::Valign, "top, middle or bottom is expected", "top, middle ou bottom est attendu")]
+#[case::path(
+    ValueReason::Path,
+    "the path is made of M, L, C, Q and Z commands followed by their numbers, starting with M",
+    "le chemin se compose de commandes M, L, C, Q et Z suivies de leurs nombres, en commençant par M"
+)]
 fn invalid_value_says_why_in_the_user_language(#[case] reason: ValueReason, #[case] en: &str, #[case] fr: &str) {
     let err = invalid(reason);
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
@@ -95,6 +101,7 @@ fn param_type(expected: ExpectedType) -> OpError {
 #[case::chart(Shape::ChartOption.required(), "a chart option")]
 #[case::table(Shape::TableOption.required(), "a table option")]
 #[case::chart_or_table(Shape::ChartOrTableOption.required(), "a chart or table option")]
+#[case::path(Shape::PathOption.required(), "a shape path (an object with d)")]
 #[case::items(Shape::Items.required(), "a list of items")]
 #[case::items_or_null(Shape::Items.or_null(), "a list of items or null")]
 #[case::list(Shape::List.required(), "a list")]
@@ -115,6 +122,7 @@ fn param_type_display_keeps_the_english_expectation(#[case] expected: ExpectedTy
     "il faut un nombre dans ses bornes"
 )]
 #[case::chart(Shape::ChartOption.required(), "a chart option is expected", "il faut une option de graphique")]
+#[case::path(Shape::PathOption.required(), "a shape path (an object with d) is expected", "il faut un chemin de forme (un objet à clé d)")]
 #[case::add_element(
     Shape::AddElementOnly.required(),
     "elements are added through add_element",

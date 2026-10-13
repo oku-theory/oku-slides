@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] ขีดทับหายไป
     [baseline] ตัวยกหรือตัวห้อยหายไป
     [caps] ตัวพิมพ์ใหญ่หายไป
+    [font] แบบอักษรของข้อความบางส่วนถูกแทนด้วยแบบอักษรของกล่อง
+    [tracking] ระยะห่างตัวอักษรของข้อความบางส่วนถูกแทนด้วยระยะของกล่อง
+    [weight] ข้อความปกติแสดงเป็นตัวหนาตามกล่อง
+    [slant] ข้อความตัวตรงแสดงเป็นตัวเอียงตามกล่อง
    *[highlight] การไฮไลต์หายไป
 }
 import-loss-transform = การหมุน การพลิก หรือการครอบตัดหายไป
@@ -63,6 +67,24 @@ import-loss-effects = เงา การสะท้อน และเอฟ�
 import-loss-series-dropped = แผนภูมิวงกลมแสดงได้เพียงชุดข้อมูลเดียว: เก็บไว้ { $kept } ตัดออก { $dropped }
 import-loss-repeated-decor = ละส่วนหัวหรือท้ายกระดาษ “{ $text }” ที่ซ้ำใน { $slides } สไลด์: ธีมวาดของตัวเอง
 import-loss-no-slot = ละเนื้อหา: เทมเพลตที่เลือกไม่มีที่สำหรับเนื้อหานี้
+import-loss-page-fitted = หน้าต้นฉบับ { $width } × { $height } pt ไม่ใช่ 16:9: ปรับขนาดเนื้อหาและจัดกึ่งกลางแล้ว
+import-loss-paragraph-style = การจัดแนว ระยะบรรทัด หรือระยะย่อหน้าของย่อหน้าถูกปรับตามกล่อง
+import-loss-shape-style = { $effect ->
+    [gradient] การไล่ระดับสีแสดงเป็นสีทึบ
+    [picture] รูปภาพเติมถูกยืดตามกรอบของรูปร่าง
+    [dash] เส้นประแสดงเป็นเส้นทึบ
+   *[geometry] รูปร่างที่ไม่รู้จักแสดงเป็นสี่เหลี่ยมผืนผ้า
+}
+import-loss-layout-dropped = เลย์เอาต์มากเกินไปสำหรับแพ็กเดียว: “{ $layout }” ไม่มีเทมเพลต สไลด์ของมันใช้วิดเจ็ตว่างและได้รับการตกแต่งเป็นองค์ประกอบ
+import-loss-decor-truncated = ตัดการตกแต่งให้พอดีกับขนาดไฟล์แพ็ก: ละองค์ประกอบ { $omitted } รายการ
+import-loss-table-style = รูปแบบตารางเป็นค่าประมาณ: พื้นหลังเซลล์ เส้นขอบ ความกว้างคอลัมน์ หรือขนาดข้อความเฉพาะของตารางหายไป
+import-font-substituted = แทนที่ { $family } ด้วย { $by } ที่มีเมตริกเข้ากันได้
+import-font-missing = ไม่พบ { $family }: ข้อความใช้ฟอนต์ { $by }
+import-font-restricted = { $family }: สัญญาอนุญาตห้ามฝังบางสไตล์ลงในงานนำเสนอ
+import-font-restricted-substituted = ฝัง { $family } ลงในงานนำเสนอไม่ได้ (สัญญาอนุญาต): แทนที่ด้วย { $by } ที่มีเมตริกเข้ากันได้
+import-font-restricted-missing = ฝัง { $family } ลงในงานนำเสนอไม่ได้ (สัญญาอนุญาต): ข้อความใช้ฟอนต์ { $by }
+import-font-too-large = { $family }: ไฟล์ใหญ่เกินกว่าจะฝังในเด็ค ข้อความใช้ฟอนต์ { $by }
+import-font-missing-no-fallback = ไม่พบ { $family } และฟอนต์เนื้อหาของธีม: ข้อความแสดงด้วยฟอนต์เริ่มต้นของเอนจิน
 import-warning-effect-ignored = ไม่ได้นำเข้าเอฟเฟกต์: { $detail }
 import-warning-approximated = แสดงผลแบบประมาณ: { $detail }
 import-warning-unreadable-item = ข้ามรายการที่อ่านไม่ได้: { $detail }

@@ -88,3 +88,16 @@ fn alto_summary_matches() {
         .collect();
     insta::assert_json_snapshot!("alto_summary", lines);
 }
+
+#[test]
+fn alto_master_without_placeholders_keeps_its_tx_styles() {
+    let d = alto();
+    let m = &d.masters[0];
+    assert_that!(m.placeholders.len()).is_equal_to(0);
+    let s = &m.text_styles;
+    assert_that!((s.title.run.size, s.body.run.size, s.title.run.font.value.as_str())).is_equal_to((
+        44.0,
+        32.0,
+        "Calibri Light",
+    ));
+}

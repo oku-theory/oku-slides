@@ -8,10 +8,16 @@
 //! Un projecteur rend un [`ImportPlan`] : les opérations qui construisent le
 //! deck Oku, les assets qu'elles référencent et un [`ImportReport`] (pertes,
 //! replis, couverture du contenu). Le retrofit ([`retrofit::project`]) projette
-//! la source sur un pack et un thème existants ([`RetrofitTarget`]) ;
+//! la source sur un pack et un thème existants ([`RetrofitTarget`]) ; le hi-fi
+//! ([`hifi::project`]) la reproduit fidèlement sur un thème et un pack générés
+//! pour elle ([`HifiTarget`]), que le plan porte avec les polices à embarquer.
 //! [`coverage::coverage`] mesure ce que le deck obtenu garde de la source.
+//! [`fonts::resolve`] choisit la police de chaque famille source et les
+//! fichiers à embarquer dans le deck.
 
 pub mod coverage;
+pub mod fonts;
+pub mod hifi;
 pub mod plan;
 pub mod report;
 pub mod retrofit;
@@ -26,6 +32,7 @@ mod pptx;
 mod test_support;
 
 pub use error::{ImportError, ImportErrorKind};
+pub use hifi::{HifiTarget, PackLimits};
 pub use limits::ReadLimits;
 pub use plan::ImportPlan;
 pub use pptx::read_pptx;

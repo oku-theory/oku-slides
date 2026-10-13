@@ -13,6 +13,7 @@ use std::sync::Arc;
 use common::{assert_success, oku_slides, workdir};
 use oku_slides_core::{SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
+use rstest::rstest;
 use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
 
@@ -156,16 +157,130 @@ fn import_with_a_pack_folder_uses_that_pack() {
     assert_that!(reopened(&pdf).deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(GRID_PACK));
 }
 
+/// Les sources d'un `.oku-slides.pdf`, relues avec la seule base : les
+/// widgets du pack embarqué n'y sont pas contrôlés (`oku-slides open` le fait).
+fn sources(pdf: &Path) -> SourceBundle {
+    let bytes = std::fs::read(pdf).unwrap_or_else(|e| panic!("lecture du PDF : {e}"));
+    let found = oku_slides_pdf::extract_sources(&bytes)
+        .unwrap_or_else(|e| panic!("sources du PDF : {e}"))
+        .unwrap_or_else(|| panic!("PDF sans sources"));
+    SourceBundle::from_zip(&found.zip, LIMITS, base_registry()).unwrap_or_else(|e| panic!("sources : {e}")).0
+}
+
+/// Importe `input` en hi-fi (sans les polices du système : le résultat ne
+/// dépend pas de la machine) vers `<dir>/<stem>.oku-slides.pdf`, rapport en
+/// `<dir>/<stem>.json` ; la sortie de la commande.
+fn import_hifi(dir: &Path, input: &Path, stem: &str) -> Output {
+    run(oku_slides(dir, "en")
+        .arg("import")
+        .arg(input)
+        .args(["--mode", "hifi", "--no-system-fonts", "-o"])
+        .arg(dir.join(format!("{stem}.oku-slides.pdf")))
+        .arg("--report")
+        .arg(dir.join(format!("{stem}.json"))))
+}
+
+fn report(path: &Path) -> serde_json::Value {
+    serde_json::from_slice(&std::fs::read(path).unwrap_or_else(|e| panic!("{e}")))
+        .unwrap_or_else(|e| panic!("rapport : {e}"))
+}
+
+/// Les fichiers de la bibliothèque de l'utilisateur (packs et thèmes) sous `dir/data`.
+fn library_files(dir: &Path) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    for sub in ["templates", "themes"] {
+        let at = dir.join("data").join(sub);
+        if at.exists() {
+            files(&at, &mut found);
+        }
+    }
+    found
+}
+
+/// Le deck rouvert par `oku-slides open` (pack sondé, deck validé), extrait dans `<dir>/open`.
+fn open_hifi(dir: &Path, pdf: &Path) -> Output {
+    let out = run(oku_slides(dir, "en").arg("open").arg(pdf).arg("--out").arg(dir.join("open")));
+    assert_success("open", &out, &[]);
+    assert_that!(stderr(&out)).does_not_contain("issue:");
+    out
+}
+
 #[test]
-fn import_hifi_is_refused_with_a_localized_message() {
-    let dir = workdir("import-hifi");
+fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_alone() {
+    let dir = workdir("import-hifi-minimal");
+    let input = pptx(&dir, "minimal");
+    let out = import_hifi(&dir, &input, "minimal");
+    assert_success("import", &out, &[]);
+    let pdf = dir.join("minimal.oku-slides.pdf");
+    assert_that!(stdout(&out)).starts_with(format!("{}: 3 slides, 3 pages, ", pdf.display()));
+
+    let bundle = sources(&pdf);
+    let deck = bundle.deck();
+    assert_that!(deck.slides.len()).is_equal_to(3);
+    let pack = deck.templates.clone().unwrap_or_else(|| panic!("deck sans pack"));
+    let theme = deck.theme.clone().unwrap_or_else(|| panic!("deck sans thème"));
+    assert_that!(bundle.packs.keys().collect::<Vec<_>>()).is_equal_to(vec![&pack.version]);
+    assert_that!(bundle.themes.keys().collect::<Vec<_>>()).is_equal_to(vec![&theme.version]);
+    assert_that!(pack.id).is_not_equal_to(DEFAULT_PACK);
+    assert_that!(theme.id).is_not_equal_to(PRO_THEME);
+
+    let opened = open_hifi(&dir, &pdf);
+    assert_that!(stdout(&opened)).contains(": 3 slides, ");
+    assert_that!(dir.join("open/packs").join(pack.version.hex()).join("pack.json").exists()).is_true();
+    assert_that!(library_files(&dir)).is_empty();
+
+    let r = report(&dir.join("minimal.json"));
+    assert_that!(r["mode"]).is_equal_to(serde_json::json!("hifi"));
+    assert_that!(r["coverage"]["runs"]["found"]).is_equal_to(r["coverage"]["runs"]["total"].clone());
+    let fonts = r["fonts"].as_array().unwrap_or_else(|| panic!("rapport sans polices : {r}"));
+    assert_that!(fonts.is_empty()).is_false();
+}
+
+#[test]
+fn import_hifi_of_alto_writes_a_reopenable_deck_with_its_images_and_report() {
+    let dir = workdir("import-hifi-alto");
+    let out = import_hifi(&dir, &fixtures().join("alto-wealth.pptx"), "alto");
+    assert_success("import", &out, &[]);
+    let pdf = dir.join("alto.oku-slides.pdf");
+    assert_that!(stdout(&out)).starts_with(format!("{}: 8 slides, 8 pages, ", pdf.display()));
+    let bundle = sources(&pdf);
+    assert_that!((bundle.deck().slides.len(), bundle.packs.len(), bundle.themes.len())).is_equal_to((8, 1, 1));
+    assert_that!(bundle.assets.is_empty()).is_false();
+    assert_that!(stdout(&open_hifi(&dir, &pdf))).contains(": 8 slides, ");
+    assert_that!(library_files(&dir)).is_empty();
+    let r = report(&dir.join("alto.json"));
+    assert_that!(r["coverage"]["missing"]).is_equal_to(serde_json::json!([]));
+    assert_that!(r["fonts"].as_array().map(Vec::is_empty)).is_equal_to(Some(false));
+}
+
+#[test]
+fn import_hifi_twice_of_the_same_file_generates_the_same_pack_and_theme_ids() {
+    let dir = workdir("import-hifi-twice");
+    let input = pptx(&dir, "minimal");
+    let ids = |stem: &str| {
+        assert_success("import", &import_hifi(&dir, &input, stem), &[]);
+        let bundle = sources(&dir.join(format!("{stem}.oku-slides.pdf")));
+        let deck = bundle.deck();
+        (deck.templates.as_ref().map(|r| r.id), deck.theme.as_ref().map(|r| r.id))
+    };
+    let first = ids("a");
+    assert_that!(first.0.is_some() && first.1.is_some()).is_true();
+    assert_that!(ids("b")).is_equal_to(first);
+}
+
+#[rstest]
+#[case("--pack", "Essentiel")]
+#[case("--theme", "Pro")]
+fn import_hifi_with_a_target_is_refused_with_a_localized_message(#[case] arg: &str, #[case] value: &str) {
+    let dir = workdir("import-hifi-target");
     let out = run(oku_slides(&dir, "en")
         .arg("import")
         .arg(fixtures().join("alto-wealth.pptx"))
-        .args(["--mode", "hifi", "--pack", "Essentiel", "-o"])
+        .args(["--mode", "hifi", arg, value, "-o"])
         .arg(dir.join("x.oku-slides.pdf")));
     assert_that!(out.status.success()).is_false();
-    assert_that!(stderr(&out)).contains("high-fidelity import (--mode hifi) is not available yet");
+    assert_that!(stderr(&out)).contains("--pack and --theme belong to retrofit mode");
+    assert_that!(dir.join("x.oku-slides.pdf").exists()).is_false();
 }
 
 #[test]

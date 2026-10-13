@@ -36,6 +36,10 @@ pub enum ValueReason {
     OutOfBounds,
     /// La valeur n'a pas la forme attendue (illisible).
     Unreadable,
+    /// Ancrage vertical d'un style : `top`, `middle` ou `bottom`.
+    Valign,
+    /// Chemin de forme mal formé (voir [`ShapePath`](crate::ShapePath)).
+    Path,
 }
 
 impl ValueReason {
@@ -57,6 +61,8 @@ impl ValueReason {
             ValueReason::NotASlot => "op-value-not-a-slot",
             ValueReason::OutOfBounds => "op-value-out-of-bounds",
             ValueReason::Unreadable => "op-value-unreadable",
+            ValueReason::Valign => "op-value-valign",
+            ValueReason::Path => "op-value-path",
         }
     }
 }
@@ -81,6 +87,8 @@ impl std::fmt::Display for ValueReason {
             ValueReason::NotASlot => "not a slot",
             ValueReason::OutOfBounds => "out of bounds",
             ValueReason::Unreadable => "unreadable value",
+            ValueReason::Valign => "top, middle or bottom",
+            ValueReason::Path => "M, L, C, Q and Z commands with numbers, starting with M",
         })
     }
 }
@@ -111,6 +119,8 @@ pub(crate) enum Shape {
     TableOption,
     /// Une option de graphique ou de tableau (hôte inconnu).
     ChartOrTableOption,
+    /// Un chemin de forme : objet à clé `d`.
+    PathOption,
     /// Une liste d'items.
     Items,
     /// Une liste (`edit_list` sur un paramètre qui n'en est pas une).
@@ -125,7 +135,7 @@ impl Shape {
     /// Chaque forme, dans l'ordre de [`Shape::position`] (tests : le `match` de `position`
     /// oblige à placer une forme ajoutée, et un test vérifie que cette liste le suit).
     #[cfg(test)]
-    pub(crate) const ALL: [Shape; 15] = [
+    pub(crate) const ALL: [Shape; 16] = [
         Shape::Text,
         Shape::Choice,
         Shape::Paragraphs,
@@ -141,6 +151,7 @@ impl Shape {
         Shape::List,
         Shape::AddElementOnly,
         Shape::SetParamOnly,
+        Shape::PathOption,
     ];
 
     /// Rang de la forme dans [`Shape::ALL`] ; `match` exhaustif.
@@ -162,6 +173,7 @@ impl Shape {
             Shape::List => 12,
             Shape::AddElementOnly => 13,
             Shape::SetParamOnly => 14,
+            Shape::PathOption => 15,
         }
     }
 
@@ -193,6 +205,7 @@ impl Shape {
             Shape::List => "op-param-shape-list",
             Shape::AddElementOnly => "op-param-shape-add-element-only",
             Shape::SetParamOnly => "op-param-shape-set-param-only",
+            Shape::PathOption => "op-param-shape-path-option",
         }
     }
 }
@@ -225,6 +238,7 @@ impl std::fmt::Display for ExpectedType {
             Shape::List => "a list",
             Shape::AddElementOnly => "elements, through add_element",
             Shape::SetParamOnly => "a value, through set_param",
+            Shape::PathOption => "a shape path (an object with d)",
         })?;
         if self.nullable {
             f.write_str(" or null")?;

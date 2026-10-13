@@ -43,6 +43,10 @@ import-loss-run-style = { $effect ->
     [strike] Tachado perdido
     [baseline] Superíndice o subíndice perdido
     [caps] Mayúsculas perdidas
+    [font] Fuente de un fragmento sustituida por la del cuadro
+    [tracking] Espaciado de letras de un fragmento sustituido por el del cuadro
+    [weight] Fragmento normal mostrado en negrita como el cuadro
+    [slant] Fragmento recto mostrado en cursiva como el cuadro
    *[highlight] Resaltado perdido
 }
 import-loss-transform = Rotación, volteo o recorte perdidos
@@ -65,6 +69,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] Encabezado o pie «{ $text }» repetido en { $slides } diapositivas omitido: el tema dibuja los suyos
 }
 import-loss-no-slot = Contenido omitido: la plantilla elegida no tiene sitio para él
+import-loss-page-fitted = La página de origen ({ $width } × { $height } pt) no es 16:9: contenido escalado y centrado
+import-loss-paragraph-style = Alineación, interlineado o espaciado de un párrafo ajustados a los del cuadro
+import-loss-shape-style = { $effect ->
+    [gradient] Degradado mostrado como color sólido
+    [picture] Imagen de relleno estirada al marco de la forma
+    [dash] Línea discontinua mostrada continua
+   *[geometry] Forma desconocida mostrada como rectángulo
+}
+import-loss-layout-dropped = Demasiados diseños para un paquete: «{ $layout }» no tiene plantilla; sus diapositivas usan el widget vacío y reciben su decoración como elementos
+import-loss-decor-truncated = Decoración recortada para caber en el tamaño de un archivo del paquete: { $omitted } elementos omitidos
+import-loss-table-style = Estilo de tabla aproximado: se pierden sus fondos de celda, bordes, anchos de columna o tamaños de texto propios
+import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles
+import-font-missing = { $family } no encontrada: el texto usa { $by }
+import-font-restricted = { $family }: su licencia prohíbe incrustar algunas de sus variantes en la presentación
+import-font-restricted-substituted = { $family } no se puede incrustar en la presentación (licencia): sustituida por { $by }, con métricas compatibles
+import-font-restricted-missing = { $family } no se puede incrustar en la presentación (licencia): el texto usa { $by }
+import-font-too-large = { $family }: archivos demasiado grandes para incrustarlos en el deck; el texto usa { $by }
+import-font-missing-no-fallback = No se encuentra { $family } ni la fuente del cuerpo del tema: el texto se muestra con la fuente predeterminada del motor
 import-warning-effect-ignored = Efecto no importado: { $detail }
 import-warning-approximated = Representación aproximada: { $detail }
 import-warning-unreadable-item = Elemento ilegible omitido: { $detail }

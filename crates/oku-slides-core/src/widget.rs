@@ -40,6 +40,8 @@ pub enum SlotMode {
 pub enum HostType {
     Chart,
     Table,
+    /// Chemin d'une forme ([`ShapePath`](crate::ShapePath)).
+    Path,
 }
 
 impl ParamType {

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use roxmltree::Node;
 
 use crate::error::ImportError;
-use crate::pptx::cascade::{TextChain, resolve_levels};
+use crate::pptx::cascade::{TextChain, resolve_level, resolve_levels};
 use crate::pptx::color::{clean_map, color_spec_in, default_map};
 use crate::pptx::context::{PartCtx, PartSpec, Shared};
 use crate::pptx::fill::{FillSpec, parse_fill};
@@ -14,7 +14,7 @@ use crate::pptx::shapes::{GroupCtx, ParsedItem, parse_tree};
 use crate::pptx::text::{LevelProps, RunProps, empty_levels, parse_lst_style};
 use crate::pptx::theme::ThemeData;
 use crate::pptx::xml::{attr_bool, attr_str, attr_u32, child, parse};
-use crate::source::{Fill, Item, ItemKind, Layout, Master, Placeholder, TextBox};
+use crate::source::{Fill, Item, ItemKind, Layout, Master, MasterTextStyles, Placeholder, TextBox};
 
 /// Master lu et ce que ses layouts et slides en héritent.
 #[derive(Debug)]
@@ -147,7 +147,17 @@ pub(crate) fn parse_master(
     let background: Fill = bg.as_ref().map_or(Fill::None, |b| b.resolve(&cx.colors));
     let name = crate::collect::clip(c_sld.and_then(|c| attr_str(c, "name")).unwrap_or_default());
     let (decor, placeholders) = placeholders(items, &cx);
-    let master = Master { id, name, theme: theme_index, background, decor, placeholders };
+    let env = cx.env(RunProps::default());
+    let first_level = |props: &LevelProps| {
+        let chain = TextChain { levels: vec![&styles.pres, props], bodies: Vec::new() };
+        resolve_level(&chain, &empty_levels(), &env, 0)
+    };
+    let text_styles = MasterTextStyles {
+        title: first_level(&styles.title),
+        body: first_level(&styles.body),
+        other: first_level(&styles.other),
+    };
+    let master = Master { id, name, theme: theme_index, background, decor, placeholders, text_styles };
     Ok(MasterInfo { master, styles, phs, clr_map: map, bg })
 }
 

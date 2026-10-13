@@ -19,6 +19,8 @@ op-value-not-tokens = bir nesne veya null bekleniyor
 op-value-not-a-slot = bu parametre bir yuva değil
 op-value-out-of-bounds = sayı izin verilen aralığın dışında
 op-value-unreadable = değer beklenen biçimde değil
+op-value-valign = top, middle veya bottom bekleniyor
+op-value-path = yol, sayılarıyla birlikte M, L, C, Q ve Z komutlarından oluşur ve M ile başlar
 op-unknown-widget = Bilinmeyen bileşen: { $subject }
 op-unknown-param = Bilinmeyen parametre: { $subject }
 op-param-type-because = { $subject } için geçersiz değer: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] değer set_param ile ayarlanır, veya null
    *[no] değer set_param ile ayarlanır
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] bir şekil yolu (d anahtarlı nesne) veya null bekleniyor
+   *[no] bir şekil yolu (d anahtarlı nesne) bekleniyor
+}
 op-item-not-found = { $subject } adlı madde yok
 op-list-full = { $subject } listesi dolu (en fazla { $max } madde)
 op-list-minimum = { $subject } listesinde en az { $min } madde olmalı
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind } burada kabul edilmez
 issue-placed-in-flow = düzenlenmiş bir listede çerçeveyle yerleştirilmiş öğe
 issue-unknown-bind = { $param } bilinmeyen bir sunu ayarına bağlı
 issue-slot-too-deep = öğeler çok derin iç içe
+issue-invalid-style = geçersiz stil değeri: { $field }
 issue-missing-asset = eksik varlık: { $asset }
 issue-pack-version-mismatch = değiştirilmiş paket sürümü atıldı: { $version }
 issue-pack-version-missing = paket sürümü kaynaklarda yok: { $version }

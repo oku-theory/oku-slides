@@ -5,13 +5,26 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::retrofit::decor::Decor;
 use crate::source::{
-    Caps, Cell, Chart, ChartKind, Grouping, Opaque, OpaqueReason, Picture, Role, Series, Size, SourceSlide, Table,
-    TableFlags,
+    Caps, Cell, Chart, ChartKind, Grouping, Opaque, OpaqueReason, Picture, Role, SLIDE_NUMBER, Series, Size,
+    SourceSlide, Table, TableFlags,
 };
 use crate::test_support::{
     element_with, item, para, registry, run, run_with, source_slide, text_box, text_item, with_role,
 };
+
+/// La couverture comme la mesure le retrofit : le décor qu'il omet est hors du compte.
+fn coverage(
+    source: &SourceDeck,
+    deck: &Deck,
+    registry: &WidgetRegistry,
+    origins: &BTreeMap<String, String>,
+    deck_slide: Option<u32>,
+) -> Coverage {
+    let decor = Decor::of(source);
+    super::coverage(source, deck, registry, origins, deck_slide, &|i| decor.skips(i))
+}
 
 fn source(slides: Vec<SourceSlide>) -> SourceDeck {
     SourceDeck {
@@ -136,6 +149,34 @@ fn coverage_skips_date_footer_and_slide_number() {
         Some(1),
     );
     assert_that!(c.runs).is_equal_to(Ratio::default());
+}
+
+#[test]
+fn coverage_without_omission_counts_date_footer_and_slide_number() {
+    let items: Vec<Item> = [Role::Date, Role::Footer]
+        .into_iter()
+        .map(|r| with_role(text_item("x", (0.0, 0.0, 10.0, 10.0), "10/10/2026"), r))
+        .collect();
+    let src = source(vec![source_slide(1, None, items)]);
+    let c = super::coverage(&src, &deck(None, Vec::new()), &registry(), &BTreeMap::new(), None, &|_| false);
+    assert_that!(c.runs).is_equal_to(Ratio { found: 0, total: 2 });
+}
+
+#[test]
+fn coverage_skips_a_slide_number_field() {
+    let mut number = run("7");
+    number.field = Some(SLIDE_NUMBER.into());
+    let tb = text_box(vec![para(vec![run("Page "), number])]);
+    let src = source(vec![source_slide(1, None, vec![item("n", (0.0, 200.0, 10.0, 10.0), ItemKind::Text(tb))])]);
+    let c = super::coverage(
+        &src,
+        &deck(None, vec![text("s1-1", "Page {n}")]),
+        &registry(),
+        &BTreeMap::new(),
+        None,
+        &|_| false,
+    );
+    assert_that!((c.runs, c.missing.is_empty())).is_equal_to((Ratio { found: 1, total: 1 }, true));
 }
 
 #[test]

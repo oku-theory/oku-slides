@@ -20,7 +20,7 @@ comments and tool output are in French.
 | `crates/oku-slides-render-worker` | Typst rendering in a worker process, bounded in time and memory |
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
-| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit projector, report and content coverage |
+| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report and content coverage |
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
@@ -31,7 +31,7 @@ comments and tool output are in French.
 | `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, PPTX import, benchmarks, dev server |
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |
-| `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts), in Git LFS |
+| `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts; Carlito, Caladea, Liberation as metric-compatible substitutes for imports), in Git LFS |
 | `typst/oku-slides` | Typst slide library (structure, default tokens, built-in `papier` and `pro` themes as JSON) |
 | `templates/` | Built-in template sets (`essentiel`, `grilles`) |
 | `fixtures/` | Sample decks, agent scripts, import, dictation and widget samples |
@@ -47,6 +47,7 @@ just save fixtures/roadmap.json deck.oku-slides.pdf                 # save as .o
 just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json + assets
 just oku-slides strip deck.oku-slides.pdf copy.pdf                  # copy without sources
 just oku-slides import deck.pptx --pack Essentiel --theme Pro -o deck.oku-slides.pdf --report r.json  # PPTX → deck (retrofit)
+just oku-slides import deck.pptx --mode hifi -o deck.oku-slides.pdf --report r.json                    # PPTX → deck (faithful copy)
 just bench                                                          # render and save latencies (release build)
 just oku-slides schema                                              # JSON schema of operations
 ```
@@ -60,7 +61,17 @@ the style comes from the target theme. Titles are inferred when the slides have 
 placeholders, drawn cards become `card` elements, repeated headers and footers are
 left to the theme. `--report` writes the JSON report: template chosen per slide,
 losses, fallbacks, widget requests, reader warnings and content coverage.
-`--mode` defaults to `retrofit`; `--mode hifi` (faithful copy) is not available yet.
+`--mode` defaults to `retrofit`.
+
+`--mode hifi` reproduces the presentation on a theme and a pack generated for it
+(one slide widget per PowerPoint layout, master and layout decoration drawn in
+Typst, placeholders as editable fields), embedded in the deck only: the library is
+left untouched, and `--pack` and `--theme` are refused. Pages stay 1920 × 1080; a
+source of another ratio is scaled and centered. Fonts come from the presentation,
+then from the app (`--fonts`) and the system (unless `--no-system-fonts`), then from
+a metric-compatible substitute (Calibri → Carlito, Cambria → Caladea, Arial,
+Times New Roman, Courier New → Liberation); presentation and system faces are
+embedded in the deck. The report adds the font decisions.
 
 ## Running the app
 

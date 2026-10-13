@@ -9,8 +9,8 @@ use roxmltree::Node;
 
 use crate::collect::clip_to;
 use crate::pptx::units::angle;
-use crate::pptx::xml::{attr_f64, attr_i64, attr_str, child, children, elements};
-use crate::source::{Geometry, PathCmd};
+use crate::pptx::xml::{attr_bool, attr_f64, attr_i64, attr_str, child, children, elements};
+use crate::source::{Geometry, PathCmd, SubPath};
 
 /// Sous-tracés gardés par géométrie.
 pub(crate) const MAX_PATHS: usize = 64;
@@ -42,7 +42,7 @@ pub(crate) fn parse_geometry(sp_pr: Node<'_, '_>) -> Option<Geometry> {
         .map(|p| {
             let cmds = path(p, budget);
             budget -= cmds.len();
-            cmds
+            SubPath { cmds, fill: attr_str(p, "fill") != Some("none"), stroke: attr_bool(p, "stroke").unwrap_or(true) }
         })
         .collect();
     Some(Geometry::Path { paths })

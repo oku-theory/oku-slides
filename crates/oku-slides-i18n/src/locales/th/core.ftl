@@ -19,6 +19,8 @@ op-value-not-tokens = ต้องเป็นออบเจ็กต์หร�
 op-value-not-a-slot = พารามิเตอร์นี้ไม่ใช่ช่อง
 op-value-out-of-bounds = ตัวเลขอยู่นอกช่วงที่อนุญาต
 op-value-unreadable = ค่าไม่มีรูปแบบตามที่คาดไว้
+op-value-valign = ต้องเป็น top, middle หรือ bottom
+op-value-path = เส้นทางประกอบด้วยคำสั่ง M, L, C, Q และ Z ตามด้วยตัวเลข โดยเริ่มด้วย M
 op-unknown-widget = ไม่รู้จักวิดเจ็ต: { $subject }
 op-unknown-param = ไม่รู้จักพารามิเตอร์: { $subject }
 op-param-type-because = ค่าไม่ถูกต้องสำหรับ { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] กำหนดค่าด้วย set_param, หรือ null
    *[no] กำหนดค่าด้วย set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] ต้องเป็นเส้นทางรูปร่าง (ออบเจ็กต์ที่มีคีย์ d) หรือ null
+   *[no] ต้องเป็นเส้นทางรูปร่าง (ออบเจ็กต์ที่มีคีย์ d)
+}
 op-item-not-found = ไม่พบรายการย่อย { $subject }
 op-list-full = รายการ { $subject } เต็มแล้ว (มีรายการย่อยได้ไม่เกิน { $max })
 op-list-minimum = รายการ { $subject } ต้องมีรายการย่อยอย่างน้อย { $min }
@@ -117,6 +123,7 @@ issue-slot-rejects = ไม่รับ { $kind } ที่นี่
 issue-placed-in-flow = องค์ประกอบที่วางด้วยกรอบในรายการที่จัดวางแล้ว
 issue-unknown-bind = { $param } เชื่อมกับการตั้งค่าเด็คที่ไม่รู้จัก
 issue-slot-too-deep = องค์ประกอบซ้อนกันลึกเกินไป
+issue-invalid-style = ค่าสไตล์ไม่ถูกต้อง: { $field }
 issue-missing-asset = ไม่มีแอสเซ็ต: { $asset }
 issue-pack-version-mismatch = ทิ้งเวอร์ชันแพ็กที่ถูกแก้ไขแล้ว: { $version }
 issue-pack-version-missing = ไม่มีเวอร์ชันแพ็กในแหล่งข้อมูล: { $version }

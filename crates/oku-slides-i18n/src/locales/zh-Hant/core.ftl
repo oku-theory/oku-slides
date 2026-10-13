@@ -19,6 +19,8 @@ op-value-not-tokens = 需要物件或 null
 op-value-not-a-slot = 此參數不是插槽
 op-value-out-of-bounds = 數值超出允許範圍
 op-value-unreadable = 值的格式不符合預期
+op-value-valign = 應為 top、middle 或 bottom
+op-value-path = 路徑由 M、L、C、Q、Z 指令及其數字組成，以 M 開頭
 op-unknown-widget = 未知的元件：{ $subject }
 op-unknown-param = 未知的參數：{ $subject }
 op-param-type-because = { $subject } 的值無效：{ $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] 值透過 set_param 設定，或 null
    *[no] 值透過 set_param 設定
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] 應為形狀路徑（帶鍵 d 的物件）或 null
+   *[no] 應為形狀路徑（帶鍵 d 的物件）
+}
 op-item-not-found = 沒有項目 { $subject }
 op-list-full = 清單 { $subject } 已滿（最多 { $max }個項目）
 op-list-minimum = 清單 { $subject } 至少需要 { $min }個項目
@@ -117,6 +123,7 @@ issue-slot-rejects = 此處不接受 { $kind }
 issue-placed-in-flow = 在排版清單中以框架放置的元素
 issue-unknown-bind = { $param } 連結到未知的簡報設定
 issue-slot-too-deep = 元素巢狀過深
+issue-invalid-style = 無效的樣式值：{ $field }
 issue-missing-asset = 缺少資源：{ $asset }
 issue-pack-version-mismatch = 已捨棄遭竄改的範本套件版本：{ $version }
 issue-pack-version-missing = 原始檔中缺少範本套件版本：{ $version }

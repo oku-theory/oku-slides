@@ -38,7 +38,7 @@ fn line_break_becomes_a_newline_run() {
 fn field_keeps_its_type_and_cached_text() {
     let t = body(r#"<a:bodyPr/><a:p><a:fld id="{1}" type="slidenum"><a:t>3</a:t></a:fld></a:p>"#);
     let r = &t.paragraphs[0].runs[0];
-    assert_that!((r.text.as_str(), r.field.as_deref())).is_equal_to(("3", Some("slidenum")));
+    assert_that!((r.text.as_str(), r.field.as_deref())).is_equal_to(("3", Some(crate::source::SLIDE_NUMBER)));
 }
 
 #[test]

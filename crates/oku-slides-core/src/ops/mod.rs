@@ -411,6 +411,14 @@ fn check_depth(owner_slots: usize, e: &Element) -> Result<(), OpError> {
     Ok(())
 }
 
+/// Refuse un style dont un champ est hors de son domaine ([`Style::invalid`]).
+fn check_style(style: &Style) -> Result<(), OpError> {
+    match style.invalid() {
+        Some((field, reason)) => Err(InvalidValueSnafu { field, reason }.build().into()),
+        None => Ok(()),
+    }
+}
+
 // ---- Chemins JSON (jetons) ------------------------------------------------------
 
 /// Pose `value` au chemin (en créant les objets manquants) ; renvoie l'ancienne valeur.
@@ -525,15 +533,18 @@ impl Op {
             }
             Op::EditList { target, param, change } => list::edit_list(deck, registry, &target, &param, change),
             Op::SetStyle { slide, element, style } => {
+                // Seul le patch se contrôle : un champ déjà invalide du deck ne bloque pas un autre réglage.
+                check_style(&style)?;
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
                 e.style.merge(style);
                 Ok(())
             }
             Op::ReplaceStyle { slide, element, style } => {
+                check_style(&style)?;
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                e.style = style;
+                *e.style = style;
                 Ok(())
             }
             Op::SetFrame { slide, element, frame } => {

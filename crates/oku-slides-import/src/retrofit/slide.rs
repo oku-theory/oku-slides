@@ -339,7 +339,8 @@ pub(crate) fn project_slide<'a>(
     let mut kinds: Vec<String> = Vec::new();
     let blocks: Vec<Vec<&Unit<'a>>> = match placement {
         Placement::Flow => flow_order(&found, &shape, stack),
-        Placement::Grid => found.iter().map(|u| vec![u]).collect(),
+        // Le retrofit ne place jamais en cadres libres (hi-fi) : comme la grille.
+        Placement::Grid | Placement::Free => found.iter().map(|u| vec![u]).collect(),
     };
     for (k, block) in (1..).zip(&blocks) {
         let block_id = format!("{id}-{k}");
@@ -379,7 +380,7 @@ pub(crate) fn project_slide<'a>(
     collect_assets(&elements, &mut assets);
     let target = match placement {
         Placement::Flow => flow_slot,
-        Placement::Grid => free_slot,
+        Placement::Grid | Placement::Free => free_slot,
     };
     match target {
         Some(name) if !elements.is_empty() => {

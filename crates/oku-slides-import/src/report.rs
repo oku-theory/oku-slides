@@ -9,6 +9,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::fonts::{FontChoice, FontDecision};
 use crate::source::{OpaqueReason, Warning, WarningKind};
 
 /// Mode d'import.
@@ -17,6 +18,8 @@ use crate::source::{OpaqueReason, Warning, WarningKind};
 pub enum Mode {
     /// Contenu projeté sur un pack et un thème existants.
     Retrofit,
+    /// Copie fidèle, sur un pack et un thème générés.
+    Hifi,
 }
 
 /// Où vont les contenus d'une slide.
@@ -27,6 +30,8 @@ pub enum Placement {
     Flow,
     /// Éléments du slot libre, placés en cellules de la grille du modèle.
     Grid,
+    /// Éléments du slot libre, chacun en cadre à sa place source (hi-fi).
+    Free,
 }
 
 /// Effet de texte que le texte riche Oku n'exprime pas.
@@ -43,6 +48,31 @@ pub enum RunEffect {
     Caps,
     /// Surlignage.
     Highlight,
+    /// Police propre au passage (hi-fi : l'élément n'a qu'une police).
+    Font,
+    /// Espacement des lettres propre au passage (hi-fi : l'élément n'en a
+    /// qu'un).
+    Tracking,
+    /// Passage maigre rendu gras : le niveau du placeholder de layout est
+    /// gras et un run du cœur n'ôte pas le gras (hi-fi).
+    Weight,
+    /// Passage droit rendu en italique : le niveau du placeholder de layout
+    /// est en italique et un run du cœur n'ôte pas l'italique (hi-fi).
+    Slant,
+}
+
+/// Rendu d'une forme que la base n'exprime pas (hi-fi).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShapeEffect {
+    /// Dégradé rendu en couleur unie.
+    Gradient,
+    /// Image de remplissage étirée au cadre, hors du contour de la forme.
+    Picture,
+    /// Tirets rendus en trait continu.
+    Dash,
+    /// Géométrie inconnue rendue en rectangle.
+    Geometry,
 }
 
 /// Nature d'une perte.
@@ -90,6 +120,36 @@ pub enum LossKind {
     },
     /// Contenu sans place : le modèle choisi n'a aucun slot.
     NoSlot,
+    /// Page source d'un autre format que la page Oku (16:9) : contenu mis à
+    /// l'échelle uniformément et centré (hi-fi). Dit une fois, à la première slide.
+    PageFitted {
+        /// Largeur de la page source, en pt arrondis.
+        width: u32,
+        /// Hauteur de la page source, en pt arrondis.
+        height: u32,
+    },
+    /// Alignement, interligne ou espacement d'un paragraphe ramené à celui de
+    /// sa boîte (hi-fi : l'élément texte n'en a qu'un).
+    ParagraphStyle,
+    /// Rendu de forme approché (hi-fi).
+    ShapeStyle(ShapeEffect),
+    /// Layout sans widget généré : le pack a atteint le nombre de fichiers que
+    /// la sonde charge (hi-fi). Ses slides prennent le widget `blank`, son
+    /// fond et son décor y sont copiés en éléments. Dit une fois, à sa première slide.
+    LayoutDropped {
+        /// Nom du layout.
+        layout: String,
+    },
+    /// Décor d'un master ou d'un layout coupé : son code dépasserait la taille
+    /// d'un fichier de pack que la sonde charge (hi-fi). Sur le premier item omis.
+    DecorTruncated {
+        /// Items omis, celui-ci compris.
+        omitted: u32,
+    },
+    /// Style d'un tableau approché (hi-fi) : fonds par cellule, bordures,
+    /// largeurs de colonnes ou tailles de texte que le widget `table` ne rend
+    /// pas, ou un style autre que celui du thème généré (le premier tableau).
+    TableStyle,
 }
 
 /// Une perte, sur un item source ou sur la slide entière.
@@ -121,6 +181,20 @@ fn effect_name(e: RunEffect) -> &'static str {
         RunEffect::Baseline => "baseline",
         RunEffect::Caps => "caps",
         RunEffect::Highlight => "highlight",
+        RunEffect::Font => "font",
+        RunEffect::Tracking => "tracking",
+        RunEffect::Weight => "weight",
+        RunEffect::Slant => "slant",
+    }
+}
+
+/// Argument `effect` du message `import-loss-shape-style`.
+fn shape_effect_name(e: ShapeEffect) -> &'static str {
+    match e {
+        ShapeEffect::Gradient => "gradient",
+        ShapeEffect::Picture => "picture",
+        ShapeEffect::Dash => "dash",
+        ShapeEffect::Geometry => "geometry",
     }
 }
 
@@ -154,6 +228,12 @@ impl LossKind {
             LossKind::SeriesDropped { .. } => "import-loss-series-dropped",
             LossKind::RepeatedDecor { .. } => "import-loss-repeated-decor",
             LossKind::NoSlot => "import-loss-no-slot",
+            LossKind::PageFitted { .. } => "import-loss-page-fitted",
+            LossKind::ParagraphStyle => "import-loss-paragraph-style",
+            LossKind::ShapeStyle(_) => "import-loss-shape-style",
+            LossKind::LayoutDropped { .. } => "import-loss-layout-dropped",
+            LossKind::DecorTruncated { .. } => "import-loss-decor-truncated",
+            LossKind::TableStyle => "import-loss-table-style",
         }
     }
 }
@@ -163,6 +243,7 @@ impl Localize for Loss {
         let id = self.kind.message_id();
         match &self.kind {
             LossKind::RunStyle(e) => l.tr_with(id, &[("effect", effect_name(*e).into())]),
+            LossKind::ShapeStyle(e) => l.tr_with(id, &[("effect", shape_effect_name(*e).into())]),
             LossKind::ColorDropped(hex) => l.tr_with(id, &[("color", hex.as_str().into())]),
             LossKind::Opaque(r) => l.tr_with(id, &[("reason", reason_name(r).into())]),
             LossKind::UnsupportedImage(mime) => l.tr_with(id, &[("format", mime.as_str().into())]),
@@ -172,6 +253,11 @@ impl Localize for Loss {
             LossKind::RepeatedDecor { text, slides } => {
                 l.tr_with(id, &[("text", text.as_str().into()), ("slides", (*slides).into())])
             }
+            LossKind::PageFitted { width, height } => {
+                l.tr_with(id, &[("width", (*width).into()), ("height", (*height).into())])
+            }
+            LossKind::LayoutDropped { layout } => l.tr_with(id, &[("layout", layout.as_str().into())]),
+            LossKind::DecorTruncated { omitted } => l.tr_with(id, &[("omitted", (*omitted).into())]),
             LossKind::ListLevels
             | LossKind::MergedCells
             | LossKind::PercentStacked
@@ -180,7 +266,9 @@ impl Localize for Loss {
             | LossKind::TableTruncated
             | LossKind::HiddenSlide
             | LossKind::Effects
-            | LossKind::NoSlot => l.tr(id),
+            | LossKind::NoSlot
+            | LossKind::ParagraphStyle
+            | LossKind::TableStyle => l.tr(id),
         }
     }
 }
@@ -209,6 +297,37 @@ impl Localize for Warning {
             (id, Some(detail)) => l.tr_with(id, &[("detail", detail.into())]),
             (id, None) => l.tr(id),
         }
+    }
+}
+
+/// Ce que le rapport dit d'une police : substitut, absence (fichiers trop
+/// gros, droits restreints ou introuvable, avec la police de repli retenue
+/// nommée, ou sans repli), droits restreints ; `None` pour une police reprise
+/// telle quelle.
+pub(crate) fn font_notice(c: &FontChoice, l: &Localizer) -> Option<String> {
+    let family = ("family", c.family.as_str().into());
+    match (&c.decision, c.used.as_deref(), c.restricted) {
+        (FontDecision::Substituted { .. }, Some(by), restricted) => {
+            let id = if restricted { "import-font-restricted-substituted" } else { "import-font-substituted" };
+            Some(l.tr_with(id, &[family, ("by", by.into())]))
+        }
+        (FontDecision::Missing, _, restricted) => {
+            // Le repli est nommé : « police du corps » serait faux (circulaire)
+            // quand la famille absente est elle-même la police du corps.
+            let Some(by) = c.fallback.as_deref() else {
+                return Some(l.tr_with("import-font-missing-no-fallback", &[family]));
+            };
+            let id = if c.too_large {
+                "import-font-too-large"
+            } else if restricted {
+                "import-font-restricted-missing"
+            } else {
+                "import-font-missing"
+            };
+            Some(l.tr_with(id, &[family, ("by", by.into())]))
+        }
+        (_, _, true) => Some(l.tr_with("import-font-restricted", &[family])),
+        (_, _, false) => None,
     }
 }
 
@@ -315,12 +434,15 @@ pub struct ImportReport {
     pub warnings: Vec<Warning>,
     /// Couverture du contenu ; `None` tant qu'elle n'est pas mesurée, ou si le cœur a refusé le plan (bug).
     pub coverage: Option<Coverage>,
+    /// Polices : une décision par famille source (hi-fi ; vide et non écrit en retrofit).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub fonts: Vec<FontChoice>,
 }
 
 impl ImportReport {
     /// Rapport vide du mode `mode`.
     pub fn new(mode: Mode) -> Self {
-        Self { mode, slides: Vec::new(), warnings: Vec::new(), coverage: None }
+        Self { mode, slides: Vec::new(), warnings: Vec::new(), coverage: None, fonts: Vec::new() }
     }
 
     /// Nombre total de pertes.
@@ -329,7 +451,8 @@ impl ImportReport {
     }
 
     /// La forme écrite : la sérialisation, plus un `message` localisé à côté
-    /// de chaque perte et de chaque avertissement.
+    /// de chaque perte, de chaque avertissement et de chaque police
+    /// remplacée, absente ou aux droits restreints.
     pub fn to_json(&self, l: &Localizer) -> Value {
         // Ces types se sérialisent toujours : clés textuelles, nombres finis.
         let mut v = serde_json::to_value(self).unwrap_or_default();
@@ -337,6 +460,13 @@ impl ImportReport {
         if let Some(slides) = v.get_mut("slides").and_then(Value::as_array_mut) {
             for (slide, report) in slides.iter_mut().zip(&self.slides) {
                 add_messages(slide, "losses", &report.losses, l);
+            }
+        }
+        if let Some(fonts) = v.get_mut("fonts").and_then(Value::as_array_mut) {
+            for (w, choice) in fonts.iter_mut().zip(&self.fonts) {
+                if let (Some(o), Some(msg)) = (w.as_object_mut(), font_notice(choice, l)) {
+                    o.insert("message".to_owned(), Value::String(msg));
+                }
             }
         }
         v

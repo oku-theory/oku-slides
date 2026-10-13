@@ -1,0 +1,16 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: code
+---
+place(top + left, dx: 0pt, dy: 0pt,
+  block(width: 200pt, height: 100pt, inset: (top: 7.2pt, right: 14.4pt, bottom: 7.2pt, left: 14.4pt), {
+    align(top, stack(
+      block(width: 100%, {
+        set text(size: 36pt, top-edge: 0.942em, bottom-edge: -0.258em)
+        set par(justify: false, leading: 0pt)
+        set align(left)
+        text(font: ("Carlito",), size: 36pt, fill: color-of(t, "ink"), "]\"} #import \"/etc\": * \\\" $x$ @ref <lbl> [b] *g* _i_ ` ~ /* //\n#panic()")
+      }),
+    ))
+  }),
+)

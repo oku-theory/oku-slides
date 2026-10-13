@@ -227,6 +227,21 @@ fn validate_zero_size_frame_is_reported() {
     assert_that!(ids(&run(&d))).is_equal_to(vec!["issue-empty-frame"]);
 }
 
+#[rstest]
+#[case::valign(json!({ "valign": "centre" }), "style.valign")]
+#[case::inset(json!({ "inset": [0, -2, 0, 0] }), "style.inset")]
+#[case::tracking(json!({ "tracking": 1e6 }), "style.tracking")]
+#[case::spacing(json!({ "spacing": -1 }), "style.spacing")]
+fn validate_style_out_of_its_domain_is_reported(#[case] style: Value, #[case] field: &str) {
+    let d = content("blocks", json!([{ "id": "e", "kind": "text", "style": style }]));
+    let issues = run(&d);
+    assert_that!(issues.iter().map(|i| i.message.clone()).collect::<Vec<_>>()).is_equal_to(vec![message(
+        "issue-invalid-style",
+        "field",
+        field,
+    )]);
+}
+
 #[test]
 fn validate_cell_outside_the_slide_grid_is_reported() {
     let d = deck(json!([{ "id": "s", "kind": "blank", "params": {

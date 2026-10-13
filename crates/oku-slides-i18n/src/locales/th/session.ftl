@@ -364,6 +364,7 @@ theme-token-component-table-size = ตาราง · ขนาดตัวอ�
 theme-token-component-table-header-bg = ตาราง · พื้นหลังส่วนหัว
 theme-token-component-table-header-color = ตาราง · ข้อความส่วนหัว
 theme-token-component-table-header-weight = ตาราง · น้ำหนักส่วนหัว
+theme-token-component-table-body-bg = ตาราง · พื้นหลังแถว
 theme-token-component-table-stripe-bg = ตาราง · พื้นหลังแถวสลับสี
 theme-token-component-table-rule-color = ตาราง · สีเส้นคั่น
 theme-token-component-table-rule-width = ตาราง · ความหนาเส้นคั่น

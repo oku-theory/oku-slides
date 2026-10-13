@@ -1,0 +1,7 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: "Fixture::new().decor(&[ellipse]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  ellipse(width: 200pt, height: 100pt, fill: gradient.linear((color-of(t, "#ff000080"), 0%), (color-of(t, "#ff000080"), 20%), (color-of(t, "accent"), 80%), (color-of(t, "accent"), 100%), angle: 90deg, space: rgb), stroke: none),
+)

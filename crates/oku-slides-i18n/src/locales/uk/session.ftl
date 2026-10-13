@@ -364,6 +364,7 @@ theme-token-component-table-size = Таблиця · розмір тексту
 theme-token-component-table-header-bg = Таблиця · тло заголовка
 theme-token-component-table-header-color = Таблиця · текст заголовка
 theme-token-component-table-header-weight = Таблиця · насиченість заголовка
+theme-token-component-table-body-bg = Таблиця · тло рядків
 theme-token-component-table-stripe-bg = Таблиця · тло смуг
 theme-token-component-table-rule-color = Таблиця · колір лінійок
 theme-token-component-table-rule-width = Таблиця · товщина лінійок

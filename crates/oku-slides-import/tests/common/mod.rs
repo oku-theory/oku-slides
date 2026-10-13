@@ -104,3 +104,19 @@ pub fn tokens(name: &str) -> serde_json::Map<String, serde_json::Value> {
         theme["tokens"].as_object().unwrap_or_else(|| panic!("tokens de {name}")),
     )
 }
+
+/// Les polices livrées avec l'app (`assets/fonts/*.ttf`), sans police système.
+pub fn app_fonts() -> oku_slides_import::fonts::FontCatalog {
+    let dir = root().join("../../assets/fonts");
+    let mut paths: Vec<PathBuf> = fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+        .map(|e| e.unwrap_or_else(|e| panic!("{e}")).path())
+        .filter(|p| p.extension().is_some_and(|x| x == "ttf"))
+        .collect();
+    paths.sort();
+    let mut catalog = oku_slides_import::fonts::FontCatalog::new();
+    for p in paths {
+        catalog.add(oku_slides_import::fonts::FontOrigin::App, fs::read(&p).unwrap_or_else(|e| panic!("{e}")));
+    }
+    catalog
+}

@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] 취소선이 사라졌습니다
     [baseline] 위 첨자 또는 아래 첨자가 사라졌습니다
     [caps] 대문자 표시가 사라졌습니다
+    [font] 일부 글꼴이 상자의 글꼴로 바뀌었습니다
+    [tracking] 일부 자간이 상자의 자간으로 바뀌었습니다
+    [weight] 일반 부분이 상자처럼 굵게 표시됨
+    [slant] 똑바른 부분이 상자처럼 기울임꼴로 표시됨
    *[highlight] 강조 표시가 사라졌습니다
 }
 import-loss-transform = 회전, 대칭 또는 자르기가 사라졌습니다
@@ -63,6 +67,24 @@ import-loss-effects = 그림자, 반사, 3D 효과가 사라졌습니다
 import-loss-series-dropped = 원형 차트는 계열 하나만 표시합니다. { $kept }개 유지, { $dropped }개 제외
 import-loss-repeated-decor = 슬라이드 { $slides }장에서 반복되는 머리글 또는 바닥글 “{ $text }”을(를) 생략했습니다. 테마가 자체적으로 그립니다
 import-loss-no-slot = 콘텐츠를 생략했습니다. 선택한 템플릿에 놓을 자리가 없습니다
+import-loss-page-fitted = 원본 페이지({ $width } × { $height } pt)가 16:9가 아닙니다. 콘텐츠를 크기 조정하여 가운데에 배치했습니다
+import-loss-paragraph-style = 단락 맞춤, 줄 간격 또는 단락 간격이 상자에 맞춰졌습니다
+import-loss-shape-style = { $effect ->
+    [gradient] 그라데이션이 단색으로 표시되었습니다
+    [picture] 채우기 그림이 도형의 틀에 맞게 늘어났습니다
+    [dash] 파선이 실선으로 표시되었습니다
+   *[geometry] 알 수 없는 도형이 사각형으로 표시되었습니다
+}
+import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 템플릿이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다
+import-loss-decor-truncated = 팩 파일 크기에 맞추려고 장식을 잘랐습니다: 빠진 요소 { $omitted }개
+import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비 또는 글자 크기가 사라집니다
+import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다
+import-font-missing = { $family }을(를) 찾을 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
+import-font-restricted = { $family }: 라이선스상 일부 스타일을 프레젠테이션에 포함할 수 없습니다
+import-font-restricted-substituted = { $family }은(는) 라이선스상 프레젠테이션에 포함할 수 없습니다. 메트릭이 호환되는 { $by }(으)로 바꿨습니다
+import-font-restricted-missing = { $family }은(는) 라이선스상 프레젠테이션에 포함할 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
+import-font-too-large = { $family }: 파일이 너무 커서 덱에 포함할 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
+import-font-missing-no-fallback = { $family }도 테마의 본문 글꼴도 찾을 수 없습니다: 텍스트는 엔진의 기본 글꼴로 표시됩니다
 import-warning-effect-ignored = 효과를 가져오지 못했습니다: { $detail }
 import-warning-approximated = 근사치로 표시했습니다: { $detail }
 import-warning-unreadable-item = 읽을 수 없는 항목을 건너뛰었습니다: { $detail }

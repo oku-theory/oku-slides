@@ -19,7 +19,6 @@ use oku_slides_render::RenderError;
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot};
 
 use crate::error::{SourcesSnafu, ThemeIdMismatchSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu, UnknownThemeSnafu};
-use crate::library_kind::VersionManifest;
 use crate::theme::{DEFAULT_THEME, ThemeLibrary, ThemeManifest};
 use crate::{Mode, Result, Session};
 

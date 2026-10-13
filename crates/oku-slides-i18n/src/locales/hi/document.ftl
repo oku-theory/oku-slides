@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] काट-रेखा खो गई
     [baseline] सुपरस्क्रिप्ट या सबस्क्रिप्ट खो गया
     [caps] बड़े अक्षर खो गए
+    [font] एक अंश का फ़ॉन्ट बॉक्स के फ़ॉन्ट से बदला गया
+    [tracking] एक अंश का अक्षर-अंतराल बॉक्स के अंतराल से बदला गया
+    [weight] सामान्य अंश बॉक्स की तरह बोल्ड दिखाया गया
+    [slant] सीधा अंश बॉक्स की तरह इटैलिक दिखाया गया
    *[highlight] हाइलाइट खो गया
 }
 import-loss-transform = घुमाव, पलटाव या क्रॉप खो गया
@@ -66,6 +70,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] { $slides } स्लाइडों पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
 }
 import-loss-no-slot = सामग्री छोड़ दी गई: चुने गए टेम्पलेट में इसके लिए जगह नहीं है
+import-loss-page-fitted = स्रोत पृष्ठ { $width } × { $height } pt, 16:9 नहीं है: सामग्री का आकार बदलकर बीच में रखा गया
+import-loss-paragraph-style = अनुच्छेद का संरेखण, पंक्ति अंतर या अनुच्छेद अंतर बॉक्स जैसा किया गया
+import-loss-shape-style = { $effect ->
+    [gradient] ग्रेडिएंट एक रंग में दिखाया गया
+    [picture] भरण चित्र आकृति के फ़्रेम तक खींचा गया
+    [dash] डैश रेखा सतत दिखाई गई
+   *[geometry] अज्ञात आकृति आयत के रूप में दिखाई गई
+}
+import-loss-layout-dropped = एक पैक के लिए बहुत अधिक लेआउट: “{ $layout }” का कोई टेम्पलेट नहीं; इसकी स्लाइडें खाली विजेट लेती हैं और इसकी सजावट तत्वों के रूप में पाती हैं
+import-loss-decor-truncated = पैक फ़ाइल के आकार में समाने के लिए सजावट काटी गई: छोड़े गए तत्व: { $omitted }
+import-loss-table-style = तालिका की शैली अनुमानित: इसकी अपनी सेल पृष्ठभूमि, किनारे, स्तंभ चौड़ाई या पाठ आकार खो गए
+import-font-substituted = { $family } को मिलते-जुलते माप वाले { $by } से बदला गया
+import-font-missing = { $family } नहीं मिला: टेक्स्ट { $by } का उपयोग करता है
+import-font-restricted = { $family }: इसका लाइसेंस कुछ शैलियों को प्रेज़ेंटेशन में एम्बेड करने से रोकता है
+import-font-restricted-substituted = { $family } को प्रेज़ेंटेशन में एम्बेड नहीं किया जा सकता (लाइसेंस): मिलते-जुलते माप वाले { $by } से बदला गया
+import-font-restricted-missing = { $family } को प्रेज़ेंटेशन में एम्बेड नहीं किया जा सकता (लाइसेंस): टेक्स्ट { $by } का उपयोग करता है
+import-font-too-large = { $family }: फ़ाइलें डेक में एम्बेड करने के लिए बहुत बड़ी हैं; टेक्स्ट { $by } का उपयोग करता है
+import-font-missing-no-fallback = { $family } नहीं मिला, न ही थीम का मुख्य फ़ॉन्ट: पाठ इंजन के डिफ़ॉल्ट फ़ॉन्ट से दिखाया जाता है
 import-warning-effect-ignored = प्रभाव आयात नहीं हुआ: { $detail }
 import-warning-approximated = अनुमानित रूप में दिखाया गया: { $detail }
 import-warning-unreadable-item = अपठनीय आइटम छोड़ा गया: { $detail }

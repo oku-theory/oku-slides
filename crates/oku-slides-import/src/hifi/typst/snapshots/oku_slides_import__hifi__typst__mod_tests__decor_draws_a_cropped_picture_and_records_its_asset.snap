@@ -1,0 +1,11 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: d.code
+---
+place(top + left, dx: 0pt, dy: 0pt,
+  box(width: 600pt, height: 400pt, clip: true,
+    place(top + left, dx: -100pt, dy: -100pt,
+      box(width: 1000pt, height: 500pt, if ctx.load != none { (ctx.load)(asset: "sha256:aa", fit: "stretch") }),
+    ),
+  ),
+)

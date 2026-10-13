@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] Utracono przekreślenie
     [baseline] Utracono indeks górny lub dolny
     [caps] Utracono wielkie litery
+    [font] Czcionkę fragmentu zastąpiono czcionką pola
+    [tracking] Odstępy między literami fragmentu zastąpiono odstępami pola
+    [weight] Zwykły fragment pogrubiony jak pole
+    [slant] Prosty fragment pochylony jak pole
    *[highlight] Utracono wyróżnienie
 }
 import-loss-transform = Utracono obrót, odbicie lub przycięcie
@@ -68,6 +72,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] Nagłówek lub stopka „{ $text }” powtórzone na { $slides } slajdu pominięte: motyw rysuje własne
 }
 import-loss-no-slot = Treść pominięta: wybrany szablon nie ma na nią miejsca
+import-loss-page-fitted = Strona źródłowa { $width } × { $height } pt nie ma proporcji 16:9: treść przeskalowana i wyśrodkowana
+import-loss-paragraph-style = Wyrównanie, interlinię lub odstęp między akapitami dopasowano do pola
+import-loss-shape-style = { $effect ->
+    [gradient] Gradient pokazano jako jednolity kolor
+    [picture] Obraz wypełnienia rozciągnięto do ramki kształtu
+    [dash] Linię przerywaną pokazano jako ciągłą
+   *[geometry] Nieznany kształt pokazano jako prostokąt
+}
+import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma szablonu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy
+import-loss-decor-truncated = Dekoracja przycięta, by zmieścić się w rozmiarze pliku pakietu: pominięte elementy: { $omitted }
+import-loss-table-style = Styl tabeli przybliżony: jej własne tła komórek, obramowania, szerokości kolumn lub rozmiary tekstu są tracone
+import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach
+import-font-missing = Nie znaleziono { $family }: tekst używa czcionki { $by }
+import-font-restricted = { $family }: licencja zabrania osadzania niektórych jej odmian w prezentacji
+import-font-restricted-substituted = Nie można osadzić { $family } w prezentacji (licencja): zastąpiona czcionką { $by } o zgodnych metrykach
+import-font-restricted-missing = Nie można osadzić { $family } w prezentacji (licencja): tekst używa czcionki { $by }
+import-font-too-large = { $family }: pliki zbyt duże, by osadzić je w prezentacji; tekst używa czcionki { $by }
+import-font-missing-no-fallback = Nie znaleziono { $family } ani czcionki treści motywu: tekst jest renderowany domyślną czcionką silnika
 import-warning-effect-ignored = Nie zaimportowano efektu: { $detail }
 import-warning-approximated = Odwzorowanie przybliżone: { $detail }
 import-warning-unreadable-item = Pominięto nieczytelny element: { $detail }

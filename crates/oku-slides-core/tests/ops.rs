@@ -196,7 +196,65 @@ fn set_cell_in_flow_slot_returns_invalid_value() {
     assert_that!(apply_err(&mut deck, op).kind()).is_equal_to(OpErrorKind::InvalidValue);
 }
 
+#[test]
+fn set_style_with_valign_and_inset_anchors_the_text() {
+    let mut deck = fixture();
+    let style = Style { valign: Some("middle".into()), inset: Some([7.2, 3.6, 7.2, 3.6]), ..Default::default() };
+    apply(&mut deck, Op::SetStyle { slide: "s-libre".into(), element: "e-texte".into(), style }).unwrap();
+    let e = deck.slide("s-libre").and_then(|s| s.locate("e-texte")).unwrap().element;
+    assert_that!(e.style.valign.as_deref()).is_equal_to(Some("middle"));
+    assert_that!(e.style.inset).is_equal_to(Some([7.2, 3.6, 7.2, 3.6]));
+}
+
+#[rstest]
+#[case::set_valign(false, Style { valign: Some("center".into()), ..Default::default() }, "style.valign")]
+#[case::set_inset(false, Style { inset: Some([0.0, f64::NAN, 0.0, 0.0]), ..Default::default() }, "style.inset")]
+#[case::replace_inset(true, Style { inset: Some([1e9, 0.0, 0.0, 0.0]), ..Default::default() }, "style.inset")]
+#[case::set_tracking(false, Style { tracking: Some(-1e9), ..Default::default() }, "style.tracking")]
+#[case::set_spacing(false, Style { spacing: Some(-2.0), ..Default::default() }, "style.spacing")]
+fn set_or_replace_style_out_of_its_domain_returns_invalid_value(
+    #[case] replace: bool,
+    #[case] style: Style,
+    #[case] field: &str,
+) {
+    let mut deck = fixture();
+    let (slide, element) = ("s-libre".to_owned(), "e-texte".to_owned());
+    let op = if replace { Op::ReplaceStyle { slide, element, style } } else { Op::SetStyle { slide, element, style } };
+    let err = apply_err(&mut deck, op);
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
+    assert_that!(err.subject()).is_equal_to(Some(field));
+}
+
 // ---- set_param ------------------------------------------------------------------------
+
+#[test]
+fn set_param_shape_path_keeps_a_well_formed_path() {
+    let mut deck = fixture();
+    let ring = json!({ "d": "M 0 0 L 1 0 L 1 1 Z M 0.25 0.25 L 0.25 0.75 L 0.75 0.75 Z" });
+    apply(&mut deck, set_param(at("s-libre", "e-fond"), "path", ring.clone())).unwrap();
+    let e = deck.slide("s-libre").and_then(|s| s.locate("e-fond")).unwrap().element;
+    assert_that!(e.params.value("path")).is_equal_to(Some(&ring));
+}
+
+#[rstest]
+#[case::malformed(json!({ "d": "L 0 0" }), OpErrorKind::InvalidValue)]
+#[case::empty(json!({ "d": "" }), OpErrorKind::InvalidValue)]
+#[case::unknown_key(json!({ "d": "M 0 0", "z": 1 }), OpErrorKind::InvalidValue)]
+#[case::bare_text(json!("M 0 0 L 1 1"), OpErrorKind::ParamType)]
+fn set_param_shape_path_refused_returns_its_kind(#[case] value: Value, #[case] kind: OpErrorKind) {
+    let mut deck = fixture();
+    let err = apply_err(&mut deck, set_param(at("s-libre", "e-fond"), "path", value));
+    assert_that!(err.kind()).is_equal_to(kind);
+}
+
+#[test]
+fn add_element_shape_with_a_malformed_path_is_refused() {
+    let mut deck = fixture();
+    let shape = element(json!({ "id": "e-chemin", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 },
+        "params": { "shape": "path", "path": { "d": "M 0 0 L" } } }));
+    let err = apply_err(&mut deck, add(slot(slide("s-libre"), "elements"), None, shape));
+    assert_that!(err.value_reason()).is_equal_to(Some(ValueReason::Path));
+}
 
 #[test]
 fn set_param_plain_on_card_title_sets_the_text() {

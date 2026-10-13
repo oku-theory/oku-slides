@@ -298,3 +298,11 @@ fn empty_text_column_beside_numbers_compiles() {
     let data = json!({ "header-row": false, "dataset": { "source": [[null, 1], [null, 2]] } });
     assert_that!(compile(&deck_of(in_flow(data), None)).page_count()).is_equal_to(1);
 }
+
+#[test]
+fn body_bg_token_changes_the_page_and_null_does_not() {
+    let painted = deck_of(in_flow(rows(2)), Some(json!({ "component": { "table": { "body-bg": "#00ff00" } } })));
+    assert_that!(hash(&painted)).is_not_equal_to(flow_hash(rows(2)));
+    let bare = deck_of(in_flow(rows(2)), Some(json!({ "component": { "table": { "body-bg": null } } })));
+    assert_that!(hash(&bare)).is_equal_to(flow_hash(rows(2)));
+}

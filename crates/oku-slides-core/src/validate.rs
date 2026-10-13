@@ -119,6 +119,9 @@ pub fn validate(deck: &Deck, registry: &WidgetRegistry, assets: Option<&HashSet<
             {
                 v.push(at, Message::new("issue-empty-frame"));
             }
+            if let Some((field, _)) = e.style.invalid() {
+                v.push(at, Message::new("issue-invalid-style").arg("field", field));
+            }
             // Seuls les éléments des slots libres de la slide s'accrochent à sa grille.
             if let Some(c) = e.cell
                 && l.owner.is_none()

@@ -99,3 +99,120 @@ fn deck_params_is_field_names_the_six_fields_only() {
     }
     assert_that!(DeckParams::is_field("numbering")).is_false();
 }
+
+#[test]
+fn style_with_valign_and_inset_round_trips_through_json() {
+    let json = serde_json::json!({ "valign": "middle", "inset": [7.2, 3.6, 0.0, 3.6] });
+    let style: Style = serde_json::from_value(json.clone()).unwrap();
+    assert_that!(style.valign.as_deref()).is_equal_to(Some("middle"));
+    assert_that!(style.inset).is_equal_to(Some([7.2, 3.6, 0.0, 3.6]));
+    assert_that!(serde_json::to_value(&style).unwrap()).is_equal_to(json);
+}
+
+#[test]
+fn style_default_serializes_without_valign_nor_inset() {
+    assert_that!(serde_json::to_value(Style::default()).unwrap()).is_equal_to(serde_json::json!({}));
+}
+
+#[test]
+fn style_merge_takes_valign_and_inset_from_the_patch() {
+    let mut style = Style { valign: Some("top".into()), color: Some("accent".into()), ..Default::default() };
+    style.merge(Style { valign: Some("bottom".into()), inset: Some([1.0, 2.0, 3.0, 4.0]), ..Default::default() });
+    assert_that!(style.valign.as_deref()).is_equal_to(Some("bottom"));
+    assert_that!(style.inset).is_equal_to(Some([1.0, 2.0, 3.0, 4.0]));
+    assert_that!(style.color.as_deref()).is_equal_to(Some("accent"));
+}
+
+#[rstest::rstest]
+#[case::valign(Style { valign: Some("center".into()), ..Default::default() }, "style.valign", ValueReason::Valign)]
+#[case::negative(Style { inset: Some([0.0, -1.0, 0.0, 0.0]), ..Default::default() }, "style.inset", ValueReason::OutOfBounds)]
+#[case::nan(Style { inset: Some([f64::NAN, 0.0, 0.0, 0.0]), ..Default::default() }, "style.inset", ValueReason::OutOfBounds)]
+#[case::infinite(Style { inset: Some([0.0, 0.0, f64::INFINITY, 0.0]), ..Default::default() }, "style.inset", ValueReason::OutOfBounds)]
+#[case::too_large(Style { inset: Some([0.0, 0.0, 0.0, STYLE_INSET_MAX + 1.0]), ..Default::default() }, "style.inset", ValueReason::OutOfBounds)]
+fn style_invalid_value_returns_its_field_and_reason(
+    #[case] style: Style,
+    #[case] field: &str,
+    #[case] reason: ValueReason,
+) {
+    assert_that!(style.invalid()).is_equal_to(Some((field, reason)));
+}
+
+#[test]
+fn style_invalid_with_known_valign_and_bounded_inset_returns_none() {
+    for valign in ["top", "middle", "bottom"] {
+        let style =
+            Style { valign: Some(valign.into()), inset: Some([0.0, STYLE_INSET_MAX, 1.5, 0.0]), ..Default::default() };
+        assert_that!(style.invalid()).named(valign).is_none();
+    }
+    assert_that!(Style::default().invalid()).is_none();
+}
+
+#[test]
+fn style_with_tracking_round_trips_through_json() {
+    let json = serde_json::json!({ "tracking": -2.5 });
+    let style: Style = serde_json::from_value(json.clone()).unwrap();
+    assert_that!(style.tracking).is_equal_to(Some(-2.5));
+    assert_that!(serde_json::to_value(&style).unwrap()).is_equal_to(json);
+}
+
+#[test]
+fn style_merge_takes_tracking_from_the_patch() {
+    let mut style = Style { tracking: Some(1.0), color: Some("accent".into()), ..Default::default() };
+    style.merge(Style { size: Some(TokenValue::Number(20.0)), ..Default::default() });
+    assert_that!(style.tracking).is_equal_to(Some(1.0));
+    style.merge(Style { tracking: Some(-3.0), ..Default::default() });
+    assert_that!(style.tracking).is_equal_to(Some(-3.0));
+}
+
+#[rstest::rstest]
+#[case::nan(f64::NAN)]
+#[case::infinite(f64::NEG_INFINITY)]
+#[case::too_wide(STYLE_TRACKING_MAX + 1.0)]
+#[case::too_tight(-STYLE_TRACKING_MAX - 1.0)]
+fn style_invalid_tracking_out_of_bounds_returns_its_field(#[case] tracking: f64) {
+    let style = Style { tracking: Some(tracking), ..Default::default() };
+    assert_that!(style.invalid()).is_equal_to(Some(("style.tracking", ValueReason::OutOfBounds)));
+}
+
+#[test]
+fn style_invalid_with_bounded_tracking_returns_none() {
+    for tracking in [-STYLE_TRACKING_MAX, -1.0, 0.0, 2.5, STYLE_TRACKING_MAX] {
+        let style = Style { tracking: Some(tracking), ..Default::default() };
+        assert_that!(style.invalid()).named(&tracking.to_string()).is_none();
+    }
+}
+
+#[test]
+fn style_with_spacing_round_trips_through_json() {
+    let json = serde_json::json!({ "spacing": 12.5 });
+    let style: Style = serde_json::from_value(json.clone()).unwrap();
+    assert_that!(style.spacing).is_equal_to(Some(12.5));
+    assert_that!(serde_json::to_value(&style).unwrap()).is_equal_to(json);
+}
+
+#[test]
+fn style_merge_takes_spacing_from_the_patch() {
+    let mut style = Style { spacing: Some(6.0), color: Some("accent".into()), ..Default::default() };
+    style.merge(Style { size: Some(TokenValue::Number(20.0)), ..Default::default() });
+    assert_that!(style.spacing).is_equal_to(Some(6.0));
+    style.merge(Style { spacing: Some(0.0), ..Default::default() });
+    assert_that!(style.spacing).is_equal_to(Some(0.0));
+}
+
+#[rstest::rstest]
+#[case::nan(f64::NAN)]
+#[case::infinite(f64::INFINITY)]
+#[case::negative(-1.0)]
+#[case::too_wide(STYLE_SPACING_MAX + 1.0)]
+fn style_invalid_spacing_out_of_bounds_returns_its_field(#[case] spacing: f64) {
+    let style = Style { spacing: Some(spacing), ..Default::default() };
+    assert_that!(style.invalid()).is_equal_to(Some(("style.spacing", ValueReason::OutOfBounds)));
+}
+
+#[test]
+fn style_invalid_with_bounded_spacing_returns_none() {
+    for spacing in [0.0, 2.5, STYLE_SPACING_MAX] {
+        let style = Style { spacing: Some(spacing), ..Default::default() };
+        assert_that!(style.invalid()).named(&spacing.to_string()).is_none();
+    }
+}

@@ -364,6 +364,7 @@ theme-token-component-table-size = Tabela · rozmiar tekstu
 theme-token-component-table-header-bg = Tabela · tło nagłówka
 theme-token-component-table-header-color = Tabela · tekst nagłówka
 theme-token-component-table-header-weight = Tabela · grubość nagłówka
+theme-token-component-table-body-bg = Tabela · tło wierszy
 theme-token-component-table-stripe-bg = Tabela · tło pasków
 theme-token-component-table-rule-color = Tabela · kolor linii
 theme-token-component-table-rule-width = Tabela · grubość linii

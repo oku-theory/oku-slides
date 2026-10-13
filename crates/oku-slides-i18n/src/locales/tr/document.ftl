@@ -44,6 +44,10 @@ import-loss-run-style = { $effect ->
     [strike] Üstü çizili biçim kayboldu
     [baseline] Üst simge veya alt simge kayboldu
     [caps] Büyük harfler kayboldu
+    [font] Bir bölümün yazı tipi kutununkiyle değiştirildi
+    [tracking] Bir bölümün harf aralığı kutununkiyle değiştirildi
+    [weight] Normal bölüm kutu gibi kalın gösterildi
+    [slant] Düz bölüm kutu gibi italik gösterildi
    *[highlight] Vurgulama kayboldu
 }
 import-loss-transform = Döndürme, çevirme veya kırpma kayboldu
@@ -63,6 +67,24 @@ import-loss-effects = Gölgeler, yansımalar ve 3B efektler kayboldu
 import-loss-series-dropped = Pasta grafik tek bir seri gösterir: { $kept } korundu, { $dropped } çıkarıldı
 import-loss-repeated-decor = { $slides } slaytta tekrarlanan “{ $text }” üst veya alt bilgisi atlandı: tema kendisininkini çizer
 import-loss-no-slot = İçerik atlandı: seçilen şablonda ona yer yok
+import-loss-page-fitted = Kaynak sayfa ({ $width } × { $height } pt) 16:9 değil: içerik ölçeklendi ve ortalandı
+import-loss-paragraph-style = Bir paragrafın hizalaması, satır aralığı veya paragraf aralığı kutununkine uyarlandı
+import-loss-shape-style = { $effect ->
+    [gradient] Degrade düz renk olarak gösterildi
+    [picture] Dolgu resmi şeklin çerçevesine uzatıldı
+    [dash] Kesikli çizgi düz gösterildi
+   *[geometry] Bilinmeyen şekil dikdörtgen olarak gösterildi
+}
+import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için şablon yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır
+import-loss-decor-truncated = Süsleme bir paket dosyasının boyutuna sığması için kısaltıldı: { $omitted } öğe atlandı
+import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri veya metin boyutları kayboldu
+import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı
+import-font-missing = { $family } bulunamadı: metin { $by } yazı tipini kullanıyor
+import-font-restricted = { $family }: lisansı bazı stillerin sunuya gömülmesini yasaklıyor
+import-font-restricted-substituted = { $family } sunuya gömülemez (lisans): yerine uyumlu ölçülere sahip { $by } kullanıldı
+import-font-restricted-missing = { $family } sunuya gömülemez (lisans): metin { $by } yazı tipini kullanıyor
+import-font-too-large = { $family }: dosyalar desteye gömülemeyecek kadar büyük; metin { $by } yazı tipini kullanıyor
+import-font-missing-no-fallback = { $family } ve temanın gövde yazı tipi bulunamadı: metin motorun varsayılan yazı tipiyle gösterilir
 import-warning-effect-ignored = Efekt içe aktarılmadı: { $detail }
 import-warning-approximated = Yaklaşık olarak gösterildi: { $detail }
 import-warning-unreadable-item = Okunamayan öğe atlandı: { $detail }

@@ -149,12 +149,15 @@ pub struct RunStyle {
     pub link: Option<String>,
 }
 
+/// Champ du numéro de slide ([`Run::field`]) : recalculé par le deck.
+pub(crate) const SLIDE_NUMBER: &str = "slidenum";
+
 /// Morceau de texte au style uniforme ; un saut de ligne `a:br` est un run `"\n"`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Run {
     /// Texte (valeur en cache pour un champ).
     pub text: String,
-    /// Champ dynamique (`slidenum`, `datetime1`…).
+    /// Champ dynamique ([`SLIDE_NUMBER`], `datetime1`…).
     pub field: Option<String>,
     /// Style résolu.
     pub style: RunStyle,

@@ -20,9 +20,10 @@ use serde::Serialize;
 
 pub use chart::{Chart, ChartKind, Grouping, Series};
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
-pub use shape::{Crop, Geometry, PathCmd, Picture, Shape};
+pub use shape::{Crop, Geometry, PathCmd, Picture, Shape, SubPath};
 pub use style::{Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
 pub use table::{Borders, Cell, Table, TableFlags};
+pub(crate) use text::SLIDE_NUMBER;
 pub use text::{
     Align, Anchor, Autofit, Bullet, Caps, Insets, LevelStyle, ParaStyle, Paragraph, Run, RunStyle, Spacing, TextBox,
 };
@@ -142,6 +143,21 @@ pub struct Master {
     pub decor: Vec<Item>,
     /// Placeholders.
     pub placeholders: Vec<Placeholder>,
+    /// Styles de texte du master (`txStyles`), premier niveau.
+    pub text_styles: MasterTextStyles,
+}
+
+/// Premier niveau des styles de texte d'un master (`txStyles`), résolus sur les
+/// défauts de la présentation, sans placeholder : ce que prend un texte de ce
+/// rôle quand le master n'a pas de placeholder pour lui.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MasterTextStyles {
+    /// Titres (`titleStyle`).
+    pub title: LevelStyle,
+    /// Corps (`bodyStyle`).
+    pub body: LevelStyle,
+    /// Autres textes : boîtes de texte, date, pied, numéro (`otherStyle`).
+    pub other: LevelStyle,
 }
 
 /// Layout.

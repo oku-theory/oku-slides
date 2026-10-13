@@ -10,7 +10,8 @@
 //! et le JSON compact l'échappe : le contenu canonique est sans ambiguïté.
 //!
 //! Un thème ([`ThemeRef`]) suit le même modèle : une version de thème est un
-//! [`PackFiles`] dont le manifeste est `theme.json`, sans fichier de widget.
+//! [`PackFiles`] dont le manifeste est `theme.json` ([`ThemeManifest`]), sans
+//! fichier de widget.
 //!
 //! Le contenu d'une version de pack, `pack.json`, se lit en [`PackManifest`] :
 //! des modèles ([`Template`], des slides complètes, nommées), indépendants du
@@ -405,6 +406,37 @@ impl PackManifest {
         match serde_json::to_value(self)? {
             Value::Object(manifest) => Ok(PackFiles::new(manifest, widgets)),
             _ => Err(serde::ser::Error::custom("pack manifest is not an object")),
+        }
+    }
+}
+
+/// `theme.json` : un thème dans une version.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThemeManifest {
+    pub id: Uuid,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Version dont celle-ci est issue ; `None` pour une première version.
+    #[serde(default)]
+    pub parent: Option<PackVersion>,
+    /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
+    pub created: String,
+    /// Jetons de conception, par groupe (`color`, `font`, …).
+    pub tokens: Map<String, Value>,
+}
+
+impl ThemeManifest {
+    /// Lit le `theme.json` de `files`.
+    pub fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
+        serde_json::from_value(Value::Object(files.manifest().clone()))
+    }
+
+    /// Les fichiers de cette version : le seul `theme.json`.
+    pub fn to_files(&self) -> serde_json::Result<PackFiles> {
+        match serde_json::to_value(self)? {
+            Value::Object(manifest) => Ok(PackFiles::new(manifest, BTreeMap::new())),
+            _ => Err(serde::ser::Error::custom("theme manifest is not an object")),
         }
     }
 }

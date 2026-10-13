@@ -4,6 +4,10 @@
 #import "tokens.typ": *
 #import "core.typ": interp
 
+#let _tracking-max = 4096   // STYLE_TRACKING_MAX (oku-slides-core)
+
+// Style d'un texte (élément ou run) en arguments de `text`. `tracking` (pt,
+// borné) n'est que celui d'un élément : un run n'en porte pas.
 #let _text-args(t, style) = {
   let a = (:)
   if "size" in style { a.insert("size", size-of(t, style.size)) }
@@ -11,6 +15,8 @@
   if "weight" in style { a.insert("weight", weight-of(t, style.weight)) }
   if "font" in style { a.insert("font", font-of(t, style.font)) }
   if style.at("italic", default: false) { a.insert("style", "italic") }
+  let tr = style.at("tracking", default: none)
+  if (type(tr) == int or type(tr) == float) and calc.abs(tr) <= _tracking-max { a.insert("tracking", tr * 1pt) }
   a
 }
 

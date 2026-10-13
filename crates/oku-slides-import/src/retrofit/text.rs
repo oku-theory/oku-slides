@@ -31,7 +31,7 @@ pub(crate) fn note<T: PartialEq>(losses: &mut Vec<T>, loss: T) {
 }
 
 /// Les effets d'un run que le texte du cœur n'exprime pas.
-fn effects(style: &source::RunStyle) -> impl Iterator<Item = RunEffect> {
+pub(crate) fn effects(style: &source::RunStyle) -> impl Iterator<Item = RunEffect> {
     [
         (style.underline, RunEffect::Underline),
         (style.strike, RunEffect::Strike),
@@ -44,7 +44,7 @@ fn effects(style: &source::RunStyle) -> impl Iterator<Item = RunEffect> {
 }
 
 /// Le texte d'un run tel qu'il s'affiche : en majuscules pour `Caps::All`.
-fn shown(r: &source::Run) -> String {
+pub(crate) fn shown(r: &source::Run) -> String {
     match r.style.caps {
         Caps::All => r.text.to_uppercase(),
         Caps::None | Caps::Small => r.text.clone(),
@@ -57,14 +57,14 @@ fn same_format(a: &Run, b: &Run) -> bool {
 }
 
 /// Lien gardé : `http`, `https` ou `mailto`, quelle que soit la casse.
-fn safe_link(link: Option<&str>) -> Option<String> {
+pub(crate) fn safe_link(link: Option<&str>) -> Option<String> {
     let link = link?;
     let lower = link.to_ascii_lowercase();
     ["http://", "https://", "mailto:"].iter().any(|s| lower.starts_with(s)).then(|| link.to_owned())
 }
 
 /// Liste du cœur pour une puce source.
-fn list_kind(bullet: &Bullet) -> Option<ListKind> {
+pub(crate) fn list_kind(bullet: &Bullet) -> Option<ListKind> {
     match bullet {
         Bullet::None => None,
         Bullet::Char { .. } => Some(ListKind::Bullet),
@@ -108,7 +108,7 @@ fn cut(p: &Paragraph, budget: usize) -> Option<Paragraph> {
 
 /// `paragraphs` bornés à `RICH_PARAGRAPHS_MAX` paragraphes et `RICH_BYTES_MAX`
 /// octets de JSON (crochets et virgules compris) ; vrai si quelque chose est coupé.
-fn bound(paragraphs: Vec<Paragraph>) -> (Vec<Paragraph>, bool) {
+pub(crate) fn bound(paragraphs: Vec<Paragraph>) -> (Vec<Paragraph>, bool) {
     let mut out = Vec::new();
     let mut used = 2; // `[` et `]`
     let total = paragraphs.len();

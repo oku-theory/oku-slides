@@ -19,6 +19,8 @@ op-value-not-tokens = cần một đối tượng hoặc null
 op-value-not-a-slot = tham số này không phải là ô chứa
 op-value-out-of-bounds = số nằm ngoài khoảng cho phép
 op-value-unreadable = giá trị không có dạng như mong đợi
+op-value-valign = cần top, middle hoặc bottom
+op-value-path = đường dẫn gồm các lệnh M, L, C, Q và Z kèm số của chúng, bắt đầu bằng M
 op-unknown-widget = Tiện ích không xác định: { $subject }
 op-unknown-param = Tham số không xác định: { $subject }
 op-param-type-because = Giá trị không hợp lệ cho { $subject }: { $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] giá trị được đặt bằng set_param, hoặc null
    *[no] giá trị được đặt bằng set_param
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] cần một đường dẫn hình (đối tượng có khóa d) hoặc null
+   *[no] cần một đường dẫn hình (đối tượng có khóa d)
+}
 op-item-not-found = Không có mục { $subject }
 op-list-full = Danh sách { $subject } đã đầy (tối đa { $max } mục)
 op-list-minimum = Danh sách { $subject } cần ít nhất { $min } mục
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind } không được chấp nhận ở đây
 issue-placed-in-flow = phần tử đặt bằng khung trong một danh sách được dàn trang
 issue-unknown-bind = { $param } được liên kết với một thiết lập bản trình bày không xác định
 issue-slot-too-deep = các phần tử lồng nhau quá sâu
+issue-invalid-style = giá trị kiểu không hợp lệ: { $field }
 issue-missing-asset = thiếu tài nguyên: { $asset }
 issue-pack-version-mismatch = đã loại bỏ phiên bản gói bị thay đổi: { $version }
 issue-pack-version-missing = thiếu phiên bản gói trong nguồn: { $version }

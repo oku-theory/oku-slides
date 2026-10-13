@@ -1,0 +1,68 @@
+---
+source: crates/oku-slides-import/src/hifi/theme_tests.rs
+expression: fixture_tokens(fixture)
+---
+{
+  "color": {
+    "bg": "#ffffff",
+    "ink": "#000000",
+    "ink-muted": "#44546a",
+    "surface": "#e7e6e6",
+    "accent": "#4472c4",
+    "accent-2": "#ed7d31",
+    "accent-3": "#a5a5a5",
+    "accent-4": "#ffc000",
+    "accent-5": "#5b9bd5",
+    "accent-6": "#70ad47",
+    "link": "#0563c1",
+    "link-visited": "#954f72",
+    "on-accent": "bg",
+    "rule": "#d9d9d9"
+  },
+  "chart": {
+    "palette": [
+      "accent",
+      "accent-2",
+      "accent-3",
+      "accent-4",
+      "accent-5",
+      "accent-6"
+    ]
+  },
+  "font": {
+    "display": [
+      "Carlito"
+    ],
+    "body": [
+      "Carlito"
+    ]
+  },
+  "size": {
+    "title": 88.0,
+    "subtitle": 48.0,
+    "body": 56.0
+  },
+  "component": {
+    "list": {
+      "marker": "•",
+      "marker-color": null
+    },
+    "table": {
+      "header-bg": "accent",
+      "header-color": "bg",
+      "header-weight": "strong",
+      "body-bg": "#cfd5ea",
+      "stripe-bg": "#e9ebf5",
+      "size": 32.0
+    }
+  },
+  "weight": {
+    "body": 400,
+    "strong": 700
+  },
+  "page": {
+    "margin-x": 0,
+    "margin-top": 0,
+    "margin-bottom": 0
+  }
+}

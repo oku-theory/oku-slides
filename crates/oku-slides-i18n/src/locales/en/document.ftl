@@ -43,6 +43,10 @@ import-loss-run-style = { $effect ->
     [strike] Strikethrough lost
     [baseline] Superscript or subscript lost
     [caps] Capitals lost
+    [font] Font of a passage replaced by the box font
+    [tracking] Letter spacing of a passage replaced by the box spacing
+    [weight] Regular passage made bold like the box
+    [slant] Upright passage made italic like the box
    *[highlight] Highlight lost
 }
 import-loss-transform = Rotation, flip or crop lost
@@ -65,6 +69,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] Header or footer “{ $text }” repeated on { $slides } slides left out: the theme draws its own
 }
 import-loss-no-slot = Content left out: the chosen template has no place for it
+import-loss-page-fitted = Source page { $width } × { $height } pt is not 16:9: content scaled and centered
+import-loss-paragraph-style = Paragraph alignment, line spacing or paragraph spacing changed to the box's
+import-loss-shape-style = { $effect ->
+    [gradient] Gradient rendered as a solid color
+    [picture] Fill picture stretched to the shape's frame
+    [dash] Dashed line rendered solid
+   *[geometry] Unknown shape rendered as a rectangle
+}
+import-loss-layout-dropped = Too many layouts for one pack: “{ $layout }” has no template; its slides use the blank widget and get its decoration as elements
+import-loss-decor-truncated = Decoration cut to fit the size of a pack file: { $omitted } items left out
+import-loss-table-style = Table style approximated: its own cell backgrounds, borders, column widths or text sizes are lost
+import-font-substituted = { $family } replaced by { $by }, with matching metrics
+import-font-missing = { $family } not found: the text uses { $by }
+import-font-restricted = { $family }: its license forbids embedding some of its faces in the deck
+import-font-restricted-substituted = { $family } cannot be embedded in the deck (license): replaced by { $by }, with matching metrics
+import-font-restricted-missing = { $family } cannot be embedded in the deck (license): the text uses { $by }
+import-font-too-large = { $family }: files too large to embed in the deck; the text uses { $by }
+import-font-missing-no-fallback = { $family } not found, nor the theme's body font: the text is rendered with the engine's default font
 import-warning-effect-ignored = Effect not imported: { $detail }
 import-warning-approximated = Approximated: { $detail }
 import-warning-unreadable-item = Unreadable item skipped: { $detail }

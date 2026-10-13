@@ -364,6 +364,7 @@ theme-token-component-table-size = 表格 · 文字字級
 theme-token-component-table-header-bg = 表格 · 表頭背景
 theme-token-component-table-header-color = 表格 · 表頭文字
 theme-token-component-table-header-weight = 表格 · 表頭字重
+theme-token-component-table-body-bg = 表格 · 列背景
 theme-token-component-table-stripe-bg = 表格 · 斑馬紋背景
 theme-token-component-table-rule-color = 表格 · 分隔線顏色
 theme-token-component-table-rule-width = 表格 · 分隔線粗細

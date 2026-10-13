@@ -1,0 +1,8 @@
+---
+source: crates/oku-slides-import/src/hifi/pack_tests.rs
+expression: "(&pack.assets, &pack.losses)"
+---
+(
+    {},
+    [],
+)

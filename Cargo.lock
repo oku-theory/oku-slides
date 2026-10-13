@@ -5395,6 +5395,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "ctrlc",
+ "fontdb",
  "http-body",
  "oku-slides-agent",
  "oku-slides-core",
@@ -5406,8 +5407,10 @@ dependencies = [
  "oku-slides-render-worker",
  "oku-slides-session",
  "oku-slides-stt",
+ "rstest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "speculoos",
  "tempfile",
  "tokio",
@@ -5465,6 +5468,8 @@ dependencies = [
  "serde_json",
  "snafu",
  "speculoos",
+ "ttf-parser",
+ "uuid",
  "zip 8.6.0",
 ]
 

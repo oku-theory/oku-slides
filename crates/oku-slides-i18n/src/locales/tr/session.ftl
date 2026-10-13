@@ -364,6 +364,7 @@ theme-token-component-table-size = Tablo · metin boyutu
 theme-token-component-table-header-bg = Tablo · başlık arka planı
 theme-token-component-table-header-color = Tablo · başlık metni
 theme-token-component-table-header-weight = Tablo · başlık kalınlığı
+theme-token-component-table-body-bg = Tablo · satır arka planı
 theme-token-component-table-stripe-bg = Tablo · şerit arka planı
 theme-token-component-table-rule-color = Tablo · çizgi rengi
 theme-token-component-table-rule-width = Tablo · çizgi kalınlığı

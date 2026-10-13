@@ -1,0 +1,11 @@
+---
+source: crates/oku-slides-import/src/hifi/typst/mod_tests.rs
+expression: "Fixture::new().decor(&[rect]).code"
+---
+place(top + left, dx: 20pt, dy: 40pt,
+  scale(x: -100%, y: 100%, reflow: false,
+    box(width: 200pt, height: 100pt,
+      rect(width: 200pt, height: 100pt, fill: color-of(t, "accent-2"), stroke: none, radius: 25pt),
+    ),
+  ),
+)

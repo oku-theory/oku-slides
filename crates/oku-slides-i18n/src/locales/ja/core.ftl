@@ -19,6 +19,8 @@ op-value-not-tokens = オブジェクトまたは null が必要です
 op-value-not-a-slot = このパラメーターはスロットではありません
 op-value-out-of-bounds = 数値が許容範囲外です
 op-value-unreadable = 値が想定された形式ではありません
+op-value-valign = top、middle、bottom のいずれかが必要です
+op-value-path = パスは M、L、C、Q、Z の各コマンドとその数値で構成され、M で始まります
 op-unknown-widget = 不明なウィジェット：{ $subject }
 op-unknown-param = 不明なパラメーター：{ $subject }
 op-param-type-because = { $subject } の値が無効です：{ $reason }
@@ -82,6 +84,10 @@ op-param-shape-set-param-only = { $nullable ->
     [yes] 値は set_param で設定します、または null
    *[no] 値は set_param で設定します
 }
+op-param-shape-path-option = { $nullable ->
+    [yes] 図形のパス（キー d を持つオブジェクト）または null が必要です
+   *[no] 図形のパス（キー d を持つオブジェクト）が必要です
+}
 op-item-not-found = 項目 { $subject } がありません
 op-list-full = リスト { $subject } がいっぱいです（最大 { $max }項目）
 op-list-minimum = リスト { $subject } には少なくとも { $min }項目が必要です
@@ -117,6 +123,7 @@ issue-slot-rejects = { $kind } はここでは受け付けられません
 issue-placed-in-flow = レイアウトされたリストに枠付きで配置された要素
 issue-unknown-bind = { $param } は不明なデッキ設定に紐付いています
 issue-slot-too-deep = 要素の入れ子が深すぎます
+issue-invalid-style = 無効なスタイル値: { $field }
 issue-missing-asset = アセットがありません：{ $asset }
 issue-pack-version-mismatch = 改変されたパックのバージョンを破棄しました：{ $version }
 issue-pack-version-missing = パックのバージョンがソースにありません：{ $version }

@@ -43,6 +43,10 @@ import-loss-run-style = { $effect ->
     [strike] Barré perdu
     [baseline] Exposant ou indice perdu
     [caps] Capitales perdues
+    [font] Police d'un passage remplacée par celle de la boîte
+    [tracking] Espacement des lettres d'un passage remplacé par celui de la boîte
+    [weight] Passage maigre rendu gras comme la boîte
+    [slant] Passage droit rendu en italique comme la boîte
    *[highlight] Surlignage perdu
 }
 import-loss-transform = Rotation, miroir ou rognage perdus
@@ -65,6 +69,24 @@ import-loss-repeated-decor = { $slides ->
   *[other] En-tête ou pied « { $text } » répété sur { $slides } slides omis : le thème dessine les siens
 }
 import-loss-no-slot = Contenu omis : le modèle choisi n'a pas de place pour lui
+import-loss-page-fitted = Page source de { $width } × { $height } pt, d'un autre format que 16:9 : contenu mis à l'échelle et centré
+import-loss-paragraph-style = Alignement, interligne ou espacement d'un paragraphe ramené à celui de la boîte
+import-loss-shape-style = { $effect ->
+    [gradient] Dégradé rendu en couleur unie
+    [picture] Image de remplissage étirée au cadre de la forme
+    [dash] Trait en tirets rendu continu
+   *[geometry] Forme inconnue rendue en rectangle
+}
+import-loss-layout-dropped = Trop de layouts pour un pack : « { $layout } » n'a pas de modèle, ses slides prennent le widget vierge et reçoivent son décor en éléments
+import-loss-decor-truncated = Décor coupé pour tenir dans la taille d'un fichier de pack : { $omitted } éléments omis
+import-loss-table-style = Style du tableau approché : ses fonds de cellule, bordures, largeurs de colonnes ou tailles de texte propres sont perdus
+import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles
+import-font-missing = { $family } introuvable : le texte prend { $by }
+import-font-restricted = { $family } : sa licence interdit d'embarquer certaines de ses faces dans le deck
+import-font-restricted-substituted = { $family } ne peut pas être embarquée dans le deck (licence) : remplacée par { $by }, aux métriques compatibles
+import-font-restricted-missing = { $family } ne peut pas être embarquée dans le deck (licence) : le texte prend { $by }
+import-font-too-large = { $family } : fichiers trop gros pour être embarqués dans le deck ; le texte prend { $by }
+import-font-missing-no-fallback = { $family } introuvable, comme la police du corps du thème : le texte est rendu avec la police par défaut du moteur
 import-warning-effect-ignored = Effet non importé : { $detail }
 import-warning-approximated = Rendu approché : { $detail }
 import-warning-unreadable-item = Élément illisible ignoré : { $detail }
