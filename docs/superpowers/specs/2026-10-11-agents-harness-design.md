@@ -50,7 +50,9 @@ four sections as nested files), then:
 - a harness map: every nested `AGENTS.md` with one line saying when to read it. Codex only
   loads the root-to-cwd chain, so the map is how it finds the rest.
 
-Budget: 100 lines; the free room for repo-wide rules is measured on a render (≈ 30 lines).
+Budget: 130 lines (raised from 100 on 2026-10-13: the migrated content, the harness section
+and a 20-line map left 2 lines for 109 repo-wide candidates); the free room for repo-wide
+rules is measured on a render (≈ 32 lines).
 
 **Nested.** An `AGENTS.md` (60 lines max) only where extraction yields rules. Likely targets:
 crates with an `ARCHITECTURE.md`, `crates/oku-slides-core/src/replica/`, `ui/`, `src-tauri/`,
@@ -81,9 +83,13 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - <choice not to reopen, with the rejected alternative>. (ADR-0002)
 ```
 
-**Placement principle.** A rule lives in the deepest directory that covers everything it
-concerns. A rule spanning core, session and UI goes to the root; one spanning only crates
-goes to `crates/`.
+**Placement principle.** A rule lives in the deepest *anchor* directory that covers
+everything it concerns. Anchors are the root, `crates/`, each `crates/<crate>/`,
+`crates/oku-slides-core/src/replica/` (it has its own `ARCHITECTURE.md`), `ui/`, `src-tauri/`,
+`typst/oku-slides/`, `docs/` and `fixtures/`; a deeper target is lifted to its anchor. Without
+anchors, extraction produced 59 targets and a map longer than the root budget (2026-10-13). A
+rule spanning core, session and UI goes to the root; one spanning only crates goes to
+`crates/`.
 
 ## 2. Extraction and consolidation
 
@@ -167,15 +173,15 @@ output: `✗ <file> : <reason>`.
 | 1 | No file disables native `AGENTS.md` reading | a `CLAUDE.md` or `CLAUDE.local.md` exists (tracked, untracked, or `CLAUDE.local.md` even when git-ignored), or `.claude/CLAUDE.md` exists |
 | 2 | References resolve | `ADR-NNNN` without `docs/adr/NNNN-*.md`; `spec:`/`plan:` without a file of that name (whole-word matches only); `ADR-` with more than four digits |
 | 3 | Rules cite a source, root included | a bullet under `## Invariants`, `## Pitfalls`, `## Testing` or `## Settled decisions` (outside code fences) does not end with a `(…)` holding `ADR-`, `t-`, `spec:` or `plan:`; other sections are free |
-| 4 | Budgets | root over 100 lines, nested over 60 (a last line without newline counts) |
+| 4 | Budgets | root over 130 lines, nested over 60 (a last line without newline counts) |
 | 5 | Root map is exact | a nested `AGENTS.md` missing from `## Harness map`, a map entry pointing nowhere, or an entry with `..` or an absolute path |
 
 `t-N` references are checked for form only; existence needs the local Oku daemon (it is
 checked by `harness.py`).
 
 **Tests (TDD).** `just agents-lint-test` builds, in `mktemp`, one valid minimal git repo and
-one per case (40 cases), and compares the lint's whole output to the exact expected line.
-Written first, red, then the lint makes it green; 23 mutations of the lint must each turn the
+one per case (48 cases), and compares the lint's whole output to the exact expected line.
+Written first, red, then the lint makes it green; 29 mutations of the lint must each turn the
 suite red.
 
 ## 4. Rollout

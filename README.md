@@ -8,8 +8,9 @@ In the code: crates `oku-slides-*`, the `oku-slides` tool, the `oku-slides` Typs
 library.
 
 Implementation plan: [Oku Slides — implementation plan](https://claude.ai/code/artifact/fca9973c-7aff-454e-b40b-9a900dedaf57).
-Design decisions: [`docs/adr/`](docs/adr/README.md). Decision records, plans, code
-comments and tool output are in French.
+Design decisions: [`docs/adr/`](docs/adr/README.md). All documentation is written in
+English; older French documents are translated when next edited. Code comments and tool
+output are in French.
 
 ## Repository layout
 
@@ -89,7 +90,7 @@ just web      # interface in the browser with hot reload (localhost:5173)
 just serve    # built interface in the browser (127.0.0.1:4870)
 just test     # Rust and interface tests
 just e2e      # end-to-end tests (Playwright) against a fresh server, port 4872
-just check    # format, clippy, TypeScript types, LFS fonts
+just check    # format, clippy, TypeScript types, LFS fonts, AGENTS.md harness (needs a git clone)
 just          # every command
 ```
 

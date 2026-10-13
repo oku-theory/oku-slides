@@ -1,0 +1,60 @@
+# ui — agent rules
+
+## Invariants
+
+- Apply editor text edits as a minimal replacement (minimalChange) so CodeMirror never rewrites the whole document. (plan:2026-09-26-editeur-markdown)
+- Do not end text editing on blur when document.hasFocus() is false; another window or app took focus. (spec:2026-10-09-agent-detachable-design)
+- Route every visible UI string and ARIA label through t() with Fluent keys; never hardcode text. (t-44)
+- Ignore quick keys on editable targets, with modifiers, on repeat, during IME composition, or when already handled. (plan:2026-09-26-agent-vocal)
+- In confirmation modals, accept neither Enter nor digit keys, and ignore input for 500 ms after opening. (plan:2026-09-26-agent-vocal)
+- Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. (plan:2026-09-26-agent-vocal)
+- Validate every agent-link message with zod and drop invalid ones without logging; they may hold dictated text. (spec:2026-10-09-agent-detachable-design)
+- Cancel an agent-link insert that gets no ack within 3000 ms and put the text back in the draft. (plan:2026-10-09-agent-detachable)
+- Send draft updates one at a time tagged with the view origin, and ignore echoes of the view's own sends. (spec:2026-10-09-agent-detachable-design)
+- Debounce draft typing by 300 ms, but send dictation, Send, Insert, Discard and open immediately. (plan:2026-10-09-agent-detachable)
+- Flush pending draft typing before attaching or closing the agent window so the last keystrokes reach the host. (plan:2026-10-09-agent-detachable, t-701)
+- Never switch a mounted AgentPanel between driver and follower mode; mount one panel per tab and window. (plan:2026-10-09-agent-detachable)
+- Match shortcut letters by key (layout-aware) and digits by physical code, so AZERTY works. (spec:2026-09-26-onglets-fenetres-design)
+- Ignore any WorkspaceView older than the last applied generation; command replies can arrive after newer events. (t-159)
+- Defer agent focus during text editing, apply only the last one when editing ends, and ignore unknown ids. (plan:2026-10-09-tickets-debloques-t598, t-210)
+- textToParagraphs must keep the existing paragraph, with its formatting, for any line whose text did not change. (plan:2026-09-27-markdown-lezer)
+- In ListTable, insert a row only after the cell save succeeds, and revert the cell when the core refuses it. (plan:2026-10-04-suivis-listes, t-534)
+- Send every widget file write, rename, delete and create through the single useWidgetFiles queue. (plan:2026-10-03-widgets-onglets)
+- Show widget SVG previews only in an img element, never in object, iframe or dangerouslySetInnerHTML. (plan:2026-10-03-widgets-onglets)
+- Send surface actions to the scope of the displayed surface, never to the current selection. (spec:2026-10-03-widgets-agent-a2ui-design)
+- Format grid and list numbers with ui/src/table/numbers.ts: deck language separators, U+2212 minus, shortest form. (t-655)
+- In parseCell convert only unambiguous decimals to numbers; keep leading-zero codes, hex and exponents as text. (t-592)
+- After removing the current slide, select a neighbour and never fetch a slide id absent from the snapshot. (t-61)
+- Treat Backspace like Delete in delete-key handlers so behaviour matches App on macOS. (t-420)
+- Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
+- Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
+
+## Pitfalls
+
+- Never call crypto.randomUUID in ui/src, it throws outside secure contexts; use randomId from randomId.ts. (plan:2026-10-09-suivis-t678-t733, t-695)
+- Make every UI effect survive mount, unmount, then mount again, because main.tsx enables React StrictMode. (spec:2026-09-26-editeur-markdown-design)
+- Write every ui- Fluent key as a string literal in UI code, or ui/src/i18n-keys.test.ts fails. (plan:2026-09-27-sources-loro-historique)
+- Send Content-Type application/json with every POST to oku-slides serve; its anti-CSRF guard rejects others. (plan:2026-09-26-agent-vocal)
+- Do not capture Escape in Dictation for the agent; App decides via escapeAction, deselecting before cancelling a turn. (plan:2026-09-26-agent-vocal)
+- Prune widget sub-tabs only against statuses of the current revision, never stale or other-pack statuses. (plan:2026-10-03-widgets-onglets)
+- Call EditorView.requestMeasure when a hidden CodeMirror sub-tab becomes active again. (plan:2026-10-03-widgets-onglets)
+- Set the cursor colour explicitly in every CodeMirror editor; the default black cursor is invisible on dark themes. (t-460)
+- Do not rely on tsc -b to typecheck test files; ui/tsconfig.json excludes them and only bun test checks them. (plan:2026-10-08-widget-tableau)
+- Never free an A2UI surface in an effect cleanup; it cannot know whether the next message list extends the old one. (plan:2026-10-03-agent-a2ui, t-291)
+
+## Testing
+
+- Keep ui/src/a2ui/fixtures/agent-surfaces.json generated by Rust tests and valid against the zod catalog. (spec:2026-10-03-agent-a2ui-design)
+- Never pass an async predicate to page.waitForFunction; it resolves at once, so poll from Node instead. (t-570)
+
+## Settled decisions
+
+- Parse rewrite text in the UI with textToParagraphs; do not reintroduce a text reader on the server. (spec:2026-09-27-agent-onglets-design)
+- Do not add a manual save action; every change autosaves after 1.5 s and new decks go to a default folder. (t-257)
+- Show shortcuts as Cmd on macOS and as Ctrl, Shift, Alt elsewhere, in help and menus. (t-493)
+- Use CodeMirror standardKeymap, never defaultKeymap, whose commands are meant for code editors. (spec:2026-09-26-editeur-markdown-design)
+- Keep ListTable fully controlled: hold no local data except the draft of the cell being edited. (spec:2026-10-04-parametre-liste-design)
+- Let unsaved user keystrokes win over an agent widget write, but an agent deletion discards them. (spec:2026-10-03-widgets-agent-a2ui-design)
+- After a refused cut-paste move, paste a renewed-id copy only if the element is gone from its source slide. (plan:2026-10-10-deck-en-arbre)
+- Derive editor spans and runs from the single lezer markdown parse in markdown.ts; no hand-written parser. (spec:2026-09-26-editeur-markdown-design, t-183)
+- Read the number language with useNumberLang from NumberLangContext; never thread a numberLang prop through panels. (plan:2026-10-09-finitions-ids)
