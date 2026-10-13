@@ -19,7 +19,9 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use oku_slides_core::{DeckReplica, PackFiles, PackVersion, ReplicaError, SourceBundle, WidgetFile, WidgetRegistry};
+use oku_slides_core::{
+    DeckReplica, PackFiles, PackVersion, ReplicaError, ReplicaLimits, SourceBundle, WidgetFile, WidgetRegistry,
+};
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::agent::{AgentScope, SavedConversation};
@@ -428,14 +430,14 @@ impl Resume {
     }
 
     /// Relit un document : son replica (`deck.loro`, au plus
-    /// `max_replica_bytes`), avec une pile d'annulation neuve et l'auteur de
+    /// `limits.max_bytes`, compacté selon `limits.compact_after_secs`), avec une pile d'annulation neuve et l'auteur de
     /// `defaults`, écrit ensuite avec les widgets de `registry`. Sans
     /// `deck.loro` (ancien format), illisible.
     pub fn read_doc(
         &self,
         sub: &str,
         defaults: &DocDefaults,
-        max_replica_bytes: usize,
+        limits: impl Into<ReplicaLimits>,
         registry: &Arc<WidgetRegistry>,
     ) -> Result<Document> {
         let dir = self.dir.join(sub);
@@ -443,10 +445,11 @@ impl Resume {
         let raw: DocIn = serde_json::from_slice(&self.get(&path)?).context(JsonSnafu { path: &path })?;
         let loro = dir.join("deck.loro");
         // Borné à la lecture : un fichier démesuré n'est pas chargé en mémoire.
-        let max = u64::try_from(max_replica_bytes).unwrap_or(u64::MAX);
+        let limits = limits.into();
+        let max = u64::try_from(limits.max_bytes).unwrap_or(u64::MAX);
         let bytes = self.storage.read_limited(&loro, max).context(AccessSnafu { path: &loro })?;
-        let (replica, read) = DeckReplica::from_snapshot(&bytes, max_replica_bytes, registry.clone())
-            .context(ReplicaSnafu { path: &loro })?;
+        let (replica, read) =
+            DeckReplica::from_snapshot(&bytes, limits, registry.clone()).context(ReplicaSnafu { path: &loro })?;
         let assets =
             self.read_files(&dir.join("assets"))?.into_iter().map(|(n, b)| (format!("sha256:{n}"), b)).collect();
         // Le nom sur disque est `<hex>-<nom>` (adressage par contenu) : on ne
@@ -628,7 +631,7 @@ impl Session {
             self.ui = state.ui.sanitized(false);
             return Ok(());
         }
-        let max = self.source_limits.replica_bytes;
+        let max = self.source_limits.replica();
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
         let templates = match state.mode {
             SavedMode::Deck | SavedMode::Help(_) => None,

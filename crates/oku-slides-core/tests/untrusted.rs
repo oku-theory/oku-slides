@@ -63,13 +63,14 @@ fn assemble(header: &[u8], oplog: &[u8], state: &[u8], shallow: &[u8]) -> Vec<u8
 /// Loro ne décode l'état d'un conteneur qu'au premier accès, et panique
 /// alors sur un état malformé (`decode_value(..).unwrap()`). Ces snapshots
 /// passent l'import (sommes de contrôle recalculées, par bloc et globale) ;
-/// l'état de chaque conteneur, tronqué, ne se décode plus. `from_snapshot`
-/// fait la première lecture sous garde : `Corrupted`, jamais de panique ni
-/// d'arrêt du processus (le doc empoisonné n'est pas libéré).
+/// l'état de chaque conteneur, tronqué, ne se décode plus. Depuis t-809,
+/// `from_snapshot` ne lit jamais l'état reçu : il rejoue les opérations, et
+/// chaque snapshot forgé relit le deck d'origine, sans panique.
 #[test]
-fn from_snapshot_with_malformed_container_state_returns_corrupted() {
+fn from_snapshot_with_malformed_container_state_replays_the_operations() {
     use loro_kv_store::{MemKvStore, mem_store::MemKvConfig};
     let s = snapshot();
+    let expected = DeckReplica::from_snapshot(&s, 1 << 20, common::shared()).unwrap_or_else(|e| panic!("{e}")).1;
     let (oplog, state, shallow) = split(&s);
     let store = || {
         let mut kv = MemKvStore::new(MemKvConfig::default().should_encode_none(false));
@@ -78,24 +79,20 @@ fn from_snapshot_with_malformed_container_state_returns_corrupted() {
     };
     let entries: Vec<_> = store().scan(std::ops::Bound::Unbounded, std::ops::Bound::Unbounded).collect();
     assert_that!(assemble(&s, oplog, state, shallow)).is_equal_to(&s);
-    let mut corrupted = 0;
+    assert_that!(entries.len()).is_greater_than(1);
     for (key, value) in &entries {
         let mut kv = store();
         kv.set(key, value.slice(..value.len() / 2));
         let forged = assemble(&s, oplog, &kv.export_all(), shallow);
+        assert_that!(forged).is_not_equal_to(&s);
         let read =
-            std::panic::catch_unwind(|| DeckReplica::from_snapshot(&forged, 1 << 20, common::shared()).map(|_| ()));
+            std::panic::catch_unwind(|| DeckReplica::from_snapshot(&forged, 1 << 20, common::shared()).map(|r| r.1));
         match read {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => {
-                assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::Corrupted);
-                corrupted += 1;
-            }
+            Ok(Ok(read)) => assert_that!(read).is_equal_to(&expected),
+            Ok(Err(e)) => panic!("état forgé lu : {e}"),
             Err(_) => panic!("from_snapshot a paniqué"),
         }
     }
-    // Les conteneurs du deck sont tous relus : chaque état tronqué est vu.
-    assert_that!(corrupted).is_greater_than(entries.len() / 2);
 }
 
 #[test]
@@ -161,7 +158,7 @@ fn from_snapshot_with_many_marks_on_one_node_hides_it() {
             .unwrap_or_else(|| panic!("b-points absent"));
         let meta = tree.get_meta(points).unwrap_or_else(|e| panic!("méta : {e}"));
         for peer in 0..HOSTILE_KEYS {
-            meta.insert(&format!("@deleted/{peer}"), true).unwrap_or_else(|e| panic!("marque : {e}"));
+            meta.insert(&format!("@deleted/{peer}"), 1_700_000_000_i64).unwrap_or_else(|e| panic!("marque : {e}"));
         }
     });
     let (deck, issues) = read_on_a_small_stack(bytes);
@@ -190,4 +187,24 @@ fn from_snapshot_with_a_huge_slot_map_reads() {
     let slide = deck.slide("s-title").unwrap_or_else(|| panic!("s-title absente"));
     let ids: Vec<&str> = slide.params.slot("blocks").unwrap_or_default().iter().map(|e| e.id.as_str()).collect();
     assert_that!(ids).is_equal_to(vec!["x"]);
+}
+
+/// t-770 : une marque qui n'est pas une date est refusée à l'entrée.
+#[test]
+fn from_snapshot_with_a_non_integer_mark_returns_corrupted() {
+    for value in [LoroValue::Bool(true), LoroValue::from("hier"), LoroValue::Double(1.5)] {
+        let forged_value = value.clone();
+        let bytes = forged("s-constat", move |tree, slide| {
+            let points = tree
+                .children(slide)
+                .unwrap_or_default()
+                .into_iter()
+                .find(|n| tree.get_meta(*n).is_ok_and(|m| has_id(&m, "b-points")))
+                .unwrap_or_else(|| panic!("b-points absent"));
+            let meta = tree.get_meta(points).unwrap_or_else(|e| panic!("méta : {e}"));
+            meta.insert("@deleted/7", forged_value).unwrap_or_else(|e| panic!("marque : {e}"));
+        });
+        let kind = DeckReplica::from_snapshot(&bytes, 1 << 26, common::shared()).err().map(|e| e.kind());
+        assert_that!(kind).named(&format!("{value:?}")).is_equal_to(Some(ReplicaErrorKind::Corrupted));
+    }
 }

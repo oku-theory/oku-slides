@@ -8,12 +8,13 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use loro::{LoroMap, LoroTree, LoroValue, TreeID, TreeParentId, ValueOrContainer};
+use loro::{Container, LoroDoc, LoroMap, LoroTree, LoroValue, TreeID, TreeParentId, ValueOrContainer};
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
 use super::super::schema::{Ctx, SLIDE, SLIDES};
 use super::super::write::{Res, Writer, keyed, set_value};
+use super::place::Layout;
 use super::{Key, Live, Wanted, arrange, is_marked, live_index, meta_str, slots_of, tree_at, wanted_index};
 use crate::error::{LoroSnafu, ReplicaInner, TreeOrderSnafu};
 use crate::ops::Moved;
@@ -51,6 +52,16 @@ pub(in crate::replica) fn stray_roots(tree: &LoroTree) -> Vec<TreeID> {
 /// L'arbre du deck sous `map[SLIDES]`, créé au besoin.
 pub(in crate::replica) fn deck_tree_at(map: &LoroMap) -> Result<LoroTree, ReplicaInner> {
     tree_at(map, SLIDES)
+}
+
+/// L'arbre du deck de `doc`, s'il existe ; jamais créé (lecture).
+///
+/// [`deck_tree_at`] le crée au besoin, pour écrire.
+pub(in crate::replica) fn deck_tree_of(doc: &LoroDoc) -> Option<LoroTree> {
+    match doc.get_map(crate::replica::ROOT).get(SLIDES) {
+        Some(ValueOrContainer::Container(Container::Tree(t))) => Some(t),
+        _ => None,
+    }
 }
 
 /// Une slide voulue et ses éléments voulus (ordre `uorder`).
@@ -399,16 +410,77 @@ fn pair_subtree(
 }
 
 impl Writer<'_> {
+    /// Crée les nœuds des slides et éléments voulus sans nœud apparié.
+    ///
+    /// Une slide naît en fin de racine, un élément en fin des enfants de son
+    /// propriétaire (un propriétaire précède ses éléments) ; `pairing` reçoit
+    /// les nœuds créés, que le placement traite comme existants. Avec `born`,
+    /// ils naissent marqués, ensemble, dans un commit silencieux : défaire
+    /// l'ajout remet la marque au lieu d'un `tree.delete` de Loro (t-776).
+    /// Rend les nœuds créés, avec le slot voulu d'un élément (`None` : une slide) ;
+    /// ils sont déjà bien rangés, le placement ne les déplace que s'ils ne le sont pas.
+    fn create_missing<'w>(
+        &self,
+        tree: &LoroTree,
+        wanted: &[WantedSlide<'w>],
+        pairing: &mut Pairing,
+    ) -> Result<Vec<(TreeID, Option<&'w str>)>, ReplicaInner> {
+        let missing = pairing.slides.iter().flatten().count() < pairing.slides.len()
+            || pairing.elements.iter().any(|e| e.iter().any(Option::is_none));
+        if !missing {
+            return Ok(Vec::new());
+        }
+        if self.born.is_some() {
+            (self.split)();
+        }
+        let mut created = Vec::new();
+        let mut make = |parent: TreeParentId, slot: Option<&'w str>| -> Result<TreeID, ReplicaInner> {
+            let n = tree.create(parent).context(LoroSnafu)?;
+            if self.born.is_some() {
+                self.mark(tree, n)?;
+            }
+            created.push((n, slot));
+            Ok(n)
+        };
+        for (i, ws) in wanted.iter().enumerate() {
+            let slide = pairing.slides.get_mut(i).context(TreeOrderSnafu)?;
+            let slide = match slide {
+                Some(n) => *n,
+                None => *slide.insert(make(TreeParentId::Root, None)?),
+            };
+            for (d, w) in ws.elements.iter().enumerate() {
+                if pairing.elements.get(i).and_then(|e| e.get(d)).context(TreeOrderSnafu)?.is_some() {
+                    continue;
+                }
+                let owner = match w.owner {
+                    None => slide,
+                    Some(o) => {
+                        pairing.elements.get(i).and_then(|e| e.get(o)).copied().flatten().context(TreeOrderSnafu)?
+                    }
+                };
+                let n = make(TreeParentId::Node(owner), Some(w.slot))?;
+                *pairing.elements.get_mut(i).and_then(|e| e.get_mut(d)).context(TreeOrderSnafu)? = Some(n);
+            }
+        }
+        if let Some(born) = self.born {
+            born();
+        }
+        Ok(created)
+    }
+
     /// Amène l'arbre du deck aux slides voulues (R6).
     ///
     /// Temps 0 : index et appariement, sans écriture. Temps 1 : marque des
     /// slides non appariées (et, dans une telle slide, des non voulus sous un
     /// élément qui en sort), puis des éléments non voulus de chaque slide
-    /// gardée. Temps 2 : les slides à la racine, puis, slide par slide, ses
-    /// champs et ses éléments. Temps 3 : marque des différés. Un seul commit.
+    /// gardée. Naissance groupée : quand il y a des nœuds à créer, ce qui
+    /// précède forme une partie, puis un commit silencieux les crée tous.
+    /// Temps 2 : les slides à la racine, puis, slide par slide, ses champs et
+    /// ses éléments. Temps 3 : marque des différés. Le commit de l'appelant
+    /// clôt l'étape.
     pub(in crate::replica) fn sync_deck(&self, tree: &LoroTree, wanted: Vec<WantedSlide<'_>>, moves: &[Moved]) -> Res {
         let live = live_slides(tree);
-        let pairing = pair(&live, &wanted, moves);
+        let mut pairing = pair(&live, &wanted, moves);
         let paired: HashSet<TreeID> = pairing.elements.iter().flatten().flatten().copied().collect();
         let kept: HashSet<TreeID> = pairing.slides.iter().flatten().copied().collect();
 
@@ -425,19 +497,33 @@ impl Writer<'_> {
             }
         }
 
+        // Naissance : tous les nœuds manquants, en un seul commit (t-776).
+        let born = self.create_missing(tree, &wanted, &mut pairing)?;
+        let created: HashSet<TreeID> = born.iter().filter(|(_, s)| s.is_none()).map(|(n, _)| *n).collect();
+        let fresh: HashSet<TreeID> = born.iter().map(|(n, _)| *n).collect();
+
         // Temps 2 : les slides à la racine, avant tout élément.
-        let shown: HashSet<TreeID> = live.iter().map(|l| l.node).collect();
+        let shown: HashSet<TreeID> = live.iter().map(|l| l.node).chain(created).collect();
         let mut roots = tree.children(TreeParentId::Root).unwrap_or_default();
-        let placed = arrange(tree, TreeParentId::Root, &mut roots, &pairing.slides, &|n| shown.contains(&n))?;
-        let slots: HashMap<TreeID, String> =
-            live.iter().flat_map(|l| l.elements.iter().map(|e| (e.node, e.slot.clone()))).collect();
+        let placed = arrange(tree, TreeParentId::Root, &mut roots, &pairing.slides, &|n| shown.contains(&n), &fresh)?;
+        let slots: HashMap<TreeID, String> = live
+            .iter()
+            .flat_map(|l| l.elements.iter().map(|e| (e.node, e.slot.clone())))
+            .chain(born.iter().filter_map(|(n, s)| Some((*n, (*s)?.to_owned()))))
+            .collect();
         for (i, ws) in wanted.iter().enumerate() {
-            let (node, _) = placed.get(i).copied().context(TreeOrderSnafu)?;
+            let node = placed.get(i).copied().context(TreeOrderSnafu)?;
             let meta = tree.get_meta(node).context(LoroSnafu)?;
             set_value(&meta, SLIDE, LoroValue::Bool(true))?;
             self.sync_map(&meta, ws.obj, Ctx::Slide)?;
             let paired = pairing.elements.get(i).context(TreeOrderSnafu)?;
-            self.place_elements(tree, node, &ws.elements, paired, &slots)?;
+            let layout = Layout { wanted: &ws.elements, paired, slots: &slots, fresh: &fresh };
+            self.place_elements(tree, node, &layout)?;
+        }
+
+        // Les nœuds nés marqués perdent leur marque dans l'étape.
+        for (n, _) in born {
+            self.unborn(&tree.get_meta(n).context(LoroSnafu)?)?;
         }
 
         // Temps 3 : un différé a un descendant voulu, donc aucun de ses

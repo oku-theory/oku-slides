@@ -54,7 +54,7 @@ fn history_marks_the_merge_and_keeps_concurrent_branches_in_each_prefix() {
     let deck = roadmap();
     let base = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let zip = base.to_zip().unwrap();
-    let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 };
+    let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28, compact_after_secs: 0 };
     let (mut a, _) = SourceBundle::from_zip(&zip, limits, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_zip(&zip, limits, crate::test_registry::shared()).unwrap();
     a.apply(titled(&deck, "de A"), "A", None).unwrap();
@@ -185,7 +185,7 @@ fn restore_after_a_zip_round_trip_brings_back_each_earlier_version() {
     let fewer = without(&deck, 5);
     b.apply(fewer.clone(), "Supprimer", None).unwrap();
     b.apply(moved(&fewer, 0, 4), "Déplacer", None).unwrap();
-    let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 };
+    let limits = crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28, compact_after_secs: 0 };
     let (mut b, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), limits, crate::test_registry::shared()).unwrap();
     let h = b.history();
     for i in 0..h.len() - 1 {
@@ -433,4 +433,81 @@ fn restore_before_a_slide_removal_brings_it_back_as_a_new_node() {
     let new: Vec<_> = roots.iter().filter(|(n, _)| *n != removed[0].0).collect();
     assert_that!(new.len()).is_equal_to(1);
     assert_that!(new[0].1).named("le nouveau nœud est vivant").is_false();
+}
+
+fn on_stack<T: Send + 'static>(size: usize, f: impl FnOnce() -> T + Send + 'static) -> T {
+    std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(f)
+        .unwrap_or_else(|e| panic!("fil : {e}"))
+        .join()
+        .unwrap_or_else(|_| panic!("panique ou débordement de pile"))
+}
+
+/// Un replica dont l'historique porte une chaîne de 20 000 nœuds vides sous
+/// `s-constat` (versions « forge »), remontés ensuite sous la slide (« aplatie »).
+fn forged_then_flattened() -> crate::DeckReplica {
+    on_stack(1 << 30, || {
+        let r = crate::DeckReplica::new(&roadmap(), crate::test_registry::shared()).unwrap_or_else(|e| panic!("{e}"));
+        let tree = crate::replica::tree::deck_tree_of(&r.doc).unwrap_or_else(|| panic!("arbre"));
+        let points = crate::replica::tree::node_of(&r.doc, "s-constat", "b-points").1;
+        let Some(loro::TreeParentId::Node(slide)) = tree.parent(points) else { panic!("slide de b-points") };
+        let mut parent = loro::TreeParentId::Node(slide);
+        let mut chain = Vec::new();
+        for _ in 0..20_000 {
+            let n = tree.create(parent).unwrap_or_else(|e| panic!("{e}"));
+            chain.push(n);
+            parent = loro::TreeParentId::Node(n);
+        }
+        r.doc.set_next_commit_message("forge");
+        r.doc.commit();
+        for n in chain.iter().rev() {
+            tree.mov(*n, loro::TreeParentId::Node(slide)).unwrap_or_else(|e| panic!("{e}"));
+        }
+        r.doc.set_next_commit_message("aplatie");
+        r.doc.commit();
+        r
+    })
+}
+
+#[test]
+fn deck_at_refuses_a_version_too_deep_and_reads_the_others_on_a_small_stack() {
+    let r = forged_then_flattened();
+    let current = r.deck().0;
+    let h = r.history();
+    // Loro peut découper un gros commit : la dernière version « forge » porte toute la chaîne.
+    let forge =
+        h.versions().iter().rposition(|v| v.label.as_deref() == Some("forge")).unwrap_or_else(|| panic!("forge"));
+    let last = h.len() - 1;
+    let (deep, latest, first) = on_stack(256 * 1024, move || {
+        let deep = h.deck_at(forge).err().map(|e| e.kind());
+        let latest = h.deck_at(last).map(|(d, _)| d).ok();
+        let first = h.deck_at(0).map(|(d, _)| d).ok();
+        (deep, latest, first)
+    });
+    assert_that!(deep).is_equal_to(Some(crate::error::ReplicaErrorKind::Corrupted));
+    assert_that!(latest).is_equal_to(Some(current));
+    assert_that!(first).is_equal_to(Some(roadmap()));
+    on_stack(1 << 30, move || drop(r));
+}
+
+/// Témoin : un fichier dont l'historique a porté une chaîne profonde, mais dont
+/// l'état est plat, s'ouvre par rejeu, s'enregistre et liste ses versions sur un fil de l'app.
+#[test]
+fn file_with_a_deep_past_and_a_flat_present_opens_saves_and_lists_history_on_an_app_thread() {
+    let r = forged_then_flattened();
+    let bytes = r.snapshot().unwrap_or_else(|e| panic!("{e}"));
+    on_stack(1 << 30, move || drop(r));
+    let deep = on_stack(2 << 20, move || {
+        let (back, _) = crate::DeckReplica::from_snapshot(&bytes, 1 << 26, crate::test_registry::shared())
+            .unwrap_or_else(|e| panic!("ouverture : {e}"));
+        back.snapshot().unwrap_or_else(|e| panic!("snapshot : {e}"));
+        let h = back.history();
+        let forge =
+            h.versions().iter().rposition(|v| v.label.as_deref() == Some("forge")).unwrap_or_else(|| panic!("forge"));
+        let deep = h.deck_at(forge).err().map(|e| e.kind());
+        drop((h, back));
+        deep
+    });
+    assert_that!(deep).is_equal_to(Some(crate::error::ReplicaErrorKind::Corrupted));
 }

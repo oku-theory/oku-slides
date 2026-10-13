@@ -19,10 +19,10 @@ panneau des pièces jointes des lecteurs PDF.
 - `Sources::modified_elsewhere()` : le PDF sur disque diffère du hash connu
   à l'ouverture (déclenche la fusion à l'enregistrement, côté session).
 
-## Format du zip (version 9)
+## Format du zip (version 10)
 
 ```
-manifest.json          { format: "oku-slides-sources", version: 9 }
+manifest.json          { format: "oku-slides-sources", version: 10 }
 deck.loro              snapshot complet du replica (oku-slides-core::DeckReplica)
 assets/<hex>           tels quels
 fonts/<nom>            tels quels

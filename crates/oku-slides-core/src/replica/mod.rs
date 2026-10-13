@@ -5,10 +5,13 @@
 //! - Le `Deck` n'est qu'une vue ; le replica fait foi.
 //! - Modules : `schema`, `read`, `write`, `tree` (le deck en un seul
 //!   `LoroTree`, slides en racine ; `tree/deck`), `host` (options des hôtes),
-//!   `rich`, `undo`, `authors`, `history` ; tests à côté (`*_tests.rs`, dont
+//!   `rich`, `undo`, `authors`, `history`, `compact`, `entry` (octets non
+//!   fiables : rejeu, profondeur bornée) ; tests à côté (`*_tests.rs`, dont
 //!   `list_tests`, `host_tests` et `tree_tests`). Voir `ARCHITECTURE.md`.
 
 mod authors;
+mod compact;
+mod entry;
 mod history;
 mod host;
 mod read;
@@ -19,22 +22,37 @@ mod undo;
 mod write;
 
 pub use authors::MergeReport;
+
+/// Limites d'ouverture d'un replica relu d'un fichier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplicaLimits {
+    /// Taille maximale du snapshot (réglage `[sources] max_replica_mib`).
+    pub max_bytes: usize,
+    /// Délai de compaction des nœuds morts, en secondes ; 0 : jamais (t-770).
+    pub compact_after_secs: i64,
+}
+
+impl From<usize> for ReplicaLimits {
+    /// Une limite d'octets seule, sans compaction : tests et outils.
+    fn from(max_bytes: usize) -> Self {
+        Self { max_bytes, compact_after_secs: 0 }
+    }
+}
 pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
 
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 use loro::{Container, ContainerTrait, ExportMode, LoroDoc, LoroValue, TreeParentId, ValueOrContainer};
 use snafu::{ResultExt, ensure};
 
 use crate::error::{
-    DeckJsonSnafu, ExportSnafu, ImportPanickedSnafu, ImportSnafu, LoroSnafu, MalformedDeckTreeSnafu, NotADeckSnafu,
-    ReplicaError, ReplicaInner, TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu,
-    UnsupportedReplicaFormatSnafu,
+    DeckJsonSnafu, ExportSnafu, ImportSnafu, LoroSnafu, MalformedDeckTreeSnafu, NotADeckSnafu, ReplicaError,
+    ReplicaInner, TooLargeSnafu, UnrelatedSnafu, UnsupportedDeckVersionSnafu, UnsupportedReplicaFormatSnafu,
 };
 use crate::model::{DECK_VERSION, Deck};
 use crate::ops::Moved;
 use crate::widget::WidgetRegistry;
+use entry::{check_entry, guarded, replayable_updates};
 pub(crate) use rich::SEP as PARAGRAPH_SEPARATOR;
 use schema::{Ctx, SLIDE, SLIDES};
 use undo::Undo;
@@ -44,9 +62,9 @@ const META: &str = "meta";
 const DECK_UID: &str = "deck_uid";
 /// Clé de `meta` : format du replica.
 const FORMAT: &str = "format";
-/// 3 : le deck en un seul `LoroTree`, suppression douce (ADR-0006). Le changer
-/// impose de changer `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 3;
+/// 3 : le deck en un seul `LoroTree`, suppression douce (ADR-0006).
+/// 4 : marques datées, t-770. Le changer impose de changer `SOURCES_VERSION`.
+const REPLICA_FORMAT: i64 = 4;
 
 /// Préfixe du message d'un commit intermédiaire d'une application (avant
 /// un `mov` de liste) : l'état qui suit n'est pas une version du deck.
@@ -122,17 +140,23 @@ fn check_format(doc: &LoroDoc) -> Result<(), ReplicaInner> {
 /// carte fusionnable. Sans ce refus, la lecture cacherait ou déplacerait un
 /// nœud, ou tout `apply` échouerait et le deck resterait figé. Une racine
 /// sans `@slide = true` est acceptée : Loro en crée une en défaisant un `mov`.
+/// Refusés aussi : un arbre autre que `deck.slides` (tout arbre s'il manque),
+/// ou un nœud, même supprimé, au-delà de `MAX_TREE_DEPTH` (contrôlés en
+/// premier, sur un document rejoué).
 ///
 /// Un seul parcours itératif des nœuds (supprimés par Loro exclus), linéaire
-/// en nœuds et en clés de méta, sans borne de profondeur.
-fn check_trees(doc: &LoroDoc) -> Result<(), ReplicaInner> {
+/// en nœuds et en clés de méta.
+pub(super) fn check_trees(doc: &LoroDoc) -> Result<(), ReplicaInner> {
     let tree = match doc.get_map(ROOT).get(SLIDES) {
-        None => return Ok(()),
-        Some(ValueOrContainer::Container(Container::Tree(tree))) => tree,
+        None => None,
+        Some(ValueOrContainer::Container(Container::Tree(tree))) => Some(tree),
         Some(_) => return MalformedDeckTreeSnafu { what: "slides are not a tree" }.fail(),
     };
+    // En premier, même sans arbre du deck : arbre unique, profondeur bornée (t-809).
+    let deleted = check_entry(doc, tree.as_ref())?;
+    let Some(tree) = tree else { return Ok(()) };
     for node in tree.nodes() {
-        if tree.is_node_deleted(&node).context(LoroSnafu)? {
+        if deleted.contains(&node) {
             continue;
         }
         let meta = tree.get_meta(node).context(LoroSnafu)?;
@@ -158,38 +182,6 @@ fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
     read::deck(&doc.get_map(ROOT))
 }
 
-/// Exécute `f` (import d'octets non fiables, puis première lecture) sous
-/// `catch_unwind` : une panique de Loro devient une erreur `Corrupted`.
-///
-/// Loro décode l'état d'un conteneur au premier accès, pas à l'import : la
-/// première lecture complète (`deck_uid`, puis tout l'arbre `deck`) doit donc
-/// se faire ici. Après une panique, les verrous internes de `doc` sont
-/// empoisonnés et son drop paniquerait à nouveau : `doc` est abandonné sans
-/// drop (fuite assumée, pour un fichier corrompu).
-///
-/// Limite connue (t-223) : une valeur plate imbriquée sur des dizaines de
-/// milliers de niveaux tient en quelques Kio (LZ4). Loro la décode au premier
-/// accès et la libère au drop, récursivement : la pile déborde et le
-/// processus s'arrête, ce que ni `catch_unwind` ni le plafond d'octets
-/// n'empêchent.
-///
-/// Reste hors garde ce que la première lecture n'atteint pas : les conteneurs
-/// hors de `deck` et `meta`, et les sous-arbres au-delà de `read::MAX_DEPTH`.
-/// Loro peut les décoder plus tard (export d'un snapshot, réconciliation,
-/// annuler) ; une panique y remonterait alors à l'appelant. Les nœuds de
-/// l'arbre du deck au-delà de `MAX_SLOT_DEPTH` ne sont ni lus ni écrits
-/// (`live_index`, `wanted_index`) ; le contrôle d'entrée (`check_trees`) lit,
-/// lui, la méta de tous les nœuds de cet arbre unique, sans récursion.
-fn guarded<T>(doc: LoroDoc, f: impl FnOnce(&LoroDoc) -> Result<T, ReplicaInner>) -> Result<(LoroDoc, T), ReplicaInner> {
-    match catch_unwind(AssertUnwindSafe(|| f(&doc))) {
-        Ok(r) => r.map(|t| (doc, t)),
-        Err(_) => {
-            std::mem::forget(doc);
-            ImportPanickedSnafu.fail()
-        }
-    }
-}
-
 impl DeckReplica {
     /// Nouveau replica, avec un nouveau `deck_uid`.
     pub fn new(deck: &Deck, registry: Arc<WidgetRegistry>) -> Result<Self, ReplicaError> {
@@ -204,41 +196,51 @@ impl DeckReplica {
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
         doc.get_map(META).insert(FORMAT, REPLICA_FORMAT).context(LoroSnafu)?;
         // Des insertions seulement : aucun `mov`, rien à découper.
-        Self::reconcile_doc(&doc, deck, &registry, &|| (), &[])?;
+        Self::reconcile_doc(&doc, deck, &registry, &|| (), None, &[])?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
         Ok(Self { doc, undo, registry, author: None })
     }
 
-    /// Relit un snapshot. Les octets viennent d'un fichier : non fiables.
+    /// Relit un snapshot, puis compacte ses nœuds morts (t-770).
     ///
+    /// Les octets viennent d'un fichier : non fiables. Un `usize` vaut une
+    /// limite d'octets sans compaction.
     /// Renvoie aussi la première lecture complète du deck (celle de
     /// [`Self::deck`]), faite sous garde : Loro ne décode l'état d'un conteneur
     /// qu'au premier accès, et panique (`unwrap`) sur un état malformé.
-    /// Un deck d'une autre version que [`DECK_VERSION`] est refusé.
+    /// Un deck d'une autre version que [`DECK_VERSION`] est refusé. L'état du
+    /// snapshot n'est jamais lu : ses opérations sont rejouées (t-809).
     pub fn from_snapshot(
         bytes: &[u8],
-        max_bytes: usize,
+        limits: impl Into<ReplicaLimits>,
         registry: Arc<WidgetRegistry>,
     ) -> Result<(Self, DeckRead), ReplicaError> {
-        Ok(Self::import_snapshot(bytes, max_bytes, registry)?)
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        Ok(Self::import_snapshot(bytes, limits.into(), registry, now)?)
     }
 
     fn import_snapshot(
         bytes: &[u8],
-        max: usize,
+        limits: ReplicaLimits,
         registry: Arc<WidgetRegistry>,
+        now: i64,
     ) -> Result<(Self, DeckRead), ReplicaInner> {
+        let max = limits.max_bytes;
         ensure!(bytes.len() <= max, TooLargeSnafu { size: bytes.len(), max });
         let doc = LoroDoc::new();
         configure(&doc);
         let (doc, read) = guarded(doc, |doc| {
-            doc.import(bytes).context(ImportSnafu)?;
+            // L'état reçu n'est jamais lu : le document est rejoué de ses opérations (t-809).
+            doc.import(&replayable_updates(bytes)?).context(ImportSnafu)?;
             ensure!(!uid_of(doc).is_empty(), NotADeckSnafu { what: "no deck_uid" });
             check_format(doc)?;
             check_trees(doc)?;
-            read_deck(doc)
+            let read = read_deck(doc)?;
+            // Sous la garde : la compaction lit les changes de Loro, non fiables.
+            compact::compact_doc(doc, now, limits.compact_after_secs)?;
+            Ok(read)
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
@@ -339,7 +341,12 @@ impl DeckReplica {
             doc.set_next_commit_message(&part_message(label));
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &split, moves)?;
+        let born = || {
+            doc.set_next_commit_message(&part_message(label));
+            doc.set_next_commit_origin(undo::SILENT);
+            doc.commit();
+        };
+        Self::reconcile_doc(doc, deck, &self.registry, &split, Some(&born), moves)?;
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -357,7 +364,7 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &commit, &[])?;
+        Self::reconcile_doc(doc, deck, &self.registry, &commit, None, &[])?;
         commit();
         Ok(())
     }
@@ -368,6 +375,7 @@ impl DeckReplica {
         deck: &Deck,
         registry: &WidgetRegistry,
         split: write::Split<'_>,
+        born: Option<write::Split<'_>>,
         moves: &[Moved],
     ) -> Result<(), ReplicaInner> {
         ensure!(deck.version == DECK_VERSION, UnsupportedDeckVersionSnafu { found: deck.version.to_string() });
@@ -378,7 +386,8 @@ impl DeckReplica {
             serde_json::Value::Object(o) => o,
             _ => return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail(),
         };
-        write::Writer { registry, split, mark_key: schema::mark_key(doc.peer_id()), moves }.sync_map(
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        write::Writer { registry, split, born, mark_key: schema::mark_key(doc.peer_id()), moves, now }.sync_map(
             &doc.get_map(ROOT),
             &obj,
             Ctx::Deck,
@@ -479,7 +488,9 @@ impl DeckReplica {
     pub fn restore(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
         let trial = self.doc.fork();
         configure(&trial);
-        guarded(trial, |doc| Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit(), &[]))?;
+        guarded(trial, |doc| {
+            Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit(), Some(&|| doc.commit()), &[])
+        })?;
         self.claim_author()?;
         self.apply(deck, label, None)
     }
@@ -500,6 +511,9 @@ impl DeckReplica {
         // Répétition sous garde, sur une copie : importer puis relire tout le
         // deck. Une panique n'empoisonne que la copie ; `self` reste intact.
         // L'import dans `self`, identique et déterministe, suit sans garde.
+        // L'autre replica a été ouvert par rejeu ; l'essai refuse un arbre
+        // étranger ou trop profond. L'import final dans `self` n'en récurse
+        // pas (sonde t-809).
         let trial = self.doc.fork();
         configure(&trial);
         guarded(trial, |doc| {

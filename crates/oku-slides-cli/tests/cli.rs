@@ -585,7 +585,7 @@ fn serve_stops_on_sigterm_with_an_open_event_stream() {
     assert_that!(exit.code()).is_equal_to(Some(0));
 }
 
-const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 };
+const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 };
 
 /// Le pack `quote` du plan 1.
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p

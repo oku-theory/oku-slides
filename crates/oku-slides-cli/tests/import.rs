@@ -17,7 +17,7 @@ use rstest::rstest;
 use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
 
-const LIMITS: SourceLimits = SourceLimits { replica_bytes: 64 << 20, total_bytes: 512 << 20 };
+const LIMITS: SourceLimits = SourceLimits { replica_bytes: 64 << 20, total_bytes: 512 << 20, compact_after_secs: 0 };
 
 fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import")

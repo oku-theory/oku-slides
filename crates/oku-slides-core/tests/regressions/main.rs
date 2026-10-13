@@ -22,3 +22,5 @@ mod issue_0694_undo_tree_moves_keep_elements;
 mod issue_0746_move_between_slides_keeps_concurrent_edit;
 mod issue_0746_undo_deck_tree_moves_keep_slides_and_elements;
 mod issue_0747_undo_remove_keeps_the_peer_move_and_edit;
+mod issue_0776_undo_add_keeps_moved_subtree;
+mod issue_0809_deep_tree_chain;

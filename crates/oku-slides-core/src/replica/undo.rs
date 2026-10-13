@@ -211,6 +211,12 @@ impl Undo {
         self.trim();
     }
 
+    /// Items Loro de la pile d'annulation (tests de coût).
+    #[cfg(test)]
+    pub(super) fn items(&self) -> usize {
+        self.manager.undo_count()
+    }
+
     pub(super) fn top_undo(&self) -> Option<String> {
         self.undo.last().map(|s| s.label.clone())
     }

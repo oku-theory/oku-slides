@@ -2171,7 +2171,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le zip des sources (version 9)",
+    "title": "Le zip des sources (version 10)",
     "layout": "default",
     "blocks": [
      {
@@ -2182,7 +2182,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 9 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 10 }"
           }
          ]
         },
@@ -2453,7 +2453,7 @@
         {
          "runs": [
           {
-           "t": "Enveloppe /Version 2, zip version 9. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
+           "t": "Enveloppe /Version 2, zip version 10. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
           }
          ]
         }
@@ -2469,7 +2469,7 @@
         {
          "runs": [
           {
-           "t": "Historique : 32 Mio ; sources décompressées : 256 Mio. Réglables dans [sources] de config.toml."
+           "t": "Historique : 32 Mio ; sources décompressées : 256 Mio. Réglables dans [sources] de config.toml. Un élément supprimé est effacé pour de bon après 30 jours d'activité du deck (compact_after_days)."
           }
          ]
         }

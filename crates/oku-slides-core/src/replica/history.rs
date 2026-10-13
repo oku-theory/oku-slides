@@ -9,18 +9,22 @@
 //! de liste ou des lignes de données fait un commit par `mov` (t-263), dont
 //! seuls les intermédiaires portent le message `oku-part:<libellé>`. Ils n'ont
 //! pas de cran ; celui du commit final de l'édition les contient. Les `mov`
-//! de l'arbre du deck n'ajoutent aucun commit (ADR-0006).
+//! de l'arbre du deck n'ajoutent aucun commit (ADR-0006). Le commit de
+//! compaction (t-770) n'a pas de cran.
+//!
+//! Une version se lit par rejeu de ses opérations, jamais par `checkout` (t-809).
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::mem::ManuallyDrop;
 use std::ops::ControlFlow;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-use loro::{Frontiers, ID, LoroDoc, VersionVector};
-use snafu::ResultExt;
+use loro::{ExportMode, Frontiers, ID, LoroDoc, VersionVector};
+use snafu::{OptionExt, ResultExt};
 
-use super::{DeckRead, PART, authors, configure, read_deck};
-use crate::error::{ImportPanickedSnafu, LoroSnafu, ReplicaError};
+use super::{DeckRead, PART, authors, check_trees, configure, read_deck};
+use crate::error::{ExportSnafu, ImportPanickedSnafu, ImportSnafu, NotADeckSnafu, ReplicaError, ReplicaInner};
 use crate::model::Deck;
 
 /// Une version : l'état juste après une édition (son dernier commit).
@@ -84,6 +88,9 @@ pub(super) fn build(doc: &LoroDoc) -> HistoryPreview {
         let len = i32::try_from(m.len).unwrap_or(i32::MAX);
         vv.extend_to_include_last_id(ID::new(m.id.peer, m.id.counter + len - 1));
         let message = m.message.as_deref().unwrap_or_default();
+        if message == super::compact::COMPACT {
+            continue;
+        }
         let merge = m.deps.len() > 1;
         if let Some(label) = message.strip_prefix(PART) {
             *parts.entry(m.id.peer).or_default() |= merge;
@@ -144,10 +151,9 @@ impl HistoryPreview {
 
     /// Le deck juste après la version `index` (bornée à la dernière).
     ///
-    /// Une ancienne version touche des conteneurs jamais lus : le retour à
-    /// cette version (`checkout`, qui les décode) et la lecture sont gardés
-    /// comme l'import d'un snapshot. Après une panique, la copie est
-    /// empoisonnée : toute lecture suivante échoue sans la toucher.
+    /// La version est rejouée dans un document neuf à partir de ses
+    /// opérations (`updates_till`), contrôlée comme à l'ouverture, lue puis
+    /// libérée : jamais de `checkout` (t-809). Une panique empoisonne la copie.
     pub fn deck_at(&self, index: usize) -> Result<DeckRead, ReplicaError> {
         let (Some(doc), Some(cut)) = (self.doc.as_ref(), self.cut(index)) else {
             return Ok((Deck::empty(), Vec::new()));
@@ -155,8 +161,21 @@ impl HistoryPreview {
         if self.poisoned.get() {
             return Err(ImportPanickedSnafu.build().into());
         }
-        match catch_unwind(AssertUnwindSafe(|| doc.checkout(cut).context(LoroSnafu).and_then(|()| read_deck(doc)))) {
-            Ok(read) => Ok(read?),
+        let version = ManuallyDrop::new(LoroDoc::new());
+        configure(&version);
+        let read = catch_unwind(AssertUnwindSafe(|| -> Result<DeckRead, ReplicaInner> {
+            let vv = doc.frontiers_to_vv(cut).context(NotADeckSnafu { what: "unknown version" })?;
+            let updates = doc.export(ExportMode::updates_till(&vv)).context(ExportSnafu)?;
+            version.import(&updates).context(ImportSnafu)?;
+            check_trees(&version)?;
+            read_deck(&version)
+        }));
+        match read {
+            Ok(read) => {
+                // Une version acceptée, ou refusée avant d'être lue, se libère sans récursion.
+                drop(ManuallyDrop::into_inner(version));
+                Ok(read?)
+            }
             Err(_) => {
                 self.poisoned.set(true);
                 Err(ImportPanickedSnafu.build().into())

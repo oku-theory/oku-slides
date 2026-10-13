@@ -77,7 +77,11 @@ fn read_doc_with_corrupt_deck_loro_returns_error() {
 #[test]
 fn read_doc_of_a_replica_without_format_returns_unsupported_version() {
     let r = resume();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+    let mut with_slides = document();
+    let mut roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+    roadmap.theme = with_slides.sources.deck().theme.clone();
+    with_slides.sources.apply(roadmap, "Slides", None).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&with_slides, &mut Vec::new()).unwrap()).unwrap();
     let path = r.dir.join(DECK_DIR).join("deck.loro");
     let doc = loro::LoroDoc::new();
     doc.import(&std::fs::read(&path).unwrap()).unwrap();
@@ -93,7 +97,11 @@ fn read_doc_of_a_replica_without_format_returns_unsupported_version() {
 #[test]
 fn read_doc_of_a_format_2_replica_returns_unsupported_version() {
     let r = resume();
-    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+    let mut with_slides = document();
+    let mut roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+    roadmap.theme = with_slides.sources.deck().theme.clone();
+    with_slides.sources.apply(roadmap, "Slides", None).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&with_slides, &mut Vec::new()).unwrap()).unwrap();
     let path = r.dir.join(DECK_DIR).join("deck.loro");
     let doc = loro::LoroDoc::new();
     doc.import(&std::fs::read(&path).unwrap()).unwrap();
@@ -101,6 +109,26 @@ fn read_doc_of_a_format_2_replica_returns_unsupported_version() {
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
     let err = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).err().expect("replica format 2 refusé");
+    assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Un replica au format 3 (marques non datées) est refusé.
+#[test]
+fn read_doc_of_a_format_3_replica_returns_unsupported_version() {
+    let r = resume();
+    let mut with_slides = document();
+    let mut roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+    roadmap.theme = with_slides.sources.deck().theme.clone();
+    with_slides.sources.apply(roadmap, "Slides", None).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&with_slides, &mut Vec::new()).unwrap()).unwrap();
+    let path = r.dir.join(DECK_DIR).join("deck.loro");
+    let doc = loro::LoroDoc::new();
+    doc.import(&std::fs::read(&path).unwrap()).unwrap();
+    doc.get_map("meta").insert("format", 3_i64).unwrap();
+    doc.commit();
+    std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
+    let err = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).err().expect("replica format 3 refusé");
     assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -529,4 +557,34 @@ fn set_example_value_writes_the_resume_documents() {
     s.flush_resume();
     assert_that!(docs.iter().filter(|d| d.exists()).count()).is_equal_to(2);
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// La reprise compacte un nœud marqué avant le délai (t-770).
+#[test]
+fn read_doc_compacts_a_node_marked_before_the_delay() {
+    let r = resume();
+    let mut with_slides = document();
+    let mut roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+    roadmap.theme = with_slides.sources.deck().theme.clone();
+    with_slides.sources.apply(roadmap, "Slides", None).unwrap();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&with_slides, &mut Vec::new()).unwrap()).unwrap();
+    let path = r.dir.join(DECK_DIR).join("deck.loro");
+    let doc = loro::LoroDoc::new();
+    doc.import(&std::fs::read(&path).unwrap()).unwrap();
+    let Some(loro::ValueOrContainer::Container(loro::Container::Tree(tree))) = doc.get_map("deck").get("slides") else {
+        panic!("arbre du deck attendu")
+    };
+    let slide = tree.roots()[0];
+    tree.get_meta(slide).unwrap().insert("@deleted/7", 1_i64).unwrap();
+    doc.commit();
+    std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
+    let limits = oku_slides_core::ReplicaLimits { max_bytes: 1 << 24, compact_after_secs: 5 * 86_400 };
+    let back = r.read_doc(DECK_DIR, &defaults(), limits, &registry()).unwrap();
+    let raw = loro::LoroDoc::new();
+    raw.import(&back.sources.replica().snapshot().unwrap()).unwrap();
+    let Some(loro::ValueOrContainer::Container(loro::Container::Tree(tree))) = raw.get_map("deck").get("slides") else {
+        panic!("arbre du deck attendu")
+    };
+    assert_that!(tree.is_node_deleted(&slide).unwrap()).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
 }

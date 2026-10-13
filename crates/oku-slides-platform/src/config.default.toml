@@ -31,6 +31,10 @@ max_replica_mib = 32
 # Taille maximale, une fois décompressées, des sources lues dans un PDF :
 # historique, images et polices compris (Mio).
 max_sources_mib = 256
+# Délai après lequel un élément ou une slide supprimés sont vraiment effacés à
+# l'ouverture (jours d'activité du deck) : passé ce délai, une autre copie du
+# deck ne peut plus annuler cette suppression. 0 : jamais.
+compact_after_days = 30
 
 [render]
 # Durée maximale d'une compilation ou d'un export Typst (ms) ; au-delà, le

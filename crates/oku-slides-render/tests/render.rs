@@ -150,7 +150,7 @@ fn embed_sources_then_extract_gives_back_same_bundle() {
     assert_that!(found.modified_elsewhere()).is_false();
     let (back, issues) = SourceBundle::from_zip(
         &found.zip,
-        SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 },
+        SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 },
         r.registry().clone(),
     )
     .unwrap();

@@ -7,7 +7,9 @@
 //! d'une slide à l'autre, est un `mov` : les éditions concurrentes du nœud
 //! restent. Un retrait est une marque [`mark_key`](super::schema::mark_key)
 //! du pair, jamais un `tree.delete` : annuler la retire, et le nœud revient
-//! avec ce que les autres pairs y ont fait.
+//! avec ce que les autres pairs y ont fait. Une marque est aussi posée à la
+//! naissance d'un nœud dans une étape annulable, puis retirée dans l'étape : c'est la seule
+//! marque que la réconciliation retire (t-776).
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -28,7 +30,7 @@ use place::arrange;
 #[cfg(test)]
 use place::lis;
 
-pub(super) use deck::{deck_tree_at, slide_order, stray_roots, wanted_slides};
+pub(super) use deck::{deck_tree_at, deck_tree_of, slide_order, stray_roots, wanted_slides};
 
 /// L'arbre de `map[key]`, créé au besoin ; erreur si la clé porte autre chose.
 pub(super) fn tree_at(map: &LoroMap, key: &str) -> Result<LoroTree, ReplicaInner> {
@@ -50,15 +52,24 @@ fn slot_map(meta: &LoroMap) -> Option<LoroMap> {
     }
 }
 
-/// Vrai si `key` est une marque de suppression bien formée de valeur `true` (R1).
+/// Vrai si `key` est une marque de suppression bien formée : une date (R1).
 pub(super) fn is_mark(meta: &LoroMap, key: &str) -> bool {
-    mark_peer(key).is_some() && matches!(meta.get(key), Some(ValueOrContainer::Value(LoroValue::Bool(true))))
+    mark_time(meta, key).is_some()
+}
+
+/// L'heure Unix (s) de la marque `key`, si c'en est une bien formée (t-770).
+pub(super) fn mark_time(meta: &LoroMap, key: &str) -> Option<i64> {
+    mark_peer(key)?;
+    match meta.get(key) {
+        Some(ValueOrContainer::Value(LoroValue::I64(t))) => Some(t),
+        _ => None,
+    }
 }
 
 /// Vrai si la méta porte une marque de suppression (R1).
 ///
-/// Une marque est une clé `@deleted/<pair>` de valeur `true` ; le contrôle
-/// d'entrée refuse toute autre forme.
+/// Une marque est une clé `@deleted/<pair>` dont la valeur est l'heure Unix de
+/// sa pose ; le contrôle d'entrée refuse toute autre forme.
 pub(super) fn is_marked(meta: &LoroMap) -> bool {
     meta.keys().any(|k| is_mark(meta, &k))
 }
@@ -412,10 +423,13 @@ impl Writer<'_> {
 
     /// Marque `node` retiré par ce pair (R1), sans `tree.delete`.
     ///
+    /// Une marque est aussi posée à la naissance d'un nœud, puis retirée dans
+    /// l'étape annulable (t-776) : la seule marque que la réconciliation retire.
+    ///
     /// Ne vise qu'un nœud visible : Loro saute un `insert` de même valeur, et
     /// l'annulation n'aurait alors rien à défaire.
-    fn mark(&self, tree: &LoroTree, node: TreeID) -> Res {
-        set_value(&tree.get_meta(node).context(LoroSnafu)?, &self.mark_key, LoroValue::Bool(true))
+    pub(super) fn mark(&self, tree: &LoroTree, node: TreeID) -> Res {
+        set_value(&tree.get_meta(node).context(LoroSnafu)?, &self.mark_key, LoroValue::I64(self.now))
     }
 }
 
@@ -427,10 +441,7 @@ impl Writer<'_> {
 pub(super) fn find_node(doc: &loro::LoroDoc, slide: &str, id: &str) -> Option<(LoroTree, TreeID)> {
     let is = |m: &LoroMap, want: &str| name(m.get("id")).as_deref() == Some(want);
     let marked = |m: &LoroMap| m.keys().any(|k| k.starts_with("@deleted/"));
-    let Some(ValueOrContainer::Container(Container::Tree(tree))) = doc.get_map(super::ROOT).get(super::schema::SLIDES)
-    else {
-        panic!("arbre du deck attendu")
-    };
+    let tree = deck_tree_of(doc).unwrap_or_else(|| panic!("arbre du deck attendu"));
     let root = tree.children(TreeParentId::Root).unwrap_or_default().into_iter().find(|n| {
         let meta = tree.get_meta(*n).unwrap_or_else(|e| panic!("méta de {n:?} : {e}"));
         !marked(&meta) && is(&meta, slide)

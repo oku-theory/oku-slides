@@ -73,6 +73,9 @@ pub struct ResumeSettings {
     pub keep_failed: usize,
 }
 
+/// Secondes dans un jour.
+const SECS_PER_DAY: i64 = 86_400;
+
 /// Sources du deck (replica Loro).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
@@ -82,6 +85,8 @@ pub struct SourcesSettings {
     /// Taille décompressée maximale du zip des sources lu dans un PDF (Mio) :
     /// historique, assets et polices compris.
     pub max_sources_mib: usize,
+    /// Délai de compaction des nœuds supprimés (jours) ; 0 : jamais.
+    pub compact_after_days: u32,
 }
 
 /// Bornes du processus de rendu.
@@ -103,6 +108,11 @@ pub struct RenderSettings {
 }
 
 impl SourcesSettings {
+    /// [`Self::compact_after_days`] en secondes.
+    pub fn compact_after_secs(&self) -> i64 {
+        i64::from(self.compact_after_days).saturating_mul(SECS_PER_DAY)
+    }
+
     /// [`Self::max_replica_mib`] en octets.
     pub fn max_replica_bytes(&self) -> usize {
         self.max_replica_mib.saturating_mul(1024 * 1024)

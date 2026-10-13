@@ -88,7 +88,7 @@ fn deck_uid_of_a_json_deck_is_none() {
     let dir = crate::test_support::fresh_dir("oku-slides-files-").keep();
     let path = dir.join("deck.json");
     std::fs::write(&path, r#"{"version":5,"slides":[]}"#).unwrap();
-    let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20 };
+    let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20, compact_after_secs: 0 };
     let uid = deck_uid_of(&Storage::local().unwrap(), &path, limits, &registry());
     std::fs::remove_dir_all(&dir).ok();
     assert_that!(uid.unwrap()).is_none();

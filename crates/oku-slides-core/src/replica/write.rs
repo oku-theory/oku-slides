@@ -118,9 +118,25 @@ pub(super) struct Writer<'a> {
     pub(super) mark_key: String,
     /// Les déplacements entre slides annoncés par `move_element` (R5, point 3).
     pub(super) moves: &'a [Moved],
+    /// Commit silencieux où les nœuds créés naissent marqués (t-776) ; `None` : création directe.
+    ///
+    /// Tous les nœuds d'une réconciliation naissent ensemble, en un commit.
+    /// Dans une étape annulable, la marque est retirée dans l'étape : défaire
+    /// l'ajout la remet au lieu d'un `tree.delete` de Loro.
+    pub(super) born: Option<Split<'a>>,
+    /// Heure Unix (s) des marques de cette réconciliation (t-770).
+    pub(super) now: i64,
 }
 
 impl Writer<'_> {
+    /// Retire la marque de naissance d'un nœud pré-créé par `sync_deck` (t-776).
+    pub(super) fn unborn(&self, meta: &LoroMap) -> Res {
+        if self.born.is_some() {
+            meta.delete(&self.mark_key).context(LoroSnafu)?;
+        }
+        Ok(())
+    }
+
     /// Amène `map` à l'état de `obj`.
     pub(super) fn sync_map(&self, map: &LoroMap, obj: &Map<String, Value>, ctx: Ctx) -> Res {
         let owner = matches!(ctx, Ctx::Slide | Ctx::Element);

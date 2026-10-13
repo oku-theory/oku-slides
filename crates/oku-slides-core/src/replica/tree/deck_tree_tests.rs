@@ -500,10 +500,10 @@ fn root_without_slide_mark_is_ignored_and_accepted() {
     assert_that!(has_empty_root(&opened.0)).is_true();
 }
 
-/// R0, « Accepté » : défaire le déplacement d'une slide dont le pair a défait
-/// l'ajout fait créer à Loro une racine à méta vide, lue sans `Issue`.
+/// t-776 : défaire le déplacement d'une slide dont le pair a défait l'ajout
+/// ne crée plus de racine à méta vide : la slide, marquée par le pair, est replacée.
 #[test]
-fn undo_of_a_slide_move_after_the_peer_undid_its_creation_is_accepted() {
+fn undo_of_a_slide_move_after_the_peer_undid_its_creation_leaves_no_empty_root() {
     let deck = roadmap();
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
     let mut added = deck.clone();
@@ -518,7 +518,7 @@ fn undo_of_a_slide_move_after_the_peer_undid_its_creation_is_accepted() {
     exchange(&mut a, &mut b);
     assert_that!(ok(a.undo())).is_true();
     exchange(&mut a, &mut b);
-    assert_that!(has_empty_root(&a)).named("le scénario ne reproduit pas la racine vide").is_true();
+    assert_that!(has_empty_root(&a)).is_false();
     for r in [&a, &b] {
         assert_that!(reread(r)).is_equal_to((deck.clone(), Vec::new()));
         assert_that!(r.deck()).is_equal_to((deck.clone(), Vec::new()));
@@ -752,6 +752,50 @@ fn forge_deep_chain(r: &DeckReplica, n: usize) {
     r.doc.commit();
 }
 
+/// Exécute `f` sur un fil à pile de `size` octets.
+fn on_stack<T: Send + 'static>(size: usize, f: impl FnOnce() -> T + Send + 'static) -> T {
+    std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(f)
+        .unwrap_or_else(|e| panic!("fil : {e}"))
+        .join()
+        .unwrap_or_else(|_| panic!("panique ou débordement de pile"))
+}
+
+/// Un pair forgé en mémoire (jamais ouvert) : la fusion est refusée sur une petite pile, `self` intact (t-809).
+#[test]
+fn merge_of_a_forged_peer_too_deep_or_with_a_foreign_tree_is_refused() {
+    for foreign in [false, true] {
+        let mine = new(&roadmap());
+        let snap = ok(mine.snapshot());
+        let other = on_stack(1 << 30, move || {
+            let other = ok(DeckReplica::from_snapshot(&snap, 1 << 24, registry())).0;
+            // Une chaîne nue : `forge_deep_chain` (méta, `@slot`) coûte des
+            // minutes à 20 000 niveaux, et la borne ne lit pas la méta.
+            let (tree, mut at) = if foreign {
+                (other.doc.get_tree("autre"), TreeParentId::Root)
+            } else {
+                (deck_tree(&other), TreeParentId::Node(slide_node(&other, "s-constat")))
+            };
+            for _ in 0..20_000 {
+                at = TreeParentId::Node(ok(tree.create(at)));
+            }
+            other.doc.commit();
+            other
+        });
+        let before = mine.deck().0;
+        let (mine, other, kind) = on_stack(256 * 1024, move || {
+            let mut mine = mine;
+            let kind = mine.merge(&other).err().map(|e| e.kind());
+            (mine, other, kind)
+        });
+        assert_that!(kind).named(&format!("arbre étranger : {foreign}")).is_equal_to(Some(ReplicaErrorKind::Corrupted));
+        assert_that!(mine.deck().0).is_equal_to(before);
+        // Le pair forgé se libère sur une grande pile (son état n'est pas rejoué).
+        on_stack(1 << 30, move || drop(other));
+    }
+}
+
 /// Les ids des nœuds de `tree` ni supprimés ni marqués, lus bruts.
 fn raw_live_ids(tree: &LoroTree) -> Vec<String> {
     tree.nodes()
@@ -764,10 +808,9 @@ fn raw_live_ids(tree: &LoroTree) -> Vec<String> {
 /// Une chaîne forgée bien plus profonde que `MAX_SLOT_DEPTH` : contrôle
 /// d'entrée, lecture et écriture itératifs, nœuds au-delà de la borne intacts.
 ///
-/// 300 niveaux et non 10 000 : Loro 1.16.2 décode l'état d'un arbre
-/// récursivement au premier accès. En debug, une pile de 256 Kio déborde
-/// dès 500 niveaux, avant tout code du replica (comme l'export d'un snapshot
-/// sur la pile de 2 Mio d'un test, vers 4 000 niveaux).
+/// 300 niveaux, sous `MAX_TREE_DEPTH` : Loro 1.16.2 décode l'état d'un arbre
+/// récursivement au premier accès, et le premier accès se fait sur un document
+/// rejoué (t-809).
 #[test]
 fn deep_element_chain_in_the_deck_tree_reads_and_applies_in_a_small_stack() {
     const N: usize = 300;
@@ -838,6 +881,6 @@ fn merge_of_a_format_2_peer_is_refused() {
     b.doc.commit();
     let Err(e) = a.merge(&b) else { panic!("un pair au format 2 devait être refusé") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(3)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(4)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }

@@ -1,8 +1,10 @@
 # ADR-0006 : Le deck en un seul arbre Loro, suppression douce
 
 - **Statut :** accepté
+- **Remplacé en partie par :** [ADR-0007](0007-compaction-des-noeuds-morts.md)
+  (compaction)
 - **Date :** 2026-10-10
-- **Tâches :** t-746, t-747
+- **Tâches :** t-746, t-747, t-776, t-809
 - **Remplace en partie :**
   [ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md) (un arbre par
   slide, `@slot` par id de parent, suppression par `tree.delete`) et
@@ -33,12 +35,19 @@
   niveaux (slide, élément, élément imbriqué). Deux pairs qui la créent en
   parallèle gardent leurs deux entrées (t-188).
 - **Suppression douce.** Retirer un nœud pose une marque `@deleted/<pair>` =
-  `true` dans sa méta, jamais `tree.delete`. La marque est par pair, et non
-  un booléen : avec un booléen, l'annulation de A effacerait la suppression
+  l'heure Unix de sa pose (t-770) dans sa méta, jamais `tree.delete`. La marque
+  est par pair, et non partagée : avec une marque commune, l'annulation de A effacerait la suppression
   concurrente de B (sonde, `p1_concurrent_double_soft_delete_then_one_undo`
   contre `p1_per_peer_mark_keys_survive_a_concurrent_undo`). Un nœud est
-  supprimé tant qu'il porte une marque. La réconciliation ne retire jamais une
-  marque, et un id réajouté crée un nœud neuf.
+  supprimé tant qu'il porte une marque. La réconciliation ne retire jamais la
+  marque d'un retrait, et un id réajouté crée un nœud neuf.
+- **Naissance marquée (t-776).** Une création, dans une étape annulable, naît
+  marquée dans un commit silencieux, puis la marque est retirée dans l'étape :
+  défaire l'ajout remet la marque au lieu d'un `tree.delete` de Loro. Tous les
+  nœuds d'une réconciliation naissent ensemble, en un seul commit (créés en fin
+  de leur parent, dans l'ordre des propriétaires), avant le placement ; le
+  placement les traite comme présents et ne les déplace que s'ils sont mal
+  rangés. Sans étape (`new`, `apply_silent`), la création reste directe.
 - **Lecture et écriture ne descendent jamais sous un nœud marqué** : un nœud
   vivant sous un parent marqué est caché avec lui.
 - **Entrée stricte.** À l'import et à la fusion, sont refusés (`Corrupted`) :
@@ -47,6 +56,11 @@
   refusé ; chaque refus se justifie ainsi. Une racine sans `@slide` est
   acceptée et ignorée avec son sous-arbre : c'est le nœud vide que Loro crée en
   défaisant un `mov` dont la cible a disparu.
+  L'état d'un snapshot reçu n'est jamais lu : ses opérations sont rejouées
+  dans un document neuf (un snapshot *shallow* est refusé). Sur ce document,
+  avant tout autre contrôle : aucun arbre autre que `deck.slides` ; tous les
+  nœuds, supprimés compris, à 1024 niveaux au plus (t-809, sonde
+  `tests/loro_depth_probe.rs`).
 - **Appariement.** L'identité d'un objet est l'`id` de sa méta, jamais le
   `TreeID`. Les slides s'apparient d'abord, puis les éléments dans leur slide,
   puis d'une slide à l'autre, **seulement** pour un déplacement annoncé par
@@ -107,28 +121,36 @@ Aucune. `REPLICA_FORMAT` passe de 2 à 3 et `SOURCES_VERSION` de 8 à 9.
 
 ## Limites
 
-- **Les nœuds marqués ne sont jamais libérés.** Le snapshot grandit, et la
-  lecture comme chaque `apply` coûtent O(vivants + marqués), car `children()`
-  rend aussi les marqués. `max_replica_bytes` n'est vérifié qu'à l'import : un
-  deck très retouché peut un jour être refusé à la reprise. Compaction : t-770.
+- **Les nœuds marqués restent jusqu'à `compact_after_days` d'activité
+  (ADR-0007).** Le snapshot grandit entre-temps, et la lecture comme chaque
+  `apply` coûtent O(vivants + marqués), car `children()` rend aussi les
+  marqués. `max_replica_bytes` n'est vérifié qu'à l'import : un deck très
+  retouché peut un jour être refusé à la reprise.
 - **Le contrôle d'entrée (`check_trees`) coûte O(tous les nœuds)**, marqués
   et descendants de marqués compris, à chaque import et chaque fusion. Mesure
   de la revue finale, 40×20 après environ 10 000 nœuds marqués :
   `from_snapshot` 69 ms contre 22 ms avant la migration, `merge` 96 ms contre
   55 ms.
+- **L'ouverture rejoue tout l'historique** (chaîne de 100 000 ops : ~60 ms ;
+  1 M : ~0,8 s ; arbre large d'un million de nœuds : ~10 s). Les valeurs
+  plates imbriquées (t-223) restent hors borne.
+- Le rejeu à l'ouverture (t-809), comme une fusion, réunit en un seul change
+  les changes consécutifs d'un même pair, de même message, dans la même
+  seconde (Loro 1.16.2, intervalle fixe) : deux éditions de même libellé dans
+  la même seconde ne font plus qu'une version après réouverture.
 - Une marque d'une session close ne s'annule plus : la pile d'annulation repart
   de zéro à la reprise.
-- **Défaire un ajout supprime le nœud pour de bon**, car Loro inverse `create`
-  par `delete` : un sous-arbre qu'un pair a déplacé dessous disparaît avec lui.
-  Aucun réglage simple ne l'évite, l'inverse d'un `create` appartient à
-  l'`UndoManager`. Suivi : t-776.
-- **Régression visible, acceptée.** B crée une slide ; A y déplace un
-  élément existant par couper-coller (`move_element`) ; B fait ⌘Z. L'élément
-  est perdu pour de bon, et le ⌘Z de A ne le rend pas : Loro recrée un nœud
-  vide, ignoré. Avant cette décision, couper retirait l'élément et coller
-  posait une copie, et le ⌘Z de A le rendait. Cause : défaire un ajout reste
-  un `tree.delete` de Loro, qui emporte le sous-arbre déplacé dessous.
-  Suivi : t-776, en haute priorité.
+- **Défaire un ajout cache aussi ce qu'un pair a déplacé dessous** ; le ⌘Z du
+  pair, ou le rétablir, le rend. Défaire l'ajout laisse le nœud, réduit à sa
+  marque (son `id` part avec l'étape). Une application qui crée des nœuds coûte
+  un commit silencieux de plus (et une partie), quel que soit leur nombre, et l'étape reste à un item. Mesure (release, médianes de 5 en
+  alternance, machine très chargée, load ~370), collage de n éléments, sans
+  puis avec naissance marquée : n=50 à plat apply 2,7 → 2,2 ms, ⌘Z 3,0 → 2,4 ms ;
+  n=50 imbriqués 6,0 → 5,7 ms, 5,9 → 8,7 ms ; n=500 à plat 23 → 20 ms, 26 → 37 ms ;
+  n=500 imbriqués 53 → 50 ms, 90 → 97 ms (⌘Z ×1,1 à ×1,5). Naître marqué
+  nœud par nœud coupait l'étape en un item par nœud (⌘Z de 500 imbriqués :
+  82 s) : d'où la naissance groupée. Le rapport de fusion ne compte pas les
+  parties.
 - Un élément déplacé sous un élément, ou dans une slide, retiré en parallèle
   est caché avec lui ; l'annulation du retrait le rend.
 - Sans `move_element`, un id qui figure dans plusieurs slides n'est jamais
@@ -149,8 +171,7 @@ Aucune. `REPLICA_FORMAT` passe de 2 à 3 et `SOURCES_VERSION` de 8 à 9.
   `tree.delete`. La marque est bien formée, donc acceptée. Seule l'annulation
   du pair qui l'a posée la retire : la marque d'un pair absent, ou d'une
   session close, cache le nœud pour de bon, sans `Issue`.
-- Un nœud vide que Loro crée en défaisant un `mov` (cible supprimée entre-temps)
-  reste dans l'arbre, ignoré, et s'ajoute aux nœuds morts.
+- Un nœud vide naît d'un `mov` défait dont la cible a été compactée (ADR-0007).
 - Loro reste figé par `Cargo.lock` (1.16.2). Pas de `cargo update -p loro`
   sans relancer `tests/loro_tree_probe.rs` et
   `tests/loro_deck_tree_probe.rs`.

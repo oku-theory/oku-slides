@@ -51,6 +51,12 @@ fn defaults_sources_max_replica_is_32_mib_in_bytes() {
 }
 
 #[test]
+fn compact_after_secs_by_default_is_thirty_days() {
+    let settings = Settings::defaults().unwrap();
+    assert_that!(settings.sources.compact_after_secs()).is_equal_to(30 * 86_400);
+}
+
+#[test]
 fn defaults_sources_max_sources_is_256_mib_in_bytes() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.sources.max_sources_mib).is_equal_to(256);

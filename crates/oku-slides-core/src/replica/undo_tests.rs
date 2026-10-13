@@ -691,12 +691,12 @@ fn pile_with_children() -> Vec<crate::Op> {
     ]
 }
 
-/// Rétablir l'ajout recrée `pile` sous un autre `TreeID` : `k1` et `k2` ne
-/// portent que l'entrée de l'ancien `pile`, supprimé (règle 3a, sans `Issue`).
+/// Rétablir l'ajout rend le même `pile` (t-776) : `k1` et `k2` gardent leur
+/// entrée, rien à réparer.
 #[test]
 fn undo_redo_of_adding_an_owner_with_children_restores_exactly() {
     let before = roadmap();
-    assert_deck_undo_redo_exact(&before, &with_ops(&before, pile_with_children()), true);
+    assert_deck_undo_redo_exact(&before, &with_ops(&before, pile_with_children()), false);
 }
 
 #[test]
@@ -711,11 +711,11 @@ fn undo_redo_of_adding_a_slide_with_elements_restores_exactly() {
             add_to("s-neuve", None, "blocks", None, serde_json::json!({ "id": "n2", "kind": "stack" })),
         ],
     );
-    assert_deck_undo_redo_exact(&before, &after, true);
+    assert_deck_undo_redo_exact(&before, &after, false);
 }
 
-/// Après « rétablir », `b-points` porte l'entrée de `s-constat` (vivant, pas
-/// son parent : périmée) et celle de l'ancien `pile` (supprimé) : règle 3a.
+/// Après « rétablir », `pile` est le même nœud (t-776) : `b-points` porte
+/// l'entrée de `s-constat` (périmée) et celle de `pile`, sans réparation.
 #[test]
 fn undo_redo_of_moving_an_element_into_a_new_owner_restores_exactly() {
     let before = roadmap();
@@ -728,7 +728,7 @@ fn undo_redo_of_moving_an_element_into_a_new_owner_restores_exactly() {
             add(Some("pile"), "children", points),
         ],
     );
-    assert_deck_undo_redo_exact(&before, &after, true);
+    assert_deck_undo_redo_exact(&before, &after, false);
 }
 
 /// Où est `b-points` dans `deck` (slide, slot) et son premier run est-il gras ?

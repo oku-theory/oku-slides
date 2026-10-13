@@ -112,6 +112,7 @@ pub(crate) fn source_limits(settings: &Settings) -> SourceLimits {
     SourceLimits {
         replica_bytes: settings.sources.max_replica_bytes(),
         total_bytes: settings.sources.max_sources_bytes(),
+        compact_after_secs: settings.sources.compact_after_secs(),
     }
 }
 

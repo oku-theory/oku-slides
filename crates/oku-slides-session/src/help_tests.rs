@@ -272,7 +272,7 @@ fn open_help_embeds_its_theme_version_without_issue() {
     assert_that!(theme.id).is_equal_to(crate::DEFAULT_THEME);
     assert_that!(s.sources_for_tests().themes.contains_key(&theme.version)).is_true();
     let zip = s.sources_for_tests().to_zip().unwrap();
-    let limits = oku_slides_core::SourceLimits { replica_bytes: 1 << 26, total_bytes: 1 << 28 };
+    let limits = oku_slides_core::SourceLimits { replica_bytes: 1 << 26, total_bytes: 1 << 28, compact_after_secs: 0 };
     let (_, issues) = oku_slides_core::SourceBundle::from_zip(&zip, limits, crate::test_support::registry()).unwrap();
     assert_that!(issues).is_empty();
 }

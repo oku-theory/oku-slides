@@ -319,6 +319,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
     let limits = SourceLimits {
         replica_bytes: platform.settings.sources.max_replica_bytes(),
         total_bytes: platform.settings.sources.max_sources_bytes(),
+        compact_after_secs: platform.settings.sources.compact_after_secs(),
     };
 
     match cli.cmd {

@@ -6,7 +6,8 @@
 //!   [`apply_all`]), validation ([`validate`]).
 //! - [`DeckReplica`] : le deck dans un document Loro (CRDT), réconcilié par
 //!   diff depuis un `Deck` et relu ; annuler et rétablir passent par son
-//!   `UndoManager` ; [`ReplicaError`] pour ses échecs ; [`DeckReplica::merge`]
+//!   `UndoManager` ; [`ReplicaError`] pour ses échecs ; [`ReplicaLimits`] à l'ouverture d'un
+//!   fichier (taille, compaction des nœuds morts) ; [`DeckReplica::merge`]
 //!   fusionne l'historique d'un autre replica et rend un [`MergeReport`] ;
 //!   [`DeckReplica::history`] rend un [`HistoryPreview`] (ses [`Version`]s, la
 //!   lecture d'une version) et [`DeckReplica::restore`] y ramène le deck
@@ -59,7 +60,9 @@ pub use pack::{
     now_created,
 };
 pub use params::{ListItem, ParamValue, Params};
-pub use replica::{DeckRead, DeckReplica, HistoryPreview, MergeReport, SlideChanges, Version, slide_changes};
+pub use replica::{
+    DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, slide_changes,
+};
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};

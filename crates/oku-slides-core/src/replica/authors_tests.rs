@@ -110,7 +110,7 @@ fn merge_twice_imports_nothing_the_second_time() {
     b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let again = SourceBundle::from_zip(
         &b.to_zip().unwrap(),
-        crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28 },
+        crate::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 28, compact_after_secs: 0 },
         crate::test_registry::shared(),
     )
     .unwrap()

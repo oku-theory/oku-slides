@@ -53,7 +53,7 @@ fn sources_zip(assets: &[(&str, Vec<u8>)], method: zip::CompressionMethod) -> Re
         let mut zw = zip::ZipWriter::new(&mut buf);
         let opts = SimpleFileOptions::default().compression_method(method);
         zw.start_file("manifest.json", opts)?;
-        zw.write_all(br#"{"format":"oku-slides-sources","version":9}"#)?;
+        zw.write_all(br#"{"format":"oku-slides-sources","version":10}"#)?;
         zw.start_file("deck.loro", opts)?;
         zw.write_all(&loro)?;
         for (name, data) in assets {
@@ -93,7 +93,7 @@ fn from_zip_entry_announcing_huge_size_reads_without_huge_allocation() {
     LARGEST.store(0, Ordering::Relaxed);
     let read = SourceBundle::from_zip(
         &zip,
-        SourceLimits { replica_bytes: 32 * MIB, total_bytes: 256 * MIB },
+        SourceLimits { replica_bytes: 32 * MIB, total_bytes: 256 * MIB, compact_after_secs: 0 },
         common::shared(),
     );
     let largest = LARGEST.load(Ordering::Relaxed);

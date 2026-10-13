@@ -22,7 +22,7 @@ fn to_zip_asset_id_with_hex_digest_succeeds() {
     let b = bundle_with_asset("sha256:00ff");
     let (back, _) = SourceBundle::from_zip(
         &b.to_zip().unwrap(),
-        SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 },
+        SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 },
         crate::common::shared(),
     )
     .unwrap();

@@ -1,4 +1,4 @@
-//! Le zip des sources (format `oku-slides-sources`, version 9) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 10) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
 //! versions de packs de modèles (`packs/<hex>/pack.json`,
 //! `packs/<hex>/widgets/<nom>.typ`) et les versions de thèmes
@@ -34,7 +34,7 @@ use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
 use crate::ops::Moved;
 use crate::pack::{PackFiles, PackVersion, WidgetFile};
-use crate::replica::{DeckRead, DeckReplica, HistoryPreview};
+use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
 
@@ -44,7 +44,7 @@ mod themes;
 use themes::{THEME_JSON, THEME_VERSIONS_DIR, theme_entry, theme_issues, verify_themes};
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 9;
+pub const SOURCES_VERSION: u32 = 10;
 
 /// Entrée du replica dans le zip.
 const DECK_LORO: &str = "deck.loro";
@@ -69,6 +69,15 @@ pub struct SourceLimits {
     /// Taille décompressée maximale de tout ce qui est lu du zip : manifeste,
     /// `deck.loro`, assets, polices, packs, thèmes (réglage `[sources] max_sources_mib`).
     pub total_bytes: usize,
+    /// Délai de compaction, en secondes (réglage `[sources] compact_after_days`) ; 0 : jamais.
+    pub compact_after_secs: i64,
+}
+
+impl SourceLimits {
+    /// Les limites d'ouverture du replica.
+    pub fn replica(&self) -> ReplicaLimits {
+        ReplicaLimits { max_bytes: self.replica_bytes, compact_after_secs: self.compact_after_secs }
+    }
 }
 
 /// Identifiant d'un asset : `sha256:<hex>` de son contenu.
@@ -588,7 +597,9 @@ impl SourceBundle {
         ensure!(manifest.version >= SOURCES_VERSION, NotSourcesSnafu);
         ensure!(manifest.version == SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
         let (replica, read) = match snapshot.context(MissingDeckSnafu)? {
-            Snapshot::Bytes(data) => DeckReplica::from_snapshot(&data, max, registry).context(ReplicaSnafu)?,
+            Snapshot::Bytes(data) => {
+                DeckReplica::from_snapshot(&data, limits.replica(), registry).context(ReplicaSnafu)?
+            }
             Snapshot::TooLarge(size) => {
                 return Err(ReplicaError::from(TooLargeSnafu { size, max }.build())).context(ReplicaSnafu);
             }

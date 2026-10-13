@@ -8,3 +8,4 @@
 | [0004](0004-donnees-des-hotes-fusionnees-par-cellule.md) | Les données des hôtes fusionnées par cellule | accepté |
 | [0005](0005-elements-d-une-slide-en-arbre-loro.md) | Les éléments d'une slide en arbre Loro | accepté |
 | [0006](0006-deck-en-un-seul-arbre-suppression-douce.md) | Le deck en un seul arbre Loro, suppression douce | accepté |
+| [0007](0007-compaction-des-noeuds-morts.md) | Compaction des nœuds morts de l'arbre du deck | accepté |

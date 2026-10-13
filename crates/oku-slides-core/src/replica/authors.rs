@@ -25,13 +25,17 @@ pub struct MergeReport {
 }
 
 /// Les modifications de `doc` absentes de `before`.
+///
+/// Les parties d'une édition (t-263, t-776) ne comptent pas : une édition compte une fois.
 pub(super) fn report_since(doc: &LoroDoc, before: &VersionVector) -> MergeReport {
     let heads: Vec<loro::ID> = doc.oplog_frontiers().iter().collect();
     let (mut changes, mut peers) = (0, BTreeSet::new());
     // L'erreur de parcours est ignorée faute de mieux : un historique cohérent
     // (le seul que produit un import réussi) ne la produit pas.
     let _ = doc.travel_change_ancestors(&heads, &mut |meta| {
-        if !before.includes_id(meta.id) {
+        let skipped =
+            meta.message.as_deref().is_some_and(|m| m.starts_with(super::PART) || m == super::compact::COMPACT);
+        if !before.includes_id(meta.id) && !skipped {
             changes += 1;
             peers.insert(meta.id.peer);
         }

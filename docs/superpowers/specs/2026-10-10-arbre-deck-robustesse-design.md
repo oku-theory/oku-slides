@@ -31,37 +31,37 @@ le sous-arbre qu'un pair a déplacé dessous (B crée une slide, A y déplace un
 élément par `move_element`, B fait ⌘Z : l'élément est perdu, le ⌘Z de A ne
 le rend pas).
 
-**Naître marqué.** Dans une réconciliation annulable (`apply`,
-`apply_moving`), quand un nœud doit être créé :
+**Naître marqué, ensemble.** Dans une réconciliation annulable (`apply`,
+`apply_moving`), entre le marquage des retraits et le placement, tous les
+nœuds à créer (slides et éléments non appariés, propriétaires d'abord) sont
+créés en fin de leur parent, chacun avec la marque du pair courant, dans
+**un seul** commit d'origine `SILENT` (exclu de l'`UndoManager`), précédé
+d'une partie qui committe ce qui précède. Le placement les traite ensuite
+comme des nœuds existants (déplacés à leur rang) et retire leur marque, dans
+l'étape annulable.
 
-1. ce qui précède est committé en partie (`oku-part:<libellé>`, annulable) ;
-2. le nœud est créé avec la marque du pair courant (`Writer::mark`), dans un
-   commit d'origine `SILENT` (exclu de l'`UndoManager`, qui n'y pousse aucun
-   item) ;
-3. la réconciliation reprend : méta, `@slot` et **retrait de la marque**
-   tombent dans les commits annulables de l'étape.
-
-Défaire l'ajout remet la marque (suppression douce) : le nœud est caché, son
-sous-arbre aussi, rien n'est perdu. Le ⌘Z de A ramène son élément ; le
-rétablir de B rend la slide et ce qui est dessous. `new` et `apply_silent`
-créent directement ; l'essai de `restore` suit le même chemin que l'`apply`
-qui le suit.
+Défaire l'ajout remet les marques (suppression douce) : les nœuds sont
+cachés, leurs sous-arbres aussi, rien n'est perdu. Le ⌘Z de A ramène son
+élément ; le rétablir de B rend la slide et ce qui est dessous. `new` et
+`apply_silent` créent directement, sans marque ni commit ; l'essai de
+`restore` suit le même chemin que l'`apply` qui le suit.
 
 **Effet de bord.** Plus aucun chemin du code ne fait de `tree.delete` hors
 compaction. Les commits de naissance sont des parties : ni cran d'historique,
 ni compte dans le rapport de fusion (qui ne compte plus aucune partie).
 
-**Coût.** Un change Loro de plus par nœud créé, un item d'annulation de plus
-par partie non vide. Mesure : collage de 50 et 500 éléments, à plat et
-imbriqués. Une étape de plus de 64 items relève `ITEMS_PER_STEP` ; un ⌘Z de
-500 éléments au-delà de 100 ms arrête le lot pour décision (regrouper les
-créations d'un `arrange` en un commit silencieux est la piste prévue).
+**Coût.** Au plus une partie et un commit silencieux de plus par
+application, quel que soit le nombre de nœuds créés. Une naissance nœud par
+nœud a été mesurée : un item d'annulation par nœud dès l'imbrication, ⌘Z de
+500 piles imbriquées 82,5 s (contre 41,8 ms avant t-776). Mesure de
+contrôle : collage de 50 et 500 éléments, à plat et imbriqués ; un ⌘Z de 500
+au-delà de 100 ms arrête le lot.
 
 **Tests.** Régression `issue_0776_undo_add_keeps_moved_subtree.rs` (précondition
 vérifiée ; nœud de la slide non supprimé par Loro après le ⌘Z de B ; ⌘Z de A ;
 rétablir de B). Tests existants inversés (`soft_delete_tests`). Un collage se
 défait et se rétablit d'un bloc, nœuds marqués et non supprimés. `apply_silent`
-n'ajoute qu'un change ; `apply` en ajoute un de plus par nœud créé.
+n'ajoute qu'un change ; `apply` qui crée des nœuds en ajoute au plus deux (une partie et le commit de naissance), quel que soit leur nombre.
 
 ## Lot 2 — t-770 : compaction des nœuds morts
 
@@ -83,9 +83,9 @@ suppression déterministe.
 
 **Où.** Dans l'ouverture (`from_snapshot`), sous la garde, après la première
 lecture, avant `Undo::new`. Commit silencieux, message `oku-compact` : ni
-cran d'historique, ni compte dans le rapport de fusion. Loro date un change
-au moins comme ses prédécesseurs : le commit de compaction porte la date du
-change le plus récent. Aucune méthode publique ne compacte en session.
+cran d'historique, ni compte dans le rapport de fusion. Le commit de compaction
+est daté comme le change le plus récent (`set_next_commit_timestamp`), pour
+qu'ouvrir un fichier ne compte pas comme une activité. Aucune méthode publique ne compacte en session.
 
 **Risques assumés :** une autre copie ouverte plus de N jours d'activité,
 qui annule alors sa marque ou le `mov` d'un élément sous ce nœud, le perd à

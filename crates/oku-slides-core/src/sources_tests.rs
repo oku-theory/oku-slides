@@ -8,7 +8,7 @@ use crate::error::{ReplicaErrorKind, SourcesErrorKind};
 use crate::{PackFiles, PackRef};
 use oku_slides_i18n::Localize;
 
-const MAX: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26 };
+const MAX: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 };
 
 /// Un zip fait à la main, entrée par entrée.
 fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
@@ -24,7 +24,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":9}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":10}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -750,7 +750,11 @@ fn theme_versions_referenced_by_the_history_are_kept_on_save() {
     let (t, u) = (theme_files("T"), theme_files("U"));
     let mut b = bundle_with_theme(&t);
     let v = b.add_theme(u.clone());
-    set_deck_theme(&mut b, crate::ThemeRef { id: THEME_ID, version: v });
+    // Un autre libellé que celui de `T` : au rejeu (t-809), deux changes de même
+    // message dans la même seconde ne feraient qu'une version (ADR-0006, Limites).
+    let mut next = b.deck().clone();
+    next.theme = Some(crate::ThemeRef { id: THEME_ID, version: v });
+    b.apply(next, "thème U", None).unwrap();
     let (back, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
     assert_that!(issue_ids(&issues)).does_not_contain("issue-theme-version-missing");
     assert_that!(back.themes.contains_key(&t.version()) && back.themes.contains_key(&u.version())).is_true();
@@ -860,6 +864,19 @@ fn sources_v7_zip_is_refused() {
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
 
+/// Sources v9 : refusées (marques de suppression non datées, replica au format 3).
+#[test]
+fn sources_v9_zip_is_refused() {
+    let manifest = br#"{"format":"oku-slides-sources","version":9}"#;
+    let err = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+}
+
 /// Sources v8 : refusées (arbre par slide, replica au format 2).
 #[test]
 fn sources_v8_zip_is_refused() {
@@ -871,4 +888,44 @@ fn sources_v8_zip_is_refused() {
     )
     .unwrap_err();
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+}
+
+/// Le replica de `roadmap` dont la première slide porte une marque datée de 1 (1970).
+fn deck_loro_with_an_old_mark() -> (Vec<u8>, loro::TreeID) {
+    let r = DeckReplica::new(&roadmap(), crate::test_registry::shared()).unwrap();
+    let doc = loro::LoroDoc::new();
+    doc.import(&r.snapshot().unwrap()).unwrap();
+    let Some(loro::ValueOrContainer::Container(loro::Container::Tree(tree))) = doc.get_map("deck").get("slides") else {
+        panic!("arbre du deck attendu")
+    };
+    let slide = tree.roots()[0];
+    tree.get_meta(slide).unwrap().insert("@deleted/7", 1_i64).unwrap();
+    doc.commit();
+    (doc.export(loro::ExportMode::Snapshot).unwrap(), slide)
+}
+
+fn deleted_in(bundle: &SourceBundle, node: loro::TreeID) -> bool {
+    let doc = loro::LoroDoc::new();
+    doc.import(&bundle.replica().snapshot().unwrap()).unwrap();
+    let Some(loro::ValueOrContainer::Container(loro::Container::Tree(tree))) = doc.get_map("deck").get("slides") else {
+        panic!("arbre du deck attendu")
+    };
+    tree.is_node_deleted(&node).unwrap()
+}
+
+#[test]
+fn from_zip_compacts_a_node_marked_before_the_delay() {
+    let (loro, slide) = deck_loro_with_an_old_mark();
+    let bytes = zip(&[("manifest.json", MANIFEST), ("deck.loro", &loro)]);
+    let limits = SourceLimits { compact_after_secs: 5 * 86_400, ..MAX };
+    let (bundle, _) = SourceBundle::from_zip(&bytes, limits, crate::test_registry::shared()).unwrap();
+    assert_that!(deleted_in(&bundle, slide)).is_true();
+}
+
+#[test]
+fn from_zip_with_a_zero_delay_compacts_nothing() {
+    let (loro, slide) = deck_loro_with_an_old_mark();
+    let bytes = zip(&[("manifest.json", MANIFEST), ("deck.loro", &loro)]);
+    let (bundle, _) = SourceBundle::from_zip(&bytes, MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(deleted_in(&bundle, slide)).is_false();
 }
