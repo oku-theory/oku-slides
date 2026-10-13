@@ -15,7 +15,10 @@
       "chunks": ["Texte reformulé."]
     },
     {
-      "tool_calls": [{ "id": "t2", "title": "Lire la slide" }, { "id": "t3", "title": "Préparer les variantes" }],
+      "tool_calls": [
+        { "id": "t2", "title": "Lire la slide" },
+        { "id": "t3", "title": "Préparer les variantes", "input": { "slide": "s-libre", "variants": 2 }, "output": [{ "type": "text", "text": "2 variantes prêtes" }] }
+      ],
       "mcp": [
         { "tool": "show_variants", "args": { "slide": "s-libre", "variants": [
           { "label": "Un", "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": "Variante un" }] }] }] },

@@ -1,4 +1,5 @@
-// Agent (faux agent ACP) : reformulation dans une fiche, variantes dans le tiroir, annulation,
+// Agent (faux agent ACP) : reformulation dans une fiche, variantes dans le tiroir (et le détail
+// de leurs appels d'outils, déplié), annulation,
 // puis un second onglet qui répond pendant que le premier attend toujours une question.
 // Contre `oku-slides serve fixtures/roadmap.json` lancé avec le faux agent comme agent actif
 // (`config.toml` du dossier de données isolé ; just e2e s'en charge).
@@ -94,6 +95,21 @@ const assertPills = async (p) => {
   const { shadow, border, radius, height } = seen.jump;
   assert.ok(shadow !== 'none' && border === '0px' && radius >= height / 2, `« ↓ Tour en cours » n'a pas l'allure d'un objet : ${JSON.stringify(seen.jump)}`);
 };
+/** Déplier le tour, son étape d'outils, puis l'appel qui a des arguments : ses arguments
+ * (JSON indenté) et son résultat se lisent en entier ; l'appel sans détail n'est pas un bouton. */
+const assertToolDetail = async (turn) => {
+  await turn.locator('.a2ui-timeline-summary').click();
+  await turn.locator('.a2ui-step-toggle').click();
+  const calls = turn.locator('.a2ui-call');
+  assert.deepEqual(await calls.locator('.a2ui-call-label').allInnerTexts(), ['Lire la slide', 'Préparer les variantes']);
+  assert.equal(await calls.nth(0).locator('.a2ui-call-toggle').count(), 0);
+  assert.equal(await calls.nth(1).locator('.a2ui-call-args').innerText(), '{ "slide": "s-libre", "variants": 2 }');
+  await calls.nth(1).locator('.a2ui-call-toggle').click();
+  assert.deepEqual(await calls.nth(1).locator('.a2ui-call-io pre').allInnerTexts(), [
+    '{\n  "slide": "s-libre",\n  "variants": 2\n}',
+    '2 variantes prêtes',
+  ]);
+};
 const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fields.find((f) => f.owner === 'e-texte').text;
 
 (async () => {
@@ -133,6 +149,7 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   const variants = p.locator('.agent-turn', { hasText: 'propose deux variantes' });
   assert.deepEqual(await receiptOf(variants), { title: 'Deux variantes proposées', facts: 'Un : texte court · Deux : texte long' });
   assert.equal(await toolCount(variants), 2);
+  await assertToolDetail(variants);
 
   // 3. Deux annulations : la variante, puis tout le premier tour.
   await p.locator('.stage').click({ position: { x: 5, y: 5 } });
