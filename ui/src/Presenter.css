@@ -13,3 +13,5 @@
 .presenter.idle { cursor: none; }
 /* Le plus grand rectangle aux proportions de la slide : bandes noires sur l'autre axe. */
 .presenter > img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+/* Par-dessus la slide sans la réduire : la prise pour déplacer la fenêtre (`.titlebar` de l'espace). */
+.presenter-titlebar { position: absolute; top: 0; left: 0; right: 0; height: 28px; }

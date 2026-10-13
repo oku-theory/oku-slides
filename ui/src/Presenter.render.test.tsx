@@ -41,7 +41,7 @@ function fakeScreen(wasFull = false) {
   return { screen, calls, left: () => leftCb?.() };
 }
 
-async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen, strict = false } = {}) {
+async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen, strict = false, titleBar = false } = {}) {
   const shown: string[] = [];
   const asked: string[] = [];
   const exits: number[] = [];
@@ -65,6 +65,7 @@ async function mount({ current = "a", mode = "window" as PresentMode, screen = f
         onExit: () => exits.push(1),
         screen,
         timers,
+        titleBar,
       })),
     ),
   );
@@ -105,6 +106,22 @@ describe("Presenter", () => {
     const { root, shown } = await mount({ current: "b" });
     await act(async () => root.click());
     expect(shown).toEqual(["c"]);
+  });
+
+  test("Presenter in window mode keeps a title bar to move the window", async () => {
+    const { root } = await mount({ mode: "window", titleBar: true });
+    expect(root.querySelector("[data-tauri-drag-region]")).not.toBeNull();
+  });
+
+  test("Presenter in screen mode has no title bar", async () => {
+    const { root } = await mount({ mode: "screen", titleBar: true });
+    expect(root.querySelector("[data-tauri-drag-region]")).toBeNull();
+  });
+
+  test("Presenter click on the title bar does not change slide", async () => {
+    const { root, shown } = await mount({ mode: "window", titleBar: true });
+    await act(async () => root.querySelector<HTMLElement>("[data-tauri-drag-region]")!.click());
+    expect(shown).toEqual([]);
   });
 
   test("Presenter escape exits", async () => {

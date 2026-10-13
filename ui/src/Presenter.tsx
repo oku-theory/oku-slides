@@ -1,6 +1,7 @@
 // Le mode présentation : la slide seule, sur tout l'écran ou toute la fenêtre.
 
 import { useEffect, useRef, useState } from "react";
+import { inTauri, isMac } from "./api";
 import type { Timers } from "./debounce";
 import { REAL_TIMERS } from "./debounce";
 import type { Screen } from "./fullscreen";
@@ -47,6 +48,8 @@ interface Props {
   /** Le plein écran de la fenêtre (tests). */
   screen?: Screen;
   timers?: Timers;
+  /** Barre de titre intégrée à garder en mode `window` (macOS, Tauri) : la seule prise pour déplacer la fenêtre. */
+  titleBar?: boolean;
 }
 
 /**
@@ -54,9 +57,20 @@ interface Props {
  *
  * ← → Espace Page↑ Page↓ Début Fin et le clic naviguent, Échap sort ; ces
  * touches ne vont à rien d'autre. En mode `screen`, la fenêtre passe en plein
- * écran le temps de la présentation, et en sortir par le système la termine.
+ * écran le temps de la présentation, et en sortir par le système la termine. En mode
+ * `window`, une bande transparente en haut garde la fenêtre déplaçable.
  */
-export default function Presenter({ mode, slides, current, svg, onShow, onExit, screen = windowScreen, timers = REAL_TIMERS }: Props) {
+export default function Presenter({
+  mode,
+  slides,
+  current,
+  svg,
+  onShow,
+  onExit,
+  screen = windowScreen,
+  timers = REAL_TIMERS,
+  titleBar = inTauri && isMac,
+}: Props) {
   const index = Math.max(0, slides.findIndex((s) => s.id === current));
   const slide = slides[index];
   const url = slide ? svg(slide.id, slide.hash) : null;
@@ -137,6 +151,10 @@ export default function Presenter({ mode, slides, current, svg, onShow, onExit, 
       onClick={() => show(slideStep(index, 1, slides.length))}
     >
       {url && <img src={url} alt={t("ui-present-slide", { index: index + 1, count: slides.length })} draggable={false} />}
+      {/* Elle recouvre la barre de titre de la fenêtre ; son clic ne change pas de slide. */}
+      {mode === "window" && titleBar && (
+        <div className="presenter-titlebar" data-tauri-drag-region onClick={(e) => e.stopPropagation()} />
+      )}
     </div>
   );
 }
