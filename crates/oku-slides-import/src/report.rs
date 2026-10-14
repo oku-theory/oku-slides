@@ -283,6 +283,8 @@ fn warning_message(kind: &WarningKind) -> (&'static str, Option<&str>) {
         WarningKind::MissingPart(d) => ("import-warning-missing-part", Some(d)),
         WarningKind::UnsupportedChart(d) => ("import-warning-unsupported-chart", Some(d)),
         WarningKind::UnsupportedImage(d) => ("import-warning-unsupported-image", Some(d)),
+        WarningKind::ExternalImage(d) => ("import-warning-external-image", Some(d)),
+        WarningKind::UnsafeSvg(d) => ("import-warning-unsafe-svg", Some(d)),
         WarningKind::UnknownTableStyle(d) => ("import-warning-unknown-table-style", Some(d)),
         WarningKind::UnsafeLink(d) => ("import-warning-unsafe-link", Some(d)),
         WarningKind::NestingTooDeep(d) => ("import-warning-nesting-too-deep", Some(d)),

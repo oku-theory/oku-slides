@@ -10,12 +10,15 @@
 //! une fois les assets ajoutés au bundle.
 
 use std::collections::BTreeMap;
+use std::io;
 
 use oku_slides_core::{Op, PackFiles, WidgetSchema};
 use oku_slides_i18n::Localizer;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::error::{ImportError, output_too_large};
+use crate::limits::ReadLimits;
 use crate::report::ImportReport;
 use crate::source::{Asset, Item};
 
@@ -87,6 +90,73 @@ impl ImportPlan {
             o.insert("widget_requests".to_owned(), serde_json::to_value(&self.widget_requests).unwrap_or_default());
         }
         v
+    }
+
+    /// Vérifie que la sortie tient dans les budgets d'import de `limits`.
+    ///
+    /// Borne précoce et approximative de ce que l'import produira, pas une garantie que
+    /// le deck se rouvrira : assets (uniques par contenu), polices embarquées, ops
+    /// sérialisées en JSON, thème et pack générés (`pack.json` et widgets) tiennent dans
+    /// [`ReadLimits::max_output_bytes`] ; les ops seules, qui finissent dans l'historique
+    /// Loro, tiennent aussi dans [`ReadLimits::max_replica_bytes`].
+    ///
+    /// Les projecteurs sont infaillibles : l'appelant vérifie le plan qu'ils rendent,
+    /// avant de l'appliquer. Un dépassement est fatal, de nature `TooLarge`.
+    pub fn check_budget(&self, limits: &ReadLimits) -> Result<(), ImportError> {
+        let mut ops = Budget { left: limits.max_replica_bytes };
+        if !ops.take_json(&self.ops) {
+            return Err(output_too_large(limits.max_replica_bytes));
+        }
+        let ops_len = limits.max_replica_bytes - ops.left;
+        let mut budget = Budget { left: limits.max_output_bytes };
+        let fits = budget.take_u64(ops_len)
+            && self.assets.values().all(|a| budget.take(a.bytes.len()))
+            && self.fonts.values().all(|f| budget.take(f.len()))
+            && self
+                .theme
+                .iter()
+                .chain(&self.pack)
+                .all(|f| budget.take_json(f.manifest()) && f.widgets().values().all(|w| budget.take(w.len())));
+        if fits { Ok(()) } else { Err(output_too_large(limits.max_output_bytes)) }
+    }
+}
+
+/// Ce qui reste du budget de sortie ; une écriture au-delà échoue (arrêt de la sérialisation).
+struct Budget {
+    left: u64,
+}
+
+impl Budget {
+    /// Retire `n` octets ; faux s'il n'en reste pas assez.
+    fn take(&mut self, n: usize) -> bool {
+        u64::try_from(n).is_ok_and(|n| self.take_u64(n))
+    }
+
+    /// Retire `n` octets ; faux s'il n'en reste pas assez.
+    fn take_u64(&mut self, n: u64) -> bool {
+        match self.left.checked_sub(n) {
+            Some(left) => {
+                self.left = left;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Retire la taille de `v` en JSON compact, sans le matérialiser ; faux au-delà, ou si
+    /// `v` ne se sérialise pas : un plan dont on ne peut mesurer la sortie est refusé.
+    fn take_json(&mut self, v: &impl Serialize) -> bool {
+        serde_json::to_writer(&mut *self, v).is_ok()
+    }
+}
+
+impl io::Write for Budget {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.take(buf.len()) { Ok(buf.len()) } else { Err(io::ErrorKind::FileTooLarge.into()) }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 

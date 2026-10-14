@@ -369,7 +369,7 @@
     {
       place(top + left, rect(width: 100%, height: k.top-rule-width * 1pt, fill: color-of(t, k.top-rule-color)))
       block(inset: (x: space-of(t, k.padding-x), y: space-of(t, k.padding-y)), {
-        if ink != none { set text(fill: ink) }
+        set text(fill: ink) if ink != none
         let lst = t.component.list
         set list(marker: list-marker(t, lst.marker, if highlight { k.highlight-kicker } else { lst.at("marker-color", default: none) }))
         let kicker-c = t.component.kicker + if highlight { (color: k.highlight-kicker) } else { (:) }
@@ -379,7 +379,7 @@
           wrap("kicker", if not _is-empty(kicker) { styled(t, kicker-c, kicker) },
             text-style(t, kicker-c) + (case: kicker-c.at("case", default: none))),
           wrap("title", if not _is-empty(title) { text(..title-style, title) }, title-style),
-          wrap("body", if ink != none { text(fill: ink, body) } else { body }, if ink != none { (fill: ink) } else { (:) }),
+          wrap("body", body, if ink != none { (fill: ink) } else { (:) }),
         )
       })
     },

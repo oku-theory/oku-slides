@@ -25,7 +25,7 @@ use sha2::{Digest, Sha256};
 use uuid::{Builder, Uuid};
 
 use oku_slides_core::{Deck, PackRef, WidgetFile, WidgetRegistry, WidgetSchema, now_created};
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_import::fonts::{FontCatalog, FontOrigin};
 use oku_slides_import::hifi;
 use oku_slides_import::{HifiTarget, PackLimits};
@@ -64,6 +64,7 @@ pub(crate) fn prepare(
         limits: pack_limits(&platform.settings.render),
     };
     let mut plan = hifi::project(&input.source, &target);
+    plan.check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
     // Sans pack ni thème, le projecteur n'a pu sérialiser leurs manifestes : un bogue, comme un écart de sonde.
     let mismatch = |widget: &str| eyre!(l.tr_with("cli-import-probe-mismatch", &[("widget", widget.into())]));
     let pack = plan.pack.take().ok_or_else(|| mismatch("pack.json"))?;

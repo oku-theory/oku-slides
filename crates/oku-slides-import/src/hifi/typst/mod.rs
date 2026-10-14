@@ -40,7 +40,7 @@ use super::color::ThemeColors;
 use super::page::{Page, round2};
 use crate::fonts::FontPlan;
 use crate::report::{Loss, LossKind};
-use crate::retrofit::content::DRAWABLE;
+use crate::source::DRAWABLE;
 use crate::source::{Asset, Crop, Frame, Item, ItemKind, OpaqueReason, Shape, ThemeFonts};
 
 /// Tampon d'écriture de code Typst, indenté de deux espaces par niveau.

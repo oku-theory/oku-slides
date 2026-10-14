@@ -13,3 +13,4 @@ mod issue_0544_chart_text_scaled_with_box;
 mod issue_0554_police_graphiques_du_theme;
 mod issue_0609_tableau_haut_partage_la_hauteur;
 mod issue_0645_tableau_occupe_toute_la_largeur;
+mod issue_0841_encre_carte_mise_en_avant;

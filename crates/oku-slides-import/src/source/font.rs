@@ -44,10 +44,13 @@ pub struct SourceFont {
     pub faces: Vec<FontFace>,
 }
 
+/// Types MIME que le rendu sait dessiner.
+pub(crate) const DRAWABLE: [&str; 5] = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+
 /// Contenu d'un asset (image) ; la clé de la table est son `asset_id`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Asset {
-    /// Type, déduit de l'extension (à vérifier avant tout usage : octets non fiables).
+    /// Type réel, lu dans les premiers octets (`pptx::media::sniff`) ; un SVG est déjà assaini.
     pub mime: String,
     /// Octets.
     #[serde(rename = "len", serialize_with = "len_of")]

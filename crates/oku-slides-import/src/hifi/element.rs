@@ -39,9 +39,9 @@ use super::table::TableLook;
 use super::typst::{GenCtx, round_rect_radius};
 use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::retrofit::chart::chart;
-use crate::retrofit::content::DRAWABLE;
 use crate::retrofit::table::table;
 use crate::retrofit::text::note;
+use crate::source::DRAWABLE;
 use crate::source::{
     self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, Rgba, Shape, Stroke, Warning, WarningKind,
 };

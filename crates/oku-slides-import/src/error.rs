@@ -34,7 +34,7 @@ impl ImportError {
             }
             Inner::NotAPresentation { .. } => ImportErrorKind::NotAPresentation,
             Inner::Protected { .. } => ImportErrorKind::Protected,
-            Inner::TooLarge { .. } => ImportErrorKind::TooLarge,
+            Inner::TooLarge { .. } | Inner::OutputTooLarge { .. } => ImportErrorKind::TooLarge,
         }
     }
 }
@@ -49,9 +49,15 @@ pub(crate) fn message_id(kind: ImportErrorKind) -> &'static str {
     }
 }
 
+/// Clé Fluent d'une sortie au-delà de [`crate::ReadLimits::max_output_bytes`].
+pub(crate) const OUTPUT_TOO_LARGE: &str = "import-output-too-large";
+
 impl Localize for ImportError {
     fn localize(&self, l: &Localizer) -> String {
-        l.tr(message_id(self.kind()))
+        match *self.0 {
+            Inner::OutputTooLarge { .. } => l.tr(OUTPUT_TOO_LARGE),
+            _ => l.tr(message_id(self.kind())),
+        }
     }
 }
 
@@ -73,6 +79,8 @@ enum Inner {
     Protected { backtrace: Backtrace },
     #[snafu(display("too large: {what}"))]
     TooLarge { what: String, backtrace: Backtrace },
+    #[snafu(display("import output exceeds {max} bytes"))]
+    OutputTooLarge { max: u64, backtrace: Backtrace },
 }
 
 // Constructeurs plutôt que `.context()` : `clip` n'est appelé que sur le chemin d'erreur, et
@@ -103,6 +111,10 @@ pub(crate) fn structure(what: &str) -> ImportError {
 
 pub(crate) fn too_large(what: &str) -> ImportError {
     ImportError(Box::new(TooLargeSnafu { what: clip(what) }.build()))
+}
+
+pub(crate) fn output_too_large(max: u64) -> ImportError {
+    ImportError(Box::new(OutputTooLargeSnafu { max }.build()))
 }
 
 pub(crate) fn not_a_presentation(content_type: &str) -> ImportError {

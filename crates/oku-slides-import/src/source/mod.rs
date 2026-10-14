@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 pub use chart::{Chart, ChartKind, Grouping, Series};
+pub(crate) use font::DRAWABLE;
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
 pub use shape::{Crop, Geometry, PathCmd, Picture, Shape, SubPath};
 pub use style::{Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
@@ -317,8 +318,14 @@ pub enum WarningKind {
     MissingPart(String),
     /// Graphique non géré, ou combiné (seul le premier type est lu).
     UnsupportedChart(String),
-    /// Image dans un format que Typst ne dessine pas (`emf`, `wmf`, `tiff`, `wdp`) : indication pour les projecteurs.
+    /// Image dont le type réel n'est pas dessiné par Typst : son chemin.
+    ///
+    /// `emf`, `bmp`, type inconnu… : une indication pour les projecteurs.
     UnsupportedImage(String),
+    /// Image liée hors du fichier (`r:link`), non importée : sa cible.
+    ExternalImage(String),
+    /// SVG assaini (script, lien externe… retirés) ou rejeté (DTD, illisible) : son chemin.
+    UnsafeSvg(String),
     /// Style de tableau référencé mais absent de `tableStyles.xml`.
     UnknownTableStyle(String),
     /// Lien refusé (schéma, longueur, caractères).

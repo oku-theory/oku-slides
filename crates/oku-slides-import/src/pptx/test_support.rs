@@ -20,6 +20,8 @@ pub(crate) const LIMITS: ReadLimits = ReadLimits {
     max_parts: 1000,
     max_xml_nodes: 1_000_000,
     max_slides: 1000,
+    max_output_bytes: 8 << 20,
+    max_replica_bytes: 8 << 20,
 };
 
 pub(crate) const THEME: &str = include_str!("../../../../fixtures/import/minimal/ppt/theme/theme1.xml");
@@ -116,6 +118,7 @@ pub(crate) const SLIDE_RELS: &str = r#"<?xml version="1.0"?><Relationships xmlns
 <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>
 <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData" Target="../diagrams/data1.xml"/>
 <Relationship Id="rId7" Type="http://schemas.microsoft.com/office/2007/relationships/diagramDrawing" Target="../diagrams/drawing1.xml"/>
+<Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="https://images.example/photo.png" TargetMode="External"/>
 </Relationships>"#;
 
 /// Paquet d'une slide de test : `SLIDE_RELS`, image PNG et SVG, graphique, SmartArt, plus `extra`.

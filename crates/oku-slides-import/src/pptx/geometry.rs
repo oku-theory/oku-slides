@@ -17,6 +17,8 @@ pub(crate) const MAX_PATHS: usize = 64;
 /// Commandes gardées par géométrie (tous sous-tracés confondus).
 pub(crate) const MAX_PATH_CMDS: usize = 10_000;
 const MAX_ADJ: usize = 16;
+/// Borne des coordonnées et rayons normalisés, en tailles de boîte.
+pub(crate) const MAX_PATH_SPAN: f64 = 1000.0;
 
 /// Géométrie déclarée dans `sp_pr` ; `None` si aucune.
 pub(crate) fn parse_geometry(sp_pr: Node<'_, '_>) -> Option<Geometry> {
@@ -48,13 +50,21 @@ pub(crate) fn parse_geometry(sp_pr: Node<'_, '_>) -> Option<Geometry> {
     Some(Geometry::Path { paths })
 }
 
+/// Valeur ramenée à la boîte `size`, bornée à `[lo, MAX_PATH_SPAN]` (toujours finie).
+fn normalized(v: Option<f64>, size: f64, lo: f64) -> f64 {
+    (v.unwrap_or(0.0) / size).clamp(lo, MAX_PATH_SPAN)
+}
+
 fn path(p: Node<'_, '_>, budget: usize) -> Vec<PathCmd> {
-    let w = attr_f64(p, "w").filter(|v| *v > 0.0).unwrap_or(1.0);
-    let h = attr_f64(p, "h").filter(|v| *v > 0.0).unwrap_or(1.0);
+    // `w`/`h` sont des entiers EMU : une boîte de moins d'une unité est dégénérée.
+    let w = attr_f64(p, "w").filter(|v| *v >= 1.0).unwrap_or(1.0);
+    let h = attr_f64(p, "h").filter(|v| *v >= 1.0).unwrap_or(1.0);
     let pts = |n: Node<'_, '_>| -> Vec<(f64, f64)> {
         children(n, "pt")
             .take(3)
-            .map(|pt| (attr_f64(pt, "x").unwrap_or(0.0) / w, attr_f64(pt, "y").unwrap_or(0.0) / h))
+            .map(|pt| {
+                (normalized(attr_f64(pt, "x"), w, -MAX_PATH_SPAN), normalized(attr_f64(pt, "y"), h, -MAX_PATH_SPAN))
+            })
             .collect()
     };
     elements(p)
@@ -70,8 +80,8 @@ fn path(p: Node<'_, '_>, budget: usize) -> Vec<PathCmd> {
                 _ => None,
             },
             "arcTo" => Some(PathCmd::ArcTo {
-                wr: attr_f64(c, "wR").unwrap_or(0.0) / w,
-                hr: attr_f64(c, "hR").unwrap_or(0.0) / h,
+                wr: normalized(attr_f64(c, "wR"), w, 0.0),
+                hr: normalized(attr_f64(c, "hR"), h, 0.0),
                 start: attr_i64(c, "stAng").map_or(0.0, angle),
                 swing: attr_i64(c, "swAng").map_or(0.0, angle),
             }),

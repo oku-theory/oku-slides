@@ -9,9 +9,12 @@
 //! fidèlement sur un pack et un thème générés pour elle, embarqués dans le
 //! deck seulement ; `--pack` et `--theme` y sont refusés.
 //!
-//! Dans les deux modes, la lecture est bornée, puis les ops du plan
-//! s'appliquent en une transaction et le deck est rendu et enregistré en
-//! `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé.
+//! Dans les deux modes, la lecture et la taille du plan sont bornées
+//! ([`ReadLimits`] ; `max_output_bytes` et `max_replica_bytes` viennent de
+//! `[sources] max_sources_mib` et `max_replica_mib`, bornes de réouverture d'un
+//! deck : une estimation précoce du contenu produit, pas une garantie), puis les
+//! ops du plan s'appliquent en une transaction et le deck est rendu et enregistré
+//! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -63,10 +66,12 @@ pub(crate) struct ImportArgs {
     pub(crate) system_fonts: bool,
 }
 
-/// La présentation lue : ses octets (l'identité du hi-fi en dérive) et sa source.
+/// La présentation lue : ses octets (l'identité du hi-fi en dérive), sa source
+/// et les bornes de l'import, dont le budget de sortie que le plan doit tenir.
 pub(crate) struct Input {
     pub(crate) bytes: Vec<u8>,
     pub(crate) source: SourceDeck,
+    pub(crate) limits: ReadLimits,
 }
 
 /// Un import prêt à s'appliquer : les sources (packs et thèmes embarqués),
@@ -96,16 +101,29 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
     };
     let input = read_input(platform, l, &args)?;
     let prepared = match pack {
-        Some(pack) => prepare_retrofit(platform, l, fonts, &args, pack, &input.source)?,
+        Some(pack) => prepare_retrofit(platform, l, fonts, &args, pack, &input)?,
         None => crate::import_hifi::prepare(platform, l, fonts, &args, &input)?,
     };
     finish(platform, out, fonts, &args, prepared)
 }
 
-/// Lit `args.input`, borné par [`ReadLimits::default`].
+/// `n` octets en `u64`.
+fn bytes(n: usize) -> u64 {
+    // Saturé, jamais atteint : `usize` tient dans `u64` sur toutes les cibles (64 bits au plus),
+    // et les réglages en Mio sont déjà saturés en `usize`.
+    u64::try_from(n).unwrap_or(u64::MAX)
+}
+
+/// Lit `args.input`, borné par [`ReadLimits::default`] ; la sortie, approximativement,
+/// par la taille des sources et de l'historique qu'un deck peut avoir pour se rouvrir.
 fn read_input(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<Input> {
     let shown = args.input.display().to_string();
-    let limits = ReadLimits::default();
+    let sources = &platform.settings.sources;
+    let limits = ReadLimits {
+        max_output_bytes: bytes(sources.max_sources_bytes()),
+        max_replica_bytes: bytes(sources.max_replica_bytes()),
+        ..ReadLimits::default()
+    };
     // Taille vue avant toute lecture : un fichier trop gros n'entre jamais en mémoire.
     let bytes = platform.storage.read_limited(&args.input, limits.max_input_bytes).map_err(|e| {
         if e.kind() == StorageErrorKind::TooLarge {
@@ -115,7 +133,7 @@ fn read_input(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<I
         }
     })?;
     let source = read_pptx(&bytes, &limits).map_err(|e| eyre!(e.localize(l)))?;
-    Ok(Input { bytes, source })
+    Ok(Input { bytes, source, limits })
 }
 
 /// Le retrofit de `source` sur le pack `wanted` et le thème `args.theme`.
@@ -125,7 +143,7 @@ fn prepare_retrofit(
     fonts: &Fonts,
     args: &ImportArgs,
     wanted: &str,
-    source: &SourceDeck,
+    input: &Input,
 ) -> Result<Prepared> {
     let library = pack_library(platform);
     let files = resolve_pack(&platform.storage, &library, l, wanted)?;
@@ -152,7 +170,8 @@ fn prepare_retrofit(
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
     };
-    let plan = retrofit::project(source, &target);
+    let plan = retrofit::project(&input.source, &target);
+    plan.check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
     Ok(Prepared { bundle, widgets, plan })
 }
 

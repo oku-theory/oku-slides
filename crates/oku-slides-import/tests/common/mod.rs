@@ -120,3 +120,20 @@ pub fn app_fonts() -> oku_slides_import::fonts::FontCatalog {
     }
     catalog
 }
+
+/// Le `.pptx` de `minimal` dont la slide 1 reçoit `shapes` en fin d'arbre et `rels` en fin de relations.
+pub fn minimal_slide1(shapes: &str, rels: &str) -> Vec<u8> {
+    minimal_slide1_plus(shapes, rels, &[])
+}
+
+/// Comme [`minimal_slide1`], plus des parts binaires ajoutées (`added`).
+pub fn minimal_slide1_plus(shapes: &str, rels: &str, added: &[(&str, &[u8])]) -> Vec<u8> {
+    let slide = text("minimal/ppt/slides/slide1.xml").replace("</p:spTree>", &format!("{shapes}</p:spTree>"));
+    let all_rels = text("minimal/ppt/slides/_rels/slide1.xml.rels")
+        .replace("</Relationships>", &format!("{rels}</Relationships>"));
+    pptx_plus(
+        "minimal",
+        &[("ppt/slides/slide1.xml", Some(&slide)), ("ppt/slides/_rels/slide1.xml.rels", Some(&all_rels))],
+        added,
+    )
+}

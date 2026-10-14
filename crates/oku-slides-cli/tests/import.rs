@@ -47,6 +47,11 @@ fn files(dir: &Path, out: &mut Vec<PathBuf>) {
 
 /// Le `.pptx` de la fixture décompressée `name`, zippé dans `dir` ; son chemin.
 fn pptx(dir: &Path, name: &str) -> PathBuf {
+    pptx_with(dir, name, &[])
+}
+
+/// Comme [`pptx`], les parts de `replaced` (chemin dans le zip, contenu) remplaçant celles de la fixture.
+fn pptx_with(dir: &Path, name: &str, replaced: &[(&str, &[u8])]) -> PathBuf {
     let root = fixtures().join(name);
     let mut paths = Vec::new();
     files(&root, &mut paths);
@@ -54,8 +59,12 @@ fn pptx(dir: &Path, name: &str) -> PathBuf {
     let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for p in paths {
         let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
+        let data = match replaced.iter().find(|(part, _)| *part == rel) {
+            Some((_, bytes)) => bytes.to_vec(),
+            None => std::fs::read(&p).unwrap_or_else(|e| panic!("{e}")),
+        };
         w.start_file(rel, SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
-        w.write_all(&std::fs::read(&p).unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("zip : {e}"));
+        w.write_all(&data).unwrap_or_else(|e| panic!("zip : {e}"));
     }
     let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
     let path = dir.join(format!("{name}.pptx"));
@@ -360,4 +369,77 @@ fn import_help_is_in_the_configured_language() {
     let dir = workdir("import-help");
     let out = run(oku_slides(&dir, "fr").args(["import", "--help"]));
     assert_that!(stdout(&out)).contains("Importe une présentation PowerPoint (.pptx)");
+}
+
+/// `minimal` dont la slide 1 porte `boxes` zones d'un même texte répété, zippé dans `dir` ; son chemin.
+fn minimal_inflating(dir: &Path, boxes: u32) -> PathBuf {
+    let text = "Oku ".repeat(2_000);
+    let shapes: String = (100..100 + boxes)
+        .map(|id| {
+            format!(
+                r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Texte {id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm><a:prstGeom prst="rect"/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>"#
+            )
+        })
+        .collect();
+    let slide = std::fs::read_to_string(fixtures().join("minimal/ppt/slides/slide1.xml"))
+        .unwrap_or_else(|e| panic!("{e}"))
+        .replace("</p:spTree>", &format!("{shapes}</p:spTree>"));
+    pptx_with(dir, "minimal", &[("ppt/slides/slide1.xml", slide.as_bytes())])
+}
+
+/// Message (français) d'un import refusé parce que le deck produit serait trop gros.
+const OUTPUT_TOO_LARGE_FR: &str = "Le deck obtenu dépasserait la taille admise pour un import";
+
+/// Un petit zip dont le deck dépasserait `[sources] max_sources_mib` (t-753) : refusé avant toute écriture.
+#[test]
+fn import_hifi_whose_output_exceeds_max_sources_is_refused() {
+    let dir = workdir("import-output-budget");
+    let input = minimal_inflating(&dir, 160);
+    let output = dir.join("x.pdf");
+    let out = run(oku_slides(&dir, "fr")
+        .env("OKU_SLIDES_SOURCES__MAX_SOURCES_MIB", "1")
+        .arg("import")
+        .arg(&input)
+        .args(["--mode", "hifi", "--no-system-fonts", "-o"])
+        .arg(&output));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains(OUTPUT_TOO_LARGE_FR);
+    assert_that!(output.exists()).is_false();
+}
+
+/// En hi-fi, des ops plus grosses que `[sources] max_replica_mib` (t-753) : refusées avant toute écriture.
+#[test]
+fn import_hifi_whose_ops_exceed_max_replica_is_refused() {
+    let dir = workdir("import-replica-budget");
+    let input = minimal_inflating(&dir, 160);
+    let output = dir.join("x.pdf");
+    let out = run(oku_slides(&dir, "fr")
+        .env("OKU_SLIDES_SOURCES__MAX_REPLICA_MIB", "1")
+        .arg("import")
+        .arg(&input)
+        .args(["--mode", "hifi", "--no-system-fonts", "-o"])
+        .arg(&output));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains(OUTPUT_TOO_LARGE_FR);
+    assert_that!(output.exists()).is_false();
+}
+
+/// En retrofit, une image qui se décompresse au-delà de `[sources] max_sources_mib` (t-753) : refusée
+/// avant toute écriture (le retrofit coupe les textes, une image seule peut faire déborder le deck).
+#[test]
+fn import_retrofit_whose_output_exceeds_max_sources_is_refused() {
+    let dir = workdir("import-retrofit-budget");
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.resize(2 << 20, 0);
+    let input = pptx_with(&dir, "kitchen", &[("ppt/media/image1.png", &png)]);
+    let output = dir.join("x.pdf");
+    let out = run(oku_slides(&dir, "fr")
+        .env("OKU_SLIDES_SOURCES__MAX_SOURCES_MIB", "1")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "grilles", "-o"])
+        .arg(&output));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains(OUTPUT_TOO_LARGE_FR);
+    assert_that!(output.exists()).is_false();
 }

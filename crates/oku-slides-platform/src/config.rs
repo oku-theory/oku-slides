@@ -81,9 +81,13 @@ const SECS_PER_DAY: i64 = 86_400;
 #[non_exhaustive]
 pub struct SourcesSettings {
     /// Taille maximale d'un historique lu dans un PDF ou dans la reprise (Mio).
+    ///
+    /// Borne aussi, approximativement, les ops produites par un import.
     pub max_replica_mib: usize,
-    /// Taille décompressée maximale du zip des sources lu dans un PDF (Mio) :
-    /// historique, assets et polices compris.
+    /// Taille décompressée maximale du zip des sources lu dans un PDF (Mio).
+    ///
+    /// Historique, assets et polices compris ; borne aussi, approximativement, la
+    /// sortie d'un import (estimation précoce, pas une garantie de réouverture).
     pub max_sources_mib: usize,
     /// Délai de compaction des nœuds supprimés (jours) ; 0 : jamais.
     pub compact_after_days: u32,

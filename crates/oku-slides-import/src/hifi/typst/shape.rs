@@ -8,7 +8,7 @@ use oku_slides_core::PathCommand;
 use super::{Gen, Placement, Typst, load, num, pt, string};
 use crate::hifi::geometry::{Outline, outline};
 use crate::report::{Loss, LossKind};
-use crate::retrofit::content::DRAWABLE;
+use crate::source::DRAWABLE;
 use crate::source::{Dash, Fill, Geometry, Shape, Stroke};
 
 /// Zone de texte d'une forme sans contour calculé : son cadre entier.

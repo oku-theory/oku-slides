@@ -15,6 +15,31 @@ const MAX_COLUMNS: u32 = 16;
 const MAX_BULLET_CHARS: usize = 8;
 const MAX_SCHEME_CHARS: usize = 32;
 
+// Bornes des valeurs numériques, celles du schéma OOXML (ECMA-376, partie 1, 20.1.10 et 21.1.10).
+/// `ST_TextFontSize`, en centièmes de pt.
+const FONT_SIZE: (i64, i64) = (100, 400_000);
+/// `ST_TextPoint` (`spc`), en centièmes de pt.
+const CHAR_SPACING: (i64, i64) = (-400_000, 400_000);
+/// `ST_TextSpacingPoint` (`spcPts`), en centièmes de pt.
+const SPACING_POINTS: (i64, i64) = (0, 158_400);
+/// `ST_TextSpacingPercent` (`spcPct`), en 100 000ᵉ.
+const SPACING_PERCENT: (i64, i64) = (0, 13_200_000);
+/// `ST_TextBulletSizePercent` (`buSzPct`), en 100 000ᵉ.
+const BULLET_SIZE: (i64, i64) = (25_000, 400_000);
+/// `ST_TextFontScalePercent` (`fontScale`), en 100 000ᵉ.
+const FONT_SCALE: (i64, i64) = (1_000, 100_000);
+/// `lnSpcReduction` : une réduction d'au plus 100 %.
+const LINE_REDUCTION: (i64, i64) = (0, 100_000);
+/// `ST_TextMargin` (`marL`), en EMU.
+const MARGIN: (i64, i64) = (0, 51_206_400);
+/// `ST_TextIndent` (`indent`), en EMU.
+const INDENT: (i64, i64) = (-51_206_400, 51_206_400);
+
+/// Entier `name` de `n`, ramené dans `range`.
+fn attr_in(n: Node<'_, '_>, name: &str, range: (i64, i64)) -> Option<i64> {
+    attr_i64(n, name).map(|v| v.clamp(range.0, range.1))
+}
+
 /// Police d'un run : de thème ou nommée.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FontRef {
@@ -188,9 +213,9 @@ pub(crate) fn font_ref(r: Node<'_, '_>) -> Option<FontRef> {
 
 fn spacing(n: Node<'_, '_>) -> Option<Spacing> {
     if let Some(p) = child(n, "spcPct") {
-        return attr_i64(p, "val").map(|v| Spacing::Percent(pct(v)));
+        return attr_in(p, "val", SPACING_PERCENT).map(|v| Spacing::Percent(pct(v)));
     }
-    child(n, "spcPts").and_then(|p| attr_i64(p, "val")).map(|v| Spacing::Points(hundredths(v)))
+    child(n, "spcPts").and_then(|p| attr_in(p, "val", SPACING_POINTS)).map(|v| Spacing::Points(hundredths(v)))
 }
 
 fn typeface(t: &str) -> FontRef {
@@ -205,7 +230,7 @@ fn typeface(t: &str) -> FontRef {
 pub(crate) fn parse_rpr(rpr: Node<'_, '_>, link: &mut dyn FnMut(&str) -> Option<String>) -> RunProps {
     RunProps {
         font: child(rpr, "latin").and_then(|l| attr_str(l, "typeface")).map(typeface),
-        size: attr_i64(rpr, "sz").map(hundredths),
+        size: attr_in(rpr, "sz", FONT_SIZE).map(hundredths),
         bold: attr_bool(rpr, "b"),
         italic: attr_bool(rpr, "i"),
         underline: attr_str(rpr, "u").map(|u| u != "none"),
@@ -218,7 +243,7 @@ pub(crate) fn parse_rpr(rpr: Node<'_, '_>, link: &mut dyn FnMut(&str) -> Option<
             "small" => Caps::Small,
             _ => Caps::None,
         }),
-        char_spacing: attr_i64(rpr, "spc").map(hundredths),
+        char_spacing: attr_in(rpr, "spc", CHAR_SPACING).map(hundredths),
         link: child(rpr, "hlinkClick").and_then(|h| attr_r(h, "id")).and_then(link),
     }
 }
@@ -238,7 +263,7 @@ pub(crate) fn parse_ppr(ppr: Node<'_, '_>) -> ParaProps {
             }
             "buClrTx" => bullet.color = Some(None),
             "buClr" => bullet.color = color_spec_in(b).map(Some),
-            "buSzPct" => bullet.size_pct = attr_i64(b, "val").map(pct),
+            "buSzPct" => bullet.size_pct = attr_in(b, "val", BULLET_SIZE).map(pct),
             "buFontTx" => bullet.font = Some(None),
             "buFont" => bullet.font = attr_str(b, "typeface").map(|t| Some(clip_to(t, MAX_FONT_NAME))),
             _ => {}
@@ -251,8 +276,8 @@ pub(crate) fn parse_ppr(ppr: Node<'_, '_>) -> ParaProps {
             "just" | "dist" => Align::Justify,
             _ => Align::Left,
         }),
-        indent: attr_i64(ppr, "indent").map(emu),
-        margin_left: attr_i64(ppr, "marL").map(emu),
+        indent: attr_in(ppr, "indent", INDENT).map(emu),
+        margin_left: attr_in(ppr, "marL", MARGIN).map(emu),
         line_spacing: child(ppr, "lnSpc").and_then(spacing),
         space_before: child(ppr, "spcBef").and_then(spacing),
         space_after: child(ppr, "spcAft").and_then(spacing),
@@ -281,8 +306,8 @@ pub(crate) fn parse_body_pr(bp: Node<'_, '_>) -> BodyProps {
         "noAutofit" => Some(Autofit::None),
         "spAutoFit" => Some(Autofit::Resize),
         "normAutofit" => Some(Autofit::Shrink {
-            font_scale: attr_i64(c, "fontScale").map_or(1.0, pct),
-            line_reduction: attr_i64(c, "lnSpcReduction").map_or(0.0, pct),
+            font_scale: attr_in(c, "fontScale", FONT_SCALE).map_or(1.0, pct),
+            line_reduction: attr_in(c, "lnSpcReduction", LINE_REDUCTION).map_or(0.0, pct),
         }),
         _ => None,
     });

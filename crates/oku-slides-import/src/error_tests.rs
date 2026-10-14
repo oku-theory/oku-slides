@@ -24,3 +24,19 @@ fn kind_of_xml_error_is_unreadable() {
     let err = roxmltree::Document::parse("<a>").unwrap_err();
     assert_that!(xml_error("p.xml", err).kind()).is_equal_to(ImportErrorKind::Unreadable);
 }
+
+#[test]
+fn output_too_large_kind_is_too_large() {
+    assert_that!(output_too_large(10).kind()).is_equal_to(ImportErrorKind::TooLarge);
+}
+
+#[test]
+fn output_too_large_message_key_exists_in_english() {
+    assert_that!(english().try_tr(OUTPUT_TOO_LARGE)).is_some();
+}
+
+#[test]
+fn localize_output_too_large_in_french_names_the_output() {
+    assert_that!(output_too_large(10).localize(&Localizer::new(Some("fr"))))
+        .is_equal_to("Le deck obtenu dépasserait la taille admise pour un import".to_owned());
+}

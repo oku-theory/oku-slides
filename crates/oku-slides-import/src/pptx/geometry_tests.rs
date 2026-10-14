@@ -58,3 +58,16 @@ fn custom_path_is_capped_in_paths_and_commands() {
 fn no_geometry_is_none() {
     assert_that!(geom("<a:noFill/>")).is_none();
 }
+
+#[test]
+fn custom_path_with_a_tiny_box_or_huge_values_stays_finite_and_bounded() {
+    let g = geom(
+        r#"<a:custGeom><a:pathLst><a:path w="1e-300" h="0.5"><a:moveTo><a:pt x="1" y="1"/></a:moveTo><a:lnTo><a:pt x="-1e300" y="1e300"/></a:lnTo><a:arcTo wR="1e300" hR="-4" stAng="0" swAng="5400000"/></a:path></a:pathLst></a:custGeom>"#,
+    );
+    let Some(Geometry::Path { paths }) = g else { panic!("tracé attendu") };
+    assert_that!(paths[0].cmds.clone()).is_equal_to(vec![
+        PathCmd::MoveTo { x: 1.0, y: 1.0 },
+        PathCmd::LineTo { x: -MAX_PATH_SPAN, y: MAX_PATH_SPAN },
+        PathCmd::ArcTo { wr: MAX_PATH_SPAN, hr: 0.0, start: 0.0, swing: 90.0 },
+    ]);
+}

@@ -1,3 +1,4 @@
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use crate::ImportErrorKind;
@@ -11,13 +12,24 @@ const SRELS: &str = r#"<?xml version="1.0"?><Relationships xmlns="http://schemas
 <Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="javascript:alert(1)" TargetMode="External"/>
 <Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://oku.example/doc" TargetMode="External"/>
 <Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://oku.example/a&#10;b" TargetMode="External"/>
+<Relationship Id="rId11" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/photo.png"/>
+<Relationship Id="rId12" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/icon.svg"/>
+<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/bomb.svg"/>
+<Relationship Id="rId14" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/hidden.png"/>
 </Relationships>"#;
+
+const HOSTILE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script><rect width="1" height="1"/></svg>"#;
+const BOMB_SVG: &str = r#"<!DOCTYPE svg [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;&a;">]><svg xmlns="http://www.w3.org/2000/svg"><text>&b;</text></svg>"#;
 
 fn pkg() -> TestPkg {
     TestPkg::with(&[
         ("ppt/slides/_rels/slide1.xml.rels", SRELS.as_bytes()),
         ("ppt/media/image1.png", PNG),
         ("ppt/media/pic.emf", b"emf"),
+        ("ppt/media/photo.png", b"\xFF\xD8\xFF\xE0jpeg"),
+        ("ppt/media/icon.svg", HOSTILE_SVG.as_bytes()),
+        ("ppt/media/bomb.svg", BOMB_SVG.as_bytes()),
+        ("ppt/media/hidden.png", HOSTILE_SVG.as_bytes()),
     ])
 }
 
@@ -39,11 +51,49 @@ fn missing_asset_warns_missing_part() {
 }
 
 #[test]
-fn emf_asset_is_kept_and_reported_unsupported() {
+fn asset_mime_comes_from_content_not_extension() {
     let t = pkg();
-    let (a, w, _) = with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| cx.asset("rId4"));
-    assert_that!(a.is_some()).is_true();
-    assert_that!(w.iter().any(|w| matches!(w.kind, WarningKind::UnsupportedImage(_)))).is_true();
+    let (a, w, assets) = with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| cx.asset("rId11"));
+    assert_that!(assets.get(&a.unwrap()).map(|x| x.mime.as_str())).is_equal_to(Some("image/jpeg"));
+    assert_that!(w).is_empty();
+}
+
+#[test]
+fn asset_unknown_content_is_octet_stream_reported_unsupported() {
+    let t = pkg();
+    let (a, w, assets) = with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| cx.asset("rId4"));
+    assert_that!(assets.get(&a.unwrap()).map(|x| x.mime.as_str())).is_equal_to(Some("application/octet-stream"));
+    assert_that!(w.iter().any(|w| matches!(&w.kind, WarningKind::UnsupportedImage(p) if p == "ppt/media/pic.emf")))
+        .is_true();
+}
+
+#[rstest]
+#[case::svg_extension("rId12", "ppt/media/icon.svg")]
+#[case::png_extension("rId14", "ppt/media/hidden.png")]
+fn asset_hostile_svg_is_sanitized_and_identified_by_its_clean_bytes(#[case] rid: &str, #[case] path: &str) {
+    let t = pkg();
+    let ((a, again), w, assets) = with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| (cx.asset(rid), cx.asset(rid)));
+    let id = a.unwrap();
+    let asset = &assets[&id];
+    let text = String::from_utf8(asset.bytes.clone()).unwrap();
+    assert_that!(asset.mime.as_str()).is_equal_to("image/svg+xml");
+    assert_that!(text.contains("alert")).is_false();
+    assert_that!(text.contains("<rect")).is_true();
+    assert_that!(id.clone()).is_equal_to(oku_slides_core::asset_id(&asset.bytes));
+    assert_that!(again).is_equal_to(Some(id));
+    let unsafe_svg: Vec<_> = w.iter().filter(|w| matches!(&w.kind, WarningKind::UnsafeSvg(p) if p == path)).collect();
+    assert_that!(unsafe_svg).has_length(1);
+}
+
+#[test]
+fn asset_svg_declaring_entities_is_rejected_once() {
+    let t = pkg();
+    let ((a, again), w, assets) =
+        with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| (cx.asset("rId13"), cx.asset("rId13")));
+    assert_that!((a, again)).is_equal_to((None, None));
+    assert_that!(assets.len()).is_equal_to(0);
+    let unsafe_svg: Vec<_> = w.iter().filter(|w| matches!(w.kind, WarningKind::UnsafeSvg(_))).collect();
+    assert_that!(unsafe_svg).has_length(1);
 }
 
 #[test]

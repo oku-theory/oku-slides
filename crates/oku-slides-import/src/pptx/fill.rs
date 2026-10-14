@@ -67,7 +67,8 @@ pub(crate) fn parse_fill_element(f: Node<'_, '_>, blip: &mut dyn FnMut(&str) -> 
             let stops = child(f, "gsLst")
                 .into_iter()
                 .flat_map(|l| children(l, "gs"))
-                .filter_map(|gs| Some((pct(attr_i64(gs, "pos")?), color_spec_in(gs)?)))
+                // `ST_PositiveFixedPercentage` : de 0 à 100 %.
+                .filter_map(|gs| Some((pct(attr_i64(gs, "pos")?.clamp(0, 100_000)), color_spec_in(gs)?)))
                 .take(MAX_GRADIENT_STOPS)
                 .collect();
             let ang = child(f, "lin").and_then(|l| attr_i64(l, "ang")).map_or(0.0, angle);

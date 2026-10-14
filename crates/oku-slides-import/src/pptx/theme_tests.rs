@@ -89,3 +89,9 @@ fn absurdly_long_font_name_is_clipped() {
     let t = ThemeData::parse(&xml, "t", 100_000).unwrap();
     assert_that!(t.theme.fonts.minor.chars().count()).is_equal_to(MAX_FONT_NAME);
 }
+
+#[test]
+fn style_index_1000_is_no_fill_not_an_index_into_the_shape_fills() {
+    let t = data();
+    assert_that!(t.fill_style(1000, None, &mut |_| None)).is_equal_to(Some(FillSpec::None));
+}

@@ -1,3 +1,4 @@
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
@@ -158,4 +159,46 @@ fn para_overlay_keeps_lower_values_not_overridden() {
     top.run.bold = Some(true);
     low.overlay(&top);
     assert_that!((low.align, low.run.size, low.run.bold)).is_equal_to((Some(Align::Right), Some(18.0), Some(true)));
+}
+
+#[rstest]
+#[case::taille_negative(r#"<a:rPr sz="-500"/>"#, Some(1.0), None)]
+#[case::taille_enorme(r#"<a:rPr sz="99999999"/>"#, Some(4000.0), None)]
+#[case::espacement_enorme(r#"<a:rPr spc="-99999999"/>"#, None, Some(-4000.0))]
+fn rpr_out_of_schema_values_are_clamped(#[case] rpr: &str, #[case] size: Option<f64>, #[case] spacing: Option<f64>) {
+    let p = first_run(rpr);
+    assert_that!((p.size, p.char_spacing)).is_equal_to((size, spacing));
+}
+
+#[rstest]
+#[case::marge_negative(r#"<a:pPr marL="-5"/>"#, Some(0.0), None)]
+#[case::marge_enorme(r#"<a:pPr marL="999999999999"/>"#, Some(4032.0), None)]
+#[case::retrait_enorme(r#"<a:pPr indent="-999999999999"/>"#, None, Some(-4032.0))]
+fn ppr_margins_are_clamped_to_the_schema(#[case] ppr: &str, #[case] margin: Option<f64>, #[case] indent: Option<f64>) {
+    let p = body(&format!("<a:bodyPr/><a:p>{ppr}<a:r><a:t>x</a:t></a:r></a:p>")).paragraphs[0].props.clone();
+    assert_that!((p.margin_left, p.indent)).is_equal_to((margin, indent));
+}
+
+#[rstest]
+#[case::pct_negatif(r#"<a:lnSpc><a:spcPct val="-5"/></a:lnSpc>"#, None, Some(Spacing::Percent(0.0)))]
+#[case::pts_negatifs(r#"<a:lnSpc><a:spcPts val="-500"/></a:lnSpc>"#, None, Some(Spacing::Points(0.0)))]
+#[case::puce_minuscule(r#"<a:buSzPct val="1"/>"#, Some(0.25), None)]
+#[case::puce_enorme(r#"<a:buSzPct val="99999999"/>"#, Some(4.0), None)]
+fn ppr_percentages_are_clamped_to_the_schema(
+    #[case] inner: &str,
+    #[case] bullet: Option<f64>,
+    #[case] line: Option<Spacing>,
+) {
+    let p = body(&format!("<a:bodyPr/><a:p><a:pPr>{inner}</a:pPr><a:r><a:t>x</a:t></a:r></a:p>")).paragraphs[0]
+        .props
+        .clone();
+    assert_that!((p.bullet.size_pct, p.line_spacing)).is_equal_to((bullet, line));
+}
+
+#[rstest]
+#[case::echelle_enorme(r#"fontScale="500000" lnSpcReduction="900000""#, 1.0, 1.0)]
+#[case::echelle_negative(r#"fontScale="-3" lnSpcReduction="-9""#, 0.01, 0.0)]
+fn norm_autofit_scales_are_clamped(#[case] attrs: &str, #[case] scale: f64, #[case] reduction: f64) {
+    let t = body(&format!("<a:bodyPr><a:normAutofit {attrs}/></a:bodyPr><a:p/>"));
+    assert_that!(t.body.autofit).is_equal_to(Some(Autofit::Shrink { font_scale: scale, line_reduction: reduction }));
 }

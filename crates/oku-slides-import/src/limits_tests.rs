@@ -12,3 +12,13 @@ fn default_limits_are_conservative_and_non_zero() {
     ));
     assert_that!((l.max_parts, l.max_xml_nodes, l.max_slides)).is_equal_to((10_000, 5_000_000, 2_000));
 }
+
+#[test]
+fn default_limits_output_budget_matches_reopenable_sources() {
+    assert_that!(ReadLimits::default().max_output_bytes).is_equal_to(256 << 20);
+}
+
+#[test]
+fn default_limits_replica_budget_matches_reopenable_history() {
+    assert_that!(ReadLimits::default().max_replica_bytes).is_equal_to(32 << 20);
+}

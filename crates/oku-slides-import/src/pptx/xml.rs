@@ -62,10 +62,19 @@ pub(crate) fn max_depth(text: &str) -> usize {
 
 /// Analyse une part XML : sans DTD, au plus `nodes` nœuds et `MAX_XML_DEPTH` niveaux.
 pub(crate) fn parse<'i>(text: &'i str, part: &str, nodes: u32) -> Result<Document<'i>, ImportError> {
+    parse_opts(text, part, nodes, false)
+}
+
+/// Comme `parse`, en tolérant un DOCTYPE : réservé aux SVG, dont toute déclaration est refusée avant.
+pub(crate) fn parse_doctype<'i>(text: &'i str, part: &str, nodes: u32) -> Result<Document<'i>, ImportError> {
+    parse_opts(text, part, nodes, true)
+}
+
+fn parse_opts<'i>(text: &'i str, part: &str, nodes: u32, allow_dtd: bool) -> Result<Document<'i>, ImportError> {
     if max_depth(text) > MAX_XML_DEPTH {
         return Err(structure(&format!("{part}: XML nested deeper than {MAX_XML_DEPTH}")));
     }
-    let opt = ParsingOptions { allow_dtd: false, nodes_limit: nodes, ..ParsingOptions::default() };
+    let opt = ParsingOptions { allow_dtd, nodes_limit: nodes, ..ParsingOptions::default() };
     Document::parse_with_options(text, opt).map_err(|e| xml_error(part, e))
 }
 
@@ -125,9 +134,35 @@ pub(crate) fn attr_bool(n: Node<'_, '_>, name: &str) -> Option<bool> {
     }
 }
 
-/// Texte concaténé des descendants `t` (titres de graphique).
-pub(crate) fn text_of(n: Node<'_, '_>) -> String {
-    n.descendants().filter(|d| d.is_element() && d.tag_name().name() == "t").filter_map(|d| d.text()).collect()
+fn is(n: Node<'_, '_>, local: &str) -> bool {
+    n.is_element() && n.tag_name().name() == local
+}
+
+/// Texte des descendants `t` de `n`, au plus `max_chars` caractères.
+fn runs_of(n: Node<'_, '_>, max_chars: usize) -> String {
+    n.descendants().filter(|d| is(*d, "t")).filter_map(|d| d.text()).flat_map(str::chars).take(max_chars).collect()
+}
+
+/// Paragraphes `p` de `n` les plus hauts : un `p` imbriqué dans un autre n'est pas revisité.
+fn outer_paragraphs<'a, 'i>(n: Node<'a, 'i>) -> impl Iterator<Item = Node<'a, 'i>> {
+    // Parcours en profondeur, dans l'ordre du document, qui ne descend pas sous un `p`.
+    let mut stack: Vec<Node<'a, 'i>> = n.children().rev().filter(Node::is_element).collect();
+    std::iter::from_fn(move || {
+        while let Some(c) = stack.pop() {
+            if is(c, "p") {
+                return Some(c);
+            }
+            stack.extend(c.children().rev().filter(Node::is_element));
+        }
+        None
+    })
+}
+
+/// Texte des descendants `t`, un paragraphe `p` par ligne (titres de graphique) : au plus
+/// `max_lines` paragraphes de `max_chars` caractères ; chaque `t` n'est lu qu'une fois.
+pub(crate) fn text_of(n: Node<'_, '_>, max_lines: usize, max_chars: usize) -> String {
+    let paragraphs: Vec<String> = outer_paragraphs(n).take(max_lines).map(|p| runs_of(p, max_chars)).collect();
+    if paragraphs.is_empty() { runs_of(n, max_chars) } else { paragraphs.join("\n") }
 }
 
 #[cfg(test)]

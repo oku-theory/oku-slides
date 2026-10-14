@@ -12,9 +12,10 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 - `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source reproduced on a generated
   theme and pack; `hifi::sought_fonts` lists the families it will look for.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report; in hi-fi also the generated
-  theme and pack (`PackFiles`), declared schemas and fonts; `report_json` is the `--report` form.
-- `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`; `coverage::coverage`
-  measures what of the source survives in the resulting deck.
+  theme and pack (`PackFiles`), declared schemas and fonts; `report_json` is the `--report` form;
+  `check_budget` (approximate early bound on output and ops size) is fatal `TooLarge` before apply.
+- `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`; `coverage::coverage` measures
+  what of the source survives in the resulting deck.
 - `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
 
 ## Layers
@@ -22,7 +23,9 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 - `source/` depends on nothing; `error`, `limits`, `collect` (`Sink`) are neutral.
 - `pptx/` is the only reader: `package` (bounded zip), `xml` (bounded nodes), `context`, `master`,
   `slide`, `placeholder`, `cascade` (the single text-style resolution), `shapes`, `frame`,
-  `table`, `chart`, `smartart`, `fonts` + `eot`. Nesting is bounded by `GroupCtx`.
+  `table`, `chart`, `smartart`, `fonts` + `eot`. Nesting is bounded by `GroupCtx`. Every asset
+  is typed by its bytes (`media::sniff`) and every SVG re-serialized through an allowlist
+  (`svg::sanitize`) when read, so consumers only see clean bytes.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
   never `pptx/`. They are pure: ids and dates come from the target.
 - `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`),
@@ -43,6 +46,5 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 
 ## Dependencies
 
-`oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`,
-`uuid`, `serde`, `serde_json`, `snafu`.
-Hi-fi render snapshots: `oku-slides-render/tests/import_*.rs`.
+`oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`,
+`serde`, `serde_json`, `snafu`. Hi-fi render snapshots: `oku-slides-render/tests/import_*.rs`.

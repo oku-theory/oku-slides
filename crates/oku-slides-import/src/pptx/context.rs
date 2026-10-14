@@ -11,15 +11,15 @@ use crate::collect::{Sink, clip, clip_to};
 use crate::error::ImportError;
 use crate::pptx::cascade::TextEnv;
 use crate::pptx::color::ColorCtx;
+use crate::pptx::media::{SVG, sniff};
 use crate::pptx::package::{Package, Rels};
 use crate::pptx::placeholder::{Inherited, PhInheritance, PhKey};
+use crate::pptx::svg::sanitize;
 use crate::pptx::text::{LevelProps, RunProps};
 use crate::pptx::theme::ThemeData;
 use crate::pptx::xml::parse;
-use crate::source::WarningKind;
+use crate::source::{DRAWABLE, WarningKind};
 
-/// Formats d'image que Typst ne dessine pas : indication pour les projecteurs.
-const UNSUPPORTED_IMAGES: [&str; 5] = ["emf", "wmf", "tif", "tiff", "wdp"];
 const LINK_SCHEMES: [&str; 3] = ["http://", "https://", "mailto:"];
 const MAX_LINK_CHARS: usize = 2048;
 const MAX_RAW_ID: usize = 64;
@@ -66,21 +66,6 @@ pub(crate) struct PartCtx<'p> {
     next: RefCell<BTreeMap<String, usize>>,
 }
 
-fn mime(path: &str) -> &'static str {
-    match path.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).as_deref() {
-        Some("png") => "image/png",
-        Some("jpg" | "jpeg") => "image/jpeg",
-        Some("gif") => "image/gif",
-        Some("svg") => "image/svg+xml",
-        Some("bmp") => "image/bmp",
-        Some("emf") => "image/emf",
-        Some("wmf") => "image/wmf",
-        Some("tif" | "tiff") => "image/tiff",
-        Some("wdp") => "image/vnd.ms-photo",
-        _ => "application/octet-stream",
-    }
-}
-
 impl<'p> PartCtx<'p> {
     /// Contexte de la part `part` (ses relations sont lues ici).
     pub(crate) fn new(shared: &'p Shared<'p>, part: &str, spec: PartSpec<'p>) -> Result<Self, ImportError> {
@@ -109,6 +94,12 @@ impl<'p> PartCtx<'p> {
 
     pub(crate) fn pkg(&self) -> &'p Package<'p> {
         self.shared.pkg
+    }
+
+    /// Taille maximale d'une part, qui borne aussi un SVG re-sérialisé.
+    pub(crate) fn max_part_bytes(&self) -> usize {
+        // Saturé : une borne au-delà de l'espace adressable ne borne rien de plus.
+        usize::try_from(self.shared.pkg.limits().max_part_bytes).unwrap_or(usize::MAX)
     }
 
     /// Limite de nœuds d'une part XML.
@@ -166,7 +157,8 @@ impl<'p> PartCtx<'p> {
         self.shared.sink.borrow_mut().set_fatal(e);
     }
 
-    /// Asset de la relation `rid` (lu une fois par chemin, échec compris) ; `None` si absent ou illisible.
+    /// Asset de la relation `rid` (lu une fois par chemin, échec compris), typé par son contenu, SVG
+    /// assaini ; `None` si absent, illisible ou SVG rejeté.
     pub(crate) fn asset(&self, rid: &str) -> Option<String> {
         let target = self.rels.target(rid)?.to_owned();
         {
@@ -190,11 +182,29 @@ impl<'p> PartCtx<'p> {
                 return None;
             }
         };
-        let ext = target.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
-        if UNSUPPORTED_IMAGES.contains(&ext.as_str()) {
-            self.warn(None, WarningKind::UnsupportedImage(clip(&target)));
-        }
-        Some(self.shared.sink.borrow_mut().intern(&target, bytes, mime(&target)))
+        let mime = sniff(&bytes);
+        let bytes = if mime == SVG {
+            let clean = sanitize(&bytes, &target, self.nodes(), self.max_part_bytes());
+            let Some(clean) = self.soft(clean, None, WarningKind::UnsafeSvg(clip(&target))) else {
+                self.shared.sink.borrow_mut().fail_asset(&target);
+                return None;
+            };
+            if clean.altered {
+                self.warn(None, WarningKind::UnsafeSvg(clip(&target)));
+            }
+            clean.bytes
+        } else {
+            if !DRAWABLE.contains(&mime) {
+                self.warn(None, WarningKind::UnsupportedImage(clip(&target)));
+            }
+            bytes
+        };
+        Some(self.shared.sink.borrow_mut().intern(&target, bytes, mime))
+    }
+
+    /// Cible d'une relation externe (image liée…), rendue sûre pour un message.
+    pub(crate) fn external_target(&self, rid: &str) -> Option<String> {
+        self.rels.external(rid).map(clip)
     }
 
     /// Cible d'un lien externe, si elle est sûre : `http`, `https`, `mailto`, ≤ 2048 caractères, sans contrôle ni espace.

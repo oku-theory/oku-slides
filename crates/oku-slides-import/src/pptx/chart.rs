@@ -14,6 +14,10 @@ pub(crate) const MAX_CHART_POINTS: usize = 10_000;
 pub(crate) const MAX_SERIES: usize = 256;
 /// Cases vides admises au-delà des points présents (fin de série sans valeur).
 pub(crate) const MAX_TRAILING_GAP: usize = 64;
+/// Lignes gardées d'un titre de graphique.
+pub(crate) const MAX_TITLE_LINES: usize = 8;
+/// Caractères lus par ligne de titre, avant `clip` : borne la copie d'un titre géant.
+const MAX_TITLE_CHARS: usize = 1024;
 
 /// Pourquoi un graphique n'est pas lu.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,14 +30,19 @@ pub(crate) enum ChartSkip {
 
 /// Valeurs d'un cache, de longueur proportionnelle aux points présents.
 fn cache(n: Node<'_, '_>) -> Vec<Option<String>> {
-    let Some(c) =
-        n.descendants().find(|d| matches!(d.tag_name().name(), "strCache" | "numCache" | "strLit" | "numLit"))
+    let Some(c) = n
+        .descendants()
+        .find(|d| matches!(d.tag_name().name(), "strCache" | "numCache" | "strLit" | "numLit" | "multiLvlStrCache"))
     else {
         return Vec::new();
     };
+    // Catégories à plusieurs niveaux : le premier `lvl` est la feuille, un libellé par point.
+    let points = if c.tag_name().name() == "multiLvlStrCache" { child(c, "lvl") } else { Some(c) };
     let declared =
         child(c, "ptCount").and_then(|p| attr_u32(p, "val")).map_or(0, |v| usize::try_from(v).unwrap_or(usize::MAX));
-    let pts: Vec<(usize, Option<String>)> = children(c, "pt")
+    let pts: Vec<(usize, Option<String>)> = points
+        .into_iter()
+        .flat_map(|p| children(p, "pt"))
         .take(MAX_CHART_POINTS)
         .filter_map(|pt| {
             Some((usize::try_from(attr_u32(pt, "idx")?).ok()?, child(pt, "v").and_then(|v| v.text()).map(clip)))
@@ -92,11 +101,11 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
         _ => Grouping::Standard,
     };
     let sers: Vec<Node<'_, '_>> = children(first, "ser").take(MAX_SERIES).collect();
-    let categories = sers
-        .first()
-        .and_then(|s| child(*s, "cat").or_else(|| child(*s, "xVal")))
-        .map(|c| cache(c).into_iter().map(Option::unwrap_or_default).collect())
-        .unwrap_or_default();
+    let cat = sers.first().and_then(|s| child(*s, "cat").or_else(|| child(*s, "xVal")));
+    if cat.and_then(|c| descendant(c, "multiLvlStrCache")).is_some_and(|m| children(m, "lvl").nth(1).is_some()) {
+        cx.warn(Some(item), WarningKind::Approximated("multiLvlStrRef".into()));
+    }
+    let categories = cat.map(|c| cache(c).into_iter().map(Option::unwrap_or_default).collect()).unwrap_or_default();
     let series = sers
         .iter()
         .map(|s| Series {
@@ -113,8 +122,17 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
             color: child(*s, "spPr").and_then(|p| child(p, "solidFill")).and_then(|f| parse_color(f, &cx.colors)),
         })
         .collect();
-    let title =
-        descendant(root, "chart").and_then(|c| child(c, "title")).map(|t| clip(&text_of(t))).filter(|t| !t.is_empty());
+    let title = descendant(root, "chart")
+        .and_then(|c| child(c, "title"))
+        .map(|t| {
+            text_of(t, MAX_TITLE_LINES, MAX_TITLE_CHARS)
+                .split('\n')
+                .take(MAX_TITLE_LINES)
+                .map(clip)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .filter(|t| !t.trim().is_empty());
     Ok(Chart { kind, grouping, title, categories, series })
 }
 

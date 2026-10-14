@@ -78,14 +78,14 @@ impl<'x> ThemeData<'x> {
         self.color_ctx(crate::pptx::color::default_map())
     }
 
-    /// Remplissage du style `idx` (1..3 formes, 1001.. fonds), `phClr` remplacé par `ph`.
+    /// Remplissage du style `idx` (1..3 formes, 1001.. fonds ; 0 et 1000 : aucun), `phClr` remplacé par `ph`.
     pub(crate) fn fill_style(
         &self,
         idx: u32,
         ph: Option<&ColorSpec>,
         blip: &mut dyn FnMut(&str) -> Option<String>,
     ) -> Option<FillSpec> {
-        if idx == 0 {
+        if idx == 0 || idx == 1000 {
             return Some(FillSpec::None);
         }
         let (list, i) = if idx > 1000 { (&self.bg_fills, idx - 1001) } else { (&self.fills, idx.checked_sub(1)?) };

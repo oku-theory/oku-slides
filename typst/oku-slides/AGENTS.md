@@ -11,6 +11,7 @@
 
 ## Pitfalls
 
+- Write a conditional set rule as set rule if cond; a set inside an if block applies to nothing. (t-841)
 - Change the example widget fixtures and the Typst README code blocks together; a test compares them verbatim. (plan:2026-10-02-creation-widgets)
 - Scale a table down only if it still overflows after wrapping, never from a zero measurement. (spec:2026-10-08-widget-tableau-design)
 - Add new component tokens to themes/pro.json too; it is a full snapshot, not a partial override. (plan:2026-10-08-widget-tableau)

@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use crate::pptx::test_support::tree;
+use crate::pptx::test_support::{PNG, SLIDE_RELS, TestPkg, tree, tree_in};
 use crate::source::{Fill, ItemKind, OpaqueReason, Origin, WarningKind};
 
 const TEXTBOX: &str = r#"<p:sp><p:nvSpPr><p:cNvPr id="4" name="ZoneTexte 3" descr="Légende"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="1270000" y="635000"/><a:ext cx="2540000" cy="508000"/></a:xfrm><a:prstGeom prst="rect"/><a:noFill/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>Bonjour</a:t></a:r></a:p></p:txBody></p:sp>"#;
@@ -125,6 +125,23 @@ fn picture_prefers_its_svg_version() {
     );
     let ItemKind::Picture(p) = &items[0].item.kind else { panic!("image attendue") };
     assert_that!(assets.get(&p.asset).map(|a| a.mime.as_str())).is_equal_to(Some("image/svg+xml"));
+}
+
+#[test]
+fn picture_falls_back_to_its_raster_when_svg_is_rejected() {
+    let bomb = br#"<!DOCTYPE svg [<!ENTITY a "a">]><svg xmlns="http://www.w3.org/2000/svg"><text>&a;</text></svg>"#;
+    let t = TestPkg::with(&[
+        ("ppt/slides/_rels/slide1.xml.rels", SLIDE_RELS.as_bytes()),
+        ("ppt/media/image1.png", PNG),
+        ("ppt/media/image1.svg", bomb),
+    ]);
+    let (items, w, assets) = tree_in(
+        &t,
+        r#"<p:pic><p:nvPicPr><p:cNvPr id="7" name="Icône"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId2"><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip r:embed="rId4"/></a:ext></a:extLst></a:blip></p:blipFill><p:spPr/></p:pic>"#,
+    );
+    let ItemKind::Picture(p) = &items[0].item.kind else { panic!("image attendue") };
+    assert_that!(assets.get(&p.asset).map(|a| a.mime.as_str())).is_equal_to(Some("image/png"));
+    assert_that!(w.iter().any(|w| matches!(w.kind, WarningKind::UnsafeSvg(_)))).is_true();
 }
 
 #[test]
@@ -367,4 +384,16 @@ fn chart_part_over_the_node_limit_is_fatal_not_swallowed() {
         crate::pptx::shapes::parse_tree(doc.root_element(), cx, &crate::pptx::shapes::GroupCtx::ROOT)
     });
     assert_that!(r.err().map(|e| e.kind())).is_equal_to(Some(crate::ImportErrorKind::TooLarge));
+}
+
+#[test]
+fn picture_linked_to_an_external_image_warns_and_is_dropped() {
+    let (items, w, _) = tree(
+        r#"<p:pic><p:nvPicPr><p:cNvPr id="8" name="Lien"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:link="rId8"/></p:blipFill><p:spPr/></p:pic>"#,
+    );
+    assert_that!(items).is_empty();
+    assert_that!(w.iter().map(|w| (w.item.clone(), w.kind.clone())).collect::<Vec<_>>()).is_equal_to(vec![(
+        Some("s1/8".to_owned()),
+        WarningKind::ExternalImage("https://images.example/photo.png".into()),
+    )]);
 }

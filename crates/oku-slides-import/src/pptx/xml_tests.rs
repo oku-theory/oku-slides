@@ -90,3 +90,34 @@ fn units_convert_emu_angles_percents_and_hundredths() {
     use crate::pptx::units::{angle, emu, hundredths, pct};
     assert_that!((emu(12700), angle(5_400_000), pct(50_000), hundredths(1800))).is_equal_to((1.0, 90.0, 0.5, 18.0));
 }
+
+#[test]
+fn text_of_joins_runs_and_separates_paragraphs_with_a_newline() {
+    let d = doc(
+        r#"<title xmlns:a="urn:a"><a:p><a:r><a:t>Ventes</a:t></a:r><a:r><a:t> 2026</a:t></a:r></a:p><a:p><a:r><a:t>Nord</a:t></a:r></a:p></title>"#,
+    );
+    assert_that!(text_of(d.root_element(), 8, 100)).is_equal_to("Ventes 2026\nNord".to_owned());
+}
+
+#[test]
+fn text_of_nested_paragraphs_copy_their_text_once() {
+    let xml = format!(
+        r#"<title xmlns:a="urn:a">{}<a:r><a:t>x</a:t></a:r>{}</title>"#,
+        "<a:p>".repeat(200),
+        "</a:p>".repeat(200)
+    );
+    assert_that!(text_of(doc(&xml).root_element(), 8, 100)).is_equal_to("x".to_owned());
+}
+
+#[test]
+fn text_of_keeps_at_most_the_line_and_char_limits() {
+    let p = "<a:p><a:r><a:t>abcdef</a:t></a:r><a:r><a:t>ghij</a:t></a:r></a:p>";
+    let xml = format!(r#"<title xmlns:a="urn:a">{}</title>"#, p.repeat(5));
+    assert_that!(text_of(doc(&xml).root_element(), 2, 8)).is_equal_to("abcdefgh\nabcdefgh".to_owned());
+}
+
+#[test]
+fn text_of_without_paragraph_keeps_at_most_the_char_limit() {
+    let xml = r#"<title xmlns:a="urn:a"><a:t>abcdef</a:t><a:t>ghij</a:t></title>"#;
+    assert_that!(text_of(doc(xml).root_element(), 2, 8)).is_equal_to("abcdefgh".to_owned());
+}

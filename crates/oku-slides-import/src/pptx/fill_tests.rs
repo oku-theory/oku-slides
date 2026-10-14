@@ -132,3 +132,12 @@ fn line_no_fill_over_colored_base_has_no_stroke() {
 fn empty_line_element_inherits_everything() {
     assert_that!(line_of("></a:ln>")).is_equal_to(LineSpec::default());
 }
+
+#[test]
+fn gradient_stop_positions_are_clamped_to_zero_one() {
+    let f = fill_of(
+        r#"<a:gradFill><a:gsLst><a:gs pos="-50000"><a:srgbClr val="FFFFFF"/></a:gs><a:gs pos="250000"><a:srgbClr val="000000"/></a:gs></a:gsLst></a:gradFill>"#,
+    );
+    let Some(Fill::Gradient { stops, .. }) = f else { panic!("dégradé attendu, trouvé {f:?}") };
+    assert_that!(stops.iter().map(|s| s.pos).collect::<Vec<_>>()).is_equal_to(vec![0.0, 1.0]);
+}

@@ -2,6 +2,7 @@
 
 use roxmltree::Node;
 
+use crate::collect::{clip, clip_to};
 use crate::pptx::cascade::{TextChain, resolve_textbox};
 use crate::pptx::color::color_spec_in;
 use crate::pptx::context::PartCtx;
@@ -130,8 +131,8 @@ pub(crate) fn identity(n: Node<'_, '_>, cx: &PartCtx<'_>) -> Option<(String, Str
         Some(m) => cx.item_id_raw(m),
         None => cx.item_id(attr_str(c, "id").unwrap_or("0")),
     };
-    let alt = attr_str(c, "descr").filter(|d| !d.is_empty()).map(|d| crate::collect::clip_to(d, 2048));
-    Some((id, crate::collect::clip(attr_str(c, "name").unwrap_or_default()), alt))
+    let alt = attr_str(c, "descr").filter(|d| !d.is_empty()).map(|d| clip_to(d, 2048));
+    Some((id, clip(attr_str(c, "name").unwrap_or_default()), alt))
 }
 
 /// Item opaque.
@@ -233,10 +234,10 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
     Some(ParsedItem { item, ph: decl })
 }
 
-/// Asset d'un `blip` (préfère sa version SVG).
+/// Asset d'un `blip` : sa version SVG, sinon (absente, illisible ou rejetée) son raster.
 pub(crate) fn blip_asset(blip: Node<'_, '_>, cx: &PartCtx<'_>) -> Option<String> {
-    let svg = descendant(blip, "svgBlip").and_then(|s| attr_r(s, "embed"));
-    svg.or_else(|| attr_r(blip, "embed")).and_then(|rid| cx.asset(rid))
+    let svg = descendant(blip, "svgBlip").and_then(|s| attr_r(s, "embed")).and_then(|rid| cx.asset(rid));
+    svg.or_else(|| attr_r(blip, "embed").and_then(|rid| cx.asset(rid)))
 }
 
 /// Paire de bords de rognage : chacun dans `[-1, 1]`, remise à 0 si leur somme laisse une image vide.
@@ -259,7 +260,8 @@ fn parse_pic(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedIt
         report_sp_pr(s, &id, cx);
     }
     let blip_fill = child(n, "blipFill");
-    let asset = blip_fill.and_then(|b| child(b, "blip")).and_then(|b| blip_asset(b, cx));
+    let blip = blip_fill.and_then(|b| child(b, "blip"));
+    let asset = blip.and_then(|b| blip_asset(b, cx));
     let nv_pr = nv(n).and_then(|v| child(v, "nvPr"));
     let media = nv_pr.is_some_and(|p| {
         ["videoFile", "audioFile", "quickTimeFile"].iter().any(|m| child(p, m).is_some())
@@ -273,7 +275,16 @@ fn parse_pic(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedIt
             let ((l, rr), (t, b)) = (crop_pair(side("l"), side("r")), crop_pair(side("t"), side("b")));
             Crop { l, t, r: rr, b }
         });
-        ItemKind::Picture(Picture { asset: asset?, crop })
+        let Some(asset) = asset else {
+            // Image seulement liée (`r:link`) : hors du fichier, donc perdue, mais signalée.
+            let link = blip.filter(|b| attr_r(*b, "embed").is_none()).and_then(|b| attr_r(b, "link"));
+            if let Some(rid) = link {
+                let target = cx.external_target(rid).unwrap_or_else(|| clip(rid));
+                cx.warn(Some(&id), WarningKind::ExternalImage(target));
+            }
+            return None;
+        };
+        ItemKind::Picture(Picture { asset, crop })
     };
     let decl = ph.clone().map(|key| PhDecl {
         key,

@@ -27,9 +27,11 @@ keep_failed = 3
 
 [sources]
 # Taille maximale de l'historique d'un deck lu dans un PDF ou dans la reprise (Mio).
+# Borne aussi, approximativement, les ops produites par un import .pptx.
 max_replica_mib = 32
 # Taille maximale, une fois décompressées, des sources lues dans un PDF :
-# historique, images et polices compris (Mio).
+# historique, images et polices compris (Mio). Borne aussi, approximativement, la
+# sortie d'un import .pptx : une estimation précoce, pas une garantie de réouverture.
 max_sources_mib = 256
 # Délai après lequel un élément ou une slide supprimés sont vraiment effacés à
 # l'ouverture (jours d'activité du deck) : passé ce délai, une autre copie du

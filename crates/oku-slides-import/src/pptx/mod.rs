@@ -10,11 +10,13 @@ pub(crate) mod fonts;
 pub(crate) mod frame;
 pub(crate) mod geometry;
 pub(crate) mod master;
+pub(crate) mod media;
 pub(crate) mod package;
 pub(crate) mod placeholder;
 pub(crate) mod shapes;
 pub(crate) mod slide;
 pub(crate) mod smartart;
+pub(crate) mod svg;
 pub(crate) mod table;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -25,6 +27,7 @@ pub(crate) mod xml;
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 use roxmltree::Node;
 
@@ -72,35 +75,57 @@ fn listed(root: Node<'_, '_>, list: &str, item: &str, rels: &Rels) -> Vec<String
         .collect()
 }
 
-/// Texte du thème de chaque master (même index) ; `None` si absent ou illisible (déjà signalé).
-fn theme_texts(shared: &Shared<'_>, masters: &[String]) -> Result<Vec<(String, Option<String>)>, ImportError> {
-    let mut out = Vec::new();
+/// Textes des thèmes, une fois par part, et pour chaque master l'index de son thème
+/// (`None` si absent ou illisible, déjà signalé).
+type ThemeTexts = (Vec<(String, Option<String>)>, Vec<Option<usize>>);
+
+/// Lit le thème de chaque master ; un thème partagé par plusieurs masters n'est lu qu'une fois.
+fn theme_texts(shared: &Shared<'_>, masters: &[String]) -> Result<ThemeTexts, ImportError> {
+    let (mut texts, mut of_master) = (Vec::new(), Vec::new());
+    let mut by_part: BTreeMap<String, usize> = BTreeMap::new();
     for mp in masters {
         let tp = soft(shared.pkg.rels(mp), &shared.sink, mp)?
             .and_then(|r| r.by_type("/theme").first().map(|(_, t)| (*t).to_owned()));
         let Some(tp) = tp else {
             shared.sink.borrow_mut().warn(None, None, WarningKind::UnreadablePart(clip(&format!("{mp}: theme"))));
-            out.push((String::new(), None));
+            of_master.push(None);
             continue;
         };
+        if let Some(k) = by_part.get(&tp) {
+            of_master.push(Some(*k));
+            continue;
+        }
         let text = soft(shared.pkg.text(&tp), &shared.sink, &tp)?;
-        out.push((tp, text));
+        by_part.insert(tp.clone(), texts.len());
+        of_master.push(Some(texts.len()));
+        texts.push((tp, text));
     }
-    Ok(out)
+    Ok((texts, of_master))
 }
 
-/// Thèmes analysés (thème Office si absent ou illisible).
-fn themes<'t>(shared: &Shared<'_>, texts: &'t [(String, Option<String>)]) -> Result<Vec<ThemeData<'t>>, ImportError> {
-    let mut out = Vec::new();
-    for (part, text) in texts {
-        let parsed = match text {
-            Some(x) => soft(ThemeData::parse(x, part, shared.pkg.limits().max_xml_nodes), &shared.sink, part)?,
+/// Thème de chaque master (même index), chaque part analysée une fois ; thème Office si absent ou illisible.
+fn themes<'t>(shared: &Shared<'_>, texts: &'t ThemeTexts) -> Result<Vec<Rc<ThemeData<'t>>>, ImportError> {
+    let (parts, of_master) = texts;
+    let mut parsed = Vec::new();
+    for (part, text) in parts {
+        parsed.push(match text {
+            Some(x) => {
+                soft(ThemeData::parse(x, part, shared.pkg.limits().max_xml_nodes), &shared.sink, part)?.map(Rc::new)
+            }
             None => None,
-        };
-        out.push(match parsed {
-            Some(t) => t,
-            None => ThemeData::office()?,
         });
+    }
+    let mut office: Option<Rc<ThemeData<'t>>> = None;
+    let mut out = Vec::new();
+    for k in of_master {
+        let theme = match k.and_then(|k| parsed.get(k).cloned().flatten()) {
+            Some(t) => t,
+            None => match &office {
+                Some(o) => Rc::clone(o),
+                None => Rc::clone(office.insert(Rc::new(ThemeData::office()?))),
+            },
+        };
+        out.push(theme);
     }
     Ok(out)
 }
@@ -111,7 +136,7 @@ type Layouts = Vec<(String, usize, LayoutInfo)>; // (part, index dans les master
 fn masters(
     shared: &Shared<'_>,
     parts: &[String],
-    themes: &[ThemeData<'_>],
+    themes: &[Rc<ThemeData<'_>>],
 ) -> Result<(Vec<MasterInfo>, Layouts), ImportError> {
     let mut masters = Vec::new();
     let mut layouts: Layouts = Vec::new();
@@ -149,7 +174,7 @@ fn slides(
     parts: &[String],
     masters: &[MasterInfo],
     layouts: &Layouts,
-    themes: &[ThemeData<'_>],
+    themes: &[Rc<ThemeData<'_>>],
 ) -> Result<Vec<SourceSlide>, ImportError> {
     let by_part: BTreeMap<&str, usize> = layouts.iter().enumerate().map(|(k, (p, _, _))| (p.as_str(), k)).collect();
     let mut out = Vec::new();

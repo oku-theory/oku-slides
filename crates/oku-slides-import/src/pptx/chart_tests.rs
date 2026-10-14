@@ -113,3 +113,33 @@ fn unsupported_type_is_skipped_with_its_name() {
 fn chart_without_plot_area_is_malformed() {
     assert_that!(read(r#"<c:chartSpace xmlns:c="urn:c"/>"#).0).is_equal_to(Err(ChartSkip::Malformed("plotArea")));
 }
+
+#[test]
+fn title_on_two_paragraphs_keeps_its_line_break() {
+    let c =
+        chart(&BAR.replace(
+            "<a:t> 2026</a:t></a:r></a:p>",
+            "<a:t> 2026</a:t></a:r></a:p><a:p><a:r><a:t>Nord</a:t></a:r></a:p>",
+        ));
+    assert_that!(c.title.as_deref()).is_equal_to(Some("Ventes 2026\nNord"));
+}
+
+const MULTI_LEVEL: &str = r#"<c:barChart><c:ser><c:cat><c:multiLvlStrRef><c:f>Feuil1!$A$2:$B$5</c:f><c:multiLvlStrCache><c:ptCount val="4"/><c:lvl><c:pt idx="0"><c:v>Jan</c:v></c:pt><c:pt idx="1"><c:v>Fév</c:v></c:pt><c:pt idx="2"><c:v>Jan</c:v></c:pt><c:pt idx="3"><c:v>Fév</c:v></c:pt></c:lvl><c:lvl><c:pt idx="0"><c:v>2025</c:v></c:pt><c:pt idx="2"><c:v>2026</c:v></c:pt></c:lvl></c:multiLvlStrCache></c:multiLvlStrRef></c:cat><c:val><c:numLit><c:ptCount val="4"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:val></c:ser></c:barChart>"#;
+
+#[test]
+fn multi_level_categories_read_their_leaf_level() {
+    let c = chart(&space(MULTI_LEVEL));
+    assert_that!(c.categories.clone()).is_equal_to(vec![
+        "Jan".to_owned(),
+        "Fév".to_owned(),
+        "Jan".to_owned(),
+        "Fév".to_owned(),
+    ]);
+}
+
+#[test]
+fn multi_level_categories_warn_that_outer_levels_are_dropped() {
+    let (_, w) = read(&space(MULTI_LEVEL));
+    assert_that!(w.iter().map(|w| w.kind.clone()).collect::<Vec<_>>())
+        .is_equal_to(vec![WarningKind::Approximated("multiLvlStrRef".into())]);
+}

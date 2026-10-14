@@ -14,13 +14,15 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do no I/O inside oku-slides-import; it receives in-memory bytes only. (plan:2026-10-09-import-pptx-lot1)
 - Cut groups and AlternateContent at MAX_NESTING and never follow a SmartArt found inside a SmartArt drawing. (plan:2026-10-09-import-pptx-lot1)
 - Use attr_r only for relationship-namespace attributes; the other attr_ helpers read only attributes without namespace. (plan:2026-10-09-import-pptx-lot1)
-- Propagate TooLarge from any part, linked parts included, as fatal via cx.fail; never degrade it to a warning. (spec:2026-10-09-import-pptx-design)
+- Propagate TooLarge from any part, linked parts included, as fatal via cx.fail, never as a warning; count decompressed bytes even when a read fails, and after a first TooLarge fail every read without decompressing. (spec:2026-10-09-import-pptx-design, plan:2026-10-09-import-pptx-lot1)
 - Choose the AlternateContent branch before reading and never parse the discarded one, so it consumes no id or asset. (plan:2026-10-09-import-pptx-lot1)
-- Count decompressed bytes even when a read fails, and after a first TooLarge fail every read without decompressing. (plan:2026-10-09-import-pptx-lot1)
 - Pass every string taken from the file through collect::clip before putting it in a warning or error. (plan:2026-10-09-import-pptx-lot1)
 - Store Frame in absolute source points with group transforms applied, always finite and bounded. (plan:2026-10-09-import-pptx-lot1)
 - Keep fs_type and subset on embedded fonts so later lots never embed preview-only or partial fonts. (plan:2026-10-09-import-pptx-lot1)
 - Resolve PPTX text style inheritance only in the single cascade function, never ad hoc elsewhere. (spec:2026-10-09-import-pptx-design)
+- Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN; read and parse each theme part once, shared by all masters that cite it. (t-755)
+- Type every asset from its bytes with media::sniff and pass every SVG through svg::sanitize at read time. (t-752)
+- Call ImportPlan::check_budget on every projected plan before applying or writing it. (t-753)
 
 ## Pitfalls
 
@@ -51,6 +53,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Only the first source title slide fills deck title and subtitle; later title slides become chapter slides. (plan:2026-10-10-import-pptx-lot2)
 - Report a group fallback, and thus a WidgetRequest, only when the fallback actually loses something. (plan:2026-10-10-import-pptx-lot2)
 - Read colors, fills and lines unresolved and bounded; resolve them with the color context of the displaying part. (plan:2026-10-09-import-pptx-lot1)
+- Read multi-level chart categories from their leaf level and warn Approximated for the outer levels. (t-755)
 - Do not mark the source representation non_exhaustive; projectors match exhaustively, only ImportErrorKind is. (plan:2026-10-09-import-pptx-lot1)
 - Keep a conservative Default on ReadLimits so adding a limit later does not break callers. (plan:2026-10-09-import-pptx-lot1)
 - In retrofit, never modify the target pack; put agent-created widgets in a child pack, one widget per pattern. (spec:2026-10-09-import-pptx-design)
